@@ -6128,11 +6128,7 @@ function mapaPrecoRow(baseKey,ei,e,custoTotal){
 // Handles image AND PDF correctly for Anthropic API
 async function _anthropicReadDoc(file, prompt){
   var apiKey=localStorage.getItem('anthropic_key')||'';
-  if(!apiKey){
-    apiKey=prompt_fn('API Key da Anthropic (console.anthropic.com):');
-    if(!apiKey)throw new Error('API Key necessária');
-    localStorage.setItem('anthropic_key',apiKey);
-  }
+  if(!apiKey) throw new Error('API Key não configurada');
   var b64=await new Promise(function(res,rej){
     var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(file);
   });
@@ -10540,14 +10536,44 @@ function trfNovo(){
   trfRenderTabela();
 }
 
+function _trfBuildHTML(nr, cot, hoje, linhas, totalGeral){
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8">'+
+    '<title>Transferência'+(nr?' — Pedido '+nr:'')+'</title>'+
+    '<style>body{font-family:Arial,sans-serif;margin:20px;font-size:11px;color:#1a2332}table{width:100%;border-collapse:collapse}th{background:#C00000;color:#fff;padding:8px;font-size:11px}.info-box{background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;padding:14px 18px;margin-bottom:16px}.info-row{display:flex;gap:40px;flex-wrap:wrap}.info-item label{font-size:9px;text-transform:uppercase;color:#6c757d;letter-spacing:.5px;display:block;margin-bottom:2px}.info-item span{font-size:13px;font-weight:700;color:#1F4E79}.total-row{background:#C00000;color:#fff;font-weight:800}@media print{body{margin:10px}}</style>'+
+    '</head><body>'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #C00000">'+
+    '<div><div style="font-size:22px;font-weight:900;color:#C00000;letter-spacing:-1px">TRIEX</div><div style="font-size:10px;color:#6c757d;font-weight:600">COM. PEÇAS E SERV. LTDA</div></div>'+
+    '<div style="text-align:right">'+
+    '<div style="font-size:14px;font-weight:800;color:#1F4E79">SOLICITAÇÃO DE TRANSFERÊNCIA</div>'+
+    '<div style="font-size:10px;color:#6c757d">Emissão: '+hoje+'</div>'+
+    (nr?'<div style="font-size:13px;font-weight:800;color:#1F4E79;margin-top:3px">Pedido TRIEX: '+nr+'</div>':'')+
+    '</div></div>'+
+    '<div class="info-box"><div class="info-row">'+
+    '<div class="info-item"><label>Origem</label><span>ENCOPEL</span></div>'+
+    '<div class="info-item"><label>Destino</label><span>TRIEX SP</span></div>'+
+    (nr?'<div class="info-item"><label>Nr. Pedido TRIEX</label><span>'+nr+'</span></div>':'')+
+    (cot?'<div class="info-item"><label>Cotação ENCOPEL</label><span style="color:#C00000">'+cot+'</span></div>':'')+
+    '<div class="info-item"><label>Data</label><span>'+hoje+'</span></div>'+
+    '<div class="info-item"><label>Total Itens</label><span>'+_trfItens.length+'</span></div>'+
+    '</div></div>'+
+    '<table><thead><tr>'+
+    '<th style="width:36px">Item</th><th style="width:50px">Qtde</th><th>Código — Descrição</th>'+
+    '<th style="width:90px">Marca</th><th style="width:70px">Prazo</th>'+
+    '<th style="width:80px;text-align:right">Unit.</th><th style="width:90px;text-align:right">Total</th>'+
+    '</tr></thead><tbody>'+linhas+
+    '<tr class="total-row"><td colspan="6" style="padding:8px">TOTAL ('+_trfItens.length+' itens)</td>'+
+    '<td style="padding:8px;text-align:right;font-size:13px">R$ '+totalGeral.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'</td></tr>'+
+    '</tbody></table>'+
+    '<div style="margin-top:20px;padding-top:12px;border-top:1px solid #dee2e6;font-size:10px;color:#6c757d">Transferência gerada via PartsFlow · Apenas itens IMEDIATO · Sujeito a disponibilidade de estoque.</div>'+
+    '</body></html>';
+}
+
 function trfGerarPDF(){
   if(!_trfItens.length)return;
   var nr=(document.getElementById('trfNrPedido')||{}).value||'';
   var cot=(document.getElementById('trfNrCotacao')||{}).value||_trfNrCotacao||'';
   var hoje=new Date().toLocaleDateString('pt-BR');
-  var totalGeral=0;
-  var linhas='';
-
+  var totalGeral=0, linhas='';
   _trfItens.forEach(function(item,i){
     var total=(parseFloat(item.qtd)||0)*(parseFloat(item.unitario)||0);
     totalGeral+=total;
@@ -10561,64 +10587,7 @@ function trfGerarPDF(){
     linhas+='<td style="padding:6px 8px;text-align:right;font-weight:700">'+total.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'</td>';
     linhas+='</tr>';
   });
-
-  var html='<!DOCTYPE html><html><head><meta charset="UTF-8">'+
-    '<title>Transferência Encopel'+(nr?' — Pedido '+nr:'')+'</title>'+
-    '<style>'+
-    'body{font-family:Arial,sans-serif;margin:20px;font-size:11px;color:#1a2332}'+
-    'table{width:100%;border-collapse:collapse}'+
-    'th{background:#C00000;color:#fff;padding:8px;font-size:11px}'+
-    '.info-box{background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;padding:14px 18px;margin-bottom:16px}'+
-    '.info-row{display:flex;gap:40px;flex-wrap:wrap}'+
-    '.info-item label{font-size:9px;text-transform:uppercase;color:#6c757d;letter-spacing:.5px;display:block;margin-bottom:2px}'+
-    '.info-item span{font-size:13px;font-weight:700;color:#1F4E79}'+
-    '.total-row{background:#C00000;color:#fff;font-weight:800}'+
-    '.badge{background:#E2EFDA;color:#375623;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700}'+
-    '@media print{body{margin:10px}}'+
-    '</style></head><body>'+
-
-    // Header
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #C00000">'+
-    '<div>'+
-    '<div style="font-size:22px;font-weight:900;color:#C00000;letter-spacing:-1px">TRIEX</div>'+
-    '<div style="font-size:10px;color:#6c757d;font-weight:600">COM. PEÇAS E SERV. LTDA</div>'+
-    '</div>'+
-    '<div style="text-align:right">'+
-    '<div style="font-size:14px;font-weight:800;color:#1F4E79">SOLICITAÇÃO DE TRANSFERÊNCIA</div>'+
-    '<div style="font-size:10px;color:#6c757d">Emissão: '+hoje+'</div>'+
-    (nr?'<div style="font-size:12px;font-weight:700;color:#1F4E79;margin-top:2px">Pedido TRIEX: '+nr+'</div>':'')+
-    (cot?'<div style="font-size:12px;font-weight:700;color:#C00000;margin-top:2px">Cotação ENCOPEL: '+cot+'</div>':'')+
-    '</div></div>'+
-    '<div class="info-box"><div class="info-row">'+
-    '<div class="info-item"><label>Origem</label><span>ENCOPEL</span></div>'+
-    '<div class="info-item"><label>Destino</label><span>TRIEX SP</span></div>'+
-    (nr?'<div class="info-item"><label>Nr. Pedido TRIEX</label><span>'+nr+'</span></div>':'')+
-    (cot?'<div class="info-item"><label>Cotação ENCOPEL</label><span style="color:#C00000">'+cot+'</span></div>':'')+
-    '<div class="info-item"><label>Data</label><span>'+hoje+'</span></div>'+
-    '<div class="info-item"><label>Total Itens</label><span>'+_trfItens.length+'</span></div>'+
-    '</div></div>'+
-
-    // Table
-    '<table><thead><tr>'+
-    '<th style="width:36px">Item</th>'+
-    '<th style="width:50px">Qtde</th>'+
-    '<th>Código — Descrição</th>'+
-    '<th style="width:90px">Marca</th>'+
-    '<th style="width:70px">Prazo</th>'+
-    '<th style="width:80px;text-align:right">Unit.</th>'+
-    '<th style="width:90px;text-align:right">Total</th>'+
-    '</tr></thead><tbody>'+linhas+
-    '<tr class="total-row">'+
-    '<td colspan="6" style="padding:8px">TOTAL ('+_trfItens.length+' itens)</td>'+
-    '<td style="padding:8px;text-align:right;font-size:13px">R$ '+totalGeral.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'</td>'+
-    '</tr>'+
-    '</tbody></table>'+
-
-    '<div style="margin-top:20px;padding-top:12px;border-top:1px solid #dee2e6;font-size:10px;color:#6c757d">'+
-    'Transferência gerada via PartsFlow · Apenas itens com prazo IMEDIATO · Sujeito a disponibilidade de estoque.'+
-    '</div>'+
-    '</body></html>';
-
+  var html=_trfBuildHTML(nr,cot,hoje,linhas,totalGeral);
   var win=window.open('','_blank');
   win.document.write(html);
   win.document.close();
@@ -10630,14 +10599,33 @@ function trfEnviarEmail(){
   var nr=(document.getElementById('trfNrPedido')||{}).value||'';
   var cot=(document.getElementById('trfNrCotacao')||{}).value||_trfNrCotacao||'';
   var hoje=new Date().toLocaleDateString('pt-BR');
-  var totalGeral=0;
-  var lista=_trfItens.map(function(it,i){
-    var total=(parseFloat(it.qtd)||0)*(parseFloat(it.unitario)||0);
+  var totalGeral=0, linhas='', lista='';
+  _trfItens.forEach(function(item,i){
+    var total=(parseFloat(item.qtd)||0)*(parseFloat(item.unitario)||0);
     totalGeral+=total;
-    return (i+1)+'. '+it.ref+' - '+it.desc+' | Marca: '+it.marca+' | Qtd: '+it.qtd+' | Unit.: R$ '+it.unitario.toFixed(2).replace('.',',');
-  }).join('\n');
+    linhas+='<tr style="border-bottom:1px solid #e0e8f0;background:'+(i%2===0?'#fff':'#FAFBFC')+'">';
+    linhas+='<td style="padding:6px 8px;text-align:center;font-weight:700">'+(i+1)+'</td>';
+    linhas+='<td style="padding:6px 8px;text-align:center;font-weight:700">'+item.qtd.toFixed(2)+'</td>';
+    linhas+='<td style="padding:6px 8px;font-family:monospace;font-size:10px"><b>'+item.ref+'</b> - '+item.desc+'</td>';
+    linhas+='<td style="padding:6px 8px">'+item.marca+'</td>';
+    linhas+='<td style="padding:6px 8px;text-align:center">IMEDIATO</td>';
+    linhas+='<td style="padding:6px 8px;text-align:right">'+item.unitario.toFixed(2).replace('.',',')+'</td>';
+    linhas+='<td style="padding:6px 8px;text-align:right;font-weight:700">'+total.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'</td>';
+    linhas+='</tr>';
+    lista+=(i+1)+'. '+item.ref+' - '+item.desc+' | Marca: '+item.marca+' | Qtd: '+item.qtd+' | Unit.: R$ '+item.unitario.toFixed(2).replace('.',',')+'\n';
+  });
   var totalFmt='R$ '+totalGeral.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
-  var assunto='ENC: TRANSFERÊNCIA ENCOPEL X TRIEX'+(nr?' PEDIDO: '+nr:'')+(cot?' | COTAÇÃO ENCOPEL: '+cot:'');
+
+  // Abre o PDF para imprimir/salvar e anexar manualmente
+  var html=_trfBuildHTML(nr,cot,hoje,linhas,totalGeral);
+  var win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+
+  // Monta assunto com pedido TRIEX em destaque
+  var assunto='ENC: TRANSFERÊNCIA ENCOPEL X TRIEX'+(nr?' — PEDIDO: '+nr:'');
+
+  // Corpo com cotação Encopel no corpo
   var corpo=
     'Por favor transferir os itens abaixo.\n\n'+
     (nr?'NÚMERO PEDIDO TRIEX: '+nr+'\n':'')+
@@ -10645,11 +10633,16 @@ function trfEnviarEmail(){
     'DATA: '+hoje+'\n\n'+
     'ITENS PARA TRANSFERÊNCIA (somente IMEDIATO):\n'+
     '─────────────────────────────────────────\n'+
-    lista+'\n'+
+    lista+
     '─────────────────────────────────────────\n'+
     'TOTAL: '+totalFmt+' ('+_trfItens.length+' itens)\n\n'+
-    'Att,\nVitor Lima\nTriex';
-  window.location.href='mailto:compras@triex.com.br?subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(corpo);
+    'Att,\nVitor Lima\nTriex\n\n'+
+    '⚠️ PDF com os detalhes abrirá em nova aba — salve e anexe ao e-mail.';
+
+  // Abre Outlook (ou cliente padrão) após pequeno delay para o PDF abrir primeiro
+  setTimeout(function(){
+    window.location.href='mailto:compras@triex.com.br?subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(corpo);
+  },800);
 }
 
 // ── Modalidade Especial ─────────────────────────────────────────────────────

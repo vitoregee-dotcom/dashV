@@ -6,6 +6,8 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <style>
 
 
@@ -1308,18 +1310,23 @@ function getWorker(){
   return new Worker(_workerBlob);
 }
 async function readXlsxAsync(u8){
-  // Tenta Worker primeiro; se falhar (iOS Safari bloqueia blob workers), processa inline
+  var sp=document.getElementById('spinner');
+  // iOS Safari bloqueia blob Workers — usar SheetJS direto
+  var isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if(isIOS && window.XLSX){
+    if(sp)sp.textContent='⏳ Processando...';
+    return _readXlsxSheetJS(u8);
+  }
+  // Desktop: tenta Worker, fallback para SheetJS
   return new Promise(function(resolve,reject){
-    var sp=document.getElementById('spinner');
     var w;
     try{w=getWorker();}catch(e){
-      // Fallback inline — roda no thread principal
-      _readXlsxInline(u8).then(resolve).catch(reject);
+      _readXlsxSheetJS(u8).then(resolve).catch(reject);
       return;
     }
     var timeout=setTimeout(function(){
       try{w.terminate();}catch(e){}
-      reject(new Error('Timeout ao processar planilha. Tente novamente.'));
+      reject(new Error('Timeout ao processar planilha.'));
     },120000);
     w.onmessage=function(e){
       var d=e.data;
@@ -1330,9 +1337,8 @@ async function readXlsxAsync(u8){
     w.onerror=function(e){
       clearTimeout(timeout);
       try{w.terminate();}catch(ex){}
-      // Worker falhou — tenta inline (iOS)
       if(sp)sp.textContent='⏳ Processando (modo compatível)...';
-      _readXlsxInline(u8).then(resolve).catch(reject);
+      _readXlsxSheetJS(u8).then(resolve).catch(reject);
     };
     try{
       var buf=u8.buffer.slice(u8.byteOffset,u8.byteOffset+u8.byteLength);
@@ -1340,44 +1346,22 @@ async function readXlsxAsync(u8){
     }catch(e){
       clearTimeout(timeout);
       try{w.terminate();}catch(ex){}
-      _readXlsxInline(u8).then(resolve).catch(reject);
+      _readXlsxSheetJS(u8).then(resolve).catch(reject);
     }
   });
 }
 
-// Processamento inline (sem Worker) — compatível com iOS Safari
-async function _readXlsxInline(u8){
-  // Reutiliza as funções do worker que já estão no código principal
-  // (readXlsx está definida dentro do worker blob — precisamos de uma cópia inline)
-  // Usa a versão simplificada via SheetJS se disponível, senão parser nativo
-  if(window.XLSX){
-    return new Promise(function(resolve,reject){
-      try{
-        var wb=window.XLSX.read(u8,{type:'array'});
-        var ws=wb.Sheets[wb.SheetNames[0]];
-        var rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-        var r=_processRowsMain(rows);
-        resolve(r);
-      }catch(e){reject(e);}
-    });
-  }
-  // Parser nativo inline (cópia simplificada do worker)
-  return _parseXlsxNative(u8);
-}
-
-// Carrega SheetJS se não disponível ainda
-function _ensureSheetJS(){
-  return new Promise(function(resolve){
-    if(window.XLSX){resolve();return;}
-    var s=document.createElement('script');
-    s.src='https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
-    s.onload=resolve;
-    s.onerror=resolve; // resolve anyway, fallback to native
-    document.head.appendChild(s);
+function _readXlsxSheetJS(u8){
+  return new Promise(function(resolve,reject){
+    try{
+      if(!window.XLSX)throw new Error('SheetJS não carregado. Verifique sua conexão e tente novamente.');
+      var wb=window.XLSX.read(u8,{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      resolve(_processRowsMain(rows));
+    }catch(e){reject(e);}
   });
 }
-
-// Processamento de linhas no thread principal
 function _processRowsMain(rows){
   var ALIAS2={
     ref:["referencia","ref","codigo ref","codigo"],
@@ -1425,17 +1409,6 @@ function _processRowsMain(rows){
   return{items:result,detected:det,errors:[]};
 }
 
-async function _parseXlsxNative(u8){
-  // Garante SheetJS carregado
-  await _ensureSheetJS();
-  if(window.XLSX){
-    var wb=window.XLSX.read(u8,{type:'array'});
-    var ws=wb.Sheets[wb.SheetNames[0]];
-    var rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-    return _processRowsMain(rows);
-  }
-  throw new Error('Não foi possível processar o arquivo neste dispositivo. Tente pelo computador.');
-}
 
 // ═══════════════════════════════════════════════════════════════
 // ESTADO

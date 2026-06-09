@@ -8755,41 +8755,41 @@ mapaEmail = function(fid){
 };
 
 // ── 4. UPLOAD DO MAPA — fix prompt conflict ───────────────────────
-// The _anthropicReadDoc uses prompt_fn but window.prompt might be blocked
-// Override to use a custom modal instead
-var _origAnthropicRead = _anthropicReadDoc;
+// ── API Key modal — versão única consolidada ─────────────────────
+// (substitui todos os overrides anteriores de _anthropicReadDoc)
+var _anthropicReadDocOriginal = _anthropicReadDoc;
 _anthropicReadDoc = async function(file, promptText){
   var apiKey = localStorage.getItem('anthropic_key')||'';
   if(!apiKey){
-    // Use modal instead of window.prompt
     apiKey = await new Promise(function(resolve){
-      var overlay=document.createElement('div');
-      overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99998;display:flex;align-items:center;justify-content:center';
-      overlay.innerHTML='<div style="background:#fff;border-radius:16px;padding:28px;max-width:420px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.2)">'+
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99998;display:flex;align-items:center;justify-content:center;-webkit-overflow-scrolling:touch';
+      overlay.innerHTML =
+        '<div style="background:#fff;border-radius:16px;padding:24px;max-width:400px;width:88%;-webkit-transform:translateZ(0)">'+
         '<div style="font-size:15px;font-weight:800;color:#1F4E79;margin-bottom:8px">🔑 API Key da Anthropic</div>'+
-        '<p style="font-size:12px;color:#607080;margin-bottom:16px">Acesse <a href="https://console.anthropic.com" target="_blank" style="color:#1F4E79">console.anthropic.com</a> → API Keys → Create Key</p>'+
-        '<input id="_apiKeyInput" type="password" placeholder="sk-ant-..." style="width:100%;padding:10px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:12px">'+
+        '<p style="font-size:12px;color:#607080;margin-bottom:14px">Acesse <b>console.anthropic.com</b> → API Keys → Create Key</p>'+
+        '<input id="_apiKeyIn" type="password" placeholder="sk-ant-..." autocomplete="off" style="width:100%;padding:12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:12px">'+
         '<div style="display:flex;gap:8px;justify-content:flex-end">'+
-        '<button ontouchstart="" id="_apiKeyCancel" style="background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:13px">Cancelar</button>'+
-        '<button ontouchstart="" id="_apiKeyOk" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:13px;font-weight:700">Salvar e continuar</button>'+
+        '<button ontouchstart="" id="_apiKeyCancel" style="background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:12px 18px;font-size:14px;min-height:44px">Cancelar</button>'+
+        '<button ontouchstart="" id="_apiKeyOk" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:12px 18px;font-size:14px;font-weight:700;min-height:44px">Salvar</button>'+
         '</div></div>';
       document.body.appendChild(overlay);
-      document.getElementById('_apiKeyOk').onclick=function(){
-        var val=document.getElementById('_apiKeyInput').value.trim();
+      document.getElementById('_apiKeyOk').addEventListener('click', function(){
+        var val = (document.getElementById('_apiKeyIn').value||'').trim();
         document.body.removeChild(overlay);
         resolve(val);
-      };
-      document.getElementById('_apiKeyCancel').onclick=function(){
+      });
+      document.getElementById('_apiKeyCancel').addEventListener('click', function(){
         document.body.removeChild(overlay);
         resolve('');
-      };
-      document.getElementById('_apiKeyInput').focus();
+      });
+      setTimeout(function(){var inp=document.getElementById('_apiKeyIn');if(inp)inp.focus();},100);
     });
-    if(!apiKey)throw new Error('API Key necessária');
-    localStorage.setItem('anthropic_key',apiKey);
+    if(!apiKey) throw new Error('API Key necessária');
+    localStorage.setItem('anthropic_key', apiKey);
   }
-  // Delegate to original with the key already set
-  return _origAnthropicRead(file, promptText);
+  // Chama o original com a chave já salva no localStorage
+  return _anthropicReadDocOriginal(file, promptText);
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -10201,47 +10201,6 @@ if(_origMapaConfirm){
   };
 }
 
-// ── 6. FIX: API Key modal on iPad ───────────────────────────────
-// Override _anthropicReadDoc to use addEventListener instead of onclick
-var _origApiKeyModal = _anthropicReadDoc;
-_anthropicReadDoc = async function(file, promptText){
-  // Ensure API key exists before calling
-  var apiKey = localStorage.getItem('anthropic_key')||'';
-  if(!apiKey){
-    apiKey = await new Promise(function(resolve){
-      var overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99998;display:flex;align-items:center;justify-content:center;-webkit-overflow-scrolling:touch';
-      overlay.innerHTML =
-        '<div style="background:#fff;border-radius:16px;padding:24px;max-width:400px;width:88%;-webkit-transform:translateZ(0)">'+
-        '<div style="font-size:15px;font-weight:800;color:#1F4E79;margin-bottom:8px">🔑 API Key da Anthropic</div>'+
-        '<p style="font-size:12px;color:#607080;margin-bottom:14px">Acesse <b>console.anthropic.com</b> → API Keys → Create Key</p>'+
-        '<input id="_apiKeyIn" type="password" placeholder="sk-ant-..." autocomplete="off" style="width:100%;padding:12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:12px">'+
-        '<div style="display:flex;gap:8px;justify-content:flex-end">'+
-        '<button ontouchstart="" id="_apiKeyCancel" style="background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:12px 18px;font-size:14px;min-height:44px">Cancelar</button>'+
-        '<button ontouchstart="" id="_apiKeyOk" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:12px 18px;font-size:14px;font-weight:700;min-height:44px">Salvar</button>'+
-        '</div></div>';
-      document.body.appendChild(overlay);
-      document.getElementById('_apiKeyOk').addEventListener('click', function(){
-        var val = (document.getElementById('_apiKeyIn').value||'').trim();
-        document.body.removeChild(overlay);
-        resolve(val);
-      });
-      document.getElementById('_apiKeyCancel').addEventListener('click', function(){
-        document.body.removeChild(overlay);
-        resolve('');
-      });
-      setTimeout(function(){
-        var inp = document.getElementById('_apiKeyIn');
-        if(inp) inp.focus();
-      }, 100);
-    });
-    if(!apiKey) throw new Error('API Key necessária');
-    localStorage.setItem('anthropic_key', apiKey);
-  }
-  // Now call with key already set
-  return _origApiKeyModal(file, promptText);
-};
-
 // Run setup now
 setTimeout(setupNavButtons, 500);
 // ════════════════════════════════════════════════════════════════
@@ -10439,6 +10398,7 @@ function ferrRender(){
 
 // ── TRANSFERÊNCIA ENCOPEL ────────────────────────────────────────────────────
 var _trfItens = [];
+var _trfNrCotacao = '';
 
 function ferrTransferencia(){
   var el=document.getElementById('ferrBody');
@@ -10470,9 +10430,14 @@ function ferrTransferencia(){
     'oninput="trfRenderTabela()">'+
     '</div>'+
 
-    // Botões
-    '<div style="display:flex;gap:8px;align-items:center">'+
+    // Nº Cotação Encopel + Botões
+    '<div style="min-width:180px">'+
+    '<div style="font-size:11px;font-weight:700;color:#607080;margin-bottom:6px">Nº COTAÇÃO ENCOPEL</div>'+
+    '<input type="text" id="trfNrCotacao" placeholder="ex: 2516326" style="padding:10px 14px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:15px;font-weight:700;color:#C00000;width:100%;box-sizing:border-box" oninput="trfRenderTabela()">'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
     '<button ontouchstart="" onclick="trfGerarPDF()" id="trfBtnPDF" style="display:none;background:#C00000;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:13px;font-weight:700">📄 Gerar PDF</button>'+
+    '<button ontouchstart="" onclick="trfEnviarEmail()" id="trfBtnEmail" style="display:none;background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:13px;font-weight:700">✉️ Enviar por E-mail</button>'+
     '<button ontouchstart="" onclick="trfNovo()" id="trfBtnNovo" style="display:none;background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700">🗑 Novo</button>'+
     '</div>'+
     '</div></div>'+
@@ -10489,14 +10454,15 @@ function trfRenderTabela(){
     el.innerHTML='<div style="text-align:center;padding:40px;color:#8a9ab0;font-size:13px">Carregue um PDF de cotação ENCOPEL.<br><small>Apenas itens com prazo IMEDIATO serão incluídos.</small></div>';
     return;
   }
-  var nr=document.getElementById('trfNrPedido');
-  var nrVal=nr?nr.value.trim():'';
+  var nrVal=(document.getElementById('trfNrPedido')||{}).value||'';
+  var cotVal=(document.getElementById('trfNrCotacao')||{}).value||_trfNrCotacao||'';
   var hoje=new Date().toLocaleDateString('pt-BR');
 
   var html='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow-x:auto">';
-  html+='<div style="padding:16px 20px;border-bottom:2px solid #e0e8f0;display:flex;gap:16px;flex-wrap:wrap;align-items:center">';
+  html+='<div style="padding:16px 20px;border-bottom:2px solid #e0e8f0;display:flex;gap:20px;flex-wrap:wrap;align-items:center">';
   html+='<div style="font-size:13px;font-weight:800;color:#C00000">'+_trfItens.length+' iten(s) IMEDIATO</div>';
   if(nrVal)html+='<div style="font-size:12px;color:#607080">Pedido TRIEX: <b style="color:#1F4E79">'+nrVal+'</b></div>';
+  if(cotVal)html+='<div style="font-size:12px;color:#607080">Cotação ENCOPEL: <b style="color:#C00000">'+cotVal+'</b></div>';
   html+='<div style="font-size:12px;color:#607080">'+hoje+'</div>';
   html+='</div>';
 
@@ -10536,6 +10502,7 @@ function trfRenderTabela(){
   el.innerHTML=html;
 
   var btn=document.getElementById('trfBtnPDF');if(btn)btn.style.display='inline-flex';
+  var btnE=document.getElementById('trfBtnEmail');if(btnE)btnE.style.display='inline-flex';
   var btnN=document.getElementById('trfBtnNovo');if(btnN)btnN.style.display='inline-flex';
 }
 
@@ -10544,24 +10511,19 @@ async function trfLerPDF(input){
   var status=document.getElementById('trfStatus');
   if(status)status.innerHTML='<span style="color:#1F4E79">🤖 Lendo cotação...</span>';
   try{
-    var prompt='Esta é uma cotação de venda. Extraia SOMENTE os itens com prazo "IMEDIATO" ou "IMEDIATO*". Retorne SOMENTE JSON array sem markdown. Cada objeto: {"ref":"codigo antes do traço","desc":"descricao apos o traco","marca":"marca","qtd":numero,"unitario":numero,"prazo":"IMEDIATO"}. ref = o código antes do traço na coluna Descrição (ex: "87538060"). desc = texto após o traço. Inclua TODOS os itens IMEDIATO, ignore NAO IM e outros prazos.';
+    var prompt='Esta é uma cotação de venda da ENCOPEL. Extraia: 1) O número da cotação (campo Nr. Cotação). 2) SOMENTE itens com prazo IMEDIATO ou IMEDIATO*. Retorne SOMENTE JSON: {"nr_cotacao":"numero","itens":[{"ref":"codigo","desc":"descricao","marca":"","qtd":1,"unitario":0}]}. ref=código antes do traço na Descrição. Sem markdown.';
     var txt=await _anthropicReadDoc(file, prompt);
-    var m=txt.match(/\[[\s\S]*/); if(m)txt=m[0];
-    if(!txt.endsWith(']')){var l=txt.lastIndexOf('},');if(l>0)txt=txt.substring(0,l+1)+']';}
-    var itens=JSON.parse(txt);
+    var m=txt.match(/\{[\s\S]*/); if(m)txt=m[0];
+    var parsed; try{parsed=JSON.parse(txt);}catch(e){var m2=txt.match(/\[[\s\S]*/);if(m2)parsed={itens:JSON.parse(m2[0])};else throw new Error('Resposta inválida da IA');}
+    var itens=parsed.itens||parsed;
+    _trfNrCotacao=parsed.nr_cotacao||'';
     if(!Array.isArray(itens)||!itens.length)throw new Error('Nenhum item IMEDIATO encontrado');
     _trfItens=itens.map(function(it){
-      return{
-        ref:(it.ref||'').toString().toUpperCase().trim(),
-        desc:(it.desc||'').toUpperCase(),
-        marca:(it.marca||'').toUpperCase(),
-        qtd:parseFloat(it.qtd)||1,
-        unitario:parseFloat(it.unitario)||0,
-        prazo:'IMEDIATO'
-      };
+      return{ref:(it.ref||'').toString().toUpperCase().trim(),desc:(it.desc||'').toUpperCase(),marca:(it.marca||'').toUpperCase(),qtd:parseFloat(it.qtd)||1,unitario:parseFloat(it.unitario)||0,prazo:'IMEDIATO'};
     }).filter(function(it){return it.ref;});
     if(!_trfItens.length)throw new Error('Nenhum item IMEDIATO encontrado no PDF');
-    if(status)status.innerHTML='<span style="color:#27AE60">✅ '+_trfItens.length+' iten(s) IMEDIATO carregados</span>';
+    if(_trfNrCotacao){var cotEl=document.getElementById('trfNrCotacao');if(cotEl)cotEl.value=_trfNrCotacao;}
+    if(status)status.innerHTML='<span style="color:#27AE60">✅ '+_trfItens.length+' iten(s) IMEDIATO'+(_trfNrCotacao?' · Cotação '+_trfNrCotacao:'')+'</span>';
     trfRenderTabela();
   }catch(e){
     if(status)status.innerHTML='<span style="color:#C00000">❌ '+e.message+'</span>';
@@ -10569,16 +10531,19 @@ async function trfLerPDF(input){
 }
 
 function trfNovo(){
-  _trfItens=[];
+  _trfItens=[];_trfNrCotacao='';
   var st=document.getElementById('trfStatus');if(st)st.textContent='';
   var btn=document.getElementById('trfBtnPDF');if(btn)btn.style.display='none';
+  var btnE=document.getElementById('trfBtnEmail');if(btnE)btnE.style.display='none';
   var btnN=document.getElementById('trfBtnNovo');if(btnN)btnN.style.display='none';
+  var cotEl=document.getElementById('trfNrCotacao');if(cotEl)cotEl.value='';
   trfRenderTabela();
 }
 
 function trfGerarPDF(){
-  if(!_trfItens.length){return;}
-  var nr=(document.getElementById('trfNrPedido').value||'').trim();
+  if(!_trfItens.length)return;
+  var nr=(document.getElementById('trfNrPedido')||{}).value||'';
+  var cot=(document.getElementById('trfNrCotacao')||{}).value||_trfNrCotacao||'';
   var hoje=new Date().toLocaleDateString('pt-BR');
   var totalGeral=0;
   var linhas='';
@@ -10621,16 +10586,16 @@ function trfGerarPDF(){
     '<div style="text-align:right">'+
     '<div style="font-size:14px;font-weight:800;color:#1F4E79">SOLICITAÇÃO DE TRANSFERÊNCIA</div>'+
     '<div style="font-size:10px;color:#6c757d">Emissão: '+hoje+'</div>'+
-    (nr?'<div style="font-size:12px;font-weight:700;color:#C00000;margin-top:4px">Pedido TRIEX: '+nr+'</div>':'')+''+
+    (nr?'<div style="font-size:12px;font-weight:700;color:#1F4E79;margin-top:2px">Pedido TRIEX: '+nr+'</div>':'')+
+    (cot?'<div style="font-size:12px;font-weight:700;color:#C00000;margin-top:2px">Cotação ENCOPEL: '+cot+'</div>':'')+
     '</div></div>'+
-
-    // Info box
     '<div class="info-box"><div class="info-row">'+
     '<div class="info-item"><label>Origem</label><span>ENCOPEL</span></div>'+
     '<div class="info-item"><label>Destino</label><span>TRIEX SP</span></div>'+
-    (nr?'<div class="info-item"><label>Nr. Pedido TRIEX</label><span>'+nr+'</span></div>':'')+''+
+    (nr?'<div class="info-item"><label>Nr. Pedido TRIEX</label><span>'+nr+'</span></div>':'')+
+    (cot?'<div class="info-item"><label>Cotação ENCOPEL</label><span style="color:#C00000">'+cot+'</span></div>':'')+
     '<div class="info-item"><label>Data</label><span>'+hoje+'</span></div>'+
-    '<div class="info-item"><label>Total de Itens</label><span>'+_trfItens.length+'</span></div>'+
+    '<div class="info-item"><label>Total Itens</label><span>'+_trfItens.length+'</span></div>'+
     '</div></div>'+
 
     // Table
@@ -10658,6 +10623,33 @@ function trfGerarPDF(){
   win.document.write(html);
   win.document.close();
   setTimeout(function(){win.print();},600);
+}
+
+function trfEnviarEmail(){
+  if(!_trfItens.length)return;
+  var nr=(document.getElementById('trfNrPedido')||{}).value||'';
+  var cot=(document.getElementById('trfNrCotacao')||{}).value||_trfNrCotacao||'';
+  var hoje=new Date().toLocaleDateString('pt-BR');
+  var totalGeral=0;
+  var lista=_trfItens.map(function(it,i){
+    var total=(parseFloat(it.qtd)||0)*(parseFloat(it.unitario)||0);
+    totalGeral+=total;
+    return (i+1)+'. '+it.ref+' - '+it.desc+' | Marca: '+it.marca+' | Qtd: '+it.qtd+' | Unit.: R$ '+it.unitario.toFixed(2).replace('.',',');
+  }).join('\n');
+  var totalFmt='R$ '+totalGeral.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  var assunto='ENC: TRANSFERÊNCIA ENCOPEL X TRIEX'+(nr?' PEDIDO: '+nr:'')+(cot?' | COTAÇÃO ENCOPEL: '+cot:'');
+  var corpo=
+    'Por favor transferir os itens abaixo.\n\n'+
+    (nr?'NÚMERO PEDIDO TRIEX: '+nr+'\n':'')+
+    (cot?'COTAÇÃO ENCOPEL: '+cot+'\n':'')+
+    'DATA: '+hoje+'\n\n'+
+    'ITENS PARA TRANSFERÊNCIA (somente IMEDIATO):\n'+
+    '─────────────────────────────────────────\n'+
+    lista+'\n'+
+    '─────────────────────────────────────────\n'+
+    'TOTAL: '+totalFmt+' ('+_trfItens.length+' itens)\n\n'+
+    'Att,\nVitor Lima\nTriex';
+  window.location.href='mailto:compras@triex.com.br?subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(corpo);
 }
 
 // ── Modalidade Especial ─────────────────────────────────────────────────────

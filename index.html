@@ -1308,10 +1308,15 @@ function getWorker(){
   return new Worker(_workerBlob);
 }
 async function readXlsxAsync(u8){
+  // Tenta Worker primeiro; se falhar (iOS Safari bloqueia blob workers), processa inline
   return new Promise(function(resolve,reject){
     var sp=document.getElementById('spinner');
     var w;
-    try{w=getWorker();}catch(e){reject(new Error('Worker não disponível: '+e.message));return;}
+    try{w=getWorker();}catch(e){
+      // Fallback inline — roda no thread principal
+      _readXlsxInline(u8).then(resolve).catch(reject);
+      return;
+    }
     var timeout=setTimeout(function(){
       try{w.terminate();}catch(e){}
       reject(new Error('Timeout ao processar planilha. Tente novamente.'));
@@ -1325,7 +1330,9 @@ async function readXlsxAsync(u8){
     w.onerror=function(e){
       clearTimeout(timeout);
       try{w.terminate();}catch(ex){}
-      reject(new Error('Erro no worker: '+(e.message||'desconhecido')));
+      // Worker falhou — tenta inline (iOS)
+      if(sp)sp.textContent='⏳ Processando (modo compatível)...';
+      _readXlsxInline(u8).then(resolve).catch(reject);
     };
     try{
       var buf=u8.buffer.slice(u8.byteOffset,u8.byteOffset+u8.byteLength);
@@ -1333,9 +1340,101 @@ async function readXlsxAsync(u8){
     }catch(e){
       clearTimeout(timeout);
       try{w.terminate();}catch(ex){}
-      reject(new Error('Erro ao enviar dados: '+e.message));
+      _readXlsxInline(u8).then(resolve).catch(reject);
     }
   });
+}
+
+// Processamento inline (sem Worker) — compatível com iOS Safari
+async function _readXlsxInline(u8){
+  // Reutiliza as funções do worker que já estão no código principal
+  // (readXlsx está definida dentro do worker blob — precisamos de uma cópia inline)
+  // Usa a versão simplificada via SheetJS se disponível, senão parser nativo
+  if(window.XLSX){
+    return new Promise(function(resolve,reject){
+      try{
+        var wb=window.XLSX.read(u8,{type:'array'});
+        var ws=wb.Sheets[wb.SheetNames[0]];
+        var rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        var r=_processRowsMain(rows);
+        resolve(r);
+      }catch(e){reject(e);}
+    });
+  }
+  // Parser nativo inline (cópia simplificada do worker)
+  return _parseXlsxNative(u8);
+}
+
+// Carrega SheetJS se não disponível ainda
+function _ensureSheetJS(){
+  return new Promise(function(resolve){
+    if(window.XLSX){resolve();return;}
+    var s=document.createElement('script');
+    s.src='https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+    s.onload=resolve;
+    s.onerror=resolve; // resolve anyway, fallback to native
+    document.head.appendChild(s);
+  });
+}
+
+// Processamento de linhas no thread principal
+function _processRowsMain(rows){
+  var ALIAS2={
+    ref:["referencia","ref","codigo ref","codigo"],
+    desc:["descricao","desc","produto","item","nome"],
+    marca:["marca","fabricante"],
+    custo:["custo medio matriz","custo medio","preco nf","custo"],
+    saldo:["saldo atual","saldo atual matriz","estoque atual","saldo"],
+    minimo:["minimo","estoque minimo"],
+    consumo:["consumo","consumo total","venda periodo","vendas"],
+    curva:["classificacao","curva abc","abc"],
+    pedido:["compras","compras total","pedido","pedido compra","em pedido","qtd pedido","pedido em aberto"],
+    cotacoes:["con pedidos","cotacoes","num cotacoes","cotado","n cotacoes"]
+  };
+  function nm2(s){try{return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}catch(e){return String(s||'').toLowerCase().trim();}}
+  function mapC(hdr){var m={};Object.keys(ALIAS2).forEach(function(f){var aliases=ALIAS2[f];for(var ai=0;ai<aliases.length;ai++){for(var hi=0;hi<hdr.length;hi++){if(nm2(hdr[hi])===aliases[ai]){m[f]=hi;return;}}}});return m;}
+  function famM(m){var u=(m||'').trim().toUpperCase();if(u==='SPICER'||u==='SPICER-R')return'SPICER';if(u==='ALBARUS'||u==='ALBARUS-R')return'ALBARUS';if(u==='CARRARO'||u.indexOf('CARRARO')===0)return'CARRARO';if(u==='DANA'||u==='DANA-R'||u==='DANA-IMP')return'DANA';return u;}
+  if(!rows||rows.length<2)return{items:[],errors:['Planilha vazia.'],detected:[]};
+  var hdr=rows[0],cm=mapC(hdr);
+  var miss=['ref','desc','consumo','saldo'].filter(function(f){return cm[f]===undefined;});
+  if(miss.length)return{items:[],errors:['Campos não encontrados: '+miss.join(', ')],detected:[]};
+  var map=new Map(),det=Object.keys(cm);
+  for(var ri=1;ri<rows.length;ri++){
+    var r=rows[ri];if(!r)continue;
+    var ref=r[cm.ref];if(ref==null)continue;
+    ref=String(ref).trim();if(!ref||ref==='9998')continue;
+    var marca=cm.marca!==undefined&&r[cm.marca]!=null?String(r[cm.marca]):'';
+    var fam=famM(marca),key=ref+'||'+fam;
+    var saldo=cm.saldo!==undefined?parseFloat(r[cm.saldo])||0:0;
+    var consumo=cm.consumo!==undefined?parseFloat(r[cm.consumo])||0:0;
+    var custo=cm.custo!==undefined?parseFloat(r[cm.custo])||0:0;
+    var ex=map.get(key);
+    if(ex){
+      ex.saldo+=saldo;ex.consumo+=consumo;
+      if(cm.minimo!==undefined)ex.minimo+=parseFloat(r[cm.minimo])||0;
+      if(cm.pedido!==undefined)ex.pedido+=parseFloat(r[cm.pedido])||0;
+      if(cm.cotacoes!==undefined)ex.cotacoes+=parseFloat(r[cm.cotacoes])||0;
+      var tc=ex._cb+consumo;if(tc>0)ex.custo=(ex.custo*ex._cb+custo*consumo)/tc;ex._cb=tc;
+      if(marca&&ex.marca.indexOf(marca)<0)ex.marca+=(ex.marca?' + ':'')+marca;
+    }else{
+      var cv=cm.curva!==undefined&&r[cm.curva]!=null?String(r[cm.curva]).trim().toUpperCase():'';
+      map.set(key,{ref:ref,desc:cm.desc!==undefined&&r[cm.desc]!=null?String(r[cm.desc]):'',marca:marca,custo:custo,saldo:saldo,minimo:cm.minimo!==undefined?parseFloat(r[cm.minimo])||0:0,consumo:consumo,pedido:cm.pedido!==undefined?parseFloat(r[cm.pedido])||0:0,cotacoes:cm.cotacoes!==undefined?parseFloat(r[cm.cotacoes])||0:0,curva:['A','B','C'].indexOf(cv)>=0?cv:'—',_cb:consumo});
+    }
+  }
+  var result=[...map.values()];result.forEach(function(d){delete d._cb;});
+  return{items:result,detected:det,errors:[]};
+}
+
+async function _parseXlsxNative(u8){
+  // Garante SheetJS carregado
+  await _ensureSheetJS();
+  if(window.XLSX){
+    var wb=window.XLSX.read(u8,{type:'array'});
+    var ws=wb.Sheets[wb.SheetNames[0]];
+    var rows=window.XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    return _processRowsMain(rows);
+  }
+  throw new Error('Não foi possível processar o arquivo neste dispositivo. Tente pelo computador.');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2601,6 +2700,16 @@ function handleFile(file){
       document.getElementById("btnTroc").style.display="block";document.getElementById("btnLeg").style.display="block";document.getElementById("btnColConfig").style.display="block";document.getElementById("histBtn").style.display="block";
       if(sbUser&&sbUser.id==="e526fea4-d04f-4d2f-a700-145ac17b137c"){document.getElementById("cotBtn").style.display="block";}
       allItems=result.items;
+      // Salvar planilha no localStorage para restaurar depois
+      try{
+        var saveData={
+          name: file.name,
+          items: result.items,
+          detected: result.detected,
+          ts: Date.now()
+        };
+        localStorage.setItem('dashV_lastSheet', JSON.stringify(saveData));
+      }catch(e){console.warn('Não foi possível salvar planilha localmente:',e);}
       _loadingFile=true;
       setDefaultDates();
       var sp2=document.getElementById('spinner');
@@ -2631,6 +2740,65 @@ renderTabs();
 // Estado inicial correto — mostra upload, esconde dash
 document.getElementById('upSec').style.display='block';
 document.getElementById('dash').style.display='none';
+
+// Restaurar última planilha salva
+(async function(){
+  try{
+    var saved=localStorage.getItem('dashV_lastSheet');
+    if(!saved)return;
+    var data=JSON.parse(saved);
+    if(!data||!data.items||!data.items.length)return;
+    var dt=data.ts?new Date(data.ts).toLocaleString('pt-BR'):'';
+    // Banner de restauração
+    var banner=document.createElement('div');
+    banner.style.cssText='background:#EEF6FF;border:1px solid #1F4E79;border-radius:10px;padding:12px 18px;margin:16px 0;display:flex;align-items:center;gap:12px;font-size:12px;color:#1F4E79;flex-wrap:wrap';
+    banner.innerHTML='<span>📊 <b>Planilha salva:</b> '+data.name+' <span style="color:#8a9ab0;font-weight:400">— '+dt+'</span></span>'+
+      '<button ontouchstart="" onclick="restoreLastSheet()" style="background:#1F4E79;color:#fff;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700;min-height:40px">📂 Carregar</button>'+
+      '<button ontouchstart="" onclick="this.parentNode.remove();localStorage.removeItem(\'dashV_lastSheet\')" style="background:none;border:1px solid #e0e8f0;color:#C00000;border-radius:7px;padding:8px 12px;cursor:pointer;font-size:12px;min-height:40px">✕ Esquecer</button>';
+    var upZone=document.getElementById('upZone');
+    if(upZone)upZone.parentNode.insertBefore(banner,upZone);
+  }catch(e){}
+})();
+
+async function restoreLastSheet(){
+  try{
+    var saved=localStorage.getItem('dashV_lastSheet');
+    if(!saved)return;
+    var data=JSON.parse(saved);
+    if(!data||!data.items||!data.items.length)return;
+    var sp=document.getElementById('spinner');
+    document.getElementById('upZone').style.display='none';
+    if(sp){sp.style.display='block';sp.textContent='⏳ Restaurando planilha...';}
+    if(tabs[activeTab]){tabs[activeTab].name=data.name.replace(/\.xlsx$/i,'');tabs[activeTab].hasData=true;}
+    renderTabs();
+    if(data.detected){
+      var dc=document.getElementById('detCols');
+      if(dc){dc.textContent='Colunas: '+data.detected.join(' · ');dc.style.display='block';}
+    }
+    document.body.classList.remove('no-data');document.body.classList.add('has-data');
+    var btnT=document.getElementById('btnTroc');if(btnT)btnT.style.display='block';
+    var btnL=document.getElementById('btnLeg');if(btnL)btnL.style.display='block';
+    var btnC=document.getElementById('btnColConfig');if(btnC)btnC.style.display='block';
+    var btnH=document.getElementById('histBtn');if(btnH)btnH.style.display='block';
+    allItems=data.items;
+    var temABC=allItems.some(function(i){return i.curva!=='—';});
+    document.getElementById('abcS').style.display=temABC?'flex':'none';
+    _loadingFile=true;
+    setDefaultDates();
+    if(sp)sp.textContent='⏳ Calculando...';
+    await recalc();
+    _loadingFile=false;
+    if(sp)sp.style.display='none';
+    renderCharts();renderKpis();renderOpBox();
+    setTimeout(function(){renderCharts();renderKpis();renderOpBox();verificarAvisos();verificarOportunidades();},300);
+    // Remove banner
+    document.querySelectorAll('[data-restore-banner]').forEach(function(el){el.remove();});
+  }catch(e){
+    var sp2=document.getElementById('spinner');if(sp2)sp2.style.display='none';
+    document.getElementById('upZone').style.display='block';
+    console.error('Erro ao restaurar planilha:',e);
+  }
+}
 const zone=document.getElementById("upZone");
 zone.addEventListener("dragover",e=>{e.preventDefault();zone.classList.add("drag");});
 zone.addEventListener("dragleave",()=>zone.classList.remove("drag"));

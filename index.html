@@ -10446,24 +10446,107 @@ switchView = function(v){
 function ferrRender(){
   var el=document.getElementById('ferrBody');
   if(!el)return;
-  el.innerHTML='<div style="width:100%;padding:24px"><div id="ferrGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px"></div></div>';
+  el.innerHTML='<div style="width:100%;padding:24px"><div id="ferrGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px"></div></div>';
   var grid=document.getElementById('ferrGrid');
-  // Card Mapa
-  var c1=document.createElement('div');
-  c1.style.cssText='background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:28px;cursor:pointer;border:2px solid transparent;transition:border-color .15s';
-  c1.innerHTML='<div style="font-size:36px;margin-bottom:14px">🗂️</div><div style="font-size:15px;font-weight:800;color:#1E293B">Mapa de Compras</div>';
-  c1.onclick=function(){pfNavigate('mapa');};
-  c1.onmouseover=function(){this.style.borderColor='#1D4ED8';};
-  c1.onmouseout=function(){this.style.borderColor='transparent';};
-  grid.appendChild(c1);
-  // Card Desconto
-  var c2=document.createElement('div');
-  c2.style.cssText='background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:28px;cursor:pointer;border:2px solid transparent;transition:border-color .15s';
-  c2.innerHTML='<div style="font-size:36px;margin-bottom:14px">🧮</div><div style="font-size:15px;font-weight:800;color:#1E293B">Cálculo de Desconto</div>';
-  c2.onclick=function(){ferrNFBaixa();};
-  c2.onmouseover=function(){this.style.borderColor='#1D4ED8';};
-  c2.onmouseout=function(){this.style.borderColor='transparent';};
-  grid.appendChild(c2);
+
+  function mkCard(icon, title, sub, color, fn){
+    var c=document.createElement('div');
+    c.style.cssText='background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:28px 24px;cursor:pointer;border:2px solid transparent;transition:border-color .15s';
+    c.innerHTML='<div style="font-size:36px;margin-bottom:12px">'+icon+'</div>'+
+      '<div style="font-size:15px;font-weight:800;color:#1E293B;margin-bottom:4px">'+title+'</div>'+
+      (sub?'<div style="font-size:11px;color:#8a9ab0">'+sub+'</div>':'');
+    c.onclick=fn;
+    c.onmouseover=function(){this.style.borderColor=color;};
+    c.onmouseout=function(){this.style.borderColor='transparent';};
+    grid.appendChild(c);
+  }
+
+  mkCard('🗂️','Mapa de Compras','Cotar e gerar OC','#1D4ED8',function(){pfNavigate('mapa');});
+  mkCard('🧮','Cálculo NF + Especial','Calcula NF e parte especial','#1D4ED8',function(){ferrNFBaixa();});
+  mkCard('📦','Transferência Encopel','Gera pedido de transferência','#C00000',function(){ferrTransferencia();});
+  mkCard('🔔','Me Avise quando Chegar','Alertas de reposição','#E67E22',function(){ferrMeAvise();});
+}
+
+// ── ME AVISE QUANDO CHEGAR — ferramenta ─────────────────────────
+function ferrMeAvise(){
+  var el=document.getElementById('ferrBody');
+  if(!el)return;
+
+  // Carrega lista salva
+  var avisos=[];
+  try{avisos=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
+
+  function render(){
+    avisos=[];
+    try{avisos=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
+
+    var html=
+      '<div style="width:100%">'+
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
+      '<button ontouchstart="" onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">← Voltar</button>'+
+      '<div style="font-size:16px;font-weight:800;color:#E67E22">🔔 Me Avise quando Chegar</div>'+
+      '</div>'+
+
+      '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:20px;margin-bottom:20px">'+
+      '<div style="font-size:12px;color:#607080;margin-bottom:12px">Adicionar item para monitorar:</div>'+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap">'+
+      '<input id="maRef" placeholder="Referência" style="flex:1;min-width:120px;padding:9px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px">'+
+      '<input id="maDesc" placeholder="Descrição" style="flex:2;min-width:160px;padding:9px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px">'+
+      '<input id="maQtd" placeholder="Qtd mín." type="number" min="1" style="width:90px;padding:9px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px">'+
+      '<input id="maEmail" placeholder="E-mail para aviso" type="email" style="flex:2;min-width:160px;padding:9px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px">'+
+      '<button ontouchstart="" onclick="maAdicionar()" style="background:#E67E22;color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap">+ Adicionar</button>'+
+      '</div></div>'+
+
+      '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden">';
+
+    if(!avisos.length){
+      html+='<div style="padding:40px;text-align:center;color:#8a9ab0;font-size:13px">Nenhum item monitorado ainda.<br><small>Adicione itens acima para receber avisos quando entrarem no estoque.</small></div>';
+    } else {
+      html+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+      html+='<thead><tr style="background:#1F4E79;color:#fff"><th style="padding:9px 12px;text-align:left">Referência</th><th style="padding:9px 12px;text-align:left">Descrição</th><th style="padding:9px 12px;text-align:center">Qtd mín.</th><th style="padding:9px 12px;text-align:left">E-mail</th><th style="padding:9px 12px;text-align:center">Status</th><th style="padding:9px 12px;text-align:center">Ação</th></tr></thead><tbody>';
+      avisos.forEach(function(a,i){
+        var bg=i%2===0?'#fff':'#FAFBFC';
+        var status=a.atendido
+          ?'<span style="background:#E2EFDA;color:#375623;padding:3px 10px;border-radius:8px;font-size:10px;font-weight:700">✅ Atendido</span>'
+          :'<span style="background:#FFF3CD;color:#856404;padding:3px 10px;border-radius:8px;font-size:10px;font-weight:700">⏳ Aguardando</span>';
+        html+='<tr style="border-bottom:1px solid #f0f4f8;background:'+bg+'">';
+        html+='<td style="padding:10px 12px;font-weight:700;color:#1F4E79;font-family:monospace">'+a.ref+'</td>';
+        html+='<td style="padding:10px 12px">'+a.desc+'</td>';
+        html+='<td style="padding:10px 12px;text-align:center">'+a.qtd+'</td>';
+        html+='<td style="padding:10px 12px;color:#607080">'+a.email+'</td>';
+        html+='<td style="padding:10px 12px;text-align:center">'+status+'</td>';
+        html+='<td style="padding:10px 12px;text-align:center">'+
+          '<button ontouchstart="" onclick="maRemover('+i+')" style="background:none;border:1px solid #e0e8f0;color:#C00000;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px">🗑</button>'+
+          '</td></tr>';
+      });
+      html+='</tbody></table>';
+    }
+    html+='</div></div>';
+    el.innerHTML=html;
+  }
+
+  render();
+
+  window.maAdicionar=function(){
+    var ref=(document.getElementById('maRef').value||'').trim().toUpperCase();
+    var desc=(document.getElementById('maDesc').value||'').trim();
+    var qtd=parseInt(document.getElementById('maQtd').value)||1;
+    var email=(document.getElementById('maEmail').value||'').trim();
+    if(!ref){alert('Informe a referência.');return;}
+    var lista=[];
+    try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
+    lista.push({ref:ref,desc:desc,qtd:qtd,email:email,atendido:false,ts:Date.now()});
+    localStorage.setItem('meAvise_lista',JSON.stringify(lista));
+    render();
+  };
+
+  window.maRemover=function(i){
+    var lista=[];
+    try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
+    lista.splice(i,1);
+    localStorage.setItem('meAvise_lista',JSON.stringify(lista));
+    render();
+  };
 }
 
 // ── Modalidade Especial ─────────────────────────────────────────────────────

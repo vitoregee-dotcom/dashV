@@ -10553,6 +10553,201 @@ function ferrMeAvise(){
 var _nfItens = []; // items loaded from PDF
 var _nfDesconto = 5; // % desconto sem PPL
 
+// ── CALCULADORA DE MARGEM ────────────────────────────────────────────────────
+var COFINS_PCT = 0.076;
+var PIS_PCT    = 0.0165;
+
+// Tabela ICMS SP — alíquotas interestaduais de SP para cada estado
+var ICMS_SAIDA = {
+  'SP':0.18,'MG':0.12,'RJ':0.12,'ES':0.12,'PR':0.12,'SC':0.12,'RS':0.12,
+  'MS':0.12,'MT':0.12,'GO':0.12,'DF':0.12,'BA':0.12,'SE':0.12,'AL':0.12,
+  'PE':0.12,'PB':0.12,'RN':0.12,'CE':0.12,'PI':0.12,'MA':0.12,'PA':0.12,
+  'AP':0.12,'AM':0.12,'RR':0.12,'RO':0.12,'TO':0.12,'AC':0.12
+};
+// ICMS de entrada (crédito) quando recebe de outros estados para SP
+var ICMS_ENTRADA = {
+  'SP':0.18,'MG':0.12,'RJ':0.12,'ES':0.12,'PR':0.12,'SC':0.12,'RS':0.12,
+  'MS':0.12,'MT':0.12,'GO':0.12,'DF':0.12,'BA':0.12,'SE':0.12,'AL':0.07,
+  'PE':0.07,'PB':0.07,'RN':0.07,'CE':0.07,'PI':0.07,'MA':0.07,'PA':0.07,
+  'AP':0.07,'AM':0.07,'RR':0.07,'RO':0.07,'TO':0.07,'AC':0.07
+};
+
+function calcMargemLiq(custo, icms_c_pct, ipi_pct, st_val, icms_v_pct, margem_desejada){
+  // Líquido custo
+  var cofins_c = (custo - custo*icms_c_pct) * COFINS_PCT;
+  var pis_c    = (custo - custo*icms_c_pct) * PIS_PCT;
+  var icms_c   = custo * icms_c_pct;
+  var ipi      = custo * ipi_pct;
+  var liq_custo = custo - cofins_c - pis_c - icms_c + ipi + st_val;
+
+  // Fator venda
+  var fator = 1 - COFINS_PCT*(1-icms_v_pct) - PIS_PCT*(1-icms_v_pct) - icms_v_pct;
+
+  // Venda = Líq.Custo / (fator - margem)
+  var venda = liq_custo / (fator - margem_desejada);
+  var liq_venda = venda * fator;
+  var resultado = liq_venda - liq_custo;
+  var markup = (liq_venda/liq_custo - 1)*100;
+  var margem_bruta = venda / (custo + ipi + st_val);
+
+  return {
+    venda: venda,
+    liq_custo: liq_custo,
+    liq_venda: liq_venda,
+    resultado: resultado,
+    markup: markup,
+    margem_liq: margem_desejada*100,
+    margem_bruta: margem_bruta
+  };
+}
+
+function ferrMargem(voltarFn){
+  var el=document.getElementById('ferrBody');
+  if(!el)return;
+
+  var estados=['SP','MG','RJ','ES','PR','SC','RS','MS','MT','GO','DF','BA','SE','AL','PE','PB','RN','CE','PI','MA','PA','AP','AM','RR','RO','TO','AC'];
+  var optsForn=estados.map(function(e){return '<option value="'+e+'"'+(e==='SP'?' selected':'')+'>'+e+'</option>';}).join('');
+  var optsCliente=estados.map(function(e){return '<option value="'+e+'"'+(e==='SP'?' selected':'')+'>'+e+'</option>';}).join('');
+
+  var voltarBtn = voltarFn
+    ? '<button ontouchstart="" onclick="('+voltarFn+')" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">← Voltar</button>'
+    : '<button ontouchstart="" onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">← Voltar</button>';
+
+  el.innerHTML=
+    '<div style="width:100%">'+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
+    voltarBtn+
+    '<div style="font-size:16px;font-weight:800;color:#1F4E79">📊 Calculadora de Margem</div>'+
+    '</div>'+
+
+    // Parâmetros globais
+    '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:20px;margin-bottom:16px">'+
+    '<div style="font-size:12px;font-weight:700;color:#607080;margin-bottom:14px">PARÂMETROS GLOBAIS</div>'+
+    '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end">'+
+
+    '<div><div style="font-size:11px;color:#607080;margin-bottom:4px">Estado do Fornecedor</div>'+
+    '<select id="mgFornUF" onchange="mgRecalcAll()" style="padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;font-weight:700">'+optsForn+'</select></div>'+
+
+    '<div><div style="font-size:11px;color:#607080;margin-bottom:4px">Estado do Cliente</div>'+
+    '<select id="mgClienteUF" onchange="mgRecalcAll()" style="padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#1F4E79">'+optsCliente+'</select></div>'+
+
+    '<div><div style="font-size:11px;color:#607080;margin-bottom:4px">Margem desejada (%)</div>'+
+    '<div style="display:flex;align-items:center;gap:8px">'+
+    '<input type="number" id="mgMargemGlobal" value="25" min="1" max="80" step="0.5" style="width:80px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:15px;font-weight:700;color:#1F4E79" oninput="mgRecalcAll()">'+
+    '<button ontouchstart="" onclick="mgAplicarTodos()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700">Aplicar a todos</button>'+
+    '</div></div>'+
+    '</div></div>'+
+
+    // Tabela de itens
+    '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow-x:auto;margin-bottom:16px">'+
+    '<div id="mgTabela"></div>'+
+    '</div>'+
+
+    // Botão adicionar item manual
+    '<button ontouchstart="" onclick="mgAdicionarItem()" style="background:none;border:2px dashed #e0e8f0;color:#1F4E79;border-radius:10px;padding:12px;width:100%;cursor:pointer;font-size:13px;font-weight:700">+ Adicionar item manualmente</button>'+
+    '</div>';
+
+  // Estado dos itens
+  if(!window._mgItens) window._mgItens=[];
+  mgRenderTabela();
+}
+
+function mgRenderTabela(){
+  var el=document.getElementById('mgTabela');
+  if(!el)return;
+  var itens=window._mgItens||[];
+
+  if(!itens.length){
+    el.innerHTML='<div style="padding:32px;text-align:center;color:#8a9ab0;font-size:13px">Nenhum item ainda.<br>Adicione manualmente ou importe do Mapa de Compras.</div>';
+    return;
+  }
+
+  var html='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  html+='<thead><tr style="background:#1F4E79;color:#fff">'+
+    '<th style="padding:9px 10px;text-align:left">Referência</th>'+
+    '<th style="padding:9px 10px;text-align:left">Descrição</th>'+
+    '<th style="padding:9px 10px;text-align:right">Custo</th>'+
+    '<th style="padding:9px 10px;text-align:right">IPI%</th>'+
+    '<th style="padding:9px 10px;text-align:right">ST</th>'+
+    '<th style="padding:9px 10px;text-align:right">Margem%</th>'+
+    '<th style="padding:9px 10px;text-align:right;background:#E8F5E9;color:#1B5E20">Venda Sug.</th>'+
+    '<th style="padding:9px 10px;text-align:right">Markup</th>'+
+    '<th style="padding:9px 10px;text-align:right">M.Bruta</th>'+
+    '<th style="padding:9px 10px;text-align:center">Ação</th>'+
+    '</tr></thead><tbody>';
+
+  itens.forEach(function(item,i){
+    var r=mgCalcItem(item);
+    var bg=i%2===0?'#fff':'#FAFBFC';
+    html+='<tr style="border-bottom:1px solid #f0f4f8;background:'+bg+'">';
+    html+='<td style="padding:8px 10px;font-family:monospace;font-weight:700;color:#1F4E79">'+item.ref+'</td>';
+    html+='<td style="padding:8px 10px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.desc+'</td>';
+    html+='<td style="padding:8px 10px;text-align:right"><input type="number" value="'+item.custo+'" step="0.01" min="0" style="width:72px;padding:4px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right" onchange="mgSetCusto('+i+',this.value)"></td>';
+    html+='<td style="padding:8px 10px;text-align:right"><input type="number" value="'+(item.ipi_pct*100).toFixed(1)+'" step="0.1" min="0" style="width:54px;padding:4px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right" onchange="mgSetIpi('+i+',this.value)"></td>';
+    html+='<td style="padding:8px 10px;text-align:right"><input type="number" value="'+item.st_val+'" step="0.01" min="0" style="width:60px;padding:4px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right" onchange="mgSetSt('+i+',this.value)"></td>';
+    html+='<td style="padding:8px 10px;text-align:right"><input type="number" value="'+(item.margem*100).toFixed(1)+'" step="0.5" min="1" max="80" style="width:56px;padding:4px 6px;border:1.5px solid #1F4E79;border-radius:6px;font-size:12px;text-align:right;font-weight:700;color:#1F4E79" onchange="mgSetMargem('+i+',this.value)"></td>';
+    html+='<td style="padding:8px 10px;text-align:right;background:#F0FAF0;font-weight:800;color:#217a3c;font-size:13px">R$&nbsp;'+r.venda.toFixed(2).replace('.',',')+'</td>';
+    html+='<td style="padding:8px 10px;text-align:right;color:#607080">'+r.markup.toFixed(1)+'%</td>';
+    html+='<td style="padding:8px 10px;text-align:right;color:#607080">'+r.margem_bruta.toFixed(2)+'x</td>';
+    html+='<td style="padding:8px 10px;text-align:center"><button ontouchstart="" onclick="mgRemItem('+i+')" style="background:none;border:1px solid #e0e8f0;color:#C00000;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px">🗑</button></td>';
+    html+='</tr>';
+  });
+
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
+
+function mgCalcItem(item){
+  var fornUF=document.getElementById('mgFornUF')?document.getElementById('mgFornUF').value:'SP';
+  var clienteUF=document.getElementById('mgClienteUF')?document.getElementById('mgClienteUF').value:'SP';
+  var icms_c = ICMS_ENTRADA[fornUF]||0.12;
+  var icms_v = ICMS_SAIDA[clienteUF]||0.12;
+  try{
+    return calcMargemLiq(item.custo, icms_c, item.ipi_pct, item.st_val, icms_v, item.margem);
+  }catch(e){
+    return {venda:0,markup:0,margem_liq:0,margem_bruta:0,resultado:0};
+  }
+}
+
+function mgRecalcAll(){ mgRenderTabela(); }
+
+function mgAplicarTodos(){
+  var m=parseFloat((document.getElementById('mgMargemGlobal')||{}).value||25)/100;
+  (window._mgItens||[]).forEach(function(item){item.margem=m;});
+  mgRenderTabela();
+}
+
+function mgSetCusto(i,v){ if(window._mgItens&&window._mgItens[i])window._mgItens[i].custo=parseFloat(v)||0; mgRenderTabela(); }
+function mgSetIpi(i,v){ if(window._mgItens&&window._mgItens[i])window._mgItens[i].ipi_pct=(parseFloat(v)||0)/100; mgRenderTabela(); }
+function mgSetSt(i,v){ if(window._mgItens&&window._mgItens[i])window._mgItens[i].st_val=parseFloat(v)||0; mgRenderTabela(); }
+function mgSetMargem(i,v){ if(window._mgItens&&window._mgItens[i])window._mgItens[i].margem=(parseFloat(v)||25)/100; mgRenderTabela(); }
+function mgRemItem(i){ if(window._mgItens)window._mgItens.splice(i,1); mgRenderTabela(); }
+
+function mgAdicionarItem(){
+  if(!window._mgItens)window._mgItens=[];
+  var mglobal=parseFloat((document.getElementById('mgMargemGlobal')||{}).value||25)/100;
+  window._mgItens.push({ref:'REF',desc:'Descrição',custo:0,ipi_pct:0,st_val:0,margem:mglobal});
+  mgRenderTabela();
+}
+
+// Adicionar card na ferrRender
+var _ferrRenderOrig = ferrRender;
+ferrRender = function(){
+  _ferrRenderOrig();
+  // Adicionar card Margem
+  var grid=document.getElementById('ferrGrid');
+  if(!grid)return;
+  var c=document.createElement('div');
+  c.style.cssText='background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:28px 24px;cursor:pointer;border:2px solid transparent;transition:border-color .15s';
+  c.innerHTML='<div style="font-size:36px;margin-bottom:12px">📊</div>'+
+    '<div style="font-size:15px;font-weight:800;color:#1E293B;margin-bottom:4px">Calculadora de Margem</div>'+
+    '<div style="font-size:11px;color:#8a9ab0">Preço de venda por margem desejada</div>';
+  c.onclick=function(){ferrMargem();};
+  c.onmouseover=function(){this.style.borderColor='#1F4E79';};
+  c.onmouseout=function(){this.style.borderColor='transparent';};
+  grid.appendChild(c);
+};
+
 function ferrNFBaixa(){
   var el=document.getElementById('ferrBody');
   el.innerHTML=

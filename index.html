@@ -625,6 +625,7 @@ thead th{position:relative;}
       <span id="pfThemeIcon">🌙</span>
     </button>
     <div id="pfUserName" style="font-size:11px;color:var(--pf-text-muted)"></div>
+    <button ontouchstart="" onclick="syncStorageModal()" title="Gerenciar dados" style="background:none;border:none;color:var(--pf-text-muted);cursor:pointer;font-size:16px;padding:4px;opacity:.6" id="btnSyncStorage">☁️</button>
     <button class="pf-btn-sair" ontouchstart="" id="btnSairPF" style="display:none" onclick="doLogout()">Sair</button>
   </div>
 </div>
@@ -11048,6 +11049,83 @@ async function syncPullAll(){
       toast('☁️ Dados sincronizados da nuvem');
     }
   }
+}
+
+// ── Modal de gerenciamento de dados ─────────────────────────────
+async function syncStorageModal(){
+  // Calcula tamanho aproximado
+  function kb(val){ return val ? (JSON.stringify(val).length/1024).toFixed(1)+' KB' : '—'; }
+
+  var overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99999;display:flex;align-items:center;justify-content:center';
+  overlay.innerHTML=
+    '<div style="background:#fff;border-radius:16px;padding:28px;max-width:420px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.2)">'+
+    '<div style="font-size:15px;font-weight:800;color:#1F4E79;margin-bottom:4px">☁️ Dados na Nuvem</div>'+
+    '<div style="font-size:11px;color:#8a9ab0;margin-bottom:20px">Supabase · conta: '+(sbUser?sbUser.email:'')+'</div>'+
+    '<div id="_syncInfo" style="font-size:12px;color:#607080;margin-bottom:20px">Verificando...</div>'+
+    '<div style="display:flex;flex-direction:column;gap:8px">'+
+    '<button ontouchstart="" id="_syncDelPlan" style="background:#FFF0F0;border:1.5px solid #FFD0D0;color:#C00000;border-radius:8px;padding:10px 14px;cursor:pointer;font-size:13px;font-weight:700;text-align:left">🗑 Apagar planilha salva</button>'+
+    '<button ontouchstart="" id="_syncDelCad" style="background:#FFF0F0;border:1.5px solid #FFD0D0;color:#C00000;border-radius:8px;padding:10px 14px;cursor:pointer;font-size:13px;font-weight:700;text-align:left">🗑 Apagar cadastros (fornecedores/clientes/produtos)</button>'+
+    '<button ontouchstart="" id="_syncDelMapa" style="background:#FFF0F0;border:1.5px solid #FFD0D0;color:#C00000;border-radius:8px;padding:10px 14px;cursor:pointer;font-size:13px;font-weight:700;text-align:left">🗑 Apagar mapa de compras salvo</button>'+
+    '<button ontouchstart="" id="_syncDelAll" style="background:#C00000;border:none;color:#fff;border-radius:8px;padding:10px 14px;cursor:pointer;font-size:13px;font-weight:700;text-align:left">⚠️ Apagar TUDO da nuvem</button>'+
+    '</div>'+
+    '<button ontouchstart="" id="_syncClose" style="margin-top:16px;background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:8px 20px;cursor:pointer;font-size:13px;width:100%">Fechar</button>'+
+    '</div>';
+  document.body.appendChild(overlay);
+
+  // Carregar info
+  var infoEl=document.getElementById('_syncInfo');
+  if(sbSession&&sbUser){
+    var plan=await syncLoadPlanilha();
+    var cads=await syncLoadCadastros();
+    var mapa=await syncLoadMapa();
+    var lines=[];
+    if(plan&&plan.itens) lines.push('📊 Planilha: <b>'+plan.nome+'</b> ('+plan.itens.length+' itens, '+kb(plan.itens)+')');
+    else lines.push('📊 Planilha: <span style="color:#8a9ab0">nenhuma</span>');
+    if(cads){
+      var total=(cads.fornecedores||[]).length+(cads.clientes||[]).length+(cads.produtos||[]).length;
+      lines.push('👥 Cadastros: <b>'+total+' registros</b> ('+kb(cads)+')');
+    } else lines.push('👥 Cadastros: <span style="color:#8a9ab0">nenhum</span>');
+    if(mapa) lines.push('🗂 Mapa: <b>'+(mapa.itens?mapa.itens.length:0)+' itens salvos</b>');
+    else lines.push('🗂 Mapa: <span style="color:#8a9ab0">nenhum</span>');
+    infoEl.innerHTML=lines.join('<br>');
+  } else {
+    infoEl.textContent='Faça login para gerenciar dados da nuvem.';
+    ['_syncDelPlan','_syncDelCad','_syncDelMapa','_syncDelAll'].forEach(function(id){
+      var b=document.getElementById(id); if(b)b.disabled=true;b.style.opacity='.4';
+    });
+  }
+
+  async function delTable(table, extra, msg){
+    if(!confirm('Confirma: '+msg+'?')) return;
+    var path='/rest/v1/'+table+'?user_id=eq.'+sbUser.id+(extra||'');
+    var r=await sbFetch(path,{method:'DELETE'});
+    if(r.ok){ alert('✅ Apagado com sucesso.'); document.body.removeChild(overlay); }
+    else alert('❌ Erro ao apagar.');
+  }
+
+  document.getElementById('_syncDelPlan').addEventListener('click',function(){
+    delTable('user_planilha','','apagar planilha salva');
+    localStorage.removeItem('dashV_lastSheet');
+  });
+  document.getElementById('_syncDelCad').addEventListener('click',function(){
+    delTable('user_cadastros','','apagar todos os cadastros');
+  });
+  document.getElementById('_syncDelMapa').addEventListener('click',function(){
+    delTable('user_mapa','','apagar mapa de compras');
+  });
+  document.getElementById('_syncDelAll').addEventListener('click', async function(){
+    if(!confirm('Apagar TODOS os dados da nuvem? Isso não pode ser desfeito.')) return;
+    await sbFetch('/rest/v1/user_planilha?user_id=eq.'+sbUser.id,{method:'DELETE'});
+    await sbFetch('/rest/v1/user_cadastros?user_id=eq.'+sbUser.id,{method:'DELETE'});
+    await sbFetch('/rest/v1/user_mapa?user_id=eq.'+sbUser.id,{method:'DELETE'});
+    localStorage.removeItem('dashV_lastSheet');
+    alert('✅ Todos os dados da nuvem foram apagados.');
+    document.body.removeChild(overlay);
+  });
+  document.getElementById('_syncClose').addEventListener('click',function(){
+    document.body.removeChild(overlay);
+  });
 }
 
 // ── Hook no initUserUI para disparar sync após login ─────────────

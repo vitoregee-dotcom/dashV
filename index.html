@@ -6001,8 +6001,25 @@ function mapaStep3(el){
     return;
   }
 
+  // Estado do cliente e margem global
+  if(!window._mapaClienteUF) window._mapaClienteUF='SP';
+  if(!window._mapaMargemGlobal) window._mapaMargemGlobal=25;
+
+  var estados=['SP','MG','RJ','ES','PR','SC','RS','MS','MT','GO','DF','BA','SE','AL','PE','PB','RN','CE','PI','MA','PA','AP','AM','RR','RO','TO','AC'];
+  var optsUF=estados.map(function(e){return '<option value="'+e+'"'+(e===window._mapaClienteUF?' selected':'')+'>'+e+'</option>';}).join('');
+
   var html = '<div class="mSection"><div class="mSectionTitle">💰 Preencher Preços por Fornecedor</div>';
-  html += '<p style="font-size:11px;color:#8a9ab0;margin-bottom:8px">Preencha conforme cada fornecedor for respondendo. Pode voltar aqui a qualquer momento para adicionar ou atualizar.</p>';
+  html += '<p style="font-size:11px;color:#8a9ab0;margin-bottom:12px">Preencha conforme cada fornecedor for respondendo. Pode voltar aqui a qualquer momento.</p>';
+
+  // Barra de margem + estado cliente
+  html += '<div style="background:#F0F7FF;border:1.5px solid #BFD9F7;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;gap:20px;flex-wrap:wrap;align-items:center">';
+  html += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:700;color:#1F4E79">🎯 Margem desejada:</span>'+
+    '<input type="number" id="mapaMargemGlobal" value="'+window._mapaMargemGlobal+'" min="1" max="80" step="0.5" style="width:70px;padding:6px 10px;border:1.5px solid #1F4E79;border-radius:7px;font-size:14px;font-weight:700;color:#1F4E79;text-align:center" oninput="window._mapaMargemGlobal=+this.value;mapaStep3(document.getElementById(\'mapaBody\'))">'+
+    '<span style="font-size:12px;color:#607080">%</span>'+
+    '<button ontouchstart="" onclick="mapaAplicarMargemTodos()" style="background:#1F4E79;color:#fff;border:none;border-radius:7px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:700">Aplicar a todos</button></div>';
+  html += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:12px;font-weight:700;color:#1F4E79">📍 Estado do cliente:</span>'+
+    '<select id="mapaClienteUF" onchange="window._mapaClienteUF=this.value;mapaStep3(document.getElementById(\'mapaBody\'))" style="padding:6px 10px;border:1.5px solid #1F4E79;border-radius:7px;font-size:13px;font-weight:700;color:#1F4E79">'+optsUF+'</select></div>';
+  html += '</div>';
   html += '</div>';
 
   // One card per fornecedor
@@ -6061,6 +6078,8 @@ function mapaStep3(el){
       html += '<th style="padding:6px 8px;text-align:right;width:65px">ICMS%</th>';
       html += '<th style="padding:6px 8px;text-align:right;width:65px">ST%</th>';
       html += '<th style="padding:6px 8px;text-align:right;width:110px;color:#1F4E79;font-weight:800">Custo c/imp</th>';
+      html += '<th style="padding:6px 8px;text-align:right;width:60px;color:#607080">Marg%</th>';
+      html += '<th style="padding:6px 8px;text-align:right;width:110px;color:#217a3c;font-weight:800;background:#F0FAF0">Venda Sug.</th>';
       html += '<th style="padding:6px 8px;text-align:center;min-width:80px">Prazo</th>';
       html += '<th style="width:28px"></th>';
       html += '</tr></thead>';
@@ -6138,14 +6157,32 @@ async function mapaLerResposta(input, fid){
 
 function mapaPrecoRow(baseKey,ei,e,custoTotal){
   var safeKey=baseKey.replace(/[^a-z0-9]/gi,'_');
-  var sk='&quot;'+baseKey+'&quot;';  // safe key for onclick
+  var sk='&quot;'+baseKey+'&quot;';
+  // Calcular venda sugerida
+  var vendaSug='—';
+  var vendaColor='#8a9ab0';
+  if(e.preco>0){
+    try{
+      var fornUF='SP'; // fornecedor — usamos ICMS que o fornecedor nos cobra (campo icms da row)
+      var icms_c = (e.icms||0)/100;
+      var icms_v = ICMS_SAIDA[window._mapaClienteUF||'SP']||0.12;
+      var margem = ((e.margem!=null?e.margem:window._mapaMargemGlobal)||25)/100;
+      var r = calcMargemLiq(e.preco, icms_c, (e.ipi||0)/100, (e.st||0)/100*e.preco, icms_v, margem);
+      vendaSug = 'R$ '+r.venda.toFixed(2).replace('.',',');
+      vendaColor = '#217a3c';
+    }catch(ex){}
+  }
+  var margItem = e.margem!=null ? e.margem : (window._mapaMargemGlobal||25);
+
   var html='<tr style="border-bottom:1px solid #e0e8f0" id="row_'+safeKey+'_'+ei+'">';
   html+='<td style="padding:5px 6px"><input type="text" placeholder="ex: CARRARO" value="'+(e.marca||'')+'" oninput="mapaSetEntrada('+sk+','+ei+',&quot;marca&quot;,this.value)" style="width:100%;padding:5px 7px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px"></td>';
-  html+='<td style="padding:5px 6px"><input type="number" step="any" min="0" value="'+(e.preco>0?e.preco:'')+'" placeholder="0,00" oninput="mapaSetEntrada('+sk+','+ei+',&quot;preco&quot;,+this.value);mapaAtualizaCusto('+sk+','+ei+')" class="mPriceInp" style="text-align:right"></td>';
-  html+='<td style="padding:5px 6px"><input type="number" step="0.1" min="0" value="'+(e.ipi||'')+'" placeholder="0" oninput="mapaSetEntrada('+sk+','+ei+',&quot;ipi&quot;,+this.value);mapaAtualizaCusto('+sk+','+ei+')" style="width:100%;padding:5px 7px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
-  html+='<td style="padding:5px 6px"><input type="number" step="0.1" min="0" value="'+(e.icms||'')+'" placeholder="0" oninput="mapaSetEntrada('+sk+','+ei+',&quot;icms&quot;,+this.value)" style="width:100%;padding:5px 7px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
-  html+='<td style="padding:5px 6px"><input type="number" step="0.1" min="0" value="'+(e.st||'')+'" placeholder="0" oninput="mapaSetEntrada('+sk+','+ei+',&quot;st&quot;,+this.value);mapaAtualizaCusto('+sk+','+ei+')" style="width:100%;padding:5px 7px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
+  html+='<td style="padding:5px 6px"><input type="number" step="any" min="0" value="'+(e.preco>0?e.preco:'')+'" placeholder="0,00" oninput="mapaSetEntrada('+sk+','+ei+',&quot;preco&quot;,+this.value);mapaAtualizaCustoVenda('+sk+','+ei+')" class="mPriceInp" style="text-align:right"></td>';
+  html+='<td style="padding:5px 6px"><input type="number" step="0.1" min="0" value="'+(e.ipi||'')+'" placeholder="0" oninput="mapaSetEntrada('+sk+','+ei+',&quot;ipi&quot;,+this.value);mapaAtualizaCustoVenda('+sk+','+ei+')" style="width:100%;padding:5px 7px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
+  html+='<td style="padding:5px 6px"><input type="number" step="0.1" min="0" value="'+(e.icms||'')+'" placeholder="0" oninput="mapaSetEntrada('+sk+','+ei+',&quot;icms&quot;,+this.value);mapaAtualizaCustoVenda('+sk+','+ei+')" style="width:100%;padding:5px 7px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
+  html+='<td style="padding:5px 6px"><input type="number" step="0.1" min="0" value="'+(e.st||'')+'" placeholder="0" oninput="mapaSetEntrada('+sk+','+ei+',&quot;st&quot;,+this.value);mapaAtualizaCustoVenda('+sk+','+ei+')" style="width:100%;padding:5px 7px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
   html+='<td style="padding:5px 8px;text-align:right;font-weight:700;color:#1F4E79" id="custo_'+safeKey+'_'+ei+'">R$ '+(custoTotal>0?custoTotal.toFixed(2):'—')+'</td>';
+  html+='<td style="padding:5px 6px"><input type="number" step="0.5" min="1" max="80" value="'+margItem+'" placeholder="25" oninput="mapaSetEntrada('+sk+','+ei+',&quot;margem&quot;,+this.value);mapaAtualizaCustoVenda('+sk+','+ei+')" style="width:100%;padding:5px 7px;border:1.5px solid #1F4E79;border-radius:6px;font-size:12px;text-align:right;color:#1F4E79;font-weight:700"></td>';
+  html+='<td style="padding:5px 8px;text-align:right;font-weight:800;color:'+vendaColor+';background:#F6FEF6" id="venda_'+safeKey+'_'+ei+'">'+vendaSug+'</td>';
   html+='<td style="padding:5px 6px"><input type="text" placeholder="ex: 7 dias" value="'+(e.prazo||'')+'" oninput="mapaSetEntrada('+sk+','+ei+',&quot;prazo&quot;,this.value)" style="width:100%;padding:5px 7px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:11px"></td>';
   html+='<td style="padding:5px 4px;text-align:center"><button ontouchstart="" onclick="mapaRemoveEntrada('+sk+','+ei+')" style="background:none;border:none;color:#C00000;cursor:pointer;font-size:15px">×</button></td>';
   html+='</tr>';
@@ -6194,12 +6231,40 @@ function mapaSetEntrada(baseKey,ei,field,val){
   if(field==='preco')mapaPrecos[baseKey].preco=val;
 }
 
-function mapaAtualizaCusto(baseKey,ei){
+function mapaAtualizaCustoVenda(baseKey,ei){
   var e=(mapaPrecos[baseKey]&&mapaPrecos[baseKey].entries&&mapaPrecos[baseKey].entries[ei])||{};
-  var custo=( e.preco||0)*(1+(e.ipi||0)/100)*(1+(e.st||0)/100);
   var safeKey=baseKey.replace(/[^a-z0-9]/gi,'_');
-  var el=document.getElementById('custo_'+safeKey+'_'+ei);
-  if(el)el.textContent='R$ '+(custo>0?custo.toFixed(2):'—');
+  // Custo
+  var custoTotal=(e.preco||0)*(1+(e.ipi||0)/100)*(1+(e.st||0)/100);
+  var elCusto=document.getElementById('custo_'+safeKey+'_'+ei);
+  if(elCusto)elCusto.textContent='R$ '+(custoTotal>0?custoTotal.toFixed(2):'—');
+  // Venda sugerida
+  var elVenda=document.getElementById('venda_'+safeKey+'_'+ei);
+  if(elVenda && e.preco>0){
+    try{
+      var icms_c=(e.icms||0)/100;
+      var icms_v=ICMS_SAIDA[window._mapaClienteUF||'SP']||0.12;
+      var margem=((e.margem!=null?e.margem:window._mapaMargemGlobal)||25)/100;
+      var r=calcMargemLiq(e.preco,icms_c,(e.ipi||0)/100,(e.st||0)/100*e.preco,icms_v,margem);
+      elVenda.textContent='R$ '+r.venda.toFixed(2).replace('.',',');
+      elVenda.style.color='#217a3c';
+    }catch(ex){elVenda.textContent='—';}
+  } else if(elVenda){elVenda.textContent='—';}
+}
+
+// Retrocompatibilidade
+function mapaAtualizaCusto(baseKey,ei){ mapaAtualizaCustoVenda(baseKey,ei); }
+
+function mapaAplicarMargemTodos(){
+  var m=parseFloat((document.getElementById('mapaMargemGlobal')||{}).value||25);
+  window._mapaMargemGlobal=m;
+  // Aplica a todas as entries e re-renderiza
+  Object.keys(mapaPrecos).forEach(function(pk){
+    if(pk.startsWith('_'))return;
+    var ents=mapaPrecos[pk].entries||[];
+    ents.forEach(function(e){ e.margem=m; });
+  });
+  mapaStep3(document.getElementById('mapaBody'));
 }
 
 function mapaAddEntrada(baseKey){

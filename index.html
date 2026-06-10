@@ -627,7 +627,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.29</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.30</div>
     </div>
     <div id="pfTopRight">
       <button ontouchstart="" id="btnLeg" onclick="toggleLeg()" style="display:none;background:none;border:1px solid var(--pf-border);color:var(--pf-text-muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px">📋 Legenda</button>
@@ -6359,6 +6359,8 @@ function mapaStep4(el){
 
 
 function mapaOC(fid){
+  // Salva mapa no histórico
+  try{ ferrHistSalvar('mapa', {itens:JSON.parse(JSON.stringify(mapaItens)), decisoes:JSON.parse(JSON.stringify(mapaDecisoes||{})), ts:Date.now()}); }catch(e){}
   var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
   var forn=flist.find(function(f){return f.id===fid;});
   var nome=forn?(forn.fantasia||forn.nome||forn.razao):fid,data=new Date().toLocaleDateString('pt-BR'),num='OC-'+Date.now().toString().slice(-6);
@@ -10451,6 +10453,27 @@ function ferrRender(){
 
 // ── TRANSFERÊNCIA ENCOPEL ─────────────────────────────────────────
 var _trfItens=[], _trfNrCotacao='';
+var _nfDesconto=5; // Cálculo NF: desconto por fora global
+
+// ── HISTÓRICO DE FERRAMENTAS (1 semana) ────────────────────────
+var FERR_HIST_KEY = 'ferrHistorico_v1';
+var FERR_HIST_TTL = 7 * 24 * 60 * 60 * 1000; // 7 dias em ms
+
+function ferrHistSalvar(tipo, dados) {
+  try {
+    var lista = ferrHistCarregar();
+    lista.unshift({ tipo:tipo, dados:dados, ts: Date.now() });
+    // Limpa expirados e mantém max 100
+    lista = lista.filter(function(h){ return Date.now()-h.ts < FERR_HIST_TTL; }).slice(0,100);
+    localStorage.setItem(FERR_HIST_KEY, JSON.stringify(lista));
+  } catch(e) { console.warn('ferrHistSalvar error:', e); }
+}
+function ferrHistCarregar() {
+  try { return JSON.parse(localStorage.getItem(FERR_HIST_KEY)||'[]'); } catch(e) { return []; }
+}
+function ferrHistFmtData(ts) {
+  return new Date(ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
 
 function ferrTransferencia(){
   var el=document.getElementById('ferrBody');
@@ -10475,8 +10498,9 @@ function ferrTransferencia(){
     '<input type="text" id="trfNrCotacao" placeholder="ex: 2516326" style="padding:9px 14px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:14px;font-weight:700;color:#C00000;width:160px" oninput="trfRenderTabela()"></div>'+
     '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
     '<button ontouchstart="" onclick="trfGerarPDF()" id="trfBtnPDF" style="display:none;background:#C00000;color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-size:13px;font-weight:700">📄 Gerar PDF</button>'+
-    '<button ontouchstart="" onclick="trfEnviarEmail()" id="trfBtnEmail" style="display:none;background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-size:13px;font-weight:700">✉️ E-mail</button>'+
+    '<button ontouchstart="" onclick="trfEnviarEmail()" id="trfBtnEmail" style="display:none;background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-size:13px;font-weight:700">✉️ E-mail + CC</button>'+
     '<button ontouchstart="" onclick="trfNovo()" id="trfBtnNovo" style="display:none;background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13px">🗑 Novo</button>'+
+    '<button ontouchstart="" onclick="trfVerHistorico()" style="background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:12px">📋 Histórico</button>'+
     '</div></div></div>'+
     '<div id="trfTabela"></div></div>';
   var pa=document.getElementById('trfPasteArea');
@@ -10533,6 +10557,46 @@ async function trfLerArquivo(file){
   }catch(e){if(status)status.innerHTML='<span style="color:#C00000">❌ '+e.message+'</span>';}
 }
 function trfNovo(){_trfItens=[];_trfNrCotacao='';var s=document.getElementById('trfStatus');if(s)s.textContent='';['trfBtnPDF','trfBtnEmail','trfBtnNovo'].forEach(function(id){var b=document.getElementById(id);if(b)b.style.display='none';});trfRenderTabela();}
+
+// ── Histórico de Transferências ──────────────────────────────────
+function trfVerHistorico(){
+  var el=document.getElementById('ferrBody');if(!el)return;
+  var lista=ferrHistCarregar().filter(function(h){return h.tipo==='transferencia';});
+  var html='<div style="width:100%">'+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
+    '<button ontouchstart="" onclick="ferrTransferencia()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">← Voltar</button>'+
+    '<div style="font-size:16px;font-weight:800;color:#C00000">📋 Histórico de Transferências</div></div>';
+  if(!lista.length){
+    html+='<div style="background:#fff;border-radius:12px;padding:40px;text-align:center;color:#8a9ab0;font-size:13px">Nenhuma transferência salva ainda.</div>';
+  } else {
+    html+='<div style="display:flex;flex-direction:column;gap:10px">';
+    lista.forEach(function(h,i){
+      var d=h.dados;
+      html+='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">'+
+        '<div style="flex:1;min-width:180px">'+
+        '<div style="font-size:12px;font-weight:800;color:#C00000">'+(d.nr?'Pedido TRIEX: '+d.nr:'Sem nº pedido')+'</div>'+
+        '<div style="font-size:11px;color:#607080;margin-top:2px">'+(d.cot?'Cotação ENCOPEL: '+d.cot+' · ':'')+(d.itens?d.itens.length:0)+' iten(s) · R$ '+(d.total||0).toFixed(2).replace('.',',')+'</div>'+
+        '<div style="font-size:10px;color:#aaa;margin-top:2px">'+ferrHistFmtData(h.ts)+'</div>'+
+        '</div>'+
+        '<button ontouchstart="" onclick="trfCarregarHist('+i+')" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:7px 16px;cursor:pointer;font-size:12px;font-weight:700">↩ Carregar</button>'+
+        '</div>';
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+  el.innerHTML=html;
+}
+function trfCarregarHist(i){
+  var lista=ferrHistCarregar().filter(function(h){return h.tipo==='transferencia';});
+  var h=lista[i];if(!h)return;
+  _trfItens=h.dados.itens||[];_trfNrCotacao=h.dados.cot||'';
+  ferrTransferencia();
+  setTimeout(function(){
+    var p=document.getElementById('trfNrPedido');if(p&&h.dados.nr)p.value=h.dados.nr;
+    var c=document.getElementById('trfNrCotacao');if(c&&h.dados.cot)c.value=h.dados.cot;
+    trfRenderTabela();
+  },100);
+}
 function trfGerarPDF(){
   if(!_trfItens.length)return;
   var nr=(document.getElementById('trfNrPedido')||{}).value||'';
@@ -10553,12 +10617,19 @@ function trfEnviarEmail(){
   var cot=(document.getElementById('trfNrCotacao')||{}).value||_trfNrCotacao||'';
   var totalGeral=0,lista='';
   _trfItens.forEach(function(it,i){var t=it.qtd*it.unitario;totalGeral+=t;lista+=(i+1)+'. '+it.ref+' - '+it.desc+' | '+it.marca+' | Qtd: '+it.qtd+' | R$ '+it.unitario.toFixed(2).replace('.',',')+'\n';});
+  // Salva no histórico antes de enviar
+  ferrHistSalvar('transferencia', {nr:nr, cot:cot, itens:JSON.parse(JSON.stringify(_trfItens)), total:totalGeral});
+  var assunto='ENC: TRANSFERÊNCIA ENCOPEL X TRIEX'+(nr?' — PEDIDO: '+nr:'');
+  var corpo='Por favor transferir os itens abaixo.\n\n'+(nr?'PEDIDO TRIEX: '+nr+'\n':'')+(cot?'COTAÇÃO ENCOPEL: '+cot+'\n':'')+'\nITENS (IMEDIATO):\n'+lista+'\nTOTAL: R$ '+totalGeral.toFixed(2).replace('.',',')+' ('+_trfItens.length+' itens)\n\nAtt,\nVitor Lima\nTriex';
+  // Abre email com CC para estoque
+  var dest='compras@triexpecas.com.br';
+  var cc='estoque@triexpecas.com.br';
+  var mailto='mailto:'+dest+'?cc='+encodeURIComponent(cc)+'&subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(corpo);
+  // Gera PDF e abre email
   trfGerarPDF();
-  setTimeout(function(){
-    var assunto='ENC: TRANSFERÊNCIA ENCOPEL X TRIEX'+(nr?' — PEDIDO: '+nr:'');
-    var corpo='Por favor transferir os itens abaixo.\n\n'+(nr?'PEDIDO TRIEX: '+nr+'\n':'')+(cot?'COTAÇÃO ENCOPEL: '+cot+'\n':'')+'\nITENS (IMEDIATO):\n'+lista+'\nTOTAL: R$ '+totalGeral.toFixed(2).replace('.',',')+' ('+_trfItens.length+' itens)\n\nAtt,\nVitor Lima\nTriex';
-    window.location.href='mailto:compras@triex.com.br?subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(corpo);
-  },800);
+  setTimeout(function(){ window.open(mailto,'_blank'); },800);
+  var btn=document.getElementById('trfBtnEmail');
+  if(btn){btn.textContent='✅ Enviado';btn.style.background='#27AE60';setTimeout(function(){btn.textContent='✉️ E-mail';btn.style.background='#1F4E79';},4000);}
 }
 
 // ── ME AVISE QUANDO CHEGAR ────────────────────────────────────────
@@ -10774,7 +10845,7 @@ function ferrNFBaixa(){
 
 function nfDescontoChange(v){
   _nfDesconto=parseInt(v);
-  document.getElementById('nfDescontoVal').textContent=v+'%';
+  var el=document.getElementById('nfDescontoVal'); if(el) el.textContent=v+'%';
   nfRenderTabela();
 }
 
@@ -10828,6 +10899,8 @@ function nfRenderTabela(){
     el.innerHTML='<div style="text-align:center;padding:40px;color:#8a9ab0;font-size:13px">Carregue um PDF de cotação para calcular.</div>';
     return;
   }
+  // Salva no histórico
+  try{ ferrHistSalvar('nf', {itens:JSON.parse(JSON.stringify(_nfItens)), desconto:_nfDesconto}); }catch(e){}
 
   var totalNF=0, totalFF=0, totalGeral=0;
 
@@ -10888,7 +10961,7 @@ function nfRenderTabela(){
 
 function nfNovoCalculo(){
   _nfItens=[];
-  _nfDesconto=5;
+  if(typeof _nfDesconto==='undefined'||isNaN(_nfDesconto)) _nfDesconto=5;
   var slider=document.getElementById('nfDescontoSlider');
   if(slider)slider.value=5;
   var val=document.getElementById('nfDescontoVal');

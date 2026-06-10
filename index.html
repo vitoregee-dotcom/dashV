@@ -10413,11 +10413,323 @@ function ferrRender(){
   grid.appendChild(c);
 }
 
-// ── Modalidade Especial ─────────────────────────────────────────────────────
-var _nfItens = []; // items loaded from PDF
-var _nfDesconto = 5; // % desconto sem PPL
+// ── Atalhos de teclado ────────────────────────────────────────────
+(function(){
+  document.addEventListener('keydown', function(e){
+    // ESC — volta para ferramentas ou dashboard
+    if(e.key==='Escape'){
+      if(currentView==='ferramentas'){
+        var fb=document.getElementById('ferrBody');
+        if(fb && fb.querySelector('button') && fb.innerHTML.indexOf('← Voltar')>=0){
+          ferrRender(); return;
+        }
+      }
+      if(currentView==='mapa'||currentView==='ferramentas'||currentView==='cadastros'){
+        pfNavigate('dash'); return;
+      }
+    }
+    // Alt + tecla — atalhos das ferramentas
+    if(!e.altKey) return;
+    switch(e.key.toLowerCase()){
+      case 'm': e.preventDefault(); pfNavigate('mapa'); break;
+      case 'n': e.preventDefault(); if(currentView==='ferramentas'){ferrNFBaixa();} break;
+      case 'g': e.preventDefault(); if(currentView==='ferramentas'){ferrMargem();} break;
+      case 't': e.preventDefault(); if(currentView==='ferramentas'){ferrTransferencia();} break;
+      case 'a': e.preventDefault(); if(currentView==='ferramentas'){ferrMeAvise();} break;
+      case 'f': e.preventDefault(); pfNavigate('ferramentas'); break;
+      case 'c': e.preventDefault(); pfNavigate('cadastros'); break;
+      case 'd': e.preventDefault(); pfNavigate('dash'); break;
+    }
+  });
+})();
 
-function ferrNFBaixa(){
+// ── TRANSFERÊNCIA ENCOPEL ─────────────────────────────────────────
+var _trfItens=[], _trfNrCotacao='';
+
+function ferrTransferencia(){
+  var el=document.getElementById('ferrBody');
+  if(!el)return;
+  el.innerHTML=
+    '<div style="width:100%">'+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">'+
+    '<button ontouchstart="" onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">← Voltar <kbd style="font-size:9px;background:#f0f4f8;padding:1px 5px;border-radius:3px">Esc</kbd></button>'+
+    '<div style="font-size:16px;font-weight:800;color:#C00000">📦 Transferência Encopel</div>'+
+    '</div>'+
+    '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:20px;margin-bottom:20px">'+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #f0f4f8">'+
+    '<label ontouchstart="" style="background:#C00000;color:#fff;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px">'+
+    '📎 Carregar PDF<input type="file" accept="application/pdf,image/*" style="display:none" onchange="trfLerPDF(this)"></label>'+
+    '<div id="trfPasteArea" style="display:inline-flex"></div>'+
+    '<div id="trfStatus" style="font-size:11px;color:#8a9ab0"></div>'+
+    '</div>'+
+    '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end">'+
+    '<div><div style="font-size:11px;color:#607080;margin-bottom:4px">Nº PEDIDO TRIEX</div>'+
+    '<input type="text" id="trfNrPedido" placeholder="ex: 365121" style="padding:9px 14px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:14px;font-weight:700;color:#1F4E79;width:160px" oninput="trfRenderTabela()"></div>'+
+    '<div><div style="font-size:11px;color:#607080;margin-bottom:4px">Nº COTAÇÃO ENCOPEL</div>'+
+    '<input type="text" id="trfNrCotacao" placeholder="ex: 2516326" style="padding:9px 14px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:14px;font-weight:700;color:#C00000;width:160px" oninput="trfRenderTabela()"></div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+    '<button ontouchstart="" onclick="trfGerarPDF()" id="trfBtnPDF" style="display:none;background:#C00000;color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-size:13px;font-weight:700">📄 Gerar PDF</button>'+
+    '<button ontouchstart="" onclick="trfEnviarEmail()" id="trfBtnEmail" style="display:none;background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-size:13px;font-weight:700">✉️ E-mail</button>'+
+    '<button ontouchstart="" onclick="trfNovo()" id="trfBtnNovo" style="display:none;background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13px">🗑 Novo</button>'+
+    '</div></div></div>'+
+    '<div id="trfTabela"></div></div>';
+  var pa=document.getElementById('trfPasteArea');
+  if(pa&&typeof mkPasteBtn==='function')pa.appendChild(mkPasteBtn('Colar Print',function(f){trfLerArquivo(f);}));
+  window._activePasteHandler=function(f){trfLerArquivo(f);};
+  trfRenderTabela();
+}
+
+function trfRenderTabela(){
+  var el=document.getElementById('trfTabela');if(!el)return;
+  if(!_trfItens.length){el.innerHTML='<div style="text-align:center;padding:40px;color:#8a9ab0;font-size:13px">Carregue um PDF de cotação ENCOPEL.<br><small>Apenas itens IMEDIATO serão incluídos.</small></div>';return;}
+  var nr=(document.getElementById('trfNrPedido')||{}).value||'';
+  var cot=(document.getElementById('trfNrCotacao')||{}).value||_trfNrCotacao||'';
+  var hoje=new Date().toLocaleDateString('pt-BR');
+  var totalGeral=0;
+  var html='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow-x:auto"><div style="padding:12px 16px;border-bottom:1px solid #e0e8f0;display:flex;gap:14px;flex-wrap:wrap;align-items:center">';
+  html+='<b style="color:#C00000">'+_trfItens.length+' iten(s) IMEDIATO</b>';
+  if(nr)html+='<span style="font-size:12px;color:#607080">Pedido TRIEX: <b style="color:#1F4E79">'+nr+'</b></span>';
+  if(cot)html+='<span style="font-size:12px;color:#607080">Cotação: <b style="color:#C00000">'+cot+'</b></span>';
+  html+='<span style="font-size:12px;color:#607080">'+hoje+'</span></div>';
+  html+='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#1F4E79;color:#fff">';
+  html+='<th style="padding:8px;width:36px">Item</th><th style="padding:8px;width:50px">Qtde</th><th style="padding:8px;text-align:left">Código — Descrição</th><th style="padding:8px;width:90px">Marca</th><th style="padding:8px;width:70px">Prazo</th><th style="padding:8px;text-align:right;width:80px">Unit.</th><th style="padding:8px;text-align:right;width:90px">Total</th></tr></thead><tbody>';
+  _trfItens.forEach(function(item,i){
+    var total=(item.qtd||0)*(item.unitario||0); totalGeral+=total;
+    html+='<tr style="border-bottom:1px solid #f0f4f8;background:'+(i%2===0?'#fff':'#FAFBFC')+'">';
+    html+='<td style="padding:8px;text-align:center;font-weight:700;color:#1F4E79">'+(i+1)+'</td>';
+    html+='<td style="padding:8px;text-align:center">'+item.qtd+'</td>';
+    html+='<td style="padding:8px"><b style="color:#1F4E79;font-family:monospace">'+item.ref+'</b> — '+item.desc+'</td>';
+    html+='<td style="padding:8px;color:#607080">'+item.marca+'</td>';
+    html+='<td style="padding:8px;text-align:center"><span style="background:#E2EFDA;color:#375623;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700">IMEDIATO</span></td>';
+    html+='<td style="padding:8px;text-align:right">R$ '+item.unitario.toFixed(2).replace('.',',')+'</td>';
+    html+='<td style="padding:8px;text-align:right;font-weight:700">R$ '+total.toFixed(2).replace('.',',')+'</td></tr>';
+  });
+  html+='<tr style="background:#1F4E79;color:#fff;font-weight:800"><td colspan="6" style="padding:9px 8px">TOTAL</td><td style="padding:9px 8px;text-align:right">R$ '+totalGeral.toFixed(2).replace('.',',')+'</td></tr>';
+  html+='</tbody></table></div>';
+  el.innerHTML=html;
+  ['trfBtnPDF','trfBtnEmail','trfBtnNovo'].forEach(function(id){var b=document.getElementById(id);if(b)b.style.display='inline-flex';});
+}
+
+async function trfLerPDF(input){if(input.files[0])trfLerArquivo(input.files[0]);}
+async function trfLerArquivo(file){
+  var status=document.getElementById('trfStatus');
+  if(status)status.innerHTML='<span style="color:#1F4E79">🤖 Lendo cotação...</span>';
+  try{
+    var txt=await _anthropicReadDoc(file,'Esta é uma cotação da ENCOPEL. Extraia: 1) Nr. Cotação. 2) SOMENTE itens IMEDIATO ou IMEDIATO*. JSON: {"nr_cotacao":"","itens":[{"ref":"","desc":"","marca":"","qtd":1,"unitario":0}]}. ref=código antes do traço. Sem markdown.');
+    var m=txt.match(/\{[\s\S]*/);if(m)txt=m[0];
+    var parsed;try{parsed=JSON.parse(txt);}catch(e){var m2=txt.match(/\[[\s\S]*/);if(m2)parsed={itens:JSON.parse(m2[0])};else throw new Error('Resposta inválida');}
+    _trfNrCotacao=parsed.nr_cotacao||'';
+    _trfItens=(parsed.itens||parsed).map(function(it){return{ref:(it.ref||'').toString().toUpperCase().trim(),desc:(it.desc||'').toUpperCase(),marca:(it.marca||'').toUpperCase(),qtd:parseFloat(it.qtd)||1,unitario:parseFloat(it.unitario)||0};}).filter(function(it){return it.ref;});
+    if(!_trfItens.length)throw new Error('Nenhum item IMEDIATO encontrado');
+    if(_trfNrCotacao){var ce=document.getElementById('trfNrCotacao');if(ce)ce.value=_trfNrCotacao;}
+    if(status)status.innerHTML='<span style="color:#27AE60">✅ '+_trfItens.length+' iten(s)'+(_trfNrCotacao?' · Cotação '+_trfNrCotacao:'')+'</span>';
+    trfRenderTabela();
+  }catch(e){if(status)status.innerHTML='<span style="color:#C00000">❌ '+e.message+'</span>';}
+}
+function trfNovo(){_trfItens=[];_trfNrCotacao='';var s=document.getElementById('trfStatus');if(s)s.textContent='';['trfBtnPDF','trfBtnEmail','trfBtnNovo'].forEach(function(id){var b=document.getElementById(id);if(b)b.style.display='none';});trfRenderTabela();}
+function trfGerarPDF(){
+  if(!_trfItens.length)return;
+  var nr=(document.getElementById('trfNrPedido')||{}).value||'';
+  var cot=(document.getElementById('trfNrCotacao')||{}).value||_trfNrCotacao||'';
+  var hoje=new Date().toLocaleDateString('pt-BR');
+  var totalGeral=0,linhas='';
+  _trfItens.forEach(function(it,i){var t=it.qtd*it.unitario;totalGeral+=t;linhas+='<tr style="border-bottom:1px solid #eee;background:'+(i%2===0?'#fff':'#fafafa')+'"><td style="padding:6px 8px;text-align:center">'+(i+1)+'</td><td style="padding:6px 8px;text-align:center">'+it.qtd.toFixed(2)+'</td><td style="padding:6px 8px;font-family:monospace;font-size:10px"><b>'+it.ref+'</b> - '+it.desc+'</td><td style="padding:6px 8px">'+it.marca+'</td><td style="padding:6px 8px;text-align:center">IMEDIATO</td><td style="padding:6px 8px;text-align:right">'+it.unitario.toFixed(2).replace('.',',')+'</td><td style="padding:6px 8px;text-align:right;font-weight:700">'+t.toFixed(2).replace('.',',')+'</td></tr>';});
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Transferência'+(nr?' — Pedido '+nr:'')+'</title><style>body{font-family:Arial,sans-serif;margin:20px;font-size:11px}table{width:100%;border-collapse:collapse}th{background:#C00000;color:#fff;padding:8px}@media print{body{margin:10px}}</style></head><body>'+
+    '<div style="display:flex;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #C00000"><div><div style="font-size:20px;font-weight:900;color:#C00000">TRIEX</div></div>'+
+    '<div style="text-align:right"><b style="color:#1F4E79">SOLICITAÇÃO DE TRANSFERÊNCIA</b><div style="font-size:9px">'+hoje+'</div>'+(nr?'<div style="color:#1F4E79;font-weight:700">Pedido TRIEX: '+nr+'</div>':'')+(cot?'<div style="color:#C00000;font-weight:700">Cotação ENCOPEL: '+cot+'</div>':'')+
+    '</div></div><table><thead><tr><th>Item</th><th>Qtde</th><th>Código — Descrição</th><th>Marca</th><th>Prazo</th><th>Unit.</th><th>Total</th></tr></thead><tbody>'+linhas+
+    '<tr style="background:#C00000;color:#fff;font-weight:800"><td colspan="6" style="padding:8px">TOTAL ('+_trfItens.length+' itens)</td><td style="padding:8px;text-align:right">R$ '+totalGeral.toFixed(2).replace('.',',')+'</td></tr></tbody></table></body></html>';
+  var win=window.open('','_blank');win.document.write(html);win.document.close();setTimeout(function(){win.print();},600);
+}
+function trfEnviarEmail(){
+  if(!_trfItens.length)return;
+  var nr=(document.getElementById('trfNrPedido')||{}).value||'';
+  var cot=(document.getElementById('trfNrCotacao')||{}).value||_trfNrCotacao||'';
+  var totalGeral=0,lista='';
+  _trfItens.forEach(function(it,i){var t=it.qtd*it.unitario;totalGeral+=t;lista+=(i+1)+'. '+it.ref+' - '+it.desc+' | '+it.marca+' | Qtd: '+it.qtd+' | R$ '+it.unitario.toFixed(2).replace('.',',')+'\n';});
+  trfGerarPDF();
+  setTimeout(function(){
+    var assunto='ENC: TRANSFERÊNCIA ENCOPEL X TRIEX'+(nr?' — PEDIDO: '+nr:'');
+    var corpo='Por favor transferir os itens abaixo.\n\n'+(nr?'PEDIDO TRIEX: '+nr+'\n':'')+(cot?'COTAÇÃO ENCOPEL: '+cot+'\n':'')+'\nITENS (IMEDIATO):\n'+lista+'\nTOTAL: R$ '+totalGeral.toFixed(2).replace('.',',')+' ('+_trfItens.length+' itens)\n\nAtt,\nVitor Lima\nTriex';
+    window.location.href='mailto:compras@triex.com.br?subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(corpo);
+  },800);
+}
+
+// ── ME AVISE QUANDO CHEGAR ────────────────────────────────────────
+function ferrMeAvise(){
+  var el=document.getElementById('ferrBody');if(!el)return;
+  function render(){
+    var avisos=[];try{avisos=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
+    var html='<div style="width:100%">'+
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
+      '<button ontouchstart="" onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">← Voltar <kbd style="font-size:9px;background:#f0f4f8;padding:1px 5px;border-radius:3px">Esc</kbd></button>'+
+      '<div style="font-size:16px;font-weight:800;color:#E67E22">🔔 Me Avise quando Chegar</div></div>'+
+      '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:18px;margin-bottom:16px">'+
+      '<div style="font-size:12px;color:#607080;margin-bottom:10px">Adicionar item para monitorar:</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+      '<input id="maRef" placeholder="Referência" style="flex:1;min-width:100px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px">'+
+      '<input id="maDesc" placeholder="Descrição" style="flex:2;min-width:140px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px">'+
+      '<input id="maQtd" placeholder="Qtd" type="number" min="1" style="width:70px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px">'+
+      '<button ontouchstart="" onclick="maAdicionar()" style="background:#E67E22;color:#fff;border:none;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:13px;font-weight:700">+ Adicionar</button>'+
+      '</div></div>'+
+      '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden">';
+    if(!avisos.length){html+='<div style="padding:32px;text-align:center;color:#8a9ab0">Nenhum item monitorado.</div>';}
+    else{
+      html+='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#1F4E79;color:#fff"><th style="padding:8px;text-align:left">Referência</th><th style="padding:8px;text-align:left">Descrição</th><th style="padding:8px;text-align:center">Qtd</th><th style="padding:8px;text-align:center">Status</th><th style="padding:8px;text-align:center">Ação</th></tr></thead><tbody>';
+      avisos.forEach(function(a,i){
+        html+='<tr style="border-bottom:1px solid #f0f4f8;background:'+(i%2===0?'#fff':'#FAFBFC')+'">';
+        html+='<td style="padding:8px;font-weight:700;color:#1F4E79;font-family:monospace">'+a.ref+'</td>';
+        html+='<td style="padding:8px">'+a.desc+'</td>';
+        html+='<td style="padding:8px;text-align:center">'+a.qtd+'</td>';
+        html+='<td style="padding:8px;text-align:center"><span style="background:#FFF3CD;color:#856404;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700">⏳ Aguardando</span></td>';
+        html+='<td style="padding:8px;text-align:center"><button ontouchstart="" onclick="maRemover('+i+')" style="background:none;border:1px solid #e0e8f0;color:#C00000;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px">🗑</button></td></tr>';
+      });
+      html+='</tbody></table>';
+    }
+    html+='</div></div>';
+    el.innerHTML=html;
+  }
+  render();
+  window.maAdicionar=function(){
+    var ref=(document.getElementById('maRef').value||'').trim().toUpperCase();
+    var desc=(document.getElementById('maDesc').value||'').trim();
+    var qtd=parseInt(document.getElementById('maQtd').value)||1;
+    if(!ref){alert('Informe a referência.');return;}
+    var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
+    lista.push({ref:ref,desc:desc,qtd:qtd,ts:Date.now()});
+    localStorage.setItem('meAvise_lista',JSON.stringify(lista));
+    render();
+  };
+  window.maRemover=function(i){
+    var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
+    lista.splice(i,1);localStorage.setItem('meAvise_lista',JSON.stringify(lista));render();
+  };
+}
+
+// ── CALCULADORA DE MARGEM ─────────────────────────────────────────
+var COFINS_PCT=0.076, PIS_PCT=0.0165;
+var ICMS_SAIDA={'SP':0.18,'MG':0.12,'RJ':0.12,'ES':0.12,'PR':0.12,'SC':0.12,'RS':0.12,'MS':0.12,'MT':0.12,'GO':0.12,'DF':0.12,'BA':0.12,'SE':0.12,'AL':0.12,'PE':0.12,'PB':0.12,'RN':0.12,'CE':0.12,'PI':0.12,'MA':0.12,'PA':0.12,'AP':0.12,'AM':0.12,'RR':0.12,'RO':0.12,'TO':0.12,'AC':0.12};
+var ICMS_ENTRADA={'SP':0.18,'MG':0.12,'RJ':0.12,'ES':0.12,'PR':0.12,'SC':0.12,'RS':0.12,'MS':0.12,'MT':0.12,'GO':0.12,'DF':0.12,'BA':0.12,'SE':0.12,'AL':0.07,'PE':0.07,'PB':0.07,'RN':0.07,'CE':0.07,'PI':0.07,'MA':0.07,'PA':0.07,'AP':0.07,'AM':0.07,'RR':0.07,'RO':0.07,'TO':0.07,'AC':0.07};
+
+function calcMargemLiq(custo,icms_c,ipi_pct,st_val,icms_v,margem){
+  var cofins_c=(custo-custo*icms_c)*COFINS_PCT, pis_c=(custo-custo*icms_c)*PIS_PCT;
+  var liq_custo=custo-cofins_c-pis_c-custo*icms_c+custo*ipi_pct+st_val;
+  var fator=1-COFINS_PCT*(1-icms_v)-PIS_PCT*(1-icms_v)-icms_v;
+  var venda=liq_custo/(fator-margem);
+  var liq_venda=venda*fator;
+  return{venda:venda,markup:(liq_venda/liq_custo-1)*100,margem_liq:margem*100,margem_bruta:venda/(custo+custo*ipi_pct+st_val),liq_custo:liq_custo,liq_venda:liq_venda};
+}
+
+function ferrMargem(){
+  var el=document.getElementById('ferrBody');if(!el)return;
+  var estados=['SP','MG','RJ','ES','PR','SC','RS','MS','MT','GO','DF','BA','SE','AL','PE','PB','RN','CE','PI','MA','PA','AP','AM','RR','RO','TO','AC'];
+  var optsUF=function(sel){return estados.map(function(e){return'<option value="'+e+'"'+(e===sel?' selected':'')+'>'+e+'</option>';}).join('');};
+  el.innerHTML=
+    '<div style="width:100%">'+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">'+
+    '<button ontouchstart="" onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">← Voltar <kbd style="font-size:9px;background:#f0f4f8;padding:1px 5px;border-radius:3px">Esc</kbd></button>'+
+    '<div style="font-size:16px;font-weight:800;color:#1F4E79">📊 Calculadora de Margem</div></div>'+
+    '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:20px;margin-bottom:16px">'+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #f0f4f8">'+
+    '<span style="font-size:11px;font-weight:700;color:#607080">IMPORTAR:</span>'+
+    '<label ontouchstart="" style="background:#1F4E79;color:#fff;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px">'+
+    '📎 PDF / Imagem<input type="file" accept="application/pdf,image/*" style="display:none" onchange="mgLerPDF(this)"></label>'+
+    '<div id="mgPasteArea" style="display:inline-flex"></div>'+
+    '<span id="mgStatus" style="font-size:11px;color:#8a9ab0"></span></div>'+
+    '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">'+
+    '<div><div style="font-size:11px;color:#607080;margin-bottom:4px">Fornecedor (UF)</div>'+
+    '<select id="mgFornUF" onchange="mgRecalcAll()" style="padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;font-weight:700">'+optsUF('SP')+'</select></div>'+
+    '<div><div style="font-size:11px;color:#607080;margin-bottom:4px">Cliente (UF)</div>'+
+    '<select id="mgClienteUF" onchange="mgRecalcAll()" style="padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#1F4E79">'+optsUF('SP')+'</select></div>'+
+    '<div><div style="font-size:11px;color:#607080;margin-bottom:4px">Margem global (%)</div>'+
+    '<div style="display:flex;align-items:center;gap:8px">'+
+    '<input type="number" id="mgMargemGlobal" value="25" min="1" max="80" step="0.5" style="width:72px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:14px;font-weight:700;color:#1F4E79" oninput="mgRecalcAll()">'+
+    '<span style="font-size:12px;color:#607080">%</span>'+
+    '<button ontouchstart="" onclick="mgAplicarTodos()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:12px;font-weight:700">Aplicar a todos</button>'+
+    '</div></div></div></div>'+
+    '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow-x:auto;margin-bottom:14px"><div id="mgTabela"></div></div>'+
+    '<button ontouchstart="" onclick="mgAdicionarItem()" style="background:none;border:2px dashed #e0e8f0;color:#1F4E79;border-radius:10px;padding:12px;width:100%;cursor:pointer;font-size:13px;font-weight:700">+ Adicionar item manualmente</button>'+
+    '</div>';
+  var pa=document.getElementById('mgPasteArea');
+  if(pa&&typeof mkPasteBtn==='function')pa.appendChild(mkPasteBtn('Colar Print',function(f){mgLerArquivo(f);}));
+  window._activePasteHandler=function(f){mgLerArquivo(f);};
+  if(!window._mgItens)window._mgItens=[];
+  mgRenderTabela();
+}
+
+function mgLerPDF(input){if(input.files[0])mgLerArquivo(input.files[0]);}
+async function mgLerArquivo(file){
+  var status=document.getElementById('mgStatus');
+  if(status)status.innerHTML='<span style="color:#1F4E79">🤖 Lendo...</span>';
+  try{
+    var txt=await _anthropicReadDoc(file,'Extraia itens desta cotação. JSON array: [{"ref":"","desc":"","marca":"","qtd":1,"preco":0,"ipi_pct":0,"st_val":0}]. preco=unitário sem impostos. ipi_pct=% IPI (ex:7.8). Sem markdown.');
+    var m=txt.match(/\[[\s\S]*/);if(m)txt=m[0];
+    var itens=JSON.parse(txt);
+    var mglobal=parseFloat((document.getElementById('mgMargemGlobal')||{}).value||25)/100;
+    if(!window._mgItens)window._mgItens=[];
+    itens.forEach(function(it){window._mgItens.push({ref:(it.ref||'').toString().toUpperCase().trim(),desc:(it.desc||'').toUpperCase(),marca:(it.marca||'').toUpperCase(),custo:parseFloat(it.preco)||0,ipi_pct:(parseFloat(it.ipi_pct)||0)/100,st_val:parseFloat(it.st_val)||0,margem:mglobal});});
+    if(status)status.innerHTML='<span style="color:#27AE60">✅ '+itens.length+' itens</span>';
+    mgRenderTabela();
+  }catch(e){if(status)status.innerHTML='<span style="color:#C00000">❌ '+e.message+'</span>';}
+}
+function mgRecalcAll(){mgRenderTabela();}
+function mgAplicarTodos(){var m=parseFloat((document.getElementById('mgMargemGlobal')||{}).value||25)/100;(window._mgItens||[]).forEach(function(it){it.margem=m;});mgRenderTabela();}
+function mgAdicionarItem(){if(!window._mgItens)window._mgItens=[];var m=parseFloat((document.getElementById('mgMargemGlobal')||{}).value||25)/100;window._mgItens.push({ref:'REF',desc:'Descrição',marca:'',custo:0,ipi_pct:0,st_val:0,margem:m});mgRenderTabela();}
+function mgRemItem(i){if(window._mgItens)window._mgItens.splice(i,1);mgRenderTabela();}
+function mgSetCusto(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].custo=parseFloat(v)||0;mgRenderTabela();}
+function mgSetIpi(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].ipi_pct=(parseFloat(v)||0)/100;mgRenderTabela();}
+function mgSetSt(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].st_val=parseFloat(v)||0;mgRenderTabela();}
+function mgSetMargem(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].margem=(parseFloat(v)||25)/100;mgRenderTabela();}
+
+function mgRenderTabela(){
+  var el=document.getElementById('mgTabela');if(!el)return;
+  var itens=window._mgItens||[];
+  if(!itens.length){el.innerHTML='<div style="padding:28px;text-align:center;color:#8a9ab0;font-size:13px">Nenhum item. Importe um PDF ou adicione manualmente.</div>';return;}
+  var fornUF=(document.getElementById('mgFornUF')||{}).value||'SP';
+  var clienteUF=(document.getElementById('mgClienteUF')||{}).value||'SP';
+  var html='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#1F4E79;color:#fff">';
+  html+='<th style="padding:8px;text-align:left">Ref</th><th style="padding:8px;text-align:left">Descrição</th>';
+  html+='<th style="padding:8px;text-align:right;width:80px">Custo</th><th style="padding:8px;text-align:right;width:54px">IPI%</th>';
+  html+='<th style="padding:8px;text-align:right;width:60px">ST R$</th><th style="padding:8px;text-align:right;width:54px">Marg%</th>';
+  html+='<th style="padding:8px;text-align:right;width:100px;background:#1B5E20">Venda Sug.</th>';
+  html+='<th style="padding:8px;text-align:right;width:70px">Markup</th><th style="padding:8px;text-align:center;width:40px">✕</th>';
+  html+='</tr></thead><tbody>';
+  itens.forEach(function(item,i){
+    var icms_c=ICMS_ENTRADA[fornUF]||0.12, icms_v=ICMS_SAIDA[clienteUF]||0.12;
+    var r={venda:0,markup:0};
+    try{r=calcMargemLiq(item.custo,icms_c,item.ipi_pct,item.st_val,icms_v,item.margem);}catch(e){}
+    var bg=i%2===0?'#fff':'#FAFBFC';
+    html+='<tr style="border-bottom:1px solid #f0f4f8;background:'+bg+'">';
+    html+='<td style="padding:7px 8px;font-family:monospace;font-weight:700;color:#1F4E79">'+item.ref+'</td>';
+    html+='<td style="padding:7px 8px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.desc+'</td>';
+    html+='<td style="padding:7px 8px;text-align:right"><input type="number" value="'+item.custo+'" step="0.01" min="0" onchange="mgSetCusto('+i+',this.value)" style="width:72px;padding:3px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
+    html+='<td style="padding:7px 8px;text-align:right"><input type="number" value="'+(item.ipi_pct*100).toFixed(1)+'" step="0.1" min="0" onchange="mgSetIpi('+i+',this.value)" style="width:50px;padding:3px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
+    html+='<td style="padding:7px 8px;text-align:right"><input type="number" value="'+item.st_val+'" step="0.01" min="0" onchange="mgSetSt('+i+',this.value)" style="width:56px;padding:3px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
+    html+='<td style="padding:7px 8px;text-align:right"><input type="number" value="'+(item.margem*100).toFixed(1)+'" step="0.5" min="1" max="80" onchange="mgSetMargem('+i+',this.value)" style="width:50px;padding:3px 6px;border:1.5px solid #1F4E79;border-radius:6px;font-size:12px;text-align:right;color:#1F4E79;font-weight:700"></td>';
+    html+='<td style="padding:7px 8px;text-align:right;font-weight:800;color:'+(r.venda>0?'#217a3c':'#8a9ab0')+';background:#F0FAF0">'+(r.venda>0?'R$ '+r.venda.toFixed(2).replace('.',','):'—')+'</td>';
+    html+='<td style="padding:7px 8px;text-align:right;color:#607080">'+(r.markup>0?r.markup.toFixed(1)+'%':'—')+'</td>';
+    html+='<td style="padding:7px 8px;text-align:center"><button ontouchstart="" onclick="mgRemItem('+i+')" style="background:none;border:1px solid #e0e8f0;color:#C00000;border-radius:6px;padding:2px 7px;cursor:pointer;font-size:11px">✕</button></td>';
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
+
+// ── mkPasteBtn ────────────────────────────────────────────────────
+function mkPasteBtn(label,onFileFn){
+  var btn=document.createElement('button');
+  btn.setAttribute('ontouchstart','');
+  btn.style.cssText='background:#607080;color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px';
+  btn.innerHTML='📋 '+(label||'Colar Print');
+  btn.onclick=async function(){
+    try{
+      var items=await navigator.clipboard.read();
+      for(var item of items){var t=item.types.find(function(x){return x.startsWith('image/');});if(t){var blob=await item.getType(t);onFileFn(new File([blob],'print.png',{type:t}));return;}}
+      alert('Nenhuma imagem no clipboard. Copie uma imagem primeiro.');
+    }catch(e){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=function(){if(inp.files[0])onFileFn(inp.files[0]);};inp.click();}
+  };
+  return btn;
+}
   var el=document.getElementById('ferrBody');
   el.innerHTML=
     '<div style="max-width:900px">'+

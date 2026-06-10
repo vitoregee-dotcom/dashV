@@ -6128,7 +6128,11 @@ function mapaPrecoRow(baseKey,ei,e,custoTotal){
 // Handles image AND PDF correctly for Anthropic API
 async function _anthropicReadDoc(file, prompt){
   var apiKey=localStorage.getItem('anthropic_key')||'';
-  if(!apiKey) throw new Error('API Key não configurada');
+  if(!apiKey){
+    apiKey=prompt_fn('API Key da Anthropic (console.anthropic.com):');
+    if(!apiKey)throw new Error('API Key necessária');
+    localStorage.setItem('anthropic_key',apiKey);
+  }
   var b64=await new Promise(function(res,rej){
     var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(file);
   });
@@ -8751,41 +8755,41 @@ mapaEmail = function(fid){
 };
 
 // ── 4. UPLOAD DO MAPA — fix prompt conflict ───────────────────────
-// ── API Key modal — versão única consolidada ─────────────────────
-// (substitui todos os overrides anteriores de _anthropicReadDoc)
-var _anthropicReadDocOriginal = _anthropicReadDoc;
+// The _anthropicReadDoc uses prompt_fn but window.prompt might be blocked
+// Override to use a custom modal instead
+var _origAnthropicRead = _anthropicReadDoc;
 _anthropicReadDoc = async function(file, promptText){
   var apiKey = localStorage.getItem('anthropic_key')||'';
   if(!apiKey){
+    // Use modal instead of window.prompt
     apiKey = await new Promise(function(resolve){
-      var overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99998;display:flex;align-items:center;justify-content:center;-webkit-overflow-scrolling:touch';
-      overlay.innerHTML =
-        '<div style="background:#fff;border-radius:16px;padding:24px;max-width:400px;width:88%;-webkit-transform:translateZ(0)">'+
+      var overlay=document.createElement('div');
+      overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99998;display:flex;align-items:center;justify-content:center';
+      overlay.innerHTML='<div style="background:#fff;border-radius:16px;padding:28px;max-width:420px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.2)">'+
         '<div style="font-size:15px;font-weight:800;color:#1F4E79;margin-bottom:8px">🔑 API Key da Anthropic</div>'+
-        '<p style="font-size:12px;color:#607080;margin-bottom:14px">Acesse <b>console.anthropic.com</b> → API Keys → Create Key</p>'+
-        '<input id="_apiKeyIn" type="password" placeholder="sk-ant-..." autocomplete="off" style="width:100%;padding:12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:12px">'+
+        '<p style="font-size:12px;color:#607080;margin-bottom:16px">Acesse <a href="https://console.anthropic.com" target="_blank" style="color:#1F4E79">console.anthropic.com</a> → API Keys → Create Key</p>'+
+        '<input id="_apiKeyInput" type="password" placeholder="sk-ant-..." style="width:100%;padding:10px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;margin-bottom:12px">'+
         '<div style="display:flex;gap:8px;justify-content:flex-end">'+
-        '<button ontouchstart="" id="_apiKeyCancel" style="background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:12px 18px;font-size:14px;min-height:44px">Cancelar</button>'+
-        '<button ontouchstart="" id="_apiKeyOk" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:12px 18px;font-size:14px;font-weight:700;min-height:44px">Salvar</button>'+
+        '<button ontouchstart="" id="_apiKeyCancel" style="background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:13px">Cancelar</button>'+
+        '<button ontouchstart="" id="_apiKeyOk" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:13px;font-weight:700">Salvar e continuar</button>'+
         '</div></div>';
       document.body.appendChild(overlay);
-      document.getElementById('_apiKeyOk').addEventListener('click', function(){
-        var val = (document.getElementById('_apiKeyIn').value||'').trim();
+      document.getElementById('_apiKeyOk').onclick=function(){
+        var val=document.getElementById('_apiKeyInput').value.trim();
         document.body.removeChild(overlay);
         resolve(val);
-      });
-      document.getElementById('_apiKeyCancel').addEventListener('click', function(){
+      };
+      document.getElementById('_apiKeyCancel').onclick=function(){
         document.body.removeChild(overlay);
         resolve('');
-      });
-      setTimeout(function(){var inp=document.getElementById('_apiKeyIn');if(inp)inp.focus();},100);
+      };
+      document.getElementById('_apiKeyInput').focus();
     });
-    if(!apiKey) throw new Error('API Key necessária');
-    localStorage.setItem('anthropic_key', apiKey);
+    if(!apiKey)throw new Error('API Key necessária');
+    localStorage.setItem('anthropic_key',apiKey);
   }
-  // Chama o original com a chave já salva no localStorage
-  return _anthropicReadDocOriginal(file, promptText);
+  // Delegate to original with the key already set
+  return _origAnthropicRead(file, promptText);
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -10197,6 +10201,47 @@ if(_origMapaConfirm){
   };
 }
 
+// ── 6. FIX: API Key modal on iPad ───────────────────────────────
+// Override _anthropicReadDoc to use addEventListener instead of onclick
+var _origApiKeyModal = _anthropicReadDoc;
+_anthropicReadDoc = async function(file, promptText){
+  // Ensure API key exists before calling
+  var apiKey = localStorage.getItem('anthropic_key')||'';
+  if(!apiKey){
+    apiKey = await new Promise(function(resolve){
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99998;display:flex;align-items:center;justify-content:center;-webkit-overflow-scrolling:touch';
+      overlay.innerHTML =
+        '<div style="background:#fff;border-radius:16px;padding:24px;max-width:400px;width:88%;-webkit-transform:translateZ(0)">'+
+        '<div style="font-size:15px;font-weight:800;color:#1F4E79;margin-bottom:8px">🔑 API Key da Anthropic</div>'+
+        '<p style="font-size:12px;color:#607080;margin-bottom:14px">Acesse <b>console.anthropic.com</b> → API Keys → Create Key</p>'+
+        '<input id="_apiKeyIn" type="password" placeholder="sk-ant-..." autocomplete="off" style="width:100%;padding:12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:12px">'+
+        '<div style="display:flex;gap:8px;justify-content:flex-end">'+
+        '<button ontouchstart="" id="_apiKeyCancel" style="background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:12px 18px;font-size:14px;min-height:44px">Cancelar</button>'+
+        '<button ontouchstart="" id="_apiKeyOk" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:12px 18px;font-size:14px;font-weight:700;min-height:44px">Salvar</button>'+
+        '</div></div>';
+      document.body.appendChild(overlay);
+      document.getElementById('_apiKeyOk').addEventListener('click', function(){
+        var val = (document.getElementById('_apiKeyIn').value||'').trim();
+        document.body.removeChild(overlay);
+        resolve(val);
+      });
+      document.getElementById('_apiKeyCancel').addEventListener('click', function(){
+        document.body.removeChild(overlay);
+        resolve('');
+      });
+      setTimeout(function(){
+        var inp = document.getElementById('_apiKeyIn');
+        if(inp) inp.focus();
+      }, 100);
+    });
+    if(!apiKey) throw new Error('API Key necessária');
+    localStorage.setItem('anthropic_key', apiKey);
+  }
+  // Now call with key already set
+  return _origApiKeyModal(file, promptText);
+};
+
 // Run setup now
 setTimeout(setupNavButtons, 500);
 // ════════════════════════════════════════════════════════════════
@@ -10382,267 +10427,6 @@ function ferrRender(){
   c2.onmouseover=function(){this.style.borderColor='#1D4ED8';};
   c2.onmouseout=function(){this.style.borderColor='transparent';};
   grid.appendChild(c2);
-  // Card Transferência
-  var c3=document.createElement('div');
-  c3.style.cssText='background:#fff;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:28px;cursor:pointer;border:2px solid transparent;transition:border-color .15s';
-  c3.innerHTML='<div style="font-size:36px;margin-bottom:14px">📦</div><div style="font-size:15px;font-weight:800;color:#1E293B">Transferência Encopel</div><div style="font-size:11px;color:#8a9ab0;margin-top:4px">Gera pedido de transferência a partir de cotação</div>';
-  c3.onclick=function(){ferrTransferencia();};
-  c3.onmouseover=function(){this.style.borderColor='#C00000';};
-  c3.onmouseout=function(){this.style.borderColor='transparent';};
-  grid.appendChild(c3);
-}
-
-// ── TRANSFERÊNCIA ENCOPEL ────────────────────────────────────────────────────
-var _trfItens = [];
-var _trfNrCotacao = '';
-
-function ferrTransferencia(){
-  var el=document.getElementById('ferrBody');
-  if(!el)return;
-  el.innerHTML=
-    '<div style="max-width:900px">'+
-    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
-      '<button ontouchstart="" onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">← Voltar</button>'+
-      '<div style="font-size:16px;font-weight:800;color:#C00000">📦 Transferência Encopel</div>'+
-    '</div>'+
-
-    '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:20px;margin-bottom:20px">'+
-    '<div style="display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap">'+
-
-    // PDF upload
-    '<div>'+
-    '<div style="font-size:11px;font-weight:700;color:#607080;margin-bottom:6px">COTAÇÃO PDF (ENCOPEL)</div>'+
-    '<label ontouchstart="" style="background:#C00000;color:#fff;border-radius:8px;padding:10px 18px;cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px">'+
-    '📎 Carregar PDF<input type="file" accept="application/pdf,image/*" style="display:none" onchange="trfLerPDF(this)">'+
-    '</label>'+
-    '<div id="trfStatus" style="font-size:11px;color:#8a9ab0;margin-top:4px"></div>'+
-    '</div>'+
-
-    // Número do pedido
-    '<div style="flex:1;min-width:200px">'+
-    '<div style="font-size:11px;font-weight:700;color:#607080;margin-bottom:6px">NÚMERO DO PEDIDO TRIEX</div>'+
-    '<input type="text" id="trfNrPedido" placeholder="ex: 365121" '+
-    'style="padding:10px 14px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:15px;font-weight:700;color:#1F4E79;width:100%;box-sizing:border-box" '+
-    'oninput="trfRenderTabela()">'+
-    '</div>'+
-
-    // Nº Cotação Encopel + Botões
-    '<div style="min-width:180px">'+
-    '<div style="font-size:11px;font-weight:700;color:#607080;margin-bottom:6px">Nº COTAÇÃO ENCOPEL</div>'+
-    '<input type="text" id="trfNrCotacao" placeholder="ex: 2516326" style="padding:10px 14px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:15px;font-weight:700;color:#C00000;width:100%;box-sizing:border-box" oninput="trfRenderTabela()">'+
-    '</div>'+
-    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
-    '<button ontouchstart="" onclick="trfGerarPDF()" id="trfBtnPDF" style="display:none;background:#C00000;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:13px;font-weight:700">📄 Gerar PDF</button>'+
-    '<button ontouchstart="" onclick="trfEnviarEmail()" id="trfBtnEmail" style="display:none;background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:13px;font-weight:700">✉️ Enviar por E-mail</button>'+
-    '<button ontouchstart="" onclick="trfNovo()" id="trfBtnNovo" style="display:none;background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700">🗑 Novo</button>'+
-    '</div>'+
-    '</div></div>'+
-    '<div id="trfTabela"></div>'+
-    '</div>';
-
-  trfRenderTabela();
-}
-
-function trfRenderTabela(){
-  var el=document.getElementById('trfTabela');
-  if(!el)return;
-  if(!_trfItens.length){
-    el.innerHTML='<div style="text-align:center;padding:40px;color:#8a9ab0;font-size:13px">Carregue um PDF de cotação ENCOPEL.<br><small>Apenas itens com prazo IMEDIATO serão incluídos.</small></div>';
-    return;
-  }
-  var nrVal=(document.getElementById('trfNrPedido')||{}).value||'';
-  var cotVal=(document.getElementById('trfNrCotacao')||{}).value||_trfNrCotacao||'';
-  var hoje=new Date().toLocaleDateString('pt-BR');
-
-  var html='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow-x:auto">';
-  html+='<div style="padding:16px 20px;border-bottom:2px solid #e0e8f0;display:flex;gap:20px;flex-wrap:wrap;align-items:center">';
-  html+='<div style="font-size:13px;font-weight:800;color:#C00000">'+_trfItens.length+' iten(s) IMEDIATO</div>';
-  if(nrVal)html+='<div style="font-size:12px;color:#607080">Pedido TRIEX: <b style="color:#1F4E79">'+nrVal+'</b></div>';
-  if(cotVal)html+='<div style="font-size:12px;color:#607080">Cotação ENCOPEL: <b style="color:#C00000">'+cotVal+'</b></div>';
-  html+='<div style="font-size:12px;color:#607080">'+hoje+'</div>';
-  html+='</div>';
-
-  html+='<table style="width:100%;border-collapse:collapse;font-size:11px">';
-  html+='<thead><tr style="background:#1F4E79;color:#fff">';
-  html+='<th style="padding:9px 8px;text-align:center;width:36px">Item</th>';
-  html+='<th style="padding:9px 8px;text-align:center;width:50px">Qtde</th>';
-  html+='<th style="padding:9px 8px;text-align:left">Código — Descrição</th>';
-  html+='<th style="padding:9px 8px;text-align:left;width:90px">Marca</th>';
-  html+='<th style="padding:9px 8px;text-align:center;width:60px">Prazo</th>';
-  html+='<th style="padding:9px 8px;text-align:right;width:80px">Unit.</th>';
-  html+='<th style="padding:9px 8px;text-align:right;width:80px">Total</th>';
-  html+='</tr></thead><tbody>';
-
-  var totalGeral=0;
-  _trfItens.forEach(function(item,i){
-    var total=(parseFloat(item.qtd)||0)*(parseFloat(item.unitario)||0);
-    totalGeral+=total;
-    var bg=i%2===0?'#fff':'#FAFBFC';
-    html+='<tr style="border-bottom:1px solid #f0f4f8;background:'+bg+'">';
-    html+='<td style="padding:8px;text-align:center;font-weight:700;color:#1F4E79">'+(i+1)+'</td>';
-    html+='<td style="padding:8px;text-align:center;font-weight:700">'+item.qtd+'</td>';
-    html+='<td style="padding:8px"><span style="font-weight:700;color:#1F4E79;font-family:monospace">'+item.ref+'</span> — '+item.desc+'</td>';
-    html+='<td style="padding:8px;color:#607080">'+item.marca+'</td>';
-    html+='<td style="padding:8px;text-align:center"><span style="background:#E2EFDA;color:#375623;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700">IMEDIATO</span></td>';
-    html+='<td style="padding:8px;text-align:right">R$ '+item.unitario.toFixed(2).replace('.',',')+'</td>';
-    html+='<td style="padding:8px;text-align:right;font-weight:700">R$ '+total.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'</td>';
-    html+='</tr>';
-  });
-
-  html+='<tr style="background:#1F4E79;color:#fff;font-weight:800">';
-  html+='<td colspan="6" style="padding:10px 8px">TOTAL ('+_trfItens.length+' itens)</td>';
-  html+='<td style="padding:10px 8px;text-align:right;font-size:13px">R$ '+totalGeral.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'</td>';
-  html+='</tr>';
-  html+='</tbody></table></div>';
-
-  el.innerHTML=html;
-
-  var btn=document.getElementById('trfBtnPDF');if(btn)btn.style.display='inline-flex';
-  var btnE=document.getElementById('trfBtnEmail');if(btnE)btnE.style.display='inline-flex';
-  var btnN=document.getElementById('trfBtnNovo');if(btnN)btnN.style.display='inline-flex';
-}
-
-async function trfLerPDF(input){
-  var file=input.files[0]; if(!file)return;
-  var status=document.getElementById('trfStatus');
-  if(status)status.innerHTML='<span style="color:#1F4E79">🤖 Lendo cotação...</span>';
-  try{
-    var prompt='Esta é uma cotação de venda da ENCOPEL. Extraia: 1) O número da cotação (campo Nr. Cotação). 2) SOMENTE itens com prazo IMEDIATO ou IMEDIATO*. Retorne SOMENTE JSON: {"nr_cotacao":"numero","itens":[{"ref":"codigo","desc":"descricao","marca":"","qtd":1,"unitario":0}]}. ref=código antes do traço na Descrição. Sem markdown.';
-    var txt=await _anthropicReadDoc(file, prompt);
-    var m=txt.match(/\{[\s\S]*/); if(m)txt=m[0];
-    var parsed; try{parsed=JSON.parse(txt);}catch(e){var m2=txt.match(/\[[\s\S]*/);if(m2)parsed={itens:JSON.parse(m2[0])};else throw new Error('Resposta inválida da IA');}
-    var itens=parsed.itens||parsed;
-    _trfNrCotacao=parsed.nr_cotacao||'';
-    if(!Array.isArray(itens)||!itens.length)throw new Error('Nenhum item IMEDIATO encontrado');
-    _trfItens=itens.map(function(it){
-      return{ref:(it.ref||'').toString().toUpperCase().trim(),desc:(it.desc||'').toUpperCase(),marca:(it.marca||'').toUpperCase(),qtd:parseFloat(it.qtd)||1,unitario:parseFloat(it.unitario)||0,prazo:'IMEDIATO'};
-    }).filter(function(it){return it.ref;});
-    if(!_trfItens.length)throw new Error('Nenhum item IMEDIATO encontrado no PDF');
-    if(_trfNrCotacao){var cotEl=document.getElementById('trfNrCotacao');if(cotEl)cotEl.value=_trfNrCotacao;}
-    if(status)status.innerHTML='<span style="color:#27AE60">✅ '+_trfItens.length+' iten(s) IMEDIATO'+(_trfNrCotacao?' · Cotação '+_trfNrCotacao:'')+'</span>';
-    trfRenderTabela();
-  }catch(e){
-    if(status)status.innerHTML='<span style="color:#C00000">❌ '+e.message+'</span>';
-  }
-}
-
-function trfNovo(){
-  _trfItens=[];_trfNrCotacao='';
-  var st=document.getElementById('trfStatus');if(st)st.textContent='';
-  var btn=document.getElementById('trfBtnPDF');if(btn)btn.style.display='none';
-  var btnE=document.getElementById('trfBtnEmail');if(btnE)btnE.style.display='none';
-  var btnN=document.getElementById('trfBtnNovo');if(btnN)btnN.style.display='none';
-  var cotEl=document.getElementById('trfNrCotacao');if(cotEl)cotEl.value='';
-  trfRenderTabela();
-}
-
-function _trfBuildHTML(nr, cot, hoje, linhas, totalGeral){
-  return '<!DOCTYPE html><html><head><meta charset="UTF-8">'+
-    '<title>Transferência'+(nr?' — Pedido '+nr:'')+'</title>'+
-    '<style>body{font-family:Arial,sans-serif;margin:20px;font-size:11px;color:#1a2332}table{width:100%;border-collapse:collapse}th{background:#C00000;color:#fff;padding:8px;font-size:11px}.info-box{background:#f8f9fa;border:1px solid #dee2e6;border-radius:6px;padding:14px 18px;margin-bottom:16px}.info-row{display:flex;gap:40px;flex-wrap:wrap}.info-item label{font-size:9px;text-transform:uppercase;color:#6c757d;letter-spacing:.5px;display:block;margin-bottom:2px}.info-item span{font-size:13px;font-weight:700;color:#1F4E79}.total-row{background:#C00000;color:#fff;font-weight:800}@media print{body{margin:10px}}</style>'+
-    '</head><body>'+
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #C00000">'+
-    '<div><div style="font-size:22px;font-weight:900;color:#C00000;letter-spacing:-1px">TRIEX</div><div style="font-size:10px;color:#6c757d;font-weight:600">COM. PEÇAS E SERV. LTDA</div></div>'+
-    '<div style="text-align:right">'+
-    '<div style="font-size:14px;font-weight:800;color:#1F4E79">SOLICITAÇÃO DE TRANSFERÊNCIA</div>'+
-    '<div style="font-size:10px;color:#6c757d">Emissão: '+hoje+'</div>'+
-    (nr?'<div style="font-size:13px;font-weight:800;color:#1F4E79;margin-top:3px">Pedido TRIEX: '+nr+'</div>':'')+
-    '</div></div>'+
-    '<div class="info-box"><div class="info-row">'+
-    '<div class="info-item"><label>Origem</label><span>ENCOPEL</span></div>'+
-    '<div class="info-item"><label>Destino</label><span>TRIEX SP</span></div>'+
-    (nr?'<div class="info-item"><label>Nr. Pedido TRIEX</label><span>'+nr+'</span></div>':'')+
-    (cot?'<div class="info-item"><label>Cotação ENCOPEL</label><span style="color:#C00000">'+cot+'</span></div>':'')+
-    '<div class="info-item"><label>Data</label><span>'+hoje+'</span></div>'+
-    '<div class="info-item"><label>Total Itens</label><span>'+_trfItens.length+'</span></div>'+
-    '</div></div>'+
-    '<table><thead><tr>'+
-    '<th style="width:36px">Item</th><th style="width:50px">Qtde</th><th>Código — Descrição</th>'+
-    '<th style="width:90px">Marca</th><th style="width:70px">Prazo</th>'+
-    '<th style="width:80px;text-align:right">Unit.</th><th style="width:90px;text-align:right">Total</th>'+
-    '</tr></thead><tbody>'+linhas+
-    '<tr class="total-row"><td colspan="6" style="padding:8px">TOTAL ('+_trfItens.length+' itens)</td>'+
-    '<td style="padding:8px;text-align:right;font-size:13px">R$ '+totalGeral.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'</td></tr>'+
-    '</tbody></table>'+
-    '<div style="margin-top:20px;padding-top:12px;border-top:1px solid #dee2e6;font-size:10px;color:#6c757d">Transferência gerada via PartsFlow · Apenas itens IMEDIATO · Sujeito a disponibilidade de estoque.</div>'+
-    '</body></html>';
-}
-
-function trfGerarPDF(){
-  if(!_trfItens.length)return;
-  var nr=(document.getElementById('trfNrPedido')||{}).value||'';
-  var cot=(document.getElementById('trfNrCotacao')||{}).value||_trfNrCotacao||'';
-  var hoje=new Date().toLocaleDateString('pt-BR');
-  var totalGeral=0, linhas='';
-  _trfItens.forEach(function(item,i){
-    var total=(parseFloat(item.qtd)||0)*(parseFloat(item.unitario)||0);
-    totalGeral+=total;
-    linhas+='<tr style="border-bottom:1px solid #e0e8f0;background:'+(i%2===0?'#fff':'#FAFBFC')+'">';
-    linhas+='<td style="padding:6px 8px;text-align:center;font-weight:700">'+(i+1)+'</td>';
-    linhas+='<td style="padding:6px 8px;text-align:center;font-weight:700">'+item.qtd.toFixed(2)+'</td>';
-    linhas+='<td style="padding:6px 8px;font-family:monospace;font-size:10px"><b>'+item.ref+'</b> - '+item.desc+'</td>';
-    linhas+='<td style="padding:6px 8px">'+item.marca+'</td>';
-    linhas+='<td style="padding:6px 8px;text-align:center">IMEDIATO</td>';
-    linhas+='<td style="padding:6px 8px;text-align:right">'+item.unitario.toFixed(2).replace('.',',')+'</td>';
-    linhas+='<td style="padding:6px 8px;text-align:right;font-weight:700">'+total.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'</td>';
-    linhas+='</tr>';
-  });
-  var html=_trfBuildHTML(nr,cot,hoje,linhas,totalGeral);
-  var win=window.open('','_blank');
-  win.document.write(html);
-  win.document.close();
-  setTimeout(function(){win.print();},600);
-}
-
-function trfEnviarEmail(){
-  if(!_trfItens.length)return;
-  var nr=(document.getElementById('trfNrPedido')||{}).value||'';
-  var cot=(document.getElementById('trfNrCotacao')||{}).value||_trfNrCotacao||'';
-  var hoje=new Date().toLocaleDateString('pt-BR');
-  var totalGeral=0, linhas='', lista='';
-  _trfItens.forEach(function(item,i){
-    var total=(parseFloat(item.qtd)||0)*(parseFloat(item.unitario)||0);
-    totalGeral+=total;
-    linhas+='<tr style="border-bottom:1px solid #e0e8f0;background:'+(i%2===0?'#fff':'#FAFBFC')+'">';
-    linhas+='<td style="padding:6px 8px;text-align:center;font-weight:700">'+(i+1)+'</td>';
-    linhas+='<td style="padding:6px 8px;text-align:center;font-weight:700">'+item.qtd.toFixed(2)+'</td>';
-    linhas+='<td style="padding:6px 8px;font-family:monospace;font-size:10px"><b>'+item.ref+'</b> - '+item.desc+'</td>';
-    linhas+='<td style="padding:6px 8px">'+item.marca+'</td>';
-    linhas+='<td style="padding:6px 8px;text-align:center">IMEDIATO</td>';
-    linhas+='<td style="padding:6px 8px;text-align:right">'+item.unitario.toFixed(2).replace('.',',')+'</td>';
-    linhas+='<td style="padding:6px 8px;text-align:right;font-weight:700">'+total.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'</td>';
-    linhas+='</tr>';
-    lista+=(i+1)+'. '+item.ref+' - '+item.desc+' | Marca: '+item.marca+' | Qtd: '+item.qtd+' | Unit.: R$ '+item.unitario.toFixed(2).replace('.',',')+'\n';
-  });
-  var totalFmt='R$ '+totalGeral.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
-
-  // Abre o PDF para imprimir/salvar e anexar manualmente
-  var html=_trfBuildHTML(nr,cot,hoje,linhas,totalGeral);
-  var win=window.open('','_blank');
-  win.document.write(html);
-  win.document.close();
-
-  // Monta assunto com pedido TRIEX em destaque
-  var assunto='ENC: TRANSFERÊNCIA ENCOPEL X TRIEX'+(nr?' — PEDIDO: '+nr:'');
-
-  // Corpo com cotação Encopel no corpo
-  var corpo=
-    'Por favor transferir os itens abaixo.\n\n'+
-    (nr?'NÚMERO PEDIDO TRIEX: '+nr+'\n':'')+
-    (cot?'COTAÇÃO ENCOPEL: '+cot+'\n':'')+
-    'DATA: '+hoje+'\n\n'+
-    'ITENS PARA TRANSFERÊNCIA (somente IMEDIATO):\n'+
-    '─────────────────────────────────────────\n'+
-    lista+
-    '─────────────────────────────────────────\n'+
-    'TOTAL: '+totalFmt+' ('+_trfItens.length+' itens)\n\n'+
-    'Att,\nVitor Lima\nTriex\n\n'+
-    '⚠️ PDF com os detalhes abrirá em nova aba — salve e anexe ao e-mail.';
-
-  // Abre Outlook (ou cliente padrão) após pequeno delay para o PDF abrir primeiro
-  setTimeout(function(){
-    window.location.href='mailto:compras@triex.com.br?subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(corpo);
-  },800);
 }
 
 // ── Modalidade Especial ─────────────────────────────────────────────────────
@@ -11101,6 +10885,171 @@ initUserUI = function(){
 
 // ── Override setupNavButtons to not override pfNavigate ──────────
 setupNavButtons = function(){ /* handled by pfNavigate */ };
+
+// ════════════════════════════════════════════════════════════════
+</script>
+<script>
+// ════════════════════════════════════════════════════════════════
+// SYNC SUPABASE — planilha, cadastros, mapa
+// Funciona em qualquer dispositivo logado com a mesma conta
+// ════════════════════════════════════════════════════════════════
+
+// ── Helpers ──────────────────────────────────────────────────────
+async function syncUpsert(table, payload){
+  if(!sbSession||!sbUser) return false;
+  try{
+    var r = await sbFetch('/rest/v1/'+table+'?on_conflict=user_id'+(table==='user_cadastros'?',tipo':''), {
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify(payload)
+    });
+    return r.ok;
+  }catch(e){ console.warn('sync upsert erro:',e); return false; }
+}
+
+async function syncGet(table, extra){
+  if(!sbSession||!sbUser) return null;
+  try{
+    var r = await sbFetch('/rest/v1/'+table+'?user_id=eq.'+sbUser.id+(extra||''));
+    if(!r.ok) return null;
+    var d = await r.json();
+    return d;
+  }catch(e){ console.warn('sync get erro:',e); return null; }
+}
+
+// ── PLANILHA ─────────────────────────────────────────────────────
+async function syncSavePlanilha(nome, itens, detected){
+  return syncUpsert('user_planilha',{
+    user_id: sbUser.id,
+    nome: nome,
+    itens: itens,
+    detected: detected||[],
+    updated_at: new Date().toISOString()
+  });
+}
+
+async function syncLoadPlanilha(){
+  var rows = await syncGet('user_planilha');
+  if(!rows||!rows.length) return null;
+  return rows[0];
+}
+
+// ── CADASTROS ────────────────────────────────────────────────────
+async function syncSaveCadastro(tipo, dados){
+  return syncUpsert('user_cadastros',{
+    user_id: sbUser.id,
+    tipo: tipo,
+    dados: dados,
+    updated_at: new Date().toISOString()
+  });
+}
+
+async function syncLoadCadastros(){
+  var rows = await syncGet('user_cadastros');
+  if(!rows||!rows.length) return null;
+  var result = {};
+  rows.forEach(function(r){ result[r.tipo] = r.dados; });
+  return result;
+}
+
+// ── MAPA ─────────────────────────────────────────────────────────
+async function syncSaveMapa(estado){
+  return syncUpsert('user_mapa',{
+    user_id: sbUser.id,
+    estado: estado,
+    updated_at: new Date().toISOString()
+  });
+}
+
+async function syncLoadMapa(){
+  var rows = await syncGet('user_mapa');
+  if(!rows||!rows.length) return null;
+  return rows[0].estado;
+}
+
+// ── PATCHES: cadSave agora sincroniza ────────────────────────────
+var _origCadSave = cadSave;
+cadSave = function(key, data){
+  _origCadSave(key, data); // salva local como antes
+  if(!sbSession||!sbUser) return;
+  var tipo = key===FORN_KEY?'fornecedores': key===CLIE_KEY?'clientes': key===(PROD_KEY||'cad_produtos_v1')?'produtos':null;
+  if(tipo) syncSaveCadastro(tipo, data);
+};
+
+// ── PATCH: handleFile salva planilha na nuvem após processar ─────
+var _origHandleFileSyncApply = null; // ver abaixo no allItems assignment
+
+// ── PATCH: mapaLimparEstado / mapaRestaurarEstado sincroniza ─────
+var _origMapaSalvarEstado = typeof mapaRestaurarEstado !== 'undefined' ? null : null;
+// Hook no localStorage.setItem para capturar saves do mapa
+var _origLSSetItem = localStorage.setItem.bind(localStorage);
+localStorage.setItem = function(key, value){
+  _origLSSetItem(key, value);
+  if(key === (typeof MAPA_SAVE_KEY !== 'undefined' ? MAPA_SAVE_KEY : 'mapa_estado_v1')){
+    if(sbSession && sbUser){
+      try{ syncSaveMapa(JSON.parse(value)); }catch(e){}
+    }
+  }
+  if(key === 'dashV_lastSheet'){
+    if(sbSession && sbUser){
+      try{
+        var d = JSON.parse(value);
+        if(d && d.items) syncSavePlanilha(d.name||'', d.items, d.detected||[]);
+      }catch(e){}
+    }
+  }
+};
+
+// ── CARGA INICIAL: ao logar, puxa tudo da nuvem ──────────────────
+async function syncPullAll(){
+  if(!sbSession||!sbUser) return;
+  var toast = function(msg){ 
+    var t=document.createElement('div');
+    t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1F4E79;color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.2)';
+    t.textContent=msg; document.body.appendChild(t);
+    setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},3000);
+  };
+
+  // Cadastros
+  var cads = await syncLoadCadastros();
+  if(cads){
+    if(cads.fornecedores){ _origCadSave(FORN_KEY, cads.fornecedores); }
+    if(cads.clientes){ _origCadSave(CLIE_KEY, cads.clientes); }
+    if(cads['produtos']){ _origCadSave(PROD_KEY||'cad_produtos_v1', cads['produtos']); }
+  }
+
+  // Mapa
+  var mapaEstado = await syncLoadMapa();
+  if(mapaEstado){
+    _origLSSetItem(typeof MAPA_SAVE_KEY!=='undefined'?MAPA_SAVE_KEY:'mapa_estado_v1', JSON.stringify(mapaEstado));
+  }
+
+  // Planilha
+  var planilha = await syncLoadPlanilha();
+  if(planilha && planilha.itens && planilha.itens.length){
+    var localSheet = localStorage.getItem('dashV_lastSheet');
+    var localTs = 0;
+    try{ localTs = JSON.parse(localSheet||'{}').ts||0; }catch(e){}
+    var remoteTs = planilha.updated_at ? new Date(planilha.updated_at).getTime() : 0;
+    // Usa a mais recente entre local e nuvem
+    if(remoteTs > localTs){
+      _origLSSetItem('dashV_lastSheet', JSON.stringify({
+        name: planilha.nome||'planilha',
+        items: planilha.itens,
+        detected: planilha.detected||[],
+        ts: remoteTs
+      }));
+      toast('☁️ Dados sincronizados da nuvem');
+    }
+  }
+}
+
+// ── Hook no initUserUI para disparar sync após login ─────────────
+var _prevInitUserUISync = initUserUI;
+initUserUI = function(){
+  _prevInitUserUISync();
+  setTimeout(syncPullAll, 600);
+};
 
 // ════════════════════════════════════════════════════════════════
 </script>

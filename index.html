@@ -7192,6 +7192,53 @@ var FROTA_EQUIPAMENTOS = {
 // ── Chip toggle helper ───────────────────────────────────────────
 // Renders a group of toggleable chip buttons
 // savedArr = array of currently selected values
+// ── renderChipsDrag — chips com drag-and-drop para reordenar ──
+function renderChipsDrag(items, savedArr, inputName, colorSel){
+  var sel = (savedArr||[]).filter(function(s){ return s; });
+  var unsel = items.filter(function(i){ return !sel.includes(i); });
+  var ordered = sel.concat(unsel);
+  items.forEach(function(i){ if(!ordered.includes(i)) ordered.push(i); });
+  var containerId = 'chips_'+inputName;
+  var html = '<div id="'+containerId+'" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px" ondragover="event.preventDefault()" ondrop="cadChipDrop(event,\''+inputName+'\')">'+
+    ordered.map(function(item){
+      var on = sel.includes(item);
+      return '<label draggable="true" ondragstart="cadChipDragStart(event,this,\''+inputName+'\')" onclick="cadChipToggleDrag(this,\''+colorSel+'\')" '+
+        'style="display:flex;align-items:center;padding:5px 12px;border:1.5px solid '+(on?colorSel:'#d0d8e8')+';border-radius:20px;cursor:grab;font-size:11px;font-weight:'+(on?700:500)+';color:'+(on?'#fff':'#4a5568')+';background:'+(on?colorSel:'#f7f8fc')+';transition:all .12s;user-select:none;-webkit-user-select:none">'+
+        '<input type="checkbox" name="'+inputName+'" value="'+item+'" '+(on?'checked':'')+' style="display:none"> '+item+'</label>';
+    }).join('')+'</div>';
+  return html;
+}
+function cadChipToggleDrag(lbl, colorSel){
+  var inp = lbl.querySelector('input[type=checkbox]');
+  if(!inp) return;
+  inp.checked = !inp.checked;
+  var on = inp.checked;
+  lbl.style.background = on ? colorSel : '#f7f8fc';
+  lbl.style.color = on ? '#fff' : '#4a5568';
+  lbl.style.borderColor = on ? colorSel : '#d0d8e8';
+  lbl.style.fontWeight = on ? 700 : 500;
+}
+var _cadChipDragSrc = null;
+function cadChipDragStart(e, lbl, inputName){
+  _cadChipDragSrc = lbl;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(function(){ lbl.style.opacity='0.4'; },0);
+}
+function cadChipDrop(e, inputName){
+  e.preventDefault();
+  if(!_cadChipDragSrc) return;
+  var container = document.getElementById('chips_'+inputName);
+  if(!container) return;
+  var target = e.target.closest('label');
+  if(target && target !== _cadChipDragSrc && container.contains(target)){
+    container.insertBefore(_cadChipDragSrc, target);
+  }
+  _cadChipDragSrc.style.opacity='1'; _cadChipDragSrc=null;
+}
+document.addEventListener('dragend', function(){
+  if(_cadChipDragSrc){_cadChipDragSrc.style.opacity='1'; _cadChipDragSrc=null;}
+});
+
 // inputName = name for checkbox inputs
 // colorSel / colorUnsel = colors
 function renderChips(items, savedArr, inputName, colorSel, bgSel){
@@ -7253,11 +7300,22 @@ cadFormForn = function(data, idx){
   html += cadSelect('Abrangência','fornAbrang',['NACIONAL','INTERNACIONAL'],d.abrangencia||'');
   html += '</div>';
 
+  // ── Contatos (logo após Tipo/Abrangência) ──
+  var cts2 = (d.contatos && d.contatos.length) ? d.contatos : [{nome:'',cargo:'',email:'',tel:''}];
+  html += '<div style="margin-top:18px">';
+  html += '<div style="font-size:12px;font-weight:800;color:#1F4E79;margin-bottom:6px">👤 Contatos</div>';
+  html += '<div id="cadContatosList">';
+  cts2.forEach(function(c,i){ html += cadContatoRow(c,i); });
+  html += '</div>';
+  html += '<button ontouchstart="" onclick="cadAddContato()" style="background:none;border:1.5px dashed #1F4E79;color:#1F4E79;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;margin-top:4px">+ Adicionar contato</button>';
+  html += '</div>';
+
   // ── Linhas Especialidade ──
+  var lopts = (typeof getLinhasOpts==='function') ? getLinhasOpts() : linhasOpts;
   html += '<div style="margin-top:18px">';
   html += '<div style="font-size:12px;font-weight:800;color:#1F4E79;margin-bottom:3px">🎯 Linhas Especialidade</div>';
   html += '<div style="font-size:11px;color:#8a9ab0;margin-bottom:8px">Core business — onde este fornecedor é referência e tem estoque garantido</div>';
-  html += renderChips(linhasOpts, d.linhasEsp||[], 'fornLinhasEsp', '#1F4E79', '#1F4E79');
+  html += renderChipsDrag(lopts, d.linhasEsp||[], 'fornLinhasEsp', '#1F4E79');
   html += '<div style="display:flex;gap:6px;margin-top:8px">';
   html += '<input id="fornEspCustom" type="text" placeholder="+ Adicionar outra linha..." style="padding:5px 10px;border:1.5px dashed #1F4E79;border-radius:20px;font-size:11px;min-width:200px">';
   html += '<button ontouchstart="" onclick="cadAddCustomLinha(&quot;fornLinhasEsp&quot;,&quot;fornEspCustom&quot;)" style="background:#1F4E79;color:#fff;border:none;border-radius:20px;padding:5px 14px;cursor:pointer;font-size:11px;font-weight:700">+ Adicionar</button>';
@@ -7267,7 +7325,7 @@ cadFormForn = function(data, idx){
   html += '<div style="margin-top:14px">';
   html += '<div style="font-size:12px;font-weight:800;color:#607080;margin-bottom:3px">📦 Linhas Secundárias</div>';
   html += '<div style="font-size:11px;color:#8a9ab0;margin-bottom:8px">Fornece eventualmente — pode ter, mas não é especialidade</div>';
-  html += renderChips(linhasOpts, d.linhasSec||[], 'fornLinhasSec', '#607080', '#607080');
+  html += renderChipsDrag(lopts, d.linhasSec||[], 'fornLinhasSec', '#607080');
   html += '<div style="display:flex;gap:6px;margin-top:8px">';
   html += '<input id="fornSecCustom" type="text" placeholder="+ Adicionar outra linha..." style="padding:5px 10px;border:1.5px dashed #607080;border-radius:20px;font-size:11px;min-width:200px">';
   html += '<button ontouchstart="" onclick="cadAddCustomLinha(&quot;fornLinhasSec&quot;,&quot;fornSecCustom&quot;)" style="background:#607080;color:#fff;border:none;border-radius:20px;padding:5px 14px;cursor:pointer;font-size:11px;font-weight:700">+ Adicionar</button>';
@@ -7319,12 +7377,15 @@ function cadSalvarFornV2(idx){
   if(!razao){_safeAlert('Razão Social é obrigatória.');return;}
   var linhasEsp = Array.from(document.querySelectorAll('input[name=fornLinhasEsp]:checked')).map(function(e){return e.value;});
   var linhasSec = Array.from(document.querySelectorAll('input[name=fornLinhasSec]:checked')).map(function(e){return e.value;});
+  var contatos = (typeof cadGetContatos==='function') ? cadGetContatos() : [];
+  // derive primary email/contato from first contact with email
+  var ctEmail = (contatos.find(function(c){return c.email;})||{}).email || document.getElementById('fornEmail').value||'';
   var forn = {
     id: idx>=0 ? cadLoad(FORN_KEY)[idx].id : ('f_'+Date.now()),
     razao:razao, nome:razao,
     fantasia:document.getElementById('fornFantasia').value||'',
     cnpj:document.getElementById('fornCnpj').value||'',
-    email:document.getElementById('fornEmail').value||'',
+    email: ctEmail,
     tel:document.getElementById('fornTel').value||'',
     cidade:document.getElementById('fornCidade').value||'',
     estado:document.getElementById('fornEstado').value||'',
@@ -7334,6 +7395,7 @@ function cadSalvarFornV2(idx){
     abrangencia:document.getElementById('fornAbrang').value||'',
     linhas:linhasEsp.concat(linhasSec),
     linhasEsp:linhasEsp, linhasSec:linhasSec,
+    contatos: contatos,
     obs:document.getElementById('fornObs').value||'',
     historico: idx>=0?(cadLoad(FORN_KEY)[idx].historico||[]):[],
   };
@@ -8440,51 +8502,10 @@ cadRenderClientes = function(el) {
   }
 };
 
-// ── 5. Add contatos to cadSalvarFornV2 ──────────────────────────
-var _origSalvarFornV2 = cadSalvarFornV2;
-cadSalvarFornV2 = function(idx) {
-  // Inject contatos before saving
-  var contatos = cadGetContatos();
-  _origSalvarFornV2(idx);
-  // Patch the saved record
-  var flist = JSON.parse(localStorage.getItem('cad_fornecedores_v1')||'[]');
-  if(idx>=0 && flist[idx]) flist[idx].contatos = contatos;
-  else if(flist.length) flist[flist.length-1].contatos = contatos;
-  localStorage.setItem('cad_fornecedores_v1', JSON.stringify(flist));
-};
-
-var _origSalvarClienteV2 = cadSalvarClienteV2;
-cadSalvarClienteV2 = function(idx) {
-  var contatos = cadGetContatos();
-  _origSalvarClienteV2(idx);
-  var clist = JSON.parse(localStorage.getItem('cad_clientes_v1')||'[]');
-  if(idx>=0 && clist[idx]) clist[idx].contatos = contatos;
-  else if(clist.length) clist[clist.length-1].contatos = contatos;
-  localStorage.setItem('cad_clientes_v1', JSON.stringify(clist));
-};
+// contatos já salvos nativamente em cadSalvarFornV2
 
 // Inject contatos field into forn/clie forms after obs
-var _origFormForn2 = cadFormForn;
-cadFormForn = function(data, idx) {
-  _origFormForn2(data, idx);
-  var obs = document.getElementById('fornObs');
-  if(obs) {
-    var div = document.createElement('div');
-    div.innerHTML = cadContatosField((data&&data.contatos)||[]);
-    obs.closest('div').after(div.firstElementChild);
-  }
-};
-
-var _origFormClie2 = cadFormCliente;
-cadFormCliente = function(data, idx) {
-  _origFormClie2(data, idx);
-  var obs = document.getElementById('clieObs');
-  if(obs) {
-    var div = document.createElement('div');
-    div.innerHTML = cadContatosField((data&&data.contatos)||[]);
-    obs.closest('div').after(div.firstElementChild);
-  }
-};
+// contatos injetados diretamente no form (sem override extra)
 
 // ── Init on load ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function(){
@@ -11103,9 +11124,11 @@ function pfNavigate(view){
     }
     mapaRender();
   } else if(view==='cadastros'){
-    document.querySelectorAll('#mapaView,#ferramentasView,#upSec,#dash').forEach(function(el){el.style.display='none';});
+    // Hide ALL other views explicitly
+    ['mapaView','ferramentasView','upSec','dash','tabBar','legPanel'].forEach(function(id){
+      var e=document.getElementById(id); if(e)e.style.display='none';
+    });
     document.body.classList.add('mapa-view');
-    var tb4=document.getElementById('tabBar');if(tb4)tb4.style.display='none';
     var bt3=document.getElementById('btnTroc'); if(bt3)bt3.style.display='none';
     var bl3=document.getElementById('btnLeg'); if(bl3)bl3.style.display='none';
     var cv=document.getElementById('cadastrosView'); if(cv)cv.style.display='block';

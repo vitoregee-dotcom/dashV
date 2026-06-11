@@ -643,7 +643,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.50</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.51</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -2913,10 +2913,10 @@ function salvarQtd(inp){
   }
 }
 function selTodos(){
+  // Respeita apenas os itens do filtro atual (filtered já contém o filtro ativo)
   filtered.forEach(d=>{
     const k=chaveItem(d);
     selSet.add(k);
-    // Salvar sugestão se usuário ainda não editou
     if(qtdEdit[k]===undefined&&d.qtdC>0)qtdEdit[k]=d.qtdC;
   });
   renderTable();atualizarSelCount();
@@ -5048,7 +5048,23 @@ function mToggleSel(chk,key){
 }
 function mSalvarQtd(inp,key){
   var v=parseFloat(inp.value);
-  if(!isNaN(v)&&v>=0)qtdEdit[key]=Math.round(v);
+  if(!isNaN(v)&&v>=0){
+    qtdEdit[key]=Math.round(v);
+    // Auto-seleciona quando quantidade é preenchida
+    if(v>0){
+      selSet.add(key);
+      // Marca o checkbox da linha
+      var row=inp.closest('tr');
+      if(row){var chk=row.querySelector('.rchk');if(chk)chk.checked=true;row.style.background='var(--sel-bg,#EEF6FF)';}
+      atualizarSelCount();
+    } else {
+      // Desmarca se zerar
+      selSet.delete(key);
+      var row2=inp.closest('tr');
+      if(row2){var chk2=row2.querySelector('.rchk');if(chk2)chk2.checked=false;row2.style.background='';}
+      atualizarSelCount();
+    }
+  }
 }
 function atualizarMFab(){
   var fab=document.getElementById('mFab');
@@ -9392,6 +9408,26 @@ function mapaKeyNav(e){
 document.addEventListener('keydown', function(e){
   if(typeof currentView!=='undefined' && currentView==='mapa' && mapaStep===1){
     mapaKeyNav(e);
+  }
+  // Navegação ↑↓ na tabela principal do dashboard
+  if(typeof currentView!=='undefined' && currentView==='dash'){
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      var active=document.activeElement;
+      if(!active)return;
+      var row=active.closest('tr');
+      if(!row||!row.closest('#tbl'))return;
+      e.preventDefault();
+      var rows=Array.from(document.querySelectorAll('#tbl tbody tr'));
+      var idx=rows.indexOf(row);
+      var next=e.key==='ArrowDown'?rows[idx+1]:rows[idx-1];
+      if(next){
+        // Foca no input de quantidade da próxima linha
+        var qtdInp=next.querySelector('input[type="number"]');
+        if(qtdInp)qtdInp.focus();
+        else next.focus();
+        next.scrollIntoView({block:'nearest'});
+      }
+    }
   }
 });
 

@@ -643,7 +643,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.54</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.55</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -1417,7 +1417,9 @@ function _processRowsMain(rows){
     var saldo=cm.saldo!==undefined?parseFloat(r[cm.saldo])||0:0;
     var consumo=cm.consumo!==undefined?parseFloat(r[cm.consumo])||0:0;
     var custo=cm.custo!==undefined?parseFloat(r[cm.custo])||0:0;
-    var familiaCol=cm.familia!==undefined&&r[cm.familia]!=null?String(r[cm.familia]).trim().toUpperCase():'';
+    var _famRaw=cm.familia!==undefined&&r[cm.familia]!=null?String(r[cm.familia]).trim().toUpperCase():'';
+    var _famNorm={'PECAS DE MOTOR':'MOTORES','PEÇAS DE MOTOR':'MOTORES','EIXOS E TRANSMISSOES':'EIXOS','EIXOS E TRANSMISSÕES':'EIXOS'};
+    var familiaCol=_famNorm[_famRaw]||_famRaw;
     var ex=map.get(key);
     if(ex){
       ex.saldo+=saldo;ex.consumo=Math.max(ex.consumo,consumo);
@@ -2731,7 +2733,13 @@ function handleFile(file){
           famFound = nomeSemExt.split(/[\s_\-]/)[0] || '';
         }
         if(famFound){
-          result.items.forEach(function(item){ if(!item.familia) item.familia = famFound; });
+          // Normaliza nomes de família da coluna para o nome do arquivo
+          var famNorm={'PECAS DE MOTOR':'MOTORES','PEÇAS DE MOTOR':'MOTORES','PECA DE MOTOR':'MOTORES','EIXOS E TRANSMISSOES':'EIXOS','EIXOS E TRANSMISSÕES':'EIXOS','COMPONENTES HIDRAULICOS':'HIDRAULICA'};
+          result.items.forEach(function(item){ 
+            if(!item.familia) item.familia = famFound;
+            else if(famNorm[item.familia.toUpperCase()]) item.familia = famNorm[item.familia.toUpperCase()];
+          });
+          if(famNorm[famFound]) famFound = famNorm[famFound];
           familiasDaPlanilha = [famFound];
         }
       }
@@ -4793,12 +4801,16 @@ function pfAtualizarFiltroFamilias(){
 function pfFiltrarPorFamilia(fam){
   pfFamiliaAtiva = fam;
   localStorage.setItem('pfFamiliaAtiva', fam);
-  // Recalcula tudo com a nova família
   var sp=document.getElementById('spinner');
   if(sp){sp.style.display='block';sp.textContent='⏳ Filtrando...';}
   setTimeout(async function(){
     await recalc();
     if(sp)sp.style.display='none';
+    // Restaura elementos que podem ter sido ocultados
+    ['tbox','rankSection','kpiWrap','chartWrap','exbar'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el&&el.style.display==='none')el.style.display='';
+    });
     renderCharts();
     renderKpis();
     renderOpBox();

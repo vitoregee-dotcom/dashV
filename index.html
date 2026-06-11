@@ -643,7 +643,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.46</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.47</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -10821,6 +10821,7 @@ function ferrRender(){
   mkCard('🧮','Cálculo NF','Parte NF e especial','#1D4ED8',function(){ferrNFBaixa();});
   mkCard('📊','Margem','Preço de venda','#1F4E79',function(){ferrMargem();});
   mkCard('📦','Transferência','Pedido Encopel','#C00000',function(){ferrTransferencia();});
+  mkCard('🤝','Condição de Pgto','Solicitar prazo','#27AE60',function(){ferrCondPgto();});
   mkCard('🔔','Me Avise','Alertas de reposição','#E67E22',function(){ferrMeAvise();});
   // Card "em breve"
   var c=document.createElement('div');
@@ -11154,6 +11155,151 @@ function trfEnviarEmail(){
 }
 
 // ── ME AVISE QUANDO CHEGAR ────────────────────────────────────────
+// ── CONDIÇÃO DE PGTO ──────────────────────────────────────────
+var _condPgtoData = null;
+
+function ferrCondPgto(){
+  var el = document.getElementById('ferrBody');
+  el.innerHTML =
+    '<div style="width:100%">'+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
+    '<button ontouchstart="" onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">← Voltar <kbd style="font-size:9px;background:#f0f4f8;padding:1px 5px;border-radius:3px">Esc</kbd></button>'+
+    '<div style="font-size:16px;font-weight:800;color:#27AE60">🤝 Condição de Pagamento</div>'+
+    '</div>'+
+
+    '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:20px;margin-bottom:16px">'+
+    '<div style="font-size:11px;font-weight:700;color:#607080;margin-bottom:8px">PRINT DO PEDIDO</div>'+
+    '<label ontouchstart="" style="background:#27AE60;color:#fff;border-radius:8px;padding:10px 18px;cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px">'+
+    '📎 Carregar Print<input type="file" accept="image/*,application/pdf" style="display:none" onchange="condPgtoLerPrint(this)">'+
+    '</label>'+
+    '<span id="condPgtoStatus" style="font-size:11px;color:#8a9ab0;margin-left:12px"></span>'+
+    '</div>'+
+
+    '<div id="condPgtoBody" style="display:none">'+
+    '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:20px;margin-bottom:16px">'+
+    '<div style="font-size:11px;font-weight:700;color:#607080;margin-bottom:12px">DADOS DO PEDIDO</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'+
+    '<div><div style="font-size:10px;color:#8a9ab0;margin-bottom:3px;text-transform:uppercase">Nº Pedido</div><div id="cpPedido" style="font-size:15px;font-weight:700;color:#1F4E79"></div></div>'+
+    '<div><div style="font-size:10px;color:#8a9ab0;margin-bottom:3px;text-transform:uppercase">Cotação</div><div id="cpCotacao" style="font-size:15px;font-weight:700;color:#1F4E79"></div></div>'+
+    '<div style="grid-column:1/-1"><div style="font-size:10px;color:#8a9ab0;margin-bottom:3px;text-transform:uppercase">Cliente</div><div id="cpCliente" style="font-size:14px;font-weight:700;color:#1a2332"></div></div>'+
+    '<div><div style="font-size:10px;color:#8a9ab0;margin-bottom:3px;text-transform:uppercase">Valor Bruto</div><div id="cpBruto" style="font-size:15px;font-weight:700;color:#1a2332"></div></div>'+
+    '<div><div style="font-size:10px;color:#8a9ab0;margin-bottom:3px;text-transform:uppercase">Valor Líquido</div><div id="cpLiquido" style="font-size:15px;font-weight:700;color:#27AE60"></div></div>'+
+    '</div>'+
+    '</div>'+
+
+    '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:20px;margin-bottom:16px">'+
+    '<div style="font-size:11px;font-weight:700;color:#607080;margin-bottom:12px">CONDIÇÃO SOLICITADA</div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+    ['28/56/84/112','28/56/84/120','30/60/90/120','30/60/90/150'].map(function(c){
+      return '<button ontouchstart="" onclick="condPgtoSelCond(\''+c+'\')" class="cpChip" data-cond="'+c+'" style="padding:7px 16px;border-radius:20px;border:1.5px solid #d0d8e8;background:#f7f8fc;color:#607080;cursor:pointer;font-size:13px;font-weight:600;transition:all .12s">'+c+'</button>';
+    }).join('')+
+    '</div>'+
+    '</div>'+
+
+    '<div id="condPgtoEmailBox" style="display:none;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:20px;margin-bottom:16px">'+
+    '<div style="font-size:11px;font-weight:700;color:#607080;margin-bottom:12px">E-MAIL GERADO</div>'+
+    '<div style="background:#f7f8fc;border-radius:8px;border:1px solid #e0e8f0;padding:14px;font-size:13px;margin-bottom:12px">'+
+    '<div style="display:grid;grid-template-columns:60px 1fr;gap:4px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #e0e8f0;font-size:12px">'+
+    '<span style="color:#8a9ab0">Para</span><span style="color:#1F4E79">carlos.henrique@triexpecas.com.br</span>'+
+    '<span style="color:#8a9ab0">Cc</span><span style="color:#607080">luciano.siqueira@triexpecas.com.br; financeiro@triexpecas.com.br</span>'+
+    '<span style="color:#8a9ab0">Assunto</span><span id="cpAssunto" style="font-weight:700;color:#1a2332"></span>'+
+    '</div>'+
+    '<div id="cpCorpo" style="line-height:1.7;color:#444;font-size:13px"></div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px">'+
+    '<button ontouchstart="" onclick="condPgtoCopiarHTML()" style="flex:1;padding:10px;background:#1F4E79;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📋 Copiar HTML</button>'+
+    '<button ontouchstart="" onclick="condPgtoOutlook()" style="flex:1;padding:10px;background:#0078D4;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✉️ Abrir no Outlook</button>'+
+    '</div>'+
+    '</div>'+
+    '</div>'+
+    '</div>';
+}
+
+async function condPgtoLerPrint(input){
+  var file = input.files[0]; if(!file) return;
+  var st = document.getElementById('condPgtoStatus');
+  if(st) st.innerHTML = '⏳ Lendo com IA...';
+  try{
+    var apiKey = localStorage.getItem('anthropic_key')||'';
+    if(!apiKey){ apiKey=prompt('Cole sua Anthropic API Key:'); if(apiKey) localStorage.setItem('anthropic_key',apiKey); }
+    if(!apiKey){ if(st) st.innerHTML='❌ API Key necessária'; return; }
+    var b64 = await new Promise(function(res,rej){
+      var r=new FileReader(); r.onload=function(e){res(e.target.result.split(',')[1]);}; r.onerror=rej; r.readAsDataURL(file);
+    });
+    var mediaType = file.type||'image/png';
+    var resp = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514', max_tokens:800,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:mediaType,data:b64}},
+          {type:'text',text:'Extraia do pedido: numero_pedido, cotacao, cliente (nome completo), valor_bruto, valor_liquido. Responda APENAS JSON sem markdown. Ex: {"numero_pedido":"365573","cotacao":"2544","cliente":"TRIPART S COMERCIO...","valor_bruto":"14.368,12","valor_liquido":"11.905,21"}'}
+        ]}]
+      })
+    });
+    var data = await resp.json();
+    var txt = data.content[0].text.replace(/```json|```/g,'').trim();
+    _condPgtoData = JSON.parse(txt);
+    document.getElementById('condPgtoBody').style.display='block';
+    document.getElementById('cpPedido').textContent = _condPgtoData.numero_pedido||'—';
+    document.getElementById('cpCotacao').textContent = _condPgtoData.cotacao||'—';
+    document.getElementById('cpCliente').textContent = _condPgtoData.cliente||'—';
+    document.getElementById('cpBruto').textContent = 'R$ '+(_condPgtoData.valor_bruto||'—');
+    document.getElementById('cpLiquido').textContent = 'R$ '+(_condPgtoData.valor_liquido||'—');
+    if(st) st.innerHTML = '<span style="color:#27AE60">✅ Dados extraídos!</span>';
+  }catch(e){
+    if(st) st.innerHTML = '<span style="color:#C00000">❌ Erro: '+e.message+'</span>';
+  }
+}
+
+function condPgtoSelCond(cond){
+  document.querySelectorAll('.cpChip').forEach(function(b){
+    var on = b.dataset.cond === cond;
+    b.style.background = on ? '#27AE60' : '#f7f8fc';
+    b.style.color = on ? '#fff' : '#607080';
+    b.style.borderColor = on ? '#27AE60' : '#d0d8e8';
+  });
+  if(!_condPgtoData) return;
+  var d = _condPgtoData;
+  var assunto = 'Autorização de Prazo — Pedido '+d.numero_pedido;
+  var corpo = 'Olá, equipe!<br><br>@Carlos, por favor autorizar condição de pagamento <strong>'+cond+'</strong> para o pedido abaixo:<br><br>'+
+    '<strong>Pedido:</strong> '+d.numero_pedido+' &nbsp;|&nbsp; '+
+    '<strong>Cliente:</strong> '+d.cliente+' &nbsp;|&nbsp; '+
+    '<strong>Valor Bruto:</strong> R$ '+d.valor_bruto+' &nbsp;|&nbsp; '+
+    '<strong>Valor Líquido:</strong> R$ '+d.valor_liquido+'<br><br>'+
+    'Obrigado!<br>Vitor Lima';
+  document.getElementById('cpAssunto').textContent = assunto;
+  document.getElementById('cpCorpo').innerHTML = corpo;
+  document.getElementById('condPgtoEmailBox').style.display = 'block';
+  window._condPgtoAssunto = assunto;
+  window._condPgtoCorpo = corpo;
+}
+
+function condPgtoCopiarHTML(){
+  var html = '<p>Olá, equipe!</p><p>@Carlos, por favor autorizar condição de pagamento <strong>'+
+    document.querySelector('.cpChip[style*="27AE60"]')?.dataset.cond+'</strong> para o pedido abaixo:</p>'+
+    '<p><strong>Pedido:</strong> '+_condPgtoData.numero_pedido+' &nbsp;|&nbsp; '+
+    '<strong>Cliente:</strong> '+_condPgtoData.cliente+' &nbsp;|&nbsp; '+
+    '<strong>Valor Bruto:</strong> R$ '+_condPgtoData.valor_bruto+' &nbsp;|&nbsp; '+
+    '<strong>Valor Líquido:</strong> R$ '+_condPgtoData.valor_liquido+'</p>'+
+    '<p>Obrigado!<br>Vitor Lima</p>';
+  navigator.clipboard.writeText(html).then(function(){
+    var t=document.createElement('div');
+    t.style.cssText='position:fixed;top:70px;right:20px;z-index:9999;background:#EAF3DE;border:1px solid #7CB97A;color:#2A6A28;border-radius:10px;padding:12px 20px;font-size:13px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.15)';
+    t.textContent='✅ HTML copiado! Cole no Outlook com Ctrl+V';
+    document.body.appendChild(t);setTimeout(function(){t.remove();},4000);
+  });
+}
+
+function condPgtoOutlook(){
+  var d = _condPgtoData;
+  var cond = document.querySelector('.cpChip[style*="27AE60"]')?.dataset.cond||'';
+  var corpo = 'Olá, equipe!\n\n@Carlos, por favor autorizar condição de pagamento '+cond+' para o pedido abaixo:\n\nPedido: '+d.numero_pedido+' | Cliente: '+d.cliente+' | Valor Bruto: R$ '+d.valor_bruto+' | Valor Líquido: R$ '+d.valor_liquido+'\n\nObrigado!\nVitor Lima';
+  var mailto = 'mailto:carlos.henrique@triexpecas.com.br?cc=luciano.siqueira@triexpecas.com.br,financeiro@triexpecas.com.br&subject='+encodeURIComponent('Autorização de Prazo — Pedido '+d.numero_pedido)+'&body='+encodeURIComponent(corpo);
+  window.location.href = mailto;
+}
+
 function ferrMeAvise(){
   var el=document.getElementById('ferrBody');if(!el)return;
   function render(){

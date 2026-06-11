@@ -643,7 +643,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.43</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.44</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -736,6 +736,11 @@ thead th{position:relative;}
       <label>Lead Time — Prazo de Entrega (dias)</label>
       <input type="number" id="ltIn" value="30" min="1" max="180">
       <p class="pnote">Dias até o pedido chegar até você</p>
+    </div>
+    <div class="pbox" id="cicloBox">
+      <label>Ciclo de Compra (dias)</label>
+      <input type="number" id="cicloIn" value="30" min="1" max="365">
+      <p class="pnote">Por quantos dias você quer estoque</p>
     </div>
     <div class="pbox">
       <label>Critério — Itens Mais Consumidos</label>
@@ -1440,7 +1445,7 @@ function _processRowsMain(rows){
 let allItems=[],calcItems=[],filtered=[];
 let _loadingFile=false;
 const tabs=[];let activeTab=0; // sistema de abas
-let periodo=90,leadTime=30,modoC='ciclo',mesesC=3;
+let periodo=90,leadTime=30,ciclo=30,modoC='ciclo',mesesC=3;
 // Grupos e palavras-chave para classificação automática
 const GRUPOS_MAP={
   "VEDAÇÃO":["junta","retentor","anel vedação","vedador","oring","anel oring","gaxeta","selo","anilha vedação"],
@@ -1673,7 +1678,7 @@ async function recalc(){
       }
       const qtdC=modoC==='meses'
         ?Math.max(0,Math.round(cD*30*mesesC-d.saldo-pA-tA))
-        :Math.max(0,Math.round(cD*(leadTime+periodo)-d.saldo-pA-tA));
+        :Math.max(0,Math.round(cD*(leadTime+ciclo)-d.saldo-pA-tA));
       const vC=qtdC*d.custo;
       const isOp=d.cotacoes>=3&&d.saldo===0&&d.consumo===0;
       const sk=isOp?"OP":cD>0&&dE<leadTime?"U":cD>0&&dE<leadTime*2?"A":"O";
@@ -2617,6 +2622,8 @@ document.querySelectorAll(".abtn").forEach(b=>{
 });
 document.getElementById("srch").addEventListener("input",()=>{pg=1;applyFilt();});
 function setMode(m,btn){
+  var cb=document.getElementById('cicloBox');
+  if(cb)cb.style.display=m==='ciclo'?'':'none';
   modoC=m;
   document.querySelectorAll(".mbtn").forEach(b=>b.classList.remove("act"));btn.classList.add("act");
   const row=document.getElementById("mrow"),note=document.getElementById("mNote");
@@ -2643,6 +2650,7 @@ function updatePer(){
 document.getElementById("dS").addEventListener("change",updatePer);
 document.getElementById("dE").addEventListener("change",updatePer);
 document.getElementById("ltIn").addEventListener("change",e=>{leadTime=Math.max(1,parseInt(e.target.value)||30);if(allItems.length)recalc();});
+document.getElementById("cicloIn").addEventListener("change",e=>{ciclo=Math.max(1,parseInt(e.target.value)||30);if(allItems.length)recalc();});
 // ═══════════════════════════════════════════════════════════════
 // UPLOAD
 // ═══════════════════════════════════════════════════════════════
@@ -2725,6 +2733,11 @@ function handleFile(file){
         });
         allItems = allItems.concat(result.items);
         pfSalvarHistoricoFamilia(result.items, familiasDaPlanilha, file.name);
+        // Sync para Supabase
+        familiasDaPlanilha.forEach(function(fam){
+          var itensF = result.items.filter(function(d){ return (d.familia||'')=== fam; });
+          pfPushPlanilha(itensF, fam, file.name);
+        });
       } else {
         allItems = result.items;
       }
@@ -2997,7 +3010,7 @@ function mkTab(){
   return{
     name:'Nova análise',hasData:false,
     allItems:[],calcItems:[],filtered:[],pageItems:[],
-    periodo:90,leadTime:30,modoC:'ciclo',mesesC:3,
+    periodo:90,leadTime:30,ciclo:30,modoC:'ciclo',mesesC:3,
     afilt:'UA',abcF:'TODOS',sCol:'vP',sDir:'desc',pg:1,
     marcasF:new Set(),colFilters:{},selSet:new Set(),qtdEdit:{},opSelSet:new Set(),opQtd:{},obsEdit:{},
     dS:'',dE:'',abcVisible:false,srch:''
@@ -3010,7 +3023,7 @@ function saveCurrentTab(){
   // Estado dos dados
   t.allItems=allItems;t.calcItems=calcItems;t.filtered=filtered;
   // Parâmetros do UI
-  t.periodo=periodo;t.leadTime=leadTime;t.modoC=modoC;t.mesesC=mesesC;
+  t.periodo=periodo;t.leadTime=leadTime;t.ciclo=ciclo;t.modoC=modoC;t.mesesC=mesesC;
   t.dS=document.getElementById('dS').value||'';
   t.dE=document.getElementById('dE').value||'';
   // Filtros
@@ -3033,7 +3046,7 @@ function loadTab(idx){
   const t=tabs[idx];
   // Restaurar variáveis globais
   allItems=t.allItems;calcItems=t.calcItems;filtered=t.filtered;pageItems=t.pageItems||[];
-  periodo=t.periodo;leadTime=t.leadTime;modoC=t.modoC;mesesC=t.mesesC;
+  periodo=t.periodo;leadTime=t.leadTime;ciclo=t.ciclo||30;modoC=t.modoC;mesesC=t.mesesC;
   afilt=t.afilt;abcF=t.abcF;sCol=t.sCol;sDir=t.sDir;pg=t.pg;
   marcasF.clear();t.marcasF.forEach(m=>marcasF.add(m));
   colFilters={};Object.assign(colFilters,t.colFilters);
@@ -3056,6 +3069,7 @@ function loadTab(idx){
     document.getElementById('dS').value=t.dS;
     document.getElementById('dE').value=t.dE;
     document.getElementById('ltIn').value=t.leadTime;
+    if(document.getElementById('cicloIn'))document.getElementById('cicloIn').value=t.ciclo||30;
     const si=document.getElementById('srch');if(si)si.value=t.srch||'';
     // Restaurar modo
     document.querySelectorAll('.mbtn').forEach(b=>b.classList.toggle('act',b.dataset.m===t.modoC));
@@ -3149,7 +3163,7 @@ function closeTab(idx){
   // Carregar aba ativa sem salvar (já removemos)
   const t=tabs[activeTab];
   allItems=t.allItems;calcItems=t.calcItems;filtered=t.filtered;pageItems=t.pageItems||[];
-  periodo=t.periodo;leadTime=t.leadTime;modoC=t.modoC;mesesC=t.mesesC;
+  periodo=t.periodo;leadTime=t.leadTime;ciclo=t.ciclo||30;modoC=t.modoC;mesesC=t.mesesC;
   afilt=t.afilt;abcF=t.abcF;sCol=t.sCol;sDir=t.sDir;pg=t.pg;
   marcasF.clear();t.marcasF.forEach(m=>marcasF.add(m));
   colFilters={};Object.assign(colFilters,t.colFilters);
@@ -3162,6 +3176,7 @@ function closeTab(idx){
     document.getElementById('btnTroc').style.display='block';
     document.getElementById('dS').value=t.dS;document.getElementById('dE').value=t.dE;
     document.getElementById('ltIn').value=t.leadTime;
+    if(document.getElementById('cicloIn'))document.getElementById('cicloIn').value=t.ciclo||30;
     atualizarPeriodo();atualizarFiltroMarca();applyFilt();renderKpis();renderCharts();
   } else {
     document.getElementById('upSec').style.display='block';
@@ -5208,6 +5223,7 @@ async function doLogin(){
           document.getElementById('authOverlay').style.display='none';
           if(typeof initDevMenu==='function')initDevMenu();
           if(typeof cadSyncFornecedores==='function')cadSyncFornecedores();
+          pfPullPlanilhas();
           initUserUI();
           setAuthLoading(false);
           return;
@@ -5248,6 +5264,7 @@ async function doLogin(){
     document.getElementById('authOverlay').style.display='none';
     if(typeof initDevMenu==='function')initDevMenu();
     if(typeof cadSyncFornecedores==='function')cadSyncFornecedores();
+    pfPullPlanilhas();
     initUserUI();
     // Ask to set PIN only on touch devices (iPad/mobile)
     if(!localStorage.getItem('offline_pin_hash') && 'ontouchstart' in window){
@@ -5294,6 +5311,7 @@ function doLoginOffline(){
     document.getElementById('authOverlay').style.display='none';
     if(typeof initDevMenu==='function')initDevMenu();
     if(typeof cadSyncFornecedores==='function')cadSyncFornecedores();
+    pfPullPlanilhas();
     initUserUI();
   }
 
@@ -5338,6 +5356,92 @@ function showAuthView(id){
   document.getElementById(id).style.display='block';
   document.getElementById('authErr').style.display='none';
 }
+// ── SYNC PLANILHAS SUPABASE ───────────────────────────────────
+// SQL para criar tabela (rodar no Supabase SQL Editor):
+// create table if not exists user_planilhas (
+//   id uuid default gen_random_uuid() primary key,
+//   user_id uuid references auth.users(id) on delete cascade,
+//   familia text not null,
+//   nome_arquivo text,
+//   items jsonb,
+//   configuracoes jsonb,
+//   updated_at timestamptz default now(),
+//   unique(user_id, familia)
+// );
+// alter table user_planilhas enable row level security;
+// create policy "user own" on user_planilhas for all using (auth.uid() = user_id);
+
+async function pfPushPlanilha(items, familia, nomeArquivo){
+  if(!sbUser)return;
+  try{
+    var payload={
+      user_id: sbUser.id,
+      familia: familia,
+      nome_arquivo: nomeArquivo||'',
+      items: JSON.stringify(items),
+      configuracoes: JSON.stringify({leadTime,ciclo,periodo,modoC,mesesC}),
+      updated_at: new Date().toISOString()
+    };
+    await sbFetch('/rest/v1/user_planilhas',{
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify(payload)
+    });
+    console.log('✅ Planilha '+familia+' sincronizada no Supabase');
+  }catch(e){console.warn('pfPushPlanilha erro:',e);}
+}
+
+async function pfPullPlanilhas(){
+  if(!sbUser)return;
+  try{
+    var sp=document.getElementById('spinner');
+    if(sp){sp.style.display='block';sp.textContent='☁️ Carregando planilhas...';}
+    var r=await sbFetch('/rest/v1/user_planilhas?user_id=eq.'+sbUser.id+'&select=familia,nome_arquivo,items,configuracoes,updated_at&order=updated_at.desc');
+    if(!r.ok){if(sp)sp.style.display='none';return;}
+    var data=await r.json();
+    if(!data||!data.length){if(sp)sp.style.display='none';return;}
+    // Mescla todas as famílias
+    allItems=[];
+    data.forEach(function(row){
+      try{
+        var items=typeof row.items==='string'?JSON.parse(row.items):row.items;
+        if(items&&items.length){
+          allItems=allItems.concat(items);
+          if(row.configuracoes){
+            var cfg=typeof row.configuracoes==='string'?JSON.parse(row.configuracoes):row.configuracoes;
+            if(cfg.leadTime)leadTime=cfg.leadTime;
+            if(cfg.ciclo)ciclo=cfg.ciclo;
+          }
+        }
+      }catch(e){}
+    });
+    if(!allItems.length){if(sp)sp.style.display='none';return;}
+    // Atualiza UI
+    document.body.classList.remove('no-data');document.body.classList.add('has-data');
+    var _bt=document.getElementById('btnTroc');if(_bt)_bt.style.display='block';
+    var _bl=document.getElementById('btnLeg');if(_bl)_bl.style.display='block';
+    var _br=document.getElementById('btnReset');if(_br)_br.style.display='block';
+    var _bc=document.getElementById('btnColConfig');if(_bc)_bc.style.display='block';
+    var _bh=document.getElementById('histBtn');if(_bh)_bh.style.display='block';
+    if(document.getElementById('ltIn'))document.getElementById('ltIn').value=leadTime;
+    if(document.getElementById('cicloIn'))document.getElementById('cicloIn').value=ciclo;
+    var famSalva=localStorage.getItem('pfFamiliaAtiva');
+    if(famSalva)pfFamiliaAtiva=famSalva;
+    setDefaultDates();
+    await recalc();
+    if(sp)sp.style.display='none';
+    renderCharts();renderKpis();renderOpBox();
+    pfAtualizarFiltroFamilias();
+    setTimeout(function(){verificarAvisos();verificarOportunidades();},300);
+    // Salva também no localStorage como backup
+    try{localStorage.setItem('dashV_lastSheet',JSON.stringify({name:data[0].nome_arquivo||'',items:allItems,ts:Date.now()}));}catch(e){}
+    console.log('✅ '+allItems.length+' itens carregados do Supabase ('+data.length+' famílias)');
+  }catch(e){
+    console.warn('pfPullPlanilhas erro:',e);
+    var sp2=document.getElementById('spinner');if(sp2)sp2.style.display='none';
+  }
+}
+
 function initUserUI(){
   // Show dev buttons for owner
   if(typeof sbUser!=='undefined'&&sbUser&&sbUser.id==='e526fea4-d04f-4d2f-a700-145ac17b137c'){

@@ -643,7 +643,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.40</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.41</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -6912,6 +6912,7 @@ function cadFormCliente(data,idx){
   html+=cadField('Nome Fantasia','clieFantasia',d.fantasia||'','','text');
   html+=cadField('E-mail','clieEmail',d.email||'','cliente@empresa.com','email');
   html+=cadField('Telefone','clieTel',d.tel||'','(00) 00000-0000','text');
+  html+=cadField('WhatsApp 📱','clieWhatsapp',d.whatsapp||d.tel||'','(00) 00000-0000','text');
   html+=cadField('Contato','clieContato',d.contato||'','Nome do contato','text');
   html+=cadField('Cidade','clieCidade',d.cidade||'','','text');
   html+=cadField('Estado','clieEstado',d.estado||'','','text');
@@ -6960,6 +6961,7 @@ function cadSalvarCliente(idx){
     cnpj:document.getElementById('clieCnpj').value||'',
     email:document.getElementById('clieEmail').value||'',
     tel:document.getElementById('clieTel').value||'',
+    whatsapp:document.getElementById('clieWhatsapp')?document.getElementById('clieWhatsapp').value||'':'',
     contato:document.getElementById('clieContato').value||'',
     cidade:document.getElementById('clieCidade').value||'',
     estado:document.getElementById('clieEstado').value||'',
@@ -7825,6 +7827,7 @@ function cadSalvarClienteV2(idx){
     cnpj:document.getElementById('clieCnpj').value||'',
     email:document.getElementById('clieEmail').value||'',
     tel:document.getElementById('clieTel').value||'',
+    whatsapp:document.getElementById('clieWhatsapp')?document.getElementById('clieWhatsapp').value||'':'',
     contato:document.getElementById('clieContato').value||'',
     cidade:document.getElementById('clieCidade').value||'',
     estado:document.getElementById('clieEstado').value||'',
@@ -11050,6 +11053,9 @@ function ferrMeAvise(){
         html+='<td style="padding:8px;text-align:center"><span style="background:#FFF3CD;color:#856404;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700">⏳ Aguardando</span></td>';
         html+='<td style="padding:8px;text-align:center;white-space:nowrap">';
         html+='<button id="maChegouBtn'+i+'" ontouchstart="" onclick="maChegou('+i+')" style="background:#1F7A3A;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:700;margin-right:4px">✅ Chegou</button>';
+        if(a.wa_cliente){
+          html+='<button ontouchstart="" onclick="maWhatsApp('+i+')" style="background:#25D366;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:700;margin-right:4px">📱 WA</button>';
+        }
         html+='<button ontouchstart="" onclick="maRemover('+i+')" style="background:none;border:1px solid #e0e8f0;color:#C00000;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px">🗑</button></td></tr>';
       });
       html+='</tbody></table>';
@@ -11064,15 +11070,33 @@ function ferrMeAvise(){
     var codCliente=(document.getElementById('maCodCliente').value||'').trim();
     var nomeCliente=(document.getElementById('maNomeCliente').value||'').trim();
     var obs=(document.getElementById('maObs').value||'').trim();
+    // Tenta buscar whatsapp do cadastro
+    var waCliente='';
+    if(codCliente||nomeCliente){
+      var clist=[];try{clist=cadLoad(CLIE_KEY);}catch(e){}
+      var found=clist.find(function(c){
+        return (codCliente&&(c.id===codCliente||String(c.cod||'')===codCliente))||(nomeCliente&&(c.razao||'').toLowerCase().includes(nomeCliente.toLowerCase()));
+      });
+      if(found){waCliente=found.whatsapp||found.tel||'';}
+    }
     if(!ref){alert('Informe a referência.');return;}
     var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
-    lista.push({ref:ref,marca:marca,cod_cliente:codCliente,nome_cliente:nomeCliente,obs:obs,ts:Date.now()});
+    lista.push({ref:ref,marca:marca,cod_cliente:codCliente,nome_cliente:nomeCliente,obs:obs,wa_cliente:waCliente,ts:Date.now()});
     localStorage.setItem('meAvise_lista',JSON.stringify(lista));
     render();
   };
   window.maRemover=function(i){
     var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
     lista.splice(i,1);localStorage.setItem('meAvise_lista',JSON.stringify(lista));render();
+  };
+  window.maWhatsApp=function(i){
+    var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
+    var a=lista[i];
+    var tel=(a.wa_cliente||'').replace(/\D/g,'');
+    if(!tel){alert('Telefone/WhatsApp não cadastrado para este cliente.');return;}
+    if(!tel.startsWith('55'))tel='55'+tel;
+    var msg=encodeURIComponent('Olá '+( a.nome_cliente||'')+'! Sua peça chegou ao estoque.\n\nReferência: '+a.ref+(a.marca?'\nMarca: '+a.marca:'')+'\n\nPode entrar em contato para combinar a retirada ou entrega.\n\nAtenciosamente,\nTriex Peças');
+    window.open('https://wa.me/'+tel+'?text='+msg,'_blank');
   };
   window.maChegou=function(i){
     var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}

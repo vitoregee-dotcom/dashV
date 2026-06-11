@@ -633,6 +633,7 @@ thead th{position:relative;}
       <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.33</div>
     </div>
     <div id="pfTopRight">
+      <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
       <button ontouchstart="" id="btnLeg" onclick="toggleLeg()" style="display:none;background:none;border:1px solid var(--pf-border);color:var(--pf-text-muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px">📋 Legenda</button>
       <button ontouchstart="" id="btnTroc" onclick="resetApp()" style="display:none;background:none;border:1px solid var(--pf-border);color:var(--pf-text-muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px">↩ Trocar planilha</button>
     </div>
@@ -1370,6 +1371,7 @@ function _processRowsMain(rows){
     ref:["referencia","ref","codigo ref","codigo"],
     desc:["descricao","desc","produto","item","nome"],
     marca:["marca","fabricante"],
+    familia:["familia","family","grupo produto","linha"],
     custo:["custo medio matriz","custo medio","preco nf","custo"],
     saldo:["saldo atual","saldo atual matriz","estoque atual","saldo"],
     minimo:["minimo","estoque minimo"],
@@ -1395,6 +1397,7 @@ function _processRowsMain(rows){
     var saldo=cm.saldo!==undefined?parseFloat(r[cm.saldo])||0:0;
     var consumo=cm.consumo!==undefined?parseFloat(r[cm.consumo])||0:0;
     var custo=cm.custo!==undefined?parseFloat(r[cm.custo])||0:0;
+    var familiaCol=cm.familia!==undefined&&r[cm.familia]!=null?String(r[cm.familia]).trim().toUpperCase():'';
     var ex=map.get(key);
     if(ex){
       ex.saldo+=saldo;ex.consumo+=consumo;
@@ -1405,11 +1408,14 @@ function _processRowsMain(rows){
       if(marca&&ex.marca.indexOf(marca)<0)ex.marca+=(ex.marca?' + ':'')+marca;
     }else{
       var cv=cm.curva!==undefined&&r[cm.curva]!=null?String(r[cm.curva]).trim().toUpperCase():'';
-      map.set(key,{ref:ref,desc:cm.desc!==undefined&&r[cm.desc]!=null?String(r[cm.desc]):'',marca:marca,custo:custo,saldo:saldo,minimo:cm.minimo!==undefined?parseFloat(r[cm.minimo])||0:0,consumo:consumo,pedido:cm.pedido!==undefined?parseFloat(r[cm.pedido])||0:0,cotacoes:cm.cotacoes!==undefined?parseFloat(r[cm.cotacoes])||0:0,curva:['A','B','C'].indexOf(cv)>=0?cv:'—',_cb:consumo});
+      map.set(key,{ref:ref,desc:cm.desc!==undefined&&r[cm.desc]!=null?String(r[cm.desc]):'',marca:marca,familia:familiaCol,custo:custo,saldo:saldo,minimo:cm.minimo!==undefined?parseFloat(r[cm.minimo])||0:0,consumo:consumo,pedido:cm.pedido!==undefined?parseFloat(r[cm.pedido])||0:0,cotacoes:cm.cotacoes!==undefined?parseFloat(r[cm.cotacoes])||0:0,curva:['A','B','C'].indexOf(cv)>=0?cv:'—',_cb:consumo});
     }
   }
   var result=[...map.values()];result.forEach(function(d){delete d._cb;});
-  return{items:result,detected:det,errors:[]};
+  // Detectar famílias presentes
+  var familias=[];
+  result.forEach(function(d){if(d.familia&&familias.indexOf(d.familia)<0)familias.push(d.familia);});
+  return{items:result,detected:det,errors:[],familias:familias};
 }
 
 
@@ -1771,6 +1777,7 @@ function applyFilt(){
     return stripped.includes(query);
   }
   filtered=calcItems.filter(i=>{
+    const famOk = (typeof pfFamiliaAtiva==='undefined'||pfFamiliaAtiva==='TODAS') ? true : (i.familia||'')=== pfFamiliaAtiva;
     const fOk=afilt==="T"?true:afilt==="OP"?i.sk==="OP":afilt==="U"?i.sk==="U":afilt==="A"?i.sk==="A":i.sk==="U"||i.sk==="A";
     const aOk=abcF==="TODOS"||i.curva===abcF;
     const sOk=!q||refMatch(i.ref,q)||i.desc.toLowerCase().includes(q);
@@ -1802,7 +1809,7 @@ function applyFilt(){
       // Colunas texto: contém
       return String(i[col]||"").toLowerCase().includes(val.toLowerCase());
     });
-    return fOk&&aOk&&sOk&&mOk&&gOk&&sistOk&&cOk&&pOk&&solOk;
+    return famOk&&fOk&&aOk&&sOk&&mOk&&gOk&&sistOk&&cOk&&pOk&&solOk;
   });
   filtered.sort((a,b)=>{
     const av=a[sCol]??'',bv=b[sCol]??'';
@@ -2664,12 +2671,37 @@ function handleFile(file){
         return;
       }
       // Nomear aba antes de carregar dados
-      if(tabs[activeTab]){tabs[activeTab].name=file.name.replace(/\.xlsx$/i,"");tabs[activeTab].hasData=true;}
+      if(tabs[activeTab]){tabs[activeTab].name=file.name.replace(/\\.xlsx$/i,"");tabs[activeTab].hasData=true;}
       renderTabs();
       if(result.detected){
         var dcEl=document.getElementById("detCols");
         if(dcEl){dcEl.textContent="Colunas: "+result.detected.join(" · ");dcEl.style.display="block";}
       }
+
+      // ── MERGE POR FAMÍLIA ──────────────────────────────────────
+      // Se a planilha tem famílias identificadas, substitui só essas famílias
+      // Caso contrário, substitui tudo (comportamento legado)
+      var familiasDaPlanilha = result.familias || [];
+      if(familiasDaPlanilha.length > 0){
+        // Remove itens das famílias que estão chegando
+        allItems = allItems.filter(function(item){
+          return familiasDaPlanilha.indexOf(item.familia||'') < 0;
+        });
+        // Adiciona os novos itens
+        allItems = allItems.concat(result.items);
+        // Salva histórico automático por família
+        pfSalvarHistoricoFamilia(result.items, familiasDaPlanilha, file.name);
+      } else {
+        // Legado: substitui tudo
+        allItems = result.items;
+      }
+
+      // Salvar snapshot completo no localStorage
+      try{
+        localStorage.setItem('dashV_lastSheet', JSON.stringify({
+          name: file.name, items: allItems, detected: result.detected, ts: Date.now()
+        }));
+      }catch(e){console.warn('Não foi possível salvar planilha localmente:',e);}
       var temABC=allItems.some(function(i){return i.curva!=="—";});
       var abcSEl=document.getElementById("abcS");if(abcSEl)abcSEl.style.display=temABC?"flex":"none";
       document.body.classList.remove("no-data");document.body.classList.add("has-data");
@@ -2678,17 +2710,8 @@ function handleFile(file){
       var _bc=document.getElementById("btnColConfig");if(_bc)_bc.style.display="block";
       var _bh=document.getElementById("histBtn");if(_bh)_bh.style.display="block";
       if(sbUser&&sbUser.id==="e526fea4-d04f-4d2f-a700-145ac17b137c"){var _co=document.getElementById("cotBtn");if(_co)_co.style.display="block";}
-      allItems=result.items;
-      // Salvar planilha no localStorage para restaurar depois
-      try{
-        var saveData={
-          name: file.name,
-          items: result.items,
-          detected: result.detected,
-          ts: Date.now()
-        };
-        localStorage.setItem('dashV_lastSheet', JSON.stringify(saveData));
-      }catch(e){console.warn('Não foi possível salvar planilha localmente:',e);}
+      // Mostra quais famílias estão carregadas
+      pfAtualizarFiltroFamilias();
       _loadingFile=true;
       setDefaultDates();
       var sp2=document.getElementById('spinner');
@@ -4628,6 +4651,74 @@ function exportarRelOp(){
   a.download='relatorio_oportunidades.csv';
   a.click();
 }
+// ── MULTI-FAMÍLIA ─────────────────────────────────────────────
+var pfFamiliaAtiva = 'TODAS';
+
+function pfGetFamilias(){
+  var fams = [];
+  allItems.forEach(function(d){
+    var f = d.familia || '';
+    if(f && fams.indexOf(f) < 0) fams.push(f);
+  });
+  return fams.sort();
+}
+
+function pfAtualizarFiltroFamilias(){
+  var fams = pfGetFamilias();
+  var el = document.getElementById('pfFamiliaFilter');
+  if(!el) return;
+  if(fams.length <= 1){ el.style.display='none'; return; }
+  el.style.display = 'inline-block';
+  var opts = '<option value="TODAS">🗂 Todas as famílias ('+fams.length+')</option>';
+  fams.forEach(function(f){
+    var count = allItems.filter(function(d){ return (d.familia||'') === f; }).length;
+    opts += '<option value="'+f+'"'+(pfFamiliaAtiva===f?' selected':'')+'>'+f+' ('+count+')</option>';
+  });
+  el.innerHTML = opts;
+  el.value = pfFamiliaAtiva;
+}
+
+function pfFiltrarPorFamilia(fam){
+  pfFamiliaAtiva = fam;
+  // Reaplica filtro — applyFilt já usa allItems, mas precisamos filtrar antes
+  if(fam === 'TODAS'){
+    // usa todos os itens
+    window._allItemsBase = null;
+  } else {
+    window._allItemsBase = allItems; // guarda original
+  }
+  applyFilt();
+  renderCharts();
+  renderKpis();
+}
+
+function pfSalvarHistoricoFamilia(items, familias, nomeArquivo){
+  try{
+    var HIST_FAM_KEY = 'pfHistFamilia_v1';
+    var hist = [];
+    try{ hist = JSON.parse(localStorage.getItem(HIST_FAM_KEY)||'[]'); }catch(e){}
+    var snap = {
+      ts: Date.now(),
+      arquivo: nomeArquivo,
+      familias: familias,
+      totais: {}
+    };
+    familias.forEach(function(f){
+      var itensF = items.filter(function(d){ return (d.familia||'') === f; });
+      snap.totais[f] = {
+        itens: itensF.length,
+        saldoTotal: itensF.reduce(function(s,d){ return s + (d.saldo||0); }, 0),
+        consumoTotal: itensF.reduce(function(s,d){ return s + (d.consumo||0); }, 0)
+      };
+    });
+    hist.unshift(snap);
+    // Mantém 90 dias
+    var cutoff = Date.now() - 90*24*60*60*1000;
+    hist = hist.filter(function(h){ return h.ts > cutoff; });
+    localStorage.setItem(HIST_FAM_KEY, JSON.stringify(hist));
+  }catch(e){ console.warn('pfSalvarHistoricoFamilia:', e); }
+}
+
 // ── ME AVISE ─────────────────────────────────────────────────────
 var aviseItems=JSON.parse(localStorage.getItem('aviseItems')||'[]');
 function salvarAvise(){localStorage.setItem('aviseItems',JSON.stringify(aviseItems));}

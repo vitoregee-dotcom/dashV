@@ -8,6 +8,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<!-- EmailJS -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<script>emailjs.init('_OO5fBKpXzaL6vlyH');</script>
 <style>
 
 
@@ -1093,9 +1096,11 @@ thead th{position:relative;}
       <button ontouchstart="" onclick="document.getElementById('avisePanel').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:16px">×</button>
     </div>
     <div style="padding:16px 20px;border-bottom:1px solid var(--bd);display:flex;gap:8px;flex-wrap:wrap">
-      <input id="aviseRef" placeholder="Código (ex: 5-641X)" style="flex:1;min-width:120px;padding:7px 10px;border:1px solid var(--bd);border-radius:7px;font-size:12px">
+      <input id="aviseRef" placeholder="Ref. da peça (ex: 5-641X)" style="flex:1;min-width:120px;padding:7px 10px;border:1px solid var(--bd);border-radius:7px;font-size:12px">
       <input id="aviseMarca" placeholder="Marca (ex: SPICER)" style="flex:1;min-width:100px;padding:7px 10px;border:1px solid var(--bd);border-radius:7px;font-size:12px">
-      <input id="aviseCliente" placeholder="Cliente aguardando (observação)" style="flex:2;min-width:160px;padding:7px 10px;border:1px solid var(--bd);border-radius:7px;font-size:12px">
+      <input id="aviseCodCliente" placeholder="Código do cliente" style="flex:1;min-width:110px;padding:7px 10px;border:1px solid var(--bd);border-radius:7px;font-size:12px">
+      <input id="aviseNomeCliente" placeholder="Nome do cliente" style="flex:2;min-width:140px;padding:7px 10px;border:1px solid var(--bd);border-radius:7px;font-size:12px">
+      <input id="aviseObs" placeholder="Observação (opcional)" style="flex:2;min-width:140px;padding:7px 10px;border:1px solid var(--bd);border-radius:7px;font-size:12px">
       <button ontouchstart="" onclick="adicionarAvise()" style="padding:7px 16px;background:#7A5000;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">+ Adicionar</button>
     </div>
     <div id="aviseList" style="padding:12px 20px;overflow-y:auto;flex:1"></div>
@@ -4630,25 +4635,65 @@ function abrirAvise(){document.getElementById('avisePanel').style.display='flex'
 function adicionarAvise(){
   var ref=(document.getElementById('aviseRef').value||'').trim();
   var marca=(document.getElementById('aviseMarca').value||'').trim();
-  var cliente=(document.getElementById('aviseCliente').value||'').trim();
+  var codCliente=(document.getElementById('aviseCodCliente').value||'').trim();
+  var nomeCliente=(document.getElementById('aviseNomeCliente').value||'').trim();
+  var obs=(document.getElementById('aviseObs').value||'').trim();
   if(!ref){document.getElementById('aviseRef').focus();return;}
-  aviseItems.push({ref:ref,marca:marca,cliente:cliente,saldo:0,ts:Date.now()});
+  aviseItems.push({ref:ref,marca:marca,cod_cliente:codCliente,nome_cliente:nomeCliente,obs:obs,saldo:0,ts:Date.now()});
   salvarAvise();
   document.getElementById('aviseRef').value='';
   document.getElementById('aviseMarca').value='';
-  document.getElementById('aviseCliente').value='';
+  document.getElementById('aviseCodCliente').value='';
+  document.getElementById('aviseNomeCliente').value='';
+  document.getElementById('aviseObs').value='';
   renderAviseList();
 }
 function removerAvise(idx){aviseItems.splice(idx,1);salvarAvise();renderAviseList();}
+function aviseChegou(idx){
+  var a=aviseItems[idx];
+  var toEmail=(sbUser&&sbUser.email)?sbUser.email:'vitor.lima@triexpecas.com.br';
+  var btn=document.getElementById('aviseChegouBtn'+idx);
+  if(btn){btn.disabled=true;btn.textContent='Enviando...';}
+  emailjs.send('service_2lp37gt','template_1hvz7m4',{
+    to_email: toEmail,
+    ref: a.ref,
+    marca: a.marca||'—',
+    obs: a.obs||'—',
+    cod_cliente: a.cod_cliente||'—',
+    nome_cliente: a.nome_cliente||'—'
+  }).then(function(){
+    aviseItems.splice(idx,1);
+    salvarAvise();
+    renderAviseList();
+    var t=document.createElement('div');
+    t.style.cssText='position:fixed;top:70px;right:20px;z-index:9999;background:#EAF3DE;border:1px solid #7CB97A;color:#2A6A28;border-radius:10px;padding:12px 20px;font-size:13px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.15)';
+    t.textContent='✅ E-mail enviado para '+toEmail;
+    document.body.appendChild(t);
+    setTimeout(function(){t.remove();},4000);
+  },function(err){
+    if(btn){btn.disabled=false;btn.textContent='✅ Chegou';}
+    alert('Erro ao enviar e-mail: '+JSON.stringify(err));
+  });
+}
 function renderAviseList(){
   var el=document.getElementById('aviseList');
   if(!aviseItems.length){el.innerHTML='<div style="text-align:center;padding:24px;color:var(--mu);font-size:12px">Nenhum item cadastrado ainda</div>';return;}
   el.innerHTML=aviseItems.map(function(a,i){
-    var h='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)">';
-    h+='<div style="flex:1"><span style="font-weight:700;font-size:13px;color:var(--navy)">'+a.ref+'</span>';
+    var h='<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd)">';
+    h+='<div style="flex:1">';
+    h+='<span style="font-weight:700;font-size:13px;color:var(--navy)">'+a.ref+'</span>';
     if(a.marca)h+='<span style="font-size:11px;color:var(--mu);margin-left:8px">'+a.marca+'</span>';
-    if(a.cliente)h+='<div style="font-size:11px;color:var(--mu);margin-top:2px">👤 '+a.cliente+'</div>';
-    h+='</div><button ontouchstart="" onclick="removerAvise('+i+')" style="background:none;border:none;color:#C00000;cursor:pointer;font-size:16px;padding:2px 6px">×</button></div>';
+    if(a.nome_cliente||a.cod_cliente){
+      h+='<div style="font-size:11px;color:var(--mu);margin-top:3px">👤 ';
+      if(a.cod_cliente)h+='<b>'+a.cod_cliente+'</b> ';
+      if(a.nome_cliente)h+=a.nome_cliente;
+      h+='</div>';
+    }
+    if(a.obs)h+='<div style="font-size:11px;color:var(--mu);margin-top:1px">📝 '+a.obs+'</div>';
+    h+='</div>';
+    h+='<button id="aviseChegouBtn'+i+'" ontouchstart="" onclick="aviseChegou('+i+')" style="padding:5px 12px;background:#1F7A3A;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap">✅ Chegou</button>';
+    h+='<button ontouchstart="" onclick="removerAvise('+i+')" style="background:none;border:none;color:#C00000;cursor:pointer;font-size:16px;padding:2px 6px">×</button>';
+    h+='</div>';
     return h;
   }).join('');
 }

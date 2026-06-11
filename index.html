@@ -643,7 +643,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.44</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.45</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -1530,14 +1530,16 @@ async function salvarTransitItem(key,entry){
   }catch(e){console.error('Erro ao salvar trânsito:',e);}
 }
 function autoLimparTransit(){
-  // Remove itens de trânsito quando o saldo aumentou vs momento da marcação
+  // Remove itens de trânsito quando o saldo aumentou OU o consumo aumentou (peça chegou e saiu no mesmo dia)
   Object.keys(transitItems).forEach(key=>{
     const [ref]=key.split('||');
     const item=calcItems.find(i=>solKey(i.ref,i.marca)===key||i.ref===ref);
     if(!item)return;
     const entry=transitItems[key];
-    const saldoMarcado=typeof entry==='object'?entry.saldo:(typeof entry==='number'?0:0);
-    if(item.saldo>saldoMarcado){
+    const saldoMarcado=typeof entry==='object'?entry.saldo:0;
+    const consumoMarcado=typeof entry==='object'&&entry.consumo!=null?entry.consumo:-1;
+    // Limpa se saldo aumentou OU se consumo aumentou (chegou e saiu)
+    if(item.saldo>saldoMarcado || (consumoMarcado>=0 && item.consumo>consumoMarcado)){
       delete transitItems[key];
       salvarTransitItem(key,null);
     }
@@ -3870,7 +3872,7 @@ function importTransitCSV(file){
               const key=typeof solKey==='function'?solKey(cod,marca):cod;
               const item=calcItems.find(x=>x.ref===cod);
               const prevQtd=typeof transitItems[key]==='object'?transitItems[key].qtd||0:(transitItems[key]||0);
-              transitItems[key]={qtd:prevQtd+qtd,saldo:item?item.saldo:0};
+              transitItems[key]={qtd:prevQtd+qtd,saldo:item?item.saldo:0,consumo:item?item.consumo:0};
               salvarTransitItem(key,transitItems[key]);
               count++;
             }
@@ -4047,7 +4049,7 @@ function processTransitCSVText(text){
     const key=solKey?solKey(codRaw,marca):codRaw;
     const item=calcItems.find(i=>i.ref===codRaw);
     const prevQtd=typeof transitItems[key]==='object'?transitItems[key].qtd:(transitItems[key]||0);
-    const entry={qtd:prevQtd+qtd,saldo:item?item.saldo:0};
+    const entry={qtd:prevQtd+qtd,saldo:item?item.saldo:0,consumo:item?item.consumo:0};
     transitItems[key]=entry;
     salvarTransitItem(key,entry);
     count++;

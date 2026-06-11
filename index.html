@@ -37,9 +37,19 @@
   border-right:1px solid var(--pf-sidebar-border);
   display:flex;flex-direction:column;flex-shrink:0;
   position:sticky;top:0;height:100vh;overflow-y:auto;
-  transition:background .2s,border-color .2s;
+  transition:width .2s,background .2s,border-color .2s;
   z-index:50;
 }
+#pfSidebar.collapsed{width:0;border-right:none;overflow:hidden;}
+#pfSidebarToggle{
+  position:fixed;top:14px;left:208px;z-index:60;
+  background:var(--pf-topbar-bg);border:1px solid var(--pf-border);
+  color:var(--pf-text-muted);border-radius:6px;
+  width:22px;height:26px;cursor:pointer;font-size:13px;
+  display:flex;align-items:center;justify-content:center;
+  transition:left .2s;line-height:1;
+}
+#pfSidebarToggle.collapsed{left:8px;}
 #pfLogo{padding:20px 16px 14px;border-bottom:1px solid var(--pf-sidebar-border)}
 .pf-logo-icon{
   width:36px;height:36px;border-radius:10px;background:var(--pf-accent);
@@ -602,6 +612,7 @@ thead th{position:relative;}
 </div>
 
 <div id="pfApp" class="pf-light">
+<button id="pfSidebarToggle" onclick="pfToggleSidebar()" title="Ocultar/mostrar menu">‹</button>
 <div id="pfSidebar">
   <div id="pfLogo">
     <div id="pfLogoIcon"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"/><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"/><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="33" r="2" fill="#E67E22"/></svg></div>
@@ -632,12 +643,13 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.34</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.35</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
       <button ontouchstart="" id="btnLeg" onclick="toggleLeg()" style="display:none;background:none;border:1px solid var(--pf-border);color:var(--pf-text-muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px">📋 Legenda</button>
-      <button ontouchstart="" id="btnTroc" onclick="resetApp()" style="display:none;background:none;border:1px solid var(--pf-border);color:var(--pf-text-muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px">↩ Trocar planilha</button>
+      <button ontouchstart="" id="btnTroc" onclick="pfAdicionarPlanilha()" style="display:none;background:none;border:1px solid var(--pf-border);color:var(--pf-text-muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px">➕ Planilha</button>
+      <button ontouchstart="" id="btnReset" onclick="resetApp()" style="display:none;background:none;border:1px solid var(--pf-border);color:#C00000;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:12px">↩ Limpar</button>
     </div>
   </div>
 <div id="tabBar"><div id="tabList"></div><button ontouchstart="" id="btnNewTab" onclick="newTab()">＋ Nova análise</button></div>
@@ -2711,6 +2723,7 @@ function handleFile(file){
       var _bl=document.getElementById("btnLeg");if(_bl)_bl.style.display="block";
       var _bc=document.getElementById("btnColConfig");if(_bc)_bc.style.display="block";
       var _bh=document.getElementById("histBtn");if(_bh)_bh.style.display="block";
+      var _br=document.getElementById("btnReset");if(_br)_br.style.display="block";
       if(sbUser&&sbUser.id==="e526fea4-d04f-4d2f-a700-145ac17b137c"){var _co=document.getElementById("cotBtn");if(_co)_co.style.display="block";}
       // Mostra quais famílias estão carregadas
       pfAtualizarFiltroFamilias();
@@ -4653,6 +4666,41 @@ function exportarRelOp(){
   a.download='relatorio_oportunidades.csv';
   a.click();
 }
+// ── SIDEBAR TOGGLE ────────────────────────────────────────────
+function pfToggleSidebar(){
+  var sb=document.getElementById('pfSidebar');
+  var btn=document.getElementById('pfSidebarToggle');
+  if(!sb||!btn)return;
+  var collapsed=sb.classList.toggle('collapsed');
+  btn.classList.toggle('collapsed',collapsed);
+  btn.textContent=collapsed?'›':'‹';
+  localStorage.setItem('pfSidebarCollapsed', collapsed?'1':'0');
+}
+// Restaurar estado da sidebar
+(function(){
+  if(localStorage.getItem('pfSidebarCollapsed')==='1'){
+    var sb=document.getElementById('pfSidebar');
+    var btn=document.getElementById('pfSidebarToggle');
+    if(sb)sb.classList.add('collapsed');
+    if(btn){btn.classList.add('collapsed');btn.textContent='›';}
+  }
+})();
+
+// ── ADICIONAR PLANILHA SEM APAGAR ────────────────────────────
+function pfAdicionarPlanilha(){
+  // Cria input file temporário para não limpar os dados atuais
+  var inp=document.createElement('input');
+  inp.type='file';
+  inp.accept='.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  inp.style.display='none';
+  inp.onchange=function(e){
+    if(e.target.files[0]) handleFile(e.target.files[0]);
+    inp.remove();
+  };
+  document.body.appendChild(inp);
+  inp.click();
+}
+
 // ── MULTI-FAMÍLIA ─────────────────────────────────────────────
 var pfFamiliaAtiva = 'TODAS';
 

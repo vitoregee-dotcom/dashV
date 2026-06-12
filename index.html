@@ -643,7 +643,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.56</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.57</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -5263,6 +5263,7 @@ async function doLogin(){
           if(typeof initDevMenu==='function')initDevMenu();
           if(typeof cadSyncFornecedores==='function')cadSyncFornecedores();
           pfPullPlanilhas();
+          cadPullSupabase();
           initUserUI();
           setAuthLoading(false);
           return;
@@ -5304,6 +5305,7 @@ async function doLogin(){
     if(typeof initDevMenu==='function')initDevMenu();
     if(typeof cadSyncFornecedores==='function')cadSyncFornecedores();
     pfPullPlanilhas();
+    cadPullSupabase();
     initUserUI();
     // Ask to set PIN only on touch devices (iPad/mobile)
     if(!localStorage.getItem('offline_pin_hash') && 'ontouchstart' in window){
@@ -5351,6 +5353,7 @@ function doLoginOffline(){
     if(typeof initDevMenu==='function')initDevMenu();
     if(typeof cadSyncFornecedores==='function')cadSyncFornecedores();
     pfPullPlanilhas();
+    cadPullSupabase();
     initUserUI();
   }
 
@@ -7142,6 +7145,7 @@ function cadSalvarCliente(idx){
   var clist=cadLoad(CLIE_KEY);
   if(idx>=0)clist[idx]=cli;else clist.push(cli);
   cadSave(CLIE_KEY,clist);
+  cadPushSupabase();
   cadGoTab('clientes');
 }
 
@@ -7276,6 +7280,58 @@ function cadSyncFornecedores(){
       }
     });
   }
+}
+
+// ── SYNC CADASTROS SUPABASE ───────────────────────────────────
+async function cadPushSupabase(){
+  if(!sbUser)return;
+  try{
+    var forn=cadLoad(FORN_KEY);
+    var clie=cadLoad(CLIE_KEY);
+    // Push fornecedores
+    await sbFetch('/rest/v1/user_cadastros',{
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({user_id:sbUser.id,tipo:'fornecedores',dados:JSON.stringify(forn),updated_at:new Date().toISOString()})
+    });
+    // Push clientes
+    await sbFetch('/rest/v1/user_cadastros',{
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({user_id:sbUser.id,tipo:'clientes',dados:JSON.stringify(clie),updated_at:new Date().toISOString()})
+    });
+    console.log('✅ Cadastros sincronizados no Supabase');
+  }catch(e){console.warn('cadPushSupabase erro:',e);}
+}
+
+async function cadPullSupabase(){
+  if(!sbUser)return;
+  try{
+    var r=await sbFetch('/rest/v1/user_cadastros?user_id=eq.'+sbUser.id+'&select=tipo,dados,updated_at');
+    if(!r.ok)return;
+    var data=await r.json();
+    if(!data||!data.length)return;
+    data.forEach(function(row){
+      try{
+        var items=typeof row.dados==='string'?JSON.parse(row.dados):row.dados;
+        if(!items||!items.length)return;
+        // Só atualiza se Supabase for mais recente que localStorage
+        var key=row.tipo==='fornecedores'?FORN_KEY:CLIE_KEY;
+        var local=cadLoad(key);
+        // Merge: Supabase wins on conflict by id
+        var merged=JSON.parse(JSON.stringify(items));
+        local.forEach(function(l){
+          if(!merged.some(function(m){return m.id===l.id;}))merged.push(l);
+        });
+        cadSave(key,merged);
+        console.log('✅ '+row.tipo+' puxados do Supabase: '+merged.length);
+      }catch(e){console.warn('cadPullSupabase parse erro:',e);}
+    });
+    // Re-render se estiver na view de cadastros
+    if(typeof currentView!=='undefined'&&currentView==='cadastros'){
+      if(typeof cadGoTab==='function')cadGoTab('fornecedores');
+    }
+  }catch(e){console.warn('cadPullSupabase erro:',e);}
 }
 
 // ── Hook into initAuth ─────────────────────────────────────────
@@ -7836,6 +7892,7 @@ function cadSalvarFornV2(idx){
   var flist = cadLoad(FORN_KEY);
   if(idx>=0)flist[idx]=forn; else flist.push(forn);
   cadSave(FORN_KEY,flist);
+  cadPushSupabase();
   if(typeof cotFornecedores!=='undefined'){
     var ci=cotFornecedores.findIndex(function(f){return f.id===forn.id;});
     if(ci>=0)cotFornecedores[ci]=forn; else cotFornecedores.push(forn);

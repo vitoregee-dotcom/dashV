@@ -643,7 +643,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.57</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.58</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -7288,19 +7288,22 @@ async function cadPushSupabase(){
   try{
     var forn=cadLoad(FORN_KEY);
     var clie=cadLoad(CLIE_KEY);
-    // Push fornecedores
-    await sbFetch('/rest/v1/user_cadastros',{
-      method:'POST',
-      headers:{'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({user_id:sbUser.id,tipo:'fornecedores',dados:JSON.stringify(forn),updated_at:new Date().toISOString()})
-    });
-    // Push clientes
-    await sbFetch('/rest/v1/user_cadastros',{
-      method:'POST',
-      headers:{'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({user_id:sbUser.id,tipo:'clientes',dados:JSON.stringify(clie),updated_at:new Date().toISOString()})
-    });
-    console.log('✅ Cadastros sincronizados no Supabase');
+    var prod=cadLoad(typeof PROD_KEY!=='undefined'?PROD_KEY:'cad_produtos_v1');
+    var tipos=[
+      {tipo:'fornecedores',dados:forn},
+      {tipo:'clientes',dados:clie},
+      {tipo:'produtos',dados:prod}
+    ];
+    for(var ti=0;ti<tipos.length;ti++){
+      var t=tipos[ti];
+      if(!t.dados||!t.dados.length)continue;
+      await sbFetch('/rest/v1/user_cadastros',{
+        method:'POST',
+        headers:{'Prefer':'resolution=merge-duplicates'},
+        body:JSON.stringify({user_id:sbUser.id,tipo:t.tipo,dados:JSON.stringify(t.dados),updated_at:new Date().toISOString()})
+      });
+    }
+    console.log('✅ Cadastros sincronizados no Supabase (forn:'+forn.length+' clie:'+clie.length+' prod:'+prod.length+')');
   }catch(e){console.warn('cadPushSupabase erro:',e);}
 }
 
@@ -7316,7 +7319,7 @@ async function cadPullSupabase(){
         var items=typeof row.dados==='string'?JSON.parse(row.dados):row.dados;
         if(!items||!items.length)return;
         // Só atualiza se Supabase for mais recente que localStorage
-        var key=row.tipo==='fornecedores'?FORN_KEY:CLIE_KEY;
+        var key=row.tipo==='fornecedores'?FORN_KEY:row.tipo==='clientes'?CLIE_KEY:(typeof PROD_KEY!=='undefined'?PROD_KEY:'cad_produtos_v1');
         var local=cadLoad(key);
         // Merge: Supabase wins on conflict by id
         var merged=JSON.parse(JSON.stringify(items));

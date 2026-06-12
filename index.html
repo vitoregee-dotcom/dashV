@@ -564,8 +564,8 @@ thead th{position:relative;}
 <div id="authOverlay" style="display:none">
   <div class="authBox">
     <div class="authLogo">
-      <div style="margin-bottom:4px">
-        <svg width="56" height="56" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <div style="margin-bottom:8px">
+        <svg width="64" height="64" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
           <rect width="40" height="40" rx="10" fill="#0F1F35"/>
           <rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"/>
           <path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -573,8 +573,8 @@ thead th{position:relative;}
           <circle cx="30" cy="33" r="2" fill="#E67E22"/>
         </svg>
       </div>
-      <h1>Dashboard de Reposição</h1>
-      <p>Linha Off-Highway</p>
+      <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v113.60</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -651,7 +651,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.59</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.60</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -2049,10 +2049,9 @@ function renderTable(){
           oninput="salvarOpQtd(this)" onchange="salvarOpQtd(this)"
           ${sel?"":"disabled"}>` :
         `<input type="number" min="0" class="qtdinp" data-idx="${idx}"
-          value="${sel?qe:''}" placeholder="${d.qtdC>0?d.qtdC:'—'}"
+          value="${qe>0?qe:''}" placeholder="${d.qtdC>0?d.qtdC:'—'}"
           style="width:72px;padding:3px 6px;border-radius:5px;border:1.5px solid ${inpBrd};font-size:12px;font-weight:700;color:var(--navy);text-align:center;background:${inpBg}"
-          oninput="salvarQtd(this)" onchange="salvarQtd(this)"
-          ${sel?"":"disabled"}>`
+          oninput="salvarQtd(this)" onchange="salvarQtd(this)">`
       }
     </td>
     <td class="C"><textarea class="obsinp${obsEdit[key]?' preench':''}" rows="1" data-idx="${idx}" oninput="salvarObs(this)" onchange="salvarObs(this)" placeholder="—">${obsEdit[key]||''}</textarea></td>
@@ -2925,9 +2924,25 @@ function salvarQtd(inp){
     qtdEdit[key]=Math.round(v);
     inp.style.background="#D4EDFF";
     inp.title="Quantidade salva: "+Math.round(v)+" pcs";
+    // Auto-seleciona a linha
+    if(!selSet.has(key)){
+      selSet.add(key);
+      var row=inp.closest('tr');
+      if(row){
+        var chk=row.querySelector('.rchk');
+        if(chk)chk.checked=true;
+        row.classList.add('sel-row');
+      }
+      atualizarSelCount();
+    }
   } else if(!isNaN(v)&&v===0){
     qtdEdit[key]=0;
     inp.style.background="#fff";
+    // Desmarca
+    selSet.delete(key);
+    var row2=inp.closest('tr');
+    if(row2){var chk2=row2.querySelector('.rchk');if(chk2)chk2.checked=false;row2.classList.remove('sel-row');}
+    atualizarSelCount();
   } else {
     const sug=item.qtdC>0?item.qtdC:0;
     qtdEdit[key]=sug;
@@ -5494,12 +5509,27 @@ async function pfPullPlanilhas(){
 }
 
 function initUserUI(){
+  var role=sbProfile&&sbProfile.role?sbProfile.role:'user';
+  var isOwner=sbUser&&sbUser.id==='e526fea4-d04f-4d2f-a700-145ac17b137c';
   // Show dev buttons for owner
-  if(typeof sbUser!=='undefined'&&sbUser&&sbUser.id==='e526fea4-d04f-4d2f-a700-145ac17b137c'){
+  if(isOwner){
     var nm=document.getElementById('navMapa');
     var nc=document.getElementById('navCad');
     if(nm)nm.style.display='inline-flex';
     if(nc)nc.style.display='inline-flex';
+  }
+  // ferr_margem role: only Tools > Margem
+  if(role==='ferr_margem'&&!isOwner){
+    var nd=document.getElementById('navDash');if(nd)nd.style.display='none';
+    var nc2=document.getElementById('navCad');if(nc2)nc2.style.display='none';
+    // Auto-navigate to ferramentas
+    setTimeout(function(){pfNavigate('ferramentas');},200);
+    // After render, hide all tools except Margem
+    setTimeout(function(){
+      document.querySelectorAll('.ferrCard').forEach(function(c){
+        if(!c.querySelector('.ferrCardTitle')?.textContent.includes('Margem'))c.style.display='none';
+      });
+    },500);
   }
   const nome=sbProfile&&sbProfile.nome?sbProfile.nome:(sbUser?sbUser.email:'');
   const isAdmin=sbProfile&&sbProfile.role==='admin';
@@ -9497,24 +9527,21 @@ document.addEventListener('keydown', function(e){
   if(typeof currentView!=='undefined' && currentView==='mapa' && mapaStep===1){
     mapaKeyNav(e);
   }
-  // Navegação ↑↓ na tabela principal do dashboard
-  if(typeof currentView!=='undefined' && currentView==='dash'){
-    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
-      var active=document.activeElement;
-      if(!active)return;
-      var row=active.closest('tr');
-      if(!row||!row.closest('#tbl'))return;
-      e.preventDefault();
-      var rows=Array.from(document.querySelectorAll('#tbl tbody tr'));
-      var idx=rows.indexOf(row);
-      var next=e.key==='ArrowDown'?rows[idx+1]:rows[idx-1];
-      if(next){
-        // Foca no input de quantidade da próxima linha
-        var qtdInp=next.querySelector('input[type="number"]');
-        if(qtdInp)qtdInp.focus();
-        else next.focus();
-        next.scrollIntoView({block:'nearest'});
-      }
+  // Navegação ↑↓ na tabela principal
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    var active=document.activeElement;
+    if(!active)return;
+    var row=active.closest('tr');
+    if(!row||!row.closest('#tbl'))return;
+    e.preventDefault();
+    var rows=Array.from(document.querySelectorAll('#tbl tbody tr'));
+    var idx=rows.indexOf(row);
+    var next=e.key==='ArrowDown'?rows[idx+1]:rows[idx-1];
+    if(next){
+      var qtdInp=next.querySelector('input[type="number"],input.qtdObs');
+      if(!qtdInp){var inps=next.querySelectorAll('input');qtdInp=inps[inps.length-2]||inps[0];}
+      if(qtdInp){qtdInp.focus();qtdInp.select();}
+      next.scrollIntoView({block:'nearest'});
     }
   }
 });

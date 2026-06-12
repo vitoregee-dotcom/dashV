@@ -583,7 +583,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v113.68</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v113.69</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -680,7 +680,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.68</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.69</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -11125,10 +11125,54 @@ function ferrRender(){
 
 // ── TRANSFERÊNCIA ENCOPEL ─────────────────────────────────────────
 var _trfItens=[], _trfNrCotacao='';
+async function trfRestaurar(){
+  // Try Supabase first
+  if(typeof sbCarregarFerr==='function'){
+    var d=await sbCarregarFerr('transferencia').catch(function(){return null;});
+    if(d&&d.itens&&d.itens.length){_trfItens=d.itens;_trfNrCotacao=d.cot||'';return d;}
+  }
+  // Fallback localStorage
+  try{
+    var local=JSON.parse(localStorage.getItem('trf_estado_v1')||'null');
+    if(local&&local.itens&&local.itens.length){_trfItens=local.itens;_trfNrCotacao=local.cot||'';return local;}
+  }catch(e){}
+  return null;
+}
 var _nfDesconto=5; // Cálculo NF: desconto por fora global
 var _nfItens=[]; // itens carregados no cálculo NF
 
 // ── HISTÓRICO DE FERRAMENTAS (1 semana) ────────────────────────
+// ── SALVAR/CARREGAR ESTADO FERRAMENTAS NO SUPABASE ──────────────
+// SQL: create table if not exists user_ferramentas (
+//   id uuid default gen_random_uuid() primary key,
+//   user_id uuid references auth.users(id) on delete cascade,
+//   tipo text not null,
+//   dados jsonb,
+//   updated_at timestamptz default now(),
+//   unique(user_id, tipo)
+// );
+// alter table user_ferramentas enable row level security;
+// create policy "user own" on user_ferramentas for all using (auth.uid() = user_id);
+
+async function sbSalvarFerr(tipo, dados) {
+  if(!sbSession||!sbUser) return;
+  try {
+    await sbFetch('/rest/v1/user_ferramentas', {
+      method: 'POST',
+      headers: {'Prefer': 'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify({user_id: sbUser.id, tipo: tipo, dados: dados, updated_at: new Date().toISOString()})
+    });
+  } catch(e) { console.warn('sbSalvarFerr error:', e); }
+}
+async function sbCarregarFerr(tipo) {
+  if(!sbSession||!sbUser) return null;
+  try {
+    var r = await sbFetch('/rest/v1/user_ferramentas?user_id=eq.'+sbUser.id+'&tipo=eq.'+tipo+'&select=dados,updated_at&limit=1');
+    var data = await r.json();
+    return Array.isArray(data) && data[0] ? data[0].dados : null;
+  } catch(e) { return null; }
+}
+
 var FERR_HIST_KEY = 'ferrHistorico_v1';
 var FERR_HIST_TTL = 7 * 24 * 60 * 60 * 1000; // 7 dias em ms
 
@@ -11151,6 +11195,18 @@ function ferrHistFmtData(ts) {
 function ferrTransferencia(){
   var el=document.getElementById('ferrBody');
   if(!el)return;
+  // Restore state async after render
+  setTimeout(function(){
+    trfRestaurar().then(function(restored){
+      if(restored&&_trfItens.length){
+        var ce=document.getElementById('trfNrCotacao');if(ce&&restored.cot)ce.value=restored.cot;
+        var pe=document.getElementById('trfNrPedido');if(pe&&restored.nr)pe.value=restored.nr;
+        var s=document.getElementById('trfStatus');
+        if(s&&restored.ts)s.innerHTML='<span style="color:#27AE60">&#10003; Restaurado ('+new Date(restored.ts).toLocaleDateString('pt-BR')+')</span>';
+        trfRenderTabela();
+      }
+    }).catch(function(){});
+  },200);
   el.innerHTML=
     '<div style="width:100%">'+
     '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">'+
@@ -11211,6 +11267,14 @@ function trfRenderTabela(){
   html+='</tbody></table></div>';
   el.innerHTML=html;
   ['trfBtnPDF','trfBtnEmail','trfBtnNovo'].forEach(function(id){var b=document.getElementById(id);if(b)b.style.display='inline-flex';});
+  // Auto-save
+  try{
+    var nr=(document.getElementById('trfNrPedido')||{}).value||'';
+    var cot=(document.getElementById('trfNrCotacao')||{}).value||_trfNrCotacao||'';
+    var estado={itens:JSON.parse(JSON.stringify(_trfItens)),nr:nr,cot:cot,ts:Date.now()};
+    localStorage.setItem('trf_estado_v1', JSON.stringify(estado));
+    if(typeof sbSalvarFerr==='function') sbSalvarFerr('transferencia', estado);
+  }catch(e){}
 }
 
 async function trfLerPDF(input){if(input.files[0])trfLerArquivo(input.files[0]);}
@@ -11519,7 +11583,7 @@ async function condPgtoProcessar(file){
     var mediaType = file.type||'image/png';
     var resp = await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514', max_tokens:800,
         messages:[{role:'user',content:[
@@ -11733,7 +11797,7 @@ async function cadReativAnalisar(){
       else{parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});}
     }
     parts.push({type:'text',text:'Analise os documentos cadastrais e extraia informacoes. Responda APENAS JSON sem markdown.\n{"contato_nome":"nome do comprador/contato","contato_email":"email","contato_whatsapp":"whatsapp","telefone_fixo":"tel fixo","como_conheceu":"","telefone_financeiro":"tel financeiro","nome_financeiro":"nome resp financeiro","email_financeiro":"email financeiro","email_nfe":"email nfe","ref1_nome":"","ref1_tel":"","ref2_nome":"","ref2_tel":"","ref3_nome":"","ref3_tel":"","regime":"retorne apenas o numero: 1=ME Simples,2=EPP Simples,3=Lucro Presumido,4=Lucro Estimado,5=Lucro Real,6=Outros"}'});
-    var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:parts}]})});
+    var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:parts}]})});
     var data=await resp.json();
     var txt=data.content.map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();
     var parsed=JSON.parse(txt);
@@ -11913,7 +11977,33 @@ function ferrMargem(){
   var pa=document.getElementById('mgPasteArea');
   if(pa&&typeof mkPasteBtn==='function')pa.appendChild(mkPasteBtn('Colar Print',function(f){mgLerArquivo(f);}));
   window._activePasteHandler=function(f){mgLerArquivo(f);};
-  if(!window._mgItens)window._mgItens=[];
+  if(!window._mgItens||!window._mgItens.length){
+    // Try restore from Supabase first, then localStorage
+    var local=null;
+    try{local=JSON.parse(localStorage.getItem('mg_estado_v1')||'null');}catch(e){}
+    if(local&&local.itens&&local.itens.length){
+      window._mgItens=local.itens;
+      setTimeout(function(){
+        var f=document.getElementById('mgFornUF');if(f&&local.fornUF)f.value=local.fornUF;
+        var c=document.getElementById('mgClienteUF');if(c&&local.clienteUF)c.value=local.clienteUF;
+        var m=document.getElementById('mgMargemGlobal');if(m&&local.margemGlobal)m.value=local.margemGlobal;
+        var s=document.getElementById('mgStatus');if(s&&local.ts)s.innerHTML='<span style="color:#27AE60">&#10003; Restaurado ('+new Date(local.ts).toLocaleDateString('pt-BR')+')</span>';
+      },50);
+    }
+    // Also try Supabase async
+    if(typeof sbCarregarFerr==='function'){
+      sbCarregarFerr('margem').then(function(d){
+        if(d&&d.itens&&d.itens.length&&(!window._mgItens||!window._mgItens.length)){
+          window._mgItens=d.itens;
+          var f=document.getElementById('mgFornUF');if(f&&d.fornUF)f.value=d.fornUF;
+          var c=document.getElementById('mgClienteUF');if(c&&d.clienteUF)c.value=d.clienteUF;
+          var m=document.getElementById('mgMargemGlobal');if(m&&d.margemGlobal)m.value=d.margemGlobal;
+          var s=document.getElementById('mgStatus');if(s)s.innerHTML='<span style="color:#27AE60">&#10003; Restaurado do servidor</span>';
+          mgRenderTabela();
+        }
+      }).catch(function(){});
+    }
+  }
   mgRenderTabela();
 }
 
@@ -11942,6 +12032,16 @@ function mgSetIpi(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i]
 function mgSetSt(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].st_val=parseFloat(v)||0;mgRenderTabela();}
 function mgSetMargem(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].margem=(parseFloat(v)||25)/100;mgRenderTabela();}
 
+function mgSalvarEstado(){
+  try{
+    var fUF=(document.getElementById('mgFornUF')||{}).value||'SP';
+    var cUF=(document.getElementById('mgClienteUF')||{}).value||'SP';
+    var marg=(document.getElementById('mgMargemGlobal')||{}).value||'25';
+    var estado={itens:window._mgItens||[],fornUF:fUF,clienteUF:cUF,margemGlobal:marg,ts:Date.now()};
+    localStorage.setItem('mg_estado_v1', JSON.stringify(estado));
+    if(typeof sbSalvarFerr==='function') sbSalvarFerr('margem', estado);
+  }catch(e){}
+}
 function mgRenderTabela(){
   var el=document.getElementById('mgTabela');if(!el)return;
   var itens=window._mgItens||[];
@@ -11974,6 +12074,7 @@ function mgRenderTabela(){
   });
   html+='</tbody></table>';
   el.innerHTML=html;
+  try{mgSalvarEstado();}catch(e){}
 }
 
 // ── mkPasteBtn ────────────────────────────────────────────────────

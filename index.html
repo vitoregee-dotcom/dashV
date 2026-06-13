@@ -582,7 +582,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v113.74</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v113.75</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -680,7 +680,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.74</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.75</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -7758,70 +7758,97 @@ function renderChipsDrag(items, savedArr, inputName, colorSel){
   var html = '<div id="'+containerId+'" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px" ondragover="event.preventDefault()" ondrop="cadChipDrop(event,\''+inputName+'\')">'+
     ordered.map(function(item){
       var on = sel.includes(item);
-      var chipId = 'chip_'+inputName+'_'+item.replace(/[^a-zA-Z0-9]/g,'_');
+      var safe = item.replace(/"/g,'&quot;');
       if(on){
-        return '<div id="'+chipId+'" data-input="'+inputName+'" data-val="'+item+'" data-color="'+colorSel+'" draggable="true" ondragstart="cadChipDragStart(event,this,\''+inputName+'\')" '+
-          'style="display:inline-flex;align-items:center;gap:0;padding:0;border:1.5px solid '+colorSel+';border-radius:20px;overflow:hidden;user-select:none;-webkit-user-select:none">'+
-          '<span onclick="cadChipToggleById(this)" ontouchend="cadChipToggleById(this)" '+
-          'style="padding:5px 8px 5px 10px;font-size:11px;font-weight:700;color:#fff;background:'+colorSel+';cursor:pointer;display:block">'+item+'</span>'+
-          '<input type="checkbox" name="'+inputName+'" value="'+item+'" checked style="display:none">'+
-          '<span onclick="cadChipRemoveById(this)" ontouchend="cadChipRemoveById(this)" '+
-          'style="padding:5px 10px 5px 6px;font-size:16px;font-weight:400;color:#fff;background:'+colorSel+';cursor:pointer;display:block;line-height:1">×</span>'+
+        return '<div class="pf-chip-sel" data-input="'+inputName+'" data-val="'+safe+'" data-color="'+colorSel+'" draggable="true" ondragstart="cadChipDragStart(event,this,\''+inputName+'\')">'+
+          '<span class="pf-chip-label">'+safe+'</span>'+
+          '<input type="checkbox" name="'+inputName+'" value="'+safe+'" checked style="display:none">'+
+          '<span class="pf-chip-x">×</span>'+
           '</div>';
       } else {
-        return '<div id="'+chipId+'" data-input="'+inputName+'" data-val="'+item+'" data-color="'+colorSel+'" draggable="true" ondragstart="cadChipDragStart(event,this,\''+inputName+'\')" '+
-          'onclick="cadChipSelectById(this)" ontouchend="cadChipSelectById(this)" '+
-          'style="display:inline-flex;align-items:center;padding:5px 10px;border:1.5px solid #d0d8e8;border-radius:20px;cursor:pointer;font-size:11px;font-weight:500;color:#4a5568;background:#f7f8fc;user-select:none;-webkit-user-select:none">'+
-          '<input type="checkbox" name="'+inputName+'" value="'+item+'" style="display:none">'+
-          item+
+        return '<div class="pf-chip-unsel" data-input="'+inputName+'" data-val="'+safe+'" data-color="'+colorSel+'" draggable="true" ondragstart="cadChipDragStart(event,this,\''+inputName+'\')">'+
+          '<input type="checkbox" name="'+inputName+'" value="'+safe+'" style="display:none">'+
+          safe+
           '</div>';
       }
     }).join('')+'</div>';
+  // Bind events after render via setTimeout
+  setTimeout(function(){
+    var container = document.getElementById(containerId);
+    if(!container) return;
+    cadChipBindEvents(container, colorSel);
+  }, 0);
   return html;
 }
-function cadChipSelectById(el){
-  var div=el.closest?el.closest('[data-input]'):el.parentNode;
-  if(!div||div.querySelector('input[type=checkbox]:checked'))return;
-  var inp=div.querySelector('input[type=checkbox]');
-  var color=div.dataset.color||'#1F4E79';
-  var item=div.dataset.val||'';
-  var inputName=div.dataset.input||'';
-  if(inp)inp.checked=true;
-  // Re-render as selected
-  div.style.border='1.5px solid '+color;
-  div.style.background='transparent';
-  div.innerHTML='<span onclick="cadChipToggleById(this)" ontouchend="cadChipToggleById(this)" '+
-    'style="padding:5px 8px 5px 10px;font-size:11px;font-weight:700;color:#fff;background:'+color+';cursor:pointer;display:block">'+item+'</span>'+
+function cadChipBindEvents(container, colorSel){
+  // Style selected chips
+  container.querySelectorAll('.pf-chip-sel').forEach(function(div){
+    var color = div.dataset.color || colorSel || '#1F4E79';
+    div.style.cssText = 'display:inline-flex;align-items:center;border:1.5px solid '+color+';border-radius:20px;overflow:hidden;user-select:none;-webkit-user-select:none;margin:0';
+    var lbl = div.querySelector('.pf-chip-label');
+    if(lbl) lbl.style.cssText = 'padding:5px 6px 5px 11px;font-size:11px;font-weight:700;color:#fff;background:'+color+';cursor:pointer;display:block';
+    var x = div.querySelector('.pf-chip-x');
+    if(x){
+      x.style.cssText = 'padding:5px 11px 5px 5px;font-size:17px;font-weight:400;color:#fff;background:'+color+';cursor:pointer;display:block;line-height:1';
+      // Use pointer events only - works on both touch and mouse
+      x.addEventListener('pointerdown', function(e){
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        cadChipDeselect(div);
+      });
+    }
+    // Clicking label toggles off
+    if(lbl) lbl.addEventListener('pointerdown', function(e){
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      cadChipDeselect(div);
+    });
+  });
+  // Style unselected chips
+  container.querySelectorAll('.pf-chip-unsel').forEach(function(div){
+    var color = div.dataset.color || colorSel || '#1F4E79';
+    div.style.cssText = 'display:inline-flex;align-items:center;padding:5px 11px;border:1.5px solid #d0d8e8;border-radius:20px;cursor:pointer;font-size:11px;font-weight:500;color:#4a5568;background:#f7f8fc;user-select:none;-webkit-user-select:none';
+    div.addEventListener('pointerdown', function(e){
+      e.preventDefault();
+      cadChipSelect(div);
+    });
+  });
+}
+function cadChipDeselect(div){
+  var inp = div.querySelector('input[type=checkbox]');
+  if(inp) inp.checked = false;
+  var item = div.dataset.val || '';
+  var inputName = div.dataset.input || '';
+  var color = div.dataset.color || '#1F4E79';
+  div.className = 'pf-chip-unsel';
+  div.style.cssText = 'display:inline-flex;align-items:center;padding:5px 11px;border:1.5px solid #d0d8e8;border-radius:20px;cursor:pointer;font-size:11px;font-weight:500;color:#4a5568;background:#f7f8fc;user-select:none;-webkit-user-select:none';
+  div.innerHTML = '<input type="checkbox" name="'+inputName+'" value="'+item+'" style="display:none">'+item;
+  div.addEventListener('pointerdown', function(e){
+    e.preventDefault();
+    cadChipSelect(div);
+  });
+}
+function cadChipSelect(div){
+  var inp = div.querySelector('input[type=checkbox]');
+  if(inp) inp.checked = true;
+  var item = div.dataset.val || '';
+  var inputName = div.dataset.input || '';
+  var color = div.dataset.color || '#1F4E79';
+  div.className = 'pf-chip-sel';
+  div.style.cssText = 'display:inline-flex;align-items:center;border:1.5px solid '+color+';border-radius:20px;overflow:hidden;user-select:none;-webkit-user-select:none;margin:0';
+  div.innerHTML = '<span class="pf-chip-label" style="padding:5px 6px 5px 11px;font-size:11px;font-weight:700;color:#fff;background:'+color+';cursor:pointer;display:block">'+item+'</span>'+
     '<input type="checkbox" name="'+inputName+'" value="'+item+'" checked style="display:none">'+
-    '<span onclick="cadChipRemoveById(this)" ontouchend="cadChipRemoveById(this)" '+
-    'style="padding:5px 10px 5px 6px;font-size:16px;font-weight:400;color:#fff;background:'+color+';cursor:pointer;display:block;line-height:1">×</span>';
-  div.removeAttribute('onclick');div.removeAttribute('ontouchend');
-}
-function cadChipToggleById(el){
-  var div=el.closest?el.closest('[data-input]'):el.parentNode;
-  if(!div)return;
-  var inp=div.querySelector('input[type=checkbox]');
-  if(inp&&inp.checked){cadChipRemoveById(div.querySelector('span:last-child'));}
-  else{cadChipSelectById(div);}
-}
-function cadChipRemoveById(el){
-  var div=el.closest?el.closest('[data-input]'):el.parentNode;
-  if(!div)return;
-  var inp=div.querySelector('input[type=checkbox]');
-  var color=div.dataset.color||'#1F4E79';
-  var item=div.dataset.val||'';
-  var inputName=div.dataset.input||'';
-  if(inp)inp.checked=false;
-  div.style.border='1.5px solid #d0d8e8';
-  div.innerHTML='<input type="checkbox" name="'+inputName+'" value="'+item+'" style="display:none">'+item;
-  div.style.padding='5px 10px';
-  div.style.color='#4a5568';
-  div.style.background='#f7f8fc';
-  div.style.fontWeight='500';
-  div.style.fontSize='11px';
-  div.style.cursor='pointer';
-  div.setAttribute('onclick','cadChipSelectById(this)');
-  div.setAttribute('ontouchend','cadChipSelectById(this)');
+    '<span class="pf-chip-x" style="padding:5px 11px 5px 5px;font-size:17px;font-weight:400;color:#fff;background:'+color+';cursor:pointer;display:block;line-height:1">×</span>';
+  var x = div.querySelector('.pf-chip-x');
+  if(x) x.addEventListener('pointerdown', function(e){
+    e.stopImmediatePropagation(); e.preventDefault();
+    cadChipDeselect(div);
+  });
+  var lbl = div.querySelector('.pf-chip-label');
+  if(lbl) lbl.addEventListener('pointerdown', function(e){
+    e.stopImmediatePropagation(); e.preventDefault();
+    cadChipDeselect(div);
+  });
 }
 
 

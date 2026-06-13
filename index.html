@@ -582,7 +582,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v113.73</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v113.74</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -680,7 +680,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.73</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.74</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -7755,26 +7755,76 @@ function renderChipsDrag(items, savedArr, inputName, colorSel){
   var ordered = sel.concat(unsel);
   items.forEach(function(i){ if(!ordered.includes(i)) ordered.push(i); });
   var containerId = 'chips_'+inputName;
-  var html = '<div id="'+containerId+'" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px" ondragover="event.preventDefault()" ondrop="cadChipDrop(event,\''+inputName+'\')">'+ 
+  var html = '<div id="'+containerId+'" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px" ondragover="event.preventDefault()" ondrop="cadChipDrop(event,\''+inputName+'\')">'+
     ordered.map(function(item){
       var on = sel.includes(item);
+      var chipId = 'chip_'+inputName+'_'+item.replace(/[^a-zA-Z0-9]/g,'_');
       if(on){
-        // Chip selecionado: div com botao X separado (evita conflito de touch no label)
-        return '<div draggable="true" ondragstart="cadChipDragStart(event,this,\''+inputName+'\')" data-chip-sel="1" '+
-          'style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border:1.5px solid '+colorSel+';border-radius:20px;cursor:grab;font-size:11px;font-weight:700;color:#fff;background:'+colorSel+';transition:all .12s;user-select:none;-webkit-user-select:none">'+
-          '<input type="checkbox" name="'+inputName+'" value="'+item+'" checked style="display:none"> '+item+
-          '<button type="button" ontouchstart="event.stopPropagation();cadChipRemoveEl(this)" onclick="event.stopPropagation();cadChipRemoveEl(this)" '+
-          'style="margin-left:2px;background:none;border:none;color:#fff;font-size:16px;line-height:1;cursor:pointer;padding:0 2px;opacity:.9;touch-action:manipulation">×</button>'+
+        return '<div id="'+chipId+'" data-input="'+inputName+'" data-val="'+item+'" data-color="'+colorSel+'" draggable="true" ondragstart="cadChipDragStart(event,this,\''+inputName+'\')" '+
+          'style="display:inline-flex;align-items:center;gap:0;padding:0;border:1.5px solid '+colorSel+';border-radius:20px;overflow:hidden;user-select:none;-webkit-user-select:none">'+
+          '<span onclick="cadChipToggleById(this)" ontouchend="cadChipToggleById(this)" '+
+          'style="padding:5px 8px 5px 10px;font-size:11px;font-weight:700;color:#fff;background:'+colorSel+';cursor:pointer;display:block">'+item+'</span>'+
+          '<input type="checkbox" name="'+inputName+'" value="'+item+'" checked style="display:none">'+
+          '<span onclick="cadChipRemoveById(this)" ontouchend="cadChipRemoveById(this)" '+
+          'style="padding:5px 10px 5px 6px;font-size:16px;font-weight:400;color:#fff;background:'+colorSel+';cursor:pointer;display:block;line-height:1">×</span>'+
           '</div>';
       } else {
-        return '<label draggable="true" ondragstart="cadChipDragStart(event,this,\''+inputName+'\')" ontouchstart="cadChipToggleDrag(this,\''+colorSel+'\')" onclick="cadChipToggleDrag(this,\''+colorSel+'\')" '+
-          'style="display:flex;align-items:center;gap:4px;padding:5px 10px;border:1.5px solid #d0d8e8;border-radius:20px;cursor:grab;font-size:11px;font-weight:500;color:#4a5568;background:#f7f8fc;transition:all .12s;user-select:none;-webkit-user-select:none">'+
-          '<input type="checkbox" name="'+inputName+'" value="'+item+'" style="display:none"> '+item+
-          '</label>';
+        return '<div id="'+chipId+'" data-input="'+inputName+'" data-val="'+item+'" data-color="'+colorSel+'" draggable="true" ondragstart="cadChipDragStart(event,this,\''+inputName+'\')" '+
+          'onclick="cadChipSelectById(this)" ontouchend="cadChipSelectById(this)" '+
+          'style="display:inline-flex;align-items:center;padding:5px 10px;border:1.5px solid #d0d8e8;border-radius:20px;cursor:pointer;font-size:11px;font-weight:500;color:#4a5568;background:#f7f8fc;user-select:none;-webkit-user-select:none">'+
+          '<input type="checkbox" name="'+inputName+'" value="'+item+'" style="display:none">'+
+          item+
+          '</div>';
       }
     }).join('')+'</div>';
   return html;
 }
+function cadChipSelectById(el){
+  var div=el.closest?el.closest('[data-input]'):el.parentNode;
+  if(!div||div.querySelector('input[type=checkbox]:checked'))return;
+  var inp=div.querySelector('input[type=checkbox]');
+  var color=div.dataset.color||'#1F4E79';
+  var item=div.dataset.val||'';
+  var inputName=div.dataset.input||'';
+  if(inp)inp.checked=true;
+  // Re-render as selected
+  div.style.border='1.5px solid '+color;
+  div.style.background='transparent';
+  div.innerHTML='<span onclick="cadChipToggleById(this)" ontouchend="cadChipToggleById(this)" '+
+    'style="padding:5px 8px 5px 10px;font-size:11px;font-weight:700;color:#fff;background:'+color+';cursor:pointer;display:block">'+item+'</span>'+
+    '<input type="checkbox" name="'+inputName+'" value="'+item+'" checked style="display:none">'+
+    '<span onclick="cadChipRemoveById(this)" ontouchend="cadChipRemoveById(this)" '+
+    'style="padding:5px 10px 5px 6px;font-size:16px;font-weight:400;color:#fff;background:'+color+';cursor:pointer;display:block;line-height:1">×</span>';
+  div.removeAttribute('onclick');div.removeAttribute('ontouchend');
+}
+function cadChipToggleById(el){
+  var div=el.closest?el.closest('[data-input]'):el.parentNode;
+  if(!div)return;
+  var inp=div.querySelector('input[type=checkbox]');
+  if(inp&&inp.checked){cadChipRemoveById(div.querySelector('span:last-child'));}
+  else{cadChipSelectById(div);}
+}
+function cadChipRemoveById(el){
+  var div=el.closest?el.closest('[data-input]'):el.parentNode;
+  if(!div)return;
+  var inp=div.querySelector('input[type=checkbox]');
+  var color=div.dataset.color||'#1F4E79';
+  var item=div.dataset.val||'';
+  var inputName=div.dataset.input||'';
+  if(inp)inp.checked=false;
+  div.style.border='1.5px solid #d0d8e8';
+  div.innerHTML='<input type="checkbox" name="'+inputName+'" value="'+item+'" style="display:none">'+item;
+  div.style.padding='5px 10px';
+  div.style.color='#4a5568';
+  div.style.background='#f7f8fc';
+  div.style.fontWeight='500';
+  div.style.fontSize='11px';
+  div.style.cursor='pointer';
+  div.setAttribute('onclick','cadChipSelectById(this)');
+  div.setAttribute('ontouchend','cadChipSelectById(this)');
+}
+
+
 function cadChipToggleDrag(lbl, colorSel){
   var inp = lbl.querySelector('input[type=checkbox]');
   if(!inp) return;

@@ -579,7 +579,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v114.48</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v114.49</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -691,7 +691,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v114.48</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v114.49</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -11706,86 +11706,117 @@ function vendasVerCotacoes(){
 
 function vendasRenderLista(el){
   var COTS_KEY='partsflow_cotacoes_v1';
+  // Primeira vez: criar estrutura completa
+  if(!el.querySelector('#vendasListaFiltros')){
+    el.innerHTML='';
+    var wrap=document.createElement('div');wrap.style.cssText='width:100%;padding:4px 0';
+    // Header
+    var hdr=document.createElement('div');hdr.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:16px';
+    var btnBack=document.createElement('button');btnBack.textContent='<- Nova venda';
+    btnBack.style.cssText='background:none;border:1px solid #e0e8f0;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;color:#607080';
+    btnBack.onclick=function(){window._vendasTab=null;vendasRender();};
+    var ttl=document.createElement('div');ttl.style.cssText='font-size:15px;font-weight:800;color:#1F4E79';ttl.id='vendasListaTitulo';ttl.textContent='Cotacoes';
+    hdr.appendChild(btnBack);hdr.appendChild(ttl);wrap.appendChild(hdr);
+    // Filtros - criados uma vez e ficam fixos
+    var fd=document.createElement('div');fd.id='vendasListaFiltros';
+    fd.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;background:#fff;padding:12px;border-radius:10px;border:1px solid #e0e8f0';
+    function mkI(ph,fkey,w){
+      var i=document.createElement('input');i.type='text';i.placeholder=ph;i.value=(window._vendasFiltro||{})[fkey]||'';
+      i.style.cssText='padding:6px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:12px;width:'+w;
+      i.oninput=function(){
+        window._vendasFiltro=window._vendasFiltro||{};
+        window._vendasFiltro[fkey]=this.value;
+        vendasAtualizarLista();
+      };
+      return i;
+    }
+    function mkD(fkey,ph){
+      var i=document.createElement('input');i.type='date';i.value=(window._vendasFiltro||{})[fkey]||'';
+      i.style.cssText='padding:6px 8px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:12px';
+      i.onchange=function(){
+        window._vendasFiltro=window._vendasFiltro||{};
+        window._vendasFiltro[fkey]=this.value;
+        vendasAtualizarLista();
+      };
+      return i;
+    }
+    var bLimp=document.createElement('button');bLimp.textContent='Limpar';
+    bLimp.style.cssText='padding:6px 10px;border:1px solid #e0e8f0;border-radius:7px;font-size:12px;cursor:pointer;color:#607080';
+    bLimp.onclick=function(){
+      window._vendasFiltro={};
+      fd.querySelectorAll('input').forEach(function(i){i.value='';});
+      vendasAtualizarLista();
+    };
+    fd.appendChild(mkI('Cliente','cli','130px'));
+    fd.appendChild(mkI('Num','num','65px'));
+    fd.appendChild(mkI('Codigo','cod','90px'));
+    fd.appendChild(mkI('Descricao','desc','120px'));
+    fd.appendChild(mkD('dtI','De'));
+    fd.appendChild(mkD('dtF','Ate'));
+    fd.appendChild(bLimp);
+    wrap.appendChild(fd);
+    // Container da lista
+    var listaCont=document.createElement('div');listaCont.id='vendasListaResultados';
+    wrap.appendChild(listaCont);
+    el.appendChild(wrap);
+  }
+  vendasAtualizarLista();
+}
+
+function vendasAtualizarLista(){
+  var COTS_KEY='partsflow_cotacoes_v1';
   var cots=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');
   var f=window._vendasFiltro||{};
   var lista=cots.filter(function(c){
     if(f.cli&&!(c.cliente||'').toUpperCase().includes(f.cli.toUpperCase()))return false;
     if(f.num&&String(c.num).indexOf(f.num)<0)return false;
     if(f.cod&&!((c.itens||[]).some(function(it){return (it.codigo||'').toUpperCase().includes(f.cod.toUpperCase());})))return false;
+    if(f.desc&&!((c.itens||[]).some(function(it){return (it.desc||'').toUpperCase().includes(f.desc.toUpperCase());})))return false;
+    if(f.dtI&&c.data<f.dtI)return false;
+    if(f.dtF&&c.data.substring(0,10)>f.dtF)return false;
     return true;
   });
-  el.innerHTML='';
-  var wrap=document.createElement('div');
-  wrap.style.cssText='width:100%;padding:4px 0';
-  var hdr=document.createElement('div');
-  hdr.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:16px';
-  var btnBack=document.createElement('button');
-  btnBack.textContent='<- Nova venda';
-  btnBack.style.cssText='background:none;border:1px solid #e0e8f0;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;color:#607080';
-  btnBack.onclick=function(){window._vendasTab=null;vendasRender();};
-  var ttl=document.createElement('div');
-  ttl.style.cssText='font-size:15px;font-weight:800;color:#1F4E79';
-  ttl.textContent='Cotacoes ('+lista.length+')';
-  hdr.appendChild(btnBack);hdr.appendChild(ttl);wrap.appendChild(hdr);
-  // Filtros simples
-  var fd=document.createElement('div');
-  fd.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;background:#fff;padding:12px;border-radius:10px;border:1px solid #e0e8f0';
-  function mkI(ph,fkey,w){
-    var i=document.createElement('input');i.type='text';i.placeholder=ph;i.value=f[fkey]||'';
-    i.style.cssText='padding:6px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:12px;width:'+w;
-    i.oninput=function(){window._vendasFiltro=window._vendasFiltro||{};window._vendasFiltro[fkey]=this.value;vendasRenderLista(el);};
-    return i;
-  }
-  function mkD(fkey){
-    var i=document.createElement('input');i.type='date';i.value=f[fkey]||'';
-    i.style.cssText='padding:6px 8px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:12px';
-    i.onchange=function(){window._vendasFiltro=window._vendasFiltro||{};window._vendasFiltro[fkey]=this.value;vendasRenderLista(el);};
-    return i;
-  }
-  var bLimp=document.createElement('button');bLimp.textContent='Limpar';
-  bLimp.style.cssText='padding:6px 10px;border:1px solid #e0e8f0;border-radius:7px;font-size:12px;cursor:pointer;color:#607080';
-  bLimp.onclick=function(){window._vendasFiltro={};vendasRenderLista(el);};
-  fd.appendChild(mkI('Cliente','cli','140px'));
-  fd.appendChild(mkI('Num','num','70px'));
-  fd.appendChild(mkI('Codigo','cod','90px'));
-  fd.appendChild(mkD('dtI'));fd.appendChild(mkD('dtF'));
-  fd.appendChild(bLimp);wrap.appendChild(fd);
+  var ttl=document.getElementById('vendasListaTitulo');
+  if(ttl)ttl.textContent='Cotacoes ('+lista.length+')';
+  var cont=document.getElementById('vendasListaResultados');
+  if(!cont)return;
+  cont.innerHTML='';
   if(!lista.length){
-    var emp=document.createElement('div');emp.style.cssText='text-align:center;padding:40px;color:#8a9ab0';emp.textContent='Nenhuma cotacao';wrap.appendChild(emp);
-  } else {
-    lista.forEach(function(c){
-      var dt=new Date(c.data).toLocaleDateString('pt-BR');
-      var tot='R$ '+(c.total||0).toFixed(2).replace('.',',');
-      var row=document.createElement('div');
-      row.style.cssText='background:#fff;border-radius:10px;padding:14px;margin-bottom:10px;border:1.5px solid #e0e8f0;display:flex;gap:12px;align-items:center;flex-wrap:wrap';
-      var n=document.createElement('div');n.style.cssText='font-size:20px;font-weight:800;color:#1F4E79;min-width:36px';n.textContent='#'+c.num;
-      var inf=document.createElement('div');inf.style.flex='1';
-      inf.innerHTML='<div style="font-weight:700;font-size:13px">'+(c.cliente||'-')+'</div><div style="font-size:11px;color:#8a9ab0">'+dt+' - '+(c.itens?c.itens.length:0)+' itens - '+c.uf+'</div>';
-      var tv=document.createElement('div');tv.style.cssText='font-weight:700;color:#1F4E79';tv.textContent=tot;
-      var bv=document.createElement('button');bv.textContent='Ver';
-      bv.style.cssText='background:#1F4E79;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer';
-      (function(nn){bv.onclick=function(){
-        var cs=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');
-        var cx=cs.find(function(x){return x.num===nn;});
-        if(!cx)return;
-        window._venda={nr:cx.id,cliente:cx.clienteObj,uf:cx.uf,margem:cx.margem,condicao:cx.condicao,itens:cx.itens};
-        window._vendasTab=null;vendasRender();
-      };})(c.num);
-      var bd=document.createElement('button');bd.textContent='X';
-      bd.style.cssText='background:none;border:1px solid #C00000;color:#C00000;border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer';
-      (function(nn){bd.onclick=function(){
-        if(!confirm('Excluir #'+nn+'?'))return;
-        var cs=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');
-        cs=cs.filter(function(x){return x.num!==nn;});
-        localStorage.setItem(COTS_KEY,JSON.stringify(cs));
-        vendasRenderLista(el);
-      };})(c.num);
-      row.appendChild(n);row.appendChild(inf);row.appendChild(tv);row.appendChild(bv);row.appendChild(bd);
-      wrap.appendChild(row);
-    });
+    var emp=document.createElement('div');emp.style.cssText='text-align:center;padding:40px;color:#8a9ab0';
+    emp.textContent='Nenhuma cotacao encontrada';cont.appendChild(emp);return;
   }
-  el.appendChild(wrap);
+  lista.forEach(function(c){
+    var dt=new Date(c.data).toLocaleDateString('pt-BR');
+    var tot='R$ '+(c.total||0).toFixed(2).replace('.',',');
+    var row=document.createElement('div');
+    row.style.cssText='background:#fff;border-radius:10px;padding:14px;margin-bottom:10px;border:1.5px solid #e0e8f0;display:flex;gap:12px;align-items:center;flex-wrap:wrap';
+    var n=document.createElement('div');n.style.cssText='font-size:20px;font-weight:800;color:#1F4E79;min-width:36px';n.textContent='#'+c.num;
+    var inf=document.createElement('div');inf.style.flex='1';
+    inf.innerHTML='<div style="font-weight:700;font-size:13px">'+(c.cliente||'-')+'</div><div style="font-size:11px;color:#8a9ab0">'+dt+' - '+(c.itens?c.itens.length:0)+' itens - '+c.uf+'</div>';
+    var tv=document.createElement('div');tv.style.cssText='font-weight:700;color:#1F4E79';tv.textContent=tot;
+    var bv=document.createElement('button');bv.textContent='Ver';
+    bv.style.cssText='background:#1F4E79;color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer';
+    (function(nn){bv.onclick=function(){
+      var cs=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');
+      var cx=cs.find(function(x){return x.num===nn;});
+      if(!cx)return;
+      window._venda={nr:cx.id,cliente:cx.clienteObj,uf:cx.uf,margem:cx.margem,condicao:cx.condicao,itens:cx.itens};
+      window._vendasTab=null;vendasRender();
+    };})(c.num);
+    var bd=document.createElement('button');bd.textContent='X';
+    bd.style.cssText='background:none;border:1px solid #C00000;color:#C00000;border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer';
+    (function(nn){bd.onclick=function(){
+      if(!confirm('Excluir #'+nn+'?'))return;
+      var cs=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');
+      cs=cs.filter(function(x){return x.num!==nn;});
+      localStorage.setItem(COTS_KEY,JSON.stringify(cs));
+      vendasAtualizarLista();
+    };})(c.num);
+    row.appendChild(n);row.appendChild(inf);row.appendChild(tv);row.appendChild(bv);row.appendChild(bd);
+    cont.appendChild(row);
+  });
 }
+
 
 function vendasBuscarCliente(query){
   var res=document.getElementById('vendasClienteResultados');if(!res)return;

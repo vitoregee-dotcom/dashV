@@ -582,7 +582,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v113.91</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v113.92</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -693,7 +693,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.91</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v113.92</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -11431,12 +11431,21 @@ function lpRenderFerr(){
       '</div>';
   }
   el.innerHTML=html;
-  // Bind file input on iPad (onchange inside label unreliable)
+  // Bind file inputs on iPad
   setTimeout(function(){
-    var inp=document.querySelector('#ferrBody input[type=file]');
-    if(inp&&!inp._bound){
-      inp._bound=true;
-      inp.addEventListener('change',function(){lpLerArquivo(this);});
+    var el2=document.getElementById('ferrBody');
+    if(!el2)return;
+    el2.querySelectorAll('input[type=file]').forEach(function(inp){
+      if(!inp._pf){
+        inp._pf=true;
+        inp.addEventListener('change',function(){lpLerArquivo(this);});
+      }
+    });
+    // Bind Extrair button
+    var btnEx=el2.querySelector('[onclick="lpLerTexto()"]');
+    if(btnEx&&!btnEx._pf){
+      btnEx._pf=true;
+      btnEx.addEventListener('touchend',function(e){e.preventDefault();lpLerTexto();},{passive:false});
     }
   },50);
 }
@@ -11599,14 +11608,14 @@ function vendasRender(){
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">'+
     '<div style="font-size:10px;font-weight:700;color:#8a9ab0;text-transform:uppercase">Itens</div>'+
     '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
-    '<label ontouchstart="" style="background:none;border:1px solid #e0e8f0;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;color:#607080;display:inline-flex;align-items:center;gap:5px">Subir lista<input type="file" style="display:none" accept="application/pdf,image/*" onchange="vendasLerArquivo(this)"></label>'+
+    '<label ontouchstart="" style="background:none;border:1px solid #e0e8f0;border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;color:#607080;display:inline-flex;align-items:center;gap:5px">Subir lista<input type="file" data-fn="vendas" style="display:none" accept="application/pdf,image/*"></label>'+
     '</div></div>'+
     '<div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:14px;flex-wrap:wrap">'+
     '<div><div style="font-size:11px;color:#8a9ab0;margin-bottom:4px">Codigo</div>'+
     '<input type="text" id="vendasCodInput" placeholder="ex: E022677" onkeydown="if(event.key===\'Enter\'){var q=document.getElementById(\'vendasQtdInput\');if(q){q.focus();q.select();}}" style="width:130px;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:13px;font-family:monospace;color:#1a2332"></div>'+
     '<div><div style="font-size:11px;color:#8a9ab0;margin-bottom:4px">Qtd</div>'+
     '<input type="number" id="vendasQtdInput" value="1" min="1" onkeydown="if(event.key===\'Enter\')vendasAdicionarItem()" style="width:65px;text-align:center;padding:7px 8px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:13px;color:#1a2332"></div>'+
-    '<button ontouchstart="" onclick="vendasAdicionarItem()" style="background:#1F4E79;color:#fff;border:none;border-radius:7px;padding:8px 14px;font-size:13px;cursor:pointer">+ Adicionar</button>'+
+    '<button id="vendasAddBtn" ontouchstart="vendasAdicionarItem()" onclick="vendasAdicionarItem()" style="background:#1F4E79;color:#fff;border:none;border-radius:7px;padding:8px 14px;font-size:13px;cursor:pointer">+ Adicionar</button>'+
     '</div>'+
     (v.itens.length?
       '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
@@ -13212,6 +13221,43 @@ initUserUI = function(){
 };
 
 // ── Override setupNavButtons to not override pfNavigate ──────────
+// ── GLOBAL TOUCH HANDLER (iPad fix) ─────────────────────────────
+// Handles onclick for dynamically created elements on iPad Chrome
+document.addEventListener('touchend', function(e){
+  var el = e.target;
+  // Walk up max 3 levels to find clickable element
+  for(var i=0; i<4; i++){
+    if(!el||el===document.body) break;
+    var action = el.getAttribute('data-pfaction');
+    if(action){
+      e.preventDefault();
+      try{ eval(action); }catch(err){ console.warn('pfaction error:', err); }
+      return;
+    }
+    el = el.parentElement;
+  }
+}, {passive:false});
+
+// pfAction helper - use instead of onclick for dynamic elements
+function pfAction(el, fn){
+  el.setAttribute('data-pfaction', fn);
+  el.style.cursor='pointer';
+  el.style.webkitTapHighlightColor='rgba(0,0,0,0.1)';
+}
+
+// Fix Chave IA button - bind after DOM ready
+setTimeout(function(){
+  var btn = document.querySelector('button[ontouchstart="pfToggleApiKey()"]');
+  if(btn){
+    btn.removeAttribute('ontouchstart');
+    btn.setAttribute('data-pfaction','pfToggleApiKey()');
+  }
+  var saveBtn = document.querySelector('button[onclick="pfSalvarApiKey()"]');
+  if(saveBtn){
+    saveBtn.setAttribute('data-pfaction','pfSalvarApiKey()');
+  }
+}, 500);
+
 setupNavButtons = function(){ /* handled by pfNavigate */ };
 
 // ════════════════════════════════════════════════════════════════

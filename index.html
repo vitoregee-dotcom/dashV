@@ -579,7 +579,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v114.60</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v114.61</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -691,7 +691,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v114.60</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v114.61</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -5379,6 +5379,7 @@ async function doLogin(){
     alert('LOGIN - sbUser: '+(sbUser?sbUser.id.substring(0,8):'NULL'));
     pfPullPlanilhas();
     cadPullSupabase();
+    if(typeof vendasPullCotacoes==='function')vendasPullCotacoes();
     initUserUI();
     // PIN desabilitado por ora
     // if(!localStorage.getItem('offline_pin_hash') && 'ontouchstart' in window){
@@ -5428,6 +5429,7 @@ function doLoginOffline(){
     alert('SESSÃO OFFLINE - sbUser: '+(sbUser?sbUser.id.substring(0,8):'NULL'));
     pfPullPlanilhas();
     cadPullSupabase();
+    if(typeof vendasPullCotacoes==='function')vendasPullCotacoes();
     loadProfile().catch(function(){}).finally(function(){initUserUI();});
   }
 
@@ -11984,7 +11986,7 @@ function vendasSalvar(){
   alert('Rascunho salvo!');
 }
 
-function vendasFinalizar(){
+async function vendasFinalizar(){
   var v=window._venda;
   if(!v||!v.itens||!v.itens.length){alert('Adicione pelo menos um item.');return;}
   var COTS_KEY='partsflow_cotacoes_v1';
@@ -11993,9 +11995,42 @@ function vendasFinalizar(){
   var cot={num:num,id:v.nr,data:new Date().toISOString(),cliente:v.cliente?v.cliente.razao:'',clienteObj:v.cliente||null,uf:v.uf||'SP',margem:v.margem||30,condicao:v.condicao||'',comprador:v.comprador||'',itens:(v.itens||[]).slice(),total:(v.itens||[]).reduce(function(s,it){return s+(it.vendaSug||0)*(it.qtd||1);},0)};
   cots.unshift(cot);
   localStorage.setItem(COTS_KEY,JSON.stringify(cots));
+  // Salvar no Supabase
+  try{
+    if(sbUser){
+      await sbFetch('/rest/v1/user_ferramentas',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
+        body:JSON.stringify({user_id:sbUser.id,tipo:'cotacao',dados:JSON.stringify(cot)})
+      });
+    }
+  }catch(e){console.warn('Erro ao salvar cotacao no Supabase:',e);}
   alert('Cotacao #'+num+' salva!');
   window._venda={itens:[]};
   vendasRender();
+}
+
+async function vendasPullCotacoes(){
+  if(!sbUser)return;
+  try{
+    var r=await sbFetch('/rest/v1/user_ferramentas?user_id=eq.'+sbUser.id+'&tipo=eq.cotacao&order=created_at.desc');
+    if(!r.ok)return;
+    var rows=await r.json();
+    if(!rows||!rows.length)return;
+    var remoteCots=rows.map(function(row){
+      return typeof row.dados==='string'?JSON.parse(row.dados):row.dados;
+    }).filter(Boolean);
+    // Merge com localStorage - remoto tem prioridade, sem duplicar por num+data
+    var local=JSON.parse(localStorage.getItem('partsflow_cotacoes_v1')||'[]');
+    var merged=[...remoteCots];
+    local.forEach(function(lc){
+      if(!merged.find(function(rc){return rc.num===lc.num&&rc.data===lc.data;})){
+        merged.push(lc);
+      }
+    });
+    merged.sort(function(a,b){return b.num-a.num;});
+    localStorage.setItem('partsflow_cotacoes_v1',JSON.stringify(merged));
+  }catch(e){console.warn('vendasPullCotacoes erro:',e);}
 }
 
 async function vendasLerArquivo(input){

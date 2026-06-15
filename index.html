@@ -579,7 +579,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v114.89</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v114.90</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -691,7 +691,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v114.89</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v114.90</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -6564,6 +6564,18 @@ async function mapaLerImagem(input){
   var el=document.getElementById('mapaBody');
   el.innerHTML='<div style="text-align:center;padding:60px;font-size:14px;color:#1F4E79">🤖 Lendo documento...<br><span style="font-size:12px;color:#8a9ab0;display:block;margin-top:8px">Identificando itens e prazos</span></div>';
   try{
+    // Primeiro: extrair metadados (cliente, nº cotação)
+    var txtMeta=await _anthropicReadDoc(file,'Extraia do documento: nome do cliente (campo Cliente) e número da cotação (campo Nr. Cotação ou Cotação). Retorne APENAS JSON: {"cliente":"NOME","nr_cotacao":"365734"}. Sem markdown.');
+    try{
+      var mMeta=txtMeta.match(/\{[^}]+\}/);
+      if(mMeta){
+        var meta=JSON.parse(mMeta[0]);
+        var nomeCliente=(meta.cliente||'').toUpperCase().replace(/S\/A|LTDA|ME|EIRELI|EPP/g,'').trim();
+        var nrCot=meta.nr_cotacao||'';
+        var tituloMapa=nomeCliente+(nrCot?' COT:'+nrCot:'');
+        if(tituloMapa) window._mapaEstadoNome=tituloMapa;
+      }
+    }catch(e2){console.warn('Meta erro:',e2);}
     var txt=await _anthropicReadDoc(file,'Este é um documento de cotação de venda. Extraia TODOS os itens da tabela. Retorne APENAS um JSON array. Cada objeto: {"ref":"codigo antes do traço na descrição","desc":"descrição após o traço","marca":"coluna Marca","qtd":numero inteiro,"prazo":"texto exato do campo Prazo"}. Sem markdown.');
     var m=txt.match(/\[[\s\S]*/);if(m)txt=m[0];
     // Fix truncated JSON: find last complete object
@@ -6586,7 +6598,7 @@ async function mapaLerImagem(input){
       item.qtd=parseInt(item.qtd)||1;item.prazo=item.prazo||'';
       item.ln=idLinha(item.ref);item.origem='pdf';
       var p=(item.prazo||'').toUpperCase().replace(/[ÃA]/g,'A').replace(/[ÕO]/g,'O');
-      item.sel=p.includes('NAO')||p.includes('INDISPON')||p==='';
+      item.sel=pfPrazoNaoIm(item.prazo);
       if(!mapaItens.some(function(e){return e.ref===item.ref;}))mapaItens.push(item);
     });
     var nm=document.getElementById('navMapa');

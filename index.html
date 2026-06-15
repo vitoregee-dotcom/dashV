@@ -579,7 +579,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v114.81</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v114.82</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -691,7 +691,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v114.81</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v114.82</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -6451,7 +6451,7 @@ function mapaStep1(el){
   mapaItens.forEach(function(item,i){
     var ln=item.ln||idLinha(item.ref);item.ln=ln;
     var sel=item.sel!==false;
-    var naoIm=(item.prazo||'').toUpperCase().replace(/Ã/g,'A').includes('NAO')||item.prazo==='';
+    var naoIm=pfPrazoNaoIm(item.prazo);
     var key=item.ref+'||'+(item.marca||'');
     var fs=mapaFornSelecionados[key]||[];
     var exp=item._exp&&sel;
@@ -9601,7 +9601,7 @@ mapaStep1 = function(el){
 
   // Filter items
   var itensFiltrados = window._mapaFiltro==='naoimediato'
-    ? mapaItens.filter(function(i){ var p=(i.prazo||'').toUpperCase().replace(/Ã/g,'A'); return p.includes('NAO')||p.includes('INDISPON')||p===''; })
+    ? mapaItens.filter(function(i){ return pfPrazoNaoIm(i.prazo)||p===''; })
     : mapaItens;
 
   if(!itensFiltrados.length){
@@ -9625,7 +9625,7 @@ mapaStep1 = function(el){
     var i = mapaItens.indexOf(item);
     var ln = item.ln || idLinha(item.ref); item.ln=ln;
     var sel = item.sel!==false;
-    var isNaoIm = (item.prazo||'').toUpperCase().replace(/Ã/g,'A').includes('NAO')||(item.prazo||'')==='';
+    var isNaoIm = pfPrazoNaoIm(item.prazo);
     var key = item.ref+'||'+(item.marca||'');
     var fs = mapaFornSelecionados[key]||[];
     var exp = item._exp&&sel;
@@ -10622,6 +10622,14 @@ mapaSalvarEstado = function(){
 
 // ── 3. RENDER MAPA — mostrar lista de mapas se vazio ─────────────
 var _origMapaRender2 = mapaRender;
+
+// Helper: prazo que não é IMEDIATO = NÃO IM.
+function pfPrazoNaoIm(prazo){
+  if(!prazo||prazo==='')return true;
+  var p=prazo.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  return p!=='IMEDIATO' && p!=='IMEDIATO*';
+}
+
 mapaRender = function(){
   if(!mapaItens||!mapaItens.length){
     // Nunca restaurar - ir para lista
@@ -12981,7 +12989,7 @@ async function mgLerArquivo(file){
     var txt=await _anthropicReadDoc(file,'Extraia itens desta cotacao. JSON array: [{"ref":"","desc":"","marca":"","qtd":1,"preco":0,"ipi_pct":0,"st_val":0,"prazo":""}]. preco=unitario sem impostos. ipi_pct=% IPI (ex:7.8). prazo=valor da coluna Prazo (ex: IMEDIATO, NAO IM.). Sem markdown.');
     var m=txt.match(/\[[\s\S]*/);if(m)txt=m[0];
     var itens=JSON.parse(txt);
-    var naoImed=itens.filter(function(it){var p=(it.prazo||'').toUpperCase().replace(/[^A-Z]/g,'');return p.indexOf('IMEDIATO')===-1;});
+    var naoImed=itens.filter(function(it){return pfPrazoNaoIm(it.prazo);});
     var mglobal=parseFloat((document.getElementById('mgMargemGlobal')||{}).value||25)/100;
     if(!window._mgItens)window._mgItens=[];
     naoImed.forEach(function(it){window._mgItens.push({ref:(it.ref||'').toString().toUpperCase().trim(),desc:(it.desc||'').toUpperCase(),marca:(it.marca||'').toUpperCase(),custo:parseFloat(it.preco)||0,ipi_pct:(parseFloat(it.ipi_pct)||0)/100,st_val:parseFloat(it.st_val)||0,margem:mglobal});});
@@ -13252,7 +13260,7 @@ async function nfLerPDF(input){
     if(!Array.isArray(itens)||!itens.length)throw new Error('Nenhum item encontrado');
     _nfItens=itens.map(function(it){
       var prazoU=(it.prazo||'').toUpperCase().replace(/[ÃA]/g,'A');
-      var isImediato=prazoU==='IMEDIATO'||prazoU==='IMEDIATO*';
+      var isImediato=!pfPrazoNaoIm(prazoU);
       return {
         ref:(it.ref||'').toString().toUpperCase().trim(),
         desc:(it.desc||'').toUpperCase(),

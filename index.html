@@ -579,7 +579,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.38</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.39</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -691,7 +691,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.38</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.39</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -11777,7 +11777,7 @@ function vendasRenderCotacao(el){
       '<td style="padding:5px 8px;text-align:center;white-space:nowrap">'+
         '<button ontouchstart="" onclick="vendasVerCadastroItem(\''+it.codigo+'\')" style="background:none;border:1px solid #1F4E79;border-radius:6px;padding:2px 7px;font-size:11px;color:#1F4E79;cursor:pointer;margin-right:3px" title="Ficha do item">📋</button>'+
         (isNeg?'<button ontouchstart="" onclick="vendasEnviarMapa('+i+')" style="background:none;border:1px solid #C00000;border-radius:6px;padding:2px 6px;font-size:11px;color:#C00000;cursor:pointer;margin-right:3px">Mapa</button>':'')+
-        '<button ontouchstart="" onclick="window._venda.itens.splice('+i+',1);window._vendasSel=null;vendasRender()" style="background:none;border:none;cursor:pointer;color:#C00000;font-size:16px;padding:2px 4px">&#215;</button>'+
+        '<button ontouchstart="" onclick="window._venda.itens.splice('+i+',1);window._vendasSel=null;vendasRefresh()" style="background:none;border:none;cursor:pointer;color:#C00000;font-size:16px;padding:2px 4px">&#215;</button>'+
       '</td>'+
       '</tr>';
   }).join('');
@@ -11874,18 +11874,26 @@ function vendasAdicionarItem(){
   if(m){var n=m[2];while(n.length<6)n='0'+n;cod=m[1]+n;}
   var items=vendasBuscarItem(cod);
   if(!window._venda.itens)window._venda.itens=[];
-  if(items&&items.length){
-    // Uma linha por marca
-    items.forEach(function(it){
-      window._venda.itens.push({codigo:cod,qtd:qtd,desc:it.desc,marca:it.marca,saldo:it.saldo,custo:it.custo});
-    });
+  if(items){
+    window._venda.itens.push({codigo:cod,qtd:qtd,desc:items.desc,marca:items.marca,saldo:items.saldo,custo:items.custo});
   } else {
-    // Não encontrado na planilha - linha única sem estoque
     window._venda.itens.push({codigo:cod,qtd:qtd,desc:'',marca:'',saldo:null,custo:null});
   }
   codEl.value='';if(qtdEl)qtdEl.value='1';
-  vendasRender();
+  vendasRefresh();
   setTimeout(function(){var el=document.getElementById('vendasCodInput');if(el)el.focus();},50);
+}
+
+function vendasRefresh(){
+  if(window._vendasModalMode){
+    var tabId=window._vendasActiveTab;
+    if(tabId&&window._vendasTabs&&window._vendasTabs[tabId]){
+      window._vendasTabs[tabId].venda=window._venda;
+    }
+    vendasRenderTabs();
+  } else {
+    vendasRender();
+  }
 }
 
 function vendasBuscarItem(cod){
@@ -11951,54 +11959,126 @@ function vendasVerCadastroItem(cod){
 }
 
 function vendasAbrirModal(cx){
-  // Create modal if doesn't exist
+  window._vendasTabs=window._vendasTabs||{};
+  window._vendasModalMode=true;
+
+  // Use cotação num as tab ID, or 'nova' for new
+  var tabId=cx.num?String(cx.num):'nova_'+Date.now();
+  if(!window._vendasTabs[tabId]){
+    var venda={nr:cx.id||cx.nr,cliente:cx.clienteObj,uf:cx.uf,margem:cx.margem||30,condicao:cx.condicao,itens:(cx.itens||[]).map(function(i){return Object.assign({},i);})};
+    var label=(cx.clienteObj&&(cx.clienteObj.fantasia||cx.clienteObj.razao))||cx.cliente||'Nova';
+    if(label.length>18)label=label.substring(0,18)+'…';
+    window._vendasTabs[tabId]={venda:venda,label:label,num:cx.num||'Nova'};
+  }
+  window._vendasActiveTab=tabId;
+  window._venda=window._vendasTabs[tabId].venda;
+  window._vendasSel={};
+
   var modal=document.getElementById('vendasModal');
   if(!modal){
     modal=document.createElement('div');
     modal.id='vendasModal';
-    modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto';
-    modal.onclick=function(e){if(e.target===modal)vendasFecharModal();};
-    var box=document.createElement('div');
-    box.id='vendasModalBox';
-    box.style.cssText='background:#f4f7fb;border-radius:14px;width:100%;max-width:1100px;min-height:400px;position:relative;padding:0;box-shadow:0 8px 40px rgba(0,0,0,.25)';
-    var closeBtn=document.createElement('button');
-    closeBtn.style.cssText='position:absolute;top:12px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:#607080;z-index:10;line-height:1';
-    closeBtn.innerHTML='✕';closeBtn.title='Fechar (ESC)';
-    closeBtn.onclick=vendasFecharModal;
-    var escHint=document.createElement('span');
-    escHint.style.cssText='position:absolute;top:16px;right:40px;font-size:10px;color:#8a9ab0;z-index:10';
-    escHint.textContent='ESC';
-    var body=document.createElement('div');body.id='vendasModalBody';body.style.cssText='padding:20px';
-    box.appendChild(closeBtn);box.appendChild(escHint);box.appendChild(body);
-    modal.appendChild(box);
+    modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:12px;box-sizing:border-box';
     document.body.appendChild(modal);
-    // ESC key
     document.addEventListener('keydown',function(e){
-      if(e.key==='Escape'){var m=document.getElementById('vendasModal');if(m&&m.style.display!=='none')vendasFecharModal();}
+      if(e.key==='Escape'){var m=document.getElementById('vendasModal');if(m&&m.style.display!=='none')vendasFecharTab();}
     });
   }
   modal.style.display='flex';
-  // Load cotação into modal
-  window._venda={nr:cx.id,cliente:cx.clienteObj,uf:cx.uf,margem:cx.margem||30,condicao:cx.condicao,itens:cx.itens||[]};
-  window._vendasSel={};
-  window._vendasModalMode=true;
-  var body=document.getElementById('vendasModalBody');
-  if(body){
-    body.innerHTML='';
-    var tmp=document.createElement('div');
-    tmp.id='vendasModalContent';
-    tmp.style.cssText='width:100%';
-    body.appendChild(tmp);
-    vendasRenderCotacao(tmp);
-  }
+  vendasRenderTabs();
 }
 
-function vendasFecharModal(){
+function vendasRenderTabs(){
   var modal=document.getElementById('vendasModal');
-  if(modal)modal.style.display='none';
-  // Refresh list
-  window._vendasTab='lista';
-  vendasAtualizarLista();
+  if(!modal)return;
+  var tabs=window._vendasTabs||{};
+  var activeId=window._vendasActiveTab;
+  var isMax=window._vendasMaximized;
+
+  var boxH=isMax?'calc(100vh - 24px)':'85vh';
+  var boxW=isMax?'calc(100vw - 24px)':'min(1100px, 100%)';
+
+  modal.innerHTML='';
+
+  var box=document.createElement('div');
+  box.style.cssText='background:#f4f7fb;border-radius:12px;width:'+boxW+';height:'+boxH+';display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.3);overflow:hidden;transition:all .2s';
+
+  // Tab bar
+  var tabBar=document.createElement('div');
+  tabBar.style.cssText='display:flex;align-items:stretch;background:#1F4E79;min-height:36px;overflow-x:auto;flex-shrink:0';
+
+  Object.keys(tabs).forEach(function(id){
+    var t=tabs[id];
+    var isActive=id===activeId;
+    var tab=document.createElement('div');
+    tab.style.cssText='display:flex;align-items:center;gap:6px;padding:0 12px;cursor:pointer;white-space:nowrap;font-size:11px;font-weight:600;border-right:1px solid rgba(255,255,255,.1);min-width:0;'+(isActive?'background:rgba(255,255,255,.15);color:#fff':'color:rgba(255,255,255,.6)');
+    tab.innerHTML='<span style="max-width:140px;overflow:hidden;text-overflow:ellipsis">'+t.label+'</span><span style="font-size:9px;opacity:.7">#'+(t.num||'Nova')+'</span>';
+    (function(tid){
+      tab.onclick=function(){
+        if(window._vendasTabs[tid])window._venda=window._vendasTabs[tid].venda;
+        window._vendasActiveTab=tid;
+        vendasRenderTabs();
+      };
+    })(id);
+    var cls=document.createElement('span');
+    cls.textContent='×';cls.style.cssText='margin-left:4px;font-size:14px;line-height:1;opacity:.7;padding:0 2px;border-radius:3px';
+    cls.onmouseenter=function(){this.style.background='rgba(255,255,255,.2)';};
+    cls.onmouseleave=function(){this.style.background='';};
+    (function(tid){cls.onclick=function(e){e.stopPropagation();vendasFecharTab(tid);};})(id);
+    tab.appendChild(cls);
+    tabBar.appendChild(tab);
+  });
+
+  // Add new tab button
+  var addTab=document.createElement('div');
+  addTab.style.cssText='display:flex;align-items:center;padding:0 12px;cursor:pointer;color:rgba(255,255,255,.6);font-size:18px;line-height:1';
+  addTab.textContent='+';addTab.title='Nova cotação';
+  addTab.onclick=function(){vendasAbrirModal({itens:[],margem:30});};
+  tabBar.appendChild(addTab);
+
+  // Controls
+  var ctrl=document.createElement('div');
+  ctrl.style.cssText='display:flex;align-items:center;gap:4px;margin-left:auto;padding:0 8px;flex-shrink:0';
+  var maxBtn=document.createElement('button');
+  maxBtn.style.cssText='background:none;border:none;color:rgba(255,255,255,.7);font-size:14px;cursor:pointer;padding:4px 6px;border-radius:4px';
+  maxBtn.textContent=isMax?'⊡':'⊞';maxBtn.title=isMax?'Restaurar':'Maximizar';
+  maxBtn.onclick=function(){window._vendasMaximized=!window._vendasMaximized;vendasRenderTabs();};
+  var escLbl=document.createElement('span');
+  escLbl.style.cssText='font-size:9px;color:rgba(255,255,255,.4);padding-right:4px';escLbl.textContent='ESC';
+  var closeAll=document.createElement('button');
+  closeAll.style.cssText='background:none;border:none;color:rgba(255,255,255,.7);font-size:18px;cursor:pointer;padding:4px 6px;border-radius:4px;line-height:1';
+  closeAll.textContent='✕';closeAll.title='Fechar tudo';
+  closeAll.onclick=function(){window._vendasTabs={};window._vendasModalMode=false;vendasFecharModal();};
+  ctrl.appendChild(maxBtn);ctrl.appendChild(escLbl);ctrl.appendChild(closeAll);
+  tabBar.appendChild(ctrl);
+  box.appendChild(tabBar);
+
+  // Content area
+  var content=document.createElement('div');
+  content.style.cssText='flex:1;overflow-y:auto;padding:16px';
+  if(window._vendasTabs[activeId]){
+    window._venda=window._vendasTabs[activeId].venda;
+    vendasRenderCotacao(content);
+  }
+  box.appendChild(content);
+  modal.appendChild(box);
+
+  // Click outside to close all
+  modal.onclick=function(e){if(e.target===modal){window._vendasTabs={};window._vendasModalMode=false;vendasFecharModal();}};
+}
+
+function vendasFecharTab(tabId){
+  tabId=tabId||window._vendasActiveTab;
+  if(window._vendasTabs)delete window._vendasTabs[tabId];
+  var remaining=Object.keys(window._vendasTabs||{});
+  if(!remaining.length){
+    window._vendasModalMode=false;
+    vendasFecharModal();
+    return;
+  }
+  window._vendasActiveTab=remaining[remaining.length-1];
+  window._venda=window._vendasTabs[window._vendasActiveTab].venda;
+  vendasRenderTabs();
 }
 
 function vendasVerCotacoes(){

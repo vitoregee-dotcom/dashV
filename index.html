@@ -579,7 +579,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.10</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.11</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -691,7 +691,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.10</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.11</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -5337,6 +5337,7 @@ async function doLogin(){
           if(typeof initDevMenu==='function')initDevMenu();
           if(typeof cadSyncFornecedores==='function')cadSyncFornecedores();
                 pfPullPlanilhas();
+          mapaPullSupabase().then(function(){ mapaPushSupabase(); });
           cadPullSupabase().then(function(){ cadPushSupabase(); });
           try{await loadProfile();}catch(e){}
           initUserUI();
@@ -9881,6 +9882,7 @@ function mapaSalvarEstado(){
     };
     mapaEstadoId = estado.id;
     localStorage.setItem(MAPA_SAVE_KEY, JSON.stringify(estado));
+    mapaPushSupabase();
   }catch(e){console.warn('Erro ao salvar estado do mapa:',e);}
 }
 
@@ -9902,6 +9904,40 @@ function mapaLimparEstado(){
   localStorage.removeItem(MAPA_SAVE_KEY);
   mapaEstadoId=null; mapaItens=[]; mapaFornSelecionados={};
   mapaPrecos={}; mapaDecisoes={}; mapaStep=1;
+  mapaPushSupabase(); // clear from supabase too
+}
+
+async function mapaPushSupabase(){
+  if(!sbUser)return;
+  try{
+    var saved=localStorage.getItem(MAPA_SAVE_KEY);
+    var dados=saved||'null';
+    await sbFetch('/rest/v1/user_mapa?on_conflict=user_id',{
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({user_id:sbUser.id,dados:dados,updated_at:new Date().toISOString()})
+    });
+  }catch(e){console.warn('mapaPushSupabase erro:',e);}
+}
+
+async function mapaPullSupabase(){
+  if(!sbUser)return;
+  try{
+    var r=await sbFetch('/rest/v1/user_mapa?user_id=eq.'+sbUser.id+'&select=dados,updated_at');
+    if(!r.ok)return;
+    var data=await r.json();
+    if(!data||!data.length)return;
+    var row=data[0];
+    if(!row.dados||row.dados==='null')return;
+    var remoto=typeof row.dados==='string'?JSON.parse(row.dados):row.dados;
+    if(!remoto||!remoto.itens||!remoto.itens.length)return;
+    // Use remote if newer or local is empty
+    var local=JSON.parse(localStorage.getItem(MAPA_SAVE_KEY)||'null');
+    if(!local||(remoto.ts&&local.ts&&remoto.ts>local.ts)){
+      localStorage.setItem(MAPA_SAVE_KEY,JSON.stringify(remoto));
+      console.log('✅ Mapa restaurado do Supabase ('+remoto.itens.length+' itens)');
+    }
+  }catch(e){console.warn('mapaPullSupabase erro:',e);}
 }
 
 var mapaEstadoId = null;

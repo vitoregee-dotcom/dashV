@@ -579,7 +579,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.11</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.12</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -691,7 +691,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.11</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.12</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -1571,6 +1571,7 @@ async function carregarTransit(){
 }
 async function salvarTransitItem(key,entry){
   localStorage.setItem('transitItems',JSON.stringify(transitItems));
+  pfSyncPush(['transitItems']);
   if(!sbSession||!sbUser)return;
   try{
     if(entry===null){
@@ -1803,6 +1804,7 @@ async function carregarSolicitacoes(){
 }
 async function salvarSolicitacao(key,entry){
   localStorage.setItem('solicitacoes',JSON.stringify(solicitacoes));
+  pfSyncPush(['solicitacoes']);
   if(!sbSession||!sbUser) return;
   try{
     if(entry===null){
@@ -4653,7 +4655,7 @@ function drawAcabandoChart(canvas,labels,datasets){
 }
 // ── RASTREAMENTO DE OPORTUNIDADES ────────────────────────────────
 var opTrack=JSON.parse(localStorage.getItem('opTrack')||'[]');
-function salvarOpTrack(){localStorage.setItem('opTrack',JSON.stringify(opTrack));}
+function salvarOpTrack(){localStorage.setItem('opTrack',JSON.stringify(opTrack));pfSyncPush(['opTrack']);}
 var _opFiltro='todos';
 
 function verificarOportunidades(){
@@ -4921,7 +4923,7 @@ function pfSalvarHistoricoFamilia(items, familias, nomeArquivo){
 
 // ── ME AVISE ─────────────────────────────────────────────────────
 var aviseItems=JSON.parse(localStorage.getItem('aviseItems')||'[]');
-function salvarAvise(){localStorage.setItem('aviseItems',JSON.stringify(aviseItems));}
+function salvarAvise(){localStorage.setItem('aviseItems',JSON.stringify(aviseItems));pfSyncPush(['aviseItems']);}
 function abrirAvise(){document.getElementById('avisePanel').style.display='flex';renderAviseList();}
 function adicionarAvise(){
   var ref=(document.getElementById('aviseRef').value||'').trim();
@@ -5339,6 +5341,7 @@ async function doLogin(){
                 pfPullPlanilhas();
           mapaPullSupabase().then(function(){ mapaPushSupabase(); });
           cadPullSupabase().then(function(){ cadPushSupabase(); });
+          pfSyncAll();
           try{await loadProfile();}catch(e){}
           initUserUI();
           setAuthLoading(false);
@@ -7679,8 +7682,11 @@ async function cadSyncManual(){
   try{
     await cadPushSupabase();
     await cadPullSupabase();
+    await mapaPushSupabase();
+    await mapaPullSupabase();
+    await pfSyncAll();
     if(btn){btn.disabled=false;btn.textContent='☁️ Sincronizar agora';}
-    if(status)status.innerHTML='<span style="color:#1a7a3a">✅ Sincronizado com sucesso</span>';
+    if(status)status.innerHTML='<span style="color:#1a7a3a">✅ Tudo sincronizado!</span>';
     cadRender();
     setTimeout(function(){if(status)status.textContent='';},4000);
   }catch(e){
@@ -9942,6 +9948,63 @@ async function mapaPullSupabase(){
 
 var mapaEstadoId = null;
 
+// ── SYNC GENÉRICO (user_sync) ─────────────────────────────────────────
+// Chaves sincronizadas entre dispositivos (excluindo dados de sessão/device)
+var PF_SYNC_KEYS = [
+  'aviseItems',
+  'meAvise_lista',
+  'solicitacoes',
+  'transitItems',
+  'partsflow_cotacoes_v1',
+  'venda_rascunho_v1',
+  'imp_preview_cache_v1',
+  'opTrack'
+];
+
+async function pfSyncPush(keys){
+  if(!sbUser)return;
+  keys = keys || PF_SYNC_KEYS;
+  try{
+    for(var i=0;i<keys.length;i++){
+      var chave=keys[i];
+      var raw=localStorage.getItem(chave);
+      if(raw===null)continue;
+      var dados;
+      try{dados=JSON.parse(raw);}catch(e){dados=raw;}
+      await sbFetch('/rest/v1/user_sync?on_conflict=user_id,chave',{
+        method:'POST',
+        headers:{'Prefer':'resolution=merge-duplicates'},
+        body:JSON.stringify({user_id:sbUser.id,chave:chave,dados:dados,updated_at:new Date().toISOString()})
+      });
+    }
+    console.log('✅ pfSyncPush OK ('+keys.length+' chaves)');
+  }catch(e){console.warn('pfSyncPush erro:',e);}
+}
+
+async function pfSyncPull(){
+  if(!sbUser)return;
+  try{
+    var r=await sbFetch('/rest/v1/user_sync?user_id=eq.'+sbUser.id+'&select=chave,dados,updated_at');
+    if(!r.ok)return;
+    var rows=await r.json();
+    if(!rows||!rows.length)return;
+    rows.forEach(function(row){
+      try{
+        if(!PF_SYNC_KEYS.includes(row.chave))return;
+        var val=typeof row.dados==='string'?row.dados:JSON.stringify(row.dados);
+        localStorage.setItem(row.chave,val);
+      }catch(e){}
+    });
+    console.log('✅ pfSyncPull OK ('+rows.length+' chaves)');
+  }catch(e){console.warn('pfSyncPull erro:',e);}
+}
+
+async function pfSyncAll(){
+  await pfSyncPull();
+  await pfSyncPush();
+}
+// ─────────────────────────────────────────────────────────────────────
+
 // Auto-save on key operations
 var _origMapaGoStep = mapaGoStep;
 mapaGoStep = function(step){
@@ -10937,6 +11000,7 @@ cadGerenciarSubst = function(){
         itens: window._impItensCache, marca: '',
         aplic: window._impAplicCache||null, ts: Date.now()
       }));
+      pfSyncPush(['imp_preview_cache_v1']);
     }catch(e){}
   }
 
@@ -12101,6 +12165,7 @@ function vendasEnviarTodosNeg(){
 
 function vendasSalvar(){
   localStorage.setItem('venda_rascunho_v1',JSON.stringify(window._venda));
+  pfSyncPush(['venda_rascunho_v1']);
   alert('Rascunho salvo!');
 }
 
@@ -12148,6 +12213,7 @@ async function vendasPullCotacoes(){
     });
     merged.sort(function(a,b){return b.num-a.num;});
     localStorage.setItem('partsflow_cotacoes_v1',JSON.stringify(merged));
+    pfSyncPush(['partsflow_cotacoes_v1']);
   }catch(e){console.warn('vendasPullCotacoes erro:',e);}
 }
 
@@ -12967,12 +13033,12 @@ function ferrMeAvise(){
     if(!ref){alert('Informe a referência.');return;}
     var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
     lista.push({ref:ref,marca:marca,cod_cliente:codCliente,nome_cliente:nomeCliente,obs:obs,wa_cliente:waCliente,ts:Date.now()});
-    localStorage.setItem('meAvise_lista',JSON.stringify(lista));
+    localStorage.setItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
     render();
   };
   window.maRemover=function(i){
     var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
-    lista.splice(i,1);localStorage.setItem('meAvise_lista',JSON.stringify(lista));render();
+    lista.splice(i,1);localStorage.setItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);render();
   };
   window.maWhatsApp=function(i){
     var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
@@ -12993,7 +13059,7 @@ function ferrMeAvise(){
       to_email:toEmail,ref:a.ref,marca:a.marca||'—',obs:a.obs||'—',
       cod_cliente:a.cod_cliente||'—',nome_cliente:a.nome_cliente||'—'
     }).then(function(){
-      lista.splice(i,1);localStorage.setItem('meAvise_lista',JSON.stringify(lista));
+      lista.splice(i,1);localStorage.setItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
       render();
       var t=document.createElement('div');
       t.style.cssText='position:fixed;top:70px;right:20px;z-index:9999;background:#EAF3DE;border:1px solid #7CB97A;color:#2A6A28;border-radius:10px;padding:12px 20px;font-size:13px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.15)';

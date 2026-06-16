@@ -579,7 +579,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.50</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.51</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -694,7 +694,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.50</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.51</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -5917,7 +5917,7 @@ async function lpLerTexto(){
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:'Extraia os itens desta lista de peças. O formato pode ser: QTD-CODIGO DESC ou QTD CODIGO DESC ou apenas CODIGO DESC.\n\nREGRAS IMPORTANTES:\n1. O número antes do hífen ou no início da linha é a QUANTIDADE (ex: "02-A17908" = qtd:2, codigo:"A017908")\n2. O código começa com letra seguida de números (ex: A17908, L33485, D77016) OU é só números (ex: 234099)\n3. Códigos com letra+números curtos: complete com zeros até 6 dígitos após a letra (ex: A17908 → A017908, L33485 → L033485)\n4. Se houver dúvida se é código ou descrição, coloque em "duvida":true\n5. Ignore títulos e cabeçalhos\n\nRetorne APENAS JSON array sem markdown:\n[{"codigo":"","qtd":1,"desc":"","duvida":false}]\n\nLista:\n'+txt}]})});
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:'Extraia os itens desta lista de peças. O formato pode ser: QTD-CODIGO DESC ou QTD CODIGO DESC ou apenas CODIGO DESC.\n\nREGRAS IMPORTANTES:\n1. O número antes do hífen ou no início da linha é a QUANTIDADE (ex: "02-A17908" = qtd:2, codigo:"A017908")\n2. O código começa com letra seguida de números (ex: A17908, L33485, D77016) OU é só números (ex: 234099)\n3. Códigos com letra+números curtos: complete com zeros até 6 dígitos após a letra (ex: A17908 → A017908, L33485 → L033485)\n4. Códigos DANA especiais:\n   - Padrão NNJMdd: complete dígitos finais com zeros até 6 (ex: 5JM50 → 5JM000050, 7JM90 → 7JM000090)\n   - Padrão NNFdd: complete dígitos finais com zeros até 6 (ex: 91F07 → 91F000007, 91F10 → 91F000010)\n5. Códigos 60K-NNNNN: manter exatamente como está\n6. Se houver dúvida se é código ou descrição, coloque "duvida":true\n7. Ignore títulos e cabeçalhos\n\nRetorne APENAS JSON array sem markdown:\n[{"codigo":"","qtd":1,"desc":"","duvida":false}]\n\nLista:\n'+txt}]})});
     var data=await resp.json();
     var res=data.content.map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();
     var m2=res.match(/\[[\s\S]*/);if(m2)res=m2[0];
@@ -5935,9 +5935,23 @@ function lpApplyRuleCase(cod){
   // Remove leading quantity if format is QTD-CODE (e.g. "02-A17908" -> "A17908")
   var qm=cod.match(/^(\d+)[-\s]+([A-Z0-9].+)$/);
   if(qm)cod=qm[2];
-  // Letter + 1-5 digits -> pad to 6 digits (e.g. A17908 -> A017908)
+
+  // DANA special rules:
+  // Pattern: digits + JM + digits (e.g. 5JM50 -> 5JM000050, 7JM90 -> 7JM000090)
+  var dana1=cod.match(/^(\d+JM)(\d+)$/);
+  if(dana1){var n=dana1[2];while(n.length<6)n='0'+n;return dana1[1]+n;}
+
+  // Pattern: digits + F + digits (e.g. 91F07 -> 91F000007, 91F10 -> 91F000010)
+  var dana2=cod.match(/^(\d+F)(\d+)$/);
+  if(dana2){var n2=dana2[2];while(n2.length<6)n2='0'+n2;return dana2[1]+n2;}
+
+  // Pattern: 60K-NNNNN (e.g. 60K-30022 -> keep as is, already formatted)
+  // These are already correct, no padding needed
+
+  // Standard rule: Letter(s) + 1-5 digits -> pad to 6 digits (e.g. A17908 -> A017908, L33485 -> L033485)
   var m=cod.match(/^([A-Z]+)(\d{1,5})$/);
   if(m){var nums=m[2];while(nums.length<6)nums='0'+nums;return m[1]+nums;}
+
   return cod;
 }
 

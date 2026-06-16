@@ -579,7 +579,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.67</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.68</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -698,7 +698,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.67</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.68</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -5848,26 +5848,39 @@ function lpRenderFerr(){
 
 
 function lpColarPrint(){navigator.clipboard.read().then(function(it){for(var i=0;i<it.length;i++){var t=it[i].types.find(function(x){return x.startsWith("image/");});if(t){it[i].getType(t).then(function(b){lpLerArquivo({files:[new File([b],"p.png",{type:b.type})]});});return;}}alert("Sem imagem na area de transferencia.");}).catch(function(){alert("Permissao negada.");});}
-async function lpColarClipboard(){
-  var ta=document.getElementById('lpTexto');
-  if(!ta)return;
-  ta.focus();
-  // Try clipboard API first
-  if(navigator.clipboard&&navigator.clipboard.readText){
-    navigator.clipboard.readText().then(function(txt){
-      if(txt&&txt.trim()){
-        ta.value=txt;
-        ta.style.borderColor='#27AE60';
-        setTimeout(function(){ta.style.borderColor='';},1500);
-      } else {
-        _lpDicaColar(ta);
-      }
-    }).catch(function(){_lpDicaColar(ta);});
-  } else {
-    // Fallback: select all and paste
-    ta.select();
-    _lpDicaColar(ta);
+async async function lpColarClipboard(){
+  var btn=document.querySelector('button[onclick="lpColarClipboard()"]')||document.querySelector('button.lpColarBtn');
+  if(btn){btn.textContent='⏳ Lendo...';btn.disabled=true;}
+  try{
+    var items=await navigator.clipboard.read();
+    var imageItem=null;
+    for(var i=0;i<items.length;i++){
+      var t=items[i].types.find(function(x){return x.startsWith('image/');});
+      if(t){imageItem={item:items[i],type:t};break;}
+    }
+    if(imageItem){
+      // Has image - send to AI like lpLerArquivo
+      var blob=await imageItem.item.getType(imageItem.type);
+      var file=new File([blob],'clipboard.png',{type:imageItem.type});
+      if(btn){btn.textContent='📋 Colar Print';btn.disabled=false;}
+      await lpLerArquivo({files:[file],parentElement:btn||document.createElement('div')});
+      return;
+    }
+    // No image - try text
+    var txt=await navigator.clipboard.readText();
+    if(txt&&txt.trim()){
+      var ta=document.getElementById('lpTexto');
+      if(ta){ta.value=txt;ta.style.borderColor='#27AE60';setTimeout(function(){ta.style.borderColor='';},1500);}
+    } else {
+      var ta2=document.getElementById('lpTexto');
+      if(ta2){ta2.focus();_lpDicaColar(ta2);}
+    }
+  }catch(e){
+    // Permission denied or no clipboard content
+    var ta3=document.getElementById('lpTexto');
+    if(ta3){ta3.focus();_lpDicaColar(ta3);}
   }
+  if(btn){btn.textContent='📋 Colar Print';btn.disabled=false;}
 }
 
 function _lpDicaColar(ta){

@@ -579,7 +579,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.68</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.69</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -698,7 +698,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.68</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.69</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -12065,28 +12065,36 @@ function vendasRefresh(){
 }
 
 function vendasBuscarItem(cod){
-  if(typeof tabs==='undefined'||!tabs||!tabs.length){console.warn('vendasBuscarItem: tabs vazio');return null;}
-  var matches=[];
-  var codClean=cod.replace(/[\s\-\.]/g,'').toUpperCase();
-  for(var t=0;t<tabs.length;t++){
-    var tab=tabs[t];
-    var rows=tab.allItems||tab.data||[];
-    if(!rows.length)continue;
-    for(var i=0;i<rows.length;i++){
-      var row=rows[i];
-      var ref=(row.ref||row.Ref||row.REF||row.Referencia||row.referencia||row.REFERENCIA||row.codigo||row.Codigo||row.CODIGO||'').toString().toUpperCase().trim();
-      var refClean=ref.replace(/[\s\-\.]/g,'');
-      if(ref===cod||refClean===codClean) matches.push(row);
+  // Get rows: prefer global allItems, restore from tabs if empty
+  var rows=[];
+  if(typeof allItems!=='undefined'&&allItems&&allItems.length){
+    rows=allItems;
+  } else if(typeof tabs!=='undefined'){
+    for(var _t=0;_t<tabs.length;_t++){
+      var _tab=tabs[_t];
+      if(_tab&&_tab.allItems&&_tab.allItems.length){rows=_tab.allItems;break;}
+    }
+    // Also restore to global allItems for next call
+    if(rows.length&&typeof allItems!=='undefined')allItems=rows;
+  }
+  } else if(typeof tabs!=='undefined'&&tabs){
+    for(var t=0;t<tabs.length;t++){
+      var tab=tabs[t];
+      if(tab&&tab.allItems&&tab.allItems.length){rows=rows.concat(tab.allItems);}
     }
   }
+  if(!rows.length){console.warn('vendasBuscarItem: planilha não carregada');return null;}
+  var matches=[];
+  var codClean=cod.replace(/[\s\-\.]/g,'').toUpperCase();
+  for(var i=0;i<rows.length;i++){
+    var row=rows[i];
+    var ref=(row.ref||row.Ref||row.REF||row.Referencia||row.referencia||row.REFERENCIA||row.codigo||row.Codigo||row.CODIGO||'').toString().toUpperCase().trim();
+    var refClean=ref.replace(/[\s\-\.]/g,'');
+    if(ref===cod||refClean===codClean) matches.push(row);
+  }
   if(!matches.length){
-    var exemplo=tabs[0]&&(tabs[0].allItems||tabs[0].data)&&(tabs[0].allItems||tabs[0].data)[0];
-    console.warn('vendasBuscarItem: "'+cod+'" não encontrado. Exemplo de row:',exemplo);
-    // Log some refs to help debug
-    if(tabs[0]&&tabs[0].allItems&&tabs[0].allItems.length>0){
-      var sample=tabs[0].allItems.slice(0,3).map(function(r){return r.ref||r.REF||r.Referencia||'?';});
-      console.warn('Exemplos de refs na planilha:',sample);
-    }
+    var sample=rows.slice(0,3).map(function(r){return r.ref||r.REF||r.Referencia||'?';});
+    console.warn('vendasBuscarItem: "'+cod+'" não encontrado. Exemplos:',sample);
     return null;
   }
   var totalSaldo=0,melhorCusto=null,desc='',marcas=[];
@@ -12243,6 +12251,7 @@ function vendasRenderTabs(){
   closeAll.style.cssText='background:none;border:none;color:rgba(255,255,255,.7);font-size:18px;cursor:pointer;padding:4px 6px;border-radius:4px;line-height:1';
   closeAll.textContent='✕';closeAll.title='Fechar tudo';
   closeAll.onclick=function(){window._vendasTabs={};window._vendasModalMode=false;vendasFecharModal();};
+  closeAll.addEventListener('touchend',function(e){e.preventDefault();window._vendasTabs={};window._vendasModalMode=false;vendasFecharModal();});
   ctrl.appendChild(minBtn);ctrl.appendChild(maxBtn);ctrl.appendChild(escLbl);ctrl.appendChild(closeAll);
   tabBar.appendChild(ctrl);
   box.appendChild(tabBar);

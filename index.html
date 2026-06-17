@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.103</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.104</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.103</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.104</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -10078,8 +10078,9 @@ mapaStep1 = function(el){
     ? mapaItens.filter(function(i){ return pfPrazoNaoIm(i.prazo); })
     : mapaItens;
 
-  // Pré-computa fornecedores compatíveis para TODOS os itens, sem precisar clicar/expandir
+  // Pré-computa fornecedores compatíveis para TODOS os itens NÃO IM., sem precisar clicar/expandir
   itensFiltrados.forEach(function(item){
+    if(!pfPrazoNaoIm(item.prazo)) return; // IMEDIATO não precisa de fornecedor
     var k = item.ref+'||'+(item.marca||'');
     if(!mapaFornSelecionados[k] || !mapaFornSelecionados[k].length){
       var lnPre = item.ln || idLinha(item.ref); item.ln = lnPre;
@@ -10119,7 +10120,7 @@ mapaStep1 = function(el){
       return f?(f.fantasia||f.nome||f.razao):fid;
     }).join(', ');
 
-    html += '<tr data-idx="'+i+'" style="border-bottom:'+(exp?'none':'1px solid #e0e8f0')+';background:'+(sel?(isNaoIm?'#FFF5F5':'#F5F9FF'):'#FAFAFA')+';cursor:pointer" onclick="mapaExpand('+i+')">';
+    html += '<tr data-idx="'+i+'" style="border-bottom:'+(exp?'none':'1px solid #e0e8f0')+';background:'+(sel?(isNaoIm?'#FFF5F5':'#F5F9FF'):'#FAFAFA')+';cursor:'+(isNaoIm?'pointer':'default')+'" onclick="mapaExpand('+i+')">';
     html += '<td style="padding:8px 6px;text-align:center" onclick="event.stopPropagation()"><input type="checkbox" '+(sel?'checked':'')+' onchange="mapaItens['+i+'].sel=this.checked;if(!this.checked)mapaItens['+i+']._exp=false;mapaGoStep(1);" style="width:15px;height:15px;accent-color:#C00000"></td>';
     html += '<td style="padding:8px;font-weight:700;color:#1F4E79;white-space:nowrap" tabindex="0" onkeydown="if(event.key===\' \'){event.preventDefault();mapaExpand('+i+');}">'+(exp?'▾ ':'▸ ')+item.ref+'</td>';
     html += '<td style="padding:8px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.desc+'</td>';
@@ -10128,7 +10129,7 @@ mapaStep1 = function(el){
     var pBg=isNaoIm?'#FDEAEA':'#E8F5E2'; var pCor=isNaoIm?'#C00000':'#217a3c';
     html += '<td style="padding:8px;text-align:center"><span style="font-size:10px;background:'+pBg+';color:'+pCor+';padding:2px 8px;border-radius:8px;font-weight:700">'+(item.prazo||'—')+'</span></td>';
     html += '<td style="padding:8px"><span class="mLinhaTag" style="background:'+ln.b+';color:'+(ln.x||ln.c)+'">'+ln.l+'</span></td>';
-    html += '<td style="padding:8px;font-size:11px;color:'+(fs.length?'#27AE60':'#E67E22')+'">'+(fs.length?'✓ '+fnms:(sel?'Clique →':'—'))+'</td>';
+    html += '<td style="padding:8px;font-size:11px;color:'+(fs.length?'#27AE60':'#E67E22')+'">'+(isNaoIm?(fs.length?'✓ '+fnms:(sel?'Clique →':'—')):'—')+'</td>';
     html += '<td style="padding:8px;text-align:center" onclick="event.stopPropagation()"><button ontouchstart="" onclick="mapaItens.splice('+i+',1);mapaGoStep(1);" style="background:none;border:none;color:#C00000;cursor:pointer;font-size:15px">×</button></td>';
     html += '</tr>';
 
@@ -11111,6 +11112,8 @@ function mapaSalvarNaLista(estado){
     nSel: (estado.itens||[]).filter(function(i){return i.sel!==false;}).length,
     step: estado.step,
     titulo: estado.titulo||(new Date(estado.ts).toLocaleDateString('pt-BR')+' — '+(estado.itens&&estado.itens[0]?estado.itens[0].desc:'')+'...'),
+    numero: estado.numero||'',
+    cliente: estado.cliente||'',
   };
   if(idx>=0)lista[idx]=resumo; else lista.unshift(resumo);
   // Keep max 20 mapas
@@ -11127,6 +11130,9 @@ function mapaCarregarDaLista(id){
     mapaEstadoId=saved.id; mapaItens=saved.itens||[];
     mapaFornSelecionados=saved.fornSel||{}; mapaPrecos=saved.precos||{};
     mapaDecisoes=saved.decisoes||{}; mapaStep=saved.step||1;
+    window._mapaEstadoNome = saved.titulo||'';
+    window._mapaEstadoNumero = saved.numero||'';
+    window._mapaEstadoCliente = saved.cliente||'';
     return true;
   }catch(e){return false;}
 }
@@ -11149,6 +11155,8 @@ mapaSalvarEstado = function(){
       fornSel: mapaFornSelecionados,
       precos: mapaPrecos,
       decisoes: mapaDecisoes,
+      numero: window._mapaEstadoNumero||'',
+      cliente: window._mapaEstadoCliente||'',
     };
     mapaEstadoId=estado.id;
     localStorage.setItem(MAPA_SAVE_KEY,JSON.stringify(estado));
@@ -11230,6 +11238,7 @@ function mapaForCompativel(f, item, ln){
 // falling back to ALL apenas se nenhum fornecedor bater com nada.
 mapaExpand = function(idx){
   var item=mapaItens[idx];if(!item)return;
+  if(!pfPrazoNaoIm(item.prazo))return; // IMEDIATO não precisa escolher fornecedor
   item._exp=!item._exp;
   var key=item.ref+'||'+(item.marca||'');
   var ln=item.ln||idLinha(item.ref);
@@ -11662,14 +11671,17 @@ mapaIniciarComNome = function(){
   mapaLimparEstado();
   mapaEstadoId = 'mapa_'+Date.now();
   window._mapaEstadoNome = titulo;
+  window._mapaEstadoNumero = num;
+  window._mapaEstadoCliente = nome;
   // Save immediately with title
   try{
-    var estado = {id:mapaEstadoId, ts:Date.now(), step:1, itens:[], fornSel:{}, precos:{}, decisoes:{}, titulo:titulo};
+    var estado = {id:mapaEstadoId, ts:Date.now(), step:1, itens:[], fornSel:{}, precos:{}, decisoes:{}, titulo:titulo, numero:num, cliente:nome};
     localStorage.setItem(MAPA_SAVE_KEY, JSON.stringify(estado));
     mapaSalvarNaLista(estado);
   }catch(e){}
   mapaGoStep(1);
 };
+
 
 // After reading PDF, try to extract client name and update mapa title
 var _origMapaLerImagem2 = mapaLerImagem;
@@ -11703,9 +11715,14 @@ mapaRender = function(){
             var stepNames = {1:'📋 Itens',2:'📨 Enviar',3:'💰 Preços',4:'⚖️ Decidir'};
             var stepLabel = stepNames[m.step]||('Step '+m.step);
             var nSel = m.nSel||m.nItens||0;
+            var tituloLinha = m.cliente ? m.cliente : m.titulo;
+            var numeroBadge = m.numero ? ('Mapa Nº '+m.numero) : '';
             html += '<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px solid #e0e8f0;border-radius:10px;background:#FAFBFC">';
             html += '<div style="flex:1;min-width:0">';
-            html += '<div style="font-weight:800;font-size:14px;color:#1F4E79;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+m.titulo+'</div>';
+            html += '<div style="display:flex;align-items:center;gap:8px">';
+            if(numeroBadge) html += '<span style="font-size:10px;background:#1F4E79;color:#fff;padding:2px 8px;border-radius:6px;font-weight:700;white-space:nowrap">'+numeroBadge+'</span>';
+            html += '<div style="font-weight:800;font-size:14px;color:#1F4E79;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+tituloLinha+'</div>';
+            html += '</div>';
             html += '<div style="font-size:11px;color:#8a9ab0;margin-top:2px">'+dt+' · '+m.nItens+' iten(s) · '+stepLabel+'</div>';
             html += '</div>';
             html += '<span style="font-size:11px;background:#EEF6FF;color:#1F4E79;padding:3px 10px;border-radius:8px;white-space:nowrap;font-weight:700">'+stepLabel+'</span>';

@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.110</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.111</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.110</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.111</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -7499,7 +7499,7 @@ function mapaStep4(el){
       entries.forEach(function(e,ei){
         if(e.preco>0){
           var custo = e.preco*(1+(e.ipi||0)/100)*(1+(e.st||0)/100);
-          rows.push({fid:fid,ei:ei,nome:f?(f.fantasia||f.nome||f.razao):fid,marca:e.marca||'—',preco:e.preco,ipi:e.ipi||0,icms:e.icms||0,st:e.st||0,custo:custo,prazo:e.prazo||'—'});
+          rows.push({fid:fid,ei:ei,nome:f?(f.fantasia||f.nome||f.razao):fid,marca:e.marca||'—',preco:e.preco,ipi:e.ipi||0,icms:e.icms||0,st:e.st||0,custo:custo,prazo:e.prazo||'—',estado:f?(f.estado||''):''});
           algumPreco = true;
         }
       });
@@ -7561,12 +7561,22 @@ function mapaStep4(el){
       html += '<td style="padding:8px;text-align:right;color:#607080">R$ '+(r.custo*item.qtd).toFixed(2)+'</td>';
       var _mk = key+'||'+r.fid+'||'+r.ei;
       var _marg = window._mapaMargemVenda||25;
-      var _custo = r.custo||r.preco||0;
-      var _venda = _custo > 0 ? (_custo/(1-_marg/100-0.076-0.0165-0.12)) : 0;
+      var _clienteUF = window._mapaClienteUF||'SP';
+      var _icms_c = ICMS_ENTRADA[r.estado]||0.18;
+      var _icms_v = ICMS_SAIDA[_clienteUF]||0.18;
+      var _ipiPct = (r.ipi||0)/100;
+      var _stVal = r.preco*(r.st||0)/100;
+      var _rCalc = {venda:0};
+      try{_rCalc=calcMargemLiq(r.preco,_icms_c,_ipiPct,_stVal,_icms_v,_marg/100);}catch(ex){}
+      var _venda = _rCalc.venda>0?_rCalc.venda:0;
+      // liq_custo e fator são constantes pra essa linha — usados pra resolver a fórmula nos dois sentidos (venda<->margem)
+      var _cofinsC=(r.preco-r.preco*_icms_c)*COFINS_PCT, _pisC=(r.preco-r.preco*_icms_c)*PIS_PCT;
+      var _liqCusto=r.preco-_cofinsC-_pisC-r.preco*_icms_c+r.preco*_ipiPct+_stVal;
+      var _fator=1-COFINS_PCT*(1-_icms_v)-PIS_PCT*(1-_icms_v)-_icms_v;
       var _vid = 'mv_venda_'+_mk.replace(/[^a-z0-9]/gi,'_');
       var _mid = 'mv_marg_'+_mk.replace(/[^a-z0-9]/gi,'_');
-      html += '<td style="padding:4px;text-align:right"><input type="number" id="'+_vid+'" value="'+_venda.toFixed(2)+'" step="0.01" data-mid="'+_mid+'" style="width:80px;padding:4px 6px;border:1.5px solid #27AE60;border-radius:6px;font-size:12px;font-weight:700;color:#27AE60;text-align:right" oninput="var v=parseFloat(this.value)||0;var c='+_custo.toFixed(4)+';if(v>0&&c>0){var m=Math.round((0.7875-c/v)*100*10)/10;var mid=this.getAttribute(\'data-mid\');document.getElementById(mid).value=m;}" ></td>';
-      html += '<td style="padding:4px;text-align:right"><input type="number" id="'+_mid+'" value="'+_marg.toFixed(1)+'" step="0.5" min="0" max="90" data-vid="'+_vid+'" style="width:60px;padding:4px 6px;border:1.5px solid #27AE60;border-radius:6px;font-size:12px;font-weight:700;color:#1F4E79;text-align:right" oninput="var m=parseFloat(this.value)||0;var c='+_custo.toFixed(4)+';if(c>0){var v=c/(1-m/100-0.076-0.0165-0.12);var vid=this.getAttribute(\'data-vid\');document.getElementById(vid).value=v.toFixed(2);}" >%</td>';
+      html += '<td style="padding:4px;text-align:right"><input type="number" id="'+_vid+'" value="'+_venda.toFixed(2)+'" step="0.01" data-mid="'+_mid+'" style="width:80px;padding:4px 6px;border:1.5px solid #27AE60;border-radius:6px;font-size:12px;font-weight:700;color:#27AE60;text-align:right" oninput="var v=parseFloat(this.value)||0;var lc='+_liqCusto.toFixed(4)+',fa='+_fator.toFixed(6)+';if(v>0){var m=Math.round((fa-lc/v)*100*10)/10;var mid=this.getAttribute(\'data-mid\');document.getElementById(mid).value=m;}" ></td>';
+      html += '<td style="padding:4px;text-align:right"><input type="number" id="'+_mid+'" value="'+_marg.toFixed(1)+'" step="0.5" min="0" max="90" data-vid="'+_vid+'" style="width:60px;padding:4px 6px;border:1.5px solid #27AE60;border-radius:6px;font-size:12px;font-weight:700;color:#1F4E79;text-align:right" oninput="var m=parseFloat(this.value)||0;var lc='+_liqCusto.toFixed(4)+',fa='+_fator.toFixed(6)+';var v=lc/(fa-m/100);var vid=this.getAttribute(\'data-vid\');document.getElementById(vid).value=v.toFixed(2);" >%</td>';
       html += '<td style="padding:8px;text-align:center;color:#607080">'+r.prazo+'</td>';
       html += '<td style="padding:8px;text-align:center"><input type="radio" name="dec_'+nameKS+'" '+(ch?'checked':'')+' onchange="mapaDecisoes[&quot;'+key+'&quot;]=&quot;'+decKey+'&quot;" style="accent-color:#1F4E79;width:17px;height:17px;cursor:pointer"></td>';
       html += '</tr>';
@@ -7597,7 +7607,7 @@ function mapaStep4(el){
 
   var ocK=Object.keys(ocF);
   if(ocK.length){
-    html+='<div style="background:#fff;border-radius:10px;padding:12px 16px;margin-bottom:12px;border:1.5px solid #e0e8f0;display:flex;align-items:center;gap:10px"><b style="color:#1F4E79">Margem Venda:</b><input type="number" id="mapaMargemVenda" value="'+(window._mapaMargemVenda||25)+'" min="1" max="90" style="width:60px;padding:5px;border:1.5px solid #1F4E79;border-radius:6px;font-size:14px;font-weight:700;text-align:center" oninput="window._mapaMargemVenda=parseFloat(this.value)||25"><span style="font-size:11px;color:#607080">% (Lucro Presumido SP)</span></div>';
+    html+='<div style="background:#fff;border-radius:10px;padding:12px 16px;margin-bottom:12px;border:1.5px solid #e0e8f0;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="color:#1F4E79">Margem Venda:</b><input type="number" id="mapaMargemVenda" value="'+(window._mapaMargemVenda||25)+'" min="1" max="90" style="width:60px;padding:5px;border:1.5px solid #1F4E79;border-radius:6px;font-size:14px;font-weight:700;text-align:center" oninput="window._mapaMargemVenda=parseFloat(this.value)||25"><span style="font-size:11px;color:#607080">% (Lucro Presumido SP)</span><span style="margin-left:16px;font-size:11px;color:#607080">Cliente (UF p/ ICMS venda):</span><select id="mapaClienteUF" onchange="window._mapaClienteUF=this.value;mapaGoStep(4)" style="padding:5px 8px;border:1.5px solid #1F4E79;border-radius:6px;font-size:13px;font-weight:700">'+['SP','MG','RJ','ES','PR','SC','RS','MS','MT','GO','DF','BA','SE','AL','PE','PB','RN','CE','PI','MA','PA','AP','AM','RR','RO','TO','AC'].map(function(uf){return'<option value="'+uf+'"'+(uf===(window._mapaClienteUF||'SP')?' selected':'')+'>'+uf+'</option>';}).join('')+'</select></div>';
     html+='<div class="mSection" style="background:#EEF6FF;border:1.5px solid #1F4E79"><div class="mSectionTitle">📋 Resumo — Gerar Ordens de Compra</div>';
     html+='<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">';
     ocK.forEach(function(fid){
@@ -14063,15 +14073,16 @@ function mgRenderTabela(){
   if(!itens.length){el.innerHTML='<div style="padding:28px;text-align:center;color:#8a9ab0;font-size:13px">Nenhum item. Importe um PDF ou adicione manualmente.</div>';return;}
   var fornUF=(document.getElementById('mgFornUF')||{}).value||'SP';
   var clienteUF=(document.getElementById('mgClienteUF')||{}).value||'SP';
+  var icms_c=ICMS_ENTRADA[fornUF]||0.12, icms_v=ICMS_SAIDA[clienteUF]||0.12;
   var html='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#1F4E79;color:#fff">';
   html+='<th style="padding:8px;text-align:left">Ref</th><th style="padding:8px;text-align:left">Descrição</th>';
   html+='<th style="padding:8px;text-align:right;width:80px">Custo</th><th style="padding:8px;text-align:right;width:54px">IPI%</th>';
-  html+='<th style="padding:8px;text-align:right;width:60px">ST R$</th><th style="padding:8px;text-align:right;width:54px">Marg%</th>';
+  html+='<th style="padding:8px;text-align:right;width:60px">ST R$</th><th style="padding:8px;text-align:right;width:90px" title="Vem do Fornecedor UF / Cliente UF acima — compra (crédito) / venda (débito)">ICMS%</th>';
+  html+='<th style="padding:8px;text-align:right;width:54px">Marg%</th>';
   html+='<th style="padding:8px;text-align:right;width:100px;background:#1B5E20">Venda Sug.</th>';
   html+='<th style="padding:8px;text-align:right;width:70px">Markup</th><th style="padding:8px;text-align:center;width:40px">✕</th>';
   html+='</tr></thead><tbody>';
   itens.forEach(function(item,i){
-    var icms_c=ICMS_ENTRADA[fornUF]||0.12, icms_v=ICMS_SAIDA[clienteUF]||0.12;
     var r={venda:0,markup:0};
     try{r=calcMargemLiq(item.custo,icms_c,item.ipi_pct,item.st_val,icms_v,item.margem);}catch(e){}
     var bg=i%2===0?'#fff':'#FAFBFC';
@@ -14081,6 +14092,7 @@ function mgRenderTabela(){
     html+='<td style="padding:7px 8px;text-align:right"><input type="number" value="'+item.custo+'" step="0.01" min="0" onchange="mgSetCusto('+i+',this.value)" style="width:72px;padding:3px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
     html+='<td style="padding:7px 8px;text-align:right"><input type="number" value="'+(item.ipi_pct*100).toFixed(1)+'" step="0.1" min="0" onchange="mgSetIpi('+i+',this.value)" style="width:50px;padding:3px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
     html+='<td style="padding:7px 8px;text-align:right"><input type="number" value="'+item.st_val+'" step="0.01" min="0" onchange="mgSetSt('+i+',this.value)" style="width:56px;padding:3px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
+    html+='<td style="padding:7px 8px;text-align:right;color:#607080;font-size:11px;white-space:nowrap">C:'+(icms_c*100).toFixed(0)+'% V:'+(icms_v*100).toFixed(0)+'%</td>';
     html+='<td style="padding:7px 8px;text-align:right"><input type="number" value="'+(item.margem*100).toFixed(1)+'" step="0.5" min="1" max="80" onchange="mgSetMargem('+i+',this.value)" style="width:50px;padding:3px 6px;border:1.5px solid #1F4E79;border-radius:6px;font-size:12px;text-align:right;color:#1F4E79;font-weight:700"></td>';
     html+='<td style="padding:7px 8px;text-align:right;font-weight:800;color:'+(r.venda>0?'#217a3c':'#8a9ab0')+';background:#F0FAF0">'+(r.venda>0?'R$ '+r.venda.toFixed(2).replace('.',','):'—')+'</td>';
     html+='<td style="padding:7px 8px;text-align:right;color:#607080">'+(r.markup>0?r.markup.toFixed(1)+'%':'—')+'</td>';
@@ -14088,6 +14100,7 @@ function mgRenderTabela(){
     html+='</tr>';
   });
   html+='</tbody></table>';
+  html+='<div style="padding:8px 12px;font-size:11px;color:#8a9ab0;border-top:1px solid #f0f4f8">ICMS% = crédito na compra (C) e débito na venda (V), conforme Fornecedor UF / Cliente UF acima. Já está sendo usado no cálculo de Venda Sug. e Markup — mude a UF lá em cima pra recalcular todos.</div>';
   el.innerHTML=html;
 }
 

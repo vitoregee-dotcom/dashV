@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.104</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.105</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.104</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.105</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -7105,7 +7105,11 @@ function mapaStep2(el){
   if(!fids.length){
     el.innerHTML='<div class="mSection" style="text-align:center;padding:30px;color:#8a9ab0">Nenhum fornecedor selecionado.<br><button ontouchstart="" onclick="mapaGoStep(1)" style="background:none;border:none;color:#1F4E79;cursor:pointer;text-decoration:underline;font-size:13px">← Voltar e selecionar</button></div>';return;
   }
-  var html='<div class="mSection"><div class="mSectionTitle">📨 E-mails de Cotação</div></div>';
+  var html='<div class="mSection"><div class="mSectionTitle">📨 E-mails de Cotação</div>';
+  var nComEmail=fids.filter(function(fid){var f=flist.find(function(x){return x.id===fid;});return f&&f.email;}).length;
+  html+='<button ontouchstart="" onclick="mapaEmailBccTodos()" style="width:100%;margin-top:8px;background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:11px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">📧 Enviar 1 e-mail só (BCC todos os '+nComEmail+' fornecedores)</button>';
+  html+='<p style="font-size:11px;color:#8a9ab0;margin-top:6px">Envia a lista completa de itens pra todo mundo de uma vez. Se preferir personalizar por fornecedor (só os itens dele), use os botões individuais abaixo.</p>';
+  html+='</div>';
   fids.forEach(function(fid){
     var forn=flist.find(function(f){return f.id===fid;});if(!forn)return;
     html+='<div class="mSection" style="display:flex;align-items:center;gap:12px">';
@@ -7119,6 +7123,39 @@ function mapaStep2(el){
   html+='<button ontouchstart="" onclick="mapaGoStep(3)" style="background:#27AE60;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:13px;font-weight:700">Enviei → Preencher Preços</button>';
   html+='</div>';
   el.innerHTML=html;
+}
+
+function mapaEmailBccTodos(){
+  var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
+  var fornItens={};
+  mapaItens.filter(function(i){return i.sel!==false;}).forEach(function(item){
+    var key=item.ref+'||'+(item.marca||'');
+    (mapaFornSelecionados[key]||[]).forEach(function(fid){if(!fornItens[fid])fornItens[fid]=[];fornItens[fid].push(item);});
+  });
+  var fids=Object.keys(fornItens);
+  var comEmail=[],semEmail=[];
+  fids.forEach(function(fid){
+    var f=flist.find(function(x){return x.id===fid;});
+    if(!f)return;
+    if(f.email)comEmail.push(f);else semEmail.push(f);
+  });
+  if(!comEmail.length){_safeAlert('Nenhum fornecedor selecionado tem e-mail cadastrado.');return;}
+  // Lista única de itens (sem repetir), já que num e-mail só não dá pra personalizar por fornecedor
+  var vistos=new Set(),itensUnicos=[];
+  mapaItens.filter(function(i){return i.sel!==false;}).forEach(function(item){
+    var k=item.ref+'||'+(item.marca||'');
+    if((mapaFornSelecionados[k]||[]).some(function(fid){return comEmail.some(function(f){return f.id===fid;});})&&!vistos.has(k)){
+      vistos.add(k);itensUnicos.push(item);
+    }
+  });
+  var bccList=comEmail.map(function(f){return f.email;}).join(',');
+  var body='Prezados,\n\nSolicito cotação para os itens abaixo:\n\n'+
+    itensUnicos.map(function(it,n){return(n+1)+'. ['+it.ref+'] '+it.desc+(it.marca?' | '+it.marca:'')+' — Qtd: '+it.qtd;}).join('\n')+
+    '\n\nPor favor informe: Preço unitário, Prazo, Disponibilidade.\n\nAtenciosamente,\nVitor Lima\nTRIEX | compras@triex.com.br';
+  window.open('mailto:?bcc='+encodeURIComponent(bccList)+'&subject='+encodeURIComponent('Solicitação de Cotação — TRIEX — '+new Date().toLocaleDateString('pt-BR'))+'&body='+encodeURIComponent(body));
+  if(semEmail.length){
+    _safeAlert('Enviado para '+comEmail.length+' fornecedor(es).\n\nSem e-mail cadastrado (não incluídos): '+semEmail.map(function(f){return f.fantasia||f.nome||f.razao;}).join(', '));
+  }
 }
 
 function mapaEmail(fid){

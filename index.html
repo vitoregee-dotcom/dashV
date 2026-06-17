@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.107</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.108</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.107</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.108</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -7287,15 +7287,21 @@ async function mapaLerResposta(input, fid){
   var file=input.files[0];if(!file)return;
   var statusEl=document.getElementById('upStatus_'+fid);
   var labelEl=input.closest('label');
+  // Arquivo muito grande costuma travar a leitura/encoding no navegador (principalmente iPad)
+  if(file.size > 10*1024*1024){
+    _safeAlert('Esse arquivo tem '+(file.size/1024/1024).toFixed(1)+'MB — muito grande e pode travar o navegador.\n\nTente um print/foto mais leve, ou um PDF exportado direto (sem ser foto de tela).');
+    input.value='';
+    return;
+  }
   if(labelEl){labelEl.style.opacity='0.5';labelEl.style.pointerEvents='none';}
-  if(statusEl)statusEl.innerHTML='<b style="color:#1F4E79">🤖 Lendo documento... (pode levar até 30s)</b>';
+  if(statusEl)statusEl.innerHTML='<b style="color:#1F4E79">🤖 Lendo documento... (pode levar até 45s)</b>';
   try{
     var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
     var forn=flist.find(function(f){return f.id===fid;})||{nome:'fornecedor'};
     var its=mapaItens.filter(function(i){return i.sel!==false&&(mapaFornSelecionados[i.ref+'||'+(i.marca||'')]||[]).includes(fid);});
     var refs=its.map(function(i){return i.ref;}).join(', ');
     var prompt='Documento de resposta de cotação do fornecedor '+(forn.fantasia||forn.nome||'')+'. Estou buscando preços para os códigos: '+refs+'. Para cada código encontrado, retorne JSON array: [{"ref":"codigo","marca":"fabricante","preco":0.00,"ipi":0,"icms":0,"st":0,"prazo":"texto"}]. Apenas os itens com preço informado. Sem markdown.';
-    var txt=await _anthropicReadDoc(file,prompt);
+    var txt = await _anthropicReadDoc(file,prompt);
     var m=txt.match(/\[[\s\S]*\]/);if(m)txt=m[0];
     var precos=JSON.parse(txt);
     if(!Array.isArray(precos)||!precos.length)throw new Error('Nenhum preço encontrado no documento');
@@ -7346,15 +7352,21 @@ function mapaPrecoRow(baseKey,ei,e,custoTotal){
 // ── Universal document reader helper ─────────────────────────────
 // Handles image AND PDF correctly for Anthropic API
 async function _anthropicReadDoc(file, prompt){
+  if(file.size > 10*1024*1024){
+    throw new Error('Arquivo de '+(file.size/1024/1024).toFixed(1)+'MB é muito grande e pode travar o navegador. Tente um arquivo mais leve.');
+  }
   var apiKey=localStorage.getItem('anthropic_key')||'';
   if(!apiKey){
     apiKey=prompt_fn('API Key da Anthropic (console.anthropic.com):');
     if(!apiKey)throw new Error('API Key necessária');
     localStorage.setItem('anthropic_key',apiKey);
   }
-  var b64=await new Promise(function(res,rej){
-    var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(file);
-  });
+  var b64=await Promise.race([
+    new Promise(function(res,rej){
+      var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(file);
+    }),
+    new Promise(function(_,rej){setTimeout(function(){rej(new Error('Demorou demais lendo o arquivo no navegador.'));},20000);})
+  ]);
   var isPdf=file.name.toLowerCase().endsWith('.pdf')||file.type==='application/pdf';
   var contentBlock = isPdf
     ? {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}

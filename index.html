@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.117</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.118</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.117</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.118</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -12490,8 +12490,10 @@ function vendasAdicionarItem(){
   if(m){var n=m[2];while(n.length<6)n='0'+n;cod=m[1]+n;}
   var items=vendasBuscarItem(cod);
   if(!window._venda.itens)window._venda.itens=[];
-  if(items){
-    window._venda.itens.push({codigo:cod,qtd:qtd,desc:items.desc,marca:items.marca,saldo:items.saldo,custo:items.custo});
+  if(items&&items.length){
+    items.forEach(function(it){
+      window._venda.itens.push({codigo:cod,qtd:qtd,desc:it.desc,marca:it.marca,saldo:it.saldo,custo:it.custo});
+    });
   } else {
     window._venda.itens.push({codigo:cod,qtd:qtd,desc:'',marca:'',saldo:null,custo:null});
   }
@@ -12540,17 +12542,20 @@ function vendasBuscarItem(cod){
     console.warn('vendasBuscarItem: "'+cod+'" não encontrado. Exemplos:',sample);
     return null;
   }
-  var totalSaldo=0,melhorCusto=null,desc='',marcas=[];
+  // Agrupa por marca — cada marca vira uma linha separada na cotação,
+  // em vez de somar saldo de marcas diferentes e mostrar só o custo mais barato
+  // (isso escondia qual marca específica tinha qual saldo/custo).
+  var grupos={},ordem=[];
   matches.forEach(function(row){
+    var m=(row.marca||row.Marca||row.MARCA||'').toString()||'—';
+    if(!grupos[m]){grupos[m]={desc:'',marca:m,saldo:0,custo:null};ordem.push(m);}
     var s=parseFloat(row.saldo||row.Saldo||row.SALDO||0)||0;
-    totalSaldo+=s;
+    grupos[m].saldo+=s;
     var c=parseFloat(row.custo||row.Custo||row.CUSTO||0)||null;
-    if(c&&(!melhorCusto||c<melhorCusto))melhorCusto=c;
-    if(!desc)desc=(row.desc||row.Desc||row.DESC||row.Descricao||row.descricao||'').toString();
-    var m=(row.marca||row.Marca||row.MARCA||'').toString();
-    if(m&&marcas.indexOf(m)<0)marcas.push(m);
+    if(c&&(!grupos[m].custo||c<grupos[m].custo))grupos[m].custo=c;
+    if(!grupos[m].desc)grupos[m].desc=(row.desc||row.Desc||row.DESC||row.Descricao||row.descricao||'').toString();
   });
-  return{desc:desc,marca:marcas.join('/'),saldo:totalSaldo,custo:melhorCusto};
+  return ordem.map(function(m){return grupos[m];});
 }
 
 
@@ -13173,7 +13178,13 @@ async function vendasLerArquivo(input){
       var mm=cod.match(/^([A-Z])(\d{1,5})$/);
       if(mm){var n=mm[2];while(n.length<6)n='0'+n;cod=mm[1]+n;}
       var found=vendasBuscarItem(cod);
-      window._venda.itens.push({codigo:cod,qtd:it.qtd||1,desc:found?found.desc:'',marca:found?found.marca:'',saldo:found?found.saldo:null,custo:found?found.custo:null});
+      if(found&&found.length){
+        found.forEach(function(f){
+          window._venda.itens.push({codigo:cod,qtd:it.qtd||1,desc:f.desc,marca:f.marca,saldo:f.saldo,custo:f.custo});
+        });
+      } else {
+        window._venda.itens.push({codigo:cod,qtd:it.qtd||1,desc:'',marca:'',saldo:null,custo:null});
+      }
     });
     vendasRender();
   }catch(e){alert('Erro: '+e.message);}

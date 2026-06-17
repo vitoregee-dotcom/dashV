@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.120</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.121</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.120</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.121</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -12352,7 +12352,8 @@ function vendasRenderCotacao(el){
     var custo=it.custoOverride!=null?it.custoOverride:it.custo;
     var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf,v.margem):0);
     var chk=window._vendasSel&&window._vendasSel[i];
-    return '<tr style="'+(isNeg?'background:#FFF5F5;':'')+'border-bottom:.5px solid #f0f4f8">'+
+    var ativo=window._vendasItemAtivo===i;
+    return '<tr ontouchstart="" onclick="vendasSetItemAtivo('+i+')" style="cursor:pointer;'+(ativo?'background:#EEF6FF;':isNeg?'background:#FFF5F5;':'')+'border-bottom:.5px solid #f0f4f8">'+
       '<td style="padding:5px 8px;text-align:center"><input type="checkbox" '+(chk?'checked':'')+' onchange="window._vendasSel=window._vendasSel||{};window._vendasSel['+i+']=this.checked;vendasAtualizarMapaBtn()" style="width:15px;height:15px;cursor:pointer"></td>'+
       '<td style="padding:5px 8px;text-align:center;font-size:11px;color:#8a9ab0">'+(i+1)+'</td>'+
       '<td style="padding:5px 8px;font-family:monospace;font-size:12px;font-weight:500;color:#185FA5">'+it.codigo+'</td>'+
@@ -12401,6 +12402,7 @@ function vendasRenderCotacao(el){
     '<div><div style="font-size:10px;font-weight:700;color:#8a9ab0;text-transform:uppercase;margin-bottom:4px">Comprador</div>'+
     '<input type="text" value="'+(v.comprador||'')+'" placeholder="Nome do comprador" oninput="window._venda.vendedor=this.value" style="width:150px;padding:6px 8px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:13px;color:#1a2332">'+
     '</div></div></div>'+
+    vendasPainelHtml()+
     '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:16px 20px;margin-bottom:12px">'+
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">'+
     '<div style="font-size:10px;font-weight:700;color:#8a9ab0;text-transform:uppercase">Itens</div>'+
@@ -12511,6 +12513,94 @@ function vendasRefresh(){
     vendasRenderTabs();
   } else {
     vendasRender();
+  }
+}
+
+function vendasPainelHtml(){
+  var v=window._venda||{itens:[]};
+  var tab=window._vendasPainelTab||'cliente';
+  var tabsDef=[['cliente','Cliente'],['produtos','Produtos'],['financeiro','Financeiro'],['item','Item']];
+  var tabsHtml=tabsDef.map(function(t){
+    var active=t[0]===tab;
+    return '<button ontouchstart="" onclick="vendasPainelTab(\''+t[0]+'\')" style="flex:1;font-size:11px;padding:6px 4px;border-radius:7px;border:0.5px solid '+(active?'#1F4E79':'#e0e8f0')+';background:'+(active?'#EEF6FF':'#fff')+';color:'+(active?'#1F4E79':'#607080')+';cursor:pointer;font-weight:'+(active?'700':'500')+'">'+t[1]+'</button>';
+  }).join('');
+  var content='';
+  var row=function(label,val){return '<div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:0.5px solid #f0f4f8;font-size:12px"><span style="color:#8a9ab0">'+label+'</span><span style="font-weight:600;color:#1a2332">'+val+'</span></div>';};
+  if(tab==='cliente'){
+    var cots=[];try{cots=JSON.parse(localStorage.getItem('partsflow_cotacoes_v1')||'[]');}catch(e){}
+    var razao=((v.cliente&&v.cliente.razao)||'').toUpperCase();
+    var doCliente=razao?cots.filter(function(c){return c.num!==v.num&&(c.cliente||'').toUpperCase()===razao;}):[];
+    var ultima=doCliente.length?doCliente.map(function(c){return c.data;}).filter(Boolean).sort().reverse()[0]:null;
+    var pedidos=doCliente.filter(function(c){return c.dataPedido;}).length;
+    var condCount={};
+    doCliente.forEach(function(c){if(c.condicao)condCount[c.condicao]=(condCount[c.condicao]||0)+1;});
+    var condHabitual=Object.keys(condCount).sort(function(a,b){return condCount[b]-condCount[a];})[0]||'—';
+    content=row('Cotações anteriores',doCliente.length)+
+      row('Última cotação',ultima?new Date(ultima).toLocaleDateString('pt-BR'):'—')+
+      row('Pedidos fechados',pedidos)+
+      row('Condição habitual',condHabitual);
+  } else if(tab==='produtos'){
+    var itens=v.itens||[];
+    var pecas=itens.reduce(function(s,it){return s+(it.qtd||0);},0);
+    var imed=itens.filter(function(it){return it.saldo>0;}).length;
+    var neg=itens.filter(function(it){return !it.saldo||it.saldo<=0;}).length;
+    var enviados=itens.filter(function(it){return it.enviadoMapa;}).length;
+    content=row('Linhas / peças',itens.length+' / '+pecas)+
+      row('Imediatos',imed)+
+      row('Negativos',neg)+
+      row('Enviados ao Mapa',enviados+' de '+neg);
+  } else if(tab==='financeiro'){
+    var itens=v.itens||[];
+    var totCusto=0,totVenda=0;
+    itens.forEach(function(it){
+      var custo=it.custoOverride!=null?it.custoOverride:it.custo;
+      var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf,v.margem):0);
+      totCusto+=(custo||0)*(it.qtd||0);
+      totVenda+=(venda||0)*(it.qtd||0);
+    });
+    var lucro=totVenda-totCusto;
+    var margemMedia=totVenda?Math.round((lucro/totVenda)*100):0;
+    content=row('Total venda','R$ '+totVenda.toFixed(2).replace('.',','))+
+      row('Custo total','R$ '+totCusto.toFixed(2).replace('.',','))+
+      row('Lucro bruto','R$ '+lucro.toFixed(2).replace('.',','))+
+      row('Margem média',margemMedia+'%');
+  } else if(tab==='item'){
+    var idx=window._vendasItemAtivo;
+    var it=(idx!=null&&v.itens&&v.itens[idx])?v.itens[idx]:null;
+    if(!it){
+      content='<div style="padding:14px 4px;text-align:center;color:#8a9ab0;font-size:12px">Clique numa linha da lista de itens pra ver a ficha aqui.</div>';
+    } else {
+      var plist=cadLoad(PROD_KEY);
+      var prod=plist.find(function(p){return (p.codigo||'').toUpperCase()===(it.codigo||'').toUpperCase();});
+      var foto=prod&&prod.fotos&&prod.fotos[0]?prod.fotos[0]:(prod&&prod.foto?prod.foto:null);
+      content='<div style="display:flex;gap:10px">'+
+        (foto?'<img src="'+foto+'" style="width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0">':'<div style="width:56px;height:56px;border-radius:8px;background:#F0F4F8;display:flex;align-items:center;justify-content:center;font-size:22px;color:#c4ccd6;flex-shrink:0">📷</div>')+
+        '<div style="min-width:0">'+
+        '<div style="font-size:12px;font-weight:700;font-family:monospace;color:#1F4E79">'+it.codigo+'</div>'+
+        '<div style="font-size:11px;color:#607080">'+(it.desc||(prod&&prod.descricao)||'—')+(it.marca?' &middot; '+it.marca:'')+'</div>'+
+        (prod?'':'<span style="font-size:10px;background:#FEE2E2;color:#991B1B;padding:2px 6px;border-radius:6px;display:inline-block;margin-top:4px">sem ficha cadastrada</span>')+
+        '</div></div>'+
+        (prod&&prod.obs?'<div style="margin-top:8px;padding-top:8px;border-top:0.5px solid #f0f4f8"><div style="font-size:10px;font-weight:700;color:#8a9ab0;text-transform:uppercase;margin-bottom:3px">Observações técnicas</div><div style="font-size:11px;color:#1a2332">'+prod.obs+'</div></div>':'')+
+        '<button ontouchstart="" onclick="vendasVerCadastroItem(\''+it.codigo+'\')" style="width:100%;margin-top:8px;background:none;border:1px solid #1F4E79;color:#1F4E79;border-radius:7px;padding:6px;font-size:11px;cursor:pointer;font-weight:600">'+(prod?'Editar ficha completa':'+ Criar ficha completa')+'</button>';
+    }
+  }
+  return '<div id="vendasPainelKpis" style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:12px 14px;margin-bottom:12px">'+
+    '<div style="display:flex;gap:4px;margin-bottom:8px">'+tabsHtml+'</div>'+
+    '<div id="vendasPainelConteudo">'+content+'</div>'+
+    '</div>';
+}
+
+function vendasPainelTab(t){
+  window._vendasPainelTab=t;
+  var el=document.getElementById('vendasPainelKpis');
+  if(el){var d=document.createElement('div');d.innerHTML=vendasPainelHtml();el.replaceWith(d.firstElementChild);}
+}
+
+function vendasSetItemAtivo(i){
+  window._vendasItemAtivo=i;
+  if((window._vendasPainelTab||'cliente')==='item'){
+    var el=document.getElementById('vendasPainelKpis');
+    if(el){var d=document.createElement('div');d.innerHTML=vendasPainelHtml();el.replaceWith(d.firstElementChild);}
   }
 }
 
@@ -13058,13 +13148,14 @@ function vendasEnviarMapa(i){
   var it=window._venda.itens[i];if(!it)return;
   if(typeof mapaItens==='undefined')window.mapaItens=[];
   mapaItens.push({ref:it.codigo,desc:it.desc,marca:it.marca,qtd:it.qtd,urgente:true});
+  it.enviadoMapa=true;
   pfNavigate('mapa');
 }
 
 function vendasEnviarTodosNeg(){
   if(typeof mapaItens==='undefined')window.mapaItens=[];
   (window._venda.itens||[]).forEach(function(it){
-    if(!it.saldo||it.saldo<=0)mapaItens.push({ref:it.codigo,desc:it.desc,marca:it.marca,qtd:it.qtd,urgente:true});
+    if(!it.saldo||it.saldo<=0){mapaItens.push({ref:it.codigo,desc:it.desc,marca:it.marca,qtd:it.qtd,urgente:true});it.enviadoMapa=true;}
   });
   pfNavigate('mapa');
 }

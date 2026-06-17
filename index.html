@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.106</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.107</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.106</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.107</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -7286,7 +7286,9 @@ function mapaToggleFornCard(fid){
 async function mapaLerResposta(input, fid){
   var file=input.files[0];if(!file)return;
   var statusEl=document.getElementById('upStatus_'+fid);
-  if(statusEl)statusEl.textContent='🤖 Lendo...';
+  var labelEl=input.closest('label');
+  if(labelEl){labelEl.style.opacity='0.5';labelEl.style.pointerEvents='none';}
+  if(statusEl)statusEl.innerHTML='<b style="color:#1F4E79">🤖 Lendo documento... (pode levar até 30s)</b>';
   try{
     var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
     var forn=flist.find(function(f){return f.id===fid;})||{nome:'fornecedor'};
@@ -7296,7 +7298,7 @@ async function mapaLerResposta(input, fid){
     var txt=await _anthropicReadDoc(file,prompt);
     var m=txt.match(/\[[\s\S]*\]/);if(m)txt=m[0];
     var precos=JSON.parse(txt);
-    if(!Array.isArray(precos)||!precos.length)throw new Error('Nenhum preço encontrado');
+    if(!Array.isArray(precos)||!precos.length)throw new Error('Nenhum preço encontrado no documento');
     var updated=0;
     precos.forEach(function(p){
       var ref=(p.ref||'').toString().trim();
@@ -7310,12 +7312,14 @@ async function mapaLerResposta(input, fid){
       else mapaPrecos[pk].entries.push(entry);
       updated++;
     });
-    if(statusEl)statusEl.textContent='✅ '+updated+' item(s)';
-    setTimeout(function(){if(statusEl)statusEl.textContent='';},4000);
-    mapaGoStep(3);
+    if(statusEl)statusEl.innerHTML='<b style="color:#27AE60">✅ '+updated+' item(s)</b>';
+    setTimeout(function(){mapaGoStep(3);}, 900);
   }catch(e){
     console.error(e);
-    if(statusEl){statusEl.innerHTML='<span style="color:#C00000">❌ '+e.message+'</span>';setTimeout(function(){if(statusEl)statusEl.textContent='';},5000);}
+    if(labelEl){labelEl.style.opacity='1';labelEl.style.pointerEvents='';}
+    if(statusEl){statusEl.innerHTML='<span style="color:#C00000;font-weight:700">❌ Falhou</span>';setTimeout(function(){if(statusEl)statusEl.textContent='';},5000);}
+    _safeAlert('Erro ao ler a resposta do fornecedor:\n\n'+e.message);
+    input.value='';
   }
 }
 
@@ -7355,12 +7359,23 @@ async function _anthropicReadDoc(file, prompt){
   var contentBlock = isPdf
     ? {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
     : {type:'image',source:{type:'base64',media_type:(file.type&&file.type.startsWith('image/')?file.type:'image/jpeg'),data:b64}};
-  var resp=await fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:4096,
-      messages:[{role:'user',content:[contentBlock,{type:'text',text:prompt}]}]})
-  });
+  var ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+  var timeoutId = ctrl ? setTimeout(function(){ctrl.abort();}, 45000) : null;
+  var resp;
+  try{
+    resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4096,
+        messages:[{role:'user',content:[contentBlock,{type:'text',text:prompt}]}]}),
+      signal: ctrl ? ctrl.signal : undefined
+    });
+  }catch(fetchErr){
+    if(fetchErr.name==='AbortError') throw new Error('Tempo esgotado lendo o documento (45s). Tente um arquivo menor ou verifique sua conexão.');
+    throw new Error('Falha de rede ao chamar a IA: '+fetchErr.message);
+  }finally{
+    if(timeoutId) clearTimeout(timeoutId);
+  }
   var data=await resp.json();
   if(data.error){
     if(data.error.type==='authentication_error'||data.error.status===401)localStorage.removeItem('anthropic_key');

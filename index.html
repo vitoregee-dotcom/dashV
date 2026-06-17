@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.93</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.94</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.93</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.94</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -779,6 +779,7 @@ thead th{position:relative;}
   <div id="spinner">⏳ Lendo planilha, aguarde...</div>
 </div>
 <div id="dash">
+  <div id="ultimaPlanilhaFamiliaPanel" style="display:none;margin-bottom:14px"></div>
   <div id="params">
     <div class="pbox">
       <label>Período da Planilha — Datas</label>
@@ -3846,7 +3847,7 @@ function salvarHistoricoLS(hist){
 }async function carregarHistorico(){
   if(sbSession&&sbUser){
     try{
-      const r=await sbFetch('/rest/v1/historico_analises_v2?select=analise_id,nome,data_analise,periodo_inicio,periodo_fim,tot_itens,urgentes,atencao,oportunidades,lead_time,modo,total_qtd_c,itens&order=data_analise.desc&limit=20');
+      const r=await sbFetch('/rest/v1/historico_analises_v2?select=analise_id,nome,data_analise,periodo_inicio,periodo_fim,tot_itens,urgentes,atencao,oportunidades,lead_time,modo,total_qtd_c,familias,itens&order=data_analise.desc&limit=20');
       if(r.ok){
         const rows=await r.json();
         if(rows.length>0){
@@ -3856,12 +3857,15 @@ function salvarHistoricoLS(hist){
               const raw=JSON.parse(row.itens||'[]');
               itens=raw.map(d=>Array.isArray(d)?{ref:d[0],marca:d[1],curva:d[2],sk:d[3],saldo:d[4],consumo:d[5],cM:d[6],vP:d[7],desc:d[8]||''}:d);
             }catch(e){}
+            let familias=[];
+            try{ familias=JSON.parse(row.familias||'[]'); }catch(e){}
             return{
               id:row.analise_id,nome:row.nome,data:row.data_analise,
               periodo:{dS:row.periodo_inicio,dE:row.periodo_fim},
               totItens:row.tot_itens,urgentes:row.urgentes,atencao:row.atencao,
               oportunidades:row.oportunidades,
               leadTime:row.lead_time,modo:row.modo,totalQtdC:row.total_qtd_c,
+              familias,
               itens
             };
           });
@@ -3885,6 +3889,7 @@ async function salvarAnalise(){
     new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"});
   const dS=document.getElementById("dS").value;
   const dE2=document.getElementById("dE").value;
+  const familiasAnalise=[...new Set(calcItems.map(d=>d.familia||'').filter(Boolean))];
   const snap={
     id:Date.now(),
     nome,
@@ -3892,6 +3897,7 @@ async function salvarAnalise(){
     periodo:{dS,dE:dE2,dias:periodo},
     leadTime,
     modo:modoC,
+    familias:familiasAnalise,
     totItens:calcItems.length,
     urgentes:calcItems.filter(d=>d.sk==="U").length,
     atencao:calcItems.filter(d=>d.sk==="A").length,
@@ -3931,6 +3937,7 @@ async function salvarAnalise(){
         lead_time:snap.leadTime,
         modo:snap.modo,
         total_qtd_c:snap.totalQtdC||0,
+        familias:JSON.stringify(snap.familias||[]),
         itens:JSON.stringify(itensCompact)
       };
       const r=await sbFetch('/rest/v1/historico_analises_v2',{
@@ -3988,6 +3995,7 @@ async function renderHistorico(){
         <span class="histItemNome">📊 ${s.nome}</span>
         <span class="histItemData">${dt}</span>
       </div>
+      ${s.familias&&s.familias.length?`<div style="margin-bottom:6px"><span style="background:#EEF2F7;color:#1F4E79;font-size:10px;font-weight:700;padding:2px 9px;border-radius:8px">🗂 ${s.familias.join(', ')}</span></div>`:''}
       <div class="histBadges">
         <span class="histBadge">${s.totItens} itens</span>
         ${s.urgentes?`<span class="histBadge histBadgeR">🔴 ${s.urgentes} urgentes</span>`:""}
@@ -5188,6 +5196,42 @@ function pfSalvarHistoricoFamilia(items, familias, nomeArquivo){
     hist = hist.filter(function(h){ return h.ts > cutoff; });
     localStorage.setItem(HIST_FAM_KEY, JSON.stringify(hist));
   }catch(e){ console.warn('pfSalvarHistoricoFamilia:', e); }
+}
+
+function renderUltimaPlanilhaFamilia(){
+  var panel=document.getElementById('ultimaPlanilhaFamiliaPanel');
+  if(!panel)return;
+  try{
+    var hist=JSON.parse(localStorage.getItem('pfHistFamilia_v1')||'[]');
+    if(!hist.length){panel.style.display='none';return;}
+    // Para cada família, encontrar o snapshot mais recente que a contém
+    var ultimaPorFamilia={};
+    hist.forEach(function(snap){
+      (snap.familias||[]).forEach(function(f){
+        if(!ultimaPorFamilia[f] || snap.ts > ultimaPorFamilia[f].ts){
+          ultimaPorFamilia[f] = snap;
+        }
+      });
+    });
+    var familias = Object.keys(ultimaPorFamilia).sort();
+    if(!familias.length){panel.style.display='none';return;}
+    var html = '<div style="background:#fff;border-radius:10px;padding:12px 16px;box-shadow:0 1px 4px rgba(0,0,0,.06);border:1px solid #e0e8f0">';
+    html += '<div style="font-size:11px;font-weight:800;color:#1F4E79;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">📅 Última atualização por família</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:10px">';
+    familias.forEach(function(f){
+      var snap = ultimaPorFamilia[f];
+      var dt = new Date(snap.ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      var totais = snap.totais && snap.totais[f] ? snap.totais[f] : {};
+      html += '<div style="background:#F8FAFC;border-radius:8px;padding:8px 12px;min-width:180px;border-left:3px solid #1F4E79">';
+      html += '<div style="font-size:11px;font-weight:700;color:#1F4E79">'+f+'</div>';
+      html += '<div style="font-size:10px;color:#607080;margin-top:2px">'+dt+'</div>';
+      if(totais.itens!=null) html += '<div style="font-size:10px;color:#8a9ab0;margin-top:2px">'+totais.itens+' itens'+(snap.arquivo?' · '+snap.arquivo:'')+'</div>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+    panel.innerHTML = html;
+    panel.style.display = 'block';
+  }catch(e){console.warn('renderUltimaPlanilhaFamilia:',e);panel.style.display='none';}
 }
 
 // ── ME AVISE ─────────────────────────────────────────────────────
@@ -14380,6 +14424,7 @@ function pfNavigate(view){
       document.body.classList.remove('no-data');
       var d=document.getElementById('dash'); if(d)d.style.display='block';
       var u=document.getElementById('upSec'); if(u)u.style.display='none';
+      if(typeof renderUltimaPlanilhaFamilia==='function')renderUltimaPlanilhaFamilia();
     } else {
       document.body.classList.add('no-data');
       document.body.classList.remove('has-data');

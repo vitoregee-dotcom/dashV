@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.108</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.109</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.108</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.109</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -7300,15 +7300,24 @@ async function mapaLerResposta(input, fid){
     var forn=flist.find(function(f){return f.id===fid;})||{nome:'fornecedor'};
     var its=mapaItens.filter(function(i){return i.sel!==false&&(mapaFornSelecionados[i.ref+'||'+(i.marca||'')]||[]).includes(fid);});
     var refs=its.map(function(i){return i.ref;}).join(', ');
-    var prompt='Documento de resposta de cotação do fornecedor '+(forn.fantasia||forn.nome||'')+'. Estou buscando preços para os códigos: '+refs+'. Para cada código encontrado, retorne JSON array: [{"ref":"codigo","marca":"fabricante","preco":0.00,"ipi":0,"icms":0,"st":0,"prazo":"texto"}]. Apenas os itens com preço informado. Sem markdown.';
+    var prompt='Documento de resposta de cotação do fornecedor '+(forn.fantasia||forn.nome||'')+
+      '. Os códigos que estou buscando são exatamente estes: '+refs+
+      '. Fornecedores costumam grafar os códigos de forma levemente diferente (espaço, barra, sufixo tipo /6 ou /230V). '+
+      'Para cada item do documento, identifique a qual código da MINHA lista ele corresponde e retorne esse código EXATAMENTE como está na minha lista (não como está escrito no documento). '+
+      'Retorne JSON array: [{"ref":"codigo da minha lista","marca":"fabricante","preco":0.00,"ipi":0,"icms":0,"st":0,"prazo":"texto"}]. '+
+      '"st" é o PERCENTUAL de ICMS-ST cobrado sobre o produto (normalmente 0 a 30). CUIDADO: muitos documentos têm uma coluna "ST" ou "CST" com um CÓDIGO de situação tributária (números como 100, 200, 300, 500, 900) que NÃO é porcentagem — não confunda isso com o percentual de ST. Se não tiver certeza de que é um percentual real de imposto, use 0. '+
+      'Apenas os itens com preço informado. Sem markdown.';
     var txt = await _anthropicReadDoc(file,prompt);
     var m=txt.match(/\[[\s\S]*\]/);if(m)txt=m[0];
     var precos=JSON.parse(txt);
     if(!Array.isArray(precos)||!precos.length)throw new Error('Nenhum preço encontrado no documento');
-    var updated=0;
+    var norm=function(s){return (s||'').toString().trim().toUpperCase().replace(/\s+/g,'');};
+    var updated=0,naoReconhecidos=[];
     precos.forEach(function(p){
       var ref=(p.ref||'').toString().trim();
-      var it=its.find(function(i){return i.ref===ref;});if(!it)return;
+      var it=its.find(function(i){return i.ref===ref;}) ||
+             its.find(function(i){return norm(i.ref)===norm(ref);});
+      if(!it){naoReconhecidos.push(ref);return;}
       var pk=it.ref+'||'+(it.marca||'')+'||'+fid;
       if(!mapaPrecos[pk])mapaPrecos[pk]={entries:[]};
       if(!mapaPrecos[pk].entries)mapaPrecos[pk].entries=[];
@@ -7318,7 +7327,9 @@ async function mapaLerResposta(input, fid){
       else mapaPrecos[pk].entries.push(entry);
       updated++;
     });
+    if(!updated)throw new Error('Nenhum dos códigos do documento bateu com os itens deste fornecedor. Códigos lidos: '+precos.map(function(p){return p.ref;}).join(', '));
     if(statusEl)statusEl.innerHTML='<b style="color:#27AE60">✅ '+updated+' item(s)</b>';
+    if(naoReconhecidos.length)_safeAlert('Atualizado '+updated+' item(s).\n\nAtenção: '+naoReconhecidos.length+' código(s) do documento não bateram com nenhum item esperado deste fornecedor e foram ignorados:\n'+naoReconhecidos.join(', '));
     setTimeout(function(){mapaGoStep(3);}, 900);
   }catch(e){
     console.error(e);

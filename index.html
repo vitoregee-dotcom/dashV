@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.90</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.91</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.90</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.91</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -5358,7 +5358,7 @@ async function doLogin(){
           if(typeof cadSyncFornecedores==='function')cadSyncFornecedores();
                 pfPullPlanilhas();
           mapaPullSupabase().then(function(){ mapaPushSupabase(); });
-          cadPullSupabase().then(function(){ cadPushSupabase(); });
+          cadPullSupabase();
           pfSyncAll();
           if(typeof vendasPullCotacoes==='function')vendasPullCotacoes();
           try{await loadProfile();}catch(e){}
@@ -7338,7 +7338,13 @@ function cadRenderProdutosV3(el){
 
 // ── Storage (localStorage para MVP) ───────────────────────────
 function cadLoad(key){try{return JSON.parse(localStorage.getItem(key)||'[]');}catch(e){return[];}}
-function cadSave(key,data){localStorage.setItem(key,JSON.stringify(data));}
+function cadSave(key,data){
+  localStorage.setItem(key,JSON.stringify(data));
+  // Sempre sincroniza com Supabase ao salvar - garante servidor como fonte de verdade
+  if(typeof sbUser!=='undefined'&&sbUser&&typeof cadPushSupabase==='function'){
+    cadPushSupabase();
+  }
+}
 
 var FORN_KEY='cad_fornecedores_v1';
 var CLIE_KEY='cad_clientes_v1';
@@ -7822,23 +7828,17 @@ async function cadPullSupabase(){
   if(!sbUser)return;
   try{
     var r=await sbFetch('/rest/v1/user_cadastros?user_id=eq.'+sbUser.id+'&select=tipo,dados,updated_at');
-    if(!r.ok)return;
+    if(!r.ok){console.warn('cadPullSupabase: fetch falhou',r.status);return;}
     var data=await r.json();
-    if(!data||!data.length)return;
+    if(!data||!data.length){console.log('cadPullSupabase: nenhum cadastro no Supabase ainda');return;}
     data.forEach(function(row){
       try{
         var items=typeof row.dados==='string'?JSON.parse(row.dados):row.dados;
-        if(!items||!items.length)return;
-        // Só atualiza se Supabase for mais recente que localStorage
+        if(!Array.isArray(items))return;
         var key=row.tipo==='fornecedores'?FORN_KEY:row.tipo==='clientes'?CLIE_KEY:(typeof PROD_KEY!=='undefined'?PROD_KEY:'cad_produtos_v1');
-        var local=cadLoad(key);
-        // Merge: Supabase wins on conflict by id
-        var merged=JSON.parse(JSON.stringify(items));
-        local.forEach(function(l){
-          if(!merged.some(function(m){return m.id===l.id;}))merged.push(l);
-        });
-        cadSave(key,merged);
-        console.log('✅ '+row.tipo+' puxados do Supabase: '+merged.length);
+        // Supabase é a fonte de verdade - substitui local diretamente
+        localStorage.setItem(key,JSON.stringify(items));
+        console.log('✅ '+row.tipo+' puxados do Supabase: '+items.length);
       }catch(e){console.warn('cadPullSupabase parse erro:',e);}
     });
     // Re-render se estiver na view de cadastros

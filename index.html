@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.91</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.92</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.91</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.92</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -981,7 +981,15 @@ thead th{position:relative;}
     <button ontouchstart="" id="btnCusto" onclick="toggleCusto()" class="exbtn" style="background:#EEF2F7;color:var(--tx)">💰 Mostrar custo</button>
     <button ontouchstart="" class="exbtn exXL" onclick="expXL()">📥 Excel (.xlsx)</button>
     <button ontouchstart="" id="btnPDFCusto" onclick="togglePDFCusto()" class="exbtn" style="background:#EEF2F7;color:var(--tx)">💰 Custo no PDF</button>
-    <button ontouchstart="" class="exbtn exPDF" onclick="expPDF()">🖨 PDF / Imprimir</button>
+    <div style="position:relative;display:inline-block">
+      <button ontouchstart="" class="exbtn exPDF" onclick="document.getElementById('pdfModeloMenu').style.display=document.getElementById('pdfModeloMenu').style.display==='block'?'none':'block'">🖨 PDF / Imprimir ▾</button>
+      <div id="pdfModeloMenu" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid #e0e8f0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:200;min-width:240px;overflow:hidden">
+        <div onclick="document.getElementById('pdfModeloMenu').style.display='none';expPDF()" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:12px" onmouseover="this.style.background='#F4F6F9'" onmouseout="this.style.background=''"><b>📊 Modelo Tabela</b><br><span style="color:#888;font-size:10px">Tabela detalhada por curva (padrão)</span></div>
+        <div onclick="document.getElementById('pdfModeloMenu').style.display='none';expPDF2()" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:12px" onmouseover="this.style.background='#F4F6F9'" onmouseout="this.style.background=''"><b>🗂 Modelo Cards</b><br><span style="color:#888;font-size:10px">Cards visuais agrupados por curva</span></div>
+        <div onclick="document.getElementById('pdfModeloMenu').style.display='none';expPDF3()" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:12px" onmouseover="this.style.background='#F4F6F9'" onmouseout="this.style.background=''"><b>📝 Modelo Compacto</b><br><span style="color:#888;font-size:10px">Lista densa, mais itens por página</span></div>
+        <div onclick="document.getElementById('pdfModeloMenu').style.display='none';expPDF4()" style="padding:10px 14px;cursor:pointer;font-size:12px" onmouseover="this.style.background='#F4F6F9'" onmouseout="this.style.background=''"><b>✓ Modelo Checklist</b><br><span style="color:#888;font-size:10px">Caixas de marcação para conferência física</span></div>
+      </div>
+    </div>
     <span id="exInfo"></span>
   </div>
   <div id="tbox">
@@ -2664,6 +2672,257 @@ thead th{position:relative;}
   setTimeout(()=>win.print(),600);
   document.getElementById("exInfo").textContent=`${itens.length} itens — janela aberta`;
 }
+// ═══════════════════════════════════════════════════════════════
+// MODELO 2 — CARDS VISUAIS POR CURVA
+// ═══════════════════════════════════════════════════════════════
+function expPDF2(){
+  const itens=getSolData();
+  if(!itens.length){_safeAlert("Nenhum item com quantidade a comprar.");return;}
+  const meta=getMeta();
+  const totalQtd=itens.reduce((s,i)=>s+i.qtdReal,0);
+  const totalCusto=itens.reduce((s,i)=>s+(i.custo>0?i.custo*i.qtdReal:0),0);
+  const fR=n=>n>0?n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}):"—";
+  const curvaInfo={
+    "A":{cor:"#1a6fa8",bg:"#EAF4FB",label:"Curva A · Alta Prioridade"},
+    "B":{cor:"#217a3c",bg:"#EAFAF1",label:"Curva B · Prioridade Média"},
+    "C":{cor:"#a07800",bg:"#FDF8E8",label:"Curva C · Reposição"},
+    "—":{cor:"#888",bg:"#F2F2F2",label:"Sem Classificação"}
+  };
+  const grupos={};
+  itens.forEach(d=>{ (grupos[d.curva]=grupos[d.curva]||[]).push(d); });
+  let cardsHtml="";
+  ["A","B","C","—"].forEach(curva=>{
+    const lista=grupos[curva];
+    if(!lista||!lista.length)return;
+    const info=curvaInfo[curva];
+    const subQtd=lista.reduce((s,i)=>s+i.qtdReal,0);
+    cardsHtml+=`<div class="curva-section">
+      <div class="curva-head" style="background:${info.bg};border-left:5px solid ${info.cor}">
+        <span class="curva-tag" style="background:${info.cor}">${curva}</span>
+        <span class="curva-label" style="color:${info.cor}">${info.label}</span>
+        <span class="curva-count">${lista.length} ${lista.length===1?"item":"itens"} · ${subQtd.toLocaleString("pt-BR")} pçs</span>
+      </div>
+      <div class="cards-grid">`;
+    lista.forEach(d=>{
+      const ped=d.pedido||0;
+      const pedInsuf=ped>0&&ped<d.qtdC&&d.qtdC>0;
+      const obs=obsEdit[d.ref+"||"+d.marca]||"";
+      cardsHtml+=`<div class="item-card" style="border-color:${info.cor}33">
+        <div class="card-top">
+          <span class="card-ref">${d.ref}</span>
+          <span class="card-qtd" style="background:${info.cor}">${d.qtdReal.toLocaleString("pt-BR")}</span>
+        </div>
+        <div class="card-desc">${d.desc}</div>
+        <div class="card-meta">
+          <span class="meta-chip">🏷 ${d.marca||"—"}</span>
+          <span class="meta-chip">📦 Saldo: ${fN(d.saldo)}</span>
+          <span class="meta-chip">📈 Consumo: ${d.cM>0?d.cM.toFixed(1):"—"}/mês</span>
+          ${d.cotacoes>0?`<span class="meta-chip" style="color:#5B2D8E">💬 ${d.cotacoes} cotações</span>`:""}
+          ${ped>0?`<span class="meta-chip" style="color:${pedInsuf?"#7D4A0A":"#217a3c"}">📋 Pedido: ${ped}${pedInsuf?" ⚠":""}</span>`:""}
+          ${pdfCustoVisible&&d.custo>0?`<span class="meta-chip" style="color:#C00000">💰 ${fR(d.custo*d.qtdReal)}</span>`:""}
+        </div>
+        ${obs?`<div class="card-obs">📝 ${obs}</div>`:""}
+      </div>`;
+    });
+    cardsHtml+=`</div></div>`;
+  });
+  const doc=`<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Solicitação de Compras</title>
+  <style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#222;padding:28px;background:#fff}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1F4E79;padding-bottom:14px;margin-bottom:20px}
+  .sub-t{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;font-weight:700}
+  h1{font-size:24px;color:#1F4E79;margin-top:2px}
+  .meta{text-align:right;font-size:11px;color:#666;line-height:1.6}
+  .meta b{color:#1F4E79}
+  .kpi-row{display:flex;gap:10px;margin-bottom:24px}
+  .kpi{flex:1;background:#F8FAFC;border-radius:10px;padding:12px;text-align:center;border:1px solid #e5eaf0}
+  .kpi .l{font-size:10px;color:#888;text-transform:uppercase;font-weight:700;letter-spacing:.5px}
+  .kpi .v{font-size:20px;font-weight:800;color:#1F4E79;margin-top:4px}
+  .curva-section{margin-bottom:22px}
+  .curva-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;margin-bottom:12px}
+  .curva-tag{color:#fff;font-weight:800;font-size:13px;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .curva-label{font-weight:800;font-size:14px;flex:1}
+  .curva-count{font-size:11px;color:#666;font-weight:600}
+  .cards-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .item-card{border:1.5px solid #e5eaf0;border-radius:10px;padding:12px;background:#fff;page-break-inside:avoid}
+  .card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .card-ref{font-weight:800;color:#1F4E79;font-size:13px;font-family:monospace}
+  .card-qtd{color:#fff;font-weight:800;font-size:13px;padding:3px 12px;border-radius:14px}
+  .card-desc{font-size:12px;color:#333;margin-bottom:8px;line-height:1.3}
+  .card-meta{display:flex;flex-wrap:wrap;gap:6px}
+  .meta-chip{font-size:10px;background:#F4F6F9;color:#555;padding:2px 8px;border-radius:8px;font-weight:600}
+  .card-obs{margin-top:8px;font-size:10px;color:#888;font-style:italic;border-top:1px dashed #e5eaf0;padding-top:6px}
+  .footer{display:flex;gap:30px;margin-top:30px;padding-top:16px;border-top:2px solid #1F4E79}
+  .obs-l{font-size:11px;font-weight:700;color:#1F4E79;text-transform:uppercase;margin-bottom:6px}
+  .obs{border:1px solid #e5eaf0;border-radius:6px;height:50px}
+  .sign{display:flex;gap:30px;flex:1;align-items:flex-end}
+  .sl{flex:1;border-top:1px solid #333;padding-top:4px;font-size:10px;color:#666;text-align:center}
+  @media print{body{padding:14px}.cards-grid{grid-template-columns:repeat(2,1fr)}}
+  </style></head><body>
+  <div class="hdr"><div><p class="sub-t">Linha Off-Highway</p><h1>Solicitação de Compras</h1></div>
+  <div class="meta">Emitida em: <b>${meta.hoje}</b><br>Período: <b>${meta.dI} a ${meta.dF}</b> (${meta.periodo} dias)<br>Lead time: <b>${meta.leadTime} dias</b> · Critério: <b>${meta.modo}</b></div></div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="l">Total Itens</div><div class="v">${itens.length}</div></div>
+    <div class="kpi"><div class="l">Total Peças</div><div class="v">${totalQtd.toLocaleString("pt-BR")}</div></div>
+    <div class="kpi"><div class="l">Curva A</div><div class="v" style="color:#1a6fa8">${itens.filter(i=>i.curva==="A").length}</div></div>
+    <div class="kpi"><div class="l">Curva B</div><div class="v" style="color:#217a3c">${itens.filter(i=>i.curva==="B").length}</div></div>
+    <div class="kpi"><div class="l">Curva C</div><div class="v" style="color:#a07800">${itens.filter(i=>i.curva==="C").length}</div></div>
+    ${pdfCustoVisible&&totalCusto>0?`<div class="kpi" style="border-color:#1F4E79;background:#F0F4FB"><div class="l" style="color:#1F4E79">💰 Custo Total</div><div class="v" style="color:#1F4E79;font-size:14px">${fR(totalCusto)}</div></div>`:""}
+  </div>
+  ${cardsHtml}
+  <div class="footer"><div style="flex:2"><div class="obs-l">Observações</div><div class="obs"></div></div>
+  <div class="sign"><div class="sl">Solicitado por</div><div class="sl">Aprovado por</div></div></div>
+  </body></html>`;
+  const win=window.open("","_blank","width=900,height=750");
+  win.document.write(doc);win.document.close();win.focus();
+  setTimeout(()=>win.print(),600);
+  document.getElementById("exInfo").textContent=`${itens.length} itens — modelo cards aberto`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODELO 3 — LISTA COMPACTA (alta densidade, escaneável)
+// ═══════════════════════════════════════════════════════════════
+function expPDF3(){
+  const itens=getSolData();
+  if(!itens.length){_safeAlert("Nenhum item com quantidade a comprar.");return;}
+  const meta=getMeta();
+  const totalQtd=itens.reduce((s,i)=>s+i.qtdReal,0);
+  const totalCusto=itens.reduce((s,i)=>s+(i.custo>0?i.custo*i.qtdReal:0),0);
+  const fR=n=>n>0?n.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}):"—";
+  const abcC={"A":"#1a6fa8","B":"#217a3c","C":"#a07800","—":"#888"};
+  let rows="",num=1;
+  itens.forEach(d=>{
+    const ped=d.pedido||0;
+    const pedInsuf=ped>0&&ped<d.qtdC&&d.qtdC>0;
+    const obs=obsEdit[d.ref+"||"+d.marca]||"";
+    rows+=`<div class="row-line">
+      <span class="rl-num">${num++}</span>
+      <span class="rl-curva" style="color:${abcC[d.curva]}">${d.curva}</span>
+      <span class="rl-ref">${d.ref}</span>
+      <span class="rl-desc">${d.desc}${d.marca?` <i>(${d.marca})</i>`:""}${obs?` <span class="rl-obs">— ${obs}</span>`:""}</span>
+      <span class="rl-extra">${ped>0?`<b style="color:${pedInsuf?"#a05a00":"#217a3c"}">Ped:${ped}${pedInsuf?"⚠":""}</b> `:""}${fN(d.saldo)>0?`Sld:${fN(d.saldo)} `:""}${d.cotacoes>0?`Cot:${d.cotacoes}`:""}</span>
+      ${pdfCustoVisible&&d.custo>0?`<span class="rl-custo">${fR(d.custo*d.qtdReal)}</span>`:""}
+      <span class="rl-qtd">${d.qtdReal.toLocaleString("pt-BR")}</span>
+    </div>`;
+  });
+  const doc=`<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Solicitação de Compras</title>
+  <style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,Helvetica,sans-serif;color:#222;padding:20px;font-size:12px}
+  .hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1F4E79;padding-bottom:8px;margin-bottom:10px}
+  .sub-t{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:1px;font-weight:700}
+  h1{font-size:18px;color:#1F4E79}
+  .meta{text-align:right;font-size:9px;color:#666;line-height:1.5}
+  .summary{display:flex;gap:16px;margin-bottom:10px;font-size:10px;color:#444;background:#F4F6F9;padding:6px 10px;border-radius:6px}
+  .summary b{color:#1F4E79}
+  .list-head{display:flex;gap:6px;font-size:9px;font-weight:800;color:#fff;background:#1F4E79;padding:5px 8px;border-radius:4px 4px 0 0;text-transform:uppercase}
+  .row-line{display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid #eee;font-size:11px}
+  .row-line:nth-child(even){background:#FAFBFC}
+  .rl-num{width:18px;color:#aaa;font-size:9px;text-align:right}
+  .rl-curva{width:14px;font-weight:800;text-align:center}
+  .rl-ref{width:80px;font-weight:700;color:#1F4E79;font-family:monospace;font-size:10px}
+  .rl-desc{flex:1;color:#333}
+  .rl-desc i{color:#888;font-style:italic;font-size:10px}
+  .rl-obs{color:#999;font-size:10px}
+  .rl-extra{width:130px;font-size:9px;color:#666;text-align:right}
+  .rl-custo{width:65px;text-align:right;font-size:10px;color:#C00000;font-weight:700}
+  .rl-qtd{width:50px;text-align:right;font-weight:800;color:#1F4E79;font-size:12px}
+  .list-foot{display:flex;justify-content:flex-end;gap:16px;padding:8px;background:#1F4E79;color:#fff;border-radius:0 0 4px 4px;font-weight:800;font-size:11px}
+  .footer{display:flex;gap:30px;margin-top:18px;padding-top:10px;border-top:1.5px solid #1F4E79}
+  .obs-l{font-size:9px;font-weight:700;color:#1F4E79;text-transform:uppercase;margin-bottom:4px}
+  .obs{border:1px solid #e5eaf0;border-radius:4px;height:34px}
+  .sign{display:flex;gap:20px;flex:1;align-items:flex-end}
+  .sl{flex:1;border-top:1px solid #333;padding-top:3px;font-size:9px;color:#666;text-align:center}
+  @media print{body{padding:10px;font-size:10px}}
+  </style></head><body>
+  <div class="hdr"><div><p class="sub-t">Linha Off-Highway</p><h1>Solicitação de Compras</h1></div>
+  <div class="meta">Emitida: <b>${meta.hoje}</b><br>Período: ${meta.dI} a ${meta.dF} (${meta.periodo}d) · Lead: ${meta.leadTime}d</div></div>
+  <div class="summary"><span><b>${itens.length}</b> itens</span><span><b>${totalQtd.toLocaleString("pt-BR")}</b> peças</span><span>Curva A: <b style="color:#1a6fa8">${itens.filter(i=>i.curva==="A").length}</b></span><span>Curva B: <b style="color:#217a3c">${itens.filter(i=>i.curva==="B").length}</b></span><span>Curva C: <b style="color:#a07800">${itens.filter(i=>i.curva==="C").length}</b></span>${pdfCustoVisible&&totalCusto>0?`<span style="margin-left:auto">Custo Total: <b style="color:#1F4E79">${fR(totalCusto)}</b></span>`:""}</div>
+  <div class="list-head"><span style="width:18px"></span><span style="width:14px">C</span><span style="width:80px">Ref</span><span style="flex:1">Descrição</span><span style="width:130px;text-align:right">Pedido/Saldo/Cot</span>${pdfCustoVisible?'<span style="width:65px;text-align:right">Custo</span>':""}<span style="width:50px;text-align:right">Qtd</span></div>
+  ${rows}
+  <div class="list-foot"><span>TOTAL: ${itens.length} itens</span><span>${totalQtd.toLocaleString("pt-BR")} peças</span>${pdfCustoVisible&&totalCusto>0?`<span>${fR(totalCusto)}</span>`:""}</div>
+  <div class="footer"><div style="flex:2"><div class="obs-l">Observações</div><div class="obs"></div></div>
+  <div class="sign"><div class="sl">Solicitado por</div><div class="sl">Aprovado por</div></div></div>
+  </body></html>`;
+  const win=window.open("","_blank","width=860,height=700");
+  win.document.write(doc);win.document.close();win.focus();
+  setTimeout(()=>win.print(),600);
+  document.getElementById("exInfo").textContent=`${itens.length} itens — modelo compacto aberto`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODELO 4 — CHECKLIST DE CONFERÊNCIA (para separação/conferência física)
+// ═══════════════════════════════════════════════════════════════
+function expPDF4(){
+  const itens=getSolData();
+  if(!itens.length){_safeAlert("Nenhum item com quantidade a comprar.");return;}
+  const meta=getMeta();
+  const totalQtd=itens.reduce((s,i)=>s+i.qtdReal,0);
+  const abcC={"A":"#1a6fa8","B":"#217a3c","C":"#a07800","—":"#888"};
+  const abcB={"A":"#D6EAF8","B":"#D5F5E3","C":"#FEF9E7","—":"#eee"};
+  let rows="",num=1;
+  itens.forEach(d=>{
+    const obs=obsEdit[d.ref+"||"+d.marca]||"";
+    rows+=`<tr>
+      <td class="chk-cell"><div class="checkbox"></div></td>
+      <td style="text-align:center;color:#999;font-size:10px">${num++}</td>
+      <td style="text-align:center"><span class="curva-pill" style="background:${abcB[d.curva]};color:${abcC[d.curva]}">${d.curva}</span></td>
+      <td class="ref-cell">${d.ref}</td>
+      <td>${d.desc}</td>
+      <td style="color:#607080">${d.marca||"—"}</td>
+      <td style="text-align:right;font-size:11px;color:#888">${fN(d.saldo)}</td>
+      <td class="qtd-cell">${d.qtdReal.toLocaleString("pt-BR")}</td>
+      <td class="obs-cell"></td>
+    </tr>`;
+  });
+  const doc=`<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Solicitação de Compras — Checklist</title>
+  <style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;color:#222;padding:24px}
+  .hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #1F4E79;padding-bottom:12px;margin-bottom:16px}
+  .sub-t{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;font-weight:700}
+  h1{font-size:20px;color:#1F4E79}
+  .meta{text-align:right;font-size:10px;color:#666;line-height:1.5}
+  .info-bar{display:flex;gap:14px;margin-bottom:14px;font-size:11px}
+  .info-pill{background:#F4F6F9;border-radius:16px;padding:6px 16px;font-weight:700;color:#1F4E79}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  thead th{background:#1F4E79;color:#fff;padding:8px 6px;font-size:10px;text-transform:uppercase;text-align:left}
+  td{padding:9px 6px;border-bottom:1px solid #eee;vertical-align:middle}
+  .chk-cell{width:32px;text-align:center}
+  .checkbox{width:18px;height:18px;border:2px solid #1F4E79;border-radius:4px;margin:0 auto}
+  .curva-pill{font-size:10px;font-weight:800;padding:2px 9px;border-radius:10px}
+  .ref-cell{font-weight:800;color:#1F4E79;font-family:monospace;font-size:12px}
+  .qtd-cell{text-align:right;font-weight:800;color:#1F4E79;font-size:14px;background:#F8FAFC}
+  .obs-cell{width:120px;border-bottom:1px dotted #ccc}
+  tbody tr:nth-child(even){background:#FAFBFC}
+  .footer{display:flex;gap:30px;margin-top:26px;padding-top:14px;border-top:2px solid #1F4E79}
+  .obs-l{font-size:10px;font-weight:700;color:#1F4E79;text-transform:uppercase;margin-bottom:6px}
+  .obs{border:1px solid #e5eaf0;border-radius:6px;height:46px}
+  .sign{display:flex;gap:24px;flex:1;align-items:flex-end}
+  .sl{flex:1;border-top:1px solid #333;padding-top:4px;font-size:10px;color:#666;text-align:center}
+  @media print{body{padding:14px}}
+  </style></head><body>
+  <div class="hdr"><div><p class="sub-t">Linha Off-Highway</p><h1>✓ Checklist de Compras</h1></div>
+  <div class="meta">Emitida: <b>${meta.hoje}</b><br>Período: ${meta.dI} a ${meta.dF}</div></div>
+  <div class="info-bar">
+    <span class="info-pill">${itens.length} itens</span>
+    <span class="info-pill">${totalQtd.toLocaleString("pt-BR")} peças</span>
+    <span class="info-pill" style="color:#1a6fa8">Curva A: ${itens.filter(i=>i.curva==="A").length}</span>
+    <span class="info-pill" style="color:#217a3c">Curva B: ${itens.filter(i=>i.curva==="B").length}</span>
+    <span class="info-pill" style="color:#a07800">Curva C: ${itens.filter(i=>i.curva==="C").length}</span>
+  </div>
+  <table><thead><tr><th>✓</th><th>#</th><th>Curva</th><th>Referência</th><th>Descrição</th><th>Marca</th><th style="text-align:right">Saldo</th><th style="text-align:right">Qtd</th><th>Anotação</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+  <div class="footer"><div style="flex:2"><div class="obs-l">Observações Gerais</div><div class="obs"></div></div>
+  <div class="sign"><div class="sl">Conferido por</div><div class="sl">Aprovado por</div></div></div>
+  </body></html>`;
+  const win=window.open("","_blank","width=900,height=750");
+  win.document.write(doc);win.document.close();win.focus();
+  setTimeout(()=>win.print(),600);
+  document.getElementById("exInfo").textContent=`${itens.length} itens — checklist aberto`;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // CONTROLES
 // ═══════════════════════════════════════════════════════════════
@@ -14010,6 +14269,13 @@ function pfToggleTheme(){
 document.addEventListener('DOMContentLoaded', function(){
   pfApplyTheme('light');
   pfInitSidebar();
+  // Close PDF model dropdown when clicking outside
+  document.addEventListener('click',function(e){
+    var menu=document.getElementById('pdfModeloMenu');
+    if(menu&&menu.style.display==='block'&&!e.target.closest('.exPDF')&&!e.target.closest('#pdfModeloMenu')){
+      menu.style.display='none';
+    }
+  });
   // Bind Sair/Resetar after DOM ready
   setTimeout(function(){
     var btn=document.getElementById('btnSairResetar');

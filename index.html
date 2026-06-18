@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.132</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.133</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.132</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.133</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -13288,15 +13288,9 @@ async function vendasFinalizar(){
   },0)};
   if(idxExistente>=0)cots[idxExistente]=cot;else cots.unshift(cot);
   localStorage.setItem(COTS_KEY,JSON.stringify(cots));
-  // Salvar no Supabase
+  // Salva como array completo via sync (upsert único por usuário+chave, sem duplicar linhas)
   try{
-    if(sbUser){
-      await sbFetch('/rest/v1/user_ferramentas',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Prefer':'return=minimal'},
-        body:JSON.stringify({user_id:sbUser.id,tipo:'cotacao',dados:JSON.stringify(cot)})
-      });
-    }
+    if(sbUser)await pfSyncPush([COTS_KEY]);
   }catch(e){console.warn('Erro ao salvar cotacao no Supabase:',e);}
   alert(idxExistente>=0?'Cotação #'+num+' atualizada!':'Cotação #'+num+' salva!');
   window._venda={itens:[]};
@@ -13306,29 +13300,28 @@ async function vendasFinalizar(){
 async function vendasPullCotacoes(){
   if(!sbUser)return;
   try{
-    // Pull from user_ferramentas (individual cotacoes)
-    var r=await sbFetch('/rest/v1/user_ferramentas?user_id=eq.'+sbUser.id+'&tipo=eq.cotacao&order=updated_at.desc&limit=200');
+    // Fonte principal: user_sync (array completo, upsert unico, sempre a versao mais recente)
     var remoteCots=[];
-    if(r.ok){
-      var rows=await r.json();
-      if(rows&&rows.length){
-        remoteCots=rows.map(function(row){
-          try{return typeof row.dados==='string'?JSON.parse(row.dados):row.dados;}catch(e){return null;}
-        }).filter(Boolean);
-      }
-    }
-    // Also pull from user_sync (array saved by pfSyncPush)
     var r2=await sbFetch('/rest/v1/user_sync?user_id=eq.'+sbUser.id+'&chave=eq.partsflow_cotacoes_v1&select=dados');
     if(r2.ok){
       var rows2=await r2.json();
       if(rows2&&rows2.length&&rows2[0].dados){
         var syncCots=rows2[0].dados;
         if(typeof syncCots==='string')syncCots=JSON.parse(syncCots);
-        if(Array.isArray(syncCots)){
-          syncCots.forEach(function(sc){
-            if(!remoteCots.find(function(rc){return rc.num===sc.num;}))remoteCots.push(sc);
-          });
-        }
+        if(Array.isArray(syncCots))remoteCots=syncCots.slice();
+      }
+    }
+    // Fonte legada: user_ferramentas (linha por cotacao, pode ter versoes antigas duplicadas) — só completa o que faltar
+    var r=await sbFetch('/rest/v1/user_ferramentas?user_id=eq.'+sbUser.id+'&tipo=eq.cotacao&order=updated_at.desc&limit=200');
+    if(r.ok){
+      var rows=await r.json();
+      if(rows&&rows.length){
+        rows.forEach(function(row){
+          try{
+            var rc=typeof row.dados==='string'?JSON.parse(row.dados):row.dados;
+            if(rc&&!remoteCots.find(function(x){return x.num===rc.num;}))remoteCots.push(rc);
+          }catch(e){}
+        });
       }
     }
     // Merge with localStorage

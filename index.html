@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.124</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.125</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.124</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.125</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -10487,7 +10487,8 @@ var PF_SYNC_KEYS = [
   'partsflow_cotacoes_v1',
   'venda_rascunho_v1',
   'imp_preview_cache_v1',
-  'opTrack'
+  'opTrack',
+  'mapas_lista_v1'
 ];
 
 async function pfSyncPush(keys){
@@ -10519,8 +10520,22 @@ async function pfSyncPull(){
     if(!rows||!rows.length)return;
     rows.forEach(function(row){
       try{
-        if(!PF_SYNC_KEYS.includes(row.chave))return;
+        if(!PF_SYNC_KEYS.includes(row.chave) && row.chave.indexOf('mapa_estado_')!==0)return;
         var val=typeof row.dados==='string'?row.dados:JSON.stringify(row.dados);
+        if(row.chave==='mapas_lista_v1'){
+          // Merge por id+ts em vez de sobrescrever, pra nao perder mapas criados
+          // localmente neste dispositivo antes do primeiro sync
+          var remoto=JSON.parse(val||'[]');
+          var local=JSON.parse(localStorage.getItem('mapas_lista_v1')||'[]');
+          var porId={};
+          local.forEach(function(m){porId[m.id]=m;});
+          remoto.forEach(function(m){
+            if(!porId[m.id]||(m.ts||0)>(porId[m.id].ts||0))porId[m.id]=m;
+          });
+          var merged=Object.keys(porId).map(function(k){return porId[k];}).sort(function(a,b){return (b.ts||0)-(a.ts||0);}).slice(0,20);
+          localStorage.setItem('mapas_lista_v1',JSON.stringify(merged));
+          return;
+        }
         localStorage.setItem(row.chave,val);
       }catch(e){}
     });
@@ -11212,6 +11227,7 @@ function mapaSalvarNaLista(estado){
   localStorage.setItem(MAPAS_LIST_KEY, JSON.stringify(lista));
   // Save full estado
   localStorage.setItem('mapa_estado_'+estado.id, JSON.stringify(estado));
+  if(typeof pfSyncPush==='function')pfSyncPush(['mapas_lista_v1','mapa_estado_'+estado.id]);
 }
 
 function mapaCarregarDaLista(id){
@@ -11232,6 +11248,7 @@ function mapaExcluirDaLista(id){
   var lista=mapaListarSalvos().filter(function(m){return m.id!==id;});
   localStorage.setItem(MAPAS_LIST_KEY,JSON.stringify(lista));
   localStorage.removeItem('mapa_estado_'+id);
+  if(typeof pfSyncPush==='function')pfSyncPush(['mapas_lista_v1']);
 }
 
 // Override mapaSalvarEstado to also save to list

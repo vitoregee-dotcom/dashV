@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.157</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.158</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.157</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.158</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -5900,6 +5900,7 @@ async function pfPullPlanilhas(){
     setTimeout(function(){verificarAvisos();verificarOportunidades();},300);
     // Salva também no localStorage como backup
     try{localStorage.setItem('dashV_lastSheet',JSON.stringify({name:data[0].nome_arquivo||'',items:allItems,ts:Date.now()}));}catch(e){}
+    if(typeof pvReaplicarTodosAbertos==='function')pvReaplicarTodosAbertos();
     console.log('✅ '+allItems.length+' itens carregados do Supabase ('+data.length+' famílias)');
   }catch(e){
     console.warn('pfPullPlanilhas erro:',e);
@@ -12623,9 +12624,11 @@ function vendasRenderCotacao(el){
     var custo=it.custoOverride!=null?it.custoOverride:it.custo;
     var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf,v.margem):0);
     var chk=window._vendasSel&&window._vendasSel[i];
+    var chkPV=window._vendasSelPV&&window._vendasSelPV[i];
     var ativo=window._vendasItemAtivo===i;
     return '<tr ontouchstart="" onclick="vendasSetItemAtivo('+i+')" style="cursor:pointer;'+(ativo?'background:#EEF6FF;':isNeg?'background:#FFF5F5;':'')+'border-bottom:.5px solid #f0f4f8">'+
-      '<td style="padding:5px 8px;text-align:center"><input type="checkbox" '+(chk?'checked':'')+' onchange="window._vendasSel=window._vendasSel||{};window._vendasSel['+i+']=this.checked;vendasAtualizarMapaBtn()" style="width:15px;height:15px;cursor:pointer"></td>'+
+      '<td style="padding:5px 8px;text-align:center"><input type="checkbox" '+(chk?'checked':'')+' onchange="window._vendasSel=window._vendasSel||{};window._vendasSel['+i+']=this.checked;vendasAtualizarMapaBtn()" style="width:15px;height:15px;cursor:pointer" title="Selecionar p/ Mapa de Compras"></td>'+
+      '<td style="padding:5px 8px;text-align:center"><input type="checkbox" '+(chkPV?'checked':'')+' onchange="window._vendasSelPV=window._vendasSelPV||{};window._vendasSelPV['+i+']=this.checked;vendasAtualizarPVBtn()" style="width:15px;height:15px;cursor:pointer;accent-color:#27AE60" title="Selecionar p/ Pedido de Venda"></td>'+
       '<td style="padding:5px 8px;text-align:center;font-size:11px;color:#8a9ab0">'+(i+1)+'</td>'+
       '<td style="padding:5px 8px;font-family:monospace;font-size:12px;font-weight:500;color:#185FA5">'+it.codigo+'</td>'+
       '<td style="padding:5px 8px"><input type="text" value="'+(it.desc||'').replace(/"/g,'&quot;')+'" oninput="window._venda.itens['+i+'].desc=this.value" style="width:100%;border:none;background:transparent;font-size:12px;color:#1a2332;padding:0;outline:none" placeholder="—"></td>'+
@@ -12693,7 +12696,8 @@ function vendasRenderCotacao(el){
     (v.itens.length?
       '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'+
       '<thead><tr style="background:#1F4E79">'+
-      '<th style="padding:5px 6px;width:26px"><input type="checkbox" id="vendasChkAll" onchange="vendasToggleAll(this.checked)" style="width:14px;height:14px;cursor:pointer"></th>'+
+      '<th style="padding:5px 6px;width:26px"><input type="checkbox" id="vendasChkAll" onchange="vendasToggleAll(this.checked)" style="width:14px;height:14px;cursor:pointer" title="Selecionar todos p/ Mapa"></th>'+
+      '<th style="padding:5px 6px;width:26px;color:#7DFFB3;font-size:9px" title="Pedido de Venda">PV</th>'+
       '<th style="padding:5px 6px;text-align:center;font-size:10px;color:rgba(255,255,255,.7);width:26px">#</th>'+
       '<th style="padding:5px 6px;font-size:10px;color:rgba(255,255,255,.7)">CÓDIGO</th>'+
       '<th style="padding:5px 6px;font-size:10px;color:rgba(255,255,255,.7)">DESCRIÇÃO</th>'+
@@ -12709,6 +12713,7 @@ function vendasRenderCotacao(el){
       '<div style="text-align:center;padding:24px;color:#8a9ab0;font-size:13px">Nenhum item adicionado ainda</div>')+
     '<div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f4f8;display:flex;gap:8px;flex-wrap:wrap">'+
     '<button id="vendasEnviarMapaSelBtn" ontouchstart="" onclick="vendasEnviarSelecionados()" style="display:none;background:none;border:1px solid #1F4E79;border-radius:7px;padding:7px 14px;font-size:12px;color:#1F4E79;cursor:pointer;align-items:center;gap:5px">Enviar selecionados ao Mapa</button>'+
+    '<button id="vendasEnviarPVBtn" ontouchstart="" onclick="pvCriarPedido()" style="display:none;background:#27AE60;border:none;border-radius:7px;padding:7px 14px;font-size:12px;color:#fff;font-weight:600;cursor:pointer;align-items:center;gap:5px">📦 Enviar para Pedido de Venda</button>'+
     (totalNeg>0?'<button ontouchstart="" onclick="vendasEnviarTodosNeg()" style="background:none;border:1px solid #C00000;border-radius:7px;padding:7px 14px;font-size:12px;color:#C00000;cursor:pointer">Enviar todos negativos ao Mapa ('+totalNeg+')</button>':'')+
     (v.itens.length?'<button ontouchstart="" onclick="vendasToggleDescPanel()" style="background:none;border:1px solid #1F4E79;border-radius:7px;padding:7px 14px;font-size:12px;color:#1F4E79;cursor:pointer">% Desconto/acréscimo geral</button>':'')+
     (totalNeg>0?'<button ontouchstart="" onclick="vendasZerarNegativos()" style="background:none;border:1px solid #8a9ab0;border-radius:7px;padding:7px 14px;font-size:12px;color:#607080;cursor:pointer">Zerar preço dos negativos</button>':'')+
@@ -12948,6 +12953,143 @@ function vendasAtualizarMapaBtn(){
   if(btn)btn.textContent='Enviar selecionados ao Mapa ('+count+')';
 }
 
+var PV_KEY='partsflow_pedidos_venda_v1';
+function pvLoad(){ try{return JSON.parse(localStorage.getItem(PV_KEY)||'[]');}catch(e){return [];} }
+function pvSave(list){ localStorage.setItem(PV_KEY, JSON.stringify(list)); if(typeof pfSyncPush==='function')pfSyncPush([PV_KEY]); }
+
+function vendasAtualizarPVBtn(){
+  var count=Object.values(window._vendasSelPV||{}).filter(Boolean).length;
+  var btn=document.getElementById('vendasEnviarPVBtn');
+  if(btn)btn.style.display=count>0?'inline-flex':'none';
+  if(btn)btn.textContent='📦 Enviar para Pedido de Venda ('+count+')';
+}
+
+// Deduz o saldo dos itens de um pedido em allItems/tabs (todas as linhas que
+// casam ref+marca, distribuindo a baixa entre elas até zerar a quantidade)
+function pvAplicarAbatimento(pedido){
+  var allRows=[];
+  if(typeof tabs!=='undefined'&&tabs&&tabs.length){
+    tabs.forEach(function(t){if(t&&t.allItems)allRows=allRows.concat(t.allItems);});
+  }
+  if(!allRows.length&&typeof allItems!=='undefined'&&allItems)allRows=allItems;
+  (pedido.itens||[]).forEach(function(it){
+    var falta=it.qtd;
+    var codClean=(it.codigo||'').toString().toUpperCase().trim().replace(/[\s\-\.]/g,'');
+    allRows.forEach(function(row){
+      if(falta<=0)return;
+      var ref=(row.ref||row.codigo||'').toString().toUpperCase().trim().replace(/[\s\-\.]/g,'');
+      var marca=(row.marca||'').toString();
+      if(ref===codClean&&(!it.marca||marca===it.marca)){
+        var s=parseFloat(row.saldo)||0;
+        if(s<=0)return;
+        var deduz=Math.min(s,falta);
+        row.saldo=s-deduz;
+        falta-=deduz;
+      }
+    });
+  });
+  if(typeof renderTable==='function')renderTable();
+  if(typeof renderKpis==='function')renderKpis();
+  if(typeof recalc==='function')recalc();
+}
+
+// Reaplica a baixa de TODOS os pedidos ainda abertos - chamado depois que a
+// planilha recarrega, pra não "voltar" o saldo de pedidos já feitos
+function pvReaplicarTodosAbertos(){
+  var list=pvLoad();
+  list.filter(function(p){return p.status==='aberto';}).forEach(function(p){pvAplicarAbatimento(p);});
+}
+
+function pvRenderLista(el){
+  var list=pvLoad().slice().reverse();
+  var html='<div style="width:100%;padding:4px 0">';
+  html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">';
+  html+='<button ontouchstart="" onclick="vendasVerCotacoes()" style="background:none;border:1px solid #e0e8f0;border-radius:6px;padding:5px 10px;font-size:13px;cursor:pointer;color:#607080">←</button>';
+  html+='<div style="font-size:12px;font-weight:700;color:#1F4E79">📦 PEDIDOS DE VENDA ('+list.length+')</div>';
+  html+='</div>';
+  if(!list.length){
+    html+='<div style="text-align:center;padding:30px;color:#8a9ab0;font-size:13px;background:#fff;border-radius:10px">Nenhum pedido de venda criado ainda. Selecione itens na cotação (coluna PV) e clique em "Enviar para Pedido de Venda".</div>';
+  } else {
+    html+='<div style="background:#fff;border:1px solid #e0e8f0;border-radius:10px;overflow:auto">';
+    html+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html+='<thead><tr style="background:#1F4E79">'+
+      '<th style="padding:6px 8px;text-align:left;color:#fff;font-size:10px">PEDIDO</th>'+
+      '<th style="padding:6px 8px;text-align:left;color:#fff;font-size:10px">CLIENTE</th>'+
+      '<th style="padding:6px 8px;text-align:left;color:#fff;font-size:10px">DATA</th>'+
+      '<th style="padding:6px 8px;text-align:center;color:#fff;font-size:10px">ITENS</th>'+
+      '<th style="padding:6px 8px;text-align:center;color:#fff;font-size:10px">STATUS</th>'+
+      '<th style="padding:6px 8px;text-align:center;color:#fff;font-size:10px">AÇÕES</th>'+
+      '</tr></thead><tbody>';
+    list.forEach(function(p){
+      var statusCor=p.status==='entregue'?'#DCFCE7':p.status==='separado'?'#FEF3C7':'#E0E8F0';
+      var statusTxt=p.status==='entregue'?'Entregue':p.status==='separado'?'Separado':'Aberto';
+      html+='<tr style="border-bottom:.5px solid #f0f4f8">'+
+        '<td style="padding:6px 8px;font-family:monospace;font-weight:600;color:#185FA5">'+p.numero+'</td>'+
+        '<td style="padding:6px 8px">'+(p.clienteRazao||'—')+'</td>'+
+        '<td style="padding:6px 8px;font-size:11px;color:#607080">'+new Date(p.data).toLocaleDateString('pt-BR')+'</td>'+
+        '<td style="padding:6px 8px;text-align:center">'+p.itens.length+'</td>'+
+        '<td style="padding:6px 8px;text-align:center"><span style="font-size:10px;padding:3px 8px;border-radius:6px;background:'+statusCor+'">'+statusTxt+'</span></td>'+
+        '<td style="padding:6px 8px;text-align:center">'+
+        (p.status==='aberto'?'<button ontouchstart="" onclick="pvMarcarStatus(\''+p.id+'\',\'separado\')" style="font-size:10px;padding:3px 8px;background:none;border:1px solid #1F4E79;border-radius:5px;color:#1F4E79;cursor:pointer;margin-right:3px">Separar</button>':'')+
+        (p.status==='separado'?'<button ontouchstart="" onclick="pvMarcarStatus(\''+p.id+'\',\'entregue\')" style="font-size:10px;padding:3px 8px;background:none;border:1px solid #27AE60;border-radius:5px;color:#27AE60;cursor:pointer;margin-right:3px">Entregar</button>':'')+
+        '<button ontouchstart="" onclick="pvVerDetalhe(\''+p.id+'\')" style="font-size:10px;padding:3px 8px;background:none;border:1px solid #607080;border-radius:5px;color:#607080;cursor:pointer">Ver itens</button>'+
+        '</td></tr>';
+    });
+    html+='</tbody></table></div>';
+  }
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+function pvMarcarStatus(id,novoStatus){
+  var list=pvLoad();
+  var p=list.find(function(x){return x.id===id;});
+  if(!p)return;
+  p.status=novoStatus;
+  pvSave(list);
+  var el=document.getElementById('vendasBody');
+  if(el)pvRenderLista(el);
+}
+
+function pvVerDetalhe(id){
+  var list=pvLoad();
+  var p=list.find(function(x){return x.id===id;});
+  if(!p)return;
+  var txt=p.numero+' - '+(p.clienteRazao||'—')+'\n\n'+p.itens.map(function(it){return it.qtd+'x '+it.codigo+' ('+(it.marca||'—')+') - '+(it.desc||'');}).join('\n');
+  alert(txt);
+}
+
+function pvCriarPedido(){
+  var sel=window._vendasSelPV||{};
+  var v=window._venda;
+  var itensSel=[];
+  (v.itens||[]).forEach(function(it,i){
+    if(!sel[i])return;
+    var custo=it.custoOverride!=null?it.custoOverride:it.custo;
+    var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf,v.margem):0);
+    itensSel.push({codigo:it.codigo,desc:it.desc,marca:it.marca,qtd:it.qtd,custo:custo,venda:venda});
+  });
+  if(!itensSel.length){alert('Selecione ao menos um item na coluna PV.');return;}
+  if(!confirm('Criar pedido de venda com '+itensSel.length+' item(ns)?\nO saldo desses itens será abatido imediatamente.'))return;
+  var list=pvLoad();
+  var numero='PV-'+new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9000)+1000);
+  var pedido={
+    id:'pv_'+Date.now(),
+    numero:numero,
+    data:new Date().toISOString(),
+    clienteRazao:(v.cliente&&v.cliente.razao)||'',
+    cotacaoNum:v.num||null,
+    itens:itensSel,
+    status:'aberto'
+  };
+  list.push(pedido);
+  pvSave(list);
+  pvAplicarAbatimento(pedido);
+  window._vendasSelPV={};
+  alert('Pedido '+numero+' criado e saldo abatido.');
+  vendasRefresh();
+}
+
 function vendasEnviarSelecionados(){
   var sel=window._vendasSel||{};
   var itens=(window._venda&&window._venda.itens)||[];
@@ -13150,13 +13292,16 @@ function vendasRenderLista(el){
     var btnNova=document.createElement('button');btnNova.textContent='+ NOVA';
     btnNova.style.cssText='background:#1F4E79;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;margin-left:auto;flex-shrink:0';
     btnNova.onclick=function(){vendasAbrirModal({itens:[],margem:30});};
+    var btnPV=document.createElement('button');btnPV.textContent='📦 Pedidos de Venda';
+    btnPV.style.cssText='background:#27AE60;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;flex-shrink:0';
+    btnPV.onclick=function(){pvRenderLista(el);};
     fd.appendChild(btnBack);fd.appendChild(ttl);
     fd.appendChild(mkI('Cliente','cli','100px'));
     fd.appendChild(mkI('Transp.','transp','80px'));
     fd.appendChild(mkI('Contato','contato','80px'));
     fd.appendChild(mkI('Código','cod','70px'));
     fd.appendChild(mkI('Descrição','desc','90px'));
-    fd.appendChild(bLimp);fd.appendChild(btnNova);
+    fd.appendChild(bLimp);fd.appendChild(btnPV);fd.appendChild(btnNova);
     wrap.appendChild(fd);
     var tblWrap=document.createElement('div');tblWrap.style.cssText='background:#fff;border:1px solid #e0e8f0;border-radius:10px;overflow:auto;margin-bottom:10px';
     var tbl=document.createElement('table');tbl.id='vendasListaTable';tbl.style.cssText='width:100%;border-collapse:collapse;font-size:11px;min-width:750px';

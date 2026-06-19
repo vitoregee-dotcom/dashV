@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.158</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.159</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.158</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.159</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -9830,6 +9830,9 @@ cadFormProduto = function(data, idx){
   html += '<span style="font-size:22px">+</span>Foto';
   html += '<input type="file" accept="image/*" multiple style="display:none" onchange="cadAddFotos(this)">';
   html += '</label>';
+  html += '<button ontouchstart="" onclick="cadColarFotoProduto()" style="width:90px;height:90px;border:2px dashed #607080;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:#607080;font-size:11px;font-weight:700;gap:4px;background:#F8FAFC">';
+  html += '<span style="font-size:18px">📋</span>Colar Print';
+  html += '</button>';
   html += '</div>';
   html += '<input type="hidden" id="prodFotosData" value="'+encodeURIComponent(JSON.stringify(fotos))+'">';
   html += '</div>';
@@ -9915,6 +9918,27 @@ cadFormProduto = function(data, idx){
   }
 };
 
+async function cadColarFotoProduto(){
+  try{
+    var items=await navigator.clipboard.read();
+    var imageItem=null;
+    for(var i=0;i<items.length;i++){
+      var t=items[i].types.find(function(x){return x.startsWith('image/');});
+      if(t){imageItem={item:items[i],type:t};break;}
+    }
+    if(!imageItem){alert('Nenhuma imagem encontrada na área de transferência.');return;}
+    var blob=await imageItem.item.getType(imageItem.type);
+    var reader=new FileReader();
+    reader.onload=function(e){
+      window._prodFotos=window._prodFotos||[];
+      window._prodFotos.push(e.target.result);
+      cadUpdateFotoGrid();
+    };
+    reader.readAsDataURL(blob);
+  }catch(e){
+    alert('Não foi possível ler a área de transferência (permissão negada ou sem imagem copiada).');
+  }
+}
 // Multiple photos helpers
 function cadAddFotos(input){
   var files = Array.from(input.files);
@@ -13041,6 +13065,114 @@ function pvRenderLista(el){
   el.innerHTML=html;
 }
 
+function pvRenderKpis(el){
+  var pedidos=pvLoad();
+  var html='<div style="width:100%;padding:4px 0">';
+  html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">';
+  html+='<button ontouchstart="" onclick="vendasVerCotacoes()" style="background:none;border:1px solid #e0e8f0;border-radius:6px;padding:5px 10px;font-size:13px;cursor:pointer;color:#607080">←</button>';
+  html+='<div style="font-size:13px;font-weight:700;color:#1F4E79">📊 KPIs DE VENDAS</div>';
+  html+='</div>';
+
+  if(!pedidos.length){
+    html+='<div style="text-align:center;padding:40px;color:#8a9ab0;font-size:13px;background:#fff;border-radius:10px">Ainda não há pedidos de venda registrados. Os KPIs aparecem aqui conforme você for criando pedidos a partir das cotações.</div>';
+    el.innerHTML=html+'</div>';
+    return;
+  }
+
+  // ── Última compra por cliente ──
+  var porCliente={};
+  pedidos.forEach(function(p){
+    var c=p.clienteRazao||'(sem cliente)';
+    if(!porCliente[c]||new Date(p.data)>new Date(porCliente[c].data))porCliente[c]={data:p.data,total:0};
+  });
+  pedidos.forEach(function(p){
+    var c=p.clienteRazao||'(sem cliente)';
+    porCliente[c].total=(porCliente[c].total||0)+1;
+  });
+  var clientesOrd=Object.keys(porCliente).sort(function(a,b){return new Date(porCliente[b].data)-new Date(porCliente[a].data);});
+  html+='<div style="background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:14px">';
+  html+='<div style="font-size:11px;font-weight:700;color:#8a9ab0;text-transform:uppercase;margin-bottom:8px">Última compra por cliente</div>';
+  html+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  clientesOrd.slice(0,15).forEach(function(c){
+    html+='<tr style="border-bottom:.5px solid #f0f4f8"><td style="padding:5px 4px">'+c+'</td><td style="padding:5px 4px;text-align:right;color:#607080">'+new Date(porCliente[c].data).toLocaleDateString('pt-BR')+'</td><td style="padding:5px 4px;text-align:right;width:90px;color:#8a9ab0">'+porCliente[c].total+' pedido(s)</td></tr>';
+  });
+  html+='</table></div>';
+
+  // ── Top 5 Itens (por quantidade) ──
+  var porItem={};
+  pedidos.forEach(function(p){
+    (p.itens||[]).forEach(function(it){
+      var k=it.codigo;
+      if(!porItem[k])porItem[k]={desc:it.desc,qtd:0};
+      porItem[k].qtd+=(it.qtd||0);
+    });
+  });
+  var topItens=Object.keys(porItem).map(function(k){return {codigo:k,desc:porItem[k].desc,qtd:porItem[k].qtd};}).sort(function(a,b){return b.qtd-a.qtd;}).slice(0,5);
+  var maxQtd=topItens.length?topItens[0].qtd:1;
+  html+='<div style="background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:14px">';
+  html+='<div style="font-size:11px;font-weight:700;color:#8a9ab0;text-transform:uppercase;margin-bottom:10px">Top 5 Itens (quantidade vendida)</div>';
+  topItens.forEach(function(it){
+    var pct=Math.round((it.qtd/maxQtd)*100);
+    html+='<div style="margin-bottom:8px">'+
+      '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span style="font-family:monospace;font-weight:600;color:#185FA5">'+it.codigo+'</span><span style="color:#607080">'+(it.desc||'')+'</span><span style="font-weight:700;color:#1a2332">'+it.qtd+'</span></div>'+
+      '<div style="background:#F0F4F8;border-radius:5px;height:10px;overflow:hidden"><div style="background:#1F4E79;height:100%;width:'+pct+'%;border-radius:5px"></div></div>'+
+      '</div>';
+  });
+  html+='</div>';
+
+  // ── Itens com queda (últimos 30 dias vs 30 dias anteriores) ──
+  var hoje=Date.now(),d30=30*86400000;
+  var qtdRecente={},qtdAnterior={},descMap={};
+  pedidos.forEach(function(p){
+    var idade=hoje-new Date(p.data).getTime();
+    (p.itens||[]).forEach(function(it){
+      descMap[it.codigo]=it.desc;
+      if(idade<=d30)qtdRecente[it.codigo]=(qtdRecente[it.codigo]||0)+(it.qtd||0);
+      else if(idade<=2*d30)qtdAnterior[it.codigo]=(qtdAnterior[it.codigo]||0)+(it.qtd||0);
+    });
+  });
+  var quedas=Object.keys(qtdAnterior).map(function(k){
+    var rec=qtdRecente[k]||0,ant=qtdAnterior[k];
+    return {codigo:k,desc:descMap[k],rec:rec,ant:ant,queda:ant-rec};
+  }).filter(function(x){return x.queda>0;}).sort(function(a,b){return b.queda-a.queda;}).slice(0,8);
+  html+='<div style="background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:14px">';
+  html+='<div style="font-size:11px;font-weight:700;color:#8a9ab0;text-transform:uppercase;margin-bottom:8px">📉 Itens com queda (últimos 30d vs 30d anteriores)</div>';
+  if(!quedas.length){
+    html+='<div style="font-size:12px;color:#8a9ab0;padding:8px 0">Sem dados suficientes ainda (precisa de histórico de mais de 30 dias).</div>';
+  } else {
+    html+='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="color:#8a9ab0;font-size:10px"><th style="text-align:left;padding:4px">CÓDIGO</th><th style="text-align:left;padding:4px">DESCRIÇÃO</th><th style="text-align:center;padding:4px">30D ANTES</th><th style="text-align:center;padding:4px">30D AGORA</th><th style="text-align:center;padding:4px;color:#C00000">QUEDA</th></tr></thead><tbody>';
+    quedas.forEach(function(q){
+      html+='<tr style="border-bottom:.5px solid #f0f4f8"><td style="padding:5px 4px;font-family:monospace;color:#185FA5">'+q.codigo+'</td><td style="padding:5px 4px;color:#607080">'+(q.desc||'')+'</td><td style="padding:5px 4px;text-align:center">'+q.ant+'</td><td style="padding:5px 4px;text-align:center">'+q.rec+'</td><td style="padding:5px 4px;text-align:center;color:#C00000;font-weight:700">-'+q.queda+'</td></tr>';
+    });
+    html+='</tbody></table>';
+  }
+  html+='</div>';
+
+  // ── Família que mais consome ──
+  var porFamilia={};
+  pedidos.forEach(function(p){
+    (p.itens||[]).forEach(function(it){
+      var f=it.familia||'—';
+      porFamilia[f]=(porFamilia[f]||0)+(it.qtd||0);
+    });
+  });
+  var famOrd=Object.keys(porFamilia).map(function(f){return {familia:f,qtd:porFamilia[f]};}).sort(function(a,b){return b.qtd-a.qtd;});
+  var maxFam=famOrd.length?famOrd[0].qtd:1;
+  html+='<div style="background:#fff;border-radius:10px;padding:14px 16px">';
+  html+='<div style="font-size:11px;font-weight:700;color:#8a9ab0;text-transform:uppercase;margin-bottom:10px">Família que mais consome</div>';
+  famOrd.forEach(function(f){
+    var pct=Math.round((f.qtd/maxFam)*100);
+    html+='<div style="margin-bottom:8px">'+
+      '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span style="font-weight:600;color:#1a2332">'+f.familia+'</span><span style="font-weight:700;color:#1a2332">'+f.qtd+'</span></div>'+
+      '<div style="background:#F0F4F8;border-radius:5px;height:10px;overflow:hidden"><div style="background:#7B3FC4;height:100%;width:'+pct+'%;border-radius:5px"></div></div>'+
+      '</div>';
+  });
+  html+='</div>';
+
+  html+='</div>';
+  el.innerHTML=html;
+}
+
 function pvMarcarStatus(id,novoStatus){
   var list=pvLoad();
   var p=list.find(function(x){return x.id===id;});
@@ -13059,6 +13191,22 @@ function pvVerDetalhe(id){
   alert(txt);
 }
 
+function pvFindFamilia(codigo,marca){
+  var codClean=(codigo||'').toString().toUpperCase().trim().replace(/[\s\-\.]/g,'');
+  if(typeof tabs!=='undefined'&&tabs&&tabs.length){
+    for(var t=0;t<tabs.length;t++){
+      var tb=tabs[t];
+      if(!tb||!tb.allItems)continue;
+      for(var i=0;i<tb.allItems.length;i++){
+        var row=tb.allItems[i];
+        var ref=(row.ref||row.codigo||'').toString().toUpperCase().trim().replace(/[\s\-\.]/g,'');
+        if(ref===codClean&&(!marca||(row.marca||'')===marca))return tb.nome||tb.familia||'—';
+      }
+    }
+  }
+  return '—';
+}
+
 function pvCriarPedido(){
   var sel=window._vendasSelPV||{};
   var v=window._venda;
@@ -13067,7 +13215,7 @@ function pvCriarPedido(){
     if(!sel[i])return;
     var custo=it.custoOverride!=null?it.custoOverride:it.custo;
     var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf,v.margem):0);
-    itensSel.push({codigo:it.codigo,desc:it.desc,marca:it.marca,qtd:it.qtd,custo:custo,venda:venda});
+    itensSel.push({codigo:it.codigo,desc:it.desc,marca:it.marca,qtd:it.qtd,custo:custo,venda:venda,familia:pvFindFamilia(it.codigo,it.marca)});
   });
   if(!itensSel.length){alert('Selecione ao menos um item na coluna PV.');return;}
   if(!confirm('Criar pedido de venda com '+itensSel.length+' item(ns)?\nO saldo desses itens será abatido imediatamente.'))return;
@@ -13295,13 +13443,16 @@ function vendasRenderLista(el){
     var btnPV=document.createElement('button');btnPV.textContent='📦 Pedidos de Venda';
     btnPV.style.cssText='background:#27AE60;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;flex-shrink:0';
     btnPV.onclick=function(){pvRenderLista(el);};
+    var btnKpi=document.createElement('button');btnKpi.textContent='📊 KPIs';
+    btnKpi.style.cssText='background:#7B3FC4;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:11px;cursor:pointer;flex-shrink:0';
+    btnKpi.onclick=function(){pvRenderKpis(el);};
     fd.appendChild(btnBack);fd.appendChild(ttl);
     fd.appendChild(mkI('Cliente','cli','100px'));
     fd.appendChild(mkI('Transp.','transp','80px'));
     fd.appendChild(mkI('Contato','contato','80px'));
     fd.appendChild(mkI('Código','cod','70px'));
     fd.appendChild(mkI('Descrição','desc','90px'));
-    fd.appendChild(bLimp);fd.appendChild(btnPV);fd.appendChild(btnNova);
+    fd.appendChild(bLimp);fd.appendChild(btnKpi);fd.appendChild(btnPV);fd.appendChild(btnNova);
     wrap.appendChild(fd);
     var tblWrap=document.createElement('div');tblWrap.style.cssText='background:#fff;border:1px solid #e0e8f0;border-radius:10px;overflow:auto;margin-bottom:10px';
     var tbl=document.createElement('table');tbl.id='vendasListaTable';tbl.style.cssText='width:100%;border-collapse:collapse;font-size:11px;min-width:750px';

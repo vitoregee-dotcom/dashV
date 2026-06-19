@@ -6074,7 +6074,7 @@ function openPermPanel(btn){
   var modulos={};try{modulos=JSON.parse(decodeURIComponent(btn.dataset.modulos||'{}'));}catch(e){}
   _permUserId=id;
   document.getElementById('permUserName').textContent=nome;
-  var defaults={dash:false,mapa:false,cadastros:false,ferr_nf:false,ferr_margem:false,ferr_transferencia:false,ferr_cond_pgto:false,ferr_me_avise:false,ferr_cad_reativ:false,ferr_leitor:false,vendas:false};
+  var defaults={dash:false,mapa:false,cadastros:false,ferr_nf:false,ferr_margem:false,ferr_transferencia:false,ferr_cond_pgto:false,ferr_me_avise:false,ferr_cad_reativ:false,ferr_leitor:false,ferr_gerenciar_itens:false,vendas:false};
   document.querySelectorAll('#adminPermPanel .pfToggle').forEach(function(b){
     var mod=b.dataset.mod;
     var val=modulos.hasOwnProperty(mod)?modulos[mod]:defaults[mod];
@@ -8586,7 +8586,17 @@ function cadFormProduto(data,idx){
   html += '<button ontouchstart="" onclick="cadGoTab(\'produtos\')" style="margin-left:auto;background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px">← Voltar</button>';
   html += '</div>';
 
-  // Foto + Desenho técnico em cards
+  // ABAS: Geral | Detalhes
+  _cadProdRef = d.codigo || '';
+  _cadProdIdx = idx;
+  
+  html += '<div style="display:flex;gap:0;border-bottom:2px solid #e0e8f0;margin-bottom:20px">';
+  html += '<button data-detab="geral" onclick="cadShowTab(\'geral\')" style="background:none;border:none;color:#1F4E79;font-weight:700;padding:12px 20px;cursor:pointer;font-size:12px;border-bottom:2px solid #1F4E79;margin-bottom:-2px">📋 Geral</button>';
+  html += '<button data-detab="fotos" onclick="cadShowTab(\'fotos\');cadRenderFotosTab()" style="background:none;border:none;color:#8a9ab0;font-weight:600;padding:12px 20px;cursor:pointer;font-size:12px;border-bottom:2px solid transparent;margin-bottom:-2px">📸 Fotos</button>';
+  html += '<button data-detab="apps" onclick="cadShowTab(\'apps\');cadRenderAppsTab()" style="background:none;border:none;color:#8a9ab0;font-weight:600;padding:12px 20px;cursor:pointer;font-size:12px;border-bottom:2px solid transparent;margin-bottom:-2px">🏭 Aplicações</button>';
+  html += '<button data-detab="rels" onclick="cadShowTab(\'rels\');cadRenderRelsTab()" style="background:none;border:none;color:#8a9ab0;font-weight:600;padding:12px 20px;cursor:pointer;font-size:12px;border-bottom:2px solid transparent;margin-bottom:-2px">🔗 Relacionados</button>';
+  html += '</div>';
+  
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">';
   // Foto
   html += '<div style="border:2px dashed #e0e8f0;border-radius:10px;padding:14px;text-align:center;background:#F8FAFC">';
@@ -8672,6 +8682,9 @@ function cadFormProduto(data,idx){
   html += '<button ontouchstart="" onclick="cadGoTab(\'produtos\')" style="background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:13px">Cancelar</button>';
   html += '<button ontouchstart="" onclick="cadSalvarProduto('+idx+')" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:13px;font-weight:700">💾 Salvar Produto</button>';
   html += '</div></div>';
+
+  // Wrap content in aba Geral e add outras abas
+  html = '<div id="cadAbGeral">' + html + '</div><div id="cadAbFotos" style="display:none"></div><div id="cadAbApps" style="display:none"></div><div id="cadAbRels" style="display:none"></div>';
 
   el.innerHTML = html;
 }
@@ -13948,6 +13961,7 @@ function ferrRender(){
   if(_canSee('ferr_me_avise')) mkCard('🔔','Me Avise','Alertas de reposição','#E67E22',function(){ferrMeAvise();});
   if(_canSee('ferr_cad_reativ')) mkCard('📋','Cadastro / Reativ.','Script faturado a prazo','#7B2D8B',function(){ferrCadastroReativ();});
   if(_canSee('ferr_leitor')) mkCard('📝','Leitor de Peças','PDF/foto/texto → planilha','#0D7377',function(){ferrLeitorPecas();});
+  if(_canSee('ferr_gerenciar_itens')) mkCard('📦','Gerenciar Itens','Fotos, observações, aplicações','#E67E22',function(){ferrGerenciarItens();});
   // Aplica restrição de role LEGADA — só quando o usuário ainda não tem
   // permissões granulares (modulos) configuradas; senão o _canSee() acima
   // já decidiu corretamente card por card e não deve ser sobrescrito
@@ -15350,6 +15364,172 @@ function pfNavigate(view){
     currentView='ferramentas';
     setTimeout(function(){if(typeof ferrRender==='function')ferrRender();},30);
   }
+}
+
+// ════════════════════════════════════════════════════════════════
+// CADASTROS — ABA DETALHES (Fotos, Observações, Aplicações)
+// ════════════════════════════════════════════════════════════════
+
+var _cadProdIdx = -1;
+var _cadProdRef = '';
+var _cadDetalhesTab = 'fotos';
+
+function cadShowTab(tabName){
+  _cadDetalhesTab = tabName;
+  var fotos = document.getElementById('cadAbFotos');
+  var apps = document.getElementById('cadAbApps');
+  var rels = document.getElementById('cadAbRels');
+  
+  if(fotos) fotos.style.display = (tabName === 'fotos') ? 'block' : 'none';
+  if(apps) apps.style.display = (tabName === 'apps') ? 'block' : 'none';
+  if(rels) rels.style.display = (tabName === 'rels') ? 'block' : 'none';
+  
+  document.querySelectorAll('[data-detab]').forEach(function(btn){
+    btn.style.borderBottomColor = (btn.dataset.detab === tabName) ? '#1F4E79' : 'transparent';
+    btn.style.color = (btn.dataset.detab === tabName) ? '#1F4E79' : '#8a9ab0';
+    btn.style.fontWeight = (btn.dataset.detab === tabName) ? '700' : '600';
+  });
+}
+
+function cadRenderFotosTab(){
+  var el = document.getElementById('cadAbFotos');
+  if(!el) return;
+  el.innerHTML = '<div style="padding:20px"><div style="font-size:13px;font-weight:700;color:#1F4E79;margin-bottom:16px">📸 Fotos</div><div id="cadFotoUploadZone" style="border:2px dashed #d0d8e8;border-radius:8px;padding:30px;text-align:center;background:#FAFBFC;margin-bottom:16px" ondragover="this.style.background=\'#EBF4FF\';this.style.borderColor=\'#1F4E79\'" ondragleave="this.style.background=\'#FAFBFC\';this.style.borderColor=\'#d0d8e8\'" ondrop="event.preventDefault();cadUploadFotoDetalhes(event.dataTransfer.files)"><div style="font-size:32px;margin-bottom:8px">📁</div><div style="font-size:13px;font-weight:700;color:#1F4E79">Arraste fotos</div><div style="font-size:11px;color:#8a9ab0;margin-top:4px">ou <span onclick="document.getElementById(\'cadFileInputFoto\').click()" style="color:#1F4E79;text-decoration:underline;cursor:pointer">clique</span></div><input type="file" id="cadFileInputFoto" multiple accept="image/*" style="display:none" onchange="cadUploadFotoDetalhes(this.files)"></div><div id="cadFotosPreview" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:12px"></div></div>';
+  cadCarregarFotosSupabase();
+  document.addEventListener('paste', cadHandlePasteDetalhes);
+}
+
+function cadCarregarFotosSupabase(){
+  if(!_cadProdRef) return;
+  supabase.from('item_fotos').select('*').eq('item_ref', _cadProdRef).order('ordem').then(function(res){
+    var fotos = res.data || [];
+    var preview = document.getElementById('cadFotosPreview');
+    if(!preview) return;
+    preview.innerHTML = '';
+    fotos.forEach(function(f){
+      var card = document.createElement('div');
+      card.style.cssText = 'position:relative;border-radius:8px;overflow:hidden;border:1px solid #e0e8f0;width:100px;height:100px';
+      var img = document.createElement('img');
+      img.src = f.url;
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;cursor:pointer';
+      img.onclick = function(){ cadExpandFoto(f.url); };
+      var btnDel = document.createElement('button');
+      btnDel.textContent = '✕';
+      btnDel.style.cssText = 'position:absolute;top:2px;right:2px;background:#C00000;color:#fff;border:none;width:20px;height:20px;border-radius:3px;cursor:pointer';
+      btnDel.onclick = function(){ cadDelFoto(f.id); };
+      card.appendChild(img);
+      card.appendChild(btnDel);
+      preview.appendChild(card);
+    });
+  });
+}
+
+function cadExpandFoto(url){
+  var modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:10000;cursor:pointer';
+  modal.onclick = function(){ modal.remove(); };
+  var img = document.createElement('img');
+  img.src = url;
+  img.style.cssText = 'max-width:90vw;max-height:90vh;border-radius:8px';
+  img.onclick = function(e){ e.stopPropagation(); };
+  modal.appendChild(img);
+  document.body.appendChild(modal);
+}
+
+function cadUploadFotoDetalhes(files){
+  if(!_cadProdRef){ alert('Salve o produto primeiro!'); return; }
+  Array.from(files).forEach(function(file, idx){
+    if(!file.type.startsWith('image/')) return;
+    var reader = new FileReader();
+    reader.onload = function(e){
+      supabase.from('item_fotos').insert({ item_ref: _cadProdRef, url: e.target.result, ordem: (new Date()).getTime() + idx }).then(function(){ cadCarregarFotosSupabase(); }).catch(function(err){ alert('Erro: ' + err.message); });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function cadHandlePasteDetalhes(e){
+  if(currentView !== 'cadastros' || _cadDetalhesTab !== 'fotos' || !_cadProdRef) return;
+  var items = e.clipboardData.items;
+  for(var i = 0; i < items.length; i++){
+    if(items[i].type.indexOf('image') >= 0){
+      e.preventDefault();
+      cadUploadFotoDetalhes([items[i].getAsFile()]);
+    }
+  }
+}
+
+function cadDelFoto(fotoId){
+  if(!_safeConfirm('Deletar foto?')) return;
+  supabase.from('item_fotos').delete().eq('id', fotoId).then(function(){ cadCarregarFotosSupabase(); });
+}
+
+function cadRenderAppsTab(){
+  var el = document.getElementById('cadAbApps');
+  if(!el) return;
+  el.innerHTML = '<div style="padding:20px"><div style="font-size:13px;font-weight:700;color:#1F4E79;margin-bottom:16px">🏭 Aplicações</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px"><div><label style="font-size:11px;color:#607080;font-weight:700;margin-bottom:4px;display:block">Modelo</label><input type="text" id="cadAppMaq" placeholder="Ex: Volvo FH16" style="width:100%;padding:8px;border:1px solid #d0d8e8;border-radius:6px;font-size:12px"></div><div><label style="font-size:11px;color:#607080;font-weight:700;margin-bottom:4px;display:block">Fabricante</label><input type="text" id="cadAppMaqFab" placeholder="Ex: Volvo" style="width:100%;padding:8px;border:1px solid #d0d8e8;border-radius:6px;font-size:12px"></div><div><label style="font-size:11px;color:#607080;font-weight:700;margin-bottom:4px;display:block">Componente</label><input type="text" id="cadAppComp" placeholder="Ex: Abraçadeira" style="width:100%;padding:8px;border:1px solid #d0d8e8;border-radius:6px;font-size:12px"></div><div><label style="font-size:11px;color:#607080;font-weight:700;margin-bottom:4px;display:block">Fabricante</label><input type="text" id="cadAppCompFab" placeholder="Ex: Spicer" style="width:100%;padding:8px;border:1px solid #d0d8e8;border-radius:6px;font-size:12px"></div></div><button onclick="cadAddApp()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;font-weight:700;font-size:12px;margin-bottom:16px">+ App</button><div id="cadAppList"></div></div>';
+  cadCarregarAppsSupabase();
+}
+
+function cadCarregarAppsSupabase(){
+  if(!_cadProdRef) return;
+  supabase.from('item_aplicacoes').select('*').eq('item_ref', _cadProdRef).then(function(res){
+    var apps = res.data || [];
+    var list = document.getElementById('cadAppList');
+    if(!list) return;
+    list.innerHTML = '';
+    apps.forEach(function(app){
+      var card = document.createElement('div');
+      card.style.cssText = 'background:#FFF9E6;border:1px solid #E67E22;border-radius:6px;padding:12px;margin-bottom:8px;font-size:12px';
+      card.innerHTML = '<div><strong>🚗 ' + app.modelo_maquina + '</strong> (' + app.fabricante_maquina + ')</div><div>⚙️ ' + app.componente + ' (' + app.fabricante_componente + ')</div><button onclick="cadDelApp(\'' + app.id + '\')" style="margin-top:8px;background:#C00000;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px">✕</button>';
+      list.appendChild(card);
+    });
+  });
+}
+
+function cadAddApp(){
+  var maq = document.getElementById('cadAppMaq').value.trim();
+  if(!maq){ alert('Preencha modelo'); return; }
+  supabase.from('item_aplicacoes').insert({ item_ref: _cadProdRef, modelo_maquina: maq, fabricante_maquina: document.getElementById('cadAppMaqFab').value.trim(), componente: document.getElementById('cadAppComp').value.trim(), fabricante_componente: document.getElementById('cadAppCompFab').value.trim() }).then(function(){ document.getElementById('cadAppMaq').value = ''; cadCarregarAppsSupabase(); }).catch(function(e){ alert('Erro: ' + e.message); });
+}
+
+function cadDelApp(id){
+  if(!_safeConfirm('Remover?')) return;
+  supabase.from('item_aplicacoes').delete().eq('id', id).then(function(){ cadCarregarAppsSupabase(); });
+}
+
+function cadRenderRelsTab(){
+  var el = document.getElementById('cadAbRels');
+  if(!el) return;
+  el.innerHTML = '<div style="padding:20px"><div style="font-size:13px;font-weight:700;color:#1F4E79;margin-bottom:16px">🔗 Relacionados</div><div style="display:flex;gap:12px;margin-bottom:16px"><input type="text" id="cadRelRef" placeholder="Código" style="flex:1;padding:8px;border:1px solid #d0d8e8;border-radius:6px;font-size:12px"><select id="cadRelTipo" style="padding:8px;border:1px solid #d0d8e8;border-radius:6px;font-size:12px"><option>Compatível</option><option>Acessório</option></select><button onclick="cadAddRel()" style="background:#1F4E79;color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:12px">+</button></div><div id="cadRelList"></div></div>';
+  cadCarregarRelsSupabase();
+}
+
+function cadCarregarRelsSupabase(){
+  if(!_cadProdRef) return;
+  supabase.from('item_relacionados').select('*').eq('item_ref', _cadProdRef).then(function(res){
+    var rels = res.data || [];
+    var list = document.getElementById('cadRelList');
+    if(!list) return;
+    list.innerHTML = '';
+    rels.forEach(function(rel){
+      var tag = document.createElement('div');
+      tag.style.cssText = 'background:#E8F4F8;border:1px solid #1F4E79;border-radius:6px;padding:8px 12px;font-size:12px;display:inline-flex;align-items:center;gap:8px;margin-right:8px;margin-bottom:8px';
+      tag.innerHTML = '<span><strong>' + rel.related_ref + '</strong></span><button onclick="cadDelRel(\'' + rel.id + '\')" style="background:#C00000;color:#fff;border:none;width:18px;height:18px;border-radius:3px;cursor:pointer;font-size:11px;padding:0">✕</button>';
+      list.appendChild(tag);
+    });
+  });
+}
+
+function cadAddRel(){
+  var ref = document.getElementById('cadRelRef').value.trim().toUpperCase();
+  if(!ref){ alert('Preencha ref'); return; }
+  supabase.from('item_relacionados').insert({ item_ref: _cadProdRef, related_ref: ref, tipo: document.getElementById('cadRelTipo').value }).then(function(){ document.getElementById('cadRelRef').value = ''; cadCarregarRelsSupabase(); }).catch(function(e){ alert('Erro: ' + e.message); });
+}
+
+function cadDelRel(id){
+  if(!_safeConfirm('Remover?')) return;
+  supabase.from('item_relacionados').delete().eq('id', id).then(function(){ cadCarregarRelsSupabase(); });
 }
 
 // ════════════════════════════════════════════════════════════════

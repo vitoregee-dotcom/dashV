@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.148</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.149</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.148</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.149</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -7784,12 +7784,20 @@ var FORN_KEY='cad_fornecedores_v1';
 // ── Importação em lote de fornecedores (planilha de distribuidores) ──
 function cadImportFornecedoresBulk(arr){
   var flist=cadLoad(FORN_KEY);
-  var existentes={};
-  flist.forEach(function(f){existentes[(f.razao||'').toUpperCase().trim()]=true;});
-  var add=[],pulados=[];
+  var idxByName={};
+  flist.forEach(function(f,i){idxByName[(f.razao||'').toUpperCase().trim()]=i;});
+  var add=[],mesclados=[];
   arr.forEach(function(it){
     var key=(it.razao||'').toUpperCase().trim();
-    if(existentes[key]){pulados.push(it.razao);return;}
+    if(idxByName.hasOwnProperty(key)){
+      var ex=flist[idxByName[key]];
+      ex.marcasTrab=ex.marcasTrab||[];
+      (it.marcasTrab||[]).forEach(function(m){if(ex.marcasTrab.indexOf(m)<0)ex.marcasTrab.push(m);});
+      if(it.obs&&(!ex.obs||ex.obs.indexOf(it.obs)<0))ex.obs=(ex.obs?ex.obs+' | ':'')+it.obs;
+      if(!ex.cnpj&&it.cnpj)ex.cnpj=it.cnpj;
+      mesclados.push(it.razao);
+      return;
+    }
     add.push({
       id:'f_'+Date.now()+'_'+Math.floor(Math.random()*10000),
       razao:it.razao, nome:it.razao,
@@ -7810,14 +7818,37 @@ function cadImportFornecedoresBulk(arr){
       obs:it.obs||'',
       historico:[],
     });
-    existentes[key]=true;
+    idxByName[key]=flist.length+add.length-1;
   });
   flist=flist.concat(add);
   cadSave(FORN_KEY,flist);
   cadPushSupabase();
-  console.log('Importação fornecedores: '+add.length+' adicionados, '+pulados.length+' já existiam ('+pulados.join(', ')+')');
-  return {adicionados:add.length, pulados:pulados};
+  console.log('Importação fornecedores: '+add.length+' novos, '+mesclados.length+' mesclados (marca adicionada) ('+mesclados.join(', ')+')');
+  return {adicionados:add.length, mesclados:mesclados};
 }
+(function(){
+  if(localStorage.getItem('cadImportTIMKEN_v1'))return;
+  setTimeout(function(){
+    if(typeof cadImportFornecedoresBulk!=='function')return;
+    var lista=[
+      // novos
+      {razao:'ROLPORT ROLAMENTOS IMPORTACAO E COMERCIO LTDA',cnpj:'56.611.056/0001-37',tel:'(11) 3385-7615',cidade:'São Paulo',estado:'SP',contato:'SOUZA',marcasTrab:['TIMKEN']},
+      {razao:'RPL ROLAMENTOS PAULISTA LTDA',cnpj:'62.969.951/0001-20',tel:'(11) 3024-4000',cidade:'São Paulo',estado:'SP',contato:'VAGNER',marcasTrab:['TIMKEN']},
+      {razao:'BRASTRELA IMPORTACAO E EXPORTACAO LTDA',cnpj:'00.546.078/0001-06',tel:'(11) 3868-6100',cidade:'São Paulo',estado:'SP',contato:'REGINA',marcasTrab:['TIMKEN'],obs:'Também distribui FAG, INA e é distribuidor exclusivo EZO no Brasil.'},
+      {razao:'IMPORTADORA DE ROLAMENTOS RADIAL LTDA',cnpj:'62.014.030/0001-04',tel:'(11) 2174-3700',cidade:'São Paulo',estado:'SP',contato:'MARCELO',marcasTrab:['TIMKEN','NSK']},
+      {razao:'ROMACO COMERCIAL IMPORTADORA DE ROLAMENTOS LTDA',cnpj:'85.108.314/0002-46',tel:'(11) 2296-8052',cidade:'São Paulo',estado:'SP',contato:'EDER',marcasTrab:['TIMKEN','NSK'],obs:'CNPJ da filial SP - matriz é em Joinville/SC.'},
+      // mescla marca em quem já existe da leva SKF
+      {razao:'ENCOPEL COMERCIO DE ROLAMENTOS E PECAS LTDA',marcasTrab:['TIMKEN']},
+      {razao:'ABECOM ROLAMENTOS E PRODUTOS DE BORRACHA LTDA',marcasTrab:['TIMKEN']},
+      {razao:'SOPETRA ROLAMENTOS E PECAS LTDA',marcasTrab:['TIMKEN']},
+      {razao:'NORPEM COMERCIAL LTDA',marcasTrab:['TIMKEN']},
+      {razao:'ROLAMENTOS CBF LTDA.',marcasTrab:['TIMKEN','NSK'],obs:'Já cadastrado antes (outra sessão) - marcas TIMKEN/NSK mescladas via planilha de distribuidores.'},
+    ];
+    var r=cadImportFornecedoresBulk(lista);
+    localStorage.setItem('cadImportTIMKEN_v1','1');
+    if(typeof _safeAlert==='function')_safeAlert('Importação TIMKEN: '+r.adicionados+' novos, '+r.mesclados.length+' tiveram marca mesclada.');
+  },1500);
+})();
 (function(){
   if(localStorage.getItem('cadImportSKF_v2_retry'))return;
   setTimeout(function(){

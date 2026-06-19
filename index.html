@@ -8670,6 +8670,7 @@ function cadFormProduto(data,idx){
 
   html += '<div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">';
   html += '<button ontouchstart="" onclick="cadGoTab(\'produtos\')" style="background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:13px">Cancelar</button>';
+  if(idx >= 0 && d.codigo) html += '<button ontouchstart="" onclick="cadAbrirModalDetalhes(\''+d.codigo+'\')" style="background:#E67E22;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:13px;font-weight:700">📦 Detalhes</button>';
   html += '<button ontouchstart="" onclick="cadSalvarProduto('+idx+')" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:13px;font-weight:700">💾 Salvar Produto</button>';
   html += '</div></div>';
 
@@ -15350,6 +15351,167 @@ function pfNavigate(view){
     currentView='ferramentas';
     setTimeout(function(){if(typeof ferrRender==='function')ferrRender();},30);
   }
+}
+
+// ════════════════════════════════════════════════════════════════
+// MODAL DE DETALHES — Fotos, Aplicações, Relacionados
+// ════════════════════════════════════════════════════════════════
+
+var _detalhesItemRef = '';
+var _detalhesTab = 'fotos';
+
+function cadAbrirModalDetalhes(prodRef){
+  _detalhesItemRef = prodRef;
+  _detalhesTab = 'fotos';
+  
+  var modal = document.createElement('div');
+  modal.id = 'cadDetalhesModal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999';
+  modal.onclick = function(e){ if(e.target === modal) cadFecharModalDetalhes(); };
+  
+  modal.innerHTML = 
+    '<div style="background:#fff;border-radius:12px;width:90%;max-width:700px;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">'+
+    '<div style="display:flex;align-items:center;gap:12px;padding:20px;border-bottom:1px solid #e0e8f0"><div style="font-size:18px;font-weight:800;color:#1F4E79">📦 '+prodRef+'</div><button onclick="cadFecharModalDetalhes()" style="margin-left:auto;background:none;border:none;font-size:24px;cursor:pointer;color:#8a9ab0">✕</button></div>'+
+    '<div style="display:flex;gap:0;border-bottom:1px solid #e0e8f0;padding:0 20px;background:#FAFBFC">'+
+    '<button onclick="cadMudaAbadetalhe(\'fotos\')" data-dettab="fotos" style="background:none;border:none;color:#1F4E79;font-weight:700;padding:12px 20px;cursor:pointer;font-size:12px;border-bottom:2px solid #1F4E79">📸 Fotos</button>'+
+    '<button onclick="cadMudaAbadetalhe(\'apps\')" data-dettab="apps" style="background:none;border:none;color:#8a9ab0;font-weight:600;padding:12px 20px;cursor:pointer;font-size:12px;border-bottom:2px solid transparent">🏭 Apps</button>'+
+    '<button onclick="cadMudaAbadetalhe(\'rels\')" data-dettab="rels" style="background:none;border:none;color:#8a9ab0;font-weight:600;padding:12px 20px;cursor:pointer;font-size:12px;border-bottom:2px solid transparent">🔗 Rels</button>'+
+    '</div>'+
+    '<div id="detAbFotos" style="padding:20px"></div>'+
+    '<div id="detAbApps" style="padding:20px;display:none"></div>'+
+    '<div id="detAbRels" style="padding:20px;display:none"></div>'+
+    '</div>';
+  
+  document.body.appendChild(modal);
+  cadMudaAbadetalhe('fotos');
+}
+
+function cadFecharModalDetalhes(){
+  var m = document.getElementById('cadDetalhesModal');
+  if(m) m.remove();
+}
+
+function cadMudaAbadetalhe(tab){
+  _detalhesTab = tab;
+  document.getElementById('detAbFotos').style.display = 'none';
+  document.getElementById('detAbApps').style.display = 'none';
+  document.getElementById('detAbRels').style.display = 'none';
+  var el = document.getElementById('detAb' + (tab === 'fotos' ? 'Fotos' : tab === 'apps' ? 'Apps' : 'Rels'));
+  if(el) el.style.display = 'block';
+  document.querySelectorAll('[data-dettab]').forEach(function(b){ b.style.borderBottomColor = (b.dataset.dettab === tab) ? '#1F4E79' : 'transparent'; b.style.color = (b.dataset.dettab === tab) ? '#1F4E79' : '#8a9ab0'; });
+  if(tab === 'fotos') cadRenderDetalheFotos(); else if(tab === 'apps') cadRenderDetalheApps(); else cadRenderDetalheRels();
+}
+
+function cadRenderDetalheFotos(){
+  var el = document.getElementById('detAbFotos');
+  if(!el) return;
+  el.innerHTML = '<div style="font-size:13px;font-weight:700;color:#1F4E79;margin-bottom:16px">📸 Fotos</div><div id="detFotoUploadZone" style="border:2px dashed #d0d8e8;border-radius:8px;padding:20px;text-align:center;background:#FAFBFC;margin-bottom:16px" ondragover="this.style.background=\'#EBF4FF\';this.style.borderColor=\'#1F4E79\'" ondragleave="this.style.background=\'#FAFBFC\';this.style.borderColor=\'#d0d8e8\'" ondrop="event.preventDefault();cadUploadDetalheFoto(event.dataTransfer.files)"><div style="font-size:24px;margin-bottom:8px">📁</div><div style="font-size:12px;font-weight:700;color:#1F4E79">Arraste</div><input type="file" id="detFileInput" multiple accept="image/*" style="display:none" onchange="cadUploadDetalheFoto(this.files)"><button onclick="document.getElementById(\'detFileInput\').click()" style="margin-top:8px;background:#1F4E79;color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:11px;font-weight:700">Selecionar</button></div><div id="detFotosPreview" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:12px"></div>';
+  cadCarregarDetalheFotos();
+  document.addEventListener('paste', cadHandleDetailPaste);
+}
+
+function cadCarregarDetalheFotos(){
+  if(!_detalhesItemRef) return;
+  supabase.from('item_fotos').select('*').eq('item_ref', _detalhesItemRef).order('ordem').then(function(res){
+    var fotos = res.data || [];
+    var preview = document.getElementById('detFotosPreview');
+    if(!preview) return;
+    preview.innerHTML = '';
+    fotos.forEach(function(f){
+      var card = document.createElement('div');
+      card.style.cssText = 'position:relative;border-radius:8px;overflow:hidden;border:1px solid #e0e8f0;width:80px;height:80px';
+      var img = document.createElement('img');
+      img.src = f.url;
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;cursor:pointer';
+      img.onclick = function(){ cadExpandDetalheFoto(f.url); };
+      var btn = document.createElement('button');
+      btn.textContent = '✕';
+      btn.style.cssText = 'position:absolute;top:2px;right:2px;background:#C00000;color:#fff;border:none;width:18px;height:18px;border-radius:3px;cursor:pointer;font-size:12px;font-weight:700;padding:0';
+      btn.onclick = function(){ cadDelDetalheFoto(f.id); };
+      card.appendChild(img);
+      card.appendChild(btn);
+      preview.appendChild(card);
+    });
+  });
+}
+
+function cadUploadDetalheFoto(files){
+  if(!_detalhesItemRef){ alert('Erro'); return; }
+  Array.from(files).forEach(function(file, idx){
+    if(!file.type.startsWith('image/')) return;
+    var reader = new FileReader();
+    reader.onload = function(e){ supabase.from('item_fotos').insert({ item_ref: _detalhesItemRef, url: e.target.result, ordem: (new Date()).getTime() + idx }).then(function(){ cadCarregarDetalheFotos(); }).catch(function(err){ alert('Erro: '+err.message); }); };
+    reader.readAsDataURL(file);
+  });
+}
+
+function cadExpandDetalheFoto(url){
+  var modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:10000;cursor:pointer';
+  modal.onclick = function(){ modal.remove(); };
+  var img = document.createElement('img');
+  img.src = url;
+  img.style.cssText = 'max-width:85vw;max-height:85vh;border-radius:8px';
+  img.onclick = function(e){ e.stopPropagation(); };
+  modal.appendChild(img);
+  document.body.appendChild(modal);
+}
+
+function cadDelDetalheFoto(id){
+  if(!confirm('Deletar?')) return;
+  supabase.from('item_fotos').delete().eq('id', id).then(function(){ cadCarregarDetalheFotos(); });
+}
+
+function cadHandleDetailPaste(e){
+  if(_detalhesTab !== 'fotos' || !_detalhesItemRef) return;
+  var items = e.clipboardData.items;
+  for(var i = 0; i < items.length; i++){ if(items[i].type.indexOf('image') >= 0){ e.preventDefault(); cadUploadDetalheFoto([items[i].getAsFile()]); } }
+}
+
+function cadRenderDetalheApps(){
+  var el = document.getElementById('detAbApps');
+  if(!el) return;
+  el.innerHTML = '<div style="font-size:13px;font-weight:700;color:#1F4E79;margin-bottom:12px">🏭 Aplicações</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px"><input type="text" id="detAppMaq" placeholder="Modelo" style="padding:8px;border:1px solid #d0d8e8;border-radius:6px;font-size:11px"><input type="text" id="detAppMaqFab" placeholder="Fabricante" style="padding:8px;border:1px solid #d0d8e8;border-radius:6px;font-size:11px"><input type="text" id="detAppComp" placeholder="Componente" style="padding:8px;border:1px solid #d0d8e8;border-radius:6px;font-size:11px"><input type="text" id="detAppCompFab" placeholder="Fabricante" style="padding:8px;border:1px solid #d0d8e8;border-radius:6px;font-size:11px"></div><button onclick="cadAddDetalheApp()" style="background:#1F4E79;color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-weight:700;font-size:11px;margin-bottom:12px">+ Adicionar</button><div id="detAppList"></div>';
+  cadCarregarDetalheApps();
+}
+
+function cadCarregarDetalheApps(){
+  if(!_detalhesItemRef) return;
+  supabase.from('item_aplicacoes').select('*').eq('item_ref', _detalhesItemRef).then(function(res){ var apps = res.data || []; var list = document.getElementById('detAppList'); if(!list) return; list.innerHTML = ''; apps.forEach(function(app){ var card = document.createElement('div'); card.style.cssText = 'background:#FFF9E6;border:1px solid #E67E22;border-radius:6px;padding:10px;margin-bottom:8px;font-size:11px'; card.innerHTML = '<div><strong>'+app.modelo_maquina+'</strong> ('+app.fabricante_maquina+')</div><div>'+app.componente+' ('+app.fabricante_componente+')</div><button onclick="cadDelDetalheApp(\''+app.id+'\')" style="margin-top:6px;background:#C00000;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:10px">✕</button>'; list.appendChild(card); }); });
+}
+
+function cadAddDetalheApp(){
+  var maq = document.getElementById('detAppMaq').value.trim();
+  if(!maq){ alert('Preencha modelo'); return; }
+  supabase.from('item_aplicacoes').insert({ item_ref: _detalhesItemRef, modelo_maquina: maq, fabricante_maquina: document.getElementById('detAppMaqFab').value.trim(), componente: document.getElementById('detAppComp').value.trim(), fabricante_componente: document.getElementById('detAppCompFab').value.trim() }).then(function(){ document.getElementById('detAppMaq').value=''; cadCarregarDetalheApps(); }).catch(function(e){ alert('Erro: '+e.message); });
+}
+
+function cadDelDetalheApp(id){
+  if(!confirm('Remover?')) return;
+  supabase.from('item_aplicacoes').delete().eq('id', id).then(function(){ cadCarregarDetalheApps(); });
+}
+
+function cadRenderDetalheRels(){
+  var el = document.getElementById('detAbRels');
+  if(!el) return;
+  el.innerHTML = '<div style="font-size:13px;font-weight:700;color:#1F4E79;margin-bottom:12px">🔗 Relacionados</div><div style="display:flex;gap:8px;margin-bottom:12px"><input type="text" id="detRelRef" placeholder="Código" style="flex:1;padding:8px;border:1px solid #d0d8e8;border-radius:6px;font-size:11px"><button onclick="cadAddDetalheRel()" style="background:#1F4E79;color:#fff;border:none;border-radius:6px;padding:8px 14px;cursor:pointer;font-weight:700;font-size:11px">+</button></div><div id="detRelList"></div>';
+  cadCarregarDetalheRels();
+}
+
+function cadCarregarDetalheRels(){
+  if(!_detalhesItemRef) return;
+  supabase.from('item_relacionados').select('*').eq('item_ref', _detalhesItemRef).then(function(res){ var rels = res.data || []; var list = document.getElementById('detRelList'); if(!list) return; list.innerHTML = ''; rels.forEach(function(rel){ var tag = document.createElement('div'); tag.style.cssText = 'background:#E8F4F8;border:1px solid #1F4E79;border-radius:6px;padding:8px;font-size:11px;display:inline-flex;align-items:center;gap:6px;margin-right:6px;margin-bottom:6px'; tag.innerHTML = '<strong>'+rel.related_ref+'</strong><button onclick="cadDelDetalheRel(\''+rel.id+'\')" style="background:#C00000;color:#fff;border:none;width:16px;height:16px;border-radius:3px;cursor:pointer;font-size:10px;padding:0">✕</button>'; list.appendChild(tag); }); });
+}
+
+function cadAddDetalheRel(){
+  var ref = document.getElementById('detRelRef').value.trim().toUpperCase();
+  if(!ref){ alert('Preencha ref'); return; }
+  supabase.from('item_relacionados').insert({ item_ref: _detalhesItemRef, related_ref: ref, tipo: 'compatível' }).then(function(){ document.getElementById('detRelRef').value=''; cadCarregarDetalheRels(); }).catch(function(e){ alert('Erro: '+e.message); });
+}
+
+function cadDelDetalheRel(id){
+  if(!confirm('Remover?')) return;
+  supabase.from('item_relacionados').delete().eq('id', id).then(function(){ cadCarregarDetalheRels(); });
 }
 
 // ════════════════════════════════════════════════════════════════

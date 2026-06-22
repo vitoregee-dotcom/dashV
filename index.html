@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.165</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.166</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.165</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.166</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -13379,7 +13379,12 @@ function pvVerDetalhe(id){
   var list=pvLoad();
   var p=list.find(function(x){return x.id===id;});
   if(!p)return;
-  var txt=p.numero+' - '+(p.clienteRazao||'—')+'\n\n'+p.itens.map(function(it){return it.qtd+'x '+it.codigo+' ('+(it.marca||'—')+') - '+(it.desc||'');}).join('\n');
+  var entregaTxt=p.entrega?(p.entrega+(p.transportadora?' ('+p.transportadora+')':'')):'—';
+  var txt=p.numero+' - '+(p.clienteRazao||'—')+
+    '\nPrazo: '+(p.prazoPagamento||'—')+
+    '\nEntrega: '+entregaTxt+
+    (p.obs?'\nObs: '+p.obs:'')+
+    '\n\n'+p.itens.map(function(it){return it.qtd+'x '+it.codigo+' ('+(it.marca||'—')+') - '+(it.desc||'');}).join('\n');
   alert(txt);
 }
 
@@ -13411,7 +13416,84 @@ function pvCriarPedido(){
     itensSel.push({codigo:it.codigo,desc:it.desc,marca:it.marca,marcaInterna:marcaReal,qtd:it.qtd,custo:custo,venda:venda,familia:pvFindFamilia(it.codigo,marcaReal)});
   });
   if(!itensSel.length){alert('Selecione ao menos um item na coluna PV.');return;}
-  if(!confirm('Criar pedido de venda com '+itensSel.length+' item(ns)?\nO saldo desses itens será abatido imediatamente.'))return;
+  window._pvItensPendentes=itensSel;
+  pvAbrirConfirmacao();
+}
+
+function pvUltimasTransportadoras(clienteRazao){
+  var list=pvLoad();
+  var razao=(clienteRazao||'').toUpperCase();
+  var doCliente=list.filter(function(p){return (p.clienteRazao||'').toUpperCase()===razao&&p.transportadora;});
+  doCliente.sort(function(a,b){return new Date(b.data)-new Date(a.data);});
+  var vistos=[],out=[];
+  doCliente.forEach(function(p){
+    if(vistos.indexOf(p.transportadora)<0){vistos.push(p.transportadora);out.push(p.transportadora);}
+  });
+  return out.slice(0,3);
+}
+
+function pvAbrirConfirmacao(){
+  var v=window._venda;
+  var sugestoes=pvUltimasTransportadoras(v.cliente&&v.cliente.razao);
+  var overlay=document.createElement('div');
+  overlay.id='pvConfirmModal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML=
+    '<div style="background:#fff;border-radius:12px;padding:24px;max-width:420px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.3)">'+
+    '<div style="font-size:15px;font-weight:800;color:#1F4E79;margin-bottom:16px">📦 Confirmar Pedido de Venda</div>'+
+    '<div style="margin-bottom:14px">'+
+      '<div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:5px">Prazo de Pagamento</div>'+
+      '<input type="text" id="pvPrazoInput" value="'+((v.condicao||'').replace(/"/g,'&quot;'))+'" placeholder="Ex: 30/60 DDL" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:13px">'+
+    '</div>'+
+    '<div style="margin-bottom:14px">'+
+      '<div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:5px">Entrega</div>'+
+      '<div id="pvEntregaBtns" style="display:flex;gap:6px">'+
+        ['Retirado','Entregue','Transportadora'].map(function(t){
+          return '<button type="button" ontouchstart="" onclick="pvSetEntregaTipo(\''+t+'\')" data-tipo="'+t+'" style="flex:1;padding:8px 6px;border-radius:7px;border:1.5px solid #e0e8f0;background:#fff;color:#607080;font-size:12px;font-weight:600;cursor:pointer">'+t+'</button>';
+        }).join('')+
+      '</div>'+
+    '</div>'+
+    '<div id="pvTranspWrap" style="display:none;margin-bottom:14px">'+
+      '<div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:5px">Transportadora</div>'+
+      '<input type="text" id="pvTranspInput" placeholder="Nome da transportadora" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:13px;margin-bottom:6px">'+
+      (sugestoes.length?'<div style="font-size:10px;color:#8a9ab0;margin-bottom:4px">Últimas usadas com esse cliente:</div><div style="display:flex;gap:5px;flex-wrap:wrap">'+sugestoes.map(function(t){return '<button type="button" ontouchstart="" onclick="document.getElementById(\'pvTranspInput\').value=\''+t.replace(/'/g,"\\'")+'\'" style="padding:4px 10px;border-radius:14px;border:1px solid #e0e8f0;background:#F7F9FC;color:#1F4E79;font-size:11px;cursor:pointer">'+t+'</button>';}).join('')+'</div>':'')+
+    '</div>'+
+    '<div style="margin-bottom:18px">'+
+      '<div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:5px">Observação (opcional)</div>'+
+      '<textarea id="pvObsInput" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:13px;min-height:50px;resize:vertical"></textarea>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end">'+
+      '<button type="button" ontouchstart="" onclick="document.getElementById(\'pvConfirmModal\').remove();window._pvItensPendentes=null" style="padding:9px 16px;border-radius:8px;border:1px solid #e0e8f0;background:#fff;color:#607080;font-size:13px;cursor:pointer">Cancelar</button>'+
+      '<button type="button" ontouchstart="" onclick="pvConfirmarCriarPedido()" style="padding:9px 18px;border-radius:8px;border:none;background:#27AE60;color:#fff;font-size:13px;font-weight:700;cursor:pointer">Criar Pedido</button>'+
+    '</div>'+
+    '</div>';
+  document.body.appendChild(overlay);
+  window._pvEntregaTipo=null;
+}
+
+function pvSetEntregaTipo(tipo){
+  window._pvEntregaTipo=tipo;
+  document.querySelectorAll('#pvEntregaBtns button').forEach(function(b){
+    var ativo=b.getAttribute('data-tipo')===tipo;
+    b.style.borderColor=ativo?'#1F4E79':'#e0e8f0';
+    b.style.background=ativo?'#1F4E79':'#fff';
+    b.style.color=ativo?'#fff':'#607080';
+  });
+  var tw=document.getElementById('pvTranspWrap');
+  if(tw)tw.style.display=tipo==='Transportadora'?'block':'none';
+}
+
+function pvConfirmarCriarPedido(){
+  var itensSel=window._pvItensPendentes;
+  if(!itensSel||!itensSel.length)return;
+  if(!window._pvEntregaTipo){alert('Selecione o tipo de entrega.');return;}
+  if(window._pvEntregaTipo==='Transportadora'&&!(document.getElementById('pvTranspInput').value||'').trim()){
+    alert('Informe a transportadora.');return;
+  }
+  var v=window._venda;
+  var prazo=(document.getElementById('pvPrazoInput')||{}).value||'';
+  var transp=window._pvEntregaTipo==='Transportadora'?(document.getElementById('pvTranspInput').value||'').trim():'';
+  var obs=(document.getElementById('pvObsInput')||{}).value||'';
   var list=pvLoad();
   var numero='PV-'+new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9000)+1000);
   var pedido={
@@ -13421,7 +13503,11 @@ function pvCriarPedido(){
     clienteRazao:(v.cliente&&v.cliente.razao)||'',
     cotacaoNum:v.num||null,
     itens:itensSel,
-    status:'aberto'
+    status:'aberto',
+    prazoPagamento:prazo,
+    entrega:window._pvEntregaTipo,
+    transportadora:transp,
+    obs:obs
   };
   list.push(pedido);
   pvSave(list);
@@ -13439,6 +13525,9 @@ function pvCriarPedido(){
     }catch(e){}
   }
   window._vendasSelPV={};
+  window._pvItensPendentes=null;
+  window._pvEntregaTipo=null;
+  var modal=document.getElementById('pvConfirmModal');if(modal)modal.remove();
   alert('Pedido '+numero+' criado e saldo abatido.');
   vendasRefresh();
 }

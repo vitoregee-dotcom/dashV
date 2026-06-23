@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.187</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.188</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.187</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.188</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -5338,11 +5338,20 @@ function renderAviseList(){
     return h;
   }).join('');
 }
+function _avisoNorm(s){return (s||'').toString().toUpperCase().replace(/[\s\-\.]/g,'');}
 function verificarAvisos(){
   if(!aviseItems.length)return;
   var chegaram=[];
   aviseItems.forEach(function(a,idx){
-    var item=calcItems.find(function(d){return d.ref===a.ref&&(!a.marca||d.marca.includes(a.marca)||a.marca.includes(d.marca.split(' ')[0]));});
+    var refN=_avisoNorm(a.ref);
+    var marcaN=_avisoNorm(a.marca);
+    var item=calcItems.find(function(d){
+      if(_avisoNorm(d.ref)!==refN)return false;
+      if(!marcaN)return true;
+      var dMarcaN=_avisoNorm(d.marca);
+      var dPrimeira=_avisoNorm((d.marca||'').split(' ')[0]);
+      return dMarcaN.indexOf(marcaN)>=0||marcaN.indexOf(dPrimeira)>=0;
+    });
     if(item&&item.saldo>(a.saldo||0)){
       chegaram.push({ref:a.ref,marca:item.marca,desc:item.desc,saldo:item.saldo,cod_cliente:a.cod_cliente,nome_cliente:a.nome_cliente,obs:a.obs,idx:idx});
       aviseItems[idx].saldo=item.saldo;
@@ -8397,11 +8406,13 @@ async function cadPushSupabase(){
     var clie=cadLoad(CLIE_KEY);
     var prod=cadLoad(typeof PROD_KEY!=='undefined'?PROD_KEY:'cad_produtos_v1');
     var aplic=cadLoad(typeof APLIC_KEY!=='undefined'?APLIC_KEY:'cad_aplicacoes_v1');
+    var cadrHist=cadLoad(typeof CADR_HIST_KEY!=='undefined'?CADR_HIST_KEY:'cadr_historico_scripts_v1');
     var tipos=[
       {tipo:'fornecedores',dados:forn},
       {tipo:'clientes',dados:clie},
       {tipo:'produtos',dados:prod},
-      {tipo:'aplicacoes',dados:aplic}
+      {tipo:'aplicacoes',dados:aplic},
+      {tipo:'cadr_historico',dados:cadrHist}
     ];
     for(var ti=0;ti<tipos.length;ti++){
       var t=tipos[ti];
@@ -8452,7 +8463,7 @@ async function cadPullSupabase(){
       try{
         var items=typeof row.dados==='string'?JSON.parse(row.dados):row.dados;
         if(!Array.isArray(items))return;
-        var key=row.tipo==='fornecedores'?FORN_KEY:row.tipo==='clientes'?CLIE_KEY:row.tipo==='aplicacoes'?(typeof APLIC_KEY!=='undefined'?APLIC_KEY:'cad_aplicacoes_v1'):(typeof PROD_KEY!=='undefined'?PROD_KEY:'cad_produtos_v1');
+        var key=row.tipo==='fornecedores'?FORN_KEY:row.tipo==='clientes'?CLIE_KEY:row.tipo==='aplicacoes'?(typeof APLIC_KEY!=='undefined'?APLIC_KEY:'cad_aplicacoes_v1'):row.tipo==='cadr_historico'?(typeof CADR_HIST_KEY!=='undefined'?CADR_HIST_KEY:'cadr_historico_scripts_v1'):(typeof PROD_KEY!=='undefined'?PROD_KEY:'cad_produtos_v1');
         // Supabase é a fonte de verdade - substitui local diretamente
         localStorage.setItem(key,JSON.stringify(items));
         console.log('✅ '+row.tipo+' puxados do Supabase: '+items.length);
@@ -14936,9 +14947,12 @@ function ferrCadastroReativ(){
     var regimes=[{id:'1',label:'1 | ME - SIMPLES NACIONAL'},{id:'2',label:'2 | EPP - SIMPLES NACIONAL'},{id:'3',label:'3 | LUCRO PRESUMIDO'},{id:'4',label:'4 | LUCRO ESTIMADO'},{id:'5',label:'5 | LUCRO REAL'},{id:'6',label:'6 | OUTROS'}];
     var step=window._cadReativStep;
     var html='<div style="width:100%">'+
-      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;justify-content:space-between">'+
+      '<div style="display:flex;align-items:center;gap:12px">'+
       '<button ontouchstart="" onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">&#8592; Voltar <kbd style="font-size:9px;background:#f0f4f8;padding:1px 5px;border-radius:3px">Esc</kbd></button>'+
-      '<div style="font-size:16px;font-weight:800;color:#7B2D8B">&#128203; Cadastro / Reativa&#231;&#227;o</div></div>';
+      '<div style="font-size:16px;font-weight:800;color:#7B2D8B">&#128203; Cadastro / Reativa&#231;&#227;o</div></div>'+
+      '<button ontouchstart="" onclick="cadReativAbrirHistorico()" style="background:#f3e8f7;border:1px solid #7B2D8B;color:#7B2D8B;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:700">&#128220; Hist&#243;rico</button>'+
+      '</div>';
     if(step==='upload'){
       html+=
         '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:24px;margin-bottom:16px">'+
@@ -15095,12 +15109,78 @@ function cadReativGerarScript(){
   window._cadReativStep='script';
   if(window._cadReativRender)window._cadReativRender();
 }
+var CADR_HIST_KEY='cadr_historico_scripts_v1';
 function cadReativCopiar(){
   var script=window._cadReativScript||'';
   navigator.clipboard.writeText(script).then(function(){
     var btn=document.getElementById('cadReativCopyBtn');
     if(btn){btn.textContent='Copiado!';btn.style.background='#1a7a1a';setTimeout(function(){btn.textContent='Copiar Script';btn.style.background='#7B2D8B';},2500);}
+    cadReativSalvarHistorico(script);
   });
+}
+function cadReativSalvarHistorico(script){
+  var list=cadLoad(CADR_HIST_KEY);
+  var d=window._cadReativData||{};
+  list.unshift({id:'cadr_'+Date.now(),data:Date.now(),nome:d.contato_nome||'(sem nome)',email:d.contato_email||'',script:script});
+  if(list.length>200)list=list.slice(0,200);
+  cadSave(CADR_HIST_KEY,list);
+}
+function cadReativAbrirHistorico(){
+  var old=document.getElementById('cadrHistModal');if(old)old.remove();
+  var list=cadLoad(CADR_HIST_KEY);
+  var overlay=document.createElement('div');
+  overlay.id='cadrHistModal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML=
+    '<div style="background:#fff;border-radius:12px;max-width:520px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.3);overflow:hidden">'+
+      '<div style="background:#7B2D8B;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">'+
+        '<span style="font-weight:700;font-size:14px">&#128220; Hist&#243;rico de Scripts</span>'+
+        '<button ontouchstart="" onclick="document.getElementById(\'cadrHistModal\').remove()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer">&#215;</button>'+
+      '</div>'+
+      '<div id="cadrHistLista" style="overflow-y:auto;flex:1">'+
+        (list.length?list.map(function(h,i){
+          var dt=new Date(h.data);
+          var dtStr=dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+          return '<div style="padding:12px 18px;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;justify-content:space-between;gap:10px">'+
+            '<div><div style="font-size:13px;font-weight:600;color:#1a2332">'+(h.nome||'(sem nome)').replace(/</g,'&lt;')+'</div>'+
+            '<div style="font-size:11px;color:#8a9ab0">'+dtStr+(h.email?' · '+h.email:'')+'</div></div>'+
+            '<div style="display:flex;gap:6px">'+
+            '<button ontouchstart="" onclick="cadReativVerHistoricoItem(\''+h.id+'\')" style="background:#f3e8f7;border:1px solid #7B2D8B;color:#7B2D8B;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">Ver</button>'+
+            '<button ontouchstart="" onclick="cadReativExcluirHistoricoItem(\''+h.id+'\')" style="background:none;border:none;color:#C00000;font-size:15px;cursor:pointer;padding:3px 6px">&#215;</button>'+
+            '</div></div>';
+        }).join(''):'<div style="padding:24px;text-align:center;color:#8a9ab0;font-size:13px">Nenhum script salvo ainda</div>')+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(overlay);
+}
+function cadReativVerHistoricoItem(id){
+  var list=cadLoad(CADR_HIST_KEY);
+  var h=list.find(function(x){return x.id===id;});
+  if(!h)return;
+  var modal=document.getElementById('cadrHistModal');if(modal)modal.remove();
+  var overlay=document.createElement('div');
+  overlay.id='cadrHistViewModal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML=
+    '<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.3);overflow:hidden">'+
+      '<div style="background:#7B2D8B;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">'+
+        '<span style="font-weight:700;font-size:14px">&#128220; '+(h.nome||'').replace(/</g,'&lt;')+'</span>'+
+        '<button ontouchstart="" onclick="document.getElementById(\'cadrHistViewModal\').remove()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer">&#215;</button>'+
+      '</div>'+
+      '<div style="padding:18px;overflow-y:auto;flex:1">'+
+        '<pre style="font-size:12px;line-height:1.8;color:#2a3a50;white-space:pre-wrap;word-break:break-word;margin:0">'+h.script.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</pre>'+
+      '</div>'+
+      '<div style="padding:14px 18px;border-top:1px solid #f0f4f8">'+
+        '<button ontouchstart="" onclick="navigator.clipboard.writeText('+JSON.stringify(h.script)+').then(function(){pfAlert(\'Script copiado!\')})" style="width:100%;padding:10px;background:#7B2D8B;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">&#128203; Copiar de novo</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(overlay);
+}
+function cadReativExcluirHistoricoItem(id){
+  var list=cadLoad(CADR_HIST_KEY).filter(function(x){return x.id!==id;});
+  cadSave(CADR_HIST_KEY,list);
+  var modal=document.getElementById('cadrHistModal');if(modal)modal.remove();
+  cadReativAbrirHistorico();
 }
 
 function ferrMeAvise(){

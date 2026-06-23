@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.181</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.182</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.181</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.182</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -12685,9 +12685,12 @@ function vendasRenderCotacao(el){
     var chk=window._vendasSel&&window._vendasSel[i];
     var chkPV=window._vendasSelPV&&window._vendasSelPV[i];
     var ativo=window._vendasItemAtivo===i;
-    return '<tr ontouchstart="" onclick="vendasSetItemAtivo('+i+')" style="cursor:pointer;'+(ativo?'background:#EEF6FF;':isNeg?'background:#FFF5F5;':'')+'border-bottom:.5px solid #f0f4f8">'+
-      '<td style="padding:5px 8px;text-align:center"><input type="checkbox" '+(chk?'checked':'')+' onchange="window._vendasSel=window._vendasSel||{};window._vendasSel['+i+']=this.checked;vendasAtualizarMapaBtn()" style="width:15px;height:15px;cursor:pointer" title="Selecionar p/ Mapa de Compras"></td>'+
-      '<td style="padding:5px 8px;text-align:center"><input type="checkbox" '+(chkPV?'checked':'')+' onchange="window._vendasSelPV=window._vendasSelPV||{};window._vendasSelPV['+i+']=this.checked;vendasAtualizarPVBtn()" style="width:15px;height:15px;cursor:pointer;accent-color:#27AE60" title="Selecionar p/ Pedido de Venda"></td>'+
+    var fc=window._vendasFocusCol||'mp';
+    var focoMp=ativo&&fc==='mp';
+    var focoPv=ativo&&fc==='pv';
+    return '<tr data-vidx="'+i+'" ontouchstart="" onclick="vendasSetItemAtivo('+i+')" style="cursor:pointer;'+(ativo?'background:#EEF6FF;':isNeg?'background:#FFF5F5;':'')+'border-bottom:.5px solid #f0f4f8">'+
+      '<td style="padding:5px 8px;text-align:center;'+(focoMp?'box-shadow:inset 0 0 0 2px #1F4E79;border-radius:5px':'')+'"><input type="checkbox" '+(chk?'checked':'')+' onchange="window._vendasSel=window._vendasSel||{};window._vendasSel['+i+']=this.checked;vendasAtualizarMapaBtn()" style="width:15px;height:15px;cursor:pointer" title="Selecionar p/ Mapa de Compras"></td>'+
+      '<td style="padding:5px 8px;text-align:center;'+(focoPv?'box-shadow:inset 0 0 0 2px #27AE60;border-radius:5px':'')+'"><input type="checkbox" '+(chkPV?'checked':'')+' onchange="window._vendasSelPV=window._vendasSelPV||{};window._vendasSelPV['+i+']=this.checked;vendasAtualizarPVBtn()" style="width:15px;height:15px;cursor:pointer;accent-color:#27AE60" title="Selecionar p/ Pedido de Venda"></td>'+
       '<td style="padding:5px 8px;text-align:center;font-size:11px;color:#8a9ab0">'+(i+1)+'</td>'+
       '<td style="padding:5px 8px;font-family:monospace;font-size:11px;color:#8a9ab0">'+(it.codigoOriginal?it.codigoOriginal:'&mdash;')+'</td>'+
       '<td style="padding:5px 8px;font-family:monospace;font-size:12px;font-weight:500;color:#185FA5">'+it.codigo+'</td>'+
@@ -12823,6 +12826,45 @@ function vendasRenderCotacao(el){
     cb.removeAttribute('onchange');
     cb.addEventListener('change',function(){try{eval(fn);}catch(ex){}});
   });
+  document.removeEventListener('keydown',window._vendasItemKeyNav);
+  window._vendasItemKeyNav=function(e){
+    if(!window._venda||!window._venda.itens||!window._venda.itens.length)return;
+    var tag=(document.activeElement&&document.activeElement.tagName)||'';
+    if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;
+    var itens=window._venda.itens;
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      var cur=window._vendasItemAtivo;
+      var idx=(cur==null)?-1:cur;
+      idx=(e.key==='ArrowDown')?Math.min(idx+1,itens.length-1):Math.max(idx-1,0);
+      window._vendasItemAtivo=idx;
+      vendasRefresh();
+      setTimeout(function(){
+        var row=document.querySelector('tr[data-vidx="'+idx+'"]');
+        if(row)row.scrollIntoView({block:'nearest'});
+      },30);
+      e.preventDefault();
+    } else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
+      window._vendasFocusCol=(window._vendasFocusCol==='pv')?'mp':'pv';
+      vendasRefresh();
+      e.preventDefault();
+    } else if(e.key===' '||e.code==='Space'){
+      var idx2=window._vendasItemAtivo;
+      if(idx2==null)return;
+      var fc=window._vendasFocusCol||'mp';
+      if(fc==='mp'){
+        window._vendasSel=window._vendasSel||{};
+        window._vendasSel[idx2]=!window._vendasSel[idx2];
+        if(typeof vendasAtualizarMapaBtn==='function')vendasAtualizarMapaBtn();
+      } else {
+        window._vendasSelPV=window._vendasSelPV||{};
+        window._vendasSelPV[idx2]=!window._vendasSelPV[idx2];
+        if(typeof vendasAtualizarPVBtn==='function')vendasAtualizarPVBtn();
+      }
+      vendasRefresh();
+      e.preventDefault();
+    }
+  };
+  document.addEventListener('keydown',window._vendasItemKeyNav);
 }
 
 function vendasCalcVenda(custo,clienteUF,margem){
@@ -12861,13 +12903,19 @@ function vendasAdicionarItem(){
   if(!window._venda.itens)window._venda.itens=[];
   var prodCad=cadLoad(PROD_KEY).find(function(p){return (p.codigo||'').toUpperCase()===cod;});
   var marcaCot=prodCad&&prodCad.marcaCotacao?prodCad.marcaCotacao:null;
+  var novosItens=[];
   if(items&&items.length){
     items.forEach(function(it){
-      window._venda.itens.push({codigo:cod,codigoOriginal:codDigitado,qtd:qtd,desc:it.desc,marca:marcaCot||it.marca,marcaInterna:it.marca,saldo:it.saldo,custo:it.custo});
+      novosItens.push({codigo:cod,codigoOriginal:codDigitado,qtd:qtd,desc:it.desc,marca:marcaCot||it.marca,marcaInterna:it.marca,saldo:it.saldo,custo:it.custo});
     });
   } else {
-    window._venda.itens.push({codigo:cod,codigoOriginal:codDigitado,qtd:qtd,desc:'',marca:marcaCot||'',marcaInterna:'',saldo:null,custo:null});
+    novosItens.push({codigo:cod,codigoOriginal:codDigitado,qtd:qtd,desc:'',marca:marcaCot||'',marcaInterna:'',saldo:null,custo:null});
   }
+  var ai=window._vendasItemAtivo;
+  var insertAt=(ai!=null&&ai>=0&&ai<window._venda.itens.length)?ai+1:window._venda.itens.length;
+  var args=[insertAt,0].concat(novosItens);
+  Array.prototype.splice.apply(window._venda.itens,args);
+  window._vendasItemAtivo=insertAt+novosItens.length-1;
   codEl.value='';if(qtdEl)qtdEl.value='1';
   vendasRefresh();
   setTimeout(function(){var el=document.getElementById('vendasCodInput');if(el)el.focus();},50);
@@ -12886,7 +12934,14 @@ function vendasRefresh(){
 }
 
 function vendasPainelHtml(){
+  var aberto=window._vendasPainelAberto===true;
   var v=window._venda||{itens:[]};
+  var header='<div ontouchstart="" onclick="vendasTogglePainel()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none">'+
+    '<div style="font-size:11px;font-weight:700;color:#8a9ab0;text-transform:uppercase">📊 Painel (cliente / produtos / financeiro)</div>'+
+    '<span style="font-size:11px;color:#1F4E79;font-weight:600">'+(aberto?'▲ ocultar':'▼ mostrar')+'</span></div>';
+  if(!aberto){
+    return '<div id="vendasPainelKpis" style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:10px 14px;margin-bottom:12px">'+header+'</div>';
+  }
   var tab=window._vendasPainelTab||'cliente';
   var tabsDef=[['cliente','Cliente'],['produtos','Produtos'],['financeiro','Financeiro'],['item','Item']];
   var tabsHtml=tabsDef.map(function(t){
@@ -12955,9 +13010,16 @@ function vendasPainelHtml(){
     }
   }
   return '<div id="vendasPainelKpis" style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:12px 14px;margin-bottom:12px">'+
-    '<div style="display:flex;gap:4px;margin-bottom:8px">'+tabsHtml+'</div>'+
+    header+
+    '<div style="display:flex;gap:4px;margin:10px 0 8px">'+tabsHtml+'</div>'+
     '<div id="vendasPainelConteudo">'+content+'</div>'+
     '</div>';
+}
+
+function vendasTogglePainel(){
+  window._vendasPainelAberto=!window._vendasPainelAberto;
+  var el=document.getElementById('vendasPainelKpis');
+  if(el){var d=document.createElement('div');d.innerHTML=vendasPainelHtml();el.replaceWith(d.firstElementChild);}
 }
 
 function vendasPainelTab(t){

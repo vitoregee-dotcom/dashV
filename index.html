@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.192</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.193</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.192</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.193</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -13185,8 +13185,12 @@ function vendasBuscarPorSerieInput(){
   var box=document.getElementById('vendasSerieResultados');
   if(!inp||!box)return;
   var termo=inp.value;
-  if(!termo.trim()){box.style.display='none';box.innerHTML='';return;}
-  var res=aplicBuscar(termo);
+  window._vendasAplicSel=window._vendasAplicSel||{};
+  var nSel=Object.keys(window._vendasAplicSel).length;
+  if(!termo.trim()){
+    if(!nSel){box.style.display='none';box.innerHTML='';return;}
+  }
+  var res=termo.trim()?aplicBuscar(termo):[];
   // Garante 1 item por código+marca na exibição (sem repetir a mesma marca 2x)
   var vistos={};
   res=res.filter(function(a){
@@ -13194,14 +13198,59 @@ function vendasBuscarPorSerieInput(){
     if(vistos[k])return false;
     vistos[k]=true;return true;
   });
-  if(!res.length){box.style.display='block';box.innerHTML='<div style="padding:10px;font-size:12px;color:#8a9ab0">Nenhuma aplicação encontrada para "'+termo.replace(/</g,'&lt;')+'"</div>';return;}
   box.style.display='block';
-  box.innerHTML=res.map(function(a){
-    return '<div ontouchstart="" onclick="vendasAdicionarPorAplicacao(\''+a.codigo.replace(/'/g,"\\'")+'\')" style="padding:8px 10px;border-bottom:1px solid #f0f4f8;cursor:pointer;font-size:12px" onmouseover="this.style.background=\'#F7F9FC\'" onmouseout="this.style.background=\'\'">'+
-      '<b style="color:#1F4E79">'+a.codigo+'</b> — '+(a.desc||'')+' <span style="color:#8a9ab0">('+(a.marca||'')+')</span>'+
-      '<div style="font-size:10px;color:#27AE60;margin-top:1px">'+a.modelo+' · '+a.serie+'</div>'+
+  var listaHtml=res.length?res.map(function(a){
+    var key=(a.codigo||'').toUpperCase()+'|'+(a.marca||'').toUpperCase();
+    var checked=!!window._vendasAplicSel[key];
+    return '<div ontouchstart="" onclick="vendasAplicToggleSel(\''+key.replace(/'/g,"\\'")+'\',\''+a.codigo.replace(/'/g,"\\'")+'\',\''+(a.marca||'').replace(/'/g,"\\'")+'\',\''+(a.desc||'').replace(/'/g,"\\'")+'\')" style="padding:8px 10px;border-bottom:1px solid #f0f4f8;cursor:pointer;font-size:12px;display:flex;gap:8px;align-items:flex-start" onmouseover="this.style.background=\'#F7F9FC\'" onmouseout="this.style.background=\'\'">'+
+      '<input type="checkbox" '+(checked?'checked':'')+' style="margin-top:2px;width:14px;height:14px;cursor:pointer;flex-shrink:0" onclick="event.stopPropagation();vendasAplicToggleSel(\''+key.replace(/'/g,"\\'")+'\',\''+a.codigo.replace(/'/g,"\\'")+'\',\''+(a.marca||'').replace(/'/g,"\\'")+'\',\''+(a.desc||'').replace(/'/g,"\\'")+'\')">'+
+      '<div><b style="color:#1F4E79">'+a.codigo+'</b> — '+(a.desc||'')+' <span style="color:#8a9ab0">('+(a.marca||'')+')</span>'+
+      '<div style="font-size:10px;color:#27AE60;margin-top:1px">'+a.modelo+' · '+a.serie+'</div></div>'+
     '</div>';
-  }).join('');
+  }).join('')
+  :(termo.trim()?'<div style="padding:10px;font-size:12px;color:#8a9ab0">Nenhuma aplicação encontrada para "'+termo.replace(/</g,'&lt;')+'"</div>':'<div style="padding:10px;font-size:11px;color:#8a9ab0">Digite pra buscar mais, ou adicione os já marcados abaixo.</div>');
+  box.innerHTML=
+    '<div id="vendasSerieListaResultados" style="max-height:240px;overflow-y:auto">'+listaHtml+'</div>'+
+    (nSel?'<div style="display:flex;gap:6px;padding:8px 10px;border-top:1.5px solid #7B2D8B;background:#FAF5FC">'+
+      '<button ontouchstart="" onclick="vendasAplicAdicionarSelecionados()" style="flex:1;padding:7px;background:#7B2D8B;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">+ Adicionar '+nSel+' selecionado(s)</button>'+
+      '<button ontouchstart="" onclick="window._vendasAplicSel={};vendasBuscarPorSerieInput()" style="padding:7px 10px;background:#fff;border:1px solid #e0e8f0;color:#607080;border-radius:6px;font-size:12px;cursor:pointer">Limpar</button>'+
+    '</div>':'');
+}
+
+function vendasAplicToggleSel(key,codigo,marca,desc){
+  window._vendasAplicSel=window._vendasAplicSel||{};
+  if(window._vendasAplicSel[key])delete window._vendasAplicSel[key];
+  else window._vendasAplicSel[key]={codigo:codigo,marca:marca,desc:desc};
+  vendasBuscarPorSerieInput();
+}
+
+function vendasAplicAdicionarSelecionados(){
+  var sel=window._vendasAplicSel||{};
+  var codigos=Object.keys(sel);
+  if(!codigos.length)return;
+  if(!window._venda.itens)window._venda.itens=[];
+  var novosItens=[];
+  codigos.forEach(function(key){
+    var s=sel[key];
+    var cod=(s.codigo||'').trim().toUpperCase();
+    var found=vendasBuscarItem(cod);
+    var prodCad=cadLoad(PROD_KEY).find(function(p){return (p.codigo||'').toUpperCase()===cod;});
+    var marcaCot=prodCad&&prodCad.marcaCotacao?prodCad.marcaCotacao:null;
+    var match=found&&found.length?found.find(function(f){return !s.marca||(f.marca||'').toUpperCase().indexOf((s.marca||'').toUpperCase())>=0;})||found[0]:null;
+    if(match){
+      novosItens.push({codigo:cod,qtd:1,desc:match.desc,marca:marcaCot||match.marca,marcaInterna:match.marca,saldo:match.saldo,custo:match.custo});
+    } else {
+      novosItens.push({codigo:cod,qtd:1,desc:s.desc||'',marca:marcaCot||s.marca||'',marcaInterna:s.marca||'',saldo:null,custo:null});
+    }
+  });
+  var ai=window._vendasItemAtivo;
+  var insertAt=(ai!=null&&ai>=0&&ai<window._venda.itens.length)?ai+1:window._venda.itens.length;
+  Array.prototype.splice.apply(window._venda.itens,[insertAt,0].concat(novosItens));
+  window._vendasItemAtivo=insertAt+novosItens.length-1;
+  window._vendasAplicSel={};
+  var inp=document.getElementById('vendasSerieInput');if(inp)inp.value='';
+  var box=document.getElementById('vendasSerieResultados');if(box){box.style.display='none';box.innerHTML='';}
+  vendasRefresh();
 }
 
 function vendasAdicionarPorAplicacao(codigo){
@@ -13737,6 +13786,7 @@ function vendasAbrirModal(cx){
   window._venda=window._vendasTabs[tabId].venda;
   window._vendasSel={};
   window._vendasMaximized=true;
+  window._vendasMinimized=false;
 
   var modal=document.getElementById('vendasModal');
   if(!modal){

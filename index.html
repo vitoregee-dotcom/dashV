@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.189</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.190</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.189</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.190</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -13155,17 +13155,25 @@ function vendasConfirmarAplicacao(indices){
   var itens=(window._venda&&window._venda.itens)||[];
   var list=aplicLoad();
   var modeloU=modelo.toUpperCase(),serieU=serie.toUpperCase();
-  var add=0,upd=0;
+  var add=0,upd=0,marcasVistas={};
   indices.forEach(function(i){
     var it=itens[i];if(!it)return;
     var cod=(it.codigo||'').toUpperCase();
-    var existente=list.find(function(a){return (a.modelo||'').toUpperCase()===modeloU&&(a.serie||'').toUpperCase()===serieU&&(a.codigo||'').toUpperCase()===cod;});
-    if(existente){existente.desc=it.desc||existente.desc;existente.marca=it.marcaInterna||it.marca||existente.marca;upd++;}
-    else{list.push({id:'apl_'+Date.now()+'_'+i,modelo:modelo,serie:serie,codigo:it.codigo,desc:it.desc||'',marca:it.marcaInterna||it.marca||''});add++;}
+    var marca=(it.marcaInterna||it.marca||'').trim();
+    var marcaU=marca.toUpperCase();
+    // Regra: 1 item por marca distinta. Se o mesmo código aparecer 2x com a MESMA
+    // marca na seleção (duplicado), pula a repetição — mas marcas diferentes geram
+    // registros separados (não sobrescreve uma marca com outra).
+    var chaveSel=cod+'|'+marcaU;
+    if(marcasVistas[chaveSel])return;
+    marcasVistas[chaveSel]=true;
+    var existente=list.find(function(a){return (a.modelo||'').toUpperCase()===modeloU&&(a.serie||'').toUpperCase()===serieU&&(a.codigo||'').toUpperCase()===cod&&(a.marca||'').toUpperCase()===marcaU;});
+    if(existente){existente.desc=it.desc||existente.desc;upd++;}
+    else{list.push({id:'apl_'+Date.now()+'_'+i,modelo:modelo,serie:serie,codigo:it.codigo,desc:it.desc||'',marca:marca});add++;}
   });
   aplicSave(list);
   document.getElementById('aplicModal').remove();
-  pfAlert((add?add+' item(ns) vinculados':'')+(add&&upd?' e ':'')+(upd?upd+' atualizado(s)':'')+' à aplicação "'+modelo+' — '+serie+'".');
+  pfAlert((add?add+' item(ns) vinculados':'')+(add&&upd?' e ':'')+(upd?upd+' atualizado(s)':'')+' à aplicação "'+modelo+' — '+serie+'" (1 registro por marca).');
 }
 
 function vendasBuscarPorSerieInput(){
@@ -13175,6 +13183,13 @@ function vendasBuscarPorSerieInput(){
   var termo=inp.value;
   if(!termo.trim()){box.style.display='none';box.innerHTML='';return;}
   var res=aplicBuscar(termo);
+  // Garante 1 item por código+marca na exibição (sem repetir a mesma marca 2x)
+  var vistos={};
+  res=res.filter(function(a){
+    var k=(a.codigo||'').toUpperCase()+'|'+(a.marca||'').toUpperCase()+'|'+(a.modelo||'').toUpperCase()+'|'+(a.serie||'').toUpperCase();
+    if(vistos[k])return false;
+    vistos[k]=true;return true;
+  });
   if(!res.length){box.style.display='block';box.innerHTML='<div style="padding:10px;font-size:12px;color:#8a9ab0">Nenhuma aplicação encontrada para "'+termo.replace(/</g,'&lt;')+'"</div>';return;}
   box.style.display='block';
   box.innerHTML=res.map(function(a){

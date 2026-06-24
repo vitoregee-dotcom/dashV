@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.201</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.202</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.201</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.202</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -7836,33 +7836,79 @@ function cadCriarFichasParaTodosPrompt(){
   var plist=cadLoad(PROD_KEY);
   var existentes={};
   plist.forEach(function(p){existentes[(p.codigo||'').toUpperCase()]=true;});
-  var vistos={};
-  var faltam=0;
+  var vistos={},faltamTotal=0,faltamAtivos=0;
   calcItems.forEach(function(d){
     var cod=(d.ref||'').trim().toUpperCase();
     if(!cod||existentes[cod]||vistos[cod])return;
-    vistos[cod]=true;faltam++;
+    vistos[cod]=true;faltamTotal++;
+    if((d.consumo>0)||(d.cotacoes>0))faltamAtivos++;
   });
-  if(!faltam){pfAlert('Todos os itens da planilha já têm ficha criada.');return;}
-  pfConfirm('Criar ficha para '+faltam+' item(ns) que ainda não têm? Vou preencher código, descrição e marca automaticamente (já vêm da planilha). Grupo/subgrupo, foto, desenho técnico, aplicações e conversões ficam pendentes — esses só dá pra preencher manualmente.',cadCriarFichasParaTodos,'Criar '+faltam+' ficha(s)');
+  if(!faltamTotal){pfAlert('Todos os itens da planilha já têm ficha criada.');return;}
+  // Catálogo inteiro pode ser grande demais pro armazenamento do navegador (localStorage
+  // costuma ter limite de uns 5-10MB no total) — por padrão sugere só os itens com
+  // movimento real (consumo ou cotação registrada), que é o que realmente importa.
+  if(faltamAtivos<faltamTotal){
+    pfConfirm('São '+faltamTotal+' itens sem ficha no total, mas a maioria nunca teve movimento. Recomendo criar só pros '+faltamAtivos+' item(ns) com consumo ou cotação registrada — é bem mais rápido e evita estourar o limite de armazenamento do navegador.\n\nQuer criar só esses '+faltamAtivos+' agora? (os outros continuam podendo ganhar ficha automaticamente quando forem cotados)',function(){cadCriarFichasEmLotes(true);},'Criar '+faltamAtivos+' (recomendado)');
+  } else {
+    pfConfirm('Criar ficha para '+faltamTotal+' item(ns) que ainda não têm? Vou preencher código, descrição e marca automaticamente.',function(){cadCriarFichasEmLotes(false);},'Criar '+faltamTotal+' ficha(s)');
+  }
 }
 
-function cadCriarFichasParaTodos(){
+function cadCriarFichasEmLotes(somenteAtivos){
   var plist=cadLoad(PROD_KEY);
   var existentes={};
   plist.forEach(function(p){existentes[(p.codigo||'').toUpperCase()]=true;});
   var vistos={};
-  var criados=0;
+  var pendentes=[];
   calcItems.forEach(function(d){
     var cod=(d.ref||'').trim().toUpperCase();
     if(!cod||existentes[cod]||vistos[cod])return;
+    if(somenteAtivos&&!((d.consumo>0)||(d.cotacoes>0)))return;
     vistos[cod]=true;
-    plist.push({codigo:d.ref,descricao:d.desc||'',marca:d.marca||''});
-    criados++;
+    pendentes.push({codigo:d.ref,descricao:d.desc||'',marca:d.marca||''});
   });
-  cadSave(PROD_KEY,plist);
-  pfAlert('✅ '+criados+' ficha(s) criada(s) com código, descrição e marca. Ainda faltam: grupo/subgrupo, foto, desenho técnico, aplicações e conversões — preenche aos poucos quando precisar.');
-  if(typeof cadGoTab==='function')cadGoTab('produtos');
+  if(!pendentes.length){pfAlert('Nenhum item pendente encontrado.');return;}
+  // Modal de progresso
+  var overlay=document.createElement('div');
+  overlay.id='cadFichasProgresso';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML='<div style="background:#fff;border-radius:12px;max-width:340px;width:100%;padding:22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.3)">'+
+    '<div style="font-size:13px;font-weight:700;color:#1F4E79;margin-bottom:12px">Criando fichas...</div>'+
+    '<div style="background:#eef2f7;border-radius:8px;height:10px;overflow:hidden;margin-bottom:8px"><div id="cadFichasBar" style="background:#27AE60;height:100%;width:0%;transition:width .2s"></div></div>'+
+    '<div id="cadFichasTexto" style="font-size:12px;color:#607080">0 / '+pendentes.length+'</div>'+
+    '</div>';
+  document.body.appendChild(overlay);
+  var i=0,LOTE=2000;
+  function processarLote(){
+    var fim=Math.min(i+LOTE,pendentes.length);
+    for(;i<fim;i++)plist.push(pendentes[i]);
+    var bar=document.getElementById('cadFichasBar'),txt=document.getElementById('cadFichasTexto');
+    var pct=Math.round((i/pendentes.length)*100);
+    if(bar)bar.style.width=pct+'%';
+    if(txt)txt.textContent=i+' / '+pendentes.length;
+    if(i<pendentes.length){
+      setTimeout(processarLote,10);
+    } else {
+      finalizar();
+    }
+  }
+  function finalizar(){
+    try{
+      localStorage.setItem(PROD_KEY,JSON.stringify(plist));
+      if(typeof sbUser!=='undefined'&&sbUser&&typeof cadPushSupabase==='function')cadPushSupabase();
+      overlay.remove();
+      pfAlert('✅ '+pendentes.length+' ficha(s) criada(s) com código, descrição e marca. Ainda faltam: grupo/subgrupo, foto, desenho técnico, aplicações e conversões — preenche aos poucos quando precisar.');
+      if(typeof cadGoTab==='function')cadGoTab('produtos');
+    }catch(e){
+      overlay.remove();
+      if(e&&(e.name==='QuotaExceededError'||/quota/i.test(e.message||''))){
+        pfAlert('❌ Não deu — passou do limite de armazenamento do navegador (localStorage). É exatamente o tamanho que você suspeitou. Tenta um lote menor (só os itens com movimento), ou me avisa que eu ajusto a estratégia de armazenamento.');
+      } else {
+        pfAlert('❌ Erro ao salvar: '+(e&&e.message?e.message:e));
+      }
+    }
+  }
+  processarLote();
 }
 
 function cadRenderAplicacoes(el){

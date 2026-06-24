@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.208</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.209</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.208</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.209</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -1515,7 +1515,7 @@ function _processRowsMain(rows,manualMap){
       if(marca&&ex.marca.indexOf(marca)<0)ex.marca+=(ex.marca?' + ':'')+marca;
     }else{
       var cv=cm.curva!==undefined&&r[cm.curva]!=null?String(r[cm.curva]).trim().toUpperCase():'';
-      map.set(key,{ref:ref,desc:cm.desc!==undefined&&r[cm.desc]!=null?String(r[cm.desc]):'',marca:marca,familia:familiaCol,custo:custo,saldo:saldo,minimo:cm.minimo!==undefined?parseFloat(r[cm.minimo])||0:0,consumo:consumo,pedido:cm.pedido!==undefined?parseFloat(r[cm.pedido])||0:0,cotacoes:cm.cotacoes!==undefined?parseFloat(r[cm.cotacoes])||0:0,curva:['A','B','C'].indexOf(cv)>=0?cv:'—',_cb:consumo});
+      map.set(key,{ref:ref,desc:(typeof pfNormalizarDescricao==='function'?pfNormalizarDescricao(cm.desc!==undefined&&r[cm.desc]!=null?r[cm.desc]:''):(cm.desc!==undefined&&r[cm.desc]!=null?String(r[cm.desc]):'')),marca:marca,familia:familiaCol,custo:custo,saldo:saldo,minimo:cm.minimo!==undefined?parseFloat(r[cm.minimo])||0:0,consumo:consumo,pedido:cm.pedido!==undefined?parseFloat(r[cm.pedido])||0:0,cotacoes:cm.cotacoes!==undefined?parseFloat(r[cm.cotacoes])||0:0,curva:['A','B','C'].indexOf(cv)>=0?cv:'—',_cb:consumo});
     }
   }
   var result=[...map.values()];result.forEach(function(d){delete d._cb;});
@@ -7970,6 +7970,56 @@ function initDevMenu(){
 // switchView override removed - merged into original
 
 // ── Tab switching ──────────────────────────────────────────────
+function cadPadronizarDescricoesPrompt(){
+  var plist=cadLoad(PROD_KEY);
+  var mudancas=[];
+  plist.forEach(function(p,i){
+    var nova=pfNormalizarDescricao(p.descricao||'');
+    if(nova&&nova!==(p.descricao||''))mudancas.push({idx:i,codigo:p.codigo,antes:p.descricao||'',depois:nova});
+  });
+  if(!mudancas.length){pfAlert('Todas as descrições já estão padronizadas.');return;}
+  var old=document.getElementById('padronizarModal');if(old)old.remove();
+  var overlay=document.createElement('div');
+  overlay.id='padronizarModal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
+  var preview=mudancas.slice(0,12).map(function(m){
+    return '<div style="padding:8px 10px;border-bottom:1px solid #f0f4f8;font-size:11px">'+
+      '<b style="color:#1F4E79">'+pfEscHtml(m.codigo)+'</b><br>'+
+      '<span style="color:#C00000;text-decoration:line-through">'+pfEscHtml(m.antes)+'</span><br>'+
+      '<span style="color:#27AE60">'+pfEscHtml(m.depois)+'</span>'+
+    '</div>';
+  }).join('');
+  overlay.innerHTML=
+    '<div style="background:#fff;border-radius:12px;max-width:480px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.3);overflow:hidden">'+
+      '<div style="background:#1F4E79;color:#fff;padding:14px 18px;flex-shrink:0">'+
+        '<div style="font-weight:700;font-size:14px">🧹 Padronizar Descrições</div>'+
+        '<div style="font-size:11px;opacity:.85;margin-top:2px">'+mudancas.length+' item(ns) terão a descrição ajustada (maiúsculas, espaços e abreviações C/S/P padronizadas)</div>'+
+      '</div>'+
+      '<div style="padding:0;overflow-y:auto;flex:1;min-height:0">'+preview+
+      (mudancas.length>12?'<div style="padding:10px;text-align:center;color:#8a9ab0;font-size:11px">... e mais '+(mudancas.length-12)+' item(ns)</div>':'')+
+      '</div>'+
+      '<div style="padding:14px 18px;border-top:1px solid #f0f4f8;display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">'+
+        '<button ontouchstart="" onclick="document.getElementById(\'padronizarModal\').remove()" style="padding:9px 16px;border-radius:8px;border:1px solid #e0e8f0;background:#fff;color:#607080;font-size:13px;cursor:pointer">Cancelar</button>'+
+        '<button ontouchstart="" onclick="cadPadronizarDescricoesAplicar()" style="padding:9px 18px;border-radius:8px;border:none;background:#1F4E79;color:#fff;font-size:13px;font-weight:700;cursor:pointer">Aplicar '+mudancas.length+' mudança(s)</button>'+
+      '</div>'+
+    '</div>';
+  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+function cadPadronizarDescricoesAplicar(){
+  var plist=cadLoad(PROD_KEY);
+  var n=0;
+  plist.forEach(function(p){
+    var nova=pfNormalizarDescricao(p.descricao||'');
+    if(nova&&nova!==(p.descricao||'')){p.descricao=nova;n++;}
+  });
+  cadSave(PROD_KEY,plist);
+  document.getElementById('padronizarModal').remove();
+  pfAlert('✅ '+n+' descrição(ões) padronizada(s).');
+  if(typeof cadGoTab==='function')cadGoTab('produtos');
+}
+
 function cadCriarFichasParaTodosPrompt(){
   if(!calcItems||!calcItems.length){pfAlert('Nenhuma planilha carregada ainda — abre o Dashboard e carrega a planilha antes.');return;}
   var plist=cadLoad(PROD_KEY);
@@ -8138,6 +8188,7 @@ function cadRenderProdutosV3(el){
   html+='<button ontouchstart="" onclick="cadNovoProduto()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700">+ Novo Produto</button>';
   html+='<button ontouchstart="" onclick="cadImportarProdutos()" style="background:#E67E22;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700">📥 Importar</button>';
   html+='<button ontouchstart="" onclick="cadCriarFichasParaTodosPrompt()" style="background:#27AE60;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700" title="Cria ficha (código+descrição+marca) pra todo item da planilha que ainda não tem">⚡ Criar fichas faltantes</button>';
+  html+='<button ontouchstart="" onclick="cadPadronizarDescricoesPrompt()" style="background:#7B2D8B;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700" title="Ajusta maiusculas, espacos e abreviacoes C/S/P em todas as descricoes ja cadastradas">🧹 Padronizar Descrições</button>';
   html+='</div>';
   if(!plist.length){
     html+='<div style="text-align:center;padding:48px;background:#fff;border-radius:12px;color:#8a9ab0">Nenhum produto. Clique em "+ Novo Produto".</div>';
@@ -8808,7 +8859,7 @@ var APLIC_KEY = 'cad_aplicacoes_v1';
 var RELAC_KEY = 'cad_relacionados_v1';
 
 var GRUPOS_PROD = {
-  'Motor':        ['Culatra','Bloco','Pistão/Anel','Virabrequim','Comando de Válvulas','Bomba de Agua','Bomba de Óleo','Filtro de Óleo','Radiador','Turbina','Injeção','Correias/Tensores','Vedações Motor','Outros Motor'],
+  'Motor':        ['Ar (Admissão/Escape)','Combustível','Lubrificação','Arrefecimento','Elétrico/Partida','Bloco e Componentes Internos','Distribuição (Comando de Válvulas)','Juntas e Vedações','Acoplamento ao Trabalho'],
   'Transmissão':  ['Caixa de Câmbio','Conversor de Torque','Bomba Hidráulica Trans.','Filtro Trans.','Juntas Trans.','Vedações Trans.','Eixo de Entrada','Eixo de Saída','Embreagem','Outros Trans.'],
   'Eixo/Diferencial': ['Diferencial','Semi-Eixo','Cubo de Roda','Rolamento Eixo','Retentor Eixo','Coroa e Pinhão','Flange','Cruzeta','Outros Eixo'],
   'Freio':        ['Disco de Freio','Pastilha','Tambor','Lona','Cilindro Mestre','Cilindro Roda','Válvula ABS','Mangueira Freio','Outros Freio'],
@@ -8819,6 +8870,42 @@ var GRUPOS_PROD = {
   'Rolamento/Vedação': ['Rolamento','Retentor','Anel O-Ring','Junta','Kit Reparo','Outros Vedação'],
   'Outros':       ['Filtro Ar','Filtro Combustível','Cabo','Parafuso Especial','Outros'],
 };
+
+// ═══ Classificador automático de Subgrupo do Motor (padrão, independe de marca/modelo) ═══
+// Baseado na estrutura comum de todo motor a diesel — usado pra sugerir/auto-preencher
+// o Subgrupo a partir da descrição do item, evitando classificar milhares de itens na mão.
+var SUBGRUPO_MOTOR_KEYWORDS={
+  'Ar (Admissão/Escape)':['filtro de ar','filtro ar','elemento filtrante','pre filtro','pre-filtro','ciclone','turbo','turbina','vgt','coletor de admissao','coletor de escape','intercooler','aftercooler','pos resfriador','valvula egr','silencioso','escapamento','mangueira de admissao'],
+  'Combustível':['bomba injetora','bico injetor','injetor','common rail','filtro de combustivel','filtro combustivel','separador de agua','bomba alimentadora','bomba de transferencia','linha de injecao','tubo de alta pressao','regulador de pressao','valvula solenoide de corte','sensor de combustivel'],
+  'Lubrificação':['bomba de oleo','filtro de oleo','filtro oleo','resfriador de oleo','valvula de alivio','carter','vareta de oleo','vareta medidora','respiro do carter','pcv','sensor de pressao de oleo','sensor de nivel de oleo'],
+  'Arrefecimento':['bomba de agua','bomba dagua',"bomba d'agua",'radiador','valvula termostatica','termostatica','mangueira do radiador','ventilador','polia tensora','esticador','correia','tampa do radiador','reservatorio de expansao','sensor de temperatura'],
+  'Elétrico/Partida':['motor de partida','motor de arranque','alternador','bateria','chicote','sensor de rotacao','sensor de fase','solenoide','modulo de injecao','ecm','ecu','vela aquecedora','glow plug','pre aquecimento','rele de partida'],
+  'Bloco e Componentes Internos':['bloco do motor','cabecote','pistao','anel de pistao','jogo de aneis','biela','bronzina de biela','bronzina de mancal','mancal central','virabrequim','camisa de cilindro','volante do motor','amortecedor de vibracao','damper','bucha do pino'],
+  'Distribuição (Comando de Válvulas)':['comando de valvulas','arvore de cames','valvula de admissao','valvula de escape','guia de valvula','mola de valvula','tucho','balancim','vareta de comando','engrenagem de distribuicao','corrente de distribuicao','tensor de corrente'],
+  'Juntas e Vedações':['junta do cabecote','junta do carter','junta da tampa','retentor dianteiro','retentor traseiro','kit de juntas','jogo de juntas','jg de juntas'],
+  'Acoplamento ao Trabalho':['embreagem','disco de embreagem','plato','volante de embreagem','coxim do motor','rolamento da embreagem']
+};
+// ═══ Padronização de Descrição (independe do sistema de origem) ═══
+// Maiúsculas, espaços colapsados, abreviações C/ S/ P/ W/ com formatação consistente.
+function pfNormalizarDescricao(desc){
+  if(!desc)return '';
+  var s=String(desc).trim().toUpperCase();
+  s=s.replace(/\s+/g,' ');
+  s=s.replace(/\s*\b(C|S|P|W)\s*\/\s*/g,'$1/ ');
+  s=s.replace(/\s+([,.;])/g,'$1');
+  return s.trim();
+}
+
+function pfClassificarSubgrupoMotor(descricao){
+  var desc=(descricao||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  for(var sg in SUBGRUPO_MOTOR_KEYWORDS){
+    var palavras=SUBGRUPO_MOTOR_KEYWORDS[sg];
+    for(var i=0;i<palavras.length;i++){
+      if(desc.indexOf(palavras[i].normalize('NFD').replace(/[\u0300-\u036f]/g,''))>=0)return sg;
+    }
+  }
+  return '';
+}
 
 var LINHAS_PROD = ['NEW HOLLAND','VOLVO','CASE','CARRARO','CATERPILLAR','MASSEY','RANDON','VALTRA','AGRALE','JOHN DEERE','ALLISON','ATLAS COPCO','JCB','DANA/SPICER','MULTIMARCA'];
 

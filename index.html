@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.200</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.201</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.200</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.201</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -6910,6 +6910,30 @@ function pfAlert(msg){
 }
 
 var _safeAlert = function(msg){ try{ pfAlert(msg); }catch(e){ console.warn('Alert:', msg); } };
+
+// Confirmação (Cancelar/Confirmar) no mesmo padrão visual — confirm() nativo é bloqueado em Safari/Chrome no iPad
+function pfConfirm(msg,onConfirm,labelConfirm){
+  try{
+    var old=document.getElementById('pfConfirmOverlay');if(old)old.remove();
+    var overlay=document.createElement('div');
+    overlay.id='pfConfirmOverlay';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
+    overlay.innerHTML=
+      '<div style="background:#fff;border-radius:12px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3);overflow:hidden">'+
+        '<div style="background:#1F4E79;color:#fff;padding:13px 18px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px"><span style="font-size:18px">📦</span><span>PartsFlow</span></div>'+
+        '<div style="padding:18px;font-size:14px;color:#1a2332;line-height:1.5;white-space:pre-wrap;word-break:break-word"></div>'+
+        '<div style="padding:0 18px 16px;display:flex;gap:8px;justify-content:flex-end">'+
+          '<button id="pfConfirmCancelBtn" style="background:#fff;color:#607080;border:1px solid #e0e8f0;border-radius:7px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>'+
+          '<button id="pfConfirmOkBtn" style="background:#1F4E79;color:#fff;border:none;border-radius:7px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer">'+(labelConfirm||'Confirmar')+'</button>'+
+        '</div>'+
+      '</div>';
+    overlay.querySelector('div > div:nth-child(2)').textContent=String(msg==null?'':msg);
+    document.body.appendChild(overlay);
+    function fechar(){if(overlay&&overlay.parentNode)overlay.remove();}
+    overlay.querySelector('#pfConfirmCancelBtn').addEventListener('click',fechar);
+    overlay.querySelector('#pfConfirmOkBtn').addEventListener('click',function(){fechar();if(typeof onConfirm==='function')onConfirm();});
+  }catch(e){console.warn('pfConfirm erro:',e);}
+}
 </script>
 <script>
 // ═══ MAPA DE COMPRAS v112 ═══════════════════════════════════════
@@ -7807,6 +7831,40 @@ function initDevMenu(){
 // switchView override removed - merged into original
 
 // ── Tab switching ──────────────────────────────────────────────
+function cadCriarFichasParaTodosPrompt(){
+  if(!calcItems||!calcItems.length){pfAlert('Nenhuma planilha carregada ainda — abre o Dashboard e carrega a planilha antes.');return;}
+  var plist=cadLoad(PROD_KEY);
+  var existentes={};
+  plist.forEach(function(p){existentes[(p.codigo||'').toUpperCase()]=true;});
+  var vistos={};
+  var faltam=0;
+  calcItems.forEach(function(d){
+    var cod=(d.ref||'').trim().toUpperCase();
+    if(!cod||existentes[cod]||vistos[cod])return;
+    vistos[cod]=true;faltam++;
+  });
+  if(!faltam){pfAlert('Todos os itens da planilha já têm ficha criada.');return;}
+  pfConfirm('Criar ficha para '+faltam+' item(ns) que ainda não têm? Vou preencher código, descrição e marca automaticamente (já vêm da planilha). Grupo/subgrupo, foto, desenho técnico, aplicações e conversões ficam pendentes — esses só dá pra preencher manualmente.',cadCriarFichasParaTodos,'Criar '+faltam+' ficha(s)');
+}
+
+function cadCriarFichasParaTodos(){
+  var plist=cadLoad(PROD_KEY);
+  var existentes={};
+  plist.forEach(function(p){existentes[(p.codigo||'').toUpperCase()]=true;});
+  var vistos={};
+  var criados=0;
+  calcItems.forEach(function(d){
+    var cod=(d.ref||'').trim().toUpperCase();
+    if(!cod||existentes[cod]||vistos[cod])return;
+    vistos[cod]=true;
+    plist.push({codigo:d.ref,descricao:d.desc||'',marca:d.marca||''});
+    criados++;
+  });
+  cadSave(PROD_KEY,plist);
+  pfAlert('✅ '+criados+' ficha(s) criada(s) com código, descrição e marca. Ainda faltam: grupo/subgrupo, foto, desenho técnico, aplicações e conversões — preenche aos poucos quando precisar.');
+  if(typeof cadGoTab==='function')cadGoTab('produtos');
+}
+
 function cadRenderAplicacoes(el){
   var termo=(window._cadAplicTermo||'').trim().toUpperCase();
   var list=aplicLoad();
@@ -7884,11 +7942,17 @@ function cadRenderProdutosV3(el){
   var plist=cadLoad(PROD_KEY||'cad_produtos_v1');
   var q=(window._prodSearch||'').toLowerCase();
   var filtered=plist.filter(function(p){return !q||(p.codigo||'').toLowerCase().includes(q)||(p.descricao||'').toLowerCase().includes(q)||(p.marca||'').toLowerCase().includes(q);});
+  var totalPlanilha=0;
+  if(typeof calcItems!=='undefined'&&calcItems&&calcItems.length){
+    var vist={};calcItems.forEach(function(d){var c=(d.ref||'').toUpperCase();if(c)vist[c]=true;});
+    totalPlanilha=Object.keys(vist).length;
+  }
   var html='<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">';
-  html+='<div style="font-size:13px;font-weight:700;color:#1F4E79">'+plist.length+' produto(s)</div>';
+  html+='<div style="font-size:13px;font-weight:700;color:#1F4E79">'+plist.length+' produto(s)'+(totalPlanilha?' / '+totalPlanilha+' na planilha':'')+'</div>';
   html+='<input type="text" placeholder="🔍 Buscar..." value="'+(window._prodSearch||'')+'" oninput="window._prodSearch=this.value;cadRenderProdutosV3(document.getElementById(&quot;cadBody&quot;))" style="flex:1;min-width:160px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12px">';
   html+='<button ontouchstart="" onclick="cadNovoProduto()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700">+ Novo Produto</button>';
   html+='<button ontouchstart="" onclick="cadImportarProdutos()" style="background:#E67E22;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700">📥 Importar</button>';
+  html+='<button ontouchstart="" onclick="cadCriarFichasParaTodosPrompt()" style="background:#27AE60;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700" title="Cria ficha (código+descrição+marca) pra todo item da planilha que ainda não tem">⚡ Criar fichas faltantes</button>';
   html+='</div>';
   if(!plist.length){
     html+='<div style="text-align:center;padding:48px;background:#fff;border-radius:12px;color:#8a9ab0">Nenhum produto. Clique em "+ Novo Produto".</div>';

@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.207</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.208</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.207</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.208</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -13904,7 +13904,9 @@ function pvRenderLista(el){
         '<td style="padding:6px 8px;text-align:center">'+p.itens.length+'</td>'+
         '<td style="padding:6px 8px;text-align:center"><span style="font-size:10px;padding:3px 8px;border-radius:6px;background:'+etAtual.cor+';color:'+etAtual.txtCor+';font-weight:700">'+etAtual.label+'</span></td>'+
         '<td style="padding:6px 8px;text-align:center">'+
-        (proxInfo?'<button ontouchstart="" onclick="pvMarcarStatus(\''+p.id+'\',\''+prox+'\')" style="font-size:10px;padding:3px 8px;background:none;border:1px solid '+proxInfo.txtCor+';border-radius:5px;color:'+proxInfo.txtCor+';cursor:pointer;margin-right:3px">→ '+proxInfo.label+'</button>':'')+
+        (proxInfo?(['separado','conferido'].indexOf(prox)>=0?
+          '<button ontouchstart="" onclick="pvAbrirChecklist(\''+p.id+'\')" style="font-size:10px;padding:3px 8px;background:none;border:1px solid '+proxInfo.txtCor+';border-radius:5px;color:'+proxInfo.txtCor+';cursor:pointer;margin-right:3px">→ '+proxInfo.label+'</button>'
+          :'<button ontouchstart="" onclick="pvMarcarStatus(\''+p.id+'\',\''+prox+'\')" style="font-size:10px;padding:3px 8px;background:none;border:1px solid '+proxInfo.txtCor+';border-radius:5px;color:'+proxInfo.txtCor+';cursor:pointer;margin-right:3px">→ '+proxInfo.label+'</button>'):'')+
         '<button ontouchstart="" onclick="pvVerDetalhe(\''+p.id+'\')" style="font-size:10px;padding:3px 8px;background:none;border:1px solid #607080;border-radius:5px;color:#607080;cursor:pointer">Ver itens</button>'+
         '</td></tr>';
     });
@@ -14044,6 +14046,65 @@ function pvMarcarStatus(id,novoStatus){
   pvSave(list);
   var el=document.getElementById('vendasBody');
   if(el)pvRenderLista(el);
+}
+
+function pvAbrirChecklist(id){
+  var list=pvLoad();
+  var p=list.find(function(x){return x.id===id;});
+  if(!p)return;
+  var status=p.status||'aberto';
+  // Define qual checklist mostrar: Separar (status aberto) ou Conferir (status separado).
+  // Faturado/Despachado não são tarefa de picking item a item, ficam só com o botão de avançar.
+  var modoChecklist=(status==='aberto')?'separado':(status==='separado')?'conferido':null;
+  var old=document.getElementById('pvChecklistModal');if(old)old.remove();
+  var overlay=document.createElement('div');
+  overlay.id='pvChecklistModal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
+  var etAtual=pvEtapaInfo(status);
+  var corpo;
+  if(modoChecklist){
+    var tituloAcao=modoChecklist==='separado'?'Marcar como separado conforme for retirando':'Confira se o que foi separado bate com o pedido';
+    corpo='<div style="font-size:11px;color:#8a9ab0;margin-bottom:10px">'+tituloAcao+'</div>'+
+      p.itens.map(function(it,i){
+        var checked=!!it[modoChecklist];
+        return '<label ontouchstart="" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-bottom:1px solid #f0f4f8;cursor:pointer;font-size:13px">'+
+          '<input type="checkbox" '+(checked?'checked':'')+' onchange="pvTogglePicking(\''+id+'\','+i+',\''+modoChecklist+'\',this.checked)" style="width:18px;height:18px;cursor:pointer;flex-shrink:0">'+
+          '<span style="flex:1;'+(checked?'text-decoration:line-through;color:#8a9ab0':'')+'"><b style="color:#1F4E79">'+it.qtd+'x</b> '+pfEscHtml(it.codigo)+' — '+pfEscHtml(it.desc||'')+' <span style="color:#8a9ab0">('+pfEscHtml(it.marca||'—')+')</span></span>'+
+        '</label>';
+      }).join('');
+  } else {
+    corpo='<div style="font-size:12px;color:#607080">'+
+      p.itens.map(function(it){return '<div style="padding:6px 0;border-bottom:1px solid #f0f4f8"><b style="color:#1F4E79">'+it.qtd+'x</b> '+pfEscHtml(it.codigo)+' — '+pfEscHtml(it.desc||'')+' ('+pfEscHtml(it.marca||'—')+')</div>';}).join('')+
+      '</div>';
+  }
+  var todosMarcados=modoChecklist&&p.itens.every(function(it){return !!it[modoChecklist];});
+  var prox=pvProximaEtapa(status);
+  var proxInfo=prox?pvEtapaInfo(prox):null;
+  overlay.innerHTML=
+    '<div style="background:#fff;border-radius:12px;max-width:480px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.3);overflow:hidden">'+
+      '<div style="background:#1F4E79;color:#fff;padding:14px 18px;flex-shrink:0">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center">'+
+          '<span style="font-weight:700;font-size:14px">📦 '+pfEscHtml(p.numero)+' — '+pfEscHtml(p.clienteRazao||'')+'</span>'+
+          '<button ontouchstart="" onclick="document.getElementById(\'pvChecklistModal\').remove()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1">&#215;</button>'+
+        '</div>'+
+        '<span style="font-size:11px;background:'+etAtual.cor+';color:'+etAtual.txtCor+';padding:2px 8px;border-radius:6px;font-weight:700;margin-top:6px;display:inline-block">'+etAtual.label+'</span>'+
+      '</div>'+
+      '<div style="padding:16px 18px;overflow-y:auto;flex:1;min-height:0">'+corpo+'</div>'+
+      (proxInfo?'<div style="padding:14px 18px;border-top:1px solid #f0f4f8;flex-shrink:0">'+
+        '<button id="pvAvancarBtn" ontouchstart="" onclick="pvMarcarStatus(\''+id+'\',\''+prox+'\');document.getElementById(\'pvChecklistModal\').remove()" '+(modoChecklist&&!todosMarcados?'disabled':'')+' style="width:100%;padding:11px;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:'+(modoChecklist&&!todosMarcados?'not-allowed':'pointer')+';background:'+(modoChecklist&&!todosMarcados?'#e0e8f0':proxInfo.txtCor)+';color:'+(modoChecklist&&!todosMarcados?'#8a9ab0':'#fff')+'">'+(modoChecklist&&!todosMarcados?'Marque todos os itens pra avançar':'✅ Avançar para '+proxInfo.label)+'</button>'+
+      '</div>':'')+
+    '</div>';
+  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+function pvTogglePicking(id,itemIdx,campo,valor){
+  var list=pvLoad();
+  var p=list.find(function(x){return x.id===id;});
+  if(!p||!p.itens[itemIdx])return;
+  p.itens[itemIdx][campo]=valor;
+  pvSave(list);
+  pvAbrirChecklist(id);
 }
 
 function pvVerDetalhe(id){

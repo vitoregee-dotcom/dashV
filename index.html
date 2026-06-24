@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.196</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.197</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.196</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.197</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -13169,14 +13169,28 @@ function vendasMigrarAplicacoesAntigas(){
   }catch(e){}
 }
 
-function vendasAbrirRelacionados(i){
+function vendasAbrirRelacionados(i,scrollPos){
   var it=window._venda.itens[i];if(!it)return;
-  var old=document.getElementById('relacModal');if(old)old.remove();
+  var old=document.getElementById('relacModal');
+  var scrollSalvo=scrollPos;
+  if(old&&scrollSalvo==null){
+    var c=old.querySelector('[data-relac-scroll]');
+    if(c)scrollSalvo=c.scrollTop;
+  }
+  if(old)old.remove();
   var relacionados=relacLoad().filter(function(r){
     var cod=(it.codigo||'').toUpperCase();
     return (r.codigoA||'').toUpperCase()===cod||(r.codigoB||'').toUpperCase()===cod;
   });
-  var outros=window._venda.itens.map(function(o,j){return {o:o,j:j};}).filter(function(x){return x.j!==i&&(x.o.codigo||'').toUpperCase()!==(it.codigo||'').toUpperCase();});
+  // Dedup por código (a cotação pode ter o mesmo código repetido em marcas diferentes)
+  var vistosOutros={};
+  var outros=window._venda.itens.map(function(o,j){return {o:o,j:j};}).filter(function(x){
+    var cod=(x.o.codigo||'').toUpperCase();
+    if(x.j===i||cod===(it.codigo||'').toUpperCase())return false;
+    if(vistosOutros[cod])return false;
+    vistosOutros[cod]=true;
+    return true;
+  });
   var overlay=document.createElement('div');
   overlay.id='relacModal';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
@@ -13186,7 +13200,8 @@ function vendasAbrirRelacionados(i){
         '<span style="font-weight:700;font-size:14px">🔗 Relacionados — '+it.codigo+'</span>'+
         '<button ontouchstart="" onclick="document.getElementById(\'relacModal\').remove()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1">&#215;</button>'+
       '</div>'+
-      '<div style="padding:16px 18px;overflow-y:auto;flex:1;min-height:0">'+
+      '<div style="background:#FFF3E0;color:#9A5B00;font-size:11px;padding:6px 18px;flex-shrink:0">✓ Marcar/desmarcar a caixa já salva na hora — não precisa de botão Salvar.</div>'+
+      '<div data-relac-scroll style="padding:16px 18px;overflow-y:auto;flex:1;min-height:0">'+
         '<div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:8px">Trabalha junto / parecido com</div>'+
         (relacionados.length?relacionados.map(function(r){
           return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#FFF8F0;border:1px solid #FBE3C8;border-radius:8px;margin-bottom:6px">'+
@@ -13196,15 +13211,20 @@ function vendasAbrirRelacionados(i){
         }).join(''):'<div style="font-size:12px;color:#8a9ab0;margin-bottom:10px">Nenhum item relacionado marcado ainda.</div>')+
         '<div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin:16px 0 8px">Marcar como relacionado (itens desta cotação)</div>'+
         (outros.length?outros.map(function(x){
-          return '<label ontouchstart="" style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;font-size:12px">'+
-            '<input type="checkbox" onchange="if(this.checked){relacAdicionar(\''+it.codigo.replace(/'/g,"\\'")+'\',\''+(it.desc||'').replace(/'/g,"\\'")+'\',\''+x.o.codigo.replace(/'/g,"\\'")+'\',\''+(x.o.desc||'').replace(/'/g,"\\'")+'\');}else{var l=relacLoad();var codA=\''+it.codigo.replace(/'/g,"\\'")+'\'.toUpperCase();var codB=\''+x.o.codigo.replace(/'/g,"\\'")+'\'.toUpperCase();l=l.filter(function(r){var a=(r.codigoA||\'\').toUpperCase(),b=(r.codigoB||\'\').toUpperCase();return !((a===codA&&b===codB)||(a===codB&&b===codA));});relacSave(l);}vendasAbrirRelacionados('+i+')" '+(relacionados.some(function(r){return r.codigo.toUpperCase()===x.o.codigo.toUpperCase();})?'checked':'')+' style="width:14px;height:14px;cursor:pointer">'+
-            '<span><b style="color:#1F4E79">'+x.o.codigo+'</b> — '+(x.o.desc||'')+'</span>'+
+          var jaChecado=relacionados.some(function(r){return r.codigo.toUpperCase()===x.o.codigo.toUpperCase();});
+          return '<label ontouchstart="" style="display:flex;align-items:center;gap:8px;padding:7px 6px;cursor:pointer;font-size:12px;border-radius:6px;'+(jaChecado?'background:#FFF8F0':'')+'">'+
+            '<input type="checkbox" onchange="var sp=document.querySelector(\'[data-relac-scroll]\')?document.querySelector(\'[data-relac-scroll]\').scrollTop:0;if(this.checked){relacAdicionar(\''+it.codigo.replace(/'/g,"\\'")+'\',\''+(it.desc||'').replace(/'/g,"\\'")+'\',\''+x.o.codigo.replace(/'/g,"\\'")+'\',\''+(x.o.desc||'').replace(/'/g,"\\'")+'\');}else{var l=relacLoad();var codA=\''+it.codigo.replace(/'/g,"\\'")+'\'.toUpperCase();var codB=\''+x.o.codigo.replace(/'/g,"\\'")+'\'.toUpperCase();l=l.filter(function(r){var a=(r.codigoA||\'\').toUpperCase(),b=(r.codigoB||\'\').toUpperCase();return !((a===codA&&b===codB)||(a===codB&&b===codA));});relacSave(l);}vendasAbrirRelacionados('+i+',sp)" '+(jaChecado?'checked':'')+' style="width:14px;height:14px;cursor:pointer">'+
+            '<span><b style="color:#1F4E79">'+x.o.codigo+'</b> — '+(x.o.desc||'')+(jaChecado?' <span style="color:#E67E22;font-weight:700">✓ relacionado</span>':'')+'</span>'+
           '</label>';
         }).join(''):'<div style="font-size:12px;color:#8a9ab0">Adicione outros itens nesta cotação pra poder marcá-los como relacionados.</div>')+
       '</div>'+
     '</div>';
   overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
   document.body.appendChild(overlay);
+  if(scrollSalvo!=null){
+    var novoScroll=overlay.querySelector('[data-relac-scroll]');
+    if(novoScroll)novoScroll.scrollTop=scrollSalvo;
+  }
 }
 function aplicSave(list){cadSave(APLIC_KEY,list);}
 

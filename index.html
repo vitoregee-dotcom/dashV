@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.194</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.195</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.194</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.195</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -13142,6 +13142,33 @@ function relacRemover(id){
   relacSave(relacLoad().filter(function(r){return r.id!==id;}));
 }
 
+function vendasPatchAplicacaoNoProduto(codigo,marca,modelo,serie){
+  try{
+    var plist=cadLoad(PROD_KEY);
+    var cod=(codigo||'').toUpperCase();
+    var idx=plist.findIndex(function(p){return (p.codigo||'').toUpperCase()===cod;});
+    if(idx<0){
+      plist.push({codigo:codigo,aplicacoes:[]});
+      idx=plist.length-1;
+    }
+    if(!plist[idx].aplicacoes)plist[idx].aplicacoes=[];
+    var modeloU=(modelo||'').toUpperCase(),serieU=(serie||'').toUpperCase(),marcaU=(marca||'').toUpperCase();
+    var jaExiste=plist[idx].aplicacoes.some(function(a){
+      return (a.modelo||'').toUpperCase()===modeloU&&(a.serie||'').toUpperCase()===serieU&&(a.marca||'').toUpperCase()===marcaU;
+    });
+    if(!jaExiste)plist[idx].aplicacoes.push({equip:'',marca:marca||'',modelo:modelo,serie:serie});
+    cadSave(PROD_KEY,plist);
+  }catch(e){}
+}
+
+function vendasMigrarAplicacoesAntigas(){
+  if(window._aplicMigrado)return;
+  window._aplicMigrado=true;
+  try{
+    aplicLoad().forEach(function(a){vendasPatchAplicacaoNoProduto(a.codigo,a.marca,a.modelo,a.serie);});
+  }catch(e){}
+}
+
 function vendasAbrirRelacionados(i){
   var it=window._venda.itens[i];if(!it)return;
   var old=document.getElementById('relacModal');if(old)old.remove();
@@ -13245,6 +13272,8 @@ function vendasConfirmarAplicacao(indices){
     var existente=list.find(function(a){return (a.modelo||'').toUpperCase()===modeloU&&(a.serie||'').toUpperCase()===serieU&&(a.codigo||'').toUpperCase()===cod&&(a.marca||'').toUpperCase()===marcaU;});
     if(existente){existente.desc=it.desc||existente.desc;upd++;}
     else{list.push({id:'apl_'+Date.now()+'_'+i,modelo:modelo,serie:serie,codigo:it.codigo,desc:it.desc||'',marca:marca});add++;}
+    // Também grava na ficha do produto (Cadastro de Produtos > Aplicações), pra aparecer lá também
+    vendasPatchAplicacaoNoProduto(it.codigo,marca,modelo,serie);
   });
   aplicSave(list);
   document.getElementById('aplicModal').remove();
@@ -13848,6 +13877,7 @@ function vendasVerCadastroItem(cod){
 function vendasAbrirModal(cx){
   window._vendasTabs=window._vendasTabs||{};
   window._vendasModalMode=true;
+  if(typeof vendasMigrarAplicacoesAntigas==='function')vendasMigrarAplicacoesAntigas();
 
   // Use cotação num as tab ID, or 'nova' for new
   var tabId=cx.num?String(cx.num):'nova_'+Date.now();

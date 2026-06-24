@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.206</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.207</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.206</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.207</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -13871,6 +13871,15 @@ function pvRenderLista(el){
   html+='<button ontouchstart="" onclick="vendasVerCotacoes()" style="background:none;border:1px solid #e0e8f0;border-radius:6px;padding:5px 10px;font-size:13px;cursor:pointer;color:#607080">←</button>';
   html+='<div style="font-size:12px;font-weight:700;color:#1F4E79">📦 PEDIDOS DE VENDA ('+list.length+')</div>';
   html+='</div>';
+  if(list.length){
+    // Contadores por etapa — visão rápida da logística interna
+    html+='<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">';
+    PV_ETAPAS.forEach(function(et){
+      var n=list.filter(function(p){return (p.status||'aberto')===et.k;}).length;
+      html+='<div style="background:'+et.cor+';color:'+et.txtCor+';border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;flex:1;min-width:100px;text-align:center">'+et.label+'<div style="font-size:16px;margin-top:2px">'+n+'</div></div>';
+    });
+    html+='</div>';
+  }
   if(!list.length){
     html+='<div style="text-align:center;padding:30px;color:#8a9ab0;font-size:13px;background:#fff;border-radius:10px">Nenhum pedido de venda criado ainda. Selecione itens na cotação (coluna PV) e clique em "Enviar para Pedido de Venda".</div>';
   } else {
@@ -13885,17 +13894,17 @@ function pvRenderLista(el){
       '<th style="padding:6px 8px;text-align:center;color:#fff;font-size:10px">AÇÕES</th>'+
       '</tr></thead><tbody>';
     list.forEach(function(p){
-      var statusCor=p.status==='entregue'?'#DCFCE7':p.status==='separado'?'#FEF3C7':'#E0E8F0';
-      var statusTxt=p.status==='entregue'?'Entregue':p.status==='separado'?'Separado':'Aberto';
+      var etAtual=pvEtapaInfo(p.status||'aberto');
+      var prox=pvProximaEtapa(p.status||'aberto');
+      var proxInfo=prox?pvEtapaInfo(prox):null;
       html+='<tr style="border-bottom:.5px solid #f0f4f8">'+
         '<td style="padding:6px 8px;font-family:monospace;font-weight:600;color:#185FA5">'+p.numero+'</td>'+
         '<td style="padding:6px 8px">'+(p.clienteRazao||'—')+'</td>'+
         '<td style="padding:6px 8px;font-size:11px;color:#607080">'+new Date(p.data).toLocaleDateString('pt-BR')+'</td>'+
         '<td style="padding:6px 8px;text-align:center">'+p.itens.length+'</td>'+
-        '<td style="padding:6px 8px;text-align:center"><span style="font-size:10px;padding:3px 8px;border-radius:6px;background:'+statusCor+'">'+statusTxt+'</span></td>'+
+        '<td style="padding:6px 8px;text-align:center"><span style="font-size:10px;padding:3px 8px;border-radius:6px;background:'+etAtual.cor+';color:'+etAtual.txtCor+';font-weight:700">'+etAtual.label+'</span></td>'+
         '<td style="padding:6px 8px;text-align:center">'+
-        (p.status==='aberto'?'<button ontouchstart="" onclick="pvMarcarStatus(\''+p.id+'\',\'separado\')" style="font-size:10px;padding:3px 8px;background:none;border:1px solid #1F4E79;border-radius:5px;color:#1F4E79;cursor:pointer;margin-right:3px">Separar</button>':'')+
-        (p.status==='separado'?'<button ontouchstart="" onclick="pvMarcarStatus(\''+p.id+'\',\'entregue\')" style="font-size:10px;padding:3px 8px;background:none;border:1px solid #27AE60;border-radius:5px;color:#27AE60;cursor:pointer;margin-right:3px">Entregar</button>':'')+
+        (proxInfo?'<button ontouchstart="" onclick="pvMarcarStatus(\''+p.id+'\',\''+prox+'\')" style="font-size:10px;padding:3px 8px;background:none;border:1px solid '+proxInfo.txtCor+';border-radius:5px;color:'+proxInfo.txtCor+';cursor:pointer;margin-right:3px">→ '+proxInfo.label+'</button>':'')+
         '<button ontouchstart="" onclick="pvVerDetalhe(\''+p.id+'\')" style="font-size:10px;padding:3px 8px;background:none;border:1px solid #607080;border-radius:5px;color:#607080;cursor:pointer">Ver itens</button>'+
         '</td></tr>';
     });
@@ -14015,11 +14024,23 @@ function pvKpisInnerHtml(){
   return html;
 }
 
+var PV_ETAPAS=[
+  {k:'aberto',label:'Aguardando Separação',cor:'#E0E8F0',txtCor:'#607080'},
+  {k:'separado',label:'Separado',cor:'#FEF3C7',txtCor:'#9A6B00'},
+  {k:'conferido',label:'Conferido',cor:'#DBEAFE',txtCor:'#1F4E79'},
+  {k:'faturado',label:'Faturado',cor:'#EDE4F7',txtCor:'#7B2D8B'},
+  {k:'despachado',label:'Despachado',cor:'#DCFCE7',txtCor:'#1A7A3C'}
+];
+function pvEtapaInfo(k){return PV_ETAPAS.find(function(e){return e.k===k;})||PV_ETAPAS[0];}
+function pvProximaEtapa(k){var i=PV_ETAPAS.findIndex(function(e){return e.k===k;});return i>=0&&i<PV_ETAPAS.length-1?PV_ETAPAS[i+1].k:null;}
+
 function pvMarcarStatus(id,novoStatus){
   var list=pvLoad();
   var p=list.find(function(x){return x.id===id;});
   if(!p)return;
   p.status=novoStatus;
+  if(!p.logHistorico)p.logHistorico=[];
+  p.logHistorico.push({etapa:novoStatus,data:Date.now(),usuario:(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||'—'});
   pvSave(list);
   var el=document.getElementById('vendasBody');
   if(el)pvRenderLista(el);
@@ -14030,10 +14051,15 @@ function pvVerDetalhe(id){
   var p=list.find(function(x){return x.id===id;});
   if(!p)return;
   var entregaTxt=p.entrega?(p.entrega+(p.transportadora?' ('+p.transportadora+')':'')):'—';
+  var hist=(p.logHistorico||[]).map(function(h){
+    var dt=new Date(h.data);
+    return '  • '+pvEtapaInfo(h.etapa).label+' — '+dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+' ('+h.usuario+')';
+  }).join('\n');
   var txt=p.numero+' - '+(p.clienteRazao||'—')+
     '\nPrazo: '+(p.prazoPagamento||'—')+
     '\nEntrega: '+entregaTxt+
     (p.obs?'\nObs: '+p.obs:'')+
+    '\n\nHistórico:\n'+(hist||'  (sem registros ainda)')+
     '\n\n'+p.itens.map(function(it){return it.qtd+'x '+it.codigo+' ('+(it.marca||'—')+') - '+(it.desc||'');}).join('\n');
   pfAlert(txt);
 }

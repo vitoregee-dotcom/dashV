@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.204</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.205</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.204</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.205</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -1465,17 +1465,17 @@ function _readXlsxSheetJS(u8){
     }catch(e){reject(e);}
   });
 }
-function _processRowsMain(rows){
+function _processRowsMain(rows,manualMap){
   var ALIAS2={
-    ref:["referencia","ref","codigo ref","codigo"],
-    desc:["descricao","desc","produto","item","nome"],
-    marca:["marca","fabricante"],
-    familia:["familia","family","grupo produto","linha"],
-    custo:["custo medio matriz","custo medio","preco nf","custo"],
-    saldo:["saldo atual","saldo atual matriz","estoque atual","saldo"],
-    minimo:["minimo","estoque minimo"],
-    consumo:["consumo","consumo total","venda periodo","vendas"],
-    curva:["classificacao","curva abc","abc"],
+    ref:["referencia","ref","codigo ref","codigo","cod","código","part number","sku"],
+    desc:["descricao","desc","produto","item","nome","descrição"],
+    marca:["marca","fabricante","brand"],
+    familia:["familia","family","grupo produto","linha","categoria","grupo"],
+    custo:["custo medio matriz","custo medio","preco nf","custo","preco custo","preço custo","cost"],
+    saldo:["saldo atual","saldo atual matriz","estoque atual","saldo","estoque","qtd estoque","quantidade"],
+    minimo:["minimo","estoque minimo","min"],
+    consumo:["consumo","consumo total","venda periodo","vendas","qtd vendida"],
+    curva:["classificacao","curva abc","abc","curva"],
     pedido:["compras","compras total","pedido","pedido compra","em pedido","qtd pedido","pedido em aberto"],
     cotacoes:["con pedidos","cotacoes","num cotacoes","cotado","n cotacoes"]
   };
@@ -1483,9 +1483,15 @@ function _processRowsMain(rows){
   function mapC(hdr){var m={};Object.keys(ALIAS2).forEach(function(f){var aliases=ALIAS2[f];for(var ai=0;ai<aliases.length;ai++){for(var hi=0;hi<hdr.length;hi++){if(nm2(hdr[hi])===aliases[ai]){m[f]=hi;return;}}}});return m;}
   function famM(m){var u=(m||'').trim().toUpperCase();if(u==='SPICER'||u==='SPICER-R')return'SPICER';if(u==='ALBARUS'||u==='ALBARUS-R')return'ALBARUS';if(u==='CARRARO'||u.indexOf('CARRARO')===0)return'CARRARO';if(u==='DANA'||u==='DANA-R'||u==='DANA-IMP')return'DANA';return u;}
   if(!rows||rows.length<2)return{items:[],errors:['Planilha vazia.'],detected:[]};
-  var hdr=rows[0],cm=mapC(hdr);
-  var miss=['ref','desc','consumo','saldo'].filter(function(f){return cm[f]===undefined;});
-  if(miss.length)return{items:[],errors:['Campos não encontrados: '+miss.join(', ')],detected:[]};
+  var hdr=rows[0],cm=manualMap||mapC(hdr);
+  // Só ref e desc são realmente obrigatórios — outros sistemas podem não ter
+  // consumo/saldo no mesmo formato, e ainda assim dá pra importar o básico
+  var miss=['ref','desc'].filter(function(f){return cm[f]===undefined;});
+  if(miss.length&&!manualMap){
+    // Em vez de só falhar, devolve os cabeçalhos pra tela pedir mapeamento manual
+    return{items:[],errors:[],detected:[],needsMapping:true,headers:hdr,autoMap:cm,rows:rows};
+  }
+  if(miss.length)return{items:[],errors:['Campos obrigatórios não mapeados: '+miss.join(', ')],detected:[]};
   var map=new Map(),det=Object.keys(cm);
   for(var ri=1;ri<rows.length;ri++){
     var r=rows[ri];if(!r)continue;
@@ -3054,6 +3060,11 @@ function handleFile(file){
       sp.textContent="⏳ Finalizando...";
       if(!result||!result.items){result={items:[],errors:["Erro no processamento"],detected:[]};}
       sp.style.display="none";
+      if(result.needsMapping){
+        document.getElementById("upZone").style.display="block";
+        pfAbrirMapeamentoManual(result.headers,result.autoMap,result.rows,file);
+        return;
+      }
       if(result.errors.length>0){
         document.getElementById("upZone").style.display="block";
         mostrarErro("Problema ao detectar colunas:\n"+result.errors.join("\n"));
@@ -3064,8 +3075,144 @@ function handleFile(file){
         mostrarErro("Nenhum item encontrado na planilha.");
         return;
       }
+      await pfFinalizarImportPlanilha(result,file,sp);
+    }catch(err){
+      sp.style.display="none";
+      document.getElementById("upZone").style.display="block";
+      var msg=err.message||'Erro desconhecido';
+      // Verificar se é problema de Worker bloqueado
+      if(msg.indexOf('Worker')>=0||msg.indexOf('worker')>=0||msg.indexOf('blob')>=0){
+        mostrarErro("Erro de processamento: "+msg+"\n\nTente usar Chrome ou Edge atualizado.\nSe o problema persistir, verifique se o site está acessado via HTTPS.");
+      }else{
+        mostrarErro("Erro ao processar:\n"+msg);
+      }
+    }
+  };
+  fr.readAsArrayBuffer(file);
+}
+
+// ═══ MAPEAMENTO MANUAL DE COLUNAS (import universal de outros sistemas) ═══
+var IMPORT_TPL_KEY='cad_import_templates_v1';
+function pfImportTplLoad(){return cadLoad(IMPORT_TPL_KEY);}
+function pfImportTplSave(list){cadSave(IMPORT_TPL_KEY,list);}
+
+var PF_CAMPOS_IMPORT=[
+  {f:'ref',label:'Referência / Código',obrig:true},
+  {f:'desc',label:'Descrição',obrig:true},
+  {f:'marca',label:'Marca / Fabricante',obrig:false},
+  {f:'saldo',label:'Saldo / Estoque atual',obrig:false},
+  {f:'custo',label:'Custo',obrig:false},
+  {f:'consumo',label:'Consumo / Vendas no período',obrig:false},
+  {f:'minimo',label:'Estoque mínimo',obrig:false},
+  {f:'familia',label:'Família / Grupo',obrig:false},
+  {f:'curva',label:'Curva ABC',obrig:false},
+  {f:'pedido',label:'Em pedido / Compras',obrig:false},
+  {f:'cotacoes',label:'Nº de cotações',obrig:false}
+];
+
+function pfAbrirMapeamentoManual(headers,autoMap,rows,file){
+  window._pfImportPendente={headers:headers,rows:rows,file:file};
+  var old=document.getElementById('importMapModal');if(old)old.remove();
+  var templates=pfImportTplLoad();
+  var overlay=document.createElement('div');
+  overlay.id='importMapModal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
+  var optsHeaders=headers.map(function(h,i){return '<option value="'+i+'">'+pfEscHtml(String(h))+'</option>';}).join('');
+  var camposHtml=PF_CAMPOS_IMPORT.map(function(c){
+    var sel=autoMap&&autoMap[c.f]!==undefined?autoMap[c.f]:-1;
+    return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'+
+      '<div style="width:220px;font-size:12px;font-weight:600;color:'+(c.obrig?'#C00000':'#607080')+'">'+c.label+(c.obrig?' *':'')+'</div>'+
+      '<select data-campo="'+c.f+'" style="flex:1;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:12px">'+
+      '<option value="-1">— nenhuma —</option>'+
+      headers.map(function(h,i){return '<option value="'+i+'" '+(i===sel?'selected':'')+'>'+pfEscHtml(String(h))+'</option>';}).join('')+
+      '</select></div>';
+  }).join('');
+  var templatesHtml=templates.length?
+    '<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:6px">Usar modelo salvo</div>'+
+    '<select id="importTplSelect" onchange="pfAplicarTemplateImport(this.value)" style="width:100%;padding:8px 10px;border:1.5px solid #1F4E79;border-radius:7px;font-size:12px">'+
+    '<option value="">— escolher manualmente —</option>'+
+    templates.map(function(t,i){return '<option value="'+i+'">'+pfEscHtml(t.nome)+'</option>';}).join('')+
+    '</select></div>':'';
+  overlay.innerHTML=
+    '<div style="background:#fff;border-radius:12px;max-width:520px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.3);overflow:hidden">'+
+      '<div style="background:#1F4E79;color:#fff;padding:14px 18px;flex-shrink:0">'+
+        '<div style="font-weight:700;font-size:14px">📑 Não reconheci as colunas dessa planilha</div>'+
+        '<div style="font-size:11px;opacity:.85;margin-top:2px">Provavelmente é de outro sistema. Indica qual coluna é cada campo:</div>'+
+      '</div>'+
+      '<div style="padding:18px;overflow-y:auto;flex:1;min-height:0">'+
+        templatesHtml+
+        '<div id="importCamposWrap">'+camposHtml+'</div>'+
+        '<label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:12px;cursor:pointer">'+
+          '<input type="checkbox" id="importSalvarTpl" checked style="width:14px;height:14px">'+
+          '<span>Salvar esse mapeamento como modelo, pra não precisar refazer da próxima vez</span>'+
+        '</label>'+
+        '<input type="text" id="importTplNome" placeholder="Nome do modelo (ex: Sisrev, J.Boss...)" style="width:100%;box-sizing:border-box;margin-top:8px;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:12px">'+
+      '</div>'+
+      '<div style="padding:14px 18px;border-top:1px solid #f0f4f8;display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">'+
+        '<button ontouchstart="" onclick="document.getElementById(\'importMapModal\').remove();document.getElementById(\'upZone\').style.display=\'block\'" style="padding:9px 16px;border-radius:8px;border:1px solid #e0e8f0;background:#fff;color:#607080;font-size:13px;cursor:pointer">Cancelar</button>'+
+        '<button ontouchstart="" onclick="pfConfirmarMapeamentoManual()" style="padding:9px 18px;border-radius:8px;border:none;background:#1F4E79;color:#fff;font-size:13px;font-weight:700;cursor:pointer">Importar</button>'+
+      '</div>'+
+    '</div>';
+  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+function pfAplicarTemplateImport(idx){
+  if(idx===''||idx==null)return;
+  var t=pfImportTplLoad()[parseInt(idx,10)];
+  if(!t)return;
+  var headers=window._pfImportPendente.headers;
+  function nm3(s){try{return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();}catch(e){return String(s||'').toLowerCase().trim();}}
+  document.querySelectorAll('#importCamposWrap select[data-campo]').forEach(function(sel){
+    var campo=sel.getAttribute('data-campo');
+    var headerSalvo=t.mapeamento[campo];
+    if(!headerSalvo){sel.value='-1';return;}
+    var idx2=headers.findIndex(function(h){return nm3(h)===nm3(headerSalvo);});
+    sel.value=idx2>=0?String(idx2):'-1';
+  });
+}
+
+function pfConfirmarMapeamentoManual(){
+  var headers=window._pfImportPendente.headers;
+  var manualMap={};
+  var faltouObrig=[];
+  document.querySelectorAll('#importCamposWrap select[data-campo]').forEach(function(sel){
+    var campo=sel.getAttribute('data-campo');
+    var v=parseInt(sel.value,10);
+    if(v>=0)manualMap[campo]=v;
+  });
+  PF_CAMPOS_IMPORT.filter(function(c){return c.obrig;}).forEach(function(c){
+    if(manualMap[c.f]===undefined)faltouObrig.push(c.label);
+  });
+  if(faltouObrig.length){pfAlert('Preencha os campos obrigatórios: '+faltouObrig.join(', '));return;}
+  if(document.getElementById('importSalvarTpl').checked){
+    var nome=(document.getElementById('importTplNome').value||'').trim();
+    if(nome){
+      var mapeamentoPorNome={};
+      Object.keys(manualMap).forEach(function(campo){mapeamentoPorNome[campo]=headers[manualMap[campo]];});
+      var list=pfImportTplLoad();
+      var existe=list.findIndex(function(t){return t.nome.toUpperCase()===nome.toUpperCase();});
+      var tpl={nome:nome,mapeamento:mapeamentoPorNome};
+      if(existe>=0)list[existe]=tpl;else list.push(tpl);
+      pfImportTplSave(list);
+    }
+  }
+  var rows=window._pfImportPendente.rows,file=window._pfImportPendente.file;
+  document.getElementById('importMapModal').remove();
+  var result=_processRowsMain(rows,manualMap);
+  if(result.errors&&result.errors.length){pfAlert('Erro: '+result.errors.join(', '));document.getElementById('upZone').style.display='block';return;}
+  if(!result.items.length){pfAlert('Nenhum item encontrado com esse mapeamento.');document.getElementById('upZone').style.display='block';return;}
+  var sp=document.getElementById('spinner');
+  if(sp){sp.style.display='block';sp.textContent='⏳ Finalizando...';}
+  pfFinalizarImportPlanilha(result,file,sp);
+}
+
+// Continuação do import depois que o result já está pronto (vindo do auto-detect
+// ou de um mapeamento manual confirmado) — reaproveitada nos dois fluxos
+async function pfFinalizarImportPlanilha(result,file,sp){
+  try{
       // Nomear aba antes de carregar dados
-      if(tabs[activeTab]){tabs[activeTab].name=file.name.replace(/\\.xlsx$/i,"");tabs[activeTab].hasData=true;}
+      if(tabs[activeTab]){tabs[activeTab].name=file.name.replace(/\.xlsx$/i,"");tabs[activeTab].hasData=true;}
       renderTabs();
       if(result.detected){
         var dcEl=document.getElementById("detCols");
@@ -3142,18 +3289,10 @@ function handleFile(file){
       renderCharts();renderKpis();renderOpBox();
       setTimeout(function(){renderCharts();renderKpis();renderOpBox();verificarAvisos();verificarOportunidades();},300);
     }catch(err){
-      sp.style.display="none";
+      if(sp)sp.style.display="none";
       document.getElementById("upZone").style.display="block";
-      var msg=err.message||'Erro desconhecido';
-      // Verificar se é problema de Worker bloqueado
-      if(msg.indexOf('Worker')>=0||msg.indexOf('worker')>=0||msg.indexOf('blob')>=0){
-        mostrarErro("Erro de processamento: "+msg+"\n\nTente usar Chrome ou Edge atualizado.\nSe o problema persistir, verifique se o site está acessado via HTTPS.");
-      }else{
-        mostrarErro("Erro ao processar:\n"+msg);
-      }
+      mostrarErro("Erro ao processar:\n"+(err.message||'Erro desconhecido'));
     }
-  };
-  fr.readAsArrayBuffer(file);
 }
 (function(){
   var fi=document.getElementById("fileIn");
@@ -8575,13 +8714,15 @@ async function cadPushSupabase(){
     var aplic=cadLoad(typeof APLIC_KEY!=='undefined'?APLIC_KEY:'cad_aplicacoes_v1');
     var cadrHist=cadLoad(typeof CADR_HIST_KEY!=='undefined'?CADR_HIST_KEY:'cadr_historico_scripts_v1');
     var relac=cadLoad(typeof RELAC_KEY!=='undefined'?RELAC_KEY:'cad_relacionados_v1');
+    var importTpl=cadLoad(typeof IMPORT_TPL_KEY!=='undefined'?IMPORT_TPL_KEY:'cad_import_templates_v1');
     var tipos=[
       {tipo:'fornecedores',dados:forn},
       {tipo:'clientes',dados:clie},
       {tipo:'produtos',dados:prod},
       {tipo:'aplicacoes',dados:aplic},
       {tipo:'cadr_historico',dados:cadrHist},
-      {tipo:'relacionados',dados:relac}
+      {tipo:'relacionados',dados:relac},
+      {tipo:'import_templates',dados:importTpl}
     ];
     for(var ti=0;ti<tipos.length;ti++){
       var t=tipos[ti];
@@ -8632,7 +8773,7 @@ async function cadPullSupabase(){
       try{
         var items=typeof row.dados==='string'?JSON.parse(row.dados):row.dados;
         if(!Array.isArray(items))return;
-        var key=row.tipo==='fornecedores'?FORN_KEY:row.tipo==='clientes'?CLIE_KEY:row.tipo==='aplicacoes'?(typeof APLIC_KEY!=='undefined'?APLIC_KEY:'cad_aplicacoes_v1'):row.tipo==='cadr_historico'?(typeof CADR_HIST_KEY!=='undefined'?CADR_HIST_KEY:'cadr_historico_scripts_v1'):row.tipo==='relacionados'?(typeof RELAC_KEY!=='undefined'?RELAC_KEY:'cad_relacionados_v1'):(typeof PROD_KEY!=='undefined'?PROD_KEY:'cad_produtos_v1');
+        var key=row.tipo==='fornecedores'?FORN_KEY:row.tipo==='clientes'?CLIE_KEY:row.tipo==='aplicacoes'?(typeof APLIC_KEY!=='undefined'?APLIC_KEY:'cad_aplicacoes_v1'):row.tipo==='cadr_historico'?(typeof CADR_HIST_KEY!=='undefined'?CADR_HIST_KEY:'cadr_historico_scripts_v1'):row.tipo==='relacionados'?(typeof RELAC_KEY!=='undefined'?RELAC_KEY:'cad_relacionados_v1'):row.tipo==='import_templates'?(typeof IMPORT_TPL_KEY!=='undefined'?IMPORT_TPL_KEY:'cad_import_templates_v1'):(typeof PROD_KEY!=='undefined'?PROD_KEY:'cad_produtos_v1');
         // Supabase é a fonte de verdade - substitui local diretamente
         localStorage.setItem(key,JSON.stringify(items));
         console.log('✅ '+row.tipo+' puxados do Supabase: '+items.length);

@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.202</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.203</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.202</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.203</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -14054,11 +14054,21 @@ function pvConfirmarCriarPedido(){
 function vendasEnviarSelecionados(){
   var sel=window._vendasSel||{};
   var itens=(window._venda&&window._venda.itens)||[];
+  if(typeof mapaItens==='undefined')window.mapaItens=[];
+  var enviados=0;
   itens.forEach(function(it,i){
-    if(sel[i])vendasEnviarMapa(i);
+    if(!sel[i])return;
+    mapaItens.push({ref:it.codigo,refCliente:it.codigoOriginal||it.codigo,desc:it.desc,marca:it.marcaInterna||it.marca,qtd:it.qtd,urgente:true});
+    it.enviadoMapa=true;
+    enviados++;
   });
   window._vendasSel={};
-  vendasRefresh();
+  if(enviados){
+    window._mapaItensPreCarregados=true;
+    pfNavigate('mapa');
+  } else {
+    vendasRefresh();
+  }
 }
 
 function vendasVerCadastroItem(cod){
@@ -14588,6 +14598,7 @@ function vendasEnviarMapa(i){
   if(typeof mapaItens==='undefined')window.mapaItens=[];
   mapaItens.push({ref:it.codigo,refCliente:it.codigoOriginal||it.codigo,desc:it.desc,marca:it.marcaInterna||it.marca,qtd:it.qtd,urgente:true});
   it.enviadoMapa=true;
+  window._mapaItensPreCarregados=true;
   pfNavigate('mapa');
 }
 
@@ -14628,8 +14639,9 @@ function vendasZerarNegativos(){
 function vendasEnviarTodosNeg(){
   if(typeof mapaItens==='undefined')window.mapaItens=[];
   (window._venda.itens||[]).forEach(function(it){
-    if(!it.saldo||it.saldo<=0){mapaItens.push({ref:it.codigo,desc:it.desc,marca:it.marca,qtd:it.qtd,urgente:true});it.enviadoMapa=true;}
+    if(!it.saldo||it.saldo<=0){mapaItens.push({ref:it.codigo,refCliente:it.codigoOriginal||it.codigo,desc:it.desc,marca:it.marcaInterna||it.marca,qtd:it.qtd,urgente:true});it.enviadoMapa=true;}
   });
+  window._mapaItensPreCarregados=true;
   pfNavigate('mapa');
 }
 
@@ -16240,8 +16252,10 @@ function pfNavigate(view){
     var mv=document.getElementById('mapaView'); if(mv)mv.style.display='block';
     currentView='mapa';
 
-    // Nunca restaurar automaticamente - sempre ir para lista
-    mapaItens=[];
+    // Nunca restaurar lista antiga automaticamente ao entrar pelo menu — mas não apaga
+    // se os itens foram enviados de propósito agora mesmo (ex: Vendas > Enviar ao Mapa)
+    if(!window._mapaItensPreCarregados){mapaItens=[];}
+    window._mapaItensPreCarregados=false;
     if(typeof mapaRender==='function') mapaRender();
     else setTimeout(function(){ if(typeof mapaRender==='function') mapaRender(); }, 200);
   } else if(view==='cadastros'){

@@ -580,7 +580,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.211</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.212</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -699,7 +699,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.211</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.212</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -7975,14 +7975,17 @@ function cadSugerirGrupoSubgrupo(){
   var desc=(descEl?descEl.value:'')||'';
   var msg=document.getElementById('prodSugestaoMsg');
   if(!desc.trim()){if(msg)msg.textContent='Preenche a Descrição primeiro.';return;}
-  var r=pfClassificarGrupoSubgrupo(desc);
+  var marcaEl=document.getElementById('prodMarca');
+  var marca=(marcaEl?marcaEl.value:'')||'';
+  var r=pfClassificarGrupoSubgrupo(desc,marca);
   if(!r){if(msg){msg.textContent='Não reconheci — classifica manualmente.';msg.style.color='#C00000';}return;}
+  if(r.ambiguo){if(msg){msg.textContent='"'+r.termo+'" pode ser Motor ou Transmissão — preenche a Marca (interna) pra eu decidir, ou classifica manualmente.';msg.style.color='#C00000';}return;}
   var gSel=document.getElementById('prodGrupo');
   if(gSel){gSel.value=r.grupo;cadUpdateSubgrupo();}
   setTimeout(function(){
     var sSel=document.getElementById('prodSubgrupo');
     if(sSel)sSel.value=r.subgrupo;
-    if(msg){msg.textContent='✓ Sugerido: '+r.grupo+' / '+r.subgrupo;msg.style.color='#27AE60';}
+    if(msg){msg.textContent='✓ Sugerido: '+r.grupo+' / '+r.subgrupo+(marca?' (pela marca '+marca+')':'');msg.style.color='#27AE60';}
   },10);
 }
 
@@ -8921,9 +8924,20 @@ var GRUPO_SUBGRUPO_KEYWORDS={
   'Transmissão':SUBGRUPO_TRANSMISSAO_KEYWORDS
 };
 
-// Classifica em qualquer grupo conhecido — retorna {grupo,subgrupo} ou null
-function pfClassificarGrupoSubgrupo(descricao){
+// Termos genéricos que aparecem tanto em Motor quanto em Transmissão — só a marca
+// resolve a ambiguidade (ex: "engrenagem" sozinho não diz se é distribuição do motor
+// ou planetária da transmissão; "eixo" sozinho não diz se é virabrequim ou eixo de saída).
+var AMBIGUOS_POR_MARCA={
+  'engrenagem':{'MOTOR':{grupo:'Motor',subgrupo:'Distribuição (Comando de Válvulas)'},'EIXO/TRANSMISSÃO':{grupo:'Transmissão',subgrupo:'Engrenagens Planetárias'}},
+  'eixo':{'MOTOR':{grupo:'Motor',subgrupo:'Bloco e Componentes Internos'},'EIXO/TRANSMISSÃO':{grupo:'Transmissão',subgrupo:'Eixos e Acoplamentos'}}
+};
+
+// Classifica em qualquer grupo conhecido — retorna {grupo,subgrupo} ou null.
+// 'marca' é opcional, mas ajuda a resolver termos ambíguos como engrenagem/eixo.
+function pfClassificarGrupoSubgrupo(descricao,marca){
   var desc=(descricao||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  // 1) Palavras-chave específicas primeiro (ex: "engrenagem de distribuicao" já é
+  // inequívoco, não precisa da marca pra decidir)
   for(var grupo in GRUPO_SUBGRUPO_KEYWORDS){
     var mapa=GRUPO_SUBGRUPO_KEYWORDS[grupo];
     for(var sg in mapa){
@@ -8931,6 +8945,15 @@ function pfClassificarGrupoSubgrupo(descricao){
       for(var i=0;i<palavras.length;i++){
         if(desc.indexOf(palavras[i].normalize('NFD').replace(/[\u0300-\u036f]/g,''))>=0)return {grupo:grupo,subgrupo:sg};
       }
+    }
+  }
+  // 2) Termo genérico/ambíguo — usa a marca pra decidir Motor vs Transmissão
+  for(var termo in AMBIGUOS_POR_MARCA){
+    if(desc.indexOf(termo)>=0){
+      var sistema=typeof obterSistemaPorMarca==='function'?obterSistemaPorMarca(marca):null;
+      var opcao=AMBIGUOS_POR_MARCA[termo][sistema];
+      if(opcao)return opcao;
+      return {ambiguo:true,termo:termo};
     }
   }
   return null;

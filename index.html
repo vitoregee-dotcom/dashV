@@ -583,7 +583,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.226</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.227</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -702,7 +702,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.226</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.227</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -15652,7 +15652,7 @@ function solicRender(){
       var dt=new Date(s.data);
       var corOrigem=s.origem==='mapa'?'#7B2D8B':'#1F4E79';
       html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f0f4f8;gap:10px;flex-wrap:wrap">';
-      html+='<div><b style="color:'+corOrigem+'">'+pfEscHtml(s.fornecedor||'(sem fornecedor)')+'</b> <span style="font-size:11px;color:#8a9ab0">— '+s.itens.length+' item(ns) · '+dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+(s.origem==='mapa'?' · '+(s.numeroOC?s.numeroOC+' · ':'')+'via Mapa de Compras':'')+'</span></div>';
+      html+='<div><b style="color:'+corOrigem+'">'+pfEscHtml(s.fornecedor||'(sem fornecedor)')+'</b>'+(s.numeroPedido?' <span style="color:#27AE60;font-weight:700">· Pedido '+pfEscHtml(s.numeroPedido)+'</span>':'')+' <span style="font-size:11px;color:#8a9ab0">— '+s.itens.length+' item(ns) · '+dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+(s.origem==='mapa'?' · '+(s.numeroOC?s.numeroOC+' · ':'')+'via Mapa de Compras':'')+'</span></div>';
       html+='<div style="display:flex;gap:6px">';
       html+='<button ontouchstart="" onclick="solicVerItens(\''+s.id+'\')" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #607080;border-radius:6px;color:#607080;cursor:pointer">Ver itens</button>';
       html+='<button ontouchstart="" onclick="solicReabrirEmail(\''+s.id+'\')" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #1F4E79;border-radius:6px;color:#1F4E79;cursor:pointer">✉️ Reabrir e-mail</button>';
@@ -15677,7 +15677,7 @@ function solicVerItens(id){
 function solicReabrirEmail(id){
   var s=solicLoad().find(function(x){return x.id===id;});
   if(!s)return;
-  solicAbrirEmail(s.itens,s.fornecedor,true);
+  solicAbrirEmail(s.itens,s.fornecedor,true,s.numeroPedido||s.numeroOC||'');
 }
 
 function solicExcluir(id){
@@ -15718,28 +15718,30 @@ async function solicProcessar(file){
     var parts=[];
     if(mt.startsWith('image/'))parts.push({type:'image',source:{type:'base64',media_type:mt,data:b64}});
     else parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});
-    parts.push({type:'text',text:'Extraia os itens desta cotacao de venda. Pra cada item retorne codigo (parte antes do hifen na descricao), desc (resto da descricao), marca, qtd, e prazo (campo Prazo exatamente como aparece, ex: IMEDIATO, 3 DIAS). Retorne APENAS JSON: [{"codigo":"","desc":"","marca":"","qtd":1,"prazo":""}]. Sem markdown, sem texto adicional.'});
+    parts.push({type:'text',text:'Extraia o numero do pedido (campo "Nr. Cotacao" do documento — é o mesmo numero do pedido da Triex) e os itens desta cotacao de venda. Pra cada item retorne codigo (parte antes do hifen na descricao), desc (resto da descricao), marca, qtd, e prazo (campo Prazo exatamente como aparece, ex: IMEDIATO, 3 DIAS). Retorne APENAS JSON: {"numeroPedido":"","itens":[{"codigo":"","desc":"","marca":"","qtd":1,"prazo":""}]}. Sem markdown, sem texto adicional.'});
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:parts}]})});
     var data=await resp.json();
     var txt=data.content.map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();
-    var m=txt.match(/\[[\s\S]*\]/);if(m)txt=m[0];
-    var itens=JSON.parse(txt);
+    var m=txt.match(/\{[\s\S]*\}/);if(m)txt=m[0];
+    var parsed=JSON.parse(txt);
+    var numeroPedido=parsed.numeroPedido||'';
+    var itens=parsed.itens||[];
     var pendentes=itens.filter(function(it){return (it.prazo||'').trim().toUpperCase()!=='IMEDIATO';});
     if(status)status.style.display='none';
     if(!pendentes.length){pfAlert('✅ Todos os '+itens.length+' item(ns) estão IMEDIATO — não precisa pedir compra.');return;}
     var fornecedor=(document.getElementById('solicFornecedorInput')||{}).value||window._solicFornecedor||'';
-    solicAbrirEmail(pendentes,fornecedor);
+    solicAbrirEmail(pendentes,fornecedor,false,numeroPedido);
   }catch(e){
     if(status){status.style.display='inline-flex';status.innerHTML='<span style="color:#C00000">❌ '+e.message+'</span>';setTimeout(function(){status.style.display='none';},5000);}
     else pfAlert('Erro: '+e.message);
   }
 }
 
-function solicAbrirEmail(itens,fornecedor,naoSalvar){
+function solicAbrirEmail(itens,fornecedor,naoSalvar,numeroPedido){
   var hoje=new Date().toLocaleDateString('pt-BR');
-  var assunto='SOLICITAÇÃO DE COMPRA'+(fornecedor?' — '+fornecedor.toUpperCase():'');
+  var assunto='SOLICITAÇÃO DE COMPRA'+(numeroPedido?' — PEDIDO '+numeroPedido:'')+(fornecedor?' — '+fornecedor.toUpperCase():'');
   var linhas='';
   itens.forEach(function(it,i){
     var bg=i%2===0?'#ffffff':'#f7f8fa';
@@ -15756,9 +15758,9 @@ function solicAbrirEmail(itens,fornecedor,naoSalvar){
     '<div id="solicEmailBody" style="font-family:Calibri,Arial,sans-serif;color:#1a2332;max-width:700px;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e8edf4">'+
     pfDocHeaderHtml('Solicitação de Compra')+
     '<div style="padding:24px 32px">'+
-    pfDocCardHtml('',pfDocCampoHtml('Data',hoje)+(fornecedor?pfDocCampoHtml('Fornecedor sugerido',fornecedor):''))+
-    '<p style="margin:0 0 6px;font-size:13px;">Prezados,</p>'+
-    '<p style="margin:0 0 16px;font-size:13px;">Os itens abaixo foram cotados ao cliente e não estão com saldo imediato. Por favor, providenciar a compra'+(fornecedor?' junto a <b>'+pfEscHtml(fornecedor)+'</b>':'')+':</p>'+
+    pfDocCardHtml('',pfDocCampoHtml('Data',hoje)+(numeroPedido?pfDocCampoHtml('Pedido Triex',numeroPedido):'')+(fornecedor?pfDocCampoHtml('Fornecedor',fornecedor):''))+
+    '<p style="margin:0 0 6px;font-size:13px;">Olá, Pessoal de compras.</p>'+
+    '<p style="margin:0 0 16px;font-size:13px;">Por favor, seguir com a compra do material'+(fornecedor?', no fornecedor: <b>'+pfEscHtml(fornecedor)+'</b>':'')+' para atender o pedido de número: <b>'+pfEscHtml(numeroPedido||'—')+'</b>, já ativo.</p>'+
     '<table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:20px;">'+
       '<thead><tr style="background:#C00000;">'+
         '<th style="padding:9px 12px;text-align:center;color:#fff;font-weight:700;font-size:12px;">#</th>'+
@@ -15769,7 +15771,7 @@ function solicAbrirEmail(itens,fornecedor,naoSalvar){
         '<th style="padding:9px 12px;text-align:center;color:#fff;font-weight:700;font-size:12px;">Prazo cotado</th>'+
       '</tr></thead><tbody>'+linhas+'</tbody>'+
     '</table>'+
-    '<p style="margin:20px 0 0;font-size:13px;">Att,<br><strong>Vitor Lima</strong><br>Triex</p>'+
+    '<p style="margin:20px 0 0;font-size:13px;">Obrigado!<br><strong>Vitor Lima</strong><br>Triex</p>'+
     '</div></div>';
 
   var win=window.open('','_blank','width=800,height=700,resizable=yes,scrollbars=yes');
@@ -15799,7 +15801,7 @@ function solicAbrirEmail(itens,fornecedor,naoSalvar){
 
   if(!naoSalvar){
     var list=solicLoad();
-    list.push({id:'sol_'+Date.now(),data:Date.now(),fornecedor:fornecedor,itens:itens,origem:'upload'});
+    list.push({id:'sol_'+Date.now(),data:Date.now(),fornecedor:fornecedor,itens:itens,origem:'upload',numeroPedido:numeroPedido||''});
     solicSave(list);
     solicRender();
   }

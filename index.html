@@ -560,6 +560,21 @@ thead th{position:relative;}
 .mPriceInp{width:100%;padding:6px 8px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right;font-weight:700}
 .mPriceInp:focus{border-color:#1F4E79;outline:none}
 .mPriceInp.best{border-color:#27AE60;background:#F0FFF4}
+
+/* ── AUTOCOMPLETE MARCA ───────────────────────── */
+.marcaAutocompleteWrapper{position:relative;display:inline-block;width:100%}
+.marcaAutocompleteDropdown{
+  position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid #e0e8f0;
+  border-top:none;border-radius:0 0 6px 6px;max-height:200px;overflow-y:auto;z-index:999;
+  display:none;box-shadow:0 4px 12px rgba(0,0,0,.1)
+}
+.marcaAutocompleteDropdown.show{display:block}
+.marcaAutocompleteItem{
+  padding:8px 12px;cursor:pointer;font-size:13px;color:#1E293B;border-bottom:1px solid #f0f4f8;
+  transition:background .1s
+}
+.marcaAutocompleteItem:hover,.marcaAutocompleteItem.active{background:#EEF6FF;color:#1D4ED8;font-weight:600}
+.marcaAutocompleteItem:last-child{border-bottom:none}
 </style>
 <style id="colStyle"></style>
 </head>
@@ -583,7 +598,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.228</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.229</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -702,7 +717,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.228</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.229</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -7542,6 +7557,12 @@ function mapaStep3(el){
   html += '</div>';
 
   el.innerHTML = html;
+  // Inicializar autocomplete para inputs de marca
+  setTimeout(function(){
+    el.querySelectorAll('input[placeholder*="ex: CARRARO"]').forEach(function(inp){
+      if(!inp._marcaAcDone) initMarcaAutocomplete(inp);
+    });
+  },0);
   // Rebind onchange via addEventListener (inline onchange em <input> criado via innerHTML
   // não dispara de forma confiável no iPad/Chrome — mesmo bug já corrigido em outros uploads)
   el.querySelectorAll('input[type="file"]').forEach(function(inp){
@@ -15343,6 +15364,98 @@ async function vendasLerArquivo(input){
 // ════════════════════════════════════════════════════════════════
 
 // ── Ferramentas home — grade 3 colunas ───────────────────────────
+
+// ━━━ AUTOCOMPLETE DE MARCA ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+var allMarcas=[]; // Cache de marcas únicas
+function getMarcasUnicas(){
+  if(allMarcas.length>0) return allMarcas;
+  var m=new Set();
+  if(typeof allItems!=='undefined'&&allItems&&Array.isArray(allItems)){
+    allItems.forEach(function(item){
+      if(item.marca) m.add(item.marca);
+    });
+  }
+  // Adicionar marcas hardcoded como fallback
+  var hardcoded=['SKF','TIMKEN','FAG','NSK','NTN','INA','KOYO','SABO','CORTECO','PARKER','BOSCH REXROTH','DANA','SPICER','ALBARUS','CARRARO','ZF','MAHLE','KS','DONALDSON','FLEETGUARD','MANN','WIX','CUMMINS','PERKINS','CATERPILLAR','JOHN DEERE','NEW HOLLAND','VOLVO','MWM','BOSCH','DENSO','BENDIX'];
+  hardcoded.forEach(function(x){m.add(x);});
+  allMarcas=Array.from(m).sort();
+  return allMarcas;
+}
+
+function initMarcaAutocomplete(input){
+  if(!input||input._marcaAcDone) return; // Evitar init duplo
+  input._marcaAcDone=true;
+  var wrapper=document.createElement('div');
+  wrapper.className='marcaAutocompleteWrapper';
+  var dropdown=document.createElement('div');
+  dropdown.className='marcaAutocompleteDropdown';
+  
+  input.parentNode.insertBefore(wrapper,input);
+  wrapper.appendChild(input);
+  wrapper.appendChild(dropdown);
+  
+  var updateDropdown=function(){
+    var val=input.value.trim().toUpperCase();
+    if(!val){
+      dropdown.classList.remove('show');
+      return;
+    }
+    var marcas=getMarcasUnicas();
+    var filtered=marcas.filter(function(m){return m.toUpperCase().indexOf(val)>=0;});
+    if(filtered.length===0){
+      dropdown.classList.remove('show');
+      return;
+    }
+    dropdown.innerHTML=filtered.slice(0,8).map(function(m,i){
+      return '<div class="marcaAutocompleteItem" onclick="marcaSelectItem(this,event)" data-marca="'+m+'">'+m+'</div>';
+    }).join('');
+    dropdown.classList.add('show');
+  };
+  
+  input.addEventListener('input',function(){updateDropdown();});
+  input.addEventListener('focus',function(){updateDropdown();});
+  document.addEventListener('click',function(e){
+    if(e.target!==input&&!wrapper.contains(e.target)){
+      dropdown.classList.remove('show');
+    }
+  });
+  
+  input.addEventListener('keydown',function(e){
+    if(e.key==='ArrowDown'){
+      e.preventDefault();
+      var items=dropdown.querySelectorAll('.marcaAutocompleteItem');
+      if(items.length>0) items[0].classList.add('active');
+    }
+    else if(e.key==='Enter'&&dropdown.classList.contains('show')){
+      e.preventDefault();
+      var active=dropdown.querySelector('.marcaAutocompleteItem.active');
+      if(active){
+        input.value=active.dataset.marca;
+        dropdown.classList.remove('show');
+        input.dispatchEvent(new Event('change',{bubbles:true}));
+      }
+    }
+  });
+}
+
+function marcaSelectItem(el,e){
+  e.stopPropagation();
+  var val=el.dataset.marca;
+  var input=el.closest('.marcaAutocompleteWrapper').querySelector('input');
+  input.value=val;
+  input.dispatchEvent(new Event('change',{bubbles:true}));
+  el.closest('.marcaAutocompleteDropdown').classList.remove('show');
+}
+
+// Aplicar autocomplete a novos inputs quando adicionados
+function applyMarcaAutocompleteToAll(){
+  document.querySelectorAll('input[type="text"][placeholder*="marca"],input[type="text"][placeholder*="MARCA"]').forEach(function(inp){
+    if(!inp._marcaAcDone) initMarcaAutocomplete(inp);
+  });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 function ferrRender(){
   var el=document.getElementById('ferrBody');
   if(!el)return;
@@ -16408,6 +16521,11 @@ function ferrMeAvise(){
     }
     html+='</div></div>';
     el.innerHTML=html;
+    // Inicializar autocomplete de marca
+    setTimeout(function(){
+      var maInput=document.getElementById('maMarca');
+      if(maInput&&!maInput._marcaAcDone) initMarcaAutocomplete(maInput);
+    },0);
   }
   render();
   window.maAdicionar=function(){

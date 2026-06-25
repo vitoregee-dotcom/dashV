@@ -7196,7 +7196,7 @@ function mapaStep1(el){
     html+='<td style="padding:8px;color:#607080">'+(item.marca||'—')+'</td>';
     html+='<td style="padding:8px;text-align:center" onclick="event.stopPropagation()"><input type="number" min="1" value="'+item.qtd+'" onchange="mapaItens['+i+'].qtd=+this.value" style="width:52px;padding:4px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:center;font-weight:700"></td>';
     html+='<td style="padding:8px;text-align:center"><span style="font-size:10px;background:'+(naoIm?'#FDEAEA':'#E8F5E2')+';color:'+(naoIm?'#C00000':'#217a3c')+';padding:2px 8px;border-radius:8px;font-weight:700">'+(item.prazo||'—')+'</span></td>';
-    html+='<td style="padding:8px"><span class="mLinhaTag" style="background:'+ln.b+';color:'+(ln.x||ln.c)+'">'+ln.l+'</span></td>';
+    html+='<td style="padding:8px"><span class="mLinhaTag" style="background:'+ln.b+';color:'+(ln.x||ln.c)+';'+(ln.l==='GENÉRICO'?'cursor:pointer;':'')+'padding:4px 10px;border-radius:6px;font-weight:700" '+(ln.l==='GENÉRICO'?'onclick="mapaDefinirLinha('+i+')"':'')+'">'+ln.l+'</span></td>';
     html+='<td style="padding:8px;font-size:11px;color:'+(fs.length?'#27AE60':'#E67E22')+'">'+(fs.length?'✓ '+fnms:(sel?'Clique →':'—'))+'</td>';
     html+='<td style="padding:8px" onclick="event.stopPropagation()"><button ontouchstart="" onclick="mapaItens.splice('+i+',1);mapaRender();" style="background:none;border:none;color:#C00000;cursor:pointer;font-size:15px">×</button></td>';
     html+='</tr>';
@@ -7264,8 +7264,12 @@ function mapaExpand(i){
   item._exp=!item._exp;
   if(item._exp){
     var key=item.ref+'||'+(item.marca||'');
-    if((!mapaFornSelecionados[key]||!mapaFornSelecionados[key].length)&&flist.length){
-      var ln=item.ln||idLinha(item.ref);var added=new Set();var ids=[];
+    var ln=item.ln||idLinha(item.ref);
+    // Não fazer auto-match se linha é GENÉRICO — aguardar definição manual
+    if(ln.l==='GENÉRICO'){
+      mapaFornSelecionados[key]=[]; // Deixar vazio
+    } else if((!mapaFornSelecionados[key]||!mapaFornSelecionados[key].length)&&flist.length){
+      var added=new Set();var ids=[];
       flist.forEach(function(f){if(added.has(f.id))return;if((f.historico||[]).some(function(h){return h.ref===item.ref;})){ids.push(f.id);added.add(f.id);}});
       flist.forEach(function(f){if(added.has(f.id))return;if((f.linhas||[]).some(function(l){return ln.l.toUpperCase().includes(l.toUpperCase());})){ids.push(f.id);added.add(f.id);}});
       if(ids.length)mapaFornSelecionados[key]=ids;
@@ -15464,7 +15468,49 @@ function applyMarcaAutocompleteToAll(){
   });
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━ DEFINIR LINHA PARA ITEM GENÉRICO ━━━━━━━━━━━━━━━━━━━━━━━━━━
+function mapaDefinirLinha(itemIdx){
+  var item=mapaItens[itemIdx];
+  if(!item) return;
+  var modalHtml='<div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:center;justify-content:center" id="mapaLinha_modal">' +
+    '<div style="background:#fff;border-radius:12px;padding:24px;max-width:500px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,.3)">' +
+    '<div style="font-size:16px;font-weight:800;color:#1F4E79;margin-bottom:16px">Definir Linha do Item</div>' +
+    '<div style="font-size:12px;color:#607080;margin-bottom:16px">' +
+    '<strong>'+item.ref+'</strong> — '+item.desc +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">';
+  
+  LINHAS.forEach(function(ln){
+    modalHtml+='<button ontouchstart="" onclick="mapaSetItemLinha('+itemIdx+',\''+ln.l+'\');document.getElementById(\'mapaLinha_modal\').remove();" ' +
+      'style="background:'+ln.b+';color:'+ln.c+';border:2px solid '+ln.c+';border-radius:8px;padding:10px;cursor:pointer;font-weight:700;font-size:13px;transition:all .15s" ' +
+      'onmouseover="this.style.opacity=\'0.8\'" onmouseout="this.style.opacity=\'1\'">'+ln.l+'</button>';
+  });
+  
+  modalHtml+='</div>' +
+    '<button ontouchstart="" onclick="document.getElementById(\'mapaLinha_modal\').remove();" ' +
+    'style="width:100%;background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:10px;cursor:pointer;font-weight:600">Cancelar</button>' +
+    '</div></div>';
+  
+  document.body.insertAdjacentHTML('beforeend',modalHtml);
+}
+
+function mapaSetItemLinha(itemIdx,linhaStr){
+  var item=mapaItens[itemIdx];
+  if(!item) return;
+  // Procurar o objeto de linha
+  var lnObj=LINHAS.find(function(l){return l.l===linhaStr;})||{l:linhaStr,c:'#607080',b:'#F0F2F4'};
+  item.ln=lnObj;
+  item._exp=false; // Fechar o painel de fornecedores
+  // Tentar salvar na ficha do item se houver sync com Supabase
+  if(typeof allItems!=='undefined'&&allItems.length){
+    var foundItem=allItems.find(function(it){return it.ref===item.ref&&it.marca===item.marca;});
+    if(foundItem){
+      foundItem.linha=linhaStr;
+      foundItem.linhaObj=lnObj;
+    }
+  }
+  mapaRender();
+}
 
 function ferrRender(){
   var el=document.getElementById('ferrBody');

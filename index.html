@@ -583,7 +583,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.236</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.237</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -702,7 +702,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.236</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.237</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -8048,13 +8048,12 @@ function mapaOC(fid){
     '</body></html>';
   var w=window.open('','_blank');w.document.write(doc);w.document.close();setTimeout(function(){w.print();},500);
 
-  // Também registra no histórico de Solicitações de Compras, pra ficar tudo num lugar só
+  // Gera e abre o e-mail de Solicitação de Compra pro setor de compras (mesmo padrão do fluxo de Venda Casada).
+  // Status só vira "Enviado" quando clicar em "Abrir Outlook" na janela do e-mail.
   try{
-    if(typeof solicLoad==='function'){
+    if(typeof solicAbrirEmail==='function'){
       var solicItens=ocData.map(function(it){return {codigo:it.ref,desc:it.desc,marca:it.marca||'',qtd:it.qtd,prazo:it.prazo||'—'};});
-      var slist=solicLoad();
-      slist.push({id:'sol_'+Date.now(),numero:solicProximoNumero(),data:Date.now(),fornecedor:nome,itens:solicItens,origem:'mapa',numeroOC:num,status:'enviado'});
-      solicSave(slist);
+      solicAbrirEmail(solicItens,nome,false,'','',null,'mapa',num);
     }
   }catch(_e){}
 }
@@ -15973,7 +15972,7 @@ function solicVerItens(id){
 function solicReabrirEmail(id){
   var s=solicLoad().find(function(x){return x.id===id;});
   if(!s)return;
-  solicAbrirEmail(s.itens,s.fornecedor,true,s.numeroPedido||s.numeroOC||'',s.cliente||'',s.id);
+  solicAbrirEmail(s.itens,s.fornecedor,true,s.numeroPedido||'',s.cliente||'',s.id,s.origem,s.numeroOC||'');
 }
 
 function solicMarcarEnviado(id){
@@ -16042,10 +16041,12 @@ async function solicProcessar(file){
   }
 }
 
-function solicAbrirEmail(itens,fornecedor,naoSalvar,numeroPedido,cliente,idExistente){
+function solicAbrirEmail(itens,fornecedor,naoSalvar,numeroPedido,cliente,idExistente,origem,numeroOC){
+  origem=origem||'upload';
+  var ehMapa=origem==='mapa';
   var hoje=new Date().toLocaleDateString('pt-BR');
   var numeroSolic=idExistente?((solicLoad().find(function(x){return x.id===idExistente;})||{}).numero||''):solicProximoNumero();
-  var assunto=(numeroSolic?numeroSolic+' — ':'')+'SOLICITAÇÃO DE COMPRA — VENDA CASADA'+(numeroPedido?' — PEDIDO '+numeroPedido:'')+(fornecedor?' — '+fornecedor.toUpperCase():'');
+  var assunto=(numeroSolic?numeroSolic+' — ':'')+'SOLICITAÇÃO DE COMPRA — '+(ehMapa?('MAPA DE COMPRAS'+(numeroOC?' — '+numeroOC:'')):('VENDA CASADA'+(numeroPedido?' — PEDIDO '+numeroPedido:'')))+(fornecedor?' — '+fornecedor.toUpperCase():'');
   var linhas='';
   itens.forEach(function(it,i){
     var bg=i%2===0?'#ffffff':'#f7f8fa';
@@ -16058,13 +16059,19 @@ function solicAbrirEmail(itens,fornecedor,naoSalvar,numeroPedido,cliente,idExist
       '<td style="padding:9px 12px;text-align:center;color:#C00000;font-weight:700;font-size:12px;">'+pfEscHtml(it.prazo||'—')+'</td>'+
     '</tr>';
   });
+  var introTxt=ehMapa?
+    ('Por favor, seguir com a compra do material abaixo'+(fornecedor?', no fornecedor: <b>'+pfEscHtml(fornecedor)+'</b>':'')+(numeroOC?', referente à OC: <b>'+pfEscHtml(numeroOC)+'</b>':'')+' (Mapa de Compras).'):
+    ('Por favor, seguir com a compra do material'+(fornecedor?', no fornecedor: <b>'+pfEscHtml(fornecedor)+'</b>':'')+' para atender o pedido de número: <b>'+pfEscHtml(numeroPedido||'—')+'</b>, já ativo.');
+  var camposCard=(numeroSolic?pfDocCampoHtml('Nº Solicitação',numeroSolic):'')+pfDocCampoHtml('Data',hoje)+
+    (ehMapa?(numeroOC?pfDocCampoHtml('OC',numeroOC):''):((numeroPedido?pfDocCampoHtml('Pedido Triex',numeroPedido):'')+(cliente?pfDocCampoHtml('Cliente',cliente):'')))+
+    (fornecedor?pfDocCampoHtml('Fornecedor',fornecedor):'');
   var emailHtml=
     '<div id="solicEmailBody" style="font-family:Calibri,Arial,sans-serif;color:#1a2332;max-width:700px;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e8edf4">'+
-    pfDocHeaderHtml('Solicitação de Compra — Venda Casada')+
+    pfDocHeaderHtml(ehMapa?'Solicitação de Compra — Mapa de Compras':'Solicitação de Compra — Venda Casada')+
     '<div style="padding:24px 32px">'+
-    pfDocCardHtml('',(numeroSolic?pfDocCampoHtml('Nº Solicitação',numeroSolic):'')+pfDocCampoHtml('Data',hoje)+(numeroPedido?pfDocCampoHtml('Pedido Triex',numeroPedido):'')+(cliente?pfDocCampoHtml('Cliente',cliente):'')+(fornecedor?pfDocCampoHtml('Fornecedor',fornecedor):''))+
+    pfDocCardHtml('',camposCard)+
     '<p style="margin:0 0 6px;font-size:13px;">Olá, Pessoal de compras.</p>'+
-    '<p style="margin:0 0 16px;font-size:13px;">Por favor, seguir com a compra do material'+(fornecedor?', no fornecedor: <b>'+pfEscHtml(fornecedor)+'</b>':'')+' para atender o pedido de número: <b>'+pfEscHtml(numeroPedido||'—')+'</b>, já ativo.</p>'+
+    '<p style="margin:0 0 16px;font-size:13px;">'+introTxt+'</p>'+
     '<table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:20px;">'+
       '<thead><tr style="background:#C00000;">'+
         '<th style="padding:9px 12px;text-align:center;color:#fff;font-weight:700;font-size:12px;">#</th>'+
@@ -16081,7 +16088,7 @@ function solicAbrirEmail(itens,fornecedor,naoSalvar,numeroPedido,cliente,idExist
   var novoId=idExistente||('sol_'+Date.now());
   if(!naoSalvar){
     var list=solicLoad();
-    list.push({id:novoId,numero:numeroSolic,data:Date.now(),fornecedor:fornecedor,cliente:cliente||'',itens:itens,origem:'upload',numeroPedido:numeroPedido||'',status:'pendente'});
+    list.push({id:novoId,numero:numeroSolic,data:Date.now(),fornecedor:fornecedor,cliente:cliente||'',itens:itens,origem:origem,numeroPedido:numeroPedido||'',numeroOC:numeroOC||'',status:'pendente'});
     solicSave(list);
     solicRender();
   }

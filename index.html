@@ -583,7 +583,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.241</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.242</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -702,7 +702,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.241</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.242</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -4038,22 +4038,17 @@ function carregarHistorico(){
   try{return JSON.parse(localStorage.getItem(HIST_KEY)||"[]");}
   catch(e){return[];}
 }
-function salvarHistoricoLS(hist){
-  try{localStorage.setItem(HIST_KEY,JSON.stringify(hist));}catch(e){}
-  if(sbSession&&sbUser){
-    var uid=sbUser.id;
-    var body=JSON.stringify({user_id:uid,historico:JSON.stringify(hist),updated_at:new Date().toISOString()});
-    fetch('https://bqbdypizmeirezedvefo.supabase.co/rest/v1/historico_analises',{
-      method:'POST',
-      headers:{'apikey':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxYmR5cGl6bWVpcmV6ZWR2ZWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMDYzODQsImV4cCI6MjA5Mzc4MjM4NH0.U1Mp34FxsHobn8LGxSCkbSQtHiU4O8TyaARDuNn1IU8','Authorization':'Bearer '+sbSession.access_token,
-        'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
-      body:body
-    }).catch(function(){});
-  }
-}async function carregarHistorico(){
+// (removido v115.242: código morto que gravava na tabela legada "historico_analises" —
+// nunca era executado de fato, pois essa função era sobrescrita pela versão local-only abaixo.
+// Tabela "historico_analises" continua existindo no Supabase com RLS desabilitado — ver aviso.)
+async function carregarHistorico(){
+  // Cache em memória — essa consulta é pesada (a coluna "itens" guarda o JSON inteiro
+  // de cada análise salva, às vezes vários MB) e tinha N pontos do app chamando ela
+  // toda hora, multiplicando o tráfego e estourando limite de resposta da API (erro 500).
+  if(window._histCache && (Date.now()-window._histCacheTs)<60000) return window._histCache;
   if(sbSession&&sbUser){
     try{
-      const r=await sbFetch('/rest/v1/historico_analises_v2?select=analise_id,nome,data_analise,periodo_inicio,periodo_fim,tot_itens,urgentes,atencao,oportunidades,lead_time,modo,total_qtd_c,familias,itens&order=data_analise.desc&limit=20');
+      const r=await sbFetch('/rest/v1/historico_analises_v2?select=analise_id,nome,data_analise,periodo_inicio,periodo_fim,tot_itens,urgentes,atencao,oportunidades,lead_time,modo,total_qtd_c,familias,itens&order=data_analise.desc&limit=8');
       if(r.ok){
         const rows=await r.json();
         if(rows.length>0){
@@ -4076,13 +4071,19 @@ function salvarHistoricoLS(hist){
             };
           });
           try{localStorage.setItem(HIST_KEY,JSON.stringify(hist));}catch(e){}
+          window._histCache=hist; window._histCacheTs=Date.now();
           return hist;
         }
+      } else {
+        console.warn('carregarHistorico: API retornou '+r.status+' — usando cache local (provável payload grande demais; ver coluna itens da historico_analises_v2)');
       }
     }catch(e){console.error('Erro ao carregar histórico:',e);}
   }
-  try{return JSON.parse(localStorage.getItem(HIST_KEY)||'[]');}
-  catch(e){return[];}
+  var fallback=[];
+  try{fallback=JSON.parse(localStorage.getItem(HIST_KEY)||'[]');}
+  catch(e){fallback=[];}
+  window._histCache=fallback; window._histCacheTs=Date.now();
+  return fallback;
 }
 function salvarHistoricoLS(hist){
   try{localStorage.setItem(HIST_KEY,JSON.stringify(hist));}
@@ -13095,7 +13096,7 @@ mapaSalvarNaLista = function(estado){
   _origMapaSalvarNaLista(estado);
 };
 
-// Override mapaRender removido (v115.241) — essa versão antiga nunca chamava o hub novo
+// Override mapaRender removido (v115.242) — essa versão antiga nunca chamava o hub novo
 // (Etapa 1/Etapa 2 + Mapas em andamento), ficava sempre travada nessa lista velha.
 
 // ════════════════════════════════════════════════════════════════
@@ -13199,7 +13200,7 @@ mapaLerImagem = async function(input){
   }
 };
 
-// Override mapaRender removido (v115.241) — era esse aqui que ficava ativo de verdade e usava
+// Override mapaRender removido (v115.242) — era esse aqui que ficava ativo de verdade e usava
 // confirm() nativo do navegador (mapaExcluirConfirm/_safeConfirm) pra excluir mapa. Removido pra
 // o hub novo (Etapa 1/Etapa 2 + Mapas em andamento, com modal pfConfirm de exclusão) ser o único.
 

@@ -583,7 +583,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.231</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.232</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -702,7 +702,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.231</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.232</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -9314,6 +9314,78 @@ function cadUpdateSubgrupo(){
   (GRUPOS_PROD[g]||[]).forEach(function(s){sel.innerHTML+='<option value="'+s+'">'+s+'</option>';});
 }
 
+// ═══ DESENHO TÉCNICO — upload/colar print com remoção de marca d'água clara ═══
+// Marcas d'água típicas (tipo "SOROCARD" em diagonal) são cinza claro/médio e
+// de baixa saturação sobre fundo branco — clareamos bem forte esse tom específico,
+// preservando as linhas pretas do desenho (que ficam intactas).
+function pfLimparMarcaDagua(imgEl,callback){
+  try{
+    var canvas=document.createElement('canvas');
+    canvas.width=imgEl.naturalWidth||imgEl.width;
+    canvas.height=imgEl.naturalHeight||imgEl.height;
+    var ctx=canvas.getContext('2d');
+    ctx.drawImage(imgEl,0,0,canvas.width,canvas.height);
+    var imgData=ctx.getImageData(0,0,canvas.width,canvas.height);
+    var d=imgData.data;
+    for(var i=0;i<d.length;i+=4){
+      var r=d[i],g=d[i+1],b=d[i+2];
+      var max=Math.max(r,g,b),min=Math.min(r,g,b);
+      var sat=max-min;
+      var bright=(r+g+b)/3;
+      if(sat<18&&bright>110&&bright<248){
+        var fator=0.93;
+        d[i]=r+(255-r)*fator;
+        d[i+1]=g+(255-g)*fator;
+        d[i+2]=b+(255-b)*fator;
+      }
+    }
+    ctx.putImageData(imgData,0,0);
+    callback(canvas.toDataURL('image/png'));
+  }catch(e){
+    console.warn('pfLimparMarcaDagua erro:',e);
+    callback(imgEl.src); // CORS ou outro erro - usa a imagem original sem filtro
+  }
+}
+
+function cadAplicarDesenho(src,previewId,dataId){
+  var preview=document.getElementById(previewId);
+  var dataEl=document.getElementById(dataId);
+  if(preview){preview.src=src;preview.style.display='inline-block';}
+  if(dataEl)dataEl.value=src;
+  var status=document.getElementById('prodDesenhoStatus');
+  if(status){status.textContent='✓ Marca d\'água tratada';setTimeout(function(){status.textContent='';},3000);}
+}
+
+function cadUploadDesenho(input,previewId,dataId){
+  var file=input.files[0];if(!file)return;
+  if(file.type==='application/pdf'){cadUploadFoto(input,previewId,dataId);return;} // PDF não passa pelo filtro de imagem
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=new Image();
+    img.onload=function(){pfLimparMarcaDagua(img,function(srcLimpo){cadAplicarDesenho(srcLimpo,previewId,dataId);});};
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function cadColarPrintDesenho(previewId,dataId){
+  var status=document.getElementById('prodDesenhoStatus');
+  navigator.clipboard.read().then(function(items){
+    for(var i=0;i<items.length;i++){
+      var t=items[i].types.find(function(x){return x.startsWith('image/');});
+      if(t){
+        items[i].getType(t).then(function(blob){
+          var img=new Image();
+          img.onload=function(){pfLimparMarcaDagua(img,function(srcLimpo){cadAplicarDesenho(srcLimpo,previewId,dataId);});};
+          img.src=URL.createObjectURL(blob);
+        });
+        return;
+      }
+    }
+    if(status)status.textContent='❌ Sem imagem na área de transferência';
+  }).catch(function(){if(status)status.textContent='❌ Permissão negada pelo navegador';});
+}
+
 function cadUploadFoto(input, previewId, dataId){
   var file = input.files[0]; if(!file)return;
   var reader = new FileReader();
@@ -10469,13 +10541,17 @@ cadFormProduto = function(data, idx){
   html += '</div>';
 
   // ── Desenho técnico ──
-  html += '<div style="border:2px dashed #e0e8f0;border-radius:10px;padding:12px;display:flex;align-items:center;gap:12px;margin-bottom:16px;background:#F8FAFC">';
+  html += '<div style="border:2px dashed #e0e8f0;border-radius:10px;padding:12px;display:flex;align-items:center;gap:12px;margin-bottom:16px;background:#F8FAFC;flex-wrap:wrap">';
   html += '<div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;min-width:100px">📐 Desenho Técnico</div>';
   if(d.desenho){
-    html += '<img src="'+d.desenho+'" style="height:60px;border-radius:6px;border:1px solid #e0e8f0">';
+    html += '<img id="prodDesenhoPreview" src="'+d.desenho+'" style="height:60px;border-radius:6px;border:1px solid #e0e8f0">';
     html += '<button ontouchstart="" onclick="document.getElementById(\'prodDesenhoData\').value=\'\';this.parentNode.querySelector(\'img\').remove();this.remove();" style="background:none;border:none;color:#C00000;cursor:pointer;font-size:14px">× Remover</button>';
+  } else {
+    html += '<img id="prodDesenhoPreview" style="display:none;height:60px;border-radius:6px;border:1px solid #e0e8f0">';
   }
-  html += '<label style="background:#607080;color:#fff;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;position:relative;overflow:hidden">📎 '+(d.desenho?'Trocar':'Selecionar')+'<input type="file" accept="image/*,.pdf" style="display:none" onchange="cadUploadFoto(this,\'prodDesenhoPreview\',\'prodDesenhoData\')"></label>';
+  html += '<label ontouchstart="" style="position:relative;overflow:hidden;background:#607080;color:#fff;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px">📎 '+(d.desenho?'Trocar':'Upload')+'<input type="file" accept="image/*,.pdf" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0" onchange="cadUploadDesenho(this,\'prodDesenhoPreview\',\'prodDesenhoData\')"></label>';
+  html += '<button ontouchstart="" onclick="cadColarPrintDesenho(\'prodDesenhoPreview\',\'prodDesenhoData\')" style="background:#6c757d;color:#fff;border:none;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:700">📋 Colar Print</button>';
+  html += '<span id="prodDesenhoStatus" style="font-size:11px;color:#8a9ab0"></span>';
   html += '<input type="hidden" id="prodDesenhoData" value="'+(d.desenho||'')+'">';
   html += '</div>';
 

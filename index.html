@@ -583,7 +583,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.252</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.253</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -702,7 +702,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.252</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.253</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -4038,7 +4038,7 @@ function carregarHistorico(){
   try{return JSON.parse(localStorage.getItem(HIST_KEY)||"[]");}
   catch(e){return[];}
 }
-// (removido v115.252: código morto que gravava na tabela legada "historico_analises" —
+// (removido v115.253: código morto que gravava na tabela legada "historico_analises" —
 // nunca era executado de fato, pois essa função era sobrescrita pela versão local-only abaixo.
 // Tabela "historico_analises" continua existindo no Supabase com RLS desabilitado — ver aviso.)
 async function carregarHistorico(){
@@ -7187,58 +7187,8 @@ function mapaGoStep(n){
   
   // Se indo pra Etapa 2, criar Solicitações automáticas pra todos os fornecedores
   if(n===2){
-    console.log('🔵 mapaGoStep(2) - Iniciando criação de Solicitações');
-    try{
-      var itensSel=mapaItens.filter(function(i){return i.sel!==false;});
-      console.log('📦 Itens selecionados:',itensSel.length);
-      var ocF={};
-      itensSel.forEach(function(it){
-        var key2=it.ref+'||'+(it.marca||'');
-        var fids=mapaFornSelecionados[key2]||[];
-        console.log('  Item '+it.ref+': '+fids.length+' fornecedores');
-        fids.forEach(function(fid){
-          var pk=key2+'||'+fid;
-          var p=mapaPrecos[pk]||{};
-          var entries=(p.entries&&p.entries.length)?p.entries:[{preco:p.preco||0,ipi:p.ipi||0,st:p.st||0,prazo:p.prazo||'',marca:''}];
-          var e=entries[0]||{};
-          var custo=e.preco*(1+(e.ipi||0)/100)*(1+(e.st||0)/100);
-          if(custo>0){
-            if(!ocF[fid])ocF[fid]={itens:[],total:0};
-            ocF[fid].itens.push({codigo:it.ref,desc:it.desc,marca:e.marca||'',qtd:it.qtd,prazo:e.prazo||'—'});
-            ocF[fid].total+=custo*it.qtd;
-          }
-        });
-      });
-      console.log('💰 Fornecedores com total > 0:',Object.keys(ocF).length);
-      // Criar Solicitações pra cada fornecedor com total > 0
-      if(typeof solicLoad==='function'&&typeof solicSave==='function'&&Object.keys(ocF).length){
-        console.log('✅ solicLoad e solicSave disponíveis');
-        var list=solicLoad();
-        console.log('📋 Solicitações atuais:',list.length);
-        var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
-        console.log('👥 Fornecedores disponíveis:',flist.length);
-        var criadas=0;
-        Object.keys(ocF).forEach(function(fid){
-          var f=flist.find(function(x){return x.id===fid;});
-          var nomeF=f?(f.fantasia||f.nome||f.razao):fid;
-          console.log('  Criando Solicitação para: '+nomeF);
-          // Sempre criar novo registro (não verificar duplicatas)
-          var novoId='sol_map_'+Date.now()+'_'+fid;
-          var numero='SOL-'+Date.now().toString().slice(-6);
-          list.push({id:novoId,numero:numero,fornecedor:nomeF,itens:ocF[fid].itens,data:Date.now(),status:'⏳ Pendente',mapa:true});
-          criadas++;
-        });
-        if(criadas>0){
-          console.log('💾 Salvando '+criadas+' Solicitações...');
-          solicSave(list);
-          console.log('✓ Criadas '+criadas+' Solicitações');
-        }
-      }else{
-        console.log('❌ Erro: solicLoad='+typeof solicLoad+', solicSave='+typeof solicSave+', ocF.length='+Object.keys(ocF).length);
-      }
-    }catch(e){
-      console.error('❌ Erro ao criar Solicitações:',e);
-    }
+    // Agora as Solicitações já são criadas ao marcar fornecedores em mapaTogForn()
+    // Este código foi removido pois não é mais necessário
   }
   
   // Call step directly to avoid render chain redirecting to list
@@ -7381,24 +7331,44 @@ function mapaTogForn(key,fid,idx){
   var marcando=(p<0); // true se está marcando, false se desmarcando
   if(p>=0)arr.splice(p,1);else arr.push(fid);
   
-  // Criar Solicitação ao marcar fornecedor
+  // Criar/Atualizar Solicitação ao marcar fornecedor
   if(marcando){
     try{
       var item=mapaItens[idx];
       if(item&&typeof solicLoad==='function'&&typeof solicSave==='function'){
         var list=solicLoad();
+        // Procurar por solicitação PRINCIPAL do Mapa (marcada com mapaMaster=true)
+        var solicMapa=list.find(function(x){return x.mapaMaster===true;});
+        
+        if(!solicMapa){
+          // Criar solicitação principal do Mapa
+          var novoId='sol_mapaMaster_'+Date.now();
+          var numero='SOL-MAPA-'+Date.now().toString().slice(-6);
+          solicMapa={id:novoId,numero:numero,fornecedor:'MAPA DE COMPRAS',itens:[],data:Date.now(),status:'⏳ Pendente',mapa:true,mapaMaster:true,fornecedoresList:[]};
+          list.push(solicMapa);
+        }
+        
+        // Adicionar item se não existe
+        var itemKey=item.ref+'||'+(item.marca||'');
+        var itemExiste=solicMapa.itens.find(function(x){return x.codigo===item.ref;});
+        if(!itemExiste){
+          solicMapa.itens.push({codigo:item.ref,desc:item.desc,marca:item.marca||'',qtd:item.qtd,prazo:'—'});
+        }
+        
+        // Adicionar fornecedor à lista
         var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
         var f=flist.find(function(x){return x.id===fid;});
         var nomeF=f?(f.fantasia||f.nome||f.razao):fid;
-        // Verificar se já existe Solicitação para este fornecedor neste mapa
-        var existente=list.find(function(x){return x.mapa===true&&x.fornecedor===nomeF;});
-        if(!existente){
-          var novoId='sol_map_'+Date.now()+'_'+fid;
-          var numero='SOL-'+Date.now().toString().slice(-6);
-          list.push({id:novoId,numero:numero,fornecedor:nomeF,itens:[{codigo:item.ref,desc:item.desc,marca:item.marca||'',qtd:item.qtd,prazo:'—'}],data:Date.now(),status:'⏳ Pendente',mapa:true});
-          solicSave(list);
-          console.log('✓ Solicitação criada para '+nomeF);
+        if(!solicMapa.fornecedoresList)solicMapa.fornecedoresList=[];
+        if(!solicMapa.fornecedoresList.includes(nomeF)){
+          solicMapa.fornecedoresList.push(nomeF);
         }
+        
+        // Atualizar nome do fornecedor com lista
+        solicMapa.fornecedor='MAPA: '+solicMapa.fornecedoresList.join(' + ');
+        
+        solicSave(list);
+        console.log('✓ Solicitação MAPA atualizada com '+nomeF);
       }
     }catch(e){console.error('Erro ao criar Solicitação:',e);}
   }
@@ -13179,7 +13149,7 @@ mapaSalvarNaLista = function(estado){
   _origMapaSalvarNaLista(estado);
 };
 
-// Override mapaRender removido (v115.252) — essa versão antiga nunca chamava o hub novo
+// Override mapaRender removido (v115.253) — essa versão antiga nunca chamava o hub novo
 // (Etapa 1/Etapa 2 + Mapas em andamento), ficava sempre travada nessa lista velha.
 
 // ════════════════════════════════════════════════════════════════
@@ -13283,7 +13253,7 @@ mapaLerImagem = async function(input){
   }
 };
 
-// Override mapaRender removido (v115.252) — era esse aqui que ficava ativo de verdade e usava
+// Override mapaRender removido (v115.253) — era esse aqui que ficava ativo de verdade e usava
 // confirm() nativo do navegador (mapaExcluirConfirm/_safeConfirm) pra excluir mapa. Removido pra
 // o hub novo (Etapa 1/Etapa 2 + Mapas em andamento, com modal pfConfirm de exclusão) ser o único.
 
@@ -16270,7 +16240,7 @@ function solicRender(){
       '</div>';
       html+='<div style="display:flex;gap:6px">';
       html+='<button ontouchstart="" onclick="solicVerItens(\''+s.id+'\')" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #607080;border-radius:6px;color:#607080;cursor:pointer">Ver itens</button>';
-      if(s.mapa===true)html+='<button ontouchstart="" onclick="navTo(\'mapa\')" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #FF9500;border-radius:6px;color:#FF9500;cursor:pointer;font-weight:600">✏️ Editar Mapa</button>';
+      if(s.mapa===true)html+='<button ontouchstart="" onclick="mapaItens=[];mapaRender();" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #FF9500;border-radius:6px;color:#FF9500;cursor:pointer;font-weight:600">✏️ Editar Mapa</button>';
       if(s.ocItens&&s.ocItens.length)html+='<button ontouchstart="" onclick="solicAbrirOC(\''+s.id+'\')" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #27AE60;border-radius:6px;color:#27AE60;cursor:pointer">📄 Reabrir OC</button>';
       html+='<button ontouchstart="" onclick="solicReabrirEmail(\''+s.id+'\')" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #1F4E79;border-radius:6px;color:#1F4E79;cursor:pointer">✉️ Reabrir e-mail</button>';
       html+='<button ontouchstart="" onclick="solicExcluir(\''+s.id+'\')" style="font-size:11px;padding:5px 6px;background:none;border:none;color:#C00000;cursor:pointer;font-size:15px">×</button>';

@@ -583,7 +583,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.255</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.256</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -702,7 +702,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.255</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.256</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -4038,7 +4038,7 @@ function carregarHistorico(){
   try{return JSON.parse(localStorage.getItem(HIST_KEY)||"[]");}
   catch(e){return[];}
 }
-// (removido v115.255: código morto que gravava na tabela legada "historico_analises" —
+// (removido v115.256: código morto que gravava na tabela legada "historico_analises" —
 // nunca era executado de fato, pois essa função era sobrescrita pela versão local-only abaixo.
 // Tabela "historico_analises" continua existindo no Supabase com RLS desabilitado — ver aviso.)
 async function carregarHistorico(){
@@ -8333,6 +8333,17 @@ function solicAbrirOC(id){
   var forn=flist.find(function(f){return (f.fantasia||f.nome||f.razao)===s.fornecedor;});
   var built=pfConstruirOcHtml(s.numeroOC||'OC',dataStr,s.fornecedor||'',forn?forn.email:'',s.ocItens);
   pfAbrirJanelaOC(s.numeroOC||'OC',s.fornecedor||'',s.numero||'',built.html,s.id);
+}
+
+function mapaGerarOCDeFornecedor(solicId,fid){
+  // Gerar OC para um fornecedor específico da Solicitação MAPA
+  try{
+    var solic=solicLoad().find(function(x){return x.id===solicId;});
+    if(solic&&solic.fornecedoresMap&&solic.fornecedoresMap[fid]){
+      console.log('Gerando OC para '+solic.fornecedoresMap[fid].nome);
+      mapaOC(fid);
+    }
+  }catch(e){console.error('Erro ao gerar OC:',e);}
 }
 
 function mapaOC(fid){
@@ -13169,7 +13180,7 @@ mapaSalvarNaLista = function(estado){
   _origMapaSalvarNaLista(estado);
 };
 
-// Override mapaRender removido (v115.255) — essa versão antiga nunca chamava o hub novo
+// Override mapaRender removido (v115.256) — essa versão antiga nunca chamava o hub novo
 // (Etapa 1/Etapa 2 + Mapas em andamento), ficava sempre travada nessa lista velha.
 
 // ════════════════════════════════════════════════════════════════
@@ -13273,7 +13284,7 @@ mapaLerImagem = async function(input){
   }
 };
 
-// Override mapaRender removido (v115.255) — era esse aqui que ficava ativo de verdade e usava
+// Override mapaRender removido (v115.256) — era esse aqui que ficava ativo de verdade e usava
 // confirm() nativo do navegador (mapaExcluirConfirm/_safeConfirm) pra excluir mapa. Removido pra
 // o hub novo (Etapa 1/Etapa 2 + Mapas em andamento, com modal pfConfirm de exclusão) ser o único.
 
@@ -16241,7 +16252,40 @@ function solicRender(){
   } else {
     html+='<div style="background:#fff;border:1px solid #e0e8f0;border-radius:10px;overflow:hidden">';
     list.forEach(function(s){
-      var dt=new Date(s.data);
+      // ╔════ CASO ESPECIAL: Solicitação MAPA Master ════╗
+      if(s.mapaMaster===true){
+        var dt=new Date(s.data);
+        var statusBadge='<span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;background:#FAEEDA;color:#854F0B">⏳ Pendente</span>';
+        html+='<div style="padding:16px;border-bottom:1px solid #f0f4f8;background:#F5F9FF">';
+        html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
+        html+='<span style="font-size:11px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 7px;border-radius:5px">'+pfEscHtml(s.numero)+'</span>';
+        html+='<b style="color:#7B2D8B;font-size:14px">🗂️ MAPA DE COMPRAS</b>';
+        html+=statusBadge;
+        html+='</div>';
+        html+='<div style="font-size:11px;color:#8a9ab0;margin-bottom:12px">'+s.itens.length+' item(ns) · '+dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</div>';
+        
+        // Sub-fornecedores
+        html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:10px">';
+        Object.keys(s.fornecedoresMap||{}).forEach(function(fid){
+          var forn=s.fornecedoresMap[fid];
+          var itensF=forn.itens.length;
+          html+='<div style="background:#fff;border:1px solid #e0e8f0;border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px">';
+          html+='<div style="font-weight:700;font-size:12px;color:#1F4E79">'+pfEscHtml(forn.nome)+'</div>';
+          html+='<div style="font-size:11px;color:#8a9ab0">'+itensF+' item(ns)</div>';
+          html+='<button ontouchstart="" onclick="mapaGerarOCDeFornecedor(\''+s.id+'\',\''+fid+'\')" style="background:#1F4E79;color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:11px;font-weight:600">🔵 Gerar OC</button>';
+          html+='</div>';
+        });
+        html+='</div>';
+        
+        html+='<div style="display:flex;gap:6px;margin-top:12px">';
+        html+='<button ontouchstart="" onclick="solicVerItens(\''+s.id+'\')" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #607080;border-radius:6px;color:#607080;cursor:pointer">Ver itens</button>';
+        html+='<button ontouchstart="" onclick="openTab(\'mapa\',\'🗂️ Mapa de Compras\');mapaItens=[];mapaRender();" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #FF9500;border-radius:6px;color:#FF9500;cursor:pointer;font-weight:600">✏️ Editar Mapa</button>';
+        html+='<button ontouchstart="" onclick="solicExcluir(\''+s.id+'\')" style="font-size:11px;padding:5px 6px;background:none;border:none;color:#C00000;cursor:pointer;font-size:15px">×</button>';
+        html+='</div></div>';
+        return; // próxima iteração
+      }
+      
+      // ╔════ Renderização padrão de outras Solicitações ════╗
       var ehVendaCasada=s.origem!=='mapa';
       var corOrigem=ehVendaCasada?'#1F4E79':'#7B2D8B';
       var titulo=ehVendaCasada?

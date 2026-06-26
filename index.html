@@ -583,7 +583,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.238</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.239</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -702,7 +702,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.238</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.239</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -7324,11 +7324,37 @@ function mapaTogForn(key,fid,idx){
   mapaItens[idx]._exp=true;mapaRender();
 }
 
+function mapaAutoFornEmail(idx){
+  var inp=document.getElementById('nfi_'+idx);
+  var emailInp=document.getElementById('nfe_'+idx);
+  if(!inp||!emailInp||emailInp.value)return; // não sobrescreve se já preencheu manualmente
+  var nomeLc=(inp.value||'').trim().toLowerCase();
+  if(!nomeLc)return;
+  try{
+    var flist=cadLoad(FORN_KEY);
+    var found=flist.find(function(f){return (f.fantasia||f.nome||f.razao||'').toLowerCase()===nomeLc;});
+    if(found&&found.email)emailInp.value=found.email;
+  }catch(_e){}
+}
+
 function mapaAddForn(key,idx){
   var nome=(document.getElementById('nfi_'+idx).value||'').trim();if(!nome)return;
   var email=(document.getElementById('nfe_'+idx).value||'').trim();
   var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
-  var ex=flist.find(function(f){return f.nome.toLowerCase()===nome.toLowerCase();});
+  var nomeLc=nome.toLowerCase();
+  var matchNome=function(f){return (f.fantasia||f.nome||f.razao||'').toLowerCase()===nomeLc;};
+  var ex=flist.find(matchNome);
+  if(!ex){
+    // Já cadastrado no Cadastro de Fornecedores mas ainda não no cache local? reaproveita.
+    try{
+      var cad=cadLoad(FORN_KEY).find(matchNome);
+      if(cad){
+        ex=cad;
+        var ci=flist.findIndex(function(f){return f.id===cad.id;});
+        if(ci>=0)flist[ci]=cad;else flist.push(cad);
+      }
+    }catch(_e){}
+  }
   var fid=ex?ex.id:'tmp_'+Date.now();
   if(!ex)flist.push({id:fid,nome:nome,email:email,linhas:[],categorias:[],historico:[]});
   if(!mapaFornSelecionados[key])mapaFornSelecionados[key]=[];
@@ -7442,7 +7468,8 @@ function mapaStep2(el){
   html+='<button type="button" ontouchstart="" onclick="window._mapaCodTipo=\'cliente\';mapaStep3(document.getElementById(\'mapaBody\'))" style="padding:5px 12px;border-radius:14px;border:1.5px solid '+(codTipo==='cliente'?'#1F4E79':'#e0e8f0')+';background:'+(codTipo==='cliente'?'#1F4E79':'#fff')+';color:'+(codTipo==='cliente'?'#fff':'#607080')+';cursor:pointer;font-size:11px;font-weight:600">Código do Cliente</button>';
   html+='</div>';
   html+='<button ontouchstart="" onclick="mapaEmailBccTodos()" style="width:100%;margin-top:8px;background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:11px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">📧 Enviar 1 e-mail só (BCC todos os '+nComEmail+' fornecedores)</button>';
-  html+='<p style="font-size:11px;color:#8a9ab0;margin-top:6px">Envia a lista completa de itens pra todo mundo de uma vez. Se preferir personalizar por fornecedor (só os itens dele), use os botões individuais abaixo.</p>';
+  html+='<button ontouchstart="" onclick="mapaCopiarWhatsAppTodos()" style="width:100%;margin-top:8px;background:#25D366;color:#fff;border:none;border-radius:8px;padding:11px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">📋 Copiar lista de itens pra mandar por WhatsApp</button>';
+  html+='<p style="font-size:11px;color:#8a9ab0;margin-top:6px">Copia o texto da cotação (todos os itens) pra você colar e enviar manualmente — o WhatsApp não permite mandar pra vários contatos de uma vez só pelo navegador. Pra mandar individualmente com botão direto, use "📱 Abrir WhatsApp" dentro do e-mail de cada fornecedor abaixo.</p>';
   html+='</div>';
   fids.forEach(function(fid){
     var forn=flist.find(function(f){return f.id===fid;});if(!forn)return;
@@ -7457,6 +7484,21 @@ function mapaStep2(el){
   html+='<button ontouchstart="" onclick="mapaGoStep(3)" style="background:#27AE60;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:13px;font-weight:700">Enviei → Preencher Preços</button>';
   html+='</div>';
   el.innerHTML=html;
+}
+
+function mapaCopiarWhatsAppTodos(){
+  var itensSel=mapaItens.filter(function(i){return i.sel!==false;});
+  if(!itensSel.length){_safeAlert('Nenhum item selecionado.');return;}
+  var codTipo=window._mapaCodTipo||'principal';
+  var texto='Olá! Solicito cotação para os itens abaixo:\n\n'+
+    itensSel.map(function(it,n){var cod=codTipo==='cliente'?(it.refCliente||it.ref):it.ref;return(n+1)+'. ['+cod+'] '+it.desc+' — Qtd: '+it.qtd;}).join('\n')+
+    '\n\nPor favor, informe: marca disponível, preço unitário, impostos (IPI/ICMS/ST), prazo de entrega e disponibilidade.\n\nObrigado!\nVitor Lima — Triex';
+  var ta=document.createElement('textarea');
+  ta.value=texto;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');_safeAlert('✅ Texto copiado! Cole no WhatsApp pra mandar.');}
+  catch(e){_safeAlert('Não consegui copiar automaticamente. Texto:\n\n'+texto);}
+  document.body.removeChild(ta);
 }
 
 function mapaEmailBccTodos(){
@@ -7554,18 +7596,107 @@ function mapaEmailBccTodos(){
   }
 }
 
+function pfTelParaWa(tel){
+  var d=(tel||'').replace(/\D/g,'');
+  if(!d)return '';
+  if(d.length<=11)d='55'+d; // sem DDI -> assume Brasil
+  return d;
+}
+
+function mapaMarcarFornAberto(fid){
+  var b=document.getElementById('eb_'+fid);if(b){b.textContent='✅ Aberto';b.style.background='#27AE60';}
+}
+
 function mapaEmail(fid){
   var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
   var forn=flist.find(function(f){return f.id===fid;});
-  if(!forn||!forn.email){_safeAlert('E-mail não cadastrado.');return;}
+  if(!forn){_safeAlert('Fornecedor não encontrado.');return;}
+  var temEmail=!!forn.email, temTel=!!pfTelParaWa(forn.tel);
+  if(!temEmail&&!temTel){_safeAlert('Nem e-mail nem telefone/WhatsApp cadastrado pra esse fornecedor.');return;}
   var itens=mapaItens.filter(function(i){return i.sel!==false&&(mapaFornSelecionados[i.ref+'||'+(i.marca||'')]||[]).includes(fid);});
   var codTipo=window._mapaCodTipo||'principal';
-  var body='Prezado(a) '+forn.nome+',\n\nSolicito cotação para os itens abaixo:\n\n'+
-    itens.map(function(it,n){return(n+1)+'. ['+(codTipo==='cliente'?(it.refCliente||it.ref):it.ref)+'] '+it.desc+' — Qtd: '+it.qtd;}).join('\n')+
-    '\n\nPor favor informe: Preço unitário, Prazo, Disponibilidade.\n\nAtenciosamente,\nVitor Lima\nTRIEX | compras@triex.com.br';
-  window.open('mailto:'+forn.email+'?subject='+encodeURIComponent('Solicitação de Cotação — TRIEX — '+new Date().toLocaleDateString('pt-BR'))+'&body='+encodeURIComponent(body));
-  var b=document.getElementById('eb_'+fid);if(b){b.textContent='✅ Aberto';b.style.background='#27AE60';}
+  var nomeForn=forn.fantasia||forn.nome||forn.razao||fid;
+  var hoje=new Date().toLocaleDateString('pt-BR');
+  var assunto='Solicitação de Cotação — TRIEX — '+hoje;
+
+  var linhasHtml=itens.map(function(it,n){
+    var cod=codTipo==='cliente'?(it.refCliente||it.ref):it.ref;
+    var bg=n%2===0?'#ffffff':'#f7f8fa';
+    return '<tr style="background:'+bg+';border-bottom:1px solid #e8edf4;">'+
+      '<td style="padding:9px 12px;text-align:center;color:#1a2332;font-size:12px;">'+(n+1)+'</td>'+
+      '<td style="padding:9px 12px;font-family:monospace;font-weight:700;color:#1F4E79;font-size:12px;">'+pfEscHtml(cod||'')+'</td>'+
+      '<td style="padding:9px 12px;color:#1a2332;font-size:12px;">'+pfEscHtml(it.desc||'')+'</td>'+
+      '<td style="padding:9px 12px;text-align:center;color:#1a2332;font-size:12px;">'+(it.qtd||1)+'</td>'+
+    '</tr>';
+  }).join('');
+
+  var emailHtml=
+    '<div id="mapaEmailIndBody" style="font-family:Calibri,Arial,sans-serif;color:#1a2332;max-width:700px;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e8edf4">'+
+    pfDocHeaderHtml('Solicitação de Cotação')+
+    '<div style="padding:24px 32px">'+
+    pfDocCardHtml('',pfDocCampoHtml('Data',hoje)+pfDocCampoHtml('Fornecedor',nomeForn))+
+    '<p style="margin:0 0 6px;font-size:13px;">Prezado(a) '+pfEscHtml(nomeForn)+',</p>'+
+    '<p style="margin:0 0 16px;font-size:13px;">Solicito cotação para os itens abaixo:</p>'+
+    '<table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:18px;">'+
+      '<thead><tr style="background:#1F4E79;">'+
+        '<th style="padding:9px 12px;text-align:center;color:#fff;font-weight:700;font-size:12px;">#</th>'+
+        '<th style="padding:9px 12px;text-align:left;color:#fff;font-weight:700;font-size:12px;">Código</th>'+
+        '<th style="padding:9px 12px;text-align:left;color:#fff;font-weight:700;font-size:12px;">Descrição</th>'+
+        '<th style="padding:9px 12px;text-align:center;color:#fff;font-weight:700;font-size:12px;">Qtd</th>'+
+      '</tr></thead><tbody>'+linhasHtml+'</tbody>'+
+    '</table>'+
+    '<p style="margin:0 0 6px;font-size:13px;">Por favor, informe para cada item:</p>'+
+    '<ul style="margin:0 0 16px;padding-left:20px;font-size:13px">'+
+      '<li>Marca disponível</li><li>Preço unitário (R$)</li><li>Impostos (IPI, ICMS, ST)</li>'+
+      '<li>Prazo de entrega</li><li>Disponibilidade</li>'+
+    '</ul>'+
+    '<p style="margin:0 0 16px;font-size:13px;">Caso possua mais de uma marca, informe todas as opções.</p>'+
+    '<p style="margin:20px 0 0;font-size:13px;">Atenciosamente,<br><strong>Vitor Lima</strong><br>Triex</p>'+
+    '</div></div>';
+
+  // Versão em texto puro (sem HTML) pra copiar e mandar pelo WhatsApp
+  var textoWa='Olá, '+nomeForn+'! Solicito cotação para os itens abaixo:\n\n'+
+    itens.map(function(it,n){var cod=codTipo==='cliente'?(it.refCliente||it.ref):it.ref;return(n+1)+'. ['+cod+'] '+it.desc+' — Qtd: '+it.qtd;}).join('\n')+
+    '\n\nPor favor, informe: marca disponível, preço unitário, impostos (IPI/ICMS/ST), prazo de entrega e disponibilidade.\n\nObrigado!\nVitor Lima — Triex';
+
+  var tel=pfTelParaWa(forn.tel);
+  var paraEmail=forn.email||'';
+
+  var win=window.open('','_blank','width=800,height=700,resizable=yes,scrollbars=yes');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+assunto+'</title>'+
+    '<style>'+
+      'body{margin:0;background:#eef1f5;font-family:Calibri,Arial,sans-serif;}'+
+      '#toolbar{background:#1F4E79;color:#fff;padding:11px 20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.2);}'+
+      '#toolbar h2{margin:0;font-size:13px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:140px}'+
+      '.tbtn{border:none;border-radius:7px;padding:8px 14px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;}'+
+      '.tbtn-copy{background:#fff;color:#1F4E79;}'+
+      '.tbtn-outlook{background:#C00000;color:#fff;}'+
+      '.tbtn-wa{background:#25D366;color:#fff;}'+
+      '.tbtn[disabled]{opacity:.4;cursor:not-allowed;}'+
+      '#meta{background:#fff;margin:14px 20px;border-radius:8px;border:1px solid #dde3ea;padding:10px 16px;font-size:12px;display:flex;gap:20px;flex-wrap:wrap;}'+
+      '#meta span{color:#607080;}#meta b{color:#1a2332;}'+
+      '#wrap{background:#fff;margin:0 20px 28px;border-radius:10px;border:1px solid #dde3ea;box-shadow:0 2px 10px rgba(0,0,0,.07);overflow:hidden;}'+
+      '#copied{display:none;background:#27AE60;color:#fff;padding:3px 12px;border-radius:6px;font-size:12px;font-weight:700;}'+
+    '</style></head><body>'+
+    '<div id="toolbar"><h2>✉️ '+assunto+'</h2><span id="copied">✅ Copiado!</span>'+
+      '<button class="tbtn tbtn-copy" onclick="copyBody()">📋 Copiar corpo</button>'+
+      '<button class="tbtn tbtn-outlook" '+(paraEmail?'':'disabled')+' onclick="openOutlook()">📨 Abrir Outlook</button>'+
+      '<button class="tbtn tbtn-copy" onclick="copyWa()">📋 Copiar pra WhatsApp</button>'+
+      '<button class="tbtn tbtn-wa" '+(tel?'':'disabled')+' onclick="openWa()">📱 Abrir WhatsApp</button>'+
+    '</div>'+
+    '<div id="meta"><span><b>Para:</b> '+(paraEmail?pfEscHtml(paraEmail):'(sem e-mail)')+'</span><span><b>WhatsApp:</b> '+(tel?pfEscHtml(forn.tel):'(sem telefone)')+'</span><span><b>Assunto:</b> '+assunto+'</span></div>'+
+    '<div id="wrap">'+emailHtml+'</div>'+
+    '<script>'+
+      'function copyBody(){var el=document.getElementById("mapaEmailIndBody");var r=document.createRange();r.selectNodeContents(el);var s=window.getSelection();s.removeAllRanges();s.addRange(r);document.execCommand("copy");s.removeAllRanges();flashCopied();}'+
+      'function copyWa(){var ta=document.createElement("textarea");ta.value='+JSON.stringify(textoWa)+';document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);flashCopied();}'+
+      'function flashCopied(){var c=document.getElementById("copied");c.style.display="inline-block";setTimeout(function(){c.style.display="none";},2000);}'+
+      'function openOutlook(){if(!'+JSON.stringify(!!paraEmail)+')return;try{if(window.opener&&window.opener.mapaMarcarFornAberto)window.opener.mapaMarcarFornAberto("'+fid+'");}catch(e){}window.location.href="mailto:'+encodeURIComponent(paraEmail)+'?subject='+encodeURIComponent(assunto)+'";}'+
+      'function openWa(){if(!'+JSON.stringify(!!tel)+')return;try{if(window.opener&&window.opener.mapaMarcarFornAberto)window.opener.mapaMarcarFornAberto("'+fid+'");}catch(e){}window.open("https://wa.me/'+tel+'?text='+encodeURIComponent(textoWa)+'","_blank");}'+
+    '</'+'script></body></html>');
+  win.document.close();
 }
+
+
 
 // ── STEP 3: Preços ─────────────────────────────────────────────
 function mapaStep3(el){
@@ -8015,19 +8146,27 @@ function mapaStep4(el){
     ocK.forEach(function(fid){
       var f=flist.find(function(x){return x.id===fid;});
       var oc=ocF[fid];
-      html+='<div style="background:#fff;border-radius:10px;padding:12px 16px;border:1px solid #e0e8f0;min-width:180px">';
+      var geradaId=(window._mapaOcGeradas||{})[fid];
+      html+='<div style="background:#fff;border-radius:10px;padding:12px 16px;border:1px solid '+(geradaId?'#27AE60':'#e0e8f0')+';min-width:180px">';
       html+='<div style="font-weight:700;font-size:13px;color:#1F4E79">'+(f?(f.fantasia||f.nome||f.razao):fid)+'</div>';
       html+='<div style="font-size:11px;color:#8a9ab0">'+oc.itens.length+' item(s)</div>';
       html+='<div style="font-size:14px;font-weight:800;color:#1F4E79;margin-top:4px">R$ '+oc.total.toFixed(2)+' <span style="font-size:10px;font-weight:400;color:#8a9ab0">c/ impostos</span></div>';
+      if(geradaId)html+='<div style="font-size:11px;font-weight:700;color:#27AE60;margin-top:6px">✅ OC gerada — enviada pra Solicitações</div>';
       html+='</div>';
     });
     html+='</div>';
     html+='<div style="display:flex;gap:10px;flex-wrap:wrap">';
     ocK.forEach(function(fid){
       var f=flist.find(function(x){return x.id===fid;});
-      html+='<button ontouchstart="" onclick="mapaOC(&quot;'+fid+'&quot;)" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700">📄 OC — '+(f?(f.fantasia||f.nome||f.razao):fid)+'</button>';
+      var nomeF=f?(f.fantasia||f.nome||f.razao):fid;
+      var geradaId=(window._mapaOcGeradas||{})[fid];
+      if(geradaId){
+        html+='<button ontouchstart="" onclick="mapaOC(&quot;'+fid+'&quot;)" style="background:#fff;color:#27AE60;border:1.5px solid #27AE60;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700">✅ '+nomeF+' — Reabrir OC</button>';
+      } else {
+        html+='<button ontouchstart="" onclick="mapaOC(&quot;'+fid+'&quot;)" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700">📄 OC — '+nomeF+'</button>';
+      }
     });
-    html+='</div></div>';
+    html+='</div><div style="font-size:11px;color:#607080;margin-top:10px">Cada OC gerada já entra automaticamente em <b>Solicitações de Compras</b> (status ⏳ Pendente até você clicar em "Abrir Outlook" na janela da OC).</div></div>';
     // Expose ocF for OC generation
     window._mapaOcF = ocF;
   }
@@ -8047,26 +8186,103 @@ function mapaOC(fid){
   var nome=forn?(forn.fantasia||forn.nome||forn.razao):fid,data=new Date().toLocaleDateString('pt-BR'),num='OC-'+Date.now().toString().slice(-6);
   var its=mapaItens.filter(function(i){return i.sel!==false&&mapaDecisoes[i.ref+'||'+(i.marca||'')]===fid;});
   var tot=0;
-  // Use enriched data from _mapaOcF if available
+  // Usa dados enriquecidos de _mapaOcF se disponível
   var ocData = (window._mapaOcF && window._mapaOcF[fid]) ? window._mapaOcF[fid].itens : its.map(function(it){var pk=it.ref+'||'+(it.marca||'')+'||'+fid;var p=mapaPrecos[pk]||{};return Object.assign({},it,{preco:p.preco||0,custo:p.preco||0,marca:'',prazo:p.prazo||'',ipi:0,icms:0,st:0});});
-  var rows=ocData.map(function(it,n){var t=(it.custo||it.preco||0)*it.qtd;tot+=t;return'<tr style="border-bottom:1px solid #eee"><td style="padding:8px;text-align:center">'+(n+1)+'</td><td style="padding:8px;font-weight:700">'+it.ref+'</td><td style="padding:8px">'+it.desc+'</td><td style="padding:8px">'+( it.marca||'—')+'</td><td style="padding:8px;text-align:center">'+it.qtd+'</td><td style="padding:8px;text-align:right">R$ '+(it.preco||0).toFixed(2)+'</td><td style="padding:8px;text-align:right;font-size:10px;color:#607080">'+(it.ipi?it.ipi+'%':'—')+' / '+(it.icms?it.icms+'%':'—')+' / '+(it.st?it.st+'%':'—')+'</td><td style="padding:8px;text-align:right;font-weight:700;color:#1F4E79">R$ '+(it.custo||0).toFixed(2)+'</td><td style="padding:8px;text-align:right;font-weight:700">R$ '+t.toFixed(2)+'</td><td style="padding:8px;text-align:right;color:#27AE60;font-weight:700">R$ '+((it.custo||it.preco||0)/(1-(window._mapaMargemVenda||25)/100-0.076-0.0165-0.12)).toFixed(2)+'</td><td style="padding:8px;text-align:center">'+(it.prazo||'—')+'</td></tr>';}).join('');
-  var doc='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OC '+num+'</title><style>body{font-family:Arial,sans-serif;font-size:12px;padding:30px;color:#1a2332}table{width:100%;border-collapse:collapse}thead tr{background:#1F4E79;color:#fff}th{padding:10px;text-align:left}</style></head><body>'+
-    '<div style="display:flex;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #1F4E79"><div><h1 style="color:#1F4E79;margin:0;font-size:18px">ORDEM DE COMPRA</h1><p style="color:#607080;margin:4px 0 0">'+num+' — '+data+'</p></div><div style="text-align:right"><strong>TRIEX COM. PEÇAS E SERV. LTDA</strong><br>CNPJ: 00.609.213/0001-15</div></div>'+
-    '<div style="background:#F8FAFC;border-radius:8px;padding:12px;margin-bottom:20px"><strong>Fornecedor:</strong> '+nome+(forn&&forn.email?' | ✉ '+forn.email:'')+'</div>'+
-    '<table><thead><tr><th>#</th><th>Código</th><th>Descrição</th><th>Marca</th><th>Qtd</th><th>Preço Unit.</th><th>IPI/ICMS/ST</th><th>Custo c/imp</th><th>Total c/imp</th><th>Venda (30%)</th><th>Prazo</th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    '<div style="text-align:right;margin-top:16px;padding-top:12px;border-top:2px solid #1F4E79"><strong style="font-size:16px;color:#1F4E79">TOTAL: R$ '+tot.toFixed(2)+'</strong></div>'+
-    '<div style="margin-top:40px;display:flex;justify-content:space-between"><div style="text-align:center"><div style="border-top:1px solid #333;width:200px;padding-top:4px">Solicitante</div></div><div style="text-align:center"><div style="border-top:1px solid #333;width:200px;padding-top:4px">Aprovação</div></div></div>'+
-    '</body></html>';
-  var w=window.open('','_blank');w.document.write(doc);w.document.close();setTimeout(function(){w.print();},500);
 
-  // Gera e abre o e-mail de Solicitação de Compra pro setor de compras (mesmo padrão do fluxo de Venda Casada).
-  // Status só vira "Enviado" quando clicar em "Abrir Outlook" na janela do e-mail.
+  var rows=ocData.map(function(it,n){
+    var t=(it.custo||it.preco||0)*it.qtd;tot+=t;
+    return '<tr style="border-bottom:1px solid #e8edf4;background:'+(n%2===0?'#fff':'#f7f8fa')+'">'+
+      '<td style="padding:8px;text-align:center;font-size:12px">'+(n+1)+'</td>'+
+      '<td style="padding:8px;font-weight:700;color:#1F4E79;font-size:12px">'+pfEscHtml(it.ref||'')+'</td>'+
+      '<td style="padding:8px;font-size:12px">'+pfEscHtml(it.desc||'')+'</td>'+
+      '<td style="padding:8px;color:#607080;font-size:12px">'+pfEscHtml(it.marca||'—')+'</td>'+
+      '<td style="padding:8px;text-align:center;font-size:12px">'+it.qtd+'</td>'+
+      '<td style="padding:8px;text-align:right;font-size:12px">R$ '+(it.preco||0).toFixed(2)+'</td>'+
+      '<td style="padding:8px;text-align:right;font-size:10px;color:#607080">'+(it.ipi?it.ipi+'%':'—')+' / '+(it.icms?it.icms+'%':'—')+' / '+(it.st?it.st+'%':'—')+'</td>'+
+      '<td style="padding:8px;text-align:right;font-weight:700;color:#1F4E79;font-size:12px">R$ '+(it.custo||0).toFixed(2)+'</td>'+
+      '<td style="padding:8px;text-align:right;font-weight:700;font-size:12px">R$ '+t.toFixed(2)+'</td>'+
+      '<td style="padding:8px;text-align:center;font-size:12px">'+(it.prazo||'—')+'</td>'+
+    '</tr>';
+  }).join('');
+
+  var ocHtml='<div id="mapaOcBody" style="font-family:Calibri,Arial,sans-serif;color:#1a2332;max-width:780px;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e8edf4">'+
+    pfDocHeaderHtml('Ordem de Compra — '+num)+
+    '<div style="padding:24px 32px">'+
+    pfDocCardHtml('',pfDocCampoHtml('Nº OC',num)+pfDocCampoHtml('Data',data)+pfDocCampoHtml('Fornecedor',nome)+(forn&&forn.email?pfDocCampoHtml('E-mail',forn.email):''))+
+    '<table style="border-collapse:collapse;width:100%;margin-bottom:14px">'+
+      '<thead><tr style="background:#1F4E79">'+
+        '<th style="padding:8px;text-align:center;color:#fff;font-size:12px">#</th>'+
+        '<th style="padding:8px;text-align:left;color:#fff;font-size:12px">Código</th>'+
+        '<th style="padding:8px;text-align:left;color:#fff;font-size:12px">Descrição</th>'+
+        '<th style="padding:8px;text-align:left;color:#fff;font-size:12px">Marca</th>'+
+        '<th style="padding:8px;text-align:center;color:#fff;font-size:12px">Qtd</th>'+
+        '<th style="padding:8px;text-align:right;color:#fff;font-size:12px">Preço Unit.</th>'+
+        '<th style="padding:8px;text-align:right;color:#fff;font-size:12px">IPI/ICMS/ST</th>'+
+        '<th style="padding:8px;text-align:right;color:#fff;font-size:12px">Custo c/imp</th>'+
+        '<th style="padding:8px;text-align:right;color:#fff;font-size:12px">Total c/imp</th>'+
+        '<th style="padding:8px;text-align:center;color:#fff;font-size:12px">Prazo</th>'+
+      '</tr></thead><tbody>'+rows+'</tbody>'+
+    '</table>'+
+    '<div style="text-align:right;padding-top:10px;border-top:2px solid #1F4E79"><strong style="font-size:15px;color:#1F4E79">TOTAL: R$ '+tot.toFixed(2)+'</strong></div>'+
+    '</div></div>';
+
+  // 1) Salva (ou atualiza) a Solicitação de Compra ANTES de abrir qualquer janela —
+  // garante que o registro sempre entra no histórico, mesmo se o navegador bloquear popups.
+  var novoId=null, numeroSolic='';
   try{
-    if(typeof solicAbrirEmail==='function'){
+    if(typeof solicLoad==='function'&&typeof solicSave==='function'&&typeof solicProximoNumero==='function'){
+      window._mapaOcGeradas=window._mapaOcGeradas||{};
+      var existenteId=window._mapaOcGeradas[fid];
+      var list=solicLoad();
       var solicItens=ocData.map(function(it){return {codigo:it.ref,desc:it.desc,marca:it.marca||'',qtd:it.qtd,prazo:it.prazo||'—'};});
-      solicAbrirEmail(solicItens,nome,false,'','',null,'mapa',num);
+      var existente=existenteId?list.find(function(x){return x.id===existenteId;}):null;
+      if(existente){
+        // OC já tinha sido gerada antes nessa mesma sessão (ex: refez a decisão) — atualiza em vez de duplicar
+        existente.itens=solicItens; existente.fornecedor=nome; existente.numeroOC=num; existente.data=Date.now();
+        numeroSolic=existente.numero; novoId=existenteId;
+      } else {
+        novoId='sol_'+Date.now()+'_'+fid;
+        numeroSolic=solicProximoNumero();
+        list.push({id:novoId,numero:numeroSolic,data:Date.now(),fornecedor:nome,cliente:'',itens:solicItens,origem:'mapa',numeroPedido:'',numeroOC:num,status:'pendente'});
+      }
+      solicSave(list);
+      solicRender();
+      window._mapaOcGeradas[fid]=novoId;
     }
   }catch(_e){}
+
+  // 2) Abre UMA única janela com o documento da OC (padrão visual pfDoc) + ações
+  var assunto=(numeroSolic?numeroSolic+' — ':'')+'SOLICITAÇÃO DE COMPRA — MAPA DE COMPRAS — '+num+' — '+nome.toUpperCase();
+  try{
+    var win=window.open('','_blank','width=900,height=750,resizable=yes,scrollbars=yes');
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+assunto+'</title>'+
+      '<style>'+
+        'body{margin:0;background:#eef1f5;font-family:Calibri,Arial,sans-serif;}'+
+        '#toolbar{background:#1F4E79;color:#fff;padding:11px 20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:0;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.2);}'+
+        '#toolbar h2{margin:0;font-size:13px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:160px}'+
+        '.tbtn{border:none;border-radius:7px;padding:8px 14px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;}'+
+        '.tbtn-copy{background:#fff;color:#1F4E79;}'+
+        '.tbtn-print{background:#607080;color:#fff;}'+
+        '.tbtn-outlook{background:#C00000;color:#fff;}'+
+        '#wrap{background:#fff;margin:20px;border-radius:10px;border:1px solid #dde3ea;box-shadow:0 2px 10px rgba(0,0,0,.07);overflow:hidden;}'+
+        '#copied{display:none;background:#27AE60;color:#fff;padding:3px 12px;border-radius:6px;font-size:12px;font-weight:700;}'+
+        '@media print{#toolbar{display:none}}'+
+      '</style></head><body>'+
+      '<div id="toolbar"><h2>📄 Ordem de Compra — '+num+'</h2><span id="copied">✅ Copiado!</span>'+
+        '<button class="tbtn tbtn-copy" onclick="copyBody()">📋 Copiar</button>'+
+        '<button class="tbtn tbtn-print" onclick="window.print()">🖨 Imprimir / Salvar PDF</button>'+
+        '<button class="tbtn tbtn-outlook" onclick="openOutlook()">📨 Abrir Outlook (compras@)</button>'+
+      '</div>'+
+      '<div id="wrap">'+ocHtml+'</div>'+
+      '<script>'+
+        'function copyBody(){var el=document.getElementById("mapaOcBody");var r=document.createRange();r.selectNodeContents(el);var s=window.getSelection();s.removeAllRanges();s.addRange(r);document.execCommand("copy");s.removeAllRanges();var c=document.getElementById("copied");c.style.display="inline-block";setTimeout(function(){c.style.display="none";},2000);}'+
+        'function openOutlook(){try{if(window.opener&&window.opener.solicMarcarEnviado)window.opener.solicMarcarEnviado("'+(novoId||'')+'");}catch(e){}window.location.href="mailto:compras@triexpecas.com.br?subject='+encodeURIComponent(assunto)+'";}'+
+      '</'+'script></body></html>');
+    win.document.close();
+  }catch(_e){}
+
+  // 3) Atualiza a tela de Decidir & OC pra dar feedback visual (botão muda de estado)
+  if(typeof mapaGoStep==='function')mapaGoStep(4);
 }
 // ════════════════════════════════════════════════════════════════
 </script>
@@ -11367,12 +11583,19 @@ mapaStep1 = function(el){
 
       html += '</div>';
       html += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
-      html += '<input id="nfi_'+i+'" type="text" placeholder="Outro fornecedor..." style="padding:6px 10px;border:1.5px dashed #e0e8f0;border-radius:8px;font-size:12px;min-width:160px">';
+      html += '<input id="nfi_'+i+'" type="text" list="mapaFornDatalist" placeholder="Outro fornecedor (já cadastrado ou novo)..." oninput="mapaAutoFornEmail('+i+')" style="padding:6px 10px;border:1.5px dashed #e0e8f0;border-radius:8px;font-size:12px;min-width:200px">';
       html += '<input id="nfe_'+i+'" type="email" placeholder="E-mail" style="padding:6px 10px;border:1.5px dashed #e0e8f0;border-radius:8px;font-size:12px;min-width:150px">';
       html += '<button ontouchstart="" onclick="mapaAddForn(\''+key+'\','+i+')" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:700">+ Incluir</button>';
       html += '</div></div></td></tr>';
     }
   });
+
+  // Datalist com todos os fornecedores do Cadastro (não só os já vinculados a marca/linha),
+  // pra autocompletar quando o usuário digitar "Outro fornecedor"
+  try{
+    var fornCad=cadLoad(FORN_KEY);
+    html += '<datalist id="mapaFornDatalist">'+fornCad.map(function(f){return '<option value="'+pfEscHtml(f.fantasia||f.nome||f.razao||'')+'">';}).join('')+'</datalist>';
+  }catch(_e){}
 
   html += '</tbody></table></div>';
   if(itensFiltrados.length < mapaItens.length){
@@ -11614,6 +11837,38 @@ async function pfSyncPush(keys){
   }catch(e){console.warn('pfSyncPush erro:',e);}
 }
 
+// Faz merge seguro entre o valor local e o que veio do Supabase, pra nunca perder
+// um item adicionado localmente que ainda não tinha sido "pushado" quando um pull
+// trouxe uma versão mais antiga (mesma classe de bug já corrigida nos Cadastros).
+function pfMergeSyncValue(localRaw, remoteRaw){
+  var local,remote;
+  try{local=localRaw?JSON.parse(localRaw):null;}catch(e){local=null;}
+  try{remote=remoteRaw?JSON.parse(remoteRaw):null;}catch(e){remote=null;}
+  if(remote==null)return localRaw;
+  if(local==null)return JSON.stringify(remote);
+  if(Array.isArray(local)&&Array.isArray(remote)){
+    var porId={};
+    local.forEach(function(it,i){var k=(it&&it.id!=null)?String(it.id):'_l'+i;porId[k]=it;});
+    remote.forEach(function(it,i){
+      var k=(it&&it.id!=null)?String(it.id):null;
+      if(k===null){
+        var igual=local.some(function(l){return JSON.stringify(l)===JSON.stringify(it);});
+        if(!igual)porId['_r'+i]=it;
+        return;
+      }
+      var atual=porId[k];
+      var tsA=(atual&&(atual.ts||atual.data))||0, tsB=(it&&(it.ts||it.data))||0;
+      if(!atual||tsB>=tsA)porId[k]=it;
+    });
+    return JSON.stringify(Object.keys(porId).map(function(k){return porId[k];}));
+  }
+  if(typeof local==='object'&&typeof remote==='object'){
+    var tl=local.ts||local.updated_at||0, tr=remote.ts||remote.updated_at||0;
+    return (tr>tl)?JSON.stringify(remote):localRaw;
+  }
+  return localRaw; // fallback conservador: nunca perde o que já tem local
+}
+
 async function pfSyncPull(){
   if(!sbUser)return;
   try{
@@ -11639,7 +11894,10 @@ async function pfSyncPull(){
           localStorage.setItem('mapas_lista_v1',JSON.stringify(merged));
           return;
         }
-        localStorage.setItem(row.chave,val);
+        // Demais chaves (meAvise_lista, aviseItems, transitItems, cotações, etc.) — merge seguro,
+        // nunca sobrescreve às cegas um item local que ainda não tinha sido sincronizado.
+        var localRaw=localStorage.getItem(row.chave);
+        localStorage.setItem(row.chave, pfMergeSyncValue(localRaw, val));
       }catch(e){}
     });
     console.log('✅ pfSyncPull OK ('+rows.length+' chaves)');

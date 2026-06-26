@@ -583,7 +583,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.239</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.240</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -702,7 +702,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.239</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.240</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -8178,17 +8178,8 @@ function mapaStep4(el){
 }
 
 
-function mapaOC(fid){
-  // Salva mapa no histórico
-  try{ ferrHistSalvar('mapa', {itens:JSON.parse(JSON.stringify(mapaItens)), decisoes:JSON.parse(JSON.stringify(mapaDecisoes||{})), ts:Date.now()}); }catch(e){}
-  var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
-  var forn=flist.find(function(f){return f.id===fid;});
-  var nome=forn?(forn.fantasia||forn.nome||forn.razao):fid,data=new Date().toLocaleDateString('pt-BR'),num='OC-'+Date.now().toString().slice(-6);
-  var its=mapaItens.filter(function(i){return i.sel!==false&&mapaDecisoes[i.ref+'||'+(i.marca||'')]===fid;});
+function pfConstruirOcHtml(num,dataStr,nomeForn,emailForn,ocData){
   var tot=0;
-  // Usa dados enriquecidos de _mapaOcF se disponível
-  var ocData = (window._mapaOcF && window._mapaOcF[fid]) ? window._mapaOcF[fid].itens : its.map(function(it){var pk=it.ref+'||'+(it.marca||'')+'||'+fid;var p=mapaPrecos[pk]||{};return Object.assign({},it,{preco:p.preco||0,custo:p.preco||0,marca:'',prazo:p.prazo||'',ipi:0,icms:0,st:0});});
-
   var rows=ocData.map(function(it,n){
     var t=(it.custo||it.preco||0)*it.qtd;tot+=t;
     return '<tr style="border-bottom:1px solid #e8edf4;background:'+(n%2===0?'#fff':'#f7f8fa')+'">'+
@@ -8204,11 +8195,10 @@ function mapaOC(fid){
       '<td style="padding:8px;text-align:center;font-size:12px">'+(it.prazo||'—')+'</td>'+
     '</tr>';
   }).join('');
-
-  var ocHtml='<div id="mapaOcBody" style="font-family:Calibri,Arial,sans-serif;color:#1a2332;max-width:780px;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e8edf4">'+
+  var html='<div id="mapaOcBody" style="font-family:Calibri,Arial,sans-serif;color:#1a2332;max-width:780px;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e8edf4">'+
     pfDocHeaderHtml('Ordem de Compra — '+num)+
     '<div style="padding:24px 32px">'+
-    pfDocCardHtml('',pfDocCampoHtml('Nº OC',num)+pfDocCampoHtml('Data',data)+pfDocCampoHtml('Fornecedor',nome)+(forn&&forn.email?pfDocCampoHtml('E-mail',forn.email):''))+
+    pfDocCardHtml('',pfDocCampoHtml('Nº OC',num)+pfDocCampoHtml('Data',dataStr)+pfDocCampoHtml('Fornecedor',nomeForn)+(emailForn?pfDocCampoHtml('E-mail',emailForn):''))+
     '<table style="border-collapse:collapse;width:100%;margin-bottom:14px">'+
       '<thead><tr style="background:#1F4E79">'+
         '<th style="padding:8px;text-align:center;color:#fff;font-size:12px">#</th>'+
@@ -8225,34 +8215,11 @@ function mapaOC(fid){
     '</table>'+
     '<div style="text-align:right;padding-top:10px;border-top:2px solid #1F4E79"><strong style="font-size:15px;color:#1F4E79">TOTAL: R$ '+tot.toFixed(2)+'</strong></div>'+
     '</div></div>';
+  return {html:html,tot:tot};
+}
 
-  // 1) Salva (ou atualiza) a Solicitação de Compra ANTES de abrir qualquer janela —
-  // garante que o registro sempre entra no histórico, mesmo se o navegador bloquear popups.
-  var novoId=null, numeroSolic='';
-  try{
-    if(typeof solicLoad==='function'&&typeof solicSave==='function'&&typeof solicProximoNumero==='function'){
-      window._mapaOcGeradas=window._mapaOcGeradas||{};
-      var existenteId=window._mapaOcGeradas[fid];
-      var list=solicLoad();
-      var solicItens=ocData.map(function(it){return {codigo:it.ref,desc:it.desc,marca:it.marca||'',qtd:it.qtd,prazo:it.prazo||'—'};});
-      var existente=existenteId?list.find(function(x){return x.id===existenteId;}):null;
-      if(existente){
-        // OC já tinha sido gerada antes nessa mesma sessão (ex: refez a decisão) — atualiza em vez de duplicar
-        existente.itens=solicItens; existente.fornecedor=nome; existente.numeroOC=num; existente.data=Date.now();
-        numeroSolic=existente.numero; novoId=existenteId;
-      } else {
-        novoId='sol_'+Date.now()+'_'+fid;
-        numeroSolic=solicProximoNumero();
-        list.push({id:novoId,numero:numeroSolic,data:Date.now(),fornecedor:nome,cliente:'',itens:solicItens,origem:'mapa',numeroPedido:'',numeroOC:num,status:'pendente'});
-      }
-      solicSave(list);
-      solicRender();
-      window._mapaOcGeradas[fid]=novoId;
-    }
-  }catch(_e){}
-
-  // 2) Abre UMA única janela com o documento da OC (padrão visual pfDoc) + ações
-  var assunto=(numeroSolic?numeroSolic+' — ':'')+'SOLICITAÇÃO DE COMPRA — MAPA DE COMPRAS — '+num+' — '+nome.toUpperCase();
+function pfAbrirJanelaOC(num,nomeForn,numeroSolic,ocHtml,novoId){
+  var assunto=(numeroSolic?numeroSolic+' — ':'')+'SOLICITAÇÃO DE COMPRA — MAPA DE COMPRAS — '+num+' — '+nomeForn.toUpperCase();
   try{
     var win=window.open('','_blank','width=900,height=750,resizable=yes,scrollbars=yes');
     win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+assunto+'</title>'+
@@ -8280,6 +8247,62 @@ function mapaOC(fid){
       '</'+'script></body></html>');
     win.document.close();
   }catch(_e){}
+}
+
+// Reabre o documento da OC (com preços/custo/total) a partir do que foi salvo na Solicitação —
+// funciona mesmo se o mapa de origem já não existir mais na sessão/dispositivo.
+function solicAbrirOC(id){
+  var s=solicLoad().find(function(x){return x.id===id;});
+  if(!s||!s.ocItens||!s.ocItens.length){_safeAlert('Essa solicitação não tem dados de OC salvos (foi criada antes dessa função existir).');return;}
+  var dataStr=new Date(s.data).toLocaleDateString('pt-BR');
+  var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
+  var forn=flist.find(function(f){return (f.fantasia||f.nome||f.razao)===s.fornecedor;});
+  var built=pfConstruirOcHtml(s.numeroOC||'OC',dataStr,s.fornecedor||'',forn?forn.email:'',s.ocItens);
+  pfAbrirJanelaOC(s.numeroOC||'OC',s.fornecedor||'',s.numero||'',built.html,s.id);
+}
+
+function mapaOC(fid){
+  // Salva mapa no histórico
+  try{ ferrHistSalvar('mapa', {itens:JSON.parse(JSON.stringify(mapaItens)), decisoes:JSON.parse(JSON.stringify(mapaDecisoes||{})), ts:Date.now()}); }catch(e){}
+  var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
+  var forn=flist.find(function(f){return f.id===fid;});
+  var nome=forn?(forn.fantasia||forn.nome||forn.razao):fid,data=new Date().toLocaleDateString('pt-BR'),num='OC-'+Date.now().toString().slice(-6);
+  var its=mapaItens.filter(function(i){return i.sel!==false&&mapaDecisoes[i.ref+'||'+(i.marca||'')]===fid;});
+  // Usa dados enriquecidos de _mapaOcF se disponível
+  var ocData = (window._mapaOcF && window._mapaOcF[fid]) ? window._mapaOcF[fid].itens : its.map(function(it){var pk=it.ref+'||'+(it.marca||'')+'||'+fid;var p=mapaPrecos[pk]||{};return Object.assign({},it,{preco:p.preco||0,custo:p.preco||0,marca:'',prazo:p.prazo||'',ipi:0,icms:0,st:0});});
+
+  var built=pfConstruirOcHtml(num,data,nome,forn?forn.email:'',ocData);
+
+  // 1) Salva (ou atualiza) a Solicitação de Compra ANTES de abrir qualquer janela —
+  // garante que o registro sempre entra no histórico, mesmo se o navegador bloquear popups.
+  // Também guarda os itens precificados (ocItens/ocTotal) pra poder reabrir o documento
+  // completo da OC depois, mesmo se o mapa de origem não existir mais.
+  var novoId=null, numeroSolic='';
+  try{
+    if(typeof solicLoad==='function'&&typeof solicSave==='function'&&typeof solicProximoNumero==='function'){
+      window._mapaOcGeradas=window._mapaOcGeradas||{};
+      var existenteId=window._mapaOcGeradas[fid];
+      var list=solicLoad();
+      var solicItens=ocData.map(function(it){return {codigo:it.ref,desc:it.desc,marca:it.marca||'',qtd:it.qtd,prazo:it.prazo||'—'};});
+      var existente=existenteId?list.find(function(x){return x.id===existenteId;}):null;
+      if(existente){
+        // OC já tinha sido gerada antes nessa mesma sessão (ex: refez a decisão) — atualiza em vez de duplicar
+        existente.itens=solicItens; existente.fornecedor=nome; existente.numeroOC=num; existente.data=Date.now();
+        existente.ocItens=ocData; existente.ocTotal=built.tot;
+        numeroSolic=existente.numero; novoId=existenteId;
+      } else {
+        novoId='sol_'+Date.now()+'_'+fid;
+        numeroSolic=solicProximoNumero();
+        list.push({id:novoId,numero:numeroSolic,data:Date.now(),fornecedor:nome,cliente:'',itens:solicItens,origem:'mapa',numeroPedido:'',numeroOC:num,status:'pendente',ocItens:ocData,ocTotal:built.tot});
+      }
+      solicSave(list);
+      solicRender();
+      window._mapaOcGeradas[fid]=novoId;
+    }
+  }catch(_e){}
+
+  // 2) Abre UMA única janela com o documento da OC (padrão visual pfDoc) + ações
+  pfAbrirJanelaOC(num,nome,numeroSolic,built.html,novoId);
 
   // 3) Atualiza a tela de Decidir & OC pra dar feedback visual (botão muda de estado)
   if(typeof mapaGoStep==='function')mapaGoStep(4);
@@ -16236,6 +16259,7 @@ function solicRender(){
       '</div>';
       html+='<div style="display:flex;gap:6px">';
       html+='<button ontouchstart="" onclick="solicVerItens(\''+s.id+'\')" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #607080;border-radius:6px;color:#607080;cursor:pointer">Ver itens</button>';
+      if(s.ocItens&&s.ocItens.length)html+='<button ontouchstart="" onclick="solicAbrirOC(\''+s.id+'\')" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #27AE60;border-radius:6px;color:#27AE60;cursor:pointer">📄 Reabrir OC</button>';
       html+='<button ontouchstart="" onclick="solicReabrirEmail(\''+s.id+'\')" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #1F4E79;border-radius:6px;color:#1F4E79;cursor:pointer">✉️ Reabrir e-mail</button>';
       html+='<button ontouchstart="" onclick="solicExcluir(\''+s.id+'\')" style="font-size:11px;padding:5px 6px;background:none;border:none;color:#C00000;cursor:pointer;font-size:15px">×</button>';
       html+='</div></div>';

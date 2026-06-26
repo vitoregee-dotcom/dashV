@@ -583,7 +583,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.230</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.231</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -702,7 +702,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.230</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.231</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -7137,6 +7137,7 @@ var LINHAS=[
   {l:'RANDON',c:'#FF6B00',b:'#FFF3E6',t:function(r){return/^\d{9}$/.test(r)&&(r.startsWith('21')||r.startsWith('22'));}},
   {l:'ALLISON',c:'#5C3D99',b:'#F0EAFA',t:function(r){return/^\d{8}$/.test(r)&&(r.startsWith('23')||r.startsWith('29'));}},
   {l:'JCB',c:'#F5A623',b:'#FFF7E6',x:'#7A5A00',t:function(r){return/^\d{2}\/\d{6}$/.test(r);}},
+  {l:'HYUNDAI',c:'#002C5F',b:'#E8EEF6',t:function(r){return/^\d{2}[A-Z0-9]{2}-\d{5}$/.test(r)||r.startsWith('ZTAM-');}},
 ];
 function idLinha(ref){var r=(ref||'').toUpperCase();for(var i=0;i<LINHAS.length;i++){try{if(LINHAS[i].t(r))return LINHAS[i];}catch(e){}}return{l:'GENÉRICO',c:'#607080',b:'#F0F2F4'};}
 
@@ -8850,19 +8851,41 @@ async function cadPushSupabase(){
       {tipo:'import_templates',dados:importTpl},
       {tipo:'solicitacoes_compras',dados:solic}
     ];
+    var falhas=[];
     for(var ti=0;ti<tipos.length;ti++){
       var t=tipos[ti];
       if(!t.dados||!t.dados.length)continue;
       // Cadastros são globais — sempre grava sob o ID fixo da empresa,
       // não o ID de quem está logado, pra todo usuário ler/escrever no mesmo lugar
-      await sbFetch('/rest/v1/user_cadastros?on_conflict=user_id,tipo',{
+      var resp=await sbFetch('/rest/v1/user_cadastros?on_conflict=user_id,tipo',{
         method:'POST',
         headers:{'Prefer':'resolution=merge-duplicates'},
         body:JSON.stringify({user_id:MY_USER_ID,tipo:t.tipo,dados:JSON.stringify(t.dados),updated_at:new Date().toISOString()})
       });
+      if(!resp.ok)falhas.push(t.tipo);
+    }
+    if(falhas.length){
+      console.warn('⚠️ Falha ao sincronizar:',falhas.join(', '));
+      if(typeof pfAvisoSyncFalhou==='function')pfAvisoSyncFalhou(falhas);
     }
     console.log('✅ Cadastros sincronizados no Supabase (forn:'+forn.length+' clie:'+clie.length+' prod:'+prod.length+')');
-  }catch(e){console.warn('cadPushSupabase erro:',e);}
+  }catch(e){
+    console.warn('cadPushSupabase erro:',e);
+    if(typeof pfAvisoSyncFalhou==='function')pfAvisoSyncFalhou(['(erro de conexão)']);
+  }
+}
+
+// Aviso visível (não bloqueante) quando uma sincronização falha — antes isso
+// falhava em silêncio e dados só locais podiam se perder num pull posterior.
+var _pfAvisoSyncAtivo=false;
+function pfAvisoSyncFalhou(tipos){
+  if(_pfAvisoSyncAtivo)return;
+  _pfAvisoSyncAtivo=true;
+  var b=document.createElement('div');
+  b.style.cssText='position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#C00000;color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;z-index:999999;box-shadow:0 4px 16px rgba(0,0,0,.25);max-width:90vw;text-align:center';
+  b.textContent='⚠️ Não consegui sincronizar com o servidor agora ('+tipos.join(', ')+'). Seus dados estão salvos neste aparelho — não recarregue a página antes de reconectar.';
+  document.body.appendChild(b);
+  setTimeout(function(){b.remove();_pfAvisoSyncAtivo=false;},10000);
 }
 
 async function cadSyncManual(){
@@ -8900,7 +8923,20 @@ async function cadPullSupabase(){
         var items=typeof row.dados==='string'?JSON.parse(row.dados):row.dados;
         if(!Array.isArray(items))return;
         var key=row.tipo==='fornecedores'?FORN_KEY:row.tipo==='clientes'?CLIE_KEY:row.tipo==='aplicacoes'?(typeof APLIC_KEY!=='undefined'?APLIC_KEY:'cad_aplicacoes_v1'):row.tipo==='cadr_historico'?(typeof CADR_HIST_KEY!=='undefined'?CADR_HIST_KEY:'cadr_historico_scripts_v1'):row.tipo==='relacionados'?(typeof RELAC_KEY!=='undefined'?RELAC_KEY:'cad_relacionados_v1'):row.tipo==='import_templates'?(typeof IMPORT_TPL_KEY!=='undefined'?IMPORT_TPL_KEY:'cad_import_templates_v1'):row.tipo==='solicitacoes_compras'?(typeof SOLIC_KEY!=='undefined'?SOLIC_KEY:'cad_solicitacoes_compras_v1'):(typeof PROD_KEY!=='undefined'?PROD_KEY:'cad_produtos_v1');
-        // Supabase é a fonte de verdade - substitui local diretamente
+        var keyId=row.tipo==='fornecedores'||row.tipo==='clientes'||row.tipo==='produtos'||row.tipo==='aplicacoes'?'id':null;
+        // Mescla em vez de substituir cego: nunca perde itens que existem só local
+        // (ex: cadastrados durante uma falha de sincronização) — Supabase só "ganha"
+        // em itens que já existem nos dois lados ou que o local não tem.
+        var local=[];try{local=JSON.parse(localStorage.getItem(key)||'[]');}catch(e){local=[];}
+        if(Array.isArray(local)&&local.length&&keyId){
+          var idsServidor=new Set(items.map(function(x){return x&&x[keyId];}).filter(Boolean));
+          var soLocais=local.filter(function(x){return x&&x[keyId]&&!idsServidor.has(x[keyId]);});
+          if(soLocais.length){
+            items=items.concat(soLocais);
+            console.warn('⚠️ '+row.tipo+': '+soLocais.length+' item(ns) só local não estavam no servidor — mantidos e re-enviando agora.');
+            setTimeout(function(){if(typeof cadPushSupabase==='function')cadPushSupabase();},1500);
+          }
+        }
         localStorage.setItem(key,JSON.stringify(items));
         console.log('✅ '+row.tipo+' puxados do Supabase: '+items.length);
       }catch(e){console.warn('cadPullSupabase parse erro:',e);}

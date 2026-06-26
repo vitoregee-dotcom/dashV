@@ -583,7 +583,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.244</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.245</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -702,7 +702,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.244</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.245</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -4038,7 +4038,7 @@ function carregarHistorico(){
   try{return JSON.parse(localStorage.getItem(HIST_KEY)||"[]");}
   catch(e){return[];}
 }
-// (removido v115.244: código morto que gravava na tabela legada "historico_analises" —
+// (removido v115.245: código morto que gravava na tabela legada "historico_analises" —
 // nunca era executado de fato, pois essa função era sobrescrita pela versão local-only abaixo.
 // Tabela "historico_analises" continua existindo no Supabase com RLS desabilitado — ver aviso.)
 async function carregarHistorico(){
@@ -7184,6 +7184,49 @@ function switchView(v){
 function mapaGoStep(n){
   mapaStep=n;
   document.querySelectorAll('.mStep').forEach(function(el){var s=parseInt(el.dataset.s);el.style.background=s===n?'#EEF6FF':'';el.style.color=s===n?'#1F4E79':'#8a9ab0';el.style.fontWeight=s===n?'700':'600';});
+  
+  // Se indo pra Etapa 2, criar Solicitações automáticas pra todos os fornecedores
+  if(n===2){
+    try{
+      var itensSel=mapaItens.filter(function(i){return i.sel!==false;});
+      var fornecedoresTotals={};
+      itensSel.forEach(function(it){
+        var key=it.ref+'||'+(it.marca||'');
+        var fids=mapaFornSelecionados[key]||[];
+        fids.forEach(function(fid){
+          if(!fornecedoresTotals[fid])fornecedoresTotals[fid]={items:[],total:0};
+          var pk=key+'||'+fid;
+          var p=mapaPrecos[pk]||{};
+          var e=(p.entries&&p.entries[0])||{preco:p.preco||0,ipi:p.ipi||0,st:p.st||0,prazo:p.prazo||''};
+          var custo=e.preco*(1+(e.ipi||0)/100)*(1+(e.st||0)/100);
+          if(custo>0){
+            fornecedoresTotals[fid].items.push({codigo:it.ref,desc:it.desc,marca:it.marca||'',qtd:it.qtd,prazo:e.prazo||'—'});
+            fornecedoresTotals[fid].total+=custo*it.qtd;
+          }
+        });
+      });
+      // Criar Solicitações pra cada fornecedor com total > 0
+      if(typeof solicLoad==='function'&&typeof solicSave==='function'){
+        var list=solicLoad();
+        var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
+        Object.keys(fornecedoresTotals).forEach(function(fid){
+          var ft=fornecedoresTotals[fid];
+          if(ft.total>0){
+            var f=flist.find(function(x){return x.id===fid;});
+            var nomeF=f?(f.fantasia||f.nome||f.razao):fid;
+            var numero='SOL-'+Date.now().toString().slice(-4)+'-'+fid.slice(-3);
+            var existente=list.find(function(x){return x.mapa===true&&x.fornecedor===nomeF;});
+            if(!existente){
+              var novoId='sol_map_'+Date.now()+'_'+fid;
+              list.push({id:novoId,numero:numero,fornecedor:nomeF,itens:ft.items,data:Date.now(),status:'⏳ Pendente',mapa:true});
+            }
+          }
+        });
+        solicSave(list);
+      }
+    }catch(e){}
+  }
+  
   // Call step directly to avoid render chain redirecting to list
   var el=document.getElementById('mapaBody');
   if(!el){mapaRender();return;}
@@ -13098,7 +13141,7 @@ mapaSalvarNaLista = function(estado){
   _origMapaSalvarNaLista(estado);
 };
 
-// Override mapaRender removido (v115.244) — essa versão antiga nunca chamava o hub novo
+// Override mapaRender removido (v115.245) — essa versão antiga nunca chamava o hub novo
 // (Etapa 1/Etapa 2 + Mapas em andamento), ficava sempre travada nessa lista velha.
 
 // ════════════════════════════════════════════════════════════════
@@ -13202,7 +13245,7 @@ mapaLerImagem = async function(input){
   }
 };
 
-// Override mapaRender removido (v115.244) — era esse aqui que ficava ativo de verdade e usava
+// Override mapaRender removido (v115.245) — era esse aqui que ficava ativo de verdade e usava
 // confirm() nativo do navegador (mapaExcluirConfirm/_safeConfirm) pra excluir mapa. Removido pra
 // o hub novo (Etapa 1/Etapa 2 + Mapas em andamento, com modal pfConfirm de exclusão) ser o único.
 

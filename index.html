@@ -583,7 +583,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.242</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.259</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -702,7 +702,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.242</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.259</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -4038,7 +4038,7 @@ function carregarHistorico(){
   try{return JSON.parse(localStorage.getItem(HIST_KEY)||"[]");}
   catch(e){return[];}
 }
-// (removido v115.242: código morto que gravava na tabela legada "historico_analises" —
+// (removido v115.259: código morto que gravava na tabela legada "historico_analises" —
 // nunca era executado de fato, pois essa função era sobrescrita pela versão local-only abaixo.
 // Tabela "historico_analises" continua existindo no Supabase com RLS desabilitado — ver aviso.)
 async function carregarHistorico(){
@@ -6093,7 +6093,7 @@ async function pfPullPlanilhas(){
   try{
     var sp=document.getElementById('spinner');
     if(sp){sp.style.display='block';sp.textContent='☁️ Carregando planilhas...';}
-    var r=await sbFetch('/rest/v1/user_planilhas?user_id=eq.'+sbUser.id+'&select=familia,nome_arquivo,items,configuracoes,updated_at&order=updated_at.desc');
+    var r=await sbFetch('/rest/v1/user_planilhas?user_id=eq.'+sbUser.id+'&select=familia,nome_arquivo,items,configuracoes,updated_at');
     if(!r.ok){if(sp)sp.style.display='none';console.warn('Pull planilhas erro:', r.status);return;}
     var data=await r.json();
     if(!data||!data.length){if(sp)sp.style.display='none';console.warn('Nenhuma planilha no Supabase');return;}
@@ -7184,6 +7184,13 @@ function switchView(v){
 function mapaGoStep(n){
   mapaStep=n;
   document.querySelectorAll('.mStep').forEach(function(el){var s=parseInt(el.dataset.s);el.style.background=s===n?'#EEF6FF':'';el.style.color=s===n?'#1F4E79':'#8a9ab0';el.style.fontWeight=s===n?'700':'600';});
+  
+  // Se indo pra Etapa 2, criar Solicitações automáticas pra todos os fornecedores
+  if(n===2){
+    // Agora as Solicitações já são criadas ao marcar fornecedores em mapaTogForn()
+    // Este código foi removido pois não é mais necessário
+  }
+  
   // Call step directly to avoid render chain redirecting to list
   var el=document.getElementById('mapaBody');
   if(!el){mapaRender();return;}
@@ -7321,7 +7328,71 @@ function mapaExpand(i){
 function mapaTogForn(key,fid,idx){
   if(!mapaFornSelecionados[key])mapaFornSelecionados[key]=[];
   var arr=mapaFornSelecionados[key],p=arr.indexOf(fid);
+  var marcando=(p<0);
   if(p>=0)arr.splice(p,1);else arr.push(fid);
+  
+  // Criar/Atualizar Solicitação MAPA ao marcar fornecedor
+  if(marcando){
+    try{
+      if(typeof solicLoad==='function'&&typeof solicSave==='function'){
+        var list=solicLoad();
+        var solicMapa=list.find(function(x){return x.mapaMaster===true;});
+        
+        if(!solicMapa){
+          // Criar Solicitação MAPA principal
+          var novoId='sol_mapaMaster_'+Date.now();
+          var numero='SOL-MAPA-'+Date.now().toString().slice(-6);
+          solicMapa={
+            id:novoId,
+            numero:numero,
+            fornecedor:'MAPA DE COMPRAS',
+            itens:[],
+            data:Date.now(),
+            status:'⏳ Pendente',
+            mapa:true,
+            mapaMaster:true,
+            fornecedoresMap:{}
+          };
+          list.push(solicMapa);
+        }
+        
+        // Adicionar/atualizar fornecedor na map
+        var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
+        var f=flist.find(function(x){return x.id===fid;});
+        var nomeF=f?(f.fantasia||f.nome||f.razao):fid;
+        
+        if(!solicMapa.fornecedoresMap[fid]){
+          solicMapa.fornecedoresMap[fid]={nome:nomeF,itens:[],total:0,ocGerada:false};
+        }
+        
+        // Adicionar items do mapa que têm este fornecedor
+        var itensSel=mapaItens.filter(function(i){return i.sel!==false;});
+        itensSel.forEach(function(item){
+          var itemKey=item.ref+'||'+(item.marca||'');
+          var fids=mapaFornSelecionados[itemKey]||[];
+          if(fids.includes(fid)){
+            var itemExiste=solicMapa.fornecedoresMap[fid].itens.find(function(x){return x.codigo===item.ref;});
+            if(!itemExiste){
+              solicMapa.fornecedoresMap[fid].itens.push({codigo:item.ref,desc:item.desc,marca:item.marca||'',qtd:item.qtd,prazo:'—'});
+            }
+          }
+        });
+        
+        // Atualizar lista de itens gerais da Solicitação
+        var allItens=[];
+        itensSel.forEach(function(item){
+          if(!allItens.find(function(x){return x.codigo===item.ref;})){
+            allItens.push({codigo:item.ref,desc:item.desc,marca:item.marca||'',qtd:item.qtd,prazo:'—'});
+          }
+        });
+        solicMapa.itens=allItens;
+        
+        solicSave(list);
+        console.log('✓ Solicitação MAPA atualizada com '+nomeF);
+      }
+    }catch(e){console.error('Erro ao criar Solicitação:',e);}
+  }
+  
   mapaItens[idx]._exp=true;mapaRender();
 }
 
@@ -8123,23 +8194,25 @@ function mapaStep4(el){
     html += '<div style="text-align:center;padding:30px;color:#8a9ab0;font-size:13px">Nenhum preço preenchido ainda.<br><button ontouchstart="" onclick="mapaGoStep(3)" style="background:none;border:none;color:#1F4E79;cursor:pointer;text-decoration:underline;margin-top:8px">← Preencher preços</button></div>';
   }
 
-  // OC Summary
+  // OC Summary - Gerar pra TODOS os fornecedores selecionados, não apenas o escolhido
   var ocF = {};
   itensSel.forEach(function(it){
     var key2=it.ref+'||'+(it.marca||'');
-    var decKey=mapaDecisoes[key2]; if(!decKey)return;
-    var parts=decKey.split('||'); // key||fid||ei
-    var fid=parts[parts.length-2]; var ei=parseInt(parts[parts.length-1]);
-    var pk=key2+'||'+fid; var p=mapaPrecos[pk]||{};
-    var entries=(p.entries&&p.entries.length)?p.entries:[{preco:p.preco||0,ipi:p.ipi||0,st:p.st||0,prazo:p.prazo||'',marca:''}];
-    var e=entries[ei]||entries[0]||{};
-    var custo=e.preco*(1+(e.ipi||0)/100)*(1+(e.st||0)/100);
-    if(!ocF[fid])ocF[fid]={itens:[],total:0};
-    ocF[fid].itens.push(Object.assign({},it,{preco:e.preco,custo:custo,marca:e.marca,prazo:e.prazo,ipi:e.ipi,icms:e.icms,st:e.st}));
-    ocF[fid].total+=custo*it.qtd;
+    var fids=mapaFornSelecionados[key2]||[]; // TODOS os fornecedores, não apenas mapaDecisoes
+    var pk2=key2;
+    fids.forEach(function(fid){
+      var pk=pk2+'||'+fid; 
+      var p=mapaPrecos[pk]||{};
+      var entries=(p.entries&&p.entries.length)?p.entries:[{preco:p.preco||0,ipi:p.ipi||0,st:p.st||0,prazo:p.prazo||'',marca:''}];
+      var e=entries[0]||{};
+      var custo=e.preco*(1+(e.ipi||0)/100)*(1+(e.st||0)/100);
+      if(!ocF[fid])ocF[fid]={itens:[],total:0};
+      ocF[fid].itens.push(Object.assign({},it,{preco:e.preco,custo:custo,marca:e.marca,prazo:e.prazo,ipi:e.ipi,icms:e.icms,st:e.st}));
+      ocF[fid].total+=custo*it.qtd;
+    });
   });
 
-  var ocK=Object.keys(ocF);
+  var ocK=Object.keys(ocF).filter(function(fid){return ocF[fid].total>0;});
   if(ocK.length){
     html+='<div style="background:#fff;border-radius:10px;padding:12px 16px;margin-bottom:12px;border:1.5px solid #e0e8f0;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="color:#1F4E79">Margem Venda:</b><input type="number" id="mapaMargemVenda" value="'+(window._mapaMargemVenda||25)+'" min="1" max="90" style="width:60px;padding:5px;border:1.5px solid #1F4E79;border-radius:6px;font-size:14px;font-weight:700;text-align:center" oninput="window._mapaMargemVenda=parseFloat(this.value)||25"><span style="font-size:11px;color:#607080">% (Lucro Presumido SP)</span><span style="margin-left:16px;font-size:11px;color:#607080">Cliente (UF p/ ICMS venda):</span><select id="mapaClienteUF" onchange="window._mapaClienteUF=this.value;mapaGoStep(4)" style="padding:5px 8px;border:1.5px solid #1F4E79;border-radius:6px;font-size:13px;font-weight:700">'+['SP','MG','RJ','ES','PR','SC','RS','MS','MT','GO','DF','BA','SE','AL','PE','PB','RN','CE','PI','MA','PA','AP','AM','RR','RO','TO','AC'].map(function(uf){return'<option value="'+uf+'"'+(uf===(window._mapaClienteUF||'SP')?' selected':'')+'>'+uf+'</option>';}).join('')+'</select></div>';
     html+='<div class="mSection" style="background:#EEF6FF;border:1.5px solid #1F4E79"><div class="mSectionTitle">📋 Resumo — Gerar Ordens de Compra</div>';
@@ -8260,6 +8333,17 @@ function solicAbrirOC(id){
   var forn=flist.find(function(f){return (f.fantasia||f.nome||f.razao)===s.fornecedor;});
   var built=pfConstruirOcHtml(s.numeroOC||'OC',dataStr,s.fornecedor||'',forn?forn.email:'',s.ocItens);
   pfAbrirJanelaOC(s.numeroOC||'OC',s.fornecedor||'',s.numero||'',built.html,s.id);
+}
+
+function mapaGerarOCDeFornecedor(solicId,fid){
+  // Gerar OC para um fornecedor específico da Solicitação MAPA
+  try{
+    var solic=solicLoad().find(function(x){return x.id===solicId;});
+    if(solic&&solic.fornecedoresMap&&solic.fornecedoresMap[fid]){
+      console.log('Gerando OC para '+solic.fornecedoresMap[fid].nome);
+      mapaOC(fid);
+    }
+  }catch(e){console.error('Erro ao gerar OC:',e);}
 }
 
 function mapaOC(fid){
@@ -13096,7 +13180,7 @@ mapaSalvarNaLista = function(estado){
   _origMapaSalvarNaLista(estado);
 };
 
-// Override mapaRender removido (v115.242) — essa versão antiga nunca chamava o hub novo
+// Override mapaRender removido (v115.259) — essa versão antiga nunca chamava o hub novo
 // (Etapa 1/Etapa 2 + Mapas em andamento), ficava sempre travada nessa lista velha.
 
 // ════════════════════════════════════════════════════════════════
@@ -13200,7 +13284,7 @@ mapaLerImagem = async function(input){
   }
 };
 
-// Override mapaRender removido (v115.242) — era esse aqui que ficava ativo de verdade e usava
+// Override mapaRender removido (v115.259) — era esse aqui que ficava ativo de verdade e usava
 // confirm() nativo do navegador (mapaExcluirConfirm/_safeConfirm) pra excluir mapa. Removido pra
 // o hub novo (Etapa 1/Etapa 2 + Mapas em andamento, com modal pfConfirm de exclusão) ser o único.
 
@@ -16168,7 +16252,44 @@ function solicRender(){
   } else {
     html+='<div style="background:#fff;border:1px solid #e0e8f0;border-radius:10px;overflow:hidden">';
     list.forEach(function(s){
-      var dt=new Date(s.data);
+      var dt=new Date(s.data); // Mover pra cá (escopo do forEach)
+      // ╔════ CASO ESPECIAL: Solicitação MAPA Master ════╗
+      if(s.mapaMaster===true){
+        var isExpanded=s._expanded||false;
+        var statusBadge='<span style="font-size:10px;padding:2px 8px;border-radius:6px;font-weight:700;background:#FAEEDA;color:#854F0B">⏳ Pendente</span>';
+        html+='<div style="padding:16px;border-bottom:1px solid #f0f4f8;background:#F5F9FF">';
+        html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;cursor:pointer" onclick="var s=solicLoad().find(function(x){return x.id===\''+s.id+'\'});if(s)s._expanded=!s._expanded;solicSave(solicLoad());solicRender();">';
+        html+='<span style="font-size:16px;transition:transform .2s">'+(isExpanded?'▼':'▶')+'</span>';
+        html+='<span style="font-size:11px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 7px;border-radius:5px">'+pfEscHtml(s.numero)+'</span>';
+        html+='<b style="color:#7B2D8B;font-size:14px">🗂️ MAPA DE COMPRAS</b>';
+        html+=statusBadge;
+        html+='</div>';
+        html+='<div style="font-size:11px;color:#8a9ab0;margin-bottom:12px">'+s.itens.length+' item(ns) · '+dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</div>';
+        
+        // Sub-fornecedores (OCULTOS POR PADRÃO)
+        if(isExpanded){
+          html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:10px">';
+          Object.keys(s.fornecedoresMap||{}).forEach(function(fid){
+            var forn=s.fornecedoresMap[fid];
+            var itensF=forn.itens.length;
+            html+='<div style="background:#fff;border:1px solid #e0e8f0;border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px">';
+            html+='<div style="font-weight:700;font-size:12px;color:#1F4E79">'+pfEscHtml(forn.nome)+'</div>';
+            html+='<div style="font-size:11px;color:#8a9ab0">'+itensF+' item(ns)</div>';
+            html+='<button ontouchstart="" onclick="mapaGerarOCDeFornecedor(\''+s.id+'\',\''+fid+'\')" style="background:#1F4E79;color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:11px;font-weight:600">🔵 Gerar OC</button>';
+            html+='</div>';
+          });
+          html+='</div>';
+        }
+        
+        html+='<div style="display:flex;gap:6px;margin-top:12px">';
+        html+='<button ontouchstart="" onclick="solicVerItens(\''+s.id+'\')" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #607080;border-radius:6px;color:#607080;cursor:pointer">Ver itens</button>';
+        html+='<button ontouchstart="" onclick="openTab(\'mapa\',\'🗂️ Mapa de Compras\');mapaItens=[];mapaRender();" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #FF9500;border-radius:6px;color:#FF9500;cursor:pointer;font-weight:600">✏️ Editar Mapa</button>';
+        html+='<button ontouchstart="" onclick="solicExcluir(\''+s.id+'\')" style="font-size:11px;padding:5px 6px;background:none;border:none;color:#C00000;cursor:pointer;font-size:15px">×</button>';
+        html+='</div></div>';
+        return; // próxima iteração
+      }
+      
+      // ╔════ Renderização padrão de outras Solicitações ════╗
       var ehVendaCasada=s.origem!=='mapa';
       var corOrigem=ehVendaCasada?'#1F4E79':'#7B2D8B';
       var titulo=ehVendaCasada?
@@ -16187,6 +16308,7 @@ function solicRender(){
       '</div>';
       html+='<div style="display:flex;gap:6px">';
       html+='<button ontouchstart="" onclick="solicVerItens(\''+s.id+'\')" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #607080;border-radius:6px;color:#607080;cursor:pointer">Ver itens</button>';
+      if(s.mapa===true)html+='<button ontouchstart="" onclick="openTab(\'mapa\',\'🗂️ Mapa de Compras\');mapaItens=[];mapaRender();" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #FF9500;border-radius:6px;color:#FF9500;cursor:pointer;font-weight:600">✏️ Editar Mapa</button>';
       if(s.ocItens&&s.ocItens.length)html+='<button ontouchstart="" onclick="solicAbrirOC(\''+s.id+'\')" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #27AE60;border-radius:6px;color:#27AE60;cursor:pointer">📄 Reabrir OC</button>';
       html+='<button ontouchstart="" onclick="solicReabrirEmail(\''+s.id+'\')" style="font-size:11px;padding:5px 10px;background:none;border:1px solid #1F4E79;border-radius:6px;color:#1F4E79;cursor:pointer">✉️ Reabrir e-mail</button>';
       html+='<button ontouchstart="" onclick="solicExcluir(\''+s.id+'\')" style="font-size:11px;padding:5px 6px;background:none;border:none;color:#C00000;cursor:pointer;font-size:15px">×</button>';

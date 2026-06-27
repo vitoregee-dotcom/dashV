@@ -583,7 +583,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.284</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.285</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -702,7 +702,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.284</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.285</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -4038,7 +4038,7 @@ function carregarHistorico(){
   try{return JSON.parse(localStorage.getItem(HIST_KEY)||"[]");}
   catch(e){return[];}
 }
-// (removido v115.284: código morto que gravava na tabela legada "historico_analises" —
+// (removido v115.285: código morto que gravava na tabela legada "historico_analises" —
 // nunca era executado de fato, pois essa função era sobrescrita pela versão local-only abaixo.
 // Tabela "historico_analises" continua existindo no Supabase com RLS desabilitado — ver aviso.)
 async function carregarHistorico(){
@@ -13179,7 +13179,7 @@ mapaSalvarNaLista = function(estado){
   _origMapaSalvarNaLista(estado);
 };
 
-// Override mapaRender removido (v115.284) — essa versão antiga nunca chamava o hub novo
+// Override mapaRender removido (v115.285) — essa versão antiga nunca chamava o hub novo
 // (Etapa 1/Etapa 2 + Mapas em andamento), ficava sempre travada nessa lista velha.
 
 // ════════════════════════════════════════════════════════════════
@@ -13283,7 +13283,7 @@ mapaLerImagem = async function(input){
   }
 };
 
-// Override mapaRender removido (v115.284) — era esse aqui que ficava ativo de verdade e usava
+// Override mapaRender removido (v115.285) — era esse aqui que ficava ativo de verdade e usava
 // confirm() nativo do navegador (mapaExcluirConfirm/_safeConfirm) pra excluir mapa. Removido pra
 // o hub novo (Etapa 1/Etapa 2 + Mapas em andamento, com modal pfConfirm de exclusão) ser o único.
 
@@ -16348,18 +16348,68 @@ function solToggleExpand(solId){
 }
 
 function mapaGerarSolicitacao(){
-  // Procura Solicitação MAPA já criada
-  var list = solicLoad();
-  var solicMapa = list.find(function(x){return x.mapaMaster===true;});
+  var mapNum = window._mapaEstadoNumero || 'desconhecido';
   
-  if(solicMapa){
-    // Já existe, navega para lá
-    pfAlert('✓ Navegando para Solicitação '+solicMapa.numero);
-    pfNavigate('solicitacoes');
-  } else {
-    // Não existe, avisa
-    pfAlert('⚠️ Nenhuma Solicitação MAPA criada. Marque fornecedores primeiro!');
+  // Pega items selecionados
+  var itensSel = mapaItens.filter(function(i){return i.sel!==false;});
+  
+  if(itensSel.length===0){
+    pfAlert('⚠️ Nenhum item selecionado!');
+    return;
   }
+  
+  // Constrói fornecedoresMap APENAS com fornecedores que têm items selecionados
+  var fornMap = {};
+  var flist = typeof cotFornecedores !== 'undefined' ? cotFornecedores : [];
+  
+  // Para cada item selecionado, obter seus fornecedores
+  itensSel.forEach(function(item){
+    var key = item.ref+'||'+(item.marca||'');
+    var fids = mapaFornSelecionados[key] || [];
+    fids.forEach(function(fid){
+      if(!fornMap[fid]){
+        var f = flist.find(function(x){return x.id===fid;});
+        var nomeForn = f ? (f.fantasia || f.nome || f.razao) : fid;
+        fornMap[fid] = {nome: nomeForn, itens: [], total: 0, ocGerada: false};
+      }
+    });
+  });
+  
+  if(Object.keys(fornMap).length===0){
+    pfAlert('⚠️ Nenhum fornecedor selecionado para os items!');
+    return;
+  }
+  
+  // DELETAR Solicitação MAPA antiga se existir
+  var list = solicLoad();
+  var idxOld = list.findIndex(function(x){return x.mapaMaster===true;});
+  if(idxOld>=0){
+    list.splice(idxOld, 1);
+  }
+  
+  // Criar NOVA Solicitação MAPA
+  var novoId = 'sol_mapaMaster_'+Date.now();
+  var numero = 'SOL-MAPA-'+Date.now().toString().slice(-6);
+  
+  var solicMapa = {
+    id: novoId,
+    numero: numero,
+    fornecedor: 'MAPA DE COMPRAS',
+    itens: itensSel,
+    data: Date.now(),
+    status: '⏳ Pendente',
+    mapa: true,
+    mapaMaster: true,
+    mapaOrigem: 'MAPA '+mapNum,
+    mapaNumero: mapNum,
+    fornecedoresMap: fornMap
+  };
+  
+  list.push(solicMapa);
+  solicSave(list);
+  
+  pfAlert('✓ Solicitação '+numero+' criada do MAPA '+mapNum);
+  pfNavigate('solicitacoes');
 }
 
 function solicReabrirEmail(id){

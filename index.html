@@ -583,7 +583,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.267</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.268</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -702,7 +702,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.267</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.268</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -6888,7 +6888,9 @@ function renderFormCotacao(){
           '<option value="manual|">+ Digitar nome</option>'+
         '</select></div>'+
       '<div><label style="font-size:10px;font-weight:700;color:var(--mu)">NOME MANUAL</label>'+
-        '<input id="cotFornManual" placeholder="Nome do fornecedor..." style="width:100%;padding:6px;border:1px solid var(--bd);border-radius:6px;font-size:12px;margin-top:3px;box-sizing:border-box"></div>'+
+        '<input id="cotFornManual" placeholder="Nome do fornecedor..." style="width:100%;padding:6px;border:1px solid var(--bd);border-radius:6px;font-size:12px;margin-top:3px;box-sizing:border-box"></div>'+'+
+      '<div><label style="font-size:10px;font-weight:700;color:var(--mu)">DATA EMISSÃO</label>'+
+        '<input id="cotDataEmissao" type="date" value="'+(cotAtual.dataEmissao||'')+'" style="width:100%;padding:6px;border:1px solid var(--bd);border-radius:6px;font-size:12px;margin-top:3px;box-sizing:border-box"></div>
     '</div>'+
     '<div style="border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:10px">'+
       '<div style="display:grid;grid-template-columns:100px 1fr 80px 100px 80px;padding:6px 10px;background:var(--bg);font-size:10px;font-weight:700;color:var(--mu)">'+
@@ -6917,10 +6919,16 @@ function cotCalcTotal(i){
 async function salvarCotacaoLancada(){
   var sel=document.getElementById('cotFornSel').value;
   var manual=document.getElementById('cotFornManual').value.trim();
+  var dataEmissao=(document.getElementById('cotDataEmissao')||{}).value||'';
   var fornId='',fornNome='';
   if(sel&&sel!=='manual|'){var parts=sel.split('|');fornId=parts[0];fornNome=parts[1]||'';}
   if(manual){fornNome=manual;}
   if(!fornNome){_safeAlert('Informe o fornecedor.');return;}
+  
+  // 📅 Guardar data de emissão pra comparar com prazo
+  if(dataEmissao){
+    window._cotDataEmissao=dataEmissao;
+  }
 
   var itens=cotAtual.itens||[];
   var rows=[];
@@ -8036,12 +8044,21 @@ function mapaSetEntrada(baseKey,ei,field,val){
   if(!mapaPrecos[baseKey].entries)mapaPrecos[baseKey].entries=[];
   while(mapaPrecos[baseKey].entries.length<=ei)mapaPrecos[baseKey].entries.push({marca:'',preco:0,ipi:0,icms:0,st:0,prazo:''});
   
-  // 🚀 AUTO IMEDIATO: se prazo for uma data igual à data de hoje ou data emissão
+  // 🚀 AUTO IMEDIATO: se prazo = data de emissão da cotação
   if(field==='prazo'&&val){
-    var hoje=new Date().toLocaleDateString('pt-BR');
     var dataVal=String(val).trim();
-    // Se a data é igual a hoje, marcar como IMEDIATO
-    if(dataVal===hoje||dataVal==='22/06/2026'){ // 22/06/2026 é data de hoje neste contexto
+    var dataEmissao=(window._cotDataEmissao||'').trim();
+    // Normalizar datas pra comparação
+    var normalizado=function(d){
+      // Se vier como DD/MM/YYYY, deixa assim
+      // Se vier como YYYY-MM-DD, converte pra DD/MM/YYYY
+      if(d.match(/^\d{4}-\d{2}-\d{2}$/))return d.split('-').reverse().join('/');
+      return d;
+    };
+    var dVal=normalizado(dataVal);
+    var dEmiss=normalizado(dataEmissao);
+    // Se a data é igual à data de emissão → IMEDIATO
+    if(dVal&&dEmiss&&dVal===dEmiss){
       val='IMEDIATO';
     }
   }

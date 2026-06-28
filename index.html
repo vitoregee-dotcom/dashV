@@ -589,7 +589,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.352</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.353</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -708,7 +708,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.352</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.353</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -17895,7 +17895,7 @@ function carregarHistorico(){
   try{return JSON.parse(localStorage.getItem(HIST_KEY)||"[]");}
   catch(e){return[];}
 }
-// (removido v115.352: código morto que gravava na tabela legada "historico_analises" —
+// (removido v115.353: código morto que gravava na tabela legada "historico_analises" —
 // nunca era executado de fato, pois essa função era sobrescrita pela versão local-only abaixo.
 // Tabela "historico_analises" continua existindo no Supabase com RLS desabilitado — ver aviso.)
 async function carregarHistorico(){
@@ -21956,18 +21956,20 @@ function mapaMarcarDecisao(key, decKey, qtd, preco, custo){
   var parts=decKey.split('||');
   var fid=parts[2];
   var keyQtd=key+'||'+fid;
-  var keyPreco=key+'||'+fid; // ✅ CHAVE COM FORNECEDOR para não sobrescrever
+  var keyDecisao=key+'||'+fid;  // ✅ CHAVE COM FORNECEDOR para mapaDecisoes também
+  var keyPreco=key+'||'+fid;
   
-  if(mapaDecisoes[key] === decKey){
-    delete mapaDecisoes[key];
+  if(mapaDecisoes[keyDecisao] === decKey){
+    delete mapaDecisoes[keyDecisao];  // ✅ Delete com chave correta
     delete mapaQtdDecidida[keyQtd];
-    delete mapaPrecoDecidido[keyPreco]; // ✅ Delete com chave correta
+    delete mapaPrecoDecidido[keyPreco];
     console.log('❌ Desmarcado');
   } else {
-    mapaDecisoes[key] = decKey;
+    mapaDecisoes[keyDecisao] = decKey;  // ✅ Salva com chave incluindo fornecedor
     mapaQtdDecidida[keyQtd] = qtd;
-    mapaPrecoDecidido[keyPreco] = {preco: preco, custo: custo}; // ✅ Salva com chave incluindo fornecedor
+    mapaPrecoDecidido[keyPreco] = {preco: preco, custo: custo};
     console.log('✅ Marcado:', decKey, '/ Qtd:', qtd, '/ Preço:', preco);
+    console.log('   └─ mapaDecisoes['+keyDecisao+'] =', decKey);
     console.log('   └─ mapaPrecoDecidido['+keyPreco+'] =', {preco: preco, custo: custo});
   }
   
@@ -22008,28 +22010,36 @@ function mapaGerarSolicitacao(){
   console.log('💰 mapaPrecoDecidido atual:', Object.keys(mapaPrecoDecidido).length, 'chaves -', JSON.stringify(mapaPrecoDecidido).slice(0, 200));
   
   // Coletar itens decididos
-  console.log('🔍 mapaPrecos keys:', Object.keys(mapaPrecos).slice(0, 5));
+  console.log('🔍 mapaDecisoes keys:', Object.keys(mapaDecisoes).length, 'decisões');
   var itensSolicitacao = [];
-  mapaItens.forEach(function(it){
-    var key2 = it.ref + '||' + (it.marca || '');
-    var decKey = mapaDecisoes[key2];
-    if(!decKey) return; // Pula itens não decididos
-    
+  
+  // ✅ ITERAR sobre mapaDecisoes (não mapaItens) porque agora tem chaves com fornecedor
+  Object.keys(mapaDecisoes).forEach(function(keyComFornecedor){
+    var decKey = mapaDecisoes[keyComFornecedor];
     var parts = decKey.split('||');
+    var ref = parts[0];
+    var marca = parts[1] || '';
     var fid = parts[2];
-    var keyQtd = key2 + '||' + fid;
+    
+    // Buscar item em mapaItens
+    var it = mapaItens.find(function(x){return x.ref === ref && (x.marca || '') === marca;});
+    if(!it) return;
+    
+    var keyQtd = keyComFornecedor;
     var qtdDecidida = mapaQtdDecidida[keyQtd] || it.qtd;
     
-    // Buscar preço DECIDIDO (não recalcular!)
-    var pk = key2 + '||' + fid; // ✅ CHAVE COM FORNECEDOR
-    var precoDecidido = mapaPrecoDecidido[pk] || {}; // ✅ Busca com chave correta
+    // Buscar preço DECIDIDO
+    var pk = keyComFornecedor;
+    var precoDecidido = mapaPrecoDecidido[pk] || {};
     var preco = precoDecidido.preco || 0;
     var custo = precoDecidido.custo || 0;
     var total = custo * qtdDecidida;
     
+    console.log('📦 Item decidido:', ref, '/', marca, '| Fornecedor:', fid, '| Custo:', custo, '| Qtd:', qtdDecidida, '| Total:', total);
+    
     itensSolicitacao.push({
-      ref: it.ref,
-      marca: it.marca || '',
+      ref: ref,
+      marca: marca,
       desc: it.desc,
       qtd: qtdDecidida,
       fornecedor: fid,
@@ -22123,7 +22133,7 @@ function mapaGerarSolicitacao(){
 }
 
 function mapaStep4(el){
-  console.log('🔔 ETAPA 4 CARREGADA - v115.352');
+  console.log('🔔 ETAPA 4 CARREGADA - v115.353');
   var flist = typeof cotFornecedores!=='undefined' ? cotFornecedores : [];
 
   var html = '<div class="mSection"><div class="mSectionTitle">⚖️ Decidir — Escolha o fornecedor de cada item</div>';
@@ -22198,7 +22208,7 @@ function mapaStep4(el){
     rows.forEach(function(r){
       var isBest = Math.abs(r.custo - bestCusto) < 0.001;
       var decKey = key+'||'+r.fid+'||'+r.ei;
-      var ch = mapaDecisoes[key] === decKey;
+      var ch = mapaDecisoes[key+'||'+r.fid] === decKey;  // ✅ Check com chave correta (inclui fid)
       var bg = isBest ? '#F0FFF4' : '#fff';
 
       html += '<tr style="border-bottom:1px solid #e0e8f0;background:'+bg+'">';
@@ -22247,30 +22257,40 @@ function mapaStep4(el){
   // OC Summary - Usar mapaPrecos se tiver, senão usar preço dummy (100) pra demo
   var ocF = {};
   var totalItens = 0, itensdecididos = 0;
-  itensSel.forEach(function(it){
+  
+  // ✅ Iterar sobre mapaDecisoes (agora tem chaves com fid)
+  Object.keys(mapaDecisoes).forEach(function(keyComFornecedor){
+    var decKey = mapaDecisoes[keyComFornecedor];
+    var parts = decKey.split('||');
+    var ref = parts[0];
+    var marca = parts[1] || '';
+    var fid = parts[2];
+    
+    // Buscar item
+    var it = itensSel.find(function(x){return x.ref === ref && (x.marca||'') === marca;});
+    if(!it) return;
+    
     totalItens++;
-    var key2=it.ref+'||'+(it.marca||'');
-    var decKey=mapaDecisoes[key2];
-    if(!decKey)return; // Se não decidiu, pula este item
-    
     itensdecididos++;
-    var parts=decKey.split('||');
-    var fid=parts[2]; // FIX: parts[2] é o fid, não parts[1]
-    var ei=parseInt(parts[3])||0;
-    var keyQtd=key2+'||'+fid; // Chave por fornecedor
-    var qtdDecidida = mapaQtdDecidida[keyQtd] || it.qtd; // Usa quantidade por fornecedor
     
-    // Procurar preço em mapaPrecoDecidido (guardado ao marcar checkbox)
-    var pk=key2+'||'+fid; 
-    var p=mapaPrecos[pk]||{};
+    var keyQtd = keyComFornecedor;
+    var qtdDecidida = mapaQtdDecidida[keyQtd] || it.qtd;
+    
+    // Procurar preço em mapaPrecoDecidido
+    var pk = keyComFornecedor;
     var preco, custo;
     
-    if(mapaPrecoDecidido[key2]){
+    if(mapaPrecoDecidido[pk]){
       // Usar preço real guardado
-      preco = mapaPrecoDecidido[key2].preco;
+      preco = mapaPrecoDecidido[pk].preco;
       custo = mapaPrecoDecidido[key2].custo;
     } else {
       // Fallback: procurar em mapaPrecos (que tem entries array)
+      var firstEntry = (p.entries && p.entries[0]) || p || {};
+      custo = mapaPrecoDecidido[pk].custo;
+    } else {
+      // Fallback: usar valores de mapaPrecos se existir
+      var p = mapaPrecos[pk] || {};
       var firstEntry = (p.entries && p.entries[0]) || p || {};
       preco = firstEntry.preco || 0;
       var ipi = firstEntry.ipi || 0;
@@ -22280,20 +22300,25 @@ function mapaStep4(el){
     
     // Se preco for 0, usar fallback
     if(preco <= 0 || isNaN(preco)) {
-      console.warn('⚠️ Preço 0/NaN pra', key2, 'ocF[fid]:', ocF[fid], 'usando fallback 250');
-      preco = 250; // Valor bem visível pra debug
+      console.warn('⚠️ Preço 0/NaN pra', ref, marca, 'fornecedor:', fid, 'usando fallback 250');
+      preco = 250;
     }
-    if(custo <= 0 || isNaN(custo)) custo = preco*(1+(ipi||0)/100)*(1+(st||0)/100);
+    if(custo <= 0 || isNaN(custo)) {
+      var p = mapaPrecos[pk] || {};
+      var ipi2 = p.ipi || 0;
+      var st2 = p.st || 0;
+      custo = preco*(1+(ipi2||0)/100)*(1+(st2||0)/100);
+    }
     
-    var ipi = p.ipi || 0;
-    var st = p.st || 0;
-    var icms = p.icms || 0;
-    var prazo = p.prazo || '—';
-    var marca = p.marca || it.marca || '—';
+    var ipi = (mapaPrecos[pk]||{}).ipi || 0;
+    var st = (mapaPrecos[pk]||{}).st || 0;
+    var icms = (mapaPrecos[pk]||{}).icms || 0;
+    var prazo = (mapaPrecos[pk]||{}).prazo || '—';
+    var marca2 = (mapaPrecos[pk]||{}).marca || it.marca || '—';
     
     if(!ocF[fid])ocF[fid]={itens:[],total:0};
-    ocF[fid].itens.push(Object.assign({},it,{preco:preco,custo:custo,marca:marca,prazo:prazo,ipi:ipi,icms:icms,st:st,qtdDecidida:qtdDecidida}));
-    ocF[fid].total+=preco*qtdDecidida;
+    ocF[fid].itens.push(Object.assign({},it,{preco:preco,custo:custo,marca:marca2,prazo:prazo,ipi:ipi,icms:icms,st:st,qtdDecidida:qtdDecidida}));
+    ocF[fid].total+=custo*qtdDecidida;  // ✅ Usar custo (com impostos), não preco
   });
   console.log('📊 ocF calculado:', ocF);
   console.log('📊 ocF.keys:', Object.keys(ocF));
@@ -27295,7 +27320,7 @@ mapaSalvarNaLista = function(estado){
   _origMapaSalvarNaLista(estado);
 };
 
-// Override mapaRender removido (v115.352) — essa versão antiga nunca chamava o hub novo
+// Override mapaRender removido (v115.353) — essa versão antiga nunca chamava o hub novo
 // (Etapa 1/Etapa 2 + Mapas em andamento), ficava sempre travada nessa lista velha.
 
 // ════════════════════════════════════════════════════════════════
@@ -27399,7 +27424,7 @@ mapaLerImagem = async function(input){
   }
 };
 
-// Override mapaRender removido (v115.352) — era esse aqui que ficava ativo de verdade e usava
+// Override mapaRender removido (v115.353) — era esse aqui que ficava ativo de verdade e usava
 // confirm() nativo do navegador (mapaExcluirConfirm/_safeConfirm) pra excluir mapa. Removido pra
 // o hub novo (Etapa 1/Etapa 2 + Mapas em andamento, com modal pfConfirm de exclusão) ser o único.
 

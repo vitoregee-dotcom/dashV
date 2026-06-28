@@ -589,7 +589,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.285</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.286</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -708,7 +708,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.285</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.286</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22073,7 +22073,7 @@ function mapaStep4(el){
     html += '<div style="text-align:center;padding:30px;color:#8a9ab0;font-size:13px">Nenhum preço preenchido ainda.<br><button ontouchstart="" onclick="mapaGoStep(3)" style="background:none;border:none;color:#1F4E79;cursor:pointer;text-decoration:underline;margin-top:8px">← Preencher preços</button></div>';
   }
 
-  // OC Summary - Gerar APENAS pra fornecedores que foram DECIDIDOS (radio button)
+  // OC Summary - Usar preços direto dos fornecedores (cotFornecedores)
   var ocF = {};
   itensSel.forEach(function(it){
     var key2=it.ref+'||'+(it.marca||'');
@@ -22082,15 +22082,24 @@ function mapaStep4(el){
     
     var parts=decKey.split('||');
     var fid=parts[1];
-    var ei=parseInt(parts[2])||0;
     
-    var pk=key2+'||'+fid; 
-    var p=mapaPrecos[pk]||{};
-    var entries=(p.entries&&p.entries.length)?p.entries:[{preco:p.preco||0,ipi:p.ipi||0,st:p.st||0,prazo:p.prazo||'',marca:''}];
-    var e=entries[ei]||entries[0]||{};
-    var custo=e.preco*(1+(e.ipi||0)/100)*(1+(e.st||0)/100);
+    // Procurar fornecedor em cotFornecedores
+    var fornecedor = cotFornecedores.find(function(f){return f.id===fid;});
+    if(!fornecedor)return;
+    
+    // Usar preço padrão do fornecedor (sem Etapa 3 preenchida)
+    var preco = parseFloat(fornecedor.preco_padrao)||0;
+    var ipi = parseFloat(fornecedor.ipi_padrao)||0;
+    var st = parseFloat(fornecedor.st_padrao)||0;
+    var icms = parseFloat(fornecedor.icms_padrao)||0;
+    var prazo = fornecedor.prazo_padrao||'—';
+    
+    // Se não tiver preço padrão, usar 0 (resumo não vai mostrar porque total=0)
+    if(preco<=0)return;
+    
+    var custo = preco*(1+(ipi||0)/100)*(1+(st||0)/100);
     if(!ocF[fid])ocF[fid]={itens:[],total:0};
-    ocF[fid].itens.push(Object.assign({},it,{preco:e.preco,custo:custo,marca:e.marca,prazo:e.prazo,ipi:e.ipi,icms:e.icms,st:e.st}));
+    ocF[fid].itens.push(Object.assign({},it,{preco:preco,custo:custo,marca:fornecedor.fantasia||fornecedor.nome,prazo:prazo,ipi:ipi,icms:icms,st:st}));
     ocF[fid].total+=custo*it.qtd;
   });
   console.log('📊 ocF calculado:', ocF);

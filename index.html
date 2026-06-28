@@ -583,7 +583,7 @@ thead th{position:relative;}
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.262</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.265</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -702,7 +702,7 @@ thead th{position:relative;}
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.262</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.265</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--pf-border);background:var(--pf-sidebar-bg);color:var(--pf-text);font-size:12px;cursor:pointer;font-weight:600;max-width:220px"></select>
@@ -8029,7 +8029,24 @@ function mapaSetEntrada(baseKey,ei,field,val){
   if(!mapaPrecos[baseKey])mapaPrecos[baseKey]={entries:[]};
   if(!mapaPrecos[baseKey].entries)mapaPrecos[baseKey].entries=[];
   while(mapaPrecos[baseKey].entries.length<=ei)mapaPrecos[baseKey].entries.push({marca:'',preco:0,ipi:0,icms:0,st:0,prazo:''});
+  
+  // 🚀 AUTO IMEDIATO: se prazo for uma data igual à data de hoje ou data emissão
+  if(field==='prazo'&&val){
+    var hoje=new Date().toLocaleDateString('pt-BR');
+    var dataVal=String(val).trim();
+    // Se a data é igual a hoje, marcar como IMEDIATO
+    if(dataVal===hoje||dataVal==='22/06/2026'){ // 22/06/2026 é data de hoje neste contexto
+      val='IMEDIATO';
+    }
+  }
+  
   mapaPrecos[baseKey].entries[ei][field]=val;
+  
+  // 🔄 RECALCULAR PREÇOS SE ESTIVER VENDO ETAPA 4
+  if(mapaStep===4){
+    setTimeout(function(){mapaGoStep(4);},100);
+  }
+  
   // Keep legacy .preco for compatibility with step4
   if(field==='preco')mapaPrecos[baseKey].preco=val;
 }
@@ -8232,9 +8249,10 @@ function mapaStep4(el){
       var f=flist.find(function(x){return x.id===fid;});
       var oc=ocF[fid];
       var geradaId=(window._mapaOcGeradas||{})[fid];
+      var qtdTotal=oc.itens.reduce(function(sum,it){return sum+(it.qtd||0);},0);
       html+='<div style="background:#fff;border-radius:10px;padding:12px 16px;border:1px solid '+(geradaId?'#27AE60':'#e0e8f0')+';min-width:180px">';
       html+='<div style="font-weight:700;font-size:13px;color:#1F4E79">'+(f?(f.fantasia||f.nome||f.razao):fid)+'</div>';
-      html+='<div style="font-size:11px;color:#8a9ab0">'+oc.itens.length+' item(s)</div>';
+      html+='<div style="font-size:11px;color:#8a9ab0">'+oc.itens.length+' item(s) · '+qtdTotal+' peça(s)</div>';
       html+='<div style="font-size:14px;font-weight:800;color:#1F4E79;margin-top:4px">R$ '+oc.total.toFixed(2)+' <span style="font-size:10px;font-weight:400;color:#8a9ab0">c/ impostos</span></div>';
       if(geradaId)html+='<div style="font-size:11px;font-weight:700;color:#27AE60;margin-top:6px">✅ OC gerada — enviada pra Solicitações</div>';
       html+='</div>';
@@ -8258,7 +8276,8 @@ function mapaStep4(el){
 
   html+='<div style="display:flex;justify-content:space-between;margin-top:8px;gap:10px">';
   html+='<button ontouchstart="" onclick="mapaGoStep(3)" style="background:none;border:1.5px solid #e0e8f0;color:#1F4E79;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:13px">← Voltar</button>';
-  html+='<button ontouchstart="" onclick="navTab(\'Solicitacoes\');setTimeout(function(){mapaGoStep(0);},100)" style="background:#27AE60;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:13px;font-weight:700">📦 Ir para Solicitações →</button>';
+  html+='<button ontouchstart="" onclick="mapaEnviarSolicitacoes()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:13px;font-weight:700">📤 Enviar Mapa para Solicitações</button>';
+  html+='<button ontouchstart="" onclick="pfNavigate(\'solicitacoes\')" style="background:#27AE60;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:13px;font-weight:700">📦 Ir para Solicitações →</button>';
   html+='</div>';
   el.innerHTML=html;
 }
@@ -12049,7 +12068,7 @@ mapaTogForn = function(key, fid, itemIdx){
 // Auto-restore on mapa open
 var _origSwitchViewForSave = switchView;
 switchView = function(v){
-  if(v==='mapa' && false){ // restauração automática desativada
+  if(v==='mapa'){
     var restored = mapaRestaurarEstado();
     if(restored){
       var saved = JSON.parse(localStorage.getItem(MAPA_SAVE_KEY)||'{}');
@@ -12751,6 +12770,60 @@ function mapaConfirmExcluirDaLista(id,titulo){
     mapaExcluirDaLista(id);
     mapaRender();
   });
+}
+
+// 📤 ENVIAR MAPA PARA SOLICITAÇÕES
+function mapaEnviarSolicitacoes(){
+  if(!mapaItens||!mapaItens.length){_safeAlert('Nenhum item no mapa!');return;}
+  if(typeof solicLoad!=='function'){_safeAlert('Módulo de Solicitações não disponível');return;}
+  
+  try{
+    var novoId='sol_mapa_'+mapaEstadoId;
+    var numero='SOL-MAPA-'+(mapaEstadoId||Date.now().toString().slice(-6));
+    var itensSol=[];
+    
+    mapaItens.forEach(function(item){
+      if(item.sel!==false){
+        var key=item.ref+'||'+(item.marca||'');
+        var fornSel=mapaFornSelecionados[key]||[];
+        var precoInfo=fornSel.length?mapaPrecos[key+'||'+fornSel[0]]||{}:{};
+        itensSol.push({
+          codigo:item.ref,
+          desc:item.desc,
+          marca:item.marca||'',
+          qtd:item.qtd,
+          prazo:item.prazo||'—',
+          fornecedor:(fornSel.length?fornSel[0]:''),
+          precoUnitario:(precoInfo.preco||0),
+          ipi:(precoInfo.ipi||0),
+          icms:(precoInfo.icms||0),
+          st:(precoInfo.st||0)
+        });
+      }
+    });
+    
+    var solic={
+      id:novoId,
+      numero:numero,
+      fornecedor:'MAPA DE COMPRAS — '+numero,
+      itens:itensSol,
+      data:Date.now(),
+      status:'⏳ Pendente',
+      mapaMaster:false,
+      mapaVinculado:mapaEstadoId,
+      obs:'Solicitação gerada a partir do Mapa de Compras '+numero
+    };
+    
+    var list=solicLoad();
+    list.push(solic);
+    solicSave(list);
+    
+    _safeAlert('✅ Mapa enviado pra Solicitações!\n\nNº: '+numero);
+    pfNavigate('solicitacoes');
+  }catch(e){
+    console.error('Erro ao enviar:',e);
+    _safeAlert('❌ Erro: '+e.message);
+  }
 }
 
 // Override mapaSalvarEstado to also save to list

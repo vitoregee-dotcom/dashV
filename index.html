@@ -589,7 +589,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.321</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.322</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -708,7 +708,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.321</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.322</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -17895,7 +17895,7 @@ function carregarHistorico(){
   try{return JSON.parse(localStorage.getItem(HIST_KEY)||"[]");}
   catch(e){return[];}
 }
-// (removido v115.321: código morto que gravava na tabela legada "historico_analises" —
+// (removido v115.322: código morto que gravava na tabela legada "historico_analises" —
 // nunca era executado de fato, pois essa função era sobrescrita pela versão local-only abaixo.
 // Tabela "historico_analises" continua existindo no Supabase com RLS desabilitado — ver aviso.)
 async function carregarHistorico(){
@@ -21991,8 +21991,89 @@ function mapaMarcarDecisao(key, decKey, qtd, preco, custo){
   mapaGoStep(4);
 }
 
+function mapaGerarSolicitacao(){
+  console.log('📋 Gerando Solicitação do Mapa:', mapaEstadoId);
+  
+  // Coletar itens decididos
+  var itensSolicitacao = [];
+  mapaItens.forEach(function(it){
+    var key2 = it.ref + '||' + (it.marca || '');
+    var decKey = mapaDecisoes[key2];
+    if(!decKey) return; // Pula itens não decididos
+    
+    var parts = decKey.split('||');
+    var fid = parts[2];
+    var keyQtd = key2 + '||' + fid;
+    var qtdDecidida = mapaQtdDecidida[keyQtd] || it.qtd;
+    
+    itensSolicitacao.push({
+      ref: it.ref,
+      marca: it.marca || '',
+      desc: it.desc,
+      qtd: qtdDecidida,
+      fornecedor: fid,
+      decKey: decKey
+    });
+  });
+  
+  if(!itensSolicitacao.length){
+    _safeAlert('Nenhum item foi decidido! Marque pelo menos um fornecedor.');
+    return;
+  }
+  
+  // Calcular resumo (totais por fornecedor)
+  var resumo = {};
+  var totalGeral = 0;
+  itensSolicitacao.forEach(function(it){
+    if(!resumo[it.fornecedor]) resumo[it.fornecedor] = 0;
+    var pk = it.ref + '||' + it.marca + '||' + it.fornecedor;
+    var p = mapaPrecos[pk] || {};
+    var firstEntry = (p.entries && p.entries[0]) || p || {};
+    var preco = firstEntry.preco || 0;
+    var ipi = firstEntry.ipi || 0;
+    var st = firstEntry.st || 0;
+    var custo = preco * (1 + ipi/100) * (1 + st/100);
+    var total = custo * it.qtd;
+    resumo[it.fornecedor] += total;
+    totalGeral += total;
+  });
+  
+  // Gerar número SOL
+  var listaSol = JSON.parse(localStorage.getItem('solicitacoes_compras_v1') || '[]');
+  var proximoNum = 1 + Math.max(0, ...listaSol.map(function(s){return parseInt(s.numero.replace('SOL-','')) || 0;}));
+  var numeroSol = 'SOL-' + String(proximoNum).padStart(4,'0');
+  
+  // Criar Solicitação
+  var solicitacao = {
+    id: 'sol_' + Date.now(),
+    numero: numeroSol,
+    titulo: 'Solicitação do Mapa ' + window._mapaEstadoNumero,
+    data: new Date().toLocaleDateString('pt-BR'),
+    status: 'Pendente',
+    itens: itensSolicitacao,
+    resumo: resumo,
+    totalGeral: totalGeral,
+    mapaOrigem: mapaEstadoId,
+    nItens: itensSolicitacao.length,
+    ts: Date.now()
+  };
+  
+  // Salvar Solicitação
+  listaSol.unshift(solicitacao);
+  localStorage.setItem('solicitacoes_compras_v1', JSON.stringify(listaSol));
+  localStorage.setItem('solicitacao_' + solicitacao.id, JSON.stringify(solicitacao));
+  
+  console.log('✅ Solicitação criada:', numeroSol);
+  _safeAlert('✅ Solicitação ' + numeroSol + ' criada com sucesso!\\n\\nTotal: R$ ' + totalGeral.toFixed(2) + '\\n\\nAbrir Solicitações?', 
+    function(){
+      navTab('Solicitacoes');
+      setTimeout(function(){mapaGoStep(0);}, 100);
+    }
+  );
+}
+
 function mapaStep4(el){
-  console.log('🔔 ETAPA 4 CARREGADA - v115.321');
+  console.log('🔔 ETAPA 4 CARREGADA - v115.322');
   var flist = typeof cotFornecedores!=='undefined' ? cotFornecedores : [];
 
   var html = '<div class="mSection"><div class="mSectionTitle">⚖️ Decidir — Escolha o fornecedor de cada item</div>';
@@ -22208,7 +22289,7 @@ function mapaStep4(el){
   }
   html+='</div>';
   html+='<button ontouchstart="" onclick="mapaGoStep(3)" style="background:none;border:1.5px solid #e0e8f0;color:#1F4E79;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:13px">← Voltar</button>';
-  html+='<button ontouchstart="" onclick="navTab(\'Solicitacoes\');setTimeout(function(){mapaGoStep(0);},100)" style="background:#27AE60;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:13px;font-weight:700">📦 Ir para Solicitações →</button>';
+  html+='<button ontouchstart="" onclick="mapaGerarSolicitacao()" style="background:#27AE60;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:13px;font-weight:700">📋 Gerar Solicitação →</button>';
   html+='</div>';
   el.innerHTML=html;
 }
@@ -27164,7 +27245,7 @@ mapaSalvarNaLista = function(estado){
   _origMapaSalvarNaLista(estado);
 };
 
-// Override mapaRender removido (v115.321) — essa versão antiga nunca chamava o hub novo
+// Override mapaRender removido (v115.322) — essa versão antiga nunca chamava o hub novo
 // (Etapa 1/Etapa 2 + Mapas em andamento), ficava sempre travada nessa lista velha.
 
 // ════════════════════════════════════════════════════════════════
@@ -27268,7 +27349,7 @@ mapaLerImagem = async function(input){
   }
 };
 
-// Override mapaRender removido (v115.321) — era esse aqui que ficava ativo de verdade e usava
+// Override mapaRender removido (v115.322) — era esse aqui que ficava ativo de verdade e usava
 // confirm() nativo do navegador (mapaExcluirConfirm/_safeConfirm) pra excluir mapa. Removido pra
 // o hub novo (Etapa 1/Etapa 2 + Mapas em andamento, com modal pfConfirm de exclusão) ser o único.
 

@@ -21048,6 +21048,11 @@ function mapaGoStep(n){
     // Este código foi removido pois não é mais necessário
   }
   
+  // MUDANÇA: Se indo pra Etapa 4, desselecionar TODOS os itens pra seleção manual
+  if(n===4){
+    mapaItens.forEach(function(i){i.sel=false;});
+  }
+  
   // Call step directly to avoid render chain redirecting to list
   var el=document.getElementById('mapaBody');
   if(!el){mapaRender();return;}
@@ -21333,7 +21338,9 @@ async function mapaLerImagem(input){
       item.qtd=parseInt(item.qtd)||1;item.prazo=item.prazo||'';
       item.ln=idLinha(item.ref);item.origem='pdf';
       var p=(item.prazo||'').toUpperCase().replace(/[ÃA]/g,'A').replace(/[ÕO]/g,'O');
-      item.sel=p.includes('NAO')||p.includes('INDISPON')||p==='';
+      // MUDANÇA v115.279: Todos os itens chegam com sel=true ao carregar PDF
+      // Usuário pode desselecionar os que não quer coticar (ex: prazo imediato)
+      item.sel=true;
       if(!mapaItens.some(function(e){return e.ref===item.ref;}))mapaItens.push(item);
     });
     var nm=document.getElementById('navCompras');
@@ -21956,7 +21963,8 @@ function mapaStep4(el){
   var html = '<div class="mSection"><div class="mSectionTitle">⚖️ Decidir — Escolha o fornecedor de cada item</div>';
   html += '<p style="font-size:11px;color:#8a9ab0;margin-bottom:4px">🏆 = menor custo com impostos. Selecione com o radio button — pode escolher outro por outros critérios.</p></div>';
 
-  var itensSel = mapaItens.filter(function(i){return i.sel!==false;});
+  // MUDANÇA: Mostrar TODOS os itens (não filtrar por sel)
+  var itensSel = mapaItens.filter(function(i){return i.ref;});
   var algumPreco = false;
 
   itensSel.forEach(function(item){
@@ -22064,22 +22072,25 @@ function mapaStep4(el){
     html += '<div style="text-align:center;padding:30px;color:#8a9ab0;font-size:13px">Nenhum preço preenchido ainda.<br><button ontouchstart="" onclick="mapaGoStep(3)" style="background:none;border:none;color:#1F4E79;cursor:pointer;text-decoration:underline;margin-top:8px">← Preencher preços</button></div>';
   }
 
-  // OC Summary - Gerar pra TODOS os fornecedores selecionados, não apenas o escolhido
+  // OC Summary - Gerar apenas pra fornecedores que foram DECIDIDOS (radio button)
   var ocF = {};
   itensSel.forEach(function(it){
     var key2=it.ref+'||'+(it.marca||'');
-    var fids=mapaFornSelecionados[key2]||[]; // TODOS os fornecedores, não apenas mapaDecisoes
-    var pk2=key2;
-    fids.forEach(function(fid){
-      var pk=pk2+'||'+fid; 
-      var p=mapaPrecos[pk]||{};
-      var entries=(p.entries&&p.entries.length)?p.entries:[{preco:p.preco||0,ipi:p.ipi||0,st:p.st||0,prazo:p.prazo||'',marca:''}];
-      var e=entries[0]||{};
-      var custo=e.preco*(1+(e.ipi||0)/100)*(1+(e.st||0)/100);
-      if(!ocF[fid])ocF[fid]={itens:[],total:0};
-      ocF[fid].itens.push(Object.assign({},it,{preco:e.preco,custo:custo,marca:e.marca,prazo:e.prazo,ipi:e.ipi,icms:e.icms,st:e.st}));
-      ocF[fid].total+=custo*it.qtd;
-    });
+    var decKey=mapaDecisoes[key2]; // Aqui está o fornecedor decidido
+    if(!decKey)return; // Se não decidiu, pula este item
+    
+    var parts=decKey.split('||');
+    var fid=parts[1];
+    var ei=parseInt(parts[2])||0;
+    
+    var pk=key2+'||'+fid; 
+    var p=mapaPrecos[pk]||{};
+    var entries=(p.entries&&p.entries.length)?p.entries:[{preco:p.preco||0,ipi:p.ipi||0,st:p.st||0,prazo:p.prazo||'',marca:''}];
+    var e=entries[ei]||entries[0]||{};
+    var custo=e.preco*(1+(e.ipi||0)/100)*(1+(e.st||0)/100);
+    if(!ocF[fid])ocF[fid]={itens:[],total:0};
+    ocF[fid].itens.push(Object.assign({},it,{preco:e.preco,custo:custo,marca:e.marca,prazo:e.prazo,ipi:e.ipi,icms:e.icms,st:e.st}));
+    ocF[fid].total+=custo*it.qtd;
   });
 
   var ocK=Object.keys(ocF).filter(function(fid){return ocF[fid].total>0;});

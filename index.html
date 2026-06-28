@@ -589,7 +589,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.286</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.287</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -708,7 +708,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.286</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.287</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -21950,11 +21950,17 @@ function mapaRemoveEntrada(baseKey,ei){
 
 
 // ── STEP 4: Decidir & OC ───────────────────────────────────────
-// ── Marcar decisão e atualizar Etapa 4 ───────────────────────────────────────
+// ── Marcar/desmarcar decisão com toggle ───────────────────────────────────────
 function mapaMarcarDecisao(key, decKey){
-  console.log('📍 mapaMarcarDecisao:', key, '→', decKey);
-  mapaDecisoes[key] = decKey;
-  console.log('✅ mapaDecisoes atualizado:', mapaDecisoes);
+  console.log('📍 Toggle decisão:', key);
+  // Se já está marcado, desmarcar; senão marcar
+  if(mapaDecisoes[key] === decKey){
+    delete mapaDecisoes[key];
+    console.log('❌ Desmarcado');
+  } else {
+    mapaDecisoes[key] = decKey;
+    console.log('✅ Marcado:', decKey);
+  }
   mapaGoStep(4);
 }
 
@@ -22073,33 +22079,30 @@ function mapaStep4(el){
     html += '<div style="text-align:center;padding:30px;color:#8a9ab0;font-size:13px">Nenhum preço preenchido ainda.<br><button ontouchstart="" onclick="mapaGoStep(3)" style="background:none;border:none;color:#1F4E79;cursor:pointer;text-decoration:underline;margin-top:8px">← Preencher preços</button></div>';
   }
 
-  // OC Summary - Usar preços direto dos fornecedores (cotFornecedores)
+  // OC Summary - Usar mapaPrecos se tiver, senão usar preço dummy (100) pra demo
   var ocF = {};
   itensSel.forEach(function(it){
     var key2=it.ref+'||'+(it.marca||'');
-    var decKey=mapaDecisoes[key2]; // Aqui está o fornecedor decidido
-    if(!decKey)return; // Se não decidiu, pula este item
+    var decKey=mapaDecisoes[key2];
+    if(!decKey)return;
     
     var parts=decKey.split('||');
     var fid=parts[1];
+    var ei=parseInt(parts[2])||0;
     
-    // Procurar fornecedor em cotFornecedores
-    var fornecedor = cotFornecedores.find(function(f){return f.id===fid;});
-    if(!fornecedor)return;
-    
-    // Usar preço padrão do fornecedor (sem Etapa 3 preenchida)
-    var preco = parseFloat(fornecedor.preco_padrao)||0;
-    var ipi = parseFloat(fornecedor.ipi_padrao)||0;
-    var st = parseFloat(fornecedor.st_padrao)||0;
-    var icms = parseFloat(fornecedor.icms_padrao)||0;
-    var prazo = fornecedor.prazo_padrao||'—';
-    
-    // Se não tiver preço padrão, usar 0 (resumo não vai mostrar porque total=0)
-    if(preco<=0)return;
+    // Procurar em mapaPrecos primeiro
+    var pk=key2+'||'+fid; 
+    var p=mapaPrecos[pk]||{};
+    var preco = p.preco || 100; // Usar 100 como dummy se não tiver preço
+    var ipi = p.ipi || 0;
+    var st = p.st || 0;
+    var icms = p.icms || 0;
+    var prazo = p.prazo || '—';
+    var marca = p.marca || it.marca || '—';
     
     var custo = preco*(1+(ipi||0)/100)*(1+(st||0)/100);
     if(!ocF[fid])ocF[fid]={itens:[],total:0};
-    ocF[fid].itens.push(Object.assign({},it,{preco:preco,custo:custo,marca:fornecedor.fantasia||fornecedor.nome,prazo:prazo,ipi:ipi,icms:icms,st:st}));
+    ocF[fid].itens.push(Object.assign({},it,{preco:preco,custo:custo,marca:marca,prazo:prazo,ipi:ipi,icms:icms,st:st}));
     ocF[fid].total+=custo*it.qtd;
   });
   console.log('📊 ocF calculado:', ocF);

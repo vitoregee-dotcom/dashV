@@ -589,7 +589,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.295</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.296</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -708,7 +708,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.295</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.296</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -21953,16 +21953,19 @@ function mapaRemoveEntrada(baseKey,ei){
 // ── Marcar/desmarcar decisão com toggle ───────────────────────────────────────
 function mapaMarcarDecisao(key, decKey, qtd, preco, custo){
   console.log('📍 Toggle decisão:', key, '→ Preço:', preco);
-  // Se já está marcado, desmarcar; senão marcar
+  var parts=decKey.split('||');
+  var fid=parts[2];
+  var keyQtd=key+'||'+fid; // Chave por fornecedor
+  
   if(mapaDecisoes[key] === decKey){
     delete mapaDecisoes[key];
-    delete mapaQtdDecidida[key];
+    delete mapaQtdDecidida[keyQtd]; // Delete por fornecedor
     delete mapaPrecoDecidido[key];
     console.log('❌ Desmarcado');
   } else {
     mapaDecisoes[key] = decKey;
-    mapaQtdDecidida[key] = qtd;
-    mapaPrecoDecidido[key] = {preco: preco, custo: custo}; // Guardar preço real!
+    mapaQtdDecidida[keyQtd] = qtd; // Salva por fornecedor!
+    mapaPrecoDecidido[key] = {preco: preco, custo: custo};
     console.log('✅ Marcado:', decKey, '/ Qtd:', qtd, '/ Preço:', preco);
   }
   mapaGoStep(4);
@@ -22049,7 +22052,7 @@ function mapaStep4(el){
       html += '<tr style="border-bottom:1px solid #e0e8f0;background:'+bg+'">';
       html += '<td style="padding:8px;font-weight:'+(isBest?700:400)+';white-space:nowrap">'+r.nome+(isBest?' 🏆':'')+' </td>';
       html += '<td style="padding:8px;color:#607080"><span style="font-weight:600">'+item.ref+'</span><br/><span style="font-size:11px">'+item.desc+'</span></td>';
-      html += '<td style="padding:8px;text-align:center"><input type="number" min="1" step="1" value="'+Math.round(mapaQtdDecidida[key]||item.qtd)+'" onchange="mapaQtdDecidida[\''+key+'\'] = parseInt(this.value)||1; if(mapaDecisoes[\''+key+'\']) mapaGoStep(4);" style="width:45px;padding:4px;border:1px solid #ccc;border-radius:3px;text-align:center;font-weight:600"></td>';
+      html += '<td style="padding:8px;text-align:center"><input type="number" min="1" step="1" value="'+Math.round(mapaQtdDecidida[key+'||'+r.fid]||item.qtd)+'" onchange="mapaQtdDecidida[\''+key+'||'+r.fid+'\'] = parseInt(this.value)||1; if(mapaDecisoes[\''+key+'\']) mapaGoStep(4);" style="width:45px;padding:4px;border:1px solid #ccc;border-radius:3px;text-align:center;font-weight:600"></td>';
       html += '<td style="padding:8px;color:#607080">'+r.marca+'</td>';
       html += '<td style="padding:8px;text-align:right;color:#607080">R$ '+r.preco.toFixed(2)+'</td>';
       html += '<td style="padding:8px;text-align:right;color:#8a9ab0;font-size:11px">'+(r.ipi?r.ipi+'%':'—')+'</td>';
@@ -22100,7 +22103,8 @@ function mapaStep4(el){
     var parts=decKey.split('||');
     var fid=parts[2]; // FIX: parts[2] é o fid, não parts[1]
     var ei=parseInt(parts[3])||0;
-    var qtdDecidida = mapaQtdDecidida[key2] || it.qtd; // Usa quantidade decidida
+    var keyQtd=key2+'||'+fid; // Chave por fornecedor
+    var qtdDecidida = mapaQtdDecidida[keyQtd] || it.qtd; // Usa quantidade por fornecedor
     
     // Procurar preço em mapaPrecoDecidido (guardado ao marcar checkbox)
     var pk=key2+'||'+fid; 
@@ -22122,7 +22126,6 @@ function mapaStep4(el){
     var prazo = p.prazo || '—';
     var marca = p.marca || it.marca || '—';
     
-    var custo = preco*(1+(ipi||0)/100)*(1+(st||0)/100);
     if(!ocF[fid])ocF[fid]={itens:[],total:0};
     ocF[fid].itens.push(Object.assign({},it,{preco:preco,custo:custo,marca:marca,prazo:prazo,ipi:ipi,icms:icms,st:st,qtdDecidida:qtdDecidida}));
     ocF[fid].total+=custo*qtdDecidida;

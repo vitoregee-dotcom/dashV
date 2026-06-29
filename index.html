@@ -589,7 +589,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.386</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.387</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -708,7 +708,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.386</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.387</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -17895,7 +17895,7 @@ function carregarHistorico(){
   try{return JSON.parse(localStorage.getItem(HIST_KEY)||"[]");}
   catch(e){return[];}
 }
-// (removido v115.386: código morto que gravava na tabela legada "historico_analises" —
+// (removido v115.387: código morto que gravava na tabela legada "historico_analises" —
 // nunca era executado de fato, pois essa função era sobrescrita pela versão local-only abaixo.
 // Tabela "historico_analises" continua existindo no Supabase com RLS desabilitado — ver aviso.)
 async function carregarHistorico(){
@@ -21777,7 +21777,8 @@ function mapaStep3(el){
   html += '<p style="font-size:11px;color:#8a9ab0;margin-bottom:12px">Preencha conforme cada fornecedor for respondendo. Pode voltar aqui a qualquer momento para adicionar ou atualizar.</p>';
   html += '<div style="background:#FFF3E6;border:1.5px dashed #E67E22;border-radius:8px;padding:12px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
   html += '<span style="font-size:12px;color:#854F0B">🤖 Auto-identificar fornecedor pelo nome ou CNPJ:</span>';
-  html += '<label style="background:#E67E22;color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:5px;position:relative;overflow:hidden">📎 Carregar Cotação<input type="file" accept="image/*,application/pdf,.pdf" style="display:none" onchange="mapaCarregarCotacaoAuto(this)"></label>';
+  html += '<label style="background:#E67E22;color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:5px;position:relative;overflow:hidden">📎 Carregar Cotação(ões)<input type="file" accept="image/*,application/pdf,.pdf" multiple style="display:none" onchange="mapaCarregarCotacaoAuto(this)"></label>';
+  html += '<button ontouchstart="" onclick="mapaCarregarCotacaoPrint()" style="background:#6c757d;color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:5px">📋 Colar Print</button>';
   html += '<span id="autoStatus" style="font-size:11px;color:#854F0B;min-width:100px"></span>';
   html += '</div>';
   html += '</div>';
@@ -21941,98 +21942,92 @@ async function mapaLerResposta(input, fid){
 }
 
 async function mapaCarregarCotacaoAuto(input){
-  var file=input.files[0];if(!file)return;
+  if(!input.files||!input.files.length)return;
   var statusEl=document.getElementById('autoStatus');
-  if(file.size > 10*1024*1024){
-    pfAlert('Arquivo muito grande ('+(file.size/1024/1024).toFixed(1)+'MB). Use um arquivo menor.');
-    input.value='';
-    return;
-  }
-  if(statusEl)statusEl.innerHTML='🤖 Lendo...';
-  try{
-    // Prompt pra extrair nome e CNPJ do fornecedor
-    var prompt='Documento de cotação de um fornecedor. Extraia:\n'+
-      '1. Nome completo ou fantasia do fornecedor\n'+
-      '2. CNPJ (se houver)\n'+
-      'Retorne JSON: {"nome":"string","cnpj":"string ou vazio"}\n'+
-      'Sem markdown, APENAS o JSON.';
-    var txt=await _anthropicReadDoc(file,prompt);
-    var m=txt.match(/\{[\s\S]*\}/);
-    if(m)txt=m[0];
-    var fornData=JSON.parse(txt);
-    var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
+  var totalArquivos=input.files.length;
+  var processados=0;
+  
+  if(statusEl)statusEl.innerHTML='🤖 Processando '+totalArquivos+' arquivo(s)...';
+  
+  for(var i=0;i<totalArquivos;i++){
+    var file=input.files[i];
+    if(!file)continue;
     
-    // Procurar fornecedor por CNPJ (mais preciso)
-    var fornEncontrado=null;
-    if(fornData.cnpj&&fornData.cnpj.trim()){
-      var cnpjClean=fornData.cnpj.replace(/[^0-9]/g,'');
-      fornEncontrado=flist.find(function(f){
-        var f_cnpj=(f.cnpj||'').replace(/[^0-9]/g,'');
-        return f_cnpj===cnpjClean&&cnpjClean.length>0;
+    try{
+      if(file.size > 10*1024*1024){
+        if(statusEl)statusEl.innerHTML='❌ '+file.name+' muito grande';
+        continue;
+      }
+      
+      var prompt='Documento de cotação. Extraia fornecedor e CNPJ. JSON: {"nome":"string","cnpj":"string"}';
+      var txt=await _anthropicReadDoc(file,prompt);
+      var m=txt.match(/\{[\s\S]*\}/);
+      if(m)txt=m[0];
+      var fornData=JSON.parse(txt);
+      var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
+      
+      var fornEncontrado=null;
+      if(fornData.cnpj&&fornData.cnpj.trim()){
+        var cnpjClean=fornData.cnpj.replace(/[^0-9]/g,'');
+        fornEncontrado=flist.find(function(f){
+          var f_cnpj=(f.cnpj||'').replace(/[^0-9]/g,'');
+          return f_cnpj===cnpjClean&&cnpjClean.length>0;
+        });
+      }
+      if(!fornEncontrado&&fornData.nome){
+        var nome_upper=(fornData.nome||'').toUpperCase().trim();
+        fornEncontrado=flist.find(function(f){
+          var f_nome=((f.fantasia||f.nome||f.razao||'').toUpperCase()||'').trim();
+          return f_nome.includes(nome_upper)||nome_upper.includes(f_nome.split(/[,\/\-]/)[0].trim());
+        });
+      }
+      
+      if(!fornEncontrado) continue;
+      
+      var its=mapaItens.filter(function(i){return i.sel!==false&&(mapaFornSelecionados[i.ref+'||'+(i.marca||'')]||[]).includes(fornEncontrado.id);});
+      if(!its.length) continue;
+      
+      var refs=its.map(function(i){return i.ref;}).join(', ');
+      var prompt2='Cotação: '+refs+'. JSON: [{"ref":"código","marca":"marca","preco":0.00,"ipi":0,"icms":0,"st":0,"prazo":"text"}]';
+      var txt2=await _anthropicReadDoc(file,prompt2);
+      var m2=txt2.match(/\[[\s\S]*\]/);
+      if(m2)txt2=m2[0];
+      var precos=JSON.parse(txt2);
+      
+      if(!Array.isArray(precos)||!precos.length) continue;
+      var norm=function(s){return (s||'').toString().trim().toUpperCase().replace(/\s+/g,'');};
+      var updated=0;
+      precos.forEach(function(p){
+        var ref=(p.ref||'').toString().trim();
+        var it=its.find(function(i){return i.ref===ref;})||its.find(function(i){return norm(i.ref)===norm(ref);});
+        if(!it)return;
+        var pk=it.ref+'||'+(it.marca||'')+'||'+fornEncontrado.id;
+        if(!mapaPrecos[pk])mapaPrecos[pk]={entries:[]};
+        if(!mapaPrecos[pk].entries)mapaPrecos[pk].entries=[];
+        var entry={marca:(p.marca||'').toUpperCase(),preco:parseFloat(p.preco)||0,ipi:parseFloat(p.ipi)||0,icms:parseFloat(p.icms)||0,st:parseFloat(p.st)||0,prazo:p.prazo||''};
+        var emptyIdx=mapaPrecos[pk].entries.findIndex(function(e){return !e.preco&&!e.marca;});
+        if(emptyIdx>=0)mapaPrecos[pk].entries[emptyIdx]=entry;
+        else mapaPrecos[pk].entries.push(entry);
+        updated++;
       });
+      
+      if(updated>0) processados++;
+      if(statusEl)statusEl.innerHTML='⏳ '+processados+'/'+totalArquivos+' processado(s)';
+    }catch(e){
+      console.error('Erro: '+file.name,e);
     }
-    // Se não achou por CNPJ, tenta por nome
-    if(!fornEncontrado&&fornData.nome){
-      var nome_upper=(fornData.nome||'').toUpperCase().trim();
-      fornEncontrado=flist.find(function(f){
-        var f_nome=((f.fantasia||f.nome||f.razao||'').toUpperCase()||'').trim();
-        return f_nome.includes(nome_upper)||nome_upper.includes(f_nome.split(/[,\/\-]/)[0].trim());
-      });
-    }
-    
-    if(!fornEncontrado){
-      pfAlert('❌ Fornecedor não encontrado no cadastro.\n\nBuscado: '+fornData.nome+(fornData.cnpj?' ('+fornData.cnpj+')':''));
-      input.value='';
-      if(statusEl)statusEl.innerHTML='❌ Não encontrado';
-      return;
-    }
-    
-    // Agora ler os preços com o fornecedor já identificado
-    var its=mapaItens.filter(function(i){return i.sel!==false&&(mapaFornSelecionados[i.ref+'||'+(i.marca||'')]||[]).includes(fornEncontrado.id);});
-    if(!its.length){
-      pfAlert('⚠️ Fornecedor encontrado ('+(fornEncontrado.fantasia||fornEncontrado.nome)+'), mas não tem itens selecionados para ele.\n\nSelecione este fornecedor na Etapa 1 primeiro.');
-      input.value='';
-      if(statusEl)statusEl.innerHTML='⚠️ Sem itens';
-      return;
-    }
-    
-    var refs=its.map(function(i){return i.ref;}).join(', ');
-    var prompt2='Cotação de '+(fornEncontrado.fantasia||fornEncontrado.nome)+'. Códigos buscados: '+refs+
-      '. Para CADA item do documento, identifique a qual código da MINHA lista corresponde (exatamente como está na minha lista). '+
-      'Retorne JSON array: [{"ref":"código","marca":"fabricante","preco":0.00,"ipi":0,"icms":0,"st":0,"prazo":"texto"}]. '+
-      'Apenas itens com preço. Sem markdown.';
-    var txt2=await _anthropicReadDoc(file,prompt2);
-    var m2=txt2.match(/\[[\s\S]*\]/);
-    if(m2)txt2=m2[0];
-    var precos=JSON.parse(txt2);
-    
-    if(!Array.isArray(precos)||!precos.length)throw new Error('Nenhum preço lido');
-    var norm=function(s){return (s||'').toString().trim().toUpperCase().replace(/\s+/g,'');};
-    var updated=0,naoRec=[];
-    precos.forEach(function(p){
-      var ref=(p.ref||'').toString().trim();
-      var it=its.find(function(i){return i.ref===ref;})||its.find(function(i){return norm(i.ref)===norm(ref);});
-      if(!it){naoRec.push(ref);return;}
-      var pk=it.ref+'||'+(it.marca||'')+'||'+fornEncontrado.id;
-      if(!mapaPrecos[pk])mapaPrecos[pk]={entries:[]};
-      if(!mapaPrecos[pk].entries)mapaPrecos[pk].entries=[];
-      var entry={marca:(p.marca||'').toUpperCase(),preco:parseFloat(p.preco)||0,ipi:parseFloat(p.ipi)||0,icms:parseFloat(p.icms)||0,st:parseFloat(p.st)||0,prazo:p.prazo||''};
-      var emptyIdx=mapaPrecos[pk].entries.findIndex(function(e){return !e.preco&&!e.marca;});
-      if(emptyIdx>=0)mapaPrecos[pk].entries[emptyIdx]=entry;
-      else mapaPrecos[pk].entries.push(entry);
-      updated++;
-    });
-    
-    if(!updated)throw new Error('Nenhum código bateu');
-    if(statusEl)statusEl.innerHTML='<b style="color:#27AE60">✅ '+updated+' item(s) de '+(fornEncontrado.fantasia||fornEncontrado.nome)+'</b>';
-    if(naoRec.length)pfAlert('✅ '+updated+' item(s) preenchido(s).\n\n⚠️ '+naoRec.length+' código(s) não reconhecido(s): '+naoRec.join(', '));
-    setTimeout(function(){mapaGoStep(3);},1000);
-  }catch(e){
-    console.error(e);
-    if(statusEl){statusEl.innerHTML='<span style="color:#C00000">❌ Falhou</span>';setTimeout(function(){if(statusEl)statusEl.textContent='';},5000);}
-    pfAlert('Erro ao processar cotação:\n\n'+e.message);
-    input.value='';
   }
+  
+  if(processados>0){
+    if(statusEl)statusEl.innerHTML='<b style="color:#27AE60">✅ '+processados+' arquivo(s) OK!</b>';
+    setTimeout(function(){mapaGoStep(3);},1500);
+  }else if(statusEl)statusEl.innerHTML='❌ Nenhum arquivo processado';
+  input.value='';
+}
+
+function mapaCarregarCotacaoPrint(){
+  pfAlert('Cole a imagem/PDF da cotação (Ctrl+V):',null,'OK');
+  // TODO: implementar clipboarded image paste
 }
 
 function mapaPrecoRow(baseKey,ei,e,custoTotal){
@@ -27516,7 +27511,7 @@ mapaSalvarNaLista = function(estado){
   _origMapaSalvarNaLista(estado);
 };
 
-// Override mapaRender removido (v115.386) — essa versão antiga nunca chamava o hub novo
+// Override mapaRender removido (v115.387) — essa versão antiga nunca chamava o hub novo
 // (Etapa 1/Etapa 2 + Mapas em andamento), ficava sempre travada nessa lista velha.
 
 // ════════════════════════════════════════════════════════════════
@@ -27620,7 +27615,7 @@ mapaLerImagem = async function(input){
   }
 };
 
-// Override mapaRender removido (v115.386) — era esse aqui que ficava ativo de verdade e usava
+// Override mapaRender removido (v115.387) — era esse aqui que ficava ativo de verdade e usava
 // confirm() nativo do navegador (mapaExcluirConfirm/_safeConfirm) pra excluir mapa. Removido pra
 // o hub novo (Etapa 1/Etapa 2 + Mapas em andamento, com modal pfConfirm de exclusão) ser o único.
 

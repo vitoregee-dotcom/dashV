@@ -589,7 +589,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.394</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.395</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -708,7 +708,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.394</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.395</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -17895,7 +17895,7 @@ function carregarHistorico(){
   try{return JSON.parse(localStorage.getItem(HIST_KEY)||"[]");}
   catch(e){return[];}
 }
-// (removido v115.394: código morto que gravava na tabela legada "historico_analises" —
+// (removido v115.395: código morto que gravava na tabela legada "historico_analises" —
 // nunca era executado de fato, pois essa função era sobrescrita pela versão local-only abaixo.
 // Tabela "historico_analises" continua existindo no Supabase com RLS desabilitado — ver aviso.)
 async function carregarHistorico(){
@@ -26349,13 +26349,16 @@ async function pfSyncPull(){
         if(!PF_SYNC_KEYS.includes(row.chave) && row.chave.indexOf('mapa_estado_')!==0)return;
         var val=typeof row.dados==='string'?row.dados:JSON.stringify(row.dados);
         if(row.chave==='mapas_lista_v1'){
-          // Merge por id+ts em vez de sobrescrever, pra nao perder mapas criados
-          // localmente neste dispositivo antes do primeiro sync
+          // Merge por id+ts, respeitando deletados
           var remoto=JSON.parse(val||'[]');
           var local=JSON.parse(localStorage.getItem('mapas_lista_v1')||'[]');
+          var deletados=JSON.parse(localStorage.getItem('mapas_deletados')||'[]');
+          
           var porId={};
           local.forEach(function(m){porId[m.id]=m;});
           remoto.forEach(function(m){
+            // Não restaura mapas que foram deletados localmente
+            if(deletados.includes(m.id))return;
             if(!porId[m.id]||(m.ts||0)>(porId[m.id].ts||0))porId[m.id]=m;
           });
           var merged=Object.keys(porId).map(function(k){return porId[k];}).sort(function(a,b){return (b.ts||0)-(a.ts||0);}).slice(0,20);
@@ -27094,6 +27097,12 @@ function mapaExcluirDaLista(id){
   var lista=mapaListarSalvos().filter(function(m){return m.id!==id;});
   localStorage.setItem(MAPAS_LIST_KEY,JSON.stringify(lista));
   localStorage.removeItem('mapa_estado_'+id);
+  
+  // ✅ Marcar como deletado (tombstone)
+  var deletados=JSON.parse(localStorage.getItem('mapas_deletados')||'[]');
+  if(!deletados.includes(id)) deletados.push(id);
+  localStorage.setItem('mapas_deletados',JSON.stringify(deletados));
+  
   if(typeof pfSyncPush==='function')pfSyncPush(['mapas_lista_v1']);
 }
 
@@ -27559,7 +27568,7 @@ mapaSalvarNaLista = function(estado){
   _origMapaSalvarNaLista(estado);
 };
 
-// Override mapaRender removido (v115.394) — essa versão antiga nunca chamava o hub novo
+// Override mapaRender removido (v115.395) — essa versão antiga nunca chamava o hub novo
 // (Etapa 1/Etapa 2 + Mapas em andamento), ficava sempre travada nessa lista velha.
 
 // ════════════════════════════════════════════════════════════════
@@ -27663,7 +27672,7 @@ mapaLerImagem = async function(input){
   }
 };
 
-// Override mapaRender removido (v115.394) — era esse aqui que ficava ativo de verdade e usava
+// Override mapaRender removido (v115.395) — era esse aqui que ficava ativo de verdade e usava
 // confirm() nativo do navegador (mapaExcluirConfirm/_safeConfirm) pra excluir mapa. Removido pra
 // o hub novo (Etapa 1/Etapa 2 + Mapas em andamento, com modal pfConfirm de exclusão) ser o único.
 

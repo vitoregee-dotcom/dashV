@@ -590,7 +590,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.410</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.411</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -709,7 +709,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.410</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.411</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -17896,7 +17896,7 @@ function carregarHistorico(){
   try{return JSON.parse(localStorage.getItem(HIST_KEY)||"[]");}
   catch(e){return[];}
 }
-// (removido v115.410: código morto que gravava na tabela legada "historico_analises" —
+// (removido v115.411: código morto que gravava na tabela legada "historico_analises" —
 // nunca era executado de fato, pois essa função era sobrescrita pela versão local-only abaixo.
 // Tabela "historico_analises" continua existindo no Supabase com RLS desabilitado — ver aviso.)
 async function carregarHistorico(){
@@ -26338,23 +26338,59 @@ var PF_SYNC_KEYS = [
 ];
 
 async function pfSyncPush(keys){
-  if(typeof sbUser==='undefined'||!sbUser||!sbUser.id)return;
+  if(typeof sbUser==='undefined'||!sbUser||!sbUser.id){
+    console.warn('pfSyncPush: Usuário não logado');
+    return;
+  }
   keys = keys || PF_SYNC_KEYS;
+  var syncCount = 0;
+  var erros = [];
+  
   try{
     for(var i=0;i<keys.length;i++){
       var chave=keys[i];
       var raw=localStorage.getItem(chave);
-      if(raw===null)continue;
+      if(raw===null){
+        console.log('pfSyncPush: ' + chave + ' não encontrado localmente');
+        continue;
+      }
+      
       var dados;
       try{dados=JSON.parse(raw);}catch(e){dados=raw;}
-      if(typeof sbUser==='undefined'||!sbUser||!sbUser.id)return;
-      await sbFetch('/rest/v1/user_sync?on_conflict=user_id,chave',{
-        method:'POST',
-        headers:{'Prefer':'resolution=merge-duplicates'},
-        body:JSON.stringify({user_id:sbUser.id,chave:chave,dados:dados,updated_at:new Date().toISOString()})
-      });
+      
+      if(typeof sbUser==='undefined'||!sbUser||!sbUser.id){
+        console.warn('pfSyncPush: Usuário desconectou durante sync');
+        return;
+      }
+      
+      try{
+        var response = await sbFetch('/rest/v1/user_sync?on_conflict=user_id,chave',{
+          method:'POST',
+          headers:{'Prefer':'resolution=merge-duplicates'},
+          body:JSON.stringify({user_id:sbUser.id,chave:chave,dados:raw,updated_at:new Date().toISOString()})
+        });
+        
+        if(!response.ok){
+          var errText = await response.text();
+          erros.push(chave + ': ' + response.status + ' ' + errText);
+          console.error('pfSyncPush FALHOU:', chave, response.status, errText);
+        }else{
+          syncCount++;
+          console.log('✅ Sincronizado: ' + chave);
+        }
+      }catch(eSync){
+        erros.push(chave + ': ' + eSync.message);
+        console.error('pfSyncPush erro ao enviar ' + chave + ':', eSync);
+      }
     }
-  }catch(e){console.warn('pfSyncPush erro:',e);}
+    
+    console.log('📊 pfSyncPush completo: ' + syncCount + ' OK, ' + erros.length + ' erros');
+    if(erros.length > 0){
+      console.error('Erros de sincronização:', erros);
+    }
+  }catch(e){
+    console.error('pfSyncPush erro geral:',e);
+  }
 }
 
 // Faz merge seguro entre o valor local e o que veio do Supabase, pra nunca perder
@@ -27637,7 +27673,7 @@ mapaSalvarNaLista = function(estado){
   _origMapaSalvarNaLista(estado);
 };
 
-// Override mapaRender removido (v115.410) — essa versão antiga nunca chamava o hub novo
+// Override mapaRender removido (v115.411) — essa versão antiga nunca chamava o hub novo
 // (Etapa 1/Etapa 2 + Mapas em andamento), ficava sempre travada nessa lista velha.
 
 // ════════════════════════════════════════════════════════════════
@@ -27741,7 +27777,7 @@ mapaLerImagem = async function(input){
   }
 };
 
-// Override mapaRender removido (v115.410) — era esse aqui que ficava ativo de verdade e usava
+// Override mapaRender removido (v115.411) — era esse aqui que ficava ativo de verdade e usava
 // confirm() nativo do navegador (mapaExcluirConfirm/_safeConfirm) pra excluir mapa. Removido pra
 // o hub novo (Etapa 1/Etapa 2 + Mapas em andamento, com modal pfConfirm de exclusão) ser o único.
 

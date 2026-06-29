@@ -589,7 +589,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.376</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.377</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -708,7 +708,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.376</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.377</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -17895,7 +17895,7 @@ function carregarHistorico(){
   try{return JSON.parse(localStorage.getItem(HIST_KEY)||"[]");}
   catch(e){return[];}
 }
-// (removido v115.376: código morto que gravava na tabela legada "historico_analises" —
+// (removido v115.377: código morto que gravava na tabela legada "historico_analises" —
 // nunca era executado de fato, pois essa função era sobrescrita pela versão local-only abaixo.
 // Tabela "historico_analises" continua existindo no Supabase com RLS desabilitado — ver aviso.)
 async function carregarHistorico(){
@@ -21041,6 +21041,26 @@ var LINHAS=[
 ];
 function idLinha(ref){var r=(ref||'').toUpperCase();for(var i=0;i<LINHAS.length;i++){try{if(LINHAS[i].t(r))return LINHAS[i];}catch(e){}}return{l:'GENÉRICO',c:'#607080',b:'#F0F2F4'};}
 
+function mapaProximoNumeroSolic(){
+  var maior=0;
+  solicLoad().forEach(function(s){
+    var n=parseInt((s.numero||'').replace(/\D/g,''),10);
+    if(!isNaN(n)&&n>maior)maior=n;
+  });
+  return maior+1;
+}
+
+function mapaProximoNumeroMapa(){
+  var maior=0;
+  solicLoad().forEach(function(s){
+    if(s.numeroMapa){
+      var n=parseInt((s.numeroMapa||'').replace(/\D/g,''),10);
+      if(!isNaN(n)&&n>maior)maior=n;
+    }
+  });
+  return maior+1;
+}
+
 // Global nav style helper
 function setNavStyles(active){
   var B='padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;border:1.5px solid rgba(255,255,255,.3);display:inline-flex;align-items:center;gap:6px;';
@@ -21261,17 +21281,20 @@ function mapaTogForn(key,fid,idx){
         if(!solicMapa){
           // Criar Solicitação MAPA principal
           var novoId='sol_mapaMaster_'+Date.now();
-          var numero='SOL-MAPA-'+Date.now().toString().slice(-6);
+          var numero='SOL-'+String(mapaProximoNumeroSolic()).padStart(5,'0');
+          var numeroMapa='MAPA-'+String(mapaProximoNumeroMapa()).padStart(4,'0');
           solicMapa={
             id:novoId,
             numero:numero,
+            numeroMapa:numeroMapa,
             fornecedor:'MAPA DE COMPRAS',
             itens:[],
             data:Date.now(),
             status:'⏳ Pendente',
             mapa:true,
             mapaMaster:true,
-            fornecedoresMap:{}
+            fornecedoresMap:{},
+            usuarioCriacaco:sbProfile&&sbProfile.nome?sbProfile.nome:(sbUser&&sbUser.email?sbUser.email:'Usuário')
           };
           list.push(solicMapa);
         }
@@ -27345,7 +27368,7 @@ mapaSalvarNaLista = function(estado){
   _origMapaSalvarNaLista(estado);
 };
 
-// Override mapaRender removido (v115.376) — essa versão antiga nunca chamava o hub novo
+// Override mapaRender removido (v115.377) — essa versão antiga nunca chamava o hub novo
 // (Etapa 1/Etapa 2 + Mapas em andamento), ficava sempre travada nessa lista velha.
 
 // ════════════════════════════════════════════════════════════════
@@ -27449,7 +27472,7 @@ mapaLerImagem = async function(input){
   }
 };
 
-// Override mapaRender removido (v115.376) — era esse aqui que ficava ativo de verdade e usava
+// Override mapaRender removido (v115.377) — era esse aqui que ficava ativo de verdade e usava
 // confirm() nativo do navegador (mapaExcluirConfirm/_safeConfirm) pra excluir mapa. Removido pra
 // o hub novo (Etapa 1/Etapa 2 + Mapas em andamento, com modal pfConfirm de exclusão) ser o único.
 
@@ -30438,18 +30461,18 @@ function solicRender(){
       if(s.mapaMaster===true){
         var isExpanded=s._expanded||false;
         var statusBadge='<span style="font-size:11px;padding:3px 8px;border-radius:4px;font-weight:700;background:#FAEEDA;color:#854F0B">⏳</span>';
-        html+='<div style="padding:8px 12px;border-bottom:1px solid #f0f4f8;background:#F5F9FF;display:flex;align-items:center;gap:8px;flex-wrap:nowrap">';
+        html+='<div style="padding:10px 12px;border-bottom:1px solid #f0f4f8;background:#F5F9FF;display:flex;align-items:center;gap:8px;flex-wrap:nowrap">';
         html+='<span style="font-size:16px;transition:transform .2s;flex-shrink:0;cursor:pointer" onclick="solicToggleExpand(\''+s.id+'\')">'+(isExpanded?'▼':'▶')+'</span>';
-        html+='<span style="font-size:11px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 8px;border-radius:4px;flex-shrink:0">'+pfEscHtml(s.numero)+'</span>';
-        html+='<b style="color:#7B2D8B;font-size:13px;flex-shrink:0">🗂️ MAPA</b>';
-        html+='<span style="font-size:11px;color:#1a2332;flex-shrink:0;font-weight:600">'+s.itens.length+'it</span>';
-        html+='<span style="font-size:11px;color:#8a9ab0;flex-shrink:0">'+dt.toLocaleDateString('pt-BR').split('/').slice(0,2).join('/')+'</span>';
-        if(s.usuarioCriacaco)html+='<span style="font-size:11px;color:#8a9ab0;flex-shrink:0">Por: '+pfEscHtml(s.usuarioCriacaco)+'</span>';
+        html+='<span style="font-size:12px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 8px;border-radius:4px;flex-shrink:0">'+pfEscHtml(s.numero)+'</span>';
+        html+='<b style="color:#7B2D8B;font-size:14px;flex-shrink:0">🗂️ MAPA #'+(s.numeroMapa?s.numeroMapa.replace('MAPA-',''):'0001')+'</b>';
+        html+='<span style="font-size:12px;color:#1a2332;flex-shrink:0;font-weight:600">'+s.itens.length+'it</span>';
+        html+='<span style="font-size:12px;color:#8a9ab0;flex-shrink:0">'+dt.toLocaleDateString('pt-BR').split('/').slice(0,2).join('/')+'</span>';
+        if(s.usuarioCriacaco)html+='<span style="font-size:12px;color:#8a9ab0;flex-shrink:0">Por: '+pfEscHtml(s.usuarioCriacaco)+'</span>';
         html+=statusBadge;
         html+='<div style="flex:1"></div>';
         html+='<div style="display:flex;gap:6px;flex-shrink:0">';
-        html+='<button ontouchstart="" onclick="solicVerItens(\''+s.id.replace(/'/g,"\\\'")+'\')" style="font-size:12px;padding:6px 14px;background:none;border:1px solid #607080;border-radius:6px;color:#607080;cursor:pointer;white-space:nowrap;font-weight:500">Ver itens</button>';
-        if(s.mapaOrigem)html+='<button ontouchstart="" onclick="solicAbrirMapaOrigem(\''+s.mapaOrigem.replace(/'/g,"\\\'")+'\')" style="font-size:12px;padding:6px 14px;background:none;border:1px solid #FF9500;border-radius:6px;color:#FF9500;cursor:pointer;font-weight:600;white-space:nowrap">✏️ Editar</button>';
+        html+='<button ontouchstart="" onclick="solicVerItens(\''+s.id.replace(/'/g,"\\\'")+'\')" style="font-size:13px;padding:6px 14px;background:none;border:1px solid #607080;border-radius:6px;color:#607080;cursor:pointer;white-space:nowrap;font-weight:500">Ver itens</button>';
+        if(s.mapaOrigem)html+='<button ontouchstart="" onclick="solicAbrirMapaOrigem(\''+s.mapaOrigem.replace(/'/g,"\\\'")+'\')" style="font-size:13px;padding:6px 14px;background:none;border:1px solid #FF9500;border-radius:6px;color:#FF9500;cursor:pointer;font-weight:600;white-space:nowrap">✏️ Editar</button>';
         html+='<button ontouchstart="" onclick="solicExcluir(\''+s.id.replace(/'/g,"\\\'")+'\')" style="font-size:14px;padding:4px 8px;background:none;border:none;color:#C00000;cursor:pointer">×</button>';
         html+='</div>';
         html+='</div>';

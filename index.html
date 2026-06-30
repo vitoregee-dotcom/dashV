@@ -590,7 +590,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.442</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.450</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -709,7 +709,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.442</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.450</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -17896,7 +17896,7 @@ function carregarHistorico(){
   try{return JSON.parse(localStorage.getItem(HIST_KEY)||"[]");}
   catch(e){return[];}
 }
-// (removido v115.442: código morto que gravava na tabela legada "historico_analises" —
+// (removido v115.450: código morto que gravava na tabela legada "historico_analises" —
 // nunca era executado de fato, pois essa função era sobrescrita pela versão local-only abaixo.
 // Tabela "historico_analises" continua existindo no Supabase com RLS desabilitado — ver aviso.)
 async function carregarHistorico(){
@@ -27972,7 +27972,7 @@ mapaSalvarNaLista = function(estado){
   _origMapaSalvarNaLista(estado);
 };
 
-// Override mapaRender removido (v115.442) — essa versão antiga nunca chamava o hub novo
+// Override mapaRender removido (v115.450) — essa versão antiga nunca chamava o hub novo
 // (Etapa 1/Etapa 2 + Mapas em andamento), ficava sempre travada nessa lista velha.
 
 // ════════════════════════════════════════════════════════════════
@@ -28076,7 +28076,7 @@ mapaLerImagem = async function(input){
   }
 };
 
-// Override mapaRender removido (v115.442) — era esse aqui que ficava ativo de verdade e usava
+// Override mapaRender removido (v115.450) — era esse aqui que ficava ativo de verdade e usava
 // confirm() nativo do navegador (mapaExcluirConfirm/_safeConfirm) pra excluir mapa. Removido pra
 // o hub novo (Etapa 1/Etapa 2 + Mapas em andamento, com modal pfConfirm de exclusão) ser o único.
 
@@ -28718,6 +28718,18 @@ function vendasRenderCotacao(el){
     '<div><div style="font-size:16px;font-weight:800;color:#1F4E79">&#128722; Nova venda</div>'+
     '<div style="font-size:12px;color:#8a9ab0;margin-top:2px">#'+v.nr+' &nbsp;&middot;&nbsp; '+hoje+'</div></div>'+
     '<div style="display:flex;gap:8px">'+
+    (function(){
+      // ✅ Procurar se tem mapa vinculado a essa venda
+      var mapasLista = JSON.parse(localStorage.getItem('mapas_lista_v1')||'[]');
+      var mapaVinculado = mapasLista.find(function(m){
+        var estado = JSON.parse(localStorage.getItem('mapa_estado_'+m.id)||'{}');
+        return estado.vendaOrigem === 'venda_rascunho';
+      });
+      if(mapaVinculado){
+        return '<button onclick="mapaCarregar(\''+mapaVinculado.id+'\'); pfNavigate(\'mapa\')" style="background:#FF9800;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-weight:600">📍 Editar Mapa</button>';
+      }
+      return '';
+    }())+
     '<button onclick="vendasSalvar()" style="background:none;border:1px solid #e0e8f0;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;color:#607080">Rascunho</button>'+
     '<button onclick="vendasFinalizar()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">Salvar</button>'+
     '<button onclick="window._vendasMinimized=true;vendasRenderTabs();" style="background:none;border:1.5px solid #1F4E79;color:#1F4E79;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer">— Minimizar</button>'+
@@ -29938,6 +29950,70 @@ function pvSetEntregaTipo(tipo){
   if(tw)tw.style.display=tipo==='Transportadora'?'block':'none';
 }
 
+function pvGerarSolicitacaoAutomatica(pedido, venda){
+  // Buscar se tem mapa vinculado
+  var mapasLista = JSON.parse(localStorage.getItem('mapas_lista_v1')||'[]');
+  var mapasVinculados = mapasLista.filter(function(m){
+    var estado = JSON.parse(localStorage.getItem('mapa_estado_'+m.id)||'{}');
+    return estado.vendaOrigem === 'venda_rascunho';
+  });
+  
+  if(!mapasVinculados.length){
+    console.log('ℹ️ Nenhum mapa vinculado - solicitação não gerada automaticamente');
+    return;
+  }
+  
+  var mapa = mapasVinculados[0]; // Usar primeiro mapa vinculado
+  var estado = JSON.parse(localStorage.getItem('mapa_estado_'+mapa.id)||'{}');
+  var itensMapa = estado.itens || [];
+  
+  if(!itensMapa.length){
+    console.log('ℹ️ Mapa sem itens');
+    return;
+  }
+  
+  // Gerar Solicitação com itens do mapa
+  var listaSol = solicLoad();
+  var proximoNum = 1;
+  listaSol.forEach(function(s){
+    if(s.numero){
+      var num = parseInt(s.numero.replace('SOL-','')) || 0;
+      if(num >= proximoNum) proximoNum = num + 1;
+    }
+  });
+  var numeroSol = 'SOL-' + String(proximoNum).padStart(4,'0');
+  
+  var solicitacao = {
+    id: 'sol_' + Date.now(),
+    numero: numeroSol,
+    titulo: 'Solicitação VENDA CASADA - Pedido '+pedido.numero,
+    data: Date.now(),
+    status: 'Pendente',
+    vendaCasada: true,
+    numeroPedido: pedido.numero,
+    mapaId: mapa.id,
+    clienteNome: (venda.cliente && venda.cliente.razao) || pedido.clienteRazao,
+    itens: itensMapa.map(function(it){
+      return {
+        ref: it.ref,
+        codigoOriginal: it.codigoOriginal || it.ref,
+        desc: it.desc,
+        marca: it.marca,
+        qtd: it.qtd,
+        urgente: it.urgente || false
+      };
+    }),
+    fornecedores: {}
+  };
+  
+  // Salvar solicitação
+  listaSol.push(solicitacao);
+  localStorage.setItem('solicitacoes_compras_v1', JSON.stringify(listaSol));
+  
+  console.log('✅ Solicitação '+numeroSol+' gerada automaticamente (VENDA CASADA - Pedido '+pedido.numero+')');
+  if(typeof pfSyncPush==='function') pfSyncPush(['solicitacoes_compras_v1']);
+}
+
 function pvConfirmarCriarPedido(){
   var itensSel=window._pvItensPendentes;
   if(!itensSel||!itensSel.length)return;
@@ -29993,6 +30069,12 @@ function pvConfirmarCriarPedido(){
   window._pvItensPendentes=null;
   window._pvEntregaTipo=null;
   var modal=document.getElementById('pvConfirmModal');if(modal)modal.remove();
+  
+  // ✅ GERAR SOLICITAÇÃO DE COMPRA AUTOMATICAMENTE
+  if(typeof pvGerarSolicitacaoAutomatica==='function'){
+    pvGerarSolicitacaoAutomatica(pedido, v);
+  }
+  
   pfAlert('Pedido '+numero+' criado e saldo abatido.');
   vendasRefresh();
 }

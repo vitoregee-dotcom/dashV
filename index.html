@@ -26707,10 +26707,14 @@ async function pfSyncPush(keys){
       }
       
       try{
+        // Cadastros e solicitações são compartilhados entre usuários
+        var sharedKeys = ['cad_fornecedores_v1', 'cad_solicitacoes_compras_v1'];
+        var userId = sharedKeys.includes(chave) ? 'shared' : sbUser.id;
+        
         var response = await sbFetch('/rest/v1/user_sync?on_conflict=user_id,chave',{
           method:'POST',
           headers:{'Prefer':'resolution=merge-duplicates'},
-          body:JSON.stringify({user_id:sbUser.id,chave:chave,dados:raw,updated_at:new Date().toISOString()})
+          body:JSON.stringify({user_id:userId,chave:chave,dados:raw,updated_at:new Date().toISOString()})
         });
         
         if(!response.ok){
@@ -26771,9 +26775,24 @@ function pfMergeSyncValue(localRaw, remoteRaw){
 async function pfSyncPull(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   try{
-    var r=await sbFetch('/rest/v1/user_sync?user_id=eq.'+sbUser.id+'&select=chave,dados,updated_at');
-    if(!r.ok)return;
-    var rows=await r.json();
+    // Buscar dados do usuário + dados compartilhados
+    var userQuery = '/rest/v1/user_sync?user_id=eq.'+sbUser.id+'&select=chave,dados,updated_at';
+    var sharedQuery = '/rest/v1/user_sync?user_id=eq.shared&select=chave,dados,updated_at';
+    
+    var [rUser, rShared] = await Promise.all([sbFetch(userQuery), sbFetch(sharedQuery)]);
+    
+    if(!rUser.ok && !rShared.ok)return;
+    
+    var rows = [];
+    if(rUser.ok){
+      var userRows = await rUser.json();
+      if(userRows && userRows.length) rows = rows.concat(userRows);
+    }
+    if(rShared.ok){
+      var sharedRows = await rShared.json();
+      if(sharedRows && sharedRows.length) rows = rows.concat(sharedRows);
+    }
+    
     if(!rows||!rows.length)return;
     rows.forEach(function(row){
       try{

@@ -590,7 +590,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.439</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.440</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -709,7 +709,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.439</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.440</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -17896,7 +17896,7 @@ function carregarHistorico(){
   try{return JSON.parse(localStorage.getItem(HIST_KEY)||"[]");}
   catch(e){return[];}
 }
-// (removido v115.439: código morto que gravava na tabela legada "historico_analises" —
+// (removido v115.440: código morto que gravava na tabela legada "historico_analises" —
 // nunca era executado de fato, pois essa função era sobrescrita pela versão local-only abaixo.
 // Tabela "historico_analises" continua existindo no Supabase com RLS desabilitado — ver aviso.)
 async function carregarHistorico(){
@@ -22625,6 +22625,97 @@ function mapaGerarSolicitacao(){
   );
 }
 
+
+// ✅ DEVOLVER ITENS PARA COTAÇÃO ORIGINAL COM MARGEM DE VENDA
+function mapaDevolverParaCotacao(){
+  // Verificar se mapa está vinculado a uma venda
+  var vendaOrigem = window._mapaEstado && window._mapaEstado.vendaOrigem;
+  if(!vendaOrigem){
+    pfAlert('❌ Este mapa não está vinculado a uma cotação!');
+    return;
+  }
+  
+  // Coletar itens decididos com preços
+  var itensDevolucao = [];
+  Object.keys(mapaDecisoes).forEach(function(keyComFornecedor){
+    var decKey = mapaDecisoes[keyComFornecedor];
+    var parts = decKey.split('||');
+    var ref = parts[0];
+    var marca = parts[1] || '';
+    var fid = parts[2];
+    
+    var it = mapaItens.find(function(x){return x.ref === ref && (x.marca || '') === marca;});
+    if(!it) return;
+    
+    var keyQtd = keyComFornecedor;
+    var qtdDecidida = mapaQtdDecidida[keyQtd] || it.qtd;
+    
+    var pk = keyComFornecedor;
+    var precoDecidido = mapaPrecoDecidido[pk] || {};
+    var custo = precoDecidido.custo || 0;
+    
+    // ✅ PEGAR MARGEM DE VENDA (window._mapaMargemVenda)
+    var margem = (window._mapaMargemVenda || 0);
+    var precoVenda = custo * (1 + margem/100);
+    
+    itensDevolucao.push({
+      codigo: ref,
+      codigoOriginal: ref,
+      desc: it.desc,
+      marca: marca,
+      qtd: qtdDecidida,
+      saldo: 0,  // Força como negativo
+      precoVenda: precoVenda,
+      custo: custo,
+      margem: margem
+    });
+  });
+  
+  if(!itensDevolucao.length){
+    pfAlert('❌ Nenhum item decidido ainda!');
+    return;
+  }
+  
+  // Carregar cotação original
+  if(vendaOrigem === 'venda_rascunho'){
+    // Venda rascunho local
+    if(!window._venda){
+      pfAlert('❌ Cotação original não encontrada!');
+      return;
+    }
+    var venda = window._venda;
+  } else {
+    pfAlert('⚠️ Funcionalidade de vincular a venda persistida ainda não implementada');
+    return;
+  }
+  
+  // Adicionar itens à cotação original
+  itensDevolucao.forEach(function(it){
+    // Verificar se item já existe
+    var existe = venda.itens.find(function(x){return x.codigo === it.codigo && (x.marca || '') === it.marca;});
+    if(existe){
+      // Atualizar: margem + preço venda
+      existe.margem = it.margem;
+      existe.precoVenda = it.precoVenda;
+    } else {
+      // Adicionar novo
+      venda.itens.push(it);
+    }
+  });
+  
+  // Salvar cotação
+  vendasSalvar();
+  
+  // Sucesso!
+  var msg = '✅ '+itensDevolucao.length+' itens adicionados à cotação!\n\n';
+  msg += 'Preços com margem de '+window._mapaMargemVenda+'% já preenchidos.\n';
+  msg += 'Agora você pode emitir o Pedido de Venda.';
+  pfAlert(msg);
+  
+  // Voltar pra cotação
+  pfNavigate('vendas');
+}
+
 function mapaStep4(el){
   var flist = typeof cotFornecedores!=='undefined' ? cotFornecedores : [];
 
@@ -22858,6 +22949,7 @@ function mapaStep4(el){
   }
   html+='</div>';
   html+='<button onclick="mapaGoStep(3)" style="background:none;border:1.5px solid #e0e8f0;color:#1F4E79;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:13px">← Voltar</button>';
+  html+='<button onclick="mapaDevolverParaCotacao()" style="background:#FF9800;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:13px;font-weight:700">📤 Devolver para Cotação</button>';
   html+='<button onclick="mapaGerarSolicitacao()" style="background:#27AE60;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:13px;font-weight:700">📋 Gerar Solicitação →</button>';
   html+='</div>';
   el.innerHTML=html;
@@ -27879,7 +27971,7 @@ mapaSalvarNaLista = function(estado){
   _origMapaSalvarNaLista(estado);
 };
 
-// Override mapaRender removido (v115.439) — essa versão antiga nunca chamava o hub novo
+// Override mapaRender removido (v115.440) — essa versão antiga nunca chamava o hub novo
 // (Etapa 1/Etapa 2 + Mapas em andamento), ficava sempre travada nessa lista velha.
 
 // ════════════════════════════════════════════════════════════════
@@ -27983,7 +28075,7 @@ mapaLerImagem = async function(input){
   }
 };
 
-// Override mapaRender removido (v115.439) — era esse aqui que ficava ativo de verdade e usava
+// Override mapaRender removido (v115.440) — era esse aqui que ficava ativo de verdade e usava
 // confirm() nativo do navegador (mapaExcluirConfirm/_safeConfirm) pra excluir mapa. Removido pra
 // o hub novo (Etapa 1/Etapa 2 + Mapas em andamento, com modal pfConfirm de exclusão) ser o único.
 

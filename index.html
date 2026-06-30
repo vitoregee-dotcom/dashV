@@ -26707,14 +26707,10 @@ async function pfSyncPush(keys){
       }
       
       try{
-        // Cadastros e solicitações são compartilhados entre usuários
-        var sharedKeys = ['cad_fornecedores_v1', 'cad_solicitacoes_compras_v1'];
-        var userId = sharedKeys.includes(chave) ? '00000000-0000-0000-0000-000000000000' : sbUser.id;
-        
         var response = await sbFetch('/rest/v1/user_sync?on_conflict=user_id,chave',{
           method:'POST',
           headers:{'Prefer':'resolution=merge-duplicates'},
-          body:JSON.stringify({user_id:userId,chave:chave,dados:raw,updated_at:new Date().toISOString()})
+          body:JSON.stringify({user_id:sbUser.id,chave:chave,dados:raw,updated_at:new Date().toISOString()})
         });
         
         if(!response.ok){
@@ -26775,22 +26771,34 @@ function pfMergeSyncValue(localRaw, remoteRaw){
 async function pfSyncPull(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   try{
-    // Buscar dados do usuário + dados compartilhados (UUID zero)
-    var userQuery = '/rest/v1/user_sync?user_id=eq.'+sbUser.id+'&select=chave,dados,updated_at';
-    var sharedQuery = '/rest/v1/user_sync?user_id=eq.00000000-0000-0000-0000-000000000000&select=chave,dados,updated_at';
-    
-    var [rUser, rShared] = await Promise.all([sbFetch(userQuery), sbFetch(sharedQuery)]);
-    
-    if(!rUser.ok && !rShared.ok)return;
+    // Chaves compartilhadas entre usuários — puxar de TODOS os usuários
+    var sharedKeys = ['cad_fornecedores_v1', 'cad_solicitacoes_compras_v1'];
     
     var rows = [];
+    
+    // 1. Puxar dados do próprio usuário (não-compartilhados)
+    var rUser = await sbFetch('/rest/v1/user_sync?user_id=eq.'+sbUser.id+'&select=chave,dados,updated_at');
     if(rUser.ok){
       var userRows = await rUser.json();
-      if(userRows && userRows.length) rows = rows.concat(userRows);
+      if(userRows && userRows.length){
+        userRows.forEach(r => {
+          // Incluir dados do próprio usuário (compartilhados ou não)
+          rows.push(r);
+        });
+      }
     }
-    if(rShared.ok){
-      var sharedRows = await rShared.json();
-      if(sharedRows && sharedRows.length) rows = rows.concat(sharedRows);
+    
+    // 2. Puxar dados compartilhados de TODOS os usuários
+    for(var sk of sharedKeys){
+      var rShared = await sbFetch('/rest/v1/user_sync?chave=eq.'+sk+'&select=chave,dados,updated_at,user_id');
+      if(rShared.ok){
+        var sharedRows = await rShared.json();
+        if(sharedRows && sharedRows.length){
+          // Pegar o mais recente
+          var latest = sharedRows.sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at))[0];
+          if(latest && !rows.some(r=>r.chave===latest.chave)) rows.push(latest);
+        }
+      }
     }
     
     if(!rows||!rows.length)return;

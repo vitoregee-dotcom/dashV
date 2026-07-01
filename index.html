@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.480 - Dashboard: renderizacao visual (tabela/KPIs/graficos) dos 207k itens agora so roda quando a tela do Dashboard e realmente aberta, em vez de sempre no login. O calculo (recalc) continua rodando em segundo plano no login normalmente, para que Me Avise e Oportunidades continuem funcionando em dia. -->
+<!-- v115.481 - Cadastro/Reativacao: referencias comerciais agora sao dinamicas. A IA extrai quantas referencias existirem no documento (nao mais limitado a 3), e a tela ganha botao "+ Adicionar referencia" para incluir mais manualmente, com botao de remover por linha. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.480</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.481</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.480</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.481</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -32181,7 +32181,7 @@ function condPgtoOutlook(){
 function ferrCadastroReativ(){
   var el=document.getElementById('ferrBody');if(!el)return;
   window._cadReativStep='upload';
-  window._cadReativData={contato_nome:'',contato_email:'',contato_whatsapp:'',telefone_fixo:'',como_conheceu:'',telefone_financeiro:'',nome_financeiro:'',email_financeiro:'',email_nfe:'',ref1_nome:'',ref1_tel:'',ref2_nome:'',ref2_tel:'',ref3_nome:'',ref3_tel:'',regime:''};
+  window._cadReativData={contato_nome:'',contato_email:'',contato_whatsapp:'',telefone_fixo:'',como_conheceu:'',telefone_financeiro:'',nome_financeiro:'',email_financeiro:'',email_nfe:'',regime:'',refs:[{nome:'',tel:''},{nome:'',tel:''},{nome:'',tel:''}]};
   window._cadReativCondicao='';window._cadReativValor='';
   function render(){
     var d=window._cadReativData;
@@ -32222,6 +32222,21 @@ function ferrCadastroReativ(){
       var miss=[];
       var req=[['contato_nome','Nome do Comprador'],['contato_email','E-mail do Comprador'],['contato_whatsapp','WhatsApp'],['telefone_financeiro','Tel. Financeiro'],['nome_financeiro','Nome Resp. Financeiro'],['email_financeiro','E-mail Financeiro'],['email_nfe','E-mail NF-e'],['regime','Regime Tributario']];
       req.forEach(function(r){if(!d[r[0]])miss.push(r[1]);});
+      function refField(label,key,idx){
+        var v=((d.refs[idx]||{})[key]||'').replace(/"/g,'&quot;');
+        return '<div style="display:flex;flex-direction:column;gap:4px">'+
+          '<label style="font-size:10px;font-weight:700;color:#607080;text-transform:uppercase;letter-spacing:.04em">'+label+'</label>'+
+          '<input value="'+v+'" oninput="cadReativSetRefField('+idx+',\''+key+'\',this.value)" style="padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:13px;color:#1a2332;outline:none" onfocus="this.style.borderColor=\'#7B2D8B\'" onblur="this.style.borderColor=\'#e0e8f0\'">'+
+          '</div>';
+      }
+      if(!d.refs||!d.refs.length)d.refs=[{nome:'',tel:''},{nome:'',tel:''},{nome:'',tel:''}];
+      var refsHtml=d.refs.map(function(r,idx){
+        return '<div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end">'+
+          refField('Ref. '+(idx+1)+' - Nome','nome',idx)+refField('Ref. '+(idx+1)+' - Tel','tel',idx)+
+          (d.refs.length>1?'<button onclick="cadReativRemRef('+idx+')" title="Remover" style="height:36px;width:36px;border:1.5px solid #e0e8f0;background:#fff;color:#C00000;border-radius:7px;cursor:pointer;font-size:16px;line-height:1">&times;</button>':'<span></span>')+
+          '</div>';
+      }).join('')+
+      '<div style="grid-column:1/-1"><button onclick="cadReativAddRef()" style="padding:7px 14px;border:1.5px dashed #7B2D8B;background:#F3E8F7;color:#7B2D8B;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">&#10133; Adicionar refer&#234;ncia</button></div>';
       html+='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:20px;margin-bottom:16px">';
       if(miss.length){
         html+='<div style="background:#FFF5F5;border:1px solid #C00000;border-radius:8px;padding:10px 14px;margin-bottom:16px">'+
@@ -32235,9 +32250,7 @@ function ferrCadastroReativ(){
         field('Como Conheceu a Triex?','como_conheceu',true)+
         field('Tel. Financeiro','telefone_financeiro')+field('Nome Resp. Financeiro','nome_financeiro')+
         field('E-mail Financeiro','email_financeiro')+field('E-mail NF-e','email_nfe',true)+
-        '<div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px">'+field('Ref. 1 - Nome','ref1_nome')+field('Ref. 1 - Tel','ref1_tel')+'</div>'+
-        '<div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px">'+field('Ref. 2 - Nome','ref2_nome')+field('Ref. 2 - Tel','ref2_tel')+'</div>'+
-        '<div style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px">'+field('Ref. 3 - Nome','ref3_nome')+field('Ref. 3 - Tel','ref3_tel')+'</div>'+
+        refsHtml+
         '</div>'+
         '<div style="margin-bottom:14px"><div style="font-size:10px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:8px">Regime Tributario</div>'+
         '<div style="display:flex;flex-wrap:wrap;gap:8px">'+
@@ -32267,9 +32280,7 @@ function ferrCadastroReativ(){
         'NOME DO RESPONSAVEL DO FINANCEIRO: '+d.nome_financeiro+'\n'+
         'E-MAIL FINANCEIRO: '+d.email_financeiro+'\n'+
         'E-MAIL DE NFE: '+d.email_nfe+'\n'+
-        'REFERENCIA COMERCIAL: '+(d.ref1_nome?(d.ref1_nome+' - '+d.ref1_tel):'(NOME E TELEFONE)')+'\n'+
-        'REFERENCIA COMERCIAL: '+(d.ref2_nome?(d.ref2_nome+' - '+d.ref2_tel):'(NOME E TELEFONE)')+'\n'+
-        'REFERENCIA COMERCIAL: '+(d.ref3_nome?(d.ref3_nome+' - '+d.ref3_tel):'(NOME E TELEFONE)')+'\n\n'+
+        (d.refs&&d.refs.length?d.refs.map(function(r){return 'REFERENCIA COMERCIAL: '+(r.nome?(r.nome+' - '+r.tel):'(NOME E TELEFONE)');}).join('\n'):'REFERENCIA COMERCIAL: (NOME E TELEFONE)\nREFERENCIA COMERCIAL: (NOME E TELEFONE)\nREFERENCIA COMERCIAL: (NOME E TELEFONE)')+'\n\n'+
         '*POR GENTILEZA, ANEXAR O CARTAO CNPJ E CONTRATO SOCIAL*\n\n'+
         '*Qual e o regime tributario da empresa?*\nMarque apenas uma opcao:\n'+regLines;
       window._cadReativScript=script;
@@ -32341,12 +32352,15 @@ async function cadReativAnalisar(){
       if(mt.startsWith('image/')){parts.push({type:'image',source:{type:'base64',media_type:mt,data:b64}});}
       else{parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});}
     }
-    parts.push({type:'text',text:'Analise os documentos cadastrais e extraia informacoes. Responda APENAS JSON sem markdown.\n{"contato_nome":"nome do comprador/contato","contato_email":"email","contato_whatsapp":"whatsapp","telefone_fixo":"tel fixo","como_conheceu":"","telefone_financeiro":"tel financeiro","nome_financeiro":"nome resp financeiro","email_financeiro":"email financeiro","email_nfe":"email nfe","ref1_nome":"","ref1_tel":"","ref2_nome":"","ref2_tel":"","ref3_nome":"","ref3_tel":"","regime":"retorne apenas o numero: 1=ME Simples,2=EPP Simples,3=Lucro Presumido,4=Lucro Estimado,5=Lucro Real,6=Outros"}'});
+    parts.push({type:'text',text:'Analise os documentos cadastrais e extraia informacoes. Responda APENAS JSON sem markdown.\n{"contato_nome":"nome do comprador/contato","contato_email":"email","contato_whatsapp":"whatsapp","telefone_fixo":"tel fixo","como_conheceu":"","telefone_financeiro":"tel financeiro","nome_financeiro":"nome resp financeiro","email_financeiro":"email financeiro","email_nfe":"email nfe","refs":[{"nome":"","tel":""}],"regime":"retorne apenas o numero: 1=ME Simples,2=EPP Simples,3=Lucro Presumido,4=Lucro Estimado,5=Lucro Real,6=Outros"}\nNo campo "refs", extraia TODAS as referencias comerciais encontradas no documento (nome + telefone de cada uma) — nao limite a 3, se o documento tiver 5, 8 ou mais referencias, inclua todas no array.'});
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:parts}]})});
     var data=await resp.json();
     var txt=data.content.map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();
     var parsed=JSON.parse(txt);
-    window._cadReativData=Object.assign({contato_nome:'',contato_email:'',contato_whatsapp:'',telefone_fixo:'',como_conheceu:'',telefone_financeiro:'',nome_financeiro:'',email_financeiro:'',email_nfe:'',ref1_nome:'',ref1_tel:'',ref2_nome:'',ref2_tel:'',ref3_nome:'',ref3_tel:'',regime:''},parsed);
+    var parsedRefs=Array.isArray(parsed.refs)&&parsed.refs.length?parsed.refs.map(function(r){return {nome:r.nome||'',tel:r.tel||r.telefone||''};}):[];
+    while(parsedRefs.length<3)parsedRefs.push({nome:'',tel:''});
+    delete parsed.refs;
+    window._cadReativData=Object.assign({contato_nome:'',contato_email:'',contato_whatsapp:'',telefone_fixo:'',como_conheceu:'',telefone_financeiro:'',nome_financeiro:'',email_financeiro:'',email_nfe:'',regime:''},parsed,{refs:parsedRefs});
     window._cadReativStep='review';
     if(window._cadReativRender)window._cadReativRender();
   }catch(e){
@@ -32357,6 +32371,26 @@ async function cadReativAnalisar(){
 function cadReativSetField(key,val){
   if(window._cadReativData)window._cadReativData[key]=val;
   if(key==='regime'&&window._cadReativRender)window._cadReativRender();
+}
+function cadReativSetRefField(idx,key,val){
+  var d=window._cadReativData;
+  if(!d)return;
+  if(!d.refs)d.refs=[];
+  if(!d.refs[idx])d.refs[idx]={nome:'',tel:''};
+  d.refs[idx][key]=val;
+}
+function cadReativAddRef(){
+  var d=window._cadReativData;
+  if(!d)return;
+  if(!d.refs)d.refs=[];
+  d.refs.push({nome:'',tel:''});
+  if(window._cadReativRender)window._cadReativRender();
+}
+function cadReativRemRef(idx){
+  var d=window._cadReativData;
+  if(!d||!d.refs||d.refs.length<=1)return;
+  d.refs.splice(idx,1);
+  if(window._cadReativRender)window._cadReativRender();
 }
 function cadReativGoUpload(){window._cadReativStep='upload';window._cadReativFiles=[];if(window._cadReativRender)window._cadReativRender();}
 function cadReativGoReview(){window._cadReativStep='review';if(window._cadReativRender)window._cadReativRender();}
@@ -33540,4 +33574,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.480 --></html>
+</script></div></div></body><!-- Build timestamp: v115.481 --></html>

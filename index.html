@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.466 - Fix: syntax error trfGerarPDF (spinner CSS duplicado quebrava JS) -->
+<!-- v115.467 - Feature: Regras IA (compatibilidade/preferência ensinada + aprendizado passivo) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.466</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.467</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.466</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.467</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -768,6 +768,12 @@ button { min-height:36px; }
       <div id="cadTabBarProdutos" style="display:flex;gap:0;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);overflow:hidden">
         <button class="cadTab" data-t="produtos" onclick="cadGoTab(&quot;produtos&quot;)" style="flex:1;padding:12px 8px;text-align:center;font-size:12px;font-weight:600;color:#8a9ab0;background:#fff;border:none;cursor:pointer;border-right:1px solid #e0e8f0">📦 Produtos</button>
         <button class="cadTab" data-t="aplicacoes" onclick="cadGoTab(&quot;aplicacoes&quot;)" style="flex:1;padding:12px 8px;text-align:center;font-size:12px;font-weight:600;color:#8a9ab0;background:#fff;border:none;cursor:pointer">🚜 Aplicações</button>
+      </div>
+    </div>
+    <div style="flex:1;min-width:260px">
+      <div style="font-size:10px;font-weight:700;color:#8a9ab0;letter-spacing:.5px;margin-bottom:6px;padding-left:4px">INTELIGÊNCIA</div>
+      <div id="cadTabBarIA" style="display:flex;gap:0;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);overflow:hidden">
+        <button class="cadTab" data-t="regras_ia" onclick="cadGoTab(&quot;regras_ia&quot;)" style="flex:1;padding:12px 8px;text-align:center;font-size:12px;font-weight:600;color:#8a9ab0;background:#fff;border:none;cursor:pointer">🤖 Regras IA</button>
       </div>
     </div>
   </div>
@@ -21351,6 +21357,23 @@ function mapaTogForn(key,fid,idx){
   }else{
     arr.push(fid);   // ADICIONA este sem limpar os outros
   }
+
+  // 🤖 Regras IA: se a pessoa escolheu manualmente um fornecedor que a compatibilidade
+  // automática NÃO sugeriu, isso é sinal de um "macete" que ela sabe e o sistema não —
+  // registra como sugestão de aprendizado (não vira regra sozinho, precisa confirmar)
+  if(marcando){
+    try{
+      var _item=mapaItens[idx];
+      if(_item&&typeof regrasIALogSugestao==='function'){
+        var _ln=_item.ln||idLinha(_item.ref);
+        var _flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
+        var _f=_flist.find(function(x){return x.id===fid;});
+        if(_f&&typeof mapaForCompativel==='function'&&!mapaForCompativel(_f,_item,_ln).match){
+          regrasIALogSugestao(_item.marca||'',_ln.l||'',fid);
+        }
+      }
+    }catch(_e){console.error('Erro ao logar sugestão de regra IA:',_e);}
+  }
   
   // Criar/Atualizar Solicitação MAPA ao marcar fornecedor
   if(marcando){
@@ -23437,6 +23460,7 @@ function cadGoTab(t){
   else if(t==='clientes')cadRenderClientes(el);
   else if(t==='produtos')cadRenderProdutosV3(el);
   else if(t==='aplicacoes')cadRenderAplicacoes(el);
+  else if(t==='regras_ia')cadRenderRegrasIA(el);
 }
 
 function cadRenderProdutosV3(el){
@@ -26726,7 +26750,9 @@ var PF_SYNC_KEYS = [
   'cad_clientes_v1',
   'cad_produtos_v1',
   'prod_aplicacoes_v1',
-  'cad_solicitacoes_compras_v1'
+  'cad_solicitacoes_compras_v1',
+  'cad_regras_ia_v1',
+  'regras_ia_sugestoes_v1'
 ];
 
 async function pfSyncPush(keys){
@@ -26821,7 +26847,7 @@ async function pfSyncPull(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   try{
     // Chaves compartilhadas entre usuários — puxar de TODOS os usuários
-    var sharedKeys = ['cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1'];
+    var sharedKeys = ['cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1'];
     
     var rows = [];
     
@@ -27764,6 +27790,23 @@ function mapaForCompativel(f, item, ln){
   var lnUp=ln.l.toUpperCase();
   if(allL.some(function(l){var lUp=l.toUpperCase();return lUp===lnUp||lnUp.includes(lUp.split('/')[0])||lUp.includes(lnUp.split('/')[0]);})){
     return {match:true,motivo:'🏭 Linha '+ln.l};
+  }
+  // Regras IA: coisas que você ensinou manualmente (ex: "marca X considera família Y")
+  if(marcaItem){
+    var _regrasAtivas=(typeof regrasIALoad==='function')?regrasIALoad().filter(function(r){return r.ativa!==false;}):[];
+    var _regraOk=_regrasAtivas.find(function(r){
+      if((r.marca||'').toUpperCase().trim()!==marcaItem)return false;
+      if(r.fornecedorPref&&r.fornecedorPref===f.id)return true;
+      if(r.familia){
+        var famUp=r.familia.toUpperCase().trim();
+        if(lnUp.includes(famUp)||famUp.includes(lnUp.split('/')[0]))return true;
+        if(allL.some(function(l){var lUp=l.toUpperCase();return lUp.includes(famUp)||famUp.includes(lUp.split('/')[0]);}))return true;
+      }
+      return false;
+    });
+    if(_regraOk){
+      return {match:true,motivo:'🤖 Regra: '+item.marca+(_regraOk.familia?' → '+_regraOk.familia:' → fornecedor preferido')};
+    }
   }
   return {match:false,motivo:''};
 }
@@ -32926,9 +32969,8 @@ function pfNavigate(view){
 }
 
 // ════════════════════════════════════════════════════════════════
-</script></div></div><deepl-input-controller translate="no"><template shadowrootmode="open"><link rel="stylesheet" href="chrome-extension://cofdbpoegempjloogbagkncekinflcnj/build/content.css"><div dir="ltr" style="visibility: initial !important;"><div class="dl-input-translation-container svelte-95aucy"><div></div></div></div></template></deepl-input-controller></body><!-- Build timestamp: 1782868987 --></html>// TEST MARKER 1782669783
 
-// ⚡ SIMPLES FIX: Fazer onclick funcionar via event delegation
+// ⚡ Fazer onclick funcionar via event delegation
 document.addEventListener('click', function(e){
   var el = e.target.closest('button[onclick], label[onclick], [onclick]');
   if(el){
@@ -32938,5 +32980,145 @@ document.addEventListener('click', function(e){
     }
   }
 }, true);
-</script></div></div></body><!-- Build timestamp: 1782868987 --></html>
-<!-- Force rebuild 1782843888 -->
+
+
+// ════════════════════════════════════════════════════════════════
+// 🤖 REGRAS IA — regras de compatibilidade/preferência ensinadas
+// manualmente + aprendizado passivo a partir das escolhas do dia a dia
+// ════════════════════════════════════════════════════════════════
+var REGRAS_IA_KEY='cad_regras_ia_v1';
+var REGRAS_IA_SUG_KEY='regras_ia_sugestoes_v1';
+
+function regrasIALoad(){return cadLoad(REGRAS_IA_KEY);}
+function regrasIASave(arr){cadSave(REGRAS_IA_KEY,arr);}
+function sugestoesIALoad(){return cadLoad(REGRAS_IA_SUG_KEY);}
+function sugestoesIASave(arr){cadSave(REGRAS_IA_SUG_KEY,arr);}
+
+// Registra que, pra essa marca+família, alguém escolheu manualmente um fornecedor
+// que a compatibilidade automática não sugeriria. Acumula contagem; não vira regra sozinho.
+function regrasIALogSugestao(marca,familia,fornecedorId){
+  marca=(marca||'').toUpperCase().trim();
+  familia=(familia||'').toUpperCase().trim();
+  if(!marca||!fornecedorId)return;
+  var lista=sugestoesIALoad();
+  var ex=lista.find(function(s){return s.marca===marca&&s.familia===familia&&s.fornecedorId===fornecedorId;});
+  if(ex){
+    ex.contagem=(ex.contagem||1)+1;
+    ex.ultimaVez=Date.now();
+  }else{
+    lista.push({id:'sug_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),marca:marca,familia:familia,fornecedorId:fornecedorId,contagem:1,primeiraVez:Date.now(),ultimaVez:Date.now()});
+  }
+  sugestoesIASave(lista);
+}
+
+function regrasIANomeForn(fid){
+  var flist=cadLoad(FORN_KEY);
+  var f=flist.find(function(x){return x.id===fid;});
+  return f?(f.fantasia||f.nome||f.razao||fid):fid;
+}
+
+function cadRenderRegrasIA(el){
+  var regras=regrasIALoad();
+  var sugestoes=sugestoesIALoad().filter(function(s){return (s.contagem||1)>=2;}).sort(function(a,b){return (b.contagem||0)-(a.contagem||0);});
+  var fornecedores=cadLoad(FORN_KEY);
+
+  var html='<div style="margin-bottom:20px">';
+  html+='<div style="font-size:13px;color:#607080;line-height:1.5;background:#EEF6FF;padding:12px 16px;border-radius:10px;margin-bottom:16px">💡 Aqui você ensina o sistema — em vez de me pedir no chat pra lembrar que "marca X considera família Y", cadastra isso uma vez e todo o Mapa de Compras passa a aplicar sozinho. O sistema também aprende sozinho: quando você escolhe manualmente um fornecedor fora do sugerido, mais de uma vez, ele aparece aqui como sugestão pra você confirmar.</div>';
+  html+='</div>';
+
+  // ── Sugestões aprendidas ──
+  if(sugestoes.length){
+    html+='<div style="margin-bottom:24px">';
+    html+='<div style="font-size:13px;font-weight:700;color:#1F4E79;margin-bottom:10px">🧠 Sugestões aprendidas ('+sugestoes.length+')</div>';
+    sugestoes.forEach(function(s){
+      html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1.5px solid #FFE0A3;border-left:4px solid #E67E22;border-radius:10px;padding:12px 16px;margin-bottom:8px">';
+      html+='<div style="font-size:13px"><b style="color:#1a2332">'+pfEscHtml(s.marca)+'</b>'+(s.familia?' · família <b>'+pfEscHtml(s.familia)+'</b>':'')+' → fornecedor <b style="color:#1F4E79">'+pfEscHtml(regrasIANomeForn(s.fornecedorId))+'</b>'+
+        '<div style="font-size:11px;color:#8a9ab0;margin-top:2px">Escolhido manualmente '+s.contagem+'x fora da sugestão automática</div></div>';
+      html+='<div style="display:flex;gap:6px;flex-shrink:0">';
+      html+='<button onclick="cadPromoverSugestaoIA(\''+s.id+'\')" style="background:#27AE60;color:#fff;border:none;border-radius:7px;padding:7px 12px;cursor:pointer;font-size:11px;font-weight:700">✅ Virar regra</button>';
+      html+='<button onclick="cadIgnorarSugestaoIA(\''+s.id+'\')" style="background:none;border:1px solid #e0e8f0;color:#8a9ab0;border-radius:7px;padding:7px 10px;cursor:pointer;font-size:11px">✖ Ignorar</button>';
+      html+='</div></div>';
+    });
+    html+='</div>';
+  }
+
+  // ── Form nova regra ──
+  html+='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:16px;margin-bottom:20px">';
+  html+='<div style="font-size:13px;font-weight:700;color:#1F4E79;margin-bottom:12px">+ Nova regra</div>';
+  html+='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">';
+  html+='<div style="flex:1;min-width:140px"><label style="font-size:10px;color:#8a9ab0;font-weight:700">MARCA</label><input id="riaMarca" type="text" placeholder="ex: CATERPILLAR" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12px;margin-top:3px"></div>';
+  html+='<div style="flex:1;min-width:140px"><label style="font-size:10px;color:#8a9ab0;font-weight:700">CONSIDERAR FAMÍLIA/LINHA (opcional)</label><input id="riaFamilia" type="text" placeholder="ex: HIDRÁULICO" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12px;margin-top:3px"></div>';
+  html+='<div style="flex:1;min-width:160px"><label style="font-size:10px;color:#8a9ab0;font-weight:700">FORNECEDOR PREFERIDO (opcional)</label><select id="riaForn" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12px;margin-top:3px"><option value="">— nenhum —</option>'+
+    fornecedores.map(function(f){return '<option value="'+f.id+'">'+pfEscHtml(f.fantasia||f.nome||f.razao||f.id)+'</option>';}).join('')+
+    '</select></div>';
+  html+='<button onclick="cadSalvarNovaRegraIA()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:12px;font-weight:700">Salvar regra</button>';
+  html+='</div>';
+  html+='<div style="font-size:11px;color:#8a9ab0;margin-top:8px">Precisa preencher pelo menos Marca + (Família ou Fornecedor preferido).</div>';
+  html+='</div>';
+
+  // ── Lista de regras ──
+  html+='<div style="font-size:13px;font-weight:700;color:#1F4E79;margin-bottom:10px">Regras cadastradas ('+regras.length+')</div>';
+  if(!regras.length){
+    html+='<div style="text-align:center;padding:40px;background:#fff;border-radius:12px;color:#8a9ab0">Nenhuma regra ainda. Cadastre acima ou promova uma sugestão aprendida.</div>';
+  }else{
+    html+='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden">';
+    regras.forEach(function(r,i){
+      var ativa=r.ativa!==false;
+      html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid #f0f4f8;opacity:'+(ativa?'1':'0.5')+'">';
+      html+='<div style="font-size:13px"><b style="color:#1a2332">'+pfEscHtml(r.marca)+'</b>'+
+        (r.familia?' · considera família <b>'+pfEscHtml(r.familia)+'</b>':'')+
+        (r.fornecedorPref?' · prioriza <b style="color:#1F4E79">'+pfEscHtml(regrasIANomeForn(r.fornecedorPref))+'</b>':'')+
+        '<div style="font-size:10px;color:#8a9ab0;margin-top:2px">'+(r.origem==='aprendida'?'🧠 aprendida':'✍️ manual')+' · '+(ativa?'ativa':'desativada')+'</div></div>';
+      html+='<div style="display:flex;gap:6px;flex-shrink:0">';
+      html+='<button onclick="cadToggleRegraIA(\''+r.id+'\')" style="background:none;border:1px solid #e0e8f0;border-radius:7px;padding:6px 10px;cursor:pointer;font-size:11px;color:#607080">'+(ativa?'Desativar':'Ativar')+'</button>';
+      html+='<button onclick="cadDelRegraIA(\''+r.id+'\')" style="background:none;border:none;cursor:pointer;color:#C00000;font-size:15px;padding:2px 6px">🗑</button>';
+      html+='</div></div>';
+    });
+    html+='</div>';
+  }
+  el.innerHTML=html;
+}
+
+function cadSalvarNovaRegraIA(){
+  var marca=(document.getElementById('riaMarca').value||'').trim();
+  var familia=(document.getElementById('riaFamilia').value||'').trim();
+  var fornecedorPref=document.getElementById('riaForn').value||'';
+  if(!marca){pfAlert('Informe a marca.');return;}
+  if(!familia&&!fornecedorPref){pfAlert('Informe pelo menos a família a considerar ou um fornecedor preferido.');return;}
+  var regras=regrasIALoad();
+  regras.push({id:'regra_'+Date.now(),marca:marca,familia:familia,fornecedorPref:fornecedorPref,ativa:true,origem:'manual',criado_em:Date.now()});
+  regrasIASave(regras);
+  cadGoTab('regras_ia');
+}
+
+function cadToggleRegraIA(id){
+  var regras=regrasIALoad();
+  var r=regras.find(function(x){return x.id===id;});
+  if(r)r.ativa=(r.ativa===false);
+  regrasIASave(regras);
+  cadGoTab('regras_ia');
+}
+
+function cadDelRegraIA(id){
+  if(!_safeConfirm('Excluir esta regra?'))return;
+  regrasIASave(regrasIALoad().filter(function(x){return x.id!==id;}));
+  cadGoTab('regras_ia');
+}
+
+function cadPromoverSugestaoIA(id){
+  var sugestoes=sugestoesIALoad();
+  var s=sugestoes.find(function(x){return x.id===id;});
+  if(!s)return;
+  var regras=regrasIALoad();
+  regras.push({id:'regra_'+Date.now(),marca:s.marca,familia:s.familia,fornecedorPref:s.fornecedorId,ativa:true,origem:'aprendida',criado_em:Date.now()});
+  regrasIASave(regras);
+  sugestoesIASave(sugestoes.filter(function(x){return x.id!==id;}));
+  cadGoTab('regras_ia');
+}
+
+function cadIgnorarSugestaoIA(id){
+  sugestoesIASave(sugestoesIALoad().filter(function(x){return x.id!==id;}));
+  cadGoTab('regras_ia');
+}
+
+</script></div></div></body><!-- Build timestamp: v115.467 --></html>

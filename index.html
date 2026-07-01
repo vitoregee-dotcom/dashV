@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.471 - Fix: padroniza largura Mapas=Solicitacoes (900px), move botoes flutuantes (Assistente/Historico) para fora da sidebar esquerda -->
+<!-- v115.472 - Fix critico: protege 85 pontos de localStorage.setItem contra quota estourada (causava travamentos e telas que nao abriam), limita e limpa backup de planilha gigante -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.471</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.472</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.471</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.472</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -15197,6 +15197,46 @@ button { min-height:36px; }
 </main>
 <script>
 // ═══════════════════════════════════════════════════════════════
+// 🛡️ PROTEÇÃO CONTRA QUOTA DE LOCALSTORAGE ESTOURADA
+// Sem isso, um localStorage.setItem que falha (ex: quota excedida por causa
+// de planilhas grandes) trava a execução no meio de qualquer função que
+// esteja rodando naquele momento — causando telas que "não abrem" e
+// travamentos aleatórios ao navegar entre telas.
+// ═══════════════════════════════════════════════════════════════
+window._pfStorageWarnShown = false;
+function pfSafeSetItem(key, value){
+  try{
+    localStorage.setItem(key, value);
+    return true;
+  }catch(e){
+    console.warn('⚠️ localStorage cheio ao gravar "'+key+'":', e);
+    // Tenta liberar espaço removendo o backup pesado de planilha (não é crítico, é só cache)
+    try{
+      if(key!=='dashV_lastSheet'){
+        localStorage.removeItem('dashV_lastSheet');
+        localStorage.setItem(key, value);
+        console.warn('✅ Liberou espaço removendo backup de planilha e conseguiu gravar "'+key+'"');
+        return true;
+      }
+    }catch(e2){/* ainda não conseguiu, segue pro aviso abaixo */}
+    if(!window._pfStorageWarnShown){
+      window._pfStorageWarnShown = true;
+      if(typeof pfAlert==='function'){
+        pfAlert('⚠️ O armazenamento local do navegador está cheio. Algumas informações podem não estar salvando corretamente. Se possível, feche e reabra o app, ou avise o suporte técnico.');
+      }
+    }
+    return false;
+  }
+}
+// Limpeza única: remove backup de planilha se já estiver gigante demais (de sessões anteriores)
+try{
+  var _oldBackup=localStorage.getItem('dashV_lastSheet');
+  if(_oldBackup&&_oldBackup.length>3000000){ // ~3MB de texto já é grande demais
+    localStorage.removeItem('dashV_lastSheet');
+    console.warn('🧹 Removido backup de planilha antigo e muito grande ('+(_oldBackup.length/1024/1024).toFixed(1)+'MB) pra liberar espaço no localStorage.');
+  }
+}catch(e){}
+// ═══════════════════════════════════════════════════════════════
 // XLSX READER — JS puro, sem dependências, sem APIs modernas
 // Inflate próprio (RFC 1951) + UTF-8 manual + DOMParser
 // Compatível com Chrome, Edge, Firefox (qualquer versão recente)
@@ -15495,11 +15535,11 @@ async function carregarTransit(){
     const rows=await r.json();
     Object.keys(transitItems).forEach(k=>delete transitItems[k]);
     rows.forEach(row=>{transitItems[row.item_key]={qtd:row.qtd||0,saldo:row.saldo_marcado||0};});
-    localStorage.setItem('transitItems',JSON.stringify(transitItems));
+    pfSafeSetItem('transitItems',JSON.stringify(transitItems));
   }catch(e){console.error('Erro ao carregar trânsito:',e);}
 }
 async function salvarTransitItem(key,entry){
-  localStorage.setItem('transitItems',JSON.stringify(transitItems));
+  pfSafeSetItem('transitItems',JSON.stringify(transitItems));
   pfSyncPush(['transitItems']);
   if(!sbSession||!sbUser)return;
   try{
@@ -15738,11 +15778,11 @@ async function carregarSolicitacoes(){
     rows.forEach(row=>{
       solicitacoes[row.sol_key]={saldo:row.saldo||0,wasOP:row.was_op||false,ts:row.ts||Date.now()};
     });
-    localStorage.setItem('solicitacoes',JSON.stringify(solicitacoes));
+    pfSafeSetItem('solicitacoes',JSON.stringify(solicitacoes));
   }catch(e){console.error('Erro ao carregar solicitações:',e);}
 }
 async function salvarSolicitacao(key,entry){
-  localStorage.setItem('solicitacoes',JSON.stringify(solicitacoes));
+  pfSafeSetItem('solicitacoes',JSON.stringify(solicitacoes));
   pfSyncPush(['solicitacoes']);
   if(!sbSession||!sbUser) return;
   try{
@@ -15793,7 +15833,7 @@ function applyFilt(){
       salvarSolicitacao(key,null);
     }
   });
-  localStorage.setItem('solicitacoes',JSON.stringify(solicitacoes));
+  pfSafeSetItem('solicitacoes',JSON.stringify(solicitacoes));
   autoLimparTransit();
   
   const q=(document.getElementById("srch").value||"").toLowerCase();
@@ -17194,11 +17234,17 @@ async function pfFinalizarImportPlanilha(result,file,sp){
         allItems = result.items;
       }
 
-      // Salvar snapshot completo no localStorage
+      // Salvar snapshot completo no localStorage (só se não for gigante — catálogos
+      // muito grandes travam o navegador ao converter pra texto e estouram a cota)
       try{
-        localStorage.setItem('dashV_lastSheet', JSON.stringify({
-          name: file.name, items: allItems, detected: result.detected, ts: Date.now()
-        }));
+        if(allItems.length<=15000){
+          pfSafeSetItem('dashV_lastSheet', JSON.stringify({
+            name: file.name, items: allItems, detected: result.detected, ts: Date.now()
+          }));
+        } else {
+          console.warn('Planilha com '+allItems.length+' itens é grande demais pro backup local — pulando (não afeta o funcionamento, só o backup offline).');
+          localStorage.removeItem('dashV_lastSheet');
+        }
       }catch(e){console.warn('Não foi possível salvar planilha localmente:',e);}
       var temABC=allItems.some(function(i){return i.curva!=="—";});
       var abcSEl=document.getElementById("abcS");if(abcSEl)abcSEl.style.display=temABC?"flex":"none";
@@ -17678,7 +17724,7 @@ function setPedF(btn){
 let dashVisible=localStorage.getItem('dashVisible')==='true'||false;
 function toggleDash(){
   dashVisible=!dashVisible;
-  localStorage.setItem('dashVisible',dashVisible?'true':'false');
+  pfSafeSetItem('dashVisible',dashVisible?'true':'false');
   const inner=document.getElementById("dashInner");
   const capa=document.getElementById("dashCapa");
   if(inner)inner.style.display=dashVisible?"block":"none";
@@ -17809,7 +17855,7 @@ function toggleCharts(){
   const isHidden=content.style.display==="none";
   content.style.display=isHidden?"grid":"none";
   arrow.textContent=isHidden?"▼":"▶";
-  localStorage.setItem("chartsHidden",!isHidden);
+  pfSafeSetItem("chartsHidden",!isHidden);
   if(isHidden) renderCharts();
 }
 function toggleRankings(){
@@ -17818,7 +17864,7 @@ function toggleRankings(){
   const isHidden=content.style.display==="none";
   content.style.display=isHidden?"grid":"none";
   arrow.textContent=isHidden?"▼":"▶";
-  localStorage.setItem("rankingsHidden",!isHidden);
+  pfSafeSetItem("rankingsHidden",!isHidden);
   if(isHidden) renderRankings();
 }
 function toggleOpMarca(marca){
@@ -17976,7 +18022,7 @@ async function carregarHistorico(){
               itens
             };
           });
-          try{localStorage.setItem(HIST_KEY,JSON.stringify(hist));}catch(e){}
+          try{pfSafeSetItem(HIST_KEY,JSON.stringify(hist));}catch(e){}
           window._histCache=hist; window._histCacheTs=Date.now();
           return hist;
         }
@@ -17992,7 +18038,7 @@ async function carregarHistorico(){
   return fallback;
 }
 function salvarHistoricoLS(hist){
-  try{localStorage.setItem(HIST_KEY,JSON.stringify(hist));}
+  try{pfSafeSetItem(HIST_KEY,JSON.stringify(hist));}
   catch(e){pfAlert("Não foi possível salvar: armazenamento cheio.");}
 }
 
@@ -18028,7 +18074,7 @@ async function salvarAnalise(){
     const hist=JSON.parse(localStorage.getItem(HIST_KEY)||"[]");
     hist.unshift(snap);
     if(hist.length>20)hist.pop();
-    localStorage.setItem(HIST_KEY,JSON.stringify(hist));
+    pfSafeSetItem(HIST_KEY,JSON.stringify(hist));
   }catch(e){}
 
   // Salvar no Supabase — uma linha por análise
@@ -18571,7 +18617,7 @@ function abrirTransit(){document.getElementById('transitPanel').style.display='f
 function fecharTransit(){document.getElementById('transitPanel').style.display='none';}
 function limparTransit(){
   Object.keys(transitItems).forEach(k=>delete transitItems[k]);
-  localStorage.setItem('transitItems','{}');
+  pfSafeSetItem('transitItems','{}');
   // Limpar no Supabase também
   if(sbSession&&sbUser){
     sbFetch('/rest/v1/transit_items?item_key=neq.___none___',{method:'DELETE'}).catch(e=>console.error('Erro ao limpar trânsito:',e));
@@ -19050,7 +19096,7 @@ function drawAcabandoChart(canvas,labels,datasets){
 }
 // ── RASTREAMENTO DE OPORTUNIDADES ────────────────────────────────
 var opTrack=JSON.parse(localStorage.getItem('opTrack')||'[]');
-function salvarOpTrack(){localStorage.setItem('opTrack',JSON.stringify(opTrack));pfSyncPush(['opTrack']);}
+function salvarOpTrack(){pfSafeSetItem('opTrack',JSON.stringify(opTrack));pfSyncPush(['opTrack']);}
 var _opFiltro='todos';
 
 function verificarOportunidades(){
@@ -19215,7 +19261,7 @@ function pfToggleSidebar(){
   var collapsed=sb.classList.toggle('collapsed');
   btn.classList.toggle('collapsed',collapsed);
   btn.textContent=collapsed?'›':'‹';
-  localStorage.setItem('pfSidebarCollapsed', collapsed?'1':'0');
+  pfSafeSetItem('pfSidebarCollapsed', collapsed?'1':'0');
 }
 // Restaurar estado da sidebar
 (function(){
@@ -19271,7 +19317,7 @@ function pfAtualizarFiltroFamilias(){
 
 function pfFiltrarPorFamilia(fam){
   pfFamiliaAtiva = fam;
-  localStorage.setItem('pfFamiliaAtiva', fam);
+  pfSafeSetItem('pfFamiliaAtiva', fam);
   var sp=document.getElementById('spinner');
   if(sp){sp.style.display='block';sp.textContent='⏳ Filtrando...';}
   setTimeout(async function(){
@@ -19312,7 +19358,7 @@ function pfSalvarHistoricoFamilia(items, familias, nomeArquivo){
     // Mantém 90 dias
     var cutoff = Date.now() - 90*24*60*60*1000;
     hist = hist.filter(function(h){ return h.ts > cutoff; });
-    localStorage.setItem(HIST_FAM_KEY, JSON.stringify(hist));
+    pfSafeSetItem(HIST_FAM_KEY, JSON.stringify(hist));
   }catch(e){ console.warn('pfSalvarHistoricoFamilia:', e); }
 }
 
@@ -19354,7 +19400,7 @@ function renderUltimaPlanilhaFamilia(){
 
 // ── ME AVISE ─────────────────────────────────────────────────────
 var aviseItems=JSON.parse(localStorage.getItem('aviseItems')||'[]');
-function salvarAvise(){localStorage.setItem('aviseItems',JSON.stringify(aviseItems));pfSyncPush(['aviseItems']);}
+function salvarAvise(){pfSafeSetItem('aviseItems',JSON.stringify(aviseItems));pfSyncPush(['aviseItems']);}
 function abrirAvise(){document.getElementById('avisePanel').style.display='flex';renderAviseList();}
 function adicionarAvise(){
   var ref=(document.getElementById('aviseRef').value||'').trim();
@@ -19774,7 +19820,7 @@ async function sbRefreshSession(){
     var data=await r.json();
     if(!r.ok||!data.access_token)return false;
     sbSession=data;
-    localStorage.setItem('sb_session',JSON.stringify(data));
+    pfSafeSetItem('sb_session',JSON.stringify(data));
     return true;
   }catch(e){return false;}
 }
@@ -19857,8 +19903,8 @@ async function doLogin(){
     if(!r.ok){showAuthErr(data.error_description||data.msg||'E-mail ou senha incorretos.');setAuthLoading(false);return;}
     sbSession=data; sbUser=data.user;
     // Save credentials for offline use
-    localStorage.setItem('sb_session',JSON.stringify(data));
-    localStorage.setItem('cached_credentials',JSON.stringify({
+    pfSafeSetItem('sb_session',JSON.stringify(data));
+    pfSafeSetItem('cached_credentials',JSON.stringify({
       email:email, passHash:btoa(pass), user:data.user
     }));
     try{await loadProfile();}catch(e){}
@@ -20052,7 +20098,7 @@ async function pfPullPlanilhas(){
     if(!window._ferrMargemRole){renderCharts();renderKpis();renderOpBox();pfAtualizarFiltroFamilias();}
     setTimeout(function(){verificarAvisos();verificarOportunidades();},300);
     // Salva também no localStorage como backup
-    try{localStorage.setItem('dashV_lastSheet',JSON.stringify({name:data[0].nome_arquivo||'',items:allItems,ts:Date.now()}));}catch(e){}
+    try{if(allItems.length<=15000)pfSafeSetItem('dashV_lastSheet',JSON.stringify({name:data[0].nome_arquivo||'',items:allItems,ts:Date.now()}));else localStorage.removeItem('dashV_lastSheet');}catch(e){}
     if(typeof pvReaplicarTodosAbertos==='function')pvReaplicarTodosAbertos();
   }catch(e){
     console.warn('pfPullPlanilhas erro:',e);
@@ -20148,7 +20194,7 @@ function pfSalvarApiKey(){
   if(!inp)return;
   var val=inp.value.trim();
   if(val&&val!=='***salva***'){
-    localStorage.setItem('anthropic_key',val);
+    pfSafeSetItem('anthropic_key',val);
     var st=document.getElementById('pfApiKeyStatus');
     if(st){st.textContent='Salva! ✓';st.style.color='#27AE60';}
     inp.value='***salva***';
@@ -20276,7 +20322,7 @@ function maSalvarEmailDestino(){
   var inp=document.getElementById('maEmailDestino');
   if(!inp)return;
   var val=(inp.value||'').trim();
-  if(val)localStorage.setItem('meAvise_email_destino',val);
+  if(val)pfSafeSetItem('meAvise_email_destino',val);
   else localStorage.removeItem('meAvise_email_destino');
   pfSyncPush(['meAvise_email_destino']);
   pfAlert(val?'E-mail de aviso salvo: '+val:'Removido - voltará a usar o e-mail da sua conta.');
@@ -20421,7 +20467,7 @@ async function lpLerArquivo(input){
   var files=Array.from(input.files);
   if(!files.length)return;
   var apiKey=localStorage.getItem('anthropic_key')||'';
-  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)localStorage.setItem('anthropic_key',apiKey);}
+  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)pfSafeSetItem('anthropic_key',apiKey);}
   if(!apiKey)return;
   var btn=input.parentElement;
   var origText=btn.textContent.trim();
@@ -20473,7 +20519,7 @@ async function lpLerTexto(){
   }
 
   var apiKey=localStorage.getItem('anthropic_key')||'';
-  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)localStorage.setItem('anthropic_key',apiKey);}
+  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)pfSafeSetItem('anthropic_key',apiKey);}
   if(!apiKey)return;
   var btn=document.querySelector('[onclick="lpLerTexto()"]');
   if(btn){btn.disabled=true;btn.textContent='Extraindo...';}
@@ -21440,7 +21486,7 @@ function mapaTogForn(key,fid,idx){
   
   mapaItens[idx]._exp=true;
   // 💾 SALVAR FORNECEDORES SELECIONADOS
-  localStorage.setItem('_mapaDados_fornSel',JSON.stringify(mapaFornSelecionados));
+  pfSafeSetItem('_mapaDados_fornSel',JSON.stringify(mapaFornSelecionados));
   // 🔄 RECALCULAR TOTAIS DE OC
   if(mapaStep===4){
     mapaGoStep(4);
@@ -22200,7 +22246,7 @@ async function _anthropicReadDoc(file, prompt){
   if(!apiKey){
     apiKey=prompt_fn('API Key da Anthropic (console.anthropic.com):');
     if(!apiKey)throw new Error('API Key necessária');
-    localStorage.setItem('anthropic_key',apiKey);
+    pfSafeSetItem('anthropic_key',apiKey);
   }
   var b64=await Promise.race([
     new Promise(function(res,rej){
@@ -22245,7 +22291,7 @@ async function _anthropicAsk(prompt,maxTokens){
   if(!apiKey){
     apiKey=prompt_fn('API Key da Anthropic (console.anthropic.com):');
     if(!apiKey)throw new Error('API Key necessária');
-    localStorage.setItem('anthropic_key',apiKey);
+    pfSafeSetItem('anthropic_key',apiKey);
   }
   var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
   var timeoutId=ctrl?setTimeout(function(){ctrl.abort();},45000):null;
@@ -22404,7 +22450,7 @@ async function pfRestaurarMapasDoSupabase(){
     rows.forEach(function(row){
       try{
         var dados = JSON.parse(row.dados || '{}');
-        localStorage.setItem(row.chave, row.dados);
+        pfSafeSetItem(row.chave, row.dados);
         
         if(row.chave === 'mapas_lista_v1'){
           mapasCount = dados.length || 0;
@@ -23402,7 +23448,7 @@ function cadCriarFichasEmLotes(somenteAtivos){
   }
   function finalizar(){
     try{
-      localStorage.setItem(PROD_KEY,JSON.stringify(plist));
+      pfSafeSetItem(PROD_KEY,JSON.stringify(plist));
       if(typeof sbUser!=='undefined'&&sbUser&&typeof cadPushSupabase==='function')cadPushSupabase();
       overlay.remove();
       pfAlert('✅ '+pendentes.length+' ficha(s) criada(s) com código, descrição e marca. Ainda faltam: grupo/subgrupo, foto, desenho técnico, aplicações e conversões — preenche aos poucos quando precisar.');
@@ -23555,7 +23601,7 @@ function cadRenderProdutosV3(el){
 // ── Storage (localStorage para MVP) ───────────────────────────
 function cadLoad(key){try{return JSON.parse(localStorage.getItem(key)||'[]');}catch(e){return[];}}
 function cadSave(key,data){
-  localStorage.setItem(key,JSON.stringify(data));
+  pfSafeSetItem(key,JSON.stringify(data));
   // Sempre sincroniza com Supabase ao salvar - garante servidor como fonte de verdade
   if(typeof sbUser!=='undefined'&&sbUser&&typeof cadPushSupabase==='function'){
     cadPushSupabase();
@@ -23868,7 +23914,7 @@ function cadRenderClientes(el){
       cadSave(CLIE_KEY,clist);
       if(typeof cadPushSupabase==='function')cadPushSupabase();
     }
-    localStorage.setItem('cadBackfillCodigoClientes_v1','1');
+    pfSafeSetItem('cadBackfillCodigoClientes_v1','1');
   },2000);
 })();
 
@@ -24066,7 +24112,7 @@ async function cadLerDocumento(input, ctx){
   try{
     var b64=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(file);});
     var apiKey=localStorage.getItem('anthropic_key')||'';
-    if(!apiKey){apiKey=prompt('API Key da Anthropic:');if(!apiKey)throw new Error('API Key necessária');localStorage.setItem('anthropic_key',apiKey);}
+    if(!apiKey){apiKey=prompt('API Key da Anthropic:');if(!apiKey)throw new Error('API Key necessária');pfSafeSetItem('anthropic_key',apiKey);}
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
@@ -24219,7 +24265,7 @@ async function cadPullSupabase(){
             setTimeout(function(){if(typeof cadPushSupabase==='function')cadPushSupabase();},1500);
           }
         }
-        localStorage.setItem(key,JSON.stringify(items));
+        pfSafeSetItem(key,JSON.stringify(items));
       }catch(e){console.warn('cadPullSupabase parse erro:',e);}
     });
     // Re-render se estiver na view de cadastros
@@ -25511,7 +25557,7 @@ async function cadImportarCatalogo(input){
 
   try{
     var apiKey=localStorage.getItem('anthropic_key')||'';
-    if(!apiKey){apiKey=prompt('API Key da Anthropic:');if(!apiKey)throw new Error('necessária');localStorage.setItem('anthropic_key',apiKey);}
+    if(!apiKey){apiKey=prompt('API Key da Anthropic:');if(!apiKey)throw new Error('necessária');pfSafeSetItem('anthropic_key',apiKey);}
     var b64=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(file);});
     var isPdf=file.type==='application/pdf';
     var msgContent = isPdf
@@ -26296,7 +26342,7 @@ function cadImportarKML() {
     added++;
   });
 
-  localStorage.setItem(CLIE_KEY, JSON.stringify(existing));
+  pfSafeSetItem(CLIE_KEY, JSON.stringify(existing));
   pfAlert('✅ '+added+' clientes importados! ('+skipped+' já existiam)');
   cadGoTab('clientes');
 }
@@ -26351,7 +26397,7 @@ function saveCustomLinha(nome){
   var upper = nome.toUpperCase().trim();
   if(upper && !custom.includes(upper)){
     custom.push(upper);
-    localStorage.setItem(CUSTOM_LINHAS_KEY, JSON.stringify(custom));
+    pfSafeSetItem(CUSTOM_LINHAS_KEY, JSON.stringify(custom));
   }
 }
 
@@ -26643,7 +26689,7 @@ _anthropicReadDoc = async function(file, promptText){
       document.getElementById('_apiKeyInput').focus();
     });
     if(!apiKey)throw new Error('API Key necessária');
-    localStorage.setItem('anthropic_key',apiKey);
+    pfSafeSetItem('anthropic_key',apiKey);
   }
   // Delegate to original with the key already set
   return _origAnthropicRead(file, promptText);
@@ -26693,7 +26739,7 @@ function mapaSalvarEstado(){
       precoDecidido: mapaPrecoDecidido,
     };
     mapaEstadoId = estado.id;
-    localStorage.setItem(MAPA_SAVE_KEY, JSON.stringify(estado));
+    pfSafeSetItem(MAPA_SAVE_KEY, JSON.stringify(estado));
     // 🔥 IMPORTANTE: atualizar também na LISTA de mapas
     mapaSalvarNaLista(estado);
     // 🔥 SINCRONIZAR IMEDIATAMENTE
@@ -26754,7 +26800,7 @@ async function mapaPullSupabase(){
     // Use remote if newer or local is empty
     var local=JSON.parse(localStorage.getItem(MAPA_SAVE_KEY)||'null');
     if(!local||(remoto.ts&&local.ts&&remoto.ts>local.ts)){
-      localStorage.setItem(MAPA_SAVE_KEY,JSON.stringify(remoto));
+      pfSafeSetItem(MAPA_SAVE_KEY,JSON.stringify(remoto));
     }
   }catch(e){console.warn('mapaPullSupabase erro:',e);}
 }
@@ -26923,7 +26969,7 @@ async function pfSyncPull(){
             if(!porId[m.id]||(m.ts||0)>(porId[m.id].ts||0))porId[m.id]=m;
           });
           var merged=Object.keys(porId).map(function(k){return porId[k];}).sort(function(a,b){return (b.ts||0)-(a.ts||0);}).slice(0,20);
-          localStorage.setItem('mapas_lista_v1',JSON.stringify(merged));
+          pfSafeSetItem('mapas_lista_v1',JSON.stringify(merged));
           return;
         }
         if(row.chave==='cad_solicitacoes_compras_v1'){
@@ -26940,7 +26986,7 @@ async function pfSyncPull(){
             if(!porId[s.id]||(s.ts||0)>(porId[s.id].ts||0))porId[s.id]=s;
           });
           var merged=Object.keys(porId).map(function(k){return porId[k];}).sort(function(a,b){return (b.ts||0)-(a.ts||0);});
-          localStorage.setItem('cad_solicitacoes_compras_v1',JSON.stringify(merged));
+          pfSafeSetItem('cad_solicitacoes_compras_v1',JSON.stringify(merged));
           return;
         }
         if(row.chave==='cad_fornecedores_v1'){
@@ -26957,13 +27003,13 @@ async function pfSyncPull(){
             if(!porId[f.id]||(f.ts||0)>(porId[f.id].ts||0))porId[f.id]=f;
           });
           var merged=Object.keys(porId).map(function(k){return porId[k];}).sort(function(a,b){return (b.ts||0)-(a.ts||0);});
-          localStorage.setItem('cad_fornecedores_v1',JSON.stringify(merged));
+          pfSafeSetItem('cad_fornecedores_v1',JSON.stringify(merged));
           return;
         }
         // Demais chaves (meAvise_lista, aviseItems, transitItems, cotações, etc.) — merge seguro,
         // nunca sobrescreve às cegas um item local que ainda não tinha sido sincronizado.
         var localRaw=localStorage.getItem(row.chave);
-        localStorage.setItem(row.chave, pfMergeSyncValue(localRaw, val));
+        pfSafeSetItem(row.chave, pfMergeSyncValue(localRaw, val));
       }catch(e){}
     });
   }catch(e){console.warn('pfSyncPull erro:',e);}
@@ -27114,7 +27160,7 @@ function substCarregar(){
 }
 
 function substSalvar(lista){
-  localStorage.setItem(SUBST_KEY, JSON.stringify(lista));
+  pfSafeSetItem(SUBST_KEY, JSON.stringify(lista));
 }
 
 function substAplicar(desc){
@@ -27159,7 +27205,7 @@ function aplicCarregar(){
 }
 
 function aplicSalvar(dados){
-  localStorage.setItem(APLIC_KEY, JSON.stringify(dados));
+  pfSafeSetItem(APLIC_KEY, JSON.stringify(dados));
 }
 
 function aplicAdicionarAoProduto(codigo, aplicacao){
@@ -27667,9 +27713,9 @@ function mapaSalvarNaLista(estado){
   if(idx>=0)lista[idx]=resumo; else lista.unshift(resumo);
   // Keep max 20 mapas
   lista = lista.slice(0,20);
-  localStorage.setItem(MAPAS_LIST_KEY, JSON.stringify(lista));
+  pfSafeSetItem(MAPAS_LIST_KEY, JSON.stringify(lista));
   // Save full estado
-  localStorage.setItem('mapa_estado_'+estado.id, JSON.stringify(estado));
+  pfSafeSetItem('mapa_estado_'+estado.id, JSON.stringify(estado));
   if(typeof pfSyncPush==='function')pfSyncPush(['mapas_lista_v1','mapa_estado_'+estado.id]);
 }
 
@@ -27691,13 +27737,13 @@ function mapaCarregarDaLista(id){  try{
 
 function mapaExcluirDaLista(id){
   var lista=mapaListarSalvos().filter(function(m){return m.id!==id;});
-  localStorage.setItem(MAPAS_LIST_KEY,JSON.stringify(lista));
+  pfSafeSetItem(MAPAS_LIST_KEY,JSON.stringify(lista));
   localStorage.removeItem('mapa_estado_'+id);
   
   // ✅ Marcar como deletado (tombstone)
   var deletados=JSON.parse(localStorage.getItem('mapas_deletados')||'[]');
   if(!deletados.includes(id)) deletados.push(id);
-  localStorage.setItem('mapas_deletados',JSON.stringify(deletados));
+  pfSafeSetItem('mapas_deletados',JSON.stringify(deletados));
   
   if(typeof pfSyncPush==='function')pfSyncPush(['mapas_lista_v1']);
 }
@@ -27725,7 +27771,7 @@ mapaSalvarEstado = function(){
       cliente: window._mapaEstadoCliente||'',
     };
     mapaEstadoId=estado.id;
-    localStorage.setItem(MAPA_SAVE_KEY,JSON.stringify(estado));
+    pfSafeSetItem(MAPA_SAVE_KEY,JSON.stringify(estado));
     mapaSalvarNaLista(estado);
     // Update tab title badge
     if(_activeTabId&&_tabsOpen[_activeTabId]){
@@ -27972,7 +28018,7 @@ var _origCadMostrarPreview2 = cadMostrarPreviewImport;
 cadMostrarPreviewImport = function(itens, marca){
   // Persist before rendering
   try{
-    localStorage.setItem(IMP_PREVIEW_KEY, JSON.stringify({
+    pfSafeSetItem(IMP_PREVIEW_KEY, JSON.stringify({
       itens: itens, marca: marca,
       aplic: window._impAplicCache||null,
       ts: Date.now()
@@ -28066,7 +28112,7 @@ cadGerenciarSubst = function(){
   // Save preview first
   if(window._impItensCache && window._impItensCache.length){
     try{
-      localStorage.setItem('imp_preview_cache_v1', JSON.stringify({
+      pfSafeSetItem('imp_preview_cache_v1', JSON.stringify({
         itens: window._impItensCache, marca: '',
         aplic: window._impAplicCache||null, ts: Date.now()
       }));
@@ -28250,7 +28296,7 @@ var MAPA_CONTADOR_KEY = 'mapa_contador_v1';
 
 function mapaProximoNumero(){
   var n = parseInt(localStorage.getItem(MAPA_CONTADOR_KEY)||'0') + 1;
-  localStorage.setItem(MAPA_CONTADOR_KEY, n);
+  pfSafeSetItem(MAPA_CONTADOR_KEY, n);
   return String(n).padStart(4, '0');
 }
 
@@ -28287,7 +28333,7 @@ mapaIniciarComNome = function(){
   // Save immediately with title
   try{
     var estado = {id:mapaEstadoId, ts:Date.now(), step:1, itens:[], fornSel:{}, precos:{}, decisoes:{}, titulo:titulo, numero:num, cliente:nome};
-    localStorage.setItem(MAPA_SAVE_KEY, JSON.stringify(estado));
+    pfSafeSetItem(MAPA_SAVE_KEY, JSON.stringify(estado));
     mapaSalvarNaLista(estado);
   }catch(e){}
   mapaGoStep(1);
@@ -28473,7 +28519,7 @@ _anthropicReadDoc = async function(file, promptText){
       }, 100);
     });
     if(!apiKey) throw new Error('API Key necessária');
-    localStorage.setItem('anthropic_key', apiKey);
+    pfSafeSetItem('anthropic_key', apiKey);
   }
   // Now call with key already set
   return _origApiKeyModal(file, promptText);
@@ -28506,7 +28552,7 @@ function configurarPin(){
     var p2=(document.getElementById('_newPin2').value||'').trim();
     if(p1.length!==4||isNaN(p1)){document.getElementById('_pinSaveErr').textContent='PIN deve ter exatamente 4 números';return;}
     if(p1!==p2){document.getElementById('_pinSaveErr').textContent='PINs não coincidem';return;}
-    localStorage.setItem('offline_pin_hash',btoa(p1));
+    pfSafeSetItem('offline_pin_hash',btoa(p1));
     document.body.removeChild(overlay);
     // Show confirmation
     var toast=document.createElement('div');
@@ -28710,7 +28756,7 @@ function lpMergeItens(novos){
 async function lpLerArquivo(input){
   var files=Array.from(input.files);if(!files.length)return;
   var apiKey=localStorage.getItem('anthropic_key')||'';
-  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)localStorage.setItem('anthropic_key',apiKey);}
+  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)pfSafeSetItem('anthropic_key',apiKey);}
   if(!apiKey)return;
   var lbl=(input&&typeof input.closest==='function')?input.closest('label'):null;
   if(lbl)lbl.style.opacity='.6';
@@ -28765,7 +28811,7 @@ async function lpLerTexto(){
   }
 
   var apiKey=localStorage.getItem('anthropic_key')||'';
-  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)localStorage.setItem('anthropic_key',apiKey);}
+  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)pfSafeSetItem('anthropic_key',apiKey);}
   if(!apiKey)return;
   var btn=document.querySelector('[onclick="lpLerTexto()"]');
   if(btn){btn.disabled=true;btn.textContent='Extraindo...';}
@@ -28873,7 +28919,7 @@ function vendasItemColResizeSetup(){
         document.removeEventListener('pointerup',onUp);
         try{
           var widths=Array.from(tbl.querySelectorAll('colgroup col')).map(function(c){return c.style.width;});
-          localStorage.setItem('vendas_item_cols_widths',JSON.stringify(widths));
+          pfSafeSetItem('vendas_item_cols_widths',JSON.stringify(widths));
         }catch(ex){}
       }
       document.addEventListener('pointermove',onMove);
@@ -29766,7 +29812,7 @@ function vendasMoverParaCotacao(numDestino){
     var destino=cots.find(function(c){return c.num===numDestino;});
     if(!destino){pfAlert('Cotação não encontrada.');return;}
     destino.itens=(destino.itens||[]).concat(itensMovidos);
-    localStorage.setItem('partsflow_cotacoes_v1',JSON.stringify(cots));
+    pfSafeSetItem('partsflow_cotacoes_v1',JSON.stringify(cots));
     if(typeof pfSyncPush==='function')pfSyncPush(['partsflow_cotacoes_v1']);
     pfAlert('✅ '+itensMovidos.length+' item(ns) copiado(s) para a cotação #'+numDestino+'.');
   }
@@ -29776,7 +29822,7 @@ function vendasMoverParaCotacao(numDestino){
 
 var PV_KEY='partsflow_pedidos_venda_v1';
 function pvLoad(){ try{return JSON.parse(localStorage.getItem(PV_KEY)||'[]');}catch(e){return [];} }
-function pvSave(list){ localStorage.setItem(PV_KEY, JSON.stringify(list)); if(typeof pfSyncPush==='function')pfSyncPush([PV_KEY]); }
+function pvSave(list){ pfSafeSetItem(PV_KEY, JSON.stringify(list)); if(typeof pfSyncPush==='function')pfSyncPush([PV_KEY]); }
 
 function vendasAtualizarPVBtn(){
   var count=Object.values(window._vendasSelPV||{}).filter(Boolean).length;
@@ -30236,7 +30282,7 @@ function pvGerarSolicitacaoAutomatica(pedido, venda){
   
   // Salvar solicitação
   listaSol.push(solicitacao);
-  localStorage.setItem('solicitacoes_compras_v1', JSON.stringify(listaSol));
+  pfSafeSetItem('solicitacoes_compras_v1', JSON.stringify(listaSol));
   
   console.log('✅ Solicitação '+numeroSol+' gerada automaticamente (VENDA CASADA - Pedido '+pedido.numero+')');
   if(typeof pfSyncPush==='function') pfSyncPush(['solicitacoes_compras_v1']);
@@ -30287,7 +30333,7 @@ function pvConfirmarCriarPedido(){
             if(it._idx!=null&&cx.itens[it._idx])cx.itens[it._idx].pvNumero=numero;
           });
         }
-        localStorage.setItem(cotKey,JSON.stringify(cots));
+        pfSafeSetItem(cotKey,JSON.stringify(cots));
         if(typeof pfSyncPush==='function')pfSyncPush([cotKey]);
       }
     }catch(e){}
@@ -30589,7 +30635,7 @@ function vendasRenderLista(el){
           if(from===to)return;
           var c=window._vendasCols.splice(from,1)[0];
           window._vendasCols.splice(to,0,c);
-          localStorage.setItem('vendas_cols_order_v2',JSON.stringify(window._vendasCols));
+          pfSafeSetItem('vendas_cols_order_v2',JSON.stringify(window._vendasCols));
           buildHeader();vendasAtualizarLista();
         };
         var resizer=document.createElement('div');
@@ -30601,7 +30647,7 @@ function vendasRenderLista(el){
             var newW=Math.max(40,startW+(e2.clientX-startX));
             th.style.width=newW+'px';
             COLS_WIDTHS[col]=newW+'px';
-            try{var ws=JSON.parse(localStorage.getItem('vendas_cols_widths')||'{}');ws[col]=newW+'px';localStorage.setItem('vendas_cols_widths',JSON.stringify(ws));}catch(ex){}
+            try{var ws=JSON.parse(localStorage.getItem('vendas_cols_widths')||'{}');ws[col]=newW+'px';pfSafeSetItem('vendas_cols_widths',JSON.stringify(ws));}catch(ex){}
           }
           function onUp(){document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);}
           document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
@@ -30773,7 +30819,7 @@ function vendasAtualizarLista(){
     var bd=document.createElement('button');bd.textContent='✕';bd.style.cssText='border-color:#fdd;color:#C00000;border-radius:5px;padding:3px 7px;font-size:10px;cursor:pointer';
     (function(nn){
       bv.onclick=function(e){e.stopPropagation();var cs=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');var cx=cs.find(function(x){return x.num===nn;});if(cx)vendasAbrirModal(cx);};
-      bd.onclick=function(e){e.stopPropagation();if(!confirm('EXCLUIR #'+nn+'?'))return;var cs=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');cs=cs.filter(function(x){return x.num!==nn;});localStorage.setItem(COTS_KEY,JSON.stringify(cs));if(window._vendasSelected===nn){window._vendasSelected=null;var pv=document.getElementById('vendasPreview');if(pv)pv.style.display='none';}vendasAtualizarLista();};
+      bd.onclick=function(e){e.stopPropagation();if(!confirm('EXCLUIR #'+nn+'?'))return;var cs=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');cs=cs.filter(function(x){return x.num!==nn;});pfSafeSetItem(COTS_KEY,JSON.stringify(cs));if(window._vendasSelected===nn){window._vendasSelected=null;var pv=document.getElementById('vendasPreview');if(pv)pv.style.display='none';}vendasAtualizarLista();};
       tr.onclick=function(){
         var now=Date.now();
         if(window._vendasLastTapNum===nn && (now-(window._vendasLastTapTime||0))<450){
@@ -30941,7 +30987,7 @@ function vendasEnviarTodosNeg(){
   console.log('✅ Criado mapa '+novoMapaId+' com '+negItens.length+' itens');
   
   // Salvar estado do mapa
-  localStorage.setItem('mapa_estado_'+novoMapaId, JSON.stringify(estado));
+  pfSafeSetItem('mapa_estado_'+novoMapaId, JSON.stringify(estado));
   console.log('✅ Mapa salvo no localStorage');
   
   // Adicionar à lista de mapas
@@ -30949,7 +30995,7 @@ function vendasEnviarTodosNeg(){
   var resumo = {id:novoMapaId, ts:Date.now(), titulo:estado.titulo, numero:estado.numero, cliente:estado.cliente, itens:estado.itens.length};
   lista.unshift(resumo);
   lista = lista.slice(0,20);
-  localStorage.setItem('mapas_lista_v1', JSON.stringify(lista));
+  pfSafeSetItem('mapas_lista_v1', JSON.stringify(lista));
   console.log('✅ Adicionado à lista de mapas');
   
   // Sucesso!
@@ -30963,7 +31009,7 @@ function vendasEnviarTodosNeg(){
 }
 
 function vendasSalvar(){
-  localStorage.setItem('venda_rascunho_v1',JSON.stringify(window._venda));
+  pfSafeSetItem('venda_rascunho_v1',JSON.stringify(window._venda));
   pfSyncPush(['venda_rascunho_v1']);
   if(window._vendasModalMode){vendasFecharModal();return;}
   pfAlert('Rascunho salvo!');
@@ -30982,7 +31028,7 @@ async function vendasFinalizar(){
     return s+(venda||0)*(it.qtd||1);
   },0)};
   if(idxExistente>=0)cots[idxExistente]=cot;else cots.unshift(cot);
-  localStorage.setItem(COTS_KEY,JSON.stringify(cots));
+  pfSafeSetItem(COTS_KEY,JSON.stringify(cots));
   // Salva como array completo via sync (upsert único por usuário+chave, sem duplicar linhas)
   try{
     if(sbUser)await pfSyncPush([COTS_KEY]);
@@ -31027,7 +31073,7 @@ async function vendasPullCotacoes(){
       if(!merged.find(function(rc){return rc.num===lc.num;}))merged.push(lc);
     });
     merged.sort(function(a,b){return b.num-a.num;});
-    localStorage.setItem('partsflow_cotacoes_v1',JSON.stringify(merged));
+    pfSafeSetItem('partsflow_cotacoes_v1',JSON.stringify(merged));
     pfSyncPush(['partsflow_cotacoes_v1']);
   }catch(e){console.warn('vendasPullCotacoes erro:',e);}
 }
@@ -31041,7 +31087,7 @@ async function vendasColarTexto(){
 async function vendasLerArquivo(input){
   var files=Array.from(input.files);if(!files.length)return;
   var apiKey=localStorage.getItem('anthropic_key')||'';
-  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)localStorage.setItem('anthropic_key',apiKey);}
+  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)pfSafeSetItem('anthropic_key',apiKey);}
   if(!apiKey)return;
   var st=document.getElementById('vendasUploadStatus');
   if(st){st.style.display='inline-flex';st.innerHTML='<span style="display:inline-block;width:13px;height:13px;border:2px solid #d8e3ee;border-top-color:#1F4E79;border-radius:50%;animation:spin .7s linear infinite"></span>Lendo...';}
@@ -31190,7 +31236,7 @@ function ferrHistSalvar(tipo, dados) {
     lista.unshift({ tipo:tipo, dados:dados, ts: Date.now() });
     // Limpa expirados e mantém max 100
     lista = lista.filter(function(h){ return Date.now()-h.ts < FERR_HIST_TTL; }).slice(0,100);
-    localStorage.setItem(FERR_HIST_KEY, JSON.stringify(lista));
+    pfSafeSetItem(FERR_HIST_KEY, JSON.stringify(lista));
   } catch(e) { console.warn('ferrHistSalvar error:', e); }
 }
 function ferrHistCarregar() {
@@ -31569,7 +31615,7 @@ function solicExcluir(id){
       // ✅ Marcar como deletada (tombstone)
       var deletadas=JSON.parse(localStorage.getItem('cad_solicitacoes_deletadas')||'[]');
       if(!deletadas.includes(id)) deletadas.push(id);
-      localStorage.setItem('cad_solicitacoes_deletadas',JSON.stringify(deletadas));
+      pfSafeSetItem('cad_solicitacoes_deletadas',JSON.stringify(deletadas));
       
       solicRender();
       pfAlert('✓ Solicitação excluída com sucesso');
@@ -31602,7 +31648,7 @@ function solicLerArquivo(input){
 async function solicProcessar(file){
   var status=document.getElementById('solicStatus');
   var apiKey=localStorage.getItem('anthropic_key')||'';
-  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)localStorage.setItem('anthropic_key',apiKey);}
+  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)pfSafeSetItem('anthropic_key',apiKey);}
   if(!apiKey)return;
   if(status){status.style.display='inline-flex';status.innerHTML='<span style="display:inline-block;width:13px;height:13px;border:2px solid #d8e3ee;border-top-color:#1F4E79;border-radius:50%;animation:spin .7s linear infinite"></span>Lendo...';}
   try{
@@ -31938,7 +31984,7 @@ async function condPgtoProcessar(file){
   if(st) st.innerHTML = '⏳ Lendo com IA...';
   try{
     var apiKey = localStorage.getItem('anthropic_key')||'';
-    if(!apiKey){ apiKey=prompt('Cole sua Anthropic API Key:'); if(apiKey) localStorage.setItem('anthropic_key',apiKey); }
+    if(!apiKey){ apiKey=prompt('Cole sua Anthropic API Key:'); if(apiKey) pfSafeSetItem('anthropic_key',apiKey); }
     if(!apiKey){ if(st) st.innerHTML='❌ API Key necessária'; return; }
     var b64 = await new Promise(function(res,rej){
       var r=new FileReader(); r.onload=function(e){res(e.target.result.split(',')[1]);}; r.onerror=rej; r.readAsDataURL(file);
@@ -32149,7 +32195,7 @@ async function cadReativAnalisar(){
   var files=window._cadReativFiles||[];
   if(!files.length){pfAlert('Selecione ao menos um documento.');return;}
   var apiKey=localStorage.getItem('anthropic_key')||'';
-  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)localStorage.setItem('anthropic_key',apiKey);}
+  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)pfSafeSetItem('anthropic_key',apiKey);}
   if(!apiKey)return;
   var btn=document.getElementById('cadReativBtnAnalisar');
   if(btn){btn.disabled=true;btn.textContent='Analisando...';}
@@ -32327,12 +32373,12 @@ function ferrMeAvise(){
     if(!ref){pfAlert('Informe a referência.');return;}
     var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
     lista.push({ref:ref,marca:marca,cod_cliente:codCliente,nome_cliente:nomeCliente,obs:obs,wa_cliente:waCliente,ts:Date.now()});
-    localStorage.setItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
+    pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
     render();
   };
   window.maRemover=function(i){
     var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
-    lista.splice(i,1);localStorage.setItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);render();
+    lista.splice(i,1);pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);render();
   };
   window.maWhatsApp=function(i){
     var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
@@ -32353,7 +32399,7 @@ function ferrMeAvise(){
       to_email:toEmail,ref:a.ref,marca:a.marca||'—',obs:a.obs||'—',
       cod_cliente:a.cod_cliente||'—',nome_cliente:a.nome_cliente||'—'
     }).then(function(){
-      lista.splice(i,1);localStorage.setItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
+      lista.splice(i,1);pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
       render();
       var t=document.createElement('div');
       t.style.cssText='position:fixed;top:70px;right:20px;z-index:9999;background:#EAF3DE;border:1px solid #7CB97A;color:#2A6A28;border-radius:10px;padding:12px 20px;font-size:13px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.15)';
@@ -32826,7 +32872,7 @@ function pfApplyTheme(theme){
     app.classList.remove('pf-dark'); app.classList.add('pf-light');
     document.getElementById('pfThemeIcon').textContent='🌙';
   }
-  localStorage.setItem(PF_THEME_KEY, theme);
+  pfSafeSetItem(PF_THEME_KEY, theme);
 }
 
 function pfToggleTheme(){
@@ -33296,4 +33342,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.471 --></html>
+</script></div></div></body><!-- Build timestamp: v115.472 --></html>

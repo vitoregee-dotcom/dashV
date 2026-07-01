@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.481 - Cadastro/Reativacao: referencias comerciais agora sao dinamicas. A IA extrai quantas referencias existirem no documento (nao mais limitado a 3), e a tela ganha botao "+ Adicionar referencia" para incluir mais manualmente, com botao de remover por linha. -->
+<!-- v115.482 - Mapa de Compras: notificacao padronizada (igual "chegada de pecas") sempre que a cotacao de um fornecedor for recebida/lida, com progresso "X/Y itens" e "N de M fornecedores responderam". Notifica quem CRIOU o mapa (por e-mail), mesmo que quem suba a cotacao seja outra pessoa/login. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.481</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.482</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.481</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.482</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22118,6 +22118,69 @@ function mapaToggleFornCard(fid){
   if(arrow && arrow.textContent.match(/[▸▾]/)) arrow.textContent = isHidden ? '▾' : '▸';
 }
 
+// ── Progresso de respostas do mapa (fornecedores que já enviaram pelo menos um preço) ──
+function mapaProgresso(){
+  var fids=new Set();
+  mapaItens.filter(function(i){return i.sel!==false;}).forEach(function(it){
+    (mapaFornSelecionados[it.ref+'||'+(it.marca||'')]||[]).forEach(function(fid){fids.add(fid);});
+  });
+  var respondidos=0;
+  fids.forEach(function(fid){
+    var its=mapaItens.filter(function(i){return i.sel!==false&&(mapaFornSelecionados[i.ref+'||'+(i.marca||'')]||[]).includes(fid);});
+    var algumPreenchido=its.some(function(it){
+      var pk=it.ref+'||'+(it.marca||'')+'||'+fid;
+      var ents=mapaPrecos[pk]&&mapaPrecos[pk].entries;
+      return ents&&ents.some(function(e){return e.preco>0;});
+    });
+    if(algumPreenchido)respondidos++;
+  });
+  return {fornecedoresRespondidos:respondidos, fornecedoresTotal:fids.size};
+}
+
+// ── Notificação padronizada: cotação de fornecedor recebida no Mapa ──
+// Mesmo padrão visual/e-mail já usado para "chegada de peças" (Me Avise).
+// Notifica quem criou o mapa — mesmo que quem suba a cotação seja outra pessoa.
+function mapaNotificarCotacaoRecebida(fid){
+  try{
+    var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
+    var forn=flist.find(function(f){return f.id===fid;});
+    if(!forn)return;
+    var its=mapaItens.filter(function(i){return i.sel!==false&&(mapaFornSelecionados[i.ref+'||'+(i.marca||'')]||[]).includes(fid);});
+    var itensTotal=its.length;
+    var itensPreenchidos=its.filter(function(it){
+      var pk=it.ref+'||'+(it.marca||'')+'||'+fid;
+      var ents=mapaPrecos[pk]&&mapaPrecos[pk].entries;
+      return ents&&ents.some(function(e){return e.preco>0;});
+    }).length;
+    var prog=mapaProgresso();
+    var criador=window._mapaCriadoPor||null;
+    var toEmail=(criador&&criador.email)||pfNotifEmail();
+    var mapaTitulo=window._mapaEstadoNome||('Mapa '+(window._mapaEstadoNumero||''));
+    var mapaCliente=window._mapaEstadoCliente||'';
+    var fornNome=forn.fantasia||forn.nome||forn.razao||'Fornecedor';
+    var obsTxt=itensPreenchidos+'/'+itensTotal+' itens · '+prog.fornecedoresRespondidos+' de '+prog.fornecedoresTotal+' fornecedores responderam';
+    if(typeof emailjs!=='undefined'&&toEmail){
+      emailjs.send('service_2lp37gt','template_8r5j0sq',{
+        to_email:toEmail,
+        ref:'🔔 Cotação recebida — '+mapaTitulo,
+        marca:fornNome,
+        obs:obsTxt,
+        cod_cliente:window._mapaEstadoNumero||'—',
+        nome_cliente:mapaCliente||'—'
+      }).catch(function(){});
+    }
+    // Popup visual — mesmo padrão da notificação de chegada de peças
+    var msg='<div style="position:fixed;top:70px;right:20px;z-index:9999;background:#fff;border:2px solid #F5C842;border-radius:12px;padding:16px 20px;max-width:340px;box-shadow:0 4px 24px rgba(0,0,0,.2)">';
+    msg+='<div style="font-weight:800;font-size:14px;color:#7A5000;margin-bottom:4px">🔔 Cotação recebida!</div>';
+    if(toEmail)msg+='<div style="font-size:11px;color:#27AE60;margin-bottom:8px">✅ E-mail enviado para '+toEmail+'</div>';
+    msg+='<div style="padding:6px 0;border-top:1px solid #eee">';
+    msg+='<span style="font-weight:700;color:var(--navy)">'+fornNome+'</span>'+(mapaTitulo?' · '+mapaTitulo:'')+'<br>';
+    msg+='<span style="font-size:11px;color:var(--mu)">'+obsTxt+'</span></div>';
+    msg+='<button onclick="this.parentNode.remove()" style="margin-top:8px;width:100%;padding:6px;background:#7A5000;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700">OK</button></div>';
+    document.body.insertAdjacentHTML('beforeend',msg);
+  }catch(e){console.warn('mapaNotificarCotacaoRecebida erro:',e);}
+}
+
 // Upload resposta do fornecedor
 async function mapaLerResposta(input, fid){
   var file=input.files[0];if(!file)return;
@@ -22166,6 +22229,7 @@ async function mapaLerResposta(input, fid){
     if(!updated)throw new Error('Nenhum dos códigos do documento bateu com os itens deste fornecedor. Códigos lidos: '+precos.map(function(p){return p.ref;}).join(', '));
     if(statusEl)statusEl.innerHTML='<b style="color:#27AE60">✅ '+updated+' item(s)</b>';
     if(naoReconhecidos.length)pfAlert('Atualizado '+updated+' item(s).\n\nAtenção: '+naoReconhecidos.length+' código(s) do documento não bateram com nenhum item esperado deste fornecedor e foram ignorados:\n'+naoReconhecidos.join(', '));
+    if(typeof mapaNotificarCotacaoRecebida==='function')mapaNotificarCotacaoRecebida(fid);
     setTimeout(function(){mapaGoStep(3);}, 900);
   }catch(e){
     console.error(e);
@@ -22246,7 +22310,10 @@ async function mapaCarregarCotacaoAuto(input){
         updated++;
       });
       
-      if(updated>0) processados++;
+      if(updated>0){
+        processados++;
+        if(typeof mapaNotificarCotacaoRecebida==='function')mapaNotificarCotacaoRecebida(fornEncontrado.id);
+      }
       if(statusEl)statusEl.innerHTML='⏳ '+processados+'/'+totalArquivos+' processado(s)';
     }catch(e){
       console.error('Erro: '+file.name,e);
@@ -26823,6 +26890,7 @@ function mapaSalvarEstado(){
       decisoes: mapaDecisoes,
       qtdDecidida: mapaQtdDecidida,
       precoDecidido: mapaPrecoDecidido,
+      criadoPor: window._mapaCriadoPor||null,
     };
     mapaEstadoId = estado.id;
     pfSafeSetItem(MAPA_SAVE_KEY, JSON.stringify(estado));
@@ -26848,6 +26916,7 @@ function mapaRestaurarEstado(){
     mapaDecisoes    = saved.decisoes||{};
     mapaQtdDecidida = saved.qtdDecidida||{};
     mapaStep        = saved.step||1;
+    window._mapaCriadoPor = saved.criadoPor||window._mapaCriadoPor||null;
     return true;
   }catch(e){return false;}
 }
@@ -27795,6 +27864,7 @@ function mapaSalvarNaLista(estado){
     titulo: estado.titulo||(new Date(estado.ts).toLocaleDateString('pt-BR')+' — '+(estado.itens&&estado.itens[0]?estado.itens[0].desc:'')+'...'),
     numero: estado.numero||'',
     cliente: estado.cliente||'',
+    criadoPor: estado.criadoPor||null,
   };
   if(idx>=0)lista[idx]=resumo; else lista.unshift(resumo);
   // Keep max 20 mapas
@@ -27815,6 +27885,7 @@ function mapaCarregarDaLista(id){  try{
     window._mapaEstadoNome = saved.titulo||'';
     window._mapaEstadoNumero = saved.numero||'';
     window._mapaEstadoCliente = saved.cliente||'';
+    window._mapaCriadoPor = saved.criadoPor||null;
     window._mapaEstado = saved;  // ✅ Salvar estado completo pra recuperar vendaOrigem
     console.log('🎯 Restaurado! mapaStep:', mapaStep, '| mapaEstadoId:', mapaEstadoId, '| precos restaurados:', Object.keys(mapaPrecoDecidido).length);
     return true;
@@ -28416,9 +28487,15 @@ mapaIniciarComNome = function(){
   window._mapaEstadoNome = titulo;
   window._mapaEstadoNumero = num;
   window._mapaEstadoCliente = nome;
+  // Quem criou este mapa — usado para notificar quando fornecedores responderem,
+  // mesmo que quem suba a cotação seja outra pessoa/login
+  window._mapaCriadoPor = {
+    nome:(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)?sbProfile.nome:((typeof sbUser!=='undefined'&&sbUser&&sbUser.email)?sbUser.email.split('@')[0]:'Usuário'),
+    email:(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||''
+  };
   // Save immediately with title
   try{
-    var estado = {id:mapaEstadoId, ts:Date.now(), step:1, itens:[], fornSel:{}, precos:{}, decisoes:{}, titulo:titulo, numero:num, cliente:nome};
+    var estado = {id:mapaEstadoId, ts:Date.now(), step:1, itens:[], fornSel:{}, precos:{}, decisoes:{}, titulo:titulo, numero:num, cliente:nome, criadoPor:window._mapaCriadoPor};
     pfSafeSetItem(MAPA_SAVE_KEY, JSON.stringify(estado));
     mapaSalvarNaLista(estado);
   }catch(e){}
@@ -33574,4 +33651,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.481 --></html>
+</script></div></div></body><!-- Build timestamp: v115.482 --></html>

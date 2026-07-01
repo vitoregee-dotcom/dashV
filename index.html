@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.472 - Fix critico: protege 85 pontos de localStorage.setItem contra quota estourada (causava travamentos e telas que nao abriam), limita e limpa backup de planilha gigante -->
+<!-- v115.473 - Fluxo Mapa de Compras: Solicitacao agora criada ao clicar Enviei->Preencher Precos (vinculada por mapaOrigem, corrige bug de mistura entre mapas), botao Gerar Solicitacao na Etapa 4 agora atualiza a existente em vez de duplicar -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.472</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.473</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.472</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.473</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -21393,6 +21393,75 @@ function mapaExpand(i){
   mapaRender();
 }
 
+// Cria (ou atualiza, se já existir) a Solicitação de Compra ligada a ESTE mapa
+// especificamente — chamada ao clicar "Enviei → Preencher Preços". Vinculada por
+// mapaOrigem=mapaEstadoId, então nunca mistura com outro mapa em andamento.
+function mapaCriarOuAtualizarSolicitacaoInicial(){
+  try{
+    if(typeof mapaSalvarEstado==='function')mapaSalvarEstado(); // garante mapaEstadoId
+    if(!mapaEstadoId)mapaEstadoId='mapa_'+Date.now();
+    if(typeof solicLoad!=='function'||typeof solicSave!=='function')return;
+
+    var list=solicLoad();
+    var solicMapa=list.find(function(x){return x.mapaMaster===true&&x.mapaOrigem===mapaEstadoId;});
+    var novaCriacao=!solicMapa;
+
+    if(!solicMapa){
+      var numero='SOL-'+String(mapaProximoNumeroSolic()).padStart(5,'0');
+      var numeroMapa='MAPA-'+String(mapaProximoNumeroMapa()).padStart(4,'0');
+      solicMapa={
+        id:'sol_mapaMaster_'+mapaEstadoId,
+        numero:numero,
+        numeroMapa:numeroMapa,
+        fornecedor:'MAPA DE COMPRAS',
+        itens:[],
+        data:Date.now(),
+        status:'⏳ Pendente',
+        mapa:true,
+        mapaMaster:true,
+        mapaOrigem:mapaEstadoId,
+        fornecedoresMap:{},
+        usuarioCriacaco:(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)?sbProfile.nome:((typeof sbUser!=='undefined'&&sbUser&&sbUser.email)?sbUser.email:'Usuário')
+      };
+      list.push(solicMapa);
+    }
+
+    // (Re)monta fornecedoresMap e itens com base no estado atual do mapa —
+    // roda toda vez que "Enviei" é clicado, então reflete a seleção mais recente.
+    var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
+    var itensSel=mapaItens.filter(function(i){return i.sel!==false;});
+    var novoFornecedoresMap={};
+    itensSel.forEach(function(item){
+      var itemKey=item.ref+'||'+(item.marca||'');
+      var fids=mapaFornSelecionados[itemKey]||[];
+      fids.forEach(function(fid){
+        if(!novoFornecedoresMap[fid]){
+          var fOld=solicMapa.fornecedoresMap&&solicMapa.fornecedoresMap[fid];
+          var f=flist.find(function(x){return x.id===fid;});
+          var nomeF=f?(f.fantasia||f.nome||f.razao):(fOld?fOld.nome:fid);
+          novoFornecedoresMap[fid]={nome:nomeF,itens:[],total:0,ocGerada:fOld?fOld.ocGerada:false};
+        }
+        if(!novoFornecedoresMap[fid].itens.find(function(x){return x.codigo===item.ref;})){
+          novoFornecedoresMap[fid].itens.push({codigo:item.ref,desc:item.desc,marca:item.marca||'',qtd:item.qtd,prazo:'—'});
+        }
+      });
+    });
+    solicMapa.fornecedoresMap=novoFornecedoresMap;
+
+    var allItens=[];
+    itensSel.forEach(function(item){
+      if(!allItens.find(function(x){return x.codigo===item.ref;})){
+        allItens.push({codigo:item.ref,desc:item.desc,marca:item.marca||'',qtd:item.qtd,prazo:'—'});
+      }
+    });
+    solicMapa.itens=allItens;
+    solicMapa.nItens=allItens.length;
+
+    solicSave(list);
+    console.log((novaCriacao?'✅ Solicitação criada':'🔄 Solicitação atualizada')+' pro mapa '+mapaEstadoId+': '+solicMapa.numero);
+  }catch(e){console.error('Erro ao criar/atualizar Solicitação inicial do mapa:',e);}
+}
+
 function mapaTogForn(key,fid,idx){
   if(!mapaFornSelecionados[key])mapaFornSelecionados[key]=[];
   var arr=mapaFornSelecionados[key],p=arr.indexOf(fid);
@@ -21421,68 +21490,10 @@ function mapaTogForn(key,fid,idx){
     }catch(_e){console.error('Erro ao logar sugestão de regra IA:',_e);}
   }
   
-  // Criar/Atualizar Solicitação MAPA ao marcar fornecedor
-  if(marcando){
-    try{
-      if(typeof solicLoad==='function'&&typeof solicSave==='function'){
-        var list=solicLoad();
-        var solicMapa=list.find(function(x){return x.mapaMaster===true;});
-        
-        if(!solicMapa){
-          // Criar Solicitação MAPA principal
-          var novoId='sol_mapaMaster_'+Date.now();
-          var numero='SOL-'+String(mapaProximoNumeroSolic()).padStart(5,'0');
-          var numeroMapa='MAPA-'+String(mapaProximoNumeroMapa()).padStart(4,'0');
-          solicMapa={
-            id:novoId,
-            numero:numero,
-            numeroMapa:numeroMapa,
-            fornecedor:'MAPA DE COMPRAS',
-            itens:[],
-            data:Date.now(),
-            status:'⏳ Pendente',
-            mapa:true,
-            mapaMaster:true,
-            fornecedoresMap:{},
-            usuarioCriacaco:(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)?sbProfile.nome:((typeof sbUser!=='undefined'&&sbUser&&sbUser.email)?sbUser.email:'Usuário')
-          };
-          list.push(solicMapa);
-        }
-        
-        // Adicionar/atualizar fornecedor na map
-        var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
-        var f=flist.find(function(x){return x.id===fid;});
-        var nomeF=f?(f.fantasia||f.nome||f.razao):fid;
-        
-        if(!solicMapa.fornecedoresMap[fid]){
-          solicMapa.fornecedoresMap[fid]={nome:nomeF,itens:[],total:0,ocGerada:false};
-        }
-        
-        // Adicionar items do mapa que têm este fornecedor
-        var itensSel=mapaItens.filter(function(i){return i.sel!==false;});
-        itensSel.forEach(function(item){
-          var itemKey=item.ref+'||'+(item.marca||'');
-          var fids=mapaFornSelecionados[itemKey]||[];
-          if(fids.includes(fid)){
-            var itemExiste=solicMapa.fornecedoresMap[fid].itens.find(function(x){return x.codigo===item.ref;});
-            if(!itemExiste){
-              solicMapa.fornecedoresMap[fid].itens.push({codigo:item.ref,desc:item.desc,marca:item.marca||'',qtd:item.qtd,prazo:'—'});
-            }
-          }
-        });
-        
-        // Atualizar lista de itens gerais da Solicitação
-        var allItens=[];
-        itensSel.forEach(function(item){
-          if(!allItens.find(function(x){return x.codigo===item.ref;})){
-            allItens.push({codigo:item.ref,desc:item.desc,marca:item.marca||'',qtd:item.qtd,prazo:'—'});
-          }
-        });
-        solicMapa.itens=allItens;
-        
-        solicSave(list);      }
-    }catch(e){console.error('Erro ao criar Solicitação:',e);}
-  }
+  // Solicitação de Compra agora é criada só ao clicar "Enviei → Preencher Preços"
+  // (função mapaCriarOuAtualizarSolicitacaoInicial), não mais aqui a cada clique de
+  // fornecedor — evita ficar salvando toda hora e evita o bug de misturar mapas.
+
   
   mapaItens[idx]._exp=true;
   // 💾 SALVAR FORNECEDORES SELECIONADOS
@@ -21651,7 +21662,7 @@ function mapaStep2(el){
   });
   html+='<div style="display:flex;justify-content:space-between;margin-top:8px">';
   html+='<button onclick="mapaGoStep(1)" style="background:none;border:1.5px solid #e0e8f0;color:#1F4E79;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:13px">← Voltar</button>';
-  html+='<button onclick="mapaGoStep(3)" style="background:#27AE60;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:13px;font-weight:700">Enviei → Preencher Preços</button>';
+  html+='<button onclick="mapaCriarOuAtualizarSolicitacaoInicial();mapaGoStep(3)" style="background:#27AE60;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:13px;font-weight:700">Enviei → Preencher Preços</button>';
   html+='</div>';
   el.innerHTML=html;
 }
@@ -22420,7 +22431,7 @@ function mapaMarcarDecisao(key, decKey, qtd, preco, custo){
 
 function solicAbrirMapaOrigem(mapaId){  openTab('mapa','🗂️ Mapa de Compras');
   if(mapaCarregarDaLista(mapaId)){
-    mapaGoStep(4);
+    mapaGoStep(mapaStep||3);
   } else {
     pfAlert('Mapa não encontrado!');
   }
@@ -22721,19 +22732,7 @@ function mapaGerarSolicitacao(){
     resumo[it.fornecedor] += total;
     totalGeral += total;  });
   
-  // Gerar número SOL
-  var listaSol = solicLoad();
-  var proximoNum = 1;
-  listaSol.forEach(function(s){
-    if(s.numero){
-      var num = parseInt(s.numero.replace('SOL-','')) || 0;
-      if(num >= proximoNum) proximoNum = num + 1;
-    }
-  });
-  var numeroSol = 'SOL-' + String(proximoNum).padStart(4,'0');
-  
   // Agrupar itens por fornecedor pra renderizar corretamente
-  
   var fornecedoresMap = {};
   itensSolicitacao.forEach(function(it){
     if(!fornecedoresMap[it.fornecedor]){
@@ -22749,44 +22748,69 @@ function mapaGerarSolicitacao(){
     }
     fornecedoresMap[it.fornecedor].itens.push(it);
   });
-  
-  // Criar Solicitação  
-  var solicitacao = {
-    id: 'sol_' + Date.now(),
-    numero: numeroSol,
-    titulo: 'Solicitação do Mapa ' + window._mapaEstadoNumero,
-    data: Date.now(),
-    status: 'Pendente',
-    mapaMaster: true,
-    itens: itensSolicitacao,
-    fornecedoresMap: fornecedoresMap, // ← Adicionado!
-    resumo: resumo,
-    totalGeral: totalGeral,
-    mapaOrigem: mapaEstadoId || ('mapa_'+Date.now()),  // ✅ Nunca deixar vazio
-    nItens: itensSolicitacao.length,
-    usuarioCriacaco: (function(){
-      var nome = '';
-      // 1. Tentar sbProfile
-      if(typeof sbProfile !== 'undefined' && sbProfile && sbProfile.nome) nome = sbProfile.nome;
-      // 2. Tentar sbUser
-      else if(typeof sbUser !== 'undefined' && sbUser && sbUser.email) nome = sbUser.email.split('@')[0];
-      // 3. Tentar localStorage (user_profile)
-      else {
-        try{
-          var prof = JSON.parse(localStorage.getItem('user_profile') || '{}');
-          if(prof.nome) nome = prof.nome;
-        }catch(e){}
+
+  var usuarioAtual = (function(){
+    var nome = '';
+    if(typeof sbProfile !== 'undefined' && sbProfile && sbProfile.nome) nome = sbProfile.nome;
+    else if(typeof sbUser !== 'undefined' && sbUser && sbUser.email) nome = sbUser.email.split('@')[0];
+    else {
+      try{
+        var prof = JSON.parse(localStorage.getItem('user_profile') || '{}');
+        if(prof.nome) nome = prof.nome;
+      }catch(e){}
+    }
+    if(!nome) nome = 'Usuário';
+    return nome;
+  })();
+
+  // Já existe uma Solicitação pra este mapa (criada ao clicar "Enviei → Preencher
+  // Preços")? Se sim, ATUALIZA ela em vez de criar uma nova — mantém o mesmo número.
+  var listaSol = solicLoad();
+  var solicExistente = mapaEstadoId ? listaSol.find(function(x){return x.mapaMaster===true&&x.mapaOrigem===mapaEstadoId;}) : null;
+  var numeroSol, solicitacao;
+
+  if(solicExistente){
+    solicExistente.status = '✅ Decidida';
+    solicExistente.itens = itensSolicitacao;
+    solicExistente.fornecedoresMap = fornecedoresMap;
+    solicExistente.resumo = resumo;
+    solicExistente.totalGeral = totalGeral;
+    solicExistente.nItens = itensSolicitacao.length;
+    solicExistente.dataDecisao = Date.now();
+    solicitacao = solicExistente;
+    numeroSol = solicExistente.numero;
+    solicSave(listaSol);
+  } else {
+    // Fallback (mapa antigo, sem Solicitação criada na Etapa 2): cria do zero como antes
+    var proximoNum = 1;
+    listaSol.forEach(function(s){
+      if(s.numero){
+        var num = parseInt(s.numero.replace('SOL-','')) || 0;
+        if(num >= proximoNum) proximoNum = num + 1;
       }
-      // 4. Fallback final
-      if(!nome) nome = 'Usuário';
-      console.log('👤 Usuário capturado:', nome);
-      return nome;
-    })(),
-    ts: Date.now()
-  };  
-  // Salvar Solicitação usando função correta
-  listaSol.unshift(solicitacao);
-  solicSave(listaSol);
+    });
+    numeroSol = 'SOL-' + String(proximoNum).padStart(4,'0');
+    solicitacao = {
+      id: 'sol_' + Date.now(),
+      numero: numeroSol,
+      titulo: 'Solicitação do Mapa ' + window._mapaEstadoNumero,
+      data: Date.now(),
+      status: '✅ Decidida',
+      mapa: true,
+      mapaMaster: true,
+      itens: itensSolicitacao,
+      fornecedoresMap: fornecedoresMap,
+      resumo: resumo,
+      totalGeral: totalGeral,
+      mapaOrigem: mapaEstadoId || ('mapa_'+Date.now()),
+      nItens: itensSolicitacao.length,
+      usuarioCriacaco: usuarioAtual,
+      dataDecisao: Date.now(),
+      ts: Date.now()
+    };
+    listaSol.unshift(solicitacao);
+    solicSave(listaSol);
+  }
   
   // ✅ Sincronizar com Supabase (chave correta!)
   try{
@@ -22797,7 +22821,7 @@ function mapaGerarSolicitacao(){
     console.error('Erro ao sincronizar Supabase:', e);
   }
   
-  pfConfirm('✅ SOLICITAÇÃO GERADA COM SUCESSO!\n\n📦 ' + numeroSol + '\n🏭 ' + itensSolicitacao.length + ' item(ns)\n💰 Total: R$ ' + totalGeral.toFixed(2) + '\n👤 Usuário: ' + solicitacao.usuarioCriacaco + '\n\nAbrir Solicitações?', 
+  pfConfirm('✅ SOLICITAÇÃO ' + (solicExistente?'ATUALIZADA':'GERADA') + ' COM SUCESSO!\n\n📦 ' + numeroSol + '\n🏭 ' + itensSolicitacao.length + ' item(ns)\n💰 Total: R$ ' + totalGeral.toFixed(2) + '\n👤 Usuário: ' + usuarioAtual + '\n\nAbrir Solicitações?', 
     function(){
       openTab('solicitacoes', '📋 Solicitações de Compras');
       setTimeout(function(){if(typeof solicRender==='function')solicRender();}, 100);
@@ -33342,4 +33366,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.472 --></html>
+</script></div></div></body><!-- Build timestamp: v115.473 --></html>

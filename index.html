@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.482 - Mapa de Compras: notificacao padronizada (igual "chegada de pecas") sempre que a cotacao de um fornecedor for recebida/lida, com progresso "X/Y itens" e "N de M fornecedores responderam". Notifica quem CRIOU o mapa (por e-mail), mesmo que quem suba a cotacao seja outra pessoa/login. -->
+<!-- v115.483 - Vendas: cartao de cliente v1 (sem IA generativa), aparece automatico ao selecionar cliente na cotacao. Mostra Observacoes do cadastro em destaque (ex: "nao gosta da marca X"), ultima compra + dias, flag de atrasado (baseado no intervalo medio de compras do cliente) e marcas mais compradas — tudo a partir do historico de pedidos ja existente (pvLoad). -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.482</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.483</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.482</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.483</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -29091,6 +29091,60 @@ function vendasItemColResizeSetup(){
   });
 }
 
+// ── Cartão de cliente (v1, sem IA generativa) ──────────────────────
+// Agrega dados já existentes no histórico de pedidos (pvLoad) + a
+// Observação já cadastrada no Cadastro de Clientes. Aparece automático
+// ao abrir/selecionar cliente numa cotação de Vendas.
+function vendasClienteResumo(cliente){
+  if(!cliente)return null;
+  var razao=(cliente.razao||'').toUpperCase();
+  var pedidos=(typeof pvLoad==='function'?pvLoad():[]).filter(function(p){return (p.clienteRazao||'').toUpperCase()===razao;});
+  var resumo={temHistorico:pedidos.length>0,ultimaCompra:null,diasDesde:null,atrasado:false,intervaloMedio:null,topMarcas:[],topItens:[],totalPedidos:pedidos.length,obs:''};
+  try{
+    var clist=typeof cadLoad==='function'?cadLoad(CLIE_KEY):[];
+    var c=clist.find(function(x){return (x.cnpj&&cliente.cnpj&&x.cnpj===cliente.cnpj)||(x.razao||'').toUpperCase()===razao;});
+    if(c&&c.obs)resumo.obs=c.obs;
+  }catch(e){}
+  if(!pedidos.length)return resumo;
+  pedidos.sort(function(a,b){return new Date(b.data)-new Date(a.data);});
+  resumo.ultimaCompra=pedidos[0].data;
+  resumo.diasDesde=Math.round((Date.now()-new Date(pedidos[0].data))/86400000);
+  if(pedidos.length>=2){
+    var datas=pedidos.map(function(p){return new Date(p.data).getTime();}).sort(function(a,b){return a-b;});
+    var intervalos=[];
+    for(var i=1;i<datas.length;i++)intervalos.push((datas[i]-datas[i-1])/86400000);
+    var mediaIntervalo=intervalos.reduce(function(a,b){return a+b;},0)/intervalos.length;
+    resumo.intervaloMedio=Math.round(mediaIntervalo);
+    resumo.atrasado=resumo.diasDesde>Math.max(mediaIntervalo*1.5,30);
+  }else{
+    resumo.atrasado=resumo.diasDesde>60;
+  }
+  var porMarca={};
+  pedidos.forEach(function(p){(p.itens||[]).forEach(function(it){var m=(it.marca||'—').toUpperCase();porMarca[m]=(porMarca[m]||0)+(it.qtd||0);});});
+  resumo.topMarcas=Object.keys(porMarca).map(function(m){return{marca:m,qtd:porMarca[m]};}).sort(function(a,b){return b.qtd-a.qtd;}).slice(0,3);
+  var porItem={};
+  pedidos.forEach(function(p){(p.itens||[]).forEach(function(it){var k=it.codigo;if(!porItem[k])porItem[k]={desc:it.desc,qtd:0};porItem[k].qtd+=(it.qtd||0);});});
+  resumo.topItens=Object.keys(porItem).map(function(k){return{codigo:k,desc:porItem[k].desc,qtd:porItem[k].qtd};}).sort(function(a,b){return b.qtd-a.qtd;}).slice(0,3);
+  return resumo;
+}
+function vendasRenderCartaoCliente(cliente){
+  var r=vendasClienteResumo(cliente);
+  if(!r)return '';
+  var html='';
+  if(r.obs){
+    html+='<div style="background:#FFF3E6;border:1.5px solid #E67E22;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px;color:#854F0B"><strong>⚠️ Observação:</strong> '+pfEscHtml(r.obs)+'</div>';
+  }
+  if(!r.temHistorico){
+    html+='<div style="background:#F8FAFC;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#8a9ab0">Primeira compra deste cliente — sem histórico ainda.</div>';
+    return html;
+  }
+  html+='<div style="background:#F8FAFC;border-radius:8px;padding:9px 14px;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:16px;align-items:center">';
+  html+='<div style="font-size:11px"><span style="color:#8a9ab0">Última compra:</span> <strong style="color:'+(r.atrasado?'#C00000':'#1a2332')+'">'+new Date(r.ultimaCompra).toLocaleDateString('pt-BR')+' ('+r.diasDesde+'d atrás)</strong>'+(r.atrasado?' <span style="color:#C00000;font-weight:700">🔴 Atrasado</span>':'')+'</div>';
+  if(r.topMarcas.length)html+='<div style="font-size:11px"><span style="color:#8a9ab0">Marcas:</span> <strong style="color:#1a2332">'+r.topMarcas.map(function(m){return pfEscHtml(m.marca);}).join(', ')+'</strong></div>';
+  html+='<div style="font-size:11px;color:#8a9ab0">'+r.totalPedidos+' pedido(s) no histórico</div>';
+  html+='</div>';
+  return html;
+}
 function vendasRenderCotacao(el){
   window._venda=window._venda||{itens:[]};
   var v=window._venda;
@@ -29105,7 +29159,8 @@ function vendasRenderCotacao(el){
     (v.cliente.cnpj?'<span><strong style="color:#1a2332">'+v.cliente.cnpj+'</strong></span>':'')+
     (v.cliente.contato?'<span>&#128100; <strong style="color:#1a2332">'+v.cliente.contato+'</strong>'+(v.cliente.tel?' &nbsp;'+v.cliente.tel:'')+'</span>':'')+
     (v.cliente.cidade||v.cliente.estado?'<span>&#128205; <strong style="color:#1a2332">'+(v.cliente.cidade?v.cliente.cidade+' &mdash; ':'')+( v.cliente.estado||'')+'</strong></span>':'')+
-    '</div>':
+    '</div>'+
+    (typeof vendasRenderCartaoCliente==='function'?vendasRenderCartaoCliente(v.cliente):''):
     '<div style="position:relative;margin-bottom:10px">'+
     '<input type="text" placeholder="Buscar cliente..." id="vendasClienteInput" oninput="vendasBuscarCliente(this.value)" style="width:100%;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;color:#1a2332"></div>'+
     '<div id="vendasClienteResultados" style="display:none;background:#fff;border:1px solid #e0e8f0;border-radius:8px;max-height:160px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.08)"></div>';
@@ -33651,4 +33706,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.482 --></html>
+</script></div></div></body><!-- Build timestamp: v115.483 --></html>

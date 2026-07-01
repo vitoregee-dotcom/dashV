@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.474 - Calculo NF+Especial: adiciona campo Cliente e lista dos ultimos 10 calculos (clicavel pra reabrir) -->
+<!-- v115.475 - Fix critico: carregarHistorico parava de gravar itens completos (varios MB por analise) no localStorage, causava travamento total do navegador. Limpeza automatica expandida + fix spam de historico NF no slider -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.474</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.475</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.474</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.475</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -15228,12 +15228,27 @@ function pfSafeSetItem(key, value){
     return false;
   }
 }
-// Limpeza única: remove backup de planilha se já estiver gigante demais (de sessões anteriores)
+// Limpeza única: remove caches conhecidos que costumam crescer demais (de sessões
+// anteriores) e avisa no console sobre qualquer outra chave grande — sem apagar
+// dados que podem ser importantes (só limpa o que sabemos que é cache reconstruível).
 try{
-  var _oldBackup=localStorage.getItem('dashV_lastSheet');
-  if(_oldBackup&&_oldBackup.length>3000000){ // ~3MB de texto já é grande demais
-    localStorage.removeItem('dashV_lastSheet');
-    console.warn('🧹 Removido backup de planilha antigo e muito grande ('+(_oldBackup.length/1024/1024).toFixed(1)+'MB) pra liberar espaço no localStorage.');
+  var _cachesReconstruiveis=['dashV_lastSheet','dash_historico_v1'];
+  _cachesReconstruiveis.forEach(function(_k){
+    var _v=localStorage.getItem(_k);
+    if(_v&&_v.length>3000000){ // ~3MB de texto já é grande demais
+      localStorage.removeItem(_k);
+      console.warn('🧹 Removido cache "'+_k+'" muito grande ('+(_v.length/1024/1024).toFixed(1)+'MB) pra liberar espaço no localStorage.');
+    }
+  });
+  // Varre todas as outras chaves e só AVISA se alguma estiver grande — não apaga,
+  // pra não arriscar perder dado de negócio real (solicitações, mapas, cadastros).
+  for(var _i=0;_i<localStorage.length;_i++){
+    var _key=localStorage.key(_i);
+    if(_cachesReconstruiveis.indexOf(_key)>=0)continue;
+    var _val=localStorage.getItem(_key);
+    if(_val&&_val.length>2000000){
+      console.warn('⚠️ Chave "'+_key+'" no localStorage está com '+(_val.length/1024/1024).toFixed(1)+'MB — vale investigar se está crescendo sem controle.');
+    }
   }
 }catch(e){}
 // ═══════════════════════════════════════════════════════════════
@@ -18022,7 +18037,11 @@ async function carregarHistorico(){
               itens
             };
           });
-          try{pfSafeSetItem(HIST_KEY,JSON.stringify(hist));}catch(e){}
+          // ⚠️ NÃO persiste "itens" completo no localStorage — cada análise pode ter
+          // vários MB nessa coluna, e guardar 8 delas estourava a cota e travava o
+          // navegador (ver "Página sem resposta"). Fica só em memória (window._histCache)
+          // durante a sessão; o que vai pro localStorage é só o resumo/estatísticas.
+          try{pfSafeSetItem(HIST_KEY,JSON.stringify(pfStripItensHist(hist)));}catch(e){}
           window._histCache=hist; window._histCacheTs=Date.now();
           return hist;
         }
@@ -18037,8 +18056,19 @@ async function carregarHistorico(){
   window._histCache=fallback; window._histCacheTs=Date.now();
   return fallback;
 }
+function pfStripItensHist(hist){
+  // Mantém tudo (contadores, nome, datas) menos o array "itens" completo — isso é
+  // o que ocupa vários MB por análise. window._histCache continua com os itens
+  // completos em memória pra quem estiver usando na sessão atual.
+  return (hist||[]).map(function(h){
+    var copia={};
+    for(var k in h){if(k!=='itens')copia[k]=h[k];}
+    copia.totItens=h.totItens!=null?h.totItens:(h.itens?h.itens.length:0);
+    return copia;
+  });
+}
 function salvarHistoricoLS(hist){
-  try{pfSafeSetItem(HIST_KEY,JSON.stringify(hist));}
+  try{pfSafeSetItem(HIST_KEY,JSON.stringify(pfStripItensHist(hist)));}
   catch(e){pfAlert("Não foi possível salvar: armazenamento cheio.");}
 }
 
@@ -32725,12 +32755,20 @@ function nfRenderTabela(){
     el.innerHTML='<div style="text-align:center;padding:40px;color:#8a9ab0;font-size:13px">Carregue um PDF de cotação para calcular.</div>';
     return;
   }
-  // Salva no histórico (evita duplicar entrada idêntica a cada ajuste do slider)
+  // Salva no histórico: atualiza a entrada mais recente se for o mesmo cálculo
+  // (mesmos itens, só ajustando desconto/cliente) — só cria entrada NOVA quando
+  // os itens mudam de verdade (novo PDF/print carregado). Evita lotar a lista de
+  // "últimos cálculos" com uma entrada a cada arrasto do slider.
   try{
-    var _histAtual=ferrHistCarregar().filter(function(h){return h.tipo==='nf';});
-    var _ultimo=_histAtual[0];
-    var _mudou=!_ultimo||JSON.stringify(_ultimo.dados.itens)!==JSON.stringify(_nfItens)||_ultimo.dados.desconto!==_nfDesconto||_ultimo.dados.cliente!==_nfCliente;
-    if(_mudou){
+    var _listaCompleta=ferrHistCarregar();
+    var _idxUltimoNf=_listaCompleta.findIndex(function(h){return h.tipo==='nf';});
+    var _itensIguais=_idxUltimoNf>=0&&JSON.stringify(_listaCompleta[_idxUltimoNf].dados.itens)===JSON.stringify(_nfItens);
+    if(_itensIguais){
+      _listaCompleta[_idxUltimoNf].dados.desconto=_nfDesconto;
+      _listaCompleta[_idxUltimoNf].dados.cliente=_nfCliente;
+      _listaCompleta[_idxUltimoNf].ts=Date.now();
+      pfSafeSetItem(FERR_HIST_KEY,JSON.stringify(_listaCompleta));
+    } else {
       ferrHistSalvar('nf', {itens:JSON.parse(JSON.stringify(_nfItens)), desconto:_nfDesconto, cliente:_nfCliente});
     }
   }catch(e){}
@@ -33415,4 +33453,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.474 --></html>
+</script></div></div></body><!-- Build timestamp: v115.475 --></html>

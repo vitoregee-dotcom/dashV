@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.479 - Remove chamada duplicada de loadProfile() no boot (pequena otimizacao). Diagnostico: demora inicial ao abrir o app vem do processamento dos 207k itens do Dashboard no login automatico -- ja e feito em chunks com yield, nao trava o navegador, so leva alguns segundos na primeira vez -->
+<!-- v115.480 - Dashboard: renderizacao visual (tabela/KPIs/graficos) dos 207k itens agora so roda quando a tela do Dashboard e realmente aberta, em vez de sempre no login. O calculo (recalc) continua rodando em segundo plano no login normalmente, para que Me Avise e Oportunidades continuem funcionando em dia. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.479</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.480</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.479</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.480</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -15689,8 +15689,11 @@ function processRows(rows){
 // CÁLCULO
 // ═══════════════════════════════════════════════════════════════
 let _recalcGen=0;
-async function recalc(){
+async function recalc(skipRender){
   // Calcular em chunks — token evita execuções concorrentes
+  // skipRender=true: calcula calcItems (usado por Me Avise/Oportunidades) mas
+  // pula a renderização visual do Dashboard (tabela/KPIs/gráficos), que só
+  // roda quando a tela do Dashboard for realmente aberta (ver pfRenderDashNow).
   const CHUNK=500;
   const myGen=++_recalcGen;
   calcItems=[];
@@ -15742,6 +15745,10 @@ async function recalc(){
   calcItems.forEach(function(d){
     if(d.saldo>0) refsComSaldoSet.add(normRef(d.ref));
   });
+  if(skipRender){
+    window._pfDashRendered=false; // sinaliza que a tela ainda precisa ser desenhada quando abrir
+    return;
+  }
   applyFilt();
   await new Promise(r=>setTimeout(r,0));
   try { renderTable(); } catch(e) { console.error('renderTable erro:', e); }
@@ -15752,6 +15759,7 @@ async function recalc(){
   await new Promise(r=>setTimeout(r,0));
   atualizarFiltroMarca();
   atualizarFiltroGrupo();
+  window._pfDashRendered=true;
   // Auto-open dashboard if closed
   if(typeof dashVisible!=='undefined'&&!dashVisible){
     dashVisible=true;
@@ -15760,6 +15768,29 @@ async function recalc(){
     if(inner)inner.style.display="block";
     if(capa)capa.style.display="none";
   }
+}
+// Renderiza a parte visual do Dashboard (tabela/KPIs/gráficos) sob demanda,
+// quando a tela é aberta e o cálculo já rodou em segundo plano com skipRender=true.
+// Evita reprocessar os 207k itens de novo — só desenha o que já foi calculado.
+async function pfRenderDashNow(){
+  if(window._pfDashRendered)return;
+  if(!calcItems.length){
+    // Cálculo ainda não rodou (caso raro) — roda completo agora
+    await recalc(false);
+    if(typeof renderOpBox==='function')renderOpBox();
+    return;
+  }
+  applyFilt();
+  await new Promise(r=>setTimeout(r,0));
+  try { renderTable(); } catch(e) { console.error('renderTable erro:', e); }
+  await new Promise(r=>setTimeout(r,0));
+  renderKpis();
+  await new Promise(r=>setTimeout(r,0));
+  renderCharts();
+  atualizarFiltroMarca();
+  atualizarFiltroGrupo();
+  if(typeof renderOpBox==='function')renderOpBox();
+  window._pfDashRendered=true;
 }
 // ── SOLICITAÇÕES – Supabase sync ──────────────────────────────
 function familiaMarcaMain(m){
@@ -20123,9 +20154,10 @@ async function pfPullPlanilhas(){
     var famSalva=localStorage.getItem('pfFamiliaAtiva');
     if(famSalva)pfFamiliaAtiva=famSalva;
     setDefaultDates();
-    await recalc();
+    await recalc(!_onDash);
     if(sp)sp.style.display='none';
-    if(!window._ferrMargemRole){renderCharts();renderKpis();renderOpBox();pfAtualizarFiltroFamilias();}
+    if(!window._ferrMargemRole&&_onDash){renderCharts();renderKpis();renderOpBox();}
+    if(!window._ferrMargemRole)pfAtualizarFiltroFamilias();
     setTimeout(function(){verificarAvisos();verificarOportunidades();},300);
     // Salva também no localStorage como backup
     try{if(allItems.length<=15000)pfSafeSetItem('dashV_lastSheet',JSON.stringify({name:data[0].nome_arquivo||'',items:allItems,ts:Date.now()}));else localStorage.removeItem('dashV_lastSheet');}catch(e){}
@@ -20681,9 +20713,10 @@ async function lpSalvarSupabase(){
         if(!dashboardRendered && typeof allItems !== 'undefined' && allItems.length > 0){
           dashboardRendered = true;
           clearInterval(dashMonitor);
-          console.log('✅ Renderizando dashboard - allItems carregou: '+allItems.length+' itens');
+          var _onDashNow=(typeof _pfCurrentView==='undefined')||!_pfCurrentView||_pfCurrentView==='dash';
+          console.log('✅ allItems carregou: '+allItems.length+' itens'+(_onDashNow?' — renderizando dashboard':' — cálculo em segundo plano, render adiado'));
           if(typeof recalc === 'function'){
-            recalc().catch(function(e){console.warn('recalc erro:',e);});
+            recalc(!_onDashNow).catch(function(e){console.warn('recalc erro:',e);});
           }
         }
       }, 100);
@@ -33144,6 +33177,15 @@ function pfNavigate(view){
       var d=document.getElementById('dash'); if(d)d.style.display='block';
       var u=document.getElementById('upSec'); if(u)u.style.display='none';
       if(typeof renderUltimaPlanilhaFamilia==='function'){try{renderUltimaPlanilhaFamilia();}catch(_e){console.warn('renderUltimaPlanilhaFamilia falhou:',_e);}}
+      // Primeira abertura da tela nesta sessão: desenha tabela/KPIs/gráficos agora
+      // (cálculo já rodou em segundo plano no login; aqui só falta o desenho visual)
+      if(!window._pfDashRendered&&typeof pfRenderDashNow==='function'){
+        var _spD=document.getElementById('spinner');
+        if(_spD){_spD.style.display='block';_spD.textContent='📊 Preparando Dashboard...';}
+        pfRenderDashNow().then(function(){
+          if(_spD)_spD.style.display='none';
+        }).catch(function(e){console.warn('pfRenderDashNow erro:',e);if(_spD)_spD.style.display='none';});
+      }
     } else {
       document.body.classList.add('no-data');
       document.body.classList.remove('has-data');
@@ -33498,4 +33540,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.479 --></html>
+</script></div></div></body><!-- Build timestamp: v115.480 --></html>

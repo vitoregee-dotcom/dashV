@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.487 - Novo: Historico de Precos por Item (tabela item_historico_precos no Supabase, RLS: todos leem, cada um grava o proprio). Grava automatico: compra quando cotacao de fornecedor e lida no Mapa; venda quando cotacao de Vendas e finalizada. Consulta com Ctrl+D no item selecionado em Vendas -- mostra menor custo, maior venda, margem media e linha do tempo completa (fornecedor/cliente/preco/vendedor). -->
+<!-- v115.488 - Consulta de Precos por Item: tabela agora com colunas separadas Fornecedor / Cliente / Marca / Qtd / Preco / Quem, mais facil de bater o olho. Coluna qtd nova na tabela item_historico_precos. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.487</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.488</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.487</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.488</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22266,7 +22266,7 @@ async function mapaLerResposta(input, fid){
         pfRegistrarHistoricoPreco({
           item_ref:it.ref, marca:entry.marca||it.marca||'', descricao:it.desc||'',
           tipo:'compra', fornecedor:(forn.fantasia||forn.nome||forn.razao||''),
-          preco:entry.preco, mapa_origem:(window._mapaEstadoNumero||mapaEstadoId||'')
+          preco:entry.preco, qtd:it.qtd||null, mapa_origem:(window._mapaEstadoNumero||mapaEstadoId||'')
         });
       }
     });
@@ -29246,6 +29246,7 @@ async function pfRegistrarHistoricoPreco(entry){
       cliente:entry.cliente||null,
       preco:entry.preco!=null?Number(entry.preco):null,
       custo:entry.custo!=null?Number(entry.custo):null,
+      qtd:entry.qtd!=null?Number(entry.qtd):null,
       mapa_origem:entry.mapa_origem||null,
       cotacao_num:entry.cotacao_num||null,
       autor:autor,
@@ -29295,12 +29296,15 @@ async function pfAbrirHistoricoItem(ref,marca,desc){
     return '<tr style="border-bottom:1px solid #f0f4f8">'+
       '<td style="padding:6px 10px;color:#8a9ab0;white-space:nowrap">'+fmtData(e.created_at)+'</td>'+
       '<td style="padding:6px 10px;white-space:nowrap"><span style="background:'+(isCompra?'#DBEAFE':'#E1F5EE')+';color:'+(isCompra?'#1F4E79':'#085041')+';padding:1px 6px;border-radius:4px;font-weight:700;font-size:10px">'+(isCompra?'COMPRA':'VENDA')+'</span></td>'+
-      '<td style="padding:6px 10px;color:#1a2332;font-weight:600">'+pfEscHtml(isCompra?(e.fornecedor||'—'):(e.cliente||'—'))+'</td>'+
+      '<td style="padding:6px 10px;color:#1a2332">'+(isCompra?pfEscHtml(e.fornecedor||'—'):'<span style="color:#c8d0da">—</span>')+'</td>'+
+      '<td style="padding:6px 10px;color:#1a2332">'+(!isCompra?pfEscHtml(e.cliente||'—'):'<span style="color:#c8d0da">—</span>')+'</td>'+
+      '<td style="padding:6px 10px;color:#607080;white-space:nowrap">'+pfEscHtml(e.marca||'—')+'</td>'+
+      '<td style="padding:6px 10px;text-align:center;color:#607080">'+(e.qtd!=null?e.qtd:'—')+'</td>'+
       '<td style="padding:6px 10px;text-align:right;color:'+(isCompra?'#1F4E79':'#27AE60')+';font-weight:700;white-space:nowrap">'+fmtR$(e.preco)+(!isCompra&&e.custo?'<div style="font-size:9px;color:#8a9ab0;font-weight:400">custo '+fmtR$(e.custo)+'</div>':'')+'</td>'+
       '<td style="padding:6px 10px;color:#8a9ab0;white-space:nowrap">'+pfEscHtml(e.autor||'—')+'</td>'+
       '</tr>';
   }).join('');
-  modal.innerHTML='<div style="background:#fff;border-radius:12px;max-width:720px;width:94vw;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.25)">'+
+  modal.innerHTML='<div style="background:#fff;border-radius:12px;max-width:860px;width:96vw;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.25)">'+
     '<div style="background:#1F4E79;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">'+
       '<div><div style="font-size:13px;font-weight:800">📋 Consulta de Preços — '+pfEscHtml(ref)+(marca?' ('+pfEscHtml(marca)+')':'')+'</div>'+
       (desc?'<div style="font-size:10px;opacity:.8;margin-top:1px">'+pfEscHtml(desc)+'</div>':'')+'</div>'+
@@ -29316,7 +29320,10 @@ async function pfAbrirHistoricoItem(ref,marca,desc){
         '<thead><tr style="background:#F0F4F8;text-align:left;position:sticky;top:0">'+
           '<th style="padding:7px 10px;font-weight:700;color:#607080">Data</th>'+
           '<th style="padding:7px 10px;font-weight:700;color:#607080">Tipo</th>'+
-          '<th style="padding:7px 10px;font-weight:700;color:#607080">Fornecedor / Cliente</th>'+
+          '<th style="padding:7px 10px;font-weight:700;color:#607080">Fornecedor</th>'+
+          '<th style="padding:7px 10px;font-weight:700;color:#607080">Cliente</th>'+
+          '<th style="padding:7px 10px;font-weight:700;color:#607080">Marca</th>'+
+          '<th style="padding:7px 10px;font-weight:700;color:#607080;text-align:center">Qtd</th>'+
           '<th style="padding:7px 10px;font-weight:700;color:#607080;text-align:right">Preço</th>'+
           '<th style="padding:7px 10px;font-weight:700;color:#607080">Quem</th>'+
         '</tr></thead>'+
@@ -31473,7 +31480,7 @@ async function vendasFinalizar(){
         pfRegistrarHistoricoPreco({
           item_ref:it.codigo||it.ref||'', marca:it.marcaInterna||it.marca||'', descricao:it.desc||'',
           tipo:'venda', cliente:(v.cliente&&v.cliente.razao)||'',
-          preco:venda, custo:custo||null, cotacao_num:(cot.num?('V-'+cot.num):(v.nr||''))
+          preco:venda, custo:custo||null, qtd:it.qtd||null, cotacao_num:(cot.num?('V-'+cot.num):(v.nr||''))
         });
       }
     });
@@ -33916,4 +33923,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.487 --></html>
+</script></div></div></body><!-- Build timestamp: v115.488 --></html>

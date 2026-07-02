@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.501 - REVERTIDO v115.500 (causou travamento no iPad) -- pfRepararBotoesCotacao e pfRepararBotoesIPad restauradas. ACHADO O BUG REAL do "clicar nao abre fornecedores" no Mapa: em _addTouchToRows, o handler de touchend das linhas da tabela (Etapa 1) tinha o eval() removido numa limpeza anterior e deixado vazio (so um comentario "/* eval removed */"), entao no iPad o toque na linha nao fazia literalmente nada. Corrigido pra chamar mapaExpand(idx) direto via data-idx (sem eval), com preventDefault pra nao disparar 2x (touch + click nativo em seguida) e ignorando toques em checkbox/input/botao de dentro da linha. -->
+<!-- v115.502 - Duas frentes: (1) FIX TRAVAMENTO -- mapaSalvarEstado() podia disparar 2-3x pra um unico clique (mapaGoStep encapsulado por varios patches, cada um chamando mapaSalvarEstado de novo), cada chamada fazendo ate 3 requisicoes ao Supabase -- agora ignora chamadas repetidas em <250ms, restaurado tambem criadoPor/qtdDecidida/precoDecidido que a versao ativa tinha perdido. (2) PADRONIZACAO dos avisos de exclusao: mapaConfirm agora usa o visual oficial PartsFlow (igual pfConfirm) em vez do estilo antigo Sim/Nao sem marca; convertidos tambem ~10 confirm() nativos do navegador (excluir fornecedor/cliente/produto/regra/analise/usuario/substituicao/preview) para o modal padrao com marca. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.501</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.502</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.501</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.502</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -18371,11 +18371,11 @@ function verAnaliseSnap(s){
   w.document.close();
 }
 
-async function deletarAnalise(idx){
-  if(!_safeConfirm("Remover esta análise do histórico?"))return;
-  const hist=await carregarHistorico();
-  const snap=hist[idx];
-  // Deletar do Supabase
+function deletarAnalise(idx){
+  pfConfirm("Remover esta análise do histórico?", async function(){
+    const hist=await carregarHistorico();
+    const snap=hist[idx];
+    // Deletar do Supabase
   if(snap&&snap.id&&sbSession&&sbUser){
     try{
       await sbFetch('/rest/v1/historico_analises_v2?analise_id=eq.'+snap.id,{method:'DELETE'});
@@ -18384,6 +18384,7 @@ async function deletarAnalise(idx){
   hist.splice(idx,1);
   salvarHistoricoLS(hist);
   renderHistorico();
+  }, 'Excluir');
 }
 
 // ── EM TRÂNSITO ──────────────────────────────────────────────────
@@ -20352,11 +20353,12 @@ async function inviteUser(){
   if(r.ok){showAdminMsg('✅ Convite enviado para '+email,true);document.getElementById('newNome').value='';document.getElementById('newEmail').value='';setTimeout(loadUsers,1500);}
   else showAdminMsg(d.msg||d.error_description||'Erro ao convidar.',false);
 }
-async function removeUser(btn){const id=btn.dataset.id,email=btn.dataset.email;
-  if(!_safeConfirm('Remover '+email+'?'))return;
-  const r=await sbFetch('/rest/v1/profiles?id=eq.'+id,{method:'DELETE'});
-  if(r.ok||r.status===204){showAdminMsg('Removido.',true);loadUsers();}
-  else showAdminMsg('Erro ao remover.',false);
+function removeUser(btn){const id=btn.dataset.id,email=btn.dataset.email;
+  pfConfirm('Remover '+email+'?', async function(){
+    const r=await sbFetch('/rest/v1/profiles?id=eq.'+id,{method:'DELETE'});
+    if(r.ok||r.status===204){showAdminMsg('Removido.',true);loadUsers();}
+    else showAdminMsg('Erro ao remover.',false);
+  }, 'Remover');
 }
 function showAdminMsg(msg,ok){
   const el=document.getElementById('adminMsg');
@@ -20974,11 +20976,12 @@ async function salvarPedidoCot(){
   renderFormPedido();
 }
 
-async function deletarPedidoCot(id){
-  if(!_safeConfirm('Excluir este pedido?'))return;
-  await sbFetch('/rest/v1/cot_pedidos?id=eq.'+id,{method:'DELETE'});
-  await carregarCotDados();
-  renderCotTab('pedidos');
+function deletarPedidoCot(id){
+  pfConfirm('Excluir este pedido?', async function(){
+    await sbFetch('/rest/v1/cot_pedidos?id=eq.'+id,{method:'DELETE'});
+    await carregarCotDados();
+    renderCotTab('pedidos');
+  }, 'Excluir');
 }
 
 // ── LANÇAR COTAÇÃO ───────────────────────────────────────────
@@ -21129,11 +21132,12 @@ async function salvarFornecedor(id,nome,contato,marcas){
   renderCotTab('fornecedores');
 }
 
-async function deletarFornecedor(id){
-  if(!_safeConfirm('Excluir este fornecedor?'))return;
-  await sbFetch('/rest/v1/cot_fornecedores?id=eq.'+id,{method:'DELETE'});
-  await carregarCotDados();
-  renderCotTab('fornecedores');
+function deletarFornecedor(id){
+  pfConfirm('Excluir este fornecedor?', async function(){
+    await sbFetch('/rest/v1/cot_fornecedores?id=eq.'+id,{method:'DELETE'});
+    await carregarCotDados();
+    renderCotTab('fornecedores');
+  }, 'Excluir');
 }
 
 // ── ABA HISTÓRICO ────────────────────────────────────────────
@@ -22819,7 +22823,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.501): a desativação em v115.501 causou travamento no iPad — restaurando
+// REVERTIDO (v115.502): a desativação em v115.502 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22845,7 +22849,7 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.501): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.502): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
 setTimeout(pfRepararBotoesIPad, 500);
 // Botão flutuante de "sincronizar manual" removido — redundante, o app já sincroniza
@@ -23917,7 +23921,7 @@ function cadRenderFornecedores(el){
 
 function cadNovoForn(){cadFormForn(null,-1);}
 function cadEditForn(i){var f=cadLoad(FORN_KEY)[i];cadFormForn(f,i);}
-function cadDelForn(i){if(!_safeConfirm('Excluir este fornecedor?'))return;var f=cadLoad(FORN_KEY);f.splice(i,1);cadSave(FORN_KEY,f);cadGoTab('fornecedores');}
+function cadDelForn(i){var f=cadLoad(FORN_KEY);f.splice(i,1);cadSave(FORN_KEY,f);cadGoTab('fornecedores');}
 
 function cadFormForn(data,idx){
   var d=data||{};
@@ -24134,7 +24138,7 @@ function cadProximoCodigoCliente(){
 
 function cadNovoCliente(){cadFormCliente(null,-1);}
 function cadEditCliente(i){var c=cadLoad(CLIE_KEY)[i];cadFormCliente(c,i);}
-function cadDelCliente(i){if(!_safeConfirm('Excluir este cliente?'))return;var c=cadLoad(CLIE_KEY);c.splice(i,1);cadSave(CLIE_KEY,c);cadGoTab('clientes');}
+function cadDelCliente(i){var c=cadLoad(CLIE_KEY);c.splice(i,1);cadSave(CLIE_KEY,c);cadGoTab('clientes');}
 
 function cadFormCliente(data,idx){
   var d=data||{};
@@ -24730,7 +24734,7 @@ function cadRenderProdutos(el){
 
 function cadNovoProduto(){cadFormProduto(null,-1);}
 function cadEditProduto(i){var p=cadLoad(PROD_KEY)[i];cadFormProduto(p,i);}
-function cadDelProduto(i){if(!_safeConfirm('Excluir este produto?'))return;var p=cadLoad(PROD_KEY);p.splice(i,1);cadSave(PROD_KEY,p);cadGoTab('produtos');}
+function cadDelProduto(i){var p=cadLoad(PROD_KEY);p.splice(i,1);cadSave(PROD_KEY,p);cadGoTab('produtos');}
 
 function cadFormProduto(data,idx){
   var d = data||{};
@@ -26253,9 +26257,9 @@ function cadSalvarProdutoV2(idx){
 // ── 5. Confirm before delete ────────────────────────────────────
 // Already done via _safeConfirm() in cadDelForn, cadDelCliente, cadDelProduto
 // But let's make sure all 3 have it
-var _o_cadDelForn=cadDelForn;cadDelForn=function(i){if(!_safeConfirm('Excluir este fornecedor?'))return;_o_cadDelForn(i);};
-var _o_cadDelCliente=cadDelCliente;cadDelCliente=function(i){if(!_safeConfirm('Excluir este cliente?'))return;_o_cadDelCliente(i);};
-var _o_cadDelProduto=cadDelProduto;cadDelProduto=function(i){if(!_safeConfirm('Excluir este produto?'))return;_o_cadDelProduto(i);};
+var _o_cadDelForn=cadDelForn;cadDelForn=function(i){pfConfirm('Excluir este fornecedor?',function(){_o_cadDelForn(i);},'Excluir');};
+var _o_cadDelCliente=cadDelCliente;cadDelCliente=function(i){pfConfirm('Excluir este cliente?',function(){_o_cadDelCliente(i);},'Excluir');};
+var _o_cadDelProduto=cadDelProduto;cadDelProduto=function(i){pfConfirm('Excluir este produto?',function(){_o_cadDelProduto(i);},'Excluir');};
 
 // ════════════════════════════════════════════════════════════════
 </script>
@@ -26928,6 +26932,14 @@ mapaProcessar = function(){
 
 // ── 2. SALVAR/RESTAURAR ESTADO DO MAPA ───────────────────────────
 function mapaSalvarEstado(){
+  // Proteção: o mapaGoStep foi encapsulado por mais de um patch ao longo do tempo, e cada
+  // camada chama mapaSalvarEstado() de novo — um único clique podia disparar essa função
+  // 2-3x seguidas, cada vez fazendo 3 requisições ao Supabase (mapas_lista_v1 + mapa_estado_
+  // + user_mapa). Isso deixava o app lento/travando, especialmente no iPad. Se essa função for
+  // chamada de novo em menos de 250ms da última vez, ignora a chamada repetida.
+  var agora=Date.now();
+  if(window._mapaSalvarEstadoUltimoTs&&(agora-window._mapaSalvarEstadoUltimoTs)<250)return;
+  window._mapaSalvarEstadoUltimoTs=agora;
   try{
     var estado={
       id: mapaEstadoId || ('mapa_'+Date.now()),
@@ -27700,9 +27712,10 @@ function substSalvarNova(){
 }
 
 function substRemover(idx){
-  if(!_safeConfirm('Remover esta substituição?'))return;
-  var lista=substCarregar();lista.splice(idx,1);substSalvar(lista);
-  cadGerenciarSubst();
+  pfConfirm('Remover esta substituição?', function(){
+    var lista=substCarregar();lista.splice(idx,1);substSalvar(lista);
+    cadGerenciarSubst();
+  }, 'Remover');
 }
 
 // ── 9. APLICAÇÕES NO FORM DE PRODUTO ─────────────────────────────
@@ -27958,12 +27971,19 @@ function mapaConfirmExcluirDaLista(id,titulo){
   mapaConfirm('Excluir o mapa "'+(titulo||'sem título')+'"?\nNão tem como desfazer.',function(){
     mapaExcluirDaLista(id);
     mapaRender();
-  });
+  },null,'Excluir','Cancelar');
 }
 
 // Override mapaSalvarEstado to also save to list
 var _origMapaSalvarEstado2 = mapaSalvarEstado;
 mapaSalvarEstado = function(){
+  // Proteção: essa função podia ser chamada 2-3x seguidas pra um único clique (o mapaGoStep
+  // foi encapsulado por várias camadas de patch ao longo do tempo, cada uma chamando
+  // mapaSalvarEstado() de novo). Cada chamada faz requisições ao Supabase — isso deixava o
+  // app lento/travando, especialmente no iPad. Ignora chamadas repetidas em menos de 250ms.
+  var agora=Date.now();
+  if(window._mapaSalvarEstadoUltimoTs&&(agora-window._mapaSalvarEstadoUltimoTs)<250)return;
+  window._mapaSalvarEstadoUltimoTs=agora;
   try{
     var estado={
       id: mapaEstadoId||('mapa_'+Date.now()),
@@ -27973,8 +27993,11 @@ mapaSalvarEstado = function(){
       fornSel: mapaFornSelecionados,
       precos: mapaPrecos,
       decisoes: mapaDecisoes,
+      qtdDecidida: mapaQtdDecidida,
+      precoDecidido: mapaPrecoDecidido,
       numero: window._mapaEstadoNumero||'',
       cliente: window._mapaEstadoCliente||'',
+      criadoPor: window._mapaCriadoPor||null,
     };
     mapaEstadoId=estado.id;
     pfSafeSetItem(MAPA_SAVE_KEY,JSON.stringify(estado));
@@ -28393,9 +28416,10 @@ substSalvarNova = function(){
   cadGerenciarSubst();
 };
 substRemover = function(idx){
-  if(!_safeConfirm('Remover esta substituição?'))return;
-  var lista=substCarregar();lista.splice(idx,1);substSalvar(lista);
-  cadGerenciarSubst();
+  pfConfirm('Remover esta substituição?', function(){
+    var lista=substCarregar();lista.splice(idx,1);substSalvar(lista);
+    cadGerenciarSubst();
+  }, 'Remover');
 };
 
 // ── impSalvarSubst: usar modal em vez de _safeConfirm() ───────────────
@@ -28493,11 +28517,12 @@ function cadRestaurarPreview(){
 }
 
 function cadLimparPreview(){
-  if(!_safeConfirm('Limpar o preview salvo?')) return;
-  localStorage.removeItem('imp_preview_cache_v1');
-  window._impItensCache = null;
-  window._impAplicCache = null;
-  cadGerenciarSubst();
+  pfConfirm('Limpar o preview salvo?', function(){
+    localStorage.removeItem('imp_preview_cache_v1');
+    window._impItensCache = null;
+    window._impAplicCache = null;
+    cadGerenciarSubst();
+  }, 'Limpar');
 }
 
 // ── Número sequencial de mapa ────────────────────────────────────
@@ -28685,17 +28710,19 @@ document.addEventListener('click', function(e){
 
 var _origMapaConfirm = typeof mapaConfirm==='function' ? mapaConfirm : null;
 if(_origMapaConfirm){
-  mapaConfirm = function(msg, onSim, onNao){
+  mapaConfirm = function(msg, onSim, onNao, labelSim, labelNao){
     var overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center;-webkit-overflow-scrolling:touch';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;-webkit-overflow-scrolling:touch';
     overlay.innerHTML =
-      '<div style="background:#fff;border-radius:14px;padding:24px;max-width:380px;width:88%;box-shadow:0 8px 40px rgba(0,0,0,.2);-webkit-transform:translateZ(0)">'+
-      '<div style="font-size:14px;font-weight:700;color:#1F4E79;margin-bottom:12px;white-space:pre-wrap">'+msg+'</div>'+
-      '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">'+
-      '<button id="_mNao" style="background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:12px 24px;cursor:pointer;font-size:14px;font-weight:600;min-height:44px">Não</button>'+
-      '<button id="_mSim" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:12px 24px;cursor:pointer;font-size:14px;font-weight:700;min-height:44px">Sim</button>'+
-      '</div></div>';
+      '<div style="background:#fff;border-radius:12px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3);overflow:hidden;-webkit-transform:translateZ(0)">'+
+        '<div style="background:#1F4E79;color:#fff;padding:13px 18px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px"><span style="font-size:18px">📦</span><span>PartsFlow</span></div>'+
+        '<div id="_mMsg" style="padding:18px;font-size:14px;color:#1a2332;line-height:1.5;white-space:pre-wrap;word-break:break-word"></div>'+
+        '<div style="padding:0 18px 16px;display:flex;gap:8px;justify-content:flex-end">'+
+        '<button id="_mNao" style="background:#fff;color:#607080;border:1px solid #e0e8f0;border-radius:7px;padding:10px 20px;cursor:pointer;font-size:13px;font-weight:600;min-height:40px">'+(labelNao||'Não')+'</button>'+
+        '<button id="_mSim" style="background:#1F4E79;color:#fff;border:none;border-radius:7px;padding:10px 20px;cursor:pointer;font-size:13px;font-weight:700;min-height:40px">'+(labelSim||'Sim')+'</button>'+
+        '</div></div>';
     document.body.appendChild(overlay);
+    overlay.querySelector('#_mMsg').textContent = String(msg==null?'':msg);
     document.getElementById('_mSim').addEventListener('click',function(){document.body.removeChild(overlay);if(onSim)onSim();});
     document.getElementById('_mNao').addEventListener('click',function(){document.body.removeChild(overlay);if(onNao)onNao();});
   };
@@ -28808,11 +28835,12 @@ function mapaContinuar(id){
 }
 
 function mapaExcluirConfirm(id, titulo){
-  if(!_safeConfirm('Excluir ' + titulo + '?')) return;
-  mapaExcluirDaLista(id);
-  // Re-render the list
-  var el = document.getElementById('mapaBody');
-  if(el) mapaRender();
+  pfConfirm('Excluir '+titulo+'?', function(){
+    mapaExcluirDaLista(id);
+    // Re-render the list
+    var el = document.getElementById('mapaBody');
+    if(el) mapaRender();
+  }, 'Excluir');
 }
 
 // ── Tab × fix — use event delegation on the bar itself ──────────
@@ -33797,9 +33825,10 @@ function cadToggleRegraIA(id){
 }
 
 function cadDelRegraIA(id){
-  if(!_safeConfirm('Excluir esta regra?'))return;
-  regrasIASave(regrasIALoad().filter(function(x){return x.id!==id;}));
-  cadGoTab('regras_ia');
+  pfConfirm('Excluir esta regra?', function(){
+    regrasIASave(regrasIALoad().filter(function(x){return x.id!==id;}));
+    cadGoTab('regras_ia');
+  }, 'Excluir');
 }
 
 function cadPromoverSugestaoIA(id){
@@ -33934,4 +33963,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.501 --></html>
+</script></div></div></body><!-- Build timestamp: v115.502 --></html>

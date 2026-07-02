@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.483 - Vendas: cartao de cliente v1 (sem IA generativa), aparece automatico ao selecionar cliente na cotacao. Mostra Observacoes do cadastro em destaque (ex: "nao gosta da marca X"), ultima compra + dias, flag de atrasado (baseado no intervalo medio de compras do cliente) e marcas mais compradas — tudo a partir do historico de pedidos ja existente (pvLoad). -->
+<!-- v115.484 - Vendas: cartao de cliente ganhou "Anotacoes" estilo CRM (data + autor), editavel direto na cotacao. Fica salvo no cadastro do cliente, entao quem assumir a carteira (saida/ferias de vendedor) le o historico completo de quem escreveu o que e quando. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.483</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.484</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.483</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.484</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -29099,11 +29099,13 @@ function vendasClienteResumo(cliente){
   if(!cliente)return null;
   var razao=(cliente.razao||'').toUpperCase();
   var pedidos=(typeof pvLoad==='function'?pvLoad():[]).filter(function(p){return (p.clienteRazao||'').toUpperCase()===razao;});
-  var resumo={temHistorico:pedidos.length>0,ultimaCompra:null,diasDesde:null,atrasado:false,intervaloMedio:null,topMarcas:[],topItens:[],totalPedidos:pedidos.length,obs:''};
+  var resumo={temHistorico:pedidos.length>0,ultimaCompra:null,diasDesde:null,atrasado:false,intervaloMedio:null,topMarcas:[],topItens:[],totalPedidos:pedidos.length,obs:'',anotacoes:[],clienteCnpj:cliente.cnpj||'',clienteRazaoCad:razao};
   try{
     var clist=typeof cadLoad==='function'?cadLoad(CLIE_KEY):[];
     var c=clist.find(function(x){return (x.cnpj&&cliente.cnpj&&x.cnpj===cliente.cnpj)||(x.razao||'').toUpperCase()===razao;});
     if(c&&c.obs)resumo.obs=c.obs;
+    if(c&&c.anotacoes)resumo.anotacoes=c.anotacoes;
+    if(c){resumo.clienteCnpj=c.cnpj||resumo.clienteCnpj;resumo.clienteRazaoCad=c.razao||resumo.clienteRazaoCad;}
   }catch(e){}
   if(!pedidos.length)return resumo;
   pedidos.sort(function(a,b){return new Date(b.data)-new Date(a.data);});
@@ -29135,15 +29137,51 @@ function vendasRenderCartaoCliente(cliente){
     html+='<div style="background:#FFF3E6;border:1.5px solid #E67E22;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px;color:#854F0B"><strong>⚠️ Observação:</strong> '+pfEscHtml(r.obs)+'</div>';
   }
   if(!r.temHistorico){
-    html+='<div style="background:#F8FAFC;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#8a9ab0">Primeira compra deste cliente — sem histórico ainda.</div>';
-    return html;
+    html+='<div style="background:#F8FAFC;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:11px;color:#8a9ab0">Primeira compra deste cliente — sem histórico ainda.</div>';
+  }else{
+    html+='<div style="background:#F8FAFC;border-radius:8px;padding:9px 14px;margin-bottom:8px;display:flex;flex-wrap:wrap;gap:16px;align-items:center">';
+    html+='<div style="font-size:11px"><span style="color:#8a9ab0">Última compra:</span> <strong style="color:'+(r.atrasado?'#C00000':'#1a2332')+'">'+new Date(r.ultimaCompra).toLocaleDateString('pt-BR')+' ('+r.diasDesde+'d atrás)</strong>'+(r.atrasado?' <span style="color:#C00000;font-weight:700">🔴 Atrasado</span>':'')+'</div>';
+    if(r.topMarcas.length)html+='<div style="font-size:11px"><span style="color:#8a9ab0">Marcas:</span> <strong style="color:#1a2332">'+r.topMarcas.map(function(m){return pfEscHtml(m.marca);}).join(', ')+'</strong></div>';
+    html+='<div style="font-size:11px;color:#8a9ab0">'+r.totalPedidos+' pedido(s) no histórico</div>';
+    html+='</div>';
   }
-  html+='<div style="background:#F8FAFC;border-radius:8px;padding:9px 14px;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:16px;align-items:center">';
-  html+='<div style="font-size:11px"><span style="color:#8a9ab0">Última compra:</span> <strong style="color:'+(r.atrasado?'#C00000':'#1a2332')+'">'+new Date(r.ultimaCompra).toLocaleDateString('pt-BR')+' ('+r.diasDesde+'d atrás)</strong>'+(r.atrasado?' <span style="color:#C00000;font-weight:700">🔴 Atrasado</span>':'')+'</div>';
-  if(r.topMarcas.length)html+='<div style="font-size:11px"><span style="color:#8a9ab0">Marcas:</span> <strong style="color:#1a2332">'+r.topMarcas.map(function(m){return pfEscHtml(m.marca);}).join(', ')+'</strong></div>';
-  html+='<div style="font-size:11px;color:#8a9ab0">'+r.totalPedidos+' pedido(s) no histórico</div>';
-  html+='</div>';
+  // ── Anotações estilo CRM — histórico com data e autor, pra quem assumir a carteira ler tudo ──
+  html+='<div style="border:1px solid #eee;border-radius:8px;padding:9px 12px;margin-bottom:10px">';
+  html+='<div style="font-size:10px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:6px">📝 Anotações do cliente</div>';
+  if(r.anotacoes&&r.anotacoes.length){
+    var recentes=r.anotacoes.slice().sort(function(a,b){return new Date(b.data)-new Date(a.data);}).slice(0,4);
+    html+=recentes.map(function(n){
+      return '<div style="font-size:11px;color:#3a4658;margin-bottom:5px;padding-left:8px;border-left:2px solid #e0e8f0">'+
+        '<span style="color:#8a9ab0">'+new Date(n.data).toLocaleDateString('pt-BR')+' — '+pfEscHtml(n.autor||'')+':</span> '+pfEscHtml(n.texto)+'</div>';
+    }).join('');
+    if(r.anotacoes.length>4)html+='<div style="font-size:10px;color:#b0bec5">+'+(r.anotacoes.length-4)+' anotação(ões) mais antiga(s)</div>';
+  }else{
+    html+='<div style="font-size:11px;color:#b0bec5;margin-bottom:4px">Nenhuma anotação ainda.</div>';
+  }
+  html+='<div style="display:flex;gap:6px;margin-top:6px">';
+  html+='<input type="text" id="vendasNovaAnotacaoInput" placeholder="Anotar algo sobre este cliente..." style="flex:1;padding:6px 9px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:11px;box-sizing:border-box" onkeydown="if(event.key===\'Enter\'){event.preventDefault();vendasAdicionarAnotacaoCliente(\''+pfEscJs(r.clienteCnpj)+'\',\''+pfEscJs(r.clienteRazaoCad)+'\');}">';
+  html+='<button onclick="vendasAdicionarAnotacaoCliente(\''+pfEscJs(r.clienteCnpj)+'\',\''+pfEscJs(r.clienteRazaoCad)+'\')" style="padding:6px 12px;background:#1F4E79;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">+ Salvar</button>';
+  html+='</div></div>';
   return html;
+}
+// Salva uma nova anotação diretamente no cadastro do cliente (aparece pra quem abrir a cotação em seguida)
+function vendasAdicionarAnotacaoCliente(cnpj,razaoFallback){
+  var input=document.getElementById('vendasNovaAnotacaoInput');
+  var texto=(input&&input.value||'').trim();
+  if(!texto)return;
+  var clist=typeof cadLoad==='function'?cadLoad(CLIE_KEY):[];
+  var c=clist.find(function(x){return (cnpj&&x.cnpj===cnpj)||(!cnpj&&(x.razao||'').toUpperCase()===(razaoFallback||'').toUpperCase());});
+  if(!c){pfAlert('Cliente não encontrado no cadastro — não foi possível salvar a anotação.');return;}
+  c.anotacoes=c.anotacoes||[];
+  c.anotacoes.push({
+    id:'nota_'+Date.now(),
+    data:new Date().toISOString(),
+    autor:(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)?sbProfile.nome:((typeof sbUser!=='undefined'&&sbUser&&sbUser.email)?sbUser.email.split('@')[0]:'Usuário'),
+    texto:texto
+  });
+  cadSave(CLIE_KEY,clist);
+  if(input)input.value='';
+  if(typeof vendasRefresh==='function')vendasRefresh();
 }
 function vendasRenderCotacao(el){
   window._venda=window._venda||{itens:[]};
@@ -33706,4 +33744,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.483 --></html>
+</script></div></div></body><!-- Build timestamp: v115.484 --></html>

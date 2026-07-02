@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.499 - Leitor de Pecas: campo de upload tinha DOIS listeners de change no mesmo input (onchange inline no HTML + addEventListener adicionado pra compat. iPad), entao todo arquivo era processado 2x e as quantidades dobravam (lpMergeItens soma qtd quando o codigo repete). Removido o onchange inline duplicado, mantendo so o addEventListener (unica fonte do evento agora). Nota: existe uma copia antiga/morta dessas mesmas funcoes mais acima no arquivo (nunca executa, ultima declaracao vence em JS) -- nao mexi nela, so na versao ativa. -->
+<!-- v115.500 - CAUSA RAIZ AMPLA do "upload pede 2x / duplica em varios lugares": duas funcoes legadas de "reparo pro iPad" (pfRepararBotoesCotacao, pfRepararBotoesIPad) rodavam uma vez no boot da pagina e adicionavam um SEGUNDO addEventListener em cima do onchange/onclick nativo de QUALQUER input de arquivo ou botao presente na tela naquele momento, sem protecao contra duplicacao -- cada acao disparava 2x. As telas individuais (Vendas/Mapa/Solicitacoes/Cadastro/Leitor de Pecas) ja tem seu proprio binding correto; esse reparo generico era redundante e a causa real da duplicacao. Ambas desativadas (setTimeout comentado, funcoes mantidas no codigo caso precise reverter). -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.499</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.500</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.499</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.500</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22819,8 +22819,13 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// Chamar quando carrega a página de cotação
-setTimeout(pfRepararBotoesCotacao, 300);
+// DESATIVADO (v115.500): essa função varria a tela e adicionava um SEGUNDO listener de
+// change/click em cima do onchange/onclick que os inputs de upload já tinham — cada arquivo
+// selecionado era processado 2x (e nos labels que batiam no seletor, o clique chegava a abrir
+// o seletor de arquivo do SO duas vezes). Os uploads de cada tela (Vendas/Mapa/Solicitações/
+// Cadastro) já têm seu próprio binding correto via addEventListener após innerHTML fresco —
+// esse "reparo" genérico não é mais necessário e só causava a duplicação.
+// setTimeout(pfRepararBotoesCotacao, 300);
 function pfRepararBotoesIPad(){
   // Procurar por botões com onclick que não estão respondendo
   var botoes = document.querySelectorAll('button[onclick], [onclick]');
@@ -22843,8 +22848,12 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// Chamar quando carrega e periodicamente
-setTimeout(pfRepararBotoesIPad, 500);
+// DESATIVADO (v115.500): mesmo problema do reparo acima, só que pra QUALQUER elemento com
+// onclick na página inteira — adicionava um addEventListener('click') que reexecutava o
+// mesmo onclickStr do atributo nativo, então qualquer botão pego por essa varredura passava
+// a disparar sua ação duas vezes por clique. Provável causa de outras duplicações no app
+// além do upload (ex: itens/registros adicionados 2x ao clicar um botão uma vez só).
+// setTimeout(pfRepararBotoesIPad, 500);
 // Botão flutuante de "sincronizar manual" removido — redundante, o app já sincroniza
 // automaticamente (login, salvar mapa, etc). Funções pfMostrarStatusSync/
 // pfRestaurarMapasDoSupabase continuam disponíveis se precisar chamar manualmente no futuro.
@@ -33929,4 +33938,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.499 --></html>
+</script></div></div></body><!-- Build timestamp: v115.500 --></html>

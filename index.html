@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.504 - DIAGNOSTICO + fix adicional: achado mais um chamador (mapaMarcarDecisao) que pulava a protecao de mapaSalvarEstado chamando mapaSalvarNaLista direto. Protecao movida pro ponto central (mapaSalvarNaLista, por estado.id) cobrindo todos os chamadores de uma vez. Adicionado console.log temporario com stack trace em mapaSalvarEstado e mapaSalvarNaLista pra identificar definitivamente a origem do loop de sync reportado (300+ mensagens no console) -- remover esses logs depois de identificar a causa. -->
+<!-- v115.505 - CAUSA RAIZ CONFIRMADA por rastro de pilha (nao mais suposicao): pfRepararBotoesIPad adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com onclick presente na tela no boot (500ms) -- isso fazia mapaExpand() disparar 2x por clique (via eval), daí "abre mas duplica sync" no console. Desativada so essa (pfRepararBotoesCotacao continua ativa, nao foi implicada no rastro). Logs de diagnostico temporarios removidos. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.504</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.505</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.504</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.505</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22823,7 +22823,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.504): a desativação em v115.504 causou travamento no iPad — restaurando
+// REVERTIDO (v115.505): a desativação em v115.505 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22849,9 +22849,15 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.504): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.505): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-setTimeout(pfRepararBotoesIPad, 500);
+// DESATIVADO (v115.505) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
+// onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
+// outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
+// Dessa vez mantendo pfRepararBotoesCotacao ativa (não foi implicada nesse rastro específico),
+// só essa aqui desativada.
+// setTimeout(pfRepararBotoesIPad, 500);
 // Botão flutuante de "sincronizar manual" removido — redundante, o app já sincroniza
 // automaticamente (login, salvar mapa, etc). Funções pfMostrarStatusSync/
 // pfRestaurarMapasDoSupabase continuam disponíveis se precisar chamar manualmente no futuro.
@@ -27923,7 +27929,6 @@ function mapaSalvarNaLista(estado){
   var agora=Date.now();
   var ultimoTs = window._mapaSalvarNaListaLog[estado.id];
   window._mapaSalvarNaListaCount=(window._mapaSalvarNaListaCount||0)+1;
-  console.log('🔍 DIAGNÓSTICO mapaSalvarNaLista #'+window._mapaSalvarNaListaCount+' (id='+estado.id+') chamada de:', new Error().stack);
   if(ultimoTs&&(agora-ultimoTs)<250)return;
   window._mapaSalvarNaListaLog[estado.id]=agora;
   var lista = mapaListarSalvos();
@@ -27996,7 +28001,6 @@ mapaSalvarEstado = function(){
   if(window._mapaSalvarEstadoUltimoTs&&(agora-window._mapaSalvarEstadoUltimoTs)<250)return;
   window._mapaSalvarEstadoUltimoTs=agora;
   window._mapaSalvarEstadoCount=(window._mapaSalvarEstadoCount||0)+1;
-  console.log('🔍 DIAGNOSTICO mapaSalvarEstado #'+window._mapaSalvarEstadoCount+' chamada de:', new Error().stack);
   try{
     var estado={
       id: mapaEstadoId||('mapa_'+Date.now()),
@@ -33976,4 +33980,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.504 --></html>
+</script></div></div></body><!-- Build timestamp: v115.505 --></html>

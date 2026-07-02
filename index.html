@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.502 - Duas frentes: (1) FIX TRAVAMENTO -- mapaSalvarEstado() podia disparar 2-3x pra um unico clique (mapaGoStep encapsulado por varios patches, cada um chamando mapaSalvarEstado de novo), cada chamada fazendo ate 3 requisicoes ao Supabase -- agora ignora chamadas repetidas em <250ms, restaurado tambem criadoPor/qtdDecidida/precoDecidido que a versao ativa tinha perdido. (2) PADRONIZACAO dos avisos de exclusao: mapaConfirm agora usa o visual oficial PartsFlow (igual pfConfirm) em vez do estilo antigo Sim/Nao sem marca; convertidos tambem ~10 confirm() nativos do navegador (excluir fornecedor/cliente/produto/regra/analise/usuario/substituicao/preview) para o modal padrao com marca. -->
+<!-- v115.503 - Leitor de Pecas: nova regra -- codigo NUNCA pode ter espaco (ex: "L 30039" -> "L30039"), aplicada de forma garantida em lpApplyRuleCase (regex, nao depende so da IA acertar) e reforcada tambem no prompt da IA nos dois fluxos (upload PDF/imagem e colar texto). Cobre extracoes atuais e futuras automaticamente. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.502</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.503</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.502</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.503</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22823,7 +22823,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.502): a desativação em v115.502 causou travamento no iPad — restaurando
+// REVERTIDO (v115.503): a desativação em v115.503 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22849,7 +22849,7 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.502): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.503): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
 setTimeout(pfRepararBotoesIPad, 500);
 // Botão flutuante de "sincronizar manual" removido — redundante, o app já sincroniza
@@ -28979,7 +28979,7 @@ function lpRenderFerr(){
 }
 
 function lpApplyRuleCase(cod){
-  cod=(cod||'').trim().toUpperCase();
+  cod=(cod||'').trim().toUpperCase().replace(/\s+/g,''); // Regra: código nunca pode ter espaço
   var m=cod.match(/^([A-Z])(\d{1,5})$/);
   if(m){var n=m[2];while(n.length<6)n='0'+n;return m[1]+n;}
   return cod;
@@ -29019,7 +29019,7 @@ async function lpLerArquivo(input){
       if(mt.startsWith('image/')){parts.push({type:'image',source:{type:'base64',media_type:mt,data:b64}});}
       else{parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});}
     }
-    parts.push({type:'text',text:'Extraia os itens desta lista de pecas. O cliente pediu CODIGO e QUANTIDADE. A descricao e informacao secundaria, pode estar escrita ao lado do codigo mas NAO e o que importa. Retorne APENAS JSON array: [{"codigo":"","qtd":1,"duvida":""}]. codigo: o codigo da peca (ex: 02-840476, E022677, etc). qtd: quantidade pedida (se nao informada, use 1). duvida: se manuscrito com incerteza no codigo, descreva brevemente. Caso contrario string vazia. APENAS o JSON, sem mais nada.'});
+    parts.push({type:'text',text:'Extraia os itens desta lista de pecas. O cliente pediu CODIGO e QUANTIDADE. A descricao e informacao secundaria, pode estar escrita ao lado do codigo mas NAO e o que importa. Retorne APENAS JSON array: [{"codigo":"","qtd":1,"duvida":""}]. codigo: o codigo da peca, SEM ESPACOS dentro dele mesmo que no documento apareca com espaco (ex: "L 30039" no documento -> "L30039" no codigo; tambem 02-840476, E022677, mantendo hifens se houver). qtd: quantidade pedida (se nao informada, use 1). duvida: se manuscrito com incerteza no codigo, descreva brevemente. Caso contrario string vazia. APENAS o JSON, sem mais nada.'});
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:parts}]})});
@@ -29063,7 +29063,7 @@ async function lpLerTexto(){
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:'Extraia os itens desta lista. Retorne APENAS JSON: [{"codigo":"","qtd":1,"desc":"","duvida":""}]\n'+txt}]})});
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:'Extraia os itens desta lista. Codigo SEM ESPACOS mesmo que no texto tenha espaco. Retorne APENAS JSON: [{"codigo":"","qtd":1,"desc":"","duvida":""}]\n'+txt}]})});
     var data=await resp.json();
     var res=data.content.map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();
     var m3=res.match(/\[[\s\S]*/);if(m3)res=m3[0];
@@ -33963,4 +33963,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.502 --></html>
+</script></div></div></body><!-- Build timestamp: v115.503 --></html>

@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.508 - Vendas: novo botao "Revisar precos" na cotacao -- acha itens com o mesmo codigo+marca aparecendo mais de uma vez com preco de venda diferente, pra evitar mandar o mesmo item pro cliente 2x com precos diferentes por engano. -->
+<!-- v115.509 - Leitor de Pecas: nova secao "Regras de leitura" direto na tela -- usuario escreve regras em portugues livre (ex: "codigo nunca pode ter espaco"), ficam salvas (lp_regras_v1, sincronizado entre usuarios) e sao incluidas automaticamente no prompt da IA em toda extracao futura, tanto por PDF/imagem quanto por texto colado. Sem precisar pedir pro Claude toda vez. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.508</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.509</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.508</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.509</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22823,7 +22823,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.508): a desativação em v115.508 causou travamento no iPad — restaurando
+// REVERTIDO (v115.509): a desativação em v115.509 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22849,9 +22849,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.508): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.509): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.508) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.509) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -27050,7 +27050,8 @@ var PF_SYNC_KEYS = [
   'prod_aplicacoes_v1',
   'cad_solicitacoes_compras_v1',
   'cad_regras_ia_v1',
-  'regras_ia_sugestoes_v1'
+  'regras_ia_sugestoes_v1',
+  'lp_regras_v1'
 ];
 
 async function pfSyncPush(keys){
@@ -27145,7 +27146,7 @@ async function pfSyncPull(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   try{
     // Chaves compartilhadas entre usuários — puxar de TODOS os usuários
-    var sharedKeys = ['cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1'];
+    var sharedKeys = ['cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1'];
     
     var rows = [];
     
@@ -28930,6 +28931,36 @@ function ferrLeitorPecas(){
 function lpEsc(s){
   return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+// ── Regras de leitura (texto livre, cadastradas pelo usuário) ──
+// Ficam salvas e valem pra toda extração futura (PDF/print/texto colado).
+function lpRegrasLoad(){
+  try{return JSON.parse(localStorage.getItem('lp_regras_v1')||'[]');}catch(e){return [];}
+}
+function lpRegrasSave(arr){
+  pfSafeSetItem('lp_regras_v1',JSON.stringify(arr));
+  if(typeof pfSyncPush==='function')pfSyncPush(['lp_regras_v1']);
+}
+function lpAddRegra(){
+  var inp=document.getElementById('lpNovaRegra');
+  var texto=(inp&&inp.value||'').trim();
+  if(!texto)return;
+  var regras=lpRegrasLoad();
+  regras.push(texto);
+  lpRegrasSave(regras);
+  lpRenderFerr();
+}
+function lpDelRegra(idx){
+  var regras=lpRegrasLoad();
+  regras.splice(idx,1);
+  lpRegrasSave(regras);
+  lpRenderFerr();
+}
+// Monta o texto das regras pra colar no prompt da IA
+function lpRegrasPrompt(){
+  var regras=lpRegrasLoad();
+  if(!regras.length)return '';
+  return '\n\nREGRAS ADICIONAIS que você DEVE seguir ao extrair (definidas pelo usuário):\n'+regras.map(function(r){return '- '+r;}).join('\n');
+}
 function lpRenderFerr(){
   var el=document.getElementById('ferrBody');if(!el)return;
   var step=window._lpStep||'input';
@@ -28949,6 +28980,27 @@ function lpRenderFerr(){
       '</div>'+
       '<textarea id="lpTexto" placeholder="Cole aqui a lista de peças..." style="display:block" placeholder="Cole aqui a lista de pecas..." style="width:100%;min-height:100px;padding:10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;color:#1a2332"></textarea>'+
       '<button id="lpExtBtn" onclick="lpLerTexto()" style="display:block;margin-top:10px;width:100%;padding:10px;background:#0D7377;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✨ Extrair itens</button>'+
+      '</div>'+
+      '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:16px 20px;margin-top:14px">'+
+      '<div onclick="window._lpRegrasAbertas=!window._lpRegrasAbertas;lpRenderFerr()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer">'+
+      '<div style="font-size:12px;font-weight:700;color:#607080;display:flex;align-items:center;gap:6px">⚙️ Regras de leitura'+(lpRegrasLoad().length?' <span style="background:#0D7377;color:#fff;border-radius:10px;padding:1px 8px;font-size:10px">'+lpRegrasLoad().length+'</span>':'')+'</div>'+
+      '<span style="font-size:12px;color:#8a9ab0">'+(window._lpRegrasAbertas?'▾':'▸')+'</span>'+
+      '</div>'+
+      (window._lpRegrasAbertas?(
+        '<div style="margin-top:12px">'+
+        '<div style="font-size:11px;color:#8a9ab0;margin-bottom:10px">Regras que a IA sempre segue ao ler PDF/print/texto. Escreva em português normal, tipo você pedindo pra mim.</div>'+
+        lpRegrasLoad().map(function(r,i){
+          return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#F8FAFC;border-radius:7px;margin-bottom:6px">'+
+            '<span style="flex:1;font-size:12px;color:#1a2332">'+lpEsc(r)+'</span>'+
+            '<button onclick="lpDelRegra('+i+')" style="background:none;border:none;color:#C00000;font-size:15px;cursor:pointer;padding:0 4px">×</button>'+
+          '</div>';
+        }).join('')+
+        '<div style="display:flex;gap:8px;margin-top:8px">'+
+        '<input id="lpNovaRegra" type="text" placeholder="Ex: código nunca pode ter espaço" style="flex:1;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:12px;color:#1a2332" onkeydown="if(event.key===\'Enter\')lpAddRegra()">'+
+        '<button onclick="lpAddRegra()" style="background:#0D7377;color:#fff;border:none;border-radius:7px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">+ Adicionar</button>'+
+        '</div>'+
+        '</div>'
+      ):'')+
       '</div>';
   } else {
     var rows=itens.map(function(it,i){
@@ -29041,7 +29093,7 @@ async function lpLerArquivo(input){
       if(mt.startsWith('image/')){parts.push({type:'image',source:{type:'base64',media_type:mt,data:b64}});}
       else{parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});}
     }
-    parts.push({type:'text',text:'Extraia os itens desta lista de pecas. O cliente pediu CODIGO e QUANTIDADE. A descricao e informacao secundaria, pode estar escrita ao lado do codigo mas NAO e o que importa. Retorne APENAS JSON array: [{"codigo":"","qtd":1,"duvida":""}]. codigo: o codigo da peca, SEM ESPACOS dentro dele mesmo que no documento apareca com espaco (ex: "L 30039" no documento -> "L30039" no codigo; tambem 02-840476, E022677, mantendo hifens se houver). qtd: quantidade pedida (se nao informada, use 1). duvida: se manuscrito com incerteza no codigo, descreva brevemente. Caso contrario string vazia. APENAS o JSON, sem mais nada.'});
+    parts.push({type:'text',text:'Extraia os itens desta lista de pecas. O cliente pediu CODIGO e QUANTIDADE. A descricao e informacao secundaria, pode estar escrita ao lado do codigo mas NAO e o que importa. Retorne APENAS JSON array: [{"codigo":"","qtd":1,"duvida":""}]. codigo: o codigo da peca, SEM ESPACOS dentro dele mesmo que no documento apareca com espaco (ex: "L 30039" no documento -> "L30039" no codigo; tambem 02-840476, E022677, mantendo hifens se houver). qtd: quantidade pedida (se nao informada, use 1). duvida: se manuscrito com incerteza no codigo, descreva brevemente. Caso contrario string vazia. APENAS o JSON, sem mais nada.'+lpRegrasPrompt()});
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:parts}]})});
@@ -29085,7 +29137,7 @@ async function lpLerTexto(){
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:'Extraia os itens desta lista. Codigo SEM ESPACOS mesmo que no texto tenha espaco. Retorne APENAS JSON: [{"codigo":"","qtd":1,"desc":"","duvida":""}]\n'+txt}]})});
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:'Extraia os itens desta lista. Codigo SEM ESPACOS mesmo que no texto tenha espaco. Retorne APENAS JSON: [{"codigo":"","qtd":1,"desc":"","duvida":""}]'+lpRegrasPrompt()+'\n'+txt}]})});
     var data=await resp.json();
     var res=data.content.map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();
     var m3=res.match(/\[[\s\S]*/);if(m3)res=m3[0];
@@ -33769,7 +33821,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.508) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.509) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -34042,4 +34094,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.508 --></html>
+</script></div></div></body><!-- Build timestamp: v115.509 --></html>

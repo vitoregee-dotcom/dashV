@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.525 - DIAGNOSTICO temporario: usuario preencheu Aplicacao no import mas nao apareceu na tela de Aplicacoes mesmo apos v115.524. Adicionado console.log em cadConfirmarImport pra ver exatamente o que window._impAplicCache/cadGetAplicacao()/aplicsParaSalvar contem no momento da confirmacao -- remover apos identificar a causa. -->
+<!-- v115.526 - Achadas as 2 causas reais via print do usuario: (1) SyntaxError no JSON.parse do catalogo -- resposta da IA truncada, e a recuperacao antiga (cortar no ultimo "},") nao considerava o objeto aninhado "aplicacao" que adicionei, cortando no lugar errado. Substituida por recuperacao que conta profundidade de chaves de verdade. (2) Existe uma camada MAIS NOVA (nao vista antes) que troca o formulario de Aplicacao pra 5 campos e usa a chave "fabricante" em vez de "marca" no objeto retornado -- meu codigo lia ".marca", sempre undefined. Normalizado na entrada de cadConfirmarImport. Logs de diagnostico removidos. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.525</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.526</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.525</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.526</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22830,7 +22830,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.525): a desativação em v115.525 causou travamento no iPad — restaurando
+// REVERTIDO (v115.526): a desativação em v115.526 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22856,9 +22856,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.525): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.526): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.525) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.526) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -27545,8 +27545,34 @@ cadImportarCatalogo = async function(input){
       return 'Extraia todos os produtos deste catálogo. Retorne SOMENTE JSON array. Cada objeto: {"codigo":"","descricao":"","ncm":"","unidade":"","marca":"","pagina":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":""},"grupoCatalogo":""}. Sem markdown.'+camposExtra;
     })());
     var m=txt.match(/\[[\s\S]*/);if(m)txt=m[0];
-    if(!txt.endsWith(']')){var last=txt.lastIndexOf('},');if(last>0)txt=txt.slice(0,last+1)+']';}
-    var itens=JSON.parse(txt);
+    var itens;
+    try{
+      itens=JSON.parse(txt);
+    }catch(parseErr){
+      // Resposta truncada (limite de tokens). Como agora os itens têm objetos aninhados
+      // (aplicacao), um corte ingênuo no último "}," pode cair DENTRO do aninhamento e
+      // continuar quebrado. Em vez disso, percorre a string contando profundidade de
+      // chaves/colchetes e corta exatamente no último item de nível 1 completo.
+      var depth=0,lastGoodEnd=-1,inStr=false,esc=false;
+      for(var ci=0;ci<txt.length;ci++){
+        var ch=txt[ci];
+        if(esc){esc=false;continue;}
+        if(ch==='\\'){esc=true;continue;}
+        if(ch==='"'){inStr=!inStr;continue;}
+        if(inStr)continue;
+        if(ch==='{'||ch==='[')depth++;
+        else if(ch==='}'||ch===']'){
+          depth--;
+          if(depth===1)lastGoodEnd=ci; // fechou um item de nível 1 (dentro do array externo)
+        }
+      }
+      if(lastGoodEnd>0){
+        txt=txt.slice(0,lastGoodEnd+1)+']';
+        itens=JSON.parse(txt);
+      } else {
+        throw parseErr;
+      }
+    }
     if(!Array.isArray(itens)||!itens.length)throw new Error('Nenhum produto encontrado');
     // Apply substituições
     itens=substAplicarLote(itens);
@@ -27664,8 +27690,10 @@ var _origConfirmarImport=cadConfirmarImport;
 cadConfirmarImport=function(itens){
   if(!itens&&window._impItensCache)itens=window._impItensCache;
   var aplicGlobal=window._impAplicCache||cadGetAplicacao();
-  console.log('🔍 DIAGNÓSTICO import — window._impAplicCache:',JSON.stringify(window._impAplicCache),'| cadGetAplicacao():',JSON.stringify(cadGetAplicacao()),'| aplicGlobal usado:',JSON.stringify(aplicGlobal));
-  window._diagLogado=false;
+  // Normaliza: a versão mais nova do formulário (5 campos) usa "fabricante" em vez de
+  // "marca" no objeto retornado por cadGetAplicacao() — unifica pra "marca" aqui, uma
+  // vez só, pra todo o resto do código não precisar se preocupar com isso.
+  if(aplicGlobal&&aplicGlobal.fabricante&&!aplicGlobal.marca)aplicGlobal={equip:aplicGlobal.equip||'',marca:aplicGlobal.fabricante,modelo:aplicGlobal.modelo||'',serie:aplicGlobal.serie||''};
   var catalogoId=window._impCatalogoId||null;
   var checks=document.querySelectorAll('.impChk');
   var plist=cadLoad(PROD_KEY||'cad_produtos_v1');
@@ -27683,7 +27711,6 @@ cadConfirmarImport=function(itens){
     var aplicsParaSalvar=[];
     if(aplicItem)aplicsParaSalvar.push(aplicItem);
     if(aplicGlobal&&(!aplicItem||aplicGlobal.modelo!==aplicItem.modelo))aplicsParaSalvar.push(aplicGlobal);
-    if(!window._diagLogado){window._diagLogado=true;console.log('🔍 DIAGNÓSTICO item 1 — it.aplicacao:',JSON.stringify(it.aplicacao),'| aplicItem:',JSON.stringify(aplicItem),'| aplicsParaSalvar:',JSON.stringify(aplicsParaSalvar));}
     var prod={
       id:'p_'+Date.now()+'_'+Math.random().toString(36).slice(2),
       codigo:it.codigo||'',descricao:it.descricao||it.desc||'',marca:it.marca||'',
@@ -33984,7 +34011,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.525) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.526) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -34257,4 +34284,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.525 --></html>
+</script></div></div></body><!-- Build timestamp: v115.526 --></html>

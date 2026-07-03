@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.543 - Templates de e-mail (Solicitacao de Compra, etc): cartao de dados e cabecalho mudavam de aparencia (perdiam cor/formatacao) quando abertos no Outlook ou colados em certos clientes de e-mail -- causa: usavam display:flex, que o motor de renderizacao do Outlook (baseado no Word) NAO suporta. A tabela de itens (vermelha) ja usava <table> por isso sempre se manteve igual. Convertido pfDocHeaderHtml/pfDocCardHtml/pfDocCampoHtml/pfDocBannerHtml pra layout 100% em tabela, que funciona igual em qualquer cliente de e-mail. -->
+<!-- v115.544 - CRITICO: busca de Fornecedores E Clientes em Cadastros NUNCA funcionou de verdade -- o oninput dos campos so atualizava a variavel de filtro (window._fornFiltro/_clieFiltro), mas nunca chamava cadRenderFornecedores()/cadRenderClientes() de novo pra aplicar o filtro. Digitar nao fazia nada (a tabela so mudava se algo MAIS disparasse um re-render por outro motivo, dando a falsa impressao de estar lento/travado). Corrigido nos dois, e ja aplicada a mesma protecao de foco/cursor feita em Produtos (v115.541), ja que agora essas telas tambem redesenham a cada tecla. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.543</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.544</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.543</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.544</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22870,7 +22870,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.543): a desativação em v115.543 causou travamento no iPad — restaurando
+// REVERTIDO (v115.544): a desativação em v115.544 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22896,9 +22896,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.543): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.544): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.543) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.544) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -23930,6 +23930,20 @@ function cadImportClientesBulk(arr){
 // FORNECEDORES
 // ══════════════════════════════════════════════════════════════
 function cadRenderFornecedores(el){
+  // Preserva foco/cursor do campo que estava sendo digitado (mesma correção feita em Produtos/Clientes)
+  var _focoAtivo=document.activeElement;
+  var _focoId=(_focoAtivo&&el.contains(_focoAtivo))?_focoAtivo.id:null;
+  var _focoSelStart=_focoId&&_focoAtivo.selectionStart!=null?_focoAtivo.selectionStart:null;
+  var _focoSelEnd=_focoId&&_focoAtivo.selectionEnd!=null?_focoAtivo.selectionEnd:null;
+  function _restaurarFoco(){
+    if(!_focoId)return;
+    var novoEl=document.getElementById(_focoId);
+    if(!novoEl)return;
+    novoEl.focus();
+    if(_focoSelStart!=null&&typeof novoEl.setSelectionRange==='function'){
+      try{novoEl.setSelectionRange(_focoSelStart,_focoSelEnd);}catch(e){}
+    }
+  }
   var flist=cadLoad(FORN_KEY);
   var f=window._fornFiltro||{};
   var filtered=flist.filter(function(x,i){
@@ -23948,9 +23962,9 @@ function cadRenderFornecedores(el){
   html+='</div>';
   if(!flist.length){
     html+='<div style="text-align:center;padding:48px;background:#fff;border-radius:12px;color:#8a9ab0;font-size:13px">Nenhum fornecedor cadastrado.<br>Clique em "+ Novo Fornecedor" para começar.</div>';
-    el.innerHTML=html;return;
+    el.innerHTML=html;_restaurarFoco();return;
   }
-  function fInpF(ph,key,w){return '<input type="text" placeholder="'+ph+'" value="'+((f[key]||'').replace(/"/g,'&quot;'))+'" oninput="window._fornFiltro=window._fornFiltro||{};window._fornFiltro[\''+key+'\']=this.value" style="width:'+(w||'100%')+';box-sizing:border-box;padding:4px 6px;border:1px solid #e0e8f0;border-radius:5px;font-size:11px">';}
+  function fInpF(ph,key,w,ident){return '<input type="text" id="'+ident+'" placeholder="'+ph+'" value="'+((f[key]||'').replace(/"/g,'&quot;'))+'" oninput="window._fornFiltro=window._fornFiltro||{};window._fornFiltro[\''+key+'\']=this.value;cadRenderFornecedores(document.getElementById(&quot;cadBody&quot;))" style="width:'+(w||'100%')+';box-sizing:border-box;padding:4px 6px;border:1px solid #e0e8f0;border-radius:5px;font-size:11px">';}
   html+='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:auto">';
   html+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
   html+='<thead><tr style="background:#F0F4F8;border-bottom:2px solid #e0e8f0">';
@@ -23962,12 +23976,12 @@ function cadRenderFornecedores(el){
   html+='<th style="padding:10px 12px;text-align:left">E-mail</th>';
   html+='<th style="padding:10px 12px;text-align:center;width:80px">Ações</th>';
   html+='</tr><tr style="background:#fff;border-bottom:1px solid #e0e8f0">';
-  html+='<td style="padding:5px 8px">'+fInpF('buscar...','razao')+'</td>';
-  html+='<td style="padding:5px 8px">'+fInpF('buscar...','cnpj')+'</td>';
-  html+='<td style="padding:5px 8px">'+fInpF('buscar...','tipo')+'</td>';
-  html+='<td style="padding:5px 8px">'+fInpF('buscar...','abrangencia')+'</td>';
-  html+='<td style="padding:5px 8px">'+fInpF('buscar...','linhas')+'</td>';
-  html+='<td style="padding:5px 8px">'+fInpF('buscar...','email')+'</td>';
+  html+='<td style="padding:5px 8px">'+fInpF('buscar...','razao',null,'fornFiltro_razao')+'</td>';
+  html+='<td style="padding:5px 8px">'+fInpF('buscar...','cnpj',null,'fornFiltro_cnpj')+'</td>';
+  html+='<td style="padding:5px 8px">'+fInpF('buscar...','tipo',null,'fornFiltro_tipo')+'</td>';
+  html+='<td style="padding:5px 8px">'+fInpF('buscar...','abrangencia',null,'fornFiltro_abrangencia')+'</td>';
+  html+='<td style="padding:5px 8px">'+fInpF('buscar...','linhas',null,'fornFiltro_linhas')+'</td>';
+  html+='<td style="padding:5px 8px">'+fInpF('buscar...','email',null,'fornFiltro_email')+'</td>';
   html+='<td></td>';
   html+='</tr></thead><tbody>';
   filtered.forEach(function(f2){
@@ -23985,7 +23999,7 @@ function cadRenderFornecedores(el){
     html+='</td></tr>';
   });
   html+='</tbody></table></div>';
-  el.innerHTML=html;
+  el.innerHTML=html;_restaurarFoco();
 }
 
 function cadNovoForn(){cadFormForn(null,-1);}
@@ -24112,6 +24126,20 @@ function cadSalvarForn(idx){
 // CLIENTES
 // ══════════════════════════════════════════════════════════════
 function cadRenderClientes(el){
+  // Preserva foco/cursor do campo que estava sendo digitado (mesma correção feita em Produtos)
+  var _focoAtivo=document.activeElement;
+  var _focoId=(_focoAtivo&&el.contains(_focoAtivo))?_focoAtivo.id:null;
+  var _focoSelStart=_focoId&&_focoAtivo.selectionStart!=null?_focoAtivo.selectionStart:null;
+  var _focoSelEnd=_focoId&&_focoAtivo.selectionEnd!=null?_focoAtivo.selectionEnd:null;
+  function _restaurarFoco(){
+    if(!_focoId)return;
+    var novoEl=document.getElementById(_focoId);
+    if(!novoEl)return;
+    novoEl.focus();
+    if(_focoSelStart!=null&&typeof novoEl.setSelectionRange==='function'){
+      try{novoEl.setSelectionRange(_focoSelStart,_focoSelEnd);}catch(e){}
+    }
+  }
   var clist=cadLoad(CLIE_KEY);
   var f=window._clieFiltro||{};
   var filtered=clist.filter(function(c,i){
@@ -24128,9 +24156,9 @@ function cadRenderClientes(el){
   html+='</div>';
   if(!clist.length){
     html+='<div style="text-align:center;padding:48px;background:#fff;border-radius:12px;color:#8a9ab0;font-size:13px">Nenhum cliente cadastrado.<br>Clique em "+ Novo Cliente" para começar.</div>';
-    el.innerHTML=html;return;
+    el.innerHTML=html;_restaurarFoco();return;
   }
-  function fInp(ph,key,w){return '<input type="text" placeholder="'+ph+'" value="'+((f[key]||'').replace(/"/g,'&quot;'))+'" oninput="window._clieFiltro=window._clieFiltro||{};window._clieFiltro[\''+key+'\']=this.value" style="width:'+(w||'100%')+';box-sizing:border-box;padding:4px 6px;border:1px solid #e0e8f0;border-radius:5px;font-size:11px">';}
+  function fInp(ph,key,w,ident){return '<input type="text" id="'+ident+'" placeholder="'+ph+'" value="'+((f[key]||'').replace(/"/g,'&quot;'))+'" oninput="window._clieFiltro=window._clieFiltro||{};window._clieFiltro[\''+key+'\']=this.value;cadRenderClientes(document.getElementById(&quot;cadBody&quot;))" style="width:'+(w||'100%')+';box-sizing:border-box;padding:4px 6px;border:1px solid #e0e8f0;border-radius:5px;font-size:11px">';}
   html+='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:auto">';
   html+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
   html+='<thead><tr style="background:#F0F4F8;border-bottom:2px solid #e0e8f0">';
@@ -24143,11 +24171,11 @@ function cadRenderClientes(el){
   html+='<th style="padding:10px 12px;text-align:left">Cidade/UF</th>';
   html+='<th style="padding:10px 12px;text-align:center;width:80px">Ações</th>';
   html+='</tr><tr style="background:#fff;border-bottom:1px solid #e0e8f0">';
-  html+='<td style="padding:5px 8px">'+fInp('buscar...','codigo')+'</td>';
-  html+='<td style="padding:5px 8px">'+fInp('buscar...','razao')+'</td>';
-  html+='<td style="padding:5px 8px">'+fInp('buscar...','cnpj')+'</td>';
+  html+='<td style="padding:5px 8px">'+fInp('buscar...','codigo',null,'clieFiltro_codigo')+'</td>';
+  html+='<td style="padding:5px 8px">'+fInp('buscar...','razao',null,'clieFiltro_razao')+'</td>';
+  html+='<td style="padding:5px 8px">'+fInp('buscar...','cnpj',null,'clieFiltro_cnpj')+'</td>';
   html+='<td></td><td></td><td></td>';
-  html+='<td style="padding:5px 8px">'+fInp('cidade/UF...','cidade')+'</td>';
+  html+='<td style="padding:5px 8px">'+fInp('cidade/UF...','cidade',null,'clieFiltro_cidade')+'</td>';
   html+='<td></td>';
   html+='</tr></thead><tbody>';
   filtered.forEach(function(c){
@@ -24166,7 +24194,7 @@ function cadRenderClientes(el){
     html+='</td></tr>';
   });
   html+='</tbody></table></div>';
-  el.innerHTML=html;
+  el.innerHTML=html;_restaurarFoco();
 }
 
 (function(){
@@ -34230,7 +34258,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.543) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.544) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -34503,4 +34531,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.543 --></html>
+</script></div></div></body><!-- Build timestamp: v115.544 --></html>

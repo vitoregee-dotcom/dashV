@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.523 - Catalogo PDF: aumentado timeout de leitura de 45s pra 90s e max_tokens de 4096 pra 8192 -- a extracao ficou mais pesada (pagina/aplicacao/grupoCatalogo por item), catalogos maiores estavam estourando o tempo/tamanho antigos. -->
+<!-- v115.524 - 3 fixes: (1) botao "Ver no catalogo" nunca aparecia por bug de referencia DOM (div.firstElementChild referenciado de novo depois de ja ter sido movido pro DOM, retornando null) -- corrigido guardando a referencia antes de mover. (2) busca de produtos em Cadastros agora tambem considera aplicacao (equipamento/marca/modelo/serie), nao so codigo/descricao/marca. (3) CAUSA RAIZ do "aplicacao do catalogo nao aparece na tela de Aplicacoes": import de catalogo gravava num formato de dados diferente (dicionario via aplicAdicionarAoProduto) do que a tela de Aplicacoes le (lista plana via aplicLoad/aplicSave) -- unificado pro mesmo formato usado pelo fluxo "Marcar Aplicacao" de Vendas. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.523</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.524</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.523</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.524</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22830,7 +22830,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.523): a desativação em v115.523 causou travamento no iPad — restaurando
+// REVERTIDO (v115.524): a desativação em v115.524 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22856,9 +22856,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.523): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.524): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.523) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.524) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -25673,12 +25673,19 @@ cadRenderProdutos = function(el){
   var filtered = plist.filter(function(p){
     if(!searchVal)return true;
     var q=searchVal.toLowerCase();
-    return (p.codigo||'').toLowerCase().includes(q)||(p.descricao||'').toLowerCase().includes(q)||(p.marca||'').toLowerCase().includes(q);
+    var bateBasico=(p.codigo||'').toLowerCase().includes(q)||(p.descricao||'').toLowerCase().includes(q)||(p.marca||'').toLowerCase().includes(q);
+    if(bateBasico)return true;
+    // Também busca por aplicação — equipamento, marca do equipamento, modelo ou série
+    var aplic=p.aplicacoes||[];
+    return aplic.some(function(a){
+      return (a.equip||'').toLowerCase().includes(q)||(a.marca||'').toLowerCase().includes(q)||
+             (a.modelo||'').toLowerCase().includes(q)||(a.serie||'').toLowerCase().includes(q);
+    });
   });
 
   var html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">';
   html += '<div style="font-size:13px;font-weight:700;color:#1F4E79">'+plist.length+' produto(s)</div>';
-  html += '<input type="text" placeholder="🔍 Buscar código, descrição ou marca..." value="'+(searchVal||'')+'" oninput="window._prodSearch=this.value" style="flex:1;min-width:180px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12px">';
+  html += '<input type="text" placeholder="🔍 Buscar código, descrição, marca ou modelo/aplicação..." value="'+(searchVal||'')+'" oninput="window._prodSearch=this.value" style="flex:1;min-width:180px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12px">';
   html += '<button onclick="cadNovoProduto()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">+ Novo</button>';
   html += '<button onclick="cadImportarProdutos()" style="background:#E67E22;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">📥 Importar</button>';
   html += '</div>';
@@ -27698,7 +27705,19 @@ cadConfirmarImport=function(itens){
       plist.push(prod);importados++;
     }
     // Persist to aplicacoes store
-    aplicsParaSalvar.forEach(function(aplic){aplicAdicionarAoProduto(prod.codigo,aplic);});
+    aplicsParaSalvar.forEach(function(aplic){
+      if(!aplic.modelo&&!aplic.serie)return; // sem modelo/série não tem o que listar na tela de Aplicações
+      if(typeof vendasPatchAplicacaoNoProduto==='function')vendasPatchAplicacaoNoProduto(prod.codigo,aplic.marca||prod.marca,aplic.modelo,aplic.serie);
+      if(typeof aplicLoad==='function'&&typeof aplicSave==='function'){
+        var flatList=aplicLoad();
+        var modU=(aplic.modelo||'').toUpperCase(),serU=(aplic.serie||'').toUpperCase(),marU=(aplic.marca||prod.marca||'').toUpperCase();
+        var existe=flatList.some(function(a){return (a.modelo||'').toUpperCase()===modU&&(a.serie||'').toUpperCase()===serU&&(a.codigo||'').toUpperCase()===prod.codigo.toUpperCase()&&(a.marca||'').toUpperCase()===marU;});
+        if(!existe){
+          flatList.push({id:'apl_'+Date.now()+'_'+Math.random().toString(36).slice(2),modelo:aplic.modelo||'',serie:aplic.serie||'',codigo:prod.codigo,desc:prod.descricao||'',marca:aplic.marca||prod.marca||''});
+          aplicSave(flatList);
+        }
+      }
+    });
     // Agrupa por grupoCatalogo pra criar "itens relacionados" no final
     var grupoCat=(it.grupoCatalogo||'').trim();
     if(grupoCat){
@@ -27841,14 +27860,15 @@ cadFormProduto=function(data,idx){
   html+='<button onclick="prodAddAplic()" style="background:none;border:1.5px dashed #1F4E79;color:#1F4E79;border-radius:8px;padding:5px 14px;cursor:pointer;font-size:12px;font-weight:600;margin-top:6px">+ Adicionar aplicação</button>';
   html+='</div>';
   var div=document.createElement('div');div.innerHTML=html;
-  obsEl.closest('div').after(div.firstElementChild);
+  var aplicSection=div.firstElementChild; // guarda a referência ANTES de mover pro DOM
+  obsEl.closest('div').after(aplicSection);
   // Botão "Ver no catálogo" — só aparece se o produto veio de uma importação de catálogo salva
   if(data&&data.catalogoId){
     var btnCat=document.createElement('button');
     btnCat.textContent='📄 Ver no catálogo'+(data.catalogoPagina?' (pág. '+data.catalogoPagina+')':'');
-    btnCat.style.cssText='background:#0D7377;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700;margin-top:14px';
+    btnCat.style.cssText='background:#0D7377;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700;margin-top:14px;display:block';
     btnCat.onclick=function(){cadVerNoCatalogo(data.catalogoId,data.catalogoPagina);};
-    div.firstElementChild.after(btnCat);
+    aplicSection.after(btnCat);
   }
   var aplicList=document.getElementById('prodAplicList');
   if(aplicList&&!aplicList._removeDelegated){
@@ -33961,7 +33981,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.523) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.524) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -34234,4 +34254,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.523 --></html>
+</script></div></div></body><!-- Build timestamp: v115.524 --></html>

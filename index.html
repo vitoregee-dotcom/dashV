@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.528 - Catalogo PDF: mensagem final do import agora conta separadamente produtos novos, produtos ja existentes que foram atualizados (aplicacao/catalogo vinculados) e aplicacoes novas na tela de Aplicacoes -- antes so mostrava "0 produto(s) importado(s)!" quando o catalogo ja tinha sido importado antes, dando a falsa impressao de que nada aconteceu mesmo quando aplicacoes/vinculos foram atualizados. -->
+<!-- v115.529 - CRITICO: import de catalogo causava apagao no banco pra QUALQUER usuario. vendasPatchAplicacaoNoProduto() faz cadSave()+sync a cada chamada, e eu chamava ela uma vez por item dentro do loop de import -- com 90+ itens isso virava 90+ gravacoes simultaneas na tabela user_cadastros brigando por lock (confirmado nos logs do Postgres: "canceling statement due to statement timeout" em cascata), o que derrubava ate consultas sem nada a ver (ex: user_planilhas com erro 500/CORS). Corrigido: tudo agora acontece em memoria durante o loop, com UM UNICO cadSave() e UM UNICO aplicSave() no final, nao importa quantos itens tenham sido importados. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.528</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.529</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.528</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.529</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22830,7 +22830,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.528): a desativação em v115.528 causou travamento no iPad — restaurando
+// REVERTIDO (v115.529): a desativação em v115.529 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22856,9 +22856,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.528): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.529): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.528) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.529) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -27716,6 +27716,7 @@ cadConfirmarImport=function(itens){
   var importados=0;
   var atualizados=0;
   var aplicacoesVinculadas=0;
+  var aplicacoesParaGravar=[]; // acumula aqui, grava tudo de uma vez só no final
   var porGrupo={}; // grupoCatalogo -> [codigo, ...], pra criar relacionados no final
   checks.forEach(function(chk){
     if(!chk.checked)return;
@@ -27753,20 +27754,14 @@ cadConfirmarImport=function(itens){
     } else {
       plist.push(prod);importados++;
     }
-    // Persist to aplicacoes store
+    // Acumula pra lista plana de Aplicações — GRAVA TUDO SÓ UMA VEZ NO FINAL (não a cada
+    // item). Chamar aplicLoad()/aplicSave()/vendasPatchAplicacaoNoProduto() aqui dentro do
+    // loop, um por item, foi o que causou o apagão: com 90+ itens isso virava 90+ gravações
+    // simultâneas no Supabase brigando por lock na mesma tabela, travando tudo (inclusive
+    // partes do sistema sem nada a ver com essa tela).
     aplicsParaSalvar.forEach(function(aplic){
       if(!aplic.modelo&&!aplic.serie)return; // sem modelo/série não tem o que listar na tela de Aplicações
-      if(typeof vendasPatchAplicacaoNoProduto==='function')vendasPatchAplicacaoNoProduto(prod.codigo,aplic.marca||prod.marca,aplic.modelo,aplic.serie);
-      if(typeof aplicLoad==='function'&&typeof aplicSave==='function'){
-        var flatList=aplicLoad();
-        var modU=(aplic.modelo||'').toUpperCase(),serU=(aplic.serie||'').toUpperCase(),marU=(aplic.marca||prod.marca||'').toUpperCase();
-        var existe=flatList.some(function(a){return (a.modelo||'').toUpperCase()===modU&&(a.serie||'').toUpperCase()===serU&&(a.codigo||'').toUpperCase()===prod.codigo.toUpperCase()&&(a.marca||'').toUpperCase()===marU;});
-        if(!existe){
-          flatList.push({id:'apl_'+Date.now()+'_'+Math.random().toString(36).slice(2),modelo:aplic.modelo||'',serie:aplic.serie||'',codigo:prod.codigo,desc:prod.descricao||'',marca:aplic.marca||prod.marca||''});
-          aplicSave(flatList);
-          aplicacoesVinculadas++;
-        }
-      }
+      aplicacoesParaGravar.push({codigo:prod.codigo,desc:prod.descricao,marcaProd:prod.marca,aplic:aplic});
     });
     // Agrupa por grupoCatalogo pra criar "itens relacionados" no final
     var grupoCat=(it.grupoCatalogo||'').trim();
@@ -27776,6 +27771,21 @@ cadConfirmarImport=function(itens){
     }
   });
   cadSave(PROD_KEY||'cad_produtos_v1',plist);
+  // Grava a lista plana de Aplicações (tela Cadastros > Aplicações) TUDO DE UMA VEZ SÓ —
+  // um load, um save, não importa quantos itens tenham sido importados.
+  if(aplicacoesParaGravar.length&&typeof aplicLoad==='function'&&typeof aplicSave==='function'){
+    var flatList=aplicLoad();
+    aplicacoesParaGravar.forEach(function(entry){
+      var aplic=entry.aplic;
+      var modU=(aplic.modelo||'').toUpperCase(),serU=(aplic.serie||'').toUpperCase(),marU=(aplic.marca||entry.marcaProd||'').toUpperCase();
+      var existe=flatList.some(function(a){return (a.modelo||'').toUpperCase()===modU&&(a.serie||'').toUpperCase()===serU&&(a.codigo||'').toUpperCase()===entry.codigo.toUpperCase()&&(a.marca||'').toUpperCase()===marU;});
+      if(!existe){
+        flatList.push({id:'apl_'+Date.now()+'_'+Math.random().toString(36).slice(2),modelo:aplic.modelo||'',serie:aplic.serie||'',codigo:entry.codigo,desc:entry.desc||'',marca:aplic.marca||entry.marcaProd||''});
+        aplicacoesVinculadas++;
+      }
+    });
+    if(aplicacoesVinculadas)aplicSave(flatList);
+  }
   // Cria "itens relacionados" entre todo par de itens do mesmo grupo/kit do catálogo
   var relacCriados=0;
   var relacExistentes=relacLoad();
@@ -34037,7 +34047,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.528) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.529) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -34310,4 +34320,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.528 --></html>
+</script></div></div></body><!-- Build timestamp: v115.529 --></html>

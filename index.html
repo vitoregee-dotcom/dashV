@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.521 - CAUSA RAIZ DEFINITIVA do "fonte errada": existe uma regra GLOBAL "input, select, textarea { font-size:16px !important; }" (evita zoom automatico do iOS ao focar campo) que sobrepunha QUALQUER font-size que eu declarasse no input de Descricao -- por mais que eu mudasse pra 13px no codigo, o navegador sempre renderizava 16px de verdade, enquanto Marca (nao e input) ficava no 13px declarado. Ajustado: Descricao e Marca agora IGUAIS EM 16px de verdade (nao dava pra diminuir o input sem reintroduzir o zoom automatico do iOS). Tambem corrigidos qtd/custo/venda/% pro mesmo motivo -- todos sao <input>, todos jah renderizavam 16px por baixo do pano; larguras das colunas aumentadas pra caber o texto maior sem apertar. -->
+<!-- v115.522 - NOVO (Fase 1 do "catalogo integrado"): import de Catalogo PDF em Cadastros/Produtos agora extrai por item -- pagina, aplicacao (equipamento/marca/modelo/serie) e grupoCatalogo (kit/figura). O PDF original e salvo no Supabase (tabela cad_catalogos_pdf) e cada produto importado guarda catalogoId+catalogoPagina. Botao novo "📄 Ver no catalogo" na ficha do produto abre o PDF original na pagina certa. Itens que aparecem no mesmo grupoCatalogo (kit/figura) viram "itens relacionados" automaticamente (cad_relacionados_v1), sem precisar marcar manualmente em Vendas depois. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.521</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.522</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.521</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.522</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22830,7 +22830,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.521): a desativação em v115.521 causou travamento no iPad — restaurando
+// REVERTIDO (v115.522): a desativação em v115.522 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22856,9 +22856,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.521): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.522): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.521) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.522) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -27523,6 +27523,7 @@ cadImportarCatalogo = async function(input){
   var file=input.files[0];if(!file)return;
   var marca=(document.getElementById('impCatMarca')||{}).value||'';
   window._impMarcaAtual = marca; // Save for prompt detection
+  window._impCatalogoId = null;
   var statusEl=document.getElementById('impCatStatus');
   if(statusEl)statusEl.textContent='🤖 Lendo catálogo...';
   try{
@@ -27530,10 +27531,11 @@ cadImportarCatalogo = async function(input){
       (function(){
       var marcaVal=(document.getElementById('impCatMarca')||{}).value||window._impMarcaAtual||'';
       var isItalian=['CARRARO','DANA/SPICER','DANA','ZF','SPICER'].some(function(m){return marcaVal.toUpperCase().includes(m);});
+      var camposExtra=' Alem disso, se o catalogo mostrar (mesmo que informalmente): pagina (numero da pagina onde o item aparece), aplicacao (equipamento/marca/modelo/serie que usa essa peca, se estiver escrito perto do item ou no cabecalho da secao), grupo (um identificador curto — numero da figura, nome do kit/conjunto explodido, etc — pra itens que aparecem JUNTOS na mesma ilustracao/kit, tipo "Fig.12" ou "Kit vedacao motor"; deixe vazio se nao der pra saber). Inclua esses campos no JSON de cada item quando encontrar, mesmo que nao tenha certeza total.';
       if(isItalian){
-        return 'Este é um catálogo de peças em italiano (marca CARRARO). Extraia todos os produtos e TRADUZA cada descrição do italiano para o português brasileiro. Se não souber traduzir um termo, mantenha como está. Retorne SOMENTE JSON array, sem markdown. Cada objeto: {"codigo":"","descricao":"TRADUZIDO EM PORTUGUES","ncm":"","unidade":"","marca":""}. Exemplos: Ralla=ARRUELA, Anello OR=ANEL O-RING, Boccola=BUCHA, Vite=PARAFUSO, Spina=PINO, Tappo=TAMPAO, Bronzina=BRONZINA, Guarnizione=JUNTA, Cuscinetto=ROLAMENTO, Albero=EIXO, Ingranaggio=ENGRENAGEM, Paraolio=RETENTOR, Pompa=BOMBA, Molla=MOLA, Flangia=FLANGE, Supporto=SUPORTE.';
+        return 'Este é um catálogo de peças em italiano (marca CARRARO). Extraia todos os produtos e TRADUZA cada descrição do italiano para o português brasileiro. Se não souber traduzir um termo, mantenha como está. Retorne SOMENTE JSON array, sem markdown. Cada objeto: {"codigo":"","descricao":"TRADUZIDO EM PORTUGUES","ncm":"","unidade":"","marca":"","pagina":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":""},"grupoCatalogo":""}. Exemplos: Ralla=ARRUELA, Anello OR=ANEL O-RING, Boccola=BUCHA, Vite=PARAFUSO, Spina=PINO, Tappo=TAMPAO, Bronzina=BRONZINA, Guarnizione=JUNTA, Cuscinetto=ROLAMENTO, Albero=EIXO, Ingranaggio=ENGRENAGEM, Paraolio=RETENTOR, Pompa=BOMBA, Molla=MOLA, Flangia=FLANGE, Supporto=SUPORTE.'+camposExtra;
       }
-      return 'Extraia todos os produtos deste catálogo. Retorne SOMENTE JSON array. Cada objeto: {"codigo":"","descricao":"","ncm":"","unidade":"","marca":""}. Sem markdown.';
+      return 'Extraia todos os produtos deste catálogo. Retorne SOMENTE JSON array. Cada objeto: {"codigo":"","descricao":"","ncm":"","unidade":"","marca":"","pagina":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":""},"grupoCatalogo":""}. Sem markdown.'+camposExtra;
     })());
     var m=txt.match(/\[[\s\S]*/);if(m)txt=m[0];
     if(!txt.endsWith(']')){var last=txt.lastIndexOf('},');if(last>0)txt=txt.slice(0,last+1)+']';}
@@ -27548,6 +27550,22 @@ cadImportarCatalogo = async function(input){
       it.ncm=(it.ncm||'').trim();
       it.linhaObj=idLinha(it.codigo||'');
     });
+    if(statusEl)statusEl.textContent='✅ '+itens.length+' itens encontrados — salvando catálogo pra consulta futura...';
+    // Sobe o PDF original pro Supabase, pra dar pra "ver no catálogo" depois pelo produto
+    if(typeof sbUser!=='undefined'&&sbUser&&file.size<9*1024*1024){
+      try{
+        var b64Full=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(file);});
+        var rCat=await sbFetch('/rest/v1/cad_catalogos_pdf',{
+          method:'POST',
+          headers:{'Prefer':'return=representation'},
+          body:JSON.stringify({
+            nome_arquivo:file.name,marca:marca||'',arquivo_base64:b64Full,tamanho_bytes:file.size,
+            user_id:sbUser.id,autor:(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)?sbProfile.nome:(sbUser.email||'')
+          })
+        });
+        if(rCat.ok){var catData=await rCat.json();if(catData&&catData[0])window._impCatalogoId=catData[0].id;}
+      }catch(eCat){console.warn('Falha ao salvar catálogo pra consulta futura:',eCat);}
+    }
     if(statusEl)statusEl.textContent='✅ '+itens.length+' itens encontrados';
     cadMostrarPreviewImport(itens,marca);
   }catch(e){
@@ -27633,44 +27651,86 @@ function impSalvarSubst(btn, idx){
   setTimeout(function(){btn.textContent='💾';btn.style.color='#8a9ab0';},2000);
 }
 
-// Override cadConfirmarImport to include aplicacao
+// Override cadConfirmarImport to include aplicacao (por item ou global), catálogo de origem
+// e criação automática de "itens relacionados" pra itens do mesmo grupo/kit no catálogo.
 var _origConfirmarImport=cadConfirmarImport;
 cadConfirmarImport=function(itens){
   if(!itens&&window._impItensCache)itens=window._impItensCache;
-  var aplic=window._impAplicCache||cadGetAplicacao();
+  var aplicGlobal=window._impAplicCache||cadGetAplicacao();
+  var catalogoId=window._impCatalogoId||null;
   var checks=document.querySelectorAll('.impChk');
   var plist=cadLoad(PROD_KEY||'cad_produtos_v1');
   var importados=0;
+  var porGrupo={}; // grupoCatalogo -> [codigo, ...], pra criar relacionados no final
   checks.forEach(function(chk){
     if(!chk.checked)return;
     var it=itens[parseInt(chk.dataset.idx)];if(!it)return;
     var ln=it.linhaObj||idLinha(it.codigo||'');
+    // Aplicação: prioriza a que a IA achou pro item específico; usa a global (do formulário) como reforço/fallback
+    var aplicItem=null;
+    if(it.aplicacao&&(it.aplicacao.equip||it.aplicacao.marca||it.aplicacao.modelo||it.aplicacao.serie)){
+      aplicItem={equip:it.aplicacao.equip||'',marca:it.aplicacao.marca||'',modelo:it.aplicacao.modelo||'',serie:it.aplicacao.serie||''};
+    }
+    var aplicsParaSalvar=[];
+    if(aplicItem)aplicsParaSalvar.push(aplicItem);
+    if(aplicGlobal&&(!aplicItem||aplicGlobal.modelo!==aplicItem.modelo))aplicsParaSalvar.push(aplicGlobal);
     var prod={
       id:'p_'+Date.now()+'_'+Math.random().toString(36).slice(2),
       codigo:it.codigo||'',descricao:it.descricao||it.desc||'',marca:it.marca||'',
       ncm:it.ncm||'',linha:ln.l||'',grupo:it.grupo||'',subgrupo:it.subgrupo||'',
       unidade:it.unidade||'',obs:'',fotos:[],foto:'',desenho:'',conversoes:[],
-      aplicacoes:aplic?[aplic]:[],
+      aplicacoes:aplicsParaSalvar,
+      catalogoId:catalogoId,catalogoPagina:it.pagina||null,
     };
     var existIdx=plist.findIndex(function(p){return p.codigo===prod.codigo&&p.marca===prod.marca;});
     if(existIdx>=0){
       // Merge aplicacoes
-      if(aplic){
+      aplicsParaSalvar.forEach(function(aplic){
         if(!plist[existIdx].aplicacoes)plist[existIdx].aplicacoes=[];
         var jaExiste=plist[existIdx].aplicacoes.some(function(a){
           return a.equip===aplic.equip&&a.marca===aplic.marca&&a.modelo===aplic.modelo;
         });
         if(!jaExiste)plist[existIdx].aplicacoes.push(aplic);
-      }
+      });
+      // Vincula ao catálogo se ainda não tinha um
+      if(catalogoId&&!plist[existIdx].catalogoId){plist[existIdx].catalogoId=catalogoId;plist[existIdx].catalogoPagina=it.pagina||null;}
     } else {
       plist.push(prod);importados++;
     }
     // Persist to aplicacoes store
-    if(aplic)aplicAdicionarAoProduto(prod.codigo,aplic);
+    aplicsParaSalvar.forEach(function(aplic){aplicAdicionarAoProduto(prod.codigo,aplic);});
+    // Agrupa por grupoCatalogo pra criar "itens relacionados" no final
+    var grupoCat=(it.grupoCatalogo||'').trim();
+    if(grupoCat){
+      if(!porGrupo[grupoCat])porGrupo[grupoCat]=[];
+      porGrupo[grupoCat].push({codigo:prod.codigo,desc:prod.descricao});
+    }
   });
   cadSave(PROD_KEY||'cad_produtos_v1',plist);
-  window._impItensCache=null;window._impAplicCache=null;
-  pfAlert('✅ '+importados+' produto(s) importado(s)!');
+  // Cria "itens relacionados" entre todo par de itens do mesmo grupo/kit do catálogo
+  var relacCriados=0;
+  var relacExistentes=relacLoad();
+  Object.keys(porGrupo).forEach(function(g){
+    var lista=porGrupo[g];
+    if(lista.length<2)return;
+    for(var a=0;a<lista.length;a++){
+      for(var b=a+1;b<lista.length;b++){
+        var codA=(lista[a].codigo||'').toUpperCase(),codB=(lista[b].codigo||'').toUpperCase();
+        if(!codA||!codB||codA===codB)continue;
+        var jaTem=relacExistentes.some(function(r){
+          var ra=(r.codigoA||'').toUpperCase(),rb=(r.codigoB||'').toUpperCase();
+          return (ra===codA&&rb===codB)||(ra===codB&&rb===codA);
+        });
+        if(!jaTem){
+          relacExistentes.push({codigoA:lista[a].codigo,descA:lista[a].desc,codigoB:lista[b].codigo,descB:lista[b].desc});
+          relacCriados++;
+        }
+      }
+    }
+  });
+  if(relacCriados)relacSave(relacExistentes);
+  window._impItensCache=null;window._impAplicCache=null;window._impCatalogoId=null;
+  pfAlert('✅ '+importados+' produto(s) importado(s)!'+(relacCriados?'\n🔗 '+relacCriados+' vínculo(s) de itens relacionados criado(s) automaticamente (mesmo kit/figura no catálogo).':''));
   cadGoTab('produtos');
 };
 
@@ -27782,6 +27842,14 @@ cadFormProduto=function(data,idx){
   html+='</div>';
   var div=document.createElement('div');div.innerHTML=html;
   obsEl.closest('div').after(div.firstElementChild);
+  // Botão "Ver no catálogo" — só aparece se o produto veio de uma importação de catálogo salva
+  if(data&&data.catalogoId){
+    var btnCat=document.createElement('button');
+    btnCat.textContent='📄 Ver no catálogo'+(data.catalogoPagina?' (pág. '+data.catalogoPagina+')':'');
+    btnCat.style.cssText='background:#0D7377;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700;margin-top:14px';
+    btnCat.onclick=function(){cadVerNoCatalogo(data.catalogoId,data.catalogoPagina);};
+    div.firstElementChild.after(btnCat);
+  }
   var aplicList=document.getElementById('prodAplicList');
   if(aplicList&&!aplicList._removeDelegated){
     aplicList._removeDelegated=true;
@@ -27795,6 +27863,27 @@ cadFormProduto=function(data,idx){
   }
 };
 
+// Busca o PDF do catálogo salvo no Supabase e abre numa aba nova, já na página do item se souber qual é
+async function cadVerNoCatalogo(catalogoId,pagina){
+  if(!catalogoId){pfAlert('Este produto não tem catálogo de origem salvo.');return;}
+  try{
+    var r=await sbFetch('/rest/v1/cad_catalogos_pdf?id=eq.'+catalogoId+'&select=arquivo_base64,nome_arquivo');
+    if(!r.ok)throw new Error('Falha ao buscar catálogo');
+    var rows=await r.json();
+    if(!rows.length){pfAlert('Catálogo não encontrado (pode ter sido removido).');return;}
+    var b64=rows[0].arquivo_base64;
+    var byteChars=atob(b64);
+    var byteNums=new Array(byteChars.length);
+    for(var i=0;i<byteChars.length;i++)byteNums[i]=byteChars.charCodeAt(i);
+    var byteArray=new Uint8Array(byteNums);
+    var blob=new Blob([byteArray],{type:'application/pdf'});
+    var url=URL.createObjectURL(blob);
+    window.open(url+(pagina?'#page='+pagina:''),'_blank');
+  }catch(e){
+    console.error(e);
+    pfAlert('Erro ao abrir catálogo: '+e.message);
+  }
+}
 function prodAplicRow(a,i){
   return '<div class="prodAplicRow" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;margin-bottom:6px;align-items:center">'+
     '<input type="text" class="aplEquip" placeholder="Equipamento" value="'+(a.equip||'')+'" style="padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:11px">'+
@@ -33872,7 +33961,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.521) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.522) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -34145,4 +34234,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.521 --></html>
+</script></div></div></body><!-- Build timestamp: v115.522 --></html>

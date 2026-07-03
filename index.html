@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.539 - Calculo NF + Especial: quando a leitura de um arquivo novo falhava, a tabela do calculo ANTERIOR continuava visivel do jeito que estava, parecendo que "carregou o arquivo errado" quando na real a leitura nova so tinha falhado. Agora limpa a tabela ANTES de tentar ler o novo arquivo (falha fica obvia). Tambem trocada a recuperacao de JSON truncado (limite de tokens) pela versao mais robusta com contagem de profundidade de chaves, mesma correcao feita hoje no import de catalogo. -->
+<!-- v115.541 - Duas correcoes: (1) Cadastros/Produtos: campo de busca perdia o foco a cada letra digitada -- a tela reconstroi a tabela inteira em cada oninput (busca/filtros), entao o campo era recriado do zero a cada tecla e o cursor caia fora. Corrigido salvando qual campo estava focado + posicao do cursor antes de reconstruir, restaurando logo depois. Adicionado id nos campos de busca/filtro (nao tinham nenhum antes). Mesmo padrao provavelmente existe em Fornecedores/Clientes tambem -- nao corrigido ainda nessas telas. (2) Foto do produto agora abre ampliada num modal escuro ao clicar na miniatura (antes so tinha o botao de excluir, sem nenhum jeito de ampliar). -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.539</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.541</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.539</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.541</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22844,7 +22844,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.539): a desativação em v115.539 causou travamento no iPad — restaurando
+// REVERTIDO (v115.541): a desativação em v115.541 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22870,9 +22870,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.539): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.541): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.539) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.541) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -23771,6 +23771,22 @@ function cadGoTab(t){
 }
 
 function cadRenderProdutosV3(el){
+  // Preserva foco/cursor do campo que estava sendo digitado — a tabela inteira é
+  // reconstruída a cada letra (busca/filtros), então sem isso o campo perde o foco
+  // a cada tecla, forçando clicar de novo pra continuar digitando.
+  var _focoAtivo=document.activeElement;
+  var _focoId=(_focoAtivo&&el.contains(_focoAtivo))?_focoAtivo.id:null;
+  var _focoSelStart=_focoId&&_focoAtivo.selectionStart!=null?_focoAtivo.selectionStart:null;
+  var _focoSelEnd=_focoId&&_focoAtivo.selectionEnd!=null?_focoAtivo.selectionEnd:null;
+  function _restaurarFoco(){
+    if(!_focoId)return;
+    var novoEl=document.getElementById(_focoId);
+    if(!novoEl)return;
+    novoEl.focus();
+    if(_focoSelStart!=null&&typeof novoEl.setSelectionRange==='function'){
+      try{novoEl.setSelectionRange(_focoSelStart,_focoSelEnd);}catch(e){}
+    }
+  }
   var plist=cadLoad(PROD_KEY||'cad_produtos_v1');
   var q=(window._prodSearch||'').toLowerCase();
   var pf=window._prodFiltro||{};
@@ -23790,7 +23806,7 @@ function cadRenderProdutosV3(el){
   // ("X na planilha") — isso podia travar a aba por vários segundos. Não vale o custo.
   var html='<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">';
   html+='<div style="font-size:13px;font-weight:700;color:#1F4E79">'+filtered.length+' de '+plist.length+' produto(s)'+(totalPlanilha?' / '+totalPlanilha+' na planilha':'')+'</div>';
-  html+='<input type="text" placeholder="🔍 Buscar código/descrição/marca..." value="'+(window._prodSearch||'')+'" oninput="window._prodSearch=this.value;cadRenderProdutosV3(document.getElementById(&quot;cadBody&quot;))" style="flex:1;min-width:160px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12px">';
+  html+='<input type="text" id="prodSearchMain" placeholder="🔍 Buscar código/descrição/marca..." value="'+(window._prodSearch||'')+'" oninput="window._prodSearch=this.value;cadRenderProdutosV3(document.getElementById(&quot;cadBody&quot;))" style="flex:1;min-width:160px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12px">';
   html+='<button onclick="cadNovoProduto()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700">+ Novo Produto</button>';
   html+='<button onclick="cadImportarProdutos()" style="background:#E67E22;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700">📥 Importar</button>';
   html+='<button onclick="cadCriarFichasParaTodosPrompt()" style="background:#27AE60;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700" title="Cria ficha (código+descrição+marca) pra todo item da planilha que ainda não tem">⚡ Criar fichas faltantes</button>';
@@ -23798,9 +23814,9 @@ function cadRenderProdutosV3(el){
   html+='</div>';
   if(!plist.length){
     html+='<div style="text-align:center;padding:48px;background:#fff;border-radius:12px;color:#8a9ab0">Nenhum produto. Clique em "+ Novo Produto".</div>';
-    el.innerHTML=html;return;
+    el.innerHTML=html;_restaurarFoco();return;
   }
-  function fInpP(ph,key,w){return '<input type="text" placeholder="'+ph+'" value="'+((pf[key]||'').replace(/"/g,'&quot;'))+'" oninput="window._prodFiltro=window._prodFiltro||{};window._prodFiltro[\''+key+'\']=this.value;cadRenderProdutosV3(document.getElementById(&quot;cadBody&quot;))" style="width:'+(w||'100%')+';box-sizing:border-box;padding:4px 6px;border:1px solid #e0e8f0;border-radius:5px;font-size:11px">';}
+  function fInpP(ph,key,w){return '<input type="text" id="prodFiltro_'+key+'" placeholder="'+ph+'" value="'+((pf[key]||'').replace(/"/g,'&quot;'))+'" oninput="window._prodFiltro=window._prodFiltro||{};window._prodFiltro[\''+key+'\']=this.value;cadRenderProdutosV3(document.getElementById(&quot;cadBody&quot;))" style="width:'+(w||'100%')+';box-sizing:border-box;padding:4px 6px;border:1px solid #e0e8f0;border-radius:5px;font-size:11px">';}
   html+='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden"><table style="width:100%;border-collapse:collapse;font-size:12px">';
   html+='<thead><tr style="background:#F0F4F8;border-bottom:2px solid #e0e8f0"><th style="padding:10px 12px;width:56px"></th><th style="padding:10px 12px;text-align:left">Código</th><th style="padding:10px 12px;text-align:left">Descrição</th><th style="padding:10px 12px;text-align:left">Marca</th><th style="padding:10px 12px;text-align:left">Linha</th><th style="padding:10px 12px;text-align:left">Grupo</th><th style="padding:10px 12px;text-align:left">Subgrupo</th><th style="padding:10px 12px;text-align:left">NCM</th><th style="padding:10px 12px;text-align:center;width:80px">Ações</th></tr>'+
     '<tr style="background:#fff;border-bottom:1px solid #e0e8f0">'+
@@ -23828,7 +23844,7 @@ function cadRenderProdutosV3(el){
     html+='</tr>';
   });
   html+='</tbody></table></div>';
-  el.innerHTML=html;
+  el.innerHTML=html;_restaurarFoco();
 }
 
 // ── Storage (localStorage para MVP) ───────────────────────────
@@ -26115,7 +26131,7 @@ cadFormProduto = function(data, idx){
   html += '<div id="prodFotoGrid" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">';
   fotos.forEach(function(f,fi){
     html += '<div style="position:relative;width:90px;height:90px">';
-    html += '<img src="'+f+'" style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1.5px solid #e0e8f0">';
+    html += '<img src="'+f+'" onclick="cadVerFotoAmpliada(\''+fi+'\')" style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1.5px solid #e0e8f0;cursor:zoom-in" title="Clique pra ampliar">';
     html += '<button onclick="cadRemoveFoto('+fi+')" style="position:absolute;top:-6px;right:-6px;background:#C00000;color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center">×</button>';
     html += '</div>';
   });
@@ -26254,6 +26270,25 @@ function cadAddFotos(input){
   });
 }
 
+// Abre a foto do produto em tamanho grande, num modal simples com fundo escuro
+function cadVerFotoAmpliada(idx){
+  var fotos=window._prodFotos||[];
+  var f=fotos[parseInt(idx,10)];
+  if(!f)return;
+  var overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out';
+  overlay.onclick=function(){document.body.removeChild(overlay);};
+  var img=document.createElement('img');
+  img.src=f;
+  img.style.cssText='max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.5)';
+  overlay.appendChild(img);
+  var fechar=document.createElement('button');
+  fechar.textContent='✕';
+  fechar.style.cssText='position:absolute;top:20px;right:24px;background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:16px;cursor:pointer';
+  fechar.onclick=function(e){e.stopPropagation();document.body.removeChild(overlay);};
+  overlay.appendChild(fechar);
+  document.body.appendChild(overlay);
+}
 function cadRemoveFoto(idx){
   window._prodFotos.splice(idx,1);
   cadUpdateFotoGrid();
@@ -34166,7 +34201,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.539) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.541) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -34439,4 +34474,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.539 --></html>
+</script></div></div></body><!-- Build timestamp: v115.541 --></html>

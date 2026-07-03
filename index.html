@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.532 - CAUSA RAIZ FINAL do "Uncaught SyntaxError Unexpected token '}'" (dashV:1:25): achada usando "Pause on exceptions" no Sources do Chrome, que revelou o codigo exato: onmouseout="this.style.background=''}" -- um "}" sobrando, digitado por engano, bem no meio do atributo inline em cadRenderFornecedores (aba padrao de Cadastros, por isso o erro era tao constante) e cadRenderClientes. Corrigido nas duas. -->
+<!-- v115.533 - Leitor de Pecas: novo "📜 Últimas leituras" -- salva automaticamente as 5 extracoes mais recentes (PDF/imagem ou texto), com data/hora e origem, e um botao "Recuperar" pra trazer os itens de volta pra tela se precisar depois. Sincronizado entre dispositivos. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.532</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.533</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.532</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.533</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22830,7 +22830,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.532): a desativação em v115.532 causou travamento no iPad — restaurando
+// REVERTIDO (v115.533): a desativação em v115.533 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22856,9 +22856,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.532): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.533): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.532) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.533) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -27089,7 +27089,8 @@ var PF_SYNC_KEYS = [
   'cad_solicitacoes_compras_v1',
   'cad_regras_ia_v1',
   'regras_ia_sugestoes_v1',
-  'lp_regras_v1'
+  'lp_regras_v1',
+  'lp_historico_v1'
 ];
 
 async function pfSyncPush(keys){
@@ -29176,6 +29177,36 @@ function lpRegrasPrompt(){
   if(!regras.length)return '';
   return '\n\nREGRAS ADICIONAIS que você DEVE seguir ao extrair (definidas pelo usuário):\n'+regras.map(function(r){return '- '+r;}).join('\n');
 }
+// ── Histórico das últimas 5 leituras (PDF/imagem ou texto) ──
+// Guardado caso o usuário precise recuperar uma lista que já leu antes.
+function lpHistoricoLoad(){
+  try{return JSON.parse(localStorage.getItem('lp_historico_v1')||'[]');}catch(e){return [];}
+}
+function lpHistoricoSalvar(itens,origem){
+  if(!itens||!itens.length)return;
+  var hist=lpHistoricoLoad();
+  hist.unshift({
+    id:'lph_'+Date.now()+'_'+Math.random().toString(36).slice(2),
+    ts:Date.now(),
+    origem:origem||'PDF',
+    itens:itens,
+  });
+  hist=hist.slice(0,5); // só as 5 mais recentes
+  pfSafeSetItem('lp_historico_v1',JSON.stringify(hist));
+  if(typeof pfSyncPush==='function')pfSyncPush(['lp_historico_v1']);
+}
+function lpHistoricoRestaurar(id){
+  var hist=lpHistoricoLoad();
+  var entry=hist.find(function(h){return h.id===id;});
+  if(!entry)return;
+  lpMergeItens(entry.itens);
+  window._lpStep='review';
+  lpRenderFerr();
+}
+function lpHistoricoData(ts){
+  var d=new Date(ts);
+  return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
 function lpRenderFerr(){
   var el=document.getElementById('ferrBody');if(!el)return;
   var step=window._lpStep||'input';
@@ -29214,6 +29245,28 @@ function lpRenderFerr(){
         '<input id="lpNovaRegra" type="text" placeholder="Ex: código nunca pode ter espaço" style="flex:1;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:12px;color:#1a2332" onkeydown="if(event.key===\'Enter\')lpAddRegra()">'+
         '<button onclick="lpAddRegra()" style="background:#0D7377;color:#fff;border:none;border-radius:7px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">+ Adicionar</button>'+
         '</div>'+
+        '</div>'
+      ):'')+
+      '</div>'+
+      '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:16px 20px;margin-top:14px">'+
+      '<div onclick="window._lpHistAberto=!window._lpHistAberto;lpRenderFerr()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer">'+
+      '<div style="font-size:12px;font-weight:700;color:#607080;display:flex;align-items:center;gap:6px">📜 Últimas leituras'+(lpHistoricoLoad().length?' <span style="background:#0D7377;color:#fff;border-radius:10px;padding:1px 8px;font-size:10px">'+lpHistoricoLoad().length+'</span>':'')+'</div>'+
+      '<span style="font-size:12px;color:#8a9ab0">'+(window._lpHistAberto?'▾':'▸')+'</span>'+
+      '</div>'+
+      (window._lpHistAberto?(
+        '<div style="margin-top:12px">'+
+        (lpHistoricoLoad().length?(
+          '<div style="font-size:11px;color:#8a9ab0;margin-bottom:10px">As 5 leituras mais recentes ficam salvas aqui — clique em "Recuperar" pra trazer os itens de volta pra tela.</div>'+
+          lpHistoricoLoad().map(function(h){
+            return '<div style="display:flex;align-items:center;gap:8px;padding:9px 10px;background:#F8FAFC;border-radius:7px;margin-bottom:6px">'+
+              '<div style="flex:1">'+
+                '<div style="font-size:12px;color:#1a2332;font-weight:600">'+h.itens.length+' item(ns) · '+lpEsc(h.origem)+'</div>'+
+                '<div style="font-size:11px;color:#8a9ab0">'+lpHistoricoData(h.ts)+'</div>'+
+              '</div>'+
+              '<button onclick="lpHistoricoRestaurar(\''+h.id+'\')" style="background:#0D7377;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">↺ Recuperar</button>'+
+            '</div>';
+          }).join('')
+        ):'<div style="font-size:12px;color:#8a9ab0;text-align:center;padding:10px">Nenhuma leitura salva ainda.</div>')+
         '</div>'
       ):'')+
       '</div>';
@@ -29317,6 +29370,7 @@ async function lpLerArquivo(input){
     var m2=txt.match(/\[[\s\S]*/);if(m2)txt=m2[0];
     var itens=JSON.parse(txt);
     itens=itens.map(function(it){return {codigo:lpApplyRuleCase(it.codigo||''),qtd:it.qtd||1,desc:it.desc||'',duvida:it.duvida||''};});
+    lpHistoricoSalvar(itens,'PDF/Imagem');
     lpMergeItens(itens);
     window._lpStep='review';lpRenderFerr();
   }catch(e){pfAlert('Erro: '+e.message);}
@@ -29340,6 +29394,7 @@ async function lpLerTexto(){
     } else {allParsed=false;}
   });
   if(jsItens.length>0&&allParsed){
+    lpHistoricoSalvar(jsItens,'Texto colado');
     lpMergeItens(jsItens);
     window._lpStep='review';lpRenderFerr();return;
   }
@@ -29358,6 +29413,7 @@ async function lpLerTexto(){
     var m3=res.match(/\[[\s\S]*/);if(m3)res=m3[0];
     var itens=JSON.parse(res);
     itens=itens.map(function(it){return {codigo:lpApplyRuleCase(it.codigo||''),qtd:it.qtd||1,desc:it.desc||'',duvida:it.duvida||''};});
+    lpHistoricoSalvar(itens,'Texto colado');
     lpMergeItens(itens);
     window._lpStep='review';lpRenderFerr();
   }catch(e){pfAlert('Erro: '+e.message);}
@@ -34071,7 +34127,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.532) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.533) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -34344,4 +34400,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.532 --></html>
+</script></div></div></body><!-- Build timestamp: v115.533 --></html>

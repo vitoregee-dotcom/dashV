@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.547 - Transferencia Encopel: historico ja existia (trfVerHistorico/Carregar), mas usava o armazenamento compartilhado com NF/Mapa que expira em 7 dias -- uma transferencia mais antiga podia sumir mesmo estando entre as 10 mais recentes. Criado historico dedicado (trf_historico_v1), sempre com as 10 ultimas, sem expirar por tempo. Sincronizado entre dispositivos. -->
+<!-- v115.548 - Duas novidades: (1) Cadastros > Aplicacoes agora mostra Componente e Maquina/Veiculo por peca (nao so modelo/serie/marca), busca ampliada pra cobrir esses campos tambem, e o formulario "Marcar Aplicacao" em Vendas ganhou campos opcionais de Componente e Maquina/Veiculo (a IA do import de catalogo tambem passou a extrair veiculo por item). (2) Vendas: painel "Top 15 mais comprados" no cartao do cliente (baseado no historico de Pedidos de Venda), com botao pra trazer cada item ou todos de uma vez pra cotacao atual, buscando saldo/custo atualizados na hora. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.547</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.548</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.547</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.548</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22870,7 +22870,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.547): a desativação em v115.547 causou travamento no iPad — restaurando
+// REVERTIDO (v115.548): a desativação em v115.548 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22896,9 +22896,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.547): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.548): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.547) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.548) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -23729,21 +23729,22 @@ function cadRenderAplicacoes(el){
   var list=aplicLoad();
   if(termo){
     list=list.filter(function(a){
-      return (a.modelo||'').toUpperCase().indexOf(termo)>=0||(a.serie||'').toUpperCase().indexOf(termo)>=0||(a.codigo||'').toUpperCase().indexOf(termo)>=0||(a.desc||'').toUpperCase().indexOf(termo)>=0;
+      return (a.modelo||'').toUpperCase().indexOf(termo)>=0||(a.serie||'').toUpperCase().indexOf(termo)>=0||(a.codigo||'').toUpperCase().indexOf(termo)>=0||(a.desc||'').toUpperCase().indexOf(termo)>=0||(a.equip||'').toUpperCase().indexOf(termo)>=0||(a.veiculo||'').toUpperCase().indexOf(termo)>=0||(a.marca||'').toUpperCase().indexOf(termo)>=0;
     });
   }
   // Agrupa por Modelo + Série
   var grupos={};
   list.forEach(function(a){
     var k=(a.modelo||'')+'|||'+(a.serie||'');
-    if(!grupos[k])grupos[k]={modelo:a.modelo,serie:a.serie,itens:[]};
+    if(!grupos[k])grupos[k]={modelo:a.modelo,serie:a.serie,veiculos:{},itens:[]};
+    if(a.veiculo)grupos[k].veiculos[a.veiculo]=true;
     grupos[k].itens.push(a);
   });
   var chaves=Object.keys(grupos).sort(function(a,b){return grupos[a].modelo.localeCompare(grupos[b].modelo);});
   var html='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:24px;max-width:820px">';
   html+='<div style="font-size:15px;font-weight:800;color:#1F4E79;margin-bottom:4px">🚜 Aplicações — Modelos &amp; Séries</div>';
-  html+='<div style="font-size:12px;color:#8a9ab0;margin-bottom:16px">Catálogo de peças por modelo/série, montado pelo botão "Marcar Aplicação" nas cotações.</div>';
-  html+='<input type="text" id="cadAplicBusca" value="'+pfEscHtml(window._cadAplicTermo||'')+'" oninput="window._cadAplicTermo=this.value" placeholder="Buscar por modelo, série, código ou descrição..." style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;margin-bottom:16px">';
+  html+='<div style="font-size:12px;color:#8a9ab0;margin-bottom:16px">Catálogo de peças por modelo/série, montado pelo botão "Marcar Aplicação" nas cotações e pelo import de Catálogo PDF.</div>';
+  html+='<input type="text" id="cadAplicBusca" value="'+pfEscHtml(window._cadAplicTermo||'')+'" oninput="window._cadAplicTermo=this.value;cadRenderAplicacoes(document.getElementById(&quot;cadBody&quot;))" placeholder="Buscar por modelo, série, máquina, componente, fabricante, código ou descrição..." style="width:100%;box-sizing:border-box;padding:10px 14px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;margin-bottom:16px">';
   if(!chaves.length){
     html+='<div style="text-align:center;padding:30px;color:#8a9ab0;font-size:13px">'+(termo?'Nenhuma aplicação encontrada para essa busca.':'Nenhuma aplicação cadastrada ainda. Marque aplicações nas cotações (botão 🚜 Marcar Aplicação) pra começar a montar esse catálogo.')+'</div>';
   } else {
@@ -23751,16 +23752,17 @@ function cadRenderAplicacoes(el){
     chaves.forEach(function(k,gi){
       var g=grupos[k];
       var aberto=window._cadAplicAberto===k;
+      var veiculosLista=Object.keys(g.veiculos);
       html+='<div style="border:1px solid #e0e8f0;border-radius:10px;margin-bottom:10px;overflow:hidden">';
       html+='<div onclick="window._cadAplicAberto=(window._cadAplicAberto===\''+pfEscHtml(pfEscJs(k))+'\')?null:\''+pfEscHtml(pfEscJs(k))+'\';cadGoTab(\'aplicacoes\')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;background:'+(aberto?'#FFF8F0':'#FAFBFD')+'">';
-      html+='<div><div style="font-size:13px;font-weight:700;color:#1a2332">'+pfEscHtml(g.modelo||'(sem modelo)')+'</div><div style="font-size:11px;color:#7B2D8B;font-weight:600">'+pfEscHtml(g.serie||'(sem série)')+'</div></div>';
+      html+='<div><div style="font-size:13px;font-weight:700;color:#1a2332">'+pfEscHtml(g.modelo||'(sem modelo)')+'</div><div style="font-size:11px;color:#7B2D8B;font-weight:600">'+pfEscHtml(g.serie||'(sem série)')+'</div>'+(veiculosLista.length?'<div style="font-size:10px;color:#8a9ab0;margin-top:2px">🚛 '+veiculosLista.map(pfEscHtml).join(', ')+'</div>':'')+'</div>';
       html+='<div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;background:#EEF6FF;color:#1F4E79;padding:3px 9px;border-radius:12px;font-weight:700">'+g.itens.length+' peça(s)</span><span style="color:#8a9ab0;font-size:12px">'+(aberto?'▲':'▼')+'</span></div>';
       html+='</div>';
       if(aberto){
         html+='<div style="padding:6px 14px 12px">';
         g.itens.forEach(function(a){
           html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-top:1px solid #f0f4f8;font-size:12px">';
-          html+='<div><b style="color:#1F4E79">'+pfEscHtml(a.codigo)+'</b> — '+pfEscHtml(a.desc||'')+' <span style="color:#8a9ab0">('+pfEscHtml(a.marca||'')+')</span></div>';
+          html+='<div><b style="color:#1F4E79">'+pfEscHtml(a.codigo)+'</b> — '+pfEscHtml(a.desc||'')+' <span style="color:#8a9ab0">('+pfEscHtml(a.marca||'')+')</span>'+(a.equip?' <span style="background:#F0F4F8;color:#607080;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:600;margin-left:4px">'+pfEscHtml(a.equip)+'</span>':'')+(a.veiculo?' <span style="background:#FFF3E6;color:#854F0B;padding:1px 7px;border-radius:8px;font-size:10px;font-weight:600;margin-left:4px">🚛 '+pfEscHtml(a.veiculo)+'</span>':'')+'</div>';
           html+='<button onclick="event.stopPropagation();cadRemoverAplicacao(\''+pfEscHtml(pfEscJs(a.id))+'\')" style="background:none;border:none;color:#C00000;font-size:15px;cursor:pointer;padding:2px 6px">&#215;</button>';
           html+='</div>';
         });
@@ -27683,11 +27685,11 @@ cadImportarCatalogo = async function(input){
       (function(){
       var marcaVal=cadGetMarcaCatalogo()||window._impMarcaAtual||'';
       var isItalian=['CARRARO','DANA/SPICER','DANA','ZF','SPICER'].some(function(m){return marcaVal.toUpperCase().includes(m);});
-      var camposExtra=' Alem disso, se o catalogo mostrar (mesmo que informalmente): pagina (numero da pagina onde o item aparece), aplicacao (equipamento/marca/modelo/serie que usa essa peca, se estiver escrito perto do item ou no cabecalho da secao), grupo (um identificador curto — numero da figura, nome do kit/conjunto explodido, etc — pra itens que aparecem JUNTOS na mesma ilustracao/kit, tipo "Fig.12" ou "Kit vedacao motor"; deixe vazio se nao der pra saber). Inclua esses campos no JSON de cada item quando encontrar, mesmo que nao tenha certeza total.';
+      var camposExtra=' Alem disso, se o catalogo mostrar (mesmo que informalmente): pagina (numero da pagina onde o item aparece), aplicacao (equipamento/marca/modelo/serie/veiculo que usa essa peca — "veiculo" e o tipo de maquina, tipo Retroescavadeira/Trator/Caminhao/Pa-carregadeira, se estiver escrito perto do item ou no cabecalho da secao), grupo (um identificador curto — numero da figura, nome do kit/conjunto explodido, etc — pra itens que aparecem JUNTOS na mesma ilustracao/kit, tipo "Fig.12" ou "Kit vedacao motor"; deixe vazio se nao der pra saber). Inclua esses campos no JSON de cada item quando encontrar, mesmo que nao tenha certeza total.';
       if(isItalian){
-        return 'Este é um catálogo de peças em italiano (marca CARRARO). Extraia todos os produtos e TRADUZA cada descrição do italiano para o português brasileiro. Se não souber traduzir um termo, mantenha como está. Retorne SOMENTE JSON array, sem markdown. Cada objeto: {"codigo":"","descricao":"TRADUZIDO EM PORTUGUES","ncm":"","unidade":"","marca":"","pagina":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":""},"grupoCatalogo":""}. Exemplos: Ralla=ARRUELA, Anello OR=ANEL O-RING, Boccola=BUCHA, Vite=PARAFUSO, Spina=PINO, Tappo=TAMPAO, Bronzina=BRONZINA, Guarnizione=JUNTA, Cuscinetto=ROLAMENTO, Albero=EIXO, Ingranaggio=ENGRENAGEM, Paraolio=RETENTOR, Pompa=BOMBA, Molla=MOLA, Flangia=FLANGE, Supporto=SUPORTE.'+camposExtra;
+        return 'Este é um catálogo de peças em italiano (marca CARRARO). Extraia todos os produtos e TRADUZA cada descrição do italiano para o português brasileiro. Se não souber traduzir um termo, mantenha como está. Retorne SOMENTE JSON array, sem markdown. Cada objeto: {"codigo":"","descricao":"TRADUZIDO EM PORTUGUES","ncm":"","unidade":"","marca":"","pagina":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":"","veiculo":""},"grupoCatalogo":""}. Exemplos: Ralla=ARRUELA, Anello OR=ANEL O-RING, Boccola=BUCHA, Vite=PARAFUSO, Spina=PINO, Tappo=TAMPAO, Bronzina=BRONZINA, Guarnizione=JUNTA, Cuscinetto=ROLAMENTO, Albero=EIXO, Ingranaggio=ENGRENAGEM, Paraolio=RETENTOR, Pompa=BOMBA, Molla=MOLA, Flangia=FLANGE, Supporto=SUPORTE.'+camposExtra;
       }
-      return 'Extraia todos os produtos deste catálogo. Retorne SOMENTE JSON array. Cada objeto: {"codigo":"","descricao":"","ncm":"","unidade":"","marca":"","pagina":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":""},"grupoCatalogo":""}. Sem markdown.'+camposExtra;
+      return 'Extraia todos os produtos deste catálogo. Retorne SOMENTE JSON array. Cada objeto: {"codigo":"","descricao":"","ncm":"","unidade":"","marca":"","pagina":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":"","veiculo":""},"grupoCatalogo":""}. Sem markdown.'+camposExtra;
     })());
     var m=txt.match(/\[[\s\S]*/);if(m)txt=m[0];
     var itens;
@@ -27838,7 +27840,7 @@ cadConfirmarImport=function(itens){
   // Normaliza: a versão mais nova do formulário (5 campos) usa "fabricante" em vez de
   // "marca" no objeto retornado por cadGetAplicacao() — unifica pra "marca" aqui, uma
   // vez só, pra todo o resto do código não precisar se preocupar com isso.
-  if(aplicGlobal&&aplicGlobal.fabricante&&!aplicGlobal.marca)aplicGlobal={equip:aplicGlobal.equip||'',marca:aplicGlobal.fabricante,modelo:aplicGlobal.modelo||'',serie:aplicGlobal.serie||''};
+  if(aplicGlobal&&aplicGlobal.fabricante&&!aplicGlobal.marca)aplicGlobal={equip:aplicGlobal.equip||'',marca:aplicGlobal.fabricante,modelo:aplicGlobal.modelo||'',serie:aplicGlobal.serie||'',veiculo:aplicGlobal.veiculo||''};
   var catalogoId=window._impCatalogoId||null;
   var checks=document.querySelectorAll('.impChk');
   var plist=cadLoad(PROD_KEY||'cad_produtos_v1');
@@ -27853,8 +27855,8 @@ cadConfirmarImport=function(itens){
     var ln=it.linhaObj||idLinha(it.codigo||'');
     // Aplicação: prioriza a que a IA achou pro item específico; usa a global (do formulário) como reforço/fallback
     var aplicItem=null;
-    if(it.aplicacao&&(it.aplicacao.equip||it.aplicacao.marca||it.aplicacao.modelo||it.aplicacao.serie)){
-      aplicItem={equip:it.aplicacao.equip||'',marca:it.aplicacao.marca||'',modelo:it.aplicacao.modelo||'',serie:it.aplicacao.serie||''};
+    if(it.aplicacao&&(it.aplicacao.equip||it.aplicacao.marca||it.aplicacao.modelo||it.aplicacao.serie||it.aplicacao.veiculo)){
+      aplicItem={equip:it.aplicacao.equip||'',marca:it.aplicacao.marca||'',modelo:it.aplicacao.modelo||'',serie:it.aplicacao.serie||'',veiculo:it.aplicacao.veiculo||''};
     }
     var aplicsParaSalvar=[];
     if(aplicItem)aplicsParaSalvar.push(aplicItem);
@@ -27909,7 +27911,7 @@ cadConfirmarImport=function(itens){
       var modU=(aplic.modelo||'').toUpperCase(),serU=(aplic.serie||'').toUpperCase(),marU=(aplic.marca||entry.marcaProd||'').toUpperCase();
       var existe=flatList.some(function(a){return (a.modelo||'').toUpperCase()===modU&&(a.serie||'').toUpperCase()===serU&&(a.codigo||'').toUpperCase()===entry.codigo.toUpperCase()&&(a.marca||'').toUpperCase()===marU;});
       if(!existe){
-        flatList.push({id:'apl_'+Date.now()+'_'+Math.random().toString(36).slice(2),modelo:aplic.modelo||'',serie:aplic.serie||'',codigo:entry.codigo,desc:entry.desc||'',marca:aplic.marca||entry.marcaProd||''});
+        flatList.push({id:'apl_'+Date.now()+'_'+Math.random().toString(36).slice(2),modelo:aplic.modelo||'',serie:aplic.serie||'',codigo:entry.codigo,desc:entry.desc||'',marca:aplic.marca||entry.marcaProd||'',equip:aplic.equip||'',veiculo:aplic.veiculo||''});
         aplicacoesVinculadas++;
       }
     });
@@ -29656,8 +29658,8 @@ function vendasClienteResumo(cliente){
   pedidos.forEach(function(p){(p.itens||[]).forEach(function(it){var m=(it.marca||'—').toUpperCase();porMarca[m]=(porMarca[m]||0)+(it.qtd||0);});});
   resumo.topMarcas=Object.keys(porMarca).map(function(m){return{marca:m,qtd:porMarca[m]};}).sort(function(a,b){return b.qtd-a.qtd;}).slice(0,3);
   var porItem={};
-  pedidos.forEach(function(p){(p.itens||[]).forEach(function(it){var k=it.codigo;if(!porItem[k])porItem[k]={desc:it.desc,qtd:0};porItem[k].qtd+=(it.qtd||0);});});
-  resumo.topItens=Object.keys(porItem).map(function(k){return{codigo:k,desc:porItem[k].desc,qtd:porItem[k].qtd};}).sort(function(a,b){return b.qtd-a.qtd;}).slice(0,3);
+  pedidos.forEach(function(p){(p.itens||[]).forEach(function(it){var k=it.codigo+'||'+(it.marca||'');if(!porItem[k])porItem[k]={codigo:it.codigo,marca:it.marca||'',desc:it.desc,qtd:0};porItem[k].qtd+=(it.qtd||0);});});
+  resumo.topItens=Object.keys(porItem).map(function(k){return porItem[k];}).sort(function(a,b){return b.qtd-a.qtd;}).slice(0,15);
   return resumo;
 }
 function vendasRenderCartaoCliente(cliente){
@@ -29675,6 +29677,25 @@ function vendasRenderCartaoCliente(cliente){
     if(r.topMarcas.length)html+='<div style="font-size:11px"><span style="color:#8a9ab0">Marcas:</span> <strong style="color:#1a2332">'+r.topMarcas.map(function(m){return pfEscHtml(m.marca);}).join(', ')+'</strong></div>';
     html+='<div style="font-size:11px;color:#8a9ab0">'+r.totalPedidos+' pedido(s) no histórico</div>';
     html+='</div>';
+  }
+  // ── Top 15 itens mais comprados por este cliente — trazer pra cotação com 1 clique ──
+  if(r.topItens&&r.topItens.length){
+    html+='<div style="border:1px solid #eee;border-radius:8px;padding:9px 12px;margin-bottom:10px">';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+    html+='<div style="font-size:10px;font-weight:700;color:#607080;text-transform:uppercase">🎯 '+r.topItens.length+' itens mais comprados</div>';
+    html+='<button onclick="vendasAdicionarTodosTopItens()" style="font-size:10px;padding:3px 10px;background:#1F4E79;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700">+ Trazer todos pra cotação</button>';
+    html+='</div>';
+    html+='<div style="max-height:180px;overflow-y:auto">';
+    html+=r.topItens.map(function(it){
+      return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f5f7fa;font-size:11px">'+
+        '<span style="font-family:monospace;font-weight:700;color:#1F4E79;min-width:90px">'+pfEscHtml(it.codigo||'')+'</span>'+
+        '<span style="flex:1;color:#3a4658;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+pfEscHtml(it.desc||'')+'</span>'+
+        '<span style="color:#8a9ab0;white-space:nowrap">'+pfEscHtml(it.marca||'—')+'</span>'+
+        '<span style="color:#8a9ab0;white-space:nowrap">×'+it.qtd+'</span>'+
+        '<button onclick="vendasAdicionarItemDoResumo(\''+pfEscJs(it.codigo)+'\',\''+pfEscJs(it.marca||'')+'\',\''+pfEscJs(it.desc||'')+'\')" style="background:none;border:1px solid #1F4E79;color:#1F4E79;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap">+ cotar</button>'+
+        '</div>';
+    }).join('');
+    html+='</div></div>';
   }
   // ── Anotações estilo CRM — histórico com data e autor, pra quem assumir a carteira ler tudo ──
   html+='<div style="border:1px solid #eee;border-radius:8px;padding:9px 12px;margin-bottom:10px">';
@@ -30190,7 +30211,36 @@ function vendasAdicionarItem(){
   setTimeout(function(){var el=document.getElementById('vendasCodInput');if(el)el.focus();},50);
 }
 
-// ── Atualização cirúrgica (sem reconstruir a tabela inteira) ──────
+// Traz um item do "Top 15 mais comprados" direto pra cotação atual, buscando
+// saldo/custo atualizados na planilha (mesmo item pode já ter preço diferente hoje)
+function vendasAdicionarItemDoResumo(codigo,marca,desc){
+  if(!window._venda)return;
+  if(!window._venda.itens)window._venda.itens=[];
+  var items=vendasBuscarItem(codigo);
+  var match=items&&items.length?(items.find(function(it){return (it.marca||'').toUpperCase()===(marca||'').toUpperCase();})||items[0]):null;
+  var novoItem=match
+    ?{codigo:codigo,codigoOriginal:codigo,qtd:1,desc:match.desc||desc,marca:marca||match.marca,marcaInterna:match.marca,saldo:match.saldo,custo:match.custo}
+    :{codigo:codigo,codigoOriginal:codigo,qtd:1,desc:desc,marca:marca||'',marcaInterna:'',saldo:null,custo:null};
+  window._venda.itens.push(novoItem);
+  vendasRefresh();
+}
+// Traz TODOS os itens do Top 15 de uma vez
+function vendasAdicionarTodosTopItens(){
+  if(!window._venda||!window._venda.cliente)return;
+  var r=vendasClienteResumo(window._venda.cliente);
+  if(!r||!r.topItens||!r.topItens.length)return;
+  if(!window._venda.itens)window._venda.itens=[];
+  r.topItens.forEach(function(it){
+    var items=vendasBuscarItem(it.codigo);
+    var match=items&&items.length?(items.find(function(x){return (x.marca||'').toUpperCase()===(it.marca||'').toUpperCase();})||items[0]):null;
+    window._venda.itens.push(match
+      ?{codigo:it.codigo,codigoOriginal:it.codigo,qtd:1,desc:match.desc||it.desc,marca:it.marca||match.marca,marcaInterna:match.marca,saldo:match.saldo,custo:match.custo}
+      :{codigo:it.codigo,codigoOriginal:it.codigo,qtd:1,desc:it.desc,marca:it.marca||'',marcaInterna:'',saldo:null,custo:null});
+  });
+  vendasRefresh();
+}
+
+
 // Editar custo/venda/% só precisa recalcular os 3 campos daquela linha e os
 // totais do rodapé — reconstruir a tabela toda (todas as linhas, todos os
 // inputs) a cada edição é o que deixava a tela pesada no iPad com cotações
@@ -30484,10 +30534,14 @@ function vendasAbrirMarcarAplicacao(){
       '</div>'+
       '<div style="padding:18px;overflow-y:auto;flex:1;min-height:0">'+
         '<div style="font-size:11px;color:#8a9ab0;margin-bottom:10px">'+marcados.length+' item(ns) selecionado(s):<br><span style="font-size:12px;color:#1a2332">'+lista+'</span></div>'+
+        '<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:5px">Componente <span style="font-weight:400;text-transform:none">(opcional)</span></div>'+
+        '<input type="text" id="aplicComponenteInput" placeholder="Ex: Motor, Eixo Traseiro, Transmissão" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:13px"></div>'+
         '<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:5px">Modelo</div>'+
         '<input type="text" id="aplicModeloInput" placeholder="Ex: Eixo Dana 60" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:13px"></div>'+
-        '<div style="margin-bottom:6px"><div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:5px">Série</div>'+
+        '<div style="margin-bottom:10px"><div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:5px">Série</div>'+
         '<input type="text" id="aplicSerieInput" placeholder="Ex: VW 24.250, série/chassi" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:13px"></div>'+
+        '<div style="margin-bottom:6px"><div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:5px">Máquina/Veículo <span style="font-weight:400;text-transform:none">(opcional)</span></div>'+
+        '<input type="text" id="aplicVeiculoInput" placeholder="Ex: Retroescavadeira, Trator, Caminhão" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:13px"></div>'+
       '</div>'+
       '<div style="padding:14px 18px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #f0f4f8;flex-shrink:0">'+
         '<button onclick="document.getElementById(\'aplicModal\').remove()" style="padding:9px 16px;border-radius:8px;border:1px solid #e0e8f0;background:#fff;color:#607080;font-size:13px;cursor:pointer">Cancelar</button>'+
@@ -30502,6 +30556,8 @@ function vendasAbrirMarcarAplicacao(){
 function vendasConfirmarAplicacao(indices){
   var modelo=(document.getElementById('aplicModeloInput').value||'').trim();
   var serie=(document.getElementById('aplicSerieInput').value||'').trim();
+  var componente=((document.getElementById('aplicComponenteInput')||{}).value||'').trim();
+  var veiculo=((document.getElementById('aplicVeiculoInput')||{}).value||'').trim();
   if(!modelo||!serie){pfAlert('Preencha Modelo e Série.');return;}
   var itens=(window._venda&&window._venda.itens)||[];
   var list=aplicLoad();
@@ -30519,8 +30575,8 @@ function vendasConfirmarAplicacao(indices){
     if(marcasVistas[chaveSel])return;
     marcasVistas[chaveSel]=true;
     var existente=list.find(function(a){return (a.modelo||'').toUpperCase()===modeloU&&(a.serie||'').toUpperCase()===serieU&&(a.codigo||'').toUpperCase()===cod&&(a.marca||'').toUpperCase()===marcaU;});
-    if(existente){existente.desc=it.desc||existente.desc;upd++;}
-    else{list.push({id:'apl_'+Date.now()+'_'+i,modelo:modelo,serie:serie,codigo:it.codigo,desc:it.desc||'',marca:marca});add++;}
+    if(existente){existente.desc=it.desc||existente.desc;if(componente)existente.equip=componente;if(veiculo)existente.veiculo=veiculo;upd++;}
+    else{list.push({id:'apl_'+Date.now()+'_'+i,modelo:modelo,serie:serie,codigo:it.codigo,desc:it.desc||'',marca:marca,equip:componente,veiculo:veiculo});add++;}
     // Também grava na ficha do produto (Cadastro de Produtos > Aplicações), pra aparecer lá também
     vendasPatchAplicacaoNoProduto(it.codigo,marca,modelo,serie);
   });
@@ -34273,7 +34329,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.547) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.548) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -34546,4 +34602,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.547 --></html>
+</script></div></div></body><!-- Build timestamp: v115.548 --></html>

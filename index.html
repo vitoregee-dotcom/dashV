@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.541 - Duas correcoes: (1) Cadastros/Produtos: campo de busca perdia o foco a cada letra digitada -- a tela reconstroi a tabela inteira em cada oninput (busca/filtros), entao o campo era recriado do zero a cada tecla e o cursor caia fora. Corrigido salvando qual campo estava focado + posicao do cursor antes de reconstruir, restaurando logo depois. Adicionado id nos campos de busca/filtro (nao tinham nenhum antes). Mesmo padrao provavelmente existe em Fornecedores/Clientes tambem -- nao corrigido ainda nessas telas. (2) Foto do produto agora abre ampliada num modal escuro ao clicar na miniatura (antes so tinha o botao de excluir, sem nenhum jeito de ampliar). -->
+<!-- v115.542 - NOVO: Mapa de Compras agora registra quando um fornecedor NAO responde/nao tinha um item que foi cotado. Ao ler a resposta (mapaLerResposta), itens enviados ao fornecedor que nao aparecem no documento lido viram uma entrada "negativo" -- aparece na tela de comparacao como "Fornecedor nao tinha esse item nessa cotacao" (com botao pra remover e preencher preco manual se quiser), E fica registrado no historico de precos (Consulta de Precos / Ctrl+D) com selo vermelho "SEM ESTOQUE", pra ficar de registro que foi cotado naquele dia e o fornecedor nao tinha. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.541</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.542</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.541</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.542</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22298,6 +22298,27 @@ async function mapaLerResposta(input, fid){
       }
     });
     if(!updated)throw new Error('Nenhum dos códigos do documento bateu com os itens deste fornecedor. Códigos lidos: '+precos.map(function(p){return p.ref;}).join(', '));
+    // Itens que foram enviados a este fornecedor mas NÃO vieram na resposta — registra como
+    // negativo no histórico (fica registrado que foi cotado e o fornecedor não tinha no dia)
+    var refsRespondidos={};
+    precos.forEach(function(p){refsRespondidos[norm(p.ref)]=true;});
+    its.forEach(function(it){
+      if(refsRespondidos[norm(it.ref)])return; // esse item veio na resposta, não é negativo
+      var pk=it.ref+'||'+(it.marca||'')+'||'+fid;
+      if(!mapaPrecos[pk])mapaPrecos[pk]={entries:[]};
+      if(!mapaPrecos[pk].entries)mapaPrecos[pk].entries=[];
+      var jaTemNegativo=mapaPrecos[pk].entries.some(function(e){return e.negativo;});
+      if(!jaTemNegativo){
+        mapaPrecos[pk].entries.push({marca:it.marca||'',preco:0,ipi:0,icms:0,st:0,prazo:'',negativo:true});
+      }
+      if(typeof pfRegistrarHistoricoPreco==='function'){
+        pfRegistrarHistoricoPreco({
+          item_ref:it.ref, marca:it.marca||'', descricao:it.desc||'',
+          tipo:'negativo', fornecedor:(forn.fantasia||forn.nome||forn.razao||''),
+          preco:null, qtd:it.qtd||null, mapa_origem:(window._mapaEstadoNumero||mapaEstadoId||'')
+        });
+      }
+    });
     if(statusEl)statusEl.innerHTML='<b style="color:#27AE60">✅ '+updated+' item(s)</b>';
     if(naoReconhecidos.length)pfAlert('Atualizado '+updated+' item(s).\n\nAtenção: '+naoReconhecidos.length+' código(s) do documento não bateram com nenhum item esperado deste fornecedor e foram ignorados:\n'+naoReconhecidos.join(', '));
     if(typeof mapaNotificarCotacaoRecebida==='function')mapaNotificarCotacaoRecebida(fid);
@@ -22433,7 +22454,12 @@ function mapaCarregarCotacaoPrint(){
 function mapaPrecoRow(baseKey,ei,e,custoTotal){
   var safeKey=baseKey.replace(/[^a-z0-9]/gi,'_');
   var sk='&quot;'+baseKey+'&quot;';  // safe key for onclick
-  var html='<tr style="border-bottom:1px solid #e0e8f0" id="row_'+safeKey+'_'+ei+'">';
+  var html='<tr style="border-bottom:1px solid #e0e8f0'+(e.negativo?';background:#FFF8F8':'')+'" id="row_'+safeKey+'_'+ei+'">';
+  if(e.negativo){
+    html+='<td colspan="8" style="padding:6px 10px;color:#C00000;font-size:11px;font-weight:600">❌ Fornecedor não tinha esse item nessa cotação &nbsp;<button onclick="mapaRemoveEntrada('+sk+','+ei+')" style="background:none;border:1px solid #C00000;color:#C00000;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:10px;margin-left:6px">Remover / preencher preço manualmente</button></td>';
+    html+='</tr>';
+    return html;
+  }
   html+='<td style="padding:5px 6px"><input type="text" placeholder="ex: CARRARO" value="'+(e.marca||'')+'" oninput="mapaSetEntrada('+sk+','+ei+',&quot;marca&quot;,this.value)" style="width:100%;padding:5px 7px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px"></td>';
   html+='<td style="padding:5px 6px"><input type="number" step="any" min="0" value="'+(e.preco>0?e.preco:'')+'" placeholder="0,00" oninput="mapaSetEntrada('+sk+','+ei+',&quot;preco&quot;,+this.value);mapaAtualizaCusto('+sk+','+ei+')" class="mPriceInp" style="text-align:right"></td>';
   html+='<td style="padding:5px 6px"><input type="number" step="0.1" min="0" value="'+(e.ipi||'')+'" placeholder="0" oninput="mapaSetEntrada('+sk+','+ei+',&quot;ipi&quot;,+this.value);mapaAtualizaCusto('+sk+','+ei+')" style="width:100%;padding:5px 7px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
@@ -22844,7 +22870,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.541): a desativação em v115.541 causou travamento no iPad — restaurando
+// REVERTIDO (v115.542): a desativação em v115.542 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22870,9 +22896,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.541): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.542): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.541) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.542) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -29725,14 +29751,17 @@ async function pfAbrirHistoricoItem(ref,marca,desc){
   function fmtData(d){return new Date(d).toLocaleDateString('pt-BR');}
   var linhas=entries.map(function(e){
     var isCompra=e.tipo==='compra';
-    return '<tr style="border-bottom:1px solid #f0f4f8">'+
+    var isNegativo=e.tipo==='negativo';
+    var badge=isNegativo?'<span style="background:#FDEDEC;color:#C00000;padding:1px 6px;border-radius:4px;font-weight:700;font-size:10px">SEM ESTOQUE</span>'
+      :'<span style="background:'+(isCompra?'#DBEAFE':'#E1F5EE')+';color:'+(isCompra?'#1F4E79':'#085041')+';padding:1px 6px;border-radius:4px;font-weight:700;font-size:10px">'+(isCompra?'COMPRA':'VENDA')+'</span>';
+    return '<tr style="border-bottom:1px solid #f0f4f8'+(isNegativo?';opacity:.7':'')+'">'+
       '<td style="padding:6px 10px;color:#8a9ab0;white-space:nowrap">'+fmtData(e.created_at)+'</td>'+
-      '<td style="padding:6px 10px;white-space:nowrap"><span style="background:'+(isCompra?'#DBEAFE':'#E1F5EE')+';color:'+(isCompra?'#1F4E79':'#085041')+';padding:1px 6px;border-radius:4px;font-weight:700;font-size:10px">'+(isCompra?'COMPRA':'VENDA')+'</span></td>'+
-      '<td style="padding:6px 10px;color:#1a2332">'+(isCompra?pfEscHtml(e.fornecedor||'—'):'<span style="color:#c8d0da">—</span>')+'</td>'+
-      '<td style="padding:6px 10px;color:#1a2332">'+(!isCompra?pfEscHtml(e.cliente||'—'):'<span style="color:#c8d0da">—</span>')+'</td>'+
+      '<td style="padding:6px 10px;white-space:nowrap">'+badge+'</td>'+
+      '<td style="padding:6px 10px;color:#1a2332">'+((isCompra||isNegativo)?pfEscHtml(e.fornecedor||'—'):'<span style="color:#c8d0da">—</span>')+'</td>'+
+      '<td style="padding:6px 10px;color:#1a2332">'+(!isCompra&&!isNegativo?pfEscHtml(e.cliente||'—'):'<span style="color:#c8d0da">—</span>')+'</td>'+
       '<td style="padding:6px 10px;color:#607080;white-space:nowrap">'+pfEscHtml(e.marca||'—')+'</td>'+
       '<td style="padding:6px 10px;text-align:center;color:#607080">'+(e.qtd!=null?e.qtd:'—')+'</td>'+
-      '<td style="padding:6px 10px;text-align:right;color:'+(isCompra?'#1F4E79':'#27AE60')+';font-weight:700;white-space:nowrap">'+fmtR$(e.preco)+(!isCompra&&e.custo?'<div style="font-size:9px;color:#8a9ab0;font-weight:400">custo '+fmtR$(e.custo)+'</div>':'')+'</td>'+
+      '<td style="padding:6px 10px;text-align:right;color:'+(isCompra?'#1F4E79':isNegativo?'#C00000':'#27AE60')+';font-weight:700;white-space:nowrap">'+(isNegativo?'não tinha':fmtR$(e.preco))+(!isCompra&&!isNegativo&&e.custo?'<div style="font-size:9px;color:#8a9ab0;font-weight:400">custo '+fmtR$(e.custo)+'</div>':'')+'</td>'+
       '<td style="padding:6px 10px;color:#8a9ab0;white-space:nowrap">'+pfEscHtml(e.autor||'—')+'</td>'+
       '</tr>';
   }).join('');
@@ -34201,7 +34230,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.541) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.542) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -34474,4 +34503,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.541 --></html>
+</script></div></div></body><!-- Build timestamp: v115.542 --></html>

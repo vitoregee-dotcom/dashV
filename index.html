@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.530 - CRITICO PARTE 2: o lock storm no banco continuava mesmo depois do fix anterior, ativo em tempo real (confirmado via pg_stat_activity -- 12+ INSERTs simultaneos em user_cadastros brigando por lock, AGORA sem nenhuma relacao com import de catalogo). Causa: cadPushSupabase() e chamada de ~8 lugares diferentes no codigo; se duas chamadas se sobrepoem no tempo, cada uma tenta escrever a MESMA linha grande (tipo "produtos", que cresceu bastante com os imports de hoje) ao mesmo tempo. Adicionada trava (mutex) direto em cadPushSupabase() -- chamadas concorrentes agora entram numa fila e aguardam a sincronizacao em andamento terminar, em vez de rodar em paralelo. -->
+<!-- v115.531 - FIX travamento total ao abrir Cadastros/Produtos: (1) o calculo de "X na planilha" iterava sincronamente TODOS os 207mil+ itens carregados toda vez que a tela abria, so pra um texto cosmetico -- removido. (2) A lista de produtos usava plist.indexOf(p) dentro de um forEach, virando O(n^2) -- trocado por indice ja calculado no filter. Produtos cresceu bastante hoje com os catalogos importados, e cadTab guarda a ultima aba visitada, entao clicar em "Cadastros" no menu podia cair direto em Produtos e travar a aba inteira sem nem poder rolar. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.530</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.531</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.530</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.531</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22830,7 +22830,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.530): a desativação em v115.530 causou travamento no iPad — restaurando
+// REVERTIDO (v115.531): a desativação em v115.531 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22856,9 +22856,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.530): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.531): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.530) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.531) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -23760,7 +23760,8 @@ function cadRenderProdutosV3(el){
   var plist=cadLoad(PROD_KEY||'cad_produtos_v1');
   var q=(window._prodSearch||'').toLowerCase();
   var pf=window._prodFiltro||{};
-  var filtered=plist.filter(function(p){
+  var filtered=plist.map(function(p,idx){return {p:p,idx:idx};}).filter(function(o){
+    var p=o.p;
     if(q&&!((p.codigo||'').toLowerCase().includes(q)||(p.descricao||'').toLowerCase().includes(q)||(p.marca||'').toLowerCase().includes(q)))return false;
     if(pf.marca&&!(p.marca||'').toLowerCase().includes(pf.marca.toLowerCase()))return false;
     if(pf.linha&&!(p.linha||'').toLowerCase().includes(pf.linha.toLowerCase()))return false;
@@ -23770,10 +23771,9 @@ function cadRenderProdutosV3(el){
     return true;
   });
   var totalPlanilha=0;
-  if(typeof calcItems!=='undefined'&&calcItems&&calcItems.length){
-    var vist={};calcItems.forEach(function(d){var c=(d.ref||'').toUpperCase();if(c)vist[c]=true;});
-    totalPlanilha=Object.keys(vist).length;
-  }
+  // Removido: esse cálculo iterava TODOS os itens da planilha (200k+) de forma síncrona
+  // toda vez que a tela de Produtos era aberta, só pra mostrar um texto cosmético
+  // ("X na planilha") — isso podia travar a aba por vários segundos. Não vale o custo.
   var html='<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">';
   html+='<div style="font-size:13px;font-weight:700;color:#1F4E79">'+filtered.length+' de '+plist.length+' produto(s)'+(totalPlanilha?' / '+totalPlanilha+' na planilha':'')+'</div>';
   html+='<input type="text" placeholder="🔍 Buscar código/descrição/marca..." value="'+(window._prodSearch||'')+'" oninput="window._prodSearch=this.value;cadRenderProdutosV3(document.getElementById(&quot;cadBody&quot;))" style="flex:1;min-width:160px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12px">';
@@ -23798,8 +23798,8 @@ function cadRenderProdutosV3(el){
       '<td style="padding:5px 8px">'+fInpP('buscar...','ncm')+'</td>'+
       '<td></td>'+
     '</tr></thead><tbody>';
-  filtered.forEach(function(p){
-    var ri=plist.indexOf(p);
+  filtered.forEach(function(o){
+    var p=o.p, ri=o.idx;
     var thumb=p.foto||((p.fotos||[])[0])?'<img src="'+(p.foto||(p.fotos||[])[0])+'" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #e0e8f0">':'<div style="width:40px;height:40px;background:#F0F4F8;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px">📦</div>';
     html+='<tr style="border-bottom:1px solid #e0e8f0" onmouseover="this.style.background=&quot;#F8FAFC&quot;" onmouseout="this.style.background=&quot;&quot;">';
     html+='<td style="padding:8px 12px">'+thumb+'</td>';
@@ -34071,7 +34071,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.530) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.531) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -34344,4 +34344,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.530 --></html>
+</script></div></div></body><!-- Build timestamp: v115.531 --></html>

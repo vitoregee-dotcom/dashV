@@ -8,14 +8,13 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.576 - Achado o motivo real do vinculo de peca "ressuscitado" continuar voltando
-mesmo apos a correcao anterior: existiam DOIS sistemas de sync rodando em paralelo pra
-"Aplicacoes" (cadPullSupabase, ja corrigido antes, E pfSyncPull, que ainda nao tinha
-protecao nenhuma pra esse tipo -- so sabia UNIR dados, nunca remover). Aproveitando que
-ja existe um padrao de "lista de excluidos" no codigo (usado em fornecedores/mapas/
-solicitacoes), apliquei o mesmo em prod_aplicacoes_v1: excluir um vinculo agora registra
-o ID numa lista de tombstone que o pfSyncPull respeita, nao trazendo mais de volta.
-Tambem removida uma declaracao duplicada de APLIC_KEY que apontava pra chaves diferentes
-em dois lugares do codigo (confuso, ainda que nao fosse a causa direta desse bug). -->
+mesmo apos a correcao anterior (v115.575): a exclusao ate registrava o item numa lista
+de "excluidos" (prod_aplicacoes_deletados) pra sync nunca trazer de volta -- MAS varios
+desses vinculos (importados em lote, sem "id" proprio) tinham id=null, e o codigo so
+registrava exclusao quando tinha um id valido (if(id&&...)) -- entao itens sem id nunca
+entravam na lista de excluidos e voltavam sempre. Criada uma chave alternativa (id, ou
+modelo+serie+codigo+marca+componente quando nao tem id) usada tanto na hora de excluir
+quanto na hora do pull respeitar a exclusao -- cobre os vinculos sem id tambem. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -23806,7 +23805,7 @@ function cadRenderAplicacoes(el){
               (a.veiculo?'<span style="color:#8a9ab0;font-size:10px">🚛 '+pfEscHtml(a.veiculo)+'</span>':'')+
             '</div>'+
           '</div>';
-          html+='<button onclick="event.stopPropagation();cadRemoverAplicacao(\''+pfEscHtml(pfEscJs(a.id))+'\')" style="background:none;border:none;color:#C00000;font-size:15px;cursor:pointer;padding:2px 6px">&#215;</button>';
+          html+='<button onclick="event.stopPropagation();cadRemoverAplicacao(\''+pfEscHtml(pfEscJs(aplicChaveUnica(a)))+'\')" style="background:none;border:none;color:#C00000;font-size:15px;cursor:pointer;padding:2px 6px">&#215;</button>';
           html+='</div>';
         });
         html+='</div>';
@@ -23905,6 +23904,14 @@ function cadRenderCompararSeries(){
   html+='</div>';
   el.innerHTML=html;
 }
+// Identifica um vínculo de forma estável mesmo quando não tem "id" (comum em itens
+// importados em lote de catálogos antigos) -- sem isso, a exclusão nunca "colava"
+// porque não tinha como marcar QUAL item foi excluído pra sincronização respeitar.
+function aplicChaveUnica(a){
+  if(!a)return '';
+  if(a.id!=null&&a.id!=='')return 'id:'+a.id;
+  return 'k:'+(a.modelo||'')+'|'+(a.serie||'')+'|'+(a.codigo||'')+'|'+(a.marca||'')+'|'+(a.equip||'');
+}
 // Exclui TODOS os itens de um grupo (Modelo+Série) de uma vez, pra refazer do zero
 function cadExcluirGrupoAplicacao(chave,qtd){
   if(!confirm('Excluir os '+qtd+' vínculo(s) de peça desse grupo inteiro? Essa ação não pode ser desfeita.'))return;
@@ -23915,14 +23922,14 @@ function cadExcluirGrupoAplicacao(chave,qtd){
   var lista=todos.filter(function(a){
     return !((a.modelo||'')===modeloAlvo&&(a.serie||'')===serieAlvo);
   });
-  pfMarcarAplicacoesDeletadas(excluidos.map(function(a){return a.id;}));
+  pfMarcarAplicacoesDeletadas(excluidos.map(aplicChaveUnica));
   aplicSave(lista);
   window._cadAplicAberto=null;
   cadGoTab('aplicacoes');
 }
-function cadRemoverAplicacao(id){
-  pfMarcarAplicacoesDeletadas([id]);
-  aplicSave(aplicLoad().filter(function(a){return a.id!==id;}));
+function cadRemoverAplicacao(chaveAlvo){
+  pfMarcarAplicacoesDeletadas([chaveAlvo]);
+  aplicSave(aplicLoad().filter(function(a){return aplicChaveUnica(a)!==chaveAlvo;}));
   cadGoTab('aplicacoes');
 }
 // Registra IDs de vínculos excluídos, pra sincronização de entrada (pfSyncPull) nunca
@@ -27555,11 +27562,12 @@ async function pfSyncPull(){
           var deletados=JSON.parse(localStorage.getItem('prod_aplicacoes_deletados')||'[]');
 
           var porId={};
-          local.forEach(function(a){porId[a.id]=a;});
+          local.forEach(function(a){porId[aplicChaveUnica(a)]=a;});
           remoto.forEach(function(a){
+            var k=aplicChaveUnica(a);
             // Não restaura vínculos que foram excluídos localmente
-            if(deletados.includes(a.id))return;
-            if(!porId[a.id]||(a.ts||0)>(porId[a.id].ts||0))porId[a.id]=a;
+            if(deletados.includes(k))return;
+            if(!porId[k]||(a.ts||0)>(porId[k].ts||0))porId[k]=a;
           });
           var merged=Object.keys(porId).map(function(k){return porId[k];});
           pfSafeSetItem('prod_aplicacoes_v1',JSON.stringify(merged));

@@ -7,14 +7,11 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.563 - Mapa de Compras e Solicitacoes: (1) numeracao unificada -- todo mapa agora
-sempre recebe um numero sequencial (contador unico), tanto os criados via "+Novo Mapa"
-quanto os vinculados a uma Solicitacao, corrigindo numeros duplicados (ex: dois mapas
-diferentes mostrando "0001") e mapas sem numero nenhum; mapas legados sem numero sao
-auto-reparados na proxima carga da lista. (2) Lista de "Mapas em andamento" e lista de
-"Solicitacoes de Compras" trocadas de cards para tabela, no estilo da tela de Cotacoes
-(cabecalho azul, colunas #/Titulo/Cliente/Status/Itens/Data/Acoes); a Solicitacao tipo
-Mapa Master mantem o recurso de expandir e ver o detalhamento por fornecedor. -->
+<!-- v115.564 - Mapa de Compras e Solicitacoes: tabelas ganharam (1) filtro por coluna
+(um campo de busca embaixo de cada cabecalho, igual a tela de Produtos/Cotacoes),
+(2) colunas redimensionaveis arrastando a borda direita do cabecalho (largura fica
+salva por navegador), e (3) largura total da tela (removido o limite de 900px que
+sobrava espaco em branco nas laterais). -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -603,7 +600,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.563</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.564</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -722,7 +719,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.563</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.564</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22891,7 +22888,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.563): a desativação em v115.563 causou travamento no iPad — restaurando
+// REVERTIDO (v115.564): a desativação em v115.564 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22917,9 +22914,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.563): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.564): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.563) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.564) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -28529,16 +28526,38 @@ mapaRender = function(){
     var lista=mapaListarSalvos();
     var el=document.getElementById('mapaBody');
     if(!el)return;
+    // Preserva o foco/cursor de um input de filtro entre re-renders (digitar não perde o foco)
+    var _focoAtivo=document.activeElement;
+    var _focoId=(_focoAtivo&&el.contains(_focoAtivo))?_focoAtivo.id:null;
+    var _focoSelStart=_focoId&&_focoAtivo.selectionStart!=null?_focoAtivo.selectionStart:null;
+    var _focoSelEnd=_focoId&&_focoAtivo.selectionEnd!=null?_focoAtivo.selectionEnd:null;
+    function _restaurarFoco(){
+      if(!_focoId)return;
+      var novoEl=document.getElementById(_focoId);
+      if(!novoEl)return;
+      novoEl.focus();
+      if(_focoSelStart!=null&&typeof novoEl.setSelectionRange==='function'){
+        try{novoEl.setSelectionRange(_focoSelStart,_focoSelEnd);}catch(e){}
+      }
+    }
     var statusInfo=function(step){
       if(step>=3)return{label:'✅ Pronto pra decidir',bg:'#E1F5EE',cor:'#085041',btn:'Decidir & gerar OC →'};
       if(step===2)return{label:'📨 Aguardando preços',bg:'#FAEEDA',cor:'#854F0B',btn:'Lançar preços →'};
       return{label:'📝 Montando itens',bg:'#F1EFE8',cor:'#444441',btn:'Continuar →'};
     };
-    var filtroMapas=(window._mapasFiltro||'').toLowerCase().trim();
-    var listaFiltrada=filtroMapas?lista.filter(function(m){
-      return ((m.titulo||'')+' '+(m.numero||'')+' '+(m.cliente||'')).toLowerCase().indexOf(filtroMapas)>=0;
-    }):lista;
-    var html='<div style="max-width:900px">';
+    var MCF_KEY='mapa_cols_widths_v1';
+    var cf=window._mapasColFiltro||{};
+    var listaFiltrada=lista.filter(function(m){
+      var st=statusInfo(m.step);
+      if(cf.numero&&!((m.numero||'').toLowerCase().indexOf(cf.numero.toLowerCase())>=0))return false;
+      if(cf.titulo&&!((m.titulo||'').toLowerCase().indexOf(cf.titulo.toLowerCase())>=0))return false;
+      if(cf.cliente&&!((m.cliente||'').toLowerCase().indexOf(cf.cliente.toLowerCase())>=0))return false;
+      if(cf.status&&st.label.toLowerCase().indexOf(cf.status.toLowerCase())<0)return false;
+      if(cf.itens&&String(m.nItens).indexOf(cf.itens)<0)return false;
+      if(cf.data&&new Date(m.ts).toLocaleString('pt-BR').toLowerCase().indexOf(cf.data.toLowerCase())<0)return false;
+      return true;
+    });
+    var html='<div style="max-width:100%">';
     html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">';
     html+='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:18px">';
     html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:18px">📤</span><span style="font-weight:800;font-size:14px;color:#1F4E79">Etapa 1 · Itens & envio</span></div>';
@@ -28553,39 +28572,52 @@ mapaRender = function(){
     html+='</div>';
     html+='<div id="mapaListaAndamento" style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:18px 20px">';
     html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px">';
-    html+='<div style="font-size:13px;font-weight:800;color:#1F4E79">📋 Mapas em andamento'+(lista.length?' ('+lista.length+')':'')+'</div>';
-    if(lista.length){
-      html+='<input type="text" id="mapasFiltroInput" placeholder="🔎 Buscar por título, número ou cliente..." value="'+pfEscHtml(window._mapasFiltro||'')+'" oninput="window._mapasFiltro=this.value;mapaRender();" style="padding:6px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12px;width:240px;max-width:100%">';
-    }
+    html+='<div style="font-size:13px;font-weight:800;color:#1F4E79">📋 Mapas em andamento'+(lista.length?' ('+listaFiltrada.length+' de '+lista.length+')':'')+'</div>';
     html+='</div>';
     if(!lista.length){
       html+='<div style="text-align:center;padding:24px;color:#8a9ab0;font-size:13px">Nenhum mapa em andamento. Clique em "+ Novo mapa" na Etapa 1 pra começar.</div>';
-    } else if(!listaFiltrada.length){
-      html+='<div style="text-align:center;padding:24px;color:#8a9ab0;font-size:13px">Nenhum mapa encontrado pra "'+pfEscHtml(window._mapasFiltro)+'".</div>';
     } else {
       html+='<div style="overflow-x:auto;border:1px solid #e0e8f0;border-radius:10px">';
-      html+='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:720px">';
+      html+='<table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">';
       html+='<thead><tr style="background:#1F4E79;color:#fff">';
-      html+='<th style="padding:8px 10px;text-align:left;font-size:10px;white-space:nowrap">#</th>';
-      html+='<th style="padding:8px 10px;text-align:left;font-size:10px">TÍTULO</th>';
-      html+='<th style="padding:8px 10px;text-align:left;font-size:10px">CLIENTE</th>';
-      html+='<th style="padding:8px 10px;text-align:center;font-size:10px">STATUS</th>';
-      html+='<th style="padding:8px 10px;text-align:center;font-size:10px;white-space:nowrap">ITENS</th>';
-      html+='<th style="padding:8px 10px;text-align:left;font-size:10px;white-space:nowrap">DATA</th>';
-      html+='<th style="padding:8px 10px;text-align:right;font-size:10px">AÇÕES</th>';
+      html+=pfColTh(MCF_KEY,'numero','#',90,'left');
+      html+=pfColTh(MCF_KEY,'titulo','TÍTULO',240,'left');
+      html+=pfColTh(MCF_KEY,'cliente','CLIENTE',200,'left');
+      html+=pfColTh(MCF_KEY,'status','STATUS',150,'center');
+      html+=pfColTh(MCF_KEY,'itens','ITENS',90,'center');
+      html+=pfColTh(MCF_KEY,'data','DATA',150,'left');
+      html+=pfColTh(MCF_KEY,'acoes','AÇÕES',210,'right');
+      html+='</tr>';
+      // Linha de filtros por coluna
+      function fInpM(key,ph){
+        return '<input type="text" id="mapaColF_'+key+'" placeholder="'+ph+'" value="'+pfEscHtml(cf[key]||'')+'" '+
+          'oninput="window._mapasColFiltro=window._mapasColFiltro||{};window._mapasColFiltro[\''+key+'\']=this.value;mapaRender();" '+
+          'style="width:100%;box-sizing:border-box;padding:4px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:10px;outline:none">';
+      }
+      html+='<tr style="background:#2A5D8F">';
+      html+='<th style="padding:4px 6px">'+fInpM('numero','filtrar...')+'</th>';
+      html+='<th style="padding:4px 6px">'+fInpM('titulo','filtrar...')+'</th>';
+      html+='<th style="padding:4px 6px">'+fInpM('cliente','filtrar...')+'</th>';
+      html+='<th style="padding:4px 6px">'+fInpM('status','filtrar...')+'</th>';
+      html+='<th style="padding:4px 6px">'+fInpM('itens','filtrar...')+'</th>';
+      html+='<th style="padding:4px 6px">'+fInpM('data','filtrar...')+'</th>';
+      html+='<th style="padding:4px 6px"></th>';
       html+='</tr></thead><tbody>';
+      if(!listaFiltrada.length){
+        html+='<tr><td colspan="7" style="text-align:center;padding:24px;color:#8a9ab0;font-size:13px">Nenhum mapa encontrado com esses filtros.</td></tr>';
+      }
       listaFiltrada.forEach(function(m){
         var dt=new Date(m.ts).toLocaleString('pt-BR');
         var st=statusInfo(m.step);
         var prog=typeof solicCalcularProgressoMapa==='function'?solicCalcularProgressoMapa({mapaOrigem:m.id}):null;
         var progTxt=(prog&&prog.fornTotal)?(prog.itensComPreco+'/'+prog.itensTotal+' itens · '+prog.fornRespondidos+'/'+prog.fornTotal+' forn.'):'';
         html+='<tr style="border-bottom:0.5px solid #f0f4f8" onmouseover="this.style.background=\'#f7f9fc\'" onmouseout="this.style.background=\'\'">';
-        html+='<td style="padding:8px 10px;white-space:nowrap">'+(m.numero?'<span style="font-size:11px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 8px;border-radius:5px">'+pfEscHtml(m.numero)+'</span>':'—')+'</td>';
-        html+='<td style="padding:8px 10px;font-weight:700;color:#1F4E79">'+pfEscHtml(m.titulo)+'</td>';
-        html+='<td style="padding:8px 10px;color:#1a2332">'+(m.cliente?pfEscHtml(m.cliente):'—')+'</td>';
+        html+='<td style="padding:8px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(m.numero?'<span style="font-size:11px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 8px;border-radius:5px">'+pfEscHtml(m.numero)+'</span>':'—')+'</td>';
+        html+='<td style="padding:8px 10px;font-weight:700;color:#1F4E79;overflow:hidden;text-overflow:ellipsis">'+pfEscHtml(m.titulo)+'</td>';
+        html+='<td style="padding:8px 10px;color:#1a2332;overflow:hidden;text-overflow:ellipsis">'+(m.cliente?pfEscHtml(m.cliente):'—')+'</td>';
         html+='<td style="padding:8px 10px;text-align:center"><span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap;background:'+st.bg+';color:'+st.cor+'">'+st.label+'</span></td>';
         html+='<td style="padding:8px 10px;text-align:center;white-space:nowrap"><span style="background:#E8F4FD;color:#185FA5;font-size:10px;font-weight:600;padding:1px 7px;border-radius:4px">'+m.nItens+'</span>'+(progTxt?'<div style="font-size:9px;color:#8a9ab0;margin-top:2px;white-space:nowrap">'+progTxt+'</div>':'')+'</td>';
-        html+='<td style="padding:8px 10px;color:#607080;white-space:nowrap">'+dt+(m.criadoPor&&m.criadoPor.nome?'<div style="font-size:9px;color:#8a9ab0">Por: '+pfEscHtml(m.criadoPor.nome)+'</div>':'')+'</td>';
+        html+='<td style="padding:8px 10px;color:#607080;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+dt+(m.criadoPor&&m.criadoPor.nome?'<div style="font-size:9px;color:#8a9ab0">Por: '+pfEscHtml(m.criadoPor.nome)+'</div>':'')+'</td>';
         html+='<td style="padding:8px 10px;text-align:right;white-space:nowrap">';
         html+='<button onclick="mapaCarregarDaLista(\''+m.id+'\');mapaGoStep(mapaStep);" style="font-size:10px;padding:5px 10px;background:#1F4E79;color:#fff;border:none;border-radius:5px;cursor:pointer;white-space:nowrap;font-weight:700;margin-right:4px">'+st.btn+'</button>';
         html+='<button onclick="mapaCarregarDaLista(\''+m.id+'\');mapaGoStep(2);" style="font-size:10px;padding:5px 9px;background:none;border:1px solid #FF9500;border-radius:5px;color:#FF9500;cursor:pointer;font-weight:600;white-space:nowrap;margin-right:4px">✏️</button>';
@@ -28596,6 +28628,8 @@ mapaRender = function(){
     }
     html+='</div></div>';
     el.innerHTML=html;
+    _restaurarFoco();
+    pfInitColResize(el,MCF_KEY);
     return;
   }
   if(typeof _origMapaRender2==='function')_origMapaRender2();
@@ -29046,6 +29080,49 @@ function mapaProximoNumero(){
   var n = parseInt(localStorage.getItem(MAPA_CONTADOR_KEY)||'0') + 1;
   pfSafeSetItem(MAPA_CONTADOR_KEY, n);
   return String(n).padStart(4, '0');
+}
+
+// ── Helpers genéricos de coluna redimensionável (usados nas tabelas de
+// Mapas em andamento e Solicitações de Compras) ──────────────────────
+function pfColW(storageKey,col,def){
+  try{var w=JSON.parse(localStorage.getItem(storageKey)||'{}');return w[col]||def;}
+  catch(e){return def;}
+}
+function pfColWSave(storageKey,col,px){
+  try{
+    var w=JSON.parse(localStorage.getItem(storageKey)||'{}');
+    w[col]=px;
+    pfSafeSetItem(storageKey,JSON.stringify(w));
+  }catch(e){}
+}
+function pfInitColResize(containerEl,storageKey){
+  if(!containerEl)return;
+  var resizers=containerEl.querySelectorAll('.pf-col-resizer');
+  resizers.forEach(function(resizer){
+    resizer.onmousedown=function(e){
+      e.preventDefault();e.stopPropagation();
+      var th=resizer.parentElement;
+      var col=th.getAttribute('data-colkey');
+      var startX=e.clientX,startW=th.offsetWidth;
+      function onMove(e2){
+        var newW=Math.max(50,startW+(e2.clientX-startX));
+        th.style.width=newW+'px';
+      }
+      function onUp(){
+        document.removeEventListener('mousemove',onMove);
+        document.removeEventListener('mouseup',onUp);
+        pfColWSave(storageKey,col,th.offsetWidth);
+      }
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+    };
+  });
+}
+// Monta um <th> com largura persistida + alça de redimensionar na borda direita
+function pfColTh(storageKey,col,label,def,align){
+  var w=pfColW(storageKey,col,def);
+  return '<th data-colkey="'+col+'" style="position:relative;width:'+w+'px;padding:8px 10px;text-align:'+(align||'left')+';font-size:10px;white-space:nowrap;overflow:hidden">'+label+
+    '<div class="pf-col-resizer" style="position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize"></div></th>';
 }
 
 // Override mapaNovoComNome to include number + extract client from PDF
@@ -32744,9 +32821,23 @@ function solicRender(){
   }
   var el=document.getElementById('solicitacoesBody');
   if(!el)return;
+  // Preserva o foco/cursor de um input de filtro entre re-renders
+  var _focoAtivo=document.activeElement;
+  var _focoId=(_focoAtivo&&el.contains(_focoAtivo))?_focoAtivo.id:null;
+  var _focoSelStart=_focoId&&_focoAtivo.selectionStart!=null?_focoAtivo.selectionStart:null;
+  var _focoSelEnd=_focoId&&_focoAtivo.selectionEnd!=null?_focoAtivo.selectionEnd:null;
+  function _restaurarFoco(){
+    if(!_focoId)return;
+    var novoEl=document.getElementById(_focoId);
+    if(!novoEl)return;
+    novoEl.focus();
+    if(_focoSelStart!=null&&typeof novoEl.setSelectionRange==='function'){
+      try{novoEl.setSelectionRange(_focoSelStart,_focoSelEnd);}catch(e){}
+    }
+  }
   var list=solicLoad().slice().reverse();
   console.log('📋 Lista de Solicitações (reversa):', list.length, 'itens');
-  var html='<div style="max-width:900px">';
+  var html='<div style="max-width:100%">';
   html+='<button onclick="pfNavigate(\'compras\')" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;margin-bottom:12px">&#8592; Voltar</button>';
   html+='<div style="font-size:16px;font-weight:800;color:#1F4E79;margin-bottom:4px">📨 Solicitações de Compras</div>';
   html+='<div style="font-size:12px;color:#8a9ab0;margin-bottom:16px">Cole um print ou carregue o PDF de uma cotação de venda já fechada — os itens que não estiverem "IMEDIATO" geram automaticamente um e-mail de solicitação de compra pro setor de Compras.</div>';
@@ -32760,32 +32851,64 @@ function solicRender(){
   html+='<span id="solicStatus" style="display:none;align-items:center;gap:6px;font-size:12px;color:#1F4E79;font-weight:600"><span style="display:inline-block;width:13px;height:13px;border:2px solid #d8e3ee;border-top-color:#1F4E79;border-radius:50%;animation:spin .7s linear infinite"></span>Lendo...</span>';
   html+='</div></div>';
 
-  var filtroSolic=(window._solicListaFiltro||'').toLowerCase().trim();
-  var listFiltrada=filtroSolic?list.filter(function(s){
-    return ((s.numero||'')+' '+(s.cliente||'')+' '+(s.fornecedor||'')+' '+(s.numeroPedido||'')+' '+(s.numeroOC||'')).toLowerCase().indexOf(filtroSolic)>=0;
-  }):list;
+  var SCF_KEY='solic_cols_widths_v1';
+  var cfs=window._solicColFiltro||{};
+  var listFiltrada=list.filter(function(s){
+    if(cfs.numero&&(String(s.numero||'').toLowerCase().indexOf(cfs.numero.toLowerCase())<0))return false;
+    if(cfs.titulo){
+      var tit=s.mapaMaster?('MAPA #'+(s.numeroMapa?s.numeroMapa.replace('MAPA-',''):'0001')):(s.origem!=='mapa'?'VENDA CASADA':'MAPA DE COMPRAS');
+      if(tit.toLowerCase().indexOf(cfs.titulo.toLowerCase())<0)return false;
+    }
+    if(cfs.cliente){
+      var cf1=((s.cliente||'')+' '+(s.fornecedor||'')).toLowerCase();
+      if(cf1.indexOf(cfs.cliente.toLowerCase())<0)return false;
+    }
+    if(cfs.status){
+      var stTxt=s.mapaMaster?'':(s.status==='enviado'?'enviado':'pendente');
+      if(stTxt.toLowerCase().indexOf(cfs.status.toLowerCase())<0)return false;
+    }
+    if(cfs.itens&&String((s.itens||[]).length).indexOf(cfs.itens)<0)return false;
+    if(cfs.data){
+      var dtc=new Date(s.data);
+      var dtTxt2=dtc.toLocaleDateString('pt-BR')+' '+dtc.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      if(dtTxt2.toLowerCase().indexOf(cfs.data.toLowerCase())<0)return false;
+    }
+    return true;
+  });
   html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">';
-  html+='<div style="font-size:11px;font-weight:700;color:#8a9ab0;text-transform:uppercase">Histórico ('+list.length+')</div>';
-  if(list.length){
-    html+='<input type="text" id="solicListaFiltroInput" placeholder="🔎 Buscar por número, cliente ou fornecedor..." value="'+pfEscHtml(window._solicListaFiltro||'')+'" oninput="window._solicListaFiltro=this.value;solicRender();" style="padding:6px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12px;width:260px;max-width:100%">';
-  }
+  html+='<div style="font-size:11px;font-weight:700;color:#8a9ab0;text-transform:uppercase">Histórico ('+listFiltrada.length+' de '+list.length+')</div>';
   html+='</div>';
   if(!list.length){
     html+='<div style="text-align:center;padding:24px;color:#8a9ab0;font-size:13px;background:#fff;border-radius:10px">Nenhuma solicitação ainda.</div>';
-  } else if(!listFiltrada.length){
-    html+='<div style="text-align:center;padding:24px;color:#8a9ab0;font-size:13px;background:#fff;border-radius:10px">Nenhuma solicitação encontrada pra "'+pfEscHtml(window._solicListaFiltro)+'".</div>';
   } else {
     html+='<div style="overflow-x:auto;border:1px solid #e0e8f0;border-radius:10px">';
-    html+='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px">';
+    html+='<table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">';
     html+='<thead><tr style="background:#1F4E79;color:#fff">';
-    html+='<th style="padding:8px 10px;text-align:left;font-size:10px;white-space:nowrap">#</th>';
-    html+='<th style="padding:8px 10px;text-align:left;font-size:10px">TÍTULO</th>';
-    html+='<th style="padding:8px 10px;text-align:left;font-size:10px">CLIENTE / FORNECEDOR</th>';
-    html+='<th style="padding:8px 10px;text-align:center;font-size:10px">STATUS</th>';
-    html+='<th style="padding:8px 10px;text-align:center;font-size:10px;white-space:nowrap">ITENS</th>';
-    html+='<th style="padding:8px 10px;text-align:left;font-size:10px;white-space:nowrap">DATA</th>';
-    html+='<th style="padding:8px 10px;text-align:right;font-size:10px">AÇÕES</th>';
+    html+=pfColTh(SCF_KEY,'numero','#',90,'left');
+    html+=pfColTh(SCF_KEY,'titulo','TÍTULO',220,'left');
+    html+=pfColTh(SCF_KEY,'cliente','CLIENTE / FORNECEDOR',220,'left');
+    html+=pfColTh(SCF_KEY,'status','STATUS',150,'center');
+    html+=pfColTh(SCF_KEY,'itens','ITENS',90,'center');
+    html+=pfColTh(SCF_KEY,'data','DATA',150,'left');
+    html+=pfColTh(SCF_KEY,'acoes','AÇÕES',230,'right');
+    html+='</tr>';
+    function fInpS(key,ph){
+      return '<input type="text" id="solicColF_'+key+'" placeholder="'+ph+'" value="'+pfEscHtml(cfs[key]||'')+'" '+
+        'oninput="window._solicColFiltro=window._solicColFiltro||{};window._solicColFiltro[\''+key+'\']=this.value;solicRender();" '+
+        'style="width:100%;box-sizing:border-box;padding:4px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:10px;outline:none">';
+    }
+    html+='<tr style="background:#2A5D8F">';
+    html+='<th style="padding:4px 6px">'+fInpS('numero','filtrar...')+'</th>';
+    html+='<th style="padding:4px 6px">'+fInpS('titulo','filtrar...')+'</th>';
+    html+='<th style="padding:4px 6px">'+fInpS('cliente','filtrar...')+'</th>';
+    html+='<th style="padding:4px 6px">'+fInpS('status','filtrar...')+'</th>';
+    html+='<th style="padding:4px 6px">'+fInpS('itens','filtrar...')+'</th>';
+    html+='<th style="padding:4px 6px">'+fInpS('data','filtrar...')+'</th>';
+    html+='<th style="padding:4px 6px"></th>';
     html+='</tr></thead><tbody>';
+    if(!listFiltrada.length){
+      html+='<tr><td colspan="7" style="text-align:center;padding:24px;color:#8a9ab0;font-size:13px">Nenhuma solicitação encontrada com esses filtros.</td></tr>';
+    }
     listFiltrada.forEach(function(s){
       var dt=new Date(s.data); // Mover pra cá (escopo do forEach)
       var dtTxt=dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
@@ -32872,6 +32995,8 @@ function solicRender(){
   }
   html+='</div>';
   el.innerHTML=html;
+  _restaurarFoco();
+  pfInitColResize(el,SCF_KEY);
   var fi=document.getElementById('solicFileInput');
   if(fi)fi.addEventListener('change',function(){solicLerArquivo(this);});
 }
@@ -34518,7 +34643,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.563) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.564) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -34791,4 +34916,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.563 --></html>
+</script></div></div></body><!-- Build timestamp: v115.564 --></html>

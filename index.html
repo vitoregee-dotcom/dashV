@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.559 - Fix CRITICO na tela Comparar Series (recem lancada): usei JSON.stringify() (que gera aspas DUPLAS) dentro de atributos onchange/onclick que TAMBEM usam aspas duplas -- isso fechava o atributo HTML no meio e quebrava tudo silenciosamente (por isso marcar as caixas de serie nao atualizava nada, e o botao de excluir grupo tambem estava quebrado do mesmo jeito). Trocado pelo padrao ja usado no resto do codigo: aspas simples + pfEscJs(). -->
+<!-- v115.560 - Aplicacoes ganhou campo de QUANTIDADE: IA do import de catalogo agora tambem extrai "qtd" por item (coluna QTY/QTD do catalogo, se existir), "Marcar Aplicacao" em Vendas usa a quantidade da propria cotacao, e reimportar atualiza a quantidade se mudou. Tela "Comparar Series" agora mostra o numero da quantidade em cada celula (nao so ✓/—) e considera peca "diferente" tambem quando a quantidade muda entre series, nao so quando falta em alguma. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +596,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.559</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.560</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +715,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.559</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.560</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22870,7 +22870,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.559): a desativação em v115.559 causou travamento no iPad — restaurando
+// REVERTIDO (v115.560): a desativação em v115.560 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22896,9 +22896,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.559): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.560): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.559) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.560) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -23836,19 +23836,24 @@ function cadRenderCompararSeries(){
       if(seriesSelecionadas.length<2){
         html+='<div style="text-align:center;padding:20px;color:#8a9ab0;font-size:13px">Marque pelo menos 2 séries acima pra ver a comparação.</div>';
       } else {
-        // Monta matriz: código -> {desc, marca, series:{serie:true}}
+        // Monta matriz: código -> {desc, marca, series:{serie:qtd}}
         var pecas={};
         list.forEach(function(a){
           if(a.modelo!==window._cadCompModelo)return;
           if(!seriesSelecionadas.includes(a.serie))return;
           var k=(a.codigo||'')+'|||'+(a.marca||'');
           if(!pecas[k])pecas[k]={codigo:a.codigo,desc:a.desc,marca:a.marca,series:{}};
-          pecas[k].series[a.serie]=true;
+          pecas[k].series[a.serie]=(a.qtd!=null?a.qtd:true); // true = existe mas sem qtd informada
         });
         var pecasLista=Object.keys(pecas).map(function(k){return pecas[k];});
-        var iguaisTodas=pecasLista.filter(function(p){return seriesSelecionadas.every(function(s){return p.series[s];});});
-        var diferentes=pecasLista.filter(function(p){return !seriesSelecionadas.every(function(s){return p.series[s];});});
-        html+='<div style="font-size:12px;color:#8a9ab0;margin-bottom:12px">'+pecasLista.length+' peça(s) no total · <span style="color:#27AE60;font-weight:700">'+iguaisTodas.length+' em todas as séries</span> · <span style="color:#C00000;font-weight:700">'+diferentes.length+' diferem entre séries</span></div>';
+        function pecaIgualEmTodas(p){
+          if(!seriesSelecionadas.every(function(s){return p.series[s]!=null;}))return false; // falta em alguma série
+          var valores=seriesSelecionadas.map(function(s){return p.series[s];});
+          return valores.every(function(v){return v===valores[0];}); // mesma presença/quantidade em todas
+        }
+        var iguaisTodas=pecasLista.filter(pecaIgualEmTodas);
+        var diferentes=pecasLista.filter(function(p){return !pecaIgualEmTodas(p);});
+        html+='<div style="font-size:12px;color:#8a9ab0;margin-bottom:12px">'+pecasLista.length+' peça(s) no total · <span style="color:#27AE60;font-weight:700">'+iguaisTodas.length+' iguais (mesma peça e quantidade) em todas as séries</span> · <span style="color:#C00000;font-weight:700">'+diferentes.length+' diferem (ausente ou quantidade diferente)</span></div>';
         html+='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;min-width:100%">';
         html+='<thead><tr style="background:#F0F4F8;border-bottom:2px solid #e0e8f0">';
         html+='<th style="padding:8px 10px;text-align:left;position:sticky;left:0;background:#F0F4F8">Código</th><th style="padding:8px 10px;text-align:left;position:sticky;left:0;background:#F0F4F8">Descrição</th>';
@@ -23856,12 +23861,17 @@ function cadRenderCompararSeries(){
         html+='</tr></thead><tbody>';
         // Mostra primeiro as que DIFEREM (mais interessante), depois as iguais
         diferentes.concat(iguaisTodas).forEach(function(p){
-          var todasTem=seriesSelecionadas.every(function(s){return p.series[s];});
-          html+='<tr style="border-bottom:1px solid #f0f4f8'+(!todasTem?';background:#FFFBF0':'')+'">';
+          var igual=pecaIgualEmTodas(p);
+          html+='<tr style="border-bottom:1px solid #f0f4f8'+(!igual?';background:#FFFBF0':'')+'">';
           html+='<td style="padding:6px 10px;font-family:monospace;font-weight:700;color:#1F4E79;white-space:nowrap">'+pfEscHtml(p.codigo)+'</td>';
           html+='<td style="padding:6px 10px;color:#3a4658">'+pfEscHtml(p.desc||'')+' <span style="color:#8a9ab0">('+pfEscHtml(p.marca||'')+')</span></td>';
           seriesSelecionadas.forEach(function(s){
-            html+='<td style="padding:6px 10px;text-align:center">'+(p.series[s]?'<span style="color:#27AE60;font-weight:700">✓</span>':'<span style="color:#e0e0e0">—</span>')+'</td>';
+            var v=p.series[s];
+            var celula;
+            if(v==null)celula='<span style="color:#e0e0e0">—</span>';
+            else if(v===true)celula='<span style="color:#27AE60;font-weight:700">✓</span>'; // existe, sem qtd informada
+            else celula='<span style="color:'+(igual?'#27AE60':'#C00000')+';font-weight:700">'+v+'</span>'; // quantidade
+            html+='<td style="padding:6px 10px;text-align:center">'+celula+'</td>';
           });
           html+='</tr>';
         });
@@ -27794,11 +27804,11 @@ cadImportarCatalogo = async function(input){
       (function(){
       var marcaVal=cadGetMarcaCatalogo()||window._impMarcaAtual||'';
       var isItalian=['CARRARO','DANA/SPICER','DANA','ZF','SPICER'].some(function(m){return marcaVal.toUpperCase().includes(m);});
-      var camposExtra=' Alem disso, se o catalogo mostrar (mesmo que informalmente): pagina (numero da pagina onde o item aparece), aplicacao (equipamento/marca/modelo/serie/veiculo que usa essa peca — "veiculo" e o tipo de maquina, tipo Retroescavadeira/Trator/Caminhao/Pa-carregadeira, se estiver escrito perto do item ou no cabecalho da secao), grupo (um identificador curto — numero da figura, nome do kit/conjunto explodido, etc — pra itens que aparecem JUNTOS na mesma ilustracao/kit, tipo "Fig.12" ou "Kit vedacao motor"; deixe vazio se nao der pra saber). Inclua esses campos no JSON de cada item quando encontrar, mesmo que nao tenha certeza total.';
+      var camposExtra=' Alem disso, se o catalogo mostrar (mesmo que informalmente): qtd (quantidade usada dessa peca naquela montagem/conjunto — muitos catalogos tem uma coluna "QTY"/"QTD"; numero inteiro, deixe null se nao tiver essa informacao), pagina (numero da pagina onde o item aparece), aplicacao (equipamento/marca/modelo/serie/veiculo que usa essa peca — "veiculo" e o tipo de maquina, tipo Retroescavadeira/Trator/Caminhao/Pa-carregadeira, se estiver escrito perto do item ou no cabecalho da secao), grupo (um identificador curto — numero da figura, nome do kit/conjunto explodido, etc — pra itens que aparecem JUNTOS na mesma ilustracao/kit, tipo "Fig.12" ou "Kit vedacao motor"; deixe vazio se nao der pra saber). Inclua esses campos no JSON de cada item quando encontrar, mesmo que nao tenha certeza total.';
       if(isItalian){
-        return 'Este é um catálogo de peças em italiano (marca CARRARO). Extraia todos os produtos e TRADUZA cada descrição do italiano para o português brasileiro. Se não souber traduzir um termo, mantenha como está. Retorne SOMENTE JSON array, sem markdown. Cada objeto: {"codigo":"","descricao":"TRADUZIDO EM PORTUGUES","ncm":"","unidade":"","marca":"","pagina":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":"","veiculo":""},"grupoCatalogo":""}. Exemplos: Ralla=ARRUELA, Anello OR=ANEL O-RING, Boccola=BUCHA, Vite=PARAFUSO, Spina=PINO, Tappo=TAMPAO, Bronzina=BRONZINA, Guarnizione=JUNTA, Cuscinetto=ROLAMENTO, Albero=EIXO, Ingranaggio=ENGRENAGEM, Paraolio=RETENTOR, Pompa=BOMBA, Molla=MOLA, Flangia=FLANGE, Supporto=SUPORTE.'+camposExtra;
+        return 'Este é um catálogo de peças em italiano (marca CARRARO). Extraia todos os produtos e TRADUZA cada descrição do italiano para o português brasileiro. Se não souber traduzir um termo, mantenha como está. Retorne SOMENTE JSON array, sem markdown. Cada objeto: {"codigo":"","descricao":"TRADUZIDO EM PORTUGUES","ncm":"","unidade":"","marca":"","pagina":null,"qtd":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":"","veiculo":""},"grupoCatalogo":""}. Exemplos: Ralla=ARRUELA, Anello OR=ANEL O-RING, Boccola=BUCHA, Vite=PARAFUSO, Spina=PINO, Tappo=TAMPAO, Bronzina=BRONZINA, Guarnizione=JUNTA, Cuscinetto=ROLAMENTO, Albero=EIXO, Ingranaggio=ENGRENAGEM, Paraolio=RETENTOR, Pompa=BOMBA, Molla=MOLA, Flangia=FLANGE, Supporto=SUPORTE.'+camposExtra;
       }
-      return 'Extraia todos os produtos deste catálogo. Retorne SOMENTE JSON array. Cada objeto: {"codigo":"","descricao":"","ncm":"","unidade":"","marca":"","pagina":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":"","veiculo":""},"grupoCatalogo":""}. Sem markdown.'+camposExtra;
+      return 'Extraia todos os produtos deste catálogo. Retorne SOMENTE JSON array. Cada objeto: {"codigo":"","descricao":"","ncm":"","unidade":"","marca":"","pagina":null,"qtd":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":"","veiculo":""},"grupoCatalogo":""}. Sem markdown.'+camposExtra;
     })());
     var m=txt.match(/\[[\s\S]*/);if(m)txt=m[0];
     var itens;
@@ -28001,7 +28011,7 @@ cadConfirmarImport=function(itens){
     // partes do sistema sem nada a ver com essa tela).
     aplicsParaSalvar.forEach(function(aplic){
       if(!aplic.modelo&&!aplic.serie)return; // sem modelo/série não tem o que listar na tela de Aplicações
-      aplicacoesParaGravar.push({codigo:prod.codigo,desc:prod.descricao,marcaProd:prod.marca,aplic:aplic});
+      aplicacoesParaGravar.push({codigo:prod.codigo,desc:prod.descricao,marcaProd:prod.marca,aplic:aplic,qtd:(it.qtd!=null?it.qtd:null)});
     });
     // Agrupa por grupoCatalogo pra criar "itens relacionados" no final
     var grupoCat=(it.grupoCatalogo||'').trim();
@@ -28015,16 +28025,22 @@ cadConfirmarImport=function(itens){
   // um load, um save, não importa quantos itens tenham sido importados.
   if(aplicacoesParaGravar.length&&typeof aplicLoad==='function'&&typeof aplicSave==='function'){
     var flatList=aplicLoad();
+    var alterado=false;
     aplicacoesParaGravar.forEach(function(entry){
       var aplic=entry.aplic;
       var modU=(aplic.modelo||'').toUpperCase(),serU=(aplic.serie||'').toUpperCase(),marU=(aplic.marca||entry.marcaProd||'').toUpperCase();
-      var existe=flatList.some(function(a){return (a.modelo||'').toUpperCase()===modU&&(a.serie||'').toUpperCase()===serU&&(a.codigo||'').toUpperCase()===entry.codigo.toUpperCase()&&(a.marca||'').toUpperCase()===marU;});
-      if(!existe){
-        flatList.push({id:'apl_'+Date.now()+'_'+Math.random().toString(36).slice(2),modelo:aplic.modelo||'',serie:aplic.serie||'',codigo:entry.codigo,desc:entry.desc||'',marca:aplic.marca||entry.marcaProd||'',equip:aplic.equip||'',veiculo:aplic.veiculo||''});
+      var existente=flatList.find(function(a){return (a.modelo||'').toUpperCase()===modU&&(a.serie||'').toUpperCase()===serU&&(a.codigo||'').toUpperCase()===entry.codigo.toUpperCase()&&(a.marca||'').toUpperCase()===marU;});
+      if(!existente){
+        flatList.push({id:'apl_'+Date.now()+'_'+Math.random().toString(36).slice(2),modelo:aplic.modelo||'',serie:aplic.serie||'',codigo:entry.codigo,desc:entry.desc||'',marca:aplic.marca||entry.marcaProd||'',equip:aplic.equip||'',veiculo:aplic.veiculo||'',qtd:entry.qtd});
         aplicacoesVinculadas++;
+        alterado=true;
+      } else if(entry.qtd!=null&&existente.qtd!==entry.qtd){
+        // Reimportou o mesmo item/série e a quantidade mudou -- atualiza
+        existente.qtd=entry.qtd;
+        alterado=true;
       }
     });
-    if(aplicacoesVinculadas)aplicSave(flatList);
+    if(alterado)aplicSave(flatList);
   }
   // Cria "itens relacionados" entre todo par de itens do mesmo grupo/kit do catálogo
   var relacCriados=0;
@@ -30693,8 +30709,8 @@ function vendasConfirmarAplicacao(indices){
     if(marcasVistas[chaveSel])return;
     marcasVistas[chaveSel]=true;
     var existente=list.find(function(a){return (a.modelo||'').toUpperCase()===modeloU&&(a.serie||'').toUpperCase()===serieU&&(a.codigo||'').toUpperCase()===cod&&(a.marca||'').toUpperCase()===marcaU;});
-    if(existente){existente.desc=it.desc||existente.desc;if(componente)existente.equip=componente;if(veiculo)existente.veiculo=veiculo;upd++;}
-    else{list.push({id:'apl_'+Date.now()+'_'+i,modelo:modelo,serie:serie,codigo:it.codigo,desc:it.desc||'',marca:marca,equip:componente,veiculo:veiculo});add++;}
+    if(existente){existente.desc=it.desc||existente.desc;if(componente)existente.equip=componente;if(veiculo)existente.veiculo=veiculo;if(it.qtd!=null)existente.qtd=it.qtd;upd++;}
+    else{list.push({id:'apl_'+Date.now()+'_'+i,modelo:modelo,serie:serie,codigo:it.codigo,desc:it.desc||'',marca:marca,equip:componente,veiculo:veiculo,qtd:it.qtd!=null?it.qtd:null});add++;}
     // Também grava na ficha do produto (Cadastro de Produtos > Aplicações), pra aparecer lá também
     vendasPatchAplicacaoNoProduto(it.codigo,marca,modelo,serie);
   });
@@ -34452,7 +34468,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.559) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.560) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -34725,4 +34741,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.559 --></html>
+</script></div></div></body><!-- Build timestamp: v115.560 --></html>

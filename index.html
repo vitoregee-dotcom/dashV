@@ -7,10 +7,15 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.574 - Mapa de Compras e Solicitacoes: celulas de TITULO/CLIENTE sem white-space:nowrap
-podiam quebrar em 2 linhas quando o texto era longo (ex: "VENDA CASADA, PEDIDO: 368323"),
-e com o padding da linha reduzido isso ficava sobrepondo visualmente. Agora trunca com
-"..." em vez de quebrar linha, em todas as celulas de titulo/cliente das duas tabelas. -->
+<!-- v115.575 - CORRIGIDO bug de exclusao "ressuscitando" em Cadastros (fornecedores,
+clientes, produtos, aplicacoes/vinculos de peca): excluir algo salva local e manda pro
+Supabase, mas esse envio e' assincrono (leva um tempinho); se QUALQUER sincronizacao de
+entrada rodasse nesse meio tempo (recarregar pagina, trocar aba, sync periodico), ela
+buscava o servidor -- que ainda nao sabia da exclusao -- e trazia o item de volta, porque
+a mesclagem so sabia ADICIONAR o que faltava local, nunca REMOVER. Agora cadSave() marca
+"mudei isso agora", e cadPullSupabase() ignora o pull se a mudanca local for mais recente
+que a ultima atualizacao do servidor -- a exclusao nao pode mais ser desfeita por uma
+sincronizacao concorrente. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -599,7 +604,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.574</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.575</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -718,7 +723,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.574</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.575</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22887,7 +22892,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.574): a desativação em v115.574 causou travamento no iPad — restaurando
+// REVERTIDO (v115.575): a desativação em v115.575 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22913,9 +22918,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.574): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.575): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.574) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.575) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -24016,6 +24021,10 @@ function cadRenderProdutosV3(el){
 function cadLoad(key){try{return JSON.parse(localStorage.getItem(key)||'[]');}catch(e){return[];}}
 function cadSave(key,data){
   pfSafeSetItem(key,JSON.stringify(data));
+  // Marca "mudei isso agora" -- usado pelo cadPullSupabase pra não deixar uma
+  // sincronização de entrada (que ainda não sabe dessa mudança) sobrescrever ela,
+  // trazendo de volta algo que acabou de ser excluído localmente.
+  pfSafeSetItem('cad_local_change_ts_'+key, Date.now());
   // Sempre sincroniza com Supabase ao salvar - garante servidor como fonte de verdade
   if(typeof sbUser!=='undefined'&&sbUser&&typeof cadPushSupabase==='function'){
     cadPushSupabase();
@@ -24714,9 +24723,19 @@ async function cadPullSupabase(){
     if(!data||!data.length){console.log('cadPullSupabase: nenhum cadastro no Supabase ainda');return;}
     data.forEach(function(row){
       try{
+        var key=row.tipo==='fornecedores'?FORN_KEY:row.tipo==='clientes'?CLIE_KEY:row.tipo==='aplicacoes'?(typeof APLIC_KEY!=='undefined'?APLIC_KEY:'cad_aplicacoes_v1'):row.tipo==='cadr_historico'?(typeof CADR_HIST_KEY!=='undefined'?CADR_HIST_KEY:'cadr_historico_scripts_v1'):row.tipo==='relacionados'?(typeof RELAC_KEY!=='undefined'?RELAC_KEY:'cad_relacionados_v1'):row.tipo==='import_templates'?(typeof IMPORT_TPL_KEY!=='undefined'?IMPORT_TPL_KEY:'cad_import_templates_v1'):row.tipo==='solicitacoes_compras'?(typeof SOLIC_KEY!=='undefined'?SOLIC_KEY:'cad_solicitacoes_compras_v1'):(typeof PROD_KEY!=='undefined'?PROD_KEY:'cad_produtos_v1');
+        // Proteção contra corrida: se alguma mudança local (ex: uma exclusão) aconteceu
+        // DEPOIS da última atualização que o servidor registra, é sinal de que o push
+        // dessa mudança ainda não chegou lá -- nesse caso NÃO sobrescreve o local com
+        // o que veio do servidor (senão a exclusão "ressuscitava" o item excluído).
+        var lastLocalChangeTs=parseInt(localStorage.getItem('cad_local_change_ts_'+key)||'0',10);
+        var servidorTs=row.updated_at?new Date(row.updated_at).getTime():0;
+        if(lastLocalChangeTs&&lastLocalChangeTs>servidorTs){
+          console.warn('⏭️ '+row.tipo+': ignorando pull -- mudança local mais recente que o servidor ainda não sincronizou.');
+          return;
+        }
         var items=typeof row.dados==='string'?JSON.parse(row.dados):row.dados;
         if(!Array.isArray(items))return;
-        var key=row.tipo==='fornecedores'?FORN_KEY:row.tipo==='clientes'?CLIE_KEY:row.tipo==='aplicacoes'?(typeof APLIC_KEY!=='undefined'?APLIC_KEY:'cad_aplicacoes_v1'):row.tipo==='cadr_historico'?(typeof CADR_HIST_KEY!=='undefined'?CADR_HIST_KEY:'cadr_historico_scripts_v1'):row.tipo==='relacionados'?(typeof RELAC_KEY!=='undefined'?RELAC_KEY:'cad_relacionados_v1'):row.tipo==='import_templates'?(typeof IMPORT_TPL_KEY!=='undefined'?IMPORT_TPL_KEY:'cad_import_templates_v1'):row.tipo==='solicitacoes_compras'?(typeof SOLIC_KEY!=='undefined'?SOLIC_KEY:'cad_solicitacoes_compras_v1'):(typeof PROD_KEY!=='undefined'?PROD_KEY:'cad_produtos_v1');
         var keyId=row.tipo==='fornecedores'||row.tipo==='clientes'||row.tipo==='produtos'||row.tipo==='aplicacoes'?'id':null;
         // Mescla em vez de substituir cego: nunca perde itens que existem só local
         // (ex: cadastrados durante uma falha de sincronização) — Supabase só "ganha"
@@ -34705,7 +34724,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.574) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.575) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -34978,4 +34997,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.574 --></html>
+</script></div></div></body><!-- Build timestamp: v115.575 --></html>

@@ -7,14 +7,11 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.576 - Achado o motivo real do vinculo de peca "ressuscitado" continuar voltando
-mesmo apos a correcao anterior (v115.575): a exclusao ate registrava o item numa lista
-de "excluidos" (prod_aplicacoes_deletados) pra sync nunca trazer de volta -- MAS varios
-desses vinculos (importados em lote, sem "id" proprio) tinham id=null, e o codigo so
-registrava exclusao quando tinha um id valido (if(id&&...)) -- entao itens sem id nunca
-entravam na lista de excluidos e voltavam sempre. Criada uma chave alternativa (id, ou
-modelo+serie+codigo+marca+componente quando nao tem id) usada tanto na hora de excluir
-quanto na hora do pull respeitar a exclusao -- cobre os vinculos sem id tambem. -->
+<!-- v115.577 - Padronizado o modal de confirmacao de exclusao: os 3 lugares do sistema
+que ainda usavam a caixinha feia nativa do navegador (confirm()) -- excluir grupo de
+Aplicacoes, excluir cotacao em Vendas, e zerar precos negativos -- agora usam o mesmo
+modal bonito (pfConfirm) ja usado no resto do sistema. Daqui pra frente, toda nova
+confirmacao de exclusao/acao irreversivel deve usar pfConfirm(msg, callback, label). -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -603,7 +600,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.576</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.577</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -722,7 +719,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.576</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.577</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22891,7 +22888,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.576): a desativação em v115.576 causou travamento no iPad — restaurando
+// REVERTIDO (v115.577): a desativação em v115.577 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22917,9 +22914,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.576): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.577): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.576) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.577) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -23914,7 +23911,7 @@ function aplicChaveUnica(a){
 }
 // Exclui TODOS os itens de um grupo (Modelo+Série) de uma vez, pra refazer do zero
 function cadExcluirGrupoAplicacao(chave,qtd){
-  if(!confirm('Excluir os '+qtd+' vínculo(s) de peça desse grupo inteiro? Essa ação não pode ser desfeita.'))return;
+  pfConfirm('Excluir os '+qtd+' vínculo(s) de peça desse grupo inteiro? Essa ação não pode ser desfeita.', function(){
   var partes=chave.split('|||');
   var modeloAlvo=partes[0],serieAlvo=partes[1];
   var todos=aplicLoad();
@@ -23926,6 +23923,7 @@ function cadExcluirGrupoAplicacao(chave,qtd){
   aplicSave(lista);
   window._cadAplicAberto=null;
   cadGoTab('aplicacoes');
+  }, 'Excluir');
 }
 function cadRemoverAplicacao(chaveAlvo){
   pfMarcarAplicacoesDeletadas([chaveAlvo]);
@@ -32255,7 +32253,7 @@ function vendasAtualizarLista(){
     tdAct.appendChild(actWrap);
     (function(nn){
       bv.onclick=function(e){e.stopPropagation();var cs=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');var cx=cs.find(function(x){return x.num===nn;});if(cx)vendasAbrirModal(cx);};
-      bd.onclick=function(e){e.stopPropagation();if(!confirm('EXCLUIR #'+nn+'?'))return;var cs=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');cs=cs.filter(function(x){return x.num!==nn;});pfSafeSetItem(COTS_KEY,JSON.stringify(cs));if(window._vendasSelected===nn){window._vendasSelected=null;var pv=document.getElementById('vendasPreview');if(pv)pv.style.display='none';}vendasAtualizarLista();};
+      bd.onclick=function(e){e.stopPropagation();pfConfirm('Excluir a cotação #'+nn+'?',function(){var cs=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');cs=cs.filter(function(x){return x.num!==nn;});pfSafeSetItem(COTS_KEY,JSON.stringify(cs));if(window._vendasSelected===nn){window._vendasSelected=null;var pv=document.getElementById('vendasPreview');if(pv)pv.style.display='none';}vendasAtualizarLista();},'Excluir');};
       tr.onclick=function(){
         var now=Date.now();
         if(window._vendasLastTapNum===nn && (now-(window._vendasLastTapTime||0))<450){
@@ -32368,11 +32366,12 @@ function vendasAplicarDesconto(){
 }
 
 function vendasZerarNegativos(){
-  if(!confirm('Zerar o preço de venda de todos os itens negativos (sem saldo)?'))return;
+  pfConfirm('Zerar o preço de venda de todos os itens negativos (sem saldo)?', function(){
   (window._venda.itens||[]).forEach(function(it){
     if(!it.saldo||it.saldo<=0)it.vendaOverride=0;
   });
   vendasRefresh();
+  }, 'Zerar');
 }
 
 function vendasEnviarTodosNeg(){
@@ -34765,7 +34764,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.576) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.577) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -35038,4 +35037,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.576 --></html>
+</script></div></div></body><!-- Build timestamp: v115.577 --></html>

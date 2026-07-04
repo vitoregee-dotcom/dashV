@@ -7,7 +7,14 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.562 - Import de Catalogo: itens ja existentes (marcados "ja existe") vinham DESMARCADOS por padrao na tela de revisao, entao ficavam de fora do import se o usuario nao marcasse manualmente -- e sem estar selecionado, a aplicacao/quantidade nao era processada pra esse item. Agora todos os itens vem marcados por padrao (reimportar um item existente e seguro, so atualiza aplicacao/quantidade/vinculo com catalogo sem duplicar produto). -->
+<!-- v115.563 - Mapa de Compras e Solicitacoes: (1) numeracao unificada -- todo mapa agora
+sempre recebe um numero sequencial (contador unico), tanto os criados via "+Novo Mapa"
+quanto os vinculados a uma Solicitacao, corrigindo numeros duplicados (ex: dois mapas
+diferentes mostrando "0001") e mapas sem numero nenhum; mapas legados sem numero sao
+auto-reparados na proxima carga da lista. (2) Lista de "Mapas em andamento" e lista de
+"Solicitacoes de Compras" trocadas de cards para tabela, no estilo da tela de Cotacoes
+(cabecalho azul, colunas #/Titulo/Cliente/Status/Itens/Data/Acoes); a Solicitacao tipo
+Mapa Master mantem o recurso de expandir e ver o detalhamento por fornecedor. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -596,7 +603,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.562</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.563</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -715,7 +722,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.562</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.563</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -21527,7 +21534,21 @@ function mapaCriarOuAtualizarSolicitacaoInicial(){
 
     if(!solicMapa){
       var numero='SOL-'+String(mapaProximoNumeroSolic()).padStart(5,'0');
-      var numeroMapa='MAPA-'+String(mapaProximoNumeroMapa()).padStart(4,'0');
+      // Reaproveita o número REAL do mapa de origem (garante que exista, criando um
+      // se por acaso esse mapa ainda não tiver — evita 2 contadores independentes
+      // gerando "0001" pra mapas diferentes, que era a causa da duplicação vista).
+      var _mapaOrigemNum=(function(){
+        try{
+          var _lst=JSON.parse(localStorage.getItem(MAPAS_LIST_KEY)||'[]');
+          var _m=_lst.find(function(x){return x.id===mapaEstadoId;});
+          if(_m){
+            if(!_m.numero){_m.numero=mapaProximoNumero();pfSafeSetItem(MAPAS_LIST_KEY,JSON.stringify(_lst));}
+            return _m.numero;
+          }
+        }catch(e){}
+        return mapaProximoNumero();
+      })();
+      var numeroMapa='MAPA-'+_mapaOrigemNum.replace(/^MAPA[-\s]*/i,'');
       solicMapa={
         id:'sol_mapaMaster_'+mapaEstadoId,
         numero:numero,
@@ -22870,7 +22891,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.562): a desativação em v115.562 causou travamento no iPad — restaurando
+// REVERTIDO (v115.563): a desativação em v115.563 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22896,9 +22917,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.562): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.563): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.562) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.563) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -28358,8 +28379,24 @@ setTimeout(function(){
 var MAPAS_LIST_KEY = 'mapas_lista_v1';
 
 function mapaListarSalvos(){
-  try{return JSON.parse(localStorage.getItem(MAPAS_LIST_KEY)||'[]');}
-  catch(e){return[];}
+  var lista;
+  try{lista=JSON.parse(localStorage.getItem(MAPAS_LIST_KEY)||'[]');}
+  catch(e){lista=[];}
+  // Auto-repara mapas sem numeração — pode acontecer em mapas legados ou criados
+  // por um fluxo que não passou pelo diálogo "+ Novo Mapa" (única fonte de número
+  // antes desta correção). Preenche com o próximo número sequencial e persiste,
+  // pra não ficar recalculando (e mudando) o número a cada render.
+  var mudou=false;
+  lista.forEach(function(m){
+    if(!m.numero){
+      m.numero=mapaProximoNumero();
+      mudou=true;
+    }
+  });
+  if(mudou){
+    try{pfSafeSetItem(MAPAS_LIST_KEY, JSON.stringify(lista));}catch(e){}
+  }
+  return lista;
 }
 
 function mapaSalvarNaLista(estado){
@@ -28526,30 +28563,36 @@ mapaRender = function(){
     } else if(!listaFiltrada.length){
       html+='<div style="text-align:center;padding:24px;color:#8a9ab0;font-size:13px">Nenhum mapa encontrado pra "'+pfEscHtml(window._mapasFiltro)+'".</div>';
     } else {
-      html+='<div style="background:#fff;border:1px solid #e0e8f0;border-radius:10px;overflow:hidden">';
+      html+='<div style="overflow-x:auto;border:1px solid #e0e8f0;border-radius:10px">';
+      html+='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:720px">';
+      html+='<thead><tr style="background:#1F4E79;color:#fff">';
+      html+='<th style="padding:8px 10px;text-align:left;font-size:10px;white-space:nowrap">#</th>';
+      html+='<th style="padding:8px 10px;text-align:left;font-size:10px">TÍTULO</th>';
+      html+='<th style="padding:8px 10px;text-align:left;font-size:10px">CLIENTE</th>';
+      html+='<th style="padding:8px 10px;text-align:center;font-size:10px">STATUS</th>';
+      html+='<th style="padding:8px 10px;text-align:center;font-size:10px;white-space:nowrap">ITENS</th>';
+      html+='<th style="padding:8px 10px;text-align:left;font-size:10px;white-space:nowrap">DATA</th>';
+      html+='<th style="padding:8px 10px;text-align:right;font-size:10px">AÇÕES</th>';
+      html+='</tr></thead><tbody>';
       listaFiltrada.forEach(function(m){
         var dt=new Date(m.ts).toLocaleString('pt-BR');
         var st=statusInfo(m.step);
-        html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #f0f4f8;gap:10px;flex-wrap:wrap">';
-        html+='<div style="flex:1;min-width:160px">'+
-          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
-            (m.numero?'<span style="font-size:12px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 8px;border-radius:5px">'+pfEscHtml(m.numero)+'</span>':'')+
-            '<b style="color:#1F4E79;font-size:14px">'+pfEscHtml(m.titulo)+'</b>'+
-            '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;background:'+st.bg+';color:'+st.cor+'">'+st.label+'</span>'+
-          '</div>'+
-          (m.cliente?'<div style="font-size:12px;color:#1a2332;margin-top:1px"><span style="color:#8a9ab0">Cliente:</span> <b>'+pfEscHtml(m.cliente)+'</b></div>':'')+
-          '<div style="font-size:12px;color:#8a9ab0;margin-top:1px">'+m.nItens+' item(ns) · '+dt+(m.criadoPor&&m.criadoPor.nome?' · Por: '+pfEscHtml(m.criadoPor.nome):'')+(function(){
-            var prog=typeof solicCalcularProgressoMapa==='function'?solicCalcularProgressoMapa({mapaOrigem:m.id}):null;
-            return (prog&&prog.fornTotal)?' · '+prog.itensComPreco+'/'+prog.itensTotal+' itens · '+prog.fornRespondidos+'/'+prog.fornTotal+' forn.':'';
-          })()+'</div>'+
-        '</div>';
-        html+='<div style="display:flex;gap:6px;flex-wrap:nowrap">';
-        html+='<button onclick="mapaCarregarDaLista(\''+m.id+'\');mapaGoStep(mapaStep);" style="font-size:12px;padding:6px 12px;background:#1F4E79;color:#fff;border:none;border-radius:6px;cursor:pointer;white-space:nowrap;font-weight:700">'+st.btn+'</button>';
-        html+='<button onclick="mapaCarregarDaLista(\''+m.id+'\');mapaGoStep(2);" style="font-size:12px;padding:6px 12px;background:none;border:1px solid #FF9500;border-radius:6px;color:#FF9500;cursor:pointer;font-weight:600;white-space:nowrap">✏️ Editar</button>';
-        html+='<button onclick="mapaConfirmExcluirDaLista(\''+m.id+'\',\''+(m.titulo||'').replace(/'/g,"\\'")+'\')" style="font-size:14px;padding:4px 8px;background:none;border:none;color:#C00000;cursor:pointer">×</button>';
-        html+='</div></div>';
+        var prog=typeof solicCalcularProgressoMapa==='function'?solicCalcularProgressoMapa({mapaOrigem:m.id}):null;
+        var progTxt=(prog&&prog.fornTotal)?(prog.itensComPreco+'/'+prog.itensTotal+' itens · '+prog.fornRespondidos+'/'+prog.fornTotal+' forn.'):'';
+        html+='<tr style="border-bottom:0.5px solid #f0f4f8" onmouseover="this.style.background=\'#f7f9fc\'" onmouseout="this.style.background=\'\'">';
+        html+='<td style="padding:8px 10px;white-space:nowrap">'+(m.numero?'<span style="font-size:11px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 8px;border-radius:5px">'+pfEscHtml(m.numero)+'</span>':'—')+'</td>';
+        html+='<td style="padding:8px 10px;font-weight:700;color:#1F4E79">'+pfEscHtml(m.titulo)+'</td>';
+        html+='<td style="padding:8px 10px;color:#1a2332">'+(m.cliente?pfEscHtml(m.cliente):'—')+'</td>';
+        html+='<td style="padding:8px 10px;text-align:center"><span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap;background:'+st.bg+';color:'+st.cor+'">'+st.label+'</span></td>';
+        html+='<td style="padding:8px 10px;text-align:center;white-space:nowrap"><span style="background:#E8F4FD;color:#185FA5;font-size:10px;font-weight:600;padding:1px 7px;border-radius:4px">'+m.nItens+'</span>'+(progTxt?'<div style="font-size:9px;color:#8a9ab0;margin-top:2px;white-space:nowrap">'+progTxt+'</div>':'')+'</td>';
+        html+='<td style="padding:8px 10px;color:#607080;white-space:nowrap">'+dt+(m.criadoPor&&m.criadoPor.nome?'<div style="font-size:9px;color:#8a9ab0">Por: '+pfEscHtml(m.criadoPor.nome)+'</div>':'')+'</td>';
+        html+='<td style="padding:8px 10px;text-align:right;white-space:nowrap">';
+        html+='<button onclick="mapaCarregarDaLista(\''+m.id+'\');mapaGoStep(mapaStep);" style="font-size:10px;padding:5px 10px;background:#1F4E79;color:#fff;border:none;border-radius:5px;cursor:pointer;white-space:nowrap;font-weight:700;margin-right:4px">'+st.btn+'</button>';
+        html+='<button onclick="mapaCarregarDaLista(\''+m.id+'\');mapaGoStep(2);" style="font-size:10px;padding:5px 9px;background:none;border:1px solid #FF9500;border-radius:5px;color:#FF9500;cursor:pointer;font-weight:600;white-space:nowrap;margin-right:4px">✏️</button>';
+        html+='<button onclick="mapaConfirmExcluirDaLista(\''+m.id+'\',\''+(m.titulo||'').replace(/'/g,"\\'")+'\')" style="font-size:12px;padding:4px 8px;background:none;border:none;color:#C00000;cursor:pointer">×</button>';
+        html+='</td></tr>';
       });
-      html+='</div>';
+      html+='</tbody></table></div>';
     }
     html+='</div></div>';
     el.innerHTML=html;
@@ -32732,9 +32775,20 @@ function solicRender(){
   } else if(!listFiltrada.length){
     html+='<div style="text-align:center;padding:24px;color:#8a9ab0;font-size:13px;background:#fff;border-radius:10px">Nenhuma solicitação encontrada pra "'+pfEscHtml(window._solicListaFiltro)+'".</div>';
   } else {
-    html+='<div style="background:#fff;border:1px solid #e0e8f0;border-radius:10px;overflow:hidden">';
+    html+='<div style="overflow-x:auto;border:1px solid #e0e8f0;border-radius:10px">';
+    html+='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:760px">';
+    html+='<thead><tr style="background:#1F4E79;color:#fff">';
+    html+='<th style="padding:8px 10px;text-align:left;font-size:10px;white-space:nowrap">#</th>';
+    html+='<th style="padding:8px 10px;text-align:left;font-size:10px">TÍTULO</th>';
+    html+='<th style="padding:8px 10px;text-align:left;font-size:10px">CLIENTE / FORNECEDOR</th>';
+    html+='<th style="padding:8px 10px;text-align:center;font-size:10px">STATUS</th>';
+    html+='<th style="padding:8px 10px;text-align:center;font-size:10px;white-space:nowrap">ITENS</th>';
+    html+='<th style="padding:8px 10px;text-align:left;font-size:10px;white-space:nowrap">DATA</th>';
+    html+='<th style="padding:8px 10px;text-align:right;font-size:10px">AÇÕES</th>';
+    html+='</tr></thead><tbody>';
     listFiltrada.forEach(function(s){
       var dt=new Date(s.data); // Mover pra cá (escopo do forEach)
+      var dtTxt=dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
       // ╔════ CASO ESPECIAL: Solicitação MAPA Master ════╗
       if(s.mapaMaster===true){
         var isExpanded=s._expanded||false;
@@ -32745,26 +32799,27 @@ function solicRender(){
         var stBg=completo?'#E1F5EE':(respondendo?'#FAEEDA':'#F1EFE8');
         var stCor=completo?'#085041':(respondendo?'#854F0B':'#444441');
         var btnLabel=completo?'Decidir & gerar OC →':(respondendo?'Lançar preços →':'Continuar →');
-        html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #f0f4f8;gap:10px;flex-wrap:wrap">';
-        html+='<div style="flex:1;min-width:160px">';
-        html+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
-          '<span style="font-size:14px;cursor:pointer;flex-shrink:0" onclick="solicToggleExpand(\''+s.id+'\')">'+(isExpanded?'▼':'▶')+'</span>'+
-          '<span style="font-size:12px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 8px;border-radius:5px">'+pfEscHtml(s.numero)+'</span>'+
-          '<b style="color:#7B2D8B;font-size:14px">🗂️ MAPA #'+(s.numeroMapa?s.numeroMapa.replace('MAPA-',''):'0001')+'</b>'+
-          '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;background:'+stBg+';color:'+stCor+'">'+stLabel+'</span>'+
-        '</div>'+
-        (s.cliente?'<div style="font-size:12px;color:#1a2332;margin-top:1px"><span style="color:#8a9ab0">Cliente:</span> <b>'+pfEscHtml(s.cliente)+'</b></div>':'')+
-        '<div style="font-size:12px;color:#8a9ab0;margin-top:1px">'+s.itens.length+' item(ns) · '+dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+(s.usuarioCriacaco?' · Por: '+pfEscHtml(s.usuarioCriacaco):'')+(prog&&prog.fornTotal?' · '+prog.itensComPreco+'/'+prog.itensTotal+' itens · '+prog.fornRespondidos+'/'+prog.fornTotal+' forn.':'')+'</div>'+
-        '</div>';
-        html+='<div style="display:flex;gap:6px;flex-shrink:0">';
-        if(s.mapaOrigem)html+='<button onclick="solicAbrirMapaOrigem(\''+s.mapaOrigem.replace(/'/g,"\\\'")+'\')" style="font-size:12px;padding:6px 12px;background:#1F4E79;color:#fff;border:none;border-radius:6px;cursor:pointer;white-space:nowrap;font-weight:700">'+btnLabel+'</button>';
-        html+='<button onclick="solicVerItens(\''+s.id.replace(/'/g,"\\\'")+'\')" style="font-size:12px;padding:6px 12px;background:none;border:1px solid #607080;border-radius:6px;color:#607080;cursor:pointer;white-space:nowrap;font-weight:500">Ver itens</button>';
-        html+='<button onclick="solicExcluir(\''+s.id.replace(/'/g,"\\\'")+'\')" style="font-size:14px;padding:4px 8px;background:none;border:none;color:#C00000;cursor:pointer">×</button>';
-        html+='</div>';
-        html+='</div>';
-        
-        // Sub-fornecedores (OCULTOS POR PADRÃO)
-        if(isExpanded){          html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:10px">';
+        var progTxt=(prog&&prog.fornTotal)?(prog.itensComPreco+'/'+prog.itensTotal+' itens · '+prog.fornRespondidos+'/'+prog.fornTotal+' forn.'):'';
+        html+='<tr style="border-bottom:0.5px solid #f0f4f8;background:#FAFBFD">';
+        html+='<td style="padding:8px 10px;white-space:nowrap">'+
+          '<span style="font-size:13px;cursor:pointer;margin-right:4px" onclick="solicToggleExpand(\''+s.id+'\')">'+(isExpanded?'▼':'▶')+'</span>'+
+          '<span style="font-size:11px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 8px;border-radius:5px">'+pfEscHtml(s.numero)+'</span>'+
+        '</td>';
+        html+='<td style="padding:8px 10px;font-weight:700;color:#7B2D8B">🗂️ MAPA #'+(s.numeroMapa?s.numeroMapa.replace('MAPA-',''):'0001')+'</td>';
+        html+='<td style="padding:8px 10px;color:#1a2332">'+(s.cliente?pfEscHtml(s.cliente):'—')+'</td>';
+        html+='<td style="padding:8px 10px;text-align:center"><span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap;background:'+stBg+';color:'+stCor+'">'+stLabel+'</span></td>';
+        html+='<td style="padding:8px 10px;text-align:center;white-space:nowrap"><span style="background:#E8F4FD;color:#185FA5;font-size:10px;font-weight:600;padding:1px 7px;border-radius:4px">'+s.itens.length+'</span>'+(progTxt?'<div style="font-size:9px;color:#8a9ab0;margin-top:2px;white-space:nowrap">'+progTxt+'</div>':'')+'</td>';
+        html+='<td style="padding:8px 10px;color:#607080;white-space:nowrap">'+dtTxt+(s.usuarioCriacaco?'<div style="font-size:9px;color:#8a9ab0">Por: '+pfEscHtml(s.usuarioCriacaco)+'</div>':'')+'</td>';
+        html+='<td style="padding:8px 10px;text-align:right;white-space:nowrap">';
+        if(s.mapaOrigem)html+='<button onclick="solicAbrirMapaOrigem(\''+s.mapaOrigem.replace(/'/g,"\\\'")+'\')" style="font-size:10px;padding:5px 10px;background:#1F4E79;color:#fff;border:none;border-radius:5px;cursor:pointer;white-space:nowrap;font-weight:700;margin-right:4px">'+btnLabel+'</button>';
+        html+='<button onclick="solicVerItens(\''+s.id.replace(/'/g,"\\\'")+'\')" style="font-size:10px;padding:5px 9px;background:none;border:1px solid #607080;border-radius:5px;color:#607080;cursor:pointer;white-space:nowrap;font-weight:500;margin-right:4px">Ver itens</button>';
+        html+='<button onclick="solicExcluir(\''+s.id.replace(/'/g,"\\\'")+'\')" style="font-size:12px;padding:4px 8px;background:none;border:none;color:#C00000;cursor:pointer">×</button>';
+        html+='</td></tr>';
+
+        // Linha expandida: breakdown por fornecedor
+        if(isExpanded){
+          html+='<tr><td colspan="7" style="padding:10px 14px;background:#F7F9FC;border-bottom:1px solid #e0e8f0">';
+          html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">';
           Object.keys(s.fornecedoresMap||{}).forEach(function(fid){
             var forn=s.fornecedoresMap[fid];
             var itensF=forn.itens.length;
@@ -32779,21 +32834,17 @@ function solicRender(){
             html+='</div>';
           });
           html+='</div>';
-        }
-        
-        // RESUMO FINAL (só mostrar quando expandido)
-        if(isExpanded){
           var totalGeral = Object.keys(s.fornecedoresMap||{}).reduce(function(sum, fid){
             var forn = s.fornecedoresMap[fid];
             var fornTotal = forn.itens.reduce(function(s, it){return s + (it.total||0);}, 0);
             return sum + fornTotal;
           }, 0);
-          html+='<div style="background:#F0F4F8;border-radius:8px;padding:8px 12px;margin-top:8px;border-left:3px solid #1F4E79;font-size:11px;color:#1F4E79;font-weight:700">Total: R$ '+totalGeral.toFixed(2)+'</div>';
+          html+='<div style="background:#fff;border-radius:8px;padding:8px 12px;margin-top:10px;border-left:3px solid #1F4E79;font-size:11px;color:#1F4E79;font-weight:700">Total: R$ '+totalGeral.toFixed(2)+'</div>';
+          html+='</td></tr>';
         }
-        html+='</div>';
         return; // próxima iteração
       }
-      
+
       // ╔════ Renderização padrão de outras Solicitações ════╗
       var ehVendaCasada=s.origem!=='mapa';
       var corOrigem=ehVendaCasada?'#1F4E79':'#7B2D8B';
@@ -32801,25 +32852,23 @@ function solicRender(){
         ('🔗 VENDA CASADA'+(s.numeroPedido?', PEDIDO: '+pfEscHtml(s.numeroPedido):'')):
         ('MAPA DE COMPRAS'+(s.numeroOC?' — '+pfEscHtml(s.numeroOC):''));
       var statusEnviado=s.status==='enviado';
-      var statusBadge='<span style="font-size:11px;padding:3px 8px;border-radius:6px;font-weight:700;background:'+(statusEnviado?'#E1F5EE':'#FAEEDA')+';color:'+(statusEnviado?'#085041':'#854F0B')+'">'+(statusEnviado?'✓ Enviado':'⏳ Pendente')+'</span>';
-      html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #f0f4f8;gap:10px;flex-wrap:wrap">';
-      html+='<div style="flex:1">'+
-        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
-          (s.numero?'<span style="font-size:12px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 8px;border-radius:5px">'+pfEscHtml(s.numero)+'</span>':'')+
-          '<b style="color:'+corOrigem+';font-size:14px">'+titulo+'</b>'+statusBadge+
-        '</div>'+
-        (s.cliente?'<div style="font-size:12px;color:#1a2332;margin-top:1px"><span style="color:#8a9ab0">Cliente:</span> <b>'+pfEscHtml(s.cliente)+'</b></div>':'')+
-        '<div style="font-size:12px;color:#8a9ab0;margin-top:1px">'+(s.fornecedor?'Fornecedor: '+pfEscHtml(s.fornecedor)+' · ':'')+s.itens.length+' item(ns) · '+(s.usuarioCriacaco?'Por: '+pfEscHtml(s.usuarioCriacaco)+' · ':'')+dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</div>'+
-      '</div>';
-      html+='<div style="display:flex;gap:6px;flex-wrap:nowrap">';
-      html+='<button onclick="solicVerItens(\''+s.id.replace(/'/g,"\\\'")+'\')" style="font-size:12px;padding:6px 12px;background:none;border:1px solid #607080;border-radius:6px;color:#607080;cursor:pointer;white-space:nowrap;font-weight:500">Ver itens</button>';
-      if(s.mapa===true)html+='<button onclick="openTab(\'mapa\',\'🗂️ Mapa de Compras\');mapaItens=[];mapaRender();" style="font-size:12px;padding:6px 12px;background:none;border:1px solid #FF9500;border-radius:6px;color:#FF9500;cursor:pointer;font-weight:600;white-space:nowrap">✏️ Editar Mapa</button>';
-      if(s.ocItens&&s.ocItens.length)html+='<button onclick="solicAbrirOC(\''+s.id.replace(/'/g,"\\\'")+'\')" style="font-size:12px;padding:6px 12px;background:none;border:1px solid #27AE60;border-radius:6px;color:#27AE60;cursor:pointer;white-space:nowrap">📄 Reabrir OC</button>';
-      html+='<button onclick="solicReabrirEmail(\''+s.id.replace(/'/g,"\\\'")+'\')" style="font-size:12px;padding:6px 12px;background:none;border:1px solid #1F4E79;border-radius:6px;color:#1F4E79;cursor:pointer;white-space:nowrap">✉️ Reabrir e-mail</button>';
-      html+='<button onclick="solicExcluir(\''+s.id.replace(/'/g,"\\\'")+'\')" style="font-size:14px;padding:4px 8px;background:none;border:none;color:#C00000;cursor:pointer">×</button>';
-      html+='</div></div>';
+      var statusBadge='<span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap;background:'+(statusEnviado?'#E1F5EE':'#FAEEDA')+';color:'+(statusEnviado?'#085041':'#854F0B')+'">'+(statusEnviado?'✓ Enviado':'⏳ Pendente')+'</span>';
+      html+='<tr style="border-bottom:0.5px solid #f0f4f8">';
+      html+='<td style="padding:8px 10px;white-space:nowrap">'+(s.numero?'<span style="font-size:11px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 8px;border-radius:5px">'+pfEscHtml(s.numero)+'</span>':'—')+'</td>';
+      html+='<td style="padding:8px 10px;font-weight:700;color:'+corOrigem+'">'+titulo+'</td>';
+      html+='<td style="padding:8px 10px;color:#1a2332">'+(s.cliente?pfEscHtml(s.cliente):(s.fornecedor?pfEscHtml(s.fornecedor):'—'))+'</td>';
+      html+='<td style="padding:8px 10px;text-align:center">'+statusBadge+'</td>';
+      html+='<td style="padding:8px 10px;text-align:center;white-space:nowrap"><span style="background:#E8F4FD;color:#185FA5;font-size:10px;font-weight:600;padding:1px 7px;border-radius:4px">'+s.itens.length+'</span></td>';
+      html+='<td style="padding:8px 10px;color:#607080;white-space:nowrap">'+dtTxt+(s.usuarioCriacaco?'<div style="font-size:9px;color:#8a9ab0">Por: '+pfEscHtml(s.usuarioCriacaco)+'</div>':'')+'</td>';
+      html+='<td style="padding:8px 10px;text-align:right;white-space:nowrap">';
+      html+='<button onclick="solicVerItens(\''+s.id.replace(/'/g,"\\\'")+'\')" style="font-size:10px;padding:5px 9px;background:none;border:1px solid #607080;border-radius:5px;color:#607080;cursor:pointer;white-space:nowrap;font-weight:500;margin-right:4px">Ver itens</button>';
+      if(s.mapa===true)html+='<button onclick="openTab(\'mapa\',\'🗂️ Mapa de Compras\');mapaItens=[];mapaRender();" style="font-size:10px;padding:5px 9px;background:none;border:1px solid #FF9500;border-radius:5px;color:#FF9500;cursor:pointer;font-weight:600;white-space:nowrap;margin-right:4px">✏️</button>';
+      if(s.ocItens&&s.ocItens.length)html+='<button onclick="solicAbrirOC(\''+s.id.replace(/'/g,"\\\'")+'\')" style="font-size:10px;padding:5px 9px;background:none;border:1px solid #27AE60;border-radius:5px;color:#27AE60;cursor:pointer;white-space:nowrap;margin-right:4px">📄 OC</button>';
+      html+='<button onclick="solicReabrirEmail(\''+s.id.replace(/'/g,"\\\'")+'\')" style="font-size:10px;padding:5px 9px;background:none;border:1px solid #1F4E79;border-radius:5px;color:#1F4E79;cursor:pointer;white-space:nowrap;margin-right:4px">✉️</button>';
+      html+='<button onclick="solicExcluir(\''+s.id.replace(/'/g,"\\\'")+'\')" style="font-size:12px;padding:4px 8px;background:none;border:none;color:#C00000;cursor:pointer">×</button>';
+      html+='</td></tr>';
     });
-    html+='</div>';
+    html+='</tbody></table></div>';
   }
   html+='</div>';
   el.innerHTML=html;
@@ -34469,7 +34518,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.562) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.563) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -34742,4 +34791,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.562 --></html>
+</script></div></div></body><!-- Build timestamp: v115.563 --></html>

@@ -7,11 +7,17 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.577 - Padronizado o modal de confirmacao de exclusao: os 3 lugares do sistema
-que ainda usavam a caixinha feia nativa do navegador (confirm()) -- excluir grupo de
-Aplicacoes, excluir cotacao em Vendas, e zerar precos negativos -- agora usam o mesmo
-modal bonito (pfConfirm) ja usado no resto do sistema. Daqui pra frente, toda nova
-confirmacao de exclusao/acao irreversivel deve usar pfConfirm(msg, callback, label). -->
+<!-- v115.578 - Cadastro de Clientes: substituido o campo unico "E-mail/Telefone/Contato"
+por Contatos por setor (Compras, Financeiro, NF-e), cada um com nome/e-mail/telefone
+proprios -- um e-mail de compras nao fica mais "solto" no campo geral do cliente. A
+leitura de documento com IA agora classifica cada contato encontrado pelo setor (pelo
+contexto no documento, ou pelo prefixo do e-mail como fallback: compras@, financeiro@,
+nfe@) e preenche o campo certo. Depois de ler o documento, se faltar informacao
+importante (CNPJ, e-mail/tel de compras, financeiro, NF-e, endereco), aparece um aviso
+com botao "Copiar mensagem pro cliente" -- gera um texto pronto pra colar e mandar
+pedindo o que falta. Corrigido tambem um bug de precedencia de operadores na busca de
+CNPJ que fazia o telefone vir como literal "(undefined) undefined" quando a API nao
+retornava ddd/telefone separados. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -600,7 +606,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.577</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.578</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -719,7 +725,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.577</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.578</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22888,7 +22894,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.577): a desativação em v115.577 causou travamento no iPad — restaurando
+// REVERTIDO (v115.578): a desativação em v115.578 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22914,9 +22920,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.577): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.578): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.577) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.578) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -24524,7 +24530,7 @@ async function cadBuscarCNPJ(ctx){
           nome_fantasia: json.nome_fantasia||json.fantasia||json.razao_social||'',
           municipio: json.municipio||json.estabelecimento&&json.estabelecimento.cidade&&json.estabelecimento.cidade.nome||'',
           uf: json.uf||json.estabelecimento&&json.estabelecimento.estado&&json.estabelecimento.estado.sigla||'',
-          ddd_telefone_1: json.ddd_telefone_1||json.ddd1&&json.telefone1?'('+json.ddd1+') '+json.telefone1:'',
+          ddd_telefone_1: json.ddd_telefone_1||(json.ddd1&&json.telefone1?'('+json.ddd1+') '+json.telefone1:''),
           logradouro: json.logradouro||'',
           numero: json.numero||'',
           bairro: json.bairro||'',
@@ -25729,6 +25735,7 @@ cadFormCliente = function(data, idx){
   html += '<div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:6px">🤖 Preencher com IA</div>';
   html += '<label style="background:#1F4E79;color:#fff;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;position:relative;overflow:hidden">📎 Subir Documento (imagem ou PDF)<input type="file" accept="image/*,application/pdf" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer" onchange="cadLerDocumentoV2(this,&quot;clie&quot;)"></label>';
   html += '<span id="cadDocClieStatus" style="font-size:11px;color:#8a9ab0;margin-left:10px"></span>';
+  html += '<div id="cadPendenciasCliente"></div>';
   html += '</div>';
 
   // CNPJ
@@ -25741,14 +25748,37 @@ cadFormCliente = function(data, idx){
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">';
   html += cadField('Razão Social *','clieRazao',d.razao||'','','text');
   html += cadField('Nome Fantasia','clieFantasia',d.fantasia||'','','text');
-  html += cadField('E-mail','clieEmail',d.email||'','cliente@empresa.com','email');
-  html += cadField('Telefone','clieTel',d.tel||'','(00) 00000-0000','text');
-  html += cadField('Contato','clieContato',d.contato||'','','text');
   html += cadField('Cidade / UF','clieCidade',d.cidade||'','','text');
   html += cadField('Endereço','clieEndereco',d.endereco||'','Rua, número, bairro','text');
   html += cadField('Estado','clieEstado',d.estado||'','UF','text');
   html += '</div>';
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:14px">';
+
+  // Contatos por setor -- um e-mail de compras não deve ficar "solto" num campo
+  // genérico do cliente; cada setor tem seu próprio contato, igual referências
+  // comerciais/financeiras já são tratadas em outras partes do sistema.
+  var cc=d.contatoCompras||{}, cf=d.contatoFinanceiro||{}, cn=d.contatoNfe||{};
+  html += '<div style="margin-top:18px">';
+  html += '<div style="font-size:12px;font-weight:800;color:#1F4E79;margin-bottom:10px">📇 Contatos</div>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;background:#F8FAFC;border:1px solid #e0e8f0;border-radius:10px;padding:14px">';
+  html += '<div><div style="font-size:11px;font-weight:800;color:#1F4E79;text-transform:uppercase;margin-bottom:8px">🛒 Compras</div>'+
+    cadField('Nome','clieContatoComprasNome',cc.nome||'','','text')+
+    '<div style="margin-top:8px">'+cadField('E-mail','clieContatoComprasEmail',cc.email||'','compras@empresa.com','email')+'</div>'+
+    '<div style="margin-top:8px">'+cadField('Telefone/WhatsApp','clieContatoComprasTel',cc.tel||'','(00) 00000-0000','text')+'</div>'+
+  '</div>';
+  html += '<div><div style="font-size:11px;font-weight:800;color:#085041;text-transform:uppercase;margin-bottom:8px">💰 Financeiro</div>'+
+    cadField('Nome','clieContatoFinanceiroNome',cf.nome||'','','text')+
+    '<div style="margin-top:8px">'+cadField('E-mail','clieContatoFinanceiroEmail',cf.email||'','financeiro@empresa.com','email')+'</div>'+
+    '<div style="margin-top:8px">'+cadField('Telefone','clieContatoFinanceiroTel',cf.tel||'','(00) 00000-0000','text')+'</div>'+
+  '</div>';
+  html += '<div><div style="font-size:11px;font-weight:800;color:#854F0B;text-transform:uppercase;margin-bottom:8px">📄 NF-e</div>'+
+    cadField('E-mail p/ envio de NF-e','clieContatoNfeEmail',cn.email||'','nfe@empresa.com','email')+
+  '</div>';
+  html += '</div>';
+  html += '<div style="margin-top:10px"><div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">E-mail / Telefone Geral <span style="font-weight:400;text-transform:none;color:#8a9ab0">(recepção, sem setor específico)</span></div>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'+cadField('E-mail Geral','clieEmail',d.email||'','contato@empresa.com','email')+cadField('Telefone Geral','clieTel',d.tel||'','(00) 00000-0000','text')+'</div></div>';
+  html += '</div>';
+
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:18px">';
   html += cadSelect('Tipo *','clieTipo',['CONSUMIDOR','REVENDEDOR','OFICINA'],d.tipo||'');
   html += cadSelect('Linha','clieLinhaOp',['LINHA AMARELA','LINHA VERDE/AGRÍCOLA'],d.linha||'');
   html += cadSelect('Setor','clieSetor',['CONSTRUÇÃO','MINERAÇÃO','ENERGIA','TRANSPORTE RODOVIÁRIO','MOVIMENTAÇÃO DE CARGA','MARÍTIMO'],d.setor||'');
@@ -25862,7 +25892,19 @@ function cadSalvarClienteV2(idx){
     email:document.getElementById('clieEmail').value||'',
     tel:document.getElementById('clieTel').value||'',
     whatsapp:document.getElementById('clieWhatsapp')?document.getElementById('clieWhatsapp').value||'':'',
-    contato:document.getElementById('clieContato').value||'',
+    contatoCompras:{
+      nome:document.getElementById('clieContatoComprasNome')?document.getElementById('clieContatoComprasNome').value||'':'',
+      email:document.getElementById('clieContatoComprasEmail')?document.getElementById('clieContatoComprasEmail').value||'':'',
+      tel:document.getElementById('clieContatoComprasTel')?document.getElementById('clieContatoComprasTel').value||'':'',
+    },
+    contatoFinanceiro:{
+      nome:document.getElementById('clieContatoFinanceiroNome')?document.getElementById('clieContatoFinanceiroNome').value||'':'',
+      email:document.getElementById('clieContatoFinanceiroEmail')?document.getElementById('clieContatoFinanceiroEmail').value||'':'',
+      tel:document.getElementById('clieContatoFinanceiroTel')?document.getElementById('clieContatoFinanceiroTel').value||'':'',
+    },
+    contatoNfe:{
+      email:document.getElementById('clieContatoNfeEmail')?document.getElementById('clieContatoNfeEmail').value||'':'',
+    },
     cidade:document.getElementById('clieCidade').value||'',
     estado:document.getElementById('clieEstado').value||'',
     endereco:document.getElementById('clieEndereco').value||'',
@@ -25881,27 +25923,94 @@ function cadSalvarClienteV2(idx){
 }
 
 // ── Upload documento v2: suporta imagem E PDF ────────────────────
+// Classifica um e-mail encontrado no documento pelo prefixo, quando a IA não
+// conseguir dizer o setor pelo contexto (ex: "compras@empresa.com" -> compras).
+function pfClassificarEmailContato(email){
+  var pre=(email||'').split('@')[0].toLowerCase();
+  if(/compra|purchasing|suprimento/.test(pre))return 'compras';
+  if(/financeiro|^fin$|contabil|cobranc/.test(pre))return 'financeiro';
+  if(/nfe|fiscal|^notas?$|xml/.test(pre))return 'nfe';
+  return 'geral';
+}
 async function cadLerDocumentoV2(input, ctx){
   var file=input.files[0];if(!file)return;
   var statusEl=document.getElementById('cadDoc'+(ctx==='forn'?'Forn':'Clie')+'Status');
   if(statusEl)statusEl.textContent='🤖 Lendo...';
   try{
-    var txt=await _anthropicReadDoc(file,'Extraia os dados de cadastro desta empresa. Retorne APENAS JSON: {"cnpj":"somente numeros","razao_social":"","nome_fantasia":"","email":"","telefone":"","cidade":"","uf":"","endereco":""}. Campos não encontrados: string vazia.');
+    var promptBase='Extraia os dados de cadastro desta empresa. Retorne APENAS JSON: {"cnpj":"somente numeros","razao_social":"","nome_fantasia":"","cidade":"","uf":"","endereco":"","contatos":[{"tipo":"compras|financeiro|nfe|geral","nome":"","email":"","telefone":""}]}. '+
+      'No campo "contatos", extraia TODOS os e-mails/telefones de contato encontrados no documento, um item por pessoa/e-mail, classificando "tipo" pelo contexto (ex: se aparecer perto de "Compras", "Financeiro/Contas a Pagar" ou "NF-e/Fiscal" no documento) -- se não der pra saber o setor, use "geral". Campos não encontrados: string vazia.';
+    var txt=await _anthropicReadDoc(file,promptBase);
     var m=txt.match(/\{[\s\S]*\}/);if(m)txt=m[0];
     var d=JSON.parse(txt);
     var p=ctx==='forn'?'forn':'clie';
     if(d.cnpj){var cnpj=d.cnpj.replace(/[^0-9]/g,'');if(cnpj.length===14)document.getElementById(p+'Cnpj').value=cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');}
-    var fm={razao_social:p+'Razao',nome_fantasia:p+'Fantasia',email:p+'Email',telefone:p+'Tel',cidade:p+'Cidade',uf:p+'Estado'};
+    var fm={razao_social:p+'Razao',nome_fantasia:p+'Fantasia',cidade:p+'Cidade',uf:p+'Estado'};
     if(ctx==='clie')fm.endereco='clieEndereco';
     Object.keys(fm).forEach(function(k){if(d[k]){var el=document.getElementById(fm[k]);if(el&&!el.value)el.value=d[k];}});
+
+    // Fornecedor continua com e-mail/telefone únicos (sem contatos por setor ainda)
+    if(ctx==='forn'){
+      var contatoForn=(d.contatos||[])[0]||{email:d.email,telefone:d.telefone};
+      if(contatoForn.email){var el=document.getElementById('fornEmail');if(el&&!el.value)el.value=contatoForn.email;}
+      if(contatoForn.telefone){var el2=document.getElementById('fornTel');if(el2&&!el2.value)el2.value=contatoForn.telefone;}
+    } else {
+      // Cliente: distribui cada contato encontrado pro campo do setor certo
+      (d.contatos||[]).forEach(function(c){
+        var tipo=c.tipo;
+        if(c.email){var tipoPorEmail=pfClassificarEmailContato(c.email);if(!tipo||tipo==='geral')tipo=tipoPorEmail;}
+        var prefixo=tipo==='compras'?'clieContatoCompras':tipo==='financeiro'?'clieContatoFinanceiro':tipo==='nfe'?'clieContatoNfe':null;
+        if(prefixo){
+          if(c.nome&&document.getElementById(prefixo+'Nome')&&!document.getElementById(prefixo+'Nome').value)document.getElementById(prefixo+'Nome').value=c.nome;
+          if(c.email&&document.getElementById(prefixo+'Email')&&!document.getElementById(prefixo+'Email').value)document.getElementById(prefixo+'Email').value=c.email;
+          if(c.telefone&&document.getElementById(prefixo+'Tel')&&!document.getElementById(prefixo+'Tel').value)document.getElementById(prefixo+'Tel').value=c.telefone;
+        } else {
+          if(c.email&&document.getElementById('clieEmail')&&!document.getElementById('clieEmail').value)document.getElementById('clieEmail').value=c.email;
+          if(c.telefone&&document.getElementById('clieTel')&&!document.getElementById('clieTel').value)document.getElementById('clieTel').value=c.telefone;
+        }
+      });
+    }
     if(statusEl)statusEl.innerHTML='<span style="color:#27AE60">✅ Dados preenchidos!</span>';
     if(d.cnpj&&d.cnpj.replace(/[^0-9]/g,'').length===14)setTimeout(function(){cadBuscarCNPJ(ctx);},400);
+    if(ctx==='clie')setTimeout(cadMostrarPendenciasCliente,500);
     setTimeout(function(){if(statusEl)statusEl.textContent='';},4000);
   }catch(e){
     console.error(e);
     if(statusEl)statusEl.innerHTML='<span style="color:#C00000">❌ '+e.message+' — <button onclick="cadColarTextoDoc(&quot;'+ctx+'&quot;)" style="background:none;border:none;color:#1F4E79;cursor:pointer;text-decoration:underline;font-size:11px">Colar texto</button></span>';
     setTimeout(function(){if(statusEl&&statusEl.querySelector)statusEl.textContent='';},8000);
   }
+}
+// Depois de ler o documento, confere quais informações importantes ainda faltam
+// e mostra um botão pra copiar uma mensagem pronta pra pedir isso ao cliente.
+function cadMostrarPendenciasCliente(){
+  var g=function(id){var el=document.getElementById(id);return el?(el.value||'').trim():'';};
+  var faltando=[];
+  if(!g('clieCnpj'))faltando.push('CNPJ');
+  if(!g('clieContatoComprasEmail')&&!g('clieEmail'))faltando.push('E-mail de Compras');
+  if(!g('clieContatoComprasTel')&&!g('clieTel'))faltando.push('Telefone/WhatsApp de Compras');
+  if(!g('clieContatoFinanceiroEmail'))faltando.push('E-mail Financeiro');
+  if(!g('clieContatoNfeEmail'))faltando.push('E-mail para envio de NF-e');
+  if(!g('clieCidade'))faltando.push('Cidade/UF');
+  if(!g('clieEndereco'))faltando.push('Endereço completo');
+  var box=document.getElementById('cadPendenciasCliente');
+  if(!box)return;
+  if(!faltando.length){box.innerHTML='';return;}
+  var razao=g('clieRazao')||'sua empresa';
+  var msg='Olá! Pra finalizar o cadastro de '+razao+' aqui no nosso sistema, preciso que me confirme:\n\n'+
+    faltando.map(function(f){return '• '+f;}).join('\n')+
+    '\n\nPode me passar essas informações? Obrigado!';
+  box.innerHTML='<div style="margin-top:14px;background:#FFF8E6;border:1px solid #F5D98B;border-radius:10px;padding:12px 14px">'+
+    '<div style="font-size:12px;font-weight:700;color:#854F0B;margin-bottom:6px">⚠️ Faltam '+faltando.length+' informação(ões) importante(s): '+faltando.join(', ')+'</div>'+
+    '<button onclick="pfCopiarPendenciasCliente()" style="background:#1F4E79;color:#fff;border:none;border-radius:7px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:700">📋 Copiar mensagem pro cliente</button>'+
+    '<span id="cadPendCopiadoOk" style="margin-left:8px;font-size:11px;color:#27AE60;display:none">Copiado!</span>'+
+  '</div>';
+  window._cadPendMsg=msg;
+}
+function pfCopiarPendenciasCliente(){
+  if(!window._cadPendMsg)return;
+  navigator.clipboard.writeText(window._cadPendMsg).then(function(){
+    var ok=document.getElementById('cadPendCopiadoOk');
+    if(ok){ok.style.display='inline';setTimeout(function(){ok.style.display='none';},2500);}
+  });
 }
 
 function cadColarTextoDoc(ctx){
@@ -34764,7 +34873,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.577) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.578) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -35037,4 +35146,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.577 --></html>
+</script></div></div></body><!-- Build timestamp: v115.578 --></html>

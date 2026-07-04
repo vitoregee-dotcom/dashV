@@ -7,17 +7,11 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.578 - Cadastro de Clientes: substituido o campo unico "E-mail/Telefone/Contato"
-por Contatos por setor (Compras, Financeiro, NF-e), cada um com nome/e-mail/telefone
-proprios -- um e-mail de compras nao fica mais "solto" no campo geral do cliente. A
-leitura de documento com IA agora classifica cada contato encontrado pelo setor (pelo
-contexto no documento, ou pelo prefixo do e-mail como fallback: compras@, financeiro@,
-nfe@) e preenche o campo certo. Depois de ler o documento, se faltar informacao
-importante (CNPJ, e-mail/tel de compras, financeiro, NF-e, endereco), aparece um aviso
-com botao "Copiar mensagem pro cliente" -- gera um texto pronto pra colar e mandar
-pedindo o que falta. Corrigido tambem um bug de precedencia de operadores na busca de
-CNPJ que fazia o telefone vir como literal "(undefined) undefined" quando a API nao
-retornava ddd/telefone separados. -->
+<!-- v115.579 - Cadastro de Clientes: adicionado Inscricao Estadual, Site, e 3 listas
+dinamicas (Referencias Comerciais, Referencias Bancarias, Transportadoras), cada uma
+com Nome/Cidade-UF/Telefone e botao "+ Adicionar". A leitura de documento com IA agora
+extrai TODOS os itens dessas listas encontrados no documento (ficha cadastral, etc.),
+mesclando com o que ja estava no formulario sem duplicar por nome. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -606,7 +600,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.578</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.579</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -725,7 +719,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.578</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.579</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22894,7 +22888,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.578): a desativação em v115.578 causou travamento no iPad — restaurando
+// REVERTIDO (v115.579): a desativação em v115.579 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22920,9 +22914,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.578): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.579): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.578) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.579) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -25748,6 +25742,8 @@ cadFormCliente = function(data, idx){
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">';
   html += cadField('Razão Social *','clieRazao',d.razao||'','','text');
   html += cadField('Nome Fantasia','clieFantasia',d.fantasia||'','','text');
+  html += cadField('Inscrição Estadual','clieIE',d.inscricaoEstadual||'','','text');
+  html += cadField('Site','clieSite',d.site||'','www.empresa.com.br','text');
   html += cadField('Cidade / UF','clieCidade',d.cidade||'','','text');
   html += cadField('Endereço','clieEndereco',d.endereco||'','Rua, número, bairro','text');
   html += cadField('Estado','clieEstado',d.estado||'','UF','text');
@@ -25777,6 +25773,15 @@ cadFormCliente = function(data, idx){
   html += '<div style="margin-top:10px"><div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">E-mail / Telefone Geral <span style="font-weight:400;text-transform:none;color:#8a9ab0">(recepção, sem setor específico)</span></div>';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'+cadField('E-mail Geral','clieEmail',d.email||'','contato@empresa.com','email')+cadField('Telefone Geral','clieTel',d.tel||'','(00) 00000-0000','text')+'</div></div>';
   html += '</div>';
+
+  // Listas de referência (comerciais/bancárias) e transportadoras -- guardadas em
+  // window._cadRefs pra poder adicionar/remover linhas sem perder o que já foi digitado
+  window._cadRefs = {
+    comerciais: (d.referenciasComerciais||[]).map(function(r){return {nome:r.nome||'',local:r.local||'',tel:r.tel||''};}),
+    bancarias: (d.referenciasBancarias||[]).map(function(r){return {nome:r.nome||'',local:r.local||'',tel:r.tel||''};}),
+    transportadoras: (d.transportadoras||[]).map(function(r){return {nome:r.nome||'',local:r.local||'',tel:r.tel||''};}),
+  };
+  html += '<div id="cadRefsContainer">'+cadRenderTodasRefs()+'</div>';
 
   html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:18px">';
   html += cadSelect('Tipo *','clieTipo',['CONSUMIDOR','REVENDEDOR','OFICINA'],d.tipo||'');
@@ -25881,6 +25886,52 @@ function cadFrotaAlt(btn, delta, key){
   }
 }
 
+// ── Referências Comerciais/Bancárias e Transportadoras (listas dinâmicas) ────
+var CAD_REFS_TIPOS=[
+  {key:'comerciais',label:'📋 Referências Comerciais',cor:'#1F4E79'},
+  {key:'bancarias',label:'🏦 Referências Bancárias',cor:'#085041'},
+  {key:'transportadoras',label:'🚚 Transportadoras',cor:'#854F0B'}
+];
+function cadRenderTodasRefs(){
+  return CAD_REFS_TIPOS.map(function(t){return cadRenderRefsLista(t.key,t.label,t.cor);}).join('');
+}
+function cadRenderRefsLista(tipo,label,cor){
+  var lista=(window._cadRefs&&window._cadRefs[tipo])||[];
+  var html='<div style="margin-top:18px">';
+  html+='<div style="font-size:12px;font-weight:800;color:'+cor+';margin-bottom:8px">'+label+'</div>';
+  if(lista.length){
+    html+='<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">';
+    lista.forEach(function(r,i){
+      html+='<div style="display:grid;grid-template-columns:1fr 1fr 140px 28px;gap:6px;align-items:center">'+
+        '<input type="text" value="'+pfEscHtml(r.nome)+'" placeholder="Nome" oninput="cadRefsAtualizarCampo(\''+tipo+'\','+i+',\'nome\',this.value)" style="padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:12px">'+
+        '<input type="text" value="'+pfEscHtml(r.local)+'" placeholder="Cidade/UF" oninput="cadRefsAtualizarCampo(\''+tipo+'\','+i+',\'local\',this.value)" style="padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:12px">'+
+        '<input type="text" value="'+pfEscHtml(r.tel)+'" placeholder="Telefone" oninput="cadRefsAtualizarCampo(\''+tipo+'\','+i+',\'tel\',this.value)" style="padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:12px">'+
+        '<button onclick="cadRefsRemoverLinha(\''+tipo+'\','+i+')" style="background:none;border:none;color:#C00000;font-size:16px;cursor:pointer">×</button>'+
+      '</div>';
+    });
+    html+='</div>';
+  }
+  html+='<button onclick="cadRefsAddLinha(\''+tipo+'\')" style="background:none;border:1.5px dashed '+cor+';color:'+cor+';border-radius:8px;padding:6px 14px;cursor:pointer;font-size:11px;font-weight:700">+ Adicionar</button>';
+  html+='</div>';
+  return html;
+}
+function cadRefsAtualizarCampo(tipo,i,campo,valor){
+  if(!window._cadRefs||!window._cadRefs[tipo]||!window._cadRefs[tipo][i])return;
+  window._cadRefs[tipo][i][campo]=valor;
+}
+function cadRefsAddLinha(tipo){
+  window._cadRefs=window._cadRefs||{comerciais:[],bancarias:[],transportadoras:[]};
+  window._cadRefs[tipo]=window._cadRefs[tipo]||[];
+  window._cadRefs[tipo].push({nome:'',local:'',tel:''});
+  var cont=document.getElementById('cadRefsContainer');
+  if(cont)cont.innerHTML=cadRenderTodasRefs();
+}
+function cadRefsRemoverLinha(tipo,i){
+  if(!window._cadRefs||!window._cadRefs[tipo])return;
+  window._cadRefs[tipo].splice(i,1);
+  var cont=document.getElementById('cadRefsContainer');
+  if(cont)cont.innerHTML=cadRenderTodasRefs();
+}
 function cadSalvarClienteV2(idx){
   var razao = (document.getElementById('clieRazao').value||'').trim();
   if(!razao){pfAlert('Razão Social é obrigatória.');return;}
@@ -25889,6 +25940,8 @@ function cadSalvarClienteV2(idx){
     codigo:(document.getElementById('clieCodigo')?document.getElementById('clieCodigo').value:'')||'',
     razao:razao, fantasia:document.getElementById('clieFantasia').value||'',
     cnpj:document.getElementById('clieCnpj').value||'',
+    inscricaoEstadual:document.getElementById('clieIE')?document.getElementById('clieIE').value||'':'',
+    site:document.getElementById('clieSite')?document.getElementById('clieSite').value||'':'',
     email:document.getElementById('clieEmail').value||'',
     tel:document.getElementById('clieTel').value||'',
     whatsapp:document.getElementById('clieWhatsapp')?document.getElementById('clieWhatsapp').value||'':'',
@@ -25913,6 +25966,9 @@ function cadSalvarClienteV2(idx){
     setor:document.getElementById('clieSetor').value||'',
     linhasPrinc:Array.from(document.querySelectorAll('input[name=clieLinhasPrinc]:checked')).map(function(e){return e.value;}),
     linhasSec:Array.from(document.querySelectorAll('input[name=clieLinhasSec]:checked')).map(function(e){return e.value;}),
+    referenciasComerciais:((window._cadRefs&&window._cadRefs.comerciais)||[]).filter(function(r){return r.nome||r.local||r.tel;}),
+    referenciasBancarias:((window._cadRefs&&window._cadRefs.bancarias)||[]).filter(function(r){return r.nome||r.local||r.tel;}),
+    transportadoras:((window._cadRefs&&window._cadRefs.transportadoras)||[]).filter(function(r){return r.nome||r.local||r.tel;}),
     frota:window._cadFrota||{},
     obs:document.getElementById('clieObs').value||'',
   };
@@ -25937,16 +25993,24 @@ async function cadLerDocumentoV2(input, ctx){
   var statusEl=document.getElementById('cadDoc'+(ctx==='forn'?'Forn':'Clie')+'Status');
   if(statusEl)statusEl.textContent='🤖 Lendo...';
   try{
-    var promptBase='Extraia os dados de cadastro desta empresa. Retorne APENAS JSON: {"cnpj":"somente numeros","razao_social":"","nome_fantasia":"","cidade":"","uf":"","endereco":"","contatos":[{"tipo":"compras|financeiro|nfe|geral","nome":"","email":"","telefone":""}]}. '+
-      'No campo "contatos", extraia TODOS os e-mails/telefones de contato encontrados no documento, um item por pessoa/e-mail, classificando "tipo" pelo contexto (ex: se aparecer perto de "Compras", "Financeiro/Contas a Pagar" ou "NF-e/Fiscal" no documento) -- se não der pra saber o setor, use "geral". Campos não encontrados: string vazia.';
+    var promptBase='Extraia TODOS os dados de cadastro desta empresa, sem deixar nada de fora. Retorne APENAS JSON:\n'+
+      '{"cnpj":"somente numeros","razao_social":"","nome_fantasia":"","inscricao_estadual":"","site":"","cidade":"","uf":"","endereco":"",'+
+      '"telefone_geral":"todos os telefones gerais da empresa, separados por / se tiver mais de um",'+
+      '"contatos":[{"tipo":"compras|financeiro|nfe|geral","nome":"","email":"","telefone":""}],'+
+      '"referencias_comerciais":[{"nome":"","local":"cidade/UF","telefone":""}],'+
+      '"referencias_bancarias":[{"nome":"","local":"cidade/UF","telefone":""}],'+
+      '"transportadoras":[{"nome":"","local":"cidade/UF","telefone":""}]}\n'+
+      'No campo "contatos", extraia TODOS os e-mails/telefones de PESSOAS de contato encontrados no documento, classificando "tipo" pelo contexto (perto de "Compras", "Financeiro/Contas a Pagar" ou "NF-e/Fiscal") -- se não der pra saber, use "geral". '+
+      'Em "referencias_comerciais", "referencias_bancarias" e "transportadoras", extraia TODOS os itens de cada lista encontrada no documento (se tiver 3, 7 ou mais, inclua todos, não limite a poucos) -- não confunda uma lista com a outra. Campos não encontrados: string vazia ou lista vazia.';
     var txt=await _anthropicReadDoc(file,promptBase);
     var m=txt.match(/\{[\s\S]*\}/);if(m)txt=m[0];
     var d=JSON.parse(txt);
     var p=ctx==='forn'?'forn':'clie';
     if(d.cnpj){var cnpj=d.cnpj.replace(/[^0-9]/g,'');if(cnpj.length===14)document.getElementById(p+'Cnpj').value=cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');}
     var fm={razao_social:p+'Razao',nome_fantasia:p+'Fantasia',cidade:p+'Cidade',uf:p+'Estado'};
-    if(ctx==='clie')fm.endereco='clieEndereco';
+    if(ctx==='clie'){fm.endereco='clieEndereco';fm.inscricao_estadual='clieIE';fm.site='clieSite';}
     Object.keys(fm).forEach(function(k){if(d[k]){var el=document.getElementById(fm[k]);if(el&&!el.value)el.value=d[k];}});
+    if(d.telefone_geral){var elTel=document.getElementById(p+'Tel');if(elTel&&!elTel.value)elTel.value=d.telefone_geral;}
 
     // Fornecedor continua com e-mail/telefone únicos (sem contatos por setor ainda)
     if(ctx==='forn'){
@@ -25968,6 +26032,22 @@ async function cadLerDocumentoV2(input, ctx){
           if(c.telefone&&document.getElementById('clieTel')&&!document.getElementById('clieTel').value)document.getElementById('clieTel').value=c.telefone;
         }
       });
+      // Mescla as listas de referências/transportadoras extraídas com o que já
+      // estava no formulário (sem duplicar por nome) e redesenha essa seção.
+      window._cadRefs=window._cadRefs||{comerciais:[],bancarias:[],transportadoras:[]};
+      [['referencias_comerciais','comerciais'],['referencias_bancarias','bancarias'],['transportadoras','transportadoras']].forEach(function(par){
+        var extraidos=d[par[0]]||[];
+        var destino=window._cadRefs[par[1]]=window._cadRefs[par[1]]||[];
+        var jaTem=destino.map(function(r){return (r.nome||'').toUpperCase().trim();});
+        extraidos.forEach(function(r){
+          if(!r.nome)return;
+          if(jaTem.includes(r.nome.toUpperCase().trim()))return;
+          destino.push({nome:r.nome||'',local:r.local||'',tel:r.telefone||''});
+          jaTem.push(r.nome.toUpperCase().trim());
+        });
+      });
+      var cont=document.getElementById('cadRefsContainer');
+      if(cont)cont.innerHTML=cadRenderTodasRefs();
     }
     if(statusEl)statusEl.innerHTML='<span style="color:#27AE60">✅ Dados preenchidos!</span>';
     if(d.cnpj&&d.cnpj.replace(/[^0-9]/g,'').length===14)setTimeout(function(){cadBuscarCNPJ(ctx);},400);
@@ -34873,7 +34953,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.578) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.579) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -35146,4 +35226,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.578 --></html>
+</script></div></div></body><!-- Build timestamp: v115.579 --></html>

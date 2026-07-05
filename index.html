@@ -7,11 +7,10 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.583 - Modal de editar grupo de Aplicacoes ganhou tambem Componente e Marca/
-Fabricante (antes so tinha Modelo/Serie) -- edita os 4 campos de uma vez pra todos os
-vinculos daquele grupo. Se o grupo ja tinha mais de um componente/marca diferente entre
-os itens, os campos vem pre-preenchidos com a lista atual (separada por virgula) --
-salvar unifica todos os itens do grupo pro valor digitado. -->
+<!-- v115.584 - Editar um grupo em Aplicacoes agora tambem corrige a aplicacao gravada
+dentro de cada Produto correspondente (Cadastros > Produtos > secao "Aplicacoes") --
+antes so corrigia o catalogo de Modelos & Series, deixando a ficha do produto com o
+nome antigo/errado. As duas copias ficam sincronizadas de uma vez. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -600,7 +599,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.583</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.584</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -719,7 +718,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.583</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.584</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22888,7 +22887,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.583): a desativação em v115.583 causou travamento no iPad — restaurando
+// REVERTIDO (v115.584): a desativação em v115.584 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22914,9 +22913,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.583): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.584): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.583) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.584) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -23954,6 +23953,26 @@ function cadEditarGrupoAplicacao(chave,componenteAtual,marcaAtual){
       }
     });
     aplicSave(todos);
+    // Reflete a mesma correção nas fichas de Produto (Cadastros > Produtos), que
+    // guardam sua própria cópia da aplicação (seção "🔧 Aplicações" no cadastro do
+    // item) -- sem isso, corrigir aqui não corrigia o que aparece na ficha do produto.
+    var plist=cadLoad(PROD_KEY||'cad_produtos_v1');
+    var produtosAtualizados=0;
+    plist.forEach(function(p){
+      if(!p.aplicacoes||!p.aplicacoes.length)return;
+      var mudou=false;
+      p.aplicacoes.forEach(function(pa){
+        if((pa.modelo||'')===modeloAtual&&(pa.serie||'')===serieAtual){
+          pa.modelo=novoModelo;
+          pa.serie=novoSerie;
+          pa.equip=novoComponente;
+          pa.marca=novaMarca;
+          mudou=true;
+        }
+      });
+      if(mudou)produtosAtualizados++;
+    });
+    if(produtosAtualizados)cadSave(PROD_KEY||'cad_produtos_v1',plist);
     window._cadAplicAberto=null;
     cadGoTab('aplicacoes');
   });
@@ -35022,7 +35041,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.583) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.584) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -35295,4 +35314,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.583 --></html>
+</script></div></div></body><!-- Build timestamp: v115.584 --></html>

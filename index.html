@@ -7,6 +7,12 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
+<!-- v115.595 - Import de Catalogo PDF agora divide automaticamente catalogos
+grandes (>15 paginas) em partes menores antes de mandar pra IA, cada parte
+numa chamada separada (com 1 pagina de sobreposicao entre partes), evitando
+o timeout que catalogos grandes causavam mesmo com 300s numa chamada so.
+Resultado final e deduplicado por codigo. Usa pdf-lib (carregado sob demanda).
+-->
 <!-- v115.594 - Timeout da leitura de IA (Catalogo PDF/Cadastro/Leitor de Pecas) aumentado
 de 180s para 300s, pra catalogos grandes nao estourarem antes da IA responder.
 -->
@@ -606,7 +612,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.594</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.595</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -725,7 +731,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.594</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.595</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -28201,6 +28207,96 @@ function cadGetMarcaCatalogo(){
   return sel;
 }
 
+// ── Monta o prompt de import de Catálogo (mesma lógica de antes, agora
+// isolada numa função nomeada pra poder ser reusada em cada parte do
+// catálogo, quando ele precisar ser dividido em pedaços menores) ────
+function cadPromptCatalogo(marcaVal){
+  marcaVal=marcaVal||'';
+  var isItalian=['CARRARO','DANA/SPICER','DANA','ZF','SPICER'].some(function(m){return marcaVal.toUpperCase().includes(m);});
+  var isEnglish=['CLARK','CLARK-HURTH','ALLISON','FUNK','EATON','CATERPILLAR','CAT','JOHN DEERE','ROCKWELL','MERITOR'].some(function(m){return marcaVal.toUpperCase().includes(m);});
+  var camposExtra=' Alem disso, preencha "descricaoResumida" com uma versao curta e direta da descricao (so o nome basico da peca, sem os detalhes/qualificadores que vem entre parenteses ou depois de "do"/"da"/"de" -- ex: descricao completa "Anel Trava do Cubo do Impulsor" -> descricaoResumida "Anel Trava"; "Engrenagem do Cubo do Impulsor (46 Dentes)" -> "Engrenagem"). Se o catalogo mostrar (mesmo que informalmente): qtd (quantidade usada dessa peca naquela montagem/conjunto — muitos catalogos tem uma coluna "QTY"/"QTD"; numero inteiro, deixe null se nao tiver essa informacao), pagina (numero da pagina onde o item aparece), aplicacao (equipamento/marca/modelo/serie/veiculo que usa essa peca — "veiculo" e o tipo de maquina, tipo Retroescavadeira/Trator/Caminhao/Pa-carregadeira, se estiver escrito perto do item ou no cabecalho da secao; ATENCAO: catalogos de transmissao/componente costumam ter, dentro de cada pagina de lista de pecas, um cabecalho tipo "CLARK MODEL: 266104 Group" ou "242098 Group" -- isso e apenas o numero do SUB-CONJUNTO interno daquela pagina/secao do catalogo (equivalente a um capitulo), NAO e um modelo de equipamento diferente e NAO deve ir no campo "modelo" da aplicacao -- deixe aplicacao.modelo VAZIO nesses casos (o sistema usa o modelo do equipamento informado manualmente pelo usuario); esse numero de sub-conjunto interno, se quiser guardar, vai no campo "grupo" descrito abaixo, nao em aplicacao.modelo), grupo (um identificador curto — numero da figura, nome do kit/conjunto explodido, etc — pra itens que aparecem JUNTOS na mesma ilustracao/kit, tipo "Fig.12" ou "Kit vedacao motor"; deixe vazio se nao der pra saber), codigoEstoque (se o catalogo tiver uma coluna de recomendacao de estoque -- geralmente uma unica letra A a E, ou siglas tipo "AR"/"NI"/"D" -- copie exatamente o que aparecer nessa coluna pra esse item; deixe vazio se nao tiver essa coluna). Se este for um catalogo de peças de TRANSMISSAO, preencha tambem subgrupoTransmissao escolhendo EXATAMENTE um destes valores (nunca invente outro): "Conversor de Torque", "Vedação", "Rolamentos", "Anéis Trava", "Pacotes", "Comando Hidráulico/Eletrônico", "Bomba e Filtragem de Óleo", "Eixos e Engrenagens", "Componentes Cardans", "Carcaça", "Freio", "Elétrico Transmissão", "Acessórios". Regras de classificacao: "Vedação" = anéis O, anel vedador, juntas (gaskets), retentores (oil seals), anéis de segmento/piston rings -- so vedacao, nao inclui retencao mecanica. "Rolamentos" = rolamentos (bearings), bucha de agulha (needle bushing), gaiola de agulha (needle cage). "Anéis Trava" = anel trava, snap ring, retaining ring, backing ring -- retencao mecanica, diferente de vedacao. "Pacotes" = tambor (drum), pistao (piston) de embreagem, discos internos/externos (clutch discs), engrenagens de 1a/2a/3a/4a marcha. Se nao for catalogo de transmissao, deixe subgrupoTransmissao vazio. Inclua todos esses campos no JSON de cada item quando encontrar, mesmo que nao tenha certeza total. Esta pode ser APENAS UMA PARTE de um catálogo maior, dividida em pedaços de paginas — extraia normalmente so os itens que aparecerem NESTAS paginas, sem se preocupar com o restante do catalogo.'+(typeof lpRegrasPrompt==='function'?lpRegrasPrompt():'');
+  if(isItalian){
+    return 'Este é um catálogo de peças em italiano (marca CARRARO). Extraia todos os produtos e TRADUZA cada descrição do italiano para o português brasileiro. Se não souber traduzir um termo, mantenha como está. Retorne SOMENTE JSON array, sem markdown. Cada objeto: {"codigo":"","descricao":"TRADUZIDO EM PORTUGUES","descricaoResumida":"","ncm":"","unidade":"","marca":"","pagina":null,"qtd":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":"","veiculo":""},"grupoCatalogo":"","codigoEstoque":"","subgrupoTransmissao":""}. Exemplos: Ralla=ARRUELA, Anello OR=ANEL O-RING, Boccola=BUCHA, Vite=PARAFUSO, Spina=PINO, Tappo=TAMPAO, Bronzina=BRONZINA, Guarnizione=JUNTA, Cuscinetto=ROLAMENTO, Albero=EIXO, Ingranaggio=ENGRENAGEM, Paraolio=RETENTOR, Pompa=BOMBA, Molla=MOLA, Flangia=FLANGE, Supporto=SUPORTE.'+camposExtra;
+  }
+  if(isEnglish){
+    return 'Este é um catálogo de peças em inglês (marca '+pfEscHtml(marcaVal)+'). Extraia todos os produtos e TRADUZA cada descrição do inglês para o português brasileiro, no padrão de nomenclatura de peças automotivas/industriais do Brasil. Se não souber traduzir um termo técnico, mantenha o termo original entre parênteses. Retorne SOMENTE JSON array, sem markdown. Cada objeto: {"codigo":"","descricao":"TRADUZIDO EM PORTUGUES","descricaoResumida":"","ncm":"","unidade":"","marca":"","pagina":null,"qtd":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":"","veiculo":""},"grupoCatalogo":"","codigoEstoque":"","subgrupoTransmissao":""}. Exemplos de tradução: Snap Ring=ANEL TRAVA, Retaining Ring=ANEL TRAVA, O-Ring=ANEL O, Gasket=JUNTA, Oil Seal=RETENTOR, Bearing=ROLAMENTO, Needle Bushing=BUCHA DE AGULHA, Needle Cage=GAIOLA DE AGULHA, Shaft=EIXO, Housing=CARCAÇA, Sleeve=BUCHA, Screw=PARAFUSO, Lockwasher=ARRUELA DE PRESSÃO, Washer=ARRUELA, Spring=MOLA, Cover=TAMPA, Piston=PISTÃO, Drum=TAMBOR, Clutch Disc=DISCO DE EMBREAGEM, Pump=BOMBA, Valve=VÁLVULA, Pipe Plug=BUJÃO, Flange=FLANGE, Nut=PORCA, Not Used On This Model=NÃO USADO NESTE MODELO.'+camposExtra;
+  }
+  return 'Extraia todos os produtos deste catálogo. Se a descrição não estiver em português, traduza pro português do Brasil. Retorne SOMENTE JSON array. Cada objeto: {"codigo":"","descricao":"","descricaoResumida":"","ncm":"","unidade":"","marca":"","pagina":null,"qtd":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":"","veiculo":""},"grupoCatalogo":"","codigoEstoque":"","subgrupoTransmissao":""}. Sem markdown.'+camposExtra;
+}
+
+// ── Faz o parse do JSON de itens devolvido pela IA, com reparo pra
+// resposta truncada por limite de tokens (corta no último item de nível 1
+// completo, contando profundidade de chaves/colchetes fora de strings) ──
+function cadParseItensCatalogo(txt){
+  var m=txt.match(/\[[\s\S]*/);if(m)txt=m[0];
+  var itens;
+  try{
+    itens=JSON.parse(txt);
+  }catch(parseErr){
+    var depth=0,lastGoodEnd=-1,inStr=false,esc=false;
+    for(var ci=0;ci<txt.length;ci++){
+      var ch=txt[ci];
+      if(esc){esc=false;continue;}
+      if(ch==='\\'){esc=true;continue;}
+      if(ch==='"'){inStr=!inStr;continue;}
+      if(inStr)continue;
+      if(ch==='{'||ch==='[')depth++;
+      else if(ch==='}'||ch===']'){
+        depth--;
+        if(depth===1)lastGoodEnd=ci;
+      }
+    }
+    if(lastGoodEnd>0){
+      txt=txt.slice(0,lastGoodEnd+1)+']';
+      itens=JSON.parse(txt);
+    } else {
+      throw parseErr;
+    }
+  }
+  return itens;
+}
+
+// ── Carrega o pdf-lib sob demanda (só quando precisamos dividir um PDF) ──
+function pfCarregarPdfLib(){
+  if(typeof PDFLib!=='undefined')return Promise.resolve();
+  return new Promise(function(res,rej){
+    var s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+    s.onload=function(){res();};
+    s.onerror=function(){rej(new Error('Falha ao carregar biblioteca de divisão de PDF.'));};
+    document.head.appendChild(s);
+  });
+}
+
+// ── Divide um PDF grande em partes de até maxPaginas páginas, com 1
+// página de sobreposição entre partes consecutivas (pra não perder o
+// contexto se uma tabela cair bem na virada de página). Devolve null se
+// o arquivo não for PDF ou já couber dentro do limite (não precisa dividir).
+async function cadDividirPdfEmPartes(file, maxPaginas){
+  if(file.type!=='application/pdf')return null;
+  await pfCarregarPdfLib();
+  var buf=await file.arrayBuffer();
+  var srcDoc=await PDFLib.PDFDocument.load(buf);
+  var totalPaginas=srcDoc.getPageCount();
+  if(totalPaginas<=maxPaginas)return null;
+  var partes=[],overlap=1,inicio=0;
+  while(inicio<totalPaginas){
+    var fim=Math.min(inicio+maxPaginas,totalPaginas);
+    var novoDoc=await PDFLib.PDFDocument.create();
+    var indices=[];
+    for(var p=inicio;p<fim;p++)indices.push(p);
+    var copiadas=await novoDoc.copyPages(srcDoc,indices);
+    copiadas.forEach(function(pg){novoDoc.addPage(pg);});
+    var bytes=await novoDoc.save();
+    var blob=new Blob([bytes],{type:'application/pdf'});
+    var nomeParte=file.name.replace(/\.pdf$/i,'')+'_parte'+(partes.length+1)+'.pdf';
+    partes.push(new File([blob],nomeParte,{type:'application/pdf'}));
+    if(fim>=totalPaginas)break;
+    inicio=fim-overlap;
+  }
+  return partes;
+}
+
 // ── Override cadImportarCatalogo to use helper + substituições ────
 cadImportarCatalogo = async function(input){
   var file=input.files[0];if(!file)return;
@@ -28208,52 +28304,50 @@ cadImportarCatalogo = async function(input){
   window._impMarcaAtual = marca; // Save for prompt detection
   window._impCatalogoId = null;
   var statusEl=document.getElementById('impCatStatus');
-  if(statusEl)statusEl.textContent='🤖 Lendo catálogo... (catálogos grandes podem levar até 3 minutos)';
+  if(statusEl)statusEl.textContent='🤖 Lendo catálogo... (catálogos grandes podem levar alguns minutos)';
   try{
-    var txt=await _anthropicReadDoc(file,
-      (function(){
-      var marcaVal=cadGetMarcaCatalogo()||window._impMarcaAtual||'';
-      var isItalian=['CARRARO','DANA/SPICER','DANA','ZF','SPICER'].some(function(m){return marcaVal.toUpperCase().includes(m);});
-      var isEnglish=['CLARK','CLARK-HURTH','ALLISON','FUNK','EATON','CATERPILLAR','CAT','JOHN DEERE','ROCKWELL','MERITOR'].some(function(m){return marcaVal.toUpperCase().includes(m);});
-      var camposExtra=' Alem disso, preencha "descricaoResumida" com uma versao curta e direta da descricao (so o nome basico da peca, sem os detalhes/qualificadores que vem entre parenteses ou depois de "do"/"da"/"de" -- ex: descricao completa "Anel Trava do Cubo do Impulsor" -> descricaoResumida "Anel Trava"; "Engrenagem do Cubo do Impulsor (46 Dentes)" -> "Engrenagem"). Se o catalogo mostrar (mesmo que informalmente): qtd (quantidade usada dessa peca naquela montagem/conjunto — muitos catalogos tem uma coluna "QTY"/"QTD"; numero inteiro, deixe null se nao tiver essa informacao), pagina (numero da pagina onde o item aparece), aplicacao (equipamento/marca/modelo/serie/veiculo que usa essa peca — "veiculo" e o tipo de maquina, tipo Retroescavadeira/Trator/Caminhao/Pa-carregadeira, se estiver escrito perto do item ou no cabecalho da secao; ATENCAO: catalogos de transmissao/componente costumam ter, dentro de cada pagina de lista de pecas, um cabecalho tipo "CLARK MODEL: 266104 Group" ou "242098 Group" -- isso e apenas o numero do SUB-CONJUNTO interno daquela pagina/secao do catalogo (equivalente a um capitulo), NAO e um modelo de equipamento diferente e NAO deve ir no campo "modelo" da aplicacao -- deixe aplicacao.modelo VAZIO nesses casos (o sistema usa o modelo do equipamento informado manualmente pelo usuario); esse numero de sub-conjunto interno, se quiser guardar, vai no campo "grupo" descrito abaixo, nao em aplicacao.modelo), grupo (um identificador curto — numero da figura, nome do kit/conjunto explodido, etc — pra itens que aparecem JUNTOS na mesma ilustracao/kit, tipo "Fig.12" ou "Kit vedacao motor"; deixe vazio se nao der pra saber), codigoEstoque (se o catalogo tiver uma coluna de recomendacao de estoque -- geralmente uma unica letra A a E, ou siglas tipo "AR"/"NI"/"D" -- copie exatamente o que aparecer nessa coluna pra esse item; deixe vazio se nao tiver essa coluna). Se este for um catalogo de peças de TRANSMISSAO, preencha tambem subgrupoTransmissao escolhendo EXATAMENTE um destes valores (nunca invente outro): "Conversor de Torque", "Vedação", "Rolamentos", "Anéis Trava", "Pacotes", "Comando Hidráulico/Eletrônico", "Bomba e Filtragem de Óleo", "Eixos e Engrenagens", "Componentes Cardans", "Carcaça", "Freio", "Elétrico Transmissão", "Acessórios". Regras de classificacao: "Vedação" = anéis O, anel vedador, juntas (gaskets), retentores (oil seals), anéis de segmento/piston rings -- so vedacao, nao inclui retencao mecanica. "Rolamentos" = rolamentos (bearings), bucha de agulha (needle bushing), gaiola de agulha (needle cage). "Anéis Trava" = anel trava, snap ring, retaining ring, backing ring -- retencao mecanica, diferente de vedacao. "Pacotes" = tambor (drum), pistao (piston) de embreagem, discos internos/externos (clutch discs), engrenagens de 1a/2a/3a/4a marcha. Se nao for catalogo de transmissao, deixe subgrupoTransmissao vazio. Inclua todos esses campos no JSON de cada item quando encontrar, mesmo que nao tenha certeza total.'+(typeof lpRegrasPrompt==='function'?lpRegrasPrompt():'');
-      if(isItalian){
-        return 'Este é um catálogo de peças em italiano (marca CARRARO). Extraia todos os produtos e TRADUZA cada descrição do italiano para o português brasileiro. Se não souber traduzir um termo, mantenha como está. Retorne SOMENTE JSON array, sem markdown. Cada objeto: {"codigo":"","descricao":"TRADUZIDO EM PORTUGUES","descricaoResumida":"","ncm":"","unidade":"","marca":"","pagina":null,"qtd":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":"","veiculo":""},"grupoCatalogo":"","codigoEstoque":"","subgrupoTransmissao":""}. Exemplos: Ralla=ARRUELA, Anello OR=ANEL O-RING, Boccola=BUCHA, Vite=PARAFUSO, Spina=PINO, Tappo=TAMPAO, Bronzina=BRONZINA, Guarnizione=JUNTA, Cuscinetto=ROLAMENTO, Albero=EIXO, Ingranaggio=ENGRENAGEM, Paraolio=RETENTOR, Pompa=BOMBA, Molla=MOLA, Flangia=FLANGE, Supporto=SUPORTE.'+camposExtra;
-      }
-      if(isEnglish){
-        return 'Este é um catálogo de peças em inglês (marca '+pfEscHtml(marcaVal)+'). Extraia todos os produtos e TRADUZA cada descrição do inglês para o português brasileiro, no padrão de nomenclatura de peças automotivas/industriais do Brasil. Se não souber traduzir um termo técnico, mantenha o termo original entre parênteses. Retorne SOMENTE JSON array, sem markdown. Cada objeto: {"codigo":"","descricao":"TRADUZIDO EM PORTUGUES","descricaoResumida":"","ncm":"","unidade":"","marca":"","pagina":null,"qtd":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":"","veiculo":""},"grupoCatalogo":"","codigoEstoque":"","subgrupoTransmissao":""}. Exemplos de tradução: Snap Ring=ANEL TRAVA, Retaining Ring=ANEL TRAVA, O-Ring=ANEL O, Gasket=JUNTA, Oil Seal=RETENTOR, Bearing=ROLAMENTO, Needle Bushing=BUCHA DE AGULHA, Needle Cage=GAIOLA DE AGULHA, Shaft=EIXO, Housing=CARCAÇA, Sleeve=BUCHA, Screw=PARAFUSO, Lockwasher=ARRUELA DE PRESSÃO, Washer=ARRUELA, Spring=MOLA, Cover=TAMPA, Piston=PISTÃO, Drum=TAMBOR, Clutch Disc=DISCO DE EMBREAGEM, Pump=BOMBA, Valve=VÁLVULA, Pipe Plug=BUJÃO, Flange=FLANGE, Nut=PORCA, Not Used On This Model=NÃO USADO NESTE MODELO.'+camposExtra;
-      }
-      return 'Extraia todos os produtos deste catálogo. Se a descrição não estiver em português, traduza pro português do Brasil. Retorne SOMENTE JSON array. Cada objeto: {"codigo":"","descricao":"","descricaoResumida":"","ncm":"","unidade":"","marca":"","pagina":null,"qtd":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":"","veiculo":""},"grupoCatalogo":"","codigoEstoque":"","subgrupoTransmissao":""}. Sem markdown.'+camposExtra;
-    })(),'Importar Catálogo (Produtos)');
-    var m=txt.match(/\[[\s\S]*/);if(m)txt=m[0];
-    var itens;
+    var marcaVal=cadGetMarcaCatalogo()||window._impMarcaAtual||'';
+    var prompt=cadPromptCatalogo(marcaVal);
+
+    // Catálogos grandes (>15 páginas) estouravam o timeout de leitura numa
+    // chamada só. Em vez de só aumentar o timeout, dividimos o PDF em partes
+    // de 15 páginas (com 1 página de sobreposição) e lemos cada parte numa
+    // chamada separada — cada parte é pequena o bastante pra não travar, e
+    // no final juntamos e removemos códigos duplicados (que podem aparecer
+    // por causa da página de sobreposição entre as partes).
+    var partes=null;
     try{
-      itens=JSON.parse(txt);
-    }catch(parseErr){
-      // Resposta truncada (limite de tokens). Como agora os itens têm objetos aninhados
-      // (aplicacao), um corte ingênuo no último "}," pode cair DENTRO do aninhamento e
-      // continuar quebrado. Em vez disso, percorre a string contando profundidade de
-      // chaves/colchetes e corta exatamente no último item de nível 1 completo.
-      var depth=0,lastGoodEnd=-1,inStr=false,esc=false;
-      for(var ci=0;ci<txt.length;ci++){
-        var ch=txt[ci];
-        if(esc){esc=false;continue;}
-        if(ch==='\\'){esc=true;continue;}
-        if(ch==='"'){inStr=!inStr;continue;}
-        if(inStr)continue;
-        if(ch==='{'||ch==='[')depth++;
-        else if(ch==='}'||ch===']'){
-          depth--;
-          if(depth===1)lastGoodEnd=ci; // fechou um item de nível 1 (dentro do array externo)
-        }
-      }
-      if(lastGoodEnd>0){
-        txt=txt.slice(0,lastGoodEnd+1)+']';
-        itens=JSON.parse(txt);
-      } else {
-        throw parseErr;
-      }
+      partes=await cadDividirPdfEmPartes(file, 15);
+    }catch(eSplit){
+      console.warn('Não foi possível dividir o PDF automaticamente, tentando ler inteiro:',eSplit);
+      partes=null;
     }
-    if(!Array.isArray(itens)||!itens.length)throw new Error('Nenhum produto encontrado');
+
+    var itensTotais=[];
+    if(partes && partes.length>1){
+      for(var pi=0;pi<partes.length;pi++){
+        if(statusEl)statusEl.textContent='🤖 Lendo parte '+(pi+1)+' de '+partes.length+' do catálogo...';
+        var txtParte=await _anthropicReadDoc(partes[pi], prompt, 'Importar Catálogo (Produtos) — parte '+(pi+1)+'/'+partes.length);
+        var itensParte=cadParseItensCatalogo(txtParte);
+        if(Array.isArray(itensParte))itensTotais=itensTotais.concat(itensParte);
+      }
+    } else {
+      var txt=await _anthropicReadDoc(file, prompt, 'Importar Catálogo (Produtos)');
+      itensTotais=cadParseItensCatalogo(txt);
+    }
+    if(!Array.isArray(itensTotais)||!itensTotais.length)throw new Error('Nenhum produto encontrado');
+
+    // Remove duplicados (mesmo código) que podem ter vindo da página de
+    // sobreposição entre duas partes do catálogo dividido.
+    var codigosVistos={};
+    var itens=itensTotais.filter(function(it){
+      var cod=(it.codigo||'').toString().trim().toUpperCase();
+      if(!cod)return true; // sem código, mantém (raro, mas não descarta)
+      if(codigosVistos[cod])return false;
+      codigosVistos[cod]=true;
+      return true;
+    });
+
     // Apply substituições
     itens=substAplicarLote(itens);
     itens.forEach(function(it){
@@ -28268,7 +28362,7 @@ cadImportarCatalogo = async function(input){
       it.linhaObj=idLinha(it.codigo||'');
     });
     if(statusEl)statusEl.textContent='✅ '+itens.length+' itens encontrados — salvando catálogo pra consulta futura...';
-    // Sobe o PDF original pro Supabase, pra dar pra "ver no catálogo" depois pelo produto
+    // Sobe o PDF original (inteiro, não as partes) pro Supabase, pra dar pra "ver no catálogo" depois pelo produto
     if(typeof sbUser!=='undefined'&&sbUser&&file.size<9*1024*1024){
       try{
         var b64Full=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(file);});
@@ -28283,7 +28377,7 @@ cadImportarCatalogo = async function(input){
         if(rCat.ok){var catData=await rCat.json();if(catData&&catData[0])window._impCatalogoId=catData[0].id;}
       }catch(eCat){console.warn('Falha ao salvar catálogo pra consulta futura:',eCat);}
     }
-    if(statusEl)statusEl.textContent='✅ '+itens.length+' itens encontrados';
+    if(statusEl)statusEl.textContent='✅ '+itens.length+' itens encontrados'+(partes&&partes.length>1?' (catálogo lido em '+partes.length+' partes)':'');
     cadMostrarPreviewImport(itens,marca);
   }catch(e){
     console.error(e);
@@ -35480,4 +35574,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.594 --></html>
+</script></div></div></body><!-- Build timestamp: v115.595 --></html>

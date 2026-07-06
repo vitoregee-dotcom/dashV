@@ -7,15 +7,14 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.592 - (1) CORRIGIDO: catalogo grande (Clark, ~500 itens esperados) so trazia
-88 itens no import -- causa: max_tokens estava em 16000, baixo demais pro schema
-verboso por item (descricaoResumida, aplicacao, subgrupoTransmissao etc.) somado a um
-catalogo com muitas paginas; a resposta da IA estava sendo cortada no meio. Aumentado
-pra 64000 (limite real do Claude Sonnet 4.6). (2) As regras de texto livre cadastradas
-na ferramenta "Leitor de Pecas" (lp_regras_v1) agora tambem sao aplicadas na importacao
-de Catalogo PDF/Planilha em Cadastros > Produtos -- antes so valiam pro Leitor de
-Pecas, agora e' um unico lugar pra cadastrar regra de padronizacao de codigo/descricao
-que vale pros dois fluxos. -->
+<!-- v115.593 - Nova ferramenta "💰 Uso de IA" (Ferramentas), visivel so pro Vitor por
+enquanto: mostra tabela com todas as leituras de IA feitas (import de catalogo, leitor
+de pecas, cadastro cliente/fornecedor, cotacoes etc.), tokens de entrada/saida e custo
+estimado (US$3/M entrada, US$15/M saida -- precos do Claude Sonnet 4.6), com totais de
+hoje/mes/geral e dicas de economia. Tambem ATIVADO cache de prompt (cache_control) nas
+leituras de documento -- se a mesma leitura precisar ser refeita em poucos minutos
+(timeout, nova tentativa), o documento e' lido do cache a 10% do preco normal em vez de
+cobrar o arquivo inteiro de novo. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -604,7 +603,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.592</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.593</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -723,7 +722,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.592</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.593</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -21691,7 +21690,7 @@ async function mapaLerImagem(input){
   var el=document.getElementById('mapaBody');
   el.innerHTML='<div style="text-align:center;padding:60px;font-size:14px;color:#1F4E79">🤖 Lendo documento...<br><span style="font-size:12px;color:#8a9ab0;display:block;margin-top:8px">Identificando itens e prazos</span></div>';
   try{
-    var txt=await _anthropicReadDoc(file,'Este é um documento de cotação de venda. Extraia TODOS os itens da tabela E o nome do cliente/comprador, se aparecer no documento (rotulos tipo "Cliente", "Comprador", "Razao Social", "Destinatario" — mesmo com pontos ou espacos antes dos dois-pontos, ex: "Cliente.....: NOME DA EMPRESA"; pegue so o nome, sem o codigo numerico que as vezes vem junto tipo "11626 - NOME"). Retorne APENAS um JSON array. O PRIMEIRO objeto do array deve ser {"cliente":"nome do cliente encontrado, ou string vazia se não achar"} — e os objetos seguintes, um por item: {"ref":"codigo antes do traço na descrição","desc":"descrição após o traço","marca":"coluna Marca","qtd":numero inteiro,"prazo":"texto exato do campo Prazo"}. Sem markdown.');
+    var txt=await _anthropicReadDoc(file,'Este é um documento de cotação de venda. Extraia TODOS os itens da tabela E o nome do cliente/comprador, se aparecer no documento (rotulos tipo "Cliente", "Comprador", "Razao Social", "Destinatario" — mesmo com pontos ou espacos antes dos dois-pontos, ex: "Cliente.....: NOME DA EMPRESA"; pegue so o nome, sem o codigo numerico que as vezes vem junto tipo "11626 - NOME"). Retorne APENAS um JSON array. O PRIMEIRO objeto do array deve ser {"cliente":"nome do cliente encontrado, ou string vazia se não achar"} — e os objetos seguintes, um por item: {"ref":"codigo antes do traço na descrição","desc":"descrição após o traço","marca":"coluna Marca","qtd":numero inteiro,"prazo":"texto exato do campo Prazo"}. Sem markdown.','Mapa de Compras - Leitura de Cotação');
     var m=txt.match(/\[[\s\S]*/);if(m)txt=m[0];
     // Fix truncated JSON: find last complete object
     if(!txt.endsWith(']')){
@@ -22292,7 +22291,7 @@ async function mapaLerResposta(input, fid){
       'Retorne JSON array: [{"ref":"codigo da minha lista","marca":"fabricante","preco":0.00,"ipi":0,"icms":0,"st":0,"prazo":"texto"}]. '+
       '"st" é o PERCENTUAL de ICMS-ST cobrado sobre o produto (normalmente 0 a 30). CUIDADO: muitos documentos têm uma coluna "ST" ou "CST" com um CÓDIGO de situação tributária (números como 100, 200, 300, 500, 900) que NÃO é porcentagem — não confunda isso com o percentual de ST. Se não tiver certeza de que é um percentual real de imposto, use 0. '+
       'Apenas os itens com preço informado. Sem markdown.';
-    var txt = await _anthropicReadDoc(file,prompt);
+    var txt = await _anthropicReadDoc(file,prompt,'Mapa de Compras - Lançar Preços');
     var m=txt.match(/\[[\s\S]*\]/);if(m)txt=m[0];
     var precos=JSON.parse(txt);
     if(!Array.isArray(precos)||!precos.length)throw new Error('Nenhum preço encontrado no documento');
@@ -22373,7 +22372,7 @@ async function mapaCarregarCotacaoAuto(input){
       }
       
       var prompt='Documento de cotação. Extraia fornecedor e CNPJ. JSON: {"nome":"string","cnpj":"string"}';
-      var txt=await _anthropicReadDoc(file,prompt);
+      var txt=await _anthropicReadDoc(file,prompt,'Mapa de Compras - Lançar Preços');
       var m=txt.match(/\{[\s\S]*\}/);
       if(m)txt=m[0];
       var fornData=JSON.parse(txt);
@@ -22402,7 +22401,7 @@ async function mapaCarregarCotacaoAuto(input){
       
       var refs=its.map(function(i){return i.ref;}).join(', ');
       var prompt2='Cotação: '+refs+'. JSON: [{"ref":"código","marca":"marca","preco":0.00,"ipi":0,"icms":0,"st":0,"prazo":"text"}]';
-      var txt2=await _anthropicReadDoc(file,prompt2);
+      var txt2=await _anthropicReadDoc(file,prompt2,'Mapa de Compras - Lançar Preços');
       var m2=txt2.match(/\[[\s\S]*\]/);
       if(m2)txt2=m2[0];
       var precos=JSON.parse(txt2);
@@ -22497,7 +22496,28 @@ function mapaPrecoRow(baseKey,ei,e,custoTotal){
 
 // ── Universal document reader helper ─────────────────────────────
 // Handles image AND PDF correctly for Anthropic API
-async function _anthropicReadDoc(file, prompt){
+// ── Uso de IA (custo estimado) — visível só pro Vitor por enquanto ──────
+// Preços do Claude Sonnet 4.6 (jul/2026): entrada US$3/M, saída US$15/M,
+// escrita em cache US$3.75/M (1.25x), leitura de cache US$0.30/M (0.1x).
+var IA_USO_KEY='ia_uso_log_v1';
+var IA_PRECOS={in:3,out:15,cacheWrite:3.75,cacheRead:0.30};
+function pfLogUsoIA(contexto,usage){
+  try{
+    var tin=usage.input_tokens||0, tout=usage.output_tokens||0;
+    var cw=usage.cache_creation_input_tokens||0, cr=usage.cache_read_input_tokens||0;
+    var custo=(tin/1e6)*IA_PRECOS.in+(tout/1e6)*IA_PRECOS.out+(cw/1e6)*IA_PRECOS.cacheWrite+(cr/1e6)*IA_PRECOS.cacheRead;
+    var log=JSON.parse(localStorage.getItem(IA_USO_KEY)||'[]');
+    log.push({ts:Date.now(),contexto:contexto||'',tin:tin,tout:tout,cw:cw,cr:cr,custo:custo});
+    if(log.length>500)log=log.slice(log.length-500);
+    pfSafeSetItem(IA_USO_KEY,JSON.stringify(log));
+    if(typeof pfSyncPush==='function')pfSyncPush(['ia_uso_log_v1']);
+  }catch(e){}
+}
+function pfUsoIAEhDono(){
+  // Só mostra a tela de custo pro Vitor (dono da conta/API key) por enquanto
+  return typeof sbUser!=='undefined'&&sbUser&&sbUser.id==='e526fea4-d04f-4d2f-a700-145ac17b137c';
+}
+async function _anthropicReadDoc(file, prompt, contexto){
   if(file.size > 10*1024*1024){
     throw new Error('Arquivo de '+(file.size/1024/1024).toFixed(1)+'MB é muito grande e pode travar o navegador. Tente um arquivo mais leve.');
   }
@@ -22514,9 +22534,12 @@ async function _anthropicReadDoc(file, prompt){
     new Promise(function(_,rej){setTimeout(function(){rej(new Error('Demorou demais lendo o arquivo no navegador.'));},20000);})
   ]);
   var isPdf=file.name.toLowerCase().endsWith('.pdf')||file.type==='application/pdf';
+  // cache_control: se essa mesma leitura precisar ser refeita (timeout, nova tentativa)
+  // dentro de ~5min, o documento é lido do cache a 10% do preço normal de entrada,
+  // em vez de cobrar o arquivo inteiro de novo do zero.
   var contentBlock = isPdf
-    ? {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
-    : {type:'image',source:{type:'base64',media_type:(file.type&&file.type.startsWith('image/')?file.type:'image/jpeg'),data:b64}};
+    ? {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64},cache_control:{type:'ephemeral'}}
+    : {type:'image',source:{type:'base64',media_type:(file.type&&file.type.startsWith('image/')?file.type:'image/jpeg'),data:b64},cache_control:{type:'ephemeral'}};
   var ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
   var timeoutId = ctrl ? setTimeout(function(){ctrl.abort();}, 180000) : null;
   var resp;
@@ -22539,13 +22562,14 @@ async function _anthropicReadDoc(file, prompt){
     if(data.error.type==='authentication_error'||data.error.status===401)localStorage.removeItem('anthropic_key');
     throw new Error(data.error.message||'Erro na API');
   }
+  if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA(contexto||'Leitura de documento',data.usage);
   return (data.content||[]).map(function(c){return c.text||'';}).join('').replace(/```json|```/g,'').trim();
 }
 // Alias to avoid conflict with window.prompt
 var prompt_fn = window.prompt.bind(window);
 
 // Pergunta em texto puro (sem arquivo) — usado pelo Assistente IA
-async function _anthropicAsk(prompt,maxTokens){
+async function _anthropicAsk(prompt,maxTokens,contexto){
   var apiKey=localStorage.getItem('anthropic_key')||'';
   if(!apiKey){
     apiKey=prompt_fn('API Key da Anthropic (console.anthropic.com):');
@@ -22574,6 +22598,7 @@ async function _anthropicAsk(prompt,maxTokens){
     if(data.error.type==='authentication_error'||data.error.status===401)localStorage.removeItem('anthropic_key');
     throw new Error(data.error.message||'Erro na API');
   }
+  if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA(contexto||'Assistente IA',data.usage);
   return (data.content||[]).map(function(c){return c.text||'';}).join('').trim();
 }
 
@@ -22892,7 +22917,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.592): a desativação em v115.592 causou travamento no iPad — restaurando
+// REVERTIDO (v115.593): a desativação em v115.593 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22918,9 +22943,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.592): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.593): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.592) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.593) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -26111,7 +26136,7 @@ async function cadLerDocumentoV2(input, ctx){
       '"transportadoras":[{"nome":"","local":"cidade/UF","telefone":""}]}\n'+
       'No campo "contatos", extraia TODOS os e-mails/telefones de PESSOAS de contato encontrados no documento, classificando "tipo" pelo contexto (perto de "Compras", "Financeiro/Contas a Pagar" ou "NF-e/Fiscal") -- se não der pra saber, use "geral". '+
       'Em "referencias_comerciais", "referencias_bancarias" e "transportadoras", extraia TODOS os itens de cada lista encontrada no documento (se tiver 3, 7 ou mais, inclua todos, não limite a poucos) -- não confunda uma lista com a outra. Campos não encontrados: string vazia ou lista vazia.';
-    var txt=await _anthropicReadDoc(file,promptBase);
+    var txt=await _anthropicReadDoc(file,promptBase,'Cadastro Cliente/Fornecedor');
     var m=txt.match(/\{[\s\S]*\}/);if(m)txt=m[0];
     var d=JSON.parse(txt);
     var p=ctx==='forn'?'forn':'clie';
@@ -28195,7 +28220,7 @@ cadImportarCatalogo = async function(input){
         return 'Este é um catálogo de peças em inglês (marca '+pfEscHtml(marcaVal)+'). Extraia todos os produtos e TRADUZA cada descrição do inglês para o português brasileiro, no padrão de nomenclatura de peças automotivas/industriais do Brasil. Se não souber traduzir um termo técnico, mantenha o termo original entre parênteses. Retorne SOMENTE JSON array, sem markdown. Cada objeto: {"codigo":"","descricao":"TRADUZIDO EM PORTUGUES","descricaoResumida":"","ncm":"","unidade":"","marca":"","pagina":null,"qtd":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":"","veiculo":""},"grupoCatalogo":"","codigoEstoque":"","subgrupoTransmissao":""}. Exemplos de tradução: Snap Ring=ANEL TRAVA, Retaining Ring=ANEL TRAVA, O-Ring=ANEL O, Gasket=JUNTA, Oil Seal=RETENTOR, Bearing=ROLAMENTO, Needle Bushing=BUCHA DE AGULHA, Needle Cage=GAIOLA DE AGULHA, Shaft=EIXO, Housing=CARCAÇA, Sleeve=BUCHA, Screw=PARAFUSO, Lockwasher=ARRUELA DE PRESSÃO, Washer=ARRUELA, Spring=MOLA, Cover=TAMPA, Piston=PISTÃO, Drum=TAMBOR, Clutch Disc=DISCO DE EMBREAGEM, Pump=BOMBA, Valve=VÁLVULA, Pipe Plug=BUJÃO, Flange=FLANGE, Nut=PORCA, Not Used On This Model=NÃO USADO NESTE MODELO.'+camposExtra;
       }
       return 'Extraia todos os produtos deste catálogo. Se a descrição não estiver em português, traduza pro português do Brasil. Retorne SOMENTE JSON array. Cada objeto: {"codigo":"","descricao":"","descricaoResumida":"","ncm":"","unidade":"","marca":"","pagina":null,"qtd":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":"","veiculo":""},"grupoCatalogo":"","codigoEstoque":"","subgrupoTransmissao":""}. Sem markdown.'+camposExtra;
-    })());
+    })(),'Importar Catálogo (Produtos)');
     var m=txt.match(/\[[\s\S]*/);if(m)txt=m[0];
     var itens;
     try{
@@ -29940,6 +29965,69 @@ renderTabBar = function(){
 
 // ── LEITOR DE PECAS + VENDAS ─────────────────────────────────────
 // Adicionado como script separado no final para compatibilidade iPad
+
+// ── Tela "Uso de IA" — custo estimado, visível só pro Vitor ────────────
+function ferrUsoIA(){
+  var el=document.getElementById('ferrBody');if(!el)return;
+  var log=(function(){try{return JSON.parse(localStorage.getItem(IA_USO_KEY)||'[]');}catch(e){return[];}})();
+  log=log.slice().reverse(); // mais recente primeiro
+  var totalCusto=log.reduce(function(s,l){return s+(l.custo||0);},0);
+  var totalTin=log.reduce(function(s,l){return s+(l.tin||0);},0);
+  var totalTout=log.reduce(function(s,l){return s+(l.tout||0);},0);
+  var hoje=new Date(); hoje.setHours(0,0,0,0);
+  var custoHoje=log.filter(function(l){return l.ts>=hoje.getTime();}).reduce(function(s,l){return s+(l.custo||0);},0);
+  var mesAtual=new Date(); mesAtual.setDate(1); mesAtual.setHours(0,0,0,0);
+  var custoMes=log.filter(function(l){return l.ts>=mesAtual.getTime();}).reduce(function(s,l){return s+(l.custo||0);},0);
+
+  var html='<div style="width:100%">'+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
+    '<button onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">&#8592; Voltar</button>'+
+    '<div style="font-size:16px;font-weight:800;color:#7B2D8B">💰 Uso de IA</div></div>'+
+    '<div style="font-size:11px;color:#8a9ab0;margin-bottom:16px">Custo estimado com base nos preços atuais do Claude Sonnet 4.6 (US$3/milhão tokens de entrada, US$15/milhão de saída). Só uma estimativa — o valor real e definitivo é o do <a href="https://platform.claude.com/settings/billing" target="_blank" style="color:#1F4E79">Console da Anthropic</a>.</div>';
+
+  html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">'+
+    '<div style="background:#F3E8F7;border-radius:10px;padding:14px"><div style="font-size:10px;font-weight:700;color:#7B2D8B;text-transform:uppercase">Hoje</div><div style="font-size:20px;font-weight:800;color:#7B2D8B;margin-top:4px">US$ '+custoHoje.toFixed(3)+'</div></div>'+
+    '<div style="background:#EEF6FF;border-radius:10px;padding:14px"><div style="font-size:10px;font-weight:700;color:#1F4E79;text-transform:uppercase">Este mês</div><div style="font-size:20px;font-weight:800;color:#1F4E79;margin-top:4px">US$ '+custoMes.toFixed(3)+'</div></div>'+
+    '<div style="background:#F0F4F8;border-radius:10px;padding:14px"><div style="font-size:10px;font-weight:700;color:#607080;text-transform:uppercase">Total registrado</div><div style="font-size:20px;font-weight:800;color:#1a2332;margin-top:4px">US$ '+totalCusto.toFixed(3)+'</div></div>'+
+    '</div>';
+
+  html+='<div style="background:#FFF8E6;border:1px solid #F5D98B;border-radius:10px;padding:14px 16px;margin-bottom:20px">'+
+    '<div style="font-size:12px;font-weight:800;color:#854F0B;margin-bottom:8px">💡 Dicas pra economizar</div>'+
+    '<ul style="margin:0;padding-left:18px;font-size:12px;color:#5a4520;line-height:1.7">'+
+    '<li><b>Cache de prompt já ativado</b> — se uma leitura de PDF der timeout ou precisar ser refeita em poucos minutos, o documento é lido do cache a 10% do preço normal (em vez de cobrar o arquivo inteiro nas duas vezes).</li>'+
+    '<li><b>Catálogos grandes:</b> se puder, divida em partes menores (ex: 15-20 páginas por vez) — reduz o risco de timeout e de ter que repetir a leitura inteira.</li>'+
+    '<li><b>Evite reimportar o mesmo arquivo</b> várias vezes só ajustando pequenos detalhes — prefira editar direto na tela de prévia antes de confirmar.</li>'+
+    '<li>A <b>saída</b> (o que a IA escreve) custa 5x mais caro que a entrada — catálogos com muitos itens custam mais na parte de gerar a lista do que na leitura do PDF em si.</li>'+
+    '</ul></div>';
+
+  if(!log.length){
+    html+='<div style="text-align:center;padding:30px;color:#8a9ab0;font-size:13px;background:#fff;border-radius:10px;border:1px solid #e0e8f0">Nenhum uso registrado ainda. Assim que você usar alguma leitura com IA (import de catálogo, leitor de peças, etc.), aparece aqui.</div>';
+  } else {
+    html+='<div style="overflow-x:auto;border:1px solid #e0e8f0;border-radius:10px">';
+    html+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html+='<thead><tr style="background:#1F4E79;color:#fff">'+
+      '<th style="padding:8px 10px;text-align:left;font-size:10px">DATA/HORA</th>'+
+      '<th style="padding:8px 10px;text-align:left;font-size:10px">ONDE</th>'+
+      '<th style="padding:8px 10px;text-align:right;font-size:10px">TOKENS ENTRADA</th>'+
+      '<th style="padding:8px 10px;text-align:right;font-size:10px">TOKENS SAÍDA</th>'+
+      '<th style="padding:8px 10px;text-align:right;font-size:10px">CUSTO EST.</th>'+
+      '</tr></thead><tbody>';
+    log.slice(0,200).forEach(function(l){
+      var d=new Date(l.ts);
+      html+='<tr style="border-bottom:0.5px solid #f0f4f8">'+
+        '<td style="padding:7px 10px;color:#607080;white-space:nowrap">'+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</td>'+
+        '<td style="padding:7px 10px;font-weight:600;color:#1a2332">'+pfEscHtml(l.contexto||'—')+(l.cr?' <span style="font-size:9px;color:#27AE60;font-weight:700">(cache)</span>':'')+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;color:#607080">'+(l.tin||0).toLocaleString('pt-BR')+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;color:#607080">'+(l.tout||0).toLocaleString('pt-BR')+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;font-weight:700;color:#7B2D8B">US$ '+(l.custo||0).toFixed(4)+'</td>'+
+        '</tr>';
+    });
+    html+='</tbody></table></div>';
+    if(log.length>200)html+='<div style="font-size:11px;color:#8a9ab0;margin-top:8px;text-align:center">Mostrando as 200 leituras mais recentes de '+log.length+' registradas.</div>';
+  }
+  html+='</div>';
+  el.innerHTML=html;
+}
 
 function ferrLeitorPecas(){
   var el=document.getElementById('ferrBody');if(!el)return;
@@ -32976,6 +33064,7 @@ function ferrRender(){
   if(_canSee('ferr_me_avise')) mkCard('🔔','Me Avise','Alertas de reposição','#E67E22',function(){ferrMeAvise();});
   if(_canSee('ferr_cad_reativ')) mkCard('📋','Cadastro / Reativ.','Script faturado a prazo','#7B2D8B',function(){ferrCadastroReativ();});
   if(_canSee('ferr_leitor')) mkCard('📝','Leitor de Peças','PDF/foto/texto → planilha','#0D7377',function(){ferrLeitorPecas();});
+  if(pfUsoIAEhDono()) mkCard('💰','Uso de IA','Custo estimado por leitura','#7B2D8B',function(){ferrUsoIA();});
   // Aplica restrição de role LEGADA — só quando o usuário ainda não tem
   // permissões granulares (modulos) configuradas; senão o _canSee() acima
   // já decidiu corretamente card por card e não deve ser sobrescrito
@@ -33125,7 +33214,7 @@ async function trfLerArquivo(file){
   var status=document.getElementById('trfStatus');
   if(status)status.innerHTML='<span style="color:#1F4E79">🤖 Lendo cotação...</span>';
   try{
-    var txt=await _anthropicReadDoc(file,'Esta é uma cotação da ENCOPEL. Extraia: 1) Nr. Cotação. 2) SOMENTE itens IMEDIATO ou IMEDIATO*. JSON: {"nr_cotacao":"","itens":[{"ref":"","desc":"","marca":"","qtd":1,"unitario":0}]}. ref=código antes do traço. Sem markdown.');
+    var txt=await _anthropicReadDoc(file,'Esta é uma cotação da ENCOPEL. Extraia: 1) Nr. Cotação. 2) SOMENTE itens IMEDIATO ou IMEDIATO*. JSON: {"nr_cotacao":"","itens":[{"ref":"","desc":"","marca":"","qtd":1,"unitario":0}]}. ref=código antes do traço. Sem markdown.','Transferência ENCOPEL');
     var m=txt.match(/\{[\s\S]*/);if(m)txt=m[0];
     var parsed;try{parsed=JSON.parse(txt);}catch(e){var m2=txt.match(/\[[\s\S]*/);if(m2)parsed={itens:JSON.parse(m2[0])};else throw new Error('Resposta inválida');}
     _trfNrCotacao=parsed.nr_cotacao||'';
@@ -34424,7 +34513,7 @@ async function mgLerArquivo(file){
   var status=document.getElementById('mgStatus');
   if(status)status.innerHTML='<span style="color:#1F4E79">🤖 Lendo...</span>';
   try{
-    var txt=await _anthropicReadDoc(file,'Extraia itens desta cotacao. JSON array: [{"ref":"","desc":"","marca":"","qtd":1,"preco":0,"ipi_pct":0,"st_val":0,"prazo":""}]. preco=unitario sem impostos. ipi_pct=% IPI (ex:7.8). prazo=valor da coluna Prazo (ex: IMEDIATO, NAO IM.). Sem markdown.');
+    var txt=await _anthropicReadDoc(file,'Extraia itens desta cotacao. JSON array: [{"ref":"","desc":"","marca":"","qtd":1,"preco":0,"ipi_pct":0,"st_val":0,"prazo":""}]. preco=unitario sem impostos. ipi_pct=% IPI (ex:7.8). prazo=valor da coluna Prazo (ex: IMEDIATO, NAO IM.). Sem markdown.','Margem - Leitura de Cotação');
     var m=txt.match(/\[[\s\S]*/);if(m)txt=m[0];
     var itens=JSON.parse(txt);
     var naoImed=itens.filter(function(it){return pfPrazoNaoIm(it.prazo);});
@@ -34779,7 +34868,7 @@ async function nfLerPDF(input){
   if(status)status.textContent='🤖 Lendo cotação...';
   try{
     var prompt='Extraia todos os itens desta cotação de venda. Retorne SOMENTE JSON array, sem markdown. Cada objeto: {"ref":"codigo","desc":"descricao","marca":"","qtd":1,"preco":0.00,"st_val":0.00,"ipi_val":0.00,"total_liq":0.00,"prazo":""}. IMPORTANTE: preco = coluna Unitário (preço base sem impostos). st_val = valor monetário da ST por unidade (ex: 15.36). ipi_val = valor monetário do IPI por unidade. total_liq = preco + st_val + ipi_val (se a planilha tiver coluna própria use esse valor). prazo = IMEDIATO ou NAO IM. Extraia TODOS os itens.';
-    var txt=await _anthropicReadDoc(file, prompt);
+    var txt=await _anthropicReadDoc(file, prompt, 'Leitura de Cotação');
     var m=txt.match(/\[[\s\S]*/); if(m)txt=m[0];
     var itens;
     try{
@@ -35115,7 +35204,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.592) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.593) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -35388,4 +35477,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.592 --></html>
+</script></div></div></body><!-- Build timestamp: v115.593 --></html>

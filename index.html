@@ -7,6 +7,15 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
+<!-- v115.597 - Corrigido: quando uma peca aparece em mais de uma secao/kit do
+catalogo (uso genuino em mais de um conjunto, ex: mesmo disco de embreagem
+usado em 2 marchas diferentes), a quantidade agora e SOMADA entre as
+ocorrencias, em vez de descartar todas menos a primeira (bug introduzido em
+v115.595). A duplicata real de sobreposicao entre partes do PDF dividido
+agora e detectada de forma deterministica (comparando fim de uma parte com
+começo da proxima), sem depender do campo "pagina" que a IA as vezes deixa
+em branco.
+-->
 <!-- v115.596 - Corrigido: aplicacao do formulario (preenchida manualmente pelo
 usuario antes do import) agora SEMPRE vence a aplicacao "por item" que a IA
 tentava adivinhar olhando cabecalhos internos de cada pagina do catalogo
@@ -621,7 +630,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.596</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.597</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -740,7 +749,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.596</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.597</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -28332,30 +28341,67 @@ cadImportarCatalogo = async function(input){
       partes=null;
     }
 
-    var itensTotais=[];
+    var itensPorParte=[];
     if(partes && partes.length>1){
       for(var pi=0;pi<partes.length;pi++){
         if(statusEl)statusEl.textContent='🤖 Lendo parte '+(pi+1)+' de '+partes.length+' do catálogo...';
         var txtParte=await _anthropicReadDoc(partes[pi], prompt, 'Importar Catálogo (Produtos) — parte '+(pi+1)+'/'+partes.length);
         var itensParte=cadParseItensCatalogo(txtParte);
-        if(Array.isArray(itensParte))itensTotais=itensTotais.concat(itensParte);
+        itensPorParte.push(Array.isArray(itensParte)?itensParte:[]);
       }
     } else {
       var txt=await _anthropicReadDoc(file, prompt, 'Importar Catálogo (Produtos)');
-      itensTotais=cadParseItensCatalogo(txt);
+      var itensUnicos=cadParseItensCatalogo(txt);
+      itensPorParte=[Array.isArray(itensUnicos)?itensUnicos:[]];
     }
-    if(!Array.isArray(itensTotais)||!itensTotais.length)throw new Error('Nenhum produto encontrado');
+    if(!itensPorParte.some(function(p){return p.length;}))throw new Error('Nenhum produto encontrado');
 
-    // Remove duplicados (mesmo código) que podem ter vindo da página de
-    // sobreposição entre duas partes do catálogo dividido.
-    var codigosVistos={};
-    var itens=itensTotais.filter(function(it){
+    // A página de sobreposição entre duas partes consecutivas do PDF dividido é
+    // lida duas vezes (uma no fim de uma parte, outra no início da próxima) — sem
+    // isso, comparar só pelo código faria a gente achar que uma peça comum (ex:
+    // um parafuso usado em várias seções) é sempre "sobreposição" e jogar fora a
+    // quantidade dela por engano. Em vez de confiar no número de página que a IA
+    // relata (que pode não vir preenchido sempre), a gente sabe de forma exata
+    // quais itens são candidatos a sobreposição: são os que aparecem tanto no
+    // FINAL da parte N quanto no COMEÇO da parte N+1, com o mesmo código+descrição
+    // — só esses são descartados da parte seguinte; qualquer outra repetição do
+    // mesmo código em partes não-vizinhas é uso genuíno em mais de um conjunto.
+    for(var piB=1;piB<itensPorParte.length;piB++){
+      var chaveAnterior={};
+      itensPorParte[piB-1].forEach(function(it){
+        var k=(it.codigo||'').toString().trim().toUpperCase()+'|||'+(it.descricao||it.desc||'').toString().trim().toUpperCase();
+        if(k!=='|||')chaveAnterior[k]=true;
+      });
+      itensPorParte[piB]=itensPorParte[piB].filter(function(it){
+        var k=(it.codigo||'').toString().trim().toUpperCase()+'|||'+(it.descricao||it.desc||'').toString().trim().toUpperCase();
+        return k==='|||'||!chaveAnterior[k];
+      });
+    }
+    var itensTotais=[].concat.apply([],itensPorParte);
+
+    // Uma mesma peça (mesmo código) pode aparecer em mais de uma seção/kit do
+    // catálogo de verdade — porque ela é usada em mais de um conjunto da mesma
+    // transmissão (ex: um disco de embreagem usado tanto na 2ª quanto na 3ª
+    // marcha). Nesses casos (já sem as duplicatas de sobreposição, removidas
+    // acima), a quantidade TOTAL usada é a SOMA de cada ocorrência.
+    var codMap={},ordemCodigos=[],itensSemCodigo=[];
+    itensTotais.forEach(function(it){
       var cod=(it.codigo||'').toString().trim().toUpperCase();
-      if(!cod)return true; // sem código, mantém (raro, mas não descarta)
-      if(codigosVistos[cod])return false;
-      codigosVistos[cod]=true;
-      return true;
+      if(!cod){itensSemCodigo.push(it);return;} // sem código, mantém como veio, sem tentar fundir
+      if(!codMap[cod]){
+        codMap[cod]={item:it,qtdTotal:(typeof it.qtd==='number'?it.qtd:0)};
+        ordemCodigos.push(cod);
+      } else {
+        var g=codMap[cod];
+        if(typeof it.qtd==='number')g.qtdTotal+=it.qtd;
+      }
     });
+    var itens=ordemCodigos.map(function(cod){
+      var g=codMap[cod],merged={};
+      for(var kk in g.item)if(g.item.hasOwnProperty(kk))merged[kk]=g.item[kk];
+      merged.qtd=g.qtdTotal||null;
+      return merged;
+    }).concat(itensSemCodigo);
 
     // Apply substituições
     itens=substAplicarLote(itens);
@@ -35591,4 +35637,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.596 --></html>
+</script></div></div></body><!-- Build timestamp: v115.597 --></html>

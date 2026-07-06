@@ -7,13 +7,15 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.591 - (1) Import de catalogo (transmissao): a IA estava confundindo o cabecalho
-interno "CLARK MODEL: 266104 Group" (um sub-conjunto/capitulo dentro do MESMO catalogo)
-com um modelo de equipamento diferente, criando 9 grupos separados na tela de Aplicacoes
-em vez de ficar tudo sob um unico modelo. Instruido explicitamente a IA a ignorar esse
-numero de sub-conjunto no campo aplicacao.modelo (fica vazio, usa o modelo informado
-manualmente pelo usuario). (2) Lista de marcas do import PDF/Planilha: removido DANA/
-SPICER, SKF, TIMKEN, PARKER; adicionado DANA e ZF separados. -->
+<!-- v115.592 - (1) CORRIGIDO: catalogo grande (Clark, ~500 itens esperados) so trazia
+88 itens no import -- causa: max_tokens estava em 16000, baixo demais pro schema
+verboso por item (descricaoResumida, aplicacao, subgrupoTransmissao etc.) somado a um
+catalogo com muitas paginas; a resposta da IA estava sendo cortada no meio. Aumentado
+pra 64000 (limite real do Claude Sonnet 4.6). (2) As regras de texto livre cadastradas
+na ferramenta "Leitor de Pecas" (lp_regras_v1) agora tambem sao aplicadas na importacao
+de Catalogo PDF/Planilha em Cadastros > Produtos -- antes so valiam pro Leitor de
+Pecas, agora e' um unico lugar pra cadastrar regra de padronizacao de codigo/descricao
+que vale pros dois fluxos. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -602,7 +604,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.591</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.592</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -721,7 +723,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.591</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.592</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22522,7 +22524,7 @@ async function _anthropicReadDoc(file, prompt){
     resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:16000,
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:64000,
         messages:[{role:'user',content:[contentBlock,{type:'text',text:prompt}]}]}),
       signal: ctrl ? ctrl.signal : undefined
     });
@@ -22890,7 +22892,7 @@ function pfRepararBotoesCotacao(){
   });
 }
 
-// REVERTIDO (v115.591): a desativação em v115.591 causou travamento no iPad — restaurando
+// REVERTIDO (v115.592): a desativação em v115.592 causou travamento no iPad — restaurando
 // enquanto investigo uma correção mais cirúrgica (manter a proteção de toque, sem duplicar).
 // Chamar quando carrega a página de cotação
 setTimeout(pfRepararBotoesCotacao, 300);
@@ -22916,9 +22918,9 @@ function pfRepararBotoesIPad(){
   });
 }
 
-// REVERTIDO (v115.591): revertido junto com pfRepararBotoesCotacao por segurança.
+// REVERTIDO (v115.592): revertido junto com pfRepararBotoesCotacao por segurança.
 // Chamar quando carrega e periodicamente
-// DESATIVADO (v115.591) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
+// DESATIVADO (v115.592) — CONFIRMADO por rastro de pilha (não é mais suposição): essa função
 // adiciona um SEGUNDO listener de click em cima do onclick nativo de QUALQUER elemento com
 // onclick presente na tela no boot da página (500ms). Isso fazia mapaExpand() (e qualquer
 // outro onclick) disparar 2x por clique — daí a duplicação de sync/salvamento vista no console.
@@ -28185,7 +28187,7 @@ cadImportarCatalogo = async function(input){
       var marcaVal=cadGetMarcaCatalogo()||window._impMarcaAtual||'';
       var isItalian=['CARRARO','DANA/SPICER','DANA','ZF','SPICER'].some(function(m){return marcaVal.toUpperCase().includes(m);});
       var isEnglish=['CLARK','CLARK-HURTH','ALLISON','FUNK','EATON','CATERPILLAR','CAT','JOHN DEERE','ROCKWELL','MERITOR'].some(function(m){return marcaVal.toUpperCase().includes(m);});
-      var camposExtra=' Alem disso, preencha "descricaoResumida" com uma versao curta e direta da descricao (so o nome basico da peca, sem os detalhes/qualificadores que vem entre parenteses ou depois de "do"/"da"/"de" -- ex: descricao completa "Anel Trava do Cubo do Impulsor" -> descricaoResumida "Anel Trava"; "Engrenagem do Cubo do Impulsor (46 Dentes)" -> "Engrenagem"). Se o catalogo mostrar (mesmo que informalmente): qtd (quantidade usada dessa peca naquela montagem/conjunto — muitos catalogos tem uma coluna "QTY"/"QTD"; numero inteiro, deixe null se nao tiver essa informacao), pagina (numero da pagina onde o item aparece), aplicacao (equipamento/marca/modelo/serie/veiculo que usa essa peca — "veiculo" e o tipo de maquina, tipo Retroescavadeira/Trator/Caminhao/Pa-carregadeira, se estiver escrito perto do item ou no cabecalho da secao; ATENCAO: catalogos de transmissao/componente costumam ter, dentro de cada pagina de lista de pecas, um cabecalho tipo "CLARK MODEL: 266104 Group" ou "242098 Group" -- isso e apenas o numero do SUB-CONJUNTO interno daquela pagina/secao do catalogo (equivalente a um capitulo), NAO e um modelo de equipamento diferente e NAO deve ir no campo "modelo" da aplicacao -- deixe aplicacao.modelo VAZIO nesses casos (o sistema usa o modelo do equipamento informado manualmente pelo usuario); esse numero de sub-conjunto interno, se quiser guardar, vai no campo "grupo" descrito abaixo, nao em aplicacao.modelo), grupo (um identificador curto — numero da figura, nome do kit/conjunto explodido, etc — pra itens que aparecem JUNTOS na mesma ilustracao/kit, tipo "Fig.12" ou "Kit vedacao motor"; deixe vazio se nao der pra saber), codigoEstoque (se o catalogo tiver uma coluna de recomendacao de estoque -- geralmente uma unica letra A a E, ou siglas tipo "AR"/"NI"/"D" -- copie exatamente o que aparecer nessa coluna pra esse item; deixe vazio se nao tiver essa coluna). Se este for um catalogo de peças de TRANSMISSAO, preencha tambem subgrupoTransmissao escolhendo EXATAMENTE um destes valores (nunca invente outro): "Conversor de Torque", "Vedação", "Rolamentos", "Anéis Trava", "Pacotes", "Comando Hidráulico/Eletrônico", "Bomba e Filtragem de Óleo", "Eixos e Engrenagens", "Componentes Cardans", "Carcaça", "Freio", "Elétrico Transmissão", "Acessórios". Regras de classificacao: "Vedação" = anéis O, anel vedador, juntas (gaskets), retentores (oil seals), anéis de segmento/piston rings -- so vedacao, nao inclui retencao mecanica. "Rolamentos" = rolamentos (bearings), bucha de agulha (needle bushing), gaiola de agulha (needle cage). "Anéis Trava" = anel trava, snap ring, retaining ring, backing ring -- retencao mecanica, diferente de vedacao. "Pacotes" = tambor (drum), pistao (piston) de embreagem, discos internos/externos (clutch discs), engrenagens de 1a/2a/3a/4a marcha. Se nao for catalogo de transmissao, deixe subgrupoTransmissao vazio. Inclua todos esses campos no JSON de cada item quando encontrar, mesmo que nao tenha certeza total.';
+      var camposExtra=' Alem disso, preencha "descricaoResumida" com uma versao curta e direta da descricao (so o nome basico da peca, sem os detalhes/qualificadores que vem entre parenteses ou depois de "do"/"da"/"de" -- ex: descricao completa "Anel Trava do Cubo do Impulsor" -> descricaoResumida "Anel Trava"; "Engrenagem do Cubo do Impulsor (46 Dentes)" -> "Engrenagem"). Se o catalogo mostrar (mesmo que informalmente): qtd (quantidade usada dessa peca naquela montagem/conjunto — muitos catalogos tem uma coluna "QTY"/"QTD"; numero inteiro, deixe null se nao tiver essa informacao), pagina (numero da pagina onde o item aparece), aplicacao (equipamento/marca/modelo/serie/veiculo que usa essa peca — "veiculo" e o tipo de maquina, tipo Retroescavadeira/Trator/Caminhao/Pa-carregadeira, se estiver escrito perto do item ou no cabecalho da secao; ATENCAO: catalogos de transmissao/componente costumam ter, dentro de cada pagina de lista de pecas, um cabecalho tipo "CLARK MODEL: 266104 Group" ou "242098 Group" -- isso e apenas o numero do SUB-CONJUNTO interno daquela pagina/secao do catalogo (equivalente a um capitulo), NAO e um modelo de equipamento diferente e NAO deve ir no campo "modelo" da aplicacao -- deixe aplicacao.modelo VAZIO nesses casos (o sistema usa o modelo do equipamento informado manualmente pelo usuario); esse numero de sub-conjunto interno, se quiser guardar, vai no campo "grupo" descrito abaixo, nao em aplicacao.modelo), grupo (um identificador curto — numero da figura, nome do kit/conjunto explodido, etc — pra itens que aparecem JUNTOS na mesma ilustracao/kit, tipo "Fig.12" ou "Kit vedacao motor"; deixe vazio se nao der pra saber), codigoEstoque (se o catalogo tiver uma coluna de recomendacao de estoque -- geralmente uma unica letra A a E, ou siglas tipo "AR"/"NI"/"D" -- copie exatamente o que aparecer nessa coluna pra esse item; deixe vazio se nao tiver essa coluna). Se este for um catalogo de peças de TRANSMISSAO, preencha tambem subgrupoTransmissao escolhendo EXATAMENTE um destes valores (nunca invente outro): "Conversor de Torque", "Vedação", "Rolamentos", "Anéis Trava", "Pacotes", "Comando Hidráulico/Eletrônico", "Bomba e Filtragem de Óleo", "Eixos e Engrenagens", "Componentes Cardans", "Carcaça", "Freio", "Elétrico Transmissão", "Acessórios". Regras de classificacao: "Vedação" = anéis O, anel vedador, juntas (gaskets), retentores (oil seals), anéis de segmento/piston rings -- so vedacao, nao inclui retencao mecanica. "Rolamentos" = rolamentos (bearings), bucha de agulha (needle bushing), gaiola de agulha (needle cage). "Anéis Trava" = anel trava, snap ring, retaining ring, backing ring -- retencao mecanica, diferente de vedacao. "Pacotes" = tambor (drum), pistao (piston) de embreagem, discos internos/externos (clutch discs), engrenagens de 1a/2a/3a/4a marcha. Se nao for catalogo de transmissao, deixe subgrupoTransmissao vazio. Inclua todos esses campos no JSON de cada item quando encontrar, mesmo que nao tenha certeza total.'+(typeof lpRegrasPrompt==='function'?lpRegrasPrompt():'');
       if(isItalian){
         return 'Este é um catálogo de peças em italiano (marca CARRARO). Extraia todos os produtos e TRADUZA cada descrição do italiano para o português brasileiro. Se não souber traduzir um termo, mantenha como está. Retorne SOMENTE JSON array, sem markdown. Cada objeto: {"codigo":"","descricao":"TRADUZIDO EM PORTUGUES","descricaoResumida":"","ncm":"","unidade":"","marca":"","pagina":null,"qtd":null,"aplicacao":{"equip":"","marca":"","modelo":"","serie":"","veiculo":""},"grupoCatalogo":"","codigoEstoque":"","subgrupoTransmissao":""}. Exemplos: Ralla=ARRUELA, Anello OR=ANEL O-RING, Boccola=BUCHA, Vite=PARAFUSO, Spina=PINO, Tappo=TAMPAO, Bronzina=BRONZINA, Guarnizione=JUNTA, Cuscinetto=ROLAMENTO, Albero=EIXO, Ingranaggio=ENGRENAGEM, Paraolio=RETENTOR, Pompa=BOMBA, Molla=MOLA, Flangia=FLANGE, Supporto=SUPORTE.'+camposExtra;
       }
@@ -35113,7 +35115,7 @@ function pfNavigate(view){
 
 // ════════════════════════════════════════════════════════════════
 
-// DESATIVADO (v115.591) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
+// DESATIVADO (v115.592) — CAUSA RAIZ DEFINITIVA da duplicação persistente em toda a página.
 // Diferente das outras duas funções de "reparo" (que rodavam só uma vez no boot), esse
 // listener ficava ativo a SESSÃO INTEIRA, capturando TODO clique em QUALQUER elemento com
 // onclick e reexecutando via eval() — em cima do onclick nativo que já ia rodar sozinho.
@@ -35386,4 +35388,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.591 --></html>
+</script></div></div></body><!-- Build timestamp: v115.592 --></html>

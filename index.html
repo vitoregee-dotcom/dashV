@@ -7,6 +7,15 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
+<!-- v115.617 - Novo formulario "Cadastrar sem convite" na tela de Gerenciar
+Usuarios -- pra quem ja criou o login direto no Supabase (Authentication >
+Users), cola o UID + nome/email/cargo e cadastra na tabela profiles direto
+por ali, sem precisar mexer no Supabase Table Editor na mao. Usa a sessao
+autenticada do admin (nao a service_role key, que nao pode ficar exposta no
+codigo do site) -- se a politica de seguranca (RLS) da tabela profiles nao
+permitir esse insert por outro usuario, mostra aviso claro em vez de erro
+generico.
+-->
 <!-- v115.616 - Duas correcoes:
 1) Corrigido de vez o "dashboard vazando pra outras telas": a variavel
 _pfCurrentView (e currentView) tinha 'dash' como valor PADRAO antes de
@@ -808,7 +817,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.616</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.617</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -844,6 +853,20 @@ button { min-height:36px; }
           <button class="adminFormBtn" onclick="inviteUser()">Convidar</button>
         </div>
         <p style="font-size:11px;color:#607080">O usuário receberá um e-mail para definir a própria senha.</p>
+      </div>
+      <div class="adminSection" style="margin-top:20px">
+        <h3>Cadastrar sem convite</h3>
+        <p style="font-size:11px;color:#607080;margin:0 0 10px">
+          Pra quem já criou o login direto no Supabase (Authentication → Users → Add user).
+          Cole o <strong>UID</strong> de lá (copiado do Supabase) pra vincular o cadastro aqui.
+        </p>
+        <div class="adminForm">
+          <input type="text" id="directUid" placeholder="UID do Supabase (Authentication → Users)">
+          <input type="text" id="directNome" placeholder="Nome completo">
+          <input type="email" id="directEmail" placeholder="E-mail">
+          <select id="directRole"><option value="user">Usuário</option><option value="admin">Admin</option></select>
+          <button class="adminFormBtn" onclick="cadastrarSemConvite()">Cadastrar</button>
+        </div>
       </div>
       <div class="adminSection" style="margin-top:20px">
         <h3>Usuários cadastrados</h3>
@@ -927,7 +950,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.616</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.617</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -20619,6 +20642,44 @@ async function inviteUser(){
   if(r.ok){showAdminMsg('✅ Convite enviado para '+email,true);document.getElementById('newNome').value='';document.getElementById('newEmail').value='';setTimeout(loadUsers,1500);}
   else showAdminMsg(d.msg||d.error_description||'Erro ao convidar.',false);
 }
+// Cadastra o usuário direto na tabela profiles (sem mandar e-mail de convite) --
+// usa a própria sessão autenticada do admin (não precisa da service_role key,
+// que não pode ficar exposta no código do site). O login em si (auth.users)
+// precisa já ter sido criado antes, direto no Supabase (Authentication > Users
+// > Add user) -- essa função só liga o cadastro (nome/e-mail/cargo/módulos)
+// àquele login, colando o UID gerado lá.
+async function cadastrarSemConvite(){
+  const uid=(document.getElementById('directUid').value||'').trim();
+  const nome=(document.getElementById('directNome').value||'').trim();
+  const email=(document.getElementById('directEmail').value||'').trim();
+  const role=document.getElementById('directRole').value;
+  if(!uid||!nome||!email){showAdminMsg('Preencha UID, nome e e-mail.',false);return;}
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)){
+    showAdminMsg('UID não parece válido -- copie exatamente como aparece no Supabase (Authentication → Users).',false);
+    return;
+  }
+  const r=await sbFetch('/rest/v1/profiles',{
+    method:'POST',
+    headers:{'Prefer':'return=representation'},
+    body:JSON.stringify({id:uid,email:email,nome:nome,role:role,modulos:{}})
+  });
+  if(r.ok){
+    showAdminMsg('✅ '+nome+' cadastrado!',true);
+    document.getElementById('directUid').value='';
+    document.getElementById('directNome').value='';
+    document.getElementById('directEmail').value='';
+    setTimeout(loadUsers,800);
+  } else {
+    const d=await r.json().catch(function(){return{};});
+    var msg=d.message||d.msg||d.error_description||'Erro ao cadastrar.';
+    if(msg.toLowerCase().indexOf('permission')>=0||msg.toLowerCase().indexOf('policy')>=0||r.status===401||r.status===403){
+      msg='Sem permissão pra criar cadastro direto (a regra de segurança do Supabase não deixa admin inserir por outro usuário). Nesse caso, use o convite normal, ou peça pra alguém ajustar a política RLS da tabela profiles.';
+    } else if(msg.toLowerCase().indexOf('duplicate')>=0||msg.toLowerCase().indexOf('already exists')>=0){
+      msg='Já existe um cadastro com esse UID ou e-mail.';
+    }
+    showAdminMsg(msg,false);
+  }
+}
 function removeUser(btn){const id=btn.dataset.id,email=btn.dataset.email;
   pfConfirm('Remover '+email+'?', async function(){
     const r=await sbFetch('/rest/v1/profiles?id=eq.'+id,{method:'DELETE'});
@@ -36310,4 +36371,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.616 --></html>
+</script></div></div></body><!-- Build timestamp: v115.617 --></html>

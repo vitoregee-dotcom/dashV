@@ -7,6 +7,15 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
+<!-- v115.615 - Corrigido "Dashboard nao abre / fica em branco": a otimizacao de
+so renderizar uma vez por sessao (_pfDashRendered) podia deixar a tela
+completamente vazia se o conteudo fosse limpo por qualquer motivo entre duas
+visitas -- a flag ficava presa em "true" e nunca mais redesenhava nada.
+Removida essa trava: agora redesenha (tabela/KPIs/graficos) toda vez que a
+tela e aberta, custando um pouco de tempo a mais por visita, mas garantindo
+que sempre aparece conteudo. Os console.time de diagnostico continuam ativos
+pra medir esse custo real.
+-->
 <!-- v115.614 - Ajuste fino do nome fantasia na tabela de Mapas: cor azul do
 sistema (#1F4E79) em vez de cinza escuro, tamanho um pouco maior. Razao
 social confirmada sem negrito (font-weight:400 explicito).
@@ -785,7 +794,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.614</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.615</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -904,7 +913,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.614</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.615</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -15970,8 +15979,7 @@ async function recalc(skipRender){
 // quando a tela é aberta e o cálculo já rodou em segundo plano com skipRender=true.
 // Evita reprocessar os 207k itens de novo — só desenha o que já foi calculado.
 async function pfRenderDashNow(){
-  console.log('🕐 pfRenderDashNow chamado — _pfDashRendered='+window._pfDashRendered+', calcItems.length='+(typeof calcItems!=='undefined'?calcItems.length:'?'));
-  if(window._pfDashRendered){console.log('⏭️ Já renderizado antes, pulando (deveria ser instantâneo)');return;}
+  console.log('🕐 pfRenderDashNow chamado — calcItems.length='+(typeof calcItems!=='undefined'?calcItems.length:'?'));
   console.time('⏱️ pfRenderDashNow TOTAL');
   if(!calcItems.length){
     // Cálculo ainda não rodou (caso raro) — roda completo agora
@@ -35914,10 +35922,14 @@ function pfNavigate(view){
       var d=document.getElementById('dash'); if(d)d.style.display='block';
       var u=document.getElementById('upSec'); if(u)u.style.display='none';
       if(typeof renderUltimaPlanilhaFamilia==='function'){try{renderUltimaPlanilhaFamilia();}catch(_e){console.warn('renderUltimaPlanilhaFamilia falhou:',_e);}}
-      // Primeira abertura da tela nesta sessão: desenha tabela/KPIs/gráficos agora
-      // (cálculo já rodou em segundo plano no login; aqui só falta o desenho visual)
-      console.log('🧭 pfNavigate(dash): _pfDashRendered='+window._pfDashRendered+' -- '+(window._pfDashRendered?'não deveria renderizar de novo':'vai renderizar agora'));
-      if(!window._pfDashRendered&&typeof pfRenderDashNow==='function'){
+      // Redesenha tabela/KPIs/gráficos sempre que abrir esta tela -- antes só
+      // rodava na primeira vez da sessão (guardado por _pfDashRendered), mas
+      // isso podia deixar a tela em branco se o conteúdo tivesse sido limpo
+      // por algum motivo entre uma visita e outra (a flag ficava presa em
+      // "true" e nunca mais redesenhava). Custa um pouco de tempo a mais a
+      // cada visita, mas garante que sempre aparece alguma coisa.
+      console.log('🧭 pfNavigate(dash): renderizando...');
+      if(typeof pfRenderDashNow==='function'){
         var _spD=document.getElementById('spinner');
         if(_spD){_spD.style.display='block';_spD.textContent='📊 Preparando Dashboard...';}
         pfRenderDashNow().then(function(){
@@ -36284,4 +36296,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.614 --></html>
+</script></div></div></body><!-- Build timestamp: v115.615 --></html>

@@ -7,6 +7,12 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
+<!-- v115.608 - Corrigido "Uso de IA zerado": essa chave (ia_uso_log_v1) era so
+enviada pro servidor, nunca puxada de volta -- entao um logout normal (que
+limpa TODO o localStorage) apagava o historico de custo sem chance de
+recuperar. Agora ela entra no pull tambem, com merge por timestamp (nunca
+perde nem duplica registro) -- historico sobrevive a um logout/limpeza local.
+-->
 <!-- v115.607 - Sync automatico em segundo plano (v115.605) deixado mais leve:
 intervalo de 90s para 3min, nunca roda sobreposto, e pula a rodada se o
 usuario acabou de clicar/digitar ha poucos segundos -- reduz chance de
@@ -729,7 +735,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.607</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.608</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -848,7 +854,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.607</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.608</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -28017,7 +28023,8 @@ var PF_SYNC_KEYS = [
   'regras_ia_sugestoes_v1',
   'lp_regras_v1',
   'lp_historico_v1',
-  'trf_historico_v1'
+  'trf_historico_v1',
+  'ia_uso_log_v1'
 ];
 
 async function pfSyncPush(keys){
@@ -28112,7 +28119,7 @@ async function pfSyncPull(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   try{
     // Chaves compartilhadas entre usuários — puxar de TODOS os usuários
-    var sharedKeys = ['cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1'];
+    var sharedKeys = ['cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'ia_uso_log_v1'];
     
     var rows = [];
     
@@ -28161,6 +28168,26 @@ async function pfSyncPull(){
           });
           var merged=Object.keys(porId).map(function(k){return porId[k];}).sort(function(a,b){return (b.ts||0)-(a.ts||0);}).slice(0,20);
           pfSafeSetItem('mapas_lista_v1',JSON.stringify(merged));
+          return;
+        }
+        if(row.chave==='ia_uso_log_v1'){
+          // Une local + servidor (nunca troca um pelo outro) -- assim, mesmo que
+          // o localStorage seja limpo (ex: no logout normal, que limpa tudo), o
+          // histórico de custo de IA volta na próxima vez que logar, em vez de
+          // ficar zerado.
+          var remoto=JSON.parse(val||'[]');
+          var local=JSON.parse(localStorage.getItem('ia_uso_log_v1')||'[]');
+          var vistos={};
+          var merged=[];
+          local.concat(remoto).forEach(function(entry){
+            var k=(entry.ts||0)+'|'+(entry.contexto||'');
+            if(vistos[k])return;
+            vistos[k]=true;
+            merged.push(entry);
+          });
+          merged.sort(function(a,b){return (a.ts||0)-(b.ts||0);});
+          if(merged.length>500)merged=merged.slice(merged.length-500);
+          pfSafeSetItem('ia_uso_log_v1',JSON.stringify(merged));
           return;
         }
         if(row.chave==='cad_solicitacoes_compras_v1'){
@@ -36154,4 +36181,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.607 --></html>
+</script></div></div></body><!-- Build timestamp: v115.608 --></html>

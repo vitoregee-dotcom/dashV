@@ -7,6 +7,23 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
+<!-- v115.613 - Tabela "Mapas em andamento": varias melhorias pedidas --
+1) Nova coluna USUARIO (quem criou o mapa).
+2) Nova coluna FINALIZADO EM (data/hora da ultima decisao tomada -- campo
+   novo decididoTs, gravado em mapaMarcarDecisao).
+3) Coluna CLIENTE agora mostra Nome Fantasia em negrito maior, com Razao
+   Social discreta embaixo (campo novo clienteRazao, capturado a partir do
+   cliente da cotacao -- window._venda.cliente ganhou o campo fantasia).
+4) Container da tela de Mapa de Compras alargado de max-width 1200px pra
+   1600px, pra caber mais colunas sem cortar informacao.
+5) Corrigido de quebra: o campo vendaOrigem nunca tinha sido propagado pro
+   resumo salvo na lista (mapaSalvarNaLista) -- a coluna ORIGEM da v115.609
+   nunca ia mostrar "Cotacao" de verdade por causa disso. Tambem corrigida
+   uma referencia quebrada a variavel renomeada (clienteNome->clienteFantasia)
+   que ia gerar erro ao criar mapa direto da cotacao, e o resumo criado por
+   esse caminho direto (bypass de mapaSalvarNaLista) agora tambem leva todos
+   os campos novos (nItens correto, clienteRazao, vendaOrigem, criadoPor).
+-->
 <!-- v115.612 - Corrigido email desconfigurado no Outlook: os 4 templates de
 e-mail (Solicitacao de Cotacao por email/individual, Solicitacao de Compra,
 Transferencia de Estoque) usavam um <div style="max-width:700px"> como corpo
@@ -764,7 +781,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.612</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.613</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -883,7 +900,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.612</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.613</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -897,7 +914,7 @@ button { min-height:36px; }
       
     </div></div><button id="btnNewTab" onclick="newTab()" style="display:none">＋ Nova análise</button></div>
 <div id="mapaView" style="display:none;flex:1;padding:20px 16px;background:var(--pf-bg,#f4f7fb);position:relative;z-index:10">
-  <div style="max-width:1200px">
+  <div style="max-width:1600px">
   <button onclick="mapaItens=[];mapaRender();" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;margin-bottom:10px">← Mapas</button>
   <div style="display:flex;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);margin-bottom:20px;overflow:hidden">
     <div style="flex:1;display:flex;flex-direction:column">
@@ -22896,6 +22913,7 @@ function mapaMarcarDecisao(key, decKey, qtd, preco, custo){
     decisoes: mapaDecisoes,
     qtdDecidida: mapaQtdDecidida,
     precoDecidido: mapaPrecoDecidido,
+    decididoTs: Date.now(), // marca "finalização" -- quando uma decisão foi tomada/atualizada pela última vez
   };
   mapaEstadoId = mapaEstado.id;
   console.log('💾 SALVANDO estado ID:', mapaEstadoId, '| decisões:', Object.keys(mapaDecisoes).length, '| precos:', Object.keys(mapaPrecoDecidido).length);  mapaSalvarNaLista(mapaEstado);
@@ -29378,7 +29396,10 @@ function mapaSalvarNaLista(estado){
     titulo: estado.titulo||(new Date(estado.ts).toLocaleDateString('pt-BR')+' — '+(estado.itens&&estado.itens[0]?estado.itens[0].desc:'')+'...'),
     numero: estado.numero||'',
     cliente: estado.cliente||'',
+    clienteRazao: estado.clienteRazao||'',
     criadoPor: estado.criadoPor||null,
+    decididoTs: estado.decididoTs||null,
+    vendaOrigem: estado.vendaOrigem||null,
   };
   if(idx>=0)lista[idx]=resumo; else lista.unshift(resumo);
   // Keep max 20 mapas
@@ -29514,10 +29535,12 @@ mapaRender = function(){
         var origemTxt=m.vendaOrigem?'cotação':'mapa';
         if(origemTxt.indexOf(cf.origem.toLowerCase())<0)return false;
       }
-      if(cf.cliente&&!((m.cliente||'').toLowerCase().indexOf(cf.cliente.toLowerCase())>=0))return false;
+      if(cf.cliente&&!(((m.cliente||'')+' '+(m.clienteRazao||'')).toLowerCase().indexOf(cf.cliente.toLowerCase())>=0))return false;
+      if(cf.usuario&&!((m.criadoPor&&m.criadoPor.nome||'').toLowerCase().indexOf(cf.usuario.toLowerCase())>=0))return false;
       if(cf.status&&st.label.toLowerCase().indexOf(cf.status.toLowerCase())<0)return false;
       if(cf.itens&&String(m.nItens).indexOf(cf.itens)<0)return false;
       if(cf.data&&new Date(m.ts).toLocaleString('pt-BR').toLowerCase().indexOf(cf.data.toLowerCase())<0)return false;
+      if(cf.finalizado&&!(m.decididoTs&&new Date(m.decididoTs).toLocaleString('pt-BR').toLowerCase().indexOf(cf.finalizado.toLowerCase())>=0))return false;
       return true;
     });
     var html='<div style="max-width:100%">';
@@ -29543,18 +29566,21 @@ mapaRender = function(){
       html+='<div style="overflow-x:auto;border:1px solid #e0e8f0;border-radius:10px">';
       html+='<table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">';
       html+=pfColGroup(MCF_KEY,[
-        {key:'numero',def:80},{key:'origem',def:110},{key:'cliente',def:null},
-        {key:'status',def:140},{key:'itens',def:70},{key:'progresso',def:170},
-        {key:'data',def:130},{key:'acoes',def:170}
+        {key:'numero',def:80},{key:'origem',def:110},{key:'cliente',def:220},
+        {key:'usuario',def:130},{key:'status',def:150},{key:'itens',def:60},
+        {key:'progresso',def:150},{key:'data',def:120},{key:'finalizado',def:120},
+        {key:'acoes',def:170}
       ]);
       html+='<thead><tr style="background:#1F4E79;color:#fff">';
       html+=pfColTh(MCF_KEY,'numero','#',80,'left');
       html+=pfColTh(MCF_KEY,'origem','ORIGEM',110,'left');
-      html+=pfColTh(MCF_KEY,'cliente','CLIENTE',null,'left');
-      html+=pfColTh(MCF_KEY,'status','STATUS',140,'center');
-      html+=pfColTh(MCF_KEY,'itens','ITENS',70,'center');
-      html+=pfColTh(MCF_KEY,'progresso','PROGRESSO',170,'left');
-      html+=pfColTh(MCF_KEY,'data','DATA',130,'left');
+      html+=pfColTh(MCF_KEY,'cliente','CLIENTE',220,'left');
+      html+=pfColTh(MCF_KEY,'usuario','USUÁRIO',130,'left');
+      html+=pfColTh(MCF_KEY,'status','STATUS',150,'center');
+      html+=pfColTh(MCF_KEY,'itens','ITENS',60,'center');
+      html+=pfColTh(MCF_KEY,'progresso','PROGRESSO',150,'left');
+      html+=pfColTh(MCF_KEY,'data','CRIADO EM',120,'left');
+      html+=pfColTh(MCF_KEY,'finalizado','FINALIZADO EM',120,'left');
       html+=pfColTh(MCF_KEY,'acoes','AÇÕES',170,'right');
       html+='</tr>';
       // Linha de filtros por coluna
@@ -29567,14 +29593,16 @@ mapaRender = function(){
       html+='<th style="padding:4px 6px">'+fInpM('numero','filtrar...')+'</th>';
       html+='<th style="padding:4px 6px">'+fInpM('origem','cotação/mapa')+'</th>';
       html+='<th style="padding:4px 6px">'+fInpM('cliente','filtrar...')+'</th>';
+      html+='<th style="padding:4px 6px">'+fInpM('usuario','filtrar...')+'</th>';
       html+='<th style="padding:4px 6px">'+fInpM('status','filtrar...')+'</th>';
       html+='<th style="padding:4px 6px">'+fInpM('itens','filtrar...')+'</th>';
       html+='<th style="padding:4px 6px"></th>';
       html+='<th style="padding:4px 6px">'+fInpM('data','filtrar...')+'</th>';
+      html+='<th style="padding:4px 6px">'+fInpM('finalizado','filtrar...')+'</th>';
       html+='<th style="padding:4px 6px"></th>';
       html+='</tr></thead><tbody>';
       if(!listaFiltrada.length){
-        html+='<tr><td colspan="8" style="text-align:center;padding:24px;color:#8a9ab0;font-size:13px">Nenhum mapa encontrado com esses filtros.</td></tr>';
+        html+='<tr><td colspan="10" style="text-align:center;padding:24px;color:#8a9ab0;font-size:13px">Nenhum mapa encontrado com esses filtros.</td></tr>';
       }
       listaFiltrada.forEach(function(m){
         var dt=new Date(m.ts).toLocaleString('pt-BR');
@@ -29593,11 +29621,16 @@ mapaRender = function(){
         html+='<tr style="border-bottom:0.5px solid #f0f4f8" onmouseover="this.style.background=\'#f7f9fc\'" onmouseout="this.style.background=\'\'">';
         html+='<td style="padding:4px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(m.numero?'<span style="font-size:11px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 8px;border-radius:5px">'+pfEscHtml(m.numero)+'</span>':'—')+'</td>';
         html+='<td style="padding:4px 10px;white-space:nowrap" title="'+pfEscHtml(m.titulo||'')+'">'+origemBadge+'</td>';
-        html+='<td style="padding:4px 10px;color:#1a2332;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(m.cliente?pfEscHtml(m.cliente):'—')+'</td>';
+        html+='<td style="padding:4px 10px;overflow:hidden;text-overflow:ellipsis">'+(m.cliente?
+          ('<div style="font-weight:700;font-size:12px;color:#1a2332;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pfEscHtml(m.cliente)+'</div>'+
+           (m.clienteRazao&&m.clienteRazao!==m.cliente?'<div style="font-size:10px;color:#8a9ab0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pfEscHtml(m.clienteRazao)+'</div>':'')):
+          '—')+'</td>';
+        html+='<td style="padding:4px 10px;color:#1a2332;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px">'+(m.criadoPor&&m.criadoPor.nome?pfEscHtml(m.criadoPor.nome):'—')+'</td>';
         html+='<td style="padding:4px 10px;text-align:center"><span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap;background:'+st.bg+';color:'+st.cor+'">'+st.label+'</span></td>';
         html+='<td style="padding:4px 10px;text-align:center;white-space:nowrap"><span style="background:#E8F4FD;color:#185FA5;font-size:10px;font-weight:600;padding:1px 7px;border-radius:4px">'+m.nItens+'</span></td>';
         html+='<td style="padding:4px 10px">'+progBadge+'</td>';
-        html+='<td style="padding:4px 10px;color:#607080;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+dt+(m.criadoPor&&m.criadoPor.nome?'<div style="font-size:9px;color:#8a9ab0">Por: '+pfEscHtml(m.criadoPor.nome)+'</div>':'')+'</td>';
+        html+='<td style="padding:4px 10px;color:#607080;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px">'+dt+'</td>';
+        html+='<td style="padding:4px 10px;color:#607080;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px">'+(m.decididoTs?new Date(m.decididoTs).toLocaleString('pt-BR'):'<span style="color:#c4ccd6">—</span>')+'</td>';
         html+='<td style="padding:4px 10px;text-align:right">';
         html+='<button onclick="mapaCarregarDaLista(\''+m.id+'\');mapaGoStep(mapaStep);" style="font-size:10px;padding:5px 10px;background:#1F4E79;color:#fff;border:none;border-radius:5px;cursor:pointer;white-space:nowrap;font-weight:700;margin-right:4px">'+st.btn+'</button>';
         html+='<button onclick="mapaCarregarDaLista(\''+m.id+'\');mapaGoStep(2);" style="font-size:10px;padding:5px 9px;background:none;border:1px solid #FF9500;border-radius:5px;color:#FF9500;cursor:pointer;font-weight:600;white-space:nowrap;margin-right:4px">✏️</button>';
@@ -33438,7 +33471,7 @@ function vendasSelecionarCliente(i){
   var c=(window._vendasClienteMatches||[])[i];if(!c)return;
   var contato='',tel='';
   if(c.contatos&&c.contatos[0]){contato=c.contatos[0].nome||'';tel=c.contatos[0].telefone||'';}
-  window._venda.cliente={razao:c.razao,cnpj:c.cnpj,codigo:c.codigo,contato:contato,tel:tel,cidade:c.cidade,estado:c.estado};
+  window._venda.cliente={razao:c.razao,fantasia:c.fantasia||'',cnpj:c.cnpj,codigo:c.codigo,contato:contato,tel:tel,cidade:c.cidade,estado:c.estado};
   if(c.estado)window._venda.uf=c.estado;
   vendasRefresh();
   vendasFocarCodigoPeca();
@@ -33538,7 +33571,8 @@ function vendasEnviarTodosNeg(){
   
   // Pegar dados da cotação
   var vendaNr = window._venda.nr || 'Venda';
-  var clienteNome = (window._venda.cliente && window._venda.cliente.razao) ? window._venda.cliente.razao : 'Cliente';
+  var clienteFantasia = (window._venda.cliente && (window._venda.cliente.fantasia||window._venda.cliente.razao)) || 'Cliente';
+  var clienteRazaoSocial = (window._venda.cliente && window._venda.cliente.razao) || '';
   
   // Criar ID único para novo mapa
   var novoMapaId = 'mapa_'+Date.now();
@@ -33552,9 +33586,10 @@ function vendasEnviarTodosNeg(){
     fornSel: {},
     precos: {},
     decisoes: {},
-    titulo: 'Neg - '+vendaNr+' - '+clienteNome,
+    titulo: 'Neg - '+vendaNr+' - '+clienteFantasia,
     numero: vendaNr,
-    cliente: clienteNome,
+    cliente: clienteFantasia,
+    clienteRazao: clienteRazaoSocial,
     vendaOrigem: vendaNr  // Número real desta venda específica, não mais uma string fixa pra "a venda em edição"
   };
   
@@ -33579,14 +33614,14 @@ function vendasEnviarTodosNeg(){
   
   // Adicionar à lista de mapas
   var lista = JSON.parse(localStorage.getItem('mapas_lista_v1')||'[]');
-  var resumo = {id:novoMapaId, ts:Date.now(), titulo:estado.titulo, numero:estado.numero, cliente:estado.cliente, itens:estado.itens.length};
+  var resumo = {id:novoMapaId, ts:Date.now(), titulo:estado.titulo, numero:estado.numero, cliente:estado.cliente, clienteRazao:estado.clienteRazao||'', vendaOrigem:estado.vendaOrigem||null, criadoPor:window._mapaCriadoPor||null, step:1, nItens:estado.itens.length, nSel:estado.itens.length};
   lista.unshift(resumo);
   lista = lista.slice(0,20);
   pfSafeSetItem('mapas_lista_v1', JSON.stringify(lista));
   console.log('✅ Adicionado à lista de mapas');
   
   // Sucesso!
-  pfAlert('✅ Mapa criado!\n\nVenda: '+vendaNr+'\nCliente: '+clienteNome+'\nItens: '+negItens.length);
+  pfAlert('✅ Mapa criado!\n\nVenda: '+vendaNr+'\nCliente: '+clienteFantasia+'\nItens: '+negItens.length);
   
   // Navegar para o mapa novo
   mapaEstadoId = novoMapaId;
@@ -36245,4 +36280,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.612 --></html>
+</script></div></div></body><!-- Build timestamp: v115.613 --></html>

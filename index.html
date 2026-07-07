@@ -7,6 +7,14 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
+<!-- v115.600 - Autosave da cotacao: depois que tem cliente + pelo menos 1 item,
+qualquer alteracao (adicionar/excluir item, trocar cliente, editar preco/qtd/
+desc, etc.) salva sozinha ~1.2s depois, sem precisar clicar em "Salvar".
+Reabrir uma cotacao ja salva e editar tambem atualiza automaticamente (em vez
+de criar uma cotacao duplicada). O historico de precos so e gravado no
+"Salvar" explicito, nao a cada autosave (senao ficaria poluido). Indicador
+"Salvo automaticamente" aparece e some sozinho no cabecalho da cotacao.
+-->
 <!-- v115.599 - Varias melhorias pedidas:
 1) Fornecedores agora tem campo Codigo (igual Cliente ja tinha) -- auto-sugerido
    em fornecedor novo, com migracao automatica dos ja cadastrados (codigo
@@ -666,7 +674,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.599</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.600</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -785,7 +793,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.599</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.600</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -31139,7 +31147,7 @@ function vendasRenderCotacao(el){
   el.innerHTML=
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">'+
     '<div><div style="font-size:16px;font-weight:800;color:#1F4E79">&#128722; Nova venda</div>'+
-    '<div style="font-size:12px;color:#8a9ab0;margin-top:2px">#'+v.nr+' &nbsp;&middot;&nbsp; '+hoje+'</div></div>'+
+    '<div style="font-size:12px;color:#8a9ab0;margin-top:2px">#'+v.nr+' &nbsp;&middot;&nbsp; '+hoje+' &nbsp;<span id="vendasAutoSalvoTag" style="color:#2E7D32;font-weight:600;opacity:0;transition:opacity .3s">&#10003; Salvo automaticamente</span></div></div>'+
     '<div style="display:flex;gap:8px">'+
     (function(){
       // ✅ Procurar se tem mapa vinculado a ESSA venda especificamente (compara pelo número
@@ -31291,6 +31299,8 @@ function vendasRenderCotacao(el){
   if(typeof vendasAtualizarMapaBtn==='function')vendasAtualizarMapaBtn();
   if(typeof vendasAtualizarPVBtn==='function')vendasAtualizarPVBtn();
   document.removeEventListener('keydown',window._vendasItemKeyNav);
+  el.addEventListener('input',vendasAutoSalvarDebounced);
+  el.addEventListener('change',vendasAutoSalvarDebounced);
   window._vendasItemKeyNav=function(e){
     if(!window._venda||!window._venda.itens||!window._venda.itens.length)return;
     var ae=document.activeElement;
@@ -31480,6 +31490,7 @@ function vendasRefresh(){
   } else {
     vendasRender();
   }
+  if(typeof vendasAutoSalvarDebounced==='function')vendasAutoSalvarDebounced();
 }
 
 function vendasPainelHtml(){
@@ -33409,9 +33420,15 @@ function vendasSalvar(){
   pfAlert('Rascunho salvo!');
 }
 
-async function vendasFinalizar(){
+// Lógica real de gravação da cotação (era só o miolo de vendasFinalizar, agora
+// isolada numa função pra poder ser chamada tanto pelo botão "Salvar" quanto
+// pelo autosave). opts.semHistorico evita registrar no histórico de preços a
+// cada autosave (senão o histórico ficaria poluído com uma entrada por
+// pequena edição) -- o histórico só é gravado no "Salvar" explícito.
+async function vendasSalvarCotacaoReal(opts){
+  opts=opts||{};
   var v=window._venda;
-  if(!v||!v.itens||!v.itens.length){pfAlert('Adicione pelo menos um item.');return;}
+  if(!v||!v.itens||!v.itens.length)return null;
   var COTS_KEY='partsflow_cotacoes_v1';
   var cots=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');
   var idxExistente=v.num?cots.findIndex(function(c){return c.num===v.num;}):-1;
@@ -33423,8 +33440,8 @@ async function vendasFinalizar(){
   },0)};
   if(idxExistente>=0)cots[idxExistente]=cot;else cots.unshift(cot);
   pfSafeSetItem(COTS_KEY,JSON.stringify(cots));
-  // Registra no histórico permanente por item — preço ofertado ao cliente nesta cotação
-  if(typeof pfRegistrarHistoricoPreco==='function'){
+  v.num=num; // guarda o número na venda em edição -- assim a próxima chamada (autosave ou "Salvar") atualiza em vez de criar outra
+  if(!opts.semHistorico&&typeof pfRegistrarHistoricoPreco==='function'){
     (v.itens||[]).forEach(function(it){
       var custo=it.custoOverride!=null?it.custoOverride:it.custo;
       var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf||'SP',v.margem||30):0);
@@ -33437,14 +33454,42 @@ async function vendasFinalizar(){
       }
     });
   }
-  // Salva como array completo via sync (upsert único por usuário+chave, sem duplicar linhas)
   try{
     if(sbUser)await pfSyncPush([COTS_KEY]);
   }catch(e){console.warn('Erro ao salvar cotacao no Supabase:',e);}
-  pfAlert(idxExistente>=0?'Cotação #'+num+' atualizada!':'Cotação #'+num+' salva!');
+  return {num:num,idxExistente:idxExistente};
+}
+
+async function vendasFinalizar(){
+  var v=window._venda;
+  if(!v||!v.itens||!v.itens.length){pfAlert('Adicione pelo menos um item.');return;}
+  var r=await vendasSalvarCotacaoReal({});
+  pfAlert(r.idxExistente>=0?'Cotação #'+r.num+' atualizada!':'Cotação #'+r.num+' salva!');
   window._venda={itens:[]};
   if(window._vendasModalMode){window._vendasTabs={};window._vendasModalMode=false;vendasFecharModal();}
   vendasRender();
+}
+
+// ── Autosave da cotação: depois que já tem cliente + pelo menos 1 item, toda
+// alteração (adicionar/excluir item, trocar cliente, editar preço/qtd/desc,
+// etc.) salva sozinha alguns instantes depois, sem precisar clicar em nada.
+function vendasAutoSalvarDebounced(){
+  clearTimeout(window._vendasAutoSaveTimer);
+  window._vendasAutoSaveTimer=setTimeout(function(){
+    var v=window._venda;
+    if(!v||!v.cliente||!v.itens||!v.itens.length)return; // só autosalva depois de ter cliente + pelo menos 1 item
+    if(typeof vendasSalvarCotacaoReal!=='function')return;
+    vendasSalvarCotacaoReal({semHistorico:true}).then(function(r){
+      if(r)vendasMostrarAutoSalvoCotacao();
+    }).catch(function(e){console.warn('Autosave da cotação falhou:',e);});
+  },1200);
+}
+function vendasMostrarAutoSalvoCotacao(){
+  var el=document.getElementById('vendasAutoSalvoTag');
+  if(!el)return;
+  el.style.opacity='1';
+  clearTimeout(window._vendasAutoSalvoTagTimer);
+  window._vendasAutoSalvoTagTimer=setTimeout(function(){el.style.opacity='0';},2000);
 }
 
 async function vendasPullCotacoes(){
@@ -35997,4 +36042,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.599 --></html>
+</script></div></div></body><!-- Build timestamp: v115.600 --></html>

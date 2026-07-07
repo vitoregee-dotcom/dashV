@@ -7,6 +7,24 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
+<!-- v115.598 - Varias melhorias pedidas:
+1) Grupo "Rolamento/Vedacao" separado em dois grupos distintos ("Rolamento" e
+   "Vedacao"), com migracao automatica dos produtos ja cadastrados no grupo
+   antigo (por subgrupo, ou por palavra-chave na descricao quando o subgrupo
+   tambem estava vazio).
+2) Ficha de Produto: colar ou anexar foto agora salva automaticamente (sem
+   precisar clicar em "Salvar") -- silencioso se codigo/descricao ainda nao
+   foram preenchidos (produto novo).
+3) Ficha de Produto: ao salvar (ou cancelar/voltar), se a edicao veio de
+   "Editar ficha completa" numa cotacao, volta pra cotacao (aba Item) em vez
+   de ir pra lista de Produtos.
+4) Painel da cotacao (Cliente/Produtos/Financeiro/Item): novo botao 📌 fixar
+   -- mantem o painel aberto na aba Item e troca sozinho pra ela ao clicar em
+   qualquer linha da lista de pecas, sem precisar reabrir toda hora.
+5) Fotos (tanto na ficha de Produto quanto no painel Item da cotacao) agora
+   abrem numa lightbox com setas ◀▶ (e teclado) pra navegar entre as fotos do
+   mesmo produto, em vez de mostrar só uma foto sem navegacao.
+-->
 <!-- v115.597 - Corrigido: quando uma peca aparece em mais de uma secao/kit do
 catalogo (uso genuino em mais de um conjunto, ex: mesmo disco de embreagem
 usado em 2 marchas diferentes), a quantidade agora e SOMADA entre as
@@ -630,7 +648,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.597</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.598</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -749,7 +767,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.597</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.598</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -24107,7 +24125,7 @@ function cadGoTab(t){
   if(!el)return;
   if(t==='fornecedores')cadRenderFornecedores(el);
   else if(t==='clientes')cadRenderClientes(el);
-  else if(t==='produtos')cadRenderProdutosV3(el);
+  else if(t==='produtos'){if(typeof cadMigrarGrupoRolamentoVedacao==='function')cadMigrarGrupoRolamentoVedacao();cadRenderProdutosV3(el);}
   else if(t==='aplicacoes')cadRenderAplicacoes(el);
   else if(t==='regras_ia')cadRenderRegrasIA(el);
 }
@@ -24965,7 +24983,8 @@ var GRUPOS_PROD = {
   'Hidráulico':   ['Bombas Hidráulicas','Cilindros Hidráulicos','Válvulas de Controle','Filtragem e Reservatório','Mangueiras e Conexões','Motores Hidráulicos'],
   'Elétrico':     ['Partida e Carga','Iluminação','Painel e Instrumentos','Chicotes e Conectores','Sensores Diversos','Proteção Elétrica'],
   'Estrutura/Carroceria': ['Implementos de Corte/Escavação','Caçambas e Pás','Pinos e Buchas Estruturais','Cabine e Vidros','Vedações e Borrachas','Acabamento e Lataria'],
-  'Rolamento/Vedação': ['Rolamentos','Retentores','Anéis e O-Rings','Juntas','Kits de Reparo'],
+  'Rolamento':    ['Rolamentos','Buchas de Agulha','Kits de Reparo'],
+  'Vedação':      ['Retentores','Anéis e O-Rings','Juntas','Vedações Diversas'],
   'Outros':       ['Filtro Ar','Filtro Combustível','Cabo','Parafuso Especial','Outros'],
 };
 
@@ -25055,11 +25074,15 @@ var SUBGRUPO_ESTRUTURA_KEYWORDS={
   'Acabamento e Lataria':['para-choque','guarda-lama','suporte de lataria']
 };
 var SUBGRUPO_ROLAMENTO_KEYWORDS={
-  'Rolamentos':['rolamento de esfera','rolamento de rolo','rolamento conico','rolamento'],
-  'Retentores':['retentor simples','retentor duplo labio','retentor'],
-  'Anéis e O-Rings':['anel oring','anel o-ring','anel de vedacao'],
-  'Juntas':['junta plana','junta metalica'],
+  'Rolamentos':['rolamento de esfera','rolamento de rolo','rolamento conico','rolamento','bearing'],
+  'Buchas de Agulha':['bucha de agulha','needle bushing','gaiola de agulha','needle cage','needle bearing'],
   'Kits de Reparo':['kit de reparo','kit reparo']
+};
+var SUBGRUPO_VEDACAO_KEYWORDS={
+  'Retentores':['retentor simples','retentor duplo labio','retentor','oil seal'],
+  'Anéis e O-Rings':['anel oring','anel o-ring','anel de vedacao','anel o ','anel o(','o-ring','oring'],
+  'Juntas':['junta plana','junta metalica','junta','gasket'],
+  'Vedações Diversas':['vedacao','anel de segmento','piston ring']
 };
 
 // Mapa geral Grupo → palavras-chave por subgrupo, usado pela sugestão automática
@@ -25072,7 +25095,8 @@ var GRUPO_SUBGRUPO_KEYWORDS={
   'Hidráulico':SUBGRUPO_HIDRAULICO_KEYWORDS,
   'Elétrico':SUBGRUPO_ELETRICO_KEYWORDS,
   'Estrutura/Carroceria':SUBGRUPO_ESTRUTURA_KEYWORDS,
-  'Rolamento/Vedação':SUBGRUPO_ROLAMENTO_KEYWORDS
+  'Rolamento':SUBGRUPO_ROLAMENTO_KEYWORDS,
+  'Vedação':SUBGRUPO_VEDACAO_KEYWORDS
 };
 
 // Termos genéricos que aparecem tanto em Motor quanto em Eixo/Transmissão — só a marca
@@ -26699,6 +26723,22 @@ cadEditProduto = function(i){
 
 // ── 4. Multiple photos for products ─────────────────────────────
 // Override cadFormProduto to support multiple photos
+// ── Ao sair da ficha de produto, volta pra cotação de onde veio (se veio de
+// lá, via "Editar ficha completa" numa venda) — do contrário, volta pra lista
+// de produtos normalmente.
+function cadVoltarDeProduto(){
+  if(window._prodVoltarParaVenda){
+    window._prodVoltarParaVenda=false;
+    if(window._vendasModalMode){
+      var barP=document.getElementById('cadTabBarParceiros');if(barP&&barP.parentElement)barP.parentElement.parentElement.style.display='';
+      window._vendasMinimized=false;
+      if(typeof vendasRenderTabs==='function')vendasRenderTabs();
+      return;
+    }
+  }
+  cadGoTab('produtos');
+}
+
 var _cadFormProdutoWithPhotos = cadFormProduto;
 cadFormProduto = function(data, idx){
   if(typeof GRUPOS_PROD === 'undefined'){setTimeout(function(){cadFormProduto(data,idx);},100);return;}
@@ -26710,7 +26750,8 @@ cadFormProduto = function(data, idx){
   var html = '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:24px;max-width:860px">';
   html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">';
   html += '<div style="font-size:15px;font-weight:800;color:#1F4E79">'+(idx>=0?'Editar':'Novo')+' Produto</div>';
-  html += '<button onclick="cadGoTab(\'produtos\')" style="margin-left:auto;background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px">← Voltar</button>';
+  html += '<span id="prodAutoSalvoMsg" style="font-size:11px;color:#2E7D32;font-weight:600;opacity:0;transition:opacity .3s">✅ Salvo automaticamente</span>';
+  html += '<button onclick="cadVoltarDeProduto()" style="margin-left:auto;background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px">← Voltar</button>';
   html += '</div>';
 
   // ── Fotos múltiplas ──
@@ -26806,12 +26847,13 @@ cadFormProduto = function(data, idx){
   html += '<textarea id="prodObs" rows="3" style="width:100%;padding:9px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12px;resize:vertical;font-family:inherit">'+(d.obs||'')+'</textarea></div>';
 
   html += '<div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">';
-  html += '<button onclick="cadGoTab(\'produtos\')" style="background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:13px">Cancelar</button>';
+  html += '<button onclick="cadVoltarDeProduto()" style="background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:10px 20px;cursor:pointer;font-size:13px">Cancelar</button>';
   html += '<button onclick="cadSalvarProdutoV2('+idx+')" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:13px;font-weight:700">💾 Salvar</button>';
   html += '</div></div>';
 
   el.innerHTML = html;
   window._prodFotos = fotos.slice(); // working copy
+  window._prodEditIdx = idx; // pro autosave de fotos saber se atualiza ou cria
   var convList=document.getElementById('prodConvList');
   if(convList&&!convList._removeDelegated){
     convList._removeDelegated=true;
@@ -26840,6 +26882,11 @@ async function cadColarFotoProduto(){
       window._prodFotos=window._prodFotos||[];
       window._prodFotos.push(e.target.result);
       cadUpdateFotoGrid();
+      // Salva automaticamente ao colar a foto -- sem precisar clicar em "Salvar".
+      // Silencioso: se código/descrição ainda não foram preenchidos (produto novo),
+      // não faz nada e não alerta -- a foto fica guardada e entra no salvamento
+      // real quando o usuário terminar de preencher e salvar manualmente.
+      if(typeof cadSalvarProdutoV2==='function')cadSalvarProdutoV2(window._prodEditIdx!=null?window._prodEditIdx:-1,{silencioso:true});
     };
     reader.readAsDataURL(blob);
   }catch(e){
@@ -26857,26 +26904,84 @@ function cadAddFotos(input){
   Promise.all(promises).then(function(srcs){
     srcs.forEach(function(src){window._prodFotos.push(src);});
     cadUpdateFotoGrid();
+    // Idem: salva automaticamente ao anexar foto(s) por upload.
+    if(typeof cadSalvarProdutoV2==='function')cadSalvarProdutoV2(window._prodEditIdx!=null?window._prodEditIdx:-1,{silencioso:true});
   });
 }
 
 // Abre a foto do produto em tamanho grande, num modal simples com fundo escuro
 function cadVerFotoAmpliada(idx){
-  var fotos=window._prodFotos||[];
-  var f=fotos[parseInt(idx,10)];
-  if(!f)return;
+  cadAbrirLightbox(window._prodFotos||[], parseInt(idx,10));
+}
+
+// Lightbox genérica: recebe um array de fotos (data URLs) e o índice inicial.
+// Mostra setas ◀ ▶ pra navegar entre as fotos quando tiver mais de uma, e
+// fecha com X, clique fora, ou tecla Esc. Usada tanto na ficha de Produto
+// quanto no painel "Item" da cotação.
+function cadAbrirLightbox(fotos, indiceInicial){
+  fotos=fotos||[];
+  if(!fotos.length)return;
+  var overlayAntigo=document.getElementById('cadLightboxOverlay');
+  if(overlayAntigo)overlayAntigo.remove();
+  var idxAtual=Math.max(0,Math.min(indiceInicial||0,fotos.length-1));
+
   var overlay=document.createElement('div');
+  overlay.id='cadLightboxOverlay';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out';
-  overlay.onclick=function(){document.body.removeChild(overlay);};
+
   var img=document.createElement('img');
-  img.src=f;
-  img.style.cssText='max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.5)';
+  img.style.cssText='max-width:calc(100% - 120px);max-height:100%;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.5);cursor:default';
+  img.onclick=function(e){e.stopPropagation();};
+
+  var contador=document.createElement('div');
+  contador.style.cssText='position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:12px;background:rgba(0,0,0,.4);padding:4px 12px;border-radius:20px;font-weight:600';
+
+  function render(){
+    img.src=fotos[idxAtual];
+    contador.textContent=(idxAtual+1)+' / '+fotos.length;
+    contador.style.display=fotos.length>1?'block':'none';
+  }
+  render();
+
+  function fechar(){
+    document.removeEventListener('keydown',onKey);
+    overlay.remove();
+  }
+  function anterior(e){if(e)e.stopPropagation();idxAtual=(idxAtual-1+fotos.length)%fotos.length;render();}
+  function proxima(e){if(e)e.stopPropagation();idxAtual=(idxAtual+1)%fotos.length;render();}
+  function onKey(e){
+    if(e.key==='Escape')fechar();
+    else if(e.key==='ArrowLeft')anterior();
+    else if(e.key==='ArrowRight')proxima();
+  }
+  document.addEventListener('keydown',onKey);
+
+  overlay.onclick=fechar;
   overlay.appendChild(img);
-  var fechar=document.createElement('button');
-  fechar.textContent='✕';
-  fechar.style.cssText='position:absolute;top:20px;right:24px;background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:16px;cursor:pointer';
-  fechar.onclick=function(e){e.stopPropagation();document.body.removeChild(overlay);};
-  overlay.appendChild(fechar);
+  overlay.appendChild(contador);
+
+  if(fotos.length>1){
+    var setaEsq=document.createElement('button');
+    setaEsq.innerHTML='&#10094;';
+    setaEsq.title='Foto anterior';
+    setaEsq.style.cssText='position:absolute;left:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:18px;cursor:pointer';
+    setaEsq.onclick=anterior;
+    overlay.appendChild(setaEsq);
+
+    var setaDir=document.createElement('button');
+    setaDir.innerHTML='&#10095;';
+    setaDir.title='Próxima foto';
+    setaDir.style.cssText='position:absolute;right:16px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:18px;cursor:pointer';
+    setaDir.onclick=proxima;
+    overlay.appendChild(setaDir);
+  }
+
+  var fecharBtn=document.createElement('button');
+  fecharBtn.textContent='✕';
+  fecharBtn.style.cssText='position:absolute;top:20px;right:24px;background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:16px;cursor:pointer';
+  fecharBtn.onclick=function(e){e.stopPropagation();fechar();};
+  overlay.appendChild(fecharBtn);
+
   document.body.appendChild(overlay);
 }
 function cadRemoveFoto(idx){
@@ -26903,16 +27008,18 @@ function cadUpdateFotoGrid(){
   if(hidden)hidden.value=encodeURIComponent(JSON.stringify(fotos));
 }
 
-function cadSalvarProdutoV2(idx){
+function cadSalvarProdutoV2(idx, opts){
+  opts=opts||{};
   var codigo=(document.getElementById('prodCodigo').value||'').trim();
   var descricao=(document.getElementById('prodDescricao').value||'').trim();
   var descricaoResumida=(document.getElementById('prodDescricaoResumida')?document.getElementById('prodDescricaoResumida').value:'').trim();
-  if(!codigo){pfAlert('Código é obrigatório.');return;}
-  if(!descricao){pfAlert('Descrição é obrigatória.');return;}
+  if(!codigo){if(!opts.silencioso)pfAlert('Código é obrigatório.');return false;}
+  if(!descricao){if(!opts.silencioso)pfAlert('Descrição é obrigatória.');return false;}
   var fotos=window._prodFotos||[];
   try{var d=document.getElementById('prodFotosData');if(d)fotos=JSON.parse(decodeURIComponent(d.value||'[]'));}catch(e){}
+  var plistAtual=cadLoad(PROD_KEY);
   var prod={
-    id:idx>=0?cadLoad(PROD_KEY)[idx].id:('p_'+Date.now()),
+    id:idx>=0?plistAtual[idx].id:('p_'+Date.now()),
     codigo:codigo,descricao:descricao,descricaoResumida:descricaoResumida,
     marca:document.getElementById('prodMarca').value||'',
     marcaCotacao:(document.getElementById('prodMarcaCot')?document.getElementById('prodMarcaCot').value:'')||'',
@@ -26932,10 +27039,30 @@ function cadSalvarProdutoV2(idx){
     }).filter(Boolean),
   };
   var plist=cadLoad(PROD_KEY);
-  if(idx>=0)plist[idx]=prod;else plist.push(prod);
+  if(idx>=0){
+    plist[idx]=prod;
+  } else {
+    plist.push(prod);
+    idx=plist.length-1;
+    window._prodEditIdx=idx; // produto novo passou a existir -- próximos autosaves atualizam em vez de duplicar
+  }
   cadSave(PROD_KEY,plist);
+  if(opts.silencioso){
+    cadMostrarSalvoAutomatico();
+    return true;
+  }
   window._prodFotos=[];window._prodSearch='';
-  cadGoTab('produtos');
+  cadVoltarDeProduto();
+  return true;
+}
+
+// Aviso discreto (some sozinho) de que o salvamento automático (ao colar/anexar foto) aconteceu
+function cadMostrarSalvoAutomatico(){
+  var msg=document.getElementById('prodAutoSalvoMsg');
+  if(!msg)return;
+  msg.style.opacity='1';
+  clearTimeout(window._prodAutoSalvoTimer);
+  window._prodAutoSalvoTimer=setTimeout(function(){msg.style.opacity='0';},2000);
 }
 
 // ── 5. Confirm before delete ────────────────────────────────────
@@ -29883,6 +30010,7 @@ if(_origInitUserUINav){
   initUserUI = function(){
     _origInitUserUINav();
     setTimeout(setupNavButtons, 100);
+    if(typeof cadMigrarGrupoRolamentoVedacao==='function')cadMigrarGrupoRolamentoVedacao();
   };
 }
 
@@ -31234,11 +31362,15 @@ function vendasRefresh(){
 }
 
 function vendasPainelHtml(){
-  var aberto=window._vendasPainelAberto===true;
+  var aberto=window._vendasPainelAberto===true||window._vendasPainelFixado===true;
+  var fixado=window._vendasPainelFixado===true;
   var v=window._venda||{itens:[]};
   var header='<div onclick="vendasTogglePainel()" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none">'+
     '<div style="font-size:11px;font-weight:700;color:#8a9ab0;text-transform:uppercase">📊 Painel (cliente / produtos / financeiro)</div>'+
-    '<span style="font-size:11px;color:#1F4E79;font-weight:600">'+(aberto?'▲ ocultar':'▼ mostrar')+'</span></div>';
+    '<div style="display:flex;align-items:center;gap:10px">'+
+    '<span onclick="event.stopPropagation();vendasTogglePainelFixado()" title="'+(fixado?'Desafixar painel':'Fixar painel — mantém aberto na aba Item ao navegar pela lista')+'" style="font-size:13px;cursor:pointer;opacity:'+(fixado?'1':'.35')+'">📌</span>'+
+    '<span style="font-size:11px;color:#1F4E79;font-weight:600">'+(aberto?'▲ ocultar':'▼ mostrar')+'</span>'+
+    '</div></div>';
   if(!aberto){
     return '<div id="vendasPainelKpis" style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:10px 14px;margin-bottom:12px">'+header+'</div>';
   }
@@ -31297,9 +31429,11 @@ function vendasPainelHtml(){
     } else {
       var plist=cadLoad(PROD_KEY);
       var prod=plist.find(function(p){return (p.codigo||'').toUpperCase()===(it.codigo||'').toUpperCase();});
-      var foto=prod&&prod.fotos&&prod.fotos[0]?prod.fotos[0]:(prod&&prod.foto?prod.foto:null);
+      var fotosProd=prod&&prod.fotos&&prod.fotos.length?prod.fotos:(prod&&prod.foto?[prod.foto]:[]);
+      window._painelItemFotos=fotosProd;
+      var foto=fotosProd[0]||null;
       content='<div style="display:flex;gap:10px">'+
-        (foto?'<img src="'+foto+'" style="width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0">':'<div style="width:56px;height:56px;border-radius:8px;background:#F0F4F8;display:flex;align-items:center;justify-content:center;font-size:22px;color:#c4ccd6;flex-shrink:0">📷</div>')+
+        (foto?'<img src="'+foto+'" onclick="cadAbrirLightbox(window._painelItemFotos,0)" style="width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0;cursor:zoom-in" title="Clique pra ampliar">':'<div style="width:56px;height:56px;border-radius:8px;background:#F0F4F8;display:flex;align-items:center;justify-content:center;font-size:22px;color:#c4ccd6;flex-shrink:0">📷</div>')+
         '<div style="min-width:0">'+
         '<div style="font-size:12px;font-weight:700;font-family:monospace;color:#1F4E79">'+it.codigo+'</div>'+
         '<div style="font-size:11px;color:#607080">'+(it.desc||(prod&&prod.descricao)||'—')+(it.marca?' &middot; '+it.marca:'')+'</div>'+
@@ -31317,7 +31451,20 @@ function vendasPainelHtml(){
 }
 
 function vendasTogglePainel(){
+  if(window._vendasPainelFixado)return; // painel fixado não fecha ao clicar no cabeçalho
   window._vendasPainelAberto=!window._vendasPainelAberto;
+  var el=document.getElementById('vendasPainelKpis');
+  if(el){var d=document.createElement('div');d.innerHTML=vendasPainelHtml();el.replaceWith(d.firstElementChild);}
+}
+
+// Fixa o painel aberto na aba "Item" — útil pra navegar pela lista de peças
+// vendo a foto de cada uma sem precisar reabrir o painel/clicar em "Item" toda hora.
+function vendasTogglePainelFixado(){
+  window._vendasPainelFixado=!window._vendasPainelFixado;
+  if(window._vendasPainelFixado){
+    window._vendasPainelAberto=true;
+    window._vendasPainelTab='item';
+  }
   var el=document.getElementById('vendasPainelKpis');
   if(el){var d=document.createElement('div');d.innerHTML=vendasPainelHtml();el.replaceWith(d.firstElementChild);}
 }
@@ -31392,6 +31539,55 @@ function vendasMigrarAplicacoesAntigas(){
   try{
     aplicLoad().forEach(function(a){vendasPatchAplicacaoNoProduto(a.codigo,a.marca,a.modelo,a.serie);});
   }catch(e){}
+}
+
+// Migração única: o grupo "Rolamento/Vedação" foi separado em dois grupos
+// distintos ("Rolamento" e "Vedação"), porque peça de retenção mecânica
+// (rolamento) e peça de vedação (retentor, anel O, junta) são coisas
+// diferentes e vinham sendo misturadas no mesmo grupo. Produtos já
+// cadastrados com o grupo antigo são reclassificados automaticamente
+// aqui, uma vez só, com base no subgrupo (ou na descrição, se o subgrupo
+// também estiver vazio) — sem precisar o usuário reclassificar na mão.
+function cadMigrarGrupoRolamentoVedacao(){
+  if(window._grupoRolVedMigrado)return;
+  window._grupoRolVedMigrado=true;
+  try{
+    var plist=cadLoad(PROD_KEY);
+    var mudou=false;
+    var mapaSubgrupo={
+      'Rolamentos':{grupo:'Rolamento',subgrupo:'Rolamentos'},
+      'Retentores':{grupo:'Vedação',subgrupo:'Retentores'},
+      'Anéis e O-Rings':{grupo:'Vedação',subgrupo:'Anéis e O-Rings'},
+      'Juntas':{grupo:'Vedação',subgrupo:'Juntas'},
+      'Kits de Reparo':{grupo:'Rolamento',subgrupo:'Kits de Reparo'}
+    };
+    plist.forEach(function(p){
+      if(p.grupo!=='Rolamento/Vedação')return;
+      mudou=true;
+      var alvo=mapaSubgrupo[p.subgrupo];
+      if(alvo){
+        p.grupo=alvo.grupo;p.subgrupo=alvo.subgrupo;
+      } else {
+        // Sem subgrupo reconhecido: tenta pela descrição; se não achar nada,
+        // cai em Vedação por padrão (é o caso mais comum de item sem subgrupo
+        // nesse grupo antigo — retentores e anéis O costumavam vir sem
+        // subgrupo preenchido com mais frequência que rolamentos).
+        var descL=((p.descricao||'')+' '+(p.descricaoResumida||'')).toLowerCase();
+        var achou=null;
+        for(var sg in SUBGRUPO_ROLAMENTO_KEYWORDS){
+          if(SUBGRUPO_ROLAMENTO_KEYWORDS[sg].some(function(kw){return descL.indexOf(kw)!==-1;})){achou={grupo:'Rolamento',subgrupo:sg};break;}
+        }
+        if(!achou){
+          for(var sg2 in SUBGRUPO_VEDACAO_KEYWORDS){
+            if(SUBGRUPO_VEDACAO_KEYWORDS[sg2].some(function(kw){return descL.indexOf(kw)!==-1;})){achou={grupo:'Vedação',subgrupo:sg2};break;}
+          }
+        }
+        p.grupo=achou?achou.grupo:'Vedação';
+        p.subgrupo=achou?achou.subgrupo:'';
+      }
+    });
+    if(mudou)cadSave(PROD_KEY,plist);
+  }catch(e){console.warn('Falha ao migrar grupo Rolamento/Vedação:',e);}
 }
 
 function vendasAbrirRelacionados(i,scrollPos){
@@ -31678,6 +31874,8 @@ function vendasSetItemAtivo(i){
     var isNeg=!it||!it.saldo||it.saldo<=0;
     tr.style.background=(idx===i)?'#EEF6FF':(isNeg?'#FFF5F5':'');
   });
+  // Painel fixado: já troca pra aba Item sozinho, sem precisar clicar nela toda hora
+  if(window._vendasPainelFixado){window._vendasPainelAberto=true;window._vendasPainelTab='item';}
   if((window._vendasPainelTab||'cliente')==='item'){
     var el=document.getElementById('vendasPainelKpis');
     if(el){var d=document.createElement('div');d.innerHTML=vendasPainelHtml();el.replaceWith(d.firstElementChild);}
@@ -32885,7 +33083,7 @@ function vendasVerCadastroItem(cod,desc){
   var plist=cadLoad(PROD_KEY);
   var idx=plist.findIndex(function(p){return (p.codigo||'').toUpperCase()===(cod||'').toUpperCase();});
   // Minimiza o popup de venda pra dar espaço pra ficha do produto (Cadastros > Produtos)
-  if(window._vendasModalMode){window._vendasMinimized=true;vendasRenderTabs();}
+  if(window._vendasModalMode){window._vendasMinimized=true;window._prodVoltarParaVenda=true;vendasRenderTabs();}
   pfNavigate('cadastros');
   cadGoTab('produtos');
   var barP=document.getElementById('cadTabBarParceiros');if(barP&&barP.parentElement)barP.parentElement.parentElement.style.display='none';
@@ -35637,4 +35835,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.597 --></html>
+</script></div></div></body><!-- Build timestamp: v115.598 --></html>

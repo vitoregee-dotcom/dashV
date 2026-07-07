@@ -7,6 +7,24 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
+<!-- v115.599 - Varias melhorias pedidas:
+1) Fornecedores agora tem campo Codigo (igual Cliente ja tinha) -- auto-sugerido
+   em fornecedor novo, com migracao automatica dos ja cadastrados (codigo
+   sequencial de 6 digitos), e coluna/filtro de Codigo na listagem.
+2) Cotacao: campo de Codigo do cliente adicionado ao lado do nome (tanto no
+   modo de busca quanto com cliente ja selecionado).
+3) Cotacao: ao abrir "Nova cotacao", o cursor ja vai direto pro campo de
+   Codigo do cliente. Digitar o codigo e dar Enter seleciona o cliente e ja
+   pula o foco pro campo de Codigo da peca. Buscar por nome e dar Enter faz a
+   mesma coisa (seleciona o 1o resultado e pula pro codigo da peca).
+4) Cotacao: o "x" de excluir item mudou de lugar -- agora fica do lado
+   esquerdo da linha, junto da caixinha de selecao, em vez do lado direito.
+5) Cotacao: tecla Delete agora exclui os itens selecionados (checkbox) ou,
+   se nenhum estiver marcado, a linha ativa (ultima clicada).
+6) Cotacao: nova visualizacao alternativa "Compacta" pra lista de itens (cards
+   empilhados em vez da tabela larga) -- toggle Tabela/Compacta no cabecalho
+   da secao Itens.
+-->
 <!-- v115.598 - Varias melhorias pedidas:
 1) Grupo "Rolamento/Vedacao" separado em dois grupos distintos ("Rolamento" e
    "Vedacao"), com migracao automatica dos produtos ja cadastrados no grupo
@@ -648,7 +666,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.598</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.599</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -767,7 +785,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.598</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.599</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -24123,7 +24141,7 @@ function cadGoTab(t){
   });
   var el=document.getElementById('cadBody');
   if(!el)return;
-  if(t==='fornecedores')cadRenderFornecedores(el);
+  if(t==='fornecedores'){if(typeof cadMigrarCodigosForn==='function')cadMigrarCodigosForn();cadRenderFornecedores(el);}
   else if(t==='clientes')cadRenderClientes(el);
   else if(t==='produtos'){if(typeof cadMigrarGrupoRolamentoVedacao==='function')cadMigrarGrupoRolamentoVedacao();cadRenderProdutosV3(el);}
   else if(t==='aplicacoes')cadRenderAplicacoes(el);
@@ -24286,6 +24304,7 @@ function cadRenderFornecedores(el){
   var f=window._fornFiltro||{};
   var filtered=flist.filter(function(x,i){
     x._idx=i;
+    if(f.codigo&&!(x.codigo||'').toLowerCase().includes(f.codigo.toLowerCase()))return false;
     if(f.razao&&!((x.razao||'')+(x.fantasia||'')).toLowerCase().includes(f.razao.toLowerCase()))return false;
     if(f.cnpj&&!(x.cnpj||'').replace(/[^0-9]/g,'').includes(f.cnpj.replace(/[^0-9]/g,'')))return false;
     if(f.tipo&&!(x.tipo||'').toLowerCase().includes(f.tipo.toLowerCase()))return false;
@@ -24306,6 +24325,7 @@ function cadRenderFornecedores(el){
   html+='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:auto">';
   html+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
   html+='<thead><tr style="background:#F0F4F8;border-bottom:2px solid #e0e8f0">';
+  html+='<th style="padding:10px 12px;text-align:left;width:90px">Código</th>';
   html+='<th style="padding:10px 12px;text-align:left">Razão Social</th>';
   html+='<th style="padding:10px 12px;text-align:left">CNPJ</th>';
   html+='<th style="padding:10px 12px;text-align:left">Tipo</th>';
@@ -24314,6 +24334,7 @@ function cadRenderFornecedores(el){
   html+='<th style="padding:10px 12px;text-align:left">E-mail</th>';
   html+='<th style="padding:10px 12px;text-align:center;width:80px">Ações</th>';
   html+='</tr><tr style="background:#fff;border-bottom:1px solid #e0e8f0">';
+  html+='<td style="padding:5px 8px">'+fInpF('buscar...','codigo',null,'fornFiltro_codigo')+'</td>';
   html+='<td style="padding:5px 8px">'+fInpF('buscar...','razao',null,'fornFiltro_razao')+'</td>';
   html+='<td style="padding:5px 8px">'+fInpF('buscar...','cnpj',null,'fornFiltro_cnpj')+'</td>';
   html+='<td style="padding:5px 8px">'+fInpF('buscar...','tipo',null,'fornFiltro_tipo')+'</td>';
@@ -24325,6 +24346,7 @@ function cadRenderFornecedores(el){
   filtered.forEach(function(f2){
     var i=f2._idx;
     html+='<tr style="border-bottom:1px solid #e0e8f0" onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'\'">';
+    html+='<td style="padding:10px 12px;color:#8a9ab0;font-family:monospace">'+(f2.codigo||'—')+'</td>';
     html+='<td style="padding:10px 12px;font-weight:700;color:#1F4E79">'+f2.razao+'</td>';
     html+='<td style="padding:10px 12px;color:#607080;font-family:monospace">'+( f2.cnpj||'—')+'</td>';
     html+='<td style="padding:10px 12px"><span style="background:#EEF6FF;color:#1F4E79;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700">'+(f2.tipo||'—')+'</span></td>';
@@ -24338,6 +24360,29 @@ function cadRenderFornecedores(el){
   });
   html+='</tbody></table></div>';
   el.innerHTML=html;_restaurarFoco();
+}
+
+// Migração única: fornecedores cadastrados antes do campo Código existir
+// ganham um código sequencial automaticamente (mesmo padrão de 6 dígitos do
+// Cliente), sem precisar editar um por um na mão.
+function cadMigrarCodigosForn(){
+  if(window._fornCodigosMigrado)return;
+  window._fornCodigosMigrado=true;
+  try{
+    var flist=cadLoad(FORN_KEY);
+    var max=0;
+    flist.forEach(function(f){var n=parseInt((f.codigo||'').replace(/\D/g,''))||0;if(n>max)max=n;});
+    var mudou=false;
+    flist.forEach(function(f){
+      if(!f.codigo){
+        max++;
+        var s=String(max);while(s.length<6)s='0'+s;
+        f.codigo=s;
+        mudou=true;
+      }
+    });
+    if(mudou)cadSave(FORN_KEY,flist);
+  }catch(e){console.warn('Falha ao migrar códigos de fornecedores:',e);}
 }
 
 function cadNovoForn(){cadFormForn(null,-1);}
@@ -24564,6 +24609,18 @@ function cadProximoCodigoCliente(){
   var max=0;
   clist.forEach(function(c){
     var n=parseInt((c.codigo||'').replace(/\D/g,''))||0;
+    if(n>max)max=n;
+  });
+  var next=max+1;
+  var s=String(next);while(s.length<6)s='0'+s;
+  return s;
+}
+
+function cadProximoCodigoForn(){
+  var flist=cadLoad(FORN_KEY);
+  var max=0;
+  flist.forEach(function(f){
+    var n=parseInt((f.codigo||'').replace(/\D/g,''))||0;
     if(n>max)max=n;
   });
   var next=max+1;
@@ -25706,7 +25763,8 @@ cadFormForn = function(data, idx){
   html += '</div>';
 
   // ── CNPJ + busca ──
-  html += '<div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;margin-bottom:14px">';
+  html += '<div style="display:grid;grid-template-columns:140px 1fr auto;gap:10px;align-items:end;margin-bottom:14px">';
+  html += cadField('Código','fornCodigo',d.codigo||cadProximoCodigoForn(),'Ex: 001529','text');
   html += cadField('CNPJ','fornCnpj',d.cnpj||'','00.000.000/0000-00','text');
   html += '<button onclick="cadBuscarCNPJ(&quot;forn&quot;)" style="background:#27AE60;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;margin-bottom:1px">🔍 Buscar CNPJ</button>';
   html += '</div>';
@@ -25865,6 +25923,7 @@ function cadSalvarFornV2(idx){
   var ctEmail = (contatos.find(function(c){return c.email;})||{}).email || document.getElementById('fornEmail').value||'';
   var forn = {
     id: idx>=0 ? cadLoad(FORN_KEY)[idx].id : ('f_'+Date.now()),
+    codigo:document.getElementById('fornCodigo')?document.getElementById('fornCodigo').value||'':(idx>=0?cadLoad(FORN_KEY)[idx].codigo||'':''),
     razao:razao, nome:razao,
     fantasia:document.getElementById('fornFantasia').value||'',
     cnpj:document.getElementById('fornCnpj').value||'',
@@ -30011,6 +30070,7 @@ if(_origInitUserUINav){
     _origInitUserUINav();
     setTimeout(setupNavButtons, 100);
     if(typeof cadMigrarGrupoRolamentoVedacao==='function')cadMigrarGrupoRolamentoVedacao();
+    if(typeof cadMigrarCodigosForn==='function')cadMigrarCodigosForn();
   };
 }
 
@@ -30656,8 +30716,44 @@ function vendasRender(){
   else vendasRenderLista(content);
 }
 
+// ── Visualização alternativa (mais enxuta) da lista de itens da cotação —
+// cards empilhados em vez da tabela larga, útil pra telas menores ou pra
+// quem prefere ver menos coluna de uma vez. Mantém clique-pra-abrir-no-
+// -painel (vendasSetItemAtivo) e o x de excluir, igual a visualização em
+// tabela.
+function vendasItensCompactoHtml(v){
+  var html='<div style="display:flex;flex-direction:column;gap:6px;max-height:55vh;overflow:auto;padding-right:2px">';
+  (v.itens||[]).forEach(function(it,i){
+    var isNeg=!it.saldo||it.saldo<=0;
+    var custo=it.custoOverride!=null?it.custoOverride:it.custo;
+    var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf,v.margem):0);
+    var chk=window._vendasSel&&window._vendasSel[i];
+    var ativo=window._vendasItemAtivo===i;
+    html+='<div data-vidx="'+i+'" onclick="vendasSetItemAtivo('+i+')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;border:1px solid '+(ativo?'#1F4E79':'#eef2f7')+';background:'+(ativo?'#EEF6FF':isNeg?'#FFF9F9':'#fff')+'">'+
+      '<input type="checkbox" onclick="event.stopPropagation()" '+(chk?'checked':'')+' onchange="window._vendasSel=window._vendasSel||{};window._vendasSel['+i+']=this.checked;vendasAtualizarMapaBtn()" style="width:15px;height:15px;cursor:pointer;flex-shrink:0" title="Selecionar (usado pelos botões de ação abaixo, e pela tecla Delete)">'+
+      '<button onclick="event.stopPropagation();window._venda.itens.splice('+i+',1);window._vendasSel=null;vendasRefresh()" style="background:none;border:none;color:#C00000;font-size:16px;cursor:pointer;padding:0;flex-shrink:0" title="Excluir este item">&#215;</button>'+
+      '<div style="min-width:0;flex:1">'+
+        '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'+
+          '<b style="font-family:monospace;color:#185FA5;font-size:13px">'+pfEscHtml(it.codigo||'')+'</b>'+
+          (it.marca?'<span style="font-size:11px;color:#607080">'+pfEscHtml(it.marca)+'</span>':'')+
+          '<span style="font-size:10px;padding:1px 7px;border-radius:6px;font-weight:600;background:'+(isNeg?'#FEE2E2':'#DCFCE7')+';color:'+(isNeg?'#991B1B':'#166534')+'">'+(isNeg?'NEGATIVO':'IMEDIATO')+'</span>'+
+        '</div>'+
+        '<div style="font-size:12px;color:#1a2332;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pfEscHtml(it.desc||'—')+'</div>'+
+      '</div>'+
+      '<div style="text-align:center;flex-shrink:0;width:44px">'+
+        '<div style="font-size:9px;color:#8a9ab0">QTD</div><div style="font-size:14px;font-weight:700;color:#1a2332">'+it.qtd+'</div>'+
+      '</div>'+
+      '<div style="text-align:right;flex-shrink:0;width:84px">'+
+        '<div style="font-size:9px;color:#8a9ab0">VENDA</div><div style="font-size:13px;font-weight:700;color:#1F4E79">'+(venda?'R$ '+venda.toFixed(2).replace('.',','):'—')+'</div>'+
+      '</div>'+
+    '</div>';
+  });
+  html+='</div>';
+  return html;
+}
+
 function vendasItemColgroup(){
-  var defaults=['28px','28px','28px','100px','100px','230px','90px','62px','55px','85px','96px','102px','68px','100px'];
+  var defaults=['46px','28px','28px','100px','100px','230px','90px','62px','55px','85px','96px','102px','68px','100px'];
   var widths=defaults.slice();
   try{
     var saved=JSON.parse(localStorage.getItem('vendas_item_cols_widths')||'[]');
@@ -30983,9 +31079,10 @@ function vendasRenderCotacao(el){
   if(!v.nr)v.nr='V-'+new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9000)+1000);
   var hoje=new Date().toLocaleDateString('pt-BR');
   var clienteHtml=v.cliente?
-    '<div style="position:relative;margin-bottom:4px">'+
-    '<input type="text" id="vendasClienteInput" value="'+(v.cliente.razao||'').replace(/"/g,'&quot;')+'" oninput="vendasBuscarCliente(this.value)" style="width:100%;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;font-weight:500;color:#1a2332">'+
-    '<div id="vendasClienteResultados" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid #1F4E79;border-radius:8px;z-index:100;max-height:200px;overflow-y:auto"></div>'+
+    '<div style="position:relative;margin-bottom:4px;display:flex;gap:8px">'+
+    '<input type="text" id="vendasClienteCodInput" value="'+(v.cliente.codigo||'').replace(/"/g,'&quot;')+'" placeholder="Código" onkeydown="if(event.key===\'Enter\'){event.preventDefault();vendasBuscarClientePorCodigo(this.value);}" style="width:90px;flex-shrink:0;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;font-family:monospace;color:#1F4E79;font-weight:700">'+
+    '<input type="text" id="vendasClienteInput" value="'+(v.cliente.razao||'').replace(/"/g,'&quot;')+'" oninput="vendasBuscarCliente(this.value)" onkeydown="vendasClienteInputEnter(event)" style="flex:1;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;font-weight:500;color:#1a2332">'+
+    '<div id="vendasClienteResultados" style="display:none;position:absolute;top:100%;left:98px;right:0;background:#fff;border:1.5px solid #1F4E79;border-radius:8px;z-index:100;max-height:200px;overflow-y:auto"></div>'+
     '</div>'+
     '<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:#607080;margin-bottom:10px">'+
     (v.cliente.cnpj?'<span><strong style="color:#1a2332">'+v.cliente.cnpj+'</strong></span>':'')+
@@ -30993,9 +31090,10 @@ function vendasRenderCotacao(el){
     (v.cliente.cidade||v.cliente.estado?'<span>&#128205; <strong style="color:#1a2332">'+(v.cliente.cidade?v.cliente.cidade+' &mdash; ':'')+( v.cliente.estado||'')+'</strong></span>':'')+
     '</div>'+
     (typeof vendasRenderCartaoCliente==='function'?vendasRenderCartaoCliente(v.cliente):''):
-    '<div style="position:relative;margin-bottom:10px">'+
-    '<input type="text" placeholder="Buscar cliente..." id="vendasClienteInput" oninput="vendasBuscarCliente(this.value)" style="width:100%;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;color:#1a2332"></div>'+
-    '<div id="vendasClienteResultados" style="display:none;background:#fff;border:1px solid #e0e8f0;border-radius:8px;max-height:160px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.08)"></div>';
+    '<div style="position:relative;margin-bottom:10px;display:flex;gap:8px">'+
+    '<input type="text" placeholder="Código" id="vendasClienteCodInput" onkeydown="if(event.key===\'Enter\'){event.preventDefault();vendasBuscarClientePorCodigo(this.value);}" style="width:90px;flex-shrink:0;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;font-family:monospace;color:#1F4E79;font-weight:700;box-sizing:border-box">'+
+    '<input type="text" placeholder="Buscar cliente..." id="vendasClienteInput" oninput="vendasBuscarCliente(this.value)" onkeydown="vendasClienteInputEnter(event)" style="flex:1;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;color:#1a2332">'+
+    '<div id="vendasClienteResultados" style="display:none;position:absolute;top:100%;left:98px;right:0;background:#fff;border:1px solid #e0e8f0;border-radius:8px;max-height:160px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.08)"></div></div>';
 
   var itensRows=(v.itens||[]).map(function(it,i){
     var isNeg=!it.saldo||it.saldo<=0;
@@ -31008,7 +31106,7 @@ function vendasRenderCotacao(el){
     var focoMp=ativo&&fc==='mp';
     var focoPv=ativo&&fc==='pv';
     return '<tr data-vidx="'+i+'" onclick="vendasSetItemAtivo('+i+')" oncontextmenu="event.preventDefault();vendasMoverItemPrompt('+i+')" style="cursor:pointer;'+(ativo?'background:#EEF6FF;':isNeg?'background:#FFF5F5;':'')+'border-bottom:.5px solid #f0f4f8" title="Clique com o botão direito p/ mover de posição">'+
-      '<td style="padding:3px 8px;text-align:center;'+(focoMp?'box-shadow:inset 0 0 0 2px #1F4E79;border-radius:6px':'')+'"><input type="checkbox" '+(chk?'checked':'')+' onchange="window._vendasSel=window._vendasSel||{};window._vendasSel['+i+']=this.checked;vendasAtualizarMapaBtn()" style="width:15px;height:15px;cursor:pointer;vertical-align:middle" title="Selecionar (usado pelos botões de ação abaixo)"></td>'+
+      '<td style="padding:3px 4px;text-align:center;'+(focoMp?'box-shadow:inset 0 0 0 2px #1F4E79;border-radius:6px':'')+'"><div style="display:flex;align-items:center;justify-content:center;gap:3px"><input type="checkbox" '+(chk?'checked':'')+' onchange="window._vendasSel=window._vendasSel||{};window._vendasSel['+i+']=this.checked;vendasAtualizarMapaBtn()" style="width:15px;height:15px;cursor:pointer;vertical-align:middle" title="Selecionar (usado pelos botões de ação abaixo, e pela tecla Delete)"><button onclick="event.stopPropagation();window._venda.itens.splice('+i+',1);window._vendasSel=null;vendasRefresh()" style="appearance:none;-webkit-appearance:none;-moz-appearance:none;background:none;border:none;margin:0;cursor:pointer;color:#C00000;font-size:15px;line-height:1;padding:0;width:14px;flex-shrink:0" title="Excluir este item">&#215;</button></div></td>'+
       '<td style="padding:3px 8px;text-align:center;'+(focoPv?'box-shadow:inset 0 0 0 2px #27AE60;border-radius:6px':'')+'">'+
         (it.pvNumero?
           '<div title="Já enviado ao Pedido de Venda '+it.pvNumero+'" style="display:flex;flex-direction:column;align-items:center;line-height:1"><span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:#27AE60;color:#fff;font-size:9px;font-weight:700">✓</span><span style="font-size:7px;color:#27AE60;font-weight:700;white-space:nowrap">PV-'+it.pvNumero+'</span></div>'
@@ -31029,7 +31127,6 @@ function vendasRenderCotacao(el){
         '<button onclick="vendasVerCadastroItem(\''+pfEscHtml(pfEscJs(it.codigo))+'\',\''+pfEscHtml(pfEscJs(it.desc||''))+'\')" style="appearance:none;-webkit-appearance:none;-moz-appearance:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;background:none;border:1px solid #1F4E79;border-radius:6px;padding:0;margin:0;width:30px;height:28px;min-height:0;overflow:hidden;font-size:13px;line-height:1;color:#1F4E79;cursor:pointer;margin-right:3px;vertical-align:middle" title="Ficha do item">📋</button>'+
         '<button onclick="vendasAbrirRelacionados('+i+')" style="appearance:none;-webkit-appearance:none;-moz-appearance:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;background:none;border:1px solid '+(relacBuscar(it.codigo).length?'#E67E22':'#d0d8e8')+';border-radius:6px;padding:0;margin:0;width:30px;height:28px;min-height:0;overflow:hidden;font-size:13px;line-height:1;color:'+(relacBuscar(it.codigo).length?'#E67E22':'#8a9ab0')+';cursor:pointer;margin-right:3px;vertical-align:middle" title="Itens relacionados">🔗'+(relacBuscar(it.codigo).length?' '+relacBuscar(it.codigo).length:'')+'</button>'+
         (isNeg?'<button onclick="vendasEnviarMapa('+i+')" style="appearance:none;-webkit-appearance:none;-moz-appearance:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;background:none;border:1px solid #C00000;border-radius:6px;padding:0 9px;margin:0;height:28px;min-height:0;overflow:hidden;font-size:12px;line-height:1;color:#C00000;cursor:pointer;margin-right:3px;vertical-align:middle">Mapa</button>':'')+
-        '<button onclick="window._venda.itens.splice('+i+',1);window._vendasSel=null;vendasRefresh()" style="appearance:none;-webkit-appearance:none;-moz-appearance:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;background:none;border:none;margin:0;cursor:pointer;color:#C00000;font-size:15px;line-height:1;padding:0;width:18px;height:28px;min-height:0;overflow:hidden;vertical-align:middle">&#215;</button>'+
       '</td>'+
       '</tr>';
   }).join('');
@@ -31081,7 +31178,12 @@ function vendasRenderCotacao(el){
     vendasPainelHtml()+
     '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:16px 20px;margin-bottom:12px">'+
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">'+
+    '<div style="display:flex;align-items:center;gap:10px">'+
     '<div style="font-size:10px;font-weight:700;color:#8a9ab0;text-transform:uppercase">Itens</div>'+
+    '<div style="display:flex;gap:2px;background:#F0F4F8;border-radius:7px;padding:2px">'+
+    '<button onclick="window._vendasViewModo=\'tabela\';vendasRefresh()" title="Visualização em tabela" style="padding:4px 10px;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;background:'+((window._vendasViewModo||'tabela')==='tabela'?'#fff':'transparent')+';color:'+((window._vendasViewModo||'tabela')==='tabela'?'#1F4E79':'#8a9ab0')+'">▤ Tabela</button>'+
+    '<button onclick="window._vendasViewModo=\'compacta\';vendasRefresh()" title="Visualização em lista compacta" style="padding:4px 10px;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;background:'+(window._vendasViewModo==='compacta'?'#fff':'transparent')+';color:'+(window._vendasViewModo==='compacta'?'#1F4E79':'#8a9ab0')+'">☰ Compacta</button>'+
+    '</div></div>'+
     '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
     '<div style="display:flex;gap:8px">'+
     '<button onclick="vendasAbrirMarcarAplicacao()" style="background:#7B2D8B;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">&#128668; Marcar Aplica&#231;&#227;o</button>'+
@@ -31103,6 +31205,7 @@ function vendasRenderCotacao(el){
     '<button id="vendasAddBtn" ontouchstart="vendasAdicionarItem()" onclick="vendasAdicionarItem()" style="background:#1F4E79;color:#fff;border:none;border-radius:7px;padding:8px 14px;font-size:13px;cursor:pointer">+ Adicionar</button>'+
     '</div>'+
     (v.itens.length?
+      ((window._vendasViewModo||'tabela')==='compacta'?vendasItensCompactoHtml(v):
       '<div style="overflow:auto;max-height:55vh;border:1px solid #eef2f7;border-radius:8px"><table id="vendasItensTable" style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">'+
       vendasItemColgroup()+
       '<thead><tr style="background:#1F4E79;position:sticky;top:0;z-index:5">'+
@@ -31120,7 +31223,7 @@ function vendasRenderCotacao(el){
       '<th data-col="11" style="position:relative;padding:5px 6px;text-align:right;font-size:10px;color:rgba(255,255,255,.7)" title="Preço de venda (editável)">VENDA</th>'+
       '<th data-col="12" style="position:relative;padding:5px 6px;text-align:center;font-size:10px;color:#7DFFB3" title="Margem de lucro (editável)">%</th>'+
       '<th data-col="13" style="position:relative;padding:5px 6px;text-align:center;font-size:10px;color:rgba(255,255,255,.7)" title="Ações: ficha do item, enviar ao Mapa, excluir">AÇÕES</th>'+
-      '</tr></thead>'+'<tbody>'+itensRows+'</tbody></table></div>':
+      '</tr></thead>'+'<tbody>'+itensRows+'</tbody></table></div>'):
       '<div style="text-align:center;padding:24px;color:#8a9ab0;font-size:13px">Nenhum item adicionado ainda</div>')+
     '<div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f4f8;display:flex;gap:6px;flex-wrap:wrap">'+
     '<button id="vendasEnviarMapaSelBtn" onclick="vendasEnviarSelecionados()" style="background:none;border:1px solid #1F4E79;border-radius:6px;padding:5px 10px;font-size:11px;color:#1F4E79;cursor:pointer;display:inline-flex;align-items:center;gap:4px;opacity:.4" disabled>📤 Mapa (0)</button>'+
@@ -31160,6 +31263,11 @@ function vendasRenderCotacao(el){
   var codInp=el.querySelector('#vendasCodInput');
   if(codInp){
     codInp.addEventListener('keydown',function(e){if(e.key==='Enter'){var q=el.querySelector('#vendasQtdInput');if(q){q.focus();q.select();}}});
+  }
+  if(window._vendasFocarClienteCodigoNovo&&!v.cliente){
+    window._vendasFocarClienteCodigoNovo=false;
+    var codCliInp=el.querySelector('#vendasClienteCodInput');
+    if(codCliInp)setTimeout(function(){codCliInp.focus();},0);
   }
   var qtdInp=el.querySelector('#vendasQtdInput');
   if(qtdInp){
@@ -31226,6 +31334,19 @@ function vendasRenderCotacao(el){
       }
       vendasRefresh();
       e.preventDefault();
+    } else if(e.key==='Delete'||e.key==='Backspace'){
+      if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return; // não intercepta enquanto digita em campos
+      var selMap=window._vendasSel||{};
+      var temSelecao=Object.keys(selMap).some(function(k){return selMap[k];});
+      if(temSelecao){
+        if(typeof vendasExcluirSelecionados==='function')vendasExcluirSelecionados();
+        e.preventDefault();
+      } else if(window._vendasItemAtivo!=null&&itens[window._vendasItemAtivo]){
+        window._venda.itens.splice(window._vendasItemAtivo,1);
+        window._vendasItemAtivo=null;
+        vendasRefresh();
+        e.preventDefault();
+      }
     }
   };
   document.addEventListener('keydown',window._vendasItemKeyNav);
@@ -32598,6 +32719,9 @@ function vendasAbrirModal(cx){
     var label=(cx.clienteObj&&(cx.clienteObj.fantasia||cx.clienteObj.razao))||cx.cliente||'Nova';
     if(label.length>18)label=label.substring(0,18)+'…';
     window._vendasTabs[tabId]={venda:venda,label:label,num:cx.num||'Nova'};
+    // Cotação nova de verdade (sem cliente ainda) -- assim que renderizar, o
+    // cursor já vai direto pro campo de código do cliente, pronto pra digitar.
+    if(!venda.cliente)window._vendasFocarClienteCodigoNovo=true;
   }
   window._vendasActiveTab=tabId;
   window._venda=window._vendasTabs[tabId].venda;
@@ -33124,6 +33248,44 @@ function vendasSelecionarCliente(i){
   window._venda.cliente={razao:c.razao,cnpj:c.cnpj,codigo:c.codigo,contato:contato,tel:tel,cidade:c.cidade,estado:c.estado};
   if(c.estado)window._venda.uf=c.estado;
   vendasRefresh();
+  vendasFocarCodigoPeca();
+}
+
+// Busca o cliente pelo código exato (campo "Código" ao lado do nome, na cotação).
+// Se achar, seleciona e já pula o foco pro campo de código da peça -- fluxo:
+// digita código do cliente, Enter, já cai digitando o código da peça.
+function vendasBuscarClientePorCodigo(codigo){
+  codigo=(codigo||'').trim();
+  if(!codigo)return;
+  var clientes=typeof cadLoad==='function'?cadLoad(CLIE_KEY):[];
+  var c=(clientes||[]).find(function(x){return (x.codigo||'').toUpperCase()===codigo.toUpperCase();});
+  if(!c){
+    // não achou por código exato -- joga o texto no campo de busca por nome, pra
+    // não travar o fluxo (o usuário pode ter digitado errado ou não sabe o código)
+    var inpNome=document.getElementById('vendasClienteInput');
+    if(inpNome){inpNome.focus();inpNome.select();}
+    return;
+  }
+  window._vendasClienteMatches=[c];
+  vendasSelecionarCliente(0);
+}
+
+// Enter no campo de busca por nome: seleciona o primeiro resultado da lista (se
+// houver) e já pula pro campo de código da peça, sem precisar clicar no resultado.
+function vendasClienteInputEnter(e){
+  if(e.key!=='Enter')return;
+  e.preventDefault();
+  var matches=window._vendasClienteMatches||[];
+  if(matches.length)vendasSelecionarCliente(0);
+}
+
+// Foca (e seleciona o conteúdo) do campo de código da peça, pra já poder digitar
+// o próximo código direto -- usado depois que um cliente é selecionado.
+function vendasFocarCodigoPeca(){
+  setTimeout(function(){
+    var el=document.getElementById('vendasCodInput');
+    if(el){el.focus();el.select();}
+  },0);
 }
 
 function vendasEnviarMapa(i){
@@ -35835,4 +35997,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.598 --></html>
+</script></div></div></body><!-- Build timestamp: v115.599 --></html>

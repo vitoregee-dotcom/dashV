@@ -7,6 +7,13 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
+<!-- v115.610 - Diagnostico: adicionado console.time/console.log detalhado no
+render do Dashboard (pfRenderDashNow + ponto de decisao no pfNavigate) pra
+descobrir exatamente onde esta a lentidao relatada ao reabrir o Dashboard
+repetidamente na mesma sessao -- pelo codigo atual isso nao deveria acontecer
+(deveria renderizar só uma vez por sessao), entao precisamos dos tempos reais
+pra achar a causa em vez de continuar tentando adivinhar.
+-->
 <!-- v115.609 - Tabela "Mapas em andamento": coluna TITULO trocada por ORIGEM
 (Cotacao/Mapa), usando o campo vendaOrigem que ja existia pra distinguir
 mapas criados a partir de uma cotacao (botao "Mapa" num item negativo) dos
@@ -742,7 +749,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.609</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.610</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -861,7 +868,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.609</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.610</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -15927,24 +15934,38 @@ async function recalc(skipRender){
 // quando a tela é aberta e o cálculo já rodou em segundo plano com skipRender=true.
 // Evita reprocessar os 207k itens de novo — só desenha o que já foi calculado.
 async function pfRenderDashNow(){
-  if(window._pfDashRendered)return;
+  console.log('🕐 pfRenderDashNow chamado — _pfDashRendered='+window._pfDashRendered+', calcItems.length='+(typeof calcItems!=='undefined'?calcItems.length:'?'));
+  if(window._pfDashRendered){console.log('⏭️ Já renderizado antes, pulando (deveria ser instantâneo)');return;}
+  console.time('⏱️ pfRenderDashNow TOTAL');
   if(!calcItems.length){
     // Cálculo ainda não rodou (caso raro) — roda completo agora
+    console.time('⏱️ recalc(false)');
     await recalc(false);
+    console.timeEnd('⏱️ recalc(false)');
     if(typeof renderOpBox==='function')renderOpBox();
+    console.timeEnd('⏱️ pfRenderDashNow TOTAL');
     return;
   }
+  console.time('⏱️ applyFilt');
   applyFilt();
+  console.timeEnd('⏱️ applyFilt');
   await new Promise(r=>setTimeout(r,0));
+  console.time('⏱️ renderTable');
   try { renderTable(); } catch(e) { console.error('renderTable erro:', e); }
+  console.timeEnd('⏱️ renderTable');
   await new Promise(r=>setTimeout(r,0));
+  console.time('⏱️ renderKpis');
   renderKpis();
+  console.timeEnd('⏱️ renderKpis');
   await new Promise(r=>setTimeout(r,0));
+  console.time('⏱️ renderCharts');
   renderCharts();
+  console.timeEnd('⏱️ renderCharts');
   atualizarFiltroMarca();
   atualizarFiltroGrupo();
   if(typeof renderOpBox==='function')renderOpBox();
   window._pfDashRendered=true;
+  console.timeEnd('⏱️ pfRenderDashNow TOTAL');
 }
 // ── SOLICITAÇÕES – Supabase sync ──────────────────────────────
 function familiaMarcaMain(m){
@@ -35827,6 +35848,7 @@ function pfNavigate(view){
       if(typeof renderUltimaPlanilhaFamilia==='function'){try{renderUltimaPlanilhaFamilia();}catch(_e){console.warn('renderUltimaPlanilhaFamilia falhou:',_e);}}
       // Primeira abertura da tela nesta sessão: desenha tabela/KPIs/gráficos agora
       // (cálculo já rodou em segundo plano no login; aqui só falta o desenho visual)
+      console.log('🧭 pfNavigate(dash): _pfDashRendered='+window._pfDashRendered+' -- '+(window._pfDashRendered?'não deveria renderizar de novo':'vai renderizar agora'));
       if(!window._pfDashRendered&&typeof pfRenderDashNow==='function'){
         var _spD=document.getElementById('spinner');
         if(_spD){_spD.style.display='block';_spD.textContent='📊 Preparando Dashboard...';}
@@ -36194,4 +36216,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.609 --></html>
+</script></div></div></body><!-- Build timestamp: v115.610 --></html>

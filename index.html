@@ -7,6 +7,12 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
+<!-- v115.607 - Sync automatico em segundo plano (v115.605) deixado mais leve:
+intervalo de 90s para 3min, nunca roda sobreposto, e pula a rodada se o
+usuario acabou de clicar/digitar ha poucos segundos -- reduz chance de
+competir por recursos bem na hora que alguem esta tentando usar algo (ex:
+selecionar um arquivo), que estava deixando a tela lenta.
+-->
 <!-- v115.606 - Duas correcoes:
 1) Corrigido ReferenceError "_onDash is not defined" em pfPullPlanilhas
 (bug introduzido na v115.603 -- variavel removida mas ainda usada mais
@@ -723,7 +729,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.606</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.607</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -842,7 +848,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.606</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.607</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -25093,18 +25099,27 @@ document.addEventListener('DOMContentLoaded',function(){
 // ── Sincronização automática em segundo plano ──────────────────────
 // Antes, um aparelho só via o que mudou em outro (ex: uma foto colada no PC)
 // depois de recarregar a página ou clicar em "Sincronizar agora" na mão.
-// Agora, a cada 90s (só com a aba em primeiro plano, pra não gastar dados/
-// bateria à toa em segundo plano), puxa Cadastros/Produtos/Aplicações do
-// servidor sozinho -- se algo mudou em outro aparelho, aparece aqui sem
-// precisar fazer nada. cadPullSupabase() já é seguro pra chamar repetido:
-// ele nunca sobrescreve uma mudança local que ainda não foi enviada.
+// Agora, puxa Cadastros/Produtos/Aplicações do servidor sozinho de vez em
+// quando -- se algo mudou em outro aparelho, aparece aqui sem precisar fazer
+// nada. Ajustes pra não pesar: (1) intervalo de 3min, não 90s; (2) nunca
+// roda duas vezes sobrepostas; (3) pula a rodada se o usuário acabou de
+// clicar/digitar há poucos segundos, pra não competir por recursos bem na
+// hora que ele está tentando usar alguma coisa (ex: selecionar um arquivo).
+window._pfLastInteracao=Date.now();
+document.addEventListener('pointerdown',function(){window._pfLastInteracao=Date.now();},{passive:true});
+document.addEventListener('keydown',function(){window._pfLastInteracao=Date.now();});
+var _pfPullEmAndamento=false;
 setInterval(function(){
   try{
     if(typeof sbUser==='undefined'||!sbUser)return;
     if(document.visibilityState!=='visible')return;
-    if(typeof cadPullSupabase==='function')cadPullSupabase();
+    if(_pfPullEmAndamento)return;
+    if(Date.now()-(window._pfLastInteracao||0)<4000)return;
+    if(typeof cadPullSupabase!=='function')return;
+    _pfPullEmAndamento=true;
+    Promise.resolve(cadPullSupabase()).catch(function(e){console.warn('Sync automático em segundo plano falhou:',e);}).then(function(){_pfPullEmAndamento=false;});
   }catch(e){console.warn('Sync automático em segundo plano falhou:',e);}
-}, 90000);
+}, 180000);
 // ════════════════════════════════════════════════════════════════
 </script>
 <script>
@@ -36139,4 +36154,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.606 --></html>
+</script></div></div></body><!-- Build timestamp: v115.607 --></html>

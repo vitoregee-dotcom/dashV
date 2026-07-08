@@ -7,6 +7,16 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
+<!-- v115.620 - "Auto-identificar fornecedor" (Mapa de Compras > Preencher
+Precos) agora mostra o MOTIVO real quando nao consegue processar uma cotacao,
+em vez de so "Nenhum arquivo processado" generico. Cobre os casos: fornecedor
+lido pela IA mas nao cadastrado, fornecedor cadastrado mas NAO marcado como
+opcao pra nenhum item deste mapa (causa mais provavel de falhas silenciosas),
+nenhum preco extraido, e codigos extraidos que nao batem com os itens do
+mapa. Prompt de identificacao do fornecedor tambem reforcado pra deixar
+claro que o FORNECEDOR e quem emite o documento (cabecalho), nao o campo
+"Cliente:" dele.
+-->
 <!-- v115.619 - Corrigido visual do PDF "Cotacao NF + Especial" (Calculo de
 Desconto) pra bater com o padrao dos outros documentos: cabecalho da tabela
 estava com azul-marinho escuro (#0F1E33) e texto em CAIXA ALTA, diferente do
@@ -835,7 +845,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.619</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.620</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -968,7 +978,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.619</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.620</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22681,26 +22691,28 @@ async function mapaCarregarCotacaoAuto(input){
   var statusEl=document.getElementById('autoStatus');
   var totalArquivos=input.files.length;
   var processados=0;
-  
+  var falhas=[]; // guarda o motivo de cada arquivo que não deu certo, pra mostrar no final
+
   if(statusEl)statusEl.innerHTML='🤖 Processando '+totalArquivos+' arquivo(s)...';
-  
+
   for(var i=0;i<totalArquivos;i++){
     var file=input.files[i];
     if(!file)continue;
-    
+
     try{
       if(file.size > 10*1024*1024){
+        falhas.push(file.name+': arquivo muito grande (>10MB)');
         if(statusEl)statusEl.innerHTML='❌ '+file.name+' muito grande';
         continue;
       }
-      
-      var prompt='Documento de cotação. Extraia fornecedor e CNPJ. JSON: {"nome":"string","cnpj":"string"}';
+
+      var prompt='Documento de cotação (Cotação de Venda emitida por um FORNECEDOR pro nosso comprador). O FORNECEDOR é quem está EMITINDO/VENDENDO (normalmente aparece no cabeçalho/logo do documento, como remetente) -- NÃO é o campo "Cliente:" do documento (esse é quem está COMPRANDO, geralmente nós). Extraia nome e CNPJ do FORNECEDOR (emissor). JSON: {"nome":"string","cnpj":"string"}';
       var txt=await _anthropicReadDoc(file,prompt,'Mapa de Compras - Lançar Preços');
       var m=txt.match(/\{[\s\S]*\}/);
       if(m)txt=m[0];
       var fornData=JSON.parse(txt);
       var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
-      
+
       var fornEncontrado=null;
       if(fornData.cnpj&&fornData.cnpj.trim()){
         var cnpjClean=fornData.cnpj.replace(/[^0-9]/g,'');
@@ -22716,20 +22728,30 @@ async function mapaCarregarCotacaoAuto(input){
           return f_nome.includes(nome_upper)||nome_upper.includes(f_nome.split(/[,\/\-]/)[0].trim());
         });
       }
-      
-      if(!fornEncontrado) continue;
-      
+
+      if(!fornEncontrado){
+        falhas.push(file.name+': a IA leu o fornecedor como "'+(fornData.nome||'?')+'" (CNPJ '+(fornData.cnpj||'—')+'), mas não achei nenhum fornecedor cadastrado com esse nome/CNPJ. Confere se ele está em Cadastros > Fornecedores.');
+        continue;
+      }
+
       var its=mapaItens.filter(function(i){return i.sel!==false&&(mapaFornSelecionados[i.ref+'||'+(i.marca||'')]||[]).includes(fornEncontrado.id);});
-      if(!its.length) continue;
-      
+      if(!its.length){
+        var nomeAchado=fornEncontrado.fantasia||fornEncontrado.nome||fornEncontrado.razao||'?';
+        falhas.push(file.name+': encontrei o fornecedor "'+nomeAchado+'" cadastrado, mas ele NÃO está marcado como opção de fornecedor em nenhum item deste mapa. Marca a caixinha dele no(s) item(ns) certo(s) antes de carregar a cotação.');
+        continue;
+      }
+
       var refs=its.map(function(i){return i.ref;}).join(', ');
       var prompt2='Cotação: '+refs+'. JSON: [{"ref":"código","marca":"marca","preco":0.00,"ipi":0,"icms":0,"st":0,"prazo":"text"}]';
       var txt2=await _anthropicReadDoc(file,prompt2,'Mapa de Compras - Lançar Preços');
       var m2=txt2.match(/\[[\s\S]*\]/);
       if(m2)txt2=m2[0];
       var precos=JSON.parse(txt2);
-      
-      if(!Array.isArray(precos)||!precos.length) continue;
+
+      if(!Array.isArray(precos)||!precos.length){
+        falhas.push(file.name+': fornecedor identificado certinho, mas não consegui extrair nenhum preço/código do documento.');
+        continue;
+      }
       var norm=function(s){return (s||'').toString().trim().toUpperCase().replace(/\s+/g,'');};
       var updated=0;
       precos.forEach(function(p){
@@ -22745,21 +22767,32 @@ async function mapaCarregarCotacaoAuto(input){
         else mapaPrecos[pk].entries.push(entry);
         updated++;
       });
-      
+
       if(updated>0){
         processados++;
         if(typeof mapaNotificarCotacaoRecebida==='function')mapaNotificarCotacaoRecebida(fornEncontrado.id);
+      } else {
+        falhas.push(file.name+': fornecedor identificado, mas os códigos extraídos do documento ('+precos.map(function(p){return p.ref;}).join(', ')+') não bateram com nenhum item selecionado pra esse fornecedor neste mapa.');
       }
       if(statusEl)statusEl.innerHTML='⏳ '+processados+'/'+totalArquivos+' processado(s)';
     }catch(e){
       console.error('Erro: '+file.name,e);
+      falhas.push(file.name+': erro ao processar ('+(e.message||e)+')');
     }
   }
-  
+
+  if(falhas.length){
+    console.warn('Cotações não processadas:',falhas);
+  }
   if(processados>0){
-    if(statusEl)statusEl.innerHTML='<b style="color:#27AE60">✅ '+processados+' arquivo(s) OK!</b>';
+    if(statusEl)statusEl.innerHTML='<b style="color:#27AE60">✅ '+processados+' arquivo(s) OK!</b>'+(falhas.length?'<div style="color:#C00000;font-weight:400;margin-top:4px">⚠️ '+falhas.length+' com problema — veja detalhes abaixo</div>':'');
     setTimeout(function(){mapaGoStep(3);},1500);
-  }else if(statusEl)statusEl.innerHTML='❌ Nenhum arquivo processado';
+  }else if(statusEl)statusEl.innerHTML='<b style="color:#C00000">❌ Nenhum arquivo processado</b>';
+  if(falhas.length&&statusEl){
+    statusEl.innerHTML+='<ul style="margin:8px 0 0;padding-left:18px;font-size:11px;color:#854F0B;font-weight:400">'+
+      falhas.map(function(f){return '<li>'+pfEscHtml(f)+'</li>';}).join('')+
+      '</ul>';
+  }
   input.value='';
 }
 
@@ -36486,4 +36519,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.619 --></html>
+</script></div></div></body><!-- Build timestamp: v115.620 --></html>

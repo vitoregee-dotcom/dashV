@@ -7,6 +7,16 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
+<!-- v115.618 - Duas melhorias na tela de Uso de IA (admin):
+1) Coluna USUARIO na tabela de custo -- cada leitura de IA agora registra
+quem fez (nome do perfil ou email).
+2) Novo bloco "Ultimos acessos" -- registra quando cada usuario entrou no
+PartsFlow (data/hora), visivel na mesma tela. Chave nova pf_login_log_v1,
+sincronizada de verdade entre TODOS os usuarios (nao so o mais recente de
+uma pessoa) -- corrigido tambem esse mesmo problema pro log de uso de IA,
+que antes só mostraria a atividade do proprio usuario logado, nunca a dos
+outros, mesmo sendo tecnicamente uma "chave compartilhada".
+-->
 <!-- v115.617 - Novo formulario "Cadastrar sem convite" na tela de Gerenciar
 Usuarios -- pra quem ja criou o login direto no Supabase (Authentication >
 Users), cola o UID + nome/email/cargo e cadastra na tabela profiles direto
@@ -817,7 +827,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.617</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.618</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -950,7 +960,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.617</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.618</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22811,8 +22821,9 @@ function pfLogUsoIA(contexto,usage){
     var tin=usage.input_tokens||0, tout=usage.output_tokens||0;
     var cw=usage.cache_creation_input_tokens||0, cr=usage.cache_read_input_tokens||0;
     var custo=(tin/1e6)*IA_PRECOS.in+(tout/1e6)*IA_PRECOS.out+(cw/1e6)*IA_PRECOS.cacheWrite+(cr/1e6)*IA_PRECOS.cacheRead;
+    var usuarioAtual=(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)?sbProfile.nome:((typeof sbUser!=='undefined'&&sbUser&&sbUser.email)?sbUser.email:'');
     var log=JSON.parse(localStorage.getItem(IA_USO_KEY)||'[]');
-    log.push({ts:Date.now(),contexto:contexto||'',tin:tin,tout:tout,cw:cw,cr:cr,custo:custo});
+    log.push({ts:Date.now(),contexto:contexto||'',tin:tin,tout:tout,cw:cw,cr:cr,custo:custo,usuario:usuarioAtual});
     if(log.length>500)log=log.slice(log.length-500);
     pfSafeSetItem(IA_USO_KEY,JSON.stringify(log));
     if(typeof pfSyncPush==='function')pfSyncPush(['ia_uso_log_v1']);
@@ -22821,6 +22832,25 @@ function pfLogUsoIA(contexto,usage){
 function pfUsoIAEhDono(){
   // Só mostra a tela de custo pro Vitor (dono da conta/API key) por enquanto
   return typeof sbUser!=='undefined'&&sbUser&&sbUser.id==='e526fea4-d04f-4d2f-a700-145ac17b137c';
+}
+
+// ── Registro de acessos (quando cada usuário entrou no PartsFlow) ──────
+var PF_LOGIN_LOG_KEY='pf_login_log_v1';
+function pfLogLogin(){
+  try{
+    if(typeof sbUser==='undefined'||!sbUser)return;
+    var usuarioAtual=(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)?sbProfile.nome:(sbUser.email||'');
+    var log=JSON.parse(localStorage.getItem(PF_LOGIN_LOG_KEY)||'[]');
+    // Evita registrar de novo se já logou nos últimos 5 minutos (evita duplicar
+    // toda vez que a página recarrega sozinha, tipo depois de reconectar)
+    var recente=log.length&&log[log.length-1].usuario===usuarioAtual&&(Date.now()-log[log.length-1].ts)<5*60*1000;
+    if(!recente){
+      log.push({ts:Date.now(),usuario:usuarioAtual,email:sbUser.email||''});
+      if(log.length>500)log=log.slice(log.length-500);
+      pfSafeSetItem(PF_LOGIN_LOG_KEY,JSON.stringify(log));
+      if(typeof pfSyncPush==='function')pfSyncPush([PF_LOGIN_LOG_KEY]);
+    }
+  }catch(e){}
 }
 async function _anthropicReadDoc(file, prompt, contexto){
   if(file.size > 10*1024*1024){
@@ -28186,7 +28216,8 @@ var PF_SYNC_KEYS = [
   'lp_regras_v1',
   'lp_historico_v1',
   'trf_historico_v1',
-  'ia_uso_log_v1'
+  'ia_uso_log_v1',
+  'pf_login_log_v1'
 ];
 
 async function pfSyncPush(keys){
@@ -28281,7 +28312,7 @@ async function pfSyncPull(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   try{
     // Chaves compartilhadas entre usuários — puxar de TODOS os usuários
-    var sharedKeys = ['cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'ia_uso_log_v1'];
+    var sharedKeys = ['cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'ia_uso_log_v1', 'pf_login_log_v1'];
     
     var rows = [];
     
@@ -28297,6 +28328,34 @@ async function pfSyncPull(){
       }
     }
     
+    // Chaves que são "log" (uma lista que cresce, um registro por evento) --
+    // pra essas, precisamos juntar os registros de TODOS os usuários, não só
+    // pegar o mais recente de uma pessoa só (que é o que o código abaixo faz
+    // pras outras chaves compartilhadas, tipo cadastros -- ali faz sentido
+    // pegar só o mais atual, mas aqui perderia os registros de todo mundo
+    // menos de quem sincronizou por último).
+    var logKeys = ['ia_uso_log_v1','pf_login_log_v1'];
+    for(var lk of logKeys){
+      var rLog = await sbFetch('/rest/v1/user_sync?chave=eq.'+lk+'&select=chave,dados,updated_at,user_id');
+      if(rLog.ok){
+        var logRows = await rLog.json();
+        if(logRows && logRows.length>1){
+          // Junta os arrays de todo mundo numa entrada só, pra passar pelo
+          // merge por timestamp que já existe mais abaixo
+          var todosRegistros=[];
+          logRows.forEach(function(lr){
+            try{
+              var arr=typeof lr.dados==='string'?JSON.parse(lr.dados):lr.dados;
+              if(Array.isArray(arr))todosRegistros=todosRegistros.concat(arr);
+            }catch(eParseLog){}
+          });
+          var idxExistente=rows.findIndex(function(r){return r.chave===lk;});
+          var combinado={chave:lk,dados:JSON.stringify(todosRegistros),updated_at:new Date().toISOString()};
+          if(idxExistente>=0)rows[idxExistente]=combinado;else rows.push(combinado);
+        }
+      }
+    }
+
     // 2. Puxar dados compartilhados de TODOS os usuários
     for(var sk of sharedKeys){
       var rShared = await sbFetch('/rest/v1/user_sync?chave=eq.'+sk+'&select=chave,dados,updated_at,user_id');
@@ -28350,6 +28409,24 @@ async function pfSyncPull(){
           merged.sort(function(a,b){return (a.ts||0)-(b.ts||0);});
           if(merged.length>500)merged=merged.slice(merged.length-500);
           pfSafeSetItem('ia_uso_log_v1',JSON.stringify(merged));
+          return;
+        }
+        if(row.chave==='pf_login_log_v1'){
+          // Mesmo esquema do log de uso de IA: une local + servidor (de TODOS
+          // os usuários, já juntados lá em cima), sem duplicar por timestamp+usuário.
+          var remotoLogin=JSON.parse(val||'[]');
+          var localLogin=JSON.parse(localStorage.getItem('pf_login_log_v1')||'[]');
+          var vistosLogin={};
+          var mergedLogin=[];
+          localLogin.concat(remotoLogin).forEach(function(entry){
+            var k=(entry.ts||0)+'|'+(entry.usuario||'');
+            if(vistosLogin[k])return;
+            vistosLogin[k]=true;
+            mergedLogin.push(entry);
+          });
+          mergedLogin.sort(function(a,b){return (a.ts||0)-(b.ts||0);});
+          if(mergedLogin.length>500)mergedLogin=mergedLogin.slice(mergedLogin.length-500);
+          pfSafeSetItem('pf_login_log_v1',JSON.stringify(mergedLogin));
           return;
         }
         if(row.chave==='cad_solicitacoes_compras_v1'){
@@ -30381,6 +30458,7 @@ if(_origInitUserUINav){
     setTimeout(setupNavButtons, 100);
     if(typeof cadMigrarGrupoRolamentoVedacao==='function')cadMigrarGrupoRolamentoVedacao();
     if(typeof cadMigrarCodigosForn==='function')cadMigrarCodigosForn();
+    if(typeof pfLogLogin==='function')pfLogLogin();
   };
 }
 
@@ -30665,6 +30743,7 @@ function ferrUsoIA(){
     html+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
     html+='<thead><tr style="background:#1F4E79;color:#fff">'+
       '<th style="padding:8px 10px;text-align:left;font-size:10px">DATA/HORA</th>'+
+      '<th style="padding:8px 10px;text-align:left;font-size:10px">USUÁRIO</th>'+
       '<th style="padding:8px 10px;text-align:left;font-size:10px">ONDE</th>'+
       '<th style="padding:8px 10px;text-align:right;font-size:10px">TOKENS ENTRADA</th>'+
       '<th style="padding:8px 10px;text-align:right;font-size:10px">TOKENS SAÍDA</th>'+
@@ -30674,6 +30753,7 @@ function ferrUsoIA(){
       var d=new Date(l.ts);
       html+='<tr style="border-bottom:0.5px solid #f0f4f8">'+
         '<td style="padding:7px 10px;color:#607080;white-space:nowrap">'+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</td>'+
+        '<td style="padding:7px 10px;color:#1a2332;white-space:nowrap">'+(l.usuario?pfEscHtml(l.usuario):'<span style="color:#c4ccd6">—</span>')+'</td>'+
         '<td style="padding:7px 10px;font-weight:600;color:#1a2332">'+pfEscHtml(l.contexto||'—')+(l.cr?' <span style="font-size:9px;color:#27AE60;font-weight:700">(cache)</span>':'')+'</td>'+
         '<td style="padding:7px 10px;text-align:right;color:#607080">'+(l.tin||0).toLocaleString('pt-BR')+'</td>'+
         '<td style="padding:7px 10px;text-align:right;color:#607080">'+(l.tout||0).toLocaleString('pt-BR')+'</td>'+
@@ -30683,6 +30763,33 @@ function ferrUsoIA(){
     html+='</tbody></table></div>';
     if(log.length>200)html+='<div style="font-size:11px;color:#8a9ab0;margin-top:8px;text-align:center">Mostrando as 200 leituras mais recentes de '+log.length+' registradas.</div>';
   }
+
+  // ── Últimos acessos (quando cada usuário entrou no PartsFlow) ──────
+  var loginLog=(function(){try{return JSON.parse(localStorage.getItem('pf_login_log_v1')||'[]');}catch(e){return[];}})();
+  loginLog=loginLog.slice().reverse();
+  html+='<div style="font-size:16px;font-weight:800;color:#1F4E79;margin:28px 0 14px">🔑 Últimos acessos</div>';
+  if(!loginLog.length){
+    html+='<div style="text-align:center;padding:24px;color:#8a9ab0;font-size:13px;background:#fff;border-radius:10px;border:1px solid #e0e8f0">Nenhum acesso registrado ainda.</div>';
+  } else {
+    html+='<div style="overflow-x:auto;border:1px solid #e0e8f0;border-radius:10px">';
+    html+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html+='<thead><tr style="background:#1F4E79;color:#fff">'+
+      '<th style="padding:8px 10px;text-align:left;font-size:10px">USUÁRIO</th>'+
+      '<th style="padding:8px 10px;text-align:left;font-size:10px">E-MAIL</th>'+
+      '<th style="padding:8px 10px;text-align:left;font-size:10px">DATA/HORA DO ACESSO</th>'+
+      '</tr></thead><tbody>';
+    loginLog.slice(0,200).forEach(function(l){
+      var d=new Date(l.ts);
+      html+='<tr style="border-bottom:0.5px solid #f0f4f8">'+
+        '<td style="padding:7px 10px;font-weight:600;color:#1a2332;white-space:nowrap">'+pfEscHtml(l.usuario||'—')+'</td>'+
+        '<td style="padding:7px 10px;color:#607080;white-space:nowrap">'+pfEscHtml(l.email||'—')+'</td>'+
+        '<td style="padding:7px 10px;color:#607080;white-space:nowrap">'+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</td>'+
+        '</tr>';
+    });
+    html+='</tbody></table></div>';
+    if(loginLog.length>200)html+='<div style="font-size:11px;color:#8a9ab0;margin-top:8px;text-align:center">Mostrando os 200 acessos mais recentes de '+loginLog.length+' registrados.</div>';
+  }
+
   html+='</div>';
   el.innerHTML=html;
 }
@@ -36371,4 +36478,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.617 --></html>
+</script></div></div></body><!-- Build timestamp: v115.618 --></html>

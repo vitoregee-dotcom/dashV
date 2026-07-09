@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.622 - Duas melhorias na tabela de Itens da cotacao (Vendas):
+<!-- v115.624 - Duas melhorias na tabela de Itens da cotacao (Vendas):
 1) Nova coluna LINHA -- badge com engrenagem colorida (identifica a linha do
 equipamento pelo codigo, ex: JOHN DEERE verde, CATERPILLAR amarelo, DANA
 azul), sem usar logo de marca nenhuma (so cor + icone generico). Adicionada
@@ -865,7 +865,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.622</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.624</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -998,7 +998,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.622</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.624</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -31244,7 +31244,7 @@ function vendasItensCompactoHtml(v){
 }
 
 function vendasItemColgroup(){
-  var defaults=['46px','28px','28px','100px','100px','230px','90px','62px','55px','85px','96px','102px','68px','100px','130px'];
+  var defaults=['46px','28px','28px','100px','100px','230px','90px','62px','55px','85px','96px','102px','68px','100px'];
   var widths=defaults.slice();
   try{
     var saved=JSON.parse(localStorage.getItem('vendas_item_cols_widths')||'[]');
@@ -31261,6 +31261,15 @@ function vendasItemColResizeSetup(){
   thead.querySelectorAll('th[data-col]').forEach(function(th){
     var handle=document.createElement('div');
     handle.style.cssText='position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize;background:transparent';
+    // O <th> é marcado como draggable="true" (arrastar-reordenar, ver
+    // vendasItemColReorderSetup). Sem isso aqui, um clique na faixinha de
+    // resize também dispara o "dragstart" do th (o navegador sobe na árvore
+    // até achar o ancestral draggable), fazendo o clique virar reordenar em
+    // vez de redimensionar. draggable="false" explícito na faixinha corta
+    // essa herança e devolve o clique pro resize.
+    handle.setAttribute('draggable','false');
+    handle.addEventListener('dragstart',function(e){e.preventDefault();e.stopPropagation();});
+    handle.addEventListener('mousedown',function(e){e.stopPropagation();});
     th.appendChild(handle);
     handle.addEventListener('pointerdown',function(e){
       e.preventDefault();e.stopPropagation();
@@ -31670,6 +31679,17 @@ function vendasRenderCotacao(el){
     '<input type="text" placeholder="Buscar cliente..." id="vendasClienteInput" oninput="vendasBuscarCliente(this.value)" onkeydown="vendasClienteInputEnter(event)" style="flex:1;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;box-sizing:border-box;color:#1a2332">'+
     '<div id="vendasClienteResultados" style="display:none;position:absolute;top:100%;left:98px;right:0;background:#fff;border:1px solid #e0e8f0;border-radius:8px;max-height:160px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.08)"></div></div>';
 
+  // Pré-computa o mapa de itens relacionados UMA vez por render (antes rodava
+  // relacBuscar() -- que relê e reprocessa o localStorage inteiro -- 2x por
+  // item, então numa cotação com muitos itens isso ficava bem lento)
+  var _relacMap={};
+  relacLoad().forEach(function(r){
+    var a=(r.codigoA||'').toUpperCase(),b=(r.codigoB||'').toUpperCase();
+    if(a){(_relacMap[a]=_relacMap[a]||[]).push({codigo:r.codigoB,desc:r.descB});}
+    if(b){(_relacMap[b]=_relacMap[b]||[]).push({codigo:r.codigoA,desc:r.descA});}
+  });
+  function relacBuscarFast(codigo){return _relacMap[(codigo||'').toUpperCase()]||[];}
+
   var itensRows=(v.itens||[]).map(function(it,i){
     var isNeg=!it.saldo||it.saldo<=0;
     var custo=it.custoOverride!=null?it.custoOverride:it.custo;
@@ -31700,18 +31720,9 @@ function vendasRenderCotacao(el){
       '<td style="padding:3px 6px;text-align:center;white-space:nowrap"><span style="display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:30px;border:1px solid #27AE60;border-radius:6px;padding:0 8px;gap:1px"><input type="text" inputmode="decimal" data-field="pct" value="'+(venda&&custo?Math.round((1-(custo/venda))*100):'')+'" onchange="var pct=parseFloat(this.value.replace(\',\',\'.\'));if(!isNaN(pct)&&pct<100){var c=window._venda.itens['+i+'].custoOverride!=null?window._venda.itens['+i+'].custoOverride:window._venda.itens['+i+'].custo;if(c)window._venda.itens['+i+'].vendaOverride=Math.round((c/(1-pct/100))*100)/100;}vendasAtualizarLinha('+i+')" style="box-sizing:border-box;width:32px;height:100%;text-align:right;padding:0;border:none;background:transparent;font-size:16px;color:#27AE60;font-weight:600;line-height:1"><span style="font-size:13px;color:#27AE60;font-weight:600;line-height:1">%</span></span></td>'+
       '<td style="padding:3px 8px;text-align:center;white-space:nowrap;line-height:1;overflow:hidden">'+
         '<button onclick="vendasVerCadastroItem(\''+pfEscHtml(pfEscJs(it.codigo))+'\',\''+pfEscHtml(pfEscJs(it.desc||''))+'\')" style="appearance:none;-webkit-appearance:none;-moz-appearance:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;background:none;border:1px solid #1F4E79;border-radius:6px;padding:0;margin:0;width:30px;height:28px;min-height:0;overflow:hidden;font-size:13px;line-height:1;color:#1F4E79;cursor:pointer;margin-right:3px;vertical-align:middle" title="Ficha do item">📋</button>'+
-        '<button onclick="vendasAbrirRelacionados('+i+')" style="appearance:none;-webkit-appearance:none;-moz-appearance:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;background:none;border:1px solid '+(relacBuscar(it.codigo).length?'#E67E22':'#d0d8e8')+';border-radius:6px;padding:0;margin:0;width:30px;height:28px;min-height:0;overflow:hidden;font-size:13px;line-height:1;color:'+(relacBuscar(it.codigo).length?'#E67E22':'#8a9ab0')+';cursor:pointer;margin-right:3px;vertical-align:middle" title="Itens relacionados">🔗'+(relacBuscar(it.codigo).length?' '+relacBuscar(it.codigo).length:'')+'</button>'+
+        '<button onclick="vendasAbrirRelacionados('+i+')" style="appearance:none;-webkit-appearance:none;-moz-appearance:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;background:none;border:1px solid '+(relacBuscarFast(it.codigo).length?'#E67E22':'#d0d8e8')+';border-radius:6px;padding:0;margin:0;width:30px;height:28px;min-height:0;overflow:hidden;font-size:13px;line-height:1;color:'+(relacBuscarFast(it.codigo).length?'#E67E22':'#8a9ab0')+';cursor:pointer;margin-right:3px;vertical-align:middle" title="Itens relacionados">🔗'+(relacBuscarFast(it.codigo).length?' '+relacBuscarFast(it.codigo).length:'')+'</button>'+
         (isNeg?'<button onclick="vendasEnviarMapa('+i+')" style="appearance:none;-webkit-appearance:none;-moz-appearance:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;background:none;border:1px solid #C00000;border-radius:6px;padding:0 9px;margin:0;height:28px;min-height:0;overflow:hidden;font-size:12px;line-height:1;color:#C00000;cursor:pointer;margin-right:3px;vertical-align:middle">Mapa</button>':'')+
       '</td>'+
-      (function(){
-        var ln=idLinha(it.codigo||'');
-        var corTxt=ln.x||ln.c;
-        return '<td style="padding:3px 8px;white-space:nowrap">'+
-          '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 9px 3px 4px;border-radius:12px;background:'+ln.b+';color:'+corTxt+'" title="Linha: '+pfEscHtml(ln.l)+'">'+
-          '<span style="width:16px;height:16px;border-radius:50%;background:'+ln.c+';display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">'+
-          '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v6m0 10v6m11-11h-6M7 12H1m17.36-6.36l-4.24 4.24M9.88 14.12l-4.24 4.24M18.36 18.36l-4.24-4.24M9.88 9.88L5.64 5.64"></path></svg>'+
-          '</span>'+pfEscHtml(ln.l)+'</span></td>';
-      })()+
       '</tr>';
   }).join('');
 
@@ -31810,7 +31821,6 @@ function vendasRenderCotacao(el){
       '<th data-col="11" style="position:relative;padding:5px 6px;text-align:right;font-size:10px;color:rgba(255,255,255,.7)" title="Preço de venda (editável)">VENDA</th>'+
       '<th data-col="12" style="position:relative;padding:5px 6px;text-align:center;font-size:10px;color:#7DFFB3" title="Margem de lucro (editável)">%</th>'+
       '<th data-col="13" style="position:relative;padding:5px 6px;text-align:center;font-size:10px;color:rgba(255,255,255,.7)" title="Ações: ficha do item, enviar ao Mapa, excluir">AÇÕES</th>'+
-      '<th data-col="14" style="position:relative;padding:5px 6px;font-size:10px;color:rgba(255,255,255,.7)" title="Linha do equipamento (marca da máquina que usa a peça, identificada pelo código)">LINHA</th>'+
       '</tr></thead>'+'<tbody>'+itensRows+'</tbody></table></div>'):
       '<div style="text-align:center;padding:24px;color:#8a9ab0;font-size:13px">Nenhum item adicionado ainda</div>')+
     '<div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f4f8;display:flex;gap:6px;flex-wrap:wrap">'+
@@ -36651,4 +36661,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.622 --></html>
+</script></div></div></body><!-- Build timestamp: v115.624 --></html>

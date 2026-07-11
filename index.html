@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.627 - Duas melhorias na tabela de Itens da cotacao (Vendas):
+<!-- v115.628 - Duas melhorias na tabela de Itens da cotacao (Vendas):
 1) Nova coluna LINHA -- badge com engrenagem colorida (identifica a linha do
 equipamento pelo codigo, ex: JOHN DEERE verde, CATERPILLAR amarelo, DANA
 azul), sem usar logo de marca nenhuma (so cor + icone generico). Adicionada
@@ -865,7 +865,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.627</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.628</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -998,7 +998,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.627</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.628</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -15862,9 +15862,26 @@ async function salvarTransitItem(key,entry){
 }
 function autoLimparTransit(){
   // Remove itens de trânsito quando o saldo aumentou OU o consumo aumentou >= qtd em trânsito
+  // Antes: pra CADA chave de transitItems, rodava calcItems.find(...) -- um
+  // scan linear no array inteiro (até ~144 mil itens), e essa função roda a
+  // cada applyFilt() (ou seja, a cada filtro/busca digitada, não só no
+  // carregamento inicial). Com K chaves de trânsito, era O(K×M). Agora monta
+  // 2 mapas (por solKey e por ref, com o índice da 1ª ocorrência) numa
+  // única passada O(M), e escolhe entre os dois candidatos o que aparecia
+  // primeiro no array original -- resultado idêntico ao .find() de antes.
+  const _bySolKey={},_byRef={};
+  calcItems.forEach((it,idx)=>{
+    const sk=solKey(it.ref,it.marca);
+    if(!(sk in _bySolKey))_bySolKey[sk]={item:it,idx:idx};
+    if(!(it.ref in _byRef))_byRef[it.ref]={item:it,idx:idx};
+  });
   Object.keys(transitItems).forEach(key=>{
     const [ref]=key.split('||');
-    const item=calcItems.find(i=>solKey(i.ref,i.marca)===key||i.ref===ref);
+    const cand1=_bySolKey[key],cand2=_byRef[ref];
+    let item=null;
+    if(cand1&&cand2)item=cand1.idx<=cand2.idx?cand1.item:cand2.item;
+    else if(cand1)item=cand1.item;
+    else if(cand2)item=cand2.item;
     if(!item)return;
     const entry=transitItems[key];
     const saldoMarcado=typeof entry==='object'?entry.saldo:0;
@@ -16005,7 +16022,9 @@ async function recalc(skipRender){
     var tkp=tk.split('||');
     var tkRef=(tkp[0]||'').trim();
     var tkMarca=(tkp[1]||'').toUpperCase().trim();
-    return {tkRef:tkRef,tkRefNorm:normRef(tkRef),tkMarca:tkMarca,qty:transitItems[tk]||0};
+    var _e=transitItems[tk];
+    var qty=typeof _e==='object'?(_e&&_e.qtd||0):(_e||0);
+    return {tkRef:tkRef,tkRefNorm:normRef(tkRef),tkMarca:tkMarca,qty:qty};
   });
   for(let i=0;i<itemsParaCalc.length;i+=CHUNK){
     const slice=itemsParaCalc.slice(i,i+CHUNK);
@@ -16039,7 +16058,7 @@ async function recalc(skipRender){
       const sk=isOp?"OP":cD>0&&dE<leadTime?"U":cD>0&&dE<leadTime*2?"A":"O";
       const sl=sk==="U"?"URGENTE":sk==="A"?"ATENÇÃO":sk==="OP"?"OPORTUNIDADE":"OK";
       const grupo=classificarGrupo(d.desc||'');
-      calcItems.push({...d,cD,cM,dE,vP,qtdC,vC,sk,sl,grupo});
+      calcItems.push({...d,cD,cM,dE,vP,qtdC,vC,sk,sl,grupo,tA});
     }
     if(i%CHUNK===0&&i>0){await new Promise(r=>setTimeout(r,0));if(_recalcGen!==myGen)return;}
   }
@@ -16431,14 +16450,7 @@ function renderTable(){
     <td class="R col-saldo" style="${d.saldo<0?"color:var(--red)":""}">${fN(d.saldo)}</td>
     <td class="C col-pedido">${!d.pedido?"—":`<span style="background:${d.pedido<d.qtdC&&d.qtdC>0?"#FFF3CD":"#D5F5E3"};color:${d.pedido<d.qtdC&&d.qtdC>0?"#7D4A0A":"#217a3c"};padding:2px 9px;border-radius:12px;font-size:10px;font-weight:700">${fN(d.pedido)}${d.pedido<d.qtdC&&d.qtdC>0?" ⚠":""}</span>`}</td>
     <td class="C col-solicitado"><input type="checkbox" ${solicitacoes[solKey(d.ref,d.marca)]?"checked":""} onchange="toggleSolicitacao('${pfEscJs(d.ref)}','${pfEscJs(d.marca)}')" style="cursor:pointer;width:18px;height:18px;"></td>
-    <td class="C col-transit">${(()=>{
-  var _r=(d.ref||'').trim(),_n=normRef(_r),_m=(d.marca||'').toUpperCase().trim(),_f=familiaMarca(d.marca).toUpperCase().trim(),_tA=0;
-  Object.keys(transitItems).forEach(function(k){
-    var kp=k.split('||'),kr=(kp[0]||'').trim(),km=(kp[1]||'').toUpperCase().trim();
-    if((kr===_r||normRef(kr)===_n)&&(!km||km===_m||km===_f||_m.includes(km)||_f.includes(km))){var _e=transitItems[k];_tA+=typeof _e==='object'?_e.qtd||0:_e||0;}
-  });
-  return _tA>0?`<span class="tTransit">🚚 ${fN(_tA)}</span>`:"—";
-})()}</td>
+    <td class="C col-transit">${d.tA>0?`<span class="tTransit">🚚 ${fN(d.tA)}</span>`:"—"}</td>
     <td class="R col-cP">${fN(d.consumo)}</td>
     <td class="R col-cM" style="font-weight:600;color:var(--navy)">${f1(d.cM)}</td>
     <td class="R col-cD" style="color:var(--mu)">${d.cD>0?d.cD.toFixed(2):"—"}</td>
@@ -36711,4 +36723,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.627 --></html>
+</script></div></div></body><!-- Build timestamp: v115.628 --></html>

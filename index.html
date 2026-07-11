@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.625 - Duas melhorias na tabela de Itens da cotacao (Vendas):
+<!-- v115.626 - Duas melhorias na tabela de Itens da cotacao (Vendas):
 1) Nova coluna LINHA -- badge com engrenagem colorida (identifica a linha do
 equipamento pelo codigo, ex: JOHN DEERE verde, CATERPILLAR amarelo, DANA
 azul), sem usar logo de marca nenhuma (so cor + icone generico). Adicionada
@@ -865,7 +865,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.625</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.626</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -998,7 +998,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.625</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.626</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -16165,8 +16165,14 @@ function toggleSolicitacao(ref,marca){
   renderTable();
 }
 function applyFilt(){
+  // Antes: pra cada chave em `solicitacoes`, rodava calcItems.find(...) -- uma
+  // busca linear no array inteiro. Com calcItems na casa de 100k+ itens, isso
+  // vira O(chaves × itens). Agora monta um mapa ref+marca -> item UMA vez
+  // (O(itens)) e faz lookup O(1) por chave.
+  const _itemPorChave={};
+  calcItems.forEach(i=>{_itemPorChave[solKey(i.ref,i.marca)]=i;});
   Object.keys(solicitacoes).forEach(key=>{
-    const item=calcItems.find(i=>solKey(i.ref,i.marca)===key);
+    const item=_itemPorChave[key];
     const entry=solicitacoes[key];
     if(!item) return;
     if(entry===true){
@@ -16196,40 +16202,49 @@ function applyFilt(){
     const stripped=r.replace(/^[a-z]+/,'');
     return stripped.includes(query);
   }
+  // Colunas com filtro preenchido -- calculado UMA vez fora do loop (antes
+  // era Object.entries(colFilters) recriado a cada item, e o `.every()`
+  // rodava mesmo com colFilters vazio, que é o caso mais comum).
+  const _colFiltrosAtivos=Object.entries(colFilters).filter(([,val])=>val);
+  const _numCols=["saldo","consumo","cM","cD","dE","vP","qtdC","cotacoes","pedido"];
   filtered=calcItems.filter(i=>{
-    const famOk = (typeof pfFamiliaAtiva==='undefined'||pfFamiliaAtiva==='TODAS') ? true : (i.familia||'')=== pfFamiliaAtiva;
-    const fOk=afilt==="T"?true:afilt==="OP"?i.sk==="OP":afilt==="U"?i.sk==="U":afilt==="A"?i.sk==="A":i.sk==="U"||i.sk==="A";
-    const aOk=abcF==="TODOS"||i.curva===abcF;
-    const sOk=!q||refMatch(i.ref,q)||i.desc.toLowerCase().includes(q);
-    const mOk=marcasF.size===0||marcasF.has(i.marca);
-    const gOk=grupoF==="TODOS"||i.grupo===grupoF;
-    const sistOk=sistemaF==="TODOS"||obterSistemaPorMarca(i.marca)===sistemaF;
-    const pOk=pedF==="T"?true:pedF==="S"?i.pedido>0:pedF==="N"?i.pedido===0:pedF==="I"?(i.pedido>0&&i.pedido<i.qtdC&&i.qtdC>0):true;
-    const solOk=filtroSolicitacao==='TODOS'?true:filtroSolicitacao==='COM'?solicitacoes[solKey(i.ref,i.marca)]:filtroSolicitacao==='SEM'?!solicitacoes[solKey(i.ref,i.marca)]:true;
-    const cOk=Object.entries(colFilters).every(([col,val])=>{
-      if(!val)return true;
-      // Colunas numéricas: suporta >=, <=, >, <, = e número simples (>=)
-      const numCols=["saldo","consumo","cM","cD","dE","vP","qtdC","cotacoes","pedido"];
-      if(numCols.includes(col)){
-        const raw=String(i[col]||"0");
-        const iv=parseFloat(raw)||0;
-        const m=val.match(/^([><=]{1,2})\s*(-?[\d.,]+)$/);
-        if(m){
-          const op=m[1];const vn=parseFloat(m[2].replace(",","."));
-          if(op===">="||op==="=>")return iv>=vn;
-          if(op==="<="||op==="=<")return iv<=vn;
-          if(op===">")return iv>vn;
-          if(op==="<")return iv<vn;
-          if(op==="=")return iv===vn;
+    // Curto-circuito: sai assim que a primeira condição falhar, em vez de
+    // calcular todas as ~10 condições pra todo item sempre (antes eram
+    // const's calculados em sequência e só combinados no final com &&,
+    // então mesmo item que falhava na 1ª condição pagava o custo de todas).
+    if((typeof pfFamiliaAtiva!=='undefined'&&pfFamiliaAtiva!=='TODAS')&&(i.familia||'')!==pfFamiliaAtiva)return false;
+    if(!(afilt==="T"?true:afilt==="OP"?i.sk==="OP":afilt==="U"?i.sk==="U":afilt==="A"?i.sk==="A":i.sk==="U"||i.sk==="A"))return false;
+    if(!(abcF==="TODOS"||i.curva===abcF))return false;
+    if(!(!q||refMatch(i.ref,q)||i.desc.toLowerCase().includes(q)))return false;
+    if(!(marcasF.size===0||marcasF.has(i.marca)))return false;
+    if(!(grupoF==="TODOS"||i.grupo===grupoF))return false;
+    if(!(sistemaF==="TODOS"||obterSistemaPorMarca(i.marca)===sistemaF))return false;
+    if(!(pedF==="T"?true:pedF==="S"?i.pedido>0:pedF==="N"?i.pedido===0:pedF==="I"?(i.pedido>0&&i.pedido<i.qtdC&&i.qtdC>0):true))return false;
+    if(!(filtroSolicitacao==='TODOS'?true:filtroSolicitacao==='COM'?solicitacoes[solKey(i.ref,i.marca)]:filtroSolicitacao==='SEM'?!solicitacoes[solKey(i.ref,i.marca)]:true))return false;
+    if(_colFiltrosAtivos.length){
+      for(let ci=0;ci<_colFiltrosAtivos.length;ci++){
+        const col=_colFiltrosAtivos[ci][0],val=_colFiltrosAtivos[ci][1];
+        if(_numCols.includes(col)){
+          const raw=String(i[col]||"0");
+          const iv=parseFloat(raw)||0;
+          const m=val.match(/^([><=]{1,2})\s*(-?[\d.,]+)$/);
+          if(m){
+            const op=m[1];const vn=parseFloat(m[2].replace(",","."));
+            if(op===">="||op==="=>"){if(!(iv>=vn))return false;}
+            else if(op==="<="||op==="=<"){if(!(iv<=vn))return false;}
+            else if(op===">"){if(!(iv>vn))return false;}
+            else if(op==="<"){if(!(iv<vn))return false;}
+            else if(op==="="){if(!(iv===vn))return false;}
+          }else{
+            const vn2=parseFloat(val.replace(",","."));
+            if(!(isNaN(vn2)||iv>=vn2))return false;
+          }
+        }else{
+          if(!String(i[col]||"").toLowerCase().includes(val.toLowerCase()))return false;
         }
-        // Número simples = filtra >= valor
-        const vn2=parseFloat(val.replace(",","."));
-        return isNaN(vn2)||iv>=vn2;
       }
-      // Colunas texto: contém
-      return String(i[col]||"").toLowerCase().includes(val.toLowerCase());
-    });
-    return famOk&&fOk&&aOk&&sOk&&mOk&&gOk&&sistOk&&cOk&&pOk&&solOk;
+    }
+    return true;
   });
   filtered.sort((a,b)=>{
     const av=a[sCol]??'',bv=b[sCol]??'';
@@ -36685,4 +36700,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.625 --></html>
+</script></div></div></body><!-- Build timestamp: v115.626 --></html>

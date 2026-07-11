@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.629 - Duas melhorias na tabela de Itens da cotacao (Vendas):
+<!-- v115.630 - Duas melhorias na tabela de Itens da cotacao (Vendas):
 1) Nova coluna LINHA -- badge com engrenagem colorida (identifica a linha do
 equipamento pelo codigo, ex: JOHN DEERE verde, CATERPILLAR amarelo, DANA
 azul), sem usar logo de marca nenhuma (so cor + icone generico). Adicionada
@@ -865,7 +865,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.629</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.630</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -998,7 +998,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.629</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.630</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -16289,7 +16289,41 @@ function applyFilt(){
     th.innerHTML=base+(isActive?(sDir==='asc'?' ↑':' ↓'):' ⇅');
   });
   document.getElementById("cntL").textContent=filtered.length+" itens";
-  pg=1;renderTable();renderOpBox();renderCharts();renderRankings();renderApostas();
+  pg=1;
+  if(window._applyFiltUseStaged)_applyFiltRenderStaged();
+  else _applyFiltRenderSync();
+}
+// Etapa final de renderização do applyFilt, isolada numa função própria pra
+// poder ter uma versão "sync" (tudo de uma vez, comportamento de sempre --
+// usada por cliques em botão/select, que são raros) e uma versão "em
+// etapas" (usada pela busca/filtro de coluna, que dispara a cada tecla e
+// é onde o travamento "Página sem resposta" era mais sentido).
+function _applyFiltRenderSync(){
+  renderTable();renderOpBox();renderCharts();renderRankings();renderApostas();
+}
+var _applyFiltStagedGen=0;
+async function _applyFiltRenderStaged(){
+  var myGen=++_applyFiltStagedGen;
+  try{renderTable();}catch(e){console.error('renderTable erro:',e);}
+  await new Promise(r=>setTimeout(r,0));
+  if(_applyFiltStagedGen!==myGen)return; // usuário já digitou de novo -- descarta essa rodada
+  try{renderOpBox();}catch(e){console.error('renderOpBox erro:',e);}
+  await new Promise(r=>setTimeout(r,0));
+  if(_applyFiltStagedGen!==myGen)return;
+  try{renderCharts();}catch(e){console.error('renderCharts erro:',e);}
+  await new Promise(r=>setTimeout(r,0));
+  if(_applyFiltStagedGen!==myGen)return;
+  try{renderRankings();}catch(e){console.error('renderRankings erro:',e);}
+  await new Promise(r=>setTimeout(r,0));
+  if(_applyFiltStagedGen!==myGen)return;
+  try{renderApostas();}catch(e){console.error('renderApostas erro:',e);}
+}
+// Roda a MESMA filtragem/ordenação de applyFilt(), mas com a renderização
+// final em etapas (yield entre cada uma) -- usada só pela busca com
+// debounce, pra não travar a aba num recálculo grande de uma vez.
+function applyFiltStaged(){
+  window._applyFiltUseStaged=true;
+  try{applyFilt();}finally{window._applyFiltUseStaged=false;}
 }
 // ═══════════════════════════════════════════════════════════════
 // FORMATOS
@@ -17376,7 +17410,7 @@ document.querySelectorAll(".abtn").forEach(b=>{
 // recalcula tudo a cada letra.
 function applyFiltDebounced(){
   clearTimeout(window._applyFiltDebounceTimer);
-  window._applyFiltDebounceTimer=setTimeout(applyFilt,220);
+  window._applyFiltDebounceTimer=setTimeout(applyFiltStaged,220);
 }
 document.getElementById("srch").addEventListener("input",()=>{pg=1;applyFiltDebounced();});
 function setMode(m,btn){
@@ -36734,4 +36768,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.629 --></html>
+</script></div></div></body><!-- Build timestamp: v115.630 --></html>

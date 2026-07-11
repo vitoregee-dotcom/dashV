@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.626 - Duas melhorias na tabela de Itens da cotacao (Vendas):
+<!-- v115.627 - Duas melhorias na tabela de Itens da cotacao (Vendas):
 1) Nova coluna LINHA -- badge com engrenagem colorida (identifica a linha do
 equipamento pelo codigo, ex: JOHN DEERE verde, CATERPILLAR amarelo, DANA
 azul), sem usar logo de marca nenhuma (so cor + icone generico). Adicionada
@@ -865,7 +865,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.626</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.627</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -998,7 +998,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.626</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.627</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -15992,6 +15992,21 @@ async function recalc(skipRender){
   var itemsParaCalc = (typeof pfFamiliaAtiva!=='undefined' && pfFamiliaAtiva && pfFamiliaAtiva!=='TODAS')
     ? allItems.filter(function(d){ return (d.familia||'')=== pfFamiliaAtiva; })
     : allItems;
+  // Pré-computa os campos derivados de cada chave de "em trânsito" (split,
+  // trim, toUpperCase, normRef) UMA vez aqui fora -- antes isso rodava de
+  // novo pra CADA item do calcItems (linha "Buscar em trânsito" abaixo),
+  // ou seja, se transitItems tem T chaves e há N itens, era N×T
+  // split+trim+upper+normRef repetidos. Com N passando de 100 mil, isso
+  // sozinho explicava boa parte do travamento ("Página sem resposta") no
+  // carregamento do Dashboard/Compras. Resultado da comparação continua
+  // idêntico -- só o cálculo dos campos de cada chave que passou a
+  // acontecer 1x (por chave) em vez de N vezes (por chave × item).
+  var _transitParsed=Object.keys(transitItems).map(function(tk){
+    var tkp=tk.split('||');
+    var tkRef=(tkp[0]||'').trim();
+    var tkMarca=(tkp[1]||'').toUpperCase().trim();
+    return {tkRef:tkRef,tkRefNorm:normRef(tkRef),tkMarca:tkMarca,qty:transitItems[tk]||0};
+  });
   for(let i=0;i<itemsParaCalc.length;i+=CHUNK){
     const slice=itemsParaCalc.slice(i,i+CHUNK);
     for(const d of slice){
@@ -16006,19 +16021,15 @@ async function recalc(skipRender){
       var _tMarca=(d.marca||'').toUpperCase().trim();
       var _tFam=familiaMarca(d.marca).toUpperCase().trim();
       var tA=0;
-      var tKeys=Object.keys(transitItems);
-      for(var ti=0;ti<tKeys.length;ti++){
-        var tk=tKeys[ti];
-        var tkp=tk.split('||');
-        var tkRef=(tkp[0]||'').trim();
-        var tkMarca=(tkp[1]||'').toUpperCase().trim();
+      for(var ti=0;ti<_transitParsed.length;ti++){
+        var tp=_transitParsed[ti];
         // Ref match: exato, normRef, ou normRef sem sufixo S
-        var refOk=tkRef===_tRef||normRef(tkRef)===_tNorm||tkRef===_tNorm||normRef(tkRef)===_tRef;
+        var refOk=tp.tkRef===_tRef||tp.tkRefNorm===_tNorm||tp.tkRef===_tNorm||tp.tkRefNorm===_tRef;
         // Marca match: sem marca = qualquer; com marca = parcial
-        var marcaOk=!tkMarca||tkMarca===_tMarca||tkMarca===_tFam||
-          _tMarca.indexOf(tkMarca)>=0||_tFam.indexOf(tkMarca)>=0||
-          tkMarca.indexOf(_tFam)>=0;
-        if(refOk&&marcaOk){tA+=(transitItems[tk]||0);}
+        var marcaOk=!tp.tkMarca||tp.tkMarca===_tMarca||tp.tkMarca===_tFam||
+          _tMarca.indexOf(tp.tkMarca)>=0||_tFam.indexOf(tp.tkMarca)>=0||
+          tp.tkMarca.indexOf(_tFam)>=0;
+        if(refOk&&marcaOk){tA+=tp.qty;}
       }
       const qtdC=modoC==='meses'
         ?Math.max(0,Math.round(cD*30*mesesC-d.saldo-pA-tA))
@@ -36700,4 +36711,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.626 --></html>
+</script></div></div></body><!-- Build timestamp: v115.627 --></html>

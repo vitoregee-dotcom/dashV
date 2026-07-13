@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.632 - Duas melhorias na tabela de Itens da cotacao (Vendas):
+<!-- v115.633 - Duas melhorias na tabela de Itens da cotacao (Vendas):
 1) Nova coluna LINHA -- badge com engrenagem colorida (identifica a linha do
 equipamento pelo codigo, ex: JOHN DEERE verde, CATERPILLAR amarelo, DANA
 azul), sem usar logo de marca nenhuma (so cor + icone generico). Adicionada
@@ -865,7 +865,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.632</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.633</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -998,7 +998,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.632</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.633</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -30982,11 +30982,51 @@ function ferrUsoIA(){
   el.innerHTML=html;
 }
 
+// Reconstrói (uma vez só, se o histórico ainda estiver vazio) uma versão
+// aproximada dos avisos de ANTES dessa funcionalidade existir, usando a
+// única informação antiga que sobreviveu: a data do ÚLTIMO "chegou" ou
+// "teve saída" salva em cada item do opTrack. Não é o histórico completo
+// (se um item já teve mais de um ciclo, só o mais recente ficou guardado, e
+// a hora exata do balão original também não foi salva) -- por isso essas
+// entradas ficam marcadas como "reconstruído".
+function migrarHistoricoAvisosAntigos(){
+  if(window._notifHistMigrado)return;
+  window._notifHistMigrado=true;
+  try{
+    var NOTIF_LOG_KEY='op_notif_log_v1';
+    var notifLog=JSON.parse(localStorage.getItem(NOTIF_LOG_KEY)||'[]');
+    if(notifLog.length)return; // já tem histórico de verdade -- não mexe
+    var porDiaChegou={},porDiaVendeu={};
+    (window.opTrack||[]).forEach(function(t){
+      if(t.status==='chegou'&&t.data_chegou){
+        var dia=t.data_chegou.slice(0,10);
+        (porDiaChegou[dia]=porDiaChegou[dia]||[]).push({ref:t.ref,marca:t.marca,desc:t.desc,saldo:t.saldo_chegou||t.saldo_atual||0});
+      }
+      if(t.status==='vendeu'&&t.data_vendeu){
+        var dia2=t.data_vendeu.slice(0,10);
+        (porDiaVendeu[dia2]=porDiaVendeu[dia2]||[]).push({ref:t.ref,marca:t.marca,desc:t.desc,saldo_anterior:t.saldo_entrada||0,saldo_novo:t.saldo_atual||0});
+      }
+    });
+    var todosDias={};
+    Object.keys(porDiaChegou).forEach(function(d){todosDias[d]=true;});
+    Object.keys(porDiaVendeu).forEach(function(d){todosDias[d]=true;});
+    var reconstruidas=Object.keys(todosDias).sort().map(function(dia){
+      return{ts:new Date(dia+'T12:00:00').getTime(),chegou:porDiaChegou[dia]||[],vendeu:porDiaVendeu[dia]||[],reconstruido:true};
+    });
+    if(reconstruidas.length){
+      notifLog=reconstruidas.concat(notifLog);
+      pfSafeSetItem(NOTIF_LOG_KEY,JSON.stringify(notifLog));
+      if(typeof pfSyncPush==='function')pfSyncPush([NOTIF_LOG_KEY]);
+    }
+  }catch(e){}
+}
+
 // ── Tela "Histórico de Avisos" — consulta os avisos de oportunidade
 // (chegou material / teve saída) já disparados, agrupados por dia, pra não
 // depender só do balão que fecha e some quando clica "OK, entendido" ──────
 function ferrHistoricoAvisos(){
   var el=document.getElementById('ferrBody');if(!el)return;
+  migrarHistoricoAvisosAntigos();
   var log=(function(){try{return JSON.parse(localStorage.getItem('op_notif_log_v1')||'[]');}catch(e){return[];}})();
   log=log.slice().reverse(); // mais recente primeiro
 
@@ -30994,7 +31034,8 @@ function ferrHistoricoAvisos(){
     '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
     '<button onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">&#8592; Voltar</button>'+
     '<div style="font-size:16px;font-weight:800;color:#7D4A00">🔔 Histórico de Avisos</div></div>'+
-    '<div style="font-size:11px;color:#8a9ab0;margin-bottom:16px">Todo aviso de "chegou material" ou "teve saída" nas Oportunidades fica guardado aqui, mesmo depois de fechar o balão — inclusive os itens que não cabiam na notificação.</div>';
+    '<div style="font-size:11px;color:#8a9ab0;margin-bottom:8px">Todo aviso de "chegou material" ou "teve saída" nas Oportunidades fica guardado aqui, mesmo depois de fechar o balão — inclusive os itens que não cabiam na notificação.</div>'+
+    '<div style="font-size:11px;color:#a08850;margin-bottom:16px">⚠️ Avisos de antes dessa tela existir foram reconstruídos a partir do último status salvo de cada item — pode faltar hora exata, e itens que já tiveram mais de um ciclo (chegou → vendeu → chegou de novo) só mostram o mais recente.</div>';
 
   if(!log.length){
     html+='<div style="text-align:center;padding:30px;color:#8a9ab0;font-size:13px;background:#fff;border-radius:10px;border:1px solid #e0e8f0">Nenhum aviso registrado ainda.</div>';
@@ -31002,9 +31043,12 @@ function ferrHistoricoAvisos(){
     log.slice(0,100).forEach(function(entry,idx){
       var d=new Date(entry.ts);
       var totalItens=(entry.chegou||[]).length+(entry.vendeu||[]).length;
+      var dataLabel=entry.reconstruido
+        ? d.toLocaleDateString('pt-BR')+' <span style="font-weight:400;color:#a08850">(reconstruído — sem hora exata)</span>'
+        : d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
       html+='<div style="background:#fff;border:1px solid #e0e8f0;border-radius:10px;margin-bottom:12px;overflow:hidden">'+
         '<div style="padding:10px 14px;background:#FAF6EE;border-bottom:1px solid #F0E4C8;display:flex;justify-content:space-between;align-items:center">'+
-        '<span style="font-size:12px;font-weight:700;color:#7D4A00">'+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</span>'+
+        '<span style="font-size:12px;font-weight:700;color:#7D4A00">'+dataLabel+'</span>'+
         '<span style="font-size:11px;color:#8a9ab0">'+totalItens+' item(ns)</span>'+
         '</div><div style="padding:10px 14px">';
       if((entry.chegou||[]).length){
@@ -36847,4 +36891,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.632 --></html>
+</script></div></div></body><!-- Build timestamp: v115.633 --></html>

@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.630 - Duas melhorias na tabela de Itens da cotacao (Vendas):
+<!-- v115.631 - Duas melhorias na tabela de Itens da cotacao (Vendas):
 1) Nova coluna LINHA -- badge com engrenagem colorida (identifica a linha do
 equipamento pelo codigo, ex: JOHN DEERE verde, CATERPILLAR amarelo, DANA
 azul), sem usar logo de marca nenhuma (so cor + icone generico). Adicionada
@@ -865,7 +865,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.630</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.631</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -998,7 +998,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.630</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.631</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -22972,18 +22972,32 @@ function mapaPrecoRow(baseKey,ei,e,custoTotal){
 // escrita em cache US$3.75/M (1.25x), leitura de cache US$0.30/M (0.1x).
 var IA_USO_KEY='ia_uso_log_v1';
 var IA_PRECOS={in:3,out:15,cacheWrite:3.75,cacheRead:0.30};
-function pfLogUsoIA(contexto,usage){
+function pfLogUsoIA(contexto,usage,usuarioOverride){
   try{
     var tin=usage.input_tokens||0, tout=usage.output_tokens||0;
     var cw=usage.cache_creation_input_tokens||0, cr=usage.cache_read_input_tokens||0;
     var custo=(tin/1e6)*IA_PRECOS.in+(tout/1e6)*IA_PRECOS.out+(cw/1e6)*IA_PRECOS.cacheWrite+(cr/1e6)*IA_PRECOS.cacheRead;
-    var usuarioAtual=(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)?sbProfile.nome:((typeof sbUser!=='undefined'&&sbUser&&sbUser.email)?sbUser.email:'');
+    // Se quem chamou já capturou o usuário no INÍCIO da operação (antes de uma
+    // leitura longa), usa esse valor. Senão, lê o estado atual (comportamento
+    // de sempre) -- mas leituras de catálogo grande podem levar até 5min, e
+    // nesse intervalo a checagem de sessão (a cada 2min) já viu casos de
+    // limpar sbUser/sbProfile momentaneamente, fazendo o usuário aparecer
+    // como "—" no log mesmo tendo sido identificado no começo da operação.
+    var usuarioAtual=usuarioOverride!=null?usuarioOverride:((typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)?sbProfile.nome:((typeof sbUser!=='undefined'&&sbUser&&sbUser.email)?sbUser.email:''));
     var log=JSON.parse(localStorage.getItem(IA_USO_KEY)||'[]');
     log.push({ts:Date.now(),contexto:contexto||'',tin:tin,tout:tout,cw:cw,cr:cr,custo:custo,usuario:usuarioAtual});
     if(log.length>500)log=log.slice(log.length-500);
     pfSafeSetItem(IA_USO_KEY,JSON.stringify(log));
     if(typeof pfSyncPush==='function')pfSyncPush(['ia_uso_log_v1']);
   }catch(e){}
+}
+// Captura "quem está usando" ANTES de uma chamada de IA potencialmente longa
+// começar -- pra não depender do estado global (sbUser/sbProfile) só depois
+// que a resposta voltar, minutos depois.
+function pfUsuarioAtualSnapshot(){
+  try{
+    return (typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)?sbProfile.nome:((typeof sbUser!=='undefined'&&sbUser&&sbUser.email)?sbUser.email:'');
+  }catch(e){return '';}
 }
 function pfUsoIAEhDono(){
   // Só mostra a tela de custo pro Vitor (dono da conta/API key) por enquanto
@@ -23009,6 +23023,7 @@ function pfLogLogin(){
   }catch(e){}
 }
 async function _anthropicReadDoc(file, prompt, contexto){
+  var _usuarioNoInicio=pfUsuarioAtualSnapshot();
   if(file.size > 10*1024*1024){
     throw new Error('Arquivo de '+(file.size/1024/1024).toFixed(1)+'MB é muito grande e pode travar o navegador. Tente um arquivo mais leve.');
   }
@@ -23053,7 +23068,7 @@ async function _anthropicReadDoc(file, prompt, contexto){
     if(data.error.type==='authentication_error'||data.error.status===401)localStorage.removeItem('anthropic_key');
     throw new Error(data.error.message||'Erro na API');
   }
-  if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA(contexto||'Leitura de documento',data.usage);
+  if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA(contexto||'Leitura de documento',data.usage,_usuarioNoInicio);
   return (data.content||[]).map(function(c){return c.text||'';}).join('').replace(/```json|```/g,'').trim();
 }
 // Alias to avoid conflict with window.prompt
@@ -23061,6 +23076,7 @@ var prompt_fn = window.prompt.bind(window);
 
 // Pergunta em texto puro (sem arquivo) — usado pelo Assistente IA
 async function _anthropicAsk(prompt,maxTokens,contexto){
+  var _usuarioNoInicio=pfUsuarioAtualSnapshot();
   var apiKey=localStorage.getItem('anthropic_key')||'';
   if(!apiKey){
     apiKey=prompt_fn('API Key da Anthropic (console.anthropic.com):');
@@ -23089,7 +23105,7 @@ async function _anthropicAsk(prompt,maxTokens,contexto){
     if(data.error.type==='authentication_error'||data.error.status===401)localStorage.removeItem('anthropic_key');
     throw new Error(data.error.message||'Erro na API');
   }
-  if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA(contexto||'Assistente IA',data.usage);
+  if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA(contexto||'Assistente IA',data.usage,_usuarioNoInicio);
   return (data.content||[]).map(function(c){return c.text||'';}).join('').trim();
 }
 
@@ -36768,4 +36784,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.630 --></html>
+</script></div></div></body><!-- Build timestamp: v115.631 --></html>

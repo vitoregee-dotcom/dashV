@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.631 - Duas melhorias na tabela de Itens da cotacao (Vendas):
+<!-- v115.632 - Duas melhorias na tabela de Itens da cotacao (Vendas):
 1) Nova coluna LINHA -- badge com engrenagem colorida (identifica a linha do
 equipamento pelo codigo, ex: JOHN DEERE verde, CATERPILLAR amarelo, DANA
 azul), sem usar logo de marca nenhuma (so cor + icone generico). Adicionada
@@ -865,7 +865,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.631</div>
+      <div style="font-size:10px;color:#b0bec5;margin-top:2px">v115.632</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -998,7 +998,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.631</div>
+      <div style="font-size:10px;color:var(--pf-text-muted);font-weight:600;letter-spacing:.5px;margin-top:1px">v115.632</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -19657,20 +19657,35 @@ function verificarOportunidades(){
 
   if(!changes.chegou.length&&!changes.vendeu.length)return;
 
+  // Guarda esse aviso num histórico persistente -- assim, mesmo depois de
+  // clicar "OK, entendido" (que só fecha o balão) ou recarregar a página, dá
+  // pra consultar depois em Tools → Histórico de Avisos.
+  try{
+    var NOTIF_LOG_KEY='op_notif_log_v1';
+    var notifLog=JSON.parse(localStorage.getItem(NOTIF_LOG_KEY)||'[]');
+    notifLog.push({
+      ts:Date.now(),
+      chegou:changes.chegou.map(function(x){return{ref:x.ref,marca:x.marca,desc:x.desc,saldo:x.saldo_novo};}),
+      vendeu:changes.vendeu.map(function(x){return{ref:x.ref,marca:x.marca,desc:x.desc,saldo_anterior:x.saldo_anterior,saldo_novo:x.saldo_novo};})
+    });
+    if(notifLog.length>300)notifLog=notifLog.slice(notifLog.length-300);
+    pfSafeSetItem(NOTIF_LOG_KEY,JSON.stringify(notifLog));
+    if(typeof pfSyncPush==='function')pfSyncPush([NOTIF_LOG_KEY]);
+  }catch(eNotifLog){}
+
   var body='';
   if(changes.chegou.length){
     body+='<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--mu);margin-bottom:4px">📦 Saldo aumentou — chegou! ('+changes.chegou.length+')</div>';
-    body+=changes.chegou.slice(0,4).map(function(x){
+    body+='<div style="max-height:220px;overflow-y:auto">'+changes.chegou.map(function(x){
       return'<div style="font-size:12px;padding:4px 0;border-bottom:.5px solid #f0f0f0"><strong>'+x.ref+'</strong> · '+x.marca+' <span style="background:#D5F5E3;color:#1E8449;font-size:10px;padding:1px 7px;border-radius:8px">'+x.saldo_novo+' pçs</span></div>';
-    }).join('');
-    if(changes.chegou.length>4)body+='<div style="font-size:11px;color:var(--mu)">+ '+(changes.chegou.length-4)+' mais</div>';
+    }).join('')+'</div>';
     body+='</div>';
   }
   if(changes.vendeu.length){
     body+='<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--mu);margin-bottom:4px">🛒 Saldo diminuiu — teve saída! ('+changes.vendeu.length+')</div>';
-    body+=changes.vendeu.slice(0,4).map(function(x){
+    body+='<div style="max-height:220px;overflow-y:auto">'+changes.vendeu.map(function(x){
       return'<div style="font-size:12px;padding:4px 0;border-bottom:.5px solid #f0f0f0"><strong>'+x.ref+'</strong> · '+x.marca+' <span style="background:#EBF5FB;color:#1A5276;font-size:10px;padding:1px 7px;border-radius:8px">'+x.saldo_anterior+' → '+x.saldo_novo+' pçs</span></div>';
-    }).join('');
+    }).join('')+'</div>';
     body+='</div>';
   }
   document.getElementById('opNotifBody').innerHTML=body;
@@ -28377,6 +28392,7 @@ var PF_SYNC_KEYS = [
   'venda_rascunho_v1',
   'imp_preview_cache_v1',
   'opTrack',
+  'op_notif_log_v1',
   'mapas_lista_v1',
   'cad_fornecedores_v1',
   'cad_clientes_v1',
@@ -30960,6 +30976,52 @@ function ferrUsoIA(){
     });
     html+='</tbody></table></div>';
     if(loginLog.length>200)html+='<div style="font-size:11px;color:#8a9ab0;margin-top:8px;text-align:center">Mostrando os 200 acessos mais recentes de '+loginLog.length+' registrados.</div>';
+  }
+
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+// ── Tela "Histórico de Avisos" — consulta os avisos de oportunidade
+// (chegou material / teve saída) já disparados, agrupados por dia, pra não
+// depender só do balão que fecha e some quando clica "OK, entendido" ──────
+function ferrHistoricoAvisos(){
+  var el=document.getElementById('ferrBody');if(!el)return;
+  var log=(function(){try{return JSON.parse(localStorage.getItem('op_notif_log_v1')||'[]');}catch(e){return[];}})();
+  log=log.slice().reverse(); // mais recente primeiro
+
+  var html='<div style="width:100%">'+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
+    '<button onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">&#8592; Voltar</button>'+
+    '<div style="font-size:16px;font-weight:800;color:#7D4A00">🔔 Histórico de Avisos</div></div>'+
+    '<div style="font-size:11px;color:#8a9ab0;margin-bottom:16px">Todo aviso de "chegou material" ou "teve saída" nas Oportunidades fica guardado aqui, mesmo depois de fechar o balão — inclusive os itens que não cabiam na notificação.</div>';
+
+  if(!log.length){
+    html+='<div style="text-align:center;padding:30px;color:#8a9ab0;font-size:13px;background:#fff;border-radius:10px;border:1px solid #e0e8f0">Nenhum aviso registrado ainda.</div>';
+  } else {
+    log.slice(0,100).forEach(function(entry,idx){
+      var d=new Date(entry.ts);
+      var totalItens=(entry.chegou||[]).length+(entry.vendeu||[]).length;
+      html+='<div style="background:#fff;border:1px solid #e0e8f0;border-radius:10px;margin-bottom:12px;overflow:hidden">'+
+        '<div style="padding:10px 14px;background:#FAF6EE;border-bottom:1px solid #F0E4C8;display:flex;justify-content:space-between;align-items:center">'+
+        '<span style="font-size:12px;font-weight:700;color:#7D4A00">'+d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</span>'+
+        '<span style="font-size:11px;color:#8a9ab0">'+totalItens+' item(ns)</span>'+
+        '</div><div style="padding:10px 14px">';
+      if((entry.chegou||[]).length){
+        html+='<div style="font-size:11px;font-weight:600;color:#607080;margin-bottom:4px">📦 Saldo aumentou — chegou! ('+entry.chegou.length+')</div>';
+        html+=entry.chegou.map(function(x){
+          return'<div style="font-size:12px;padding:3px 0;border-bottom:.5px solid #f5f5f5"><strong>'+pfEscHtml(x.ref)+'</strong> · '+pfEscHtml(x.marca||'')+' — '+pfEscHtml(x.desc||'')+' <span style="background:#D5F5E3;color:#1E8449;font-size:10px;padding:1px 7px;border-radius:8px">'+x.saldo+' pçs</span></div>';
+        }).join('');
+      }
+      if((entry.vendeu||[]).length){
+        html+='<div style="font-size:11px;font-weight:600;color:#607080;margin:8px 0 4px">🛒 Saldo diminuiu — teve saída! ('+entry.vendeu.length+')</div>';
+        html+=entry.vendeu.map(function(x){
+          return'<div style="font-size:12px;padding:3px 0;border-bottom:.5px solid #f5f5f5"><strong>'+pfEscHtml(x.ref)+'</strong> · '+pfEscHtml(x.marca||'')+' — '+pfEscHtml(x.desc||'')+' <span style="background:#EBF5FB;color:#1A5276;font-size:10px;padding:1px 7px;border-radius:8px">'+x.saldo_anterior+' → '+x.saldo_novo+' pçs</span></div>';
+        }).join('');
+      }
+      html+='</div></div>';
+    });
+    if(log.length>100)html+='<div style="font-size:11px;color:#8a9ab0;margin-top:8px;text-align:center">Mostrando os 100 avisos mais recentes de '+log.length+' registrados.</div>';
   }
 
   html+='</div>';
@@ -34347,6 +34409,7 @@ function ferrRender(){
   if(_canSee('ferr_cad_reativ')) mkCard('📋','Cadastro / Reativ.','Script faturado a prazo','#7B2D8B',function(){ferrCadastroReativ();});
   if(_canSee('ferr_leitor')) mkCard('📝','Leitor de Peças','PDF/foto/texto → planilha','#0D7377',function(){ferrLeitorPecas();});
   if(pfUsoIAEhDono()) mkCard('💰','Uso de IA','Custo estimado por leitura','#7B2D8B',function(){ferrUsoIA();});
+  mkCard('🔔','Histórico de Avisos','Avisos de oportunidade anteriores','#E67E22',function(){ferrHistoricoAvisos();});
   // Aplica restrição de role LEGADA — só quando o usuário ainda não tem
   // permissões granulares (modulos) configuradas; senão o _canSee() acima
   // já decidiu corretamente card por card e não deve ser sobrescrito
@@ -36784,4 +36847,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.631 --></html>
+</script></div></div></body><!-- Build timestamp: v115.632 --></html>

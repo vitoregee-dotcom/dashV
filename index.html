@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.637 - Duas melhorias na tabela de Itens da cotacao (Vendas):
+<!-- v115.638 - Duas melhorias na tabela de Itens da cotacao (Vendas):
 1) Nova coluna LINHA -- badge com engrenagem colorida (identifica a linha do
 equipamento pelo codigo, ex: JOHN DEERE verde, CATERPILLAR amarelo, DANA
 azul), sem usar logo de marca nenhuma (so cor + icone generico). Adicionada
@@ -865,7 +865,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.637</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.638</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -998,7 +998,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.637</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.638</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1105,7 +1105,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.637</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.638</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -22815,6 +22815,14 @@ async function mapaCarregarCotacaoAuto(input){
   var processados=0;
   var falhas=[]; // guarda o motivo de cada arquivo que não deu certo, pra mostrar no final
 
+  // Carrega o catálogo de produtos UMA vez aqui fora (não a cada item nem a
+  // cada arquivo) pra poder classificar a linha de equipamento (CASE, DANA,
+  // etc, pelo padrão do código) e já deixar salvo no cadastro do produto,
+  // pras próximas cotações. Salva só 1 vez no final -- ver o bug corrigido
+  // antes no "Marcar Aplicação", que travava a tela fazendo isso por item.
+  var _prodListLinha=cadLoad(PROD_KEY);
+  var _prodMudouLinha=false;
+
   if(statusEl)statusEl.innerHTML='🤖 Processando '+totalArquivos+' arquivo(s)...';
 
   for(var i=0;i<totalArquivos;i++){
@@ -22893,7 +22901,7 @@ async function mapaCarregarCotacaoAuto(input){
       }
 
       var refs=todosItens.map(function(i){return i.ref;}).join(', ');
-      var prompt2='Cotação: '+refs+'. JSON: [{"ref":"código","marca":"marca","preco":0.00,"ipi":0,"icms":0,"st":0,"prazo":"text"}]';
+      var prompt2='Cotação: '+refs+'. Para o campo "preco", use SEMPRE o preço unitário COM impostos incluídos (o custo real por unidade que a Triex vai pagar) -- se o documento mostrar "preço sem imposto" e "preço com imposto" (ou "preço unit." e "preço unit. c/ imposto"/"c/ ST") em colunas separadas, use o valor COM imposto/COM ST, nunca o sem imposto. JSON: [{"ref":"código","marca":"marca","preco":0.00,"ipi":0,"icms":0,"st":0,"prazo":"text"}]';
       var txt2=await _anthropicReadDoc(file,prompt2,'Mapa de Compras - Lançar Preços');
       var m2=txt2.match(/\[[\s\S]*\]/);
       if(m2)txt2=m2[0];
@@ -22924,6 +22932,20 @@ async function mapaCarregarCotacaoAuto(input){
         if(emptyIdx>=0)mapaPrecos[pk].entries[emptyIdx]=entry;
         else mapaPrecos[pk].entries.push(entry);
         updated++;
+
+        // Classifica a linha de equipamento (CASE, DANA, JOHN DEERE etc.) pelo
+        // padrão do código e grava no cadastro do produto, se ainda não tiver
+        // -- assim a próxima cotação com esse mesmo item já vem classificada.
+        try{
+          var _prodIdxLinha=_prodListLinha.findIndex(function(pp){return (pp.codigo||'').toUpperCase()===(it.ref||'').toUpperCase();});
+          if(_prodIdxLinha>=0 && !_prodListLinha[_prodIdxLinha].linha){
+            var _linhaCalc=idLinha(it.ref);
+            if(_linhaCalc && _linhaCalc.l && _linhaCalc.l!=='GENÉRICO'){
+              _prodListLinha[_prodIdxLinha].linha=_linhaCalc.l;
+              _prodMudouLinha=true;
+            }
+          }
+        }catch(eLinha){}
       });
 
       if(updated>0){
@@ -22940,6 +22962,10 @@ async function mapaCarregarCotacaoAuto(input){
       console.error('Erro: '+file.name,e);
       falhas.push(file.name+': erro ao processar ('+(e.message||e)+')');
     }
+  }
+
+  if(_prodMudouLinha){
+    try{cadSave(PROD_KEY,_prodListLinha);}catch(eSaveLinha){}
   }
 
   if(falhas.length){
@@ -37066,4 +37092,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.637 --></html>
+</script></div></div></body><!-- Build timestamp: v115.638 --></html>

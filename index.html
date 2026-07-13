@@ -7,7 +7,7 @@
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
-<!-- v115.638 - Duas melhorias na tabela de Itens da cotacao (Vendas):
+<!-- v115.639 - Duas melhorias na tabela de Itens da cotacao (Vendas):
 1) Nova coluna LINHA -- badge com engrenagem colorida (identifica a linha do
 equipamento pelo codigo, ex: JOHN DEERE verde, CATERPILLAR amarelo, DANA
 azul), sem usar logo de marca nenhuma (so cor + icone generico). Adicionada
@@ -865,7 +865,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.638</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.639</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -998,7 +998,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.638</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.639</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1105,7 +1105,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.638</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.639</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -30947,9 +30947,44 @@ renderTabBar = function(){
 // ── LEITOR DE PECAS + VENDAS ─────────────────────────────────────
 // Adicionado como script separado no final para compatibilidade iPad
 
+// Busca a cotação USD→BRL (client-side, direto do navegador -- este sandbox
+// não tem acesso a essa API, mas o navegador do usuário sim). Cacheia por
+// algumas horas pra não bater na API toda vez que a tela abre.
+async function pfCotacaoUsdBrl(){
+  try{
+    var cached=JSON.parse(localStorage.getItem('pf_usdbrl_cache_v1')||'null');
+    if(cached&&cached.ts&&(Date.now()-cached.ts)<6*3600*1000&&cached.valor)return cached.valor;
+  }catch(e){}
+  try{
+    var r=await fetch('https://economia.awesomeapi.com.br/last/USD-BRL');
+    var d=await r.json();
+    var valor=parseFloat(d.USDBRL.bid);
+    if(valor>0){
+      pfSafeSetItem('pf_usdbrl_cache_v1',JSON.stringify({ts:Date.now(),valor:valor}));
+      return valor;
+    }
+  }catch(e){}
+  // Se a API falhar e não tiver nada em cache, usa uma cotação aproximada
+  // só pra não deixar sem mostrar nada -- fica claro que é aproximado.
+  try{
+    var cached2=JSON.parse(localStorage.getItem('pf_usdbrl_cache_v1')||'null');
+    if(cached2&&cached2.valor)return cached2.valor;
+  }catch(e){}
+  return 5.30;
+}
+
 // ── Tela "Uso de IA" — custo estimado, visível só pro Vitor ────────────
-function ferrUsoIA(){
+async function ferrUsoIA(){
   var el=document.getElementById('ferrBody');if(!el)return;
+  el.innerHTML='<div style="padding:30px;text-align:center;color:#8a9ab0;font-size:13px">🔄 Buscando uso de todos os usuários...</div>';
+  // Busca a versão mais atual do log (de todos os usuários) antes de
+  // mostrar -- antes essa tela só lia o que já estava salvo localmente, que
+  // podia estar desatualizado (uso de outros usuários feito depois do
+  // último login/sincronização não aparecia até a próxima vez que o app
+  // sincronizasse tudo de novo).
+  try{if(typeof pfSyncPull==='function')await pfSyncPull();}catch(eSync){}
+  var cotacao=await pfCotacaoUsdBrl();
+  if(!document.getElementById('ferrBody'))return; // usuário já saiu da tela enquanto buscava
   var log=(function(){try{return JSON.parse(localStorage.getItem(IA_USO_KEY)||'[]');}catch(e){return[];}})();
   log=log.slice().reverse(); // mais recente primeiro
   var totalCusto=log.reduce(function(s,l){return s+(l.custo||0);},0);
@@ -30967,10 +31002,11 @@ function ferrUsoIA(){
     '<div style="font-size:11px;color:#8a9ab0;margin-bottom:16px">Custo estimado com base nos preços atuais do Claude Sonnet 4.6 (US$3/milhão tokens de entrada, US$15/milhão de saída). Só uma estimativa — o valor real e definitivo é o do <a href="https://platform.claude.com/settings/billing" target="_blank" style="color:#1F4E79">Console da Anthropic</a>.</div>';
 
   html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">'+
-    '<div style="background:#F3E8F7;border-radius:10px;padding:14px"><div style="font-size:10px;font-weight:700;color:#7B2D8B;text-transform:uppercase">Hoje</div><div style="font-size:20px;font-weight:800;color:#7B2D8B;margin-top:4px">US$ '+custoHoje.toFixed(3)+'</div></div>'+
-    '<div style="background:#EEF6FF;border-radius:10px;padding:14px"><div style="font-size:10px;font-weight:700;color:#1F4E79;text-transform:uppercase">Este mês</div><div style="font-size:20px;font-weight:800;color:#1F4E79;margin-top:4px">US$ '+custoMes.toFixed(3)+'</div></div>'+
-    '<div style="background:#F0F4F8;border-radius:10px;padding:14px"><div style="font-size:10px;font-weight:700;color:#607080;text-transform:uppercase">Total registrado</div><div style="font-size:20px;font-weight:800;color:#1a2332;margin-top:4px">US$ '+totalCusto.toFixed(3)+'</div></div>'+
-    '</div>';
+    '<div style="background:#F3E8F7;border-radius:10px;padding:14px"><div style="font-size:10px;font-weight:700;color:#7B2D8B;text-transform:uppercase">Hoje</div><div style="font-size:20px;font-weight:800;color:#7B2D8B;margin-top:4px">US$ '+custoHoje.toFixed(3)+'</div><div style="font-size:12px;color:#7B2D8B;opacity:.75;margin-top:2px">R$ '+(custoHoje*cotacao).toFixed(2)+'</div></div>'+
+    '<div style="background:#EEF6FF;border-radius:10px;padding:14px"><div style="font-size:10px;font-weight:700;color:#1F4E79;text-transform:uppercase">Este mês</div><div style="font-size:20px;font-weight:800;color:#1F4E79;margin-top:4px">US$ '+custoMes.toFixed(3)+'</div><div style="font-size:12px;color:#1F4E79;opacity:.75;margin-top:2px">R$ '+(custoMes*cotacao).toFixed(2)+'</div></div>'+
+    '<div style="background:#F0F4F8;border-radius:10px;padding:14px"><div style="font-size:10px;font-weight:700;color:#607080;text-transform:uppercase">Total registrado</div><div style="font-size:20px;font-weight:800;color:#1a2332;margin-top:4px">US$ '+totalCusto.toFixed(3)+'</div><div style="font-size:12px;color:#607080;margin-top:2px">R$ '+(totalCusto*cotacao).toFixed(2)+'</div></div>'+
+    '</div>'+
+    '<div style="font-size:10px;color:#a8b4c2;margin:-14px 0 16px;text-align:right">Cotação usada: US$1 = R$'+cotacao.toFixed(2)+'</div>';
 
   html+='<div style="background:#FFF8E6;border:1px solid #F5D98B;border-radius:10px;padding:14px 16px;margin-bottom:20px">'+
     '<div style="font-size:12px;font-weight:800;color:#854F0B;margin-bottom:8px">💡 Dicas pra economizar</div>'+
@@ -30993,6 +31029,7 @@ function ferrUsoIA(){
       '<th style="padding:8px 10px;text-align:right;font-size:10px">TOKENS ENTRADA</th>'+
       '<th style="padding:8px 10px;text-align:right;font-size:10px">TOKENS SAÍDA</th>'+
       '<th style="padding:8px 10px;text-align:right;font-size:10px">CUSTO EST.</th>'+
+      '<th style="padding:8px 10px;text-align:right;font-size:10px">EM R$</th>'+
       '</tr></thead><tbody>';
     log.slice(0,200).forEach(function(l){
       var d=new Date(l.ts);
@@ -31003,6 +31040,7 @@ function ferrUsoIA(){
         '<td style="padding:7px 10px;text-align:right;color:#607080">'+(l.tin||0).toLocaleString('pt-BR')+'</td>'+
         '<td style="padding:7px 10px;text-align:right;color:#607080">'+(l.tout||0).toLocaleString('pt-BR')+'</td>'+
         '<td style="padding:7px 10px;text-align:right;font-weight:700;color:#7B2D8B">US$ '+(l.custo||0).toFixed(4)+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;color:#607080">R$ '+((l.custo||0)*cotacao).toFixed(4)+'</td>'+
         '</tr>';
     });
     html+='</tbody></table></div>';
@@ -36084,7 +36122,7 @@ function ferrMargem(){
     '<select id="mgClienteUF" onchange="mgRecalcAll()" style="padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#1F4E79">'+optsUF('SP')+'</select></div>'+
     '<div><div style="font-size:11px;color:#607080;margin-bottom:4px">Margem global (%)</div>'+
     '<div style="display:flex;align-items:center;gap:8px">'+
-    '<input type="text" inputmode="decimal" id="mgMargemGlobal" value="25" style="width:72px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:14px;font-weight:700;color:#1F4E79" oninput="mgRecalcAll()">'+
+    '<input type="text" inputmode="decimal" id="mgMargemGlobal" value="21" style="width:72px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:14px;font-weight:700;color:#1F4E79" oninput="mgRecalcAll()">'+
     '<span style="font-size:12px;color:#607080">%</span>'+
     '<button onclick="mgAplicarTodos()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:12px;font-weight:700">Aplicar a todos</button>'+
     '</div></div></div></div>'+
@@ -36107,7 +36145,7 @@ async function mgLerArquivo(file){
     var m=txt.match(/\[[\s\S]*/);if(m)txt=m[0];
     var itens=JSON.parse(txt);
     var naoImed=itens.filter(function(it){return pfPrazoNaoIm(it.prazo);});
-    var mglobal=parseFloat(String((document.getElementById('mgMargemGlobal')||{}).value||25).replace(',','.'))/100;
+    var mglobal=parseFloat(String((document.getElementById('mgMargemGlobal')||{}).value||21).replace(',','.'))/100;
     if(!window._mgItens)window._mgItens=[];
     naoImed.forEach(function(it){window._mgItens.push({ref:(it.ref||'').toString().toUpperCase().trim(),desc:(it.desc||'').toUpperCase(),marca:(it.marca||'').toUpperCase(),custo:parseFloat(it.preco)||0,ipi_pct:(parseFloat(it.ipi_pct)||0)/100,st_val:parseFloat(it.st_val)||0,margem:mglobal});});
     var ignorados=itens.length-naoImed.length;
@@ -36115,13 +36153,13 @@ async function mgLerArquivo(file){
   }catch(e){if(status)status.innerHTML='<span style="color:#C00000">❌ '+e.message+'</span>';}
 }
 function mgRecalcAll(){mgRenderTabela();}
-function mgAplicarTodos(){var m=parseFloat(String((document.getElementById('mgMargemGlobal')||{}).value||25).replace(',','.'))/100;(window._mgItens||[]).forEach(function(it){it.margem=m;});mgRenderTabela();}
-function mgAdicionarItem(){if(!window._mgItens)window._mgItens=[];var m=parseFloat(String((document.getElementById('mgMargemGlobal')||{}).value||25).replace(',','.'))/100;window._mgItens.push({ref:'REF',desc:'Descrição',marca:'',custo:0,ipi_pct:0,st_val:0,margem:m});mgRenderTabela();}
+function mgAplicarTodos(){var m=parseFloat(String((document.getElementById('mgMargemGlobal')||{}).value||21).replace(',','.'))/100;(window._mgItens||[]).forEach(function(it){it.margem=m;});mgRenderTabela();}
+function mgAdicionarItem(){if(!window._mgItens)window._mgItens=[];var m=parseFloat(String((document.getElementById('mgMargemGlobal')||{}).value||21).replace(',','.'))/100;window._mgItens.push({ref:'REF',desc:'Descrição',marca:'',custo:0,ipi_pct:0,st_val:0,margem:m});mgRenderTabela();}
 function mgRemItem(i){if(window._mgItens)window._mgItens.splice(i,1);mgRenderTabela();}
 function mgSetCusto(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].custo=parseFloat(String(v).replace(',','.'))||0;mgRenderTabela();}
 function mgSetIpi(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].ipi_pct=(parseFloat(String(v).replace(',','.'))||0)/100;mgRenderTabela();}
 function mgSetSt(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].st_val=parseFloat(String(v).replace(',','.'))||0;mgRenderTabela();}
-function mgSetMargem(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].margem=(parseFloat(String(v).replace(',','.'))||25)/100;mgRenderTabela();}
+function mgSetMargem(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].margem=(parseFloat(String(v).replace(',','.'))||21)/100;mgRenderTabela();}
 
 function mgRenderTabela(){
   var el=document.getElementById('mgTabela');if(!el)return;
@@ -36149,7 +36187,8 @@ function mgRenderTabela(){
     html+='<td style="padding:7px 8px;text-align:right"><input type="text" inputmode="decimal" value="'+(item.ipi_pct*100).toFixed(1)+'" onchange="mgSetIpi('+i+',this.value)" style="width:50px;padding:3px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
     html+='<td style="padding:7px 8px;text-align:right"><input type="text" inputmode="decimal" value="'+item.st_val+'" onchange="mgSetSt('+i+',this.value)" style="width:56px;padding:3px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
     html+='<td style="padding:7px 8px;text-align:right;color:#607080;font-size:11px;white-space:nowrap">C:'+(icms_c*100).toFixed(0)+'% V:'+(icms_v*100).toFixed(0)+'%</td>';
-    html+='<td style="padding:7px 8px;text-align:right"><input type="text" inputmode="decimal" value="'+(item.margem*100).toFixed(1)+'" onchange="mgSetMargem('+i+',this.value)" style="width:50px;padding:3px 6px;border:1.5px solid #1F4E79;border-radius:6px;font-size:12px;text-align:right;color:#1F4E79;font-weight:700"></td>';
+    var _margemBaixa=item.margem<0.21;
+    html+='<td style="padding:7px 8px;text-align:right" title="'+(_margemBaixa?'⚠ Abaixo do mínimo de 21%':'')+'"><input type="text" inputmode="decimal" value="'+(item.margem*100).toFixed(1)+'" onchange="mgSetMargem('+i+',this.value)" style="width:50px;padding:3px 6px;border:1.5px solid '+(_margemBaixa?'#C00000':'#1F4E79')+';border-radius:6px;font-size:12px;text-align:right;color:'+(_margemBaixa?'#C00000':'#1F4E79')+';font-weight:700"></td>';
     html+='<td style="padding:7px 8px;text-align:right;font-weight:800;color:'+(r.venda>0?'#217a3c':'#8a9ab0')+';background:#F0FAF0">'+(r.venda>0?'R$ '+r.venda.toFixed(2).replace('.',','):'—')+'</td>';
     html+='<td style="padding:7px 8px;text-align:right;color:#607080">'+(r.markup>0?r.markup.toFixed(1)+'%':'—')+'</td>';
     html+='<td style="padding:7px 8px;text-align:center"><button onclick="mgRemItem('+i+')" style="background:none;border:1px solid #e0e8f0;color:#C00000;border-radius:6px;padding:2px 7px;cursor:pointer;font-size:11px">✕</button></td>';
@@ -37092,4 +37131,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.638 --></html>
+</script></div></div></body><!-- Build timestamp: v115.639 --></html>

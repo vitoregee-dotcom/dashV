@@ -116,6 +116,20 @@ mapa inteiro, vieram de 1 PDF só -- não faz sentido variar por fornecedor).
 Adicionada uma camada de busca em todos os itens do mapa antes de cair no
 fallback mais genérico (window._mapaEstadoPedido da v115.669).
 -->
+<!-- v115.671 - "Apostas Convertidas" (Dashboard) tinha 3 problemas:
+1) SEM persistência real: a lista era recalculada toda vez comparando saldo
+ATUAL com saldo da marcação -- se o saldo caísse de novo (consumo normal do
+estoque), o item sumia da lista mesmo tendo sido uma aposta certeira.
+2) Crescimento sempre +0%: a fórmula usava campos "consumoPeriodo"/"cP" que
+NUNCA existiram em lugar nenhum do sistema (bug desde a criação da feature).
+3) Sem coluna Marca, e "Data" sempre fixa em "—" (nunca implementada de fato).
+Corrigido com um registro PERMANENTE (tabela nova apostas_convertidas no
+Supabase): assim que a conversão é detectada pela primeira vez, grava ref/
+marca/descrição/consumo-antes/consumo-depois/data — e nunca mais recalcula
+nem deixa de mostrar, mesmo que o saldo normalize depois. Também passou a
+guardar o consumo no momento da marcação (antes só guardava saldo), permitindo
+calcular o crescimento de verdade a partir de agora.
+-->
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.650 - Corrige imposto cobrado 2x no Mapa de Compras (6 lugares): preco
 ja vem c/imposto incluso desde v115.638, mas custo ainda multiplicava por
@@ -981,7 +995,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.670</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.671</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1114,7 +1128,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.670</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.671</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1221,7 +1235,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.670</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.671</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -16268,12 +16282,12 @@ async function carregarSolicitacoes(){
   // Se logado, carrega do Supabase (sobrescreve localStorage)
   if(!sbSession||!sbUser) return;
   try{
-    const r=await sbFetch('/rest/v1/solicitacoes_compra?select=sol_key,saldo,was_op,ts');
+    const r=await sbFetch('/rest/v1/solicitacoes_compra?select=sol_key,saldo,consumo,was_op,ts');
     if(!r.ok) return;
     const rows=await r.json();
     solicitacoes={};
     rows.forEach(row=>{
-      solicitacoes[row.sol_key]={saldo:row.saldo||0,wasOP:row.was_op||false,ts:row.ts||Date.now()};
+      solicitacoes[row.sol_key]={saldo:row.saldo||0,consumo:row.consumo||0,wasOP:row.was_op||false,ts:row.ts||Date.now()};
     });
     pfSafeSetItem('solicitacoes',JSON.stringify(solicitacoes));
   }catch(e){console.error('Erro ao carregar solicitações:',e);}
@@ -16289,7 +16303,7 @@ async function salvarSolicitacao(key,entry){
       await sbFetch('/rest/v1/solicitacoes_compra',{
         method:'POST',
         headers:{'Prefer':'resolution=merge-duplicates'},
-        body:JSON.stringify({sol_key:key,saldo:entry.saldo,was_op:entry.wasOP,ts:entry.ts})
+        body:JSON.stringify({sol_key:key,saldo:entry.saldo,consumo:entry.consumo||0,was_op:entry.wasOP,ts:entry.ts})
       });
     }
   }catch(e){console.error('Erro ao salvar solicitação:',e);}
@@ -16298,6 +16312,44 @@ function solKey(ref,marca){
   const norm=marca?marca.split('+').map(s=>s.trim()).sort().join('+'):'';
   return ref+'||'+norm;
 }
+// v115.671 - Registro PERMANENTE de "apostas convertidas" (itens marcados como
+// oportunidade que depois realmente venderam). Antes a tela recalculava essa
+// lista toda vez comparando o saldo ATUAL com o saldo da marcação -- se o
+// saldo caísse de novo depois (ex: consumo normal do estoque), o item sumia
+// da lista, mesmo tendo sido uma aposta certeira. Agora, assim que a conversão
+// é detectada pela primeira vez, grava um registro fixo (com consumo antes/
+// depois pra calcular o crescimento de verdade, e a data real da conversão)
+// que nunca mais muda, sincronizado via Supabase (tabela apostas_convertidas).
+var apostasLog={};
+async function carregarApostasLog(){
+  try{
+    const raw=localStorage.getItem('apostasLog');
+    if(raw)apostasLog=JSON.parse(raw);
+  }catch(e){}
+  if(!sbSession||!sbUser) return;
+  try{
+    const r=await sbFetch('/rest/v1/apostas_convertidas?select=sol_key,ref,marca,descricao,saldo_marcado,saldo_conversao,consumo_marcado,consumo_conversao,ts_marcado,ts_conversao');
+    if(!r.ok) return;
+    const rows=await r.json();
+    apostasLog={};
+    rows.forEach(row=>{apostasLog[row.sol_key]=row;});
+    pfSafeSetItem('apostasLog',JSON.stringify(apostasLog));
+  }catch(e){console.error('Erro ao carregar apostas convertidas:',e);}
+}
+async function salvarApostaLog(key,row){
+  pfSafeSetItem('apostasLog',JSON.stringify(apostasLog));
+  if(!sbSession||!sbUser) return;
+  try{
+    await sbFetch('/rest/v1/apostas_convertidas',{
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({sol_key:key,ref:row.ref,marca:row.marca,descricao:row.descricao,
+        saldo_marcado:row.saldo_marcado,saldo_conversao:row.saldo_conversao,
+        consumo_marcado:row.consumo_marcado,consumo_conversao:row.consumo_conversao,
+        ts_marcado:row.ts_marcado,ts_conversao:row.ts_conversao})
+    });
+  }catch(e){console.error('Erro ao salvar aposta convertida:',e);}
+}
 function toggleSolicitacao(ref,marca){
   const key=solKey(ref,marca);
   if(solicitacoes[key]){
@@ -16305,7 +16357,7 @@ function toggleSolicitacao(ref,marca){
     salvarSolicitacao(key,null);
   } else {
     const item=calcItems.find(i=>solKey(i.ref,i.marca)===key);
-    const entry={saldo:item?item.saldo:0,wasOP:item?item.sk==='OP':false,ts:Date.now()};
+    const entry={saldo:item?item.saldo:0,consumo:item?item.consumo:0,wasOP:item?item.sk==='OP':false,ts:Date.now()};
     solicitacoes[key]=entry;
     salvarSolicitacao(key,entry);
   }
@@ -16323,14 +16375,28 @@ function applyFilt(){
     const entry=solicitacoes[key];
     if(!item) return;
     if(entry===true){
-      const newEntry={saldo:item.saldo,wasOP:item.sk==='OP',ts:Date.now()};
+      const newEntry={saldo:item.saldo,consumo:item.consumo,wasOP:item.sk==='OP',ts:Date.now()};
       solicitacoes[key]=newEntry;
       salvarSolicitacao(key,newEntry);
       return;
     }
     const saldoMarcado=typeof entry==='object'?entry.saldo:0;
+    const consumoMarcado=typeof entry==='object'&&entry.consumo!=null?entry.consumo:0;
     const wasOP=typeof entry==='object'?entry.wasOP:false;
-    if(wasOP&&item.saldo>saldoMarcado) return;
+    if(wasOP&&item.saldo>saldoMarcado){
+      // Aposta convertida -- grava um registro PERMANENTE na primeira vez que
+      // detecta (não sobrescreve se já existir, senão a data de conversão e o
+      // "antes/depois" do crescimento mudariam toda vez que essa função roda).
+      if(!apostasLog[key]){
+        const row={ref:item.ref,marca:item.marca||'',descricao:item.desc||'',
+          saldo_marcado:saldoMarcado,saldo_conversao:item.saldo,
+          consumo_marcado:consumoMarcado,consumo_conversao:item.consumo||0,
+          ts_marcado:(typeof entry==='object'&&entry.ts)||Date.now(),ts_conversao:Date.now()};
+        apostasLog[key]=row;
+        salvarApostaLog(key,row);
+      }
+      return;
+    }
     if(!wasOP&&item.saldo>saldoMarcado){
       delete solicitacoes[key];
       salvarSolicitacao(key,null);
@@ -18466,13 +18532,13 @@ function toggleApostas(){
   if(isHidden)renderApostas();
 }
 function renderApostas(){
-  // Apostas convertidas = itens que eram OP quando marcados E agora têm saldo > saldo na marcação
-  const apostas=calcItems.filter(i=>{
-    const entry=solicitacoes[solKey(i.ref,i.marca)];
-    if(!entry) return false;
-    if(entry===true) return false; // formato antigo sem wasOP, ignora
-    return entry.wasOP && i.saldo > entry.saldo;
-  });
+  // v115.671 - Agora lê do registro PERMANENTE (apostasLog), não recalcula
+  // comparando com o saldo atual -- assim um item convertido continua
+  // aparecendo mesmo que o saldo caia de novo depois (consumo normal do
+  // estoque). Crescimento agora é calculado de verdade (consumo antes/depois
+  // da conversão, gravados no momento em que ela foi detectada), e a Data
+  // mostra quando a conversão realmente aconteceu.
+  const apostas=Object.values(apostasLog);
   const box=document.getElementById("apostasBox");
   const cntEl=document.getElementById("apostasCntBanner");
   if(cntEl)cntEl.textContent=apostas.length+' itens';
@@ -18481,10 +18547,11 @@ function renderApostas(){
     return;
   }
   if(box)box.style.display='block';
-  const cresc=apostas.map(a=>a.consumo>0?Math.round((a.consumo/Math.max(a.consumoPeriodo||a.cP,1)-1)*100):0);
+  const crescDe=a=>a.consumo_marcado>0?Math.round((a.consumo_conversao/a.consumo_marcado-1)*100):(a.consumo_conversao>0?100:0);
+  const cresc=apostas.map(crescDe);
   const crescMedio=Math.round(cresc.reduce((s,v)=>s+v,0)/cresc.length);
   const crescMax=Math.max(...cresc);
-  const cards=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:1.5rem"><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">Total Convertidas</p><p style="font-size:24px;font-weight:600;margin:0;color:#E67E22">${apostas.length}</p></div><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">Crescimento Médio</p><p style="font-size:24px;font-weight:600;margin:0;color:#70AD47">+${crescMedio}%</p></div><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">Melhor Aposta</p><p style="font-size:24px;font-weight:600;margin:0;color:#E67E22">+${crescMax}%</p></div></div><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--bg);border-bottom:0.5px solid var(--bd)"><th style="padding:10px;text-align:left;font-weight:500">Referência</th><th style="padding:10px;text-align:left;font-weight:500">Descrição</th><th style="padding:10px;text-align:center;font-weight:500">Crescimento</th><th style="padding:10px;text-align:center;font-weight:500">Data</th></tr></thead><tbody>${apostas.sort((a,b)=>{const cA=a.consumo>0?Math.round((a.consumo/Math.max(a.consumoPeriodo||a.cP,1)-1)*100):0;const cB=b.consumo>0?Math.round((b.consumo/Math.max(b.consumoPeriodo||b.cP,1)-1)*100):0;return cB-cA}).slice(0,10).map(a=>{const c=a.consumo>0?Math.round((a.consumo/Math.max(a.consumoPeriodo||a.cP,1)-1)*100):0;return`<tr style="border-bottom:0.5px solid var(--bd)"><td style="padding:10px;font-weight:500">${a.ref}</td><td style="padding:10px;color:var(--mu)">${a.desc}</td><td style="padding:10px;text-align:center"><span style="background:#E6F5EB;color:#0F6E56;padding:4px 8px;border-radius:4px;font-weight:600">+${c}%</span></td><td style="padding:10px;text-align:center;color:var(--mu)">—</td></tr>`}).join('')}</tbody></table>`;
+  const cards=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:1.5rem"><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">Total Convertidas</p><p style="font-size:24px;font-weight:600;margin:0;color:#E67E22">${apostas.length}</p></div><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">Crescimento Médio</p><p style="font-size:24px;font-weight:600;margin:0;color:#70AD47">+${crescMedio}%</p></div><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">Melhor Aposta</p><p style="font-size:24px;font-weight:600;margin:0;color:#E67E22">+${crescMax}%</p></div></div><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--bg);border-bottom:0.5px solid var(--bd)"><th style="padding:10px;text-align:left;font-weight:500">Referência</th><th style="padding:10px;text-align:left;font-weight:500">Marca</th><th style="padding:10px;text-align:left;font-weight:500">Descrição</th><th style="padding:10px;text-align:center;font-weight:500">Crescimento</th><th style="padding:10px;text-align:center;font-weight:500">Data</th></tr></thead><tbody>${apostas.sort((a,b)=>crescDe(b)-crescDe(a)).slice(0,10).map(a=>{const c=crescDe(a);const dt=a.ts_conversao?new Date(a.ts_conversao).toLocaleDateString('pt-BR'):'—';return`<tr style="border-bottom:0.5px solid var(--bd)"><td style="padding:10px;font-weight:500">${a.ref}</td><td style="padding:10px;color:var(--mu)">${a.marca||'—'}</td><td style="padding:10px;color:var(--mu)">${a.descricao}</td><td style="padding:10px;text-align:center"><span style="background:#E6F5EB;color:#0F6E56;padding:4px 8px;border-radius:4px;font-weight:600">+${c}%</span></td><td style="padding:10px;text-align:center;color:var(--mu)">${dt}</td></tr>`}).join('')}</tbody></table>`;
   document.getElementById("apostasBody").innerHTML=cards;
 }
 function toggleOpCard(chk){
@@ -20564,6 +20631,7 @@ async function doLogin(){
     }));
     try{await loadProfile();}catch(e){}
     try{await carregarSolicitacoes();}catch(e){}
+    try{await carregarApostasLog();}catch(e){}
     try{await carregarTransit();}catch(e){}
     document.getElementById('authOverlay').style.display='none';
     if(typeof initDevMenu==='function')initDevMenu();
@@ -21325,6 +21393,7 @@ async function lpSalvarSupabase(){
       sbSession=s;sbUser=sbUserData;
       try{await loadProfile();}catch(e){}
       try{await carregarSolicitacoes();}catch(e){}
+      try{await carregarApostasLog();}catch(e){}
       try{await carregarTransit();}catch(e){}
       document.getElementById('authOverlay').style.display='none';
       initUserUI();
@@ -37569,4 +37638,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.670 --></html>
+</script></div></div></body><!-- Build timestamp: v115.671 --></html>

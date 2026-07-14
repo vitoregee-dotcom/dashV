@@ -93,6 +93,17 @@ no e-mail (card + parágrafo "CLIENTE:"). O campo de entrada continua normal
 (a IA já extrai numa forma curta e natural), só a exibição no documento final
 que passou a ser uppercase.
 -->
+<!-- v115.669 - Dois ajustes na Solicitação de Compra do Mapa (SOL-XXXX):
+1) "Pedido ativo" (número do pedido/cotação Triex) às vezes não aparecia
+mesmo o Cliente aparecendo certo -- causa: só existia uma variável de reserva
+(window._mapaEstadoCliente) pra cobrir quando o item não tinha o dado marcado
+direto, cliente tinha essa rede de segurança mas pedido não. Adicionado
+window._mapaEstadoPedido espelhando exatamente o mesmo esquema (extração do
+PDF, reset ao criar mapa novo, uso como fallback em mapaOC).
+2) Tabela de itens ficava um pouco espremida -- largura máxima do documento
+900px → 1050px, e padding das células 8px → 10px/12px, dando mais respiro
+pras colunas (Preço/IPI/ICMS/ST/Custo/Total/Prazo).
+-->
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.650 - Corrige imposto cobrado 2x no Mapa de Compras (6 lugares): preco
 ja vem c/imposto incluso desde v115.638, mas custo ainda multiplicava por
@@ -958,7 +969,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.668</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.669</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1091,7 +1102,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.668</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.669</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1198,7 +1209,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.668</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.669</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -22281,6 +22292,11 @@ async function mapaLerImagem(input){
     // e "Pedido ativo". Antes só o cliente ficava guardado numa variável
     // temporária que nunca chegava até os itens de verdade.
     if(!window._mapaEstadoCliente&&clienteExtraido)window._mapaEstadoCliente=clienteExtraido;
+    // v115.669 - Mesmo esquema de reserva do cliente acima, agora pro pedido:
+    // se nenhum item da OC tiver pedidoOrigem marcado (ex: item pré-existente
+    // na lista, corrida de sincronização), a Solicitação de Compra gerada
+    // ainda usa esse valor geral em vez de deixar "Pedido ativo" em branco.
+    if(!window._mapaEstadoPedido&&pedidoExtraido)window._mapaEstadoPedido=pedidoExtraido;
     if(!window._mapaCriadoPor)window._mapaCriadoPor={
       nome:pfNomeUsuario(),
       email:(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||''
@@ -24191,21 +24207,21 @@ function pfConstruirOcHtml(num,dataStr,nomeForn,emailForn,ocData,vendedor,marcaV
       ('<div style="color:#607080;font-size:11px">Vendida: '+pfEscHtml(marcaVendida)+'</div><div style="color:#C00000;font-weight:700;font-size:11px">Pedir: '+pfEscHtml(marcaPedir)+'</div>'):
       pfEscHtml(marcaPedir||marcaVendida||'—');
     return '<tr style="border-bottom:1px solid #e8edf4;background:'+(n%2===0?'#fff':'#f7f8fa')+'">'+
-      '<td style="padding:8px;text-align:center;font-size:12px">'+(n+1)+'</td>'+
-      '<td style="padding:8px;font-weight:700;color:#1F4E79;font-size:12px">'+pfEscHtml(it.ref||'')+'</td>'+
-      '<td style="padding:8px;font-size:12px">'+pfEscHtml(it.desc||'')+'</td>'+
-      '<td style="padding:8px;color:#607080;font-size:12px">'+marcaHtml+'</td>'+
-      '<td style="padding:8px;text-align:center;font-size:12px">'+it.qtd+'</td>'+
-      '<td style="padding:8px;text-align:right;font-size:12px">R$ '+(it.preco||0).toFixed(2)+'</td>'+
-      '<td style="padding:8px;text-align:right;font-size:12px;color:#607080">'+(it.ipi?it.ipi+'%':'—')+'</td>'+
-      '<td style="padding:8px;text-align:right;font-size:12px;color:#607080">'+(it.icms?it.icms+'%':'—')+'</td>'+
-      '<td style="padding:8px;text-align:right;font-size:12px;color:#607080">'+(it.st?'R$ '+(+it.st).toFixed(2):'—')+'</td>'+
-      '<td style="padding:8px;text-align:right;font-weight:700;color:#1F4E79;font-size:12px">R$ '+(it.custo||0).toFixed(2)+'</td>'+
-      '<td style="padding:8px;text-align:right;font-weight:700;font-size:12px">R$ '+t.toFixed(2)+'</td>'+
-      '<td style="padding:8px;text-align:center;font-size:12px">'+(it.prazo||'—')+'</td>'+
+      '<td style="padding:10px 12px;text-align:center;font-size:12px">'+(n+1)+'</td>'+
+      '<td style="padding:10px 12px;font-weight:700;color:#1F4E79;font-size:12px">'+pfEscHtml(it.ref||'')+'</td>'+
+      '<td style="padding:10px 12px;font-size:12px">'+pfEscHtml(it.desc||'')+'</td>'+
+      '<td style="padding:10px 12px;color:#607080;font-size:12px">'+marcaHtml+'</td>'+
+      '<td style="padding:10px 12px;text-align:center;font-size:12px">'+it.qtd+'</td>'+
+      '<td style="padding:10px 12px;text-align:right;font-size:12px">R$ '+(it.preco||0).toFixed(2)+'</td>'+
+      '<td style="padding:10px 12px;text-align:right;font-size:12px;color:#607080">'+(it.ipi?it.ipi+'%':'—')+'</td>'+
+      '<td style="padding:10px 12px;text-align:right;font-size:12px;color:#607080">'+(it.icms?it.icms+'%':'—')+'</td>'+
+      '<td style="padding:10px 12px;text-align:right;font-size:12px;color:#607080">'+(it.st?'R$ '+(+it.st).toFixed(2):'—')+'</td>'+
+      '<td style="padding:10px 12px;text-align:right;font-weight:700;color:#1F4E79;font-size:12px">R$ '+(it.custo||0).toFixed(2)+'</td>'+
+      '<td style="padding:10px 12px;text-align:right;font-weight:700;font-size:12px">R$ '+t.toFixed(2)+'</td>'+
+      '<td style="padding:10px 12px;text-align:center;font-size:12px">'+(it.prazo||'—')+'</td>'+
     '</tr>';
   }).join('');
-  var html='<div id="mapaOcBody" style="font-family:Calibri,Arial,sans-serif;color:#1a2332;max-width:900px;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e8edf4">'+
+  var html='<div id="mapaOcBody" style="font-family:Calibri,Arial,sans-serif;color:#1a2332;max-width:1050px;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e8edf4">'+
     pfDocHeaderHtml('Solicitação de Compra — '+numExibido)+
     '<div style="padding:24px 32px">'+
     '<p style="margin:0 0 6px;font-size:13px">'+pfSaudacaoHorario()+', Pessoal de compras.</p>'+
@@ -24213,18 +24229,18 @@ function pfConstruirOcHtml(num,dataStr,nomeForn,emailForn,ocData,vendedor,marcaV
     pfDocCardHtml('',pfDocCampoHtml('Nº Solicitação',numExibido)+pfDocCampoHtml('Data',dataStr)+pfDocCampoHtml('Fornecedor',nomeForn)+(vendedor?pfDocCampoHtml('Vendedor',vendedor):'')+(emailForn?pfDocCampoHtml('E-mail',emailForn):'')+(cliente?pfDocCampoHtml('Cliente',cliente):'')+(pedidoAtivo?('<td style="padding:13px 16px;border-right:1px solid #e8edf4;border-bottom:1px solid #e8edf4;vertical-align:top"><div style="font-size:10px;font-weight:700;color:#C00000;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Pedido ativo</div><div style="font-size:14px;font-weight:700;color:#C00000">'+pfEscHtml(pedidoAtivo)+'</div></td>'):''))+
     '<table style="border-collapse:collapse;width:100%;margin-bottom:14px">'+
       '<thead><tr style="background:#1F4E79">'+
-        '<th style="padding:8px;text-align:center;color:#fff;font-size:12px">#</th>'+
-        '<th style="padding:8px;text-align:left;color:#fff;font-size:12px">Código</th>'+
-        '<th style="padding:8px;text-align:left;color:#fff;font-size:12px">Descrição</th>'+
-        '<th style="padding:8px;text-align:left;color:#fff;font-size:12px">Marca</th>'+
-        '<th style="padding:8px;text-align:center;color:#fff;font-size:12px">Qtd</th>'+
-        '<th style="padding:8px;text-align:right;color:#fff;font-size:12px">Preço Unit.</th>'+
-        '<th style="padding:8px;text-align:right;color:#fff;font-size:12px">IPI</th>'+
-        '<th style="padding:8px;text-align:right;color:#fff;font-size:12px">ICMS</th>'+
-        '<th style="padding:8px;text-align:right;color:#fff;font-size:12px">ST</th>'+
-        '<th style="padding:8px;text-align:right;color:#fff;font-size:12px">Custo c/imp</th>'+
-        '<th style="padding:8px;text-align:right;color:#fff;font-size:12px">Total c/imp</th>'+
-        '<th style="padding:8px;text-align:center;color:#fff;font-size:12px">Prazo</th>'+
+        '<th style="padding:10px 12px;text-align:center;color:#fff;font-size:12px">#</th>'+
+        '<th style="padding:10px 12px;text-align:left;color:#fff;font-size:12px">Código</th>'+
+        '<th style="padding:10px 12px;text-align:left;color:#fff;font-size:12px">Descrição</th>'+
+        '<th style="padding:10px 12px;text-align:left;color:#fff;font-size:12px">Marca</th>'+
+        '<th style="padding:10px 12px;text-align:center;color:#fff;font-size:12px">Qtd</th>'+
+        '<th style="padding:10px 12px;text-align:right;color:#fff;font-size:12px">Preço Unit.</th>'+
+        '<th style="padding:10px 12px;text-align:right;color:#fff;font-size:12px">IPI</th>'+
+        '<th style="padding:10px 12px;text-align:right;color:#fff;font-size:12px">ICMS</th>'+
+        '<th style="padding:10px 12px;text-align:right;color:#fff;font-size:12px">ST</th>'+
+        '<th style="padding:10px 12px;text-align:right;color:#fff;font-size:12px">Custo c/imp</th>'+
+        '<th style="padding:10px 12px;text-align:right;color:#fff;font-size:12px">Total c/imp</th>'+
+        '<th style="padding:10px 12px;text-align:center;color:#fff;font-size:12px">Prazo</th>'+
       '</tr></thead><tbody>'+rows+'</tbody>'+
       '<tfoot><tr style="background:#1F4E79"><td colspan="12" style="padding:10px 8px;text-align:right;color:#fff;font-weight:800;font-size:14px">TOTAL: R$ '+tot.toFixed(2)+'</td></tr></tfoot>'+
     '</table>'+
@@ -24326,6 +24342,7 @@ function mapaOC(fid){
   // pedido nesse caso (esse só existe por item), mas pelo menos o cliente
   // não fica em branco à toa.
   if(!clienteOrigemOC&&window._mapaEstadoCliente)clienteOrigemOC=window._mapaEstadoCliente;
+  if(!pedidoOrigemOC&&window._mapaEstadoPedido)pedidoOrigemOC=window._mapaEstadoPedido;
   // Marca original (vendida ao cliente) de cada item, antes de ser sobrescrita
   // por '' no ocData -- usada pra mostrar "Vendida" x "Pedir" no e-mail.
   var marcaPorRef={};
@@ -28691,7 +28708,7 @@ function mapaLimparEstado(){
   localStorage.removeItem(MAPA_SAVE_KEY);
   mapaEstadoId=null; mapaItens=[]; mapaFornSelecionados={};
   mapaPrecos={}; mapaDecisoes={}; mapaQtdDecidida={}; mapaPrecoDecidido={}; mapaStep=1;
-  window._mapaEstadoCliente=''; window._mapaCriadoPor=null; // reforço: também limpa cliente/usuário do mapa anterior
+  window._mapaEstadoCliente=''; window._mapaEstadoPedido=''; window._mapaCriadoPor=null; // reforço: também limpa cliente/pedido/usuário do mapa anterior
   mapaPushSupabase(); // clear from supabase too
 }
 
@@ -37531,4 +37548,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.668 --></html>
+</script></div></div></body><!-- Build timestamp: v115.669 --></html>

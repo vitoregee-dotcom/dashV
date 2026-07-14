@@ -6,6 +6,17 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PartsFlow</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 40 40&#39;%3E%3Crect width=&#39;40&#39; height=&#39;40&#39; rx=&#39;10&#39; fill=&#39;%230F1F35&#39;/%3E%3Crect x=&#39;9&#39; y=&#39;8&#39; width=&#39;4&#39; height=&#39;22&#39; rx=&#39;1.5&#39; fill=&#39;%23fff&#39;/%3E%3Cpath d=&#39;M13,8 Q26,8 26,14 Q26,20 13,20&#39; fill=&#39;none&#39; stroke=&#39;%23fff&#39; stroke-width=&#39;4&#39; stroke-linecap=&#39;round&#39; stroke-linejoin=&#39;round&#39;/%3E%3Cline x1=&#39;19&#39; y1=&#39;20&#39; x2=&#39;29&#39; y2=&#39;32&#39; stroke=&#39;%23E67E22&#39; stroke-width=&#39;2.5&#39; stroke-linecap=&#39;round&#39;/%3E%3Ccircle cx=&#39;30&#39; cy=&#39;33&#39; r=&#39;2&#39; fill=&#39;%23E67E22&#39;/%3E%3C/svg%3E">
+<!-- v115.651 - Corrige travamento no iPad ao abrir Cadastros > Produtos: a
+tabela (3600+ itens) era montada inteira numa unica string HTML e jogada de
+uma vez no innerHTML, incluindo miniaturas em base64 quando o produto tem
+foto -- isso sozinho ja pesa vários MB de HTML. Além disso, cada tecla digitada
+na busca refazia o JSON.parse dos ~2.5MB do catalogo completo. No PC passava
+batido, mas no Safari do iPad (CPU/memoria bem mais limitadas) travava a aba
+por varios segundos. Corrigido com: (1) cache do parse do JSON -- só reparseia
+se a string bruta do localStorage mudou; (2) paginação -- renderiza 60 produtos
+por vez, com botão "Carregar mais", resetando pra pagina 1 sempre que a busca/
+filtro muda.
+-->
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.650 - Corrige imposto cobrado 2x no Mapa de Compras (6 lugares): preco
 ja vem c/imposto incluso desde v115.638, mas custo ainda multiplicava por
@@ -871,7 +882,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.650</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.651</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1004,7 +1015,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.650</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.651</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1111,7 +1122,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.650</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.651</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -24757,7 +24768,19 @@ function cadRenderProdutosV3(el){
       try{novoEl.setSelectionRange(_focoSelStart,_focoSelEnd);}catch(e){}
     }
   }
-  var plist=cadLoad(PROD_KEY||'cad_produtos_v1');
+  // Cache do parse do JSON de produtos -- essa lista já passa de 2.5MB (3600+ itens),
+  // e antes ela era re-lida com JSON.parse a cada letra digitada na busca (a função
+  // roda de novo a cada tecla). Isso sozinho já travava o Safari do iPad por alguns
+  // segundos a cada tecla. Agora só reparseia se a string bruta do localStorage mudou.
+  var _prodRaw=localStorage.getItem(PROD_KEY||'cad_produtos_v1')||'[]';
+  var plist;
+  if(window._prodCacheRaw===_prodRaw&&window._prodCacheParsed){
+    plist=window._prodCacheParsed;
+  }else{
+    try{plist=JSON.parse(_prodRaw);}catch(e){plist=[];}
+    window._prodCacheRaw=_prodRaw;
+    window._prodCacheParsed=plist;
+  }
   var q=(window._prodSearch||'').toLowerCase();
   var pf=window._prodFiltro||{};
   var filtered=plist.map(function(p,idx){return {p:p,idx:idx};}).filter(function(o){
@@ -24770,6 +24793,21 @@ function cadRenderProdutosV3(el){
     if(pf.ncm&&!(p.ncm||'').toLowerCase().includes(pf.ncm.toLowerCase()))return false;
     return true;
   });
+  // Paginação -- antes a tabela inteira (3600+ linhas, com miniaturas em base64
+  // embutidas quando o produto tem foto) era montada numa unica string HTML gigante
+  // e jogada de uma vez no innerHTML. Isso travava o Safari do iPad por varios
+  // segundos (memoria/CPU bem mais limitadas que num PC). Agora só renderiza um
+  // lote por vez, com botão "carregar mais". Reseta o lote sempre que a busca/filtro
+  // muda (senão o usuário via só os primeiros resultados de uma lista antiga).
+  var _prodFiltroAssinatura=q+'|'+JSON.stringify(pf);
+  if(window._prodFiltroAssinaturaAnterior!==_prodFiltroAssinatura){
+    window._prodPaginaAtual=1;
+    window._prodFiltroAssinaturaAnterior=_prodFiltroAssinatura;
+  }
+  var PROD_LOTE=60;
+  var qtdVisivel=(window._prodPaginaAtual||1)*PROD_LOTE;
+  var temMais=filtered.length>qtdVisivel;
+  var filteredVisivel=filtered.slice(0,qtdVisivel);
   var totalPlanilha=0;
   // Removido: esse cálculo iterava TODOS os itens da planilha (200k+) de forma síncrona
   // toda vez que a tela de Produtos era aberta, só pra mostrar um texto cosmético
@@ -24798,7 +24836,7 @@ function cadRenderProdutosV3(el){
       '<td style="padding:5px 8px">'+fInpP('buscar...','ncm')+'</td>'+
       '<td></td>'+
     '</tr></thead><tbody>';
-  filtered.forEach(function(o){
+  filteredVisivel.forEach(function(o){
     var p=o.p, ri=o.idx;
     var thumb=p.foto||((p.fotos||[])[0])?'<img src="'+(p.foto||(p.fotos||[])[0])+'" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #e0e8f0">':'<div style="width:40px;height:40px;background:#F0F4F8;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px">📦</div>';
     html+='<tr style="border-bottom:1px solid #e0e8f0" onmouseover="this.style.background=&quot;#F8FAFC&quot;" onmouseout="this.style.background=&quot;&quot;">';
@@ -24814,6 +24852,11 @@ function cadRenderProdutosV3(el){
     html+='</tr>';
   });
   html+='</tbody></table></div>';
+  if(temMais){
+    html+='<div style="text-align:center;margin-top:14px">';
+    html+='<button onclick="window._prodPaginaAtual=(window._prodPaginaAtual||1)+1;cadRenderProdutosV3(document.getElementById(&quot;cadBody&quot;))" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px 22px;cursor:pointer;font-size:12px;font-weight:700">Carregar mais ('+(filtered.length-qtdVisivel)+' restantes)</button>';
+    html+='</div>';
+  }
   el.innerHTML=html;_restaurarFoco();
 }
 
@@ -37308,4 +37351,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.650 --></html>
+</script></div></div></body><!-- Build timestamp: v115.651 --></html>

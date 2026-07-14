@@ -27,6 +27,19 @@ dentro de containers com scroll (overflow-x/y:auto), onde o toque virava "inicio
 de scroll" e o clique nao disparava. Agora a regra cobre [onclick] tambem,
 de forma global -- corrige o padrao em todas as telas de uma vez, nao so uma.
 -->
+<!-- v115.653 - Dashboard consumindo CPU em segundo plano mesmo com o usuario
+em outras telas (Vendas, Mapa de Compras, etc.), deixando tudo mais lento no
+iPad. Causa: recalc() itera todos os itens da planilha (200k+) toda vez que
+algo muda (upload, transito, lead time, ciclo, periodo, exclusao...), e so 2
+dos 22 pontos que chamavam recalc() no sistema pulavam a parte de RENDERIZAR
+(tabela/KPIs/graficos) quando o usuario nao estava olhando o Dashboard -- os
+outros 20 sempre desenhavam a tela inteira de novo, mesmo escondida. Os 20
+pontos restantes agora seguem o mesmo padrao (recalc(_pfCurrentView!=='dash')):
+o CALCULO em si continua rodando sempre (necessario pro Me Avise/Oportunidades
+funcionarem certo mesmo fora do Dashboard), mas o DESENHO pesado da tela só
+acontece quando o usuario realmente abre o Dashboard (pfRenderDashNow, ja
+existente, cuida disso sob demanda).
+-->
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.650 - Corrige imposto cobrado 2x no Mapa de Compras (6 lugares): preco
 ja vem c/imposto incluso desde v115.638, mas custo ainda multiplicava por
@@ -892,7 +905,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.652</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.653</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1025,7 +1038,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.652</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.653</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1132,7 +1145,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.652</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.653</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -17449,12 +17462,12 @@ function setMode(m,btn){
   const row=document.getElementById("mrow"),note=document.getElementById("mNote");
   if(m==="meses"){row.style.display="flex";note.textContent="Comprar para cobrir "+mesesC+" meses à frente";}
   else{row.style.display="none";note.textContent="Cobre o lead time + próximo ciclo completo";}
-  if(allItems.length)recalc();
+  if(allItems.length)recalc(_pfCurrentView!=='dash');
 }
 document.getElementById("mesIn").addEventListener("change",e=>{
   mesesC=Math.max(1,parseInt(e.target.value)||3);
   document.getElementById("mNote").textContent="Comprar para cobrir "+mesesC+" meses à frente";
-  if(allItems.length)recalc();
+  if(allItems.length)recalc(_pfCurrentView!=='dash');
 });
 function setDefaultDates(){
   const end=new Date(),start=new Date();
@@ -17465,12 +17478,12 @@ function setDefaultDates(){
 }
 function updatePer(){
   const s=document.getElementById("dS").value,e=document.getElementById("dE").value;
-  if(s&&e){const d=Math.round((new Date(e)-new Date(s))/(864e5))+1;if(d>0){periodo=d;document.getElementById("perCalc").textContent=d;if(allItems.length&&!_loadingFile)recalc();}}
+  if(s&&e){const d=Math.round((new Date(e)-new Date(s))/(864e5))+1;if(d>0){periodo=d;document.getElementById("perCalc").textContent=d;if(allItems.length&&!_loadingFile)recalc(_pfCurrentView!=='dash');}}
 }
 document.getElementById("dS").addEventListener("change",updatePer);
 document.getElementById("dE").addEventListener("change",updatePer);
-document.getElementById("ltIn").addEventListener("change",e=>{leadTime=Math.max(1,parseInt(e.target.value)||30);if(allItems.length)recalc();});
-document.getElementById("cicloIn").addEventListener("change",e=>{ciclo=Math.max(1,parseInt(e.target.value)||30);if(allItems.length)recalc();});
+document.getElementById("ltIn").addEventListener("change",e=>{leadTime=Math.max(1,parseInt(e.target.value)||30);if(allItems.length)recalc(_pfCurrentView!=='dash');});
+document.getElementById("cicloIn").addEventListener("change",e=>{ciclo=Math.max(1,parseInt(e.target.value)||30);if(allItems.length)recalc(_pfCurrentView!=='dash');});
 // ═══════════════════════════════════════════════════════════════
 // UPLOAD
 // ═══════════════════════════════════════════════════════════════
@@ -17736,7 +17749,7 @@ async function pfFinalizarImportPlanilha(result,file,sp){
       setDefaultDates();
       var sp2=document.getElementById('spinner');
       if(sp2){sp2.style.display='block';sp2.textContent='⏳ Calculando...';}
-      await recalc();
+      await recalc(_pfCurrentView!=='dash');
       _loadingFile=false;
       if(sp2)sp2.style.display='none';
       renderCharts();renderKpis();renderOpBox();
@@ -17824,7 +17837,7 @@ async function restoreLastSheet(data){
     _loadingFile=true;
     setDefaultDates();
     if(sp)sp.textContent='⏳ Calculando...';
-    await recalc();
+    await recalc(_pfCurrentView!=='dash');
     _loadingFile=false;
     if(sp)sp.style.display='none';
     renderCharts();renderKpis();renderOpBox();
@@ -18732,7 +18745,7 @@ async function verAnalise(sidx){
   document.querySelectorAll('.sbtn').forEach(b=>{b.classList.remove('act');});
   document.querySelectorAll('.sbtn[data-s="TODOS"]').forEach(b=>{b.classList.add('act');});
   // Recalcular
-  recalc();
+  recalc(_pfCurrentView!=='dash');
   renderTable();
   // Renderizar rankings se visível
   if(rankVisible)renderRankings();
@@ -18858,7 +18871,7 @@ function processTransitRows(rows){
     st.textContent='✅ '+count+' item(s) importado(s)!';
     setTimeout(function(){if(st)st.textContent='';},3000);
     renderTransitList();
-    if(calcItems.length)recalc();
+    if(calcItems.length)recalc(_pfCurrentView!=='dash');
   }else{
     st.textContent='⚠️ Nenhum item encontrado. Verifique o formato.';
   }
@@ -18955,7 +18968,7 @@ function importTransitCSV(file){
           st.textContent='✅ '+count+' item(s) importado(s) do PDF!';
           setTimeout(function(){if(st)st.textContent='';},3000);
           renderTransitList();
-          if(calcItems.length)recalc();
+          if(calcItems.length)recalc(_pfCurrentView!=='dash');
         }else{
           st.textContent='❌ Nenhum item encontrado no PDF.';
         }
@@ -19039,7 +19052,7 @@ function importTransitCSV(file){
         st.textContent='✅ '+count+' item(s) importado(s) do Excel!';
         setTimeout(function(){if(st)st.textContent='';},3000);
         renderTransitList();
-        if(calcItems.length)recalc();
+        if(calcItems.length)recalc(_pfCurrentView!=='dash');
       }catch(err){
         const st=document.getElementById('transitStatus');
         // Tentar fallback: tratar como CSV se falhar
@@ -19069,7 +19082,7 @@ function importTransitCSV(file){
             st.textContent='✅ '+count+' item(s) importado(s) como CSV!';
             setTimeout(function(){if(st)st.textContent='';},3000);
             renderTransitList();
-            if(calcItems.length)recalc();
+            if(calcItems.length)recalc(_pfCurrentView!=='dash');
           }catch(csvErr){
             st.textContent='❌ Arquivo inválido. Exporte como CSV: código,qtd';
           }
@@ -19130,7 +19143,7 @@ function processTransitCSVText(text){
   st.textContent='✅ '+count+' item(s) importado(s) do CSV!';
   setTimeout(function(){if(st)st.textContent='';},3000);
   renderTransitList();
-  if(calcItems.length)recalc();
+  if(calcItems.length)recalc(_pfCurrentView!=='dash');
 }
 function addTransitItem(){
   const codEl=document.getElementById('transitCodIn');
@@ -19149,7 +19162,7 @@ function addTransitItem(){
   st.textContent='✅ '+cod+' ('+qtd+' pçs) adicionado!';
   setTimeout(()=>{if(st)st.textContent='';},2000);
   renderTransitList();
-  if(calcItems.length)recalc();
+  if(calcItems.length)recalc(_pfCurrentView!=='dash');
 }
 function abrirTransit(){document.getElementById('transitPanel').style.display='flex';renderTransitList();}
 function fecharTransit(){document.getElementById('transitPanel').style.display='none';}
@@ -19161,7 +19174,7 @@ function limparTransit(){
     sbFetch('/rest/v1/transit_items?item_key=neq.___none___',{method:'DELETE'}).catch(e=>console.error('Erro ao limpar trânsito:',e));
   }
   renderTransitList();
-  if(calcItems.length)recalc();
+  if(calcItems.length)recalc(_pfCurrentView!=='dash');
 }
 function renderTransitList(){
   var list=document.getElementById('transitList');
@@ -19190,12 +19203,12 @@ function removeTransitByIdx(btn){
   var keys=list._transitKeys||[];
   var idx2=parseInt(btn.dataset.kidx);
   var k=keys[idx2];
-  if(k){delete transitItems[k];renderTransitList();if(calcItems.length)recalc();}
+  if(k){delete transitItems[k];renderTransitList();if(calcItems.length)recalc(_pfCurrentView!=='dash');}
 }
 function removeTransitItem(cod){
   delete transitItems[cod];
   renderTransitList();
-  if(calcItems.length)recalc();
+  if(calcItems.length)recalc(_pfCurrentView!=='dash');
 }
 async function handleTransitFile(file){
   if(!file)return;
@@ -19250,7 +19263,7 @@ async function handleTransitFile(file){
     st.textContent=`✅ ${count} item(s) extraído(s)!`;
     renderTransitList();
     // Recalcular dashboard
-    if(calcItems.length)recalc();
+    if(calcItems.length)recalc(_pfCurrentView!=='dash');
   }catch(e){
     st.textContent='❌ Erro: '+e.message;
   }
@@ -19874,7 +19887,7 @@ function pfFiltrarPorFamilia(fam){
   var sp=document.getElementById('spinner');
   if(sp){sp.style.display='block';sp.textContent='⏳ Filtrando...';}
   setTimeout(async function(){
-    await recalc();
+    await recalc(_pfCurrentView!=='dash');
     if(sp)sp.style.display='none';
     // Restaura elementos que podem ter sido ocultados
     ['tbox','rankSection','kpiWrap','chartWrap','exbar'].forEach(function(id){
@@ -33269,7 +33282,7 @@ function pvAplicarAbatimento(pedido){
   });
   if(typeof renderTable==='function')renderTable();
   if(typeof renderKpis==='function')renderKpis();
-  if(typeof recalc==='function')recalc();
+  if(typeof recalc==='function')recalc(_pfCurrentView!=='dash');
 }
 
 // Reaplica a baixa de TODOS os pedidos ainda abertos - chamado depois que a
@@ -37371,4 +37384,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.652 --></html>
+</script></div></div></body><!-- Build timestamp: v115.653 --></html>

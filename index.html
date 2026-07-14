@@ -64,7 +64,7 @@ confiável no Safari/iPad com touch-action:manipulation da v115.652) delegado
 no container estável #mapaBody. Sem onclick duplicado, sem heurística de
 gesto por coordenadas, sem risco de disparo duplo.
 -->
-<!-- v115.664 - Duas melhorias pedidas pro uso no iPad:
+<!-- v115.665 - Duas melhorias pedidas pro uso no iPad:
 1) Coluna AÇÕES da tabela "Mapas em andamento" agora fica FIXA (sticky) na
 borda direita, sempre visível -- antes, numa tela mais estreita como a do
 iPad, essa coluna (com os botões de continuar/editar/excluir "×") ficava
@@ -940,7 +940,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.664</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.665</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1073,7 +1073,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.664</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.665</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1180,7 +1180,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.664</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.665</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -22226,30 +22226,37 @@ async function mapaLerImagem(input){
   var el=document.getElementById('mapaBody');
   el.innerHTML='<div style="text-align:center;padding:60px;font-size:14px;color:#1F4E79">🤖 Lendo documento...<br><span style="font-size:12px;color:#8a9ab0;display:block;margin-top:8px">Identificando itens e prazos</span></div>';
   try{
-    var txt=await _anthropicReadDoc(file,'Este é um documento de cotação de venda (Pedido de Venda). Extraia TODOS os itens da tabela, o nome do cliente/comprador (rotulos tipo "Cliente", "Comprador", "Razao Social", "Destinatario" — mesmo com pontos ou espacos antes dos dois-pontos, ex: "Cliente.....: NOME DA EMPRESA"; pegue so o nome, sem o codigo numerico que as vezes vem junto tipo "11626 - NOME"), e o número do pedido (rótulo tipo "Nr. Pedido", "Nr Pedido", "Número do Pedido" — normalmente um número de 6 dígitos). Retorne APENAS um JSON array. O PRIMEIRO objeto do array deve ser {"cliente":"nome do cliente encontrado, ou string vazia se não achar","numeroPedido":"número do pedido encontrado, ou string vazia se não achar"} — e os objetos seguintes, um por item: {"ref":"codigo antes do traço na descrição","desc":"descrição após o traço","marca":"coluna Marca","qtd":numero inteiro,"prazo":"texto exato do campo Prazo"}. Sem markdown.','Mapa de Compras - Leitura de Cotação');
-    var m=txt.match(/\[[\s\S]*/);if(m)txt=m[0];
-    // Fix truncated JSON: find last complete object
-    if(!txt.endsWith(']')){
-      var lastObj=txt.lastIndexOf('},');
-      if(lastObj>0)txt=txt.substring(0,lastObj+1)+']';
-      else{var lastOpen=txt.lastIndexOf('{"ref"');if(lastOpen>0)txt=txt.substring(0,lastOpen)+']';}
+    // Antes pedia pra IA colocar {"cliente":...,"numeroPedido":...} como o
+    // PRIMEIRO elemento de um array, e dependia disso pra separar certo. Uma
+    // IA pode não seguir essa ordem à risca (retornar só a lista de itens,
+    // sem esse elemento extra) -- quando isso acontecia, cliente/pedido
+    // ficavam sempre em branco mesmo com os itens vindo certinho. Agora pede
+    // um objeto único, com campos nomeados -- não depende de posição.
+    var txt=await _anthropicReadDoc(file,'Este é um documento de cotação de venda (Pedido de Venda). Extraia o nome do cliente/comprador (rotulos tipo "Cliente", "Comprador", "Razao Social", "Destinatario" — mesmo com pontos ou espacos antes dos dois-pontos, ex: "Cliente.....: NOME DA EMPRESA"; pegue so o nome, sem o codigo numerico que as vezes vem junto tipo "11626 - NOME"), o número do pedido (rótulo tipo "Nr. Pedido", "Nr Pedido", "Número do Pedido" — normalmente um número de 6 dígitos), e TODOS os itens da tabela. Retorne APENAS um objeto JSON (não um array) no formato: {"cliente":"nome do cliente encontrado, ou string vazia se não achar","numeroPedido":"número do pedido encontrado, ou string vazia se não achar","itens":[{"ref":"codigo antes do traço na descrição","desc":"descrição após o traço","marca":"coluna Marca","qtd":numero inteiro,"prazo":"texto exato do campo Prazo"}]}. Sem markdown, sem texto adicional.','Mapa de Compras - Leitura de Cotação');
+    var m=txt.match(/\{[\s\S]*/);if(m)txt=m[0];
+    // Corrige JSON cortado (documento com muitos itens pode truncar a resposta)
+    if(!txt.trim().endsWith('}')){
+      var lastComplete=txt.lastIndexOf('},{');
+      if(lastComplete>0)txt=txt.substring(0,lastComplete+1)+']}';
+      else{var lastOpenTxt=txt.lastIndexOf('{"ref"');if(lastOpenTxt>0)txt=txt.substring(0,lastOpenTxt)+']}';}
     }
-    try{txt=JSON.parse(txt);}catch(e2){
-      // Try extracting individual objects
+    var parsed;
+    try{parsed=JSON.parse(txt);}catch(e2){
+      // Fallback: tenta separar itens individuais mesmo com JSON quebrado, e
+      // também tenta achar cliente/numeroPedido soltos no texto (regex)
       var objs=[];var re=/\{"ref"[^}]+\}/g;var om;
       while((om=re.exec(txt))!==null){try{objs.push(JSON.parse(om[0]));}catch(e3){}}
-      txt=objs;
+      var mc=txt.match(/"cliente"\s*:\s*"([^"]*)"/);
+      var mp=txt.match(/"numeroPedido"\s*:\s*"([^"]*)"/);
+      parsed={cliente:mc?mc[1]:'',numeroPedido:mp?mp[1]:'',itens:objs};
     }
-    var itens=Array.isArray(txt)?txt:[];
-    // O primeiro objeto pode ser {"cliente":"...","numeroPedido":"..."} em vez de um item — separa e guarda
-    var clienteExtraido='';
-    var pedidoExtraido='';
-    if(itens.length&&itens[0]&&!itens[0].ref&&(typeof itens[0].cliente==='string'||typeof itens[0].numeroPedido==='string')){
-      clienteExtraido=(itens[0].cliente||'').trim();
-      pedidoExtraido=(itens[0].numeroPedido||'').trim();
-      itens=itens.slice(1);
-    }
+    // Compatibilidade: se por algum motivo a IA ainda devolver um array puro
+    // (formato antigo), trata como lista de itens sem cliente/pedido.
+    var itens=Array.isArray(parsed)?parsed:(Array.isArray(parsed.itens)?parsed.itens:[]);
+    var clienteExtraido=Array.isArray(parsed)?'':(parsed.cliente||'').toString().trim();
+    var pedidoExtraido=Array.isArray(parsed)?'':(parsed.numeroPedido||'').toString().trim();
     if(!itens.length)throw new Error('Nenhum item encontrado');
+    console.log('📄 Mapa de Compras — leitura do PDF:',{cliente:clienteExtraido,numeroPedido:pedidoExtraido,qtdItens:itens.length});
     window._mapaClienteExtraidoTmp=clienteExtraido;
     // Marca cliente/pedido de origem em CADA item (não só numa variável solta) --
     // é isso que a Solicitação de Compra gerada depois usa pra mostrar "Cliente"
@@ -30991,7 +30998,7 @@ if(_origInitUserUINav){
       if(typeof mapaTogForn==='function') mapaTogForn(key, fid, idx);
       return;
     }
-    // v115.664 - Botão explícito de expandir/ocultar fornecedores (▸/▾), pedido
+    // v115.665 - Botão explícito de expandir/ocultar fornecedores (▸/▾), pedido
     // como alternativa mais confiável que tocar na linha inteira no iPad. É um
     // <button> de verdade (aproveita o touch-action:manipulation global da
     // v115.652), então precisa ser checado ANTES da regra abaixo que ignora
@@ -37484,4 +37491,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.664 --></html>
+</script></div></div></body><!-- Build timestamp: v115.665 --></html>

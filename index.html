@@ -75,6 +75,19 @@ do Mapa de Compras Etapa 1, como alternativa mais confiável a tocar na linha
 inteira -- é um <button> de verdade, aproveitando o touch-action:manipulation
 já global desde a v115.652.
 -->
+<!-- v115.667 - "Solicitação de Compra" do Mapa de Compras (a que o
+Vitor recebe em compras@triexpecas.com.br) tinha 3 problemas: mostrava
+"Nº OC" (número interno tipo timestamp) como identificador principal em vez
+do número sequencial de Solicitação (SOL-XXXX) já usado no fluxo de Venda
+Casada; a saudação vinha DEPOIS do card de dados, não antes; e o assunto do
+e-mail dizia "MAPA DE COMPRAS" (nome da ferramenta) em vez de "COMPRA CASADA"
+(o termo de negócio correto). Corrigido: (1) pfConstruirOcHtml agora recebe
+numeroSolic e usa como identificador principal (rótulo "Nº Solicitação"),
+mantendo o num/OC-XXXXXX só como referência interna (usado em outras telas,
+ex: campo Nr Pedido da Transferência); (2) mapaOC() reordenada pra calcular
+numeroSolic ANTES de montar o HTML, não depois; (3) saudação + intro movidos
+pra antes do card de dados; (4) assunto trocado pra "COMPRA CASADA".
+-->
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.650 - Corrige imposto cobrado 2x no Mapa de Compras (6 lugares): preco
 ja vem c/imposto incluso desde v115.638, mas custo ainda multiplicava por
@@ -940,7 +953,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.666</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.667</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1073,7 +1086,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.666</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.667</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1180,7 +1193,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.666</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.667</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -24152,7 +24165,17 @@ function mapaStep4(el){
 }
 
 
-function pfConstruirOcHtml(num,dataStr,nomeForn,emailForn,ocData,vendedor,marcaVendidaPorRef,cliente,pedidoAtivo){
+function pfConstruirOcHtml(num,dataStr,nomeForn,emailForn,ocData,vendedor,marcaVendidaPorRef,cliente,pedidoAtivo,numeroSolic){
+  // v115.667 - Esse documento vai pro e-mail do PRÓPRIO setor de compras da
+  // Triex (compras@triexpecas.com.br), não direto pro fornecedor -- então é
+  // uma Solicitação de Compra interna, não uma OC formal. O identificador
+  // visível agora é o número sequencial de Solicitação (SOL-XXXX, o mesmo já
+  // usado no fluxo de Venda Casada), não mais o "OC-XXXXXX" (timestamp) que
+  // só fazia sentido como registro interno. O parâmetro "num" continua
+  // existindo (usado como referência interna em outras telas, ex: campo
+  // "Nr Pedido" da Transferência), só não aparece mais como identificador
+  // principal do documento.
+  var numExibido=numeroSolic||num;
   marcaVendidaPorRef=marcaVendidaPorRef||{};
   var tot=0;
   var rows=ocData.map(function(it,n){
@@ -24178,11 +24201,11 @@ function pfConstruirOcHtml(num,dataStr,nomeForn,emailForn,ocData,vendedor,marcaV
     '</tr>';
   }).join('');
   var html='<div id="mapaOcBody" style="font-family:Calibri,Arial,sans-serif;color:#1a2332;max-width:900px;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e8edf4">'+
-    pfDocHeaderHtml('Solicitação de Compra — '+num)+
+    pfDocHeaderHtml('Solicitação de Compra — '+numExibido)+
     '<div style="padding:24px 32px">'+
-    pfDocCardHtml('',pfDocCampoHtml('Nº OC',num)+pfDocCampoHtml('Data',dataStr)+pfDocCampoHtml('Fornecedor',nomeForn)+(vendedor?pfDocCampoHtml('Vendedor',vendedor):'')+(emailForn?pfDocCampoHtml('E-mail',emailForn):'')+(cliente?pfDocCampoHtml('Cliente',cliente):'')+(pedidoAtivo?('<td style="padding:13px 16px;border-right:1px solid #e8edf4;border-bottom:1px solid #e8edf4;vertical-align:top"><div style="font-size:10px;font-weight:700;color:#C00000;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Pedido ativo</div><div style="font-size:14px;font-weight:700;color:#C00000">'+pfEscHtml(pedidoAtivo)+'</div></td>'):''))+
     '<p style="margin:0 0 6px;font-size:13px">'+pfSaudacaoHorario()+', Pessoal de compras.</p>'+
     '<p style="margin:0 0 16px;font-size:13px">Por favor, seguir com a compra do material abaixo, no fornecedor <b>'+pfEscHtml(nomeForn)+'</b>.</p>'+
+    pfDocCardHtml('',pfDocCampoHtml('Nº Solicitação',numExibido)+pfDocCampoHtml('Data',dataStr)+pfDocCampoHtml('Fornecedor',nomeForn)+(vendedor?pfDocCampoHtml('Vendedor',vendedor):'')+(emailForn?pfDocCampoHtml('E-mail',emailForn):'')+(cliente?pfDocCampoHtml('Cliente',cliente):'')+(pedidoAtivo?('<td style="padding:13px 16px;border-right:1px solid #e8edf4;border-bottom:1px solid #e8edf4;vertical-align:top"><div style="font-size:10px;font-weight:700;color:#C00000;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Pedido ativo</div><div style="font-size:14px;font-weight:700;color:#C00000">'+pfEscHtml(pedidoAtivo)+'</div></td>'):''))+
     '<table style="border-collapse:collapse;width:100%;margin-bottom:14px">'+
       '<thead><tr style="background:#1F4E79">'+
         '<th style="padding:8px;text-align:center;color:#fff;font-size:12px">#</th>'+
@@ -24206,7 +24229,7 @@ function pfConstruirOcHtml(num,dataStr,nomeForn,emailForn,ocData,vendedor,marcaV
 }
 
 function pfAbrirJanelaOC(num,nomeForn,numeroSolic,ocHtml,novoId){
-  var assunto=(numeroSolic?numeroSolic+' — ':'')+'SOLICITAÇÃO DE COMPRA — MAPA DE COMPRAS — '+num+' — '+nomeForn.toUpperCase();
+  var assunto=(numeroSolic?numeroSolic+' — ':'')+'SOLICITAÇÃO DE COMPRA — COMPRA CASADA'+' — '+nomeForn.toUpperCase();
   try{
     var win=window.open('','_blank','width=900,height=750,resizable=yes,scrollbars=yes');
     win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+assunto+'</title>'+
@@ -24267,7 +24290,7 @@ function solicAbrirOC(id){
     if(typeof trfRenderTabela==='function')trfRenderTabela();
     return;
   }
-  var built=pfConstruirOcHtml(s.numeroOC||'OC',dataStr,s.fornecedor||'',forn?forn.email:'',s.ocItens,s.vendedor||(pfNomeVendedorForn(forn)),null,s.cliente||'',s.numeroPedido||'');
+  var built=pfConstruirOcHtml(s.numeroOC||'OC',dataStr,s.fornecedor||'',forn?forn.email:'',s.ocItens,s.vendedor||(pfNomeVendedorForn(forn)),null,s.cliente||'',s.numeroPedido||'',s.numero||'');
   pfAbrirJanelaOC(s.numeroOC||'OC',s.fornecedor||'',s.numero||'',built.html,s.id);
 }
 
@@ -24305,29 +24328,41 @@ function mapaOC(fid){
   // Usa dados enriquecidos de _mapaOcF se disponível
   var ocData = (window._mapaOcF && window._mapaOcF[fid]) ? window._mapaOcF[fid].itens : its.map(function(it){var pk=it.ref+'||'+(it.marca||'')+'||'+fid;var p=mapaPrecos[pk]||{};return Object.assign({},it,{preco:p.preco||0,custo:p.preco||0,marca:'',prazo:p.prazo||'',ipi:0,icms:0,st:0});});
 
-  var built=pfConstruirOcHtml(num,data,nome,forn?forn.email:'',ocData,pfNomeVendedorForn(forn),marcaPorRef,clienteOrigemOC,pedidoOrigemOC);
+  // v115.667 - numeroSolic agora é calculado ANTES de montar o HTML (só a
+  // determinação do número/id, sem gravar ainda), pra poder aparecer no
+  // próprio documento como identificador principal (ver pfConstruirOcHtml).
+  // A gravação de fato (solicSave) continua depois, já com built.tot pronto.
+  var novoId=null, numeroSolic='', existente=null, list=null;
+  try{
+    if(typeof solicLoad==='function'&&typeof solicSave==='function'&&typeof solicProximoNumero==='function'){
+      window._mapaOcGeradas=window._mapaOcGeradas||{};
+      var existenteId=window._mapaOcGeradas[fid];
+      list=solicLoad();
+      existente=existenteId?list.find(function(x){return x.id===existenteId;}):null;
+      if(existente){
+        numeroSolic=existente.numero; novoId=existenteId;
+      } else {
+        novoId='sol_'+Date.now()+'_'+fid;
+        numeroSolic=solicProximoNumero();
+      }
+    }
+  }catch(_e){}
+
+  var built=pfConstruirOcHtml(num,data,nome,forn?forn.email:'',ocData,pfNomeVendedorForn(forn),marcaPorRef,clienteOrigemOC,pedidoOrigemOC,numeroSolic);
 
   // 1) Salva (ou atualiza) a Solicitação de Compra ANTES de abrir qualquer janela —
   // garante que o registro sempre entra no histórico, mesmo se o navegador bloquear popups.
   // Também guarda os itens precificados (ocItens/ocTotal) pra poder reabrir o documento
   // completo da OC depois, mesmo se o mapa de origem não existir mais.
-  var novoId=null, numeroSolic='';
   try{
-    if(typeof solicLoad==='function'&&typeof solicSave==='function'&&typeof solicProximoNumero==='function'){
-      window._mapaOcGeradas=window._mapaOcGeradas||{};
-      var existenteId=window._mapaOcGeradas[fid];
-      var list=solicLoad();
+    if(list){
       var solicItens=ocData.map(function(it){return {codigo:it.ref,desc:it.desc,marca:it.marca||'',qtd:it.qtd,prazo:it.prazo||'—'};});
-      var existente=existenteId?list.find(function(x){return x.id===existenteId;}):null;
       if(existente){
         // OC já tinha sido gerada antes nessa mesma sessão (ex: refez a decisão) — atualiza em vez de duplicar
         existente.itens=solicItens; existente.fornecedor=nome; existente.numeroOC=num; existente.data=Date.now();
         existente.ocItens=ocData; existente.ocTotal=built.tot;
         existente.cliente=clienteOrigemOC; existente.numeroPedido=pedidoOrigemOC; existente.vendedor=pfNomeVendedorForn(forn);
-        numeroSolic=existente.numero; novoId=existenteId;
       } else {
-        novoId='sol_'+Date.now()+'_'+fid;
-        numeroSolic=solicProximoNumero();
         list.push({id:novoId,numero:numeroSolic,data:Date.now(),fornecedor:nome,cliente:clienteOrigemOC,itens:solicItens,origem:'mapa',numeroPedido:pedidoOrigemOC,numeroOC:num,status:'pendente',ocItens:ocData,ocTotal:built.tot,vendedor:pfNomeVendedorForn(forn)});
       }
       solicSave(list);
@@ -37491,4 +37526,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.666 --></html>
+</script></div></div></body><!-- Build timestamp: v115.667 --></html>

@@ -40,6 +40,17 @@ funcionarem certo mesmo fora do Dashboard), mas o DESENHO pesado da tela só
 acontece quando o usuario realmente abre o Dashboard (pfRenderDashNow, ja
 existente, cuida disso sob demanda).
 -->
+<!-- v115.654 - Corrige de vez "não abre os fornecedores" no Mapa de Compras
+Etapa 1 (iPad): a correção de touch anterior grudava um listener em CADA
+<tr> individualmente, só quando mapaGoStep(1) rodava. Só que mapaExpand() e
+mapaTogForn() (escolher fornecedor) chamam mapaRender() direto, que reconstroi
+a tabela inteira via innerHTML -- isso cria <tr> NOVOS sem o listener. Resultado:
+o toque funcionava só na primeiríssima abertura da tela, e travava depois da
+primeira expansão/seleção (o "não sai da lista" relatado). Trocado por
+delegação num container ESTÁVEL (#mapaBody, nunca recriado -- só o innerHTML
+dele muda) em vez de listener por linha: sobrevive a qualquer quantidade de
+re-renders, pra sempre, sem precisar reatar nada a cada mudança.
+-->
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.650 - Corrige imposto cobrado 2x no Mapa de Compras (6 lugares): preco
 ja vem c/imposto incluso desde v115.638, mas custo ainda multiplicava por
@@ -905,7 +916,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.653</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.654</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1038,7 +1049,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.653</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.654</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1145,7 +1156,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.653</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.654</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -30885,35 +30896,42 @@ if(_origInitUserUINav){
 // iOS needs explicit event listeners on non-button elements
 // The mapaStep1 renders <tr onclick="mapaExpand(i)"> - these don't work on iPad
 
-// Override mapaStep1 to add touchend fallback on table rows
-var _addTouchToRows = function(){
-  var tbody = document.querySelector('#mapaBody table tbody');
-  if(!tbody) return;
-  Array.from(tbody.querySelectorAll('tr[onclick]')).forEach(function(tr){
-    if(tr.dataset.touchAdded) return;
-    tr.dataset.touchAdded = '1';
-    tr.addEventListener('touchend', function(e){
-      // Não interfere se o toque foi no checkbox, input ou botão de dentro da linha
-      if(e.target.closest('input,button'))return;
-      // Não dispara se o usuário rolou a tela
-      if(Math.abs(this._touchStartY - e.changedTouches[0].clientY) < 10){
-        e.preventDefault(); // evita que o click nativo dispare de novo em seguida (duplicaria o toggle)
-        var idx = parseInt(tr.dataset.idx, 10);
-        if(!isNaN(idx) && typeof mapaExpand==='function') mapaExpand(idx);
-      }
-    });
-    tr.addEventListener('touchstart', function(e){
-      this._touchStartY = e.touches[0].clientY;
-    }, {passive:true});
+// v115.654 - A versao anterior desse fix grudava um listener de touchend em
+// CADA <tr> individualmente, só quando mapaGoStep(1) rodava. Só que
+// mapaExpand() e mapaTogForn() (escolher fornecedor) chamam mapaRender()
+// DIRETO -- que reconstroi a tabela inteira via innerHTML, criando <tr> NOVOS
+// sem o listener. Resultado: o toque funcionava na primeira vez que a tela
+// abria, e parava de funcionar depois da primeira expansao/selecao (exatamente
+// o "não abre os fornecedores, não sai da lista" relatado). Corrigido com
+// DELEGAÇÃO num container ESTÁVEL (#mapaBody, que nunca é recriado -- só o
+// innerHTML dele muda) em vez de listener por linha: sobrevive a qualquer
+// quantidade de re-renders, pra sempre, sem precisar reatar nada.
+var _mapaTouchStartY = null;
+(function(){
+  var mb = document.getElementById('mapaBody');
+  if(!mb || mb.dataset.touchDelegated) return;
+  mb.dataset.touchDelegated = '1';
+  mb.addEventListener('touchstart', function(e){
+    var tr = e.target.closest('tr[onclick][data-idx]');
+    if(!tr) return;
+    _mapaTouchStartY = e.touches[0].clientY;
+  }, {passive:true});
+  mb.addEventListener('touchend', function(e){
+    var tr = e.target.closest('tr[onclick][data-idx]');
+    if(!tr) return;
+    // Não interfere se o toque foi no checkbox, input ou botão de dentro da linha
+    if(e.target.closest('input,button'))return;
+    // Não dispara se o usuário rolou a tela, ou se por algum motivo o
+    // touchstart não foi capturado (nesse caso deixa o click nativo tentar)
+    if(_mapaTouchStartY==null)return;
+    if(Math.abs(_mapaTouchStartY - e.changedTouches[0].clientY) < 10){
+      e.preventDefault(); // evita que o click nativo dispare de novo em seguida (duplicaria o toggle)
+      var idx = parseInt(tr.dataset.idx, 10);
+      if(!isNaN(idx) && typeof mapaExpand==='function') mapaExpand(idx);
+    }
+    _mapaTouchStartY = null;
   });
-};
-
-// Run after each mapa render
-var _origMapaGoStepNav = mapaGoStep;
-mapaGoStep = function(step){
-  _origMapaGoStepNav(step);
-  if(step===1) setTimeout(_addTouchToRows, 200);
-};
+})();
 
 // ── 4. FIX: label file inputs on iOS ────────────────────────────
 // iOS Chrome: label wrapping file input needs explicit click delegation
@@ -37384,4 +37402,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.653 --></html>
+</script></div></div></body><!-- Build timestamp: v115.654 --></html>

@@ -51,6 +51,19 @@ delegação num container ESTÁVEL (#mapaBody, nunca recriado -- só o innerHTML
 dele muda) em vez de listener por linha: sobrevive a qualquer quantidade de
 re-renders, pra sempre, sem precisar reatar nada a cada mudança.
 -->
+<!-- v115.655 - Mapa de Compras Etapa 1 (iPad) ainda nao funcionava depois das
+duas tentativas anteriores (v115.652, v115.654): suspeita é que o listener de
+touchend delegado disparava JUNTO com o onclick inline nativo que ainda
+existia na linha/card -- cada um chamando mapaExpand/mapaTogForn uma vez,
+ou seja, abria E fechava (ou marcava E desmarcava) no mesmo toque, parecendo
+que nada acontecia. Resolvido na raiz dessa vez: onclick inline REMOVIDO por
+completo do HTML da linha da tabela e do card de fornecedor (trocado por
+data-attributes: data-mapa-row-click, data-mapa-forn-click, data-key, data-fid,
+data-idx), e existe agora UM SÓ listener de click (não touchend -- click já é
+confiável no Safari/iPad com touch-action:manipulation da v115.652) delegado
+no container estável #mapaBody. Sem onclick duplicado, sem heurística de
+gesto por coordenadas, sem risco de disparo duplo.
+-->
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.650 - Corrige imposto cobrado 2x no Mapa de Compras (6 lugares): preco
 ja vem c/imposto incluso desde v115.638, mas custo ainda multiplicava por
@@ -916,7 +929,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.654</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.655</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1049,7 +1062,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.654</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.655</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1156,7 +1169,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.654</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.655</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -22005,7 +22018,7 @@ function mapaFornPanel(item,idx,key,flist){
   else if(!sugs.length){h+='<span style="font-size:12px;color:#E67E22;font-style:italic">⚠️ Nenhum fornecedor compatível com marca/linha. Escolha manualmente abaixo.</span>';}
   sugs.forEach(function(s){
     var isSel=sel.includes(s.f.id);
-    h+='<div class="mFornCard'+(isSel?' sel':'')+'" onclick="mapaTogForn(\''+key+'\',\''+s.f.id+'\','+idx+')">';
+    h+='<div class="mFornCard'+(isSel?' sel':'')+'" data-mapa-forn-click="1" data-key="'+key.replace(/"/g,'&quot;')+'" data-fid="'+s.f.id+'" data-idx="'+idx+'">';
     h+='<input type="checkbox" '+(isSel?'checked':'')+' style="accent-color:#1F4E79;width:14px;height:14px">';
     h+='<div><div style="font-weight:700;font-size:12px">'+s.f.nome+'</div>';
     if(s.m)h+='<div style="font-size:10px;color:#1F4E79">'+s.m+'</div>';
@@ -28308,7 +28321,7 @@ mapaStep1 = function(el){
       return f?(f.fantasia||f.nome||f.razao):fid;
     }).join(', ');
 
-    html += '<tr data-idx="'+i+'" style="border-bottom:'+(exp?'none':'1px solid #e0e8f0')+';background:'+(sel?(isNaoIm?'#FFF5F5':'#F5F9FF'):'#FAFAFA')+';cursor:'+(isNaoIm?'pointer':'default')+'" onclick="mapaExpand('+i+')">';
+    html += '<tr data-idx="'+i+'" data-mapa-row-click="1" style="border-bottom:'+(exp?'none':'1px solid #e0e8f0')+';background:'+(sel?(isNaoIm?'#FFF5F5':'#F5F9FF'):'#FAFAFA')+';cursor:'+(isNaoIm?'pointer':'default')+'">';
     html += '<td style="padding:8px 6px;text-align:center" onclick="event.stopPropagation()"><input type="checkbox" '+(sel?'checked':'')+' onchange="mapaItens['+i+'].sel=this.checked;if(!this.checked)mapaItens['+i+']._exp=false;mapaGoStep(1);" style="width:15px;height:15px;accent-color:#C00000"></td>';
     html += '<td style="padding:8px;font-weight:700;color:#1F4E79;white-space:nowrap" tabindex="0" onkeydown="if(event.key===\' \'){event.preventDefault();mapaExpand('+i+');}">'+(exp?'▾ ':'▸ ')+item.ref+'</td>';
     html += '<td style="padding:8px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:#1a2332">'+item.desc+'</td>';
@@ -28359,7 +28372,7 @@ mapaStep1 = function(el){
         var isSel=fsSel.includes(f.id);
         var motivo=fsMotivos[f.id]||(isSel?'✚ Adicionado manualmente':'');
         var displayName=f.fantasia||f.nome||f.razao||f.id;
-        html += '<div class="mFornCard'+(isSel?' sel':'')+'" onclick="mapaTogForn(\''+key+'\',\''+f.id+'\','+i+')" style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1.5px solid '+(isSel?'#1F4E79':'#e0e8f0')+';border-radius:8px;cursor:pointer;background:'+(isSel?'#EEF6FF':'#fff')+';transition:all .12s">';
+        html += '<div class="mFornCard'+(isSel?' sel':'')+'" data-mapa-forn-click="1" data-key="'+key.replace(/"/g,'&quot;')+'" data-fid="'+f.id+'" data-idx="'+i+'" style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1.5px solid '+(isSel?'#1F4E79':'#e0e8f0')+';border-radius:8px;cursor:pointer;background:'+(isSel?'#EEF6FF':'#fff')+';transition:all .12s">';
         html += '<input type="checkbox" '+(isSel?'checked':'')+' style="accent-color:#1F4E79;width:14px;height:14px">';
         html += '<div><div style="font-weight:700;font-size:12px">'+displayName+'</div>';
         if(motivo)html += '<div style="font-size:10px;color:#1F4E79">'+motivo+'</div>';
@@ -30894,44 +30907,45 @@ if(_origInitUserUINav){
 
 // ── 3. FIX IPAD: clickable divs and tr rows ─────────────────────
 // iOS needs explicit event listeners on non-button elements
-// The mapaStep1 renders <tr onclick="mapaExpand(i)"> - these don't work on iPad
 
-// v115.654 - A versao anterior desse fix grudava um listener de touchend em
-// CADA <tr> individualmente, só quando mapaGoStep(1) rodava. Só que
-// mapaExpand() e mapaTogForn() (escolher fornecedor) chamam mapaRender()
-// DIRETO -- que reconstroi a tabela inteira via innerHTML, criando <tr> NOVOS
-// sem o listener. Resultado: o toque funcionava na primeira vez que a tela
-// abria, e parava de funcionar depois da primeira expansao/selecao (exatamente
-// o "não abre os fornecedores, não sai da lista" relatado). Corrigido com
-// DELEGAÇÃO num container ESTÁVEL (#mapaBody, que nunca é recriado -- só o
-// innerHTML dele muda) em vez de listener por linha: sobrevive a qualquer
-// quantidade de re-renders, pra sempre, sem precisar reatar nada.
-var _mapaTouchStartY = null;
+// v115.655 - As duas tentativas anteriores (touchend por-linha, depois
+// touchend delegado com heurística de "moveu >10px = foi scroll") ainda
+// falhavam: suspeita é que o touchend delegado disparava JUNTO com o clique
+// nativo do onclick inline (que também existia na linha/card), cada um
+// chamando mapaExpand/mapaTogForn uma vez -- ou seja, abria E fechava no
+// mesmo toque, parecendo que "não acontece nada". Resolvido na raiz: o
+// onclick inline foi REMOVIDO do HTML (trocado por data-attributes) tanto
+// na linha da tabela (expandir) quanto no card de fornecedor (selecionar),
+// e agora existe UM SÓ listener de click (não touchend -- click já é
+// confiável no Safari/iPad graças ao touch-action:manipulation da v115.652),
+// delegado no container estável #mapaBody. Sem onclick duplicado, sem
+// heurística de gesto, sem risco de disparo duplo.
 (function(){
   var mb = document.getElementById('mapaBody');
-  if(!mb || mb.dataset.touchDelegated) return;
-  mb.dataset.touchDelegated = '1';
-  mb.addEventListener('touchstart', function(e){
-    var tr = e.target.closest('tr[onclick][data-idx]');
-    if(!tr) return;
-    _mapaTouchStartY = e.touches[0].clientY;
-  }, {passive:true});
-  mb.addEventListener('touchend', function(e){
-    var tr = e.target.closest('tr[onclick][data-idx]');
-    if(!tr) return;
-    // Não interfere se o toque foi no checkbox, input ou botão de dentro da linha
-    if(e.target.closest('input,button'))return;
-    // Não dispara se o usuário rolou a tela, ou se por algum motivo o
-    // touchstart não foi capturado (nesse caso deixa o click nativo tentar)
-    if(_mapaTouchStartY==null)return;
-    if(Math.abs(_mapaTouchStartY - e.changedTouches[0].clientY) < 10){
-      e.preventDefault(); // evita que o click nativo dispare de novo em seguida (duplicaria o toggle)
-      var idx = parseInt(tr.dataset.idx, 10);
-      if(!isNaN(idx) && typeof mapaExpand==='function') mapaExpand(idx);
+  if(!mb || mb.dataset.clickDelegated) return;
+  mb.dataset.clickDelegated = '1';
+  mb.addEventListener('click', function(e){
+    // Card de fornecedor (selecionar/desselecionar) -- checa primeiro porque
+    // fica DENTRO da linha expandida, então tem prioridade sobre o expand da linha
+    var card = e.target.closest('[data-mapa-forn-click]');
+    if(card){
+      var key = card.getAttribute('data-key');
+      var fid = card.getAttribute('data-fid');
+      var idx = parseInt(card.getAttribute('data-idx'), 10);
+      if(typeof mapaTogForn==='function') mapaTogForn(key, fid, idx);
+      return;
     }
-    _mapaTouchStartY = null;
+    // Linha da tabela (expandir/ocultar fornecedores)
+    if(e.target.closest('input,button')) return; // checkbox/qtd/excluir tratam seu próprio clique
+    var tr = e.target.closest('[data-mapa-row-click][data-idx]');
+    if(tr){
+      var idx2 = parseInt(tr.getAttribute('data-idx'), 10);
+      if(!isNaN(idx2) && typeof mapaExpand==='function') mapaExpand(idx2);
+    }
   });
 })();
+
+
 
 // ── 4. FIX: label file inputs on iOS ────────────────────────────
 // iOS Chrome: label wrapping file input needs explicit click delegation
@@ -37402,4 +37416,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.654 --></html>
+</script></div></div></body><!-- Build timestamp: v115.655 --></html>

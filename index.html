@@ -64,7 +64,7 @@ confiável no Safari/iPad com touch-action:manipulation da v115.652) delegado
 no container estável #mapaBody. Sem onclick duplicado, sem heurística de
 gesto por coordenadas, sem risco de disparo duplo.
 -->
-<!-- v115.663 - Duas melhorias pedidas pro uso no iPad:
+<!-- v115.664 - Duas melhorias pedidas pro uso no iPad:
 1) Coluna AÇÕES da tabela "Mapas em andamento" agora fica FIXA (sticky) na
 borda direita, sempre visível -- antes, numa tela mais estreita como a do
 iPad, essa coluna (com os botões de continuar/editar/excluir "×") ficava
@@ -940,7 +940,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.663</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.664</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1073,7 +1073,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.663</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.664</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1180,7 +1180,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.663</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.664</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -22269,7 +22269,19 @@ async function mapaLerImagem(input){
       item.pedidoOrigem=pedidoExtraido;
       var p=(item.prazo||'').toUpperCase().replace(/[ÃA]/g,'A').replace(/[ÕO]/g,'O');
       item.sel=p.includes('NAO')||p.includes('INDISPON')||p==='';
-      if(!mapaItens.some(function(e){return e.ref===item.ref;}))mapaItens.push(item);
+      var jaExistente=mapaItens.find(function(e){return e.ref===item.ref;});
+      if(!jaExistente){
+        mapaItens.push(item);
+      }else{
+        // O código já estava na lista (mapa anterior nunca totalmente limpo,
+        // corrida de sincronização com o servidor, etc.) -- antes isso fazia
+        // o item novo (com cliente/pedido de origem) ser descartado
+        // silenciosamente, deixando o item antigo (sem essa informação)
+        // intacto. Agora atualiza o item existente com os dados novos, pra
+        // não perder cliente/pedido só porque o código já existia.
+        if(item.clienteOrigem)jaExistente.clienteOrigem=item.clienteOrigem;
+        if(item.pedidoOrigem)jaExistente.pedidoOrigem=item.pedidoOrigem;
+      }
     });
     // Salva o estado JÁ, aqui -- antes disso, os itens lidos do PDF (com
     // cliente/pedido de origem) ficavam só na memória até a pessoa avançar
@@ -24274,6 +24286,11 @@ function mapaOC(fid){
   // pedidos diferentes, mostra o do primeiro item só como referência.
   var clienteOrigemOC='',pedidoOrigemOC='';
   its.some(function(it){if(it.clienteOrigem||it.pedidoOrigem){clienteOrigemOC=it.clienteOrigem||'';pedidoOrigemOC=it.pedidoOrigem||'';return true;}return false;});
+  // Reserva: se nenhum item tinha cliente marcado, usa o cliente geral do
+  // mapa (pego na hora de ler o PDF na Etapa 1) -- não dá o número do
+  // pedido nesse caso (esse só existe por item), mas pelo menos o cliente
+  // não fica em branco à toa.
+  if(!clienteOrigemOC&&window._mapaEstadoCliente)clienteOrigemOC=window._mapaEstadoCliente;
   // Marca original (vendida ao cliente) de cada item, antes de ser sobrescrita
   // por '' no ocData -- usada pra mostrar "Vendida" x "Pedir" no e-mail.
   var marcaPorRef={};
@@ -30974,7 +30991,7 @@ if(_origInitUserUINav){
       if(typeof mapaTogForn==='function') mapaTogForn(key, fid, idx);
       return;
     }
-    // v115.663 - Botão explícito de expandir/ocultar fornecedores (▸/▾), pedido
+    // v115.664 - Botão explícito de expandir/ocultar fornecedores (▸/▾), pedido
     // como alternativa mais confiável que tocar na linha inteira no iPad. É um
     // <button> de verdade (aproveita o touch-action:manipulation global da
     // v115.652), então precisa ser checado ANTES da regra abaixo que ignora
@@ -37467,4 +37484,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.663 --></html>
+</script></div></div></body><!-- Build timestamp: v115.664 --></html>

@@ -168,6 +168,22 @@ etc.). Se a revisão não mudou desde a última renderização E a tela já tem
 conteúdo, pula o recálculo inteiro -- reabrir o Dashboard fica quase instantâneo
 quando nada mudou. Se algo mudou, ainda recalcula normalmente.
 -->
+<!-- v115.676 - Três melhorias no "Me Avise quando Chegar":
+1) Botões "Carregar PDF" e "Colar Print": lê uma cotação da Triex ou da
+Encopel e adiciona AUTOMATICAMENTE os itens cuja MARCA termina com "*"
+(código, marca sem o *, nome do cliente, código do cliente e data), sem
+precisar digitar cada campo manualmente. Mesmo padrão já usado na
+Transferência ENCOPEL (que filtra por "IMEDIATO*"), adaptado pro marcador
+ficar na marca em vez do prazo.
+2) "Chegou" agora envia o e-mail pra TODOS os usuários cadastrados (tabela
+profiles), não só pro e-mail configurado manualmente nessa tela -- qualquer
+usuário pode precisar saber que a peça chegou.
+3) Corrige bug real: a preferência pessoal de e-mail (meAvise_email_destino)
+nunca estava na lista de chaves restauradas no login/sync (PF_SYNC_KEYS) --
+sempre que o localStorage era limpo (comum ao trocar de cache/dispositivo),
+a preferência salva no Supabase existia mas nunca voltava, e a tela mostrava
+o e-mail de login de novo. Adicionada na lista -- não perde mais.
+-->
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.650 - Corrige imposto cobrado 2x no Mapa de Compras (6 lugares): preco
 ja vem c/imposto incluso desde v115.638, mas custo ainda multiplicava por
@@ -1033,7 +1049,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.675</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.676</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1166,7 +1182,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.675</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.676</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1273,7 +1289,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.675</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.676</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -28908,6 +28924,7 @@ var mapaEstadoId = null;
 var PF_SYNC_KEYS = [
   'aviseItems',
   'meAvise_lista',
+  'meAvise_email_destino',
   'solicitacoes',
   'transitItems',
   'partsflow_cotacoes_v1',
@@ -36549,7 +36566,11 @@ function ferrMeAvise(){
     var html='<div style="width:100%">'+
       '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
       '<button onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">← Voltar <kbd style="font-size:9px;background:#f0f4f8;padding:1px 5px;border-radius:3px">Esc</kbd></button>'+
-      '<div style="font-size:16px;font-weight:800;color:#E67E22">🔔 Me Avise quando Chegar</div></div>'+
+      '<div style="font-size:16px;font-weight:800;color:#E67E22">🔔 Me Avise quando Chegar</div>'+
+      '<label style="position:relative;overflow:hidden;background:#C00000;color:#fff;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;margin-left:auto">📎 Carregar PDF<input type="file" id="maFileInput" accept="application/pdf,image/*" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0" onchange="maLerArquivo(this.files[0])"></label>'+
+      '<span id="maPasteBtnSlot"></span>'+
+      '</div>'+
+      '<div id="maStatus" style="margin-bottom:10px"></div>'+
       '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
       '<div style="font-size:12px;color:#607080;font-weight:600">📧 Avisar por e-mail:</div>'+
       '<input id="maEmailDestino" placeholder="seuemail@exemplo.com" value="'+(pfNotifEmail()||'').replace(/"/g,'&quot;')+'" style="flex:1;min-width:200px;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:13px">'+
@@ -36588,6 +36609,64 @@ function ferrMeAvise(){
     el.innerHTML=html;
   }
   render();
+  var _maPasteSlot=document.getElementById('maPasteBtnSlot');
+  if(_maPasteSlot&&typeof mkPasteBtn==='function'){
+    _maPasteSlot.innerHTML='';
+    _maPasteSlot.appendChild(mkPasteBtn('Colar Print',function(f){maLerArquivo(f);}));
+  }
+  // v115.676 - Leitura automática de cotação (Triex ou Encopel): itens cuja
+  // MARCA termina com "*" são identificados como "aguardando chegada" e
+  // adicionados automaticamente no Me Avise, preenchendo código do item,
+  // marca (sem o *), nome do cliente, código do cliente e data -- sem
+  // precisar digitar cada campo manualmente. Segue o mesmo padrão já usado
+  // na Transferência ENCOPEL (que filtra por "IMEDIATO*"), só que aqui o
+  // marcador fica na MARCA em vez do prazo.
+  window.maLerArquivo=async function(file){
+    if(!file)return;
+    var status=document.getElementById('maStatus');
+    if(status)status.innerHTML='<span style="color:#1F4E79;font-size:12px">🤖 Lendo cotação...</span>';
+    try{
+      var txt=await _anthropicReadDoc(file,'Esta é uma cotação da Triex ou da Encopel. Extraia SOMENTE os itens cuja MARCA termina com um asterisco (*) -- esse asterisco marca peças aguardando chegada no estoque. Pra cada um desses itens, retorne: 1) código/referência do item (ref). 2) marca, SEM o asterisco. 3) nome do cliente (se houver, mesmo que apareça só uma vez no documento pra todos os itens). 4) código do cliente (se houver). 5) data da cotação (formato DD/MM/AAAA, se houver). Retorne SOMENTE um JSON, sem markdown, sem texto antes ou depois, no formato: {"itens":[{"ref":"","marca":"","nome_cliente":"","cod_cliente":"","data":""}]}','Me Avise - Auto-extração');
+      var m=txt.match(/\{[\s\S]*/);if(m)txt=m[0];
+      var parsed;try{parsed=JSON.parse(txt);}catch(e){throw new Error('Resposta inválida da IA');}
+      var itensExtraidos=(parsed.itens||[]).map(function(it){return{
+        ref:(it.ref||'').toString().toUpperCase().trim(),
+        marca:(it.marca||'').toString().toUpperCase().replace(/\*/g,'').trim(),
+        nome_cliente:(it.nome_cliente||'').toString().trim(),
+        cod_cliente:(it.cod_cliente||'').toString().trim(),
+        data:(it.data||'').toString().trim()
+      };}).filter(function(it){return it.ref;});
+      if(!itensExtraidos.length){
+        if(status)status.innerHTML='<span style="color:#C00000;font-size:12px">❌ Nenhum item com marca terminada em * encontrado.</span>';
+        return;
+      }
+      var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
+      var clist=[];try{clist=cadLoad(CLIE_KEY);}catch(e){}
+      var adicionados=0,duplicados=0;
+      itensExtraidos.forEach(function(it){
+        // Evita duplicar se já tem esse ref+marca+cliente monitorado
+        var jaExiste=lista.some(function(a){return a.ref===it.ref&&(a.marca||'')===it.marca&&(a.nome_cliente||'')===it.nome_cliente;});
+        if(jaExiste){duplicados++;return;}
+        var waCliente='';
+        if(it.cod_cliente||it.nome_cliente){
+          var found=clist.find(function(c){
+            return (it.cod_cliente&&(c.id===it.cod_cliente||String(c.cod||'')===it.cod_cliente))||(it.nome_cliente&&(c.razao||'').toLowerCase().includes(it.nome_cliente.toLowerCase()));
+          });
+          if(found)waCliente=found.whatsapp||found.tel||'';
+        }
+        lista.push({ref:it.ref,marca:it.marca,cod_cliente:it.cod_cliente,nome_cliente:it.nome_cliente,
+          obs:'Extraído automaticamente de cotação'+(it.data?' — '+it.data:''),wa_cliente:waCliente,ts:Date.now()});
+        adicionados++;
+      });
+      pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
+      if(status)status.innerHTML='<span style="color:#27AE60;font-size:12px">✅ '+adicionados+' item(ns) adicionado(s)'+(duplicados?' · '+duplicados+' já estavam na lista':'')+'</span>';
+      render();
+      var _maPasteSlot2=document.getElementById('maPasteBtnSlot');
+      if(_maPasteSlot2&&typeof mkPasteBtn==='function'){_maPasteSlot2.innerHTML='';_maPasteSlot2.appendChild(mkPasteBtn('Colar Print',function(f){maLerArquivo(f);}));}
+    }catch(e){
+      if(status)status.innerHTML='<span style="color:#C00000;font-size:12px">❌ '+e.message+'</span>';
+    }
+  };
   window.maAdicionar=function(){
     var ref=(document.getElementById('maRef').value||'').trim().toUpperCase();
     var marca=(document.getElementById('maMarca').value||'').trim();
@@ -36625,24 +36704,44 @@ function ferrMeAvise(){
   window.maChegou=function(i){
     var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
     var a=lista[i];
-    var toEmail=pfNotifEmail();
     var btn=document.getElementById('maChegouBtn'+i);
     if(btn){btn.disabled=true;btn.textContent='Enviando...';}
-    emailjs.send('service_2lp37gt','template_8r5j0sq',{
-      to_email:toEmail,ref:a.ref,marca:a.marca||'—',obs:a.obs||'—',
-      cod_cliente:a.cod_cliente||'—',nome_cliente:a.nome_cliente||'—'
-    }).then(function(){
-      lista.splice(i,1);pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
-      render();
-      var t=document.createElement('div');
-      t.style.cssText='position:fixed;top:70px;right:20px;z-index:9999;background:#EAF3DE;border:1px solid #7CB97A;color:#2A6A28;border-radius:10px;padding:12px 20px;font-size:13px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.15)';
-      t.textContent='✅ E-mail enviado para '+toEmail;
-      document.body.appendChild(t);
-      setTimeout(function(){t.remove();},4000);
-    },function(err){
-      if(btn){btn.disabled=false;btn.textContent='✅ Chegou';}
-      pfAlert('Erro ao enviar e-mail: '+JSON.stringify(err));
-    });
+    // v115.676 - Antes enviava só pra 1 e-mail (pfNotifEmail(), configurável
+    // manualmente). Agora envia pra TODOS os usuários cadastrados no sistema
+    // (tabela profiles), já que qualquer um pode precisar saber que a peça
+    // chegou -- não só quem configurou o campo de e-mail nessa tela. O e-mail
+    // configurado manualmente (se houver e for diferente de todos os perfis)
+    // também recebe, como reserva.
+    (async function(){
+      var emails=[];
+      try{
+        var r=await sbFetch('/rest/v1/profiles?select=email');
+        if(r.ok){var profs=await r.json();emails=profs.map(function(p){return p.email;}).filter(Boolean);}
+      }catch(e){console.warn('Erro ao buscar lista de usuários pra notificar:',e);}
+      var manual=pfNotifEmail();
+      if(manual&&emails.indexOf(manual)<0)emails.push(manual);
+      if(!emails.length)emails=[manual||'vitor.lima@triexpecas.com.br'];
+      // Remove duplicados (case-insensitive)
+      var vistos={};emails=emails.filter(function(e){var k=e.toLowerCase();if(vistos[k])return false;vistos[k]=true;return true;});
+      try{
+        await Promise.all(emails.map(function(toEmail){
+          return emailjs.send('service_2lp37gt','template_8r5j0sq',{
+            to_email:toEmail,ref:a.ref,marca:a.marca||'—',obs:a.obs||'—',
+            cod_cliente:a.cod_cliente||'—',nome_cliente:a.nome_cliente||'—'
+          });
+        }));
+        lista.splice(i,1);pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
+        render();
+        var t=document.createElement('div');
+        t.style.cssText='position:fixed;top:70px;right:20px;z-index:9999;background:#EAF3DE;border:1px solid #7CB97A;color:#2A6A28;border-radius:10px;padding:12px 20px;font-size:13px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.15)';
+        t.textContent='✅ E-mail enviado para '+emails.length+' usuário(s): '+emails.join(', ');
+        document.body.appendChild(t);
+        setTimeout(function(){t.remove();},5000);
+      }catch(err){
+        if(btn){btn.disabled=false;btn.textContent='✅ Chegou';}
+        pfAlert('Erro ao enviar e-mail: '+JSON.stringify(err));
+      }
+    })();
   };
 }
 
@@ -37715,4 +37814,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.675 --></html>
+</script></div></div></body><!-- Build timestamp: v115.676 --></html>

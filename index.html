@@ -205,6 +205,20 @@ lista, ainda aguardando chegar de verdade) e atualiza a referência de
 comparação pra não avisar de novo pela mesma mudança. Throttle de 20s pra
 não bater no serviço de e-mail toda vez que applyFilt() roda.
 -->
+<!-- v115.679 - "Me Avise": acompanha as 3 etapas do ciclo de vida do item
+monitorado, não só a chegada:
+1) COMPRADO -- pedido de compra saiu de zero/vazio pra positivo (pedido
+novo de verdade, não confunde com ajuste de quantidade de um pedido já
+existente).
+2) FATURADO -- quantidade em trânsito (tA, o mesmo campo já usado no
+cálculo de reposição) saiu de zero pra positivo -- fornecedor faturou,
+está a caminho.
+3) CHEGOU -- saldo subiu (já existia desde a v115.678).
+Cada etapa dispara notificação do NAVEGADOR (Web Notification API, nova)
+além do e-mail pra todos os usuários. Adicionado botão "Ativar notificações
+do navegador" na tela (pedir permissão via clique explícito do usuário é
+mais confiável que pedir escondido em segundo plano).
+-->
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.650 - Corrige imposto cobrado 2x no Mapa de Compras (6 lugares): preco
 ja vem c/imposto incluso desde v115.638, mas custo ainda multiplicava por
@@ -1070,7 +1084,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.678</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.679</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1203,7 +1217,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.678</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.679</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1310,7 +1324,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.678</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.679</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -16470,6 +16484,17 @@ function toggleSolicitacao(ref,marca){
 //    lista, ainda está aguardando chegar), e atualiza a referência de
 //    comparação pra não avisar de novo pela mesma mudança.
 var _maUltimaVerificacao=0;
+function maAtivarNotificacoes(){
+  if(typeof Notification==='undefined'){pfAlert('Seu navegador não suporta notificações.');return;}
+  Notification.requestPermission().then(function(perm){
+    if(perm==='granted'){
+      new Notification('🔔 Notificações ativadas!',{body:'Você vai receber avisos de compra, faturamento e chegada dos itens monitorados.'});
+      if(typeof ferrMeAvise==='function')ferrMeAvise();
+    }else{
+      pfAlert('Permissão negada. Pra ativar depois, procure o ícone de cadeado/site na barra de endereço e permita notificações.');
+    }
+  });
+}
 async function maEnviarNotificacaoGlobal(item,tipo,detalhe){
   var emails=[];
   try{
@@ -16480,7 +16505,25 @@ async function maEnviarNotificacaoGlobal(item,tipo,detalhe){
   if(manual&&emails.indexOf(manual)<0)emails.push(manual);
   if(!emails.length)emails=[manual||'vitor.lima@triexpecas.com.br'];
   var vistos={};emails=emails.filter(function(e){var k=e.toLowerCase();if(vistos[k])return false;vistos[k]=true;return true;});
-  var obsTxt=tipo==='chegou'?'✅ Chegou no estoque (detectado automaticamente)':'📦 Pedido de compra alterado: '+detalhe;
+  var textos={
+    comprado:'🛒 Comprado! Pedido de compra gerado ('+detalhe+' unidades)',
+    faturado:'📦 Faturado! Já está a caminho, em trânsito ('+detalhe+' unidades)',
+    chegou:'✅ Chegou no estoque (detectado automaticamente)',
+    pedido_mudou:'📦 Pedido de compra alterado: '+detalhe
+  };
+  var obsTxt=textos[tipo]||textos.pedido_mudou;
+  // Notificação do navegador (além do e-mail) -- só pra quem está com a
+  // aba aberta nesse instante, claro, mas é imediata (não depende de checar
+  // e-mail).
+  try{
+    if(typeof Notification!=='undefined'){
+      if(Notification.permission==='granted'){
+        new Notification('🔔 Me Avise — '+item.ref,{body:obsTxt,tag:'meavise-'+item.ref});
+      }else if(Notification.permission!=='denied'){
+        Notification.requestPermission();
+      }
+    }
+  }catch(eNotif){}
   return Promise.all(emails.map(function(toEmail){
     return emailjs.send('service_2lp37gt','template_8r5j0sq',{
       to_email:toEmail,ref:item.ref,marca:item.marca||'—',obs:obsTxt,
@@ -16489,8 +16532,15 @@ async function maEnviarNotificacaoGlobal(item,tipo,detalhe){
   }));
 }
 function maVerificarMudancasAutomaticas(){
-  // Throttle: no máximo 1x a cada 20s, mesmo que applyFilt() rode mais vezes
-  // seguidas (evita bater no emailjs repetidamente à toa).
+  // v115.679 - Agora acompanha as 3 etapas do ciclo de vida do item, não só
+  // a chegada: 1) COMPRADO -- pedido de compra saiu de zero/vazio pra um
+  // valor positivo (pedido novo de verdade, não só um ajuste de quantidade).
+  // 2) FATURADO -- quantidade em trânsito (tA, já usado no cálculo de
+  // reposição) saiu de zero pra positivo, ou seja o fornecedor faturou e
+  // está a caminho. 3) CHEGOU -- saldo subiu (já existia desde a v115.678).
+  // Cada etapa dispara notificação do navegador + e-mail pra todos os
+  // usuários, e atualiza a referência de comparação pra não avisar de novo
+  // pela mesma etapa.
   if(Date.now()-_maUltimaVerificacao<20000)return;
   _maUltimaVerificacao=Date.now();
   if(typeof sbUser==='undefined'||!sbUser)return;
@@ -16509,13 +16559,30 @@ function maVerificarMudancasAutomaticas(){
     var a=lista[i];
     var item=_itemPorChaveMA[solKey(a.ref,a.marca||'')]||_itemPorChaveMA[a.ref+'||'];
     if(!item){i++;proximo();return;}
+    // 3) Chegou -- prioridade máxima, remove da lista (ciclo completo)
     if(a.saldo_ao_marcar!=null&&item.saldo>a.saldo_ao_marcar){
       maEnviarNotificacaoGlobal(a,'chegou').then(function(){
         lista.splice(i,1);mudou=true;proximo();
       }).catch(function(e){console.warn('Falha ao enviar aviso automático de chegada:',e);i++;proximo();});
       return;
     }
-    if(a.pedido_ao_marcar!=null&&item.pedido!==a.pedido_ao_marcar){
+    // 1) Comprado -- pedido saiu de zero/vazio pra positivo
+    if(!a.comprado_avisado&&(a.pedido_ao_marcar==null||a.pedido_ao_marcar===0)&&item.pedido>0){
+      maEnviarNotificacaoGlobal(a,'comprado',item.pedido).then(function(){
+        a.pedido_ao_marcar=item.pedido;a.comprado_avisado=true;mudou=true;i++;proximo();
+      }).catch(function(e){console.warn('Falha ao enviar aviso automático de compra:',e);i++;proximo();});
+      return;
+    }
+    // 2) Faturado -- quantidade em trânsito saiu de zero pra positivo
+    if(!a.faturado_avisado&&(a.transito_ao_marcar==null||a.transito_ao_marcar===0)&&item.tA>0){
+      maEnviarNotificacaoGlobal(a,'faturado',item.tA).then(function(){
+        a.transito_ao_marcar=item.tA;a.faturado_avisado=true;mudou=true;i++;proximo();
+      }).catch(function(e){console.warn('Falha ao enviar aviso automático de faturamento:',e);i++;proximo();});
+      return;
+    }
+    // Ajuste de pedido (depois de já ter avisado "comprado" uma vez) -- avisa
+    // sem remover da lista, e sem re-disparar "comprado" de novo.
+    if(a.comprado_avisado&&a.pedido_ao_marcar!=null&&item.pedido!==a.pedido_ao_marcar){
       var detalhe='era '+a.pedido_ao_marcar+', agora é '+item.pedido+' unidades';
       maEnviarNotificacaoGlobal(a,'pedido_mudou',detalhe).then(function(){
         a.pedido_ao_marcar=item.pedido;mudou=true;i++;proximo();
@@ -36665,6 +36732,7 @@ function ferrMeAvise(){
       '<div style="font-size:12px;color:#607080;font-weight:600">📧 Avisar por e-mail:</div>'+
       '<input id="maEmailDestino" placeholder="seuemail@exemplo.com" value="'+(pfNotifEmail()||'').replace(/"/g,'&quot;')+'" style="flex:1;min-width:200px;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:13px">'+
       '<button onclick="maSalvarEmailDestino()" style="background:#E67E22;color:#fff;border:none;border-radius:7px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:700">Salvar</button>'+
+      (typeof Notification!=='undefined'&&Notification.permission!=='granted'?'<button onclick="maAtivarNotificacoes()" style="background:#1F4E79;color:#fff;border:none;border-radius:7px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:700">🔔 Ativar notificações do navegador</button>':(typeof Notification!=='undefined'?'<span style="color:#27AE60;font-size:11px;font-weight:700">🔔 Notificações ativadas</span>':''))+
       '</div>'+
       '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:18px;margin-bottom:16px">'+
       '<div style="font-size:12px;color:#607080;margin-bottom:10px">Adicionar item para monitorar:</div>'+
@@ -36760,14 +36828,15 @@ function ferrMeAvise(){
           });
           if(found)waCliente=found.whatsapp||found.tel||'';
         }
-        var saldoAoMarcar=null,pedidoAoMarcar=null;
+        var saldoAoMarcar=null,pedidoAoMarcar=null,transitoAoMarcar=null;
         try{
           var itemAtual=(typeof calcItems!=='undefined'?calcItems:[]).find(function(c){return c.ref===it.ref&&(it.marca?c.marca===it.marca:true);});
-          if(itemAtual){saldoAoMarcar=itemAtual.saldo;pedidoAoMarcar=itemAtual.pedido;}
+          if(itemAtual){saldoAoMarcar=itemAtual.saldo;pedidoAoMarcar=itemAtual.pedido;transitoAoMarcar=itemAtual.tA;}
         }catch(e){}
         lista.push({ref:it.ref,marca:it.marca,cod_cliente:it.cod_cliente,nome_cliente:it.nome_cliente,
           obs:'Extraído automaticamente de cotação'+(it.data?' — '+it.data:''),wa_cliente:waCliente,ts:Date.now(),
-          saldo_ao_marcar:saldoAoMarcar,pedido_ao_marcar:pedidoAoMarcar});
+          saldo_ao_marcar:saldoAoMarcar,pedido_ao_marcar:pedidoAoMarcar,transito_ao_marcar:transitoAoMarcar,
+          comprado_avisado:pedidoAoMarcar>0,faturado_avisado:transitoAoMarcar>0});
         adicionados++;
       });
       pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
@@ -36799,12 +36868,14 @@ function ferrMeAvise(){
     // v115.678 - Guarda saldo/pedido no momento de marcar, pra depois detectar
     // automaticamente se a peça chegou (saldo subiu) ou se o pedido de compra
     // mudou, sem precisar clicar manualmente em "Chegou" (ver maVerificarMudancas).
-    var saldoAoMarcar=null,pedidoAoMarcar=null;
+    var saldoAoMarcar=null,pedidoAoMarcar=null,transitoAoMarcar=null;
     try{
       var itemAtual=(typeof calcItems!=='undefined'?calcItems:[]).find(function(c){return c.ref===ref&&(marca?c.marca===marca:true);});
-      if(itemAtual){saldoAoMarcar=itemAtual.saldo;pedidoAoMarcar=itemAtual.pedido;}
+      if(itemAtual){saldoAoMarcar=itemAtual.saldo;pedidoAoMarcar=itemAtual.pedido;transitoAoMarcar=itemAtual.tA;}
     }catch(e){}
-    lista.push({ref:ref,marca:marca,cod_cliente:codCliente,nome_cliente:nomeCliente,obs:obs,wa_cliente:waCliente,ts:Date.now(),saldo_ao_marcar:saldoAoMarcar,pedido_ao_marcar:pedidoAoMarcar});
+    lista.push({ref:ref,marca:marca,cod_cliente:codCliente,nome_cliente:nomeCliente,obs:obs,wa_cliente:waCliente,ts:Date.now(),
+      saldo_ao_marcar:saldoAoMarcar,pedido_ao_marcar:pedidoAoMarcar,transito_ao_marcar:transitoAoMarcar,
+      comprado_avisado:pedidoAoMarcar>0,faturado_avisado:transitoAoMarcar>0});
     pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
     render();
   };
@@ -37934,4 +38005,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.678 --></html>
+</script></div></div></body><!-- Build timestamp: v115.679 --></html>

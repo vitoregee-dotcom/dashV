@@ -228,6 +228,17 @@ que o usuário tentava pesquisar. Removida de dentro do applyFilt(), agora
 roda sozinha num setInterval próprio de 2 minutos, sem interferir em nenhuma
 interação do usuário.
 -->
+<!-- v115.681 - "Apostas Convertidas" agora acompanha vendas de VERDADE
+depois da chegada, não só um número congelado no momento da conversão.
+Nova coluna Status: 🕐 Aguardando venda (0 un desde chegou) → 📈 Vendendo
+(1-3 un) → 🏆 Sucesso (mais de 3 un E ainda crescendo na última verificação,
+não estagnado -- assim "sucesso" reflete uma tendência real, não só ter
+passado de 3 uma vez e nunca mais vender). Nova tabela apostas_convertidas
+ganhou colunas consumo_atual/status/ts_ultima_verificacao/
+consumo_verificacao_anterior. Roda a cada 2 min junto com a verificação do
+Me Avise (apostasVerificarVendas), fora do applyFilt() pra não repetir o
+problema de performance da v115.680.
+-->
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.650 - Corrige imposto cobrado 2x no Mapa de Compras (6 lugares): preco
 ja vem c/imposto incluso desde v115.638, mas custo ainda multiplicava por
@@ -1093,7 +1104,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.680</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.681</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1226,7 +1237,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.680</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.681</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1333,7 +1344,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.680</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.681</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -16446,7 +16457,7 @@ async function carregarApostasLog(){
   }catch(e){}
   if(!sbSession||!sbUser) return;
   try{
-    const r=await sbFetch('/rest/v1/apostas_convertidas?select=sol_key,ref,marca,descricao,saldo_marcado,saldo_conversao,consumo_marcado,consumo_conversao,ts_marcado,ts_conversao');
+    const r=await sbFetch('/rest/v1/apostas_convertidas?select=sol_key,ref,marca,descricao,saldo_marcado,saldo_conversao,consumo_marcado,consumo_conversao,ts_marcado,ts_conversao,consumo_atual,ts_ultima_verificacao,consumo_verificacao_anterior,status');
     if(!r.ok) return;
     const rows=await r.json();
     apostasLog={};
@@ -16464,9 +16475,53 @@ async function salvarApostaLog(key,row){
       body:JSON.stringify({sol_key:key,user_id:sbUser.id,ref:row.ref,marca:row.marca,descricao:row.descricao,
         saldo_marcado:row.saldo_marcado,saldo_conversao:row.saldo_conversao,
         consumo_marcado:row.consumo_marcado,consumo_conversao:row.consumo_conversao,
-        ts_marcado:row.ts_marcado,ts_conversao:row.ts_conversao})
+        ts_marcado:row.ts_marcado,ts_conversao:row.ts_conversao,
+        consumo_atual:row.consumo_conversao,ts_ultima_verificacao:row.ts_conversao,
+        consumo_verificacao_anterior:row.consumo_conversao,status:'aguardando'})
     });
   }catch(e){console.error('Erro ao salvar aposta convertida:',e);}
+}
+// v115.681 - Acompanha as vendas de verdade DEPOIS da chegada, não só o
+// momento da conversão (antes o número ficava congelado pra sempre). Rodando
+// periodicamente (mesmo intervalo do Me Avise), compara o consumo atual com
+// o da última verificação -- se subiu, está vendendo de verdade (tendência),
+// não só uma foto parada. Status: 🕐 aguardando (0 vendido) → 📈 vendendo
+// (1-3 un) → 🏆 sucesso (mais de 3 un E ainda crescendo desde a última
+// checagem, não estagnado).
+function apostasVerificarVendas(){
+  if(typeof sbUser==='undefined'||!sbUser)return;
+  var chaves=Object.keys(apostasLog);
+  if(!chaves.length)return;
+  var _itemPorChaveAp={};
+  (typeof calcItems!=='undefined'?calcItems:[]).forEach(function(c){_itemPorChaveAp[solKey(c.ref,c.marca)]=c;});
+  var mudou=false;
+  chaves.forEach(function(key){
+    var a=apostasLog[key];
+    var item=_itemPorChaveAp[key];
+    if(!item)return;
+    var consumoAtual=item.consumo||0;
+    var vendidoTotal=Math.max(0,consumoAtual-(a.consumo_conversao||0));
+    var cresceuAgora=consumoAtual>(a.consumo_atual!=null?a.consumo_atual:a.consumo_conversao||0);
+    var statusNovo=vendidoTotal>3&&cresceuAgora?'sucesso':(vendidoTotal>0?'vendendo':'aguardando');
+    if(a.consumo_atual!==consumoAtual||a.status!==statusNovo){
+      a.consumo_verificacao_anterior=a.consumo_atual!=null?a.consumo_atual:a.consumo_conversao;
+      a.consumo_atual=consumoAtual;
+      a.ts_ultima_verificacao=Date.now();
+      a.status=statusNovo;
+      mudou=true;
+      try{
+        sbFetch('/rest/v1/apostas_convertidas?sol_key=eq.'+encodeURIComponent(key)+'&user_id=eq.'+sbUser.id,{
+          method:'PATCH',
+          body:JSON.stringify({consumo_atual:a.consumo_atual,ts_ultima_verificacao:a.ts_ultima_verificacao,
+            consumo_verificacao_anterior:a.consumo_verificacao_anterior,status:a.status})
+        }).catch(function(e){console.warn('Erro ao atualizar venda da aposta:',e);});
+      }catch(e){}
+    }
+  });
+  if(mudou){
+    pfSafeSetItem('apostasLog',JSON.stringify(apostasLog));
+    try{if(typeof renderApostas==='function')renderApostas();}catch(e){}
+  }
 }
 function toggleSolicitacao(ref,marca){
   const key=solKey(ref,marca);
@@ -18775,13 +18830,11 @@ function renderApostas(){
   // comparando com o saldo atual -- assim um item convertido continua
   // aparecendo mesmo que o saldo caia de novo depois (consumo normal do
   // estoque).
-  // v115.674 - Trocado "Crescimento %" por dados concretos: Qtd Vendida
-  // (consumo no momento da conversão menos o consumo quando foi marcado --
-  // ou seja, quanto realmente vendeu NESSE intervalo) e Período (de quando
-  // foi marcado até a conversão ser detectada). O "%" ficava sem sentido
-  // quando a base de comparação era zero (mostrava sempre +0%, sem dizer
-  // nada de útil) -- número absoluto de peças + o intervalo de tempo é
-  // informação de verdade, que dá pra usar.
+  // v115.681 - Agora acompanha as VENDAS DE VERDADE depois da chegada, não
+  // só um número congelado no momento da conversão. Status: 🕐 aguardando
+  // venda (0 un desde a chegada) → 📈 vendendo (1-3 un) → 🏆 sucesso (mais
+  // de 3 un E ainda crescendo na última verificação, não estagnado). Ver
+  // apostasVerificarVendas(), que roda a cada 2 min em segundo plano.
   const apostas=Object.values(apostasLog);
   const box=document.getElementById("apostasBox");
   const cntEl=document.getElementById("apostasCntBanner");
@@ -18791,15 +18844,21 @@ function renderApostas(){
     return;
   }
   if(box)box.style.display='block';
-  const qtdVendida=a=>Math.max(0,(a.consumo_conversao||0)-(a.consumo_marcado||0));
+  const vendidoDesdeChegada=a=>Math.max(0,(a.consumo_atual!=null?a.consumo_atual:a.consumo_conversao||0)-(a.consumo_conversao||0));
+  const statusInfo=a=>{
+    var st=a.status||'aguardando';
+    if(st==='sucesso')return{label:'🏆 Sucesso!',bg:'#FFF3CD',cor:'#856404'};
+    if(st==='vendendo')return{label:'📈 Vendendo',bg:'#E6F5EB',cor:'#0F6E56'};
+    return{label:'🕐 Aguardando venda',bg:'#F0F4F8',cor:'#607080'};
+  };
   const diasPeriodo=a=>{
     if(!a.ts_marcado||!a.ts_conversao)return null;
     return Math.max(1,Math.round((a.ts_conversao-a.ts_marcado)/86400000));
   };
-  const totalVendido=apostas.reduce((s,a)=>s+qtdVendida(a),0);
-  const mediaVendida=Math.round((totalVendido/apostas.length)*10)/10;
-  const melhorQtd=Math.max(...apostas.map(qtdVendida));
-  const cards=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:1.5rem"><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">Total Convertidas</p><p style="font-size:24px;font-weight:600;margin:0;color:#E67E22">${apostas.length}</p></div><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">Total Vendido</p><p style="font-size:24px;font-weight:600;margin:0;color:#70AD47">${totalVendido} un</p></div><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">Melhor Aposta</p><p style="font-size:24px;font-weight:600;margin:0;color:#E67E22">${melhorQtd} un</p></div></div><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--bg);border-bottom:0.5px solid var(--bd)"><th style="padding:10px;text-align:left;font-weight:500">Referência</th><th style="padding:10px;text-align:left;font-weight:500">Marca</th><th style="padding:10px;text-align:left;font-weight:500">Descrição</th><th style="padding:10px;text-align:center;font-weight:500">Qtd Vendida</th><th style="padding:10px;text-align:center;font-weight:500">Período</th><th style="padding:10px;text-align:center;font-weight:500">Data</th></tr></thead><tbody>${apostas.sort((a,b)=>qtdVendida(b)-qtdVendida(a)).slice(0,10).map(a=>{const qv=qtdVendida(a);const dias=diasPeriodo(a);const periodoTxt=dias==null?'—':(a.ts_marcado?new Date(a.ts_marcado).toLocaleDateString('pt-BR'):'—')+' → '+(a.ts_conversao?new Date(a.ts_conversao).toLocaleDateString('pt-BR'):'—')+` (${dias}d)`;const dt=a.ts_conversao?new Date(a.ts_conversao).toLocaleDateString('pt-BR'):'—';return`<tr style="border-bottom:0.5px solid var(--bd)"><td style="padding:10px;font-weight:500">${a.ref}</td><td style="padding:10px;color:var(--mu)">${a.marca||'—'}</td><td style="padding:10px;color:var(--mu)">${a.descricao}</td><td style="padding:10px;text-align:center"><span style="background:#E6F5EB;color:#0F6E56;padding:4px 8px;border-radius:4px;font-weight:600">${qv} un</span></td><td style="padding:10px;text-align:center;color:var(--mu);font-size:11px;white-space:nowrap">${periodoTxt}</td><td style="padding:10px;text-align:center;color:var(--mu)">${dt}</td></tr>`}).join('')}</tbody></table>`;
+  const totalVendido=apostas.reduce((s,a)=>s+vendidoDesdeChegada(a),0);
+  const sucessos=apostas.filter(a=>a.status==='sucesso').length;
+  const melhorQtd=Math.max(...apostas.map(vendidoDesdeChegada));
+  const cards=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:1.5rem"><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">Total Convertidas</p><p style="font-size:24px;font-weight:600;margin:0;color:#E67E22">${apostas.length}</p></div><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">Vendido Desde a Chegada</p><p style="font-size:24px;font-weight:600;margin:0;color:#70AD47">${totalVendido} un</p></div><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">🏆 Sucessos</p><p style="font-size:24px;font-weight:600;margin:0;color:#E67E22">${sucessos}</p></div></div><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--bg);border-bottom:0.5px solid var(--bd)"><th style="padding:10px;text-align:left;font-weight:500">Referência</th><th style="padding:10px;text-align:left;font-weight:500">Marca</th><th style="padding:10px;text-align:left;font-weight:500">Descrição</th><th style="padding:10px;text-align:center;font-weight:500">Vendido Desde Chegada</th><th style="padding:10px;text-align:center;font-weight:500">Status</th><th style="padding:10px;text-align:center;font-weight:500">Período</th><th style="padding:10px;text-align:center;font-weight:500">Data</th></tr></thead><tbody>${apostas.sort((a,b)=>vendidoDesdeChegada(b)-vendidoDesdeChegada(a)).slice(0,10).map(a=>{const qv=vendidoDesdeChegada(a);const dias=diasPeriodo(a);const periodoTxt=dias==null?'—':(a.ts_marcado?new Date(a.ts_marcado).toLocaleDateString('pt-BR'):'—')+' → '+(a.ts_conversao?new Date(a.ts_conversao).toLocaleDateString('pt-BR'):'—')+` (${dias}d)`;const dt=a.ts_conversao?new Date(a.ts_conversao).toLocaleDateString('pt-BR'):'—';const st=statusInfo(a);return`<tr style="border-bottom:0.5px solid var(--bd)"><td style="padding:10px;font-weight:500">${a.ref}</td><td style="padding:10px;color:var(--mu)">${a.marca||'—'}</td><td style="padding:10px;color:var(--mu)">${a.descricao}</td><td style="padding:10px;text-align:center"><span style="background:#E6F5EB;color:#0F6E56;padding:4px 8px;border-radius:4px;font-weight:600">${qv} un</span></td><td style="padding:10px;text-align:center"><span style="background:${st.bg};color:${st.cor};padding:4px 8px;border-radius:4px;font-weight:600;white-space:nowrap">${st.label}</span></td><td style="padding:10px;text-align:center;color:var(--mu);font-size:11px;white-space:nowrap">${periodoTxt}</td><td style="padding:10px;text-align:center;color:var(--mu)">${dt}</td></tr>`}).join('')}</tbody></table>`;
   document.getElementById("apostasBody").innerHTML=cards;
 }
 function toggleOpCard(chk){
@@ -26196,6 +26255,7 @@ setInterval(function(){
     if(document.visibilityState!=='visible')return;
     if(Date.now()-(window._pfLastInteracao||0)<4000)return;
     if(typeof maVerificarMudancasAutomaticas==='function')maVerificarMudancasAutomaticas();
+    if(typeof apostasVerificarVendas==='function')apostasVerificarVendas();
   }catch(e){console.warn('Verificação automática do Me Avise falhou:',e);}
 }, 120000);
 // ════════════════════════════════════════════════════════════════
@@ -38028,4 +38088,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.680 --></html>
+</script></div></div></body><!-- Build timestamp: v115.681 --></html>

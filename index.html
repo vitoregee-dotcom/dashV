@@ -189,6 +189,22 @@ o e-mail de login de novo. Adicionada na lista -- não perde mais.
 (a mais à direita) ficava inacessível em telas mais estreitas, sem nenhum
 jeito de rolar pro lado pra vê-la. Adicionado overflow-x:auto.
 -->
+<!-- v115.678 - "Me Avise quando Chegar": três melhorias.
+1) Coluna Data adicionada na tabela (existia internamente no dado mas nunca
+era mostrada) e coluna Pedido (mostra o pedido de compra atual do item, com
+um aviso ⚠ se mudou desde que foi marcado pra monitorar).
+2) Detecção AUTOMÁTICA de chegada: antes só disparava o e-mail quando
+clicava manualmente em "Chegou", e só funcionava com a tela aberta (a lógica
+era local àquela função). Agora roda globalmente a partir de applyFilt()
+(que já roda toda vez que os dados mudam, em qualquer tela) -- se o SALDO do
+item subiu desde que foi marcado, dispara o aviso automaticamente e remove
+da lista, sem precisar clicar em nada.
+3) Aviso automático de mudança no PEDIDO DE COMPRA: se a quantidade em
+pedido do item mudar desde que foi marcado, envia um aviso (sem remover da
+lista, ainda aguardando chegar de verdade) e atualiza a referência de
+comparação pra não avisar de novo pela mesma mudança. Throttle de 20s pra
+não bater no serviço de e-mail toda vez que applyFilt() roda.
+-->
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.650 - Corrige imposto cobrado 2x no Mapa de Compras (6 lugares): preco
 ja vem c/imposto incluso desde v115.638, mas custo ainda multiplicava por
@@ -1054,7 +1070,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.677</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.678</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1187,7 +1203,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.677</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.678</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1294,7 +1310,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.677</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.678</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -16442,6 +16458,74 @@ function toggleSolicitacao(ref,marca){
   }
   renderTable();
 }
+// ── ME AVISE: detecção automática de chegada / mudança de pedido ──────
+// v115.678 - Antes, "Me Avise" só disparava o e-mail quando o usuário clicava
+// manualmente em "Chegou" -- e só existia enquanto a tela ferrMeAvise()
+// estivesse aberta (as funções eram locais àquela função). Agora roda de
+// forma GLOBAL a partir de applyFilt() (que já roda toda vez que os dados
+// mudam, independente de qual tela o usuário está vendo), detectando:
+// 1) Saldo subiu desde que foi marcado -- peça chegou de verdade no estoque,
+//    dispara o mesmo aviso do botão "Chegou" e remove da lista automaticamente.
+// 2) Pedido de compra mudou desde que foi marcado -- avisa (sem remover da
+//    lista, ainda está aguardando chegar), e atualiza a referência de
+//    comparação pra não avisar de novo pela mesma mudança.
+var _maUltimaVerificacao=0;
+async function maEnviarNotificacaoGlobal(item,tipo,detalhe){
+  var emails=[];
+  try{
+    var r=await sbFetch('/rest/v1/profiles?select=email');
+    if(r.ok){var profs=await r.json();emails=profs.map(function(p){return p.email;}).filter(Boolean);}
+  }catch(e){console.warn('Erro ao buscar lista de usuários pra notificar:',e);}
+  var manual=(typeof pfNotifEmail==='function')?pfNotifEmail():'';
+  if(manual&&emails.indexOf(manual)<0)emails.push(manual);
+  if(!emails.length)emails=[manual||'vitor.lima@triexpecas.com.br'];
+  var vistos={};emails=emails.filter(function(e){var k=e.toLowerCase();if(vistos[k])return false;vistos[k]=true;return true;});
+  var obsTxt=tipo==='chegou'?'✅ Chegou no estoque (detectado automaticamente)':'📦 Pedido de compra alterado: '+detalhe;
+  return Promise.all(emails.map(function(toEmail){
+    return emailjs.send('service_2lp37gt','template_8r5j0sq',{
+      to_email:toEmail,ref:item.ref,marca:item.marca||'—',obs:obsTxt,
+      cod_cliente:item.cod_cliente||'—',nome_cliente:item.nome_cliente||'—'
+    });
+  }));
+}
+function maVerificarMudancasAutomaticas(){
+  // Throttle: no máximo 1x a cada 20s, mesmo que applyFilt() rode mais vezes
+  // seguidas (evita bater no emailjs repetidamente à toa).
+  if(Date.now()-_maUltimaVerificacao<20000)return;
+  _maUltimaVerificacao=Date.now();
+  if(typeof sbUser==='undefined'||!sbUser)return;
+  var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){return;}
+  if(!lista.length)return;
+  var _itemPorChaveMA={};
+  (typeof calcItems!=='undefined'?calcItems:[]).forEach(function(c){_itemPorChaveMA[solKey(c.ref,c.marca)]=c;});
+  var mudou=false;
+  var i=0;
+  function proximo(){
+    if(i>=lista.length){
+      if(mudou){pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
+        if(typeof _pfCurrentView!=='undefined'&&_pfCurrentView==='ferramentas'&&typeof ferrMeAvise==='function'){try{ferrMeAvise();}catch(e){}}}
+      return;
+    }
+    var a=lista[i];
+    var item=_itemPorChaveMA[solKey(a.ref,a.marca||'')]||_itemPorChaveMA[a.ref+'||'];
+    if(!item){i++;proximo();return;}
+    if(a.saldo_ao_marcar!=null&&item.saldo>a.saldo_ao_marcar){
+      maEnviarNotificacaoGlobal(a,'chegou').then(function(){
+        lista.splice(i,1);mudou=true;proximo();
+      }).catch(function(e){console.warn('Falha ao enviar aviso automático de chegada:',e);i++;proximo();});
+      return;
+    }
+    if(a.pedido_ao_marcar!=null&&item.pedido!==a.pedido_ao_marcar){
+      var detalhe='era '+a.pedido_ao_marcar+', agora é '+item.pedido+' unidades';
+      maEnviarNotificacaoGlobal(a,'pedido_mudou',detalhe).then(function(){
+        a.pedido_ao_marcar=item.pedido;mudou=true;i++;proximo();
+      }).catch(function(e){console.warn('Falha ao enviar aviso automático de mudança de pedido:',e);i++;proximo();});
+      return;
+    }
+    i++;proximo();
+  }
+  proximo();
+}
 function applyFilt(){
   // Antes: pra cada chave em `solicitacoes`, rodava calcItems.find(...) -- uma
   // busca linear no array inteiro. Com calcItems na casa de 100k+ itens, isso
@@ -16483,6 +16567,7 @@ function applyFilt(){
   });
   pfSafeSetItem('solicitacoes',JSON.stringify(solicitacoes));
   autoLimparTransit();
+  try{if(typeof maVerificarMudancasAutomaticas==='function')maVerificarMudancasAutomaticas();}catch(e){console.warn('maVerificarMudancasAutomaticas falhou:',e);}
   
   const q=(document.getElementById("srch").value||"").toLowerCase();
   // Busca inteligente: "5-12932" encontra "ALB5-12932" removendo prefixo de marca
@@ -36594,13 +36679,29 @@ function ferrMeAvise(){
       '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden">';
     if(!avisos.length){html+='<div style="padding:32px;text-align:center;color:#8a9ab0">Nenhum item monitorado.</div>';}
     else{
-      html+='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#1F4E79;color:#fff"><th style="padding:8px;text-align:left">Referência</th><th style="padding:8px;text-align:left">Marca</th><th style="padding:8px;text-align:left">Cliente</th><th style="padding:8px;text-align:center">Status</th><th style="padding:8px;text-align:center">Ação</th></tr></thead><tbody>';
+      html+='<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#1F4E79;color:#fff"><th style="padding:8px;text-align:left">Referência</th><th style="padding:8px;text-align:left">Marca</th><th style="padding:8px;text-align:left">Cliente</th><th style="padding:8px;text-align:center">Pedido</th><th style="padding:8px;text-align:center">Status</th><th style="padding:8px;text-align:center">Data</th><th style="padding:8px;text-align:center">Ação</th></tr></thead><tbody>';
       avisos.forEach(function(a,i){
+        // v115.678 - Pedido atual (com indicador se mudou desde que foi
+        // marcado pra monitorar) e Data (quando foi adicionado à lista) --
+        // antes a Data nem aparecia na tela, só existia internamente.
+        var pedidoAtual=null;
+        try{
+          var itemCalc=(typeof calcItems!=='undefined'?calcItems:[]).find(function(c){return c.ref===a.ref&&(a.marca?c.marca===a.marca:true);});
+          if(itemCalc)pedidoAtual=itemCalc.pedido;
+        }catch(e){}
+        var pedidoTxt='—';
+        if(pedidoAtual!=null){
+          var mudou=a.pedido_ao_marcar!=null&&pedidoAtual!==a.pedido_ao_marcar;
+          pedidoTxt=String(pedidoAtual)+(mudou?' <span style="color:#E67E22;font-weight:700" title="Era '+a.pedido_ao_marcar+' quando foi marcado">⚠</span>':'');
+        }
+        var dataTxt=a.ts?new Date(a.ts).toLocaleDateString('pt-BR'):'—';
         html+='<tr style="border-bottom:1px solid #f0f4f8;background:'+(i%2===0?'#fff':'#FAFBFC')+'">';
         html+='<td style="padding:8px;font-weight:700;color:#1F4E79;font-family:monospace">'+a.ref+'</td>';
         html+='<td style="padding:8px">'+(a.marca||'—')+'</td>';
         html+='<td style="padding:8px"><div style="font-weight:700">'+(a.cod_cliente||'')+'</div><div style="color:#607080;font-size:11px">'+(a.nome_cliente||'—')+'</div></td>';
+        html+='<td style="padding:8px;text-align:center">'+pedidoTxt+'</td>';
         html+='<td style="padding:8px;text-align:center"><span style="background:#FFF3CD;color:#856404;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700">⏳ Aguardando</span></td>';
+        html+='<td style="padding:8px;text-align:center;color:#607080;font-size:11px;white-space:nowrap">'+dataTxt+'</td>';
         html+='<td style="padding:8px;text-align:center;white-space:nowrap">';
         html+='<button id="maChegouBtn'+i+'" onclick="maChegou('+i+')" style="background:#1F7A3A;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:700;margin-right:4px">✅ Chegou</button>';
         if(a.wa_cliente){
@@ -36659,8 +36760,14 @@ function ferrMeAvise(){
           });
           if(found)waCliente=found.whatsapp||found.tel||'';
         }
+        var saldoAoMarcar=null,pedidoAoMarcar=null;
+        try{
+          var itemAtual=(typeof calcItems!=='undefined'?calcItems:[]).find(function(c){return c.ref===it.ref&&(it.marca?c.marca===it.marca:true);});
+          if(itemAtual){saldoAoMarcar=itemAtual.saldo;pedidoAoMarcar=itemAtual.pedido;}
+        }catch(e){}
         lista.push({ref:it.ref,marca:it.marca,cod_cliente:it.cod_cliente,nome_cliente:it.nome_cliente,
-          obs:'Extraído automaticamente de cotação'+(it.data?' — '+it.data:''),wa_cliente:waCliente,ts:Date.now()});
+          obs:'Extraído automaticamente de cotação'+(it.data?' — '+it.data:''),wa_cliente:waCliente,ts:Date.now(),
+          saldo_ao_marcar:saldoAoMarcar,pedido_ao_marcar:pedidoAoMarcar});
         adicionados++;
       });
       pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
@@ -36689,7 +36796,15 @@ function ferrMeAvise(){
     }
     if(!ref){pfAlert('Informe a referência.');return;}
     var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
-    lista.push({ref:ref,marca:marca,cod_cliente:codCliente,nome_cliente:nomeCliente,obs:obs,wa_cliente:waCliente,ts:Date.now()});
+    // v115.678 - Guarda saldo/pedido no momento de marcar, pra depois detectar
+    // automaticamente se a peça chegou (saldo subiu) ou se o pedido de compra
+    // mudou, sem precisar clicar manualmente em "Chegou" (ver maVerificarMudancas).
+    var saldoAoMarcar=null,pedidoAoMarcar=null;
+    try{
+      var itemAtual=(typeof calcItems!=='undefined'?calcItems:[]).find(function(c){return c.ref===ref&&(marca?c.marca===marca:true);});
+      if(itemAtual){saldoAoMarcar=itemAtual.saldo;pedidoAoMarcar=itemAtual.pedido;}
+    }catch(e){}
+    lista.push({ref:ref,marca:marca,cod_cliente:codCliente,nome_cliente:nomeCliente,obs:obs,wa_cliente:waCliente,ts:Date.now(),saldo_ao_marcar:saldoAoMarcar,pedido_ao_marcar:pedidoAoMarcar});
     pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
     render();
   };
@@ -37819,4 +37934,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.677 --></html>
+</script></div></div></body><!-- Build timestamp: v115.678 --></html>

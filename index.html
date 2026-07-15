@@ -4,7 +4,7 @@
 
 <script>if(location.search.indexOf('logout=1')>=0){try{localStorage.clear();sessionStorage.clear();}catch(e){}location.href=location.pathname;}</script>
 <script>
-// v115.699 - Diagnóstico temporário de lentidão no carregamento ("Página sem
+// v115.700 - Diagnóstico temporário de lentidão no carregamento ("Página sem
 // resposta"). PerformanceObserver de 'longtask' pega qualquer bloqueio real
 // da thread principal (>50ms) em QUALQUER parte do código, mesmo fora dos
 // pontos que a gente já sabe medir manualmente. Só loga no console -- não
@@ -16,13 +16,14 @@ try{
       list.getEntries().forEach(function(e){
         _pfLongtasks.push(e);
         console.warn('🐢 LONGTASK: '+e.duration.toFixed(0)+'ms bloqueando a thread principal, em t='+(e.startTime/1000).toFixed(2)+'s desde o início da página');
+        if(typeof _pfLogDiagnostico==='function')_pfLogDiagnostico('longtask',{ms:Math.round(e.duration),tSegundos:+(e.startTime/1000).toFixed(2)});
       });
     });
     _pfLongtaskObs.observe({type:'longtask',buffered:true});
     window._pfLongtasks=_pfLongtasks;
   }
 }catch(e){console.warn('longtask observer indisponível:',e);}
-// v115.699 - "Batimento cardíaco": loga a hora certa a cada 1s. Se o
+// v115.700 - "Batimento cardíaco": loga a hora certa a cada 1s. Se o
 // intervalo entre dois batimentos for bem maior que 1s (ex: 8s, 15s), é
 // prova de que a thread ficou travada esse tempo TODO de uma vez só --
 // mesmo que o PerformanceObserver de longtask não tenha capturado nada
@@ -35,10 +36,33 @@ try{
     var gap=agora-_pfUltimoBatimento;
     if(gap>1500){
       console.warn('💔 GAP DE '+(gap/1000).toFixed(2)+'s entre batimentos -- a thread principal ficou travada esse tempo todo (não só um longtask isolado), em t='+(agora/1000).toFixed(2)+'s');
+      if(typeof _pfLogDiagnostico==='function')_pfLogDiagnostico('gap',{segundos:+(gap/1000).toFixed(2)});
     }
     _pfUltimoBatimento=agora;
   },1000);
 }catch(e){}
+// v115.700 - Persiste os eventos de travamento (GAP) e navegação no Supabase
+// (chave 'perf_diagnostico_v1', mesma tabela user_sync de sempre) -- assim
+// da próxima vez que travar, dá pra consultar direto no banco em vez de
+// precisar que o Vitor mande print. Só grava localmente e tenta sincronizar
+// se já tiver usuário logado; se não conseguir, não trava nada (best-effort).
+function _pfLogDiagnostico(tipo,detalhe){
+  try{
+    var lista=[];
+    try{lista=JSON.parse(localStorage.getItem('perf_diagnostico_v1')||'[]');}catch(e){lista=[];}
+    lista.push({tipo:tipo,ts:Date.now(),tSegundos:+(performance.now()/1000).toFixed(2),detalhe:detalhe});
+    if(lista.length>300)lista=lista.slice(lista.length-300);
+    localStorage.setItem('perf_diagnostico_v1',JSON.stringify(lista));
+    // Throttle: no máx 1 tentativa de sync a cada 5s, só se já tiver sessão
+    if(typeof sbUser!=='undefined'&&sbUser&&typeof pfSyncPush==='function'){
+      var agora2=Date.now();
+      if(!window._pfUltimoPushDiag||agora2-window._pfUltimoPushDiag>5000){
+        window._pfUltimoPushDiag=agora2;
+        pfSyncPush(['perf_diagnostico_v1']).catch(function(){});
+      }
+    }
+  }catch(e){}
+}
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PartsFlow</title>
@@ -1225,7 +1249,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.699</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.700</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1358,7 +1382,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.699</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.700</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1465,7 +1489,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.699</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.700</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -17307,7 +17331,7 @@ function pfEmailWrapClose(){
   return '</td></tr></table></td></tr></table>';
 }
 function pfDocHeaderHtml(subtitulo){
-  // v115.699 - bgcolor explícito (além do style) pro Outlook/Word engine não
+  // v115.700 - bgcolor explícito (além do style) pro Outlook/Word engine não
   // ignorar o fundo azul e deixar o cabeçalho "invisível" (texto branco em
   // fundo branco). Mesma causa-raiz do fix de pfDocCampoHtml na v115.689.
   return '<table cellpadding="0" cellspacing="0" style="background:#0F1E33;width:100%" bgcolor="#0F1E33"><tr>'+
@@ -17322,7 +17346,7 @@ function pfDocBannerHtml(texto,tipo){
   return '<table cellpadding="0" cellspacing="0" style="background:'+c[0]+';width:100%" bgcolor="'+c[0]+'"><tr><td style="padding:10px 28px;color:'+c[1]+';font-size:13px;font-weight:700;background:'+c[0]+'" bgcolor="'+c[0]+'">'+c[2]+' '+texto+'</td></tr></table>';
 }
 function pfDocCardHtml(titulo,camposHtml){
-  // v115.699 - Os campos (cada um com min-width:160px) não quebram linha
+  // v115.700 - Os campos (cada um com min-width:160px) não quebram linha
   // sozinhos numa <tr> só (isso só existia na versão antiga com flexbox).
   // Numa tabela real, 5+ campos numa linha só passam de 700px e o Outlook
   // mostra scroll horizontal cortando o card. Aqui a gente quebra os <td>
@@ -21857,7 +21881,7 @@ async function lpSalvarSupabase(){
         if(!sbUserData){ localStorage.removeItem('sb_session'); document.getElementById('authOverlay').style.display='flex'; return; }
       }
       sbSession=s;sbUser=sbUserData;
-      // v115.699 - Instrumentação temporária de performance pra achar o
+      // v115.700 - Instrumentação temporária de performance pra achar o
       // gargalo real do "Página sem resposta" na abertura. Loga no console
       // quanto tempo cada etapa do login leva. Remover depois de diagnosticar.
       var _pfT0=performance.now();
@@ -21879,7 +21903,7 @@ async function lpSalvarSupabase(){
       _pfLap('initUserUI');
       setTimeout(function(){if(typeof initDevMenu==='function')initDevMenu();},100);
 
-      // v115.699 - Indicador visual na tela azul inicial enquanto as
+      // v115.700 - Indicador visual na tela azul inicial enquanto as
       // sincronizações de fundo rodam. Antes disso, clicar numa seção
       // durante essa janela (que pode levar alguns segundos, mesmo já bem
       // mais rápida que antes) parecia "não fazer nada" -- agora fica
@@ -23071,7 +23095,7 @@ function mapaEmailBccTodos(){
   var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');};
   if(typeof pfEscHtml==='function') esc=pfEscHtml;
   
-  // v115.699 - Helpers locais (div/flex) removidos: Outlook/Word engine não
+  // v115.700 - Helpers locais (div/flex) removidos: Outlook/Word engine não
   // suporta flexbox, então esse e-mail quebrava o layout inteiro. Agora usa
   // as versões globais (table + bgcolor explícito) definidas mais acima,
   // as mesmas já corrigidas pra Solicitação de Compra na v115.689/690.
@@ -26471,7 +26495,7 @@ setInterval(function(){
     if(typeof sbUser==='undefined'||!sbUser)return;
     if(document.visibilityState!=='visible')return;
     if(Date.now()-(window._pfLastInteracao||0)<4000)return;
-    // v115.699 - O saldo/planilha só muda de verdade quando o usuário sobe
+    // v115.700 - O saldo/planilha só muda de verdade quando o usuário sobe
     // uma planilha nova ou uma lista de faturados -- nunca "sozinho" a cada
     // 2 minutos. Antes essa varredura pesada (montar um mapa com os 200k+
     // itens) rodava sempre, no relógio, mesmo sem nada ter mudado. Agora só
@@ -29424,7 +29448,7 @@ async function pfSyncPush(keys){
   var erros = [];
   
   try{
-    // v115.699 - Mesmo bug do pfSyncPull: cada chave era enviada em SEQUÊNCIA
+    // v115.700 - Mesmo bug do pfSyncPull: cada chave era enviada em SEQUÊNCIA
     // (await dentro de um for), uma esperando a anterior terminar. No login
     // automático isso manda 5 chaves (uma delas o catálogo de produtos, que é
     // grande) uma atrás da outra. Agora todas disparam juntas com Promise.all.
@@ -29482,7 +29506,7 @@ function pfMergeSyncValue(localRaw, remoteRaw){
   if(Array.isArray(local)&&Array.isArray(remote)){
     var porId={};
     local.forEach(function(it,i){var k=(it&&it.id!=null)?String(it.id):'_l'+i;porId[k]=it;});
-    // v115.699 - Pra itens SEM "id" (no catálogo de produtos real, isso é a
+    // v115.700 - Pra itens SEM "id" (no catálogo de produtos real, isso é a
     // maioria -- ~88% dos itens), o código antigo comparava cada item novo
     // contra TODOS os itens antigos via JSON.stringify, um por um (O(n²)).
     // Com ~3800 itens de cada lado isso batia ~14 milhões de comparações --
@@ -29523,7 +29547,7 @@ async function pfSyncPull(){
     var logKeys = ['ia_uso_log_v1','pf_login_log_v1'];
     var rows = [];
 
-    // v115.699 - Antes eram 13 requisições ao Supabase em SEQUÊNCIA (1 do
+    // v115.700 - Antes eram 13 requisições ao Supabase em SEQUÊNCIA (1 do
     // usuário + 2 de log + 10 compartilhadas), cada await esperando a
     // anterior terminar antes de disparar a próxima. Com a latência de rede
     // (Brasil <-> servidor Supabase), isso somava >10s sozinho no login --
@@ -29533,7 +29557,7 @@ async function pfSyncPull(){
     var results = await Promise.all([
       sbFetch('/rest/v1/user_sync?user_id=eq.'+sbUser.id+'&select=chave,dados,updated_at'),
       Promise.all(logKeys.map(function(lk){ return sbFetch('/rest/v1/user_sync?chave=eq.'+lk+'&select=chave,dados,updated_at,user_id'); })),
-      // v115.699 - Antes buscava as linhas de TODAS as contas pra cada chave
+      // v115.700 - Antes buscava as linhas de TODAS as contas pra cada chave
       // compartilhada e só escolhia a mais recente aqui no navegador -- só
       // que cad_produtos_v1 sozinho tem 4 cópias (uma por usuário) somando
       // ~5,4MB, e isso tudo descia pela rede pra jogar fora 3 das 4 cópias.
@@ -37940,6 +37964,7 @@ function pfToggleTools(){
 
 function pfNavigate(view){
   console.warn('👆 pfNavigate("'+view+'") chamado em t='+(performance.now()/1000).toFixed(2)+'s');
+  if(typeof _pfLogDiagnostico==='function')_pfLogDiagnostico('navigate',{view:view});
   window._pfNavegouExplicitamente=true;
   var _splash=document.getElementById('pfHomeSplash');if(_splash)_splash.style.display='none';
   pfSetActive(view);
@@ -38364,4 +38389,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.699 --></html>
+</script></div></div></body><!-- Build timestamp: v115.700 --></html>

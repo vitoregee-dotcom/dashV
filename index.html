@@ -137,6 +137,17 @@ auth.uid()=user_id, e sem o campo enviado a gravação era sempre bloqueada
 Corrigido enviando user_id:sbUser.id, igual já é feito em outras tabelas
 (ex: cad_catalogos_pdf).
 -->
+<!-- v115.673 - Abrir o Dashboard parecia travar por completo (sem nenhum
+indício visual de carregamento) por ~1,6s -- na verdade já existia um spinner
+("Preparando Dashboard..."), mas ele era mostrado e o cálculo pesado
+(applyFilt, ~1s sozinho processando 200k+ itens) começava no MESMO ciclo
+síncrono logo em seguida. Isso impedia o navegador de sequer PINTAR o spinner
+na tela antes de travar a thread principal -- ou seja, o spinner nunca chegava
+a aparecer de fato, só o resultado final depois de tudo pronto. Corrigido com
+setTimeout(0) adiando o início do cálculo por um tick, dando tempo do
+navegador desenhar o spinner primeiro. Não deixa o cálculo mais rápido, mas
+agora fica claro que algo está rodando, em vez de parecer travamento.
+-->
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.650 - Corrige imposto cobrado 2x no Mapa de Compras (6 lugares): preco
 ja vem c/imposto incluso desde v115.638, mas custo ainda multiplicava por
@@ -1002,7 +1013,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.672</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.673</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1135,7 +1146,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.672</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.673</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1242,7 +1253,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.672</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.673</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -37281,9 +37292,19 @@ function pfNavigate(view){
       if(typeof pfRenderDashNow==='function'){
         var _spD=document.getElementById('spinner');
         if(_spD){_spD.style.display='block';_spD.textContent='📊 Preparando Dashboard...';}
-        pfRenderDashNow().then(function(){
-          if(_spD)_spD.style.display='none';
-        }).catch(function(e){console.warn('pfRenderDashNow erro:',e);if(_spD)_spD.style.display='none';});
+        // v115.673 - O calculo pesado (applyFilt processa 200k+ itens, ~1s)
+        // rodava no MESMO ciclo sincrono logo apos mostrar o spinner -- isso
+        // impedia o navegador de sequer PINTAR o spinner na tela antes de
+        // travar a thread principal (o spinner só apareceria depois que tudo
+        // já tivesse acabado, ou seja, nunca aparecia de fato). Resultado:
+        // parecia travamento completo, sem nenhum indicio visual de que algo
+        // estava rodando. Um setTimeout(0) aqui adia o inicio do calculo por
+        // um tick, dando tempo do navegador desenhar o spinner primeiro.
+        setTimeout(function(){
+          pfRenderDashNow().then(function(){
+            if(_spD)_spD.style.display='none';
+          }).catch(function(e){console.warn('pfRenderDashNow erro:',e);if(_spD)_spD.style.display='none';});
+        },0);
       }
     } else {
       document.body.classList.add('no-data');
@@ -37645,4 +37666,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.672 --></html>
+</script></div></div></body><!-- Build timestamp: v115.673 --></html>

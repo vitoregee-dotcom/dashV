@@ -239,6 +239,17 @@ consumo_verificacao_anterior. Roda a cada 2 min junto com a verificação do
 Me Avise (apostasVerificarVendas), fora do applyFilt() pra não repetir o
 problema de performance da v115.680.
 -->
+<!-- v115.682 - Três correções/melhorias no Me Avise:
+1) Corrige erro "recipients address is corrupted" -- existia um perfil de
+usuário cadastrado com e-mail literalmente "EMAIL_DO_USUARIO" (um placeholder
+de teste nunca preenchido, removido do banco), que quebrava o envio pra
+TODOS os usuários porque o EmailJS rejeita o lote inteiro se 1 endereço for
+inválido. Blindado no código: agora filtra por formato de e-mail válido
+antes de tentar enviar, não só "existe" (Boolean).
+2) Novo campo "E-mail extra" por item -- permite incluir um colega
+específico pra receber aviso só daquele item (além de todos os usuários),
+com botão ✉ pra editar itens já existentes.
+-->
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.650 - Corrige imposto cobrado 2x no Mapa de Compras (6 lugares): preco
 ja vem c/imposto incluso desde v115.638, mas custo ainda multiplicava por
@@ -1104,7 +1115,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.681</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.682</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1237,7 +1248,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.681</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.682</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1344,7 +1355,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.681</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.682</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -16563,10 +16574,11 @@ async function maEnviarNotificacaoGlobal(item,tipo,detalhe){
   var emails=[];
   try{
     var r=await sbFetch('/rest/v1/profiles?select=email');
-    if(r.ok){var profs=await r.json();emails=profs.map(function(p){return p.email;}).filter(Boolean);}
+    if(r.ok){var profs=await r.json();emails=profs.map(function(p){return p.email;}).filter(function(e){return e&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);});}
   }catch(e){console.warn('Erro ao buscar lista de usuários pra notificar:',e);}
   var manual=(typeof pfNotifEmail==='function')?pfNotifEmail():'';
   if(manual&&emails.indexOf(manual)<0)emails.push(manual);
+  if(item.email_extra&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item.email_extra)&&emails.indexOf(item.email_extra)<0)emails.push(item.email_extra);
   if(!emails.length)emails=[manual||'vitor.lima@triexpecas.com.br'];
   var vistos={};emails=emails.filter(function(e){var k=e.toLowerCase();if(vistos[k])return false;vistos[k]=true;return true;});
   var textos={
@@ -36825,6 +36837,7 @@ function ferrMeAvise(){
       '<input id="maCodCliente" placeholder="Código do cliente" style="flex:1;min-width:110px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px">'+
       '<input id="maNomeCliente" placeholder="Nome do cliente" style="flex:2;min-width:140px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px">'+
       '<input id="maObs" placeholder="Observação (opcional)" style="flex:2;min-width:140px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px">'+
+      '<input id="maEmailExtra" type="email" placeholder="✉ E-mail extra pra esse item (opcional)" style="flex:2;min-width:180px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px">'+
       '<button onclick="maAdicionar()" style="background:#E67E22;color:#fff;border:none;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:13px;font-weight:700">+ Adicionar</button>'+
       '</div></div>'+
       '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden">';
@@ -36849,7 +36862,7 @@ function ferrMeAvise(){
         html+='<tr style="border-bottom:1px solid #f0f4f8;background:'+(i%2===0?'#fff':'#FAFBFC')+'">';
         html+='<td style="padding:8px;font-weight:700;color:#1F4E79;font-family:monospace">'+a.ref+'</td>';
         html+='<td style="padding:8px">'+(a.marca||'—')+'</td>';
-        html+='<td style="padding:8px"><div style="font-weight:700">'+(a.cod_cliente||'')+'</div><div style="color:#607080;font-size:11px">'+(a.nome_cliente||'—')+'</div></td>';
+        html+='<td style="padding:8px"><div style="font-weight:700">'+(a.cod_cliente||'')+'</div><div style="color:#607080;font-size:11px">'+(a.nome_cliente||'—')+'</div>'+(a.email_extra?'<div style="color:#1F4E79;font-size:10px">✉ '+a.email_extra+'</div>':'')+'</td>';
         html+='<td style="padding:8px;text-align:center">'+pedidoTxt+'</td>';
         html+='<td style="padding:8px;text-align:center"><span style="background:#FFF3CD;color:#856404;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700">⏳ Aguardando</span></td>';
         html+='<td style="padding:8px;text-align:center;color:#607080;font-size:11px;white-space:nowrap">'+dataTxt+'</td>';
@@ -36858,6 +36871,7 @@ function ferrMeAvise(){
         if(a.wa_cliente){
           html+='<button onclick="maWhatsApp('+i+')" style="background:#25D366;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:700;margin-right:4px">📱 WA</button>';
         }
+        html+='<button onclick="maEditarEmailExtra('+i+')" title="Incluir/editar e-mail extra pra esse item" style="background:none;border:1px solid #e0e8f0;color:#1F4E79;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;margin-right:4px">✉</button>';
         html+='<button onclick="maRemover('+i+')" style="background:none;border:1px solid #e0e8f0;color:#C00000;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px">🗑</button></td></tr>';
       });
       html+='</tbody></table>';
@@ -36937,6 +36951,7 @@ function ferrMeAvise(){
     var codCliente=(document.getElementById('maCodCliente').value||'').trim();
     var nomeCliente=(document.getElementById('maNomeCliente').value||'').trim();
     var obs=(document.getElementById('maObs').value||'').trim();
+    var emailExtra=(document.getElementById('maEmailExtra').value||'').trim();
     // Tenta buscar whatsapp do cadastro
     var waCliente='';
     if(codCliente||nomeCliente){
@@ -36957,8 +36972,20 @@ function ferrMeAvise(){
       if(itemAtual){saldoAoMarcar=itemAtual.saldo;pedidoAoMarcar=itemAtual.pedido;transitoAoMarcar=itemAtual.tA;}
     }catch(e){}
     lista.push({ref:ref,marca:marca,cod_cliente:codCliente,nome_cliente:nomeCliente,obs:obs,wa_cliente:waCliente,ts:Date.now(),
+      email_extra:emailExtra,
       saldo_ao_marcar:saldoAoMarcar,pedido_ao_marcar:pedidoAoMarcar,transito_ao_marcar:transitoAoMarcar,
       comprado_avisado:pedidoAoMarcar>0,faturado_avisado:transitoAoMarcar>0});
+    pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
+    render();
+  };
+  window.maEditarEmailExtra=function(i){
+    var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
+    var a=lista[i];if(!a)return;
+    var novo=prompt('E-mail extra pra receber avisos SÓ desse item ('+a.ref+'):',a.email_extra||'');
+    if(novo===null)return;
+    novo=novo.trim();
+    if(novo&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(novo)){pfAlert('E-mail inválido.');return;}
+    a.email_extra=novo;
     pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
     render();
   };
@@ -36990,10 +37017,11 @@ function ferrMeAvise(){
       var emails=[];
       try{
         var r=await sbFetch('/rest/v1/profiles?select=email');
-        if(r.ok){var profs=await r.json();emails=profs.map(function(p){return p.email;}).filter(Boolean);}
+        if(r.ok){var profs=await r.json();emails=profs.map(function(p){return p.email;}).filter(function(e){return e&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);});}
       }catch(e){console.warn('Erro ao buscar lista de usuários pra notificar:',e);}
       var manual=pfNotifEmail();
       if(manual&&emails.indexOf(manual)<0)emails.push(manual);
+      if(a.email_extra&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.email_extra)&&emails.indexOf(a.email_extra)<0)emails.push(a.email_extra);
       if(!emails.length)emails=[manual||'vitor.lima@triexpecas.com.br'];
       // Remove duplicados (case-insensitive)
       var vistos={};emails=emails.filter(function(e){var k=e.toLowerCase();if(vistos[k])return false;vistos[k]=true;return true;});
@@ -38088,4 +38116,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.681 --></html>
+</script></div></div></body><!-- Build timestamp: v115.682 --></html>

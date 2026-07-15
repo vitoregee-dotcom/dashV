@@ -260,6 +260,20 @@ Tudo mais (botão manual "Chegou", coluna Data/Pedido, e-mail extra por item)
 continua funcionando normalmente -- só a verificação AUTOMÁTICA periódica
 foi pausada.
 -->
+<!-- v115.684 - CAUSA RAIZ do "Página sem resposta" confirmada e corrigida:
+os 5 itens que já existiam na lista do Me Avise (criados antes da v115.678/
+679 existir) não tinham os campos de controle (pedido_ao_marcar,
+transito_ao_marcar, saldo_ao_marcar, comprado_avisado, faturado_avisado) --
+undefined. O código tratava "undefined == null" como "estava zerado",
+então na primeira checagem depois do deploy, VÁRIOS itens dispararam
+"Comprado"/"Faturado" retroativamente ao mesmo tempo, cada um mandando
+e-mail pra todos os ~9 usuários cadastrados -- essa rajada de chamadas
+simultâneas (sbFetch + emailjs.send + Notification, várias vezes em
+sequência) que travou a tela. Corrigido: agora distingue explicitamente
+undefined (item nunca rastreado antes -- semeia o valor atual em silêncio,
+sem avisar) de null/0 (rastreado de verdade, começou zerado -- dispara aviso
+normalmente quando muda). Verificação automática REATIVADA com essa correção.
+-->
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.650 - Corrige imposto cobrado 2x no Mapa de Compras (6 lugares): preco
 ja vem c/imposto incluso desde v115.638, mas custo ainda multiplicava por
@@ -1125,7 +1139,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.683</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.684</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1258,7 +1272,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.683</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.684</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1365,7 +1379,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.683</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.684</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -16645,6 +16659,21 @@ function maVerificarMudancasAutomaticas(){
     var a=lista[i];
     var item=_itemPorChaveMA[solKey(a.ref,a.marca||'')]||_itemPorChaveMA[a.ref+'||'];
     if(!item){i++;proximo();return;}
+    // v115.684 - CORREÇÃO DO BUG REAL que causou o travamento: itens que já
+    // existiam na lista ANTES dessa funcionalidade existir não tinham esses
+    // campos (undefined), e o código tratava undefined==null como "estava
+    // zerado", disparando "Comprado"/"Faturado" retroativamente pra vários
+    // itens de uma vez (cada um mandando e-mail pra todos os usuários) na
+    // primeira checagem depois do deploy -- isso que sobrecarregou a tela.
+    // Agora, item nunca rastreado antes (===undefined) só SEMEIA o valor
+    // atual silenciosamente, sem avisar -- só dispara aviso quando MUDA de
+    // verdade a partir de um valor já conhecido.
+    if(a.pedido_ao_marcar===undefined||a.transito_ao_marcar===undefined||a.saldo_ao_marcar===undefined){
+      if(a.pedido_ao_marcar===undefined){a.pedido_ao_marcar=item.pedido||0;a.comprado_avisado=item.pedido>0;}
+      if(a.transito_ao_marcar===undefined){a.transito_ao_marcar=item.tA||0;a.faturado_avisado=item.tA>0;}
+      if(a.saldo_ao_marcar===undefined)a.saldo_ao_marcar=item.saldo||0;
+      mudou=true;i++;proximo();return;
+    }
     // 3) Chegou -- prioridade máxima, remove da lista (ciclo completo)
     if(a.saldo_ao_marcar!=null&&item.saldo>a.saldo_ao_marcar){
       maEnviarNotificacaoGlobal(a,'chegou').then(function(){
@@ -26271,16 +26300,15 @@ setInterval(function(){
 // pesquisar deixava a tela "impossível de navegar". Agora roda sozinha, num
 // intervalo próprio de 2 minutos, sem interferir em nada que o usuário
 // esteja fazendo.
-// v115.683 - PAUSADO temporariamente. Depois de 2 regressões de performance
-// seguidas nessa função (v115.679 travando busca, agora reportado como
-// "Página sem resposta" mesmo já rodando fora do applyFilt), decidi
-// desativar até confirmar com segurança a causa raiz, em vez de arriscar
-// piorar de novo um sistema em uso todo dia. O código fica pronto, só não
-// executa (return imediato) -- reativar assim que a causa for confirmada e
-// corrigida com mais cautela (ex: processar em lotes menores, evitar disparo
-// retroativo em itens que já existiam antes dessa feature).
+// v115.684 - REATIVADO. Causa raiz confirmada e corrigida: itens que já
+// existiam na lista antes dessa feature não tinham os campos de controle
+// (undefined), e o código tratava undefined==null como "estava zerado",
+// disparando "Comprado"/"Faturado" retroativamente pra vários itens de uma
+// vez (cada um mandando e-mail pra todos os usuários) na primeira checagem
+// -- isso que sobrecarregou a tela. Agora distingue undefined (nunca
+// rastreado -- semeia silenciosamente) de null/0 (rastreado, zerado de
+// verdade -- dispara aviso normalmente). Ver maVerificarMudancasAutomaticas.
 setInterval(function(){
-  return; // PAUSADO -- ver comentário acima (v115.683)
   try{
     if(typeof sbUser==='undefined'||!sbUser)return;
     if(document.visibilityState!=='visible')return;
@@ -38135,4 +38163,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.683 --></html>
+</script></div></div></body><!-- Build timestamp: v115.684 --></html>

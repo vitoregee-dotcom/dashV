@@ -157,6 +157,17 @@ não dizia nada útil quando a base de comparação era zero (sempre mostrava
 KPIs do topo também trocados: "Total Vendido" e "Melhor Aposta" agora em
 unidades, não mais percentual.
 -->
+<!-- v115.675 - Dashboard travava (~1,6s) toda vez que o usuário saía e voltava
+pra essa tela, mesmo sem nenhum dado ter mudado nesse meio tempo. Causa: uma
+correção anterior (v115.?) fazia o Dashboard SEMPRE redesenhar tudo de novo
+ao abrir, por precaução (evitar tela em branco em casos raros), custando o
+recálculo completo (~1s só de applyFilt nos 200k+ itens) a cada visita. Agora
+existe um contador de revisão dos dados (_pfDashDataRev, incrementado toda vez
+que recalc() reconstroi calcItems de verdade -- upload, trânsito, lead time,
+etc.). Se a revisão não mudou desde a última renderização E a tela já tem
+conteúdo, pula o recálculo inteiro -- reabrir o Dashboard fica quase instantâneo
+quando nada mudou. Se algo mudou, ainda recalcula normalmente.
+-->
 <!-- SheetJS para leitura de xlsx em iOS/Safari (Worker blob bloqueado) -->
 <!-- v115.650 - Corrige imposto cobrado 2x no Mapa de Compras (6 lugares): preco
 ja vem c/imposto incluso desde v115.638, mas custo ainda multiplicava por
@@ -1022,7 +1033,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.674</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.675</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1155,7 +1166,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.674</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.675</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1262,7 +1273,7 @@ button { min-height:36px; }
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.674</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.675</div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -16160,6 +16171,12 @@ async function recalc(skipRender){
   // skipRender=true: calcula calcItems (usado por Me Avise/Oportunidades) mas
   // pula a renderização visual do Dashboard (tabela/KPIs/gráficos), que só
   // roda quando a tela do Dashboard for realmente aberta (ver pfRenderDashNow).
+  // v115.675 - Marca que os dados mudaram desde a última renderização do
+  // Dashboard (ver pfRenderDashNow/pfNavigate) -- permite pular o recálculo
+  // pesado (~1s) quando o usuário sai e volta pro Dashboard sem nada ter
+  // mudado nesse meio tempo (o motivo mais comum do "travou de novo" ao
+  // reabrir a tela).
+  window._pfDashDataRev=(window._pfDashDataRev||0)+1;
   const CHUNK=500;
   const myGen=++_recalcGen;
   calcItems=[];
@@ -16252,6 +16269,19 @@ async function recalc(skipRender){
 // quando a tela é aberta e o cálculo já rodou em segundo plano com skipRender=true.
 // Evita reprocessar os 207k itens de novo — só desenha o que já foi calculado.
 async function pfRenderDashNow(){
+  // v115.675 - Se os dados não mudaram desde a última vez que o Dashboard foi
+  // desenhado (nenhum recalc() rodou nesse meio tempo -- ver _pfDashDataRev),
+  // pula o recálculo pesado inteiro. Isso é o caso mais comum de "sair do
+  // Dashboard e voltar": nada mudou, mas antes redesenhava tudo de novo (~1,6s)
+  // toda vez só por precaução (caso o conteúdo tivesse sido limpo). Agora só
+  // força o recálculo se a revisão dos dados mudou, ou se o conteúdo da tela
+  // realmente estiver vazio (cobre o caso raro que motivou o "sempre redesenha").
+  const _dashDiv=document.getElementById('dash');
+  const _jaTemConteudo=_dashDiv&&_dashDiv.innerHTML.trim().length>100;
+  if(window._pfDashRendered&&window._pfDashRenderedRev===window._pfDashDataRev&&_jaTemConteudo){
+    console.log('🕐 pfRenderDashNow: dados não mudaram desde a última renderização, pulando recálculo.');
+    return;
+  }
   console.log('🕐 pfRenderDashNow chamado — calcItems.length='+(typeof calcItems!=='undefined'?calcItems.length:'?'));
   console.time('⏱️ pfRenderDashNow TOTAL');
   if(!calcItems.length){
@@ -16282,6 +16312,7 @@ async function pfRenderDashNow(){
   atualizarFiltroGrupo();
   if(typeof renderOpBox==='function')renderOpBox();
   window._pfDashRendered=true;
+  window._pfDashRenderedRev=window._pfDashDataRev;
   console.timeEnd('⏱️ pfRenderDashNow TOTAL');
 }
 // ── SOLICITAÇÕES – Supabase sync ──────────────────────────────
@@ -37684,4 +37715,4 @@ function assistIALimparHistorico(){
   document.body.insertAdjacentHTML('beforeend', widgetHtml);
 })();
 
-</script></div></div></body><!-- Build timestamp: v115.674 --></html>
+</script></div></div></body><!-- Build timestamp: v115.675 --></html>

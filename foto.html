@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PartsFlow — Foto do item</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Calibri,Arial,sans-serif;background:#F9FAFC;color:#1a2332;-webkit-text-size-adjust:100%}
+  .wrap{max-width:480px;margin:0 auto;padding:28px 20px;text-align:center;min-height:100vh}
+  .logo{font-size:38px;margin-bottom:6px}
+  h1{margin:0 0 4px;font-size:20px;color:#1a2332}
+  .marca{color:#607080;font-weight:400}
+  .desc{color:#607080;font-size:13px;margin-bottom:6px}
+  .loc{display:inline-block;background:#EEF2F7;color:#1F4E79;font-size:13px;font-weight:700;padding:5px 14px;border-radius:20px;margin-bottom:8px}
+  .obs{background:#FFF3E8;color:#B8790A;font-size:12px;padding:8px 12px;border-radius:8px;margin:10px 0}
+  .status{margin:16px 0;min-height:20px;font-size:13px}
+  .btn-cam,.btn-gal{display:flex;align-items:center;justify-content:center;gap:8px;border-radius:14px;padding:18px 24px;cursor:pointer;font-size:15px;font-weight:700;position:relative;overflow:hidden;width:100%;box-sizing:border-box;margin-bottom:10px}
+  .btn-cam{background:#C2410C;color:#fff;border:none}
+  .btn-gal{background:#fff;color:#C2410C;border:2px solid #C2410C}
+  .btn-cam input,.btn-gal input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+  .fotos{display:flex;gap:8px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+  .fotos img{width:76px;height:76px;object-fit:cover;border-radius:8px;border:1.5px solid #e0e8f0}
+  .rodape{margin-top:24px;color:#c0c8d0;font-size:10px}
+  .erro{color:#C00000}
+  .loading{color:#8a9ab0;padding:60px 0}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="loading">🔎 Carregando...</div>
+</div>
+
+<script>
+// v1 - Página leve e separada da Solicitação de Fotos. Criada porque a
+// versão anterior (dentro do app inteiro, index.html) travava no Safari do
+// iPhone: o app inteiro tem o catálogo de produtos carregado (megabytes),
+// e ao abrir a câmera/galeria o iOS às vezes descarrega a aba pra liberar
+// memória, perdendo a foto no meio do caminho. Essa página só toca numa
+// tabela pequena e dedicada (fotos_solicitacoes) -- nunca carrega nem
+// escreve no catálogo grande. O anexo ao Cadastro de Produtos acontece
+// depois, automaticamente, da próxima vez que alguém abrir o PartsFlow
+// normal (ver sfProcessarPendentes no index.html).
+var SB_URL="https://bqbdypizmeirezedvefo.supabase.co";
+var SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxYmR5cGl6bWVpcmV6ZWR2ZWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMDYzODQsImV4cCI6MjA5Mzc4MjM4NH0.U1Mp34FxsHobn8LGxSCkbSQtHiU4O8TyaARDuNn1IU8";
+
+function esc(s){return (s||'').toString().replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+async function sbFetch(path,opts){
+  opts=opts||{};
+  opts.headers=Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},opts.headers||{});
+  return fetch(SB_URL+path,opts);
+}
+
+function resizeImagem(file,maxDim,qualidade){
+  return new Promise(function(resolve,reject){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var img=new Image();
+      img.onload=function(){
+        var w=img.width,h=img.height;
+        if(w>h&&w>maxDim){h=Math.round(h*maxDim/w);w=maxDim;}
+        else if(h>maxDim){w=Math.round(w*maxDim/h);h=maxDim;}
+        var canvas=document.createElement('canvas');
+        canvas.width=w;canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg',qualidade||0.72));
+      };
+      img.onerror=function(){reject(new Error('Não consegui ler essa imagem.'));};
+      img.src=e.target.result;
+    };
+    reader.onerror=function(){reject(new Error('Não consegui ler o arquivo.'));};
+    reader.readAsDataURL(file);
+  });
+}
+
+var params=new URLSearchParams(location.search);
+var id=params.get('id')||params.get('fotoReq');
+var app=document.getElementById('app');
+
+function render(s){
+  var fotos=s.fotos||[];
+  app.innerHTML=
+    '<div class="logo">📷</div>'+
+    '<h1>'+esc(s.ref)+(s.marca?' <span class="marca">('+esc(s.marca)+')</span>':'')+'</h1>'+
+    (s.descricao?'<div class="desc">'+esc(s.descricao)+'</div>':'')+
+    (s.locacao?'<div class="loc">📍 '+esc(s.locacao)+'</div>':'')+
+    (s.obs?'<div class="obs">'+esc(s.obs)+'</div>':'')+
+    '<div class="status" id="status"></div>'+
+    (fotos.length?'<div style="color:#2A6A28;font-weight:700;font-size:13px;margin-bottom:8px">✅ '+fotos.length+' foto'+(fotos.length>1?'s enviadas':' enviada')+'</div>':'')+
+    '<div class="fotos">'+fotos.map(function(f){return '<img src="'+f+'">';}).join('')+'</div>'+
+    '<label class="btn-cam">📸 Tirar foto<input type="file" accept="image/*" id="inCam"></label>'+
+    '<label class="btn-gal">🖼️ Escolher da galeria<input type="file" accept="image/*" multiple id="inGal"></label>'+
+    '<div class="rodape">PartsFlow · Solicitação de Fotos</div>';
+  document.getElementById('inCam').addEventListener('change',function(){enviar(this,s);});
+  document.getElementById('inGal').addEventListener('change',function(){enviar(this,s);});
+}
+
+function passo(txt,cor){
+  var el=document.getElementById('status');
+  if(el)el.innerHTML='<span style="color:'+(cor||'#8a9ab0')+'">'+esc(txt)+'</span>';
+}
+
+async function enviar(input,s){
+  var files=Array.from(input.files||[]);
+  if(!files.length)return;
+  passo('1/4 · Recebido '+files.length+' arquivo(s)...');
+  try{
+    var fotosNovas=[];
+    for(var i=0;i<files.length;i++){
+      passo('2/4 · Processando foto '+(i+1)+' de '+files.length+'...');
+      var b64=await resizeImagem(files[i],1280,0.72);
+      fotosNovas.push(b64);
+    }
+    passo('3/4 · Enviando pro servidor...');
+    var fotosFinal=(s.fotos||[]).concat(fotosNovas);
+    var r=await sbFetch('/rest/v1/fotos_solicitacoes?id=eq.'+encodeURIComponent(id),{
+      method:'PATCH',
+      headers:{'Prefer':'return=representation'},
+      body:JSON.stringify({
+        fotos:fotosFinal,
+        status:'atendida',
+        atendido_por:(localStorage.getItem('sf_nome_atendente')||'').trim()||'Estoque',
+        atendido_em:new Date().toISOString(),
+        processado:false
+      })
+    });
+    if(!r.ok){throw new Error('Servidor recusou salvar (HTTP '+r.status+').');}
+    var atualizado=await r.json();
+    s=atualizado&&atualizado[0]?atualizado[0]:s;
+    passo('4/4 · ✅ Enviado! Obrigado.','#2A6A28');
+    setTimeout(function(){render(s);},600);
+  }catch(e){
+    passo('❌ Erro: '+e.message+' — tenta de novo.','#C00000');
+  }
+}
+
+(async function(){
+  if(!id){
+    app.innerHTML='<div class="erro" style="padding:40px">Link inválido -- falta o identificador da solicitação.</div>';
+    return;
+  }
+  try{
+    var r=await sbFetch('/rest/v1/fotos_solicitacoes?id=eq.'+encodeURIComponent(id)+'&select=*');
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    var rows=await r.json();
+    if(!rows||!rows[0]){
+      app.innerHTML='<div class="erro" style="padding:40px">Solicitação não encontrada (pode já ter sido excluída).</div>';
+      return;
+    }
+    render(rows[0]);
+  }catch(e){
+    app.innerHTML='<div class="erro" style="padding:40px">Não consegui carregar a solicitação: '+esc(e.message)+'<br><br><button onclick="location.reload()" style="padding:8px 16px;border-radius:8px;border:1px solid #ccc;background:#fff;cursor:pointer">Tentar de novo</button></div>';
+  }
+})();
+</script>
+</body>
+</html>

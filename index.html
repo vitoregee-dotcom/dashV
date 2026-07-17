@@ -37771,13 +37771,13 @@ function ferrCondPgto(){
     '</div>'+
 
     '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:20px;margin-bottom:16px">'+
-    '<div style="font-size:11px;font-weight:700;color:#607080;margin-bottom:8px">PRINT DO PEDIDO</div>'+
-    '<div id="condPgtoZone" onpaste="condPgtoPaste(event)" tabindex="0" style="border:2px dashed #27AE60;border-radius:10px;padding:20px 24px;cursor:pointer;display:inline-flex;flex-direction:column;align-items:center;gap:8px;outline:none;min-width:260px" onclick="document.getElementById(\'condPgtoFile\').click()">'+
-    '<span style="font-size:13px;font-weight:700;color:#27AE60">📋 Cole aqui com Ctrl+V</span>'+
-    '<span style="font-size:11px;color:#8a9ab0">ou clique para buscar arquivo</span>'+
-    '<input id="condPgtoFile" type="file" accept="image/*,application/pdf" style="display:none" onchange="condPgtoLerPrint(this)">'+
+    '<div style="font-size:11px;font-weight:700;color:#607080;margin-bottom:10px">PRINT DO PEDIDO</div>'+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">'+
+    '<label style="display:inline-flex;align-items:center;gap:6px;background:#27AE60;color:#fff;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:13px;font-weight:700;position:relative;overflow:hidden">'+
+    '📎 Carregar<input id="condPgtoFile" type="file" accept="image/*,application/pdf" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer" onchange="condPgtoLerPrint(this)"></label>'+
+    '<button onclick="condPgtoColarClipboard()" style="display:inline-flex;align-items:center;gap:6px;background:#6c757d;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:13px;font-weight:700">📋 Colar Print</button>'+
+    '<span id="condPgtoStatus" style="font-size:11px;color:#8a9ab0"></span>'+
     '</div>'+
-    '<span id="condPgtoStatus" style="font-size:11px;color:#8a9ab0;margin-left:12px"></span>'+
     '</div>'+
 
     '<div id="condPgtoBody" style="display:none">'+
@@ -37818,11 +37818,7 @@ function ferrCondPgto(){
     '</div>'+
     '</div>'+
     '</div>';
-  // Foca zona de paste automaticamente + listener global para Ctrl+V
-  setTimeout(function(){
-    var z=document.getElementById('condPgtoZone');
-    if(z)z.focus();
-  },100);
+  // Listener global de paste continua ativo mesmo sem a zona antiga --
   // Remove o listener anterior (usando a referência ANTIGA) antes de criar um novo --
   // sem isso, cada vez que esse modal abria (mesma sessão, muitas vezes), acumulava
   // mais um listener de 'paste' permanente no document, sem nunca limpar (vazamento
@@ -37844,6 +37840,31 @@ async function condPgtoPaste(event){
       return;
     }
   }
+}
+
+async function condPgtoColarClipboard(){
+  var btn=document.querySelector('button[onclick="condPgtoColarClipboard()"]');
+  if(btn){btn.textContent='⏳ Lendo...';btn.disabled=true;}
+  var st=document.getElementById('condPgtoStatus');
+  try{
+    var items=await navigator.clipboard.read();
+    var imageItem=null;
+    for(var i=0;i<items.length;i++){
+      var t=items[i].types.find(function(x){return x.startsWith('image/');});
+      if(t){imageItem={item:items[i],type:t};break;}
+    }
+    if(imageItem){
+      var blob=await imageItem.item.getType(imageItem.type);
+      var file=new File([blob],'clipboard.png',{type:imageItem.type});
+      if(btn){btn.textContent='📋 Colar Print';btn.disabled=false;}
+      await condPgtoProcessar(file);
+      return;
+    }
+    if(st)st.textContent='Nenhuma imagem na área de transferência — tenta Ctrl+V.';
+  }catch(e){
+    if(st)st.textContent='Sem acesso à área de transferência — tenta Ctrl+V direto na tela.';
+  }
+  if(btn){btn.textContent='📋 Colar Print';btn.disabled=false;}
 }
 
 async function condPgtoLerPrint(input){

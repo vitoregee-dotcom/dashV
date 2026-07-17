@@ -37794,7 +37794,7 @@ function ferrCondPgto(){
     '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:20px;margin-bottom:16px">'+
     '<div style="font-size:11px;font-weight:700;color:#607080;margin-bottom:12px">DADOS DO PEDIDO</div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'+
-    '<div><div style="font-size:10px;color:#8a9ab0;margin-bottom:3px;text-transform:uppercase">Nº Pedido</div><div id="cpPedido" style="font-size:15px;font-weight:700;color:#1F4E79"></div></div>'+
+    '<div><div style="font-size:10px;color:#8a9ab0;margin-bottom:3px;text-transform:uppercase">Cotação/Pedido</div><div id="cpPedido" style="font-size:15px;font-weight:700;color:#1F4E79"></div></div>'+
     '<div><div style="font-size:10px;color:#8a9ab0;margin-bottom:3px;text-transform:uppercase">Cotação</div><div id="cpCotacao" style="font-size:15px;font-weight:700;color:#1F4E79"></div></div>'+
     '<div style="grid-column:1/-1"><div style="font-size:10px;color:#8a9ab0;margin-bottom:3px;text-transform:uppercase">Cliente</div><div id="cpCliente" style="font-size:14px;font-weight:700;color:#1a2332"></div></div>'+
     '<div><div style="font-size:10px;color:#8a9ab0;margin-bottom:3px;text-transform:uppercase">Valor Bruto</div><div id="cpBruto" style="font-size:15px;font-weight:700;color:#1a2332"></div></div>'+
@@ -37922,7 +37922,7 @@ async function condPgtoProcessar(file){
       return;
     }
     document.getElementById('condPgtoBody').style.display='block';
-    document.getElementById('cpPedido').textContent = _condPgtoData.numero_pedido||'—';
+    document.getElementById('cpPedido').textContent = _condPgtoData.numero_pedido||_condPgtoData.cotacao||'—';
     document.getElementById('cpCotacao').textContent = _condPgtoData.cotacao||'—';
     document.getElementById('cpCliente').textContent = _condPgtoData.cliente||'—';
     document.getElementById('cpBruto').textContent = 'R$ '+(_condPgtoData.valor_bruto||'—');
@@ -37953,11 +37953,21 @@ function condPgtoSelCond(cond){
     b.style.color = on ? '#fff' : '#607080';
     b.style.borderColor = on ? '#27AE60' : '#d0d8e8';
   });
+  // v115.766 - Guarda a condição selecionada numa variável de verdade.
+  // Antes, condPgtoCopiarHTML/condPgtoOutlook tentavam redescobrir isso
+  // procurando '[style*="27AE60"]' no DOM -- mas o navegador reescreve cor
+  // hex pra rgb(...) no atributo style, então essa busca sempre falhava
+  // silenciosamente e o texto do e-mail saía sem a condição nenhuma.
+  window._condPgtoSelecionada = cond;
   if(!_condPgtoData) return;
   var d = _condPgtoData;
-  var assunto = 'Autorização de Prazo — Pedido '+d.numero_pedido;
+  // v115.766 - Cotação/Pedido: a maioria das cotações de venda não tem
+  // "número de pedido" ainda (só número de cotação) -- usa a cotação como
+  // reserva quando não tiver pedido, em vez de mostrar "—" sem necessidade.
+  var refPedido = d.numero_pedido || d.cotacao || '—';
+  var assunto = 'Autorização de Prazo — Cotação/Pedido '+refPedido;
   var corpo = 'Olá, equipe!<br><br>@Carlos Henrique, por favor autorizar condição de pagamento <strong>'+cond+'</strong> para o pedido abaixo:<br><br>'+
-    '<strong>Pedido:</strong> '+d.numero_pedido+' &nbsp;|&nbsp; '+
+    '<strong>Cotação/Pedido:</strong> '+refPedido+' &nbsp;|&nbsp; '+
     '<strong>Cliente:</strong> '+d.cliente+' &nbsp;|&nbsp; '+
     '<strong>Valor Bruto:</strong> R$ '+d.valor_bruto+' &nbsp;|&nbsp; '+
     '<strong>Valor Líquido:</strong> R$ '+d.valor_liquido+'<br><br>'+
@@ -37976,10 +37986,17 @@ function condPgtoSelCond(cond){
 // corpo do e-mail passou a usar o mesmo padrão visual PartsFlow (ícone,
 // linha inferior colorida, card de dados) em vez de <p> simples. "@Carlos"
 // também virou "@Carlos Henrique" em todos os lugares, a pedido do Vitor.
+// v115.766 - Removido max-width:600px + margin:0 auto do wrapper: isso faz
+// sentido pra um e-mail RECEBIDO (visualizado num painel de leitura), mas
+// aqui o destino é colar dentro de um rascunho já aberto no Outlook, onde
+// a centralização só faz ficar pequeno e sobrando espaço em branco nos dois
+// lados. Também troca "Pedido" por "Cotação/Pedido" com fallback pra
+// cotação quando não tem número de pedido ainda.
 function condPgtoCopiarHTML(){
   var d = _condPgtoData;
-  var cond = document.querySelector('.cpChip[style*="27AE60"]')?.dataset.cond||'';
-  var html = '<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;font-family:Calibri,Arial,sans-serif;color:#1a2332" bgcolor="#ffffff">'+
+  var cond = window._condPgtoSelecionada||'';
+  var refPedido = d.numero_pedido || d.cotacao || '—';
+  var html = '<table cellpadding="0" cellspacing="0" style="background:#ffffff;font-family:Calibri,Arial,sans-serif;color:#1a2332" bgcolor="#ffffff">'+
     '<tr><td bgcolor="#ffffff">'+
     '<table cellpadding="0" cellspacing="0" style="width:100%;border-bottom:2px solid #27AE60"><tr>'+
     '<td style="padding:16px 6px 16px 0;width:36px;vertical-align:middle;font-size:22px">🤝</td>'+
@@ -37993,7 +38010,7 @@ function condPgtoCopiarHTML(){
     '<tr><td bgcolor="#ffffff"><table cellpadding="0" cellspacing="0" style="border:1px solid #e8edf4;border-collapse:collapse;width:100%;margin:0 0 16px 0;background:#ffffff" bgcolor="#ffffff">'+
     '<tr><td colspan="2" style="background:#F7F9FC;padding:9px 16px;font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #e8edf4" bgcolor="#F7F9FC">Dados do Pedido</td></tr>'+
     '<tr>'+
-    '<td style="padding:13px 16px;border-right:1px solid #e8edf4;border-bottom:1px solid #e8edf4;vertical-align:top;background:#ffffff" bgcolor="#ffffff"><div style="font-size:10px;color:#8a9ab0;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Pedido</div><div style="font-size:14px;font-weight:700;color:#1a2332">'+(d.numero_pedido||'—')+'</div></td>'+
+    '<td style="padding:13px 16px;border-right:1px solid #e8edf4;border-bottom:1px solid #e8edf4;vertical-align:top;background:#ffffff" bgcolor="#ffffff"><div style="font-size:10px;color:#8a9ab0;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Cotação/Pedido</div><div style="font-size:14px;font-weight:700;color:#1a2332">'+refPedido+'</div></td>'+
     '<td style="padding:13px 16px;border-bottom:1px solid #e8edf4;vertical-align:top;background:#ffffff" bgcolor="#ffffff"><div style="font-size:10px;color:#8a9ab0;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Cliente</div><div style="font-size:14px;font-weight:700;color:#1a2332">'+(d.cliente||'—')+'</div></td>'+
     '</tr><tr>'+
     '<td style="padding:13px 16px;border-right:1px solid #e8edf4;vertical-align:top;background:#ffffff" bgcolor="#ffffff"><div style="font-size:10px;color:#8a9ab0;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">Valor Bruto</div><div style="font-size:14px;font-weight:700;color:#1a2332">R$ '+(d.valor_bruto||'—')+'</div></td>'+
@@ -38001,7 +38018,7 @@ function condPgtoCopiarHTML(){
     '</tr></table></td></tr>'+
     '<tr><td bgcolor="#ffffff"><p style="margin:0;font-size:13px;line-height:1.6">Obrigado!<br>'+pfNomeUsuario()+'</p></td></tr>'+
     '</table>';
-  var plain = 'Olá, equipe!\n\n@Carlos Henrique, por favor autorizar condição de pagamento '+cond+' para o pedido abaixo:\n\nPedido: '+(d.numero_pedido||'—')+' | Cliente: '+(d.cliente||'—')+' | Valor Bruto: R$ '+(d.valor_bruto||'—')+' | Valor Líquido: R$ '+(d.valor_liquido||'—')+'\n\nObrigado!\n'+pfNomeUsuario();
+  var plain = 'Olá, equipe!\n\n@Carlos Henrique, por favor autorizar condição de pagamento '+cond+' para o pedido abaixo:\n\nCotação/Pedido: '+refPedido+' | Cliente: '+(d.cliente||'—')+' | Valor Bruto: R$ '+(d.valor_bruto||'—')+' | Valor Líquido: R$ '+(d.valor_liquido||'—')+'\n\nObrigado!\n'+pfNomeUsuario();
   var copiarFallback=function(){
     navigator.clipboard.writeText(plain).then(mostrarToastCopiado);
   };
@@ -38024,9 +38041,10 @@ function condPgtoCopiarHTML(){
 
 function condPgtoOutlook(){
   var d = _condPgtoData;
-  var cond = document.querySelector('.cpChip[style*="27AE60"]')?.dataset.cond||'';
-  var corpo = 'Olá, equipe!\n\n@Carlos Henrique, por favor autorizar condição de pagamento '+cond+' para o pedido abaixo:\n\nPedido: '+d.numero_pedido+' | Cliente: '+d.cliente+' | Valor Bruto: R$ '+d.valor_bruto+' | Valor Líquido: R$ '+d.valor_liquido+'\n\nObrigado!\n'+pfNomeUsuario();
-  var mailto = 'mailto:carlos.henrique@triexpecas.com.br?cc=luciano.siqueira@triexpecas.com.br,financeiro@triexpecas.com.br&subject='+encodeURIComponent('Autorização de Prazo — Pedido '+d.numero_pedido)+'&body='+encodeURIComponent(corpo);
+  var cond = window._condPgtoSelecionada||'';
+  var refPedido = d.numero_pedido || d.cotacao || '—';
+  var corpo = 'Olá, equipe!\n\n@Carlos Henrique, por favor autorizar condição de pagamento '+cond+' para o pedido abaixo:\n\nCotação/Pedido: '+refPedido+' | Cliente: '+d.cliente+' | Valor Bruto: R$ '+d.valor_bruto+' | Valor Líquido: R$ '+d.valor_liquido+'\n\nObrigado!\n'+pfNomeUsuario();
+  var mailto = 'mailto:carlos.henrique@triexpecas.com.br?cc=luciano.siqueira@triexpecas.com.br,financeiro@triexpecas.com.br&subject='+encodeURIComponent('Autorização de Prazo — Cotação/Pedido '+refPedido)+'&body='+encodeURIComponent(corpo);
   window.location.href = mailto;
 }
 

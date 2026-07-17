@@ -37893,18 +37893,27 @@ async function condPgtoProcessar(file){
       var r=new FileReader(); r.onload=function(e){res(e.target.result.split(',')[1]);}; r.onerror=rej; r.readAsDataURL(file);
     });
     var mediaType = file.type||'image/png';
+    var isPdf = mediaType==='application/pdf';
+    var conteudoArquivo = isPdf
+      ? {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
+      : {type:'image',source:{type:'base64',media_type:mediaType,data:b64}};
     var resp = await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({
         model:'claude-sonnet-4-6', max_tokens:800,
         messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:mediaType,data:b64}},
+          conteudoArquivo,
           {type:'text',text:'Extraia do pedido: numero_pedido, cotacao, cliente (nome completo), valor_bruto, valor_liquido. Responda SEMPRE em JSON, sem markdown, mesmo se não encontrar os dados (nesse caso use null nos campos que faltarem). NUNCA responda com texto livre. Ex: {"numero_pedido":"365573","cotacao":"2544","cliente":"TRIPART S COMERCIO...","valor_bruto":"14.368,12","valor_liquido":"11.905,21"}'}
         ]}]
       })
     });
     var data = await resp.json();
+    if(!resp.ok || data.error || !data.content || !data.content[0]){
+      var msgErro = (data.error && data.error.message) || ('HTTP '+resp.status);
+      if(st) st.innerHTML = '<span style="color:#C00000">❌ Erro da IA: '+pfEscHtml(msgErro)+'</span>';
+      return;
+    }
     var txt = data.content[0].text.replace(/```json|```/g,'').trim();
     try{
       _condPgtoData = JSON.parse(txt);

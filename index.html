@@ -1315,7 +1315,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.792</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.793</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1460,7 +1460,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.792</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.793</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1596,7 +1596,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.792</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.793</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -30873,13 +30873,23 @@ function substAdicionarOuAtualizar(de, para, exato){
 }
 
 // ── 6. SISTEMA DE APLICAÇÕES ─────────────────────────────────────
+// v115.793 - Bug real encontrado: essas duas funções usavam A MESMA chave
+// de localStorage (APLIC_KEY) que aplicLoad()/aplicSave() (usadas pelo
+// import de catálogo e pela tela "Aplicações — Modelos & Séries"), mas com
+// um FORMATO DE DADO INCOMPATÍVEL (objeto {codigo:[...]} aqui, array
+// [{...}] lá). Hoje essas duas funções abaixo não são chamadas de lugar
+// nenhum (código morto) -- não foi a causa confirmada do bug relatado
+// pelo Vitor, mas era uma bomba-relógio: se alguém um dia religar essa
+// função, ela apagaria silenciosamente a lista de Aplicações. Chave
+// separada agora, pra nunca mais colidir.
+var APLIC_POR_PRODUTO_KEY = 'prod_aplicacoes_por_produto_v1';
 function aplicCarregar(){
-  return JSON.parse(localStorage.getItem(APLIC_KEY)||'{}');
+  return JSON.parse(localStorage.getItem(APLIC_POR_PRODUTO_KEY)||'{}');
   // {codigoProduto: [{equip:'',marca:'',modelo:'',serie:''}]}
 }
 
 function aplicSalvar(dados){
-  pfSafeSetItem(APLIC_KEY, JSON.stringify(dados));
+  pfSafeSetItem(APLIC_POR_PRODUTO_KEY, JSON.stringify(dados));
 }
 
 function aplicAdicionarAoProduto(codigo, aplicacao){
@@ -31434,7 +31444,24 @@ cadConfirmarImport=function(itens){
         alterado=true;
       }
     });
-    if(alterado)aplicSave(flatList);
+    if(alterado){
+      aplicSave(flatList);
+      // v115.793 - Verificação pós-salvamento: o Vitor relatou mais de uma
+      // vez itens "importados com sucesso" que depois não apareciam na
+      // busca de Aplicações. Não consegui reproduzir a causa exata lendo o
+      // código (a lógica de gravação parece correta), então em vez de só
+      // confiar que o save funcionou, agora relê imediatamente e confere
+      // se o que foi gravado bate com o que devia ter sido gravado -- se
+      // não bater, avisa CLARAMENTE em vez de mostrar sucesso falso.
+      var _confereRelido=aplicLoad();
+      if(_confereRelido.length!==flatList.length){
+        console.error('⚠️ APLICAÇÕES: divergência após salvar! Esperado '+flatList.length+' registros, relido '+_confereRelido.length+'. Dados salvos:',flatList,'Dados relidos:',_confereRelido);
+        window._aplicSaveDivergencia=true;
+      } else {
+        console.log('✅ Aplicações: '+flatList.length+' registros confirmados após salvar (relido do localStorage).');
+        window._aplicSaveDivergencia=false;
+      }
+    }
   }
   // Cria "itens relacionados" entre todo par de itens do mesmo grupo/kit do catálogo
   var relacCriados=0;
@@ -31463,6 +31490,7 @@ cadConfirmarImport=function(itens){
   if(importados)msgPartes.push('✅ '+importados+' produto(s) novo(s) importado(s)');
   if(atualizados)msgPartes.push('🔄 '+atualizados+' produto(s) que já existiam foram atualizados (aplicação/catálogo vinculados)');
   if(aplicacoesVinculadas)msgPartes.push('🚜 '+aplicacoesVinculadas+' aplicação/vínculo(s) de modelo novo(s) na tela de Aplicações');
+  if(window._aplicSaveDivergencia)msgPartes.push('⚠️ ATENÇÃO: a verificação pós-salvamento das Aplicações não bateu -- pode não ter salvado direito. Abra o console (F12) e me avise, com o que apareceu lá.');
   if(relacCriados)msgPartes.push('🔗 '+relacCriados+' vínculo(s) de itens relacionados criado(s) automaticamente (mesmo kit/figura no catálogo)');
   if(!msgPartes.length)msgPartes.push('Nada novo pra salvar — todos os itens selecionados já estavam cadastrados exatamente como estão.');
   pfAlert(msgPartes.join('\n'));

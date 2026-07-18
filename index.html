@@ -722,6 +722,12 @@ leituras de documento -- se a mesma leitura precisar ser refeita em poucos minut
 (timeout, nova tentativa), o documento e' lido do cache a 10% do preco normal em vez de
 cobrar o arquivo inteiro de novo. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- v115.795 - LZ-String, pra comprimir os dados grandes (produtos/aplicações/
+relacionados) antes de guardar no localStorage do navegador -- o localStorage
+tem um teto de ~5-10MB por site, e depois de várias importações de catálogo
+grandes na mesma sessão esse teto estava sendo estourado (QuotaExceededError).
+Dado repetitivo tipo JSON de peças comprime muito bem (tipicamente 5-10x menor). -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 <!-- EmailJS -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 <script>emailjs.init('bIFMVDWjGYHhlPLrL');</script>
@@ -1315,7 +1321,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.794</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.795</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1460,7 +1466,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.794</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.795</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1596,7 +1602,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.794</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.795</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -15993,9 +15999,51 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
 // travamentos aleatórios ao navegar entre telas.
 // ═══════════════════════════════════════════════════════════════
 window._pfStorageWarnShown = false;
-function pfSafeSetItem(key, value){
+// v115.795 - Compressão transparente do que vai pro localStorage. JSON
+// repetitivo (código/descrição/marca de milhares de peças, muita coisa
+// parecida) comprime muito bem com LZ-String -- na prática libera vários
+// múltiplos do espaço disponível sem mudar nada mais na arquitetura.
+// Prefixo "LZS1:" marca o que já foi comprimido por essa versão, pra saber
+// na hora de ler se precisa descomprimir ou se é um dado antigo (de antes
+// dessa mudança) já salvo em texto puro -- os dois formatos continuam
+// funcionando ao ler, sem precisar migrar nada na marra.
+var PF_COMPRESS_MARK = 'LZS1:';
+function pfCompress(str){
   try{
-    localStorage.setItem(key, value);
+    if(typeof LZString==='undefined')return str; // biblioteca não carregou -- segue sem comprimir
+    var comp = LZString.compressToUTF16(str);
+    return PF_COMPRESS_MARK + comp;
+  }catch(e){console.warn('pfCompress falhou, salvando sem comprimir:',e);return str;}
+}
+function pfDecompress(str){
+  if(str==null)return str;
+  if(str.indexOf(PF_COMPRESS_MARK)!==0)return str; // não comprimido (dado antigo) -- devolve como veio
+  try{
+    if(typeof LZString==='undefined'){console.warn('pfDecompress: LZString não carregou, não consigo ler esse dado.');return null;}
+    return LZString.decompressFromUTF16(str.slice(PF_COMPRESS_MARK.length));
+  }catch(e){console.warn('pfDecompress falhou:',e);return null;}
+}
+// Leitura que espelha pfSafeSetItem -- sempre usar esse par junto (nunca
+// misturar localStorage.getItem/setItem direto com essas duas em cima da
+// mesma chave, senão um lado não entende o formato salvo pelo outro).
+function pfSafeGetItem(key, fallback){
+  try{
+    var raw = localStorage.getItem(key);
+    if(raw==null)return fallback!=null?fallback:null;
+    var out = pfDecompress(raw);
+    return out!=null?out:(fallback!=null?fallback:null);
+  }catch(e){console.warn('pfSafeGetItem falhou pra "'+key+'":',e);return fallback!=null?fallback:null;}
+}
+// Só comprime as chaves que eu já conferi que TODA leitura passa por
+// pfSafeGetItem/cadLoad (nunca localStorage.getItem cru em outro lugar) --
+// essas são as que mais já bateram no teto de espaço. Não comprime por
+// tamanho de forma genérica pra não arriscar quebrar alguma leitura direta
+// que exista em outro canto desse arquivo grande e eu não tenha visto.
+var PF_CHAVES_COMPRIMIVEIS = ['cad_produtos_v1','prod_aplicacoes_v1','cad_relacionados_v1','cad_fornecedores_v1','cad_clientes_v1'];
+function pfSafeSetItem(key, value){
+  var toStore = (value&&value.length>20000&&PF_CHAVES_COMPRIMIVEIS.indexOf(key)>=0) ? pfCompress(value) : value;
+  try{
+    localStorage.setItem(key, toStore);
     return true;
   }catch(e){
     console.warn('⚠️ localStorage cheio ao gravar "'+key+'":', e);
@@ -16017,7 +16065,7 @@ function pfSafeSetItem(key, value){
       try{
         if(localStorage.getItem(_ck)==null)continue;
         localStorage.removeItem(_ck);
-        localStorage.setItem(key, value);
+        localStorage.setItem(key, toStore);
         console.warn('✅ Liberou espaço removendo "'+_ck+'" e conseguiu gravar "'+key+'"');
         return true;
       }catch(e2){/* esse não bastou, tenta o próximo */}
@@ -26190,7 +26238,7 @@ function cadRenderProdutosV3(el){
   // e antes ela era re-lida com JSON.parse a cada letra digitada na busca (a função
   // roda de novo a cada tecla). Isso sozinho já travava o Safari do iPad por alguns
   // segundos a cada tecla. Agora só reparseia se a string bruta do localStorage mudou.
-  var _prodRaw=localStorage.getItem(PROD_KEY||'cad_produtos_v1')||'[]';
+  var _prodRaw=pfSafeGetItem(PROD_KEY||'cad_produtos_v1','[]');
   var plist;
   if(window._prodCacheRaw===_prodRaw&&window._prodCacheParsed){
     plist=window._prodCacheParsed;
@@ -26279,7 +26327,7 @@ function cadRenderProdutosV3(el){
 }
 
 // ── Storage (localStorage para MVP) ───────────────────────────
-function cadLoad(key){try{return JSON.parse(localStorage.getItem(key)||'[]');}catch(e){return[];}}
+function cadLoad(key){try{return JSON.parse(pfSafeGetItem(key,'[]'));}catch(e){return[];}}
 function cadSave(key,data){
   pfSafeSetItem(key,JSON.stringify(data));
   // Marca "mudei isso agora" -- usado pelo cadPullSupabase pra não deixar uma
@@ -29817,7 +29865,7 @@ mapaEmail = function(fid) {
 // ── 4. IMPORTAR 162 CLIENTES DO KML ─────────────────────────────
 function cadImportarKML() {
   var CLIE_KEY = 'cad_clientes_v1';
-  var existing = JSON.parse(localStorage.getItem(CLIE_KEY)||'[]');
+  var existing = JSON.parse(pfSafeGetItem(CLIE_KEY,'[]'));
   var existingNames = existing.map(function(c){ return c.razao.toUpperCase(); });
 
   var ramoMap = {
@@ -30656,7 +30704,7 @@ async function pfSyncPull(){
         if(row.chave==='cad_fornecedores_v1'){
           // Merge de fornecedores, respeitando deletados
           var remoto=JSON.parse(val||'[]');
-          var local=JSON.parse(localStorage.getItem('cad_fornecedores_v1')||'[]');
+          var local=JSON.parse(pfSafeGetItem('cad_fornecedores_v1','[]'));
           var deletados=JSON.parse(localStorage.getItem('cad_fornecedores_deletados')||'[]');
           
           var porId={};
@@ -30673,7 +30721,7 @@ async function pfSyncPull(){
         if(row.chave==='prod_aplicacoes_v1'){
           // Merge de aplicações/vínculos de peça, respeitando deletados
           var remoto=JSON.parse(val||'[]');
-          var local=JSON.parse(localStorage.getItem('prod_aplicacoes_v1')||'[]');
+          var local=JSON.parse(pfSafeGetItem('prod_aplicacoes_v1','[]'));
           var deletados=JSON.parse(localStorage.getItem('prod_aplicacoes_deletados')||'[]');
 
           var porId={};

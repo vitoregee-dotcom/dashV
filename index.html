@@ -1315,7 +1315,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.793</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.794</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1460,7 +1460,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.793</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.794</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1596,7 +1596,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.793</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.794</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -15999,20 +15999,31 @@ function pfSafeSetItem(key, value){
     return true;
   }catch(e){
     console.warn('⚠️ localStorage cheio ao gravar "'+key+'":', e);
-    // Tenta liberar espaço removendo o backup pesado de planilha (não é crítico, é só cache)
-    try{
-      if(key!=='dashV_lastSheet'){
-        localStorage.removeItem('dashV_lastSheet');
+    // v115.794 - Bug real encontrado (achado pela verificação pós-salvamento
+    // adicionada em v115.793): o armazenamento local do navegador enche
+    // depois de várias importações de catálogo grandes na mesma sessão
+    // (produtos + aplicações + itens relacionados vão se acumulando). Antes
+    // só tentava liberar espaço removendo 1 cache (dashV_lastSheet) e, se
+    // ainda não coubesse, desistia silenciosamente na prática -- o aviso só
+    // aparecia UMA vez por sessão inteira (podia ter sido mostrado horas
+    // antes por outro motivo e nunca mais aparecer de novo, mesmo com
+    // gravações falhando repetidamente depois). Agora tenta liberar TODOS
+    // os caches reconstruíveis conhecidos antes de desistir, e o aviso
+    // aparece sempre que uma gravação falhar de verdade (não só a primeira).
+    var _cachesParaLiberar=['dashV_lastSheet','dash_historico_v1','imp_preview_cache_v1'];
+    for(var _ci=0;_ci<_cachesParaLiberar.length;_ci++){
+      var _ck=_cachesParaLiberar[_ci];
+      if(_ck===key)continue;
+      try{
+        if(localStorage.getItem(_ck)==null)continue;
+        localStorage.removeItem(_ck);
         localStorage.setItem(key, value);
-        console.warn('✅ Liberou espaço removendo backup de planilha e conseguiu gravar "'+key+'"');
+        console.warn('✅ Liberou espaço removendo "'+_ck+'" e conseguiu gravar "'+key+'"');
         return true;
-      }
-    }catch(e2){/* ainda não conseguiu, segue pro aviso abaixo */}
-    if(!window._pfStorageWarnShown){
-      window._pfStorageWarnShown = true;
-      if(typeof pfAlert==='function'){
-        pfAlert('⚠️ O armazenamento local do navegador está cheio. Algumas informações podem não estar salvando corretamente. Se possível, feche e reabra o app, ou avise o suporte técnico.');
-      }
+      }catch(e2){/* esse não bastou, tenta o próximo */}
+    }
+    if(typeof pfAlert==='function'){
+      pfAlert('⚠️ O armazenamento local do navegador está cheio -- não consegui salvar "'+key+'" agora. Isso costuma acontecer depois de muitas importações de catálogo grandes na mesma sessão (os dados vão se acumulando). Recarregar a página NÃO libera espaço (o problema continua). Avise o Vitor/suporte técnico -- vai precisar reduzir o que fica guardado no navegador.');
     }
     return false;
   }

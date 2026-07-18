@@ -1321,7 +1321,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.795</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.796</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1466,7 +1466,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.795</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.796</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1602,7 +1602,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.795</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.796</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -16040,6 +16040,33 @@ function pfSafeGetItem(key, fallback){
 // tamanho de forma genérica pra não arriscar quebrar alguma leitura direta
 // que exista em outro canto desse arquivo grande e eu não tenha visto.
 var PF_CHAVES_COMPRIMIVEIS = ['cad_produtos_v1','prod_aplicacoes_v1','cad_relacionados_v1','cad_fornecedores_v1','cad_clientes_v1'];
+// v115.796 - Bug real: a compressão da v115.795 só valia pra gravações
+// NOVAS -- o que já estava guardado (de todos os catálogos já importados)
+// continuava do tamanho antigo, ocupando o espaço todo. Isso sozinho não
+// resolvia nada pra quem já estava com o navegador cheio. Essa função
+// recomprime o que JÁ existe, na hora, liberando espaço de verdade.
+// Idempotente: já comprimido, pula sem custo (checa o prefixo).
+function pfRecomprimirExistentes(){
+  var liberou=0,totalAntes=0,totalDepois=0;
+  PF_CHAVES_COMPRIMIVEIS.forEach(function(key){
+    try{
+      var raw=localStorage.getItem(key);
+      if(!raw||raw.indexOf(PF_COMPRESS_MARK)===0)return; // vazio ou já comprimido
+      if(raw.length<=20000)return; // pequeno demais pra valer a pena
+      totalAntes+=raw.length;
+      var comp=pfCompress(raw);
+      if(comp.indexOf(PF_COMPRESS_MARK)!==0)return; // pfCompress falhou (LZString não carregou) -- não troca
+      localStorage.setItem(key,comp);
+      totalDepois+=comp.length;
+      liberou++;
+    }catch(e){console.warn('pfRecomprimirExistentes falhou pra "'+key+'":',e);}
+  });
+  if(liberou)console.log('🗜️ Recomprimiu '+liberou+' chave(s): '+(totalAntes/1024/1024).toFixed(1)+'MB → '+(totalDepois/1024/1024).toFixed(1)+'MB.');
+  return liberou;
+}
+// Roda a recompressão assim que possível -- não depende do DOM, só de
+// localStorage + LZString (já carregado, script bloqueante lá no <head>).
+try{pfRecomprimirExistentes();}catch(eRecomp){console.warn('pfRecomprimirExistentes na carga inicial falhou:',eRecomp);}
 function pfSafeSetItem(key, value){
   var toStore = (value&&value.length>20000&&PF_CHAVES_COMPRIMIVEIS.indexOf(key)>=0) ? pfCompress(value) : value;
   try{

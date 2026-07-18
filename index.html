@@ -1315,7 +1315,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.782</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.783</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1460,7 +1460,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.782</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.783</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1596,7 +1596,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.782</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.783</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -30137,7 +30137,7 @@ mapaEmail = function(fid){
 // The _anthropicReadDoc uses prompt_fn but window.prompt might be blocked
 // Override to use a custom modal instead
 var _origAnthropicRead = _anthropicReadDoc;
-_anthropicReadDoc = async function(file, promptText){
+_anthropicReadDoc = async function(file, promptText, contexto){
   var apiKey = localStorage.getItem('anthropic_key')||'';
   if(!apiKey){
     // Use modal instead of window.prompt
@@ -30168,7 +30168,13 @@ _anthropicReadDoc = async function(file, promptText){
     pfSafeSetItem('anthropic_key',apiKey);
   }
   // Delegate to original with the key already set
-  return _origAnthropicRead(file, promptText);
+  // v115.783 - Bug real: esse wrapper (fix de iPad pra usar modal em vez de
+  // window.prompt) só aceitava (file, promptText) -- o 3º parâmetro
+  // "contexto" (usado pra saber ONDE cada leitura de IA foi feita, ex:
+  // "Mapa de Compras - Lançar Preços") era descartado silenciosamente.
+  // Resultado: TODO uso de IA aparecia como "Leitura de documento" genérico
+  // na tela de Uso de IA, não importa de onde vinha.
+  return _origAnthropicRead(file, promptText, contexto);
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -32749,7 +32755,7 @@ if(_origMapaConfirm){
 // ── 6. FIX: API Key modal on iPad ───────────────────────────────
 // Override _anthropicReadDoc to use addEventListener instead of onclick
 var _origApiKeyModal = _anthropicReadDoc;
-_anthropicReadDoc = async function(file, promptText){
+_anthropicReadDoc = async function(file, promptText, contexto){
   // Ensure API key exists before calling
   var apiKey = localStorage.getItem('anthropic_key')||'';
   if(!apiKey){
@@ -32784,7 +32790,9 @@ _anthropicReadDoc = async function(file, promptText){
     pfSafeSetItem('anthropic_key', apiKey);
   }
   // Now call with key already set
-  return _origApiKeyModal(file, promptText);
+  // v115.783 - Mesmo bug do outro wrapper (fix de iPad): faltava repassar o
+  // 3º parâmetro "contexto" pra frente.
+  return _origApiKeyModal(file, promptText, contexto);
 };
 
 // Run setup now
@@ -33989,6 +33997,9 @@ async function lpLerArquivo(input){
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:8000,messages:[{role:'user',content:parts}]})});
     var data=await resp.json();
     if(!resp.ok||data.error){throw new Error((data.error&&data.error.message)||("A IA recusou o pedido (HTTP "+resp.status+")."));}
+    // v115.783 - Leitor de Peças fazia chamada direta à API (sem passar por
+    // _anthropicReadDoc), então o custo nunca aparecia na tela de Uso de IA.
+    if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Leitor de Peças - Arquivo',data.usage);
     if(!data.content||!Array.isArray(data.content)){throw new Error('Resposta da IA veio sem conteúdo (formato inesperado). Tenta de novo -- se persistir, tenta com um arquivo/print menor ou menos páginas de uma vez.');}
     var txt=data.content.map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();
     var m2=txt.match(/\[[\s\S]*/);if(m2)txt=m2[0];
@@ -34048,6 +34059,7 @@ async function lpLerTexto(){
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:8000,messages:[{role:'user',content:'Extraia os itens desta lista. Codigo SEM ESPACOS mesmo que no texto tenha espaco. Retorne APENAS JSON: [{"codigo":"","qtd":1,"desc":"","duvida":""}]'+lpRegrasPrompt()+lpExemplosPrompt()+'\n'+txt}]})});
     var data=await resp.json();
     if(!resp.ok||data.error){throw new Error((data.error&&data.error.message)||("A IA recusou o pedido (HTTP "+resp.status+")."));}
+    if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Leitor de Peças - Texto colado',data.usage);
     if(!data.content||!Array.isArray(data.content)){throw new Error('Resposta da IA veio sem conteúdo (formato inesperado). Tenta de novo -- se persistir, tenta com um texto menor de uma vez.');}
     var res=data.content.map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();
     var m3=res.match(/\[[\s\S]*/);if(m3)res=m3[0];

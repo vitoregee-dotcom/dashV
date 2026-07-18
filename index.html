@@ -1315,7 +1315,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.788</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.789</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1460,7 +1460,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.788</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.789</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1596,7 +1596,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.788</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.789</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -27263,8 +27263,14 @@ async function cadPullSupabase(){
       }catch(e){console.warn('cadPullSupabase parse erro:',e);}
     });
     // Re-render se estiver na view de cadastros
-    if(typeof currentView!=='undefined'&&currentView==='cadastros'){
-      if(typeof cadGoTab==='function')cadGoTab('fornecedores');
+    // v115.789 - Fix real: antes forçava SEMPRE cadGoTab('fornecedores'),
+    // não importa em qual aba a pessoa estivesse -- se estivesse em
+    // Produtos/Clientes/etc, o sync de fundo (roda a cada ~2min) trocava a
+    // tela sozinho. Também nunca mexe durante import de catálogo em
+    // andamento (ver window._cadImportandoCatalogo), pra não perder uma
+    // leitura de PDF grande no meio do caminho.
+    if(typeof currentView!=='undefined'&&currentView==='cadastros'&&!window._cadImportandoCatalogo){
+      if(typeof cadGoTab==='function')cadGoTab(cadTab||'fornecedores');
     }
   }catch(e){console.warn('cadPullSupabase erro:',e);}
 }
@@ -31069,6 +31075,14 @@ cadImportarCatalogo = async function(input){
   var marca=cadGetMarcaCatalogo();
   window._impMarcaAtual = marca; // Save for prompt detection
   window._impCatalogoId = null;
+  // v115.789 - Bug real: cadPullSupabase() (sync em segundo plano, roda a
+  // cada ~2min e depois de várias ações) forçava cadGoTab('fornecedores')
+  // toda vez que rodava enquanto currentView==='cadastros' -- SEM checar em
+  // qual aba a pessoa estava. Como a leitura de catálogo grande pode levar
+  // minutos, era bem provável do sync de fundo disparar NO MEIO da leitura
+  // e trocar a tela pra Fornecedores sem aviso, perdendo o catálogo lido.
+  // Essa flag avisa o sync de fundo pra não mexer na tela enquanto durar.
+  window._cadImportandoCatalogo = true;
   var statusEl=document.getElementById('impCatStatus');
   if(statusEl)statusEl.textContent='🤖 Lendo catálogo... (catálogos grandes podem levar alguns minutos)';
   try{
@@ -31190,6 +31204,8 @@ cadImportarCatalogo = async function(input){
   }catch(e){
     console.error(e);
     if(statusEl)statusEl.innerHTML='<span style="color:#C00000">❌ '+e.message+'</span>';
+  }finally{
+    window._cadImportandoCatalogo = false;
   }
 };
 

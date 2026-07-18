@@ -1315,7 +1315,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.781</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.782</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1460,7 +1460,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.781</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.782</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1596,7 +1596,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.781</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.782</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -29005,13 +29005,25 @@ function cadProcessarImport(rows){
     if(sel&&sel.value!=='(ignorar)')colMap[sel.value]=i;
   });
   var marcaPad=(document.getElementById('impMarcaFinal')||{}).value||'';
+  // v115.782 - Linha padrão (opcional) escolhida antes de importar a
+  // planilha -- só entra em ação se a linha do item não veio de uma coluna
+  // mapeada explicitamente (nesse caso o dado real da planilha continua
+  // valendo). Sem isso, "Linha" sempre dependia só do padrão do código
+  // (idLinha), que pode bater por coincidência com a regra errada.
+  var linhaPadEl=document.getElementById('impXlsLinha');
+  var linhaPadForcada=linhaPadEl&&linhaPadEl.value?LINHAS.find(function(ln){return ln.l===linhaPadEl.value;}):null;
   var itens=rows.slice(1).map(function(row){
     var it={};
     Object.keys(colMap).forEach(function(campo){it[campo]=(row[colMap[campo]]||'').toString().trim();});
     if(!it.codigo&&!it.descricao)return null;
     it.marca=it.marca||marcaPad;
-    it.linhaObj=idLinha(it.codigo||'');
-    it.linha=it.linha||it.linhaObj.l||'';
+    if(it.linha){
+      // Veio de coluna mapeada -- respeita o dado real da planilha.
+      it.linhaObj=LINHAS.find(function(ln){return ln.l.toUpperCase()===it.linha.toUpperCase();})||idLinha(it.codigo||'');
+    } else {
+      it.linhaObj=linhaPadForcada||idLinha(it.codigo||'');
+      it.linha=it.linhaObj.l||'';
+    }
     return it;
   }).filter(Boolean);
   cadMostrarPreviewImport(itens, marcaPad);
@@ -30869,6 +30881,22 @@ cadImportarProdutos = function(){
     '</select>'+
     '<input type="text" id="impCatMarcaOutra" placeholder="Digite a marca..." style="display:none;width:100%;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12px;margin-top:6px;box-sizing:border-box">'+
     '</div>'+
+    // v115.782 - "Linha" (JOHN DEERE/CASE/DANA/etc) antes era 100% automática,
+    // detectada só pelo PADRÃO NUMÉRICO do código (idLinha) -- sem opção de
+    // forçar manualmente. Isso classificava errado catálogos onde o código
+    // bate por coincidência com o padrão de outra marca (ex: código
+    // "176.07.029.01" -- formato NNN.NN.NNN.NN -- bate com a regra da DANA,
+    // mesmo sendo um catálogo CASE de verdade). A pedido do Vitor: mesmo
+    // controle que já existe pra Marca, agora também pra Linha, porque a
+    // combinação certa muda de catálogo pra catálogo (às vezes CASE é a
+    // marca, às vezes é a linha).
+    '<div style="margin-bottom:12px;text-align:left">'+
+    '<label style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:4px">Linha padrão (opcional -- deixe em branco pra detectar automaticamente pelo código)</label>'+
+    '<select id="impCatLinha" style="width:100%;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12px;background:#fff">'+
+    '<option value="">Detectar automaticamente</option>'+
+    LINHAS.map(function(ln){return '<option value="'+ln.l+'">'+ln.l+'</option>';}).join('')+
+    '</select>'+
+    '</div>'+
     '<button type="button" onclick="document.getElementById(\'impCatPdfInput\').click()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px 18px;cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px">📎 Selecionar PDF</button>'+
     '<input type="file" id="impCatPdfInput" accept="application/pdf,image/*" style="position:fixed;top:-9999px;left:-9999px;opacity:0" onchange="cadImportarCatalogo(this)">'+
     '<div id="impCatStatus" style="font-size:11px;color:#8a9ab0;margin-top:8px"></div>'+
@@ -30880,6 +30908,7 @@ cadImportarProdutos = function(){
     '<div style="font-size:14px;font-weight:700;color:#1F4E79;margin-bottom:6px">Planilha Excel / CSV</div>'+
     '<div style="font-size:12px;color:#8a9ab0;margin-bottom:16px;line-height:1.5">Mapeie as colunas e<br>importe em massa.</div>'+
     '<div style="margin-bottom:12px">'+cadSelectSimple('Marca padrão (opcional)','impXlsMarca',['','NEW HOLLAND','VOLVO','CASE','CARRARO','CATERPILLAR','MASSEY','RANDON','VALTRA','AGRALE','JOHN DEERE','ALLISON','CLARK','FUNK','EATON','JCB','DANA','ZF','OUTRAS'])+'</div>'+
+    '<div style="margin-bottom:12px">'+cadSelectSimple('Linha padrão (opcional)','impXlsLinha',[''].concat(LINHAS.map(function(ln){return ln.l;})))+'</div>'+
     '<label style="background:#27AE60;color:#fff;border-radius:8px;padding:10px 18px;cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px;position:relative;overflow:hidden">'+
     '📎 Selecionar Planilha<input type="file" accept=".xlsx,.xls,.csv" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer" onchange="cadImportarPlanilha(this)"></label>'+
     '<div id="impXlsStatus" style="font-size:11px;color:#8a9ab0;margin-top:8px"></div>'+
@@ -30907,6 +30936,14 @@ function cadGetMarcaCatalogo(){
     return outra.trim();
   }
   return sel;
+}
+// v115.782 - Linha padrão escolhida manualmente (opcional) -- quando
+// preenchida, vence a detecção automática por padrão de código (idLinha)
+// pra TODOS os itens desse import.
+function cadGetLinhaCatalogo(){
+  var sel=(document.getElementById('impCatLinha')||{}).value||'';
+  if(!sel)return null;
+  return LINHAS.find(function(ln){return ln.l===sel;})||null;
 }
 
 // ── Monta o prompt de import de Catálogo (mesma lógica de antes, agora
@@ -31089,6 +31126,7 @@ cadImportarCatalogo = async function(input){
 
     // Apply substituições
     itens=substAplicarLote(itens);
+    var linhaForcada=cadGetLinhaCatalogo();
     itens.forEach(function(it){
       // Marca Padrão escolhida pelo usuário sempre vence a que a IA "leu" no catálogo --
       // o catálogo pode estar com marca antiga/legada (ex: CLARK, comprada pela DANA),
@@ -31098,7 +31136,11 @@ cadImportarCatalogo = async function(input){
       it.descricaoResumida=(it.descricaoResumida||'').toUpperCase();
       it.codigo=(it.codigo||'').toUpperCase().trim();
       it.ncm=(it.ncm||'').trim();
-      it.linhaObj=idLinha(it.codigo||'');
+      // v115.782 - Linha padrão (se escolhida) vence a detecção automática --
+      // mesmo motivo do marca acima: o padrão do código pode bater por
+      // coincidência com a regra de outra marca (ex: "176.07.029.01" bate com
+      // a regra da DANA mesmo sendo um catálogo CASE de verdade).
+      it.linhaObj=linhaForcada||idLinha(it.codigo||'');
     });
     if(statusEl)statusEl.textContent='✅ '+itens.length+' itens encontrados — salvando catálogo pra consulta futura...';
     // Sobe o PDF original (inteiro, não as partes) pro Supabase, pra dar pra "ver no catálogo" depois pelo produto

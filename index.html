@@ -1325,7 +1325,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.805</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.806</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1470,7 +1470,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.805</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.806</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1606,7 +1606,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.805</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.806</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -37914,7 +37914,8 @@ var PF_ATALHOS_CATALOGO={
   vendas_kpis:{label:'Ir pros KPIs de Vendas',modulo:'vendas',fn:function(){pfNavigate('vendas');setTimeout(function(){window._vendasMainTab='kpis';if(typeof vendasRender==='function')vendasRender();},150);}},
   logistica_pendentes:{label:'Ver Pedidos Pendentes (Logística)',modulo:'logistica',fn:function(){pfNavigate('logistica');}},
   tools_uso_ia_historico:{label:'Ver Histórico de Uso de IA',modulo:'ferramentas',fn:function(){if(typeof abrirHistorico==='function')abrirHistorico();}},
-  central_atalhos_ir:{label:'Abrir a Central de Atalhos',modulo:'geral',fn:function(){pfNavigate('ferramentas');setTimeout(function(){if(typeof pfAbrirCentralAtalhos==='function')pfAbrirCentralAtalhos();},200);}}
+  central_atalhos_ir:{label:'Abrir a Central de Atalhos',modulo:'geral',fn:function(){pfNavigate('ferramentas');setTimeout(function(){if(typeof pfAbrirCentralAtalhos==='function')pfAbrirCentralAtalhos();},200);}},
+  mapa_novo:{label:'Novo Mapa (dentro do Mapa de Compras)',modulo:'compras',fn:function(){if(typeof mapaNovoComNome==='function')mapaNovoComNome();}}
 };
 
 var PF_ATALHOS_PERFIS_KEY='atalhos_perfis_v1'; // compartilhado (empresa toda), editável só pelo admin
@@ -37971,9 +37972,52 @@ function pfAtalhosPessoalSalvar(lista){
   pfSafeSetItem(PF_ATALHOS_PESSOAL_KEY,JSON.stringify(lista));
   if(typeof pfSyncPush==='function')pfSyncPush([PF_ATALHOS_PESSOAL_KEY]);
 }
-// Junta os atalhos de perfil (só dos módulos que o usuário tem liberado,
-// mais "geral" que vale pra todo mundo) com os pessoais -- pessoal vence
-// se a mesma combinação de tecla estiver nos dois.
+// v115.806 - Atalhos POR TELA (a pedido do Vitor): a MESMA combinação de
+// tecla pode significar coisas diferentes dependendo de onde a pessoa
+// está -- ex: Alt+N é "Nova Cotação" em Vendas, mas "Novo Mapa" no Mapa
+// de Compras. Compartilhado (empresa toda), editável só pelo admin, igual
+// os atalhos de perfil -- só que agrupado por TELA (currentView) em vez
+// de por módulo de permissão.
+var PF_ATALHOS_TELA_KEY='atalhos_tela_v1';
+var PF_TELAS_DISPONIVEIS=['dash','mapa','vendas','cadastros','logistica','ferramentas','compras','solicitacoes'];
+function pfAtalhosTelaDefault(){
+  var obj={};
+  PF_TELAS_DISPONIVEIS.forEach(function(t){obj[t]=[];});
+  // Exemplo que o próprio Vitor deu: Alt+N muda de significado por tela.
+  obj.vendas=[{tecla:'n',alt:true,acao:'vendas_nova'}];
+  obj.mapa=[{tecla:'n',alt:true,acao:'mapa_novo'}];
+  return obj;
+}
+function pfAtalhosTelaCarregar(){
+  try{
+    var raw=localStorage.getItem(PF_ATALHOS_TELA_KEY);
+    if(!raw)return pfAtalhosTelaDefault();
+    var obj=JSON.parse(raw);
+    return obj&&typeof obj==='object'?obj:pfAtalhosTelaDefault();
+  }catch(e){return pfAtalhosTelaDefault();}
+}
+function pfAtalhosTelaSalvar(obj){
+  pfSafeSetItem(PF_ATALHOS_TELA_KEY,JSON.stringify(obj));
+  if(sbUser){
+    sbFetch('/rest/v1/user_cadastros?on_conflict=user_id,tipo',{
+      method:'POST',headers:{'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({user_id:MY_USER_ID,tipo:'atalhos_tela',dados:JSON.stringify(obj),updated_at:new Date().toISOString()})
+    }).catch(function(e){console.warn('pfAtalhosTelaSalvar falhou:',e);});
+  }
+}
+async function pfAtalhosTelaPull(){
+  if(!sbUser)return;
+  try{
+    var r=await sbFetch('/rest/v1/user_cadastros?user_id=eq.'+MY_USER_ID+'&tipo=eq.atalhos_tela&select=dados');
+    if(!r.ok)return;
+    var data=await r.json();
+    if(data&&data[0]&&data[0].dados){
+      pfSafeSetItem(PF_ATALHOS_TELA_KEY,data[0].dados);
+    }
+  }catch(e){console.warn('pfAtalhosTelaPull falhou:',e);}
+}
+// Junta perfil (geral+módulos) + tela atual + pessoal. Prioridade quando a
+// MESMA combinação aparece em mais de uma camada: pessoal > tela > perfil.
 function pfAtalhosEfetivos(){
   var perfis=pfAtalhosPerfisCarregar();
   var mod=(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.modulos)||{};
@@ -37983,11 +38027,16 @@ function pfAtalhosEfetivos(){
     if(modulo!=='geral'&&!isAdminUser&&!mod[modulo])return; // só aplica perfil de módulo que o usuário tem
     (perfis[modulo]||[]).forEach(function(a){efetivos.push(Object.assign({},a,{origem:'perfil:'+modulo}));});
   });
+  var mesmaChave=function(x,a){return x.tecla===a.tecla&&!!x.ctrl===!!a.ctrl&&!!x.alt===!!a.alt&&!!x.shift===!!a.shift;};
+  var telas=pfAtalhosTelaCarregar();
+  var telaAtual=(typeof currentView!=='undefined'&&currentView)||'';
+  (telas[telaAtual]||[]).forEach(function(a){
+    efetivos=efetivos.filter(function(x){return !mesmaChave(x,a);});
+    efetivos.push(Object.assign({},a,{origem:'tela:'+telaAtual}));
+  });
   var pessoal=pfAtalhosPessoalCarregar();
   pessoal.forEach(function(a){
-    // Remove qualquer atalho de perfil que use a MESMA combinação -- pessoal vence
-    var mesmaChave=function(x){return x.tecla===a.tecla&&!!x.ctrl===!!a.ctrl&&!!x.alt===!!a.alt&&!!x.shift===!!a.shift;};
-    efetivos=efetivos.filter(function(x){return !mesmaChave(x);});
+    efetivos=efetivos.filter(function(x){return !mesmaChave(x,a);});
     efetivos.push(Object.assign({},a,{origem:'pessoal'}));
   });
   return efetivos;
@@ -38058,8 +38107,30 @@ function pfAbrirCentralAtalhos(){
   if(!algum)html+='<div style="font-size:12px;color:#8a9ab0">Nenhum atalho de perfil configurado ainda.</div>';
   html+='</div>';
 
+  // v115.806 - Atalhos por Tela: a mesma tecla muda de significado
+  // dependendo de onde a pessoa está (ex: Alt+N = Nova Cotação em Vendas,
+  // mas Novo Mapa no Mapa de Compras).
+  var telas=pfAtalhosTelaCarregar();
+  var rotulosTelas={dash:'Dashboard',mapa:'Mapa de Compras',vendas:'Vendas',cadastros:'Cadastros',logistica:'Logística',ferramentas:'Tools',compras:'Compras (menu)',solicitacoes:'Solicitações de Compra'};
+  html+='<div style="background:#fff;border:1.5px solid #e8edf4;border-radius:10px;padding:18px;margin-top:16px">'
+    +'<div style="font-size:13px;font-weight:800;color:#1a2332;margin-bottom:4px">Atalhos por tela</div>'
+    +'<div style="font-size:11px;color:#8a9ab0;margin-bottom:10px">A mesma tecla pode fazer coisas diferentes dependendo de onde você está.</div>';
+  var algumTela=false;
+  Object.keys(telas).forEach(function(t){
+    (telas[t]||[]).forEach(function(a){
+      algumTela=true;
+      var acaoInfo=PF_ATALHOS_CATALOGO[a.acao];
+      html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0"><span style="font-family:monospace;font-weight:700;color:#607080;background:#F0F4F8;padding:3px 10px;border-radius:6px;font-size:12px;min-width:90px;text-align:center">'+rotuloTecla(a)+'</span><span style="font-size:12px;color:#3a4658;flex:1">'+(acaoInfo?pfEscHtml(acaoInfo.label):'—')+'</span><span style="font-size:10px;color:#8a9ab0;text-transform:uppercase">'+(rotulosTelas[t]||t)+'</span></div>';
+    });
+  });
+  if(!algumTela)html+='<div style="font-size:12px;color:#8a9ab0">Nenhum atalho por tela configurado ainda.</div>';
+  html+='</div>';
+
   if(isAdminUser){
-    html+='<button onclick="pfAbrirEditarAtalhosPerfil()" style="margin-top:16px;background:none;border:1.5px solid #5C3D99;color:#5C3D99;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700">⚙️ Editar atalhos por perfil (todo mundo)</button>';
+    html+='<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">'
+      +'<button onclick="pfAbrirEditarAtalhosPerfil()" style="background:none;border:1.5px solid #5C3D99;color:#5C3D99;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700">⚙️ Editar atalhos por perfil</button>'
+      +'<button onclick="pfAbrirEditarAtalhosTela()" style="background:none;border:1.5px solid #5C3D99;color:#5C3D99;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700">🖥️ Editar atalhos por tela</button>'
+      +'</div>';
   }
   html+='</div>';
   el.innerHTML=html;
@@ -38150,6 +38221,67 @@ function pfRemoverAtalhoPerfil(modulo,i){
   pfAbrirEditarAtalhosPerfil();
 }
 
+// ── Admin: editar atalhos por TELA (afeta todo mundo) ──────────────
+// v115.806 - A pedido do Vitor: a mesma tecla significa coisas diferentes
+// dependendo de onde a pessoa está (ex: Alt+N = Nova Cotação em Vendas,
+// Novo Mapa no Mapa de Compras). Mesma estrutura da tela de Perfil, só
+// agrupado por TELA em vez de por módulo.
+function pfAbrirEditarAtalhosTela(){
+  var el=document.getElementById('ferrBody');if(!el)return;
+  var telas=pfAtalhosTelaCarregar();
+  var rotulosTelas={dash:'Dashboard',mapa:'Mapa de Compras',vendas:'Vendas',cadastros:'Cadastros',logistica:'Logística',ferramentas:'Tools',compras:'Compras (menu)',solicitacoes:'Solicitações de Compra'};
+  function rotuloTecla(a){
+    var partes=[];
+    if(a.ctrl)partes.push('Ctrl');
+    if(a.alt)partes.push('Alt');
+    if(a.shift)partes.push('Shift');
+    partes.push(a.tecla.length===1?a.tecla.toUpperCase():a.tecla);
+    return partes.join(' + ');
+  }
+  var html='<div style="padding:20px;max-width:640px">'
+    +'<button onclick="pfAbrirCentralAtalhos()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;margin-bottom:14px">← Voltar</button>'
+    +'<h2 style="margin:0 0 4px;color:#5C3D99">🖥️ Atalhos por Tela</h2>'
+    +'<div style="font-size:12px;color:#8a9ab0;margin-bottom:18px">A mesma tecla pode significar coisas diferentes em cada tela -- ex: Alt+N vira "Nova Cotação" em Vendas, e "Novo Mapa" no Mapa de Compras. Vale pra TODO MUNDO.</div>';
+  PF_TELAS_DISPONIVEIS.forEach(function(tela){
+    html+='<div style="background:#fff;border:1.5px solid #e8edf4;border-radius:10px;padding:16px;margin-bottom:12px">'
+      +'<div style="font-size:12px;font-weight:800;color:#1F4E79;text-transform:uppercase;margin-bottom:10px">'+(rotulosTelas[tela]||tela)+'</div>';
+    (telas[tela]||[]).forEach(function(a,i){
+      var acaoInfo=PF_ATALHOS_CATALOGO[a.acao];
+      html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f0f4f8">'
+        +'<span style="font-family:monospace;font-weight:700;color:#5C3D99;background:#F3EEFA;padding:3px 10px;border-radius:6px;font-size:12px;min-width:90px;text-align:center">'+rotuloTecla(a)+'</span>'
+        +'<span style="font-size:12px;color:#3a4658;flex:1">'+(acaoInfo?pfEscHtml(acaoInfo.label):'—')+'</span>'
+        +'<button onclick="pfRemoverAtalhoTela(\''+tela+'\','+i+')" style="background:none;border:none;color:#C00000;cursor:pointer;font-size:13px">🗑</button>'
+        +'</div>';
+    });
+    html+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px">'
+      +'<input type="text" id="atalhoTelaTecla_'+tela+'" readonly placeholder="Aperte a tecla..." data-tecla="" data-ctrl="" data-alt="" data-shift="" onkeydown="pfCapturarAtalhoTecla(event,this)" style="width:150px;padding:6px 8px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:11px;text-align:center;cursor:pointer;background:#F9FAFC">'
+      +'<select id="atalhoTelaAcao_'+tela+'" style="flex:1;min-width:180px;padding:6px 8px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:11px">'
+      +Object.keys(PF_ATALHOS_CATALOGO).map(function(k){return '<option value="'+k+'">'+pfEscHtml(PF_ATALHOS_CATALOGO[k].label)+'</option>';}).join('')
+      +'</select>'
+      +'<button onclick="pfAdicionarAtalhoTela(\''+tela+'\')" style="background:#5C3D99;color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:11px;font-weight:700">+</button>'
+      +'</div>'
+      +'</div>';
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+function pfAdicionarAtalhoTela(tela){
+  var inp=document.getElementById('atalhoTelaTecla_'+tela);
+  var sel=document.getElementById('atalhoTelaAcao_'+tela);
+  if(!inp||!inp.dataset.tecla){pfAlert('Clique no campo e aperte a tecla que você quer usar.');return;}
+  var telas=pfAtalhosTelaCarregar();
+  if(!telas[tela])telas[tela]=[];
+  telas[tela].push({tecla:inp.dataset.tecla,ctrl:!!inp.dataset.ctrl,alt:!!inp.dataset.alt,shift:!!inp.dataset.shift,acao:sel.value});
+  pfAtalhosTelaSalvar(telas);
+  pfAbrirEditarAtalhosTela();
+}
+function pfRemoverAtalhoTela(tela,i){
+  var telas=pfAtalhosTelaCarregar();
+  (telas[tela]||[]).splice(i,1);
+  pfAtalhosTelaSalvar(telas);
+  pfAbrirEditarAtalhosTela();
+}
+
 // ── Atalhos de teclado ────────────────────────────────────────────
 (function(){
   document.addEventListener('keydown', function(e){
@@ -38188,7 +38320,7 @@ function pfRemoverAtalhoPerfil(modulo,i){
   });
   // Puxa os atalhos de perfil do servidor uma vez no início (fica em cache
   // local depois, não precisa buscar de novo toda hora).
-  setTimeout(function(){if(typeof pfAtalhosPerfisPull==='function')pfAtalhosPerfisPull();},2000);
+  setTimeout(function(){if(typeof pfAtalhosPerfisPull==='function')pfAtalhosPerfisPull();if(typeof pfAtalhosTelaPull==='function')pfAtalhosTelaPull();},2000);
 })();
 
 // ── TRANSFERÊNCIA ENCOPEL ─────────────────────────────────────────

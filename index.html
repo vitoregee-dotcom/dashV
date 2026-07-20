@@ -1325,7 +1325,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.827</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.829</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1470,7 +1470,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.827</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.829</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1607,7 +1607,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.827</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.829</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -18382,6 +18382,38 @@ function setDefaultDates(){
   document.getElementById("dS").value=start.toISOString().split("T")[0];
   updatePer();
 }
+// v115.829 - Detecta o período automaticamente pra pessoa não precisar
+// digitar toda vez, a pedido do Vitor: "sempre subo de 90 em 90 dias".
+// Olha no histórico (o mesmo já usado no painel "Última atualização por
+// família") quando foi a última vez que alguma dessas famílias foi
+// carregada -- se achar, usa aquela data como Início e hoje como Fim. Se
+// não achar nada (primeira vez com essa família), não mexe em nada --
+// segue o padrão de 90 dias de sempre.
+function pfAutoDetectarPeriodo(familias){
+  try{
+    var hist=JSON.parse(localStorage.getItem('pfHistFamilia_v1')||'[]');
+    var maisRecente=null;
+    hist.forEach(function(snap){
+      if((snap.familias||[]).some(function(f){return familias.indexOf(f)>=0;})){
+        if(!maisRecente||snap.ts>maisRecente.ts)maisRecente=snap;
+      }
+    });
+    if(!maisRecente)return; // sem histórico ainda pra essa família -- mantém o padrão
+    var dsInput=document.getElementById('dS'),deInput=document.getElementById('dE');
+    if(!dsInput||!deInput)return;
+    function fmt(d){return d.toISOString().split('T')[0];}
+    dsInput.value=fmt(new Date(maisRecente.ts));
+    deInput.value=fmt(new Date());
+    updatePer();
+    var noteEl=dsInput.closest('.pbox');
+    noteEl=noteEl?noteEl.querySelector('.pnote'):null;
+    if(noteEl){
+      noteEl.textContent='📅 Período detectado automaticamente (desde a última planilha dessa família) -- ajuste se precisar.';
+      noteEl.style.color='#1F4E79';
+      noteEl.style.fontWeight='600';
+    }
+  }catch(e){console.warn('pfAutoDetectarPeriodo falhou:',e);}
+}
 function updatePer(){
   const s=document.getElementById("dS").value,e=document.getElementById("dE").value;
   if(s&&e){const d=Math.round((new Date(e)-new Date(s))/(864e5))+1;if(d>0){periodo=d;document.getElementById("perCalc").textContent=d;if(allItems.length&&!_loadingFile)recalc(_pfCurrentView!=='dash');}}
@@ -18619,6 +18651,13 @@ async function pfFinalizarImportPlanilha(result,file,sp){
           return familiasDaPlanilha.indexOf(item.familia||'') < 0;
         });
         allItems = allItems.concat(result.items);
+        // v115.829 - A pedido do Vitor: antes de salvar o snapshot de hoje,
+        // olha quando foi a ÚLTIMA vez que alguma dessas famílias foi
+        // carregada -- se achar, já preenche Início/Fim sozinho (fim =
+        // hoje, início = data daquele último upload), em vez de sempre
+        // cair no padrão fixo de 90 dias. Só funciona a partir da segunda
+        // vez que a família é carregada (a primeira não tem o que comparar).
+        pfAutoDetectarPeriodo(familiasDaPlanilha);
         pfSalvarHistoricoFamilia(result.items, familiasDaPlanilha, file.name);
         // Sync para Supabase
         familiasDaPlanilha.forEach(function(fam){
@@ -39469,7 +39508,8 @@ function ferrCartaCorrecao(){
     '<b>Para:</b> '+CCC_PARA_NOME+' · <b>CC:</b> '+CCC_CC_NOMES.join(', ')+
     '</div>'+
     '<button onclick="cccEnviarEmail()" style="background:#7B3FC4;color:#fff;border:none;border-radius:8px;padding:10px 22px;cursor:pointer;font-size:13px;font-weight:700">✉️ Gerar e-mail</button>'+
-    '</div></div>';
+    '</div></div>'+
+    '<div id="cccHistorico"></div>';
   var pa=document.getElementById('cccPasteArea');
   if(pa&&typeof mkPasteBtn==='function')pa.appendChild(mkPasteBtn('Colar Print',function(f){cccLerArquivo(f);}));
   window._activePasteHandler=function(f){cccLerArquivo(f);};
@@ -39478,6 +39518,35 @@ function ferrCartaCorrecao(){
     var f=this.files&&this.files[0];
     if(f)cccLerArquivo(f);
   });
+  cccRenderHistorico();
+}
+// v115.828 - Mostra os últimos 10 salvos, pra reabrir com 1 clique -- essa
+// ferramenta já salvava (ferrHistSalvar) mas não tinha jeito nenhum de ver
+// o que foi salvo.
+function cccRenderHistorico(){
+  var el=document.getElementById('cccHistorico');
+  if(!el)return;
+  var hist=ferrHistCarregar().filter(function(h){return h.tipo==='carta_correcao';}).slice(0,10);
+  if(!hist.length){el.innerHTML='';return;}
+  var html='<div style="font-size:11px;font-weight:700;color:#8a9ab0;text-transform:uppercase;margin:14px 0 8px">Últimos ('+hist.length+')</div>';
+  html+='<div style="background:#fff;border:1px solid #e0e8f0;border-radius:10px;overflow:hidden">';
+  hist.forEach(function(h,i){
+    html+='<div onclick="cccAbrirDoHistorico('+i+')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f0f4f8;cursor:pointer;gap:10px;flex-wrap:wrap" onmouseover="this.style.background=\'#f7f9fc\'" onmouseout="this.style.background=\'\'">';
+    html+='<div><b style="color:#7B3FC4;font-size:13px">NF '+pfEscHtml(h.dados.nf||'—')+'</b><div style="font-size:11px;color:#8a9ab0;margin-top:1px">'+pfEscHtml(h.dados.cliente||'(sem cliente)')+' · '+ferrHistFmtData(h.ts)+'</div></div>';
+    html+='<span style="font-size:11px;color:#7B3FC4;font-weight:600">Abrir →</span>';
+    html+='</div>';
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+function cccAbrirDoHistorico(i){
+  var hist=ferrHistCarregar().filter(function(h){return h.tipo==='carta_correcao';}).slice(0,10);
+  var h=hist[i];
+  if(!h)return;
+  ferrCartaCorrecao();
+  if(document.getElementById('cccNf'))document.getElementById('cccNf').value=h.dados.nf||'';
+  if(document.getElementById('cccCliente'))document.getElementById('cccCliente').value=h.dados.cliente||'';
+  if(document.getElementById('cccCorrecao'))document.getElementById('cccCorrecao').value=h.dados.correcao||'';
 }
 
 async function cccLerArquivo(file){
@@ -39503,6 +39572,7 @@ function cccEnviarEmail(){
   if(!correcao.trim()){pfAlert('Preencha o que precisa ser corrigido.');return;}
 
   ferrHistSalvar('carta_correcao',{nf:nf,cliente:cliente,correcao:correcao});
+  cccRenderHistorico();
 
   var assunto='ENC: Carta de correção NF '+nf;
   var ccEmails=CCC_CC_EMAILS.join(',');
@@ -39594,6 +39664,7 @@ function ferrCondPgto(){
     '<span id="condPgtoStatus" style="font-size:11px;color:#8a9ab0"></span>'+
     '</div>'+
     '</div>'+
+    '<div id="condPgtoHistorico" style="margin-bottom:16px"></div>'+
 
     '<div id="condPgtoBody" style="display:none">'+
     '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:20px;margin-bottom:16px">'+
@@ -39643,6 +39714,41 @@ function ferrCondPgto(){
     if(document.getElementById('condPgtoZone')) condPgtoPaste(e);
   };
   document.addEventListener('paste', window._condPgtoGlobalPaste);
+  cpRenderHistorico();
+}
+// v115.828 - Mostra os últimos 10 salvos, com cliente/pedido, pra reabrir
+// com 1 clique (mesmo padrão já usado em NF/Transferência/Carta de Correção).
+function cpRenderHistorico(){
+  var el=document.getElementById('condPgtoHistorico');
+  if(!el)return;
+  var hist=ferrHistCarregar().filter(function(h){return h.tipo==='cond_pgto';}).slice(0,10);
+  if(!hist.length){el.innerHTML='';return;}
+  var html='<div style="font-size:11px;font-weight:700;color:#8a9ab0;text-transform:uppercase;margin-bottom:8px">Últimos ('+hist.length+')</div>';
+  html+='<div style="background:#fff;border:1px solid #e0e8f0;border-radius:10px;overflow:hidden">';
+  hist.forEach(function(h,i){
+    var cliente=h.dados.cliente||'(sem cliente)';
+    var refPedido=h.dados.numero_pedido||h.dados.cotacao||'—';
+    html+='<div onclick="cpAbrirDoHistorico('+i+')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f0f4f8;cursor:pointer;gap:10px;flex-wrap:wrap" onmouseover="this.style.background=\'#f7f9fc\'" onmouseout="this.style.background=\'\'">';
+    html+='<div><b style="color:#1F4E79;font-size:13px">'+pfEscHtml(cliente)+'</b><div style="font-size:11px;color:#8a9ab0;margin-top:1px">Pedido '+pfEscHtml(String(refPedido))+' · '+(h.dados.cond?'condição '+pfEscHtml(h.dados.cond)+' · ':'')+ferrHistFmtData(h.ts)+'</div></div>';
+    html+='<span style="font-size:11px;color:#1F4E79;font-weight:600">Abrir →</span>';
+    html+='</div>';
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+function cpAbrirDoHistorico(i){
+  var hist=ferrHistCarregar().filter(function(h){return h.tipo==='cond_pgto';}).slice(0,10);
+  var h=hist[i];
+  if(!h)return;
+  ferrCondPgto();
+  _condPgtoData=h.dados;
+  document.getElementById('condPgtoBody').style.display='block';
+  document.getElementById('cpPedido').textContent=_condPgtoData.numero_pedido||_condPgtoData.cotacao||'—';
+  document.getElementById('cpCotacao').textContent=_condPgtoData.cotacao||'—';
+  document.getElementById('cpCliente').textContent=_condPgtoData.cliente||'—';
+  document.getElementById('cpBruto').textContent='R$ '+(_condPgtoData.valor_bruto||'—');
+  document.getElementById('cpLiquido').textContent='R$ '+(_condPgtoData.valor_liquido||'—');
+  if(h.dados.cond)condPgtoSelCond(h.dados.cond,true);
 }
 
 async function condPgtoPaste(event){
@@ -39762,7 +39868,7 @@ async function condPgtoProcessar(file){
 // referencia esses termos exatos em vez do conceito bruto/líquido, que
 // causava confusão e inversão. "@Carlos Henrique" também virou "@Henrique"
 // (não é menção real do Outlook mesmo assim, então simplificado).
-function condPgtoSelCond(cond){
+function condPgtoSelCond(cond,semSalvar){
   document.querySelectorAll('.cpChip').forEach(function(b){
     var on = b.dataset.cond === cond;
     b.style.background = on ? '#27AE60' : '#f7f8fc';
@@ -39793,6 +39899,15 @@ function condPgtoSelCond(cond){
   document.getElementById('condPgtoEmailBox').style.display = 'block';
   window._condPgtoAssunto = assunto;
   window._condPgtoCorpo = corpo;
+  // v115.828 - A pedido do Vitor: salva os últimos 10, igual já tinha em
+  // outras ferramentas (NF, Transferência, Carta de Correção) mas não
+  // tinha aqui ainda. Só salva de novo se for uma escolha de verdade, não
+  // quando está só reabrindo um item do histórico (senão duplicava a cada
+  // clique em "Abrir").
+  if(!semSalvar){
+    ferrHistSalvar('cond_pgto', Object.assign({},JSON.parse(JSON.stringify(d)),{cond:cond}));
+    cpRenderHistorico();
+  }
 }
 
 // v115.766 - Bug real: "Copiar HTML" usava navigator.clipboard.writeText(),
@@ -40465,6 +40580,7 @@ function ferrMargem(){
     '<span style="font-size:12px;color:#607080">%</span>'+
     '<button onclick="mgAplicarTodos()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:12px;font-weight:700">Aplicar a todos</button>'+
     '</div></div></div></div>'+
+    '<div id="mgHistorico" style="margin-bottom:14px"></div>'+
     '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow-x:auto;margin-bottom:14px"><div id="mgTabela"></div></div>'+
     '<button onclick="mgAdicionarItem()" style="background:none;border:2px dashed #e0e8f0;color:#1F4E79;border-radius:10px;padding:12px;width:100%;cursor:pointer;font-size:13px;font-weight:700">+ Adicionar item manualmente</button>'+
     '</div>';
@@ -40472,6 +40588,35 @@ function ferrMargem(){
   if(pa&&typeof mkPasteBtn==='function')pa.appendChild(mkPasteBtn('Colar Print',function(f){mgLerArquivo(f);}));
   window._activePasteHandler=function(f){mgLerArquivo(f);};
   if(!window._mgItens)window._mgItens=[];
+  mgRenderTabela();
+  mgRenderHistorico();
+}
+// v115.828 - Mostra os últimos 10 salvos, pra reabrir com 1 clique.
+function mgRenderHistorico(){
+  var el=document.getElementById('mgHistorico');
+  if(!el)return;
+  var hist=ferrHistCarregar().filter(function(h){return h.tipo==='margem';}).slice(0,10);
+  if(!hist.length){el.innerHTML='';return;}
+  var html='<div style="font-size:11px;font-weight:700;color:#8a9ab0;text-transform:uppercase;margin-bottom:8px">Últimos ('+hist.length+')</div>';
+  html+='<div style="background:#fff;border:1px solid #e0e8f0;border-radius:10px;overflow:hidden">';
+  hist.forEach(function(h,i){
+    var n=(h.dados.itens||[]).length;
+    html+='<div onclick="mgAbrirDoHistorico('+i+')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f0f4f8;cursor:pointer;gap:10px;flex-wrap:wrap" onmouseover="this.style.background=\'#f7f9fc\'" onmouseout="this.style.background=\'\'">';
+    html+='<div><b style="color:#1F4E79;font-size:13px">'+n+' item(ns)</b><div style="font-size:11px;color:#8a9ab0;margin-top:1px">'+(h.dados.fornUF||'—')+' → '+(h.dados.clienteUF||'—')+' · '+ferrHistFmtData(h.ts)+'</div></div>';
+    html+='<span style="font-size:11px;color:#1F4E79;font-weight:600">Abrir →</span>';
+    html+='</div>';
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+function mgAbrirDoHistorico(i){
+  var hist=ferrHistCarregar().filter(function(h){return h.tipo==='margem';}).slice(0,10);
+  var h=hist[i];
+  if(!h)return;
+  window._mgItens=h.dados.itens||[];
+  ferrMargem();
+  if(h.dados.fornUF)document.getElementById('mgFornUF').value=h.dados.fornUF;
+  if(h.dados.clienteUF)document.getElementById('mgClienteUF').value=h.dados.clienteUF;
   mgRenderTabela();
 }
 
@@ -40489,6 +40634,10 @@ async function mgLerArquivo(file){
     naoImed.forEach(function(it){window._mgItens.push({ref:(it.ref||'').toString().toUpperCase().trim(),desc:(it.desc||'').toUpperCase(),marca:(it.marca||'').toUpperCase(),custo:parseFloat(it.preco)||0,ipi_pct:(parseFloat(it.ipi_pct)||0)/100,st_val:parseFloat(it.st_val)||0,margem:mglobal});});
     var ignorados=itens.length-naoImed.length;
     if(status)status.innerHTML='<span style="color:#27AE60">&#10003; '+naoImed.length+' itens NAO IM.</span>'+(ignorados>0?' <span style="color:#8a9ab0">('+ignorados+' IMEDIATO ignorado'+(ignorados>1?'s':'')+')</span>':'');mgRenderTabela();
+    // v115.828 - A pedido do Vitor: salva os últimos 10, igual outras
+    // ferramentas -- essa aqui não tinha nenhum histórico ainda.
+    ferrHistSalvar('margem',{itens:JSON.parse(JSON.stringify(window._mgItens)),fornUF:(document.getElementById('mgFornUF')||{}).value,clienteUF:(document.getElementById('mgClienteUF')||{}).value});
+    mgRenderHistorico();
   }catch(e){if(status)status.innerHTML='<span style="color:#C00000">❌ '+e.message+'</span>';}
 }
 function mgRecalcAll(){mgRenderTabela();}

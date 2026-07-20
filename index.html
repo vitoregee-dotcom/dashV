@@ -1325,7 +1325,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.822</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.823</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1470,7 +1470,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.822</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.823</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1606,7 +1606,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.822</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.823</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -1630,7 +1630,10 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
     <button onclick="toggleDash()" style="margin-top:6px;font-size:11px;padding:6px 16px;border-radius:6px;border:1px solid var(--bd);background:#fff;cursor:pointer;color:var(--tx);white-space:nowrap">▼ Mostrar painel</button>
   </div>
   <div id="dashInner" style="display:none">
-  <div id="ultimaPlanilhaFamiliaPanel" style="display:none;margin-bottom:14px"></div>
+  <div id="ultimaPlanilhaFamiliaWrap" style="margin-bottom:14px">
+    <button onclick="toggleUltimaPlanilhaFamilia()" id="ultimaPlanilhaFamiliaToggle" style="background:#F8FAFC;border:1px solid #e0e8f0;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:700;color:#1F4E79;cursor:pointer;display:flex;align-items:center;gap:6px">📅 Última atualização por família <span id="ultimaPlanilhaFamiliaSeta">▾</span></button>
+    <div id="ultimaPlanilhaFamiliaPanel" style="display:none;margin-top:8px"></div>
+  </div>
   <div id="params">
     <div class="pbox">
       <label>Período da Planilha — Datas</label>
@@ -20979,13 +20982,35 @@ function pfSalvarHistoricoFamilia(items, familias, nomeArquivo){
   }catch(e){ console.warn('pfSalvarHistoricoFamilia:', e); }
 }
 
+// v115.823 - A pedido do Vitor: esse painel sumia da tela INTEIRA (não só
+// escondia) quando o histórico ficava vazio -- ele queria o oposto,
+// sempre disponível pra abrir quando quiser, só que fechado por padrão.
+// Agora o botão de abrir/fechar nunca depende dos dados -- só o
+// CONTEÚDO muda (mostra os dados, ou uma mensagem, mas o botão continua
+// lá sempre).
+function toggleUltimaPlanilhaFamilia(){
+  var panel=document.getElementById('ultimaPlanilhaFamiliaPanel');
+  var seta=document.getElementById('ultimaPlanilhaFamiliaSeta');
+  if(!panel)return;
+  var abrindo=panel.style.display==='none';
+  panel.style.display=abrindo?'block':'none';
+  if(seta)seta.textContent=abrindo?'▴':'▾';
+  pfSafeSetItem('pf_ultima_planilha_familia_aberta',abrindo?'1':'0');
+}
 function renderUltimaPlanilhaFamilia(){
   var panel=document.getElementById('ultimaPlanilhaFamiliaPanel');
   if(!panel)return;
+  // Restaura se a pessoa tinha deixado aberto da última vez (padrão: fechado)
+  if(!panel.dataset.estadoRestaurado){
+    panel.dataset.estadoRestaurado='1';
+    if(localStorage.getItem('pf_ultima_planilha_familia_aberta')==='1'){
+      panel.style.display='block';
+      var seta0=document.getElementById('ultimaPlanilhaFamiliaSeta');
+      if(seta0)seta0.textContent='▴';
+    }
+  }
   try{
     var hist=JSON.parse(localStorage.getItem('pfHistFamilia_v1')||'[]');
-    if(!hist.length){panel.style.display='none';return;}
-    // Para cada família, encontrar o snapshot mais recente que a contém
     var ultimaPorFamilia={};
     hist.forEach(function(snap){
       (snap.familias||[]).forEach(function(f){
@@ -20995,24 +21020,26 @@ function renderUltimaPlanilhaFamilia(){
       });
     });
     var familias = Object.keys(ultimaPorFamilia).sort();
-    if(!familias.length){panel.style.display='none';return;}
     var html = '<div style="background:#fff;border-radius:10px;padding:12px 16px;box-shadow:0 1px 4px rgba(0,0,0,.06);border:1px solid #e0e8f0">';
-    html += '<div style="font-size:11px;font-weight:800;color:#1F4E79;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">📅 Última atualização por família</div>';
-    html += '<div style="display:flex;flex-wrap:wrap;gap:10px">';
-    familias.forEach(function(f){
-      var snap = ultimaPorFamilia[f];
-      var dt = new Date(snap.ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-      var totais = snap.totais && snap.totais[f] ? snap.totais[f] : {};
-      html += '<div style="background:#F8FAFC;border-radius:8px;padding:8px 12px;min-width:180px;border-left:3px solid #1F4E79">';
-      html += '<div style="font-size:11px;font-weight:700;color:#1F4E79">'+f+'</div>';
-      html += '<div style="font-size:10px;color:#607080;margin-top:2px">'+dt+'</div>';
-      if(totais.itens!=null) html += '<div style="font-size:10px;color:#8a9ab0;margin-top:2px">'+totais.itens+' itens'+(snap.arquivo?' · '+snap.arquivo:'')+'</div>';
+    if(!familias.length){
+      html+='<div style="font-size:11px;color:#8a9ab0">Nenhum dado de atualização por família ainda.</div>';
+    } else {
+      html += '<div style="display:flex;flex-wrap:wrap;gap:10px">';
+      familias.forEach(function(f){
+        var snap = ultimaPorFamilia[f];
+        var dt = new Date(snap.ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        var totais = snap.totais && snap.totais[f] ? snap.totais[f] : {};
+        html += '<div style="background:#F8FAFC;border-radius:8px;padding:8px 12px;min-width:180px;border-left:3px solid #1F4E79">';
+        html += '<div style="font-size:11px;font-weight:700;color:#1F4E79">'+f+'</div>';
+        html += '<div style="font-size:10px;color:#607080;margin-top:2px">'+dt+'</div>';
+        if(totais.itens!=null) html += '<div style="font-size:10px;color:#8a9ab0;margin-top:2px">'+totais.itens+' itens'+(snap.arquivo?' · '+snap.arquivo:'')+'</div>';
+        html += '</div>';
+      });
       html += '</div>';
-    });
-    html += '</div></div>';
+    }
+    html += '</div>';
     panel.innerHTML = html;
-    panel.style.display = 'block';
-  }catch(e){console.warn('renderUltimaPlanilhaFamilia:',e);panel.style.display='none';}
+  }catch(e){console.warn('renderUltimaPlanilhaFamilia:',e);panel.innerHTML='<div style="font-size:11px;color:#C00000">Erro ao carregar.</div>';}
 }
 
 // ── ME AVISE ─────────────────────────────────────────────────────

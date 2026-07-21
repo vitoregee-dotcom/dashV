@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.837</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.838</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.837</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.838</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.837</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.838</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -34449,7 +34449,14 @@ function lpRegrasImagensParts(){
     if(typeof r!=='string'&&r.imagem){
       var m=r.imagem.match(/^data:([^;]+);base64,(.*)$/s);
       if(m){
-        parts.push({type:'text',text:'Exemplo de regra ensinada pelo usuário — "'+(r.texto||'')+'" — print de referência:'});
+        // v115.838 - Bug real encontrado (a pedido do Vitor: leitura nova
+        // às vezes retornava itens de uma lista antiga, nem sempre a mais
+        // recente): o texto aqui não deixava claro pra IA que essa imagem
+        // é só um EXEMPLO DE REGRA antigo -- com várias imagens na mesma
+        // chamada, a IA podia se confundir sobre qual é "a lista atual"
+        // pra extrair. Agora avisa explicitamente pra NÃO extrair itens
+        // dessa imagem de exemplo.
+        parts.push({type:'text',text:'ATENÇÃO: a imagem a seguir é só um EXEMPLO ANTIGO de uma regra que o usuário ensinou — "'+(r.texto||'')+'". NÃO extraia itens dela. Serve só de referência pro padrão descrito. A lista de verdade pra extrair vem depois, mais adiante nesta mensagem.'});
         parts.push({type:'image',source:{type:'base64',media_type:m[1],data:m[2]}});
       }
     }
@@ -34717,6 +34724,7 @@ async function lpLerArquivo(input){
   document.body.appendChild(overlay);
   try{
     var parts=lpRegrasImagensParts();
+    if(parts.length)parts.push({type:'text',text:'FIM DOS EXEMPLOS DE REGRA. A partir daqui vem a LISTA DE VERDADE, a que precisa ser lida agora:'});
     for(var i=0;i<files.length;i++){
       var f=files[i];
       var b64=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(e){res(e.target.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(f);});
@@ -34724,7 +34732,7 @@ async function lpLerArquivo(input){
       if(mt.startsWith('image/')){parts.push({type:'image',source:{type:'base64',media_type:mt,data:b64}});}
       else{parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});}
     }
-    parts.push({type:'text',text:'Extraia os itens desta lista de pecas. O cliente pediu CODIGO e QUANTIDADE. A descricao e informacao secundaria, pode estar escrita ao lado do codigo mas NAO e o que importa. Retorne APENAS JSON array: [{"codigo":"","qtd":1,"duvida":""}]. codigo: o codigo da peca, SEM ESPACOS dentro dele mesmo que no documento apareca com espaco (ex: "L 30039" no documento -> "L30039" no codigo; tambem 02-840476, E022677, mantendo hifens se houver). qtd: quantidade pedida (se nao informada, use 1). ATENCAO -- convencao comum: se a linha estiver no formato "NN-CODIGO" onde NN e um numero BAIXO (1 a 3 digitos, ex: "04-8603281", "12-331296A1"), esse NN antes do hifen normalmente e a QUANTIDADE, e o resto (depois do hifen) e o codigo de verdade -- nesse caso extraia qtd=NN e codigo=so a parte depois do hifen (sem o NN e sem o hifen). Ja em codigos de fabricante que usam hifen como parte natural (ex: Spicer/Dana tipo "5-303X" ou com pontos "003.213.6003"), NAO separe -- esses o hifen faz parte do codigo mesmo. Se tiver duvida real sobre qual interpretacao vale, mantenha o codigo como veio (com o NN e hifen) e explique no campo duvida. duvida: se manuscrito com incerteza no codigo, descreva brevemente. Caso contrario string vazia. APENAS o JSON, sem mais nada.'+lpRegrasPrompt()+lpExemplosPrompt()});
+    parts.push({type:'text',text:'Extraia os itens SOMENTE da lista de verdade anexada por último (ignore completamente qualquer imagem de exemplo de regra mostrada antes, se houver). O cliente pediu CODIGO e QUANTIDADE. A descricao e informacao secundaria, pode estar escrita ao lado do codigo mas NAO e o que importa. Retorne APENAS JSON array: [{"codigo":"","qtd":1,"duvida":""}]. codigo: o codigo da peca, SEM ESPACOS dentro dele mesmo que no documento apareca com espaco (ex: "L 30039" no documento -> "L30039" no codigo; tambem 02-840476, E022677, mantendo hifens se houver). qtd: quantidade pedida (se nao informada, use 1). ATENCAO -- convencao comum: se a linha estiver no formato "NN-CODIGO" onde NN e um numero BAIXO (1 a 3 digitos, ex: "04-8603281", "12-331296A1"), esse NN antes do hifen normalmente e a QUANTIDADE, e o resto (depois do hifen) e o codigo de verdade -- nesse caso extraia qtd=NN e codigo=so a parte depois do hifen (sem o NN e sem o hifen). Ja em codigos de fabricante que usam hifen como parte natural (ex: Spicer/Dana tipo "5-303X" ou com pontos "003.213.6003"), NAO separe -- esses o hifen faz parte do codigo mesmo. Se tiver duvida real sobre qual interpretacao vale, mantenha o codigo como veio (com o NN e hifen) e explique no campo duvida. duvida: se manuscrito com incerteza no codigo, descreva brevemente. Caso contrario string vazia. APENAS o JSON, sem mais nada.'+lpRegrasPrompt()+lpExemplosPrompt()});
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       // v115.765 - max_tokens era 2000 -- suficiente pra ~40 itens, mas

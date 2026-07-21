@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.839</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.840</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.839</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.840</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.839</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.840</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -23581,7 +23581,16 @@ function mapaCriarOuAtualizarSolicitacaoInicial(){
 // v115.837 - Duas ações em massa pra Fornecedores, a pedido do Vitor.
 function mapaZerarTodosFornecedores(){
   pfConfirm('Isso remove TODOS os fornecedores marcados em TODOS os itens desse mapa. Não dá pra desfazer. Continuar?',function(){
-    mapaFornSelecionados={};
+    // v115.840 - Bug real corrigido: resetar pro objeto vazio ({}) fazia o
+    // pré-cálculo de auto-match (ver mapaRender) reencher tudo de novo na
+    // hora, já que ele não distinguia "nunca preenchido" de "zerado agora".
+    // Em vez de apagar as chaves, marca cada uma explicitamente como array
+    // vazio -- assim o pré-cálculo (que agora só auto-preenche chave
+    // totalmente ausente) respeita o "zerar" de propósito.
+    mapaItens.forEach(function(it){
+      var k = it.ref+'||'+(it.marca||'');
+      mapaFornSelecionados[k] = [];
+    });
     pfSafeSetItem('_mapaDados_fornSel',JSON.stringify(mapaFornSelecionados));
     mapaRender();
   },'Zerar tudo');
@@ -24278,9 +24287,13 @@ function mapaStep3(el){
       html += '<th style="width:28px"></th>';
       html += '</tr></thead>';
       html += '<tbody id="entries_'+pk.replace(/[^a-z0-9]/gi,'_')+'">';
+      // v115.840 - A pedido do Vitor: fornecedor "CHINA" (criado automaticamente
+      // na v115.837 pra comparar comprar aqui x importar) ganha uma calculadora
+      // de importação embutida em cada linha -- ver mapaPrecoRow/mapaCalcChinaHtml.
+      var isChinaForn = (forn.razao||'').trim().toUpperCase()==='CHINA';
       entries.forEach(function(e,ei){
         var custo = e.preco>0 ? e.preco : 0; // Preco ja vem c/ imposto incluso (IPI/ICMS/ST sao so referencia, nao entram de novo na conta -- ver nota no cabecalho do arquivo)
-        html += mapaPrecoRow(pk, ei, e, custo);
+        html += mapaPrecoRow(pk, ei, e, custo, isChinaForn);
       });
       html += '</tbody></table></div>';
       html += '<button onclick="mapaAddEntrada(&quot;'+pk+'&quot;)" style="margin-top:7px;background:none;border:1.5px dashed #1F4E79;color:#1F4E79;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:11px;font-weight:700">+ Adicionar marca</button>';
@@ -24691,7 +24704,7 @@ async function mapaCarregarCotacaoPrint(){
   }
 }
 
-function mapaPrecoRow(baseKey,ei,e,custoTotal){
+function mapaPrecoRow(baseKey,ei,e,custoTotal,isChina){
   var safeKey=baseKey.replace(/[^a-z0-9]/gi,'_');
   var sk='&quot;'+baseKey+'&quot;';  // safe key for onclick
   var html='<tr style="border-bottom:1px solid #e0e8f0'+(e.negativo?';background:#FFF8F8':'')+'" id="row_'+safeKey+'_'+ei+'">';
@@ -24701,7 +24714,7 @@ function mapaPrecoRow(baseKey,ei,e,custoTotal){
     return html;
   }
   html+='<td style="padding:5px 6px"><input type="text" placeholder="ex: CARRARO" value="'+(e.marca||'')+'" oninput="mapaSetEntrada('+sk+','+ei+',&quot;marca&quot;,this.value)" style="width:100%;padding:5px 7px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px"></td>';
-  html+='<td style="padding:5px 6px"><input type="number" step="any" min="0" value="'+(e.preco>0?e.preco:'')+'" placeholder="0,00" oninput="mapaSetEntrada('+sk+','+ei+',&quot;preco&quot;,+this.value);mapaAtualizaCusto('+sk+','+ei+')" class="mPriceInp" style="text-align:right"></td>';
+  html+='<td style="padding:5px 6px"><input type="number" step="any" min="0" id="preco_'+safeKey+'_'+ei+'" value="'+(e.preco>0?e.preco:'')+'" placeholder="0,00" '+(isChina?'readonly title="Calculado pela calculadora de importação abaixo — ou desmarque \'Usar calculadora\' pra digitar direto"':'')+' oninput="mapaSetEntrada('+sk+','+ei+',&quot;preco&quot;,+this.value);mapaAtualizaCusto('+sk+','+ei+')" class="mPriceInp" style="text-align:right'+(isChina?';background:#F8FAFC':'')+'"></td>';
   html+='<td style="padding:5px 6px"><input type="number" step="0.1" min="0" value="'+(e.ipi||'')+'" placeholder="0" oninput="mapaSetEntrada('+sk+','+ei+',&quot;ipi&quot;,+this.value);mapaAtualizaCusto('+sk+','+ei+')" style="width:100%;padding:5px 7px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
   html+='<td style="padding:5px 6px"><input type="number" step="0.1" min="0" value="'+(e.icms||'')+'" placeholder="0" oninput="mapaSetEntrada('+sk+','+ei+',&quot;icms&quot;,+this.value)" style="width:100%;padding:5px 7px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
   html+='<td style="padding:5px 6px"><input type="number" step="0.1" min="0" value="'+(e.st||'')+'" placeholder="0" oninput="mapaSetEntrada('+sk+','+ei+',&quot;st&quot;,+this.value);mapaAtualizaCusto('+sk+','+ei+')" style="width:100%;padding:5px 7px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
@@ -24709,7 +24722,122 @@ function mapaPrecoRow(baseKey,ei,e,custoTotal){
   html+='<td style="padding:5px 6px"><input type="text" placeholder="ex: 7 dias" value="'+(e.prazo||'')+'" oninput="mapaSetEntrada('+sk+','+ei+',&quot;prazo&quot;,this.value)" style="width:100%;padding:5px 7px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:11px"></td>';
   html+='<td style="padding:5px 4px;text-align:center"><button onclick="mapaRemoveEntrada('+sk+','+ei+')" style="background:none;border:none;color:#C00000;cursor:pointer;font-size:15px">×</button></td>';
   html+='</tr>';
+  // v115.840 - A pedido do Vitor: pro fornecedor CHINA, calculadora de
+  // importação embutida (custo na moeda de origem + câmbio + imposto
+  // simples/detalhado + margem sugerida) -- calcula o "Preço Unit (R$)"
+  // dessa linha automaticamente, e mostra uma estimativa de por quanto
+  // dá pra vender o item.
+  if(isChina){
+    html+='<tr id="calcChina_'+safeKey+'_'+ei+'"><td colspan="8" style="padding:0 6px 10px 6px;border-bottom:1px solid #e0e8f0">'+mapaCalcChinaHtml(baseKey,ei,e)+'</td></tr>';
+  }
   return html;
+}
+
+// ── Calculadora de importação (fornecedor CHINA) ────────────────────────
+// v115.840 - A pedido do Vitor. Campos ficam guardados no próprio objeto
+// da entrada (mapaPrecos[baseKey].entries[ei]), reaproveitando mapaSetEntrada.
+// Nada aqui manda "preco" pra baixo sem o usuário decidir -- se "Usar
+// calculadora" estiver desmarcado, o Preço Unit volta a ser editável direto
+// (útil se o Vitor já sabe o custo final em R$ e não precisa do cálculo).
+function mapaCalcChinaHtml(baseKey,ei,e){
+  var usar = e.chinaUsarCalc!==false; // liga por padrão
+  var moeda = e.chinaMoeda||'USD';
+  var custoOrig = e.chinaCustoOrigem||'';
+  var cambio = e.chinaCambio||'';
+  var modo = e.chinaModoImport||'simples';
+  var impPct = e.chinaImpPct!=null?e.chinaImpPct:'';
+  var frete = e.chinaFrete||'';
+  var ii = e.chinaII||'';
+  var icmsImp = e.chinaIcmsImp||'';
+  var margem = e.chinaMargemPct!=null?e.chinaMargemPct:40;
+  var sk='&quot;'+baseKey+'&quot;';
+  var h='<div style="background:#F0F7FF;border:1.5px dashed #1F4E79;border-radius:8px;padding:8px 10px;margin-top:4px;font-size:11px">';
+  h+='<label style="display:flex;align-items:center;gap:6px;font-weight:700;color:#1F4E79;margin-bottom:6px;cursor:pointer">';
+  h+='<input type="checkbox" '+(usar?'checked':'')+' onchange="mapaSetEntrada('+sk+','+ei+',&quot;chinaUsarCalc&quot;,this.checked);mapaCalcChinaAtualizar('+sk+','+ei+')"> 🧮 Calculadora de importação (China)';
+  h+='</label>';
+  h+='<div id="calcChinaBody_'+baseKey.replace(/[^a-z0-9]/gi,'_')+'_'+ei+'" style="display:'+(usar?'flex':'none')+';gap:8px;flex-wrap:wrap;align-items:flex-end">';
+
+  h+='<div><div style="color:#607080;margin-bottom:2px">Custo (unid.)</div><div style="display:flex;gap:3px">';
+  h+='<input type="number" step="any" min="0" value="'+custoOrig+'" placeholder="0,00" oninput="mapaSetEntrada('+sk+','+ei+',&quot;chinaCustoOrigem&quot;,+this.value);mapaCalcChinaAtualizar('+sk+','+ei+')" style="width:80px;padding:4px 6px;border:1.5px solid #cfe0f5;border-radius:5px;font-size:11px;text-align:right">';
+  h+='<select onchange="mapaSetEntrada('+sk+','+ei+',&quot;chinaMoeda&quot;,this.value);mapaCalcChinaAtualizar('+sk+','+ei+')" style="padding:4px 4px;border:1.5px solid #cfe0f5;border-radius:5px;font-size:11px">';
+  h+='<option value="USD"'+(moeda==='USD'?' selected':'')+'>US$</option>';
+  h+='<option value="BRL"'+(moeda==='BRL'?' selected':'')+'>R$</option>';
+  h+='</select></div></div>';
+
+  h+='<div style="'+(moeda==='BRL'?'opacity:.4':'')+'"><div style="color:#607080;margin-bottom:2px">Câmbio (R$)</div>';
+  h+='<div style="display:flex;gap:3px;align-items:center">';
+  h+='<input type="number" step="0.01" min="0" value="'+cambio+'" placeholder="ex: 5,35" '+(moeda==='BRL'?'disabled':'')+' oninput="mapaSetEntrada('+sk+','+ei+',&quot;chinaCambio&quot;,+this.value);mapaCalcChinaAtualizar('+sk+','+ei+')" style="width:65px;padding:4px 6px;border:1.5px solid #cfe0f5;border-radius:5px;font-size:11px;text-align:right">';
+  h+='<button type="button" '+(moeda==='BRL'?'disabled':'')+' onclick="mapaCalcChinaBuscarCambio('+sk+','+ei+')" title="Buscar câmbio de hoje" style="border:none;background:#1F4E79;color:#fff;border-radius:5px;padding:4px 7px;cursor:pointer;font-size:11px">🔄</button>';
+  h+='</div></div>';
+
+  h+='<div><div style="color:#607080;margin-bottom:2px">Cálculo</div><select onchange="mapaSetEntrada('+sk+','+ei+',&quot;chinaModoImport&quot;,this.value);mapaCalcChinaAtualizar('+sk+','+ei+')" style="padding:4px 6px;border:1.5px solid #cfe0f5;border-radius:5px;font-size:11px">';
+  h+='<option value="simples"'+(modo==='simples'?' selected':'')+'>Simples (% único)</option>';
+  h+='<option value="detalhado"'+(modo==='detalhado'?' selected':'')+'>Detalhado</option>';
+  h+='</select></div>';
+
+  if(modo==='detalhado'){
+    h+='<div><div style="color:#607080;margin-bottom:2px">Frete (R$/un)</div><input type="number" step="any" min="0" value="'+frete+'" placeholder="0,00" oninput="mapaSetEntrada('+sk+','+ei+',&quot;chinaFrete&quot;,+this.value);mapaCalcChinaAtualizar('+sk+','+ei+')" style="width:75px;padding:4px 6px;border:1.5px solid #cfe0f5;border-radius:5px;font-size:11px;text-align:right"></div>';
+    h+='<div><div style="color:#607080;margin-bottom:2px">Imp. Import. (R$/un)</div><input type="number" step="any" min="0" value="'+ii+'" placeholder="0,00" oninput="mapaSetEntrada('+sk+','+ei+',&quot;chinaII&quot;,+this.value);mapaCalcChinaAtualizar('+sk+','+ei+')" style="width:75px;padding:4px 6px;border:1.5px solid #cfe0f5;border-radius:5px;font-size:11px;text-align:right"></div>';
+    h+='<div><div style="color:#607080;margin-bottom:2px">ICMS Import. (R$/un)</div><input type="number" step="any" min="0" value="'+icmsImp+'" placeholder="0,00" oninput="mapaSetEntrada('+sk+','+ei+',&quot;chinaIcmsImp&quot;,+this.value);mapaCalcChinaAtualizar('+sk+','+ei+')" style="width:75px;padding:4px 6px;border:1.5px solid #cfe0f5;border-radius:5px;font-size:11px;text-align:right"></div>';
+  } else {
+    h+='<div><div style="color:#607080;margin-bottom:2px">Import. (%)</div><input type="number" step="0.1" min="0" value="'+impPct+'" placeholder="ex: 60" oninput="mapaSetEntrada('+sk+','+ei+',&quot;chinaImpPct&quot;,+this.value);mapaCalcChinaAtualizar('+sk+','+ei+')" style="width:65px;padding:4px 6px;border:1.5px solid #cfe0f5;border-radius:5px;font-size:11px;text-align:right"></div>';
+  }
+
+  h+='<div><div style="color:#607080;margin-bottom:2px">Margem venda (%)</div><input type="number" step="1" min="0" value="'+margem+'" oninput="mapaSetEntrada('+sk+','+ei+',&quot;chinaMargemPct&quot;,+this.value);mapaCalcChinaAtualizar('+sk+','+ei+')" style="width:60px;padding:4px 6px;border:1.5px solid #cfe0f5;border-radius:5px;font-size:11px;text-align:right"></div>';
+
+  h+='<div style="margin-left:auto;text-align:right"><div style="color:#607080;margin-bottom:2px">Preço sugerido de venda</div><div id="chinaPrecoSugerido_'+baseKey.replace(/[^a-z0-9]/gi,'_')+'_'+ei+'" style="font-weight:800;color:#27AE60;font-size:13px">R$ —</div></div>';
+
+  h+='</div></div>';
+  return h;
+}
+
+function mapaCalcChinaValores(e){
+  var custoOrig=+(e.chinaCustoOrigem||0);
+  var moeda=e.chinaMoeda||'USD';
+  var cambio=+(e.chinaCambio||0);
+  var custoBRL = moeda==='USD' ? custoOrig*cambio : custoOrig;
+  var modo=e.chinaModoImport||'simples';
+  var custoFinal;
+  if(modo==='detalhado'){
+    custoFinal = custoBRL + (+(e.chinaFrete||0)) + (+(e.chinaII||0)) + (+(e.chinaIcmsImp||0));
+  } else {
+    custoFinal = custoBRL * (1 + (+(e.chinaImpPct||0))/100);
+  }
+  var margem = e.chinaMargemPct!=null?+e.chinaMargemPct:40;
+  var precoSugerido = custoFinal * (1 + margem/100);
+  return {custoBRL:custoBRL,custoFinal:custoFinal,precoSugerido:precoSugerido};
+}
+
+function mapaCalcChinaAtualizar(baseKey,ei){
+  var safeKey=baseKey.replace(/[^a-z0-9]/gi,'_');
+  var e=(mapaPrecos[baseKey]&&mapaPrecos[baseKey].entries&&mapaPrecos[baseKey].entries[ei])||{};
+  var bodyEl=document.getElementById('calcChinaBody_'+safeKey+'_'+ei);
+  var usar = e.chinaUsarCalc!==false;
+  if(bodyEl) bodyEl.style.display = usar?'flex':'none';
+  var precoInp=document.getElementById('preco_'+safeKey+'_'+ei);
+  if(!usar){
+    // Calculadora desligada: Preço Unit volta a ser editável na mão, sem sobrescrever.
+    if(precoInp){ precoInp.removeAttribute('readonly'); precoInp.style.background=''; }
+    return;
+  }
+  if(precoInp){ precoInp.setAttribute('readonly','readonly'); precoInp.style.background='#F8FAFC'; }
+  var vals=mapaCalcChinaValores(e);
+  mapaSetEntrada(baseKey,ei,'preco',+vals.custoFinal.toFixed(2));
+  if(precoInp) precoInp.value = vals.custoFinal>0 ? vals.custoFinal.toFixed(2) : '';
+  var sugEl=document.getElementById('chinaPrecoSugerido_'+safeKey+'_'+ei);
+  if(sugEl) sugEl.textContent = vals.precoSugerido>0 ? ('R$ '+vals.precoSugerido.toFixed(2)) : 'R$ —';
+  if(typeof mapaAtualizaCusto==='function') mapaAtualizaCusto(baseKey,ei);
+}
+
+async function mapaCalcChinaBuscarCambio(baseKey,ei){
+  var safeKey=baseKey.replace(/[^a-z0-9]/gi,'_');
+  try{
+    var v=await pfCotacaoUsdBrl();
+    mapaSetEntrada(baseKey,ei,'chinaCambio',v);
+    var inp=document.querySelector('#calcChina_'+safeKey+'_'+ei+' input[placeholder="ex: 5,35"]');
+    if(inp) inp.value=v;
+    mapaCalcChinaAtualizar(baseKey,ei);
+  }catch(e){pfAlert('Não consegui buscar o câmbio agora. Digita manualmente.');}
 }
 
 
@@ -30485,7 +30613,16 @@ mapaStep1 = function(el){
   itensFiltrados.forEach(function(item){
     if(!pfPrazoNaoIm(item.prazo)) return; // IMEDIATO não precisa de fornecedor
     var k = item.ref+'||'+(item.marca||'');
-    if(!mapaFornSelecionados[k] || !mapaFornSelecionados[k].length){
+    // v115.840 - Bug real corrigido (a pedido do Vitor: "Zerar Fornecedores"
+    // não zerava de verdade): antes, essa checagem tratava "chave ausente"
+    // e "chave presente mas array vazio" do mesmo jeito -- então assim que
+    // mapaZerarTodosFornecedores() limpava tudo, esse pré-cálculo rodava
+    // de novo no mesmo render() e reenchia sozinho qualquer item com
+    // fornecedor compatível por marca/linha. Agora só auto-preenche quando
+    // a chave NUNCA foi definida pra esse item (primeira vez que o mapa vê
+    // ele) -- uma vez que o usuário zera de propósito (ou desmarca tudo
+    // manualmente), a chave existe com array vazio e fica vazia mesmo.
+    if(!(k in mapaFornSelecionados)){
       var lnPre = item.ln || idLinha(item.ref); item.ln = lnPre;
       var matchedPre = flist.filter(function(f){return mapaForCompativel(f,item,lnPre).match;});
       // Antes: se não achasse nenhum fornecedor compatível, caía pro fallback

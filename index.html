@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.833</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.834</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.833</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.834</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.833</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.834</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -10908,6 +10908,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
     <button onclick="abrirTransit()" style="background:#FFF8E1;color:#E65100;border:1px solid #F5C5C5;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">📦 Em Trânsito</button>
     <button id="btnCusto" onclick="toggleCusto()" class="exbtn" style="background:#EEF2F7;color:var(--tx)">💰 Mostrar custo</button>
     <button class="exbtn exXL" onclick="expXL()">📥 Excel (.xlsx)</button>
+    <button class="exbtn" onclick="dashEnviarParaMapa()" style="background:#7B2D8B;color:#fff" title="Cria um Mapa de Compras novo com os itens selecionados, pra cotar com fornecedores">🗂️ Enviar pro Mapa</button>
     <button id="btnPDFCusto" onclick="togglePDFCusto()" class="exbtn" style="background:#EEF2F7;color:var(--tx)">💰 Custo no PDF</button>
     <div style="position:relative;display:inline-block">
       <button class="exbtn exPDF" onclick="document.getElementById(&#39;pdfModeloMenu&#39;).style.display=document.getElementById(&#39;pdfModeloMenu&#39;).style.display===&#39;block&#39;?&#39;none&#39;:&#39;block&#39;">🖨 PDF / Imprimir ▾</button>
@@ -17534,6 +17535,34 @@ function buildXlsx(rows){
   const out=new Uint8Array(parts.reduce((s,p)=>s+p.length,0));
   let off=0;for(const p of parts){out.set(p,off);off+=p.length;}
   return out;
+}
+// v115.834 - A pedido do Vitor: enviar os itens selecionados aqui no
+// Dashboard direto pro Mapa de Compras, pra cotar com fornecedores e
+// comparar o que vale a pena importar. Cria um Mapa NOVO (não mistura com
+// um mapa já em andamento) e marca ele como "Compra para Estoque" -- fica
+// visível na lista de Mapas em andamento, pra distinguir de mapas que
+// vieram de uma venda/cotação de cliente.
+function dashEnviarParaMapa(){
+  var itens=getSolData();
+  if(!itens.length){pfAlert('Nenhum item selecionado com quantidade a comprar.');return;}
+  var nomeSugerido='ESTOQUE - '+new Date().toLocaleDateString('pt-BR');
+  pfConfirm('Enviar '+itens.length+' item(ns) selecionado(s) pro Mapa de Compras, num mapa novo chamado "'+nomeSugerido+'"?',function(){
+    for(var key in localStorage){
+      if(key.startsWith('mapa_')){localStorage.removeItem(key);}
+    }
+    localStorage.removeItem('_mapaDados_fornSel');
+    if(typeof mapaLimparEstado==='function')mapaLimparEstado();
+    mapaItens=itens.map(function(d){
+      return {ref:d.ref,desc:d.desc,marca:d.marca||'',qtd:d.qtdReal,prazo:'NÃO IM.',ln:(typeof idLinha==='function'?idLinha(d.ref):null),sel:true,origem:'estoque'};
+    });
+    mapaFornSelecionados={};mapaPrecos={};mapaDecisoes={};
+    mapaEstadoId='mapa_'+Date.now();
+    window._mapaEstadoNome=nomeSugerido;
+    window._mapaEstadoOrigemEstoque=true; // v115.834 - marca esse mapa como vindo do Dashboard/estoque
+    if(typeof mapaSalvarEstado==='function')mapaSalvarEstado();
+    pfNavigate('mapa');
+    setTimeout(function(){if(typeof mapaGoStep==='function')mapaGoStep(2);},150);
+  },'Enviar');
 }
 function expXL(){
   const itens=getSolData();
@@ -32468,6 +32497,8 @@ mapaRender = function(){
           '<span style="font-size:11px;color:#b0bac5">—</span>';
         var origemBadge=m.vendaOrigem?
           '<span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap;background:#EEF6FF;color:#185FA5">🧾 Cotação</span>':
+          m.estoqueOrigem?
+          '<span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap;background:#FFF3E0;color:#B35C00">📦 Compra p/ Estoque</span>':
           '<span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap;background:#F3E8F7;color:#7B2D8B">📋 Mapa</span>';
         html+='<tr style="border-bottom:0.5px solid #f0f4f8" onmouseover="this.style.background=\'#f7f9fc\'" onmouseout="this.style.background=\'\'">';
         html+='<td style="padding:4px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(m.numero?'<span style="font-size:11px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 8px;border-radius:5px">'+pfEscHtml(m.numero)+'</span>':'—')+'</td>';
@@ -32985,6 +33016,11 @@ mapaSalvarNaLista = function(estado){
   // Include name in titulo
   if(window._mapaEstadoNome){
     estado.titulo = window._mapaEstadoNome;
+  }
+  // v115.834 - Marca o mapa como "Compra para Estoque" (veio do Dashboard,
+  // não de uma venda/cotação de cliente), pra aparecer na lista de Mapas.
+  if(window._mapaEstadoOrigemEstoque){
+    estado.estoqueOrigem = true;
   }
   _origMapaSalvarNaLista(estado);
 };

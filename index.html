@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.841</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.842</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.841</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.842</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.841</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.842</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -24286,7 +24286,7 @@ function mapaStep3(el){
       html += '<th style="padding:6px 8px;text-align:center;min-width:80px">Prazo</th>';
       html += '<th style="width:28px"></th>';
       html += '</tr></thead>';
-      html += '<tbody id="entries_'+pk.replace(/[^a-z0-9]/gi,'_')+'">';
+      html += '<tbody id="entries_'+pk.replace(/[^a-z0-9]/gi,'_')+'" style="'+(mapaPrecos[pk].declinou?'opacity:.4;pointer-events:none':'')+'">';
       // v115.840 - A pedido do Vitor: fornecedor "CHINA" (criado automaticamente
       // na v115.837 pra comparar comprar aqui x importar) ganha uma calculadora
       // de importação embutida em cada linha -- ver mapaPrecoRow/mapaCalcChinaHtml.
@@ -24296,7 +24296,14 @@ function mapaStep3(el){
         html += mapaPrecoRow(pk, ei, e, custo, isChinaForn);
       });
       html += '</tbody></table></div>';
-      html += '<button onclick="mapaAddEntrada(&quot;'+pk+'&quot;)" style="margin-top:7px;background:none;border:1.5px dashed #1F4E79;color:#1F4E79;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:11px;font-weight:700">+ Adicionar marca</button>';
+      // v115.842 - A pedido do Vitor: opção de marcar que ESSE fornecedor não
+      // tinha ESSE item (em vez de só deixar o preço em branco, sem
+      // distinção entre "ainda não perguntei" e "perguntei e não tinha").
+      // Fica registrado e aparece na Etapa 4 e no relatório/OC final.
+      html += '<label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:#C00000;cursor:pointer">'+
+        '<input type="checkbox" onchange="mapaTogDeclinou(&quot;'+pk+'&quot;,this.checked)" '+(mapaPrecos[pk].declinou?'checked':'')+'> ❌ Esse fornecedor não tinha esse item'+
+        '</label>';
+      if(!mapaPrecos[pk].declinou)html += '<button onclick="mapaAddEntrada(&quot;'+pk+'&quot;)" style="margin-top:7px;background:none;border:1.5px dashed #1F4E79;color:#1F4E79;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:11px;font-weight:700">+ Adicionar marca</button>';
       html += '</div>';
     });
 
@@ -25002,6 +25009,13 @@ function mapaAtualizaCusto(baseKey,ei){
   if(el)el.textContent='R$ '+(custo>0?custo.toFixed(2):'—');
 }
 
+// v115.842 - Marca/desmarca "esse fornecedor não tinha esse item".
+function mapaTogDeclinou(pk,checked){
+  if(!mapaPrecos[pk])mapaPrecos[pk]={entries:[{marca:'',preco:0,ipi:0,icms:0,st:0,prazo:''}]};
+  mapaPrecos[pk].declinou=checked;
+  mapaSalvarEstado();
+  mapaStep3(document.getElementById('mapaBody')||document.getElementById('dashBody')||document.body);
+}
 function mapaAddEntrada(baseKey){
   if(!mapaPrecos[baseKey])mapaPrecos[baseKey]={entries:[]};
   if(!mapaPrecos[baseKey].entries)mapaPrecos[baseKey].entries=[];
@@ -25609,11 +25623,16 @@ function mapaStep4(el){
 
     // Build all rows: each fornecedor × each entry with preco>0
     var rows = [];
+    var declinados = []; // v115.842 - fornecedores que marcaram "não tinha esse item"
     fids.forEach(function(fid){
       var pk = key+'||'+fid;
       var p = mapaPrecos[pk]||{};
-      var entries = (p.entries&&p.entries.length) ? p.entries : [{marca:p.marca||'',preco:p.preco||0,ipi:p.ipi||0,icms:p.icms||0,st:p.st||0,prazo:p.prazo||''}];
       var f = flist.find(function(x){return x.id===fid;});
+      if(p.declinou){
+        declinados.push(f?(f.fantasia||f.nome||f.razao):fid);
+        return;
+      }
+      var entries = (p.entries&&p.entries.length) ? p.entries : [{marca:p.marca||'',preco:p.preco||0,ipi:p.ipi||0,icms:p.icms||0,st:p.st||0,prazo:p.prazo||''}];
       entries.forEach(function(e,ei){
         if(e.preco>0){
           var custo = e.preco; // Preco ja vem c/ imposto incluso
@@ -25630,7 +25649,9 @@ function mapaStep4(el){
       html += '<span class="mLinhaTag" style="background:'+ln.b+';color:'+(ln.x||ln.c)+'">'+ln.l+'</span>';
       html += '<span style="font-size:12px;color:#607080">'+item.desc+'</span>';
       html += '<span style="font-size:11px;color:#E67E22;margin-left:auto">⚠ Nenhum preço preenchido</span>';
-      html += '</div></div>';
+      html += '</div>';
+      if(declinados.length)html += '<div style="font-size:11px;color:#C00000">❌ Não tinha: '+declinados.join(', ')+'</div>';
+      html += '</div>';
       return;
     }
 
@@ -25706,7 +25727,9 @@ function mapaStep4(el){
       html += '</tr>';
     });
 
-    html += '</tbody></table></div></div>';
+    html += '</tbody></table></div>';
+    if(declinados.length)html += '<div style="font-size:11px;color:#C00000;margin-top:8px">❌ Não tinha esse item: '+declinados.join(', ')+'</div>';
+    html += '</div>';
   });
 
   if(!algumPreco){

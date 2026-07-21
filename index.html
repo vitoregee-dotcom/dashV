@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.845</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.846</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.845</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.846</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.845</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.846</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -32500,6 +32500,26 @@ function _showViewForTab(view){
 
 // ── 2. MULTI-MAPA — lista de mapas salvos ───────────────────────
 var MAPAS_LIST_KEY = 'mapas_lista_v1';
+// v115.846 - Reparo automático (uma vez só): mapas já criados via "Enviar
+// pro Mapa" tinham a marcação "estoqueOrigem" salva no estado completo,
+// mas ela nunca chegava na lista resumida (bug corrigido agora) -- essa
+// migração re-sincroniza a partir do estado completo de cada mapa, sem
+// precisar recriar nada.
+(function(){
+  try{
+    var lista=JSON.parse(localStorage.getItem(MAPAS_LIST_KEY)||'[]');
+    var mudou=false;
+    lista.forEach(function(m){
+      if(!m.estoqueOrigem){
+        try{
+          var est=JSON.parse(localStorage.getItem('mapa_estado_'+m.id)||'null');
+          if(est&&est.estoqueOrigem){m.estoqueOrigem=true;mudou=true;}
+        }catch(e){}
+      }
+    });
+    if(mudou)localStorage.setItem(MAPAS_LIST_KEY,JSON.stringify(lista));
+  }catch(e){console.warn('Reparo de estoqueOrigem falhou:',e);}
+})();
 
 function mapaListarSalvos(){
   var lista;
@@ -32566,6 +32586,12 @@ function mapaSalvarNaLista(estado){
     criadoPor: estado.criadoPor||null,
     decididoTs: estado.decididoTs||null,
     vendaOrigem: estado.vendaOrigem||null,
+    // v115.846 - Bug real encontrado (a pedido do Vitor: mapa enviado do
+    // Dashboard não mostrava "Compra p/ Estoque" na lista): esse campo
+    // faltava aqui -- mesmo o patch de mapaSalvarNaLista setando
+    // estado.estoqueOrigem corretamente, essa função só copia os campos
+    // que estão explicitamente listados aqui, e estoqueOrigem não estava.
+    estoqueOrigem: estado.estoqueOrigem||null,
   };
   if(idx>=0)lista[idx]=resumo; else lista.unshift(resumo);
   // Keep max 20 mapas
@@ -38237,7 +38263,7 @@ function vendasEnviarTodosNeg(){
   
   // Adicionar à lista de mapas
   var lista = JSON.parse(localStorage.getItem('mapas_lista_v1')||'[]');
-  var resumo = {id:novoMapaId, ts:Date.now(), titulo:estado.titulo, numero:estado.numero, cliente:estado.cliente, clienteRazao:estado.clienteRazao||'', vendaOrigem:estado.vendaOrigem||null, criadoPor:window._mapaCriadoPor||null, step:1, nItens:estado.itens.length, nSel:estado.itens.length};
+  var resumo = {id:novoMapaId, ts:Date.now(), titulo:estado.titulo, numero:estado.numero, cliente:estado.cliente, clienteRazao:estado.clienteRazao||'', vendaOrigem:estado.vendaOrigem||null, estoqueOrigem:estado.estoqueOrigem||null, criadoPor:window._mapaCriadoPor||null, step:1, nItens:estado.itens.length, nSel:estado.itens.length};
   lista.unshift(resumo);
   lista = lista.slice(0,20);
   pfSafeSetItem('mapas_lista_v1', JSON.stringify(lista));

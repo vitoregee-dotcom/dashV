@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.838</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.839</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.838</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.839</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.838</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.839</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -34632,6 +34632,34 @@ function lpApplyRuleCase(cod){
 // seletor por atributo quebrava sem o onclick). Também corrigidos 39
 // "exemplos" envenenados no Supabase (lp_exemplos_v1) que ensinavam a IA a
 // multiplicar tudo por 3 -- ver histórico da conversa de 17/07/2026.
+// v115.839 - A pedido do Vitor: leitura nova estava juntando (silenciosamente)
+// com itens que já estavam na lista de uma leitura anterior, sem avisar --
+// ele via um total maior que o esperado e achava que tinha "puxado uma
+// lista antiga". A função lpMergeItens em si é útil (várias páginas numa
+// lista só), mas precisa ser uma ESCOLHA explícita, não automática. Essa
+// função pergunta antes de continuar, só quando já existem itens.
+function lpConfirmarComecarLeitura(callback){
+  if(!window._lpItens||!window._lpItens.length){callback();return;}
+  var n=window._lpItens.length;
+  var old=document.getElementById('lpEscolhaModal');if(old)old.remove();
+  var overlay=document.createElement('div');
+  overlay.id='lpEscolhaModal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML=
+    '<div style="background:#fff;border-radius:12px;max-width:420px;width:100%;padding:22px;box-shadow:0 12px 40px rgba(0,0,0,.3)">'+
+      '<div style="font-size:15px;font-weight:800;color:#1F4E79;margin-bottom:8px">Já tem '+n+' item(ns) na lista</div>'+
+      '<div style="font-size:13px;color:#607080;margin-bottom:18px">Essa leitura nova é continuação da mesma lista (ex: outra página), ou é uma lista totalmente diferente?</div>'+
+      '<div style="display:flex;flex-direction:column;gap:8px">'+
+        '<button id="lpBtnSubstituir" style="padding:11px;background:#C00000;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🗑 Substituir -- é uma lista nova</button>'+
+        '<button id="lpBtnAdicionar" style="padding:11px;background:#1F4E79;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">➕ Adicionar aos '+n+' que já tem -- é continuação</button>'+
+        '<button id="lpBtnCancelar" style="padding:9px;background:none;border:1px solid #e0e8f0;color:#607080;border-radius:8px;font-size:12px;cursor:pointer">Cancelar</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(overlay);
+  document.getElementById('lpBtnSubstituir').onclick=function(){window._lpItens=[];overlay.remove();callback();};
+  document.getElementById('lpBtnAdicionar').onclick=function(){overlay.remove();callback();};
+  document.getElementById('lpBtnCancelar').onclick=function(){overlay.remove();};
+}
 function lpMergeItens(novos){
   window._lpItens=window._lpItens||[];
   novos.forEach(function(novo){
@@ -34710,8 +34738,11 @@ function lpExemplosPrompt(){
   return '\n\nEXEMPLOS de decisões já confirmadas ou corrigidas pelo usuário em leituras anteriores (use pra decidir casos parecidos):\n'+linhas.join('\n');
 }
 
-async function lpLerArquivo(input){
+function lpLerArquivo(input){
   var files=Array.from(input.files);if(!files.length)return;
+  lpConfirmarComecarLeitura(function(){lpLerArquivoReal(input,files);});
+}
+async function lpLerArquivoReal(input,files){
   var apiKey=localStorage.getItem('anthropic_key')||'';
   if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)pfSafeSetItem('anthropic_key',apiKey);}
   if(!apiKey)return;
@@ -34771,10 +34802,12 @@ async function lpLerArquivo(input){
   finally{if(lbl)lbl.style.opacity='1';var ov=document.getElementById('lpLoadingOverlay');if(ov)ov.remove();}
 }
 
-async function lpLerTexto(){
+function lpLerTexto(){
   var txt=(document.getElementById('lpTexto')||{}).value||'';
   if(!txt.trim()){pfAlert('Cole um texto primeiro.');return;}
-
+  lpConfirmarComecarLeitura(function(){lpLerTextoReal(txt);});
+}
+async function lpLerTextoReal(txt){
   // JS parser: handles "QTD - CODE DESC" with spaces inside code
   var linhas=txt.trim().split('\n');
   var jsItens=[];var allParsed=true;

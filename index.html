@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.869</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.870</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.869</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.870</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.869</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.870</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -24012,6 +24012,120 @@ function mapaProcessarTexto(){
 }
 
 // ── STEP 2: Enviar ─────────────────────────────────────────────
+// v115.870 - A pedido do Vitor: impressão de análise de estoque com colunas
+// selecionáveis (consumo, saldo, curva ABC, projeção 12 meses, dias de
+// estoque, status, custo médio, preços cotados por fornecedor). Os dados
+// de consumo/saldo/curva vêm do cálculo do Dashboard (calcItems, variável
+// global só preenchida depois que o Dashboard roda pelo menos uma vez
+// nesta sessão) -- casados por código (ref) com os itens do mapa.
+function mapaAbrirAnaliseEstoque(){
+  var opcoes=[
+    {id:'consumo',label:'Consumo mensal médio'},
+    {id:'saldo',label:'Saldo atual em estoque'},
+    {id:'curva',label:'Curva ABC'},
+    {id:'proj12',label:'Projeção 12 meses'},
+    {id:'diasEstoque',label:'Dias de estoque restante'},
+    {id:'status',label:'Status (Urgente/Atenção/OK)'},
+    {id:'custo',label:'Seu custo médio interno'},
+    {id:'precosForn',label:'Preços cotados por fornecedor'}
+  ];
+  var m=document.getElementById('mapaAnaliseModal');if(m)m.remove();
+  var overlay=document.createElement('div');
+  overlay.id='mapaAnaliseModal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99990;display:flex;align-items:center;justify-content:center;padding:20px';
+  var html='<div style="background:#fff;border-radius:12px;padding:22px;max-width:420px;width:100%;max-height:85vh;overflow:auto">';
+  html+='<div style="font-size:15px;font-weight:800;color:#1F4E79;margin-bottom:4px">🖨️ Imprimir Análise de Estoque</div>';
+  html+='<div style="font-size:12px;color:#8a9ab0;margin-bottom:14px">Escolha o que sai na folha, além de Código/Descrição/Qtd (que sempre aparecem).</div>';
+  opcoes.forEach(function(o){
+    html+='<label style="display:flex;align-items:center;gap:8px;padding:8px 4px;font-size:13px;color:#1a2332;cursor:pointer;border-bottom:1px solid #f0f2f4">'
+      +'<input type="checkbox" class="mapaAnaliseChk" value="'+o.id+'" checked style="width:16px;height:16px"> '+o.label+'</label>';
+  });
+  html+='<div style="display:flex;gap:8px;margin-top:16px">';
+  html+='<button onclick="document.getElementById(\'mapaAnaliseModal\').remove()" style="flex:1;background:none;border:1.5px solid #e0e8f0;color:#607080;border-radius:8px;padding:10px;cursor:pointer;font-size:13px;font-weight:700">Cancelar</button>';
+  html+='<button onclick="mapaGerarImpressaoAnalise()" style="flex:1;background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px;cursor:pointer;font-size:13px;font-weight:700">Gerar impressão</button>';
+  html+='</div></div>';
+  overlay.innerHTML=html;
+  document.body.appendChild(overlay);
+}
+function mapaGerarImpressaoAnalise(){
+  var cols=Array.prototype.slice.call(document.querySelectorAll('.mapaAnaliseChk:checked')).map(function(c){return c.value;});
+  var m=document.getElementById('mapaAnaliseModal');if(m)m.remove();
+  var calc=(typeof calcItems!=='undefined'&&calcItems.length)?calcItems:[];
+  var norm=typeof normRef==='function'?normRef:function(r){return String(r||'').trim().toUpperCase();};
+  var itens=mapaItens.filter(function(i){return i.sel!==false;});
+  var semDadosDash = cols.some(function(c){return c!=='precosForn';}) && !calc.length;
+
+  function achaCalc(ref){
+    var n=norm(ref);
+    return calc.find(function(c){return norm(c.ref)===n;});
+  }
+  function precosDoItem(item){
+    var key=item.ref+'||'+(item.marca||'');
+    var fids=mapaFornSelecionados[key]||[];
+    var partes=[];
+    fids.forEach(function(fid){
+      var pk=item.ref+'||'+(item.marca||'')+'||'+fid;
+      var ents=mapaPrecos[pk]&&mapaPrecos[pk].entries;
+      if(!ents||!ents.length)return;
+      var menor=ents.filter(function(e){return e.preco>0;}).sort(function(a,b){return a.preco-b.preco;})[0];
+      if(!menor)return;
+      var fornCad=(cotFornecedores||[]).find(function(f){return f.id===fid;})||(cadLoad(FORN_KEY)||[]).find(function(f){return f.id===fid;});
+      var nome=fornCad?(fornCad.fantasia||fornCad.nome||fornCad.razao||'?'):'?';
+      partes.push(nome+': R$ '+menor.preco.toFixed(2));
+    });
+    return partes.length?partes.join(' | '):'—';
+  }
+
+  var titulos={consumo:'Consumo Mensal',saldo:'Saldo Atual',curva:'Curva',proj12:'Projeção 12m',
+    diasEstoque:'Dias Estoque',status:'Status',custo:'Custo Médio',precosForn:'Preços Cotados'};
+
+  var thead='<th style="padding:8px 10px;text-align:center">#</th><th style="padding:8px 10px;text-align:left">Código</th><th style="padding:8px 10px;text-align:left">Descrição</th><th style="padding:8px 10px;text-align:center">Qtd</th>';
+  cols.forEach(function(c){thead+='<th style="padding:8px 10px;text-align:center">'+titulos[c]+'</th>';});
+
+  var linhas=itens.map(function(it,n){
+    var d=achaCalc(it.ref);
+    var bg=n%2===0?'#ffffff':'#f7f8fa';
+    var tds='<td style="padding:8px 10px;text-align:center">'+(n+1)+'</td>'+
+      '<td style="padding:8px 10px;font-family:monospace;font-weight:700;color:#1F4E79">'+pfEscHtml(it.ref)+'</td>'+
+      '<td style="padding:8px 10px">'+pfEscHtml(it.desc||'')+'</td>'+
+      '<td style="padding:8px 10px;text-align:center;font-weight:700">'+(it.qtd||0)+'</td>';
+    cols.forEach(function(c){
+      var v='—';
+      if(c==='precosForn'){v=precosDoItem(it);}
+      else if(d){
+        if(c==='consumo')v=Math.round(d.cM||0);
+        else if(c==='saldo')v=Math.round(d.saldo||0);
+        else if(c==='curva')v=d.curva||'—';
+        else if(c==='proj12')v=Math.round((d.cM||0)*12);
+        else if(c==='diasEstoque')v=(d.dE!=null&&d.dE<99999)?Math.round(d.dE)+'d':'—';
+        else if(c==='status')v=d.sl||'—';
+        else if(c==='custo')v=(d.custo!=null)?('R$ '+Number(d.custo).toFixed(2)):'—';
+      }
+      tds+='<td style="padding:8px 10px;text-align:center">'+pfEscHtml(String(v))+'</td>';
+    });
+    return '<tr style="background:'+bg+';border-bottom:1px solid #e8edf4">'+tds+'</tr>';
+  }).join('');
+
+  var hoje=new Date().toLocaleDateString('pt-BR');
+  var win=window.open('','_blank','width=1000,height=750,resizable=yes,scrollbars=yes');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Análise de Estoque — '+hoje+'</title>'+
+    '<style>body{margin:0;background:#eef1f5;font-family:Calibri,Arial,sans-serif;}'+
+    '#toolbar{background:#1F4E79;color:#fff;padding:11px 20px;display:flex;gap:10px;align-items:center;position:sticky;top:0;z-index:10}'+
+    '#toolbar h2{margin:0;font-size:13px;flex:1}'+
+    '.tbtn{border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700;background:#fff;color:#1F4E79}'+
+    '#wrap{background:#fff;margin:16px 20px;border-radius:10px;border:1px solid #dde3ea;padding:20px;overflow:auto}'+
+    'table{border-collapse:collapse;width:100%;font-size:12px}'+
+    'thead th{background:#F0F4F8;color:#1F4E79;font-weight:700;border-bottom:2px solid #1F4E79}'+
+    '@media print{#toolbar{display:none}body{background:#fff}#wrap{margin:0;border:none}}'+
+    '</style></head><body>'+
+    '<div id="toolbar"><h2>🖨️ Análise de Estoque'+(semDadosDash?' — abra o Dashboard uma vez nesta sessão pra ter consumo/saldo/curva':'')+'</h2>'+
+    '<button class="tbtn" onclick="window.print()">Imprimir</button></div>'+
+    '<div id="wrap"><div style="font-size:15px;font-weight:800;color:#1F4E79;margin-bottom:4px">'+pfEscHtml(window._mapaEstadoNome||'Compra para Estoque')+'</div>'+
+    '<div style="font-size:11px;color:#607080;margin-bottom:14px">Emitido em: '+hoje+' &middot; '+itens.length+' itens</div>'+
+    '<table><thead><tr>'+thead+'</tr></thead><tbody>'+linhas+'</tbody></table></div>'+
+    '</body></html>');
+  win.document.close();
+}
 function mapaStep2(el){
   var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
   var fornItens={};
@@ -24033,6 +24147,7 @@ function mapaStep2(el){
   html+='</div>';
   html+='<button onclick="mapaEmailBccTodos()" style="width:100%;margin-top:8px;background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:11px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">📧 Enviar 1 e-mail só (BCC todos os '+nComEmail+' fornecedores)</button>';
   html+='<button onclick="mapaCopiarWhatsAppTodos()" style="width:100%;margin-top:8px;background:#25D366;color:#fff;border:none;border-radius:8px;padding:11px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">📋 Copiar lista de itens pra mandar por WhatsApp</button>';
+  html+='<button onclick="mapaAbrirAnaliseEstoque()" style="width:100%;margin-top:8px;background:#fff;color:#1F4E79;border:1.5px solid #1F4E79;border-radius:8px;padding:11px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">🖨️ Imprimir Análise de Estoque</button>';
   html+='<p style="font-size:11px;color:#8a9ab0;margin-top:6px">Copia o texto da cotação (todos os itens) pra você colar e enviar manualmente — o WhatsApp não permite mandar pra vários contatos de uma vez só pelo navegador. Pra mandar individualmente com botão direto, use "📱 Abrir WhatsApp" dentro do e-mail de cada fornecedor abaixo.</p>';
   html+='</div>';
   fids.forEach(function(fid){

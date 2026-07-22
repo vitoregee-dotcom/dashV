@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.871</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.872</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.871</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.872</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.871</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.872</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -24027,7 +24027,8 @@ function mapaAbrirAnaliseEstoque(){
     {id:'diasEstoque',label:'Dias de estoque restante'},
     {id:'status',label:'Status (Urgente/Atenção/OK)'},
     {id:'custo',label:'Seu custo médio interno'},
-    {id:'precosForn',label:'Preços cotados por fornecedor'}
+    {id:'precosForn',label:'Preços cotados por fornecedor'},
+    {id:'vendaSugerida',label:'Venda sugerida (margem 30% sobre o mais barato)'}
   ];
   var m=document.getElementById('mapaAnaliseModal');if(m)m.remove();
   var overlay=document.createElement('div');
@@ -24053,7 +24054,7 @@ function mapaGerarImpressaoAnalise(){
   var calc=(typeof calcItems!=='undefined'&&calcItems.length)?calcItems:[];
   var norm=typeof normRef==='function'?normRef:function(r){return String(r||'').trim().toUpperCase();};
   var itens=mapaItens.filter(function(i){return i.sel!==false;});
-  var semDadosDash = cols.some(function(c){return c!=='precosForn';}) && !calc.length;
+  var semDadosDash = cols.some(function(c){return c!=='precosForn'&&c!=='vendaSugerida';}) && !calc.length;
 
   function achaCalc(ref){
     var n=norm(ref);
@@ -24062,7 +24063,7 @@ function mapaGerarImpressaoAnalise(){
   function precosDoItem(item){
     var key=item.ref+'||'+(item.marca||'');
     var fids=mapaFornSelecionados[key]||[];
-    var partes=[];
+    var lista=[];
     fids.forEach(function(fid){
       var pk=item.ref+'||'+(item.marca||'')+'||'+fid;
       var ents=mapaPrecos[pk]&&mapaPrecos[pk].entries;
@@ -24071,13 +24072,34 @@ function mapaGerarImpressaoAnalise(){
       if(!menor)return;
       var fornCad=(cotFornecedores||[]).find(function(f){return f.id===fid;})||(cadLoad(FORN_KEY)||[]).find(function(f){return f.id===fid;});
       var nome=fornCad?(fornCad.fantasia||fornCad.nome||fornCad.razao||'?'):'?';
-      partes.push(nome+': R$ '+menor.preco.toFixed(2));
+      lista.push({nome:nome,preco:menor.preco,ipi:menor.ipi||0,icms:menor.icms||0,st:menor.st||0,estado:(fornCad&&fornCad.estado)||'SP'});
     });
-    return partes.length?partes.join(' | '):'—';
+    lista.sort(function(a,b){return a.preco-b.preco;});
+    return lista;
+  }
+  function precosDoItemHtml(item){
+    var lista=precosDoItem(item);
+    if(!lista.length)return '—';
+    return lista.map(function(p,i){
+      var barato=i===0&&lista.length>1;
+      return '<div style="'+(barato?'font-weight:700;color:#1F7A3D':'color:#607080')+'">'+(barato?'🏆 ':'')+pfEscHtml(p.nome)+': R$ '+p.preco.toFixed(2)+'</div>';
+    }).join('');
+  }
+  function vendaSugeridaItem(item){
+    var lista=precosDoItem(item);
+    if(!lista.length)return '—';
+    var p=lista[0]; // fornecedor mais barato
+    var icms_c=ICMS_ENTRADA[p.estado]||0.18;
+    var icms_v=ICMS_SAIDA['SP']||0.18;
+    var stVal=p.preco*(p.st||0)/100;
+    try{
+      var r=calcMargemLiq(p.preco,icms_c,(p.ipi||0)/100,stVal,icms_v,0.30);
+      return r.venda>0?('R$ '+r.venda.toFixed(2)):'—';
+    }catch(e){return '—';}
   }
 
   var titulos={consumo:'Consumo Mensal',saldo:'Saldo Atual',curva:'Curva',proj12:'Projeção 12m',
-    diasEstoque:'Dias Estoque',status:'Status',custo:'Custo Médio',precosForn:'Preços Cotados'};
+    diasEstoque:'Dias Estoque',status:'Status',custo:'Custo Médio',precosForn:'Preços Cotados',vendaSugerida:'Venda Sugerida (margem 30%)'};
 
   var thead='<th style="padding:8px 10px;text-align:center">#</th><th style="padding:8px 10px;text-align:left">Código</th><th style="padding:8px 10px;text-align:left">Descrição</th><th style="padding:8px 10px;text-align:center">Qtd</th>';
   cols.forEach(function(c){thead+='<th style="padding:8px 10px;text-align:center">'+titulos[c]+'</th>';});
@@ -24090,8 +24112,9 @@ function mapaGerarImpressaoAnalise(){
       '<td style="padding:8px 10px">'+pfEscHtml(it.desc||'')+'</td>'+
       '<td style="padding:8px 10px;text-align:center;font-weight:700">'+(it.qtd||0)+'</td>';
     cols.forEach(function(c){
-      var v='—';
-      if(c==='precosForn'){v=precosDoItem(it);}
+      var v='—',alinhaEsq=false;
+      if(c==='precosForn'){v=precosDoItemHtml(it);alinhaEsq=true;}
+      else if(c==='vendaSugerida'){v=vendaSugeridaItem(it);}
       else if(d){
         if(c==='consumo')v=Math.round(d.cM||0);
         else if(c==='saldo')v=Math.round(d.saldo||0);
@@ -24101,7 +24124,7 @@ function mapaGerarImpressaoAnalise(){
         else if(c==='status')v=d.sl||'—';
         else if(c==='custo')v=(d.custo!=null)?('R$ '+Number(d.custo).toFixed(2)):'—';
       }
-      tds+='<td style="padding:8px 10px;text-align:center">'+pfEscHtml(String(v))+'</td>';
+      tds+='<td style="padding:8px 10px;text-align:'+(alinhaEsq?'left':'center')+'">'+(alinhaEsq?v:pfEscHtml(String(v)))+'</td>';
     });
     return '<tr style="background:'+bg+';border-bottom:1px solid #e8edf4">'+tds+'</tr>';
   }).join('');

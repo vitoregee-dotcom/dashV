@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.855</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.856</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.855</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.856</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.855</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.856</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -25108,7 +25108,26 @@ function mapaMarcarDecisao(key, decKey, qtd, preco, custo){
     delete mapaPrecoDecidido[keyPreco];  } else {
     mapaDecisoes[keyDecisao] = decKey;  // ✅ Salva com chave incluindo fornecedor
     mapaQtdDecidida[keyQtd] = qtd;
-    mapaPrecoDecidido[keyPreco] = {preco: preco, custo: custo};  }
+    mapaPrecoDecidido[keyPreco] = {preco: preco, custo: custo};
+    // v115.856 - A pedido do Vitor: preço digitado na mão (sem usar
+    // "Upload resposta") nunca gravava no histórico (Ctrl+D) -- só o
+    // caminho de leitura automática de resposta de fornecedor gravava.
+    // Decidir o fornecedor aqui (Etapa 4) é o momento que o preço vira
+    // definitivo de verdade, então grava aqui também.
+    if(typeof pfRegistrarHistoricoPreco==='function'&&preco>0){
+      var itDec=mapaItens.find(function(x){return (x.ref+'||'+(x.marca||''))===key;});
+      var fornDec=(cadLoad(FORN_KEY)||[]).find(function(f){return f.id===fid;});
+      pfRegistrarHistoricoPreco({
+        item_ref:(itDec&&itDec.ref)||key.split('||')[0],
+        marca:(itDec&&itDec.marca)||'',
+        descricao:(itDec&&itDec.desc)||'',
+        tipo:'compra',
+        fornecedor:fornDec?(fornDec.fantasia||fornDec.nome||fornDec.razao||''):'',
+        preco:preco, qtd:qtd||null,
+        mapa_origem:(window._mapaEstadoNumero||mapaEstadoId||'')
+      });
+    }
+  }
   
   // Construir mapaEstado e salvar
   var mapaEstado = {
@@ -32702,7 +32721,12 @@ function mapaConfirmarRenomear(id){
       pfSafeSetItem('mapa_estado_'+id,JSON.stringify(est));
     }
     if(mapaEstadoId===id){window._mapaEstadoCliente=cliente;window._mapaEstadoNome=titulo;}
-    if(typeof mapaPushSupabase==='function')mapaPushSupabase().catch(function(e){console.warn('Erro ao sincronizar edição:',e);});
+    // v115.856 - Bug real encontrado (a pedido do Vitor: renomeou no iPad
+    // e não apareceu no PC): mapaPushSupabase() só sincroniza o mapa ATIVO
+    // específico (uma tabela separada), nunca a LISTA (mapas_lista_v1) --
+    // onde o nome de verdade fica salvo. Trocado pra sincronizar a lista
+    // certa.
+    if(typeof pfSyncPush==='function')pfSyncPush(['mapas_lista_v1']).catch(function(e){console.warn('Erro ao sincronizar edição:',e);});
   }catch(e){console.warn('mapaConfirmarRenomear falhou:',e);}
   var mm=document.getElementById('mapaRenomearModal');if(mm)mm.remove();
   mapaRender();

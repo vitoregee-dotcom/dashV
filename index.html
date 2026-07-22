@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.868</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.869</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.868</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.869</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.868</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.869</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -32794,6 +32794,44 @@ function mapaSalvarNaLista(estado){
   if(typeof pfSyncPush==='function')pfSyncPush(['mapas_lista_v1','mapa_estado_'+estado.id]);
 }
 
+// v115.869 - BUG GRAVE corrigido (a pedido do Vitor: itens de dois mapas
+// "ESTOQUE" sumiram sozinhos, sem ele excluir nada). Causa real encontrada:
+// os botões da lista "Mapas em andamento" chamavam
+// "mapaCarregarDaLista(id);mapaGoStep(passo)" em sequência, sem checar se
+// o carregamento deu certo. mapaCarregarDaLista lê SÓ do localStorage local
+// -- se esse mapa foi criado/editado em outro aparelho/sessão e esse
+// navegador nunca puxou essa chave específica (mapa_estado_<id>) do
+// Supabase, a função falha e retorna false EM SILÊNCIO, sem tocar em
+// mapaItens/mapaEstadoId. O código seguia em frente mesmo assim, abrindo a
+// tela com os itens do mapa ANTERIOR ainda na memória -- e qualquer edição
+// feita ali (digitar Qtd, marcar fornecedor) salvava por cima do mapa
+// errado (o antigo, que ainda estava "ativo" por trás). Agora, se o
+// carregamento falhar, avisa claramente e NÃO deixa a tela abrir enganada.
+async function mapaAbrirDaListaSeguro(id,passo){
+  if(mapaCarregarDaLista(id)){
+    mapaGoStep(passo==null?mapaStep:passo);
+    return;
+  }
+  // Não achou local -- antes de desistir, tenta buscar esse mapa específico
+  // direto do Supabase (pode ter sido criado/editado em outro aparelho e
+  // esse navegador nunca puxou essa chave ainda).
+  try{
+    if(typeof sbUser!=='undefined'&&sbUser&&typeof sbFetch==='function'){
+      var r=await sbFetch('/rest/v1/user_sync?user_id=eq.'+sbUser.id+'&chave=eq.mapa_estado_'+id+'&select=dados');
+      if(r.ok){
+        var rows=await r.json();
+        if(rows&&rows.length&&rows[0].dados){
+          pfSafeSetItem('mapa_estado_'+id,typeof rows[0].dados==='string'?rows[0].dados:JSON.stringify(rows[0].dados));
+          if(mapaCarregarDaLista(id)){
+            mapaGoStep(passo==null?mapaStep:passo);
+            return;
+          }
+        }
+      }
+    }
+  }catch(e){console.warn('mapaAbrirDaListaSeguro: fallback Supabase falhou',e);}
+  pfAlert('Não consegui carregar esse mapa aqui neste navegador (ele pode ter sido criado em outro aparelho e ainda não sincronizou). Clique em "☁️ Sincronizar agora" em Cadastros e tente de novo -- pra não arriscar salvar por cima do mapa errado, a tela não foi aberta.');
+}
 function mapaCarregarDaLista(id){  try{
     var saved=JSON.parse(localStorage.getItem('mapa_estado_'+id)||'null');
     if(!saved){console.log('❌ NÃO ENCONTRADO em localStorage!'); return false;}
@@ -33079,9 +33117,9 @@ mapaRender = function(){
         html+='<td style="padding:4px 10px;color:#607080;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px">'+dt+'</td>';
         html+='<td style="padding:4px 10px;color:#607080;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px">'+(m.decididoTs?new Date(m.decididoTs).toLocaleString('pt-BR'):'<span style="color:#c4ccd6">—</span>')+'</td>';
         html+='<td style="padding:4px 8px;text-align:right;white-space:nowrap;background:#fff">';
-        html+='<button onclick="mapaCarregarDaLista(\''+m.id+'\');mapaGoStep(mapaStep);" style="font-size:10px;padding:4px 8px;background:#1F4E79;color:#fff;border:none;border-radius:5px;cursor:pointer;white-space:nowrap;font-weight:700;margin-right:3px">'+st.btn+'</button>';
+        html+='<button onclick="mapaAbrirDaListaSeguro(\''+m.id+'\',null);" style="font-size:10px;padding:4px 8px;background:#1F4E79;color:#fff;border:none;border-radius:5px;cursor:pointer;white-space:nowrap;font-weight:700;margin-right:3px">'+st.btn+'</button>';
         html+='<button onclick="mapaRenomear(\''+m.id+'\',\''+pfEscJs(m.titulo||'')+'\')" title="Renomear" style="font-size:11px;padding:4px 6px;background:none;border:1px solid #e0e8f0;border-radius:5px;color:#607080;cursor:pointer;white-space:nowrap;margin-right:3px">🏷️</button>';
-        html+='<button onclick="mapaCarregarDaLista(\''+m.id+'\');mapaGoStep(2);" style="font-size:10px;padding:4px 7px;background:none;border:1px solid #FF9500;border-radius:5px;color:#FF9500;cursor:pointer;font-weight:600;white-space:nowrap;margin-right:3px">✏️</button>';
+        html+='<button onclick="mapaAbrirDaListaSeguro(\''+m.id+'\',2);" style="font-size:10px;padding:4px 7px;background:none;border:1px solid #FF9500;border-radius:5px;color:#FF9500;cursor:pointer;font-weight:600;white-space:nowrap;margin-right:3px">✏️</button>';
         html+='<button onclick="mapaConfirmExcluirDaLista(\''+m.id+'\',\''+(m.titulo||'').replace(/'/g,"\\'")+'\')" style="font-size:12px;padding:4px 6px;background:none;border:none;color:#C00000;cursor:pointer">×</button>';
         html+='</td></tr>';
       });
@@ -36046,7 +36084,7 @@ function vendasRenderCotacao(el){
         return v.nr&&estado.vendaOrigem === v.nr;
       });
       if(mapaVinculado){
-        return '<button onclick="mapaCarregarDaLista(\''+mapaVinculado.id+'\'); pfNavigate(\'mapa\')" style="background:#FF9800;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-weight:600">📍 Editar Mapa</button>';
+        return '<button onclick="if(mapaCarregarDaLista(\''+mapaVinculado.id+'\')){pfNavigate(\'mapa\');}else{pfAlert(\'Não consegui carregar esse mapa aqui neste navegador (pode não ter sincronizado ainda). Sincronize e tente de novo.\');}" style="background:#FF9800;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-weight:600">📍 Editar Mapa</button>';
       }
       return '';
     }())+

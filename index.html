@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.861</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.862</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.861</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.862</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.861</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.862</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -23638,6 +23638,15 @@ function mapaZerarTodosFornecedores(){
       mapaFornSelecionados[k] = [];
     });
     pfSafeSetItem('_mapaDados_fornSel',JSON.stringify(mapaFornSelecionados));
+    // v115.862 - Bug real corrigido (a pedido do Vitor: zerou os
+    // fornecedores, mas ao reabrir o mapa pela lista os antigos voltavam
+    // selecionados): essa chave isolada (_mapaDados_fornSel) não é o que
+    // mapaCarregarDaLista() usa pra restaurar o mapa -- ele lê o estado
+    // COMPLETO salvo em mapa_estado_<id> (local e Supabase), que só é
+    // regravado por mapaSalvarEstado(). Como o zerar nunca chamava essa
+    // função, o estado completo continuava com a seleção antiga; reabrir
+    // o mapa (ou o Supabase sincronizar) trazia os fornecedores de volta.
+    if(typeof mapaSalvarEstado==='function')mapaSalvarEstado();
     mapaRender();
   },'Zerar tudo');
 }
@@ -23707,6 +23716,10 @@ function mapaConfirmarFornecedoresEmTodos(){
     });
   });
   pfSafeSetItem('_mapaDados_fornSel',JSON.stringify(mapaFornSelecionados));
+  // v115.862 - Mesma correção do "Zerar Fornecedores": grava também no
+  // estado completo do mapa (local + Supabase), não só na chave isolada,
+  // pra reabrir o mapa pela lista não desfazer a inclusão.
+  if(typeof mapaSalvarEstado==='function')mapaSalvarEstado();
   var m=document.getElementById('mapaFornTodosModal');if(m)m.remove();
   mapaRender();
 }
@@ -30692,7 +30705,37 @@ var _mapaFiltro = 'todos'; // 'todos' | 'naoimediato'
 // Override mapaStep1 to add filter + space key + fantasia
 var _origMapaStep1 = mapaStep1;
 mapaStep1 = function(el){
-  var flist = typeof cotFornecedores!=='undefined' ? cotFornecedores : [];
+  // v115.862 - Bug real corrigido (a pedido do Vitor: fornecedor "CHINA"
+  // aparecia com código bruto na coluna e sumia do painel do item, mesmo
+  // depois do fix anterior de v115.861): esta é a função que RENDERIZA de
+  // verdade a Etapa 1 do Mapa (o mapaStep1 original, lá em cima no arquivo,
+  // foi sobrescrito por essa aqui e nunca mais roda) -- só que, diferente do
+  // original e do mapaGoStep(), ela nunca reconstruía cotFornecedores a
+  // partir do Cadastro; usava o array em memória do jeito que estivesse,
+  // então qualquer fornecedor cadastrado/alterado sem passar por um
+  // mapaGoStep() antes (troca de etapa) ficava com nome não resolvido aqui,
+  // mesmo já existindo certinho no Cadastro. Agora reconstrói fresco, igual
+  // o resto do sistema já fazia.
+  var fornCadFresh862 = cadLoad(FORN_KEY) || [];
+  cotFornecedores = fornCadFresh862.map(function(f){
+    return {
+      id: f.id || ('f_'+Math.random()),
+      nome: f.nome || '',
+      fantasia: f.fantasia || '',
+      razao: f.razao || '',
+      cnpj: f.cnpj || '',
+      contato: f.contato || '',
+      contatos: f.contatos || [],
+      email: f.email || '',
+      telefone: f.telefone || '',
+      estado: f.estado || '',
+      marcasTrab: f.marcasTrab || [],
+      linhasEsp: f.linhasEsp || [],
+      linhasSec: f.linhasSec || [],
+      linhas: f.linhas || []
+    };
+  });
+  var flist = cotFornecedores;
   var nSel = mapaItens.filter(function(i){return i.sel!==false;}).length;
 
   var html = '<div class="mSection" style="padding:14px 18px">';
@@ -33072,8 +33115,16 @@ mapaExpand = function(idx){
   var ln=item.ln||idLinha(item.ref);
   var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
 
-  // If first time expanding AND no selection yet → pré-selecionar por compatibilidade
-  if(item._exp && (!mapaFornSelecionados[key]||!mapaFornSelecionados[key].length)){
+  // v115.862 - Bug real corrigido (a pedido do Vitor: usou "Zerar
+  // Fornecedores" e, ao abrir o item, os fornecedores voltavam sozinhos).
+  // Essa função SOBRESCREVE a mapaExpand original (JS: última declaração
+  // vence) e checava ".length" pra decidir se pré-preenche -- confundindo
+  // "zerado de propósito" (chave existe, array vazio) com "nunca preenchido"
+  // (chave nunca existiu). É a mesma classe de bug já corrigida em outros
+  // dois lugares (v115.840, v115.859), mas essa 3a cópia da lógica tinha
+  // ficado pra trás com a checagem antiga. Agora só pré-seleciona na
+  // PRIMEIRA vez que o mapa vê esse item (chave nunca existiu).
+  if(item._exp && !(key in mapaFornSelecionados)){
     var matched=flist.filter(function(f){return mapaForCompativel(f,item,ln).match;});
     // Sem fallback pra "todos" — melhor ficar vazio (escolha manual) do que sugerir fornecedor errado
     mapaFornSelecionados[key] = matched.map(function(f){return f.id;});

@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.864</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.865</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.864</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.865</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.864</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.865</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -16521,6 +16521,13 @@ const opQtd={};
 const opMarcasF=new Set();
 const obsEdit={};  // observações por item: key → texto
 let pageItems=[]; // items da página atual para lookup por índice
+// v115.865 - A pedido do Vitor: mapa chave (ref+marca) -> item, reconstruído
+// toda vez que calcItems é recalculado. Usado pelos handlers de seleção/qtd
+// da tabela pra achar o item pela REFERÊNCIA, não pela posição na tela --
+// antes esses handlers usavam pageItems[idx] (índice da linha), que podia
+// apontar pro item errado se um recálculo em segundo plano reordenasse os
+// dados entre o momento em que a tela foi desenhada e o clique do usuário.
+let itemsByKey={};
 let solicitacoes=JSON.parse(localStorage.getItem('solicitacoes')||'{}'); // {ref||marca: true}
 let filtroSolicitacao='TODOS'; // TODOS, COM, SEM
 let marcaF_painel='TODAS',marcaF_ranking='TODAS',grupoF='TODOS',sistemaF='TODOS',nomeArquivoAtual='';
@@ -16705,8 +16712,10 @@ async function recalc(skipRender){
     if(i%CHUNK===0&&i>0){await new Promise(r=>setTimeout(r,0));if(_recalcGen!==myGen)return;}
   }
   refsComSaldoSet.clear();
+  itemsByKey={};
   calcItems.forEach(function(d){
     if(d.saldo>0) refsComSaldoSet.add(normRef(d.ref));
+    itemsByKey[d.ref+"||"+d.marca]=d;
   });
   if(skipRender){
     window._pfDashRendered=false; // sinaliza que a tela ainda precisa ser desenhada quando abrir
@@ -17366,7 +17375,7 @@ function renderTable(){
     const inpBrd=sel?"var(--navy)":"var(--bd)";
     const inpBg=sel?"#fff":"#f5f5f5";
     return`<tr class="${trCls}" style="${trBg}">
-    <td class="C"><input type="checkbox" class="rchk" data-idx="${idx}" data-isop="${isOp?1:0}" ${sel?"checked":""} onchange="rchkChange(this)"></td>
+    <td class="C"><input type="checkbox" class="rchk" data-idx="${idx}" data-key="${pfEscHtml(key)}" data-isop="${isOp?1:0}" ${sel?"checked":""} onchange="rchkChange(this)"></td>
     <td class="C col-curva">${aT(d.curva)}</td>
     <td class="tr col-ref">${pfEscHtml(d.ref)}</td>
     <td class="td col-desc" title="${pfEscHtml(d.desc)}">${pfEscHtml(d.desc)}</td>
@@ -17387,12 +17396,12 @@ function renderTable(){
     <td class="R col-qtdSug">${d.qtdC>0?`<span style="font-size:12px;font-weight:700;color:#607080">${fN(d.qtdC)}</span>`:"<span style='color:var(--mu)'>—</span>"}</td>
     <td class="C col-qtdComprar">
       ${isOp?
-        `<input type="number" min="1" class="opQtdInp" data-idx="${idx}"
+        `<input type="number" min="1" class="opQtdInp" data-idx="${idx}" data-key="${pfEscHtml(key)}"
           value="${sel&&opQtd[key]>0?opQtd[key]:''}" placeholder="qtd"
           style="width:72px;border:1.5px solid ${sel?'#7B3FC4':'var(--bd)'};border-radius:5px;padding:4px 6px;font-size:12px;font-weight:700;color:#5B2D8E;text-align:center;background:${sel?'#fff':'#f5f5f5'}"
           oninput="salvarOpQtd(this)" onchange="salvarOpQtd(this)"
           ${sel?"":"disabled"}>` :
-        `<input type="number" min="0" class="qtdinp" data-idx="${idx}"
+        `<input type="number" min="0" class="qtdinp" data-idx="${idx}" data-key="${pfEscHtml(key)}"
           value="${qe>0?qe:''}" placeholder="${d.qtdC>0?d.qtdC:'—'}"
           style="width:72px;padding:3px 6px;border-radius:5px;border:1.5px solid ${inpBrd};font-size:12px;font-weight:700;color:var(--navy);text-align:center;background:${inpBg}"
           oninput="salvarQtd(this)" onchange="salvarQtd(this)">`
@@ -17411,19 +17420,21 @@ function pgChg(d){pg+=d;renderTable();}
 function getSolData(){
   // 1. Ler TODOS os inputs de qtd visíveis no DOM e salvar em qtdEdit/opQtd
   //    Isso garante que valores digitados mas não salvos pelo oninput sejam capturados
-  document.querySelectorAll(".qtdinp").forEach(function(inp){
-    const idx=parseInt(inp.dataset.idx);
-    const item=pageItems[idx];
-    if(!item)return;
+  // v115.865 - usa data-key (ref+marca) em vez de pageItems[idx]: essa
+  // releitura do DOM é o passo final antes de montar o Mapa/PDF/planilha, e
+  // era o ponto onde um desalinhamento de índice causava a peça errada
+  // recebendo a quantidade de outra (bug real reportado pelo Vitor).
+  document.querySelectorAll(".qtdinp[data-key]").forEach(function(inp){
+    const key=inp.dataset.key;
+    if(!key)return;
     const v=parseFloat(inp.value);
-    if(!isNaN(v)&&v>0) qtdEdit[chaveItem(item)]=Math.round(v);
+    if(!isNaN(v)&&v>0) qtdEdit[key]=Math.round(v);
   });
-  document.querySelectorAll(".opQtdInp[data-idx]").forEach(function(inp){
-    const idx=parseInt(inp.dataset.idx);
-    const item=pageItems[idx];
-    if(!item)return;
+  document.querySelectorAll(".opQtdInp[data-key]").forEach(function(inp){
+    const key=inp.dataset.key;
+    if(!key)return;
     const v=parseFloat(inp.value);
-    if(!isNaN(v)&&v>0) opQtd[chaveItem(item)]=Math.round(v);
+    if(!isNaN(v)&&v>0) opQtd[key]=Math.round(v);
   });
   document.querySelectorAll(".opQtdInp[data-opkey]").forEach(function(inp){
     const key=inp.dataset.opkey;
@@ -18870,10 +18881,12 @@ zone.addEventListener("drop",function(e){e.preventDefault();zone.classList.remov
 
 function chaveItem(d){return d.ref+"||"+d.marca;}
 function toggleSel(chk){
-  const idx=parseInt(chk.dataset.idx);
-  const item=pageItems[idx];
+  // v115.865 - usa data-key (ref+marca) em vez de pageItems[idx]: um
+  // recálculo em segundo plano pode reordenar pageItems entre o desenho da
+  // tela e o clique, fazendo o índice apontar pro item errado.
+  const key=chk.dataset.key;
+  const item=itemsByKey[key];
   if(!item)return;
-  const key=chaveItem(item);
   const tr=chk.closest("tr");
   if(chk.checked){
     selSet.add(key);
@@ -18899,10 +18912,10 @@ function toggleSel(chk){
   atualizarSelCount();
 }
 function salvarQtd(inp){
-  const idx=parseInt(inp.dataset.idx);
-  const item=pageItems[idx];
+  // v115.865 - key em vez de idx/pageItems (ver nota em toggleSel)
+  const key=inp.dataset.key;
+  const item=itemsByKey[key];
   if(!item)return;
-  const key=chaveItem(item);
   const v=parseFloat(inp.value);
   if(!isNaN(v)&&v>0){
     qtdEdit[key]=Math.round(v);
@@ -19449,9 +19462,9 @@ function toggleOpCard(chk){
 }
 function rchkChange(chk){if(parseInt(chk.dataset.isop))toggleOpSel(chk);else toggleSel(chk);}
 function toggleOpSel(chk){
-  const idx=parseInt(chk.dataset.idx);
-  const item=pageItems[idx];if(!item)return;
-  const key=chaveItem(item);
+  // v115.865 - key em vez de idx/pageItems (ver nota em toggleSel)
+  const key=chk.dataset.key;
+  const item=itemsByKey[key];if(!item)return;
   if(chk.checked){opSelSet.add(key);}else{opSelSet.delete(key);}
   const tr=chk.closest("tr");
   if(tr)tr.style.background=chk.checked?"#EEE5FF":"";
@@ -19460,9 +19473,9 @@ function toggleOpSel(chk){
   renderOpBox();atualizarSelCount();
 }
 function salvarOpQtd(inp){
-  const idx=parseInt(inp.dataset.idx);
-  const item=pageItems[idx];if(!item)return;
-  const key=chaveItem(item);
+  // v115.865 - key em vez de idx/pageItems (ver nota em toggleSel)
+  const key=inp.dataset.key;
+  const item=itemsByKey[key];if(!item)return;
   const v=parseInt(inp.value);
   if(v>0){opQtd[key]=v;inp.style.background="#F0EAF8";}
   else{delete opQtd[key];}
@@ -19473,10 +19486,9 @@ function salvarOpQtdCard(inp){
   if(v>0){opQtd[key]=v;inp.style.background="#F0EAF8";}
   else{delete opQtd[key];}
   // Sincronizar com a tabela se visível
-  document.querySelectorAll(".opQtdInp[data-idx]").forEach(i2=>{
-    const idx=parseInt(i2.dataset.idx);
-    const item=pageItems[idx];
-    if(item&&chaveItem(item)===key)i2.value=v>0?v:"";
+  // v115.865 - casa pelo data-key direto, em vez de resolver pageItems[idx]
+  document.querySelectorAll(".opQtdInp[data-key]").forEach(i2=>{
+    if(i2.dataset.key===key)i2.value=v>0?v:"";
   });
 }
 function opSelTodos(){
@@ -30844,7 +30856,7 @@ mapaStep1 = function(el){
     var fs = mapaFornSelecionados[key]||[];
     var exp = item._exp&&sel;
     // Use fantasia for display
-    // v115.864 - Bug real esclarecido (a pedido do Vitor: mesmo depois dos
+    // v115.865 - Bug real esclarecido (a pedido do Vitor: mesmo depois dos
     // fixes de cache, 2 fornecedores continuavam com código bruto): não era
     // mais cache -- são IDs que legitimamente não existem mais no Cadastro
     // (o mais provável: a fusão automática de duplicados por CNPJ, mais
@@ -33119,7 +33131,7 @@ function mapaForCompativel(f, item, ln){
 
 // Limpa a seleção atual de um item e recalcula a sugestão automática do zero
 // (útil quando o item ficou com uma seleção antiga/manual desatualizada)
-// v115.864 - A pedido do Vitor: limpa só os IDs de fornecedor que não
+// v115.865 - A pedido do Vitor: limpa só os IDs de fornecedor que não
 // existem mais no Cadastro (removidos/mesclados por duplicidade de CNPJ,
 // por exemplo), sem mexer nos fornecedores válidos que continuam marcados.
 function mapaLimparFornOrfaos(key){

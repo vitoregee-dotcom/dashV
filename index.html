@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.889</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.890</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.889</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.890</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.889</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.890</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -41605,23 +41605,29 @@ function ferrMeAvise(){
   // precisar digitar cada campo manualmente. Segue o mesmo padrão já usado
   // na Transferência ENCOPEL (que filtra por "IMEDIATO*"), só que aqui o
   // marcador fica na MARCA em vez do prazo.
+  // v115.890 - Ampliado: além da MARCA terminada em "*", agora também entra
+  // automaticamente qualquer item cujo campo PRAZO indique um prazo de 1+
+  // dia (ex: "2 DIAS") -- ou seja, não é "IMEDIATO" e não está vazio. Isso
+  // cobre documentos reais (Pedido de Venda etc.) que não usam o marcador
+  // "*" na marca mas já indicam no Prazo que a peça não está em mãos.
   window.maLerArquivo=async function(file){
     if(!file)return;
     var status=document.getElementById('maStatus');
     if(status)status.innerHTML='<span style="color:#1F4E79;font-size:12px">🤖 Lendo cotação...</span>';
     try{
-      var txt=await _anthropicReadDoc(file,'Esta é uma cotação da Triex ou da Encopel. Extraia SOMENTE os itens cuja MARCA termina com um asterisco (*) -- esse asterisco marca peças aguardando chegada no estoque. Pra cada um desses itens, retorne: 1) código/referência do item (ref). 2) marca, SEM o asterisco. 3) nome do cliente (se houver, mesmo que apareça só uma vez no documento pra todos os itens). 4) código do cliente (se houver). 5) data da cotação (formato DD/MM/AAAA, se houver). Retorne SOMENTE um JSON, sem markdown, sem texto antes ou depois, no formato: {"itens":[{"ref":"","marca":"","nome_cliente":"","cod_cliente":"","data":""}]}','Me Avise - Auto-extração');
+      var txt=await _anthropicReadDoc(file,'Esta é uma cotação ou pedido de venda da Triex ou da Encopel. Extraia os itens que estão "aguardando chegada" no estoque -- ou seja, que atendem a PELO MENOS UM destes dois critérios: 1) a MARCA do item termina com um asterisco (*); OU 2) o campo PRAZO do item indica um prazo de entrega de 1 dia ou mais (ex: "1 DIA", "2 DIAS", "5 DIAS ÚTEIS"), ou seja, NÃO é "IMEDIATO" e NÃO está vazio/em branco. Pra cada um desses itens, retorne: 1) código/referência do item (ref). 2) marca, SEM o asterisco (se houver). 3) prazo, exatamente como aparece no documento (texto vazio se não houver campo Prazo). 4) nome do cliente (se houver, mesmo que apareça só uma vez no documento pra todos os itens). 5) código do cliente (se houver). 6) data da cotação/pedido (formato DD/MM/AAAA, se houver). Retorne SOMENTE um JSON, sem markdown, sem texto antes ou depois, no formato: {"itens":[{"ref":"","marca":"","prazo":"","nome_cliente":"","cod_cliente":"","data":""}]}','Me Avise - Auto-extração');
       var m=txt.match(/\{[\s\S]*/);if(m)txt=m[0];
       var parsed;try{parsed=JSON.parse(txt);}catch(e){throw new Error('Resposta inválida da IA');}
       var itensExtraidos=(parsed.itens||[]).map(function(it){return{
         ref:(it.ref||'').toString().toUpperCase().trim(),
         marca:(it.marca||'').toString().toUpperCase().replace(/\*/g,'').trim(),
+        prazo:(it.prazo||'').toString().trim(),
         nome_cliente:(it.nome_cliente||'').toString().trim(),
         cod_cliente:(it.cod_cliente||'').toString().trim(),
         data:(it.data||'').toString().trim()
       };}).filter(function(it){return it.ref;});
       if(!itensExtraidos.length){
-        if(status)status.innerHTML='<span style="color:#C00000;font-size:12px">❌ Nenhum item com marca terminada em * encontrado.</span>';
+        if(status)status.innerHTML='<span style="color:#C00000;font-size:12px">❌ Nenhum item com marca terminada em * ou prazo de 1+ dia encontrado.</span>';
         return;
       }
       var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
@@ -41644,7 +41650,7 @@ function ferrMeAvise(){
           if(itemAtual){saldoAoMarcar=itemAtual.saldo;pedidoAoMarcar=itemAtual.pedido;transitoAoMarcar=itemAtual.tA;}
         }catch(e){}
         lista.push({ref:it.ref,marca:it.marca,cod_cliente:it.cod_cliente,nome_cliente:it.nome_cliente,
-          obs:'Extraído automaticamente de cotação'+(it.data?' — '+it.data:''),wa_cliente:waCliente,ts:Date.now(),
+          obs:'Extraído automaticamente de cotação'+(it.data?' — '+it.data:'')+(it.prazo?' · Prazo: '+it.prazo:''),wa_cliente:waCliente,ts:Date.now(),
           saldo_ao_marcar:saldoAoMarcar,pedido_ao_marcar:pedidoAoMarcar,transito_ao_marcar:transitoAoMarcar,
           comprado_avisado:pedidoAoMarcar>0,faturado_avisado:transitoAoMarcar>0});
         adicionados++;

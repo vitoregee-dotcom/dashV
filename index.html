@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.875</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.876</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.875</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.876</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.875</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.876</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -26600,6 +26600,20 @@ function cadCriarFichasEmLotes(somenteAtivos){
   processarLote();
 }
 
+function cadRestaurarPreviewImport(){
+  try{
+    var cache=JSON.parse(localStorage.getItem(IMP_PREVIEW_KEY));
+    if(!cache||!cache.itens){pfAlert('Prévia não encontrada.');return;}
+    window._impAplicCache=cache.aplic||null;
+    cadMostrarPreviewImport(cache.itens,cache.marca);
+  }catch(e){pfAlert('Não consegui restaurar essa prévia.');}
+}
+function cadDescartarPreviewImport(){
+  pfConfirm('Descartar essa prévia de importação? Os itens lidos do catálogo se perdem (o arquivo original não é afetado).',function(){
+    localStorage.removeItem(IMP_PREVIEW_KEY);
+    if(typeof cadGoTab==='function')cadGoTab('aplicacoes');
+  },'Descartar');
+}
 function cadRenderAplicacoes(el){
   // v115.791 - Preserva foco/cursor do campo de busca (mesma correção já
   // feita em Produtos/Clientes/Fornecedores) -- a tela inteira é
@@ -26648,6 +26662,28 @@ function cadRenderAplicacoes(el){
     '<button onclick="cadAbrirCompararSeries()" style="background:#7B2D8B;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700">⚖️ Comparar Séries</button>'+
     '<button onclick="cadImportarProdutos()" style="background:#E67E22;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700" title="Pra catálogo de uma única máquina/modelo -- toda a leitura entra com a mesma aplicação fixa">📥 Importar Catálogo</button>'+
   '</div>';
+  // v115.876 - BUG GRAVE corrigido (a pedido do Vitor: recarregou a página
+  // pra ver o ajuste de largura e a prévia de 302 itens já lida "sumiu"):
+  // a prévia de importação SEMPRE foi salva em localStorage
+  // (IMP_PREVIEW_KEY) antes de renderizar -- só que nada em lugar nenhum
+  // do sistema LIA essa chave de volta. Um F5/reload zera a memória do
+  // navegador (itens só existiam em variável JS), e como nada restaurava
+  // do cache salvo, a prévia ficava orfã: gravada pra sempre, nunca
+  // reaproveitada. Agora, ao entrar em Aplicações, verifica se tem uma
+  // prévia pendente (até 24h) e oferece continuar de onde parou.
+  try{
+    var _pendCache=localStorage.getItem(IMP_PREVIEW_KEY);
+    if(_pendCache){
+      var _pend=JSON.parse(_pendCache);
+      if(_pend&&_pend.itens&&_pend.itens.length&&(Date.now()-(_pend.ts||0))<24*3600*1000){
+        html+='<div style="display:flex;align-items:center;gap:10px;background:#FFF7E6;border:1.5px solid #F0C36D;border-radius:8px;padding:10px 14px;margin-bottom:16px;flex-wrap:wrap">'+
+          '<span style="font-size:12px;color:#8a5a00">📥 Você tem uma prévia de importação não finalizada: <b>'+_pend.itens.length+' itens</b> ('+new Date(_pend.ts).toLocaleString('pt-BR')+').</span>'+
+          '<button onclick="cadRestaurarPreviewImport()" style="margin-left:auto;background:#1F4E79;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:11px;font-weight:700">Continuar de onde parei</button>'+
+          '<button onclick="cadDescartarPreviewImport()" style="background:none;border:1px solid #C00000;color:#C00000;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:11px">Descartar</button>'+
+          '</div>';
+      }
+    }
+  }catch(e){}
   if(!chaves.length){
     html+='<div style="text-align:center;padding:30px;color:#8a9ab0;font-size:13px">'+(termo?'Nenhuma aplicação encontrada para essa busca.':'Nenhuma aplicação cadastrada ainda. Marque aplicações nas cotações (botão 🚜 Marcar Aplicação) pra começar a montar esse catálogo.')+'</div>';
   } else {

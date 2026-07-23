@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.885</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.886</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.885</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.886</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.885</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.886</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -19974,6 +19974,7 @@ function importTransitCSV(file){
         // Estratégia: tokenizar tudo e procurar padrão: NrNota Codigo ... Qtd
         const tokens=fullText.replace(/\n/g,' ').split(/\s+/).filter(Boolean);
         let count=0;
+        let suspeitosPdf=[];
         // Detectar sequências: número(nota) codigo descrição... número(qtd)
         // Heurística: token é código se NÃO for só dígitos e tiver letras+números
         // Token é nota se for só 4-7 dígitos
@@ -20001,6 +20002,14 @@ function importTransitCSV(file){
             const qtd=i2<tokens.length?parseInt(tokens[i2])||0:0;
             if(qtd>0&&cod.length>=3&&desc.length>1){
               i2++; // pular qtd
+              // v115.886 - A pedido do Vitor: o mesmo aviso de "1,11E+08" que
+              // já tinha pro XLS/XLSX faltava aqui no caminho de PDF -- o
+              // texto do PDF é lido literalmente, então se o sistema que
+              // GEROU o PDF já exportou um código corrompido em notação
+              // científica (comum quando esse relatório sai de uma planilha
+              // Excel antes de virar PDF), o texto extraído carrega esse
+              // mesmo erro. Sinaliza aqui também.
+              if(/^\d[\.,]?\d*E\+?\d+$/i.test(cod))suspeitosPdf.push(cod);
               let marca='';
               const dashIdx=desc.indexOf(' - ');
               if(dashIdx>0)marca=desc.slice(0,dashIdx).trim();
@@ -20020,8 +20029,8 @@ function importTransitCSV(file){
           }
         }
         if(count>0){
-          st.textContent='✅ '+count+' item(s) importado(s) do PDF!';
-          setTimeout(function(){if(st)st.textContent='';},3000);
+          st.textContent='✅ '+count+' item(s) importado(s) do PDF!'+(suspeitosPdf.length?(' ⚠️ '+suspeitosPdf.length+' código(s) parecem corrompidos em notação científica: '+suspeitosPdf.slice(0,5).join(', ')+' — provavelmente já veio errado de uma planilha Excel usada pra gerar esse relatório, os dígitos certos se perderam antes do PDF existir.'):'');
+          setTimeout(function(){if(st)st.textContent='';},suspeitosPdf.length?12000:3000);
           renderTransitList();
           if(calcItems.length)recalc(_pfCurrentView!=='dash');
         }else{
@@ -20251,8 +20260,9 @@ function renderTransitList(){
     var parts=k.split('||'),cod=parts[0],marca=parts[1]||'';
     var entryObj=transitItems[k];
     var dataVal=(typeof entryObj==='object'&&entryObj.data)?entryObj.data:'';
-    html2+='<div class="transitItem" data-kidx="'+idx2+'">'
-      +'<span class="transitItemRef">'+cod+'</span>'
+    var codSuspeito=/^\d[\.,]?\d*E\+?\d+$/i.test(cod);
+    html2+='<div class="transitItem" data-kidx="'+idx2+'"'+(codSuspeito?' style="background:#FFF3E6"':'')+'>'
+      +'<span class="transitItemRef"'+(codSuspeito?' style="color:#C00000" title="Código parece corrompido em notação científica do Excel -- os dígitos certos provavelmente se perderam antes de chegar aqui. Confira o arquivo original."':'')+'>'+(codSuspeito?'⚠️ ':'')+cod+'</span>'
       +(marca?'<span style="font-size:10px;color:#607080;background:#EEF2F7;padding:1px 6px;border-radius:8px">'+marca+'</span>':'')
       +'<span class="transitItemQtd">'+(typeof transitItems[k]==='object'?transitItems[k].qtd||0:transitItems[k]||0)+' p&ccedil;s</span>'
       +'<input type="date" value="'+dataVal+'" title="Data do faturamento" data-kidx="'+idx2+'" onchange="editarDataTransit(this)" style="font-size:11px;color:#607080;border:1px solid #e0e8f0;border-radius:6px;padding:2px 6px;width:132px">'

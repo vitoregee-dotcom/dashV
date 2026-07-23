@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.876</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.877</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.876</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.877</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.876</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.877</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -31927,6 +31927,29 @@ function substAplicarLote(itens){
     return Object.assign({},it,{descricao:nova,descOriginal:it.descricao||it.desc||''});
   });
 }
+// v115.877 - BUG GRAVE corrigido (a pedido do Vitor: adicionou uma
+// substituição em "Substituições de Descrição" e, voltando pro Preview
+// salvo, a descrição continuava igual -- achou que não tinha funcionado).
+// Causa real: substSalvarNova()/impSalvarSubst() só gravavam a REGRA; nada
+// reaplicava ela nos itens que JÁ estavam na prévia (só valeria pra
+// PRÓXIMA importação, nunca pra que já tinha sido lida). Sempre reaplica a
+// partir da descrição ORIGINAL (não da já-substituída), pra não compor
+// substituição em cima de substituição se rodar mais de uma vez.
+function substReaplicarNaPreview(){
+  try{
+    var cacheRaw=localStorage.getItem(IMP_PREVIEW_KEY);
+    if(!cacheRaw)return;
+    var cache=JSON.parse(cacheRaw);
+    if(!cache||!cache.itens||!cache.itens.length)return;
+    cache.itens=cache.itens.map(function(it){
+      var original=it.descOriginal||it.descricao||it.desc||'';
+      return Object.assign({},it,{descricao:substAplicar(original),descOriginal:original});
+    });
+    cache.ts=Date.now();
+    pfSafeSetItem(IMP_PREVIEW_KEY, JSON.stringify(cache));
+    if(window._impItensCache&&window._impItensCache.length)window._impItensCache=cache.itens;
+  }catch(e){}
+}
 
 function substAdicionarOuAtualizar(de, para, exato){
   var lista=substCarregar();
@@ -33779,11 +33802,13 @@ substSalvarNova = function(){
   var exato=document.getElementById('substTipo').value==='1';
   if(!de||!para){pfAlert('Preencha os dois campos.');return;}
   substAdicionarOuAtualizar(de,para,exato);
+  substReaplicarNaPreview();
   cadGerenciarSubst();
 };
 substRemover = function(idx){
   pfConfirm('Remover esta substituição?', function(){
     var lista=substCarregar();lista.splice(idx,1);substSalvar(lista);
+    substReaplicarNaPreview();
     cadGerenciarSubst();
   }, 'Remover');
 };
@@ -33797,8 +33822,8 @@ impSalvarSubst = function(btn, idx){
   if(!orig||!nova||orig===nova){pfAlert('Altere a descrição antes de salvar.');return;}
   mapaConfirm(
     'Tipo de substituição:\n"'+orig+'" → "'+nova+'"\n\nSIM = Somente "'+orig+'" exato\nNÃO = Qualquer texto que contenha "'+orig+'"',
-    function(){substAdicionarOuAtualizar(orig,nova,true);  btn.textContent='✅';setTimeout(function(){btn.textContent='💾';},2000);},
-    function(){substAdicionarOuAtualizar(orig,nova,false); btn.textContent='✅';setTimeout(function(){btn.textContent='💾';},2000);}
+    function(){substAdicionarOuAtualizar(orig,nova,true);  substReaplicarNaPreview(); btn.textContent='✅';setTimeout(function(){btn.textContent='💾';},2000);},
+    function(){substAdicionarOuAtualizar(orig,nova,false); substReaplicarNaPreview(); btn.textContent='✅';setTimeout(function(){btn.textContent='💾';},2000);}
   );
 };
 

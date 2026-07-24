@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.891</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.892</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.891</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.892</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.891</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.892</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -26824,8 +26824,11 @@ function cadRenderAplicacoes(el){
           var it=porCodigo[k];
           var marcasArr=Object.keys(it.marcas),equipsArr=Object.keys(it.equips),veiculosArr=Object.keys(it.veiculos),marcasVeiculoArr=Object.keys(it.marcasVeiculo);
           html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid #f0f4f8;font-size:12px">';
-          html+='<div>'+
-            '<div style="font-size:13px;font-weight:600;color:#1a2332">'+pfEscHtml(it.desc||it.codigo)+'</div>'+
+          html+='<div style="flex:1;min-width:0">'+
+            '<div style="display:flex;align-items:center;gap:4px;max-width:420px">'+
+              '<input type="text" value="'+pfEscHtml(it.desc||'')+'" data-orig="'+pfEscHtml(it.desc||'')+'" data-chaves="'+pfEscHtml(it.chaves.join('\u0001'))+'" class="aplicDescEdit" onclick="event.stopPropagation()" onchange="cadEditarDescAplicacao(this)" style="width:100%;padding:3px 6px;border:1px solid #e0e8f0;border-radius:4px;font-size:13px;font-weight:600;color:#1a2332">'+
+              '<button onclick="event.stopPropagation();cadSalvarSubstAplicItem(this)" title="Salvar como regra de substituição" style="background:none;border:none;cursor:pointer;font-size:13px;color:#8a9ab0;flex-shrink:0">💾</button>'+
+            '</div>'+
             '<div style="margin-top:3px;display:flex;align-items:center;gap:7px;flex-wrap:wrap">'+
               '<b style="color:#1F4E79;font-family:monospace;font-size:11px">'+pfEscHtml(it.codigo)+'</b>'+
               (it.qtd!=null?'<span style="background:#FFF3E6;color:#854F0B;padding:1px 8px;border-radius:7px;font-size:10px;font-weight:700">×'+it.qtd+'</span>':'')+
@@ -37173,6 +37176,45 @@ function aplicSave(list){
     if(a.codigo)a.codigo=String(a.codigo).replace(/\s+/g,'');
   });
   cadSave(APLIC_KEY,list);
+}
+
+// Edição inline da descrição direto na tela de Aplicações (a pedido do Vitor --
+// antes só dava pra editar descrição em Cadastros > Produtos). Atualiza todos os
+// registros de aplicação mesclados nessa linha (mesmo código, vindo de mais de
+// uma importação/página do catálogo) e reflete no Produto correspondente, igual
+// já acontecia na confirmação de importação de catálogo.
+function cadEditarDescAplicacao(input){
+  var chaves=(input.dataset.chaves||'').split('\u0001').filter(Boolean);
+  var novo=input.value;
+  var orig=input.dataset.orig||'';
+  if(novo===orig)return;
+  var todos=aplicLoad();
+  var codigosAlvo={};
+  todos.forEach(function(a){
+    if(chaves.indexOf(aplicChaveUnica(a))!==-1){a.desc=novo;codigosAlvo[a.codigo]=true;}
+  });
+  aplicSave(todos);
+  var plist=cadLoad(PROD_KEY||'cad_produtos_v1');
+  var atualizados=0;
+  plist.forEach(function(p){
+    if(codigosAlvo[p.codigo]&&p.descricao===orig){p.descricao=novo;atualizados++;}
+  });
+  if(atualizados)cadSave(PROD_KEY||'cad_produtos_v1',plist);
+  input.dataset.orig=novo;
+  cadGoTab('aplicacoes');
+}
+// Salva a edição acima como regra de Substituição de Descrição, igual ao botão
+// 💾 que já existe na prévia de importação de catálogo (impSalvarSubst) -- assim
+// a próxima importação que trouxer esse mesmo texto original já aplica sozinha.
+function cadSalvarSubstAplicItem(btn){
+  var input=btn.previousElementSibling;
+  var orig=input.dataset.orig;
+  var novo=input.value;
+  if(!orig||!novo||orig===novo){pfAlert('Altere a descrição antes de salvar a regra.');return;}
+  var exato=_safeConfirm('Substituição exata?\n\nSIM = só "'+orig+'" exato\nNÃO = qualquer texto que contenha "'+orig+'"');
+  substAdicionarOuAtualizar(orig,novo,exato);
+  btn.textContent='✅';btn.style.color='#27AE60';
+  setTimeout(function(){btn.textContent='💾';btn.style.color='#8a9ab0';},2000);
 }
 
 function aplicBuscar(termo){

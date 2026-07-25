@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.893</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.894</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1487,7 +1487,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.893</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.894</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1624,7 +1624,7 @@ dessa, pra não repetir o mesmo problema de encolher/centralizar sem querer). --
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.893</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.894</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -26694,12 +26694,17 @@ function cadCriarFichasEmLotes(somenteAtivos){
 }
 
 function cadRestaurarPreviewImport(){
-  try{
-    var cache=JSON.parse(localStorage.getItem(IMP_PREVIEW_KEY));
-    if(!cache||!cache.itens){pfAlert('Prévia não encontrada.');return;}
-    window._impAplicCache=cache.aplic||null;
-    cadMostrarPreviewImport(cache.itens,cache.marca);
-  }catch(e){pfAlert('Não consegui restaurar essa prévia.');}
+  // v115.894 - BUG GRAVE corrigido: essa função chamava cadMostrarPreviewImport()
+  // direto, sem antes navegar pra tela de Importar Produtos -- só que essa função
+  // grava o resultado em document.getElementById('impPreview'), elemento que só
+  // existe DENTRO da tela de import. Chamada a partir da tela de Aplicações (onde
+  // fica o botão "Continuar de onde parei"), esse elemento não existe, então a
+  // função silenciosamente não fazia nada (nenhum erro, nenhuma navegação --
+  // parecia que o botão "saía sozinho"). Já existia uma versão correta
+  // (cadRestaurarPreview, mais abaixo no arquivo) que primeiro chama
+  // cadImportarProdutos() pra criar a tela/elemento certo, só que ela nunca
+  // tinha sido ligada a este botão. Agora delega pra ela.
+  cadRestaurarPreview();
 }
 function cadDescartarPreviewImport(){
   pfConfirm('Descartar essa prévia de importação? Os itens lidos do catálogo se perdem (o arquivo original não é afetado).',function(){
@@ -34153,6 +34158,28 @@ function mapaProximoNumero(){
   return String(n).padStart(4, '0');
 }
 
+// v115.894 - BUG GRAVE corrigido (a pedido do Vitor, incidente real: mandou
+// e-mail de cotação com "MAPA 0179" no assunto, e pouco depois esse número
+// passou a apontar pra outro mapa diferente na lista). mapaProximoNumero()
+// acima é só um contador no localStorage de CADA aparelho/aba -- sem nenhuma
+// coordenação entre eles, então dois mapas criados quase ao mesmo tempo em
+// dispositivos diferentes podem gerar o mesmo número, e o que sincronizar
+// por último "rouba" a identidade do primeiro. Essa função busca o próximo
+// número de verdade no Supabase (função next_mapa_numero(), incremento
+// atômico numa tabela com 1 linha só), eliminando a corrida. Se a rede falhar
+// (ex: sem internet no momento), cai pro contador local como rede de segurança
+// -- pior caso volta a ter o risco antigo, mas o mapa não fica sem número.
+async function mapaProximoNumeroServidor(){
+  try{
+    var resp = await sbFetch('/rest/v1/rpc/next_mapa_numero', {method:'POST', body:'{}'});
+    if(resp.ok){
+      var n = await resp.json();
+      if(typeof n === 'number' && n > 0) return String(n).padStart(4, '0');
+    }
+  }catch(e){ console.warn('mapaProximoNumeroServidor: falhou, usando contador local', e); }
+  return mapaProximoNumero();
+}
+
 // ── Helpers genéricos de coluna redimensionável (usados nas tabelas de
 // Mapas em andamento e Solicitações de Compras) ──────────────────────
 // Usa <colgroup> + table-layout:fixed: cada <col> manda na largura da sua coluna
@@ -34250,9 +34277,16 @@ mapaNovoComNome = function(){
 };
 
 // Override mapaIniciarComNome to use sequential number
-mapaIniciarComNome = function(){
+// v115.894: agora assíncrona -- busca o número no servidor (mapaProximoNumeroServidor)
+// em vez do contador local, pra não duplicar número quando dois mapas são criados
+// quase ao mesmo tempo em dispositivos/abas diferentes.
+mapaIniciarComNome = async function(){
   var nome = (document.getElementById('mapaNovoNome').value||'').trim().toUpperCase();
-  var num  = mapaProximoNumero();
+  var btnCriar = document.querySelector('#mapaBody button[onclick="mapaIniciarComNome()"]');
+  if(btnCriar){btnCriar.disabled=true;btnCriar.textContent='Criando...';}
+  var num;
+  try{ num = await mapaProximoNumeroServidor(); }
+  finally{ if(btnCriar){btnCriar.disabled=false;} }
   var titulo = 'MAPA '+num+(nome?' — '+nome:'');
   mapaLimparEstado();
   mapaEstadoId = 'mapa_'+Date.now();

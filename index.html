@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.928</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.929</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1493,7 +1493,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.928</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.929</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1636,7 +1636,7 @@ largura de comprasView/vendasView. -->
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.928</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.929</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -16782,6 +16782,14 @@ async function pfRenderDashNow(){
     return;
   }
   console.time('⏱️ applyFilt');
+  // v115.929 - Restaura a seleção salva localmente (ver pfRestaurarSelecaoLocal)
+  // só na PRIMEIRA vez que o Dashboard calcula os dados nesta sessão --
+  // window._pfSelecaoRestaurada evita restaurar de novo (e reviver itens que
+  // o Vitor desmarcou de propósito) toda vez que o Dashboard é redesenhado.
+  if(!window._pfSelecaoRestaurada){
+    window._pfSelecaoRestaurada=true;
+    if(typeof pfRestaurarSelecaoLocal==='function')pfRestaurarSelecaoLocal();
+  }
   applyFilt();
   // v115.685 - REMOVIDAS as chamadas duplicadas de renderTable()/renderCharts()/
   // renderOpBox() que existiam aqui embaixo -- applyFilt() já desenha tudo isso
@@ -18988,12 +18996,46 @@ function selNenhum(){
   renderTable();atualizarSelCount();
 }
 function chkAllChange(chk){chk.checked?selTodos():selNenhum();}
+// v115.929 - A pedido do Vitor: a seleção de itens marcados (checkbox) e as
+// quantidades editadas no Dashboard só existiam na memória da aba -- um
+// F5 (necessário pra pegar uma atualização nova, por exemplo) apagava tudo
+// e ele tinha que remarcar os itens de novo. Agora salva num localStorage
+// (debounced, só grava se passou >400ms desde o último save, mesmo padrão
+// usado em mapaSalvarEstado) e restaura automaticamente na próxima vez que
+// o Dashboard calcular os dados -- só entram de volta chaves (ref+marca)
+// que ainda existem na planilha atual, então não sobra lixo de uma análise
+// antiga/diferente.
+var PF_SELECAO_KEY='pf_selecao_local_v1';
+function pfSalvarSelecaoLocal(){
+  var agora=Date.now();
+  if(window._pfSelecaoSalvaUltimoTs&&(agora-window._pfSelecaoSalvaUltimoTs)<400)return;
+  window._pfSelecaoSalvaUltimoTs=agora;
+  try{
+    pfSafeSetItem(PF_SELECAO_KEY, JSON.stringify({
+      selSet:[...selSet], qtdEdit:qtdEdit,
+      opSelSet:(typeof opSelSet!=='undefined')?[...opSelSet]:[],
+      opQtd:(typeof opQtd!=='undefined')?opQtd:{},
+      ts:agora
+    }));
+  }catch(e){console.warn('Erro ao salvar seleção local:',e);}
+}
+function pfRestaurarSelecaoLocal(){
+  try{
+    var saved=JSON.parse(localStorage.getItem(PF_SELECAO_KEY)||'null');
+    if(!saved)return;
+    (saved.selSet||[]).forEach(function(k){ if(itemsByKey[k])selSet.add(k); });
+    if(saved.qtdEdit)Object.keys(saved.qtdEdit).forEach(function(k){ if(itemsByKey[k])qtdEdit[k]=saved.qtdEdit[k]; });
+    if(typeof opSelSet!=='undefined'&&saved.opSelSet)saved.opSelSet.forEach(function(k){opSelSet.add(k);});
+    if(typeof opQtd!=='undefined'&&saved.opQtd)Object.keys(saved.opQtd).forEach(function(k){opQtd[k]=saved.opQtd[k];});
+  }catch(e){console.warn('Erro ao restaurar seleção local:',e);}
+}
 function atualizarSelCount(){
   const n=selSet.size;
   const el=document.getElementById("selCount");
   if(el)el.textContent=n>0?n+" selecionado(s)":"";
   const ca=document.getElementById("chkAll");
   if(ca){ca.indeterminate=n>0&&n<filtered.length;ca.checked=n>0&&n>=filtered.length;}
+  pfSalvarSelecaoLocal();
 }
 function atualizarFiltroGrupo(){
   const grupos=[...new Set(calcItems.map(i=>i.grupo).filter(Boolean))].sort();

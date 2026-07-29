@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.948</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.949</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1493,7 +1493,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.948</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.949</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1636,7 +1636,7 @@ largura de comprasView/vendasView. -->
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.948</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.949</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -36351,6 +36351,7 @@ function vendasItensCompactoHtml(v){
         '</div>'+
         '<div style="font-size:12px;color:#1a2332;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pfEscHtml(it.desc||'—')+'</div>'+
       '</div>'+
+      '<button onclick="event.stopPropagation();vendasAbrirMedidasCC(\''+pfEscJs(it.codigo||'')+'\')" title="Conferir medidas em Componentes Cardan" style="background:none;border:1px solid #dbe3ee;border-radius:6px;padding:4px 7px;font-size:12px;color:#1F4E79;cursor:pointer;flex-shrink:0">📏</button>'+
       '<div style="text-align:center;flex-shrink:0;width:44px">'+
         '<div style="font-size:9px;color:#8a9ab0">QTD</div><div style="font-size:14px;font-weight:700;color:#1a2332">'+it.qtd+'</div>'+
       '</div>'+
@@ -36363,6 +36364,68 @@ function vendasItensCompactoHtml(v){
   return html;
 }
 
+// v115.949 - A pedido do Vitor: botão "Conferir medidas" em cada item da
+// Cotação/Vendas, abrindo um painel lateral (sem sair da tela) com as
+// medidas do item em Componentes Cardan. Busca o código em qualquer
+// família e também nos códigos Spicer/conversões, não só no código exato
+// salvo no item da cotação.
+function ccAcharPorCodigoQualquer(codigo){
+  if(!codigo)return null;
+  var cod=String(codigo).toUpperCase().trim();
+  if(!cod)return null;
+  var data=ccLoad();
+  for(var fam in data){
+    var arr=data[fam];
+    if(!Array.isArray(arr))continue;
+    for(var i=0;i<arr.length;i++){
+      var rec=arr[i];
+      if((rec.codigo||'').toUpperCase()===cod||(rec.similar||'').toUpperCase()===cod) return {familia:fam,rec:rec};
+      if(rec.conversoes&&rec.conversoes.some(function(c){return (c.codigo||'').toUpperCase()===cod;})) return {familia:fam,rec:rec};
+    }
+  }
+  return null;
+}
+function ccFecharMedidasPainel(){
+  var el=document.getElementById('ccMedidasPainel');
+  if(el)el.remove();
+}
+function vendasAbrirMedidasCC(codigo){
+  var el=document.getElementById('ccMedidasPainel');
+  if(!el){
+    el=document.createElement('div');
+    el.id='ccMedidasPainel';
+    el.style.cssText='position:fixed;top:0;right:0;bottom:0;width:280px;background:#fff;border-left:1px solid #e0e8f0;box-shadow:-4px 0 16px rgba(0,0,0,.08);z-index:99999;padding:16px;overflow:auto;font-family:inherit';
+    document.body.appendChild(el);
+  }
+  var achado=ccAcharPorCodigoQualquer(codigo);
+  if(!achado){
+    el.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:14px">Medidas</b><span onclick="ccFecharMedidasPainel()" style="cursor:pointer;color:#8a9ab0">✕</span></div>'+
+      '<div style="font-size:12px;color:#8a9ab0;margin-top:10px">Não achei "'+pfEscHtml(codigo||'')+'" em Componentes Cardan.</div>';
+    return;
+  }
+  var rec=achado.rec, cfg=ccFamiliaConfig(achado.familia);
+  var titulo=rec.similar||rec.codigo;
+  var medidasHtml=cfg.campos.map(function(c){
+    return rec[c.k]?('<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span style="color:#8a9ab0">'+pfEscHtml(c.label)+'</span><span style="font-weight:600">'+pfEscHtml(String(rec[c.k]))+'</span></div>'):'';
+  }).join('');
+  el.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b style="font-size:14px">'+pfEscHtml(titulo)+'</b><span onclick="ccFecharMedidasPainel()" style="cursor:pointer;color:#8a9ab0">✕</span></div>'+
+    (rec.linha&&rec.similar?'<div style="font-size:11px;color:#556;margin-bottom:8px">'+pfEscHtml(rec.linha)+' '+pfEscHtml(rec.codigo)+'</div>':'')+
+    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">'+
+      (rec.cruzetaNumero?'<span style="background:#f4f6f9;font-size:11px;padding:2px 7px;border-radius:6px">Cruzeta '+pfEscHtml(rec.cruzetaNumero)+'</span>':'')+
+      (rec.numDentes?'<span style="background:#f4f6f9;font-size:11px;padding:2px 7px;border-radius:6px">'+pfEscHtml(String(rec.numDentes))+' estrias</span>':'')+
+    '</div>'+
+    medidasHtml+
+    '<div style="border-top:1px solid #eef2f7;margin-top:10px;padding-top:10px">'+
+      '<span onclick="ccAbrirDoLink(\''+achado.familia+'\',\''+pfEscJs(rec.codigo)+'\')" style="font-size:12px;color:#1F4E79;cursor:pointer">Abrir cadastro completo →</span>'+
+    '</div>';
+}
+function ccAbrirDoLink(familia,codigo){
+  ccFecharMedidasPainel();
+  ccNavigate();
+  ccAbrirFamilia(familia,'busca');
+  _ccFiltro.texto=codigo;
+  setTimeout(function(){ccExecutarBusca();},50);
+}
 function vendasItemColgroup(){
   var defaults=['46px','28px','28px','100px','100px','230px','90px','62px','55px','85px','96px','102px','68px','100px'];
   var widths=defaults.slice();
@@ -40848,7 +40911,7 @@ function ccCamposAtivos(familia){
   return cfg.campos;
 }
 var _ccFiltro={};
-var _ccMedidasTodasVisiveis=false; // v115.948 - A pedido do Vitor: alternar
+var _ccMedidasTodasVisiveis=false; // v115.949 - A pedido do Vitor: alternar
 // exibição de todas as medidas de uma vez na busca por medida (além do
 // "Ver medidas" individual por item)
 
@@ -41264,7 +41327,7 @@ function ccExecutarBusca(){
         return '<span style="font-size:9px;font-weight:800;color:#fff;background:#E67E22;border-radius:4px;padding:1px 5px;margin-right:3px">'+pfEscHtml(c.linha)+'</span>'+pfEscHtml(c.codigo)+(c.material?' ('+pfEscHtml(c.material)+')':'');
       }).join(' · ')+'</div>';
     }
-    // v115.948 - A pedido do Vitor: foto pequena (Colar Print + remover fundo,
+    // v115.949 - A pedido do Vitor: foto pequena (Colar Print + remover fundo,
     // reaproveitando o mesmo núcleo de IA de rfRemoverFundoBlob já usado em
     // Ferramentas > Remover Fundo de Foto e no Cadastro de Produtos) e as
     // medidas escondidas atrás de "Ver medidas" (ou todas juntas via o botão
@@ -41283,7 +41346,7 @@ function ccExecutarBusca(){
       fotoHtml+
       '<div style="flex:1;min-width:0">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">'+
-      // v115.948 - A pedido do Vitor: código Spicer (rec.similar, confirmado
+      // v115.949 - A pedido do Vitor: código Spicer (rec.similar, confirmado
       // que é sempre Spicer nos itens STAHL) vira o título principal quando
       // existe; sem Spicer, o próprio código do item (STAHL, ou REI quando
       // for item exclusivo Rei) continua como título.

@@ -1,11 +1,17 @@
-// PartsFlow — Importação única dos retentores FREUDENBERG (catálogo em PDF
-// processado pelo Claude) pra dentro do Supabase, chave retentores_v1.
-// Rodar só uma vez, via workflow_dispatch manual (não tem cron).
+// PartsFlow — Importação de catálogos de retentores pro Supabase.
+// GENÉRICO: varre todo arquivo scripts/dados-*-retentores.json que existir
+// no repositório e mescla cada um com o que já está salvo (chave
+// retentores_v1). Não duplica (por codigo + marca) e não apaga nada de
+// outra marca já cadastrada -- então é seguro rodar de novo mesmo com
+// arquivos que já foram importados antes (viram um no-op, 0 adicionados).
 //
-// Mescla com o que já está salvo (não apaga nada da Sabó nem de qualquer
-// outra marca já cadastrada) -- evita duplicar por (codigo + marca).
+// Pra importar um catálogo novo no futuro: só subir um arquivo
+// scripts/dados-<algumacoisa>-retentores.json com o formato certo
+// (array de {codigo, conversao, eixoD, alojD, altura, marca, tipo,
+// material, linha, grupo}) e disparar esse mesmo workflow de novo --
+// não precisa criar workflow nem editar este script.
 
-import { readFileSync } from 'fs';
+import { readdirSync, readFileSync } from 'fs';
 
 const SUPABASE_URL = 'https://bqbdypizmeirezedvefo.supabase.co';
 const MY_USER_ID = 'e526fea4-d04f-4d2f-a700-145ac17b137c';
@@ -18,8 +24,19 @@ if (!SUPABASE_KEY) {
 }
 
 async function main() {
-  const novos = JSON.parse(readFileSync('scripts/dados-freudenberg-retentores.json', 'utf-8'));
-  console.log(`Itens no arquivo de importação: ${novos.length}`);
+  const arquivos = readdirSync('scripts').filter(f => /^dados-.*-retentores\.json$/.test(f));
+  console.log(`Arquivos de dados encontrados: ${arquivos.join(', ') || '(nenhum)'}`);
+
+  let novos = [];
+  for (const arq of arquivos) {
+    const dados = JSON.parse(readFileSync(`scripts/${arq}`, 'utf-8'));
+    console.log(`  ${arq}: ${dados.length} itens`);
+    novos = novos.concat(dados);
+  }
+  if (!novos.length) {
+    console.log('Nenhum item pra importar.');
+    return;
+  }
 
   const rGet = await fetch(
     `${SUPABASE_URL}/rest/v1/user_sync?user_id=eq.${MY_USER_ID}&chave=eq.${CHAVE}&select=dados`,
@@ -46,6 +63,11 @@ async function main() {
     adicionados++;
   }
   console.log(`Adicionados de verdade (sem duplicar): ${adicionados}`);
+
+  if (adicionados === 0) {
+    console.log('Nada novo pra gravar.');
+    return;
+  }
 
   const body = JSON.stringify({
     user_id: MY_USER_ID,

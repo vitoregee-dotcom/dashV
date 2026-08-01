@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.981</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.982</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1493,7 +1493,7 @@ button { min-height:36px; }
   <div id="pfTopBar">
     <div>
       <div id="pfPageTitle">Dashboard</div>
-      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.981</div>
+      <div style="font-size:15px;color:var(--pf-text);font-weight:800;letter-spacing:.5px;margin-top:1px">v115.982</div>
     </div>
     <div id="pfTopRight">
       <select id="pfFamiliaFilter" onchange="pfFiltrarPorFamilia(this.value)" style="display: inline-block; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--pf-border); background: var(--pf-sidebar-bg); color: var(--pf-text); font-size: 12px; cursor: pointer; font-weight: 600; max-width: 220px;"><option value="TODAS">🗂 Todas as famílias (5)</option><option value="COMPONENTES">COMPONENTES (677)</option><option value="FILTROS">FILTROS (14184)</option><option value="MOTORES">MOTORES (107452)</option><option value="ROLAMENTOS">ROLAMENTOS (9124)</option><option value="TRANSMISSÃO E EIXO">TRANSMISSÃO E EIXO (75916)</option></select>
@@ -1636,7 +1636,7 @@ largura de comprasView/vendasView. -->
   <div style="font-size:26px;font-weight:700;color:#fff;margin-top:6px">Parts<span style="color:#FFB067">Flow</span></div>
   <div style="font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.6)">LINHA OFF-HIGHWAY</div>
   <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:18px">Escolha uma seção no menu ao lado pra começar</div>
-  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.981</div>
+  <div style="font-size:15px;color:#ffffff;font-weight:800;margin-top:6px">v115.982</div>
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#FFD9A0;margin-top:14px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -38104,7 +38104,110 @@ function vendasMoverParaCotacao(numDestino){
 
 var PV_KEY='partsflow_pedidos_venda_v1';
 function pvLoad(){ try{return JSON.parse(localStorage.getItem(PV_KEY)||'[]');}catch(e){return [];} }
-function pvSave(list){ pfSafeSetItem(PV_KEY, JSON.stringify(list)); if(typeof pfSyncPush==='function')pfSyncPush([PV_KEY]); }
+function pvSave(list){ pfSafeSetItem(PV_KEY, JSON.stringify(list)); if(typeof pfSyncPush==='function')pfSyncPush([PV_KEY]); if(typeof pfAvisosAtualizar==='function')pfAvisosAtualizar(); }
+
+// v115.982 - A pedido do Vitor: Central de Avisos e Acompanhamento — faixa
+// fixa na borda direita, presente em TODA tela do sistema (menos login),
+// com bolinhas coloridas mostrando quantos pedidos de venda estão em cada
+// etapa (separação/conferência/faturado/despachado, puxando dados reais de
+// PV_ETAPAS/pvLoad) e uma bolinha vermelha pulsante reservada pra "possível
+// furo de estoque" (contagem 0 por enquanto — o fluxo de marcar/confirmar
+// furo na separação/conferência ainda não existe, é feature futura).
+// Cores vivas/sólidas (não pastel) a pedido dele.
+var PF_AVISOS_ETAPAS=[
+  {k:'separado',label:'Em separação',cor:'#E67E22'},
+  {k:'conferido',label:'Em conferência',cor:'#2563EB'},
+  {k:'faturado',label:'Faturado',cor:'#7B2D8B'},
+  {k:'despachado',label:'Despachado',cor:'#16A34A'}
+];
+function pfAvisosContagem(){
+  var list=(typeof pvLoad==='function')?pvLoad():[];
+  var out={};
+  PF_AVISOS_ETAPAS.forEach(function(e){
+    out[e.k]=list.filter(function(p){return (p.status||'aberto')===e.k;}).length;
+  });
+  return out;
+}
+function pfAvisosGarantirCss(){
+  if(document.getElementById('pfAvisosCss'))return;
+  var st=document.createElement('style');
+  st.id='pfAvisosCss';
+  st.textContent='@keyframes pfAvisosPulse{0%{box-shadow:0 0 0 0 rgba(220,38,38,.5)}70%{box-shadow:0 0 0 8px rgba(220,38,38,0)}100%{box-shadow:0 0 0 0 rgba(220,38,38,0)}}';
+  document.head.appendChild(st);
+}
+function pfAvisosMonta(){
+  if(document.getElementById('pfAvisosRail'))return;
+  pfAvisosGarantirCss();
+  var rail=document.createElement('div');
+  rail.id='pfAvisosRail';
+  rail.style.cssText='position:fixed;top:0;right:0;bottom:0;width:44px;background:#fff;border-left:1px solid #e8edf4;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0;z-index:9998;box-shadow:-2px 0 6px rgba(0,0,0,.05)';
+  document.body.appendChild(rail);
+  pfAvisosAtualizar();
+}
+function pfAvisosDesmonta(){
+  var rail=document.getElementById('pfAvisosRail'); if(rail)rail.remove();
+  var painel=document.getElementById('pfAvisosPainel'); if(painel)painel.remove();
+}
+function pfAvisosAtualizar(){
+  var rail=document.getElementById('pfAvisosRail');
+  if(!rail)return;
+  var contagem=pfAvisosContagem();
+  var html='';
+  var furos=0; // stub -- feature de "possível furo" ainda não existe
+  if(furos>0){
+    html+='<div onclick="pfAvisosAbrirPainel(\'furo\')" title="Possível furo de estoque" style="cursor:pointer">'+
+      '<div style="width:32px;height:32px;border-radius:50%;background:#DC2626;display:flex;align-items:center;justify-content:center;animation:pfAvisosPulse 1.8s infinite">'+
+      '<span style="color:#fff;font-size:12px;font-weight:800">'+furos+'</span></div></div>';
+  }
+  PF_AVISOS_ETAPAS.forEach(function(e){
+    var n=contagem[e.k]||0;
+    if(!n)return;
+    html+='<div onclick="pfAvisosAbrirPainel(\''+e.k+'\')" title="'+e.label+'" style="cursor:pointer">'+
+      '<div style="width:32px;height:32px;border-radius:50%;background:'+e.cor+';display:flex;align-items:center;justify-content:center">'+
+      '<span style="color:#fff;font-size:12px;font-weight:800">'+n+'</span></div></div>';
+  });
+  rail.innerHTML=html;
+}
+function pfAvisosAbrirPainel(etapaK){
+  var existente=document.getElementById('pfAvisosPainel'); if(existente)existente.remove();
+  var etapaInfo=PF_AVISOS_ETAPAS.find(function(e){return e.k===etapaK;});
+  var list=(typeof pvLoad==='function')?pvLoad():[];
+  var itens=list.filter(function(p){return (p.status||'aberto')===etapaK;});
+  var painel=document.createElement('div');
+  painel.id='pfAvisosPainel';
+  painel.style.cssText='position:fixed;top:0;right:44px;bottom:0;width:260px;background:#fff;border-left:1px solid #e8edf4;box-shadow:-4px 0 16px rgba(0,0,0,.08);z-index:9999;padding:16px;overflow:auto';
+  var html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'+
+    '<b style="font-size:14px;color:'+(etapaInfo?etapaInfo.cor:'#1F4E79')+'">'+(etapaInfo?etapaInfo.label:'Pendências')+' ('+itens.length+')</b>'+
+    '<span onclick="document.getElementById(\'pfAvisosPainel\').remove()" style="cursor:pointer;color:#8a9ab0;font-size:16px">✕</span></div>';
+  if(!itens.length){
+    html+='<div style="font-size:12px;color:#8a9ab0">Nada por aqui.</div>';
+  }else{
+    itens.forEach(function(p){
+      html+='<div onclick="pfAvisosAbrirPedido(\''+p.id+'\')" style="background:#f8fafc;border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;font-size:12px">'+
+        '<div style="font-weight:700;color:#185FA5">'+p.numero+'</div>'+
+        '<div style="color:#556">'+(p.clienteRazao||'—')+'</div></div>';
+    });
+  }
+  painel.innerHTML=html;
+  document.body.appendChild(painel);
+}
+function pfAvisosAbrirPedido(id){
+  var painel=document.getElementById('pfAvisosPainel'); if(painel)painel.remove();
+  if(typeof pfNavigate==='function')pfNavigate('vendas');
+  window._vendasMainTab='pedidos';
+  if(typeof vendasRender==='function')vendasRender();
+  setTimeout(function(){ if(typeof pvVerDetalhe==='function') pvVerDetalhe(id); },80);
+}
+// Observa o overlay de login: monta a central assim que ele some (login
+// concluído, por qualquer um dos caminhos -- online, PIN offline etc, sem
+// precisar mexer em cada um) e desmonta se ele reaparecer (logout).
+(function pfAvisosWatch(){
+  var overlay=document.getElementById('authOverlay');
+  var logado=overlay&&(overlay.style.display==='none');
+  if(logado)pfAvisosMonta(); else pfAvisosDesmonta();
+  setTimeout(pfAvisosWatch,1000);
+})();
+setInterval(function(){ if(document.getElementById('pfAvisosRail'))pfAvisosAtualizar(); },30000);
 
 function vendasAtualizarPVBtn(){
   var count=Object.values(window._vendasSelPV||{}).filter(Boolean).length;
@@ -40998,7 +41101,7 @@ function ftExcluir(id){
 var CC_KEY='componentes_cardan_v1';
 var CC_SEEDED_KEY='componentes_cardan_seeded_v1';
 var _ccFamiliaAtual=null;
-var _ccModo='busca'; // 'gabarito' | 'busca' — v115.981: 'menu' eliminado, card abre direto na busca
+var _ccModo='busca'; // 'gabarito' | 'busca' — v115.982: 'menu' eliminado, card abre direto na busca
 var _ccSubtipoCruzeta='basica';
 var _ccSubtipoPonteira='fixa';
 function ccSubtipoAtual(familia){
@@ -41045,7 +41148,7 @@ var CC_FAMILIAS=[
     campos:[
       {k:'A',label:'Distância entre pontas (A)'},{k:'B',label:'Ø do copo (B)'},{k:'C',label:'Comprimento da castanha de asa (C)'},
       {k:'D',label:'Ø entre parafusos (D)'},{k:'E',label:'Diagonal entre castanhas (E)'},{k:'F',label:'Ø do furo de fixação (F)'},
-      // v115.981 - A pedido do Vitor: no subtipo "Trava interna", a distância
+      // v115.982 - A pedido do Vitor: no subtipo "Trava interna", a distância
       // ponta-a-ponta (A) NÃO é a mesma medida que trava-a-trava (a distância
       // entre os sulcos/travas internas do munhão, mais curta que A) — sem
       // campo pra essa medida antes, adicionado G. Só se aplica de fato ao
@@ -41169,7 +41272,7 @@ function ccNavigate(){
 
 function ccAbrirFamilia(key, modo){
   _ccFamiliaAtual=key;
-  _ccModo=modo||'busca'; // v115.981 - A pedido do Vitor: clicar no card já abre
+  _ccModo=modo||'busca'; // v115.982 - A pedido do Vitor: clicar no card já abre
   // direto na busca por medida, sem a tela intermediária de menu (que só tinha
   // os 2 botões e nada mais). O gabarito virou um botão dentro da própria
   // busca (ccBuscaHtml), em vez de uma aba separada
@@ -41675,7 +41778,7 @@ function retExecutarBusca(){
     }
     return ok?{rec:rec, desvio:desvioTotal}:null;
   }).filter(Boolean).sort(function(a,b){return a.desvio-b.desvio;});
-  // v115.981 - A pedido do Vitor: o resultado sempre foi cortado em 60 itens
+  // v115.982 - A pedido do Vitor: o resultado sempre foi cortado em 60 itens
   // (mesmo padrão do Componentes Cardan), mas sem avisar disso em lugar
   // nenhum -- rolando a lista parecia que faltava item, quando na verdade só
   // não tinha um aviso dizendo que era um corte. Guarda o total ANTES de

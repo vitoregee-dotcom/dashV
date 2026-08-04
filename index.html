@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1033</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1034</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1437,7 +1437,7 @@ button { min-height:36px; }
   <div id="pfLogo" onclick="pfIrParaHome()" style="cursor:pointer" title="Início">
     <div id="pfLogoIcon"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
   <div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div id="pfLogoSub">LINHA OFF-HIGHWAY</div></div>
-  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1033</div>
+  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1034</div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -20989,48 +20989,62 @@ function pfIniciarInsistenciaAviso(id){
 function verificarOportunidades(){
   if(!calcItems.length)return;
   var hoje=new Date().toISOString();
-  var changes={chegou:[],vendeu:[]};
+  // v115.1034 - A pedido do Vitor: trocado de "saldo subiu/desceu" pros
+  // mesmos 3 estágios já usados no Me Avise -- COMPRADO (pedido saiu de
+  // zero pra positivo), FATURADO (quantidade em trânsito/tA saiu de zero
+  // pra positivo) e ENTREGUE (saldo subiu, ciclo completo). Faz mais
+  // sentido pra oportunidade que ele mandou pro Mapa de Compras: ele quer
+  // saber se AQUILO que pediu pra comprar avançou no processo, não se o
+  // saldo do item mexeu por qualquer outro motivo (venda normal, ajuste).
+  var changes={comprado:[],faturado:[],entregue:[]};
 
-  // v115.765 - Bug crítico (mesma classe do fix da v115.696, causa real de
-  // travamentos de MINUTOS confirmados em produção): pra cada item rastreado
-  // em opTrack, o código antigo fazia calcItems.find(...) -- uma busca
-  // LINEAR nos 207 mil itens do calcItems. Com opTrack acumulando itens ao
-  // longo do tempo (nunca é limpo), isso virava opTrack.length × 207mil
-  // comparações. E o trecho abaixo fazia o mesmo ao contrário (opTrack.find
-  // pra cada item OP do calcItems). Agora monta os dois índices (Map) UMA
-  // vez só, e cada busca vira O(1).
   var calcItemsPorChave=new Map();
   calcItems.forEach(function(d){calcItemsPorChave.set(solKey(d.ref,d.marca),d);});
 
-  // Para cada item rastreado como oportunidade, verificar se saldo mudou
   opTrack.forEach(function(t,idx){
     var item=calcItemsPorChave.get(t.key);
     if(!item)return;
+    if(t.status==='entregue')return; // ciclo já completo, não verifica mais
 
-    var saldoAnterior=t.saldo_atual!=null?t.saldo_atual:t.saldo_entrada||0;
+    // Semeia os campos de comparação na primeira verificação depois de
+    // solicitado (mesmo cuidado do Me Avise: nunca dispara aviso
+    // retroativo comparando contra undefined).
+    if(t.pedido_entrada===undefined||t.transito_entrada===undefined||t.saldo_entrada===undefined){
+      opTrack[idx].pedido_entrada=item.pedido||0;
+      opTrack[idx].transito_entrada=item.tA||0;
+      opTrack[idx].saldo_entrada=item.saldo||0;
+      opTrack[idx].saldo_atual=item.saldo||0;
+      return;
+    }
+
+    // 3) Entregue -- saldo subiu (prioridade máxima, fecha o ciclo)
     var saldoAgora=item.saldo||0;
-
-    // Saldo subiu (chegou material)
-    // v115.765 - Antes só detectava "chegou" se o saldo anterior fosse
-    // EXATAMENTE 0. A pedido do Vitor, itens com saldo negativo (ex: -8,
-    // sinal de que já venderam mais do que tinham) também contam como
-    // "chegou material" quando o saldo volta a ficar positivo.
-    if(saldoAgora>saldoAnterior&&saldoAnterior<=0){
-      changes.chegou.push({...t,saldo_novo:saldoAgora});
-      opTrack[idx].status='chegou';
-      opTrack[idx].data_chegou=hoje;
-      opTrack[idx].saldo_chegou=saldoAgora;
+    if(saldoAgora>opTrack[idx].saldo_atual&&opTrack[idx].saldo_atual<=0){
+      changes.entregue.push({...t,saldo_novo:saldoAgora});
+      opTrack[idx].status='entregue';
+      opTrack[idx].data_entregue=hoje;
+      opTrack[idx].saldo_atual=saldoAgora;
+      return;
     }
-
-    // Saldo caiu (teve saída)
-    if(saldoAgora<saldoAnterior&&saldoAnterior>0){
-      changes.vendeu.push({...t,saldo_anterior:saldoAnterior,saldo_novo:saldoAgora});
-      opTrack[idx].status='vendeu';
-      opTrack[idx].data_vendeu=hoje;
-    }
-
-    // Atualizar saldo salvo
     opTrack[idx].saldo_atual=saldoAgora;
+
+    // 1) Comprado -- pedido saiu de zero pra positivo
+    if(!opTrack[idx].comprado_avisado&&opTrack[idx].pedido_entrada===0&&item.pedido>0){
+      changes.comprado.push({...t,pedido_novo:item.pedido});
+      opTrack[idx].status='comprado';
+      opTrack[idx].data_comprado=hoje;
+      opTrack[idx].pedido_entrada=item.pedido;
+      opTrack[idx].comprado_avisado=true;
+    }
+
+    // 2) Faturado -- quantidade em trânsito saiu de zero pra positivo
+    if(!opTrack[idx].faturado_avisado&&opTrack[idx].transito_entrada===0&&item.tA>0){
+      changes.faturado.push({...t,transito_novo:item.tA});
+      opTrack[idx].status='faturado';
+      opTrack[idx].data_faturado=hoje;
+      opTrack[idx].transito_entrada=item.tA;
+      opTrack[idx].faturado_avisado=true;
+    }
   });
 
   // v115.1033 - REMOVIDO (a pedido do Vitor): antes, aqui, TODO item do
@@ -21044,7 +21058,7 @@ function verificarOportunidades(){
 
   salvarOpTrack();
 
-  if(!changes.chegou.length&&!changes.vendeu.length)return;
+  if(!changes.comprado.length&&!changes.faturado.length&&!changes.entregue.length)return;
 
   // Guarda esse aviso num histórico persistente -- assim, mesmo depois de
   // clicar "OK, entendido" (que só fecha o balão) ou recarregar a página, dá
@@ -21054,8 +21068,9 @@ function verificarOportunidades(){
     var notifLog=JSON.parse(localStorage.getItem(NOTIF_LOG_KEY)||'[]');
     notifLog.push({
       ts:Date.now(),
-      chegou:changes.chegou.map(function(x){return{ref:x.ref,marca:x.marca,desc:x.desc,saldo:x.saldo_novo};}),
-      vendeu:changes.vendeu.map(function(x){return{ref:x.ref,marca:x.marca,desc:x.desc,saldo_anterior:x.saldo_anterior,saldo_novo:x.saldo_novo};})
+      comprado:changes.comprado.map(function(x){return{ref:x.ref,marca:x.marca,desc:x.desc,pedido:x.pedido_novo};}),
+      faturado:changes.faturado.map(function(x){return{ref:x.ref,marca:x.marca,desc:x.desc,transito:x.transito_novo};}),
+      entregue:changes.entregue.map(function(x){return{ref:x.ref,marca:x.marca,desc:x.desc,saldo:x.saldo_novo};})
     });
     if(notifLog.length>300)notifLog=notifLog.slice(notifLog.length-300);
     pfSafeSetItem(NOTIF_LOG_KEY,JSON.stringify(notifLog));
@@ -21063,17 +21078,24 @@ function verificarOportunidades(){
   }catch(eNotifLog){}
 
   var body='';
-  if(changes.chegou.length){
-    body+='<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--mu);margin-bottom:4px">📦 Saldo aumentou — chegou! ('+changes.chegou.length+')</div>';
-    body+='<div style="max-height:220px;overflow-y:auto">'+changes.chegou.map(function(x){
-      return'<div style="font-size:12px;padding:4px 0;border-bottom:.5px solid #f0f0f0"><strong>'+x.ref+'</strong> · '+x.marca+' <span style="background:#D5F5E3;color:#1E8449;font-size:10px;padding:1px 7px;border-radius:8px">'+x.saldo_novo+' pçs</span></div>';
+  if(changes.comprado.length){
+    body+='<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--mu);margin-bottom:4px">🛒 Comprado — pedido gerado ('+changes.comprado.length+')</div>';
+    body+='<div style="max-height:220px;overflow-y:auto">'+changes.comprado.map(function(x){
+      return'<div style="font-size:12px;padding:4px 0;border-bottom:.5px solid #f0f0f0"><strong>'+x.ref+'</strong> · '+x.marca+' <span style="background:#EAF3DE;color:#375623;font-size:10px;padding:1px 7px;border-radius:8px">'+x.pedido_novo+' pçs pedidas</span></div>';
     }).join('')+'</div>';
     body+='</div>';
   }
-  if(changes.vendeu.length){
-    body+='<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--mu);margin-bottom:4px">🛒 Saldo diminuiu — teve saída! ('+changes.vendeu.length+')</div>';
-    body+='<div style="max-height:220px;overflow-y:auto">'+changes.vendeu.map(function(x){
-      return'<div style="font-size:12px;padding:4px 0;border-bottom:.5px solid #f0f0f0"><strong>'+x.ref+'</strong> · '+x.marca+' <span style="background:#EBF5FB;color:#1A5276;font-size:10px;padding:1px 7px;border-radius:8px">'+x.saldo_anterior+' → '+x.saldo_novo+' pçs</span></div>';
+  if(changes.faturado.length){
+    body+='<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--mu);margin-bottom:4px">📦 Faturado — a caminho ('+changes.faturado.length+')</div>';
+    body+='<div style="max-height:220px;overflow-y:auto">'+changes.faturado.map(function(x){
+      return'<div style="font-size:12px;padding:4px 0;border-bottom:.5px solid #f0f0f0"><strong>'+x.ref+'</strong> · '+x.marca+' <span style="background:#EBF5FB;color:#1A5276;font-size:10px;padding:1px 7px;border-radius:8px">'+x.transito_novo+' pçs em trânsito</span></div>';
+    }).join('')+'</div>';
+    body+='</div>';
+  }
+  if(changes.entregue.length){
+    body+='<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:600;color:var(--mu);margin-bottom:4px">✅ Entregue — chegou no estoque ('+changes.entregue.length+')</div>';
+    body+='<div style="max-height:220px;overflow-y:auto">'+changes.entregue.map(function(x){
+      return'<div style="font-size:12px;padding:4px 0;border-bottom:.5px solid #f0f0f0"><strong>'+x.ref+'</strong> · '+x.marca+' <span style="background:#D5F5E3;color:#1E8449;font-size:10px;padding:1px 7px;border-radius:8px">'+x.saldo_novo+' pçs</span></div>';
     }).join('')+'</div>';
     body+='</div>';
   }
@@ -21138,6 +21160,12 @@ function renderRelatorioOp(){
       ?'<span style="background:#D1FAE5;color:#065F46;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600">Convertida</span>'
       :x.status==='solicitado'
       ?'<span style="background:#EDE9FE;color:#5B21B6;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600">Solicitada</span>'
+      :x.status==='comprado'
+      ?'<span style="background:#EAF3DE;color:#375623;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600">🛒 Comprado</span>'
+      :x.status==='faturado'
+      ?'<span style="background:#EBF5FB;color:#1A5276;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600">📦 Faturado</span>'
+      :x.status==='entregue'
+      ?'<span style="background:#D5F5E3;color:#1E8449;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600">✅ Entregue</span>'
       :'<span style="background:#FEF3C7;color:#92400E;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600">Aguardando</span>';
     var rh='<div style="display:grid;grid-template-columns:1.5fr 60px 60px 70px 80px 90px;padding:8px 16px;border-bottom:.5px solid var(--bd);align-items:center;font-size:12px">';
     rh+='<div><strong>'+x.ref+'</strong><div style="font-size:11px;color:var(--mu)">'+x.marca+' · '+(x.desc||'').slice(0,25)+'</div></div>';

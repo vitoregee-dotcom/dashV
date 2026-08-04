@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1039</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1040</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1437,7 +1437,7 @@ button { min-height:36px; }
   <div id="pfLogo" onclick="pfIrParaHome()" style="cursor:pointer" title="Início">
     <div id="pfLogoIcon"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
   <div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div id="pfLogoSub">LINHA OFF-HIGHWAY</div></div>
-  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1039</div>
+  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1040</div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -19454,7 +19454,17 @@ function pfInfoItemPorCodigo(cod){
       for(var i=0;i<lista.length;i++){
         var it=lista[i];
         if(!it) continue;
-        if(it.codigo===cod || it.similar===cod || it.substitui===cod) return {familia:CC_NOME_SINGULAR[chave],item:it};
+        if(it.codigo===cod || it.similar===cod || it.substitui===cod){
+          // v115.1040 - Junto do item achado, já traz os "irmãos" -- outros
+          // cadastros na MESMA família que são a mesma peça física em
+          // catálogo diferente (batem pelo mesmo código equivalente).
+          var equivalenteIt=it.substitui||it.similar;
+          var irmaos=[];
+          if(equivalenteIt){
+            irmaos=lista.filter(function(o){return o&&o.codigo!==it.codigo&&(o.substitui||o.similar)===equivalenteIt;});
+          }
+          return {familia:CC_NOME_SINGULAR[chave],item:it,irmaos:irmaos};
+        }
       }
     }
   }catch(e){}
@@ -42349,7 +42359,15 @@ function ccExecutarBusca(){
       // código de uma Luva (de qualquer fabricante) acha a Ponteira que
       // monta com ela, mesmo que a Ponteira em si não tenha esse código.
       var bateNoMontaCom=(rec.montaCom||[]).some(function(mc){return String(mc||'').toLowerCase().indexOf(t)!==-1;});
-      if((rec.codigo||'').toLowerCase().indexOf(t)===-1 && (rec.similar||'').toLowerCase().indexOf(t)===-1 && (rec.substitui||'').toLowerCase().indexOf(t)===-1 && !bateNoMontaCom) ok=false;
+      // v115.1040 - também acha pelo código de um "irmão" (mesma peça física
+      // em catálogo diferente, ex: buscar "SP-3040" acha a HPT606 que é a
+      // mesma peça, só que catalogada pelo REI com esse código).
+      var equivalenteBusca=rec.substitui||rec.similar;
+      var bateNoIrmao=false;
+      if(equivalenteBusca){
+        bateNoIrmao=lista.some(function(o){return o&&o.codigo!==rec.codigo&&(o.substitui||o.similar)===equivalenteBusca&&o.codigo.toLowerCase().indexOf(t)!==-1;});
+      }
+      if((rec.codigo||'').toLowerCase().indexOf(t)===-1 && (rec.similar||'').toLowerCase().indexOf(t)===-1 && (rec.substitui||'').toLowerCase().indexOf(t)===-1 && !bateNoMontaCom && !bateNoIrmao) ok=false;
     }
     if(ok && _ccFiltro.veiculos){
       var vs=(rec.veiculos||[]).join(' ').toLowerCase();
@@ -42374,11 +42392,32 @@ function ccExecutarBusca(){
     // implementado a FUNCIONALIDADE mas não o visual combinado.
     var pillStahl='<span style="display:inline-block;font-size:9px;font-weight:800;color:#fff;background:#1F4E79;border-radius:4px;padding:2px 7px;min-width:52px;text-align:center;vertical-align:middle">STAHL</span>';
     var pillRei='<span style="display:inline-block;font-size:9px;font-weight:800;color:#fff;background:#E67E22;border-radius:4px;padding:2px 7px;min-width:52px;text-align:center;vertical-align:middle">REI</span>';
+    var pillSorocard='<span style="display:inline-block;font-size:9px;font-weight:800;color:#fff;background:#0D7377;border-radius:4px;padding:2px 7px;min-width:52px;text-align:center;vertical-align:middle">SOROCARD</span>';
+    var pillSpicer='<span style="display:inline-block;font-size:9px;font-weight:800;color:#fff;background:#7B2D8B;border-radius:4px;padding:2px 7px;min-width:52px;text-align:center;vertical-align:middle">SPICER</span>';
+    var pillPorLinha={STAHL:pillStahl,REI:pillRei,SOROCARD:pillSorocard,SPICER:pillSpicer};
     var equivHtml='';
     var equivalenteRec=rec.substitui||rec.similar;
     if(equivalenteRec&&rec.linha){
       // Título virou o Spicer -> mostra o código próprio (STAHL ou REI) como equivalência
-      equivHtml+='<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:4px">'+(rec.linha==='REI'?pillRei:pillStahl)+'<span>'+pfEscHtml(rec.codigo)+'</span></div>';
+      equivHtml+='<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:4px">'+(pillPorLinha[rec.linha]||pillStahl)+'<span>'+pfEscHtml(rec.codigo)+'</span></div>';
+    }
+    // v115.1040 - A pedido do Vitor: além do código próprio, mostrar também
+    // os "irmãos" -- outros cadastros que são exatamente a MESMA peça
+    // física em catálogos diferentes (acham-se batendo pelo mesmo código
+    // equivalente Spicer/original). Ex: HPT606 (STAHL) tem irmãos SP-27
+    // (Sorocard) e SP-3040 (REI), todos apontando pra "4-40-761". Isso é
+    // diferente de "Monta com" (que são OUTRAS peças do conjunto, não a
+    // mesma peça).
+    if(equivalenteRec){
+      try{
+        var listaFamiliaAtual=(ccLoad()[_ccFamiliaAtual]||[]);
+        var irmaos=listaFamiliaAtual.filter(function(it){
+          return it && it.codigo!==rec.codigo && (it.substitui||it.similar)===equivalenteRec;
+        });
+        irmaos.forEach(function(irmao){
+          equivHtml+='<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:4px">'+(pillPorLinha[irmao.linha]||pillStahl)+'<span>'+pfEscHtml(irmao.codigo)+'</span></div>';
+        });
+      }catch(eIrmaos){}
     }
     if(rec.conversoes&&rec.conversoes.length){
       equivHtml+='<div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;margin-bottom:4px">'+pillRei+'<span>'+rec.conversoes.map(function(c){
@@ -42399,8 +42438,13 @@ function ccExecutarBusca(){
         rec.montaCom.map(function(c){
           var info=pfInfoItemPorCodigo(c);
           var familia=info?info.familia:'';
-          var equivalente=info&&info.item?(info.item.similar||info.item.substitui):'';
-          var tagPrincipal=pfEscHtml(c)+(equivalente&&equivalente!==c?' · '+pfEscHtml(equivalente):'');
+          var todosOsCodigos=[c];
+          if(info&&info.item){
+            var equivalente=info.item.substitui||info.item.similar;
+            if(equivalente&&equivalente!==c)todosOsCodigos.push(equivalente);
+            (info.irmaos||[]).forEach(function(irmao){ if(todosOsCodigos.indexOf(irmao.codigo)<0)todosOsCodigos.push(irmao.codigo); });
+          }
+          var tagPrincipal=todosOsCodigos.map(pfEscHtml).join(' · ');
           return '<span style="font-size:11px;color:#4a4a48"><span style="color:#8a9ab0">'+(familia?pfEscHtml(familia)+': ':'')+'</span><span style="background:#F3EEF7;color:#5B3A6E;padding:2px 8px;border-radius:6px;font-weight:600">'+tagPrincipal+'</span></span>';
         }).join('')+
         '</div></div>';

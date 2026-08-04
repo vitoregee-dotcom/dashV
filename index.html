@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1026</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1027</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1437,7 +1437,7 @@ button { min-height:36px; }
   <div id="pfLogo" onclick="pfIrParaHome()" style="cursor:pointer" title="Início">
     <div id="pfLogoIcon"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
   <div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div id="pfLogoSub">LINHA OFF-HIGHWAY</div></div>
-  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1026</div>
+  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1027</div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -16083,7 +16083,7 @@ function pfSafeGetItem(key, fallback){
 // essas são as que mais já bateram no teto de espaço. Não comprime por
 // tamanho de forma genérica pra não arriscar quebrar alguma leitura direta
 // que exista em outro canto desse arquivo grande e eu não tenha visto.
-var PF_CHAVES_COMPRIMIVEIS = ['cad_produtos_v1','prod_aplicacoes_v1','cad_relacionados_v1','cad_fornecedores_v1','cad_clientes_v1'];
+var PF_CHAVES_COMPRIMIVEIS = ['cad_produtos_v1','prod_aplicacoes_v1','cad_relacionados_v1','cad_fornecedores_v1','cad_clientes_v1','retentores_v1','componentes_cardan_v1'];
 // v115.796 - Bug real: a compressão da v115.795 só valia pra gravações
 // NOVAS -- o que já estava guardado (de todos os catálogos já importados)
 // continuava do tamanho antigo, ocupando o espaço todo. Isso sozinho não
@@ -42398,6 +42398,7 @@ async function ccColarMaisUmaFotoItem(familia,codigo,linha){
     if(!imageItem){pfAlert('Nenhuma imagem encontrada na área de transferência. Copie a foto (Ctrl+C) e tente de novo.');return;}
     var blob=await imageItem.item.getType(imageItem.type);
     var dataUrl=await rfLerArquivoComoDataUrl(blob);
+    dataUrl=await pfComprimirImagemDataUrl(dataUrl,480,0.72);
     var ach=ccAcharItemIdx(familia,codigo,linha);
     if(ach.idx<0){pfAlert('Item não encontrado (pode ter sido alterado). Tenta buscar de novo.');return;}
     var item=ach.arr[ach.idx];
@@ -42629,6 +42630,7 @@ async function retColarFotoItem(codigo){
     if(!imageItem){pfAlert('Nenhuma imagem encontrada na área de transferência. Copie a foto (Ctrl+C) e tente de novo.');return;}
     var blob=await imageItem.item.getType(imageItem.type);
     var dataUrl=await rfLerArquivoComoDataUrl(blob);
+    dataUrl=await pfComprimirImagemDataUrl(dataUrl,480,0.72);
     var ach=retAcharItemIdx(codigo);
     if(ach.idx<0){pfAlert('Item não encontrado (pode ter sido alterado). Tenta buscar de novo.');return;}
     var item=ach.list[ach.idx];
@@ -44585,6 +44587,35 @@ function rfLerArquivoComoDataUrl(f){
     var r=new FileReader();
     r.onload=function(e){resolve(e.target.result);};
     r.readAsDataURL(f);
+  });
+}
+// v115.1027 - A pedido do Vitor: fotos coladas em Retentores/Componentes
+// Cardan entravam CRUAS no localStorage (um print pode ter 500KB-2MB), e
+// como agora dá pra colar quantas quiser por item, isso enchia a cota do
+// navegador rápido (achado real: "armazenamento local cheio" ao gravar
+// retentores_v1). Redimensiona pro máximo 480px no lado maior e reexporta
+// como JPEG 72% -- suficiente pra visualizar/identificar a peça, uma
+// fração do tamanho original. Se der qualquer erro no canvas, cai pro
+// dataUrl original sem quebrar o fluxo.
+function pfComprimirImagemDataUrl(dataUrl,maxDim,qualidade){
+  return new Promise(function(resolve){
+    try{
+      var img=new Image();
+      img.onload=function(){
+        try{
+          var w=img.width,h=img.height;
+          var escala=Math.min(1,(maxDim||480)/Math.max(w,h));
+          var cw=Math.max(1,Math.round(w*escala)),ch=Math.max(1,Math.round(h*escala));
+          var canvas=document.createElement('canvas');
+          canvas.width=cw;canvas.height=ch;
+          var ctx=canvas.getContext('2d');
+          ctx.drawImage(img,0,0,cw,ch);
+          resolve(canvas.toDataURL('image/jpeg',qualidade||0.72));
+        }catch(eDraw){resolve(dataUrl);}
+      };
+      img.onerror=function(){resolve(dataUrl);};
+      img.src=dataUrl;
+    }catch(e){resolve(dataUrl);}
   });
 }
 function rfAdicionarArquivos(inp){

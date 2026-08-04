@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1036</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1037</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1437,7 +1437,7 @@ button { min-height:36px; }
   <div id="pfLogo" onclick="pfIrParaHome()" style="cursor:pointer" title="Início">
     <div id="pfLogoIcon"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
   <div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div id="pfLogoSub">LINHA OFF-HIGHWAY</div></div>
-  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1036</div>
+  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1037</div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -19443,9 +19443,9 @@ var CC_NOME_SINGULAR={cruzetas:'Cruzeta',flanges:'Flange de Acoplamento',flanges
 // antes não encontrava nada. Detalhe achado: o mesmo conceito (equivalente/
 // original) foi gravado com dois nomes de campo diferentes ao longo do
 // tempo (`similar` e `substitui`) -- checa os dois.
-function pfNomeFamiliaPorCodigo(cod){
+function pfInfoItemPorCodigo(cod){
   cod = String(cod||'').trim();
-  if(!cod) return '';
+  if(!cod) return null;
   try{
     var dados=ccLoad();
     for(var chave in CC_NOME_SINGULAR){
@@ -19454,11 +19454,15 @@ function pfNomeFamiliaPorCodigo(cod){
       for(var i=0;i<lista.length;i++){
         var it=lista[i];
         if(!it) continue;
-        if(it.codigo===cod || it.similar===cod || it.substitui===cod) return CC_NOME_SINGULAR[chave];
+        if(it.codigo===cod || it.similar===cod || it.substitui===cod) return {familia:CC_NOME_SINGULAR[chave],item:it};
       }
     }
   }catch(e){}
-  return '';
+  return null;
+}
+function pfNomeFamiliaPorCodigo(cod){
+  var info=pfInfoItemPorCodigo(cod);
+  return info?info.familia:'';
 }
 function renderOpBox(){
   const ops=getOps();
@@ -42378,7 +42382,22 @@ function ccExecutarBusca(){
     if(rec.cruzetaNumero) chipsHtml+='<span style="background:#f4f6f9;font-size:11px;padding:3px 9px;border-radius:6px"><span style="color:#8a9ab0">Monta com as cruzetas:</span> '+pfEscHtml(rec.cruzetaNumero)+'</span>';
     if(rec[cfg.extraFiltro.k]) chipsHtml+='<span style="background:#f4f6f9;font-size:11px;padding:3px 9px;border-radius:6px"><span style="color:#8a9ab0">'+pfEscHtml(cfg.extraFiltro.label)+'</span> '+pfEscHtml(String(rec[cfg.extraFiltro.k]))+'</span>';
     var rodapeHtml='';
-    if(rec.montaCom&&rec.montaCom.length) rodapeHtml+='<div style="font-size:11px;color:#7B2D8B;font-weight:600;margin-bottom:2px">Monta com: '+rec.montaCom.map(function(c){var n=pfNomeFamiliaPorCodigo(c);return pfEscHtml((n?n+' ':'')+c);}).join(', ')+'</div>';
+    if(rec.montaCom&&rec.montaCom.length){
+      // v115.1037 - A pedido do Vitor: junto de cada peça relacionada,
+      // mostrar também o código equivalente dela (Spicer/outro fabricante),
+      // não só o código interno -- ex: "Ponteira HPT630 · 4-53-341". Visual
+      // reorganizado em tags por família, mais fácil de escanear que uma
+      // linha corrida de código separado por vírgula.
+      rodapeHtml+='<div style="margin-bottom:6px"><div style="font-size:10px;font-weight:700;color:#7B2D8B;letter-spacing:.3px;margin-bottom:5px">MONTA COM</div><div style="display:flex;flex-wrap:wrap;gap:6px 14px">'+
+        rec.montaCom.map(function(c){
+          var info=pfInfoItemPorCodigo(c);
+          var familia=info?info.familia:'';
+          var equivalente=info&&info.item?(info.item.similar||info.item.substitui):'';
+          var tagPrincipal=pfEscHtml(c)+(equivalente&&equivalente!==c?' · '+pfEscHtml(equivalente):'');
+          return '<span style="font-size:11px;color:#4a4a48"><span style="color:#8a9ab0">'+(familia?pfEscHtml(familia)+': ':'')+'</span><span style="background:#F3EEF7;color:#5B3A6E;padding:2px 8px;border-radius:6px;font-weight:600">'+tagPrincipal+'</span></span>';
+        }).join('')+
+        '</div></div>';
+    }
     if(rec.veiculos&&rec.veiculos.length) rodapeHtml+='<div style="font-size:11px;color:#8a9ab0">Aplicação: '+rec.veiculos.map(pfEscHtml).join(' · ')+'</div>';
     // v115.1025 - A pedido do Vitor: foto saiu do quadrado fixo à esquerda
     // do título (não tinha espaço decente pra mais de uma) e virou uma

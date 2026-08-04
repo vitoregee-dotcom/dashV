@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1032</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1033</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1437,7 +1437,7 @@ button { min-height:36px; }
   <div id="pfLogo" onclick="pfIrParaHome()" style="cursor:pointer" title="Início">
     <div id="pfLogoIcon"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
   <div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div id="pfLogoSub">LINHA OFF-HIGHWAY</div></div>
-  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1032</div>
+  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1033</div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -17610,6 +17610,27 @@ function dashEnviarParaMapa(){
   if(!itens.length){pfAlert('Nenhum item selecionado com quantidade a comprar.');return;}
   var nomeSugerido='ESTOQUE - '+new Date().toLocaleDateString('pt-BR');
   pfConfirm('Enviar '+itens.length+' item(ns) selecionado(s) pro Mapa de Compras, num mapa novo chamado "'+nomeSugerido+'"?',function(){
+    // v115.1033 - A pedido do Vitor: "solicitar" uma oportunidade agora
+    // significa exatamente isso -- fazer a análise, selecionar e mandar pro
+    // Mapa de Compras por aqui. Só a partir desse ponto o item entra no
+    // rastreamento de Oportunidades (opTrack) como "solicitado" (antes,
+    // TODO item que o sistema classificava como OP em qualquer lugar do
+    // catálogo entrava sozinho, sem o Vitor ter pedido nada -- removido
+    // logo abaixo, em verificarOportunidades).
+    if(typeof opTrack!=='undefined'&&typeof solKey==='function'){
+      var jaRastreados=new Set(opTrack.map(function(x){return x.key;}));
+      var hojeSolic=new Date().toISOString();
+      itens.filter(function(d){return d.sk==='OP';}).forEach(function(d){
+        var k=solKey(d.ref,d.marca);
+        if(!jaRastreados.has(k)){
+          opTrack.push({id:k,key:k,ref:d.ref,marca:d.marca,desc:d.desc,cotacoes:d.cotacoes,
+            consumo_entrada:d.cM||0,saldo_entrada:d.saldo||0,saldo_atual:d.saldo||0,
+            data_entrada:hojeSolic,status:'solicitado'});
+          jaRastreados.add(k);
+        }
+      });
+      if(typeof salvarOpTrack==='function')salvarOpTrack();
+    }
     // v115.858 - Bug real GRAVE encontrado (a pedido do Vitor: mapa criado
     // do Dashboard não aparecia na lista): esse bloco apagava TODA chave
     // do localStorage que começasse com "mapa_" -- isso incluía
@@ -21010,21 +21031,16 @@ function verificarOportunidades(){
 
     // Atualizar saldo salvo
     opTrack[idx].saldo_atual=saldoAgora;
-
-    // Adicionar novos itens de oportunidade ao rastreamento
   });
 
-  // Adicionar itens novos que ainda não estão no opTrack
-  var opTrackChaves=new Set(opTrack.map(function(x){return x.key;}));
-  calcItems.filter(function(d){return d.sk==='OP';}).forEach(function(d){
-    var k=solKey(d.ref,d.marca);
-    if(!opTrackChaves.has(k)){
-      opTrack.push({id:k,key:k,ref:d.ref,marca:d.marca,desc:d.desc,cotacoes:d.cotacoes,
-        consumo_entrada:d.cM||0,saldo_entrada:d.saldo||0,saldo_atual:d.saldo||0,
-        data_entrada:hoje,status:'aguardando'});
-      opTrackChaves.add(k);
-    }
-  });
+  // v115.1033 - REMOVIDO (a pedido do Vitor): antes, aqui, TODO item do
+  // catálogo inteiro classificado como "OP" (oportunidade) pelo sistema
+  // entrava automaticamente nesse rastreamento — mesmo sem o Vitor ter
+  // pedido nada. Isso fazia o painel "Atualizações nas Oportunidades"
+  // avisar sobre qualquer item que virasse OP em qualquer canto do
+  // catálogo, não só os que ele realmente estava de olho. Agora um item só
+  // entra em opTrack quando é mandado pro Mapa de Compras pela aba
+  // Oportunidades (ver dashEnviarParaMapa, status:'solicitado').
 
   salvarOpTrack();
 

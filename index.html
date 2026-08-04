@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1029</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1030</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1437,7 +1437,7 @@ button { min-height:36px; }
   <div id="pfLogo" onclick="pfIrParaHome()" style="cursor:pointer" title="Início">
     <div id="pfLogoIcon"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
   <div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div id="pfLogoSub">LINHA OFF-HIGHWAY</div></div>
-  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1029</div>
+  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1030</div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -38279,22 +38279,34 @@ function pfArrastavelAplicar(container,storageKey){
 // item -- não manda e-mail vazio.
 async function pfComprasEnviarResumo(tipo,itens){
   if(!itens||!itens.length)return;
-  var emails=[];
-  try{
-    var r=await sbFetch('/rest/v1/profiles?select=email');
-    if(r.ok){var profs=await r.json();emails=profs.map(function(p){return p.email;}).filter(function(e){return e&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);});}
-  }catch(e){console.warn('Erro ao buscar lista de usuários pra notificar:',e);}
-  var manual=(typeof pfNotifEmail==='function')?pfNotifEmail():'';
-  if(manual&&emails.indexOf(manual)<0)emails.push(manual);
-  if(!emails.length)emails=[manual||'vitor.lima@triexpecas.com.br'];
-  var vistos={};emails=emails.filter(function(e){var k=e.toLowerCase();if(vistos[k])return false;vistos[k]=true;return true;});
-
+  // v115.1030 - BUG GRAVE corrigido (a pedido do Vitor): essa função mandava
+  // e-mail pra TODOS os perfis cadastrados (`profiles?select=email`), sem
+  // checar quem realmente pediu pra ser avisado daquele item. Agora os dois
+  // eventos têm regra própria: "novo pedido de compra" vai só pro Vitor
+  // (era o pedido original); "chegou no estoque" só dispara pra quem tiver
+  // o item na própria lista de Me Avise (aviseItems) -- não manda mais pra
+  // ninguém que não pediu.
   var ehComprado=tipo==='comprado';
-  var titulo=ehComprado?('🛒 Novo pedido de compra — '+itens.length+' '+(itens.length===1?'item':'itens')):('✅ Chegou no estoque — '+itens.length+' '+(itens.length===1?'item':'itens'));
+  var toEmail,itensParaEnviar=itens;
+  if(ehComprado){
+    toEmail='vitor.lima@triexpecas.com.br';
+  }else{
+    var avise=[];
+    try{avise=JSON.parse(localStorage.getItem('aviseItems')||'[]');}catch(e){}
+    var chaveDe=function(r,m){return (r||'').toUpperCase()+'||'+(m||'').toUpperCase();};
+    var aviseSet={};
+    avise.forEach(function(a){aviseSet[chaveDe(a.ref,a.marca)]=true;});
+    itensParaEnviar=itens.filter(function(it){return aviseSet[chaveDe(it.ref,it.marca)];});
+    if(!itensParaEnviar.length)return; // ninguém (neste usuário) pediu pra ser avisado desses itens
+    toEmail=(typeof pfNotifEmail==='function')?pfNotifEmail():'';
+    if(!toEmail)return;
+  }
+
   var cor=ehComprado?'#0D7377':'#0EA5E9';
   var colQtd=ehComprado?'Pedido':'Chegou';
+  var titulo=ehComprado?('🛒 Novo pedido de compra — '+itensParaEnviar.length+' '+(itensParaEnviar.length===1?'item':'itens')):('✅ Chegou no estoque — '+itensParaEnviar.length+' '+(itensParaEnviar.length===1?'item':'itens'));
 
-  var linhas=itens.map(function(it,i){
+  var linhas=itensParaEnviar.map(function(it,i){
     var bg=i%2===0?'#ffffff':'#f7f8fa';
     var qtd=ehComprado?it.pedido:it.qtd;
     return '<tr style="background:'+bg+';border-bottom:1px solid #e8edf4" bgcolor="'+bg+'">'+
@@ -38318,14 +38330,12 @@ async function pfComprasEnviarResumo(tipo,itens){
       '</tr></thead><tbody>'+linhas+'</tbody></table>'+
     '<p style="margin:0;font-size:12px;color:#8a9ab0">Aviso automático do PartsFlow.</p>'+
     pfEmailBodyClose()+pfEmailWrapClose();
-  var obsTxt=titulo+': '+itens.map(function(it){return it.ref+' ('+(ehComprado?it.pedido:it.qtd)+')';}).join(', ');
+  var obsTxt=titulo+': '+itensParaEnviar.map(function(it){return it.ref+' ('+(ehComprado?it.pedido:it.qtd)+')';}).join(', ');
 
-  return Promise.all(emails.map(function(toEmail){
-    return emailjs.send('service_2lp37gt','template_8r5j0sq',{
-      to_email:toEmail,ref:itens.length+' itens',marca:'—',obs:obsTxt,obs_html:obsHtml,
-      cod_cliente:'—',nome_cliente:'—'
-    });
-  }));
+  return emailjs.send('service_2lp37gt','template_8r5j0sq',{
+    to_email:toEmail,ref:itensParaEnviar.length+' itens',marca:'—',obs:obsTxt,obs_html:obsHtml,
+    cod_cliente:'—',nome_cliente:'—'
+  });
 }
 function pfComprasAutoVerificar(){
   if(typeof calcItems==='undefined'||!calcItems||!calcItems.length)return;

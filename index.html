@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1030</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1031</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1437,7 +1437,7 @@ button { min-height:36px; }
   <div id="pfLogo" onclick="pfIrParaHome()" style="cursor:pointer" title="Início">
     <div id="pfLogoIcon"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
   <div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div id="pfLogoSub">LINHA OFF-HIGHWAY</div></div>
-  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1030</div>
+  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1031</div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -16985,15 +16985,29 @@ function maAtivarNotificacoes(){
   });
 }
 async function maEnviarNotificacaoGlobal(item,tipo,detalhe){
+  // v115.1031 - BUG GRAVE corrigido (achado pelo Vitor): essa função ainda
+  // mandava pra TODOS os perfis cadastrados (profiles?select=email), pra
+  // QUALQUER tipo de evento -- era uma segunda função com o mesmo problema
+  // que a v115.1030 já tinha corrigido só na pfComprasEnviarResumo (a do
+  // resumo em lote). Agora segue a mesma regra nas duas: comprado/faturado/
+  // pedido_mudou vai só pro Vitor; chegou só dispara se o item estiver na
+  // lista de Me Avise de QUEM ESTIVER LOGADO nesse navegador (não busca
+  // mais todos os perfis pra decidir isso).
+  var ehChegou=tipo==='chegou';
   var emails=[];
-  try{
-    var r=await sbFetch('/rest/v1/profiles?select=email');
-    if(r.ok){var profs=await r.json();emails=profs.map(function(p){return p.email;}).filter(function(e){return e&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);});}
-  }catch(e){console.warn('Erro ao buscar lista de usuários pra notificar:',e);}
-  var manual=(typeof pfNotifEmail==='function')?pfNotifEmail():'';
-  if(manual&&emails.indexOf(manual)<0)emails.push(manual);
-  if(item.email_extra&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item.email_extra)&&emails.indexOf(item.email_extra)<0)emails.push(item.email_extra);
-  if(!emails.length)emails=[manual||'vitor.lima@triexpecas.com.br'];
+  if(ehChegou){
+    var avise=[];
+    try{avise=JSON.parse(localStorage.getItem('aviseItems')||'[]');}catch(e){}
+    var chaveDe=function(r,m){return (r||'').toUpperCase()+'||'+(m||'').toUpperCase();};
+    var estaNaLista=avise.some(function(a){return chaveDe(a.ref,a.marca)===chaveDe(item.ref,item.marca);});
+    if(!estaNaLista)return; // ninguém (neste usuário) pediu pra ser avisado desse item
+    var manualChegou=(typeof pfNotifEmail==='function')?pfNotifEmail():'';
+    if(manualChegou)emails.push(manualChegou);
+    if(item.email_extra&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item.email_extra)&&emails.indexOf(item.email_extra)<0)emails.push(item.email_extra);
+    if(!emails.length)return;
+  }else{
+    emails=['vitor.lima@triexpecas.com.br'];
+  }
   var vistos={};emails=emails.filter(function(e){var k=e.toLowerCase();if(vistos[k])return false;vistos[k]=true;return true;});
   var textos={
     comprado:'🛒 Comprado! Pedido de compra gerado ('+detalhe+' unidades)',
@@ -17034,6 +17048,7 @@ async function maEnviarNotificacaoGlobal(item,tipo,detalhe){
   return Promise.all(emails.map(function(toEmail){
     return emailjs.send('service_2lp37gt','template_8r5j0sq',{
       to_email:toEmail,ref:item.ref,marca:item.marca||'—',obs:obsTxt,obs_html:obsHtml,
+      titulo:(tituloTipo[tipo]||'Aviso automático'),
       cod_cliente:item.cod_cliente||'—',nome_cliente:item.nome_cliente||'—'
     });
   }));
@@ -38334,6 +38349,7 @@ async function pfComprasEnviarResumo(tipo,itens){
 
   return emailjs.send('service_2lp37gt','template_8r5j0sq',{
     to_email:toEmail,ref:itensParaEnviar.length+' itens',marca:'—',obs:obsTxt,obs_html:obsHtml,
+    titulo:titulo,
     cod_cliente:'—',nome_cliente:'—'
   });
 }
@@ -44543,20 +44559,19 @@ function ferrMeAvise(){
     var a=lista[i];
     var btn=document.getElementById('maChegouBtn'+i);
     if(btn){btn.disabled=true;btn.textContent='Enviando...';}
-    // v115.676 - Antes enviava só pra 1 e-mail (pfNotifEmail(), configurável
-    // manualmente). Agora envia pra TODOS os usuários cadastrados no sistema
-    // (tabela profiles), já que qualquer um pode precisar saber que a peça
-    // chegou -- não só quem configurou o campo de e-mail nessa tela. O e-mail
-    // configurado manualmente (se houver e for diferente de todos os perfis)
-    // também recebe, como reserva.
+    // v115.1031 - BUG GRAVE corrigido (achado pelo Vitor): essa era a
+    // TERCEIRA função mandando pra TODOS os perfis cadastrados (tabela
+    // profiles), independente de quem pediu pra ser avisado -- as outras
+    // duas (pfComprasEnviarResumo e maEnviarNotificacaoGlobal) já tinham
+    // sido corrigidas antes. Esse botão é sempre um evento "chegou" (o
+    // usuário está confirmando manualmente que o item da PRÓPRIA lista de
+    // Me Avise chegou), então só faz sentido notificar quem configurou
+    // e-mail nessa tela (mesma pessoa) + o e-mail extra do item, se tiver --
+    // nunca a empresa toda.
     (async function(){
       var emails=[];
-      try{
-        var r=await sbFetch('/rest/v1/profiles?select=email');
-        if(r.ok){var profs=await r.json();emails=profs.map(function(p){return p.email;}).filter(function(e){return e&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);});}
-      }catch(e){console.warn('Erro ao buscar lista de usuários pra notificar:',e);}
       var manual=pfNotifEmail();
-      if(manual&&emails.indexOf(manual)<0)emails.push(manual);
+      if(manual)emails.push(manual);
       if(a.email_extra&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.email_extra)&&emails.indexOf(a.email_extra)<0)emails.push(a.email_extra);
       if(!emails.length)emails=[manual||'vitor.lima@triexpecas.com.br'];
       // Remove duplicados (case-insensitive)
@@ -44565,6 +44580,7 @@ function ferrMeAvise(){
         await Promise.all(emails.map(function(toEmail){
           return emailjs.send('service_2lp37gt','template_8r5j0sq',{
             to_email:toEmail,ref:a.ref,marca:a.marca||'—',obs:a.obs||'—',
+            titulo:'Item chegou no estoque',
             cod_cliente:a.cod_cliente||'—',nome_cliente:a.nome_cliente||'—'
           });
         }));

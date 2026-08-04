@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1034</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1035</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1437,7 +1437,7 @@ button { min-height:36px; }
   <div id="pfLogo" onclick="pfIrParaHome()" style="cursor:pointer" title="Início">
     <div id="pfLogoIcon"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
   <div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div id="pfLogoSub">LINHA OFF-HIGHWAY</div></div>
-  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1034</div>
+  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1035</div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -17620,16 +17620,32 @@ function dashEnviarParaMapa(){
     if(typeof opTrack!=='undefined'&&typeof solKey==='function'){
       var jaRastreados=new Set(opTrack.map(function(x){return x.key;}));
       var hojeSolic=new Date().toISOString();
+      var novosSolicitados=[];
       itens.filter(function(d){return d.sk==='OP';}).forEach(function(d){
         var k=solKey(d.ref,d.marca);
         if(!jaRastreados.has(k)){
           opTrack.push({id:k,key:k,ref:d.ref,marca:d.marca,desc:d.desc,cotacoes:d.cotacoes,
             consumo_entrada:d.cM||0,saldo_entrada:d.saldo||0,saldo_atual:d.saldo||0,
             data_entrada:hojeSolic,status:'solicitado'});
+          novosSolicitados.push({ref:d.ref,marca:d.marca,desc:d.desc,pedido:d.qtdReal||0});
           jaRastreados.add(k);
         }
       });
       if(typeof salvarOpTrack==='function')salvarOpTrack();
+      // v115.1035 - A pedido do Vitor ("esqueci de um: Solicitado") -- esse
+      // estágio também entra no Histórico de Avisos agora, igual
+      // comprado/faturado/entregue (antes só era salvo em opTrack, sem
+      // deixar rastro no histórico consultável).
+      if(novosSolicitados.length){
+        try{
+          var NOTIF_LOG_KEY2='op_notif_log_v1';
+          var notifLog2=JSON.parse(localStorage.getItem(NOTIF_LOG_KEY2)||'[]');
+          notifLog2.push({ts:Date.now(),solicitado:novosSolicitados});
+          if(notifLog2.length>300)notifLog2=notifLog2.slice(notifLog2.length-300);
+          pfSafeSetItem(NOTIF_LOG_KEY2,JSON.stringify(notifLog2));
+          if(typeof pfSyncPush==='function')pfSyncPush([NOTIF_LOG_KEY2]);
+        }catch(eNotifSolic){}
+      }
     }
     // v115.858 - Bug real GRAVE encontrado (a pedido do Vitor: mapa criado
     // do Dashboard não aparecia na lista): esse bloco apagava TODA chave
@@ -35923,19 +35939,33 @@ function ferrHistoricoAvisos(){
   var log=(function(){try{return JSON.parse(localStorage.getItem('op_notif_log_v1')||'[]');}catch(e){return[];}})();
   log=log.slice().reverse(); // mais recente primeiro
 
+  // v115.1035 - A pedido do Vitor: histórico agora cobre os 4 estágios
+  // (Solicitado/Comprado/Faturado/Entregue), não só chegou/vendeu (que eram
+  // os nomes antigos, de antes da v115.1034 trocar pra esse ciclo de vida).
+  // Entradas antigas continuam mostrando certinho (chegou/vendeu ainda
+  // reconhecidos, pra não sumir histórico de antes da mudança).
+  var ESTAGIOS=[
+    {campo:'solicitado',emoji:'📋',label:'Solicitado — enviado pro Mapa',bg:'#EDE9FE',fg:'#5B21B6',fmt:function(x){return (x.pedido!=null?x.pedido+' pçs':'')+ ' solicitado(s)';}},
+    {campo:'comprado',emoji:'🛒',label:'Comprado — pedido gerado',bg:'#EAF3DE',fg:'#375623',fmt:function(x){return x.pedido+' pçs pedidas';}},
+    {campo:'faturado',emoji:'📦',label:'Faturado — a caminho',bg:'#EBF5FB',fg:'#1A5276',fmt:function(x){return x.transito+' pçs em trânsito';}},
+    {campo:'entregue',emoji:'✅',label:'Entregue — chegou no estoque',bg:'#D5F5E3',fg:'#1E8449',fmt:function(x){return x.saldo+' pçs';}},
+    {campo:'chegou',emoji:'📦',label:'Saldo aumentou — chegou! (antigo)',bg:'#D5F5E3',fg:'#1E8449',fmt:function(x){return x.saldo+' pçs';}},
+    {campo:'vendeu',emoji:'🛒',label:'Saldo diminuiu — teve saída! (antigo)',bg:'#EBF5FB',fg:'#1A5276',fmt:function(x){return x.saldo_anterior+' → '+x.saldo_novo+' pçs';}}
+  ];
+
   var html='<div style="width:100%">'+
     '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
     '<button onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">&#8592; Voltar</button>'+
     '<div style="font-size:16px;font-weight:800;color:#7D4A00">🔔 Histórico de Avisos</div></div>'+
-    '<div style="font-size:11px;color:#8a9ab0;margin-bottom:8px">Todo aviso de "chegou material" ou "teve saída" nas Oportunidades fica guardado aqui, mesmo depois de fechar o balão — inclusive os itens que não cabiam na notificação.</div>'+
-    '<div style="font-size:11px;color:#a08850;margin-bottom:16px">⚠️ Avisos de antes dessa tela existir foram reconstruídos a partir do último status salvo de cada item — pode faltar hora exata, e itens que já tiveram mais de um ciclo (chegou → vendeu → chegou de novo) só mostram o mais recente.</div>';
+    '<div style="font-size:11px;color:#8a9ab0;margin-bottom:8px">Todo aviso de Solicitado/Comprado/Faturado/Entregue nas Oportunidades fica guardado aqui, mesmo depois de fechar o balão — inclusive os itens que não cabiam na notificação.</div>'+
+    '<div style="font-size:11px;color:#a08850;margin-bottom:16px">⚠️ Avisos de antes dessa tela existir foram reconstruídos a partir do último status salvo de cada item — pode faltar hora exata, e itens que já tiveram mais de um ciclo só mostram o mais recente.</div>';
 
   if(!log.length){
     html+='<div style="text-align:center;padding:30px;color:#8a9ab0;font-size:13px;background:#fff;border-radius:10px;border:1px solid #e0e8f0">Nenhum aviso registrado ainda.</div>';
   } else {
     log.slice(0,100).forEach(function(entry,idx){
       var d=new Date(entry.ts);
-      var totalItens=(entry.chegou||[]).length+(entry.vendeu||[]).length;
+      var totalItens=ESTAGIOS.reduce(function(s,e){return s+(entry[e.campo]||[]).length;},0);
       var dataLabel=entry.reconstruido
         ? d.toLocaleDateString('pt-BR')+' <span style="font-weight:400;color:#a08850">(reconstruído — sem hora exata)</span>'
         : d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
@@ -35944,18 +35974,14 @@ function ferrHistoricoAvisos(){
         '<span style="font-size:12px;font-weight:700;color:#7D4A00">'+dataLabel+'</span>'+
         '<span style="font-size:11px;color:#8a9ab0">'+totalItens+' item(ns)</span>'+
         '</div><div style="padding:10px 14px">';
-      if((entry.chegou||[]).length){
-        html+='<div style="font-size:11px;font-weight:600;color:#607080;margin-bottom:4px">📦 Saldo aumentou — chegou! ('+entry.chegou.length+')</div>';
-        html+=entry.chegou.map(function(x){
-          return'<div style="font-size:12px;padding:3px 0;border-bottom:.5px solid #f5f5f5"><strong>'+pfEscHtml(x.ref)+'</strong> · '+pfEscHtml(x.marca||'')+' — '+pfEscHtml(x.desc||'')+' <span style="background:#D5F5E3;color:#1E8449;font-size:10px;padding:1px 7px;border-radius:8px">'+x.saldo+' pçs</span></div>';
+      ESTAGIOS.forEach(function(estagio){
+        var lista=entry[estagio.campo];
+        if(!lista||!lista.length)return;
+        html+='<div style="font-size:11px;font-weight:600;color:#607080;margin:8px 0 4px">'+estagio.emoji+' '+estagio.label+' ('+lista.length+')</div>';
+        html+=lista.map(function(x){
+          return'<div style="font-size:12px;padding:3px 0;border-bottom:.5px solid #f5f5f5"><strong>'+pfEscHtml(x.ref)+'</strong> · '+pfEscHtml(x.marca||'')+' — '+pfEscHtml(x.desc||'')+' <span style="background:'+estagio.bg+';color:'+estagio.fg+';font-size:10px;padding:1px 7px;border-radius:8px">'+estagio.fmt(x)+'</span></div>';
         }).join('');
-      }
-      if((entry.vendeu||[]).length){
-        html+='<div style="font-size:11px;font-weight:600;color:#607080;margin:8px 0 4px">🛒 Saldo diminuiu — teve saída! ('+entry.vendeu.length+')</div>';
-        html+=entry.vendeu.map(function(x){
-          return'<div style="font-size:12px;padding:3px 0;border-bottom:.5px solid #f5f5f5"><strong>'+pfEscHtml(x.ref)+'</strong> · '+pfEscHtml(x.marca||'')+' — '+pfEscHtml(x.desc||'')+' <span style="background:#EBF5FB;color:#1A5276;font-size:10px;padding:1px 7px;border-radius:8px">'+x.saldo_anterior+' → '+x.saldo_novo+' pçs</span></div>';
-        }).join('');
-      }
+      });
       html+='</div></div>';
     });
     if(log.length>100)html+='<div style="font-size:11px;color:#8a9ab0;margin-top:8px;text-align:center">Mostrando os 100 avisos mais recentes de '+log.length+' registrados.</div>';

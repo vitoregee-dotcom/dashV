@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1055</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1056</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1438,7 +1438,7 @@ button { min-height:36px; }
   <div id="pfLogo" onclick="pfIrParaHome()" style="cursor:pointer" title="Início">
     <div id="pfLogoIcon"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
   <div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div id="pfLogoSub">LINHA OFF-HIGHWAY</div></div>
-  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1055</div>
+  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1056</div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -42365,6 +42365,8 @@ function ccLimpaMedida(v){
 // da busca por código de cima, que só olha dentro da família aberta).
 var _ccBuscaMontaComTexto='';
 var _ccBuscaMontaComTimer=null;
+var _ccBuscaMontaComResultados=[];
+var _ccBuscaMontaComIndice=0;
 function ccBuscaMontaComDebounced(v){
   _ccBuscaMontaComTexto=v;
   clearTimeout(_ccBuscaMontaComTimer);
@@ -42374,33 +42376,96 @@ function ccExecutarBuscaMontaCom(){
   var el=document.getElementById('ccResultadosMontaCom');
   if(!el)return;
   var t=String(_ccBuscaMontaComTexto||'').trim().toLowerCase();
-  if(!t){el.innerHTML='';return;}
+  if(!t){el.innerHTML='';_ccBuscaMontaComResultados=[];return;}
   var dados=ccLoad();
   var resultados=[];
   Object.keys(CC_NOME_SINGULAR).forEach(function(chave){
     var lista=dados[chave]||[];
     lista.forEach(function(it){
       if(!it||!it.montaCom||!it.montaCom.length)return;
-      var bate=it.montaCom.filter(function(mc){return String(mc||'').toLowerCase().indexOf(t)!==-1;});
+      // v115.1056 - BUG corrigido (a pedido do Vitor: busca não achava
+      // nada, ex: "250-2-15"): antes só comparava contra o código BRUTO
+      // gravado em montaCom (ex: "SF-25"), nunca contra o equivalente
+      // Spicer/original (ex: "250-2-15") nem contra os irmãos -- que é
+      // justamente o código que aparece pro usuário na tabela "Monta com".
+      // Agora resolve cada código de montaCom (igual o card faz) e compara
+      // contra TODOS os códigos que aquela peça realmente tem.
+      var bate=[];
+      it.montaCom.forEach(function(mc){
+        var todos=[mc];
+        var info=pfInfoItemPorCodigo(mc);
+        if(info&&info.item){
+          var eq=info.item.substitui||info.item.similar;
+          if(eq&&todos.indexOf(eq)<0)todos.push(eq);
+          (info.irmaos||[]).forEach(function(irmao){ if(todos.indexOf(irmao.codigo)<0)todos.push(irmao.codigo); });
+        }
+        var achado=todos.filter(function(x){return String(x||'').toLowerCase().indexOf(t)!==-1;});
+        achado.forEach(function(a){ if(bate.indexOf(a)<0)bate.push(a); });
+      });
       if(bate.length){
-        resultados.push({familia:CC_NOME_SINGULAR[chave],item:it,bate:bate});
+        resultados.push({familia:CC_NOME_SINGULAR[chave],familiaChave:chave,item:it,bate:bate});
       }
     });
   });
+  _ccBuscaMontaComResultados=resultados;
+  _ccBuscaMontaComIndice=0;
+  ccRenderResultadosMontaCom();
+}
+function ccRenderResultadosMontaCom(){
+  var el=document.getElementById('ccResultadosMontaCom');
+  if(!el)return;
+  var resultados=_ccBuscaMontaComResultados||[];
   if(!resultados.length){
     el.innerHTML='<div style="font-size:11px;color:#8a9ab0">Nenhuma peça encontrada com esse código no "Monta com".</div>';
     return;
   }
-  el.innerHTML=resultados.slice(0,30).map(function(r){
+  // v115.1056 - A pedido do Vitor: cada resultado agora é clicável e leva
+  // direto pra família+item certo (a peça relacionada quase sempre está
+  // numa família diferente da que você tá olhando, então "marcar" na tela
+  // atual não ajudaria). Com mais de 1 resultado, aparecem setas
+  // Anterior/Próximo pra navegar entre eles sem precisar clicar item por
+  // item na lista.
+  var navHtml='';
+  if(resultados.length>1){
+    navHtml='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'+
+      '<button onclick="ccNavegarResultadoMontaCom(-1)" style="border:1px solid #dbe3ee;background:#fff;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:11px">◀ Anterior</button>'+
+      '<span style="font-size:11px;color:#8a9ab0">'+(_ccBuscaMontaComIndice+1)+' de '+resultados.length+'</span>'+
+      '<button onclick="ccNavegarResultadoMontaCom(1)" style="border:1px solid #dbe3ee;background:#fff;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:11px">Próximo ▶</button>'+
+    '</div>';
+  }
+  el.innerHTML=navHtml+resultados.map(function(r,ri){
     var it=r.item;
     var codigoPrincipal=it.substitui||it.similar||it.codigo;
-    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f4f6f9;font-size:11.5px">'+
+    var ativo=ri===_ccBuscaMontaComIndice;
+    return '<div onclick="ccIrParaResultadoMontaCom('+ri+')" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;border-bottom:1px solid #f4f6f9;font-size:11.5px;'+(ativo?'background:#F3EEF7':'')+'">'+
       '<span style="background:#F3EEF7;color:#5B3A6E;font-weight:700;padding:2px 7px;border-radius:5px;flex-shrink:0">'+pfEscHtml(r.familia)+'</span>'+
       '<span style="font-weight:600;color:#1E293B">'+pfEscHtml(codigoPrincipal)+'</span>'+
       '<span style="color:#8a9ab0">monta com</span>'+
       '<span style="font-family:monospace">'+r.bate.map(pfEscHtml).join(' · ')+'</span>'+
+      '<span style="margin-left:auto;color:#1F4E79;font-size:11px">abrir →</span>'+
     '</div>';
   }).join('');
+}
+function ccNavegarResultadoMontaCom(delta){
+  var n=(_ccBuscaMontaComResultados||[]).length;
+  if(!n)return;
+  _ccBuscaMontaComIndice=(_ccBuscaMontaComIndice+delta+n)%n;
+  ccIrParaResultadoMontaCom(_ccBuscaMontaComIndice, true);
+}
+function ccIrParaResultadoMontaCom(idx, apenasNavegar){
+  var r=(_ccBuscaMontaComResultados||[])[idx];
+  if(!r)return;
+  _ccBuscaMontaComIndice=idx;
+  if(apenasNavegar){ ccRenderResultadosMontaCom(); return; }
+  // Navega pra família certa e já filtra pelo código próprio do item, pra
+  // cair direto no card em questão (mesmo comportamento de digitar o
+  // código na busca normal).
+  var textoBusca=r.item.codigo;
+  ccAbrirFamilia(r.familiaChave);
+  _ccFiltro.texto=textoBusca;
+  ccExecutarBusca();
+  var inputCodigo=document.querySelector('#areaTecnicaBody input[oninput^="ccBuscaTextoDebounced"]');
+  if(inputCodigo)inputCodigo.value=textoBusca;
 }
 // v115.1046 - Debounce da busca por código (Componentes Cardan): espera
 // 180ms sem digitar antes de rodar a busca de verdade, pra não recalcular
@@ -42680,20 +42745,22 @@ function ccToggleDetalhesItem(id,el){
   if(el)el.textContent=abrir?'▴ ocultar detalhes':'▾ Ver detalhes';
 }
 function ccToggleTodasMedidas(){
+  // v115.1056 - BUG corrigido (a pedido do Vitor: botão só mostrava, nunca
+  // escondia de volta): trocado ccExecutarBusca() por ccRender() -- assim a
+  // tela inteira (incluindo o próprio botão) é recriada do zero a partir do
+  // estado atual, em vez de tentar re-achar o botão via querySelector depois
+  // e confiar que o texto ficou sincronizado manualmente.
   _ccMedidasTodasVisiveis=!_ccMedidasTodasVisiveis;
-  ccExecutarBusca();
-  var btn=document.querySelector('[onclick="ccToggleTodasMedidas()"]');
-  if(btn)btn.textContent=_ccMedidasTodasVisiveis?'🙈 Ocultar medidas de todos':'👁 Exibir medidas de todos';
+  ccRender();
 }
 // v115.1055 - A pedido do Vitor: mesmo botão de "exibir/ocultar todos" que
 // já existia pras medidas, agora também pros detalhes (Monta com,
 // Aplicação, fotos extras) -- não precisa mais clicar "Ver detalhes" item
 // por item quando quer conferir a lista inteira de uma vez.
 function ccToggleTodosDetalhes(){
+  // v115.1056 - mesma correção acima, mesmo motivo.
   _ccDetalhesTodosVisiveis=!_ccDetalhesTodosVisiveis;
-  ccExecutarBusca();
-  var btn=document.querySelector('[onclick="ccToggleTodosDetalhes()"]');
-  if(btn)btn.textContent=_ccDetalhesTodosVisiveis?'🙈 Ocultar detalhes de todos':'🔎 Exibir detalhes de todos';
+  ccRender();
 }
 function ccToggleMedidaItem(medId,linkEl){
   var el=document.getElementById(medId);

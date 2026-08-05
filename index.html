@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1052</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1053</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1438,7 +1438,7 @@ button { min-height:36px; }
   <div id="pfLogo" onclick="pfIrParaHome()" style="cursor:pointer" title="Início">
     <div id="pfLogoIcon"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
   <div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div id="pfLogoSub">LINHA OFF-HIGHWAY</div></div>
-  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1052</div>
+  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1053</div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -42323,6 +42323,17 @@ function ccBuscaHtml(familia){
     '</div>';
   return '<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">'+
     '<div style="background:#fff;border:1px solid #e8edf4;border-radius:8px;padding:16px 18px;max-width:920px;flex:1;min-width:340px">'+
+    // v115.1051 - A pedido do Vitor: campo separado pra achar uma peça
+    // pelo código de OUTRA peça que monta com ela (ex: digitar o código
+    // de uma cruzeta e achar a ponteira que monta nela) -- diferente do
+    // campo "Código" acima, que só busca dentro da família aberta no
+    // momento, esse cruza TODAS as famílias, já que a peça relacionada
+    // quase sempre está numa família diferente da que você tá olhando.
+    '<div style="background:#fbfcfe;border:1px solid #e8edf4;border-radius:8px;padding:10px 12px;margin-bottom:12px">'+
+      '<div style="font-size:11px;font-weight:700;color:#7B2D8B;margin-bottom:6px">🔗 BUSCAR POR MONTA COM</div>'+
+      '<input id="ccBuscaMontaComInput" placeholder="Ex: código da cruzeta, garfo, terminal... acha as peças que montam com ele" value="'+pfEscHtml(_ccBuscaMontaComTexto||'')+'" oninput="ccBuscaMontaComDebounced(this.value)" style="width:100%;font-size:12px;padding:6px 8px;border:1px solid #dbe3ee;border-radius:6px">'+
+      '<div id="ccResultadosMontaCom" style="margin-top:8px"></div>'+
+    '</div>'+
     '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">'+camposHtml+extraHtml+
       '<input placeholder="Código (qualquer fabricante, inclusive amarrado)" value="'+pfEscHtml(_ccFiltro.texto||'')+'" oninput="ccBuscaTextoDebounced(this.value)" style="font-size:12px;padding:6px 8px;border:1px solid #dbe3ee;border-radius:6px">'+
       '<input placeholder="Veículo aplicado" value="'+pfEscHtml(_ccFiltro.veiculos||'')+'" oninput="_ccFiltro.veiculos=this.value;ccExecutarBusca();" style="font-size:12px;padding:6px 8px;border:1px solid #dbe3ee;border-radius:6px">'+
@@ -42347,6 +42358,47 @@ function ccBuscaHtml(familia){
 }
 function ccLimpaMedida(v){
   return String(v==null?'':v).replace(/[ØøΦ]/g,'').replace(/\s+/g,'').trim();
+}
+// v115.1051 - Busca por Monta com, cruzando TODAS as famílias (diferente
+// da busca por código de cima, que só olha dentro da família aberta).
+var _ccBuscaMontaComTexto='';
+var _ccBuscaMontaComTimer=null;
+function ccBuscaMontaComDebounced(v){
+  _ccBuscaMontaComTexto=v;
+  clearTimeout(_ccBuscaMontaComTimer);
+  _ccBuscaMontaComTimer=setTimeout(ccExecutarBuscaMontaCom,180);
+}
+function ccExecutarBuscaMontaCom(){
+  var el=document.getElementById('ccResultadosMontaCom');
+  if(!el)return;
+  var t=String(_ccBuscaMontaComTexto||'').trim().toLowerCase();
+  if(!t){el.innerHTML='';return;}
+  var dados=ccLoad();
+  var resultados=[];
+  Object.keys(CC_NOME_SINGULAR).forEach(function(chave){
+    var lista=dados[chave]||[];
+    lista.forEach(function(it){
+      if(!it||!it.montaCom||!it.montaCom.length)return;
+      var bate=it.montaCom.filter(function(mc){return String(mc||'').toLowerCase().indexOf(t)!==-1;});
+      if(bate.length){
+        resultados.push({familia:CC_NOME_SINGULAR[chave],item:it,bate:bate});
+      }
+    });
+  });
+  if(!resultados.length){
+    el.innerHTML='<div style="font-size:11px;color:#8a9ab0">Nenhuma peça encontrada com esse código no "Monta com".</div>';
+    return;
+  }
+  el.innerHTML=resultados.slice(0,30).map(function(r){
+    var it=r.item;
+    var codigoPrincipal=it.substitui||it.similar||it.codigo;
+    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f4f6f9;font-size:11.5px">'+
+      '<span style="background:#F3EEF7;color:#5B3A6E;font-weight:700;padding:2px 7px;border-radius:5px;flex-shrink:0">'+pfEscHtml(r.familia)+'</span>'+
+      '<span style="font-weight:600;color:#1E293B">'+pfEscHtml(codigoPrincipal)+'</span>'+
+      '<span style="color:#8a9ab0">monta com</span>'+
+      '<span style="font-family:monospace">'+r.bate.map(pfEscHtml).join(' · ')+'</span>'+
+    '</div>';
+  }).join('');
 }
 // v115.1046 - Debounce da busca por código (Componentes Cardan): espera
 // 180ms sem digitar antes de rodar a busca de verdade, pra não recalcular
@@ -42504,20 +42556,30 @@ function ccExecutarBusca(){
       // não só o código interno -- ex: "Ponteira HPT630 · 4-53-341". Visual
       // reorganizado em tags por família, mais fácil de escanear que uma
       // linha corrida de código separado por vírgula.
-      rodapeHtml+='<div style="margin-bottom:6px"><div style="font-size:10px;font-weight:700;color:#7B2D8B;letter-spacing:.3px;margin-bottom:5px">MONTA COM</div><div style="display:flex;flex-wrap:wrap;gap:6px 14px">'+
-        rec.montaCom.map(function(c){
-          var info=pfInfoItemPorCodigo(c);
-          var familia=info?info.familia:'';
-          var todosOsCodigos=[c];
-          if(info&&info.item){
-            var equivalente=info.item.substitui||info.item.similar;
-            if(equivalente&&equivalente!==c)todosOsCodigos.push(equivalente);
-            (info.irmaos||[]).forEach(function(irmao){ if(todosOsCodigos.indexOf(irmao.codigo)<0)todosOsCodigos.push(irmao.codigo); });
-          }
-          var tagPrincipal=todosOsCodigos.map(pfEscHtml).join(' · ');
-          return '<span style="font-size:11px;color:#4a4a48"><span style="color:#8a9ab0">'+(familia?pfEscHtml(familia)+': ':'')+'</span><span style="background:#F3EEF7;color:#5B3A6E;padding:2px 8px;border-radius:6px;font-weight:600">'+tagPrincipal+'</span></span>';
-        }).join('')+
-        '</div></div>';
+      // v115.1051 - A pedido do Vitor: tirar duplicatas -- quando 2 códigos
+      // diferentes do "monta com" (ex: SP-3011 e SP-3021) resolvem pra
+      // MESMA peça física (mesmos irmãos), a peça aparecia repetida, só
+      // com a ordem dos códigos trocada. Agora dedup por família+conjunto
+      // de códigos (ordenado), não por código bruto.
+      var vistosMontaCom={};
+      var tagsMontaCom=rec.montaCom.map(function(c){
+        var info=pfInfoItemPorCodigo(c);
+        var familia=info?info.familia:'';
+        var todosOsCodigos=[c];
+        if(info&&info.item){
+          var equivalente=info.item.substitui||info.item.similar;
+          if(equivalente&&equivalente!==c)todosOsCodigos.push(equivalente);
+          (info.irmaos||[]).forEach(function(irmao){ if(todosOsCodigos.indexOf(irmao.codigo)<0)todosOsCodigos.push(irmao.codigo); });
+        }
+        var chaveDedup=familia+'|'+todosOsCodigos.slice().sort().join(',');
+        if(vistosMontaCom[chaveDedup])return null;
+        vistosMontaCom[chaveDedup]=true;
+        var tagPrincipal=todosOsCodigos.map(pfEscHtml).join(' · ');
+        return '<span style="font-size:11px;color:#4a4a48"><span style="color:#8a9ab0">'+(familia?pfEscHtml(familia)+': ':'')+'</span><span style="background:#F3EEF7;color:#5B3A6E;padding:2px 8px;border-radius:6px;font-weight:600">'+tagPrincipal+'</span></span>';
+      }).filter(Boolean);
+      if(tagsMontaCom.length){
+        rodapeHtml+='<div style="margin-bottom:6px"><div style="font-size:10px;font-weight:700;color:#7B2D8B;letter-spacing:.3px;margin-bottom:5px">MONTA COM</div><div style="display:flex;flex-wrap:wrap;gap:6px 14px">'+tagsMontaCom.join('')+'</div></div>';
+      }
     }
     if(rec.veiculos&&rec.veiculos.length) rodapeHtml+='<div style="font-size:11px;color:#8a9ab0">Aplicação: '+rec.veiculos.map(pfEscHtml).join(' · ')+'</div>';
     // v115.1025 - A pedido do Vitor: foto saiu do quadrado fixo à esquerda
@@ -42537,22 +42599,58 @@ function ccExecutarBusca(){
       '<button onclick="ccColarMaisUmaFotoItem(\''+_ccFamiliaAtual+'\',\''+codJs+'\',\''+linhaJs+'\')" title="Colar mais uma foto" style="width:40px;height:40px;flex-shrink:0;border:1.5px dashed #c3cedd;border-radius:6px;background:#fafbfc;color:#c3cedd;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">🖼</button>'+
     '</div>';
     var medId='ccMed_'+idx;
+    var detId='ccDet_'+idx;
     var medidasCompletas=medidas+(rec[cfg.extraFiltro.k]?(' · '+pfEscHtml(String(rec[cfg.extraFiltro.k]))):'');
+    // v115.1051 - A pedido do Vitor: card ficava grande demais mostrando
+    // tudo aberto (Monta com + Aplicação + fotos) pra todo item da lista.
+    // Agora só título/chips/pills aparecem direto; o resto (rodapeHtml +
+    // fotosHtml) fica atrás de um botão "Ver detalhes". Foto voltou a
+    // ficar no canto superior direito do card (só um quadradinho -- clica
+    // pra colar/trocar), em vez da fileira embaixo.
+    var temFoto=fotosArr.length>0;
+    var fotoTopoHtml='<div style="flex-shrink:0;width:54px;height:54px;position:relative">'+
+      (temFoto?
+        '<img src="'+fotosArr[0]+'" onclick="ccAbrirLightboxFoto(\''+_ccFamiliaAtual+'\',\''+codJs+'\',\''+linhaJs+'\',0)" style="width:54px;height:54px;object-fit:cover;border-radius:8px;border:1px solid #e8edf4;cursor:zoom-in">'+
+        '<button onclick="event.stopPropagation();ccColarMaisUmaFotoItem(\''+_ccFamiliaAtual+'\',\''+codJs+'\',\''+linhaJs+'\')" title="Adicionar/trocar foto" style="box-sizing:border-box;padding:0;position:absolute;bottom:-4px;right:-4px;width:18px;height:18px;border-radius:50%;border:1.5px solid #fff;background:#1F4E79;color:#fff;font-size:11px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center">+</button>'
+        :
+        '<button onclick="ccColarMaisUmaFotoItem(\''+_ccFamiliaAtual+'\',\''+codJs+'\',\''+linhaJs+'\')" title="Colar/carregar foto" style="width:54px;height:54px;border:1.5px dashed #c3cedd;border-radius:8px;background:#fafbfc;color:#c3cedd;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center">🖼</button>'
+      )+
+      '</div>';
+    var temDetalhes=!!(rodapeHtml||fotosArr.length>1);
     return '<div style="background:#fff;border:1px solid #e8edf4;border-radius:10px;padding:12px 14px;margin-bottom:10px">'+
+      '<div style="display:flex;gap:10px;align-items:flex-start">'+
+      '<div style="flex:1;min-width:0">'+
       '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap">'+
         '<span style="font-weight:700;font-size:14px;color:#1E293B">'+(equivalenteRec?pfEscHtml(equivalenteRec):pfEscHtml(rec.codigo))+'</span>'+
         (rec.descricao?'<span style="font-size:12px;color:#556">— '+pfEscHtml(rec.descricao)+'</span>':'')+
       '</div>'+
       (chipsHtml?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+chipsHtml+'</div>':'')+
       equivHtml+
-      (rodapeHtml?'<div style="margin-top:6px">'+rodapeHtml+'</div>':'')+
-      fotosHtml+
+      '</div>'+
+      fotoTopoHtml+
+      '</div>'+
+      (temDetalhes?
+        '<div style="border-top:1px solid #f4f6f9;margin-top:8px;padding-top:6px">'+
+          '<span onclick="ccToggleDetalhesItem(\''+detId+'\',this)" style="font-size:11px;color:#1F4E79;cursor:pointer;white-space:nowrap">▾ Ver detalhes</span>'+
+          '<div id="'+detId+'" style="display:none;margin-top:8px">'+
+            rodapeHtml+
+            (fotosArr.length>1?fotosHtml:'')+
+          '</div>'+
+        '</div>'
+      :'')+
       '<div style="border-top:1px solid #f4f6f9;margin-top:8px;padding-top:6px;display:flex;justify-content:flex-end">'+
         '<span onclick="ccToggleMedidaItem(\''+medId+'\',this)" style="font-size:11px;color:#1F4E79;cursor:pointer;white-space:nowrap">'+(_ccMedidasTodasVisiveis?'▴ ocultar medidas':'▾ Ver medidas')+'</span>'+
       '</div>'+
       '<div id="'+medId+'" style="display:'+(_ccMedidasTodasVisiveis?'block':'none')+';font-size:12px;color:#556;margin-top:6px;padding-top:6px;border-top:1px dashed #f4f6f9">'+medidasCompletas+'</div>'+
       '</div>';
   }).join('');
+}
+function ccToggleDetalhesItem(id,el){
+  var det=document.getElementById(id);
+  if(!det)return;
+  var abrir=det.style.display==='none';
+  det.style.display=abrir?'block':'none';
+  if(el)el.textContent=abrir?'▴ ocultar detalhes':'▾ Ver detalhes';
 }
 function ccToggleTodasMedidas(){
   _ccMedidasTodasVisiveis=!_ccMedidasTodasVisiveis;

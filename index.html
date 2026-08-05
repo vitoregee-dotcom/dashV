@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1045</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1046</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1438,7 +1438,7 @@ button { min-height:36px; }
   <div id="pfLogo" onclick="pfIrParaHome()" style="cursor:pointer" title="Início">
     <div id="pfLogoIcon"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
   <div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div id="pfLogoSub">LINHA OFF-HIGHWAY</div></div>
-  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1045</div>
+  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1046</div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -21361,6 +21361,11 @@ function pfSalvarHistoricoFamilia(items, familias, nomeArquivo){
     var cutoff = Date.now() - 90*24*60*60*1000;
     hist = hist.filter(function(h){ return h.ts > cutoff; });
     pfSafeSetItem(HIST_FAM_KEY, JSON.stringify(hist));
+    // v115.1046 - A pedido do Vitor: essa chave nunca sincronizava --
+    // cada dispositivo tinha seu próprio histórico de "última atualização
+    // por família", então subir uma planilha no trabalho não aparecia
+    // aqui. Adicionada em PF_SYNC_KEYS + push explícito aqui.
+    if(typeof pfSyncPush==='function') pfSyncPush(['pfHistFamilia_v1']);
   }catch(e){ console.warn('pfSalvarHistoricoFamilia:', e); }
 }
 
@@ -32007,7 +32012,8 @@ var PF_SYNC_KEYS = [
   'ref_fabricantes_eixos_transmissoes_v1',
   'candidatos_carraro_ficha_tecnica_v1',
   'retentores_v1',
-  'pfNoticiasSetor'
+  'pfNoticiasSetor',
+  'pfHistFamilia_v1'
 ];
 
 async function pfSyncPush(keys){
@@ -42304,7 +42310,7 @@ function ccBuscaHtml(familia){
   return '<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">'+
     '<div style="background:#fff;border:1px solid #e8edf4;border-radius:8px;padding:16px 18px;max-width:920px;flex:1;min-width:340px">'+
     '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">'+camposHtml+extraHtml+
-      '<input placeholder="Código (qualquer fabricante, inclusive amarrado)" value="'+pfEscHtml(_ccFiltro.texto||'')+'" oninput="_ccFiltro.texto=this.value;ccExecutarBusca();" style="font-size:12px;padding:6px 8px;border:1px solid #dbe3ee;border-radius:6px">'+
+      '<input placeholder="Código (qualquer fabricante, inclusive amarrado)" value="'+pfEscHtml(_ccFiltro.texto||'')+'" oninput="ccBuscaTextoDebounced(this.value)" style="font-size:12px;padding:6px 8px;border:1px solid #dbe3ee;border-radius:6px">'+
       '<input placeholder="Veículo aplicado" value="'+pfEscHtml(_ccFiltro.veiculos||'')+'" oninput="_ccFiltro.veiculos=this.value;ccExecutarBusca();" style="font-size:12px;padding:6px 8px;border:1px solid #dbe3ee;border-radius:6px">'+
       '<select onchange="_ccFiltro.linha=this.value;ccExecutarBusca();" style="font-size:12px;padding:6px 8px;border:1px solid #dbe3ee;border-radius:6px">'+
         '<option value=""'+(!_ccFiltro.linha?' selected':'')+'>Linha: todas</option>'+
@@ -42328,12 +42334,36 @@ function ccBuscaHtml(familia){
 function ccLimpaMedida(v){
   return String(v==null?'':v).replace(/[ØøΦ]/g,'').replace(/\s+/g,'').trim();
 }
+// v115.1046 - Debounce da busca por código (Componentes Cardan): espera
+// 180ms sem digitar antes de rodar a busca de verdade, pra não recalcular
+// tudo a cada tecla enquanto a pessoa ainda tá digitando/apagando.
+var _ccBuscaTextoTimer=null;
+function ccBuscaTextoDebounced(v){
+  _ccFiltro.texto=v;
+  clearTimeout(_ccBuscaTextoTimer);
+  _ccBuscaTextoTimer=setTimeout(ccExecutarBusca,180);
+}
 function ccExecutarBusca(){
   var elR=document.getElementById('ccResultados');
   if(!elR) return;
   var cfg=ccFamiliaConfig(_ccFamiliaAtual);
   var lista=(ccLoad()[_ccFamiliaAtual]||[]);
   var tol=ccParseNum(_ccFiltro.tolerancia); if(isNaN(tol)) tol=2;
+  // v115.1046 - BUG GRAVE corrigido (a pedido do Vitor: busca por código
+  // travando/atrasando a digitação): o "bateNoIrmao" da v115.1040 fazia um
+  // lista.some(...) inteiro DENTRO do map de cada item -- O(n²) rodando a
+  // cada tecla digitada, sem debounce, em famílias com centenas/milhares
+  // de itens. Agora monta um índice equivalente→códigos 1x por busca (O(n))
+  // e cada item só faz uma checagem O(1) nesse índice.
+  var indiceEquivalente={};
+  if(_ccFiltro.texto){
+    lista.forEach(function(o){
+      var eq=o&&(o.substitui||o.similar);
+      if(!eq)return;
+      if(!indiceEquivalente[eq])indiceEquivalente[eq]=[];
+      indiceEquivalente[eq].push(o.codigo);
+    });
+  }
   var resultados=lista.map(function(rec){
     var desvioTotal=0, ok=true;
     cfg.campos.forEach(function(c){
@@ -42366,8 +42396,8 @@ function ccExecutarBusca(){
       // mesma peça, só que catalogada pelo REI com esse código).
       var equivalenteBusca=rec.substitui||rec.similar;
       var bateNoIrmao=false;
-      if(equivalenteBusca){
-        bateNoIrmao=lista.some(function(o){return o&&o.codigo!==rec.codigo&&(o.substitui||o.similar)===equivalenteBusca&&o.codigo.toLowerCase().indexOf(t)!==-1;});
+      if(equivalenteBusca && indiceEquivalente[equivalenteBusca]){
+        bateNoIrmao=indiceEquivalente[equivalenteBusca].some(function(cod){return cod!==rec.codigo && cod.toLowerCase().indexOf(t)!==-1;});
       }
       if((rec.codigo||'').toLowerCase().indexOf(t)===-1 && (rec.similar||'').toLowerCase().indexOf(t)===-1 && (rec.substitui||'').toLowerCase().indexOf(t)===-1 && !bateNoMontaCom && !bateNoIrmao) ok=false;
     }

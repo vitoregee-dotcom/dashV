@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1053</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1054</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1438,7 +1438,7 @@ button { min-height:36px; }
   <div id="pfLogo" onclick="pfIrParaHome()" style="cursor:pointer" title="Início">
     <div id="pfLogoIcon"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
   <div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div id="pfLogoSub">LINHA OFF-HIGHWAY</div></div>
-  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1053</div>
+  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1054</div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -42553,32 +42553,57 @@ function ccExecutarBusca(){
     if(rec.montaCom&&rec.montaCom.length){
       // v115.1037 - A pedido do Vitor: junto de cada peça relacionada,
       // mostrar também o código equivalente dela (Spicer/outro fabricante),
-      // não só o código interno -- ex: "Ponteira HPT630 · 4-53-341". Visual
-      // reorganizado em tags por família, mais fácil de escanear que uma
-      // linha corrida de código separado por vírgula.
-      // v115.1051 - A pedido do Vitor: tirar duplicatas -- quando 2 códigos
-      // diferentes do "monta com" (ex: SP-3011 e SP-3021) resolvem pra
-      // MESMA peça física (mesmos irmãos), a peça aparecia repetida, só
-      // com a ordem dos códigos trocada. Agora dedup por família+conjunto
-      // de códigos (ordenado), não por código bruto.
+      // não só o código interno.
+      // v115.1051 - Dedup por família+conjunto de códigos, não por código
+      // bruto (2 códigos que resolvem pra mesma peça física não duplicam
+      // mais a linha).
+      // v115.1054 - A pedido do Vitor: o design que fechamos nos protótipos
+      // era uma TABELA (fabricante no cabeçalho, código embaixo -- Spicer,
+      // Stahl, Sorocard, REI nessa ordem), não as tags soltas que eu tinha
+      // implementado na v115.1051 por engano. Corrigido pra bater com o
+      // que foi combinado: uma linha por peça relacionada, uma coluna por
+      // catálogo, "—" discreto onde não tem código, tabela de verdade (não
+      // largura fixa) pra cada coluna crescer só o que o conteúdo pedir.
+      var COL_ORDEM=['Spicer','Stahl','Sorocard','REI'];
+      var COL_LABEL={Spicer:'Spicer',Stahl:'Stahl',Sorocard:'Sorocard',REI:'REI'};
+      var LINHA_PARA_COL={STAHL:'Stahl',REI:'REI',SOROCARD:'Sorocard',SPICER:'Spicer'};
       var vistosMontaCom={};
-      var tagsMontaCom=rec.montaCom.map(function(c){
+      var linhasTabela=rec.montaCom.map(function(c){
         var info=pfInfoItemPorCodigo(c);
         var familia=info?info.familia:'';
         var todosOsCodigos=[c];
+        var colMap={};
         if(info&&info.item){
           var equivalente=info.item.substitui||info.item.similar;
-          if(equivalente&&equivalente!==c)todosOsCodigos.push(equivalente);
-          (info.irmaos||[]).forEach(function(irmao){ if(todosOsCodigos.indexOf(irmao.codigo)<0)todosOsCodigos.push(irmao.codigo); });
+          if(equivalente&&equivalente!==c){ todosOsCodigos.push(equivalente); colMap.Spicer=[equivalente]; }
+          var colProprio=LINHA_PARA_COL[(info.item.linha||'').toUpperCase()];
+          if(colProprio){ colMap[colProprio]=(colMap[colProprio]||[]).concat([info.item.codigo]); }
+          (info.irmaos||[]).forEach(function(irmao){
+            if(todosOsCodigos.indexOf(irmao.codigo)<0)todosOsCodigos.push(irmao.codigo);
+            var colIrmao=LINHA_PARA_COL[(irmao.linha||'').toUpperCase()];
+            if(colIrmao){ colMap[colIrmao]=(colMap[colIrmao]||[]).concat([irmao.codigo]); }
+          });
         }
         var chaveDedup=familia+'|'+todosOsCodigos.slice().sort().join(',');
         if(vistosMontaCom[chaveDedup])return null;
         vistosMontaCom[chaveDedup]=true;
-        var tagPrincipal=todosOsCodigos.map(pfEscHtml).join(' · ');
-        return '<span style="font-size:11px;color:#4a4a48"><span style="color:#8a9ab0">'+(familia?pfEscHtml(familia)+': ':'')+'</span><span style="background:#F3EEF7;color:#5B3A6E;padding:2px 8px;border-radius:6px;font-weight:600">'+tagPrincipal+'</span></span>';
+        return {familia:familia,colMap:colMap};
       }).filter(Boolean);
-      if(tagsMontaCom.length){
-        rodapeHtml+='<div style="margin-bottom:6px"><div style="font-size:10px;font-weight:700;color:#7B2D8B;letter-spacing:.3px;margin-bottom:5px">MONTA COM</div><div style="display:flex;flex-wrap:wrap;gap:6px 14px">'+tagsMontaCom.join('')+'</div></div>';
+      if(linhasTabela.length){
+        var theadHtml='<tr><td></td>'+COL_ORDEM.map(function(col){
+          return '<td style="text-align:center;padding:0 10px 4px;border-bottom:1.5px solid var(--pf-accent);font-size:10.5px;color:#7B2D8B;font-weight:700">'+COL_LABEL[col]+'</td>';
+        }).join('')+'</tr>';
+        var corpoHtml=linhasTabela.map(function(l,li){
+          var bg=li%2===0?'background:#FAFBFD':'';
+          return '<tr>'+
+            '<td style="font-size:11.5px;color:#556;padding:5px 10px 5px 0;white-space:nowrap;'+bg+'">'+pfEscHtml(l.familia)+'</td>'+
+            COL_ORDEM.map(function(col){
+              var vals=l.colMap[col];
+              return '<td style="text-align:center;padding:5px 10px;font-family:monospace;font-size:11.5px;'+bg+(vals?'':';color:#c3cedd')+'">'+(vals?vals.map(pfEscHtml).join('<br>'):'—')+'</td>';
+            }).join('')+
+          '</tr>';
+        }).join('');
+        rodapeHtml+='<div style="margin-bottom:6px"><div style="font-size:10px;font-weight:700;color:#7B2D8B;letter-spacing:.3px;margin-bottom:6px">MONTA COM</div><div style="overflow-x:auto"><table style="border-collapse:collapse">'+theadHtml+corpoHtml+'</table></div></div>';
       }
     }
     if(rec.veiculos&&rec.veiculos.length) rodapeHtml+='<div style="font-size:11px;color:#8a9ab0">Aplicação: '+rec.veiculos.map(pfEscHtml).join(' · ')+'</div>';

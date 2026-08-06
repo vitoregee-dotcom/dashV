@@ -165,6 +165,32 @@ async function main() {
     process.exit(1);
   }
 
+  // 5. Gravar também, numa chave separada, a data/hora dessa atualização
+  // automática -- como OBJETO com "ts" (não string simples), porque a
+  // lógica de merge do app (pfMergeSyncValue) só compara e atualiza de
+  // verdade quando os dois lados são objeto; uma string simples cairia no
+  // fallback "nunca perde o que já tem local" e nunca atualizaria.
+  const agora = new Date();
+  const bodyData = JSON.stringify({
+    user_id: MY_USER_ID,
+    chave: 'pfNoticiasSetorAtualizadoEm',
+    dados: JSON.stringify({ valor: agora.toISOString(), ts: agora.getTime() }),
+    updated_at: agora.toISOString()
+  });
+  const rPostData = await fetch(`${SUPABASE_URL}/rest/v1/user_sync?on_conflict=user_id,chave`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates'
+    },
+    body: bodyData
+  });
+  if (!rPostData.ok) {
+    console.error('Erro ao gravar data de atualização:', rPostData.status, await rPostData.text());
+  }
+
   console.log(`✅ Gravado com sucesso. ${adicionadas} notícia(s) nova(s), ${listaFinal.length} itens no total.`);
 }
 

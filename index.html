@@ -956,6 +956,13 @@ body.has-data #dash{display:block!important}
 body.has-data #upSec{display:none!important}
 body.mapa-view #dash,body.mapa-view #upSec,body.mapa-view #tabBar{display:none!important}
 body.solicitacoes-view #dash{display:none!important}  /* ✅ Hide dashboard in solicitacoes */
+/* v115.1064 - Fecha de vez a brecha das regras has-data/no-data acima:
+sempre que pfSetActive() marcar qualquer view que não seja 'dash' como
+ativa, essa classe entra no body e essas duas regras (mesma especificidade,
+mas vêm DEPOIS no CSS, então ganham) suprimem upSec/dash não importa o
+estado de has-data/no-data. */
+body.pf-outra-view #upSec{display:none!important}
+body.pf-outra-view #dash{display:none!important}
 /* v115.765 - "Modo foto": quando alguem entra pelo link de Solicitacao de
 Fotos (?fotoReq=...), esconde o menu lateral inteiro -- fica só a tela de
 upload ocupando a tela toda. Precisa ficar DEPOIS das regras acima (mesma
@@ -1346,7 +1353,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1063</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1064</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1442,7 +1449,7 @@ button { min-height:36px; }
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
   <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div id="pfLogoSub">LINHA OFF-HIGHWAY</div></div></div>
-  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1063</div>
+  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1064</div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -46592,6 +46599,20 @@ function pfSetActive(view){
   var pt = document.getElementById('pfPageTitle');
   if(pt) pt.textContent = titles[view]||view;
   _pfCurrentView = view;
+  // v115.1064 - BUG achado pelo Vitor (Nova Análise/#upSec vazando por cima
+  // de outras telas, ex: Home): existem regras CSS antigas com !important
+  // ("body.no-data #upSec{display:block!important}" e o par has-data/#dash)
+  // que datam de antes do PartsFlow ter várias telas -- só existia
+  // Dashboard/Upload. Um monte de lugar espalhado pelo código tenta esconder
+  // upSec/dash com JS na hora de trocar de tela, mas boa parte usa
+  // style.display='none' comum (sem !important), que PERDE a briga contra
+  // essas regras CSS sempre que o body ainda estiver com a classe
+  // "no-data"/"has-data" (comum logo após o login, ou enquanto a planilha
+  // de fundo não terminou de carregar). Em vez de caçar e corrigir cada um
+  // dos ~15 lugares espalhados, resolvido aqui central: essa classe no body
+  // desliga as regras antigas sempre que a view ativa não for 'dash' (ver
+  // CSS logo abaixo de "body.solicitacoes-view #dash").
+  document.body.classList.toggle('pf-outra-view', view!=='dash');
 }
 
 // Volta pra tela azul de início (clique no logo) — nenhuma seção fica marcada
@@ -46600,9 +46621,17 @@ function pfSetActive(view){
 function pfIrParaHome(){
   window._pfNavegouExplicitamente=false;
   pfSetActive('home');
+  // v115.1064 - BUG achado pelo Vitor (painel de "Nova análise" vazando por
+  // cima da Home): a regra CSS "body.no-data #upSec{display:block!important}"
+  // usa !important, mas aqui só escondíamos com display='none' comum (sem
+  // !important) pra todo mundo, exceto 'dash' -- então sempre que o body
+  // ainda estava com a classe "no-data" (planilha de fundo não carregou
+  // ainda), o CSS ganhava a briga e o #upSec continuava visível por cima da
+  // Home. Agora TODAS essas telas usam !important, igual já era feito só
+  // pro dash.
   ['dash','upSec','tabBar','mapaView','cadastrosView','ferramentasView','vendasView','solicitacoesView','comprasView','legPanel','logisticaView','areaTecnicaView'].forEach(function(id){
     var el=document.getElementById(id);
-    if(el){ if(id==='dash')el.style.setProperty('display','none','important'); else el.style.display='none'; }
+    if(el)el.style.setProperty('display','none','important');
   });
   document.body.classList.remove('mapa-view');
   var _vb=document.getElementById('vendasBody');if(_vb){_vb.innerHTML='';window._vendasTab=null;}

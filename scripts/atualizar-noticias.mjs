@@ -26,6 +26,7 @@ if (!ANTHROPIC_KEY || !SUPABASE_KEY) {
 const CATEGORIAS = [
   { grupo: 'maquinas', categoria: 'MÁQUINAS', label: 'lançamentos e novidades recentes de máquinas/equipamentos pesados (fabricantes como Volvo CE, Caterpillar, Liebherr, Komatsu, Case, John Deere, Hyundai, entre outros), para os setores de construção, mineração ou agricultura' },
   { grupo: 'mercado', categoria: 'MERCADO', label: 'mercado e setores off-highway no Brasil: vendas, tarifas, câmbio, estudos de mercado, expansão de empresas do setor de máquinas pesadas (construção, mineração, agricultura)' },
+  { grupo: 'mercado', categoria: 'ROLAMENTOS', label: 'mercado e setor de rolamentos industriais no Brasil e no mundo: concorrência entre fabricantes (SKF, INA, Schaeffler, Timken, NTN, FAG, SNR, NSK, Koyo e outros), fusões/aquisições, novas tecnologias, tendências de aplicação para veículos pesados e off-highway' },
   { grupo: 'marcas', categoria: 'DANA', label: 'notícias recentes sobre a empresa Dana Incorporated (autopeças, transmissões, eixos)' },
   { grupo: 'marcas', categoria: 'CARRARO', label: 'notícias recentes sobre a empresa Carraro Group (transmissões, eixos para máquinas fora de estrada)' },
   { grupo: 'marcas', categoria: 'ALLISON', label: 'notícias recentes sobre a Allison Transmission (transmissões automáticas)' },

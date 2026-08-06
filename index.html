@@ -1342,7 +1342,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1060</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1061</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1438,7 +1438,7 @@ button { min-height:36px; }
   <div id="pfLogo" onclick="pfIrParaHome()" style="cursor:pointer" title="Início">
     <div id="pfLogoIcon"><svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
   <div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div id="pfLogoSub">LINHA OFF-HIGHWAY</div></div>
-  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1060</div>
+  <div id="pfVersionBadge" style="font-size:13px;font-weight:700;color:var(--pf-accent);padding:0 20px 10px;margin-top:-6px">v115.1061</div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -38420,9 +38420,15 @@ async function pfComprasEnviarResumo(tipo,itens){
   // (era o pedido original); "chegou no estoque" só dispara pra quem tiver
   // o item na própria lista de Me Avise (aviseItems) -- não manda mais pra
   // ninguém que não pediu.
+  // v115.1061 - A pedido do Vitor: "faturado" agora é um 3º tipo de verdade
+  // (antes só existia comprado/chegou aqui -- faturado caía no "else" e virava
+  // um "chegou" errado). Segue a mesma regra do comprado: é evento do lote
+  // inteiro (não da lista pessoal de Me Avise), então só pro Vitor.
   var ehComprado=tipo==='comprado';
+  var ehFaturado=tipo==='faturado';
+  var ehChegou=tipo==='chegou';
   var toEmail,itensParaEnviar=itens;
-  if(ehComprado){
+  if(ehComprado||ehFaturado){
     toEmail='vitor.lima@triexpecas.com.br';
   }else{
     var avise=[];
@@ -38436,13 +38442,18 @@ async function pfComprasEnviarResumo(tipo,itens){
     if(!toEmail)return;
   }
 
-  var cor=ehComprado?'#0D7377':'#0EA5E9';
-  var colQtd=ehComprado?'Pedido':'Chegou';
-  var titulo=ehComprado?('🛒 Novo pedido de compra — '+itensParaEnviar.length+' '+(itensParaEnviar.length===1?'item':'itens')):('✅ Chegou no estoque — '+itensParaEnviar.length+' '+(itensParaEnviar.length===1?'item':'itens'));
+  var corPorTipo={comprado:'#0D7377',faturado:'#7B2D8B',chegou:'#0EA5E9'};
+  var colQtdPorTipo={comprado:'Pedido',faturado:'Em trânsito',chegou:'Chegou'};
+  var emojiPorTipo={comprado:'🛒',faturado:'📦',chegou:'✅'};
+  var rotuloPorTipo={comprado:'Novo pedido de compra',faturado:'Faturado pelo fornecedor',chegou:'Chegou no estoque'};
+  var cor=corPorTipo[tipo]||corPorTipo.chegou;
+  var colQtd=colQtdPorTipo[tipo]||colQtdPorTipo.chegou;
+  var qtdCampo=ehComprado?'pedido':(ehFaturado?'transito':'qtd');
+  var titulo=emojiPorTipo[tipo]+' '+(rotuloPorTipo[tipo]||rotuloPorTipo.chegou)+' — '+itensParaEnviar.length+' '+(itensParaEnviar.length===1?'item':'itens');
 
   var linhas=itensParaEnviar.map(function(it,i){
     var bg=i%2===0?'#ffffff':'#f7f8fa';
-    var qtd=ehComprado?it.pedido:it.qtd;
+    var qtd=it[qtdCampo];
     return '<tr style="background:'+bg+';border-bottom:1px solid #e8edf4" bgcolor="'+bg+'">'+
       '<td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#1F4E79;font-size:12px">'+it.ref+'</td>'+
       '<td style="padding:8px 12px;color:#1a2332;font-size:12px">'+(it.desc||'—')+'</td>'+
@@ -38464,7 +38475,7 @@ async function pfComprasEnviarResumo(tipo,itens){
       '</tr></thead><tbody>'+linhas+'</tbody></table>'+
     '<p style="margin:0;font-size:12px;color:#8a9ab0">Aviso automático do PartsFlow.</p>'+
     pfEmailBodyClose()+pfEmailWrapClose();
-  var obsTxt=titulo+': '+itensParaEnviar.map(function(it){return it.ref+' ('+(ehComprado?it.pedido:it.qtd)+')';}).join(', ');
+  var obsTxt=titulo+': '+itensParaEnviar.map(function(it){return it.ref+' ('+it[qtdCampo]+')';}).join(', ');
 
   return emailjs.send('service_2lp37gt','template_8r5j0sq',{
     to_email:toEmail,ref:itensParaEnviar.length+' itens',marca:'—',obs:obsTxt,obs_html:obsHtml,
@@ -38478,6 +38489,7 @@ function pfComprasAutoVerificar(){
   try{prevSet=JSON.parse(localStorage.getItem('pfComprasAtivos')||'{}');}catch(e){}
   var novoSet={};
   var novosComprados=[];
+  var faturados=[];
   var chegadas=[];
   // v115.1001 - A pedido do Vitor: "chegou" também generalizado (não só a
   // lista Me Avise), mostrando código/descrição/marca/quantidade na Central
@@ -38486,21 +38498,34 @@ function pfComprasAutoVerificar(){
   // 200k+ itens do catálogo inteiro -- pra qualquer item que já apareceu
   // nesse conjunto, comparamos o saldo salvo com o saldo atual; se subiu,
   // é chegada (parcial, se o pedido ainda não zerou, ou total, se já zerou).
+  // v115.1061 - A pedido do Vitor: "faturado" (quantidade em trânsito, campo
+  // tA) entra no mesmo rastreio -- antes só existia comprado/chegou aqui
+  // (era só a versão da lista pessoal Me Avise que tinha os 3 estágios).
   calcItems.forEach(function(item){
     var chave=(typeof solKey==='function')?solKey(item.ref,item.marca):(item.ref+'||'+(item.marca||''));
     var pedido=item.pedido||0;
+    var transito=item.tA||0;
     var antes=prevSet[chave];
     if(pedido>0){
-      novoSet[chave]={ref:item.ref,marca:item.marca,desc:item.desc||'',pedido:pedido,saldo:item.saldo||0};
+      novoSet[chave]={ref:item.ref,marca:item.marca,desc:item.desc||'',pedido:pedido,transito:transito,saldo:item.saldo||0};
       if(!antes)novosComprados.push({ref:item.ref,marca:item.marca,desc:item.desc||'',pedido:pedido});
     }
-    if(antes&&antes.saldo!==undefined){
-      var saldoAgora=item.saldo||0;
-      if(saldoAgora>antes.saldo)chegadas.push({ref:item.ref,marca:item.marca,desc:item.desc||antes.desc||'',qtd:saldoAgora-antes.saldo});
+    if(antes){
+      // Proteção igual à do "comprado" (v115.684): campo "transito" é novo
+      // nesse rastreio -- dado salvo antes dessa atualização não tem esse
+      // campo (undefined), e undefined>0 é false, então NUNCA dispara aviso
+      // retroativo pra item que já estava em trânsito antes de eu rastrear
+      // isso -- só quando o campo já existia (antes.transito explicitamente
+      // 0/positivo) e mudou de 0 pra positivo de verdade.
+      if(antes.transito!==undefined&&!(antes.transito>0)&&transito>0)faturados.push({ref:item.ref,marca:item.marca,desc:item.desc||antes.desc||'',transito:transito});
+      if(antes.saldo!==undefined){
+        var saldoAgora=item.saldo||0;
+        if(saldoAgora>antes.saldo)chegadas.push({ref:item.ref,marca:item.marca,desc:item.desc||antes.desc||'',qtd:saldoAgora-antes.saldo});
+      }
     }
   });
   localStorage.setItem('pfComprasAtivos',JSON.stringify(novoSet));
-  if(!novosComprados.length&&!chegadas.length)return;
+  if(!novosComprados.length&&!faturados.length&&!chegadas.length)return;
   // Primeira execução depois do deploy (ou depois dessa atualização, já que
   // o formato salvo mudou pra incluir saldo): não dispara aviso retroativo
   // pra tudo que já estava em aberto/pendente -- só passa a valer pra
@@ -38518,6 +38543,16 @@ function pfComprasAutoVerificar(){
     if(log.length>50)log=log.slice(0,50);
     localStorage.setItem('pfComprasEventos',JSON.stringify(log));
     pfComprasEnviarResumo('comprado',novosComprados).catch(function(e){console.warn('Falha ao avisar compras automáticas:',e);});
+  }
+  if(faturados.length){
+    var logF=[];
+    try{logF=JSON.parse(localStorage.getItem('pfFaturadosEventos')||'[]');}catch(e){}
+    faturados.forEach(function(c){
+      logF.unshift({ref:c.ref,marca:c.marca,desc:c.desc,transito:c.transito,data:new Date().toISOString()});
+    });
+    if(logF.length>50)logF=logF.slice(0,50);
+    localStorage.setItem('pfFaturadosEventos',JSON.stringify(logF));
+    pfComprasEnviarResumo('faturado',faturados).catch(function(e){console.warn('Falha ao avisar faturamentos automáticos:',e);});
   }
   if(chegadas.length){
     var logC=[];
@@ -38896,17 +38931,29 @@ function pfAvisosAtualizar(){
       '<div style="width:32px;height:32px;border-radius:50%;background:#DC2626;display:flex;align-items:center;justify-content:center;animation:pfAvisosPulse 1.8s infinite">'+
       '<span style="color:#fff;font-size:12px;font-weight:800">'+furos+'</span></div></div>';
   }
+  // v115.1061 - A pedido do Vitor: ícone com emoji (🛒/📦/✅, igual usado nos
+  // e-mails) + bolinha vermelha de contagem sobrepondo no canto, no estilo de
+  // notificação de ícone de app no celular, em vez do círculo colorido com
+  // só o número dentro.
+  var iconePorEtapa={comprado:{emoji:'🛒',cor:'#0D7377',titulo:'comprado'},faturado:{emoji:'📦',cor:'#7B2D8B',titulo:'faturado'},chegou:{emoji:'✅',cor:'#0EA5E9',titulo:'chegou'}};
+  function pfIconeComBadge(etapaK,n,tituloTip){
+    var info=iconePorEtapa[etapaK];
+    return '<div onclick="pfAvisosAbrirPainel(\''+etapaK+'\')" title="'+tituloTip+'" style="cursor:pointer;position:relative;width:32px;height:32px">'+
+      '<div style="width:32px;height:32px;border-radius:50%;background:'+info.cor+';display:flex;align-items:center;justify-content:center;font-size:16px">'+info.emoji+'</div>'+
+      '<div style="position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 3px;border-radius:9px;background:#DC2626;border:1.5px solid #fff;display:flex;align-items:center;justify-content:center">'+
+      '<span style="color:#fff;font-size:9px;font-weight:800;line-height:1">'+(n>99?'99+':n)+'</span></div></div>';
+  }
   var compradosLog=[];try{compradosLog=JSON.parse(localStorage.getItem('pfComprasEventos')||'[]');}catch(e){}
   if(compradosLog.length){
-    html+='<div onclick="pfAvisosAbrirPainel(\'comprado\')" title="Itens comprados recentemente" style="cursor:pointer">'+
-      '<div style="width:32px;height:32px;border-radius:50%;background:#0D7377;display:flex;align-items:center;justify-content:center">'+
-      '<span style="color:#fff;font-size:12px;font-weight:800">'+compradosLog.length+'</span></div></div>';
+    html+=pfIconeComBadge('comprado',compradosLog.length,'Itens comprados recentemente ('+compradosLog.length+')');
+  }
+  var faturadosLog=[];try{faturadosLog=JSON.parse(localStorage.getItem('pfFaturadosEventos')||'[]');}catch(e){}
+  if(faturadosLog.length){
+    html+=pfIconeComBadge('faturado',faturadosLog.length,'Itens faturados recentemente ('+faturadosLog.length+')');
   }
   var chegadasLog=[];try{chegadasLog=JSON.parse(localStorage.getItem('pfChegadasEventos')||'[]');}catch(e){}
   if(chegadasLog.length){
-    html+='<div onclick="pfAvisosAbrirPainel(\'chegou\')" title="Itens chegados recentemente" style="cursor:pointer">'+
-      '<div style="width:32px;height:32px;border-radius:50%;background:#0EA5E9;display:flex;align-items:center;justify-content:center">'+
-      '<span style="color:#fff;font-size:12px;font-weight:800">'+chegadasLog.length+'</span></div></div>';
+    html+=pfIconeComBadge('chegou',chegadasLog.length,'Itens chegados recentemente ('+chegadasLog.length+')');
   }
   PF_AVISOS_ETAPAS.forEach(function(e){
     var n=contagem[e.k]||0;
@@ -38939,6 +38986,26 @@ function pfAvisosAbrirPainel(etapaK){
       html+='<div onclick="localStorage.removeItem(\'pfComprasEventos\');document.getElementById(\'pfAvisosPainel\').remove();pfAvisosAtualizar();" style="text-align:center;font-size:12px;color:#0D7377;cursor:pointer;margin-top:8px;padding-top:8px;border-top:1px solid #eef2f7">Limpar lista</div>';
     }
     painel.innerHTML=html;
+    document.body.appendChild(painel);
+    return;
+  }
+  if(etapaK==='faturado'){
+    var logF=[];try{logF=JSON.parse(localStorage.getItem('pfFaturadosEventos')||'[]');}catch(e){}
+    var htmlF='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'+
+      '<b style="font-size:14px;color:#7B2D8B">Faturados recentemente ('+logF.length+')</b>'+
+      '<span onclick="document.getElementById(\'pfAvisosPainel\').remove()" style="cursor:pointer;color:#8a9ab0;font-size:16px">✕</span></div>';
+    if(!logF.length){
+      htmlF+='<div style="font-size:12px;color:#8a9ab0">Nada por aqui.</div>';
+    }else{
+      logF.forEach(function(c){
+        htmlF+='<div style="background:#f8fafc;border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px">'+
+          '<div style="font-weight:700;color:#185FA5">'+c.ref+' <span style="color:#8a9ab0;font-weight:400">'+(c.marca||'')+'</span></div>'+
+          (c.desc?'<div style="color:#8a9ab0">'+c.desc+'</div>':'')+
+          '<div style="color:#556">Em trânsito: '+c.transito+' un. · '+new Date(c.data).toLocaleDateString('pt-BR')+'</div></div>';
+      });
+      htmlF+='<div onclick="localStorage.removeItem(\'pfFaturadosEventos\');document.getElementById(\'pfAvisosPainel\').remove();pfAvisosAtualizar();" style="text-align:center;font-size:12px;color:#7B2D8B;cursor:pointer;margin-top:8px;padding-top:8px;border-top:1px solid #eef2f7">Limpar lista</div>';
+    }
+    painel.innerHTML=htmlF;
     document.body.appendChild(painel);
     return;
   }

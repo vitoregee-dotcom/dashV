@@ -32,7 +32,13 @@ const CATEGORIAS = [
   { grupo: 'marcas', categoria: 'SPICER', label: 'notícias recentes sobre a marca Spicer, da Dana (componentes de transmissão, cardans, eixos)' },
   { grupo: 'marcas', categoria: 'PERKINS', label: 'notícias recentes sobre a Perkins Engines (motores diesel)' },
   { grupo: 'marcas', categoria: 'CUMMINS', label: 'notícias recentes sobre a Cummins Inc (motores)' },
-  { grupo: 'marcas', categoria: 'FPT', label: 'notícias recentes sobre a FPT Industrial (motores)' }
+  { grupo: 'marcas', categoria: 'FPT', label: 'notícias recentes sobre a FPT Industrial (motores)' },
+  { grupo: 'marcas', categoria: 'SKF', label: 'notícias recentes sobre a empresa SKF (rolamentos, vedações, lubrificação)' },
+  { grupo: 'marcas', categoria: 'INA', label: 'notícias recentes sobre a marca INA/Schaeffler (rolamentos)' },
+  { grupo: 'marcas', categoria: 'TIMKEN', label: 'notícias recentes sobre a empresa The Timken Company (rolamentos, transmissão de potência)' },
+  { grupo: 'marcas', categoria: 'NTN', label: 'notícias recentes sobre a empresa NTN Corporation (rolamentos)' },
+  { grupo: 'marcas', categoria: 'FAG', label: 'notícias recentes sobre a marca FAG/Schaeffler (rolamentos)' },
+  { grupo: 'marcas', categoria: 'SNR', label: 'notícias recentes sobre a marca SNR/NTN-SNR (rolamentos)' }
 ];
 
 async function buscarNoticia(cat) {

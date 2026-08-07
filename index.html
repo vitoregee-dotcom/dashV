@@ -824,6 +824,13 @@ sempre), a versão agora mora perto do avatar em vez de embaixo do nome. */
 .pf-btn-sair{display:none!important}
 #pfUserName,#pfApiKeySection{display:none!important}
 #pfMain{flex:1;display:flex;flex-direction:column;min-width:0;overflow-x:auto}
+/* v115.1083 - A pedido do Vitor: o conteúdo não pode ficar por baixo da
+barra lateral de avisos (#pfAvisosRail, position:fixed, fica fora do fluxo
+normal, então sem essa reserva de espaço o conteúdo começa da borda da tela
+e a barra fica flutuando por cima). Classe ligada/desligada junto com
+pfAvisosMonta()/pfAvisosDesmonta() (só existe em telas com espaço pra
+sobrar -- Home/Notícias). */
+body.pf-avisos-ativo #pfMain{padding-left:76px}
 #pfTopBar{
   background:var(--pf-topbar-bg);border-bottom:1px solid var(--pf-topbar-border);
   padding:14px 24px;display:flex;align-items:center;justify-content:space-between;
@@ -1359,7 +1366,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1082</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1083</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1454,7 +1461,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1082</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1083</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -1651,6 +1658,7 @@ largura de comprasView/vendasView. -->
 <main>
 <div id="pfHomeSplash" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;display:flex;align-items:center;justify-content:flex-start;flex-direction:column;gap:10px;background:var(--pf-bg);overflow-y:auto;padding:20px 0 40px">
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#C2650A;margin-top:4px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
+  <div id="pfPainelWidgets" style="width:min(1120px,92vw);margin-top:8px"></div>
   <div id="pfNoticiasWrap" style="width:min(1120px,92vw);margin-top:8px"></div>
 </div>
 <div id="upSec" style="display: none;">
@@ -38721,6 +38729,107 @@ var PF_NOTICIAS_SEED=[
   {titulo:'Perkins apresenta motores de alta potência na Conexpo 2026 (Série 904, 2600 e unidade híbrida a hidrogênio)',fonte:'Construction World',data:'04/03/2026',link:'https://www.constructionworld.in/heavy-construction-equipment/perkins-unveils-high-power-engines-at-conexpo-2026/87389',categoria:'PERKINS',grupo:'marcas'},
   {titulo:'Dana amplia portfólio de componentes Spicer para fora de estrada (rolamentos, retentores e kits pra cubos redutores Fairfield)',fonte:'Dana Brasil',data:'20/08/2025',link:'https://dana.com.br/dana-amplia-portfolio-de-componentes-spicer-para-fora-de-estrada/',categoria:'SPICER',grupo:'marcas',imagem:'https://dana.com.br/wp-content/uploads/2025/08/Cubo-redutor-1024x855.png'}
 ];
+// v115.1083 - A pedido do Vitor: painel de indicadores (dólar/clima/feriado)
+// acima das notícias -- 1a fase da expansão da tela de Notícias do Setor
+// (o resto -- fotos nas notícias, dicas de impacto por IA, categorias novas
+// de agro/mineração/energia/tributos -- fica pra versões seguintes, esse
+// já é um bom primeiro pedaço rodando com dado real). Cache de 1 dia em
+// localStorage pra não bater na API toda vez que a Home carrega -- essas
+// APIs são gratuitas e sem chave, mas ainda assim é feio ficar batendo
+// toda hora sem necessidade.
+var PF_WIDGETS_KEY='pfPainelWidgetsCache';
+function pfWidgetsCacheGet(){
+  try{
+    var raw=localStorage.getItem(PF_WIDGETS_KEY);
+    if(!raw)return null;
+    var c=JSON.parse(raw);
+    var hoje=new Date().toISOString().slice(0,10);
+    if(c.dia!==hoje)return null;
+    return c;
+  }catch(e){return null;}
+}
+function pfWidgetsCacheSet(campo,valor){
+  var c=pfWidgetsCacheGet()||{dia:new Date().toISOString().slice(0,10)};
+  c[campo]=valor;
+  localStorage.setItem(PF_WIDGETS_KEY,JSON.stringify(c));
+}
+async function pfBuscarDolar(){
+  var c=pfWidgetsCacheGet();
+  if(c&&c.dolar)return c.dolar;
+  try{
+    var r=await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL');
+    var d=await r.json();
+    var v=d&&d.USDBRL;
+    if(!v)return null;
+    var out={valor:parseFloat(v.bid),variacao:parseFloat(v.pctChange)};
+    pfWidgetsCacheSet('dolar',out);
+    return out;
+  }catch(e){return null;}
+}
+async function pfBuscarClima(){
+  var c=pfWidgetsCacheGet();
+  if(c&&c.clima)return c.clima;
+  try{
+    // São Paulo (sede da Triex) -- lat/lon fixos, Open-Meteo não precisa de chave
+    var r=await fetch('https://api.open-meteo.com/v1/forecast?latitude=-23.55&longitude=-46.63&current=temperature_2m,weather_code&timezone=America%2FSao_Paulo');
+    var d=await r.json();
+    var cur=d&&d.current;
+    if(!cur)return null;
+    var out={temp:Math.round(cur.temperature_2m),codigo:cur.weather_code};
+    pfWidgetsCacheSet('clima',out);
+    return out;
+  }catch(e){return null;}
+}
+function pfDescreverClima(codigo){
+  // Tabela reduzida do padrão WMO usado pelo Open-Meteo -- só os códigos
+  // que interessam pra um resumo de 1-2 palavras, não o catálogo inteiro.
+  if(codigo===0)return'Céu limpo';
+  if(codigo<=3)return'Parcialmente nublado';
+  if(codigo<=48)return'Neblina';
+  if(codigo<=57)return'Garoa';
+  if(codigo<=67)return'Chuva';
+  if(codigo<=77)return'Neve';
+  if(codigo<=82)return'Pancadas de chuva';
+  if(codigo<=99)return'Tempestade';
+  return'Nublado';
+}
+async function pfBuscarFeriado(){
+  var c=pfWidgetsCacheGet();
+  if(c&&c.feriado!==undefined)return c.feriado;
+  try{
+    var ano=new Date().getFullYear();
+    var r=await fetch('https://brasilapi.com.br/api/feriados/v1/'+ano);
+    var lista=await r.json();
+    var hojeIso=new Date().toISOString().slice(0,10);
+    var futuros=(lista||[]).filter(function(f){return f.date>=hojeIso;});
+    var out=futuros.length?{data:futuros[0].date,nome:futuros[0].name}:null;
+    pfWidgetsCacheSet('feriado',out);
+    return out;
+  }catch(e){return null;}
+}
+async function pfPainelWidgetsRender(){
+  var wrap=document.getElementById('pfPainelWidgets');
+  if(!wrap)return;
+  var[dolar,clima,feriado]=await Promise.all([pfBuscarDolar(),pfBuscarClima(),pfBuscarFeriado()]);
+  var cards=[];
+  cards.push({label:'Dólar',valor:dolar?('R$'+dolar.valor.toFixed(2).replace('.',',')):'--',sub:dolar?((dolar.variacao>=0?'+':'')+dolar.variacao.toFixed(2)+'%'):''});
+  cards.push({label:'Clima · SP',valor:clima?(clima.temp+'°C'):'--',sub:clima?pfDescreverClima(clima.codigo):''});
+  if(feriado){
+    var df=new Date(feriado.data+'T00:00:00');
+    cards.push({label:'Feriado',valor:df.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}),sub:feriado.nome});
+  }else{
+    cards.push({label:'Feriado',valor:'--',sub:'sem dados'});
+  }
+  wrap.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px">'+
+    cards.map(function(c){
+      return '<div style="background:var(--pf-sidebar-bg);border:1px solid var(--pf-sidebar-border);border-radius:12px;padding:10px 12px">'+
+        '<div style="font-size:11px;color:var(--pf-text-muted)">'+c.label+'</div>'+
+        '<div style="font-size:16px;font-weight:700;color:var(--pf-text);margin-top:2px">'+c.valor+'</div>'+
+        '<div style="font-size:11px;color:var(--pf-text-muted)">'+c.sub+'</div>'+
+      '</div>';
+    }).join('')+
+  '</div>';
+}
 function pfNoticiasLoad(){
   var list=null;
   try{
@@ -39022,6 +39131,7 @@ function pfAvisosGarantirCss(){
 function pfAvisosMonta(){
   if(document.getElementById('pfAvisosRail'))return;
   pfAvisosGarantirCss();
+  document.body.classList.add('pf-avisos-ativo');
   var rail=document.createElement('div');
   rail.id='pfAvisosRail';
   // v115.1079 - A pedido explícito do Vitor (confirmado de novo, mais
@@ -39036,6 +39146,7 @@ function pfAvisosMonta(){
   pfAvisosAtualizar();
 }
 function pfAvisosDesmonta(){
+  document.body.classList.remove('pf-avisos-ativo');
   var rail=document.getElementById('pfAvisosRail'); if(rail)rail.remove();
   var painel=document.getElementById('pfAvisosPainel'); if(painel)painel.remove();
   document.body.style.paddingRight='';
@@ -39182,7 +39293,7 @@ function pfAvisosAbrirPedido(id){
   var logado=overlay&&(overlay.style.display==='none');
   if(logado){
     pfAvisosMonta();
-    if(!window._pfNoticiasJaRenderizou&&typeof pfNoticiasRender==='function'){window._pfNoticiasJaRenderizou=true;pfNoticiasRender();}
+    if(!window._pfNoticiasJaRenderizou&&typeof pfNoticiasRender==='function'){window._pfNoticiasJaRenderizou=true;pfNoticiasRender();if(typeof pfPainelWidgetsRender==='function')pfPainelWidgetsRender();}
   } else pfAvisosDesmonta();
   setTimeout(pfAvisosWatch,1000);
 })();

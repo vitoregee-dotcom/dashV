@@ -1366,7 +1366,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1090</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1091</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1461,7 +1461,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1090</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1091</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -35422,6 +35422,47 @@ async function ferrUsoIA(){
     '<li><b>Evite reimportar o mesmo arquivo</b> várias vezes só ajustando pequenos detalhes — prefira editar direto na tela de prévia antes de confirmar.</li>'+
     '<li>A <b>saída</b> (o que a IA escreve) custa 5x mais caro que a entrada — catálogos com muitos itens custam mais na parte de gerar a lista do que na leitura do PDF em si.</li>'+
     '</ul></div>';
+
+  // v115.1091 - A pedido do Vitor: resumo de custo POR USUÁRIO (hoje/semana/
+  // mês/total), pra saber quem tá gastando quanto -- antes só dava pra ver
+  // linha por linha na tabela detalhada embaixo. "Semana" = últimos 7 dias
+  // corridos (não semana de calendário), mais simples de entender de cabeça
+  // ("quanto ele gastou nos últimos 7 dias").
+  var semanaInicio=Date.now()-7*24*60*60*1000;
+  var porUsuario={};
+  log.forEach(function(l){
+    var u=l.usuario||'—';
+    if(!porUsuario[u])porUsuario[u]={hoje:0,semana:0,mes:0,total:0};
+    var c=l.custo||0;
+    porUsuario[u].total+=c;
+    if(l.ts>=hoje.getTime())porUsuario[u].hoje+=c;
+    if(l.ts>=semanaInicio)porUsuario[u].semana+=c;
+    if(l.ts>=mesAtual.getTime())porUsuario[u].mes+=c;
+  });
+  var usuariosOrdenados=Object.keys(porUsuario).sort(function(a,b){return porUsuario[b].total-porUsuario[a].total;});
+  if(usuariosOrdenados.length){
+    html+='<div style="font-size:16px;font-weight:800;color:#1F4E79;margin:0 0 12px">👤 Resumo por usuário</div>';
+    html+='<div style="overflow-x:auto;border:1px solid #e0e8f0;border-radius:10px;margin-bottom:20px">';
+    html+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html+='<thead><tr style="background:#1F4E79;color:#fff">'+
+      '<th style="padding:8px 10px;text-align:left;font-size:10px">USUÁRIO</th>'+
+      '<th style="padding:8px 10px;text-align:right;font-size:10px">HOJE</th>'+
+      '<th style="padding:8px 10px;text-align:right;font-size:10px">ÚLT. 7 DIAS</th>'+
+      '<th style="padding:8px 10px;text-align:right;font-size:10px">ESTE MÊS</th>'+
+      '<th style="padding:8px 10px;text-align:right;font-size:10px">TOTAL</th>'+
+      '</tr></thead><tbody>';
+    usuariosOrdenados.forEach(function(u){
+      var r=porUsuario[u];
+      html+='<tr style="border-bottom:0.5px solid #f0f4f8">'+
+        '<td style="padding:7px 10px;font-weight:600;color:#1a2332">'+(u==='—'?'<span style="color:#c4ccd6">—</span>':pfEscHtml(u))+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;color:#607080">US$ '+r.hoje.toFixed(3)+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;color:#607080">US$ '+r.semana.toFixed(3)+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;color:#607080">US$ '+r.mes.toFixed(3)+'</td>'+
+        '<td style="padding:7px 10px;text-align:right;font-weight:700;color:#7B2D8B">US$ '+r.total.toFixed(3)+'</td>'+
+        '</tr>';
+    });
+    html+='</tbody></table></div>';
+  }
 
   if(!log.length){
     html+='<div style="text-align:center;padding:30px;color:#8a9ab0;font-size:13px;background:#fff;border-radius:10px;border:1px solid #e0e8f0">Nenhum uso registrado ainda. Assim que você usar alguma leitura com IA (import de catálogo, leitor de peças, etc.), aparece aqui.</div>';

@@ -1359,7 +1359,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1080</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1081</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1454,7 +1454,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1080</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1081</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -16515,8 +16515,18 @@ function autoLimparTransit(){
   // 2 mapas (por solKey e por ref, com o índice da 1ª ocorrência) numa
   // única passada O(M), e escolhe entre os dois candidatos o que aparecia
   // primeiro no array original -- resultado idêntico ao .find() de antes.
+  // v115.1081 - BUG GRAVE corrigido (a pedido do Vitor): rodava sobre
+  // calcItems, que fica filtrado pela família ativa do Dashboard
+  // (pfFamiliaAtiva). Com o filtro preso numa família específica, essa
+  // limpeza NUNCA achava os itens de trânsito de outras famílias -- eles
+  // nunca eram removidos mesmo depois de chegar de verdade (saldo subir).
+  // Consequência real: uma remessa antiga esquecida em trânsito se somava
+  // com a quantidade de uma importação nova do mesmo item, dobrando (ou
+  // mais) o valor mostrado como "em trânsito"/"faturado". Trocado pra
+  // allItems (catálogo inteiro, nunca filtrado) -- resultado idêntico pra
+  // quem usa "TODAS", mas agora funciona certo com qualquer família ativa.
   const _bySolKey={},_byRef={};
-  calcItems.forEach((it,idx)=>{
+  allItems.forEach((it,idx)=>{
     const sk=solKey(it.ref,it.marca);
     if(!(sk in _bySolKey))_bySolKey[sk]={item:it,idx:idx};
     if(!(it.ref in _byRef))_byRef[it.ref]={item:it,idx:idx};
@@ -38472,12 +38482,16 @@ async function pfComprasEnviarResumo(tipo,itens){
   // (antes só existia comprado/chegou aqui -- faturado caía no "else" e virava
   // um "chegou" errado). Segue a mesma regra do comprado: é evento do lote
   // inteiro (não da lista pessoal de Me Avise), então só pro Vitor.
+  // v115.1081 - A pedido do Vitor: "novo pedido de compra" e "faturado" agora
+  // vão também pro Carlos Candis, além do Vitor (to_email com 2 endereços
+  // separados por vírgula -- o template do EmailJS já usa {{to_email}} no
+  // campo Para, que aceita lista assim).
   var ehComprado=tipo==='comprado';
   var ehFaturado=tipo==='faturado';
   var ehChegou=tipo==='chegou';
   var toEmail,itensParaEnviar=itens;
   if(ehComprado||ehFaturado){
-    toEmail='vitor.lima@triexpecas.com.br';
+    toEmail='vitor.lima@triexpecas.com.br,carlos.candis@triexpecas.com.br';
   }else{
     var avise=[];
     try{avise=JSON.parse(localStorage.getItem('aviseItems')||'[]');}catch(e){}
@@ -38530,8 +38544,51 @@ async function pfComprasEnviarResumo(tipo,itens){
     cod_cliente:'—',nome_cliente:'—'
   });
 }
+// v115.1081 - BUG corrigido (a pedido do Vitor): pfComprasAutoVerificar
+// dependia de calcItems, que fica FILTRADO pela família ativa do Dashboard
+// (pfFamiliaAtiva -- ver recalc(), linha ~16671). Esse filtro fica salvo no
+// localStorage e persiste entre sessões -- se o Dashboard ficasse filtrado
+// numa família específica (ex: Componentes), o rastreio automático de
+// comprado/faturado/chegou só enxergava aquela família daí em diante, sem
+// nenhum aviso disso. Retentores/Rolamentos/Motores/etc paravam de gerar
+// notificação silenciosamente.
+// Correção: essa varredura agora sempre usa allItems (catálogo inteiro,
+// nunca filtrado), calculando só pedido/tA/saldo -- o mínimo necessário pra
+// esse rastreio -- em vez de reaproveitar calcItems. NÃO repete o cálculo
+// pesado do Dashboard (cD/cM/dE/vP/qtdC/sk/grupo/consProj), então não
+// reintroduz o travamento de performance com o catálogo de 200k+ itens que
+// motivou filtrar por família no recalc() em primeiro lugar -- o filtro em
+// si continua existindo lá, só não afeta mais esse rastreio.
+function pfComprasVarrer(){
+  if(typeof allItems==='undefined'||!allItems||!allItems.length)return[];
+  var _transitParsed=Object.keys(transitItems).map(function(tk){
+    var tkp=tk.split('||');
+    var tkRef=(tkp[0]||'').trim();
+    var tkMarca=(tkp[1]||'').toUpperCase().trim();
+    var _e=transitItems[tk];
+    var qty=typeof _e==='object'?(_e&&_e.qtd||0):(_e||0);
+    return{tkRef:tkRef,tkRefNorm:normRef(tkRef),tkMarca:tkMarca,qty:qty};
+  });
+  return allItems.map(function(d){
+    var _tRef=(d.ref||'').trim();
+    var _tNorm=normRef(_tRef);
+    var _tMarca=(d.marca||'').toUpperCase().trim();
+    var _tFam=familiaMarca(d.marca).toUpperCase().trim();
+    var tA=0;
+    for(var ti=0;ti<_transitParsed.length;ti++){
+      var tp=_transitParsed[ti];
+      var refOk=tp.tkRef===_tRef||tp.tkRefNorm===_tNorm||tp.tkRef===_tNorm||tp.tkRefNorm===_tRef;
+      var marcaOk=!tp.tkMarca||tp.tkMarca===_tMarca||tp.tkMarca===_tFam||
+        _tMarca.indexOf(tp.tkMarca)>=0||_tFam.indexOf(tp.tkMarca)>=0||
+        tp.tkMarca.indexOf(_tFam)>=0;
+      if(refOk&&marcaOk)tA+=tp.qty;
+    }
+    return{ref:d.ref,marca:d.marca,desc:d.desc||'',pedido:d.pedido||0,tA:tA,saldo:d.saldo||0};
+  });
+}
 function pfComprasAutoVerificar(){
-  if(typeof calcItems==='undefined'||!calcItems||!calcItems.length)return;
+  var calcItems=(typeof pfComprasVarrer==='function')?pfComprasVarrer():window.calcItems;
+  if(!calcItems||!calcItems.length)return;
   var prevSet={};
   try{prevSet=JSON.parse(localStorage.getItem('pfComprasAtivos')||'{}');}catch(e){}
   var novoSet={};

@@ -1366,7 +1366,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1083</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1084</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1461,7 +1461,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1083</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1084</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -1660,6 +1660,8 @@ largura de comprasView/vendasView. -->
   <div id="pfHomeSplashStatus" style="font-size:12px;color:#C2650A;margin-top:4px;max-width:340px;text-align:center;line-height:1.5;display:none"></div>
   <div id="pfPainelWidgets" style="width:min(1120px,92vw);margin-top:8px"></div>
   <div id="pfNoticiasWrap" style="width:min(1120px,92vw);margin-top:8px"></div>
+  <div id="pfDicasImpactoWrap" style="width:min(1120px,92vw);margin-top:10px"></div>
+  <div id="pfCategoriasWrap" style="width:min(1120px,92vw);margin-top:10px"></div>
 </div>
 <div id="upSec" style="display: none;">
   <div id="upZone">
@@ -38830,6 +38832,119 @@ async function pfPainelWidgetsRender(){
     }).join('')+
   '</div>';
 }
+// v115.1084 - A pedido do Vitor: 2a fase da expansão de Notícias -- fotos,
+// categorias por setor (agricultura/mineração/energia/construção, além de
+// máquinas/mercado/marcas que já existiam) e dicas de impacto por IA.
+// Mapeia a "categoria" livre que já existe em cada notícia (OBRAS/INFRA,
+// MINERAÇÃO, AGRICULTURA, nome de marca, etc) pro "setor" novo usado no
+// filtro -- sem precisar recadastrar nada do que já existe.
+function pfSetorDaCategoria(cat,grupo){
+  var c=(cat||'').toUpperCase();
+  if(c==='AGRICULTURA'||c==='SAFRAS')return'agricultura';
+  if(c==='MINERAÇÃO'||c==='MINERACAO')return'mineracao';
+  if(c==='ENERGIA')return'energia';
+  if(c==='OBRAS/INFRA'||c==='CONSTRUÇÃO'||c==='CONSTRUCAO')return'construcao';
+  if(c==='TRIBUTOS'||c==='TRIBUTÁRIO'||c==='LEGISLAÇÃO'||c==='LEGISLACAO')return'tributos';
+  if(grupo==='marcas')return'marcas';
+  return'mercado';
+}
+var PF_SETORES=[
+  {k:'todos',label:'Todos'},
+  {k:'agricultura',label:'Agricultura'},
+  {k:'mineracao',label:'Mineração'},
+  {k:'energia',label:'Energia'},
+  {k:'construcao',label:'Construção'},
+  {k:'tributos',label:'Tributos'},
+  {k:'mercado',label:'Mercado'},
+  {k:'marcas',label:'Marcas'}
+];
+var _pfSetorAtivo='todos';
+function pfSetorFiltrar(k){
+  _pfSetorAtivo=k;
+  pfCategoriasRender();
+}
+function pfCategoriasRender(){
+  var wrap=document.getElementById('pfCategoriasWrap');
+  if(!wrap)return;
+  var list=pfNoticiasLoad();
+  var itens=list.map(function(n,idxReal){return{n:n,idxReal:idxReal,setor:pfSetorDaCategoria(n.categoria,n.grupo)};});
+  var visiveis=_pfSetorAtivo==='todos'?itens:itens.filter(function(it){return it.setor===_pfSetorAtivo;});
+  var pills=PF_SETORES.map(function(s){
+    var ativo=s.k===_pfSetorAtivo;
+    return '<div onclick="pfSetorFiltrar(\''+s.k+'\')" style="cursor:pointer;background:'+(ativo?'var(--pf-accent)':'var(--pf-sidebar-bg)')+';color:'+(ativo?'#fff':'var(--pf-text-muted)')+';border:1px solid var(--pf-sidebar-border);border-radius:14px;padding:4px 12px;font-size:11px;white-space:nowrap">'+s.label+'</div>';
+  }).join('');
+  var cardsHtml=visiveis.slice(0,12).map(function(it){
+    var n=it.n;
+    var foto=n.imagem
+      ?'<div style="height:90px;background-image:url(\''+pfEscHtml(n.imagem)+'\');background-size:cover;background-position:center;border-radius:10px 10px 0 0"></div>'
+      :'<div style="height:90px;background:var(--pf-sidebar-border);border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--pf-text-muted)">🖼️</div>';
+    var link=n.link?('href="'+pfEscHtml(n.link)+'" target="_blank" rel="noopener"'):'';
+    return '<a '+link+' style="text-decoration:none;color:inherit;background:var(--pf-sidebar-bg);border:1px solid var(--pf-sidebar-border);border-radius:10px;overflow:hidden;display:block">'+
+      foto+
+      '<div style="padding:8px 10px">'+
+        '<div style="font-size:9px;color:var(--pf-accent);font-weight:700;margin-bottom:3px">'+pfEscHtml((n.categoria||'').toUpperCase())+'</div>'+
+        '<div style="font-size:11px;color:var(--pf-text);line-height:1.35">'+pfEscHtml(n.titulo||'')+'</div>'+
+      '</div>'+
+    '</a>';
+  }).join('');
+  wrap.innerHTML=
+    '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:8px">'+pills+'</div>'+
+    (cardsHtml
+      ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">'+cardsHtml+'</div>'
+      : '<div style="font-size:12px;color:var(--pf-text-muted);padding:12px 0">Nenhuma notícia nesse setor ainda -- use o "+" na notícia pra cadastrar uma.</div>');
+}
+// Dicas de impacto: lê os títulos das notícias visíveis hoje e pede pra IA
+// cruzar isso com os setores em que a Triex atua (agro/mineração/energia/
+// construção), gerando 2-4 insights curtos. Cache de 1 dia -- só gera de
+// novo se pedir explicitamente (botão "Atualizar") ou virar o dia.
+var PF_DICAS_KEY='pfDicasImpactoCache';
+async function pfDicasImpactoGerar(forcar){
+  var wrap=document.getElementById('pfDicasImpactoWrap');
+  if(!wrap)return;
+  var hoje=new Date().toISOString().slice(0,10);
+  if(!forcar){
+    try{
+      var cached=JSON.parse(localStorage.getItem(PF_DICAS_KEY)||'null');
+      if(cached&&cached.dia===hoje){pfDicasImpactoPintar(cached.texto);return;}
+    }catch(e){}
+  }
+  var apiKey=localStorage.getItem('anthropic_key')||'';
+  if(!apiKey){
+    wrap.innerHTML='<div style="font-size:11px;color:var(--pf-text-muted)">Cadastre a API Key da Anthropic (em Ferramentas) pra gerar as dicas de impacto.</div>';
+    return;
+  }
+  var list=pfNoticiasLoad();
+  var titulos=list.slice(0,15).map(function(n){return'- '+(n.titulo||'');}).join('\n');
+  wrap.innerHTML='<div style="font-size:11px;color:var(--pf-text-muted)">Gerando dicas de impacto...</div>';
+  try{
+    var resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:600,
+        messages:[{role:'user',content:[{type:'text',text:'Você ajuda uma distribuidora de peças off-highway (Triex, atua em agricultura, mineração, energia e construção) a entender como notícias do dia podem afetar a demanda de peças. Aqui estão os títulos de notícias cadastradas no painel:\n\n'+titulos+'\n\nEscreva de 2 a 4 dicas de impacto curtas (1 frase cada, em português, sem markdown, uma por linha, começando com "- "), conectando essas notícias (ou tendências gerais do momento se as notícias não derem pra cruzar) a possíveis efeitos na demanda de peças/reposição de estoque nesses setores. Seja direto e específico, sem enrolação.'}]}]})
+    });
+    var data=await resp.json();
+    if(data.error)throw new Error(data.error.message||'Erro na API');
+    var texto=(data.content||[]).map(function(c){return c.text||'';}).join('').trim();
+    if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Dicas de impacto',data.usage,pfUsuarioAtualSnapshot());
+    localStorage.setItem(PF_DICAS_KEY,JSON.stringify({dia:hoje,texto:texto}));
+    pfDicasImpactoPintar(texto);
+  }catch(e){
+    wrap.innerHTML='<div style="font-size:11px;color:var(--pf-text-muted)">Não deu pra gerar as dicas agora ('+pfEscHtml(e.message||'erro')+'). <span onclick="pfDicasImpactoGerar(true)" style="color:var(--pf-accent);cursor:pointer">Tentar de novo</span></div>';
+  }
+}
+function pfDicasImpactoPintar(texto){
+  var wrap=document.getElementById('pfDicasImpactoWrap');
+  if(!wrap)return;
+  var linhas=(texto||'').split('\n').map(function(l){return l.replace(/^[-•]\s*/,'').trim();}).filter(Boolean);
+  wrap.innerHTML='<div style="background:var(--pf-sidebar-bg);border:1px solid var(--pf-sidebar-border);border-radius:12px;padding:10px 14px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
+      '<div style="font-size:11px;font-weight:700;color:var(--pf-accent)">💡 Dicas de impacto</div>'+
+      '<div onclick="pfDicasImpactoGerar(true)" style="font-size:10px;color:var(--pf-text-muted);cursor:pointer">Atualizar</div>'+
+    '</div>'+
+    linhas.map(function(l){return '<div style="font-size:12px;color:var(--pf-text);margin-bottom:3px">· '+pfEscHtml(l)+'</div>';}).join('')+
+  '</div>';
+}
 function pfNoticiasLoad(){
   var list=null;
   try{
@@ -39293,7 +39408,7 @@ function pfAvisosAbrirPedido(id){
   var logado=overlay&&(overlay.style.display==='none');
   if(logado){
     pfAvisosMonta();
-    if(!window._pfNoticiasJaRenderizou&&typeof pfNoticiasRender==='function'){window._pfNoticiasJaRenderizou=true;pfNoticiasRender();if(typeof pfPainelWidgetsRender==='function')pfPainelWidgetsRender();}
+    if(!window._pfNoticiasJaRenderizou&&typeof pfNoticiasRender==='function'){window._pfNoticiasJaRenderizou=true;pfNoticiasRender();if(typeof pfPainelWidgetsRender==='function')pfPainelWidgetsRender();if(typeof pfCategoriasRender==='function')pfCategoriasRender();if(typeof pfDicasImpactoGerar==='function')pfDicasImpactoGerar(false);}
   } else pfAvisosDesmonta();
   setTimeout(pfAvisosWatch,1000);
 })();

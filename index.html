@@ -1464,7 +1464,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1160</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1161</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1559,7 +1559,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1160</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1161</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -44160,39 +44160,40 @@ function rolNormalizarCodigo(codigoBruto){
   // furo cônico: sufixo "K" ou "K30" isolado no fim/entre separadores
   if(/(?:^|[-\/])K(30)?(?:$|[-\/])/.test(s) || /K30$/.test(s) || /K$/.test(s)) out.furoConico=true;
 
-  // folga
-  var folgaTokens=Object.keys(ROL_FOLGA_MAP);
-  for(var i=0;i<folgaTokens.length;i++){
-    var ft=folgaTokens[i];
-    if(new RegExp('(?:^|[-.])'+ft+'(?:$|[-.])').test(s) || s.indexOf(ft,s.length-ft.length)>=0){
-      out.folga=ROL_FOLGA_MAP[ft]; break;
-    }
-  }
-  // vedação/blindagem (checa os tokens maiores primeiro)
+  // v115.1161 - BUG GRAVE corrigido (achado pelo Vitor: "62062RSC3" sem
+  // hífen não detectava vedação nenhuma, só a folga -- porque folga e
+  // vedação eram checadas cada uma isoladamente só na PONTA do código
+  // cru, então quando os dois sufixos vêm colados (2RS + C3 sem hífen
+  // entre eles), só o último (C3) era visto). Agora os dois são
+  // capturados no MESMO laço que já cortava o núcleo, suporta qualquer
+  // pilha de sufixos coladas ou com hífen, na ordem que vier.
   var todosTokens=ROL_SEAL_2LADOS.concat(ROL_SEAL_1LADO,ROL_SHIELD_2LADOS,ROL_SHIELD_1LADO)
     .sort(function(a,b){return b.length-a.length;});
-  for(var j=0;j<todosTokens.length;j++){
-    var tk=todosTokens[j];
-    if(s.slice(-tk.length)===tk){
-      if(ROL_SEAL_2LADOS.indexOf(tk)>=0) out.vedacao='2_lados';
-      else if(ROL_SEAL_1LADO.indexOf(tk)>=0) out.vedacao='1_lado';
-      else if(ROL_SHIELD_2LADOS.indexOf(tk)>=0) out.vedacao='blindado_2_lados';
-      else if(ROL_SHIELD_1LADO.indexOf(tk)>=0) out.vedacao='blindado_1_lado';
-      break;
-    }
-  }
-  // núcleo: tira prefixo (já tirado em semPrefixo) e sufixos conhecidos do final
+  var folgaTokens=Object.keys(ROL_FOLGA_MAP);
   var core=semPrefixo;
+  var vedacaoAchada='', folgaAchada='';
   var sufixosCorte=todosTokens.concat(folgaTokens,['K30','K']).sort(function(a,b){return b.length-a.length;});
   var mudou=true, guard=0;
   while(mudou && guard<8){
     mudou=false; guard++;
     for(var k=0;k<sufixosCorte.length;k++){
       var sx=sufixosCorte[k];
-      if(sx && core.slice(-sx.length)===sx){ core=core.slice(0,-sx.length); mudou=true; }
+      if(sx && core.slice(-sx.length)===sx){
+        if(!vedacaoAchada){
+          if(ROL_SEAL_2LADOS.indexOf(sx)>=0) vedacaoAchada='2_lados';
+          else if(ROL_SEAL_1LADO.indexOf(sx)>=0) vedacaoAchada='1_lado';
+          else if(ROL_SHIELD_2LADOS.indexOf(sx)>=0) vedacaoAchada='blindado_2_lados';
+          else if(ROL_SHIELD_1LADO.indexOf(sx)>=0) vedacaoAchada='blindado_1_lado';
+        }
+        if(!folgaAchada && ROL_FOLGA_MAP.hasOwnProperty(sx)) folgaAchada=ROL_FOLGA_MAP[sx];
+        core=core.slice(0,-sx.length);
+        mudou=true;
+      }
     }
     core=core.replace(/[-\/.]+$/,'');
   }
+  out.vedacao=vedacaoAchada;
+  out.folga=folgaAchada;
   out.core=core;
 
   // furo (mm) — só decodifica automático se núcleo for 100% numérico, 3 ou 4 dígitos

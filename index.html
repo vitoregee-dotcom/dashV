@@ -1407,7 +1407,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1116</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1117</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1502,7 +1502,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1116</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1117</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -44016,6 +44016,122 @@ function rolBuscarViaInterchange(codigoDigitado){
   });
 }
 
+// ================================================================
+// MOTOR DE REGRAS DE COMPATIBILIDADE — ROLAMENTOS
+// v115.1117 - Base de conhecimento compartilhada entre o Descobridor
+// (Área Técnica) e a busca de item da Cotação (Vendas). Regras
+// validadas com o Vitor + pesquisa técnica (28/08/2026): furo, folga,
+// vedação/blindagem, gaiola, anel de retenção -- a maioria são regras
+// de MÃO ÚNICA (pode oferecer numa direção, não pode na outra).
+// ================================================================
+
+// ---- Detecção de gaiola (material) a partir do sufixo ----
+// Fonte: nomenclatura SKF (esferas/cilíndrico/cônico) + tabela cruzada
+// NSK (NSK/SKF/FAG/NTN/Timken). Cobertura parcial -- vai crescendo
+// conforme aparecer sufixo novo confirmado.
+var ROL_GAIOLA_ACO = ['J','JB','V','EV','GUV','GUV6','RUGV','TAV','TV','UV','W'];
+var ROL_GAIOLA_BRONZE = ['M','MBR','L1','BRS','JB'];
+var ROL_GAIOLA_POLIAMIDA = ['T1X','TN9','TNH','TVH','PRB','T2','BEP','B','GEAB','REAB','REB','GUM','UBM','UM','UM18','UM23','UM26','TN','TYN','TIX'];
+var ROL_GAIOLA_ACO_SEGMENTADA = ['CX','DX','EX','EX1','GEX','CAHX','X'];
+
+function rolDetectarGaiola(sufixosDetectados){
+  // sufixosDetectados: array de tokens já isolados do código (ver rolExtrairTokens)
+  for(var i=0;i<sufixosDetectados.length;i++){
+    var t=sufixosDetectados[i];
+    if(ROL_GAIOLA_POLIAMIDA.indexOf(t)>=0) return {material:'poliamida', token:t};
+    if(ROL_GAIOLA_BRONZE.indexOf(t)>=0) return {material:'bronze', token:t};
+    if(ROL_GAIOLA_ACO_SEGMENTADA.indexOf(t)>=0) return {material:'aço (segmentada)', token:t};
+    if(ROL_GAIOLA_ACO.indexOf(t)>=0) return {material:'aço', token:t};
+  }
+  return null; // não decodificável — não afirmar nada
+}
+
+// ---- Detecção de anel de retenção (N / NR) ----
+function rolDetectarAnelRetencao(codigoNormalizado){
+  if(/(?:^|[^A-Z])NR(?:$|[^A-Z])/.test(codigoNormalizado) || codigoNormalizado.slice(-2)==='NR') return 'NR'; // ranhura + anel incluso
+  if(/(?:^|[^A-Z])N(?:$|[^A-Z0-9])/.test(codigoNormalizado) || codigoNormalizado.slice(-1)==='N') return 'N'; // só ranhura
+  return null;
+}
+
+// ---- Estrutura de "perfil" de um rolamento decodificado ----
+// Usa o que já existe em rolNormalizarCodigo (vedacao/folga/furoConico)
+// e adiciona gaiola + anel de retenção.
+function rolPerfilCompleto(codigo){
+  var p = rolNormalizarCodigo(codigo);
+  // tokens brutos pra detectar gaiola (reaproveita a lista de sufixos já cortados do core)
+  var raw = p.raw;
+  var tokensPossiveis = raw.match(/[A-Z0-9]+/g) || [];
+  p.gaiola = rolDetectarGaiola(tokensPossiveis);
+  p.anelRetencao = rolDetectarAnelRetencao(raw);
+  return p;
+}
+
+// ---- Comparador: pedido do cliente x candidato do estoque ----
+// Retorna: {status:'equivalente'|'compativel_ressalva'|'incompativel', motivos:[...]}
+var ROL_ORDEM_FOLGA = {C2:1, C1:1, '':2, CN:2, C3:3, C4:4, C5:5}; // '' = normal/CN
+function rolCompararPerfis(pedido, candidato){
+  var motivos = [];
+  var status = 'equivalente';
+
+  // 1) Furo cônico — mão única: reto NUNCA aceita cônico; cônico aceita reto (com aviso)
+  if(pedido.furoConico && !candidato.furoConico){
+    return {status:'incompativel', motivos:['Cliente pediu furo cônico (K) — esse candidato é furo reto, não monta no eixo/bucha cônica.']};
+  }
+  if(!pedido.furoConico && candidato.furoConico){
+    status='compativel_ressalva';
+    motivos.push('Esse é furo cônico (K) — só serve se usar bucha adaptadora, não é encaixe direto.');
+  }
+
+  // 2) Folga — mão única: só aceita folga IGUAL ou MAIOR que o pedido
+  var fPedido = ROL_ORDEM_FOLGA[pedido.folga||''] || 2;
+  var fCand = ROL_ORDEM_FOLGA[candidato.folga||''] || 2;
+  if(fCand < fPedido){
+    return {status:'incompativel', motivos:['Folga do candidato ('+(candidato.folga||'normal')+') é menor que a pedida ('+(pedido.folga||'normal')+') — risco de travar por dilatação térmica.']};
+  }
+  if(fCand > fPedido){
+    status='compativel_ressalva';
+    motivos.push('Folga maior que a pedida ('+(candidato.folga||'normal')+' em vez de '+(pedido.folga||'normal')+') — serve, só fica um pouco mais folgado/ruidoso.');
+  }
+
+  // 3) Vedação/blindagem — mão única pra "aberto"; troca entre 2RS/ZZ precisa alerta (não é hierarquia)
+  var vPedido = pedido.vedacao || '';
+  var vCand = candidato.vedacao || '';
+  if(vPedido && !vCand){
+    return {status:'incompativel', motivos:['Cliente pediu com proteção ('+vPedido.replace(/_/g,' ')+') — esse candidato é aberto, sem como adicionar depois.']};
+  }
+  if(!vPedido && vCand){
+    status='compativel_ressalva';
+    motivos.push('Vem com proteção ('+vCand.replace(/_/g,' ')+') que o pedido não tinha — dá pra remover se precisar aberto.');
+  }
+  if(vPedido && vCand && vPedido!==vCand){
+    var pedeVedado = vPedido.indexOf('lados')>=0 && pedido.p_tipo_prot==='vedado';
+    // sem dado suficiente pra saber growth 2RS vs ZZ automaticamente na maioria dos casos --
+    // sinaliza como ressalva pra revisão humana em vez de arriscar
+    status='compativel_ressalva';
+    motivos.push('Tipo de proteção diferente do pedido ('+vCand.replace(/_/g,' ')+' em vez de '+vPedido.replace(/_/g,' ')+') — confirme se veda contra o que a aplicação precisa (pó/água) ou se precisa da rotação mais alta.');
+  }
+
+  // 4) Gaiola — requisito forte quando o cliente pediu material específico
+  if(pedido.gaiola && candidato.gaiola && pedido.gaiola.material !== candidato.gaiola.material){
+    status='compativel_ressalva';
+    motivos.push('Gaiola diferente: pedido é '+pedido.gaiola.material+', esse é '+candidato.gaiola.material+' — confirme se serve pra aplicação (calor/impacto/produto químico).');
+  } else if(pedido.gaiola && !candidato.gaiola){
+    status='compativel_ressalva';
+    motivos.push('Cliente especificou gaiola de '+pedido.gaiola.material+' — não consegui confirmar a gaiola desse candidato, vale checar antes de vender.');
+  }
+
+  // 5) Anel de retenção — mão única: quem precisa de N/NR não aceita sem ranhura
+  if(pedido.anelRetencao && !candidato.anelRetencao){
+    return {status:'incompativel', motivos:['Cliente precisa da ranhura de anel de retenção ('+pedido.anelRetencao+') pro alojamento travar a posição — esse candidato não tem.']};
+  }
+  if(pedido.anelRetencao==='NR' && candidato.anelRetencao==='N'){
+    status='compativel_ressalva';
+    motivos.push('Tem a ranhura mas não o anel incluso (pedido era NR, esse é N) — precisa completar com um anel de retenção padrão à parte.');
+  }
+
+  return {status:status, motivos:motivos};
+}
+
 // PF_ROL_DIM_TABLE: furo(codigo 2 digitos) -> {od, w} por série.
 // Fonte: bearingworks.com (6000/6200/6300 series) + BKZ Industry (NU2xx),
 // tabelas ISO 15/DIN 625 padrão internacional.
@@ -44148,6 +44264,9 @@ function rolExecutarBusca(){
   var r=rolBuscarEquivalentes(cod);
   var p=r.parsed;
   p.dim=rolBuscarDimensoes(p.raw,p.furoMm);
+  // v115.1117 - perfil completo do pedido (gaiola + anel de retenção),
+  // pro motor de regras poder classificar cada candidato.
+  var perfilPedido=rolPerfilCompleto(cod);
 
   elD.innerHTML=rolPainelLateral(p.raw, Object.assign({tipo:r.tipo},p), r.equivalentes.length?rolBadgeConfianca(r.confianca.nivel):'')+
     (r.tipo?('<div style="margin-top:8px;background:var(--pf-accent-light);color:var(--pf-accent);font-size:11px;padding:6px 10px;border-radius:6px;text-align:center">'+pfEscHtml(r.tipo)+'</div>'):'');
@@ -44157,12 +44276,33 @@ function rolExecutarBusca(){
     html='<div style="font-size:12px;color:var(--pf-text-muted);padding:8px 0">Nenhum equivalente encontrado no estoque pra esse código ainda. '+
       (r.itemExato?'':'Se você souber o tipo/medida real, me avisa que eu ajusto a regra.')+'</div>';
   } else {
-    html='<div style="font-size:12px;color:var(--pf-text-muted);font-weight:600;margin-bottom:8px">Equivalentes em estoque ('+r.equivalentes.length+')</div>'+
+    // classifica cada candidato com o motor de regras e ordena:
+    // equivalente primeiro, depois compatível com ressalva, incompatível some
+    var classificados=r.equivalentes.map(function(eq){
+      var perfilCand=rolPerfilCompleto(eq.ref);
+      var comp=rolCompararPerfis(perfilPedido, perfilCand);
+      return {eq:eq, comp:comp};
+    }).filter(function(x){ return x.comp.status!=='incompativel'; });
+    classificados.sort(function(a,b){
+      var ordem={equivalente:0, compativel_ressalva:1};
+      return ordem[a.comp.status]-ordem[b.comp.status];
+    });
+
+    html='<div style="font-size:12px;color:var(--pf-text-muted);font-weight:600;margin-bottom:8px">Equivalentes em estoque ('+classificados.length+')</div>'+
       '<div style="display:flex;flex-direction:column;gap:6px">'+
-      r.equivalentes.map(function(eq){
-        return '<div style="display:flex;justify-content:space-between;align-items:center;background:var(--pf-bg);border:1px solid var(--pf-sidebar-border);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--pf-text)">'+
-          '<div><b>'+pfEscHtml(eq.ref)+'</b> <span style="color:var(--pf-text-muted)">· '+pfEscHtml(eq.marca||'')+'</span></div>'+
-          '<div style="color:var(--pf-text-muted)">saldo: '+(eq.saldo!=null?eq.saldo:'-')+'</div>'+
+      classificados.map(function(x){
+        var eq=x.eq, comp=x.comp;
+        var isRessalva=comp.status==='compativel_ressalva';
+        var corBorda=isRessalva?'#e0b23c':'#2fbf6a';
+        var badge=isRessalva
+          ? '<span style="background:rgba(224,178,60,.18);color:#e5b96a;font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;white-space:nowrap">com ressalva</span>'
+          : '<span style="background:rgba(47,191,106,.16);color:#6bd68f;font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;white-space:nowrap">equivalente</span>';
+        return '<div style="background:var(--pf-bg);border:1px solid var(--pf-sidebar-border);border-left:3px solid '+corBorda+';border-radius:6px;padding:8px 12px;font-size:12px;color:var(--pf-text)">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center">'+
+            '<div><b>'+pfEscHtml(eq.ref)+'</b> <span style="color:var(--pf-text-muted)">· '+pfEscHtml(eq.marca||'')+'</span></div>'+
+            '<div style="display:flex;align-items:center;gap:8px">'+badge+'<span style="color:var(--pf-text-muted)">saldo: '+(eq.saldo!=null?eq.saldo:'-')+'</span></div>'+
+          '</div>'+
+          (comp.motivos.length?'<div style="margin-top:5px;font-size:11px;color:var(--pf-text-muted);line-height:1.4">'+comp.motivos.map(pfEscHtml).join('<br>')+'</div>':'')+
         '</div>';
       }).join('')+
       '</div>';

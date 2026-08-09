@@ -1413,7 +1413,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1136</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1137</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1508,7 +1508,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1136</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1137</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -44494,6 +44494,11 @@ var _rolModo='codigo'; // 'codigo' | 'medida'
 var _rolFiltro={codigo:''};
 var _rolFiltroMedida={furo:'',od:'',altura:'',tipo:''};
 var _rolTolerancia='1';
+var _rolMostrarEquivalencias=false;
+function rolToggleEquivalencias(){
+  _rolMostrarEquivalencias=!_rolMostrarEquivalencias;
+  rolExecutarBuscaUnificada();
+}
 function rolNavigate(){
   currentView='area_tecnica_rol';
   rolRender();
@@ -44511,7 +44516,7 @@ function rolRender(){
       '<button onclick="ftVoltarCards()" style="border:none;background:none;cursor:pointer;font-size:18px;color:var(--pf-accent)">←</button>'+
       '<div style="font-size:17px;font-weight:800;color:var(--pf-accent);display:flex;align-items:center;gap:8px"><img src="icons/rolamento.png" style="width:24px;height:auto"> Rolamentos — Descobridor de Equivalência</div>'+
     '</div>'+
-    '<div style="font-size:12px;color:var(--pf-text-muted);margin-bottom:16px">Busque pelo código que o cliente passou e/ou pelas medidas tiradas com paquímetro — o que estiver preenchido, o sistema usa.</div>'+
+    '<div style="font-size:12px;color:var(--pf-text-muted);margin-bottom:16px">Catálogo com equivalências entre marcas — filtre pelo código que o cliente passou e/ou pelas medidas tiradas com paquímetro.</div>'+
     '<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">'+
       '<div style="width:280px;flex-shrink:0" id="rolColunaDireita"></div>'+
       '<div style="background:var(--pf-sidebar-bg);border:1px solid var(--pf-sidebar-border);border-radius:8px;padding:16px 18px;flex:1;min-width:340px">'+
@@ -44580,6 +44585,46 @@ function rolPainelLateral(titulo,p,confiancaHtml){
     '</div>' : '<div style="font-size:11px;color:var(--pf-text-muted)">Sem detalhes decodificados.</div>')+
   '</div>';
 }
+function rolMontarCardItem(it, dim, comp, mostrarEquivalencias){
+  var isRessalva=comp&&comp.status==='compativel_ressalva';
+  var corBorda=comp?(isRessalva?'#e0b23c':'#2fbf6a'):'var(--pf-sidebar-border)';
+  var badgeComp='';
+  if(comp){
+    badgeComp=isRessalva
+      ? '<span style="background:rgba(224,178,60,.18);color:#e5b96a;font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;white-space:nowrap">com ressalva</span>'
+      : '<span style="background:rgba(47,191,106,.16);color:#6bd68f;font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;white-space:nowrap">equivalente</span>';
+  }
+  var medidaTxt=dim?(dim.furo+'×'+dim.diametroExterno+'×'+dim.altura+' mm'):'';
+  var tipoTxt=(it.desc||'').trim();
+  var equivHtml='';
+  if(mostrarEquivalencias){
+    var eqs=rolBuscarEquivalentes(it.ref).equivalentes.filter(function(e){
+      return !(e.ref.toUpperCase()===it.ref.toUpperCase() && e.marca===it.marca);
+    });
+    if(eqs.length){
+      var mostrar=eqs.slice(0,6);
+      equivHtml='<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--pf-sidebar-border)">'+
+        '<div style="font-size:9px;color:var(--pf-text-muted);text-transform:uppercase;margin-bottom:5px">Conversões / equivalências ('+eqs.length+')</div>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:5px">'+
+        mostrar.map(function(e){
+          return '<span style="background:var(--pf-nav-hover);color:var(--pf-text);font-size:11px;padding:3px 8px;border-radius:6px">'+pfEscHtml(e.ref)+' · '+pfEscHtml(e.marca||'')+'</span>';
+        }).join('')+
+        (eqs.length>6?'<span style="font-size:11px;color:var(--pf-text-muted);padding:3px 4px">+'+(eqs.length-6)+' mais</span>':'')+
+        '</div></div>';
+    }
+  }
+  return '<div style="background:var(--pf-bg);border:1px solid var(--pf-sidebar-border);border-left:3px solid '+corBorda+';border-radius:8px;padding:12px 14px;font-size:12px;color:var(--pf-text)">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'+
+      '<div>'+
+        '<div><b style="font-size:13px">'+pfEscHtml(it.ref)+'</b> <span style="color:var(--pf-text-muted)">· '+pfEscHtml(it.marca||'')+'</span></div>'+
+        (tipoTxt?'<div style="color:var(--pf-text-muted);font-size:11px;margin-top:2px">'+pfEscHtml(tipoTxt)+(medidaTxt?' · '+medidaTxt:'')+'</div>':(medidaTxt?'<div style="color:var(--pf-text-muted);font-size:11px;margin-top:2px">'+medidaTxt+'</div>':''))+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'+badgeComp+'<span style="color:var(--pf-text-muted);white-space:nowrap">saldo: '+(it.saldo!=null?it.saldo:'-')+'</span></div>'+
+    '</div>'+
+    (comp&&comp.motivos.length?'<div style="margin-top:6px;font-size:11px;color:var(--pf-text-muted);line-height:1.4">'+comp.motivos.map(pfEscHtml).join('<br>')+'</div>':'')+
+    equivHtml+
+  '</div>';
+}
 function rolExecutarBuscaUnificada(){
   var elL=document.getElementById('rolListaResultado');
   var elD=document.getElementById('rolColunaDireita');
@@ -44592,15 +44637,31 @@ function rolExecutarBuscaUnificada(){
   var temCod=!!cod;
   var temMedida=!isNaN(furoAlvo) && !isNaN(odAlvo);
 
-  if(!temCod && !temMedida){
-    elL.innerHTML='<div style="font-size:12px;color:var(--pf-text-muted);padding:10px 0">Digite um código e/ou as medidas (furo + diâmetro externo) pra começar.</div>';
-    elD.innerHTML='';
-    return;
-  }
-
   var catalogo=(typeof allItems!=='undefined'?allItems:[]).filter(function(it){
     return (it.familia||'').toUpperCase()==='ROLAMENTOS';
   });
+
+  // v115.1137 - A pedido do Vitor: igual o Retentores, essa tela agora É o
+  // catálogo (lista tudo por padrão, um card por item, com as conversões
+  // pra outras marcas já mostradas) -- a busca por código/medida vira só
+  // um filtro dentro dela, não uma ferramenta separada.
+  if(!temCod && !temMedida){
+    elD.innerHTML='';
+    var todos=catalogo.slice(0,60);
+    elL.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">'+
+      '<div style="font-size:12px;color:var(--pf-text-muted);font-weight:600">Catálogo — mostrando os 60 primeiros de '+catalogo.length+'. Use o código ou as medidas pra filtrar.</div>'+
+      '<button onclick="rolToggleEquivalencias()" style="padding:4px 10px;border:1px solid var(--pf-border);border-radius:6px;background:var(--pf-sidebar-bg);color:var(--pf-accent);font-size:11px;cursor:pointer">'+(_rolMostrarEquivalencias?'🙈 Ocultar conversões':'👁 Mostrar conversões (mais lento)')+'</button>'+
+      '</div>'+
+      '<div style="display:flex;flex-direction:column;gap:6px">'+
+      todos.map(function(it){
+        var p=rolNormalizarCodigo(it.ref);
+        var sb=rolDetectarSerieBore(it.ref);
+        var dim=sb?rolBuscarDimensoes(it.ref,p.furoMm):null;
+        return rolMontarCardItem(it, dim, null, _rolMostrarEquivalencias);
+      }).join('')+
+      '</div>';
+    return;
+  }
 
   var perfilPedido = temCod ? rolPerfilCompleto(cod) : null;
   if(perfilPedido) perfilPedido.dim=rolBuscarDimensoes(perfilPedido.raw, perfilPedido.furoMm);
@@ -44652,30 +44713,13 @@ function rolExecutarBuscaUnificada(){
   });
 
   if(!lista.length){
-    elL.innerHTML='<div style="font-size:12px;color:var(--pf-text-muted);padding:8px 0">Nenhum item bate com esse código/medida no estoque.'+(temMedida?' Cobertura de medida hoje só cobre esferas (60/62/63xx) e rolete cilíndrico (NUxxx) — outros tipos ainda não têm tabela de medida.':' Se você souber o tipo/medida real, me avisa que eu ajusto a regra.')+'</div>';
+    elL.innerHTML='<div style="font-size:12px;color:var(--pf-text-muted);padding:8px 0">Nenhum item bate com esse código/medida no estoque.'+(temMedida?' Cobertura de medida hoje só cobre esferas (60/62/63xx), rolete cilíndrico (NUxxx), cônico (302xx) e esférico (222xx) — outros tipos ainda não têm tabela.':' Se você souber o tipo/medida real, me avisa que eu ajusto a regra.')+'</div>';
     return;
   }
 
   elL.innerHTML='<div style="font-size:12px;color:var(--pf-text-muted);font-weight:600;margin-bottom:8px">Encontrados ('+lista.length+')</div>'+
     '<div style="display:flex;flex-direction:column;gap:6px">'+
-    lista.map(function(x){
-      var isRessalva=x.comp&&x.comp.status==='compativel_ressalva';
-      var corBorda=x.comp?(isRessalva?'#e0b23c':'#2fbf6a'):'var(--pf-sidebar-border)';
-      var badge='';
-      if(x.comp){
-        badge=isRessalva
-          ? '<span style="background:rgba(224,178,60,.18);color:#e5b96a;font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;white-space:nowrap">com ressalva</span>'
-          : '<span style="background:rgba(47,191,106,.16);color:#6bd68f;font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;white-space:nowrap">equivalente</span>';
-      }
-      var medidaTxt=x.dim?(x.dim.furo+'×'+x.dim.diametroExterno+'×'+x.dim.altura):'';
-      return '<div style="background:var(--pf-bg);border:1px solid var(--pf-sidebar-border);border-left:3px solid '+corBorda+';border-radius:6px;padding:8px 12px;font-size:12px;color:var(--pf-text)">'+
-        '<div style="display:flex;justify-content:space-between;align-items:center">'+
-          '<div><b>'+pfEscHtml(x.it.ref)+'</b> <span style="color:var(--pf-text-muted)">· '+pfEscHtml(x.it.marca||'')+(medidaTxt?' · '+medidaTxt:'')+'</span></div>'+
-          '<div style="display:flex;align-items:center;gap:8px">'+badge+'<span style="color:var(--pf-text-muted)">saldo: '+(x.it.saldo!=null?x.it.saldo:'-')+'</span></div>'+
-        '</div>'+
-        (x.comp&&x.comp.motivos.length?'<div style="margin-top:5px;font-size:11px;color:var(--pf-text-muted);line-height:1.4">'+x.comp.motivos.map(pfEscHtml).join('<br>')+'</div>':'')+
-      '</div>';
-    }).join('')+
+    lista.map(function(x){ return rolMontarCardItem(x.it, x.dim, x.comp, false); }).join('')+
     '</div>';
 }
 

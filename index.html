@@ -748,7 +748,7 @@ Dado repetitivo tipo JSON de peças comprime muito bem (tipicamente 5-10x menor)
   --pf-avisos-bg:#F1F1F0;
   --pf-topbar-bg:#fff;--pf-topbar-border:#F0F4F8;
   --pf-card-bg:#fff;
-  --pf-table-bg:#fff;--pf-table-head-bg:#F8FAFC;
+  --pf-table-bg:#fff;--pf-table-head-bg:#1F4E79;--pf-table-head-text:#fff;
   --pf-btn-primary-bg:#1F4E79;--pf-btn-primary-text:#fff;
   --pf-badge-info-bg:#E8F4FD;--pf-badge-info-text:#185FA5;
   --pf-badge-success-bg:#DCFCE7;--pf-badge-success-text:#166534;
@@ -776,7 +776,7 @@ Dado repetitivo tipo JSON de peças comprime muito bem (tipicamente 5-10x menor)
   contraste visível entre cabeçalho/corpo/cards -- "Opção B" testada e
   aprovada no chat. Badges (Itens/% Saldo) em versão translúcida em vez
   de cor sólida clara (brilhava demais no escuro). */
-  --pf-table-bg:#48494F;--pf-table-head-bg:#55565D;
+  --pf-table-bg:#48494F;--pf-table-head-bg:#55565D;--pf-table-head-text:var(--pf-text-muted);
   /* v115.1113 - A pedido do Vitor: o botão neutro (v115.1112) tinha
   ficado assim em QUALQUER tema, mas o azul no modo claro nunca foi
   problema -- só o escuro. Separado num par próprio: claro mantém o
@@ -1413,7 +1413,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1130</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1131</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1508,7 +1508,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1130</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1131</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -38530,7 +38530,14 @@ function vendasBuscarItem(cod){
     if(ref===cod||refClean===codClean) matches.push(row);
   }
   var viaEquivalencia=false;
-  if(!matches.length){
+  // v115.1131 - A pedido do Vitor: se o código existe mas TODAS as marcas
+  // estão com saldo zerado, também busca por equivalência (em vez de só
+  // empurrar um item sem estoque pra cotação) -- as alternativas com
+  // saldo entram como linhas extras, junto com a original.
+  var saldoTotalLiteral=matches.reduce(function(s,r){return s+(parseFloat(r.saldo||r.Saldo||r.SALDO||0)||0);},0);
+  var precisaEquivalencia = !matches.length || saldoTotalLiteral<=0;
+  if(precisaEquivalencia){
+    var equivalentesEncontrados=[];
     // v115.1116 - A pedido do Vitor: igual já acontece em Componentes
     // Cardan, tentar achar por equivalência antes de desistir -- aqui via
     // guia de referência Timken/SKF (Case/Deere/Massey/NTN-fora-do-padrão/
@@ -38539,22 +38546,38 @@ function vendasBuscarItem(cod){
     if(typeof rolBuscarViaInterchange==='function'){
       try{
         var viaEquiv=rolBuscarViaInterchange(cod);
-        if(viaEquiv&&viaEquiv.length){ matches=viaEquiv; viaEquivalencia=true; }
+        if(viaEquiv&&viaEquiv.length){ equivalentesEncontrados=equivalentesEncontrados.concat(viaEquiv); viaEquivalencia=true; }
       }catch(e){ console.warn('vendasBuscarItem: falha ao tentar equivalência de rolamentos', e); }
     }
-    // v115.1121 - mesma coisa, mas usando o motor de núcleo (UC/YAR/GYE e
-    // variação de sufixo entre marcas), que é uma fonte de equivalência
-    // diferente da tabela Timken/SKF acima -- soma em vez de substituir.
-    if(!matches.length && typeof rolBuscarEquivalentes==='function'){
+    // v115.1131 - CORRIGIDO: antes, se a busca por interchange (Timken/SKF)
+    // achasse QUALQUER coisa (mesmo tudo sem saldo), a busca por núcleo
+    // (que geralmente acha o item com saldo de verdade, tipo variação de
+    // sufixo na mesma marca) nunca rodava. Agora sempre soma as duas.
+    if(typeof rolBuscarEquivalentes==='function'){
       try{
         var viaCore=rolBuscarEquivalentes(cod);
         if(viaCore&&viaCore.equivalentes&&viaCore.equivalentes.length){
-          matches=viaCore.equivalentes.map(function(eq){
+          equivalentesEncontrados=equivalentesEncontrados.concat(viaCore.equivalentes.map(function(eq){
             return {ref:eq.ref, marca:eq.marca, desc:eq.desc, codigo:eq.codigo, saldo:eq.saldo, familia:eq.familia};
-          });
+          }));
           viaEquivalencia=true;
         }
       }catch(e){ console.warn('vendasBuscarItem: falha ao tentar equivalência de núcleo', e); }
+    }
+    // remove duplicata (mesmo ref+marca vindo das duas fontes)
+    if(equivalentesEncontrados.length){
+      var _vistos={};
+      equivalentesEncontrados=equivalentesEncontrados.filter(function(e){
+        var chave=(e.ref||'').toUpperCase()+'|'+(e.marca||'').toUpperCase();
+        if(_vistos[chave])return false;
+        _vistos[chave]=true;
+        return true;
+      });
+    }
+    if(equivalentesEncontrados.length){
+      // saldo zerado: mantém a linha original + soma as alternativas.
+      // não achou nada: substitui (comportamento de antes).
+      matches = matches.length ? matches.concat(equivalentesEncontrados) : equivalentesEncontrados;
     }
   }
   if(!matches.length){
@@ -40613,9 +40636,35 @@ function vendasRenderLista(el){
     alturaWrap.appendChild(alturaPx);
     var alturaGrupo=mkGrupo('',[alturaWrap]);
     alturaGrupo.style.marginLeft='auto';
+    // v115.1131 - A pedido do Vitor: tabela tava "grande demais, com muito
+    // zoom" -- controle de zoom geral (afeta letra/coluna/tudo junto),
+    // separado do controle de Altura (que só mexe na altura da linha).
+    var zoomWrap=document.createElement('div');
+    zoomWrap.style.cssText='display:flex;align-items:center;gap:5px;flex-shrink:0;padding:3px 8px;background:var(--pf-bg);border-radius:7px;height:100%;box-sizing:border-box';
+    var zoomLbl=document.createElement('span');zoomLbl.textContent='🔍 Zoom';zoomLbl.style.cssText='font-size:10px;color:var(--pf-text-muted);font-weight:600';
+    var zoomInp=document.createElement('input');zoomInp.type='number';zoomInp.min='60';zoomInp.max='150';zoomInp.step='5';
+    var _zoomSalvo=parseInt(localStorage.getItem('vendas_tabela_zoom')||'100',10);
+    if(isNaN(_zoomSalvo))_zoomSalvo=100;
+    window._vendasTabelaZoom=_zoomSalvo;
+    zoomInp.value=_zoomSalvo;
+    zoomInp.style.cssText='width:42px;padding:3px 4px;border:1.5px solid var(--pf-border);border-radius:5px;font-size:11px;text-align:center;background:var(--pf-bg);color:var(--pf-text)';
+    zoomInp.oninput=function(){
+      var v=parseInt(this.value,10);
+      if(isNaN(v))return;
+      if(v<60)v=60; if(v>150)v=150;
+      window._vendasTabelaZoom=v;
+      localStorage.setItem('vendas_tabela_zoom',String(v));
+      var wrapEl=document.getElementById('vendasTblWrap');
+      if(wrapEl)wrapEl.style.zoom=(v/100);
+    };
+    zoomWrap.appendChild(zoomLbl);zoomWrap.appendChild(zoomInp);
+    var zoomPct=document.createElement('span');zoomPct.textContent='%';zoomPct.style.cssText='font-size:10px;color:var(--pf-text-muted)';
+    zoomWrap.appendChild(zoomPct);
+    var zoomGrupo=mkGrupo('',[zoomWrap]);
     fd.appendChild(alturaGrupo);
+    fd.appendChild(zoomGrupo);
     wrap.appendChild(fd);
-    var tblWrap=document.createElement('div');tblWrap.style.cssText='background:var(--pf-table-bg);border:1px solid var(--pf-sidebar-border);border-radius:10px;overflow:auto;margin-bottom:10px';
+    var tblWrap=document.createElement('div');tblWrap.id='vendasTblWrap';tblWrap.style.cssText='background:var(--pf-table-bg);border:1px solid var(--pf-sidebar-border);border-radius:10px;overflow:auto;margin-bottom:10px;zoom:'+((window._vendasTabelaZoom||100)/100)+';transform-origin:top left';
     var tbl=document.createElement('table');tbl.id='vendasListaTable';tbl.style.cssText='width:100%;border-collapse:collapse;font-size:11px;min-width:750px';
     var thead=document.createElement('thead');
     var COLS_DEFAULT=['num','fantasia','cidade','uf','contato','transp','vendedor','itens','pctSaldo','vliq','vbru','dcot','dped'];
@@ -40636,8 +40685,8 @@ function vendasRenderLista(el){
         th.style.cssText='padding:0;text-align:'+align+';background:var(--pf-table-head-bg);'+(COLS_WIDTHS[col]?'width:'+COLS_WIDTHS[col]:'');
         var inner=document.createElement('div');inner.style.cssText='display:flex;flex-direction:column;gap:0';
         var topRow=document.createElement('div');topRow.style.cssText='display:flex;align-items:flex-end;gap:4px;padding:7px 10px 4px;cursor:pointer;min-height:33px;box-sizing:border-box';
-        var lbl=document.createElement('span');lbl.textContent=COLS_LABELS[col];lbl.style.cssText='font-weight:600;color:var(--pf-text-muted);font-size:9px;text-transform:uppercase;letter-spacing:.5px';
-        var arr=document.createElement('span');arr.id='vsort-'+col;arr.style.cssText='color:var(--pf-text);font-size:10px';
+        var lbl=document.createElement('span');lbl.textContent=COLS_LABELS[col];lbl.style.cssText='font-weight:600;color:var(--pf-table-head-text);font-size:9px;text-transform:uppercase;letter-spacing:.5px';
+        var arr=document.createElement('span');arr.id='vsort-'+col;arr.style.cssText='color:var(--pf-table-head-text);font-size:10px';
         if(window._vendasSort.col===col)arr.textContent=window._vendasSort.dir===1?'↑':'↓';
         topRow.appendChild(lbl);topRow.appendChild(arr);
         topRow.onclick=function(){

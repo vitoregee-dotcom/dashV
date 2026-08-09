@@ -1497,7 +1497,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1184</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1185</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1592,7 +1592,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1184</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1185</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -45054,13 +45054,38 @@ function rolExecutarBuscaUnificada(){
 
   var perfilPedido = temCod ? rolPerfilCompleto(cod) : null;
 
+  var achouViaEquivalencia=false;
   if(temCod){
     var r=rolBuscarEquivalentes(cod);
     r.equivalentes.forEach(function(eq){
       var pEq=rolNormalizarCodigo(eq.ref);
       var dimEq=rolBuscarDimensoes(eq.ref,pEq.furoMm);
       addResultado(eq, dimEq, true, false);
+      achouViaEquivalencia=true;
     });
+    // v115.1185 - A pedido do Vitor: enquanto o código digitado ainda não
+    // "fecha" num código reconhecido (ex: "302", "3020" no meio da
+    // digitação), filtra por texto simples no catálogo -- narrow igual um
+    // filtro de verdade, em vez de mostrar "nada encontrado" até
+    // completar o código certo.
+    if(!achouViaEquivalencia && cod.length>=2){
+      var codNorm=cod.toUpperCase().replace(/\s+/g,'');
+      var vistosSubstr={};
+      var contadorSubstr=0;
+      for(var iSub=0;iSub<catalogo.length && contadorSubstr<60;iSub++){
+        var it=catalogo[iSub];
+        var refNorm=(it.ref||'').toUpperCase().replace(/\s+/g,'');
+        if(refNorm.indexOf(codNorm)>=0){
+          var chave=refNorm+'|'+(it.marca||'').toUpperCase();
+          if(vistosSubstr[chave]) continue;
+          vistosSubstr[chave]=true;
+          var pIt=rolNormalizarCodigo(it.ref);
+          var dimIt=rolBuscarDimensoes(it.ref,pIt.furoMm);
+          addResultado(it, dimIt, false, false);
+          contadorSubstr++;
+        }
+      }
+    }
   }
   if(temMedida){
     catalogo.forEach(function(it){
@@ -45085,9 +45110,13 @@ function rolExecutarBuscaUnificada(){
     return true;
   });
   lista.forEach(function(x){
-    x.comp = perfilPedido ? rolCompararPerfis(perfilPedido, rolPerfilCompleto(x.it.ref)) : null;
+    // v115.1185 - só classifica com o motor de regras quem veio por
+    // equivalência de verdade (viaCod) -- correspondência por texto
+    // parcial (código ainda incompleto) não tem perfil confiável pra
+    // comparar, ia gerar "incompatível" errado.
+    x.comp = (perfilPedido && x.viaCod) ? rolCompararPerfis(perfilPedido, rolPerfilCompleto(x.it.ref)) : null;
   });
-  if(perfilPedido) lista=lista.filter(function(x){ return x.comp.status!=='incompativel'; });
+  lista=lista.filter(function(x){ return !x.comp || x.comp.status!=='incompativel'; });
 
   lista.sort(function(a,b){
     var ordemStatus={equivalente:0, compativel_ressalva:1};
@@ -45107,8 +45136,12 @@ function rolExecutarBuscaUnificada(){
   // destaque + os outros como chips embaixo, igual o "Monta com" do Cardan.
   // Só "com ressalva" continua em card separado (a diferença precisa
   // aparecer isolada, não faz sentido escondida dentro de um chip).
-  var equivalentesPuros=lista.filter(function(x){ return !x.comp || x.comp.status==='equivalente'; });
+  // v115.1185 - correspondência por texto parcial (viaCod=false) fica de
+  // fora da consolidação -- são itens sem relação entre si, só bateram o
+  // texto, não faz sentido juntar num "também equivale a".
+  var equivalentesPuros=lista.filter(function(x){ return x.viaCod && (!x.comp || x.comp.status==='equivalente'); });
   var comRessalva=lista.filter(function(x){ return x.comp && x.comp.status==='compativel_ressalva'; });
+  var outros=lista.filter(function(x){ return !x.viaCod && !x.comp; }); // medida e/ou texto parcial
 
   var htmlCards='';
   if(equivalentesPuros.length){
@@ -45117,6 +45150,14 @@ function rolExecutarBuscaUnificada(){
   comRessalva.forEach(function(x){
     htmlCards+=rolMontarCardItem(x.it, x.dim, x.comp, false);
   });
+  if(outros.length){
+    if(temCod && !achouViaEquivalencia){
+      htmlCards+='<div style="font-size:11px;color:var(--pf-text-muted);margin:6px 0 2px">Continue digitando pra achar o código certo — essas batem só o texto parcial:</div>';
+    }
+    outros.forEach(function(x){
+      htmlCards+=rolMontarCardItem(x.it, x.dim, null, false);
+    });
+  }
 
   elL.innerHTML='<div style="font-size:12px;color:var(--pf-text-muted);font-weight:600;margin-bottom:8px">Encontrados ('+lista.length+')</div>'+
     '<div style="display:flex;flex-direction:column;gap:6px">'+htmlCards+'</div>';

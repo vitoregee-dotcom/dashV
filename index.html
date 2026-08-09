@@ -1407,7 +1407,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1125</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1126</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1502,7 +1502,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1125</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1126</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -44203,6 +44203,20 @@ function rolDetectarConfigAneis(raw){
   return null;
 }
 
+// ---- Gaiola padrão de fábrica por tamanho (quando não vem sufixo) ----
+// v115.1126 - A pedido do Vitor: "sem sufixo é sempre aço?" -- não
+// exatamente. Fonte: tabela NSK "Standard cages for deep groove ball
+// bearings" -- até um certo furo o padrão de fábrica é aço estampado,
+// acima disso vira latão usinado, MESMO sem sufixo nenhum indicando.
+var ROL_GAIOLA_LIMITE_SERIE_MM = {'60':200, '62':200, '63':160}; // furo (mm) -- aço até esse valor, latão acima
+function rolInferirGaiolaPadrao(raw){
+  var sb=rolDetectarSerieBore(raw);
+  if(!sb || !ROL_GAIOLA_LIMITE_SERIE_MM.hasOwnProperty(sb.serie)) return null;
+  var boreMm = ROL_FURO_ISO.hasOwnProperty(sb.boreCode) ? ROL_FURO_ISO[sb.boreCode] : (parseInt(sb.boreCode,10)*5);
+  var limite = ROL_GAIOLA_LIMITE_SERIE_MM[sb.serie];
+  return {material: boreMm<=limite?'aço':'latão', inferido:true, limiteSerie:sb.serie, limiteMm:limite};
+}
+
 // ---- Estrutura de "perfil" de um rolamento decodificado ----
 // Usa o que já existe em rolNormalizarCodigo (vedacao/folga/furoConico)
 // e adiciona gaiola + anel de retenção + configuração dos anéis.
@@ -44212,6 +44226,7 @@ function rolPerfilCompleto(codigo){
   var raw = p.raw;
   var tokensPossiveis = raw.match(/[A-Z0-9]+/g) || [];
   p.gaiola = rolDetectarGaiola(tokensPossiveis);
+  if(!p.gaiola) p.gaiola = rolInferirGaiolaPadrao(raw); // fallback: padrão por tamanho, sem sufixo
   p.anelRetencao = rolDetectarAnelRetencao(raw);
   p.configAneis = rolDetectarConfigAneis(raw);
   return p;
@@ -44422,7 +44437,7 @@ function rolPainelLateral(titulo,p,confiancaHtml){
   // pra ficar claro que não é esquecimento, é limite real do que dá pra
   // saber só pelo código); configuração dos anéis do rolete cilíndrico
   // (NU/N/NJ/NUP/NF) explicando rebordo/carga axial/desmontagem.
-  linhas.push(['Gaiola', p.gaiola ? (p.gaiola.material+' (sufixo '+p.gaiola.token+')') : 'não especificada no código (padrão de fábrica)']);
+  linhas.push(['Gaiola', p.gaiola ? (p.gaiola.inferido ? p.gaiola.material+' (padrão de fábrica p/ furo até '+p.gaiola.limiteMm+'mm série '+p.gaiola.limiteSerie+' — sem sufixo confirmando)' : p.gaiola.material+' (sufixo '+p.gaiola.token+')') : 'não dá pra saber (série sem tabela de padrão)']);
   if(p.anelRetencao) linhas.push(['Anel de retenção',p.anelRetencao==='NR'?'ranhura + anel incluso (NR)':'só ranhura, sem anel (N)']);
   if(p.configAneis){
     linhas.push(['Config. dos anéis ('+p.configAneis.prefixo+')', 'rebordo: '+p.configAneis.rebordo]);

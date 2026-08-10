@@ -1512,7 +1512,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1207</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1208</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1607,7 +1607,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1207</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1208</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -45462,8 +45462,27 @@ function rolExecutarBuscaUnificada(){
   if(equivalentesPuros.length){
     htmlCards+=rolMontarCardConsolidado(equivalentesPuros, temCod?cod:null);
   }
+  // v115.1208 - BUG corrigido (achado pelo Vitor: "30206M e 30206 não são
+  // a mesma peça?"): cada item "com ressalva" só era comparado contra o
+  // CÓDIGO DIGITADO, nunca comparado ENTRE SI -- então dois itens que são
+  // exatamente equivalentes um ao outro (só diferem do que foi buscado)
+  // ficavam em cards separados, repetindo o mesmo aviso. Agora agrupa
+  // quem é equivalente entre si, mostra o aviso (vs o pedido) uma vez só.
+  var clusters=[];
   comRessalva.forEach(function(x){
-    htmlCards+=rolMontarCardItem(x.it, x.dim, x.comp, false);
+    var perfilX=rolPerfilCompleto(x.it.ref);
+    var achou=clusters.find(function(c){
+      var perfilRep=rolPerfilCompleto(c[0].it.ref);
+      return rolCompararPerfis(perfilRep, perfilX).status==='equivalente';
+    });
+    if(achou) achou.push(x); else clusters.push([x]);
+  });
+  clusters.forEach(function(cluster){
+    if(cluster.length===1){
+      htmlCards+=rolMontarCardItem(cluster[0].it, cluster[0].dim, cluster[0].comp, false);
+    } else {
+      htmlCards+=rolMontarCardConsolidado(cluster, null, cluster[0].comp);
+    }
   });
   if(outros.length){
     if(temCod){
@@ -45494,7 +45513,7 @@ function rolExecutarBuscaUnificada(){
     bannerPedido+
     '<div style="display:flex;flex-direction:column;gap:6px">'+htmlCards+'</div>';
 }
-function rolMontarCardConsolidado(grupo, codigoBuscado){
+function rolMontarCardConsolidado(grupo, codigoBuscado, compCompartilhado){
   if(grupo.length===1 && !codigoBuscado) return rolMontarCardItem(grupo[0].it, grupo[0].dim, grupo[0].comp, false);
   // escolhe o principal: maior saldo primeiro, empate = primeiro encontrado
   var ordenado=grupo.slice().sort(function(a,b){
@@ -45504,9 +45523,15 @@ function rolMontarCardConsolidado(grupo, codigoBuscado){
   var outros=ordenado.slice(1);
   var dim=principal.dim||ordenado.map(function(x){return x.dim;}).find(function(d){return d;});
   var tipoTxt=(principal.it.desc||'').trim();
+  // v115.1208 - grupo "com ressalva" entre si (todos equivalentes uns aos
+  // outros, mas com diferença em comum vs o que foi buscado) -- mostra o
+  // aviso UMA vez pro grupo inteiro, em vez de repetir por item.
+  var isRessalva=compCompartilhado&&compCompartilhado.status==='compativel_ressalva';
+  var corBorda=isRessalva?'#e0b23c':'#2fbf6a';
+  var badgeRessalva=isRessalva?'<span style="background:rgba(224,178,60,.18);color:#e5b96a;font-size:11px;padding:3px 9px;border-radius:10px;font-weight:600;white-space:nowrap">com ressalva</span>':'';
   // v115.1189 - detalhes ocultos: só código + descrição, sem consolidar chips.
   if(_rolDetalhesOcultos){
-    return '<div style="background:var(--pf-bg);border:1px solid var(--pf-sidebar-border);border-left:3px solid #2fbf6a;border-radius:8px;padding:12px 16px;font-size:15px;color:var(--pf-text)">'+
+    return '<div style="background:var(--pf-bg);border:1px solid var(--pf-sidebar-border);border-left:3px solid '+corBorda+';border-radius:8px;padding:12px 16px;font-size:15px;color:var(--pf-text)">'+
       '<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap">'+
         '<b style="font-size:18px">'+pfEscHtml(principal.it.ref)+'</b><span style="color:var(--pf-text-muted);font-size:14px">· '+pfEscHtml(principal.it.marca||'')+'</span>'+
         (tipoTxt?'<span style="color:var(--pf-text-muted);font-size:14px">· '+pfEscHtml(tipoTxt)+'</span>':'')+
@@ -45527,13 +45552,17 @@ function rolMontarCardConsolidado(grupo, codigoBuscado){
       chips.push('<span style="background:var(--pf-nav-hover);color:var(--pf-text-muted);font-size:13px;padding:4px 10px;border-radius:6px;font-style:italic">'+pfEscHtml(codigoBuscado)+' · buscado</span>');
     }
   }
-  return '<div style="background:var(--pf-bg);border:1px solid var(--pf-sidebar-border);border-left:3px solid #2fbf6a;border-radius:8px;padding:16px 18px;font-size:15px;color:var(--pf-text)">'+
-    '<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap">'+
-      '<b style="font-size:20px">'+pfEscHtml(principal.it.ref)+'</b><span style="color:var(--pf-text-muted);font-size:15px">· '+pfEscHtml(principal.it.marca||'')+'</span>'+
-      (tipoTxt?'<span style="color:var(--pf-text-muted);font-size:15px">· '+pfEscHtml(tipoTxt)+'</span>':'')+
+  return '<div style="background:var(--pf-bg);border:1px solid var(--pf-sidebar-border);border-left:3px solid '+corBorda+';border-radius:8px;padding:16px 18px;font-size:15px;color:var(--pf-text)">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">'+
+      '<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap">'+
+        '<b style="font-size:20px">'+pfEscHtml(principal.it.ref)+'</b><span style="color:var(--pf-text-muted);font-size:15px">· '+pfEscHtml(principal.it.marca||'')+'</span>'+
+        (tipoTxt?'<span style="color:var(--pf-text-muted);font-size:15px">· '+pfEscHtml(tipoTxt)+'</span>':'')+
+      '</div>'+
+      badgeRessalva+
     '</div>'+
     rolMedidaMiniTabela(dim)+
     rolCaracteristicasHtml(perfilPrincipal)+
+    (isRessalva&&compCompartilhado.motivos.length?'<div style="margin-top:9px;font-size:14px;color:var(--pf-text-muted);line-height:1.5">'+compCompartilhado.motivos.map(pfEscHtml).join('<br>')+'</div>':'')+
     (chips.length?'<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--pf-sidebar-border)">'+
       '<div style="font-size:11px;color:var(--pf-text-muted);text-transform:uppercase;margin-bottom:6px">Também equivale a</div>'+
       '<div style="display:flex;flex-wrap:wrap;gap:5px">'+chips.join('')+'</div></div>':'')+

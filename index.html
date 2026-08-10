@@ -899,7 +899,9 @@ em dispositivos com mouse de verdade, ignora em touch. */
   .pf-nav-item:hover{background:var(--pf-nav-hover);color:var(--pf-text)}
 }
 .pf-nav-item.active .pf-nav-icon{background:var(--pf-nav-active-bg);color:var(--pf-nav-active-text)}
-.pf-nav-item.active .pf-nav-label{color:var(--pf-nav-active-text)}
+/* v115.1196 - A pedido do Vitor: tirado o laranja do texto/rótulo dos
+itens da barra (fixo ou fixados) -- fica só o ícone/fundo destacando qual
+tá ativo, o texto sempre neutro. */
 /* v115.1100 - Ajuste a pedido do Vitor em cima da v115.1096: a caixa de
 fundo estava pequena (32px) demais pro emoji de 34px caber com folga --
 aumentada pra 48px, com o desenho em 36px (agora cabe direito, sem
@@ -1506,7 +1508,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1195</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1196</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1601,7 +1603,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1195</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1196</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -45377,7 +45379,7 @@ function solicRender(){
     '</div>';
   html+='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">';
   html+='<label style="position:relative;overflow:hidden;background:#C00000;color:#fff;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px">📎 Carregar PDF/Print<input type="file" id="solicFileInput" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0" accept="application/pdf,image/*,.md,.txt,text/markdown,text/plain"></label>';
-  html+='<button onclick="solicColarPrint()" style="background:#6c757d;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:13px;font-weight:700">📋 Colar Print</button>';
+  html+='<button onclick="solicColarPrint()" title="Também funciona com Ctrl+V direto na tela" style="background:#6c757d;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:13px;font-weight:700">📋 Colar Print (ou Ctrl+V)</button>';
   html+='<span id="solicStatus" style="display:none;align-items:center;gap:6px;font-size:12px;color:#1F4E79;font-weight:600"><span style="display:inline-block;width:13px;height:13px;border:2px solid #d8e3ee;border-top-color:#1F4E79;border-radius:50%;animation:spin .7s linear infinite"></span>Lendo...</span>';
   html+='</div></div>';
 
@@ -45784,6 +45786,32 @@ function solicColarPrint(){
     }
     if(status){status.style.display='inline-flex';status.innerHTML='<span style="color:#C00000">❌ Sem imagem na área de transferência.</span>';}
   }).catch(function(){pfAlert('Permissão de área de transferência negada pelo navegador.');});
+}
+// v115.1196 - A pedido do Vitor: "não to conseguindo colar" -- o botão
+// "Colar Print" depende de navigator.clipboard.read(), que pede uma
+// permissão especial que MUITO navegador (principalmente Firefox, e às
+// vezes até Chrome dependendo do contexto) bloqueia ou nem suporta pra
+// imagem. Ctrl+V de verdade (evento nativo "paste" do navegador) é bem
+// mais compatível -- não pede permissão nenhuma, é a mesma tecla de
+// colar de sempre. Registrado uma vez só (document, não a cada render)
+// e só age quando a tela de Solicitações está aberta.
+if(!window._solicPasteListenerOk){
+  window._solicPasteListenerOk=true;
+  document.addEventListener('paste',function(e){
+    var view=document.getElementById('solicitacoesView');
+    if(!view||view.style.display==='none')return;
+    var items=(e.clipboardData&&e.clipboardData.items)||[];
+    for(var i=0;i<items.length;i++){
+      if(items[i].type.indexOf('image/')===0){
+        var blob=items[i].getAsFile();
+        if(blob){
+          e.preventDefault();
+          solicRotearArquivo(new File([blob],'print.png',{type:blob.type}));
+        }
+        return;
+      }
+    }
+  });
 }
 
 function solicLerArquivo(input){

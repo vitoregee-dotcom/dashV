@@ -1512,7 +1512,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1205</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1207</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1607,7 +1607,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1205</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1207</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -43475,6 +43475,14 @@ function ccBuscaHtml(familia){
     '</div>';
   return '<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">'+
     '<div style="background:var(--pf-sidebar-bg);border:1px solid var(--pf-sidebar-border);border-radius:8px;padding:16px 18px;max-width:920px;flex:1;min-width:340px">'+
+    // v115.1206 - A pedido do Vitor: campo de busca por código da própria
+    // família vira o PRIMEIRO campo da tela, com destaque igual o "Monta
+    // com" (antes estava misturado no meio da grade de medidas, sem
+    // destaque nenhum).
+    '<div style="background:#fbfcfe;border:1px solid var(--pf-sidebar-border);border-radius:8px;padding:10px 12px;margin-bottom:12px">'+
+      '<div style="font-size:11px;font-weight:700;color:#1F4E79;margin-bottom:6px">🔍 BUSCAR POR CÓDIGO</div>'+
+      '<input placeholder="Código (qualquer fabricante, inclusive amarrado)" value="'+pfEscHtml(_ccFiltro.texto||'')+'" oninput="ccBuscaTextoDebounced(this.value)" style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--pf-border);border-radius:6px">'+
+    '</div>'+
     // v115.1051 - A pedido do Vitor: campo separado pra achar uma peça
     // pelo código de OUTRA peça que monta com ela (ex: digitar o código
     // de uma cruzeta e achar a ponteira que monta nela) -- diferente do
@@ -43487,7 +43495,6 @@ function ccBuscaHtml(familia){
       '<div id="ccResultadosMontaCom" style="margin-top:8px"></div>'+
     '</div>'+
     '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">'+camposHtml+extraHtml+
-      '<input placeholder="Código (qualquer fabricante, inclusive amarrado)" value="'+pfEscHtml(_ccFiltro.texto||'')+'" oninput="ccBuscaTextoDebounced(this.value)" style="font-size:12px;padding:6px 8px;border:1px solid var(--pf-border);border-radius:6px">'+
       '<input placeholder="Veículo aplicado" value="'+pfEscHtml(_ccFiltro.veiculos||'')+'" oninput="_ccFiltro.veiculos=this.value;ccExecutarBusca();" style="font-size:12px;padding:6px 8px;border:1px solid var(--pf-border);border-radius:6px">'+
       '<select onchange="_ccFiltro.linha=this.value;ccExecutarBusca();" style="font-size:12px;padding:6px 8px;border:1px solid var(--pf-border);border-radius:6px">'+
         '<option value=""'+(!_ccFiltro.linha?' selected':'')+'>Linha: todas</option>'+
@@ -43533,6 +43540,21 @@ function ccExecutarBuscaMontaCom(){
   var t=String(_ccBuscaMontaComTexto||'').trim().toLowerCase();
   if(!t){el.innerHTML='';_ccBuscaMontaComResultados=[];return;}
   var dados=ccLoad();
+  // v115.1206 - BUG DE PERFORMANCE corrigido (achado pelo Vitor: lentidão
+  // na busca): pra cada item com montaCom, chamava pfInfoItemPorCodigo()
+  // que varre TODAS as ~985 peças de novo -- multiplicando pra milhões de
+  // comparações por tecla. Agora monta um índice código->item UMA vez só
+  // (O(n)), e usa lookup O(1) no lugar de pfInfoItemPorCodigo() dentro do
+  // laço.
+  var indice={};
+  Object.keys(CC_NOME_SINGULAR).forEach(function(chave){
+    (dados[chave]||[]).forEach(function(it){
+      if(!it)return;
+      if(it.codigo)indice[it.codigo]={familia:CC_NOME_SINGULAR[chave],item:it,listaChave:chave};
+      if(it.similar)indice[it.similar]={familia:CC_NOME_SINGULAR[chave],item:it,listaChave:chave};
+      if(it.substitui)indice[it.substitui]={familia:CC_NOME_SINGULAR[chave],item:it,listaChave:chave};
+    });
+  });
   var resultados=[];
   Object.keys(CC_NOME_SINGULAR).forEach(function(chave){
     var lista=dados[chave]||[];
@@ -43548,11 +43570,16 @@ function ccExecutarBuscaMontaCom(){
       var bate=[];
       it.montaCom.forEach(function(mc){
         var todos=[mc];
-        var info=pfInfoItemPorCodigo(mc);
+        var info=indice[mc];
         if(info&&info.item){
           var eq=info.item.substitui||info.item.similar;
           if(eq&&todos.indexOf(eq)<0)todos.push(eq);
-          (info.irmaos||[]).forEach(function(irmao){ if(todos.indexOf(irmao.codigo)<0)todos.push(irmao.codigo); });
+          var equivalenteItRef=info.item.substitui||info.item.similar;
+          if(equivalenteItRef){
+            (dados[info.listaChave]||[]).forEach(function(o){
+              if(o&&o.codigo!==info.item.codigo&&(o.substitui||o.similar)===equivalenteItRef&&todos.indexOf(o.codigo)<0) todos.push(o.codigo);
+            });
+          }
         }
         var achado=todos.filter(function(x){return String(x||'').toLowerCase().indexOf(t)!==-1;});
         achado.forEach(function(a){ if(bate.indexOf(a)<0)bate.push(a); });
@@ -45113,7 +45140,7 @@ function rolRender(){
     '<div style="font-size:12px;color:var(--pf-text-muted);margin-bottom:16px">Catálogo com equivalências entre marcas — filtre pelo código que o cliente passou e/ou pelas medidas tiradas com paquímetro.</div>'+
     '<div style="background:var(--pf-sidebar-bg);border:1px solid var(--pf-sidebar-border);border-radius:8px;padding:16px 18px;max-width:920px">'+
       '<div style="margin-bottom:10px">'+
-        '<input placeholder="Buscar por código (ex: GYE30-KRR-B-AS2/V, UC206, 4T-3980/3920...)" value="'+pfEscHtml(_rolFiltro.codigo||'')+'" oninput="_rolFiltro.codigo=this.value;rolExecutarBuscaUnificada();" style="width:100%;font-size:13px;padding:8px 10px;border:1px solid var(--pf-border);border-radius:6px;background:var(--pf-bg);color:var(--pf-text)">'+
+        '<input placeholder="Buscar por código (ex: GYE30-KRR-B-AS2/V, UC206, 4T-3980/3920...)" value="'+pfEscHtml(_rolFiltro.codigo||'')+'" oninput="rolBuscaCodigoDebounced(this.value)" style="width:100%;font-size:13px;padding:8px 10px;border:1px solid var(--pf-border);border-radius:6px;background:var(--pf-bg);color:var(--pf-text)">'+
       '</div>'+
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">'+
         '<input placeholder="Interno (mm)" type="number" value="'+pfEscHtml(_rolFiltroMedida.furo||'')+'" oninput="_rolFiltroMedida.furo=this.value;rolExecutarBuscaUnificada();" style="font-size:12px;padding:6px 8px;border:1px solid var(--pf-border);border-radius:6px;background:var(--pf-bg);color:var(--pf-text)">'+
@@ -45283,6 +45310,16 @@ function rolMontarCardItem(it, dim, comp, mostrarEquivalencias){
     equivHtml+
   '</div>';
 }
+// v115.1207 - A pedido do Vitor: filtro por texto agora roda SEMPRE
+// (não só quando não achava nada), o que deixou cada busca mais pesada
+// (~100ms em média, medido). Debounce de 180ms (mesmo padrão já usado em
+// Componentes Cardan) pra não travar digitando rápido.
+var _rolBuscaCodigoTimer=null;
+function rolBuscaCodigoDebounced(v){
+  _rolFiltro.codigo=v;
+  clearTimeout(_rolBuscaCodigoTimer);
+  _rolBuscaCodigoTimer=setTimeout(rolExecutarBuscaUnificada,180);
+}
 function rolExecutarBuscaUnificada(){
   var elL=document.getElementById('rolListaResultado');
   var elD=document.getElementById('rolPainelResumo');
@@ -45342,12 +45379,11 @@ function rolExecutarBuscaUnificada(){
       addResultado(eq, dimEq, true, false);
       achouViaEquivalencia=true;
     });
-    // v115.1185 - A pedido do Vitor: enquanto o código digitado ainda não
-    // "fecha" num código reconhecido (ex: "302", "3020" no meio da
-    // digitação), filtra por texto simples no catálogo -- narrow igual um
-    // filtro de verdade, em vez de mostrar "nada encontrado" até
-    // completar o código certo.
-    if(!achouViaEquivalencia && cod.length>=2){
+    // v115.1207 - A pedido do Vitor (reclamação direta: "isso é um
+    // filtro!"): antes só rodava a busca por texto quando a equivalência
+    // não achava NADA. Agora roda SEMPRE junto, filtro de verdade, sem
+    // trocar de "modo" dependendo do que a equivalência resolveu.
+    if(cod.length>=2){
       var codNorm=cod.toUpperCase().replace(/\s+/g,'');
       var vistosSubstr={};
       var contadorSubstr=0;
@@ -45406,7 +45442,7 @@ function rolExecutarBuscaUnificada(){
   });
 
   if(!lista.length){
-    elL.innerHTML='<div style="font-size:12px;color:var(--pf-text-muted);padding:8px 0">Nenhum item bate com esse código/medida no estoque.'+(temMedida?' Cobertura de medida hoje só cobre esferas (60/62/63xx), rolete cilíndrico (NUxxx), cônico (302xx) e esférico (222xx) — outros tipos ainda não têm tabela.':' Se você souber o tipo/medida real, me avisa que eu ajusto a regra.')+'</div>';
+    elL.innerHTML='<div style="font-size:12px;color:var(--pf-text-muted);padding:8px 0">Nenhum item bate com esse código/medida no catálogo.'+(temMedida?' Cobertura de medida hoje só cobre esferas (60/62/63xx), rolete cilíndrico (NUxxx), cônico (302xx) e esférico (222xx) — outros tipos ainda não têm tabela.':' Se você souber o tipo/medida real, me avisa que eu ajusto a regra.')+'</div>';
     return;
   }
 
@@ -45430,18 +45466,32 @@ function rolExecutarBuscaUnificada(){
     htmlCards+=rolMontarCardItem(x.it, x.dim, x.comp, false);
   });
   if(outros.length){
-    if(temCod && !achouViaEquivalencia){
-      htmlCards+='<div style="font-size:11px;color:var(--pf-text-muted);margin:6px 0 2px">Continue digitando pra achar o código certo — essas batem só o texto parcial:</div>';
+    if(temCod){
+      htmlCards+='<div style="font-size:11px;color:var(--pf-text-muted);margin:6px 0 2px">Outros itens que batem com o texto digitado:</div>';
     }
     outros.forEach(function(x){
       htmlCards+=rolMontarCardItem(x.it, x.dim, null, false);
     });
   }
 
+  var bannerPedido='';
+  if(perfilPedido && perfilPedido.sufixoConicoEspecial && !_rolDetalhesOcultos){
+    var sufP=perfilPedido.sufixoConicoEspecial;
+    bannerPedido='<div style="background:var(--pf-nav-hover);border-radius:8px;padding:12px 14px;margin-bottom:10px;font-size:13px;color:var(--pf-text)">'+
+      '<div style="margin-bottom:6px"><b>Você buscou "'+pfEscHtml(cod)+'"</b> — sufixo '+sufP.sufixo+': '+pfEscHtml(sufP.descricao)+'</div>'+
+      (['B','X','U'].indexOf(sufP.sufixo)>=0 ? (function(){
+        var idDiagP='_rolDiagPedido'+(_rolDiagramaContador++);
+        return '<button onclick="var el=document.getElementById(\''+idDiagP+'\');el.style.display=el.style.display===\'none\'?\'block\':\'none\';" style="background:none;border:1px solid var(--pf-border);color:var(--pf-accent);border-radius:6px;padding:6px 12px;font-size:13px;cursor:pointer">🖼 Ver diagrama B/X/U</button>'+
+          '<div id="'+idDiagP+'" style="display:none;margin-top:8px"><img src="icons/rolete-conico-bxu.png" style="width:100%;border-radius:8px" alt="Diagrama comparando rolete cônico padrão, B, X e U"></div>';
+      })() : '')+
+    '</div>';
+  }
+
   elL.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">'+
     '<div style="font-size:12px;color:var(--pf-text-muted);font-weight:600">Encontrados ('+lista.length+')</div>'+
     '<button onclick="rolToggleDetalhes()" style="padding:4px 10px;border:1px solid var(--pf-border);border-radius:6px;background:var(--pf-sidebar-bg);color:var(--pf-accent);font-size:11px;cursor:pointer">'+(_rolDetalhesOcultos?'👁 Mostrar detalhes':'🙈 Ocultar detalhes')+'</button>'+
     '</div>'+
+    bannerPedido+
     '<div style="display:flex;flex-direction:column;gap:6px">'+htmlCards+'</div>';
 }
 function rolMontarCardConsolidado(grupo, codigoBuscado){

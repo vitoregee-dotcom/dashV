@@ -1497,7 +1497,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1187</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1188</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1592,7 +1592,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1187</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1188</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -44432,6 +44432,14 @@ function rolCatalogoCompleto(){
     return (it.familia||'').toUpperCase()==='ROLAMENTOS';
   });
 }
+// v115.1188 - A pedido do Vitor: trata B/U/X do rolete cônico (302xx) como
+// variantes do MESMO rolamento pra fins de equivalência (a letra muda a
+// aplicação, não a peça em si) -- sem misturar com o significado de B/X
+// pra gaiola de esferas (letras coincidem, significados diferentes).
+function rolCoreParaComparacao(core){
+  if(/^302\d{2}[BXU]$/.test(core)) return core.slice(0,-1);
+  return core;
+}
 function rolBuscarEquivalentes(codigoDigitado){
   var parsed=rolNormalizarCodigo(codigoDigitado);
   var catalogo=rolCatalogoCompleto();
@@ -44442,12 +44450,13 @@ function rolBuscarEquivalentes(codigoDigitado){
   });
 
   var tipoAlvo = itemExato ? rolTipoDesc(itemExato.desc) : null;
+  var coreAlvo = rolCoreParaComparacao(parsed.core);
 
   var candidatos=catalogo.map(function(it){
     return {it:it, p:rolNormalizarCodigo(it.ref)};
   }).filter(function(x){
     if(!x.p.core || x.p.core.length<2) return false;
-    if(x.p.core!==parsed.core) return false;
+    if(rolCoreParaComparacao(x.p.core)!==coreAlvo) return false;
     if(tipoAlvo && rolTipoDesc(x.it.desc)!==tipoAlvo) return false;
     return true;
   });
@@ -44658,15 +44667,21 @@ function rolDetectarSufixoConicoEspecial(raw, serie){
 }
 function rolPerfilCompleto(codigo){
   var p = rolNormalizarCodigo(codigo);
+  var sb=rolDetectarSerieBore(p.raw) || rolDetectarSerieBore(p.core);
+  p.sufixoConicoEspecial = sb ? rolDetectarSufixoConicoEspecial(p.raw, sb.serie) : null;
+  // v115.1188 - BUG corrigido (achado pelo Vitor): "B"/"X" também existem
+  // nas listas de gaiola de esferas (poliamida/aço segmentada) e colavam
+  // por acidente em rolete cônico série 302, dizendo gaiola errada pra
+  // uma letra que ali significa outra coisa (ângulo/carga). Suprime a
+  // leitura de gaiola nesse caso -- quem explica é sufixoConicoEspecial.
+  var contaminacaoGaiolaConico = sb && sb.serie==='302' && p.gaiolaSufixo && (p.gaiolaSufixo.token==='B' || p.gaiolaSufixo.token==='X');
   // v115.1162 - gaiola por sufixo agora vem direto do laço unificado
   // (p.gaiolaSufixo), não depende mais de separador entre sufixos.
-  p.gaiola = p.gaiolaSufixo || rolInferirGaiolaPadrao(p.core); // fallback: padrão por tamanho, sem sufixo
+  p.gaiola = contaminacaoGaiolaConico ? null : (p.gaiolaSufixo || rolInferirGaiolaPadrao(p.core)); // fallback: padrão por tamanho, sem sufixo
   p.anelRetencao = rolDetectarAnelRetencao(p.raw);
   p.configAneis = rolDetectarConfigAneis(p.raw);
   p.cargaVelocidade = rolBuscarCargaVelocidade(p.raw);
   p.materialVedacao = rolDetectarMaterialVedacao(p.vitonAchado, !!p.vedacao);
-  var sb=rolDetectarSerieBore(p.raw) || rolDetectarSerieBore(p.core);
-  p.sufixoConicoEspecial = sb ? rolDetectarSufixoConicoEspecial(p.raw, sb.serie) : null;
   return p;
 }
 

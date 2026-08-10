@@ -1497,7 +1497,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1192</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1193</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1592,7 +1592,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1192</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">v115.1193</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -44352,12 +44352,20 @@ function rolNormalizarCodigo(codigoBruto){
   var folgaTokens=Object.keys(ROL_FOLGA_MAP);
   var gaiolaTokensTodos=ROL_GAIOLA_ACO.concat(ROL_GAIOLA_BRONZE,ROL_GAIOLA_POLIAMIDA,ROL_GAIOLA_ACO_SEGMENTADA);
   var core=semPrefixo;
-  var vedacaoAchada='', folgaAchada='', gaiolaAchada=null, vitonAchado=false, anelRetencaoAchado='';
+  var vedacaoAchada='', folgaAchada='', gaiolaAchada=null, vitonAchado=false, anelRetencaoAchado='', construcaoInternaAchada='';
   // v115.1192 - BUG corrigido (achado pelo Vitor: 6206N não achava 6206NR):
   // anel de retenção (N/NR) nunca entrava no corte do núcleo -- mesma
   // classe de bug já corrigida pra vedação/folga/gaiola, só que esse
   // ficou de fora até agora.
-  var sufixosCorte=todosTokens.concat(folgaTokens,gaiolaTokensTodos,['K30','K','NR','N']).sort(function(a,b){return b.length-a.length;});
+  // v115.1193 - Auditoria sistêmica pedida pelo Vitor (rodei nos 9330
+  // itens reais, agrupando por número base): achado sufixo A/C/D/E
+  // sozinho recorrente (ex: 208 vs 208C), nunca reconhecido. Fonte
+  // confirmada (distribuidor Rocril): "A/B/C/D/E = construção interna
+  // diferente e modificada" -- NÃO é seguro tratar como item idêntico
+  // (diferente de vedação/folga/gaiola, que são intercambiáveis com
+  // segurança). Corta pro núcleo achar o grupo, mas marca como
+  // "com ressalva" no motor de comparação, nunca como equivalente puro.
+  var sufixosCorte=todosTokens.concat(folgaTokens,gaiolaTokensTodos,['K30','K','NR','N','A','C','D','E']).sort(function(a,b){return b.length-a.length;});
   var mudou=true, guard=0;
   while(mudou && guard<15){
     mudou=false; guard++;
@@ -44379,6 +44387,7 @@ function rolNormalizarCodigo(codigoBruto){
           else if(ROL_GAIOLA_ACO.indexOf(sx)>=0) gaiolaAchada={material:'aço', token:sx};
         }
         if(!anelRetencaoAchado && (sx==='N'||sx==='NR')) anelRetencaoAchado=sx;
+        if(!construcaoInternaAchada && (sx==='A'||sx==='C'||sx==='D'||sx==='E')) construcaoInternaAchada=sx;
         core=core.slice(0,-sx.length);
         mudou=true;
         break; // v115.1163 - corrigido: sem o break, o mesmo laço continuava
@@ -44393,6 +44402,7 @@ function rolNormalizarCodigo(codigoBruto){
   out.folga=folgaAchada;
   out.gaiolaSufixo=gaiolaAchada; // usado por rolPerfilCompleto, prioridade sobre a inferência por tamanho
   out.anelRetencaoSufixo=anelRetencaoAchado||null;
+  out.construcaoInterna=construcaoInternaAchada||null;
   out.vitonAchado=vitonAchado;
   out.core=core;
 
@@ -44803,10 +44813,19 @@ function rolCompararPerfis(pedido, candidato){
     }
   }
 
+  // 7) Construção interna (A/C/D/E) — v115.1193: não é seguro tratar como
+  // idêntico (fonte: "A/B/C/D/E = construção interna diferente e
+  // modificada"). Sempre marca ressalva quando difere, nunca bloqueia
+  // (não temos dado suficiente pra saber se é incompatível de verdade).
+  if(pedido.construcaoInterna !== candidato.construcaoInterna){
+    status='compativel_ressalva';
+    var pTxt=pedido.construcaoInterna?'sufixo '+pedido.construcaoInterna:'padrão (sem sufixo)';
+    var cTxt=candidato.construcaoInterna?'sufixo '+candidato.construcaoInterna:'padrão (sem sufixo)';
+    motivos.push('Construção interna diferente (pedido '+pTxt+', esse candidato '+cTxt+') — pode ter diferença real de projeto, confirme antes de garantir 100%.');
+  }
+
   return {status:status, motivos:motivos};
 }
-
-// PF_ROL_DIM_TABLE: furo(codigo 2 digitos) -> {od, w} por série.
 // Fonte: bearingworks.com (6000/6200/6300 series) + BKZ Industry (NU2xx),
 // tabelas ISO 15/DIN 625 padrão internacional.
 var PF_ROL_DIM_TABLE = {

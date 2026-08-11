@@ -1512,7 +1512,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1231</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1232</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1607,7 +1607,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1231</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1232</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -45801,6 +45801,22 @@ function rolExecutarBuscaUnificada(){
   var comRessalva=lista.filter(function(x){ return x.comp && x.comp.status==='compativel_ressalva'; });
   var outros=lista.filter(function(x){ return !x.viaCod && !x.comp; }); // medida e/ou texto parcial
 
+  // v115.1232 - A pedido do Vitor (caso 32011 vs 32011XM -- Timken/NTN):
+  // quando a ÚNICA ressalva é "gaiola não confirmada" (não uma DIFERENÇA
+  // confirmada, só falta de dado sobre o candidato), o item não é
+  // realmente "diferente" do pedido -- é a MESMA peça, só sem dado de
+  // gaiola cadastrado. Faz mais sentido juntar no card principal (mantendo
+  // o aviso, agora como ⚠ no chip) do que separar como se fosse peça
+  // distinta. As outras ressalvas (folga/vedação/furo cônico/sufixo etc,
+  // que são diferenças CONFIRMADAS) continuam separadas, sem mudança.
+  var gaiolaIncerta=comRessalva.filter(function(x){
+    return x.comp.motivos.length===1 && x.comp.motivos[0].indexOf('não consegui confirmar a gaiola')>=0;
+  });
+  if(gaiolaIncerta.length){
+    equivalentesPuros=equivalentesPuros.concat(gaiolaIncerta);
+    comRessalva=comRessalva.filter(function(x){return gaiolaIncerta.indexOf(x)<0;});
+  }
+
   var htmlCards='';
   if(equivalentesPuros.length){
     htmlCards+=rolMontarCardConsolidado(equivalentesPuros, temCod?cod:null);
@@ -45883,7 +45899,10 @@ function rolMontarCardConsolidado(grupo, codigoBuscado, compCompartilhado){
   }
   var perfilPrincipal=rolPerfilCompleto(principal.it.ref);
   var chips=outros.map(function(x){
-    return '<span style="background:var(--pf-nav-hover);color:var(--pf-text);font-size:13px;padding:4px 10px;border-radius:6px">'+pfEscHtml(x.it.ref)+' · '+pfEscHtml(x.it.marca||'')+'</span>';
+    // v115.1232 - se o item carrega ressalva de gaiola não confirmada
+    // (mesclado no grupo principal agora), mostra ⚠ com o texto no title.
+    var aviso=(x.comp&&x.comp.motivos&&x.comp.motivos.length)?(' <span title="'+pfEscHtml(x.comp.motivos.join(' '))+'">⚠️</span>'):'';
+    return '<span style="background:var(--pf-nav-hover);color:var(--pf-text);font-size:13px;padding:4px 10px;border-radius:6px">'+pfEscHtml(x.it.ref)+' · '+pfEscHtml(x.it.marca||'')+aviso+'</span>';
   });
   // v115.1159 - inclui o código que o cliente passou como chip "buscado",
   // mesmo quando ele não existe literalmente no estoque -- deixa claro

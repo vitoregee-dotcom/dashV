@@ -1512,7 +1512,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1218</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1219</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1607,7 +1607,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1218</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1219</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -32410,13 +32410,21 @@ var PF_CATALOGO_UNICO_KEYS = ['componentes_cardan_v1', 'retentores_v1', 'mapas_l
   // que a planilha tinha sido importada. Agora é dado único da empresa,
   // igual mapas_lista_v1/etc -- qualquer aparelho, de qualquer usuário,
   // enxerga o mesmo estado de "já avisado".
-  'pfComprasAtivos','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos'];
+  'pfComprasAtivos'];
 async function pfSyncPull(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   try{
     // Chaves compartilhadas entre usuários — puxar de TODOS os usuários
-    var sharedKeys = ['cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'timken_interchange_v1', 'pfComprasAtivos','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos'];
-    var logKeys = ['ia_uso_log_v1','pf_login_log_v1'];
+    var sharedKeys = ['cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'timken_interchange_v1', 'pfComprasAtivos'];
+    // v115.1219 - BUG corrigido (a pedido do Vitor, e-mails duplicados do
+    // mesmo item em horários próximos): pfComprasEventos/pfFaturadosEventos/
+    // pfChegadasEventos/pfSolicitadosEventos são LOGS (uma entrada por
+    // evento, de qualquer aparelho) -- estavam na lista de chaves
+    // compartilhadas normais, que só pega a versão mais recente de UM
+    // aparelho, perdendo os registros de qualquer outro que tenha gravado
+    // por perto. Movidas pra cá (mesmo tratamento do log de uso/login),
+    // que junta os registros de todos os aparelhos em vez de sobrescrever.
+    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos'];
     var rows = [];
 
     // v115.765 - Antes eram 13 requisições ao Supabase em SEQUÊNCIA (1 do
@@ -32469,10 +32477,17 @@ async function pfSyncPull(){
           // Junta os arrays de todo mundo numa entrada só, pra passar pelo
           // merge por timestamp que já existe mais abaixo
           var todosRegistros=[];
+          var vistosDedup={};
           logRows.forEach(function(lr){
             try{
               var arr=typeof lr.dados==='string'?JSON.parse(lr.dados):lr.dados;
-              if(Array.isArray(arr))todosRegistros=todosRegistros.concat(arr);
+              if(Array.isArray(arr))arr.forEach(function(ev){
+                // v115.1219 - dedup: o mesmo evento pode chegar mais de uma vez
+                // (cada aparelho carrega uma cópia acumulada, sync repetido
+                // duplicaria) -- chave única por ref+marca+data exata.
+                var chaveDedup=(ev&&ev.ref)+'||'+(ev&&ev.marca)+'||'+(ev&&ev.data);
+                if(!vistosDedup[chaveDedup]){vistosDedup[chaveDedup]=true;todosRegistros.push(ev);}
+              });
             }catch(eParseLog){}
           });
           var idxExistente=rows.findIndex(function(r){return r.chave===lk;});
@@ -39106,6 +39121,25 @@ function pfComprasAutoVerificar(){
     localStorage.setItem('pfComprasEscopoAmpliadoSemeado','1');
     return;
   }
+  // v115.1219 - BUG corrigido (a pedido do Vitor, achou vários e-mails
+  // duplicados do mesmo item em horários próximos): agora que
+  // pfComprasAtivos sincroniza entre aparelhos (v115.1199), existe corrida
+  // -- dois aparelhos podem checar quase juntos, cada um vendo o item como
+  // "novo" antes de saber que o outro já avisou, e cada um dispara seu
+  // próprio e-mail. Rede de segurança: antes de avisar, filtra qualquer
+  // item que já apareceu no log de eventos (qualquer aparelho, já
+  // sincronizado) nas últimas 6h com a mesma ref+marca -- se já foi
+  // avisado recentemente por qualquer um, não avisa de novo.
+  function pfComprasJaAvisadoRecente(logKey, ref, marca){
+    var log=[];try{log=JSON.parse(localStorage.getItem(logKey)||'[]');}catch(e){}
+    var limite=Date.now()-6*60*60*1000;
+    return log.some(function(ev){
+      return ev.ref===ref&&ev.marca===marca&&new Date(ev.data).getTime()>limite;
+    });
+  }
+  novosComprados=novosComprados.filter(function(c){return !pfComprasJaAvisadoRecente('pfComprasEventos',c.ref,c.marca);});
+  faturados=faturados.filter(function(c){return !pfComprasJaAvisadoRecente('pfFaturadosEventos',c.ref,c.marca);});
+  chegadas=chegadas.filter(function(c){return !pfComprasJaAvisadoRecente('pfChegadasEventos',c.ref,c.marca);});
   if(novosComprados.length){
     var log=[];
     try{log=JSON.parse(localStorage.getItem('pfComprasEventos')||'[]');}catch(e){}

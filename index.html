@@ -1512,7 +1512,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1245</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1246</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1607,7 +1607,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1245</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1246</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -32513,7 +32513,11 @@ async function pfSyncPull(){
                 // v115.1219 - dedup: o mesmo evento pode chegar mais de uma vez
                 // (cada aparelho carrega uma cópia acumulada, sync repetido
                 // duplicaria) -- chave única por ref+marca+data exata.
-                var chaveDedup=(ev&&ev.ref)+'||'+(ev&&ev.marca)+'||'+(ev&&ev.data);
+                // v115.1246 - corrigido pra usar o "id" quando existir (caso
+                // do pfPendenciasAdmin, que não tem ref/marca -- usar só
+                // "undefined||undefined||data" arriscava colidir e perder
+                // pendência de verdade em certos casos).
+                var chaveDedup=ev&&ev.id?('id:'+ev.id):((ev&&ev.ref)+'||'+(ev&&ev.marca)+'||'+(ev&&ev.data));
                 if(!vistosDedup[chaveDedup]){vistosDedup[chaveDedup]=true;todosRegistros.push(ev);}
               });
             }catch(eParseLog){}
@@ -46602,6 +46606,19 @@ function pfPendenciasNavigate(){
   var _splash=document.getElementById('pfHomeSplash');if(_splash)_splash.style.display='none';
   currentView='pf_pendencias';
   pfPendenciasRender();
+  // v115.1246 - BUG corrigido (achado pelo Vitor: pendência salva em outro
+  // aparelho não aparecia -- "nenhuma pendência salva ainda" mesmo tendo
+  // salvo antes): a tela renderizava só com o que já estava em
+  // localStorage NESSE aparelho, sem esperar a sincronização com o
+  // Supabase terminar (corrida: se abrir rápido, ou for a primeira vez
+  // nesse navegador, o pull ainda não chegou). Agora força um pull e
+  // renderiza de novo assim que ele terminar, sem travar a tela enquanto
+  // isso (mostra o que já tem, e completa se vier mais coisa).
+  if(typeof pfSyncPull==='function'){
+    pfSyncPull().then(function(){
+      if(currentView==='pf_pendencias') pfPendenciasRender();
+    }).catch(function(e){ console.warn('pfPendenciasNavigate: pull falhou', e); });
+  }
 }
 function pfPendenciasRender(){
   var view=document.getElementById('pfPendenciasView');

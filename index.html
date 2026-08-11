@@ -1512,7 +1512,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1220</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1221</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1607,7 +1607,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1220</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1221</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -44890,6 +44890,19 @@ function rolDetectarSufixoConicoEspecial(raw, serie){
   if(/A$/.test(s)) return {sufixo:'A', descricao:'Sufixo real da Timken, mas o significado varia (pode ser padrão OU furo/diâmetro/raio diferente do básico). Confira o desenho técnico antes de garantir que serve.', ambiguo:true};
   return null;
 }
+// v115.1221 - Sufixo CL7C/DF/VA -- diferente de B/X/U/A/S/AS (que são só
+// da série 302), esses valem pra série de rolete cônico INTEIRA (302,
+// 303, 313, 322 etc), então não filtra por série. Fonte: catálogo
+// oficial SKF (designações suplementares) + confirmado com o Vitor.
+function rolDetectarSufixoQualidadePar(raw){
+  var s=String(raw||'').toUpperCase().replace(/\s+/g,'');
+  if(/CL7CDF$/.test(s)) return {sufixo:'CL7CDF', descricao:'Padrão de qualidade atual pra pinhão (CL7C), já vendido como PAR MONTADO face a face — não é peça avulsa, vem calibrado de fábrica em conjunto de 2.'};
+  if(/CL7C$/.test(s)) return {sufixo:'CL7C', descricao:'Padrão de qualidade atual da SKF pra montagem em pinhão (substituiu o CL7A antigo). Não muda medida, é o nível de precisão de fabricação.'};
+  if(/CL7A$/.test(s)) return {sufixo:'CL7A', descricao:'Padrão de qualidade ANTERIOR da SKF pra pinhão — foi substituído pelo CL7C, mas ainda aparece em estoque/catálogo antigo.'};
+  var vaMatch=s.match(/VA(\d+)$/);
+  if(vaMatch) return {sufixo:'VA'+vaMatch[1], descricao:'Variação especial sob encomenda (código '+vaMatch[1]+') — cada número VA é um caso específico definido pela SKF pra um cliente/aplicação, não segue tabela geral. Confirme com a ficha técnica desse código antes de garantir substituição.', ambiguo:true};
+  return null;
+}
 // v115.1202 - A pedido do Vitor: rolete cônico Timken série polegada
 // (números tipo 332/334/353 etc, sem o padrão métrico 302xx) -- cone e
 // capa são peças FÍSICAS DIFERENTES que se combinam, não "equivalentes"
@@ -44925,6 +44938,9 @@ function rolPerfilCompleto(codigo){
   var p = rolNormalizarCodigo(codigo);
   var sb=rolDetectarSerieBore(p.raw) || rolDetectarSerieBore(p.core);
   p.sufixoConicoEspecial = sb ? rolDetectarSufixoConicoEspecial(p.raw, sb.serie) : null;
+  // v115.1221 - CL7C/DF/VA -- não depende de série (vale pra qualquer
+  // rolete cônico), então roda independente de ter achado sb ou não.
+  p.sufixoQualidadePar = rolDetectarSufixoQualidadePar(p.raw);
   // v115.1188 - BUG corrigido (achado pelo Vitor): "B"/"X" também existem
   // nas listas de gaiola de esferas (poliamida/aço segmentada) e colavam
   // por acidente em rolete cônico série 302, dizendo gaiola errada pra
@@ -45370,6 +45386,7 @@ function rolCaracteristicasHtml(p){
     linhas.push(['⚡','Rotação '+p.cargaVelocidade.rpm_graxa.toLocaleString('pt-BR')+' RPM']);
   }
   if(p.sufixoConicoEspecial) linhas.push(['🔧','Sufixo '+p.sufixoConicoEspecial.sufixo+': '+p.sufixoConicoEspecial.descricao]);
+  if(p.sufixoQualidadePar) linhas.push(['🔧','Sufixo '+p.sufixoQualidadePar.sufixo+': '+p.sufixoQualidadePar.descricao]);
   if(p.variantEconomica) linhas.push(['🌾','VA983 (SKF) — versão econômica, carga moderada, ótimo pra aplicação agrícola']);
   if(p.anguloContato25) linhas.push(['📐','Ângulo de contato 25° (sufixo B) — padrão da série é 32°']);
   if(p.construcaoInterna) linhas.push(['🔍','Construção interna: sufixo '+p.construcaoInterna+' (diferente do padrão)']);
@@ -45382,6 +45399,15 @@ function rolCaracteristicasHtml(p){
     var idDiag='_rolDiag'+(_rolDiagramaContador++);
     diagramaHtml='<button onclick="var el=document.getElementById(\''+idDiag+'\');el.style.display=el.style.display===\'none\'?\'block\':\'none\';" style="align-self:flex-start;margin-top:2px;background:none;border:1px solid var(--pf-border);color:var(--pf-accent);border-radius:6px;padding:8px 14px;font-size:15px;cursor:pointer">🖼 Ver diagrama B/X/U</button>'+
       '<div id="'+idDiag+'" style="display:none;margin-top:6px"><img src="icons/rolete-conico-bxu.png" style="width:100%;border-radius:8px" alt="Diagrama comparando rolete cônico padrão, B, X e U"></div>';
+  }
+  // v115.1221 - mesmo padrão do B/X/U -- diagrama pra CL7C/CL7CDF/CL7A,
+  // vale pra qualquer sufixo que comece com "CL7" (VA não tem diagrama
+  // ainda, cada código é um caso diferente, não daria pra ilustrar um
+  // conceito único).
+  if(p.sufixoQualidadePar && p.sufixoQualidadePar.sufixo.indexOf('CL7')===0){
+    var idDiag2='_rolDiag'+(_rolDiagramaContador++);
+    diagramaHtml+='<button onclick="var el=document.getElementById(\''+idDiag2+'\');el.style.display=el.style.display===\'none\'?\'block\':\'none\';" style="align-self:flex-start;margin-top:2px;background:none;border:1px solid var(--pf-border);color:var(--pf-accent);border-radius:6px;padding:8px 14px;font-size:15px;cursor:pointer">🖼 Ver diagrama CL7C/DF</button>'+
+      '<div id="'+idDiag2+'" style="display:none;margin-top:6px"><img src="icons/rolete-conico-cl7c-df.png" style="width:100%;border-radius:8px" alt="Diagrama comparando qualidade CL7C e par montado DF"></div>';
   }
   return '<div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">'+
     linhas.map(function(l){return '<div style="display:flex;align-items:center;gap:7px;font-size:16px;color:var(--pf-text)"><span>'+l[0]+'</span><span>'+pfEscHtml(l[1])+'</span></div>';}).join('')+

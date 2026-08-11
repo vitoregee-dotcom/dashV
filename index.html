@@ -1512,7 +1512,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1243</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1244</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1607,7 +1607,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1243</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1244</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -39948,10 +39948,19 @@ function pfAvisosAtualizar(){
 // grande (até 50 itens), filtro ajuda a achar rápido.
 var _pfAvisosFiltroMarca='';
 var _pfAvisosFiltroFamilia='';
+var _pfAvisosFiltroTexto='';
 var _pfAvisosEtapaAtual='';
 function pfAvisosSetFiltro(campo,valor){
   if(campo==='marca')_pfAvisosFiltroMarca=valor; else _pfAvisosFiltroFamilia=valor;
   pfAvisosAbrirPainel(_pfAvisosEtapaAtual);
+}
+// v115.1244 - debounce 180ms (mesmo padrão dos outros campos de busca do
+// sistema) pra não travar digitando rápido.
+var _pfAvisosBuscaTextoTimer=null;
+function pfAvisosBuscaTextoDebounced(v){
+  _pfAvisosFiltroTexto=v;
+  clearTimeout(_pfAvisosBuscaTextoTimer);
+  _pfAvisosBuscaTextoTimer=setTimeout(function(){ pfAvisosAbrirPainel(_pfAvisosEtapaAtual); },180);
 }
 // v115.1238 - BUG corrigido (a pedido do Vitor: "59.9999999999997 un."):
 // erro clássico de ponto flutuante (subtração de floats em JS às vezes
@@ -39979,7 +39988,10 @@ function pfBuscarFamiliaCatalogoCompleto(){
   var indice={};
   rows.forEach(function(it){
     if(!it||!it.familia) return;
-    var chave=(it.ref||'').toUpperCase()+'|'+(it.marca||'').toUpperCase();
+    // v115.1244 - reforço contra espaço em branco sobrando no código/marca
+    // (comum em dado real de planilha) -- sem isso, a chave não batia
+    // mesmo quando o item existia no catálogo carregado.
+    var chave=String(it.ref||'').trim().toUpperCase()+'|'+String(it.marca||'').trim().toUpperCase();
     if(!indice[chave]) indice[chave]=it.familia;
   });
   return indice;
@@ -39993,7 +40005,7 @@ function pfAvisosPreencherFamiliaRetroativo(logChave){
   var mudou=false;
   log.forEach(function(x){
     if(x.familia) return;
-    var chave=(x.ref||'').toUpperCase()+'|'+(x.marca||'').toUpperCase();
+    var chave=String(x.ref||'').trim().toUpperCase()+'|'+String(x.marca||'').trim().toUpperCase();
     if(indice[chave]){ x.familia=indice[chave]; mudou=true; }
   });
   if(mudou){
@@ -40007,8 +40019,12 @@ function pfAvisosMontarListaComFiltro(titulo,cor,logChave,linhaExtraFn){
   var log=[];try{log=JSON.parse(localStorage.getItem(logChave)||'[]');}catch(e){}
   var marcas=Array.from(new Set(log.map(function(x){return x.marca;}).filter(Boolean))).sort();
   var familias=Array.from(new Set(log.map(function(x){return x.familia;}).filter(Boolean))).sort();
+  var textoBusca=(_pfAvisosFiltroTexto||'').trim().toLowerCase();
   var filtrado=log.filter(function(x){
-    return (!_pfAvisosFiltroMarca||x.marca===_pfAvisosFiltroMarca)&&(!_pfAvisosFiltroFamilia||x.familia===_pfAvisosFiltroFamilia);
+    var passaMarcaFamilia=(!_pfAvisosFiltroMarca||x.marca===_pfAvisosFiltroMarca)&&(!_pfAvisosFiltroFamilia||x.familia===_pfAvisosFiltroFamilia);
+    if(!passaMarcaFamilia) return false;
+    if(!textoBusca) return true;
+    return (String(x.ref||'').toLowerCase().indexOf(textoBusca)>=0) || (String(x.desc||'').toLowerCase().indexOf(textoBusca)>=0);
   });
   var contagemTxt=filtrado.length+(filtrado.length!==log.length?' de '+log.length:'');
   // v115.1237 - A pedido do Vitor: fonte desse painel aumentada (estava
@@ -40031,6 +40047,12 @@ function pfAvisosMontarListaComFiltro(titulo,cor,logChave,linhaExtraFn){
         marcas.map(function(m){return '<option value="'+pfEscHtml(m)+'"'+(_pfAvisosFiltroMarca===m?' selected':'')+'>'+pfEscHtml(m)+'</option>';}).join('')+
       '</select>'+
     '</div>';
+  }
+  // v115.1244 - A pedido do Vitor: busca por código ou descrição, embaixo
+  // dos filtros de marca/família, com debounce igual os outros campos
+  // de busca do sistema.
+  if(log.length>1){
+    html+='<input placeholder="Buscar por código ou descrição" value="'+pfEscHtml(_pfAvisosFiltroTexto||'')+'" oninput="pfAvisosBuscaTextoDebounced(this.value)" style="width:100%;font-size:13px;padding:6px 8px;border:1px solid var(--pf-border);border-radius:5px;background:var(--pf-bg);color:var(--pf-text);margin-bottom:10px;box-sizing:border-box">';
   }
   if(!log.length){
     html+='<div style="font-size:14px;color:var(--pf-text-muted)">Nada por aqui.</div>';

@@ -1512,7 +1512,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1246</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1247</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1607,7 +1607,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1246</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1247</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -46599,7 +46599,7 @@ function pfPendenciasNavigate(){
   // Técnica/etc, essas ficavam por cima/junto, dando a impressão de que
   // a área de Pendências não abriu. Usa a MESMA lista completa que
   // pfNavigate() usa em qualquer navegação do sistema.
-  ['dash','upSec','tabBar','mapaView','cadastrosView','ferramentasView','vendasView','solicitacoesView','comprasView','legPanel','logisticaView','areaTecnicaView'].forEach(function(id){
+  ['dash','upSec','tabBar','mapaView','cadastrosView','ferramentasView','vendasView','solicitacoesView','comprasView','legPanel','logisticaView','areaTecnicaView','pfPendenciasView'].forEach(function(id){
     var el=document.getElementById(id);
     if(el){ if(id==='dash')el.style.setProperty('display','none','important'); else el.style.display='none'; }
   });
@@ -46647,7 +46647,7 @@ function pfPendenciasRender(){
   html+='</div>';
   body.innerHTML=html;
 }
-var _pfPendCanvasCtx=null,_pfPendDesenhando=false,_pfPendCor='#D97757';
+var _pfPendCanvasCtx=null,_pfPendDesenhando=false,_pfPendCor='#D97757',_pfPendFerramenta='livre',_pfPendSnapshot=null;
 function pfPendenciasNovaAbrir(){
   var area=document.getElementById('pfPendenciaFormArea');
   if(!area)return;
@@ -46657,10 +46657,23 @@ function pfPendenciasNovaAbrir(){
     '📋 Cola aqui uma imagem (Ctrl+V) — ou deixa em branco se for só uma ideia em texto'+
     '<div id="pfPendCanvasWrap" style="display:none;margin-top:12px;position:relative"></div>'+
     '</div>'+
-    '<div id="pfPendFerramentas" style="display:none;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center">'+
-    '<span style="font-size:12px;color:var(--pf-text-muted)">Marcar:</span>'+
-    ['#D97757','#E63946','#2A9D8F','#264653','#FFD60A'].map(function(c){return '<button onclick="_pfPendCor=\''+c+'\'" style="width:22px;height:22px;border-radius:50%;background:'+c+';border:2px solid var(--pf-border);cursor:pointer"></button>';}).join('')+
-    '<button onclick="pfPendCanvasLimpar()" style="margin-left:8px;font-size:12px;background:none;border:1px solid var(--pf-border);border-radius:6px;padding:4px 10px;cursor:pointer;color:var(--pf-text)">🧹 Limpar marcações</button>'+
+    // v115.1247 - A pedido do Vitor ("capricha ai"): editor ganhou mais
+    // ferramentas além do desenho livre -- seta, retângulo e linha reta,
+    // além da cor. Cada ferramenta desenha uma prévia enquanto arrasta
+    // (usando um snapshot do canvas de antes do traço) e só "grava" de
+    // verdade no soltar o dedo/mouse.
+    '<div id="pfPendFerramentas" style="display:none;flex-direction:column;gap:8px;margin-bottom:10px">'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+
+        '<span style="font-size:12px;color:var(--pf-text-muted)">Ferramenta:</span>'+
+        [['livre','✏️ Livre'],['seta','↗️ Seta'],['retangulo','▭ Retângulo'],['linha','／ Linha']].map(function(t){
+          return '<button onclick="pfPendSetFerramenta(\''+t[0]+'\',this)" data-ferr="'+t[0]+'" style="font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--pf-border);background:'+(t[0]==='livre'?'var(--pf-accent)':'var(--pf-bg)')+';color:'+(t[0]==='livre'?'#fff':'var(--pf-text)')+';cursor:pointer">'+t[1]+'</button>';
+        }).join('')+
+      '</div>'+
+      '<div style="display:flex;gap:6px;align-items:center">'+
+        '<span style="font-size:12px;color:var(--pf-text-muted)">Cor:</span>'+
+        ['#D97757','#E63946','#2A9D8F','#264653','#FFD60A'].map(function(c){return '<button onclick="_pfPendCor=\''+c+'\'" style="width:22px;height:22px;border-radius:50%;background:'+c+';border:2px solid var(--pf-border);cursor:pointer"></button>';}).join('')+
+        '<button onclick="pfPendCanvasLimpar()" style="margin-left:8px;font-size:12px;background:none;border:1px solid var(--pf-border);border-radius:6px;padding:4px 10px;cursor:pointer;color:var(--pf-text)">🧹 Limpar marcações</button>'+
+      '</div>'+
     '</div>'+
     '<textarea id="pfPendDescricao" placeholder="Descreve o que você quer fazer/alterar..." style="width:100%;min-height:70px;padding:10px;border:1px solid var(--pf-border);border-radius:8px;background:var(--pf-bg);color:var(--pf-text);font-size:13px;resize:vertical"></textarea>'+
     '<div style="display:flex;gap:8px;margin-top:10px">'+
@@ -46668,7 +46681,27 @@ function pfPendenciasNovaAbrir(){
     '<button onclick="document.getElementById(\'pfPendenciaFormArea\').innerHTML=\'\'" style="background:none;border:1px solid var(--pf-border);color:var(--pf-text-muted);border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer">Cancelar</button>'+
     '</div></div>';
   window._pfPendImagemBase=null;
+  _pfPendFerramenta='livre';
   document.getElementById('pfPendDescricao').focus();
+}
+function pfPendSetFerramenta(nome,btnEl){
+  _pfPendFerramenta=nome;
+  var area=document.getElementById('pfPendFerramentas');
+  if(area)area.querySelectorAll('button[data-ferr]').forEach(function(b){
+    var ativo=b.getAttribute('data-ferr')===nome;
+    b.style.background=ativo?'var(--pf-accent)':'var(--pf-bg)';
+    b.style.color=ativo?'#fff':'var(--pf-text)';
+  });
+}
+function pfPendDesenharSeta(ctx,x1,y1,x2,y2){
+  var ang=Math.atan2(y2-y1,x2-x1),tam=14;
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-tam*Math.cos(ang-Math.PI/6),y2-tam*Math.sin(ang-Math.PI/6));
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-tam*Math.cos(ang+Math.PI/6),y2-tam*Math.sin(ang+Math.PI/6));
+  ctx.stroke();
 }
 function pfPendCarregarImagem(dataUrl){
   window._pfPendImagemBase=dataUrl;
@@ -46691,18 +46724,41 @@ function pfPendCarregarImagem(dataUrl){
       var cy=(e.touches?e.touches[0].clientY:e.clientY)-r.top;
       return {x:cx*(cv.width/r.width),y:cy*(cv.height/r.height)};
     };
+    var origem=null;
     cv.addEventListener('pointerdown',function(e){
       _pfPendDesenhando=true;
       var p=pegarPos(e);
-      ctx.beginPath();ctx.moveTo(p.x,p.y);
+      origem=p;
       ctx.strokeStyle=_pfPendCor;ctx.lineWidth=4;ctx.lineCap='round';ctx.lineJoin='round';
+      if(_pfPendFerramenta==='livre'){
+        ctx.beginPath();ctx.moveTo(p.x,p.y);
+      } else {
+        // v115.1247 - ferramentas de forma (seta/retângulo/linha) precisam
+        // de uma prévia que atualiza enquanto arrasta -- guarda o canvas
+        // de ANTES do traço pra poder "apagar" a prévia anterior a cada
+        // movimento, sem apagar o que já tinha sido desenhado antes.
+        _pfPendSnapshot=ctx.getImageData(0,0,cv.width,cv.height);
+      }
     });
     cv.addEventListener('pointermove',function(e){
       if(!_pfPendDesenhando)return;
       var p=pegarPos(e);
-      ctx.lineTo(p.x,p.y);ctx.stroke();
+      if(_pfPendFerramenta==='livre'){
+        ctx.lineTo(p.x,p.y);ctx.stroke();
+        return;
+      }
+      if(!_pfPendSnapshot||!origem)return;
+      ctx.putImageData(_pfPendSnapshot,0,0);
+      ctx.strokeStyle=_pfPendCor;ctx.lineWidth=4;ctx.lineCap='round';ctx.lineJoin='round';
+      if(_pfPendFerramenta==='seta'){
+        pfPendDesenharSeta(ctx,origem.x,origem.y,p.x,p.y);
+      } else if(_pfPendFerramenta==='linha'){
+        ctx.beginPath();ctx.moveTo(origem.x,origem.y);ctx.lineTo(p.x,p.y);ctx.stroke();
+      } else if(_pfPendFerramenta==='retangulo'){
+        ctx.strokeRect(origem.x,origem.y,p.x-origem.x,p.y-origem.y);
+      }
     });
-    ['pointerup','pointerleave'].forEach(function(ev){cv.addEventListener(ev,function(){_pfPendDesenhando=false;});});
+    ['pointerup','pointerleave'].forEach(function(ev){cv.addEventListener(ev,function(){_pfPendDesenhando=false;_pfPendSnapshot=null;origem=null;});});
   };
   img.src=dataUrl;
 }
@@ -46742,9 +46798,21 @@ function pfPendenciasSalvar(){
     data:new Date().toISOString()
   });
   localStorage.setItem(PF_PENDENCIAS_KEY,JSON.stringify(lista));
-  if(typeof pfSyncPush==='function')pfSyncPush([PF_PENDENCIAS_KEY]);
   document.getElementById('pfPendenciaFormArea').innerHTML='';
   pfPendenciasRender();
+  // v115.1247 - hipótese identificada na sessão anterior (não confirmada,
+  // mas corrigida por precaução): o envio pro Supabase era fire-and-
+  // forget, sem esperar terminar -- se o navegador fechasse ou a internet
+  // caísse logo depois de salvar, o dado ficava só local, sem avisar
+  // ninguém. Agora espera de verdade e avisa na tela se falhar (o dado já
+  // está salvo localmente de qualquer jeito, então nada se perde nesse
+  // aparelho -- só avisa que ainda não chegou nos outros).
+  if(typeof pfSyncPush==='function'){
+    pfSyncPush([PF_PENDENCIAS_KEY]).catch(function(e){
+      console.warn('pfPendenciasSalvar: sync falhou', e);
+      pfAlert('Pendência salva aqui, mas não conseguiu sincronizar com outros aparelhos agora (sem internet?). Vai tentar de novo sozinho.');
+    });
+  }
 }
 function pfPendenciasExcluir(id){
   if(!confirm('Excluir essa pendência?'))return;
@@ -49730,7 +49798,7 @@ function pfIrParaHome(){
   // ainda), o CSS ganhava a briga e o #upSec continuava visível por cima da
   // Home. Agora TODAS essas telas usam !important, igual já era feito só
   // pro dash.
-  ['dash','upSec','tabBar','mapaView','cadastrosView','ferramentasView','vendasView','solicitacoesView','comprasView','legPanel','logisticaView','areaTecnicaView'].forEach(function(id){
+  ['dash','upSec','tabBar','mapaView','cadastrosView','ferramentasView','vendasView','solicitacoesView','comprasView','legPanel','logisticaView','areaTecnicaView','pfPendenciasView'].forEach(function(id){
     var el=document.getElementById(id);
     if(el)el.style.setProperty('display','none','important');
   });
@@ -49775,7 +49843,7 @@ function pfNavigate(view){
   window.scrollTo(0,0);
   var pfMain=document.getElementById('pfMain');if(pfMain)pfMain.scrollTop=0;
   // Esconder TUDO primeiro - evitar residuos
-  ['dash','upSec','tabBar','mapaView','cadastrosView','ferramentasView','vendasView','solicitacoesView','comprasView','legPanel','logisticaView','areaTecnicaView'].forEach(function(id){
+  ['dash','upSec','tabBar','mapaView','cadastrosView','ferramentasView','vendasView','solicitacoesView','comprasView','legPanel','logisticaView','areaTecnicaView','pfPendenciasView'].forEach(function(id){
     var el=document.getElementById(id);
     if(el){ if(id==='dash')el.style.setProperty('display','none','important'); else el.style.display='none'; }
   });

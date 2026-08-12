@@ -1516,7 +1516,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1265</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1266</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1611,7 +1611,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1265</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1266</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -29222,6 +29222,52 @@ setInterval(function(){
 <script>
 // ═══ PRODUTOS ═══════════════════════════════════════════════════
 var PROD_KEY = 'cad_produtos_v1';
+// v115.1266 - migração: fotos/desenhos de produto já salvos ANTES dessa
+// correção estão crus em PNG, ocupando o espaço que já está cheio hoje --
+// corrigir só os salvamentos novos (cadUploadFoto/cadColarFotoProduto/
+// cadAddFotos) não libera isso. Recomprime as antigas (mesmo alvo: máx
+// 1000px, JPEG 78%) automaticamente ao carregar o app, em lotes pequenos
+// pra não travar a tela com um catálogo de milhares de itens -- pega o
+// resto aos poucos, numa sessão de cada vez, se sobrar muita coisa.
+function cadRecomprimirFotosProdutosExistentes(){
+  if(typeof pfComprimirImagemDataUrl!=='function')return;
+  var plist=cadLoad(PROD_KEY);
+  var alvos=[]; // {idx, campo, subIdx (só quando campo==='fotos')}
+  plist.forEach(function(p,idx){
+    if(p.foto&&p.foto.indexOf('data:image/png')===0&&p.foto.length>150000)alvos.push({idx:idx,campo:'foto'});
+    if(p.desenho&&p.desenho.indexOf('data:image/png')===0&&p.desenho.length>150000)alvos.push({idx:idx,campo:'desenho'});
+    if(Array.isArray(p.fotos))p.fotos.forEach(function(f,subIdx){
+      if(f&&f.indexOf('data:image/png')===0&&f.length>150000)alvos.push({idx:idx,campo:'fotos',subIdx:subIdx});
+    });
+  });
+  if(!alvos.length)return;
+  var LOTE=30; // não tenta tudo de uma vez se o catálogo tiver muita coisa pra recomprimir
+  var lote=alvos.slice(0,LOTE);
+  var i=0,liberouBytes=0;
+  function proximo(){
+    if(i>=lote.length){
+      if(liberouBytes>0){
+        pfSafeSetItem(PROD_KEY,JSON.stringify(plist));
+        if(typeof pfSyncPush==='function')pfSyncPush([PROD_KEY]).catch(function(){});
+        console.log('🗜️ Produtos: recomprimiu fotos/desenhos antigos, liberou ~'+(liberouBytes/1024/1024).toFixed(1)+'MB'+(alvos.length>LOTE?' (ainda tem mais pra próxima sessão)':'')+'.');
+      }
+      return;
+    }
+    var alvo=lote[i];
+    var atual=alvo.campo==='fotos'?plist[alvo.idx].fotos[alvo.subIdx]:plist[alvo.idx][alvo.campo];
+    var antes=atual.length;
+    pfComprimirImagemDataUrl(atual,1000,0.78).then(function(nova){
+      if(nova&&nova.length<antes){
+        liberouBytes+=(antes-nova.length);
+        if(alvo.campo==='fotos')plist[alvo.idx].fotos[alvo.subIdx]=nova;
+        else plist[alvo.idx][alvo.campo]=nova;
+      }
+      i++;proximo();
+    }).catch(function(){i++;proximo();});
+  }
+  proximo();
+}
+try{setTimeout(cadRecomprimirFotosProdutosExistentes,4000);}catch(e){}
 // Saudação automática por horário -- usada nos e-mails de solicitação de
 // compra/OC pra soar mais natural (bom dia até 12h, boa tarde até 18h,
 // boa noite depois).
@@ -29681,23 +29727,39 @@ function cadColarPrintDesenho(previewId,dataId){
   }).catch(function(){if(status)status.textContent='❌ Permissão negada pelo navegador';});
 }
 
+// v115.1266 - BUG GRAVE corrigido (achado pelo Vitor: "armazenamento local
+// cheio", dessa vez cad_produtos_v1 como maior chave, 1.6MB mesmo já
+// comprimido): foto e desenho técnico de produto entravam CRUS
+// (reader.readAsDataURL sem redimensionar/comprimir) dentro de CADA
+// produto no catálogo inteiro -- mesmo problema já corrigido antes em
+// Retentores/Cardan (v115.1027) e Pendências (v115.1250), só que a tela
+// de Produtos nunca ganhou a mesma correção. Agora usa
+// pfComprimirImagemDataUrl (mesmo helper das outras correções, máx
+// 1000px, JPEG 78%) antes de guardar.
 function cadUploadFoto(input, previewId, dataId){
   var file = input.files[0]; if(!file)return;
   var reader = new FileReader();
   reader.onload = function(e){
-    var src = e.target.result;
-    var preview = document.getElementById(previewId);
-    var dataEl = document.getElementById(dataId);
-    if(preview){
-      if(preview.tagName==='IMG'){preview.src=src;}
-      else{
-        var img=document.createElement('img');
-        img.id=previewId;img.src=src;
-        img.style.cssText='max-height:120px;max-width:100%;border-radius:8px;margin-bottom:8px;object-fit:cover';
-        preview.parentNode.replaceChild(img,preview);
+    var _aplicar=function(src){
+      var preview = document.getElementById(previewId);
+      var dataEl = document.getElementById(dataId);
+      if(preview){
+        if(preview.tagName==='IMG'){preview.src=src;}
+        else{
+          var img=document.createElement('img');
+          img.id=previewId;img.src=src;
+          img.style.cssText='max-height:120px;max-width:100%;border-radius:8px;margin-bottom:8px;object-fit:cover';
+          preview.parentNode.replaceChild(img,preview);
+        }
       }
+      if(dataEl)dataEl.value=src;
+    };
+    var src = e.target.result;
+    if(typeof pfComprimirImagemDataUrl==='function'){
+      pfComprimirImagemDataUrl(src,1000,0.78).then(_aplicar).catch(function(){_aplicar(src);});
+    } else {
+      _aplicar(src);
     }
-    if(dataEl)dataEl.value=src;
   };
   reader.readAsDataURL(file);
 }
@@ -31233,14 +31295,23 @@ async function cadColarFotoProduto(){
     var blob=await imageItem.item.getType(imageItem.type);
     var reader=new FileReader();
     reader.onload=function(e){
-      window._prodFotos=window._prodFotos||[];
-      window._prodFotos.push(e.target.result);
-      cadUpdateFotoGrid();
-      // Salva automaticamente ao colar a foto -- sem precisar clicar em "Salvar".
-      // Silencioso: se código/descrição ainda não foram preenchidos (produto novo),
-      // não faz nada e não alerta -- a foto fica guardada e entra no salvamento
-      // real quando o usuário terminar de preencher e salvar manualmente.
-      if(typeof cadSalvarProdutoV2==='function')cadSalvarProdutoV2(window._prodEditIdx!=null?window._prodEditIdx:-1,{silencioso:true});
+      var _guardar=function(src){
+        window._prodFotos=window._prodFotos||[];
+        window._prodFotos.push(src);
+        cadUpdateFotoGrid();
+        // Salva automaticamente ao colar a foto -- sem precisar clicar em "Salvar".
+        // Silencioso: se código/descrição ainda não foram preenchidos (produto novo),
+        // não faz nada e não alerta -- a foto fica guardada e entra no salvamento
+        // real quando o usuário terminar de preencher e salvar manualmente.
+        if(typeof cadSalvarProdutoV2==='function')cadSalvarProdutoV2(window._prodEditIdx!=null?window._prodEditIdx:-1,{silencioso:true});
+      };
+      // v115.1266 - ver comentário completo em cadUploadFoto -- mesma
+      // correção de compressão aplicada aqui pro caminho de colar foto.
+      if(typeof pfComprimirImagemDataUrl==='function'){
+        pfComprimirImagemDataUrl(e.target.result,1000,0.78).then(_guardar).catch(function(){_guardar(e.target.result);});
+      } else {
+        _guardar(e.target.result);
+      }
     };
     reader.readAsDataURL(blob);
   }catch(e){
@@ -31252,7 +31323,17 @@ function cadAddFotos(input){
   var files = Array.from(input.files);
   var promises = files.map(function(f){
     return new Promise(function(res){
-      var r=new FileReader();r.onload=function(e){res(e.target.result);};r.readAsDataURL(f);
+      var r=new FileReader();
+      r.onload=function(e){
+        // v115.1266 - ver comentário completo em cadUploadFoto -- mesma
+        // correção de compressão aplicada aqui pro upload de várias fotos.
+        if(typeof pfComprimirImagemDataUrl==='function'){
+          pfComprimirImagemDataUrl(e.target.result,1000,0.78).then(res).catch(function(){res(e.target.result);});
+        } else {
+          res(e.target.result);
+        }
+      };
+      r.readAsDataURL(f);
     });
   });
   Promise.all(promises).then(function(srcs){
@@ -33178,7 +33259,7 @@ async function cadDividirPdfEmPartes(file, maxPaginas){
   if(file.type!=='application/pdf')return null;
   await pfCarregarPdfLib();
   var buf=await file.arrayBuffer();
-  // v115.1265 - BUG GRAVE corrigido (achado pelo Vitor: catálogo PDF de
+  // v115.1266 - BUG GRAVE corrigido (achado pelo Vitor: catálogo PDF de
   // 196 páginas deu "Tempo esgotado lendo o documento (300s)" mesmo o
   // sistema já tendo divisão automática pra evitar isso): catálogos
   // oficiais de fabricante costumam vir com PDF criptografado (RC4,
@@ -33466,7 +33547,7 @@ function impAplicItemChanged(idx,campo,valor){
   if(!it.aplicacao)it.aplicacao={};
   it.aplicacao[campo]=valor;
 }
-// v115.1265 - A pedido do Vitor: preview de importação com muitos itens
+// v115.1266 - A pedido do Vitor: preview de importação com muitos itens
 // (218 no caso dele) tendo que digitar Componente/Modelo/Série/Veículo
 // item por item era inviável -- agora dá pra preencher os 4 campos de
 // uma vez só nos itens que estão VISÍVEIS na tela no momento (respeita
@@ -41671,7 +41752,7 @@ function vendasVerCadastroItem(cod,desc){
       cadFormProduto({codigo:cod,descricao:desc||''},-1);
     }
     _log('cadFormProduto terminou -- deveria estar visível agora');
-    // v115.1265 - A pedido do Vitor (a tela continuava em branco mesmo com
+    // v115.1266 - A pedido do Vitor (a tela continuava em branco mesmo com
     // tudo rodando certo e sem erro -- Inspecionar Elemento confirmou
     // cadastrosView com display:none, mas nenhuma das funções óbvias que
     // rodam depois do clique mexe nisso): armadilha temporária. Observa
@@ -47912,7 +47993,7 @@ function ferrCardPromo(){
             '<option value="\'Comic Sans MS\', cursive, sans-serif">Comic Sans MS</option>'+
           '</select>'+
           '</div>'+
-          // v115.1265 - A pedido do Vitor (pendência "card de promoção"):
+          // v115.1266 - A pedido do Vitor (pendência "card de promoção"):
           // (1) checkbox pra tirar o fundo escuro atrás do texto de
           // chamada -- ficava sempre com uma faixa preta semi-transparente
           // fixa, sem opção de tirar; (2) slider de posição vertical, pra
@@ -47939,7 +48020,7 @@ function ferrCardPromo(){
           '<input id="promoPrecoIn" type="number" step="0.01" min="0" placeholder="0,00" style="width:100px" onkeydown="if(event.key===\'Enter\')promoAdicionarItem()">'+
           '<button onclick="promoAdicionarItem()" style="background:#0D7377;color:#fff;border:none;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:700">+ Adicionar</button>'+
           '</div>'+
-          // v115.1265 - A pedido do Vitor: opção de tirar o fundo da foto de
+          // v115.1266 - A pedido do Vitor: opção de tirar o fundo da foto de
           // cada item (reaproveita o mesmo removedor de fundo já usado em
           // Retentores/Cardan/Produtos) + cor de fundo customizável atrás
           // de cada item no card (era sempre branco fixo).
@@ -48092,7 +48173,7 @@ function promoRenderListaItens(){
     '</div>';
   }).join('');
 }
-// v115.1265 - A pedido do Vitor: mesmo removedor de fundo já usado em
+// v115.1266 - A pedido do Vitor: mesmo removedor de fundo já usado em
 // Retentores/Cardan/Produtos (rfRemoverFundoBlob, roda no navegador),
 // aplicado na foto do item só pra esse card (não mexe na foto real
 // cadastrada -- é o mesmo princípio já usado no botão 📁/📋 acima).
@@ -48237,7 +48318,7 @@ async function promoDesenhar(){
   var fonte=fonteEl&&fonteEl.value?fonteEl.value:'Arial, Helvetica, sans-serif';
   var textoEl=document.getElementById('promoTexto');
   var texto=textoEl?textoEl.value:'';
-  // v115.1265 - A pedido do Vitor (pendência "card de promoção"): fundo
+  // v115.1266 - A pedido do Vitor (pendência "card de promoção"): fundo
   // escuro atrás do texto agora é opcional (checkbox), a posição vertical
   // é ajustável (slider, pra caber em fundos diferentes) e tem uma
   // segunda linha de "observação" embaixo, sempre sem fundo.

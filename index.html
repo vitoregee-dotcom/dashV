@@ -950,7 +950,7 @@ razão da v115.1155: no touch o hover fica "grudado"). */
 @media (hover: hover){
   .pf-icone-topo:hover{transform:scale(1.35)}
 }
-/* v115.1249 - BUG corrigido (achado pelo Vitor: sem botão de Sair em
+/* v115.1250 - BUG corrigido (achado pelo Vitor: sem botão de Sair em
 lugar nenhum, não só no iPad): essa regra escondia o botão de logout com
 !important, e o JS que tenta reexibi-lo depois do login (style.display=
 'flex') perde pra !important -- ficava escondido sempre, em qualquer
@@ -1516,7 +1516,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1249</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1250</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1611,7 +1611,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1249</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1250</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -17180,7 +17180,7 @@ function toggleSolicitacao(ref,marca){
 // 2) Pedido de compra mudou desde que foi marcado -- avisa (sem remover da
 //    lista, ainda está aguardando chegar), e atualiza a referência de
 //    comparação pra não avisar de novo pela mesma mudança.
-// v115.1249 - BUG GRAVE corrigido (e-mail duplicado do Me Avise, achado
+// v115.1250 - BUG GRAVE corrigido (e-mail duplicado do Me Avise, achado
 // pelo Vitor: mesmo item "Comprado" avisando de novo horas depois): itens
 // de meAvise_lista não tinham campo `id`. O merge de sync (pfMergeSyncValue)
 // só reconhece "é o mesmo item atualizado" quando tem id -- sem ele, cai no
@@ -17292,7 +17292,7 @@ function maVerificarMudancasAutomaticas(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){return;}
   if(!lista.length)return;
-  // v115.1249 - migração: itens antigos sem `id` ganham um agora (mesma
+  // v115.1250 - migração: itens antigos sem `id` ganham um agora (mesma
   // chave determinística usada nos itens novos), pra parar de duplicar no
   // merge de sync. Ver comentário completo em maChaveEstavel().
   var _maMigrouId=false;
@@ -40114,7 +40114,7 @@ function pfAvisosMontarListaComFiltro(titulo,cor,logChave,linhaExtraFn){
   return html;
 }
 function pfAvisosAbrirPainel(etapaK){
-  // v115.1249 - BUG corrigido (a pedido do Vitor: escolher uma família no
+  // v115.1250 - BUG corrigido (a pedido do Vitor: escolher uma família no
   // dropdown não filtrava nada): a v115.1236 fazia ESSA MESMA função
   // resetar o filtro toda vez que roda -- mas pfAvisosSetFiltro() também
   // chama essa função pra reabrir o painel DEPOIS de trocar o filtro,
@@ -46628,6 +46628,40 @@ function pfPendenciasLista(){
   var arr=[];try{arr=JSON.parse(localStorage.getItem(PF_PENDENCIAS_KEY)||'[]');}catch(e){}
   return arr;
 }
+// v115.1250 - migração: as pendências já salvas ANTES dessa correção estão
+// com imagem crua em PNG, ocupando o espaço que já está cheio hoje --
+// corrigir só os salvamentos novos não libera isso. Recomprime as antigas
+// (mesmo alvo: máx 1000px, JPEG 78%) automaticamente ao carregar o app,
+// sem precisar que o Vitor faça nada. Só reescreve se realmente for PNG
+// grande (evita reprocessar toda vez o que já foi comprimido).
+function pfPendenciasRecomprimirExistentes(){
+  if(typeof pfComprimirImagemDataUrl!=='function')return;
+  var lista=pfPendenciasLista();
+  var alvos=[];
+  lista.forEach(function(p,i){
+    if(p&&p.imagem&&p.imagem.indexOf('data:image/png')===0&&p.imagem.length>150000)alvos.push(i);
+  });
+  if(!alvos.length)return;
+  var i=0,liberouBytes=0;
+  function proximo(){
+    if(i>=alvos.length){
+      if(liberouBytes>0){
+        pfSafeSetItem(PF_PENDENCIAS_KEY,JSON.stringify(lista));
+        if(typeof pfSyncPush==='function')pfSyncPush([PF_PENDENCIAS_KEY]).catch(function(){});
+        console.log('🗜️ Pendências: recomprimiu imagens antigas, liberou ~'+(liberouBytes/1024/1024).toFixed(1)+'MB.');
+      }
+      return;
+    }
+    var idx=alvos[i];
+    var antes=lista[idx].imagem.length;
+    pfComprimirImagemDataUrl(lista[idx].imagem,1000,0.78).then(function(nova){
+      if(nova&&nova.length<antes){liberouBytes+=(antes-nova.length);lista[idx].imagem=nova;}
+      i++;proximo();
+    }).catch(function(){i++;proximo();});
+  }
+  proximo();
+}
+try{setTimeout(pfPendenciasRecomprimirExistentes,3000);}catch(e){}
 function pfPendenciasNavigate(){
   // v115.1238 - BUG corrigido (a pedido do Vitor: "acho que não tá
   // abrindo"): a lista de telas escondidas aqui era pequena demais (só 3
@@ -46826,16 +46860,28 @@ function pfPendenciasSalvar(){
   var desc=(document.getElementById('pfPendDescricao').value||'').trim();
   var cv=document.getElementById('pfPendCanvas');
   if(!desc&&!cv){pfAlert('Escreve uma descrição ou cola uma imagem.');return;}
-  var lista=pfPendenciasLista();
-  lista.push({
-    id:'pend_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
-    imagem:cv?cv.toDataURL('image/png'):null,
-    descricao:desc,
-    data:new Date().toISOString()
-  });
-  localStorage.setItem(PF_PENDENCIAS_KEY,JSON.stringify(lista));
-  document.getElementById('pfPendenciaFormArea').innerHTML='';
-  pfPendenciasRender();
+  // v115.1250 - BUG GRAVE corrigido (achado pelo Vitor: "armazenamento local
+  // cheio" ao gravar perf_diagnostico_v1): a imagem colada aqui entrava crua
+  // em PNG (cv.toDataURL('image/png')), sem redimensionar nem comprimir --
+  // exatamente o mesmo problema já corrigido em Retentores/Componentes
+  // Cardan na v115.1027 (que criou pfComprimirImagemDataUrl pra isso), só
+  // que essa tela foi feita depois e não reaproveitou a correção. Com vários
+  // prints colados (uso normal dessa área), a cota do navegador estourava, e
+  // perf_diagnostico_v1 era só a próxima gravação a falhar depois disso --
+  // não a causa. Agora redimensiona pro máximo 1000px no lado maior (mantém
+  // texto de catálogo/tabela legível, ao contrário do 480px usado em
+  // Retentores que é só foto de peça) e reexporta como JPEG 78%.
+  var _pfPendSalvarComImagem=function(imagemFinal){
+    var lista=pfPendenciasLista();
+    lista.push({
+      id:'pend_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+      imagem:imagemFinal,
+      descricao:desc,
+      data:new Date().toISOString()
+    });
+    pfSafeSetItem(PF_PENDENCIAS_KEY,JSON.stringify(lista));
+    document.getElementById('pfPendenciaFormArea').innerHTML='';
+    pfPendenciasRender();
   // v115.1247 - hipótese identificada na sessão anterior (não confirmada,
   // mas corrigida por precaução): o envio pro Supabase era fire-and-
   // forget, sem esperar terminar -- se o navegador fechasse ou a internet
@@ -46843,11 +46889,17 @@ function pfPendenciasSalvar(){
   // ninguém. Agora espera de verdade e avisa na tela se falhar (o dado já
   // está salvo localmente de qualquer jeito, então nada se perde nesse
   // aparelho -- só avisa que ainda não chegou nos outros).
-  if(typeof pfSyncPush==='function'){
-    pfSyncPush([PF_PENDENCIAS_KEY]).catch(function(e){
-      console.warn('pfPendenciasSalvar: sync falhou', e);
-      pfAlert('Pendência salva aqui, mas não conseguiu sincronizar com outros aparelhos agora (sem internet?). Vai tentar de novo sozinho.');
-    });
+    if(typeof pfSyncPush==='function'){
+      pfSyncPush([PF_PENDENCIAS_KEY]).catch(function(e){
+        console.warn('pfPendenciasSalvar: sync falhou', e);
+        pfAlert('Pendência salva aqui, mas não conseguiu sincronizar com outros aparelhos agora (sem internet?). Vai tentar de novo sozinho.');
+      });
+    }
+  };
+  if(cv&&typeof pfComprimirImagemDataUrl==='function'){
+    pfComprimirImagemDataUrl(cv.toDataURL('image/png'),1000,0.78).then(_pfPendSalvarComImagem);
+  }else{
+    _pfPendSalvarComImagem(cv?cv.toDataURL('image/png'):null);
   }
 }
 function pfPendenciasExcluir(id){

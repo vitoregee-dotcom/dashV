@@ -950,7 +950,11 @@ razão da v115.1155: no touch o hover fica "grudado"). */
 @media (hover: hover){
   .pf-icone-topo:hover{transform:scale(1.35)}
 }
-.pf-btn-sair{display:none!important}
+/* v115.1249 - BUG corrigido (achado pelo Vitor: sem botão de Sair em
+lugar nenhum, não só no iPad): essa regra escondia o botão de logout com
+!important, e o JS que tenta reexibi-lo depois do login (style.display=
+'flex') perde pra !important -- ficava escondido sempre, em qualquer
+aparelho. Sobrou de algum retrabalho antigo da barra lateral. */
 #pfUserName,#pfApiKeySection{display:none!important}
 #pfMain{flex:1;display:flex;flex-direction:column;min-width:0;overflow-x:auto}
 /* v115.1083 - A pedido do Vitor: o conteúdo não pode ficar por baixo da
@@ -1512,7 +1516,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1248</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1249</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1607,7 +1611,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1248</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1249</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -17176,6 +17180,22 @@ function toggleSolicitacao(ref,marca){
 // 2) Pedido de compra mudou desde que foi marcado -- avisa (sem remover da
 //    lista, ainda está aguardando chegar), e atualiza a referência de
 //    comparação pra não avisar de novo pela mesma mudança.
+// v115.1249 - BUG GRAVE corrigido (e-mail duplicado do Me Avise, achado
+// pelo Vitor: mesmo item "Comprado" avisando de novo horas depois): itens
+// de meAvise_lista não tinham campo `id`. O merge de sync (pfMergeSyncValue)
+// só reconhece "é o mesmo item atualizado" quando tem id -- sem ele, cai no
+// fallback por fingerprint (JSON.stringify exato), e como comprado_avisado
+// muda de false pra true depois de avisar, o item "mudado" nunca bate com
+// o fingerprint antigo e vira uma ENTRADA NOVA duplicada -- a cópia antiga
+// (ainda com avisado:false) sobra na lista e dispara o aviso de novo na
+// próxima checagem. Chave determinística (não aleatória) pra que dispositivos
+// diferentes cheguem no MESMO id pro mesmo item, permitindo o merge por id
+// convergir os duplicados que já existem hoje, não só prevenir novos.
+function maChaveEstavel(a){
+  return (a&&a.ref!=null?a.ref:'').toString().trim().toUpperCase()+'||'+
+    (a&&a.marca!=null?a.marca:'').toString().trim().toUpperCase()+'||'+
+    (a&&a.nome_cliente!=null?a.nome_cliente:'').toString().trim().toUpperCase();
+}
 var _maUltimaVerificacao=0;
 function maAtivarNotificacoes(){
   if(typeof Notification==='undefined'){pfAlert('Seu navegador não suporta notificações.');return;}
@@ -17272,6 +17292,12 @@ function maVerificarMudancasAutomaticas(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){return;}
   if(!lista.length)return;
+  // v115.1249 - migração: itens antigos sem `id` ganham um agora (mesma
+  // chave determinística usada nos itens novos), pra parar de duplicar no
+  // merge de sync. Ver comentário completo em maChaveEstavel().
+  var _maMigrouId=false;
+  lista.forEach(function(a){if(!a.id){a.id=maChaveEstavel(a);_maMigrouId=true;}});
+  if(_maMigrouId){pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);}
   var _itemPorChaveMA={};
   (typeof calcItems!=='undefined'?calcItems:[]).forEach(function(c){_itemPorChaveMA[solKey(c.ref,c.marca)]=c;});
   var mudou=false;
@@ -17310,14 +17336,14 @@ function maVerificarMudancasAutomaticas(){
     // 1) Comprado -- pedido saiu de zero/vazio pra positivo
     if(!a.comprado_avisado&&(a.pedido_ao_marcar==null||a.pedido_ao_marcar===0)&&item.pedido>0){
       maEnviarNotificacaoGlobal(a,'comprado',item.pedido).then(function(){
-        a.pedido_ao_marcar=item.pedido;a.comprado_avisado=true;mudou=true;i++;proximo();
+        a.pedido_ao_marcar=item.pedido;a.comprado_avisado=true;a.ts=Date.now();mudou=true;i++;proximo();
       }).catch(function(e){console.warn('Falha ao enviar aviso automático de compra:',e);i++;proximo();});
       return;
     }
     // 2) Faturado -- quantidade em trânsito saiu de zero pra positivo
     if(!a.faturado_avisado&&(a.transito_ao_marcar==null||a.transito_ao_marcar===0)&&item.tA>0){
       maEnviarNotificacaoGlobal(a,'faturado',item.tA).then(function(){
-        a.transito_ao_marcar=item.tA;a.faturado_avisado=true;mudou=true;i++;proximo();
+        a.transito_ao_marcar=item.tA;a.faturado_avisado=true;a.ts=Date.now();mudou=true;i++;proximo();
       }).catch(function(e){console.warn('Falha ao enviar aviso automático de faturamento:',e);i++;proximo();});
       return;
     }
@@ -17326,7 +17352,7 @@ function maVerificarMudancasAutomaticas(){
     if(a.comprado_avisado&&a.pedido_ao_marcar!=null&&item.pedido!==a.pedido_ao_marcar){
       var detalhe='era '+a.pedido_ao_marcar+', agora é '+item.pedido+' unidades';
       maEnviarNotificacaoGlobal(a,'pedido_mudou',detalhe).then(function(){
-        a.pedido_ao_marcar=item.pedido;mudou=true;i++;proximo();
+        a.pedido_ao_marcar=item.pedido;a.ts=Date.now();mudou=true;i++;proximo();
       }).catch(function(e){console.warn('Falha ao enviar aviso automático de mudança de pedido:',e);i++;proximo();});
       return;
     }
@@ -40088,7 +40114,7 @@ function pfAvisosMontarListaComFiltro(titulo,cor,logChave,linhaExtraFn){
   return html;
 }
 function pfAvisosAbrirPainel(etapaK){
-  // v115.1248 - BUG corrigido (a pedido do Vitor: escolher uma família no
+  // v115.1249 - BUG corrigido (a pedido do Vitor: escolher uma família no
   // dropdown não filtrava nada): a v115.1236 fazia ESSA MESMA função
   // resetar o filtro toda vez que roda -- mas pfAvisosSetFiltro() também
   // chama essa função pra reabrir o painel DEPOIS de trocar o filtro,
@@ -47017,6 +47043,7 @@ function solicAbrirEmail(itens,fornecedor,naoSalvar,numeroPedido,cliente,idExist
         var jaTem=avisosMA.some(function(a){return a.ref===ref&&(a.marca||'')===marca&&(a.obs||'').indexOf(numeroSolic)>=0;});
         if(jaTem)return;
         var novoItemMA={ref:ref,marca:marca,cod_cliente:'',nome_cliente:cliente,obs:numeroSolic,ts:Date.now(),status:'solicitado',pedido_ao_marcar:null};
+        novoItemMA.id=maChaveEstavel(novoItemMA);
         avisosMA.push(novoItemMA);
         novosSolicitados.push(novoItemMA);
       });
@@ -48577,10 +48604,12 @@ function ferrMeAvise(){
           var itemAtual=(typeof calcItems!=='undefined'?calcItems:[]).find(function(c){return c.ref===it.ref&&(it.marca?c.marca===it.marca:true);});
           if(itemAtual){saldoAoMarcar=itemAtual.saldo;pedidoAoMarcar=itemAtual.pedido;transitoAoMarcar=itemAtual.tA;}
         }catch(e){}
-        lista.push({ref:it.ref,marca:it.marca,cod_cliente:it.cod_cliente,nome_cliente:it.nome_cliente,
+        var _novoItemCot={ref:it.ref,marca:it.marca,cod_cliente:it.cod_cliente,nome_cliente:it.nome_cliente,
           obs:'Extraído automaticamente de cotação'+(it.data?' — '+it.data:'')+(it.prazo?' · Prazo: '+it.prazo:''),wa_cliente:waCliente,ts:Date.now(),
           saldo_ao_marcar:saldoAoMarcar,pedido_ao_marcar:pedidoAoMarcar,transito_ao_marcar:transitoAoMarcar,
-          comprado_avisado:pedidoAoMarcar>0,faturado_avisado:transitoAoMarcar>0});
+          comprado_avisado:pedidoAoMarcar>0,faturado_avisado:transitoAoMarcar>0};
+        _novoItemCot.id=maChaveEstavel(_novoItemCot);
+        lista.push(_novoItemCot);
         adicionados++;
       });
       pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
@@ -48618,10 +48647,12 @@ function ferrMeAvise(){
       var itemAtual=(typeof calcItems!=='undefined'?calcItems:[]).find(function(c){return c.ref===ref&&(marca?c.marca===marca:true);});
       if(itemAtual){saldoAoMarcar=itemAtual.saldo;pedidoAoMarcar=itemAtual.pedido;transitoAoMarcar=itemAtual.tA;}
     }catch(e){}
-    lista.push({ref:ref,marca:marca,cod_cliente:codCliente,nome_cliente:nomeCliente,obs:obs,wa_cliente:waCliente,ts:Date.now(),
+    var _novoItemManual={ref:ref,marca:marca,cod_cliente:codCliente,nome_cliente:nomeCliente,obs:obs,wa_cliente:waCliente,ts:Date.now(),
       email_extra:emailExtra,
       saldo_ao_marcar:saldoAoMarcar,pedido_ao_marcar:pedidoAoMarcar,transito_ao_marcar:transitoAoMarcar,
-      comprado_avisado:pedidoAoMarcar>0,faturado_avisado:transitoAoMarcar>0});
+      comprado_avisado:pedidoAoMarcar>0,faturado_avisado:transitoAoMarcar>0};
+    _novoItemManual.id=maChaveEstavel(_novoItemManual);
+    lista.push(_novoItemManual);
     pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
     // v115.765 - Mensagem de confirmação visual ao adicionar (antes não tinha
     // nenhum feedback -- parecia que não tinha acontecido nada).

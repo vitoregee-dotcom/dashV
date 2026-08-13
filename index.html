@@ -1523,7 +1523,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1298</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1299</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1618,7 +1618,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1298</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1299</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -40120,6 +40120,29 @@ function pfGastoIAResumo(){
     return {hoje:hoje,mes:mes};
   }catch(e){return {hoje:0,mes:0};}
 }
+// v115.1299 - A pedido do Vitor ("quero tipo um budget, mas só o adm
+// vê"): orçamento mensal de IA definido por ele (fica salvo, sincroniza
+// entre os aparelhos dele) -- barra de progresso mostrando quanto do
+// orçamento já foi usado no mês. Card só aparece pra ele (pfUsoIAEhDono,
+// já usado na tela "Uso de IA"), ninguém mais vê.
+function pfOrcamentoIALoad(){
+  try{
+    var raw=pfSafeGetItem('pfOrcamentoIABudget');
+    if(!raw)return null;
+    var obj=JSON.parse(raw);
+    return (obj&&typeof obj.valor==='number')?obj.valor:null;
+  }catch(e){return null;}
+}
+function pfOrcamentoIADefinir(){
+  var atual=pfOrcamentoIALoad();
+  var novo=prompt('Orçamento mensal de IA (US$) -- fica visível só pra você:',atual!=null?String(atual):'50');
+  if(novo==null)return;
+  var valor=parseFloat(String(novo).replace(',','.'));
+  if(isNaN(valor)||valor<0){pfAlert('Valor inválido.');return;}
+  pfSafeSetItem('pfOrcamentoIABudget',JSON.stringify({valor:valor,ts:Date.now()}));
+  if(typeof pfSyncPush==='function')pfSyncPush(['pfOrcamentoIABudget']).catch(function(){});
+  if(typeof pfPainelWidgetsRender==='function')pfPainelWidgetsRender();
+}
 async function pfPainelWidgetsRender(){
   var wrap=document.getElementById('pfPainelWidgets');
   if(!wrap)return;
@@ -40133,13 +40156,7 @@ async function pfPainelWidgetsRender(){
   }else{
     cards.push({label:'Feriado',valor:'--',sub:'sem dados'});
   }
-  var gastoIA=pfGastoIAResumo();
-  // Aviso visual: laranja passando de US$1/dia, vermelho passando de US$3 --
-  // só pra chamar atenção sem travar nada; sem limite definido pelo Vitor
-  // ainda, ajusto fácil se ele quiser outro valor.
-  var corGasto=gastoIA.hoje>3?'#C0392B':(gastoIA.hoje>1?'#C2650A':'var(--pf-noticias-text)');
-  cards.push({label:'Gasto de IA · hoje',valor:'US$'+gastoIA.hoje.toFixed(2),sub:'mês: US$'+gastoIA.mes.toFixed(2),cor:corGasto});
-  wrap.innerHTML='<div style="display:flex;flex-direction:column;gap:8px">'+
+  var htmlCards='<div style="display:flex;flex-direction:column;gap:8px">'+
     cards.map(function(c){
       return '<div style="background:var(--pf-noticias-card-bg);border:1px solid var(--pf-noticias-border);border-radius:12px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:6px">'+
         '<div style="font-size:14px;color:var(--pf-noticias-text-muted)">'+c.label+'</div>'+
@@ -40150,6 +40167,25 @@ async function pfPainelWidgetsRender(){
       '</div>';
     }).join('')+
   '</div>';
+  if(typeof pfUsoIAEhDono==='function'&&pfUsoIAEhDono()){
+    var gastoIA=pfGastoIAResumo();
+    var orcamento=pfOrcamentoIALoad();
+    var pct=orcamento?Math.min(100,(gastoIA.mes/orcamento)*100):0;
+    var corBarra=pct>90?'#C0392B':(pct>60?'#C2650A':'#27AE60');
+    htmlCards+='<div onclick="pfOrcamentoIADefinir()" title="Clique pra definir/mudar o orçamento" style="cursor:pointer;background:var(--pf-noticias-card-bg);border:1px solid var(--pf-noticias-border);border-radius:12px;padding:14px 16px;margin-top:8px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
+        '<span style="font-size:14px;color:var(--pf-noticias-text-muted)">Orçamento de IA · mês</span>'+
+        '<span style="font-size:11px;color:var(--pf-noticias-text-muted)">✏️</span>'+
+      '</div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">'+
+        '<span style="font-size:19px;font-weight:700;color:'+corBarra+'">US$'+gastoIA.mes.toFixed(2)+'</span>'+
+        '<span style="font-size:13px;color:var(--pf-noticias-text-muted)">'+(orcamento?('de US$'+orcamento.toFixed(2)):'sem orçamento definido')+'</span>'+
+      '</div>'+
+      (orcamento?('<div style="width:100%;height:6px;border-radius:3px;background:var(--pf-noticias-border);overflow:hidden"><div style="width:'+pct.toFixed(0)+'%;height:100%;background:'+corBarra+'"></div></div>'):'')+
+      '<div style="font-size:12px;color:var(--pf-noticias-text-muted);margin-top:6px">hoje: US$'+gastoIA.hoje.toFixed(2)+'</div>'+
+    '</div>';
+  }
+  wrap.innerHTML=htmlCards;
 }
 // v115.1084 - A pedido do Vitor: 2a fase da expansão de Notícias -- fotos,
 // categorias por setor (agricultura/mineração/energia/construção, além de

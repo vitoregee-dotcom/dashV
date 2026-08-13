@@ -1523,7 +1523,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1296</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1297</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1618,7 +1618,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1296</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1297</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -33412,7 +33412,17 @@ function pfCarregarPdfLib(){
 // ── Divide um PDF grande em partes de até maxPaginas páginas, com 1
 // página de sobreposição entre partes consecutivas (pra não perder o
 // contexto se uma tabela cair bem na virada de página). Devolve null se
-// o arquivo não for PDF ou já couber dentro do limite (não precisa dividir).
+// v115.1297 - A pedido do Vitor (catálogo grande deu timeout de novo,
+// mesmo já tendo divisão automática): a divisão só olhava NÚMERO DE
+// PÁGINAS (>15 divide, senão manda inteiro) -- um catálogo com poucas
+// páginas mas cada uma sendo um scan em altíssima resolução pode pesar
+// vários MB por página e travar mesmo com poucas páginas, porque o que
+// trava a IA é o tanto de dado bruto, não a contagem de página. Agora
+// calcula quanto pesa em média por página (tamanho do arquivo ÷ total de
+// páginas) e ajusta o tamanho de cada parte pra mirar ~4MB por parte,
+// mesmo que isso signifique 1 página por parte pra um catálogo bem
+// pesado -- e passa a dividir mesmo com poucas páginas, se o arquivo for
+// grande em bytes.
 async function cadDividirPdfEmPartes(file, maxPaginas){
   if(file.type!=='application/pdf')return null;
   await pfCarregarPdfLib();
@@ -33431,10 +33441,14 @@ async function cadDividirPdfEmPartes(file, maxPaginas){
   // não impede ler o conteúdo) e dividir o PDF normalmente.
   var srcDoc=await PDFLib.PDFDocument.load(buf,{ignoreEncryption:true});
   var totalPaginas=srcDoc.getPageCount();
-  if(totalPaginas<=maxPaginas)return null;
+  var bytesPorPagina=file.size/Math.max(totalPaginas,1);
+  var ALVO_BYTES_POR_PARTE=4*1024*1024; // ~4MB por parte
+  var paginasPorTamanho=Math.max(1,Math.floor(ALVO_BYTES_POR_PARTE/Math.max(bytesPorPagina,1)));
+  var paginasPorParte=Math.min(maxPaginas,paginasPorTamanho);
+  if(totalPaginas<=paginasPorParte)return null; // já cabe numa leitura só, nem no tamanho nem na contagem
   var partes=[],overlap=1,inicio=0;
   while(inicio<totalPaginas){
-    var fim=Math.min(inicio+maxPaginas,totalPaginas);
+    var fim=Math.min(inicio+paginasPorParte,totalPaginas);
     var novoDoc=await PDFLib.PDFDocument.create();
     var indices=[];
     for(var p=inicio;p<fim;p++)indices.push(p);
@@ -33471,18 +33485,31 @@ cadImportarCatalogo = async function(input){
     var chkCusto=document.getElementById('impExtrairCustoPorItem');
     var prompt=cadPromptCatalogo(marcaVal,chkCusto&&chkCusto.checked);
 
-    // Catálogos grandes (>15 páginas) estouravam o timeout de leitura numa
-    // chamada só. Em vez de só aumentar o timeout, dividimos o PDF em partes
-    // de 15 páginas (com 1 página de sobreposição) e lemos cada parte numa
-    // chamada separada — cada parte é pequena o bastante pra não travar, e
-    // no final juntamos e removemos códigos duplicados (que podem aparecer
-    // por causa da página de sobreposição entre as partes).
+    // Catálogos grandes (>15 páginas, OU poucas páginas mas pesadas em MB)
+    // estouravam o timeout de leitura numa chamada só. Em vez de só
+    // aumentar o timeout, dividimos o PDF em partes (tamanho adaptativo,
+    // ver cadDividirPdfEmPartes) e lemos cada parte numa chamada separada
+    // — cada parte é pequena o bastante pra não travar, e no final
+    // juntamos e removemos códigos duplicados (que podem aparecer por
+    // causa da página de sobreposição entre as partes).
     var partes=null;
     try{
       partes=await cadDividirPdfEmPartes(file, 15);
     }catch(eSplit){
-      console.warn('Não foi possível dividir o PDF automaticamente, tentando ler inteiro:',eSplit);
+      console.warn('Não foi possível dividir o PDF automaticamente:',eSplit);
       partes=null;
+      // v115.1297 - A pedido do Vitor (mesmo catálogo dando timeout de
+      // novo): antes, se a divisão falhasse, caía direto pra tentar ler
+      // o PDF INTEIRO como último recurso -- pra um arquivo grande isso é
+      // timeout garantido de novo (é literalmente a mesma leitura que já
+      // tinha estourado antes, só que sem nem tentar dividir). Agora, se
+      // o arquivo é grande (>8MB) E a divisão falhou de verdade, desiste
+      // com uma mensagem clara em vez de gastar outros 300s pra falhar
+      // do mesmo jeito -- e sugere pré-dividir o arquivo manualmente
+      // (site tipo ilovepdf.com/split_pdf) antes de tentar de novo.
+      if(file.size>8*1024*1024){
+        throw new Error('Não consegui dividir esse PDF automaticamente (arquivo grande, '+(file.size/1024/1024).toFixed(1)+'MB) e ler ele inteiro de uma vez ia travar de novo do mesmo jeito. Pré-divida o arquivo em partes menores antes de subir -- um site como ilovepdf.com/split_pdf funciona bem, ou peça o catálogo já dividido pra quem te mandou.');
+      }
     }
 
     var itensPorParte=[];

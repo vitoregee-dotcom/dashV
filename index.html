@@ -1523,7 +1523,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1295</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1296</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1618,7 +1618,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1295</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1296</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -29289,6 +29289,75 @@ setInterval(function(){
 <script>
 // ═══ PRODUTOS ═══════════════════════════════════════════════════
 var PROD_KEY = 'cad_produtos_v1';
+// v115.1296 - A pedido do Vitor (reduzir o que ocupa localStorage, ele
+// ainda vai subir bastante catálogo/foto): fotos de produto passam a
+// subir pro Supabase Storage (bucket "produtos-fotos", público) em vez
+// de entrar como texto base64 dentro do próprio catálogo -- era o maior
+// motivo de cad_produtos_v1 estar tão grande mesmo já comprimido em
+// JPEG. window._prodFotos passa a guardar a URL pública (link curto) em
+// vez do texto inteiro da imagem. Se o upload falhar (sem internet,
+// etc), cai pra guardar o base64 local mesmo -- não perde a foto, só
+// não economiza espaço dessa vez (fica pra próxima recompressão pegar).
+async function pfUploadFotoProdutoStorage(dataUrl){
+  try{
+    if(!dataUrl||dataUrl.indexOf('data:image/')!==0)return dataUrl; // já é URL, nada a fazer
+    var resp=await fetch(dataUrl);
+    var blob=await resp.blob();
+    var ext=(blob.type&&blob.type.indexOf('png')>=0)?'png':'jpg';
+    var path='produtos/'+Date.now()+'_'+Math.random().toString(36).slice(2,9)+'.'+ext;
+    var up=await sbFetch('/storage/v1/object/produtos-fotos/'+path,{
+      method:'POST',
+      headers:{'Content-Type':blob.type||'image/jpeg'},
+      body:blob
+    });
+    if(!up.ok)throw new Error('upload falhou: '+up.status);
+    return SB_URL+'/storage/v1/object/public/produtos-fotos/'+path;
+  }catch(e){
+    console.warn('⚠️ Upload de foto pro Storage falhou, guardando local:',e);
+    return dataUrl;
+  }
+}
+// Migra fotos de produto JÁ SALVAS (base64, de antes dessa correção) pro
+// Storage também -- corrigir só o caminho de upload novo não libera o
+// que já está cheio hoje. Em lotes pequenos, sequencial, pra não estourar
+// a rede -- pega o resto aos poucos, numa sessão de cada vez se sobrar.
+function cadMigrarFotosProdutosParaStorage(){
+  var plist=cadLoad(PROD_KEY);
+  var alvos=[]; // {idx, campo, subIdx}
+  plist.forEach(function(p,idx){
+    if(p.foto&&p.foto.indexOf('data:image/')===0)alvos.push({idx:idx,campo:'foto'});
+    if(p.desenho&&p.desenho.indexOf('data:image/')===0)alvos.push({idx:idx,campo:'desenho'});
+    if(Array.isArray(p.fotos))p.fotos.forEach(function(f,subIdx){
+      if(f&&f.indexOf('data:image/')===0)alvos.push({idx:idx,campo:'fotos',subIdx:subIdx});
+    });
+  });
+  if(!alvos.length)return;
+  var LOTE=20;
+  var lote=alvos.slice(0,LOTE);
+  var i=0,migrou=0;
+  function proximo(){
+    if(i>=lote.length){
+      if(migrou>0){
+        pfSafeSetItem(PROD_KEY,JSON.stringify(plist));
+        if(typeof pfSyncPush==='function')pfSyncPush([PROD_KEY]).catch(function(){});
+        console.log('☁️ Produtos: migrou '+migrou+' foto(s) pro Storage'+(alvos.length>LOTE?' (ainda tem mais pra próxima sessão)':'')+'.');
+      }
+      return;
+    }
+    var alvo=lote[i];
+    var atual=alvo.campo==='fotos'?plist[alvo.idx].fotos[alvo.subIdx]:plist[alvo.idx][alvo.campo];
+    pfUploadFotoProdutoStorage(atual).then(function(url){
+      if(url&&url!==atual){
+        migrou++;
+        if(alvo.campo==='fotos')plist[alvo.idx].fotos[alvo.subIdx]=url;
+        else plist[alvo.idx][alvo.campo]=url;
+      }
+      i++;proximo();
+    }).catch(function(){i++;proximo();});
+  }
+  proximo();
+}
+try{setTimeout(cadMigrarFotosProdutosParaStorage,8000);}catch(e){}
 // v115.1278 - migração: fotos/desenhos de produto já salvos ANTES dessa
 // correção estão crus em PNG, ocupando o espaço que já está cheio hoje --
 // corrigir só os salvamentos novos (cadUploadFoto/cadColarFotoProduto/
@@ -29759,9 +29828,16 @@ function cadAplicarDesenho(src,previewId,dataId){
   var preview=document.getElementById(previewId);
   var dataEl=document.getElementById(dataId);
   if(preview){preview.src=src;preview.style.display='inline-block';}
-  if(dataEl)dataEl.value=src;
+  if(dataEl)dataEl.value=src; // valor local imediato, não trava a prévia esperando upload
   var status=document.getElementById('prodDesenhoStatus');
   if(status){status.textContent='✓ Marca d\'água tratada';setTimeout(function(){status.textContent='';},3000);}
+  // v115.1296 - depois de aplicar (prévia instantânea), sobe pro Storage
+  // em segundo plano e troca o valor final pela URL quando terminar.
+  if(typeof pfUploadFotoProdutoStorage==='function'){
+    pfUploadFotoProdutoStorage(src).then(function(url){
+      if(url&&url!==src&&dataEl&&dataEl.value===src)dataEl.value=url;
+    });
+  }
 }
 
 function cadUploadDesenho(input,previewId,dataId){
@@ -29822,10 +29898,15 @@ function cadUploadFoto(input, previewId, dataId){
       if(dataEl)dataEl.value=src;
     };
     var src = e.target.result;
+    // v115.1296 - depois de comprimir, sobe pro Storage e guarda a URL em
+    // vez do base64 (PDF passa direto, pfUploadFotoProdutoStorage só mexe
+    // vindas de imagem).
     if(typeof pfComprimirImagemDataUrl==='function'){
-      pfComprimirImagemDataUrl(src,1000,0.78).then(_aplicar).catch(function(){_aplicar(src);});
+      pfComprimirImagemDataUrl(src,1000,0.78)
+        .then(function(comprimida){return pfUploadFotoProdutoStorage(comprimida);})
+        .then(_aplicar).catch(function(){_aplicar(src);});
     } else {
-      _aplicar(src);
+      pfUploadFotoProdutoStorage(src).then(_aplicar);
     }
   };
   reader.readAsDataURL(file);
@@ -31377,10 +31458,13 @@ async function cadColarFotoProduto(){
       };
       // v115.1278 - ver comentário completo em cadUploadFoto -- mesma
       // correção de compressão aplicada aqui pro caminho de colar foto.
+      // v115.1296 - depois de comprimir, sobe pro Storage e guarda a URL.
       if(typeof pfComprimirImagemDataUrl==='function'){
-        pfComprimirImagemDataUrl(e.target.result,1000,0.78).then(_guardar).catch(function(){_guardar(e.target.result);});
+        pfComprimirImagemDataUrl(e.target.result,1000,0.78)
+          .then(function(comprimida){return pfUploadFotoProdutoStorage(comprimida);})
+          .then(_guardar).catch(function(){_guardar(e.target.result);});
       } else {
-        _guardar(e.target.result);
+        pfUploadFotoProdutoStorage(e.target.result).then(_guardar);
       }
     };
     reader.readAsDataURL(blob);
@@ -31397,10 +31481,14 @@ function cadAddFotos(input){
       r.onload=function(e){
         // v115.1278 - ver comentário completo em cadUploadFoto -- mesma
         // correção de compressão aplicada aqui pro upload de várias fotos.
+        // v115.1296 - depois de comprimir, sobe pro Storage (ver
+        // pfUploadFotoProdutoStorage) e guarda a URL em vez do base64.
         if(typeof pfComprimirImagemDataUrl==='function'){
-          pfComprimirImagemDataUrl(e.target.result,1000,0.78).then(res).catch(function(){res(e.target.result);});
+          pfComprimirImagemDataUrl(e.target.result,1000,0.78)
+            .then(function(comprimida){return pfUploadFotoProdutoStorage(comprimida);})
+            .then(res).catch(function(){res(e.target.result);});
         } else {
-          res(e.target.result);
+          pfUploadFotoProdutoStorage(e.target.result).then(res).catch(function(){res(e.target.result);});
         }
       };
       r.readAsDataURL(f);

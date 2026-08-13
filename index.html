@@ -1516,7 +1516,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1291</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1292</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1611,7 +1611,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1291</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1292</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -36474,6 +36474,108 @@ function pfMinimizarTela(containerId,label,voltarFn,viewId){
 // qualquer hub baseado em cards (Ferramentas, Área Técnica, etc) sem
 // precisar de um botão específico em cada tela uma por uma -- basta
 // chamar isso no onclick de cada card, junto do fn() original.
+// v115.1292 - A pedido do Vitor ("quero abrir mais de uma ferramenta ao
+// mesmo tempo -- ferramentas diferentes juntas OU a mesma 2x -- e quero
+// que clicar em Ferramentas sempre me leve pra lista escolher outra
+// coisa, com a que já tava aberta guardada"): sistema de múltiplas abas
+// pro Ferramentas, no mesmo espírito do Vendas mas SEM usar foto/
+// innerHTML (checei o código de pelo menos uma ferramenta -- ferrMargem
+// -- e achei botão ligado via propriedade JS, .onclick=fn, que não
+// sobrevive a uma foto -- é exatamente o mesmo tipo de bug que já
+// quebrou o Compras uma vez; não ia arriscar isso de novo em 14
+// ferramentas diferentes sem revisar cada uma). Em vez disso, cada aba
+// tem seu próprio container de verdade (nunca destruído/recriado) e
+// trocar de aba só MOVE esse container puro na árvore do DOM -- o
+// mesmo elemento, com os mesmos listeners, tanto faz como foram
+// ligados. Cada ferramenta continua funcionando exatamente como já
+// funcionava, sem precisar tocar em nenhuma das 14.
+window._ferrTabs=window._ferrTabs||{};
+window._ferrActiveTabId=window._ferrActiveTabId||null;
+function ferrGarantirEstrutura(){
+  var view=document.getElementById('ferramentasView');
+  if(!view)return;
+  if(!document.getElementById('ferrActiveSlot')){
+    view.innerHTML='<div id="ferrTabBar" style="display:none"></div><div id="ferrActiveSlot"></div>';
+  }
+  if(!document.getElementById('ferrTabsPool')){
+    var pool=document.createElement('div');
+    pool.id='ferrTabsPool';
+    pool.style.display='none';
+    document.body.appendChild(pool);
+  }
+}
+function ferrTrocarSlotAtivo(novoEl){
+  ferrGarantirEstrutura();
+  var atual=document.getElementById('ferrBody');
+  if(atual&&atual!==novoEl){
+    atual.removeAttribute('id');
+    atual.remove();
+    // Só guarda no "bolso" escondido se for uma aba rastreada -- a
+    // lista de ferramentas (picker) é descartável, não precisa guardar.
+    if(atual.dataset.ferrTabId){
+      document.getElementById('ferrTabsPool').appendChild(atual);
+    }
+  }
+  novoEl.id='ferrBody';
+  document.getElementById('ferrActiveSlot').appendChild(novoEl);
+}
+function ferrIrParaPicker(){
+  window._ferrActiveTabId=null;
+  var el=document.createElement('div');
+  ferrTrocarSlotAtivo(el);
+  if(typeof ferrRender==='function')ferrRender();
+  ferrAtualizarTabBar();
+  if(typeof pfRenderTaskbar==='function')pfRenderTaskbar();
+}
+function ferrAbrirTab(icon,title,fn){
+  ferrGarantirEstrutura();
+  var tabId='ferr_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+  var el=document.createElement('div');
+  el.dataset.ferrTabId=tabId;
+  window._ferrTabs[tabId]={icon:icon,title:title,el:el};
+  window._ferrActiveTabId=tabId;
+  ferrTrocarSlotAtivo(el);
+  fn();
+  ferrAtualizarTabBar();
+  if(typeof pfRenderTaskbar==='function')pfRenderTaskbar();
+}
+function ferrRestaurarTab(tabId){
+  var t=window._ferrTabs[tabId];
+  if(!t)return;
+  window._ferrSkipAutoPicker=true;
+  if(typeof pfNavigate==='function')pfNavigate('ferramentas');
+  window._ferrActiveTabId=tabId;
+  ferrTrocarSlotAtivo(t.el);
+  ferrAtualizarTabBar();
+  if(typeof pfRenderTaskbar==='function')pfRenderTaskbar();
+}
+function ferrFecharTab(tabId,ev){
+  if(ev)ev.stopPropagation();
+  var t=window._ferrTabs[tabId];
+  if(!t)return;
+  delete window._ferrTabs[tabId];
+  if(window._ferrActiveTabId===tabId){
+    ferrIrParaPicker();
+  }else{
+    ferrAtualizarTabBar();
+    if(typeof pfRenderTaskbar==='function')pfRenderTaskbar();
+  }
+}
+function ferrAtualizarTabBar(){
+  var bar=document.getElementById('ferrTabBar');
+  if(!bar)return;
+  var ids=Object.keys(window._ferrTabs);
+  if(!ids.length){bar.style.display='none';bar.innerHTML='';return;}
+  bar.style.cssText='display:flex;gap:6px;padding:0 0 12px;flex-wrap:wrap;align-items:center';
+  var html='';
+  ids.forEach(function(id){
+    var t=window._ferrTabs[id];
+    var ativo=(id===window._ferrActiveTabId);
+    html+='<div onclick="ferrRestaurarTab(\''+id+'\')" style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;background:'+(ativo?'var(--pf-accent)':'var(--pf-bg)')+';color:'+(ativo?'#fff':'var(--pf-text)')+'">'+t.icon+' '+pfEscHtml(t.title)+' <span onclick="ferrFecharTab(\''+id+'\',event)" style="opacity:.7;margin-left:2px">×</span></div>';
+  });
+  html+='<div onclick="ferrIrParaPicker()" style="padding:6px 10px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;color:var(--pf-text-muted);border:1px dashed var(--pf-border)">+ Nova</div>';
+  bar.innerHTML=html;
+}
 function pfFerrMostrarBotaoMinimizar(containerId,titulo,voltarFn,viewId){
   var btn=document.getElementById('pfFerrMinBtn');
   if(!btn){
@@ -36575,6 +36677,27 @@ var PF_VIEW_EMOJI={
 // genéricos de navegação (v115.1288) que apareciam sempre dentro do
 // Vendas -- a barra volta a mostrar SÓ o que está de fato aberto/
 // minimizado, nada de atalho fixo pra outras telas.
+// v115.1292 - A pedido do Vitor ("quando eu passar o mouse em cima já
+// aparece o número e cliente dela [cotação], e eu escolho qual quero
+// abrir" -- pedido usando cotações como exemplo, mas valendo pro grupo
+// de Ferramentas também): grupos (Vendas, Ferramentas) agora abrem uma
+// listinha de verdade no hover, com cada item aberto identificado
+// (número+cliente na cotação; ícone+nome na ferramenta) -- clique na
+// lista escolhe qual restaurar. Isso finalmente implementa de verdade o
+// que só tinha ficado de mockup antes.
+function pfDockFecharFlyout(){
+  var f=document.getElementById('pfDockFlyout');if(f)f.remove();
+}
+function pfDockAbrirFlyout(itemEl,linhas){
+  pfDockFecharFlyout();
+  var fly=document.createElement('div');
+  fly.id='pfDockFlyout';
+  fly.style.cssText='position:absolute;bottom:100%;left:0;margin-bottom:6px;background:var(--pf-card-bg,#fff);border:1px solid var(--pf-sidebar-border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.18);min-width:200px;max-width:280px;padding:4px;z-index:10';
+  fly.innerHTML=linhas.map(function(l){
+    return '<div onclick="'+l.onclick+'" style="padding:8px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" onmouseover="this.style.background=\'var(--pf-nav-hover)\'" onmouseout="this.style.background=\'\'">'+l.texto+'</div>';
+  }).join('');
+  itemEl.appendChild(fly);
+}
 function pfRenderTaskbar(){
   var velho=document.getElementById('pfTaskbarFlyout');if(velho)velho.remove();
   var velhoDock=document.getElementById('pfTaskbarDock');if(velhoDock)velhoDock.remove();
@@ -36583,6 +36706,7 @@ function pfRenderTaskbar(){
   document.querySelectorAll('.pf-dock-item,.pf-dock-divisor').forEach(function(el){el.remove();});
   var itens=window._pfMinimizados.slice();
   if(pfVendasTemMinimizado())itens.push({tabId:'__vendas__',label:pfVendasLabelMinimizado(),viewId:'vendas'});
+  if(Object.keys(window._ferrTabs||{}).length)itens.push({tabId:'__ferramentas__',label:'Ferramentas',viewId:'ferramentas'});
   var todos=itens;
   if(!todos.length)return;
   var divisor=document.createElement('div');
@@ -36594,26 +36718,60 @@ function pfRenderTaskbar(){
     var item=document.createElement('div');
     item.className='pf-nav-item pf-dock-item';
     item.style.position='relative';
-    if(m.tipo==='nav'){
-      item.title='Ir pra '+m.label;
-      item.style.opacity='.6';
-      item.onclick=function(){pfNavigate(m.viewId);};
-      item.innerHTML='<span class="pf-nav-icon">'+emoji+'</span><span class="pf-nav-label">'+pfEscHtml(m.label)+'</span>';
-    }else{
-      item.title=m.label+' — clique pra voltar';
+    var badge='';
+    var n=1;
+    if(m.tabId==='__vendas__'){
+      n=Object.keys(window._vendasTabs||{}).length;
+    }else if(m.tabId==='__ferramentas__'){
+      n=Object.keys(window._ferrTabs||{}).length;
+    }
+    if(n>1)badge='<span style="position:absolute;top:-2px;right:6px;background:#D97757;color:#fff;border-radius:50%;min-width:14px;height:14px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 2px">'+n+'</span>';
+    item.title=(n>1?'':m.label+' — clique pra voltar');
+    if(m.tabId==='__vendas__'&&n>1){
+      item.onmouseenter=function(){
+        var linhas=Object.keys(window._vendasTabs).map(function(id){
+          var t=window._vendasTabs[id];
+          return {texto:'#'+pfEscHtml(String(t.num))+' — '+pfEscHtml(t.label),onclick:"pfDockFecharFlyout();pfRestaurarTelaVendaTab('"+id+"')"};
+        });
+        pfDockAbrirFlyout(item,linhas);
+      };
+      item.onmouseleave=function(){pfDockFecharFlyout();};
       item.onclick=function(){pfRestaurarTela(m.tabId);};
-      var badge='';
-      if(m.tabId==='__vendas__'){
-        var n=Object.keys(window._vendasTabs||{}).length;
-        if(n>1)badge='<span style="position:absolute;top:-2px;right:6px;background:#D97757;color:#fff;border-radius:50%;min-width:14px;height:14px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 2px">'+n+'</span>';
-      }
-      item.innerHTML='<span class="pf-nav-icon">'+emoji+badge+'</span><span class="pf-nav-label">'+pfEscHtml(m.label)+'</span>'+
-        '<span class="pfDockX" onclick="pfFecharMinimizado(\''+m.tabId+'\',event)" style="display:none;position:absolute;top:-4px;right:2px;width:14px;height:14px;border-radius:50%;background:#607080;color:#fff;align-items:center;justify-content:center;font-size:9px;line-height:1;cursor:pointer">×</span>';
+    }else if(m.tabId==='__ferramentas__'&&n>1){
+      item.onmouseenter=function(){
+        var linhas=Object.keys(window._ferrTabs).map(function(id){
+          var t=window._ferrTabs[id];
+          return {texto:t.icon+' '+pfEscHtml(t.title),onclick:"pfDockFecharFlyout();ferrRestaurarTab('"+id+"')"};
+        });
+        pfDockAbrirFlyout(item,linhas);
+      };
+      item.onmouseleave=function(){pfDockFecharFlyout();};
+      item.onclick=function(){
+        var ids=Object.keys(window._ferrTabs);
+        ferrRestaurarTab(window._ferrActiveTabId&&window._ferrTabs[window._ferrActiveTabId]?window._ferrActiveTabId:ids[0]);
+      };
+    }else if(m.tabId==='__ferramentas__'){
+      item.onclick=function(){
+        var id=Object.keys(window._ferrTabs)[0];
+        if(id)ferrRestaurarTab(id);
+      };
+    }else{
+      item.onclick=function(){pfRestaurarTela(m.tabId);};
+    }
+    item.innerHTML='<span class="pf-nav-icon">'+emoji+badge+'</span><span class="pf-nav-label">'+pfEscHtml(m.label)+'</span>'+
+      (m.tabId!=='__ferramentas__'?'<span class="pfDockX" onclick="pfFecharMinimizado(\''+m.tabId+'\',event)" style="display:none;position:absolute;top:-4px;right:2px;width:14px;height:14px;border-radius:50%;background:#607080;color:#fff;align-items:center;justify-content:center;font-size:9px;line-height:1;cursor:pointer">×</span>':'');
+    if(!(item.onmouseenter)){
       item.onmouseover=function(){var x=this.querySelector('.pfDockX');if(x)x.style.display='flex';};
       item.onmouseout=function(){var x=this.querySelector('.pfDockX');if(x)x.style.display='none';};
     }
     nav.appendChild(item);
   });
+}
+function pfRestaurarTelaVendaTab(tabId){
+  window._vendasMinimized=false;
+  window._vendasActiveTab=tabId;
+  if(window._vendasTabs[tabId])window._venda=window._vendasTabs[tabId].venda;
+  if(typeof vendasRenderTabs==='function')vendasRenderTabs();
 }
 
 // v115.765 - Bolinha de notificação no card "Solicitação de Fotos" do
@@ -42615,7 +42773,7 @@ function ferrRender(){
       '<div style="font-size:28px">'+icon+'</div>'+
       '<div class="ferrCardTitle" style="font-size:13px;font-weight:700;color:var(--pf-text);line-height:1.3">'+title+'</div>'+
       (sub?'<div style="font-size:11px;color:var(--pf-text-muted);line-height:1.4">'+sub+'</div>':'');
-    c.onclick=function(){fn();pfFerrMostrarBotaoMinimizar('ferrBody',title,ferrRender,'ferramentas');};
+    c.onclick=function(){ferrAbrirTab(icon,title,fn);};
     c.onmouseover=function(){this.style.borderColor=color;this.style.boxShadow='0 2px 10px rgba(0,0,0,.08)';};
     c.onmouseout=function(){this.style.borderColor='#e8edf4';this.style.boxShadow='none';};
     grid.appendChild(c);
@@ -50993,7 +51151,16 @@ function _pfNavigateOriginal(view){
     var bt4=document.getElementById('btnTroc'); if(bt4)bt4.style.display='none';
     var bl4=document.getElementById('btnLeg'); if(bl4)bl4.style.display='none';
     currentView='ferramentas';
-    setTimeout(function(){if(typeof ferrRender==='function')ferrRender();},30);
+    // v115.1292 - Clicar em "Ferramentas" (menu normal ou dock) sempre
+    // mostra a lista pra escolher outra coisa -- a ferramenta que já
+    // tava aberta continua guardada numa aba, não se perde (ver sistema
+    // de abas logo acima). Só pula o picker quando é um restore
+    // específico de aba vindo do dock (ferrRestaurarTab seta esse flag
+    // antes de chamar pfNavigate).
+    setTimeout(function(){
+      if(window._ferrSkipAutoPicker){window._ferrSkipAutoPicker=false;return;}
+      if(typeof ferrIrParaPicker==='function')ferrIrParaPicker();
+    },30);
   }
 }
 // v115.1278 - A pedido do Vitor ("quero isso em todo o sistema, não seria
@@ -51007,11 +51174,16 @@ function _pfNavigateOriginal(view){
 // no corpo dela (função já frágil, quebrou antes quando mexida direto).
 var PF_SNAPSHOT_VIEWS={
   'cadastros':'cadBody',
-  'ferramentas':'ferrBody',
   'area_tecnica':'areaTecnicaBody',
   'solicitacoes':'solicitacoesBody',
   'logistica':'logisticaBody'
 };
+// v115.1292 - 'ferramentas' TIRADO da lista acima: ganhou sistema de
+// múltiplas abas próprio (ver window._ferrTabs e funções ferrAbrirTab/
+// ferrRestaurarTab/ferrIrParaPicker, mais robusto -- move o DOM real em
+// vez de tirar foto). Deixar os dois mecanismos rodando ao mesmo tempo
+// pra mesma tela causaria conflito (o snapshot ia restaurar por cima da
+// aba certa 40ms depois de entrar na tela).
 // v115.1286 - BUG corrigido (achado pelo Vitor: cards de "Compras" pararam
 // de abrir depois da v115.1279): 'compras' TIRADO da lista acima -- os
 // cards desse menu (comprasRender/mkCard) ligam o clique via propriedade

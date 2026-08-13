@@ -1523,7 +1523,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1297</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1298</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1618,7 +1618,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1297</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1298</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -25827,6 +25827,11 @@ function pfLogUsoIA(contexto,usage,usuarioOverride){
     if(log.length>500)log=log.slice(log.length-500);
     pfSafeSetItem(IA_USO_KEY,JSON.stringify(log));
     if(typeof pfSyncPush==='function')pfSyncPush(['ia_uso_log_v1']);
+    // v115.1298 - A pedido do Vitor ("quero esse número na tela principal
+    // pra monitorar"): atualiza o card de gasto na Home na hora, se
+    // estiver visível -- sem precisar recarregar a página pra ver o
+    // número novo depois de cada leitura de IA.
+    if(typeof pfPainelWidgetsRender==='function'&&document.getElementById('pfPainelWidgets'))pfPainelWidgetsRender();
   }catch(e){}
 }
 // Captura "quem está usando" ANTES de uma chamada de IA potencialmente longa
@@ -40094,6 +40099,27 @@ async function pfBuscarFeriado(){
     return out;
   }catch(e){return null;}
 }
+// v115.1298 - A pedido do Vitor ("quero esse número na minha tela
+// principal, o gasto usado da IA, pra eu monitorar e nunca mais isso
+// acontecer" -- depois de descobrir que a automação de notícias tava
+// gastando mais que devia sem ele perceber): soma o log de uso de IA
+// (mesmo ia_uso_log_v1 que já existe) por hoje e pelo mês, pra mostrar
+// sempre visível -- sem precisar abrir o Console da Anthropic pra saber.
+function pfGastoIAResumo(){
+  try{
+    var log=JSON.parse(pfSafeGetItem(IA_USO_KEY)||'[]');
+    var agora=new Date();
+    var inicioHoje=new Date(agora.getFullYear(),agora.getMonth(),agora.getDate()).getTime();
+    var inicioMes=new Date(agora.getFullYear(),agora.getMonth(),1).getTime();
+    var hoje=0,mes=0;
+    log.forEach(function(l){
+      if(!l||typeof l.custo!=='number')return;
+      if(l.ts>=inicioHoje)hoje+=l.custo;
+      if(l.ts>=inicioMes)mes+=l.custo;
+    });
+    return {hoje:hoje,mes:mes};
+  }catch(e){return {hoje:0,mes:0};}
+}
 async function pfPainelWidgetsRender(){
   var wrap=document.getElementById('pfPainelWidgets');
   if(!wrap)return;
@@ -40107,12 +40133,18 @@ async function pfPainelWidgetsRender(){
   }else{
     cards.push({label:'Feriado',valor:'--',sub:'sem dados'});
   }
+  var gastoIA=pfGastoIAResumo();
+  // Aviso visual: laranja passando de US$1/dia, vermelho passando de US$3 --
+  // só pra chamar atenção sem travar nada; sem limite definido pelo Vitor
+  // ainda, ajusto fácil se ele quiser outro valor.
+  var corGasto=gastoIA.hoje>3?'#C0392B':(gastoIA.hoje>1?'#C2650A':'var(--pf-noticias-text)');
+  cards.push({label:'Gasto de IA · hoje',valor:'US$'+gastoIA.hoje.toFixed(2),sub:'mês: US$'+gastoIA.mes.toFixed(2),cor:corGasto});
   wrap.innerHTML='<div style="display:flex;flex-direction:column;gap:8px">'+
     cards.map(function(c){
       return '<div style="background:var(--pf-noticias-card-bg);border:1px solid var(--pf-noticias-border);border-radius:12px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:6px">'+
         '<div style="font-size:14px;color:var(--pf-noticias-text-muted)">'+c.label+'</div>'+
         '<div style="text-align:right">'+
-          '<span style="font-size:21px;font-weight:700;color:var(--pf-noticias-text)">'+c.valor+'</span>'+
+          '<span style="font-size:21px;font-weight:700;color:'+(c.cor||'var(--pf-noticias-text)')+'">'+c.valor+'</span>'+
           '<span style="font-size:13px;color:var(--pf-noticias-text-muted);margin-left:4px">'+c.sub+'</span>'+
         '</div>'+
       '</div>';
@@ -40469,6 +40501,25 @@ async function pfNoticiasVerificarAtualizacaoAuto(){
   try{
     var raw=localStorage.getItem('pfNoticiasSetorAtualizadoEm');
     var obj=raw?JSON.parse(raw):null;
+    // v115.1298 - BUG corrigido (a pedido do Vitor: gasto duplicado de IA no
+    // mesmo dia, em aparelhos diferentes): a checagem "já passou 1 dia?" só
+    // olhava o localStorage DESSE aparelho -- se outro aparelho já tinha
+    // atualizado mas esse ainda não tinha sincronizado esse dado específico
+    // do servidor (corrida com o sync geral, sem ordem garantida com essa
+    // checagem), o aparelho achava que estava desatualizado e disparava a
+    // busca de novo, pagando a mesma coisa outra vez. Agora busca ESSE
+    // valor direto do servidor antes de decidir, sem depender de quando o
+    // sync geral termina.
+    if(typeof sbUser!=='undefined'&&sbUser&&typeof sbFetch==='function'){
+      try{
+        var respServ=await sbFetch('/rest/v1/user_sync?chave=eq.pfNoticiasSetorAtualizadoEm&select=dados,updated_at&order=updated_at.desc&limit=1');
+        var rowsServ=await respServ.json();
+        if(Array.isArray(rowsServ)&&rowsServ[0]&&rowsServ[0].dados){
+          var objServ=typeof rowsServ[0].dados==='string'?JSON.parse(rowsServ[0].dados):rowsServ[0].dados;
+          if(objServ&&(!obj||(objServ.ts||0)>(obj.ts||0)))obj=objServ;
+        }
+      }catch(eServ){/* sem rede ou falhou -- segue com o que já tinha local */}
+    }
     var agora=Date.now();
     if(obj&&obj.ts&&(agora-obj.ts)<PF_NOTICIAS_INTERVALO_MS)return; // ainda fresco
     if(obj&&obj.tentativaEm&&(agora-obj.tentativaEm)<PF_NOTICIAS_TRAVA_MS)return; // outro aparelho já tentando
@@ -40492,13 +40543,26 @@ async function pfNoticiasBuscarNovasComIA(apiKey){
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
     body:JSON.stringify({
-      model:'claude-sonnet-5',
+      // v115.1298 - A pedido do Vitor (custo alto sem necessidade): trocado
+      // de claude-sonnet-5 (o mais caro disponível) pra claude-haiku-4-5 --
+      // essa tarefa é só montar uma lista de notícias a partir de resultado
+      // de busca, não precisa do modelo mais caro pra isso.
+      model:'claude-haiku-4-5-20251001',
       max_tokens:4000,
       tools:[{type:'web_search_20250305',name:'web_search'}],
       messages:[{role:'user',content:[{type:'text',text:prompt}]}]
     })
   });
   var data=await resp.json();
+  // v115.1298 - BUG corrigido (a pedido do Vitor: gasto real não batia com
+  // o log interno de uso): esse registro rodava só no FINAL da função, se
+  // tudo desse certo. Se a IA respondesse fora do formato esperado (mais
+  // fácil de acontecer numa chamada com busca na web) e a função lançasse
+  // erro antes de chegar lá, o gasto já tinha acontecido de verdade mas
+  // nunca entrava no log -- fazendo o log mostrar bem menos gasto do que o
+  // real. Movido pra logo depois de ter a resposta, antes de qualquer coisa
+  // que possa falhar.
+  if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Notícias automáticas',data.usage,pfUsuarioAtualSnapshot());
   if(data.error)throw new Error(data.error.message||'erro na API');
   var texto=(data.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('\n');
   var m=texto.match(/\[[\s\S]*\]/);
@@ -40511,7 +40575,6 @@ async function pfNoticiasBuscarNovasComIA(apiKey){
   if(typeof pfSyncPush==='function')pfSyncPush(['pfNoticiasSetorAtualizadoEm']).catch(function(){});
   var _splashEl=document.getElementById('pfHomeSplash');
   if(_splashEl&&_splashEl.style.display!=='none'&&typeof pfNoticiasRender==='function')pfNoticiasRender();
-  if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Notícias automáticas',data.usage,pfUsuarioAtualSnapshot());
 }
 function pfNoticiasAtualizarAgora(){
   var apiKey=localStorage.getItem('anthropic_key')||'';

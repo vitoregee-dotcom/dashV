@@ -1516,7 +1516,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1282</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1283</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1611,7 +1611,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1282</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1283</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -20400,6 +20400,13 @@ function processTransitRows(rows){
   }
   var count=0;
   var suspeitos=[];
+  // v115.283 - A pedido do Vitor (achado bug real: item que já tinha 60 em
+  // trânsito de um relatório anterior recebeu +60 de um relatório novo, sem
+  // aviso, virando 120 -- ele confirmou que era só 60 na fonte, o problema
+  // é a soma silenciosa). Agora primeiro CALCULA tudo sem gravar nada, e se
+  // algum código já tinha valor em trânsito de antes, avisa quanto tinha,
+  // quanto tá entrando e quanto vai virar, antes de aplicar de verdade.
+  var somaPorChave={};
   rows.slice(startRow).forEach(function(r){
     var cod=(r[ciCod]!=null?r[ciCod]:'').toString().trim();
     var qtd=parseInt(r[ciQtd])||0;
@@ -20413,14 +20420,30 @@ function processTransitRows(rows){
     if(/^\d[\.,]?\d*E\+?\d+$/i.test(cod))suspeitos.push(cod);
     var marca=getMarca(r);
     var chave=marca?cod+'||'+marca:cod;
-    if(qtd>0){transitItems[chave]=(transitItems[chave]||0)+qtd;count++;}
+    if(qtd>0){somaPorChave[chave]=(somaPorChave[chave]||0)+qtd;count++;}
   });
   var st=document.getElementById('transitStatus');
-  if(count>0){
+  function aplicarImportacaoXlsx(){
+    Object.keys(somaPorChave).forEach(function(chave){transitItems[chave]=(transitItems[chave]||0)+somaPorChave[chave];});
     st.textContent='✅ '+count+' item(s) importado(s)!'+(suspeitos.length?(' ⚠️ '+suspeitos.length+' código(s) parecem corrompidos pelo Excel (notação científica): '+suspeitos.slice(0,5).join(', ')+' — confira o arquivo original, os dígitos certos já se perderam.'):'');
     setTimeout(function(){if(st)st.textContent='';},suspeitos.length?12000:3000);
     renderTransitList();
     if(calcItems.length)recalc(_pfCurrentView!=='dash');
+  }
+  if(count>0){
+    var conflitos=Object.keys(somaPorChave).map(function(chave){
+      var atual=typeof transitItems[chave]==='object'?transitItems[chave].qtd:(transitItems[chave]||0);
+      return atual>0?{chave:chave,atual:atual,novo:somaPorChave[chave]}:null;
+    }).filter(Boolean);
+    if(conflitos.length){
+      var msg='Estes códigos já têm trânsito em aberto e vão SOMAR:\n\n'+
+        conflitos.slice(0,12).map(function(c){return c.chave+': '+c.atual+' + '+c.novo+' = '+(c.atual+c.novo);}).join('\n')+
+        (conflitos.length>12?'\n...e mais '+(conflitos.length-12)+' código(s)':'')+
+        '\n\nSe esse relatório já foi importado antes (ou cobre o mesmo embarque de outro), cancele. Confirma a soma?';
+      pfConfirm(msg,aplicarImportacaoXlsx,'Somar mesmo assim');
+    }else{
+      aplicarImportacaoXlsx();
+    }
   }else{
     st.textContent='⚠️ Nenhum item encontrado. Verifique o formato.';
   }
@@ -20685,6 +20708,10 @@ function processTransitCSVText(text){
   }
   if(ciCod<0){ciCod=1;ciQtd=5;ciDesc=4;startRow=4;} // fallback para formato RelatorioNotasN
   let count=0;
+  // v115.283 - Mesma trava da importação por XLSX (ver comentário lá):
+  // calcula tudo primeiro, sem gravar, e avisa se algum código já tinha
+  // trânsito de antes antes de somar de verdade.
+  const porChave={}; // key -> {qtdNova, codRaw, marca}
   lines.slice(startRow).forEach(function(line){
     if(!line.trim())return;
     const parts=line.split(sep);
@@ -20699,21 +20726,46 @@ function processTransitCSVText(text){
       if(dashIdx>0)marca=desc.slice(0,dashIdx).trim();
     }
     const key=solKey?solKey(codRaw,marca):codRaw;
-    const item=calcItems.find(i=>i.ref===codRaw);
-    const prevQtd=typeof transitItems[key]==='object'?transitItems[key].qtd:(transitItems[key]||0);
-    // v115.887 - Mesma correção do PDF: preserva a data já existente em vez
-    // de sempre resetar pra hoje ao reimportar.
-    const prevData=(typeof transitItems[key]==='object'&&transitItems[key].data)?transitItems[key].data:new Date().toISOString().slice(0,10);
-    const entry={qtd:prevQtd+qtd,saldo:item?item.saldo:0,consumo:item?item.consumo:0,data:prevData};
-    transitItems[key]=entry;
-    salvarTransitItem(key,entry);
+    if(!porChave[key])porChave[key]={qtdNova:0,codRaw:codRaw,marca:marca};
+    porChave[key].qtdNova+=qtd;
     count++;
   });
   const st=document.getElementById('transitStatus');
-  st.textContent='✅ '+count+' item(s) importado(s) do CSV!';
-  setTimeout(function(){if(st)st.textContent='';},3000);
-  renderTransitList();
-  if(calcItems.length)recalc(_pfCurrentView!=='dash');
+  function aplicarImportacaoCsv(){
+    Object.keys(porChave).forEach(function(key){
+      const info=porChave[key];
+      const item=calcItems.find(i=>i.ref===info.codRaw);
+      const prevQtd=typeof transitItems[key]==='object'?transitItems[key].qtd:(transitItems[key]||0);
+      // v115.887 - Mesma correção do PDF: preserva a data já existente em vez
+      // de sempre resetar pra hoje ao reimportar.
+      const prevData=(typeof transitItems[key]==='object'&&transitItems[key].data)?transitItems[key].data:new Date().toISOString().slice(0,10);
+      const entry={qtd:prevQtd+info.qtdNova,saldo:item?item.saldo:0,consumo:item?item.consumo:0,data:prevData};
+      transitItems[key]=entry;
+      salvarTransitItem(key,entry);
+    });
+    st.textContent='✅ '+count+' item(s) importado(s) do CSV!';
+    setTimeout(function(){if(st)st.textContent='';},3000);
+    renderTransitList();
+    if(calcItems.length)recalc(_pfCurrentView!=='dash');
+  }
+  if(count>0){
+    const conflitos=Object.keys(porChave).map(function(key){
+      const atual=typeof transitItems[key]==='object'?transitItems[key].qtd:(transitItems[key]||0);
+      return atual>0?{chave:key,atual:atual,novo:porChave[key].qtdNova}:null;
+    }).filter(Boolean);
+    if(conflitos.length){
+      const msg='Estes códigos já têm trânsito em aberto e vão SOMAR:\n\n'+
+        conflitos.slice(0,12).map(function(c){return c.chave+': '+c.atual+' + '+c.novo+' = '+(c.atual+c.novo);}).join('\n')+
+        (conflitos.length>12?'\n...e mais '+(conflitos.length-12)+' código(s)':'')+
+        '\n\nSe esse relatório já foi importado antes (ou cobre o mesmo embarque de outro), cancele. Confirma a soma?';
+      pfConfirm(msg,aplicarImportacaoCsv,'Somar mesmo assim');
+    }else{
+      aplicarImportacaoCsv();
+    }
+  }else{
+    st.textContent='⚠️ Nenhum item encontrado no CSV.';
+    setTimeout(function(){if(st)st.textContent='';},3000);
+  }
 }
 function addTransitItem(){
   const codEl=document.getElementById('transitCodIn');

@@ -1516,7 +1516,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1287</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1288</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1611,7 +1611,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1287</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1288</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -36575,7 +36575,27 @@ function pfRenderTaskbar(){
   var dock=document.getElementById('pfTaskbarDock');
   var itens=window._pfMinimizados.slice();
   if(pfVendasTemMinimizado())itens.push({tabId:'__vendas__',label:pfVendasLabelMinimizado(),viewId:'vendas'});
-  if(!itens.length){
+  // v115.1288 - A pedido do Vitor ("quero que apareça o DOCK, por cima de
+  // tudo" -- não um atalho separado, o dock de verdade): dentro da própria
+  // tela Vendas (cotação aberta, currentView==='vendas'), o dock passa a
+  // trazer também um atalho pra cada outra tela principal, tipo 'nav'
+  // (clique chama pfNavigate direto, sem 'X' de fechar nem crachá de
+  // contagem -- não é uma janela minimizada, é só ir pra lá). O dock já
+  // fica por cima da cotação sozinho (z-index 99998 > z-index 9999 do
+  // modal do Vendas), então isso resolve sem precisar duplicar nada na
+  // barra da cotação.
+  var itensNav=[];
+  if(typeof currentView!=='undefined'&&currentView==='vendas'){
+    itensNav=[
+      {tipo:'nav',viewId:'cadastros',label:'Cadastros'},
+      {tipo:'nav',viewId:'ferramentas',label:'Ferramentas'},
+      {tipo:'nav',viewId:'area_tecnica',label:'Área Técnica'},
+      {tipo:'nav',viewId:'compras',label:'Compras'},
+      {tipo:'nav',viewId:'logistica',label:'Logística'}
+    ];
+  }
+  var todos=itens.concat(itensNav);
+  if(!todos.length){
     if(dock)dock.remove();
     return;
   }
@@ -36585,8 +36605,13 @@ function pfRenderTaskbar(){
     dock.style.cssText='position:fixed;left:14px;bottom:14px;z-index:99998;display:flex;flex-direction:row-reverse;gap:6px;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:16px;padding:6px 8px;box-shadow:0 2px 12px rgba(0,0,0,.18);max-width:calc(100vw - 28px);overflow-x:auto';
     document.body.appendChild(dock);
   }
-  dock.innerHTML=itens.map(function(m){
+  dock.innerHTML=todos.map(function(m){
     var emoji=PF_VIEW_EMOJI[m.viewId]||'🗂️';
+    if(m.tipo==='nav'){
+      return '<div onclick="pfNavigate(\''+m.viewId+'\')" title="Ir pra '+pfEscHtml(m.label)+'" '+
+        'style="position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;flex-shrink:0;opacity:.55">'+
+        emoji+'</div>';
+    }
     var badge='';
     if(m.tabId==='__vendas__'){
       var n=Object.keys(window._vendasTabs||{}).length;
@@ -41451,27 +41476,6 @@ function vendasRenderTabs(){
   // Controls
   var ctrl=document.createElement('div');
   ctrl.style.cssText='display:flex;align-items:center;gap:4px;margin-left:auto;padding:0 8px;flex-shrink:0';
-  // v115.1287 - A pedido do Vitor ("quero poder acessar o dock aqui da
-  // cotação, pra poder ir pra outra tela"): a cotação abre num modal em
-  // tela cheia (z-index alto) que tampa a barra de baixo/dock inteiros --
-  // só dava pra sair clicando "Minimizar" antes. Em vez de mexer no
-  // z-index geral (arriscado, várias outras janelas do sistema também
-  // usam esses mesmos z-index e dependem de ficar por baixo da cotação),
-  // adicionado um atalho de navegação DENTRO da própria barra da cotação
-  // -- clique em qualquer ícone já chama pfNavigate, que (desde a
-  // v115.1285) esconde essa cotação sozinha antes de trocar de tela.
-  var navAtalho=document.createElement('div');
-  navAtalho.style.cssText='display:flex;align-items:center;gap:2px;padding-right:6px;border-right:1px solid rgba(255,255,255,.2);margin-right:2px';
-  [['cadastros','👤','Cadastros'],['ferramentas','🧰','Ferramentas'],['area_tecnica','🔧','Área Técnica'],['compras','🛒','Compras'],['logistica','🚚','Logística']].forEach(function(v){
-    var b=document.createElement('span');
-    b.textContent=v[1];b.title='Ir pra '+v[2];
-    b.style.cssText='cursor:pointer;font-size:16px;padding:4px 6px;border-radius:4px;line-height:1';
-    b.onmouseover=function(){this.style.background='rgba(255,255,255,.15)';};
-    b.onmouseout=function(){this.style.background='';};
-    b.onclick=function(){if(typeof pfNavigate==='function')pfNavigate(v[0]);};
-    navAtalho.appendChild(b);
-  });
-  ctrl.appendChild(navAtalho);
   // Minimizar
   var minBtn=document.createElement('button');
   minBtn.style.cssText='background:none;border:none;color:rgba(255,255,255,.7);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1';

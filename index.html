@@ -1516,7 +1516,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1280</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1282</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1611,7 +1611,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1280</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1282</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -36485,26 +36485,44 @@ function pfFecharMinimizado(tabId,ev){
 // por baixo -- só soma na contagem e aparece como uma linha a mais na
 // lista, com id fixo '__vendas__' tratado à parte no restaurar/fechar.
 function pfVendasTemMinimizado(){
-  return !!(window._vendasMinimized && window._vendasTabs && Object.keys(window._vendasTabs).length);
+  var temTabs=!!(window._vendasTabs && Object.keys(window._vendasTabs).length);
+  if(!temTabs)return false;
+  // v115.1281 - A pedido do Vitor ("se eu tiver numa cotação e quiser ver
+  // o dock, pra abrir outra coisa -- pra não ter que ir no botão de
+  // minimizar"): a bolinha aparece no dock também quando ele simplesmente
+  // NAVEGA pra outra tela (clica em Cadastros/Ferramentas/etc no menu),
+  // sem precisar clicar "Minimizar" antes -- os dados já não se perdiam
+  // (ficam em window._vendasTabs), só faltava aparecer no dock sozinho.
+  return !!(window._vendasMinimized || (typeof currentView!=='undefined' && currentView!=='vendas'));
 }
 function pfVendasLabelMinimizado(){
   var n=Object.keys(window._vendasTabs||{}).length;
-  return '🛒 Vendas ('+n+(n===1?' cotação':' cotações')+')';
+  return '💰 Vendas ('+n+(n===1?' cotação':' cotações')+')';
 }
+// v115.1282 - A pedido do Vitor: emoji de cada bolinha do dock passou a
+// ser o MESMO emoji já usado pra aquela tela em outro lugar do sistema
+// (barra de baixo / cards do menu Compras), em vez do 🗂️ genérico -- e
+// tirado o fundo laranja, fica só o emoji flutuando (igual os ícones da
+// barra de baixo). 'ferramentas' não tem emoji próprio hoje (usa a logo
+// em SVG na barra) -- 🧰 é provisório até o Vitor definir um.
+var PF_VIEW_EMOJI={
+  cadastros:'👤', ferramentas:'🧰', area_tecnica:'🔧',
+  solicitacoes:'📨', compras:'🛒', logistica:'🚚', vendas:'💰'
+};
 // v115.1280 - A pedido do Vitor ("não gostei desse esquema de ícone com
 // lista, muda pra bolinhas tipo iOS"): trocado o ícone único+contador+lista
 // dropdown por um DOCK horizontal no canto INFERIOR ESQUERDO -- cada janela
 // minimizada já é a própria bolinha, clique restaura direto (sem precisar
-// abrir lista antes). Cor das bolinhas: --pf-accent (#D97757, terracota
-// oficial do sistema). Nome de cada uma aparece no title (hover/toque
-// segurando). Posição esquerda escolhida pelo Vitor -- fica abaixo da barra
-// de avisos (que é vertical-centralizada, top:50%, não desce até o rodapé),
-// então não colide.
+// abrir lista antes). Posição esquerda escolhida pelo Vitor -- fica abaixo
+// da barra de avisos (que é vertical-centralizada, top:50%, não desce até
+// o rodapé), então não colide.
+// v115.1282 - Bolinha mais nova entra pela ESQUERDA, empurrando as
+// existentes (flex-direction row-reverse + insere no INÍCIO do array).
 function pfRenderTaskbar(){
   var velho=document.getElementById('pfTaskbarFlyout');if(velho)velho.remove();
   var dock=document.getElementById('pfTaskbarDock');
   var itens=window._pfMinimizados.slice();
-  if(pfVendasTemMinimizado())itens.push({tabId:'__vendas__',label:pfVendasLabelMinimizado()});
+  if(pfVendasTemMinimizado())itens.push({tabId:'__vendas__',label:pfVendasLabelMinimizado(),viewId:'vendas'});
   if(!itens.length){
     if(dock)dock.remove();
     return;
@@ -36512,17 +36530,22 @@ function pfRenderTaskbar(){
   if(!dock){
     dock=document.createElement('div');
     dock.id='pfTaskbarDock';
-    dock.style.cssText='position:fixed;left:14px;bottom:14px;z-index:99998;display:flex;gap:8px;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:20px;padding:6px;box-shadow:0 2px 12px rgba(0,0,0,.18);max-width:calc(100vw - 28px);overflow-x:auto';
+    dock.style.cssText='position:fixed;left:14px;bottom:14px;z-index:99998;display:flex;flex-direction:row-reverse;gap:6px;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:16px;padding:6px 8px;box-shadow:0 2px 12px rgba(0,0,0,.18);max-width:calc(100vw - 28px);overflow-x:auto';
     document.body.appendChild(dock);
   }
   dock.innerHTML=itens.map(function(m){
-    var emoji=(m.tabId==='__vendas__')?'🛒':'🗂️';
+    var emoji=PF_VIEW_EMOJI[m.viewId]||'🗂️';
+    var badge='';
+    if(m.tabId==='__vendas__'){
+      var n=Object.keys(window._vendasTabs||{}).length;
+      if(n>1)badge='<span style="position:absolute;top:-2px;right:-2px;background:#D97757;color:#fff;border-radius:50%;min-width:14px;height:14px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 2px">'+n+'</span>';
+    }
     return '<div onclick="pfRestaurarTela(\''+m.tabId+'\')" title="'+pfEscHtml(m.label)+' — clique pra voltar" '+
-      'style="position:relative;width:36px;height:36px;border-radius:50%;background:#D97757;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;flex-shrink:0" '+
+      'style="position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;flex-shrink:0" '+
       'onmouseover="var x=this.querySelector(\'.pfDockX\');if(x)x.style.display=\'flex\'" '+
       'onmouseout="var x=this.querySelector(\'.pfDockX\');if(x)x.style.display=\'none\'">'+
-      emoji+
-      '<span class="pfDockX" onclick="pfFecharMinimizado(\''+m.tabId+'\',event)" style="display:none;position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:#607080;color:#fff;align-items:center;justify-content:center;font-size:10px;line-height:1">×</span>'+
+      emoji+badge+
+      '<span class="pfDockX" onclick="pfFecharMinimizado(\''+m.tabId+'\',event)" style="display:none;position:absolute;bottom:-4px;right:-4px;width:14px;height:14px;border-radius:50%;background:#607080;color:#fff;align-items:center;justify-content:center;font-size:9px;line-height:1">×</span>'+
       '</div>';
   }).join('');
 }
@@ -50933,6 +50956,10 @@ function pfNavigate(view){
     }
   }
   _pfNavigateOriginal(view);
+  // v115.1281 - recalcula o dock a cada troca de tela (não só quando
+  // minimiza/restaura manualmente) -- é o que faz a bolinha do Vendas
+  // aparecer sozinha ao sair da tela, ver pfVendasTemMinimizado acima.
+  if(typeof pfRenderTaskbar==='function')pfRenderTaskbar();
   console.log('📸 chegou em "'+view+'" -- tem foto salva pra essa tela? '+!!(PF_SNAPSHOT_VIEWS[view]&&window._pfSnapshotsPorView[view]));
   if(PF_SNAPSHOT_VIEWS[view]&&window._pfSnapshotsPorView[view]){
     var contNovo=document.getElementById(PF_SNAPSHOT_VIEWS[view]);

@@ -1523,7 +1523,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1310</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1311</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1618,7 +1618,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1310</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1311</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -32611,7 +32611,8 @@ var PF_SYNC_KEYS = [
   'pfDicasImpactoCache',
   'pfNoticiasSetorAtualizadoEm',
   'pfComprasAtivosSemeado',
-  'pfComprasEscopoAmpliadoSemeado'
+  'pfComprasEscopoAmpliadoSemeado',
+  'pfPainelWidgetsCache'
 ];
 
 async function pfSyncPush(keys){
@@ -39877,6 +39878,14 @@ function pfComprasAutoVerificar(){
   // diferente nesse meio-tempo, essa aba desiste (a outra já está
   // cuidando do aviso).
   var meuToken=Math.random().toString(36).slice(2)+Date.now();
+  // v115.1310 - Essas 2 chaves (throttle de 20s + token de eleição) são a
+  // ÚNICA exceção proposital deixada de fora da sincronização, e é por um
+  // motivo técnico, não decisão de "achar que faz sentido ficar local":
+  // servem só pra evitar que ESSE MESMO aparelho/aba rode a verificação
+  // de novo cedo demais -- se sincronizasse, um aparelho ia impedir o
+  // outro de rodar a própria verificação, quebrando o mecanismo inteiro.
+  // O que É dado de verdade (pfComprasAtivos, os *Eventos) já sincroniza
+  // normal -- só esse cronômetro interno de debounce fica de fora.
   localStorage.setItem('pfComprasUltimaVerificacao',String(agora));
   localStorage.setItem('pfComprasVerificacaoToken',meuToken);
   setTimeout(function(){
@@ -39958,6 +39967,7 @@ async function pfComprasAutoVerificarNucleo(){
   // mudanças de verdade daqui pra frente.
   if(!localStorage.getItem('pfComprasAtivosSemeado')){
     localStorage.setItem('pfComprasAtivosSemeado','1');
+    if(typeof pfSyncPush==='function')pfSyncPush(['pfComprasAtivosSemeado']);
     return;
   }
   // v115.1082 - BUG corrigido (a pedido do Vitor, achado minutos depois do
@@ -39974,6 +39984,7 @@ async function pfComprasAutoVerificarNucleo(){
   // novo pra qualquer família que não estava sendo rastreada antes.
   if(!localStorage.getItem('pfComprasEscopoAmpliadoSemeado')){
     localStorage.setItem('pfComprasEscopoAmpliadoSemeado','1');
+    if(typeof pfSyncPush==='function')pfSyncPush(['pfComprasEscopoAmpliadoSemeado']);
     return;
   }
   // v115.1219 - BUG corrigido (a pedido do Vitor, achou vários e-mails
@@ -40126,6 +40137,7 @@ function pfWidgetsCacheSet(campo,valor){
   var c=pfWidgetsCacheGet()||{dia:new Date().toISOString().slice(0,10)};
   c[campo]=valor;
   localStorage.setItem(PF_WIDGETS_KEY,JSON.stringify(c));
+  if(typeof pfSyncPush==='function')pfSyncPush([PF_WIDGETS_KEY]);
 }
 async function pfBuscarDolar(){
   var c=pfWidgetsCacheGet();

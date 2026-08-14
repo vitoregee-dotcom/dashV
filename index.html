@@ -1523,7 +1523,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1311</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1312</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1618,7 +1618,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1311</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1312</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -49987,6 +49987,24 @@ function ferrMeAvise(){
   var el=document.getElementById('ferrBody');if(!el)return;
   function render(){
     var avisos=[];try{avisos=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
+    // v115.1312 - BUG GRAVE corrigido (a pedido do Vitor: "não consigo
+    // excluir os antigos, que não funcionaram"): os botões de ação
+    // (Chegou/WA/✉/🗑) identificavam o item pela POSIÇÃO dele na tabela
+    // (índice `i`) -- mas essa posição muda toda vez que a lista é
+    // reordenada por um sync/merge (mais provável de acontecer com item
+    // ANTIGO, que já passou por várias sincronizações desde que foi
+    // adicionado). Clicar em excluir/marcar chegou agia sobre o item que
+    // ESTAVA naquela posição no momento em que a tela desenhou o botão,
+    // não necessariamente o item que a pessoa está vendo agora -- clique
+    // "não fazia nada" (ou pior, mexia silenciosamente no item errado)
+    // sempre que a ordem tinha mudado por baixo entre o desenho da tela e
+    // o clique. Cada item já ganha um "id" estável (ref+marca+cliente) ao
+    // ser adicionado (maChaveEstavel, ver maAdicionar) -- itens ANTIGOS,
+    // de antes dessa função existir, não tinham esse campo. Preenche
+    // agora, uma vez, pros que ainda não têm.
+    var _maPrecisaBackfillId=false;
+    avisos.forEach(function(a){if(!a.id){a.id=maChaveEstavel(a);_maPrecisaBackfillId=true;}});
+    if(_maPrecisaBackfillId){pfSafeSetItem('meAvise_lista',JSON.stringify(avisos));if(typeof pfSyncPush==='function')pfSyncPush(['meAvise_lista']);}
     var html='<div style="width:100%">'+
       '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
       '<button onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">← Voltar <kbd style="font-size:9px;background:#f0f4f8;padding:1px 5px;border-radius:3px">Esc</kbd></button>'+
@@ -50092,12 +50110,12 @@ function ferrMeAvise(){
         html+='<td style="padding:8px;text-align:center"><span style="background:'+_statusMA.bg+';color:'+_statusMA.c+';padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;white-space:nowrap">'+_statusMA.l+'</span></td>';
         html+='<td style="padding:8px;text-align:center;color:#607080;font-size:11px;white-space:nowrap">'+dataTxt+'</td>';
         html+='<td style="padding:8px;text-align:center;white-space:nowrap">';
-        html+='<button id="maChegouBtn'+i+'" onclick="maChegou('+i+')" style="background:#1F7A3A;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:700;margin-right:4px">✅ Chegou</button>';
+        html+='<button id="maChegouBtn'+pos+'" onclick="maChegou(\''+pfEscJs(a.id)+'\','+pos+')" style="background:#1F7A3A;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:700;margin-right:4px">✅ Chegou</button>';
         if(a.wa_cliente){
-          html+='<button onclick="maWhatsApp('+i+')" style="background:#25D366;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:700;margin-right:4px">📱 WA</button>';
+          html+='<button onclick="maWhatsApp(\''+pfEscJs(a.id)+'\')" style="background:#25D366;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:700;margin-right:4px">📱 WA</button>';
         }
-        html+='<button onclick="maEditarEmailExtra('+i+')" title="Incluir/editar e-mail extra pra esse item" style="background:none;border:1px solid #e0e8f0;color:#1F4E79;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;margin-right:4px">✉</button>';
-        html+='<button onclick="maRemover('+i+')" style="background:none;border:1px solid #e0e8f0;color:#C00000;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px">🗑</button></td></tr>';
+        html+='<button onclick="maEditarEmailExtra(\''+pfEscJs(a.id)+'\')" title="Incluir/editar e-mail extra pra esse item" style="background:none;border:1px solid #e0e8f0;color:#1F4E79;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px;margin-right:4px">✉</button>';
+        html+='<button onclick="maRemover(\''+pfEscJs(a.id)+'\')" style="background:none;border:1px solid #e0e8f0;color:#C00000;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11px">🗑</button></td></tr>';
       });
       html+='</tbody></table>';
     }
@@ -50220,9 +50238,9 @@ function ferrMeAvise(){
     }
     render();
   };
-  window.maEditarEmailExtra=function(i){
+  window.maEditarEmailExtra=function(id){
     var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
-    var a=lista[i];if(!a)return;
+    var a=lista.find(function(x){return x.id===id;});if(!a)return;
     var novo=prompt('E-mail extra pra receber avisos SÓ desse item ('+a.ref+'):',a.email_extra||'');
     if(novo===null)return;
     novo=novo.trim();
@@ -50231,23 +50249,25 @@ function ferrMeAvise(){
     pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
     render();
   };
-  window.maRemover=function(i){
+  window.maRemover=function(id){
     var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
-    lista.splice(i,1);pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);render();
+    var idx=lista.findIndex(function(a){return a.id===id;});
+    if(idx<0)return;
+    lista.splice(idx,1);pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);render();
   };
-  window.maWhatsApp=function(i){
+  window.maWhatsApp=function(id){
     var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
-    var a=lista[i];
+    var a=lista.find(function(x){return x.id===id;});if(!a)return;
     var tel=(a.wa_cliente||'').replace(/\D/g,'');
     if(!tel){pfAlert('Telefone/WhatsApp não cadastrado para este cliente.');return;}
     if(!tel.startsWith('55'))tel='55'+tel;
     var msg=encodeURIComponent('Olá '+( a.nome_cliente||'')+'! Sua peça chegou ao estoque.\n\nReferência: '+a.ref+(a.marca?'\nMarca: '+a.marca:'')+'\n\nPode entrar em contato para combinar a retirada ou entrega.\n\nAtenciosamente,\nTriex Peças');
     window.open('https://wa.me/'+tel+'?text='+msg,'_blank');
   };
-  window.maChegou=function(i){
+  window.maChegou=function(id,pos){
     var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
-    var a=lista[i];
-    var btn=document.getElementById('maChegouBtn'+i);
+    var a=lista.find(function(x){return x.id===id;});if(!a)return;
+    var btn=document.getElementById('maChegouBtn'+pos);
     if(btn){btn.disabled=true;btn.textContent='Enviando...';}
     // v115.1031 - BUG GRAVE corrigido (achado pelo Vitor): essa era a
     // TERCEIRA função mandando pra TODOS os perfis cadastrados (tabela
@@ -50274,7 +50294,9 @@ function ferrMeAvise(){
             cod_cliente:a.cod_cliente||'—',nome_cliente:a.nome_cliente||'—'
           });
         }));
-        lista.splice(i,1);pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
+        var idxRem=lista.findIndex(function(x){return x.id===id;});
+        if(idxRem>=0)lista.splice(idxRem,1);
+        pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
         render();
         var t=document.createElement('div');
         t.style.cssText='position:fixed;top:70px;right:64px;z-index:9999;background:#EAF3DE;border:1px solid #7CB97A;color:#2A6A28;border-radius:10px;padding:12px 20px;font-size:13px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.15)';

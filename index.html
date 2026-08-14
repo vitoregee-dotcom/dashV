@@ -1523,7 +1523,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1313</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1314</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1618,7 +1618,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1313</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1314</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -27332,38 +27332,78 @@ function cadPadronizarDescricoesAplicar(){
 function cadCriarFichasParaTodosPrompt(){
   if(!calcItems||!calcItems.length){pfAlert('Nenhuma planilha carregada ainda — abre o Dashboard e carrega a planilha antes.');return;}
   var plist=cadLoad(PROD_KEY);
+  // v115.1314 - BUG corrigido (a pedido do Vitor): "existentes" checava só
+  // o CÓDIGO, ignorando a marca -- então se "231247 SPICER" já tinha
+  // ficha, "231247 SPICER-R" (marca de verdade diferente) nunca ganhava a
+  // dele, porque o código já "existia". Cadastro precisa de código+marca
+  // juntos pra saber se já existe, igual o resto do sistema já faz em
+  // todo outro lugar (solKey, chaveDe, etc) -- só o Dashboard junta marca
+  // pra virar relatório, o cadastro em si sempre foi pra manter separado.
   var existentes={};
-  plist.forEach(function(p){existentes[(p.codigo||'').toUpperCase()]=true;});
+  plist.forEach(function(p){existentes[(p.codigo||'').toUpperCase()+'||'+(p.marca||'').toUpperCase()]=true;});
   var vistos={},faltamTotal=0,faltamAtivos=0;
   calcItems.forEach(function(d){
     var cod=(d.ref||'').trim().toUpperCase();
-    if(!cod||existentes[cod]||vistos[cod])return;
-    vistos[cod]=true;faltamTotal++;
-    if((d.consumo>0)||(d.cotacoes>0))faltamAtivos++;
+    if(!cod)return;
+    // v115.1314 - O Dashboard junta marcas parecidas numa string só (ex:
+    // "SPICER + SPICER-R") pra virar relatório -- é só isso, um relatório.
+    // No Cadastro cada marca precisa continuar como um item PRÓPRIO e
+    // separado. Desfaz a junção aqui, uma marca de cada vez.
+    var marcas=(d.marca||'').split(' + ').map(function(m){return m.trim();}).filter(Boolean);
+    if(!marcas.length)marcas=[''];
+    marcas.forEach(function(marca){
+      var chave=cod+'||'+marca.toUpperCase();
+      if(existentes[chave]||vistos[chave])return;
+      vistos[chave]=true;faltamTotal++;
+      if((d.consumo>0)||(d.cotacoes>0))faltamAtivos++;
+    });
   });
   if(!faltamTotal){pfAlert('Todos os itens da planilha já têm ficha criada.');return;}
   // Catálogo inteiro pode ser grande demais pro armazenamento do navegador (localStorage
   // costuma ter limite de uns 5-10MB no total) — por padrão sugere só os itens com
   // movimento real (consumo ou cotação registrada), que é o que realmente importa.
   if(faltamAtivos<faltamTotal){
-    pfConfirm('São '+faltamTotal+' itens sem ficha no total, mas a maioria nunca teve movimento. Recomendo criar só pros '+faltamAtivos+' item(ns) com consumo ou cotação registrada — é bem mais rápido e evita estourar o limite de armazenamento do navegador.\n\nQuer criar só esses '+faltamAtivos+' agora? (os outros continuam podendo ganhar ficha automaticamente quando forem cotados)',function(){cadCriarFichasEmLotes(true);},'Criar '+faltamAtivos+' (recomendado)');
+    pfConfirm('São '+faltamTotal+' itens sem ficha no total (já contando marca separada — Dashboard junta pra virar relatório, mas o cadastro mantém cada marca no seu próprio item), mas a maioria nunca teve movimento. Recomendo criar só pros '+faltamAtivos+' item(ns) com consumo ou cotação registrada — é bem mais rápido e evita estourar o limite de armazenamento do navegador.\n\nQuer criar só esses '+faltamAtivos+' agora? (os outros continuam podendo ganhar ficha automaticamente quando forem cotados)',function(){cadCriarFichasEmLotes(true);},'Criar '+faltamAtivos+' (recomendado)');
   } else {
-    pfConfirm('Criar ficha para '+faltamTotal+' item(ns) que ainda não têm? Vou preencher código, descrição e marca automaticamente.',function(){cadCriarFichasEmLotes(false);},'Criar '+faltamTotal+' ficha(s)');
+    pfConfirm('Criar ficha para '+faltamTotal+' item(ns) que ainda não têm (já contando marca separada)? Vou preencher código, descrição e marca automaticamente — usando a descrição do catálogo importado quando já existir uma aplicação registrada pra esse item.',function(){cadCriarFichasEmLotes(false);},'Criar '+faltamTotal+' ficha(s)');
   }
 }
 
 function cadCriarFichasEmLotes(somenteAtivos){
   var plist=cadLoad(PROD_KEY);
   var existentes={};
-  plist.forEach(function(p){existentes[(p.codigo||'').toUpperCase()]=true;});
+  plist.forEach(function(p){existentes[(p.codigo||'').toUpperCase()+'||'+(p.marca||'').toUpperCase()]=true;});
+  // v115.1314 - A pedido do Vitor ("quero preservar a descrição e
+  // aplicação dos itens que eu subi por catálogo"): itens já cotados/
+  // marcados via "Marcar Aplicação" (nas cotações) têm uma descrição
+  // própria guardada em prod_aplicacoes_v1, independente de já ter ficha
+  // no Cadastro ou não -- essa descrição normalmente é a que veio do
+  // catálogo do fabricante, mais completa que a da planilha de estoque.
+  // Indexa por código+marca pra usar essa descrição quando existir, em
+  // vez da descrição (às vezes mais pobre) da planilha.
+  var aplicPorCodMarca={};
+  (typeof aplicLoad==='function'?aplicLoad():[]).forEach(function(a){
+    if(!a||!a.codigo||!a.desc)return;
+    var k=String(a.codigo).trim().toUpperCase()+'||'+String(a.marca||'').trim().toUpperCase();
+    if(!aplicPorCodMarca[k])aplicPorCodMarca[k]=a.desc;
+  });
   var vistos={};
   var pendentes=[];
   calcItems.forEach(function(d){
     var cod=(d.ref||'').trim().toUpperCase();
-    if(!cod||existentes[cod]||vistos[cod])return;
+    if(!cod)return;
     if(somenteAtivos&&!((d.consumo>0)||(d.cotacoes>0)))return;
-    vistos[cod]=true;
-    pendentes.push({codigo:d.ref,descricao:d.desc||'',marca:d.marca||''});
+    // v115.1314 - Mesma separação de marca do prompt acima -- ver
+    // comentário lá. Uma ficha própria por marca, nunca a string juntada.
+    var marcas=(d.marca||'').split(' + ').map(function(m){return m.trim();}).filter(Boolean);
+    if(!marcas.length)marcas=[''];
+    marcas.forEach(function(marca){
+      var chave=cod+'||'+marca.toUpperCase();
+      if(existentes[chave]||vistos[chave])return;
+      vistos[chave]=true;
+      var descAplic=aplicPorCodMarca[chave];
+      pendentes.push({codigo:d.ref,descricao:descAplic||d.desc||'',marca:marca});
+    });
   });
   if(!pendentes.length){pfAlert('Nenhum item pendente encontrado.');return;}
   // Modal de progresso

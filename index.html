@@ -1523,7 +1523,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1316</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1317</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1618,7 +1618,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1316</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1317</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -20460,7 +20460,31 @@ function processTransitRows(rows){
   });
   var st=document.getElementById('transitStatus');
   function aplicarImportacaoXlsx(){
-    Object.keys(somaPorChave).forEach(function(chave){transitItems[chave]=(transitItems[chave]||0)+somaPorChave[chave];});
+    // v115.1317 - BUG GRAVE corrigido (a pedido do Vitor: item preso em
+    // trânsito pra sempre, 100% dos itens do banco com saldo_marcado:0
+    // sem exceção -- CC2847 tinha saldo 13 de verdade e continuava
+    // preso). Causa raiz encontrada: essa função (a importação por XLSX,
+    // a mais usada) NUNCA tentava gravar saldo/consumo -- só guardava a
+    // quantidade como número puro (transitItems[chave]=numero, não um
+    // objeto {qtd,saldo,...}), fazendo o resto do sistema sempre cair no
+    // fallback "typeof entry==='object'?entry.saldo:0" e gravar 0 pra
+    // TODO item importado por aqui, sem exceção. Agora monta o objeto
+    // completo igual os outros caminhos de importação já faziam (CSV,
+    // PDF) -- e usa allItems (catálogo inteiro) em vez de calcItems
+    // (fica filtrado pela família ativa do Dashboard -- mesmo bug já
+    // corrigido antes em outro lugar, v115.1081) pra achar o saldo/
+    // consumo reais do item na hora de gravar.
+    var _baseItens=(typeof allItems!=='undefined'&&allItems&&allItems.length)?allItems:calcItems;
+    Object.keys(somaPorChave).forEach(function(chave){
+      var codRaw=chave.split('||')[0];
+      var item=_baseItens.find(function(i){return i.ref===codRaw;});
+      var prevEntry=transitItems[chave];
+      var prevQtd=typeof prevEntry==='object'?prevEntry.qtd:(prevEntry||0);
+      var prevData=(typeof prevEntry==='object'&&prevEntry.data)?prevEntry.data:new Date().toISOString().slice(0,10);
+      var entry={qtd:prevQtd+somaPorChave[chave],saldo:item?item.saldo:0,consumo:item?item.consumo:0,data:prevData};
+      transitItems[chave]=entry;
+      salvarTransitItem(chave,entry);
+    });
     st.textContent='✅ '+count+' item(s) importado(s)!'+(suspeitos.length?(' ⚠️ '+suspeitos.length+' código(s) parecem corrompidos pelo Excel (notação científica): '+suspeitos.slice(0,5).join(', ')+' — confira o arquivo original, os dígitos certos já se perderam.'):'');
     setTimeout(function(){if(st)st.textContent='';},suspeitos.length?12000:3000);
     renderTransitList();
@@ -20770,7 +20794,12 @@ function processTransitCSVText(text){
   function aplicarImportacaoCsv(){
     Object.keys(porChave).forEach(function(key){
       const info=porChave[key];
-      const item=calcItems.find(i=>i.ref===info.codRaw);
+      // v115.1317 - Mesma correção do XLSX (ver comentário lá) -- usa
+      // allItems (catálogo inteiro) em vez de calcItems (fica filtrado
+      // pela família ativa do Dashboard), senão grava saldo 0 pra
+      // qualquer item fora do filtro que estiver ativo na hora.
+      const _baseItensCsv=(typeof allItems!=='undefined'&&allItems&&allItems.length)?allItems:calcItems;
+      const item=_baseItensCsv.find(i=>i.ref===info.codRaw);
       const prevQtd=typeof transitItems[key]==='object'?transitItems[key].qtd:(transitItems[key]||0);
       // v115.887 - Mesma correção do PDF: preserva a data já existente em vez
       // de sempre resetar pra hoje ao reimportar.
@@ -20812,7 +20841,9 @@ function addTransitItem(){
   if(!cod){codEl.focus();return;}
   if(qtd<=0){qtdEl.focus();return;}
   const prevQtd=typeof transitItems[cod]==='object'?transitItems[cod].qtd:(transitItems[cod]||0);
-  const item=calcItems.find(i=>i.ref===cod);
+  // v115.1317 - Mesma correção do XLSX/CSV (ver comentário lá).
+  const _baseItensManual=(typeof allItems!=='undefined'&&allItems&&allItems.length)?allItems:calcItems;
+  const item=_baseItensManual.find(i=>i.ref===cod);
   // v115.765 - Data do faturamento: se a pessoa preencher, usa ela; senão,
   // assume hoje (data em que foi adicionado ao sistema). Fica editável
   // depois na lista de "Em Trânsito", pra dar uma noção de há quanto tempo

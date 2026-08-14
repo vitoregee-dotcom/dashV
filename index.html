@@ -1523,7 +1523,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1312</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1313</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1618,7 +1618,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1312</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1313</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -40396,12 +40396,14 @@ function pfDicasImpactoPintar(texto){
   _pfDicasIdx=0;
   pfDicasImpactoRenderAtual();
   if(_pfDicasTimerId===null&&_pfDicasLinhas.length>1){
+    // v115.1313 - A pedido do Vitor ("a dica da página de notícias está
+    // mudando muito rápido, reduza"): de 7s pra 18s por dica.
     _pfDicasTimerId=setInterval(function(){
       var elChk=document.getElementById('pfDicasImpactoWrap');
       if(!elChk){ clearInterval(_pfDicasTimerId); _pfDicasTimerId=null; return; }
       _pfDicasIdx=(_pfDicasIdx+1)%_pfDicasLinhas.length;
       pfDicasImpactoRenderAtual();
-    },7000);
+    },18000);
   }
 }
 function pfDicasImpactoRenderAtual(){
@@ -40700,7 +40702,14 @@ async function pfNoticiasBuscarNovasComIA(apiKey){
   if(!m)throw new Error('resposta sem lista reconhecível');
   var lista=JSON.parse(m[0]);
   if(!Array.isArray(lista)||!lista.length)throw new Error('lista vazia');
-  if(typeof pfNoticiasSave==='function')pfNoticiasSave(lista);
+  // v115.1313 - Antes SUBSTITUÍA a lista inteira aqui -- qualquer notícia
+  // que o Vitor tivesse adicionado na mão (link colado, print, etc)
+  // sumia na próxima vez que a busca automática rodasse. Agora preserva
+  // os itens manuais (origem:'manual'), juntando com os novos vindos da
+  // IA em vez de apagar tudo.
+  var listaAtual=(typeof pfNoticiasLoad==='function')?pfNoticiasLoad():[];
+  var manuais=listaAtual.filter(function(n){return n&&n.origem==='manual';});
+  if(typeof pfNoticiasSave==='function')pfNoticiasSave(manuais.concat(lista));
   var estadoFinal={valor:new Date().toISOString(),ts:Date.now()};
   localStorage.setItem('pfNoticiasSetorAtualizadoEm',JSON.stringify(estadoFinal));
   if(typeof pfSyncPush==='function')pfSyncPush(['pfNoticiasSetorAtualizadoEm']).catch(function(){});
@@ -40790,7 +40799,10 @@ var PF_NOTICIAS_MAX_POR_GRUPO=5;
 function pfNoticiasAplicarLimite(list,grupo){
   var indicesDoGrupo=[];
   for(var i=0;i<list.length;i++){
-    if((list[i].grupo||'mercado')===grupo) indicesDoGrupo.push(i);
+    // v115.1313 - Itens adicionados na mão (origem:'manual') nunca contam
+    // pro limite nem são removidos por ele -- só as notícias trazidas
+    // pela busca automática/IA competem por essas 5 vagas.
+    if((list[i].grupo||'mercado')===grupo && list[i].origem!=='manual') indicesDoGrupo.push(i);
   }
   // indicesDoGrupo já vem em ordem (do mais novo, no início da lista, pro
   // mais antigo) porque toda entrada nova usa unshift -- os excedentes do
@@ -40800,18 +40812,90 @@ function pfNoticiasAplicarLimite(list,grupo){
   excedentes.forEach(function(idx){ list.splice(idx,1); });
   return list;
 }
+// v115.1313 - A pedido do Vitor: (1) notícia adicionada na mão sumia
+// porque a busca automática diária (pfNoticiasBuscarNovasComIA)
+// SUBSTITUÍA a lista inteira, sem preservar o que tinha sido adicionado
+// manualmente -- agora todo item manual ganha origem:'manual' e fica
+// protegido dessa substituição (ver pfNoticiasAplicarLimite e o merge
+// dentro da busca automática). (2) trocado os 5 prompts em sequência por
+// um modal só, com área de COLAR (Ctrl+V) um print direto -- sem
+// precisar ter o link de uma imagem em algum lugar antes.
 function pfNoticiaAdicionar(grupo){
-  var titulo=prompt('Título da notícia:');
-  if(!titulo)return;
-  var link=prompt('Link (URL completa):')||'';
-  var fonte=prompt('Fonte (ex: Revista M&T, G1, etc):')||'';
-  var categoria=prompt('Categoria/tag (opcional, ex: MINERAÇÃO):')||'';
-  var imagem=prompt('Link de uma foto/imagem (opcional, cola a URL da imagem):')||'';
+  var modal=document.createElement('div');
+  modal.id='pfNoticiaModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px';
+  modal.innerHTML='<div style="background:var(--pf-noticias-card-bg,#fff);border-radius:14px;padding:22px;max-width:420px;width:100%;max-height:90vh;overflow:auto">'+
+    '<h3 style="margin:0 0 14px;color:var(--pf-noticias-text)">📰 Adicionar notícia</h3>'+
+    '<input id="pfNotTitulo" placeholder="Título" style="width:100%;padding:8px 10px;border:1px solid var(--pf-noticias-border);border-radius:6px;margin-bottom:8px;box-sizing:border-box">'+
+    '<input id="pfNotLink" placeholder="Link (URL completa)" style="width:100%;padding:8px 10px;border:1px solid var(--pf-noticias-border);border-radius:6px;margin-bottom:8px;box-sizing:border-box">'+
+    '<input id="pfNotFonte" placeholder="Fonte (ex: Revista M&T, G1...)" style="width:100%;padding:8px 10px;border:1px solid var(--pf-noticias-border);border-radius:6px;margin-bottom:8px;box-sizing:border-box">'+
+    '<input id="pfNotCategoria" placeholder="Categoria (opcional, ex: MINERAÇÃO)" style="width:100%;padding:8px 10px;border:1px solid var(--pf-noticias-border);border-radius:6px;margin-bottom:12px;box-sizing:border-box">'+
+    '<div id="pfNotImgArea" tabindex="0" style="border:2px dashed var(--pf-noticias-border);border-radius:10px;padding:20px 12px;text-align:center;cursor:text;color:var(--pf-noticias-text-muted);font-size:12px;margin-bottom:10px">'+
+      '📋 Clique aqui e cole um print (Ctrl+V)<br><span style="font-size:11px">ou <label style="color:var(--pf-noticias-accent);cursor:pointer;text-decoration:underline">escolha um arquivo<input type="file" accept="image/*" style="display:none" onchange="pfNoticiaImagemArquivo(this)"></label></span>'+
+    '</div>'+
+    '<div id="pfNotImgPreview"></div>'+
+    '<input id="pfNotImgUrl" placeholder="ou cola aqui o link de uma imagem" style="width:100%;padding:8px 10px;border:1px solid var(--pf-noticias-border);border-radius:6px;margin-bottom:14px;box-sizing:border-box">'+
+    '<div id="pfNotStatus" style="font-size:12px;color:var(--pf-noticias-text-muted);margin-bottom:8px"></div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end">'+
+      '<span onclick="document.getElementById(\'pfNoticiaModal\').remove()" style="padding:8px 14px;cursor:pointer;font-size:13px;color:var(--pf-noticias-text-muted)">Cancelar</span>'+
+      '<button onclick="pfNoticiaSalvarModal(\''+grupo+'\')" style="padding:8px 18px;border-radius:7px;background:var(--pf-noticias-accent);color:#fff;border:none;cursor:pointer;font-weight:700;font-size:13px">+ Adicionar</button>'+
+    '</div>'+
+  '</div>';
+  document.body.appendChild(modal);
+  var area=document.getElementById('pfNotImgArea');
+  area.addEventListener('paste',function(e){pfNoticiaImagemColada(e);});
+  area.addEventListener('click',function(){area.focus();});
+  setTimeout(function(){document.getElementById('pfNotTitulo').focus();},50);
+}
+window._pfNoticiaImagemPendente=null;
+function pfNoticiaImagemPreview(url){
+  window._pfNoticiaImagemPendente=url;
+  var prev=document.getElementById('pfNotImgPreview');
+  if(prev)prev.innerHTML='<img src="'+url+'" style="max-width:100%;max-height:140px;border-radius:8px;margin-bottom:10px;object-fit:cover">';
+}
+function pfNoticiaImagemColada(e){
+  var items=(e.clipboardData||window.clipboardData).items;
+  for(var i=0;i<items.length;i++){
+    if(items[i].type.indexOf('image')===0){
+      e.preventDefault();
+      var blob=items[i].getAsFile();
+      pfNoticiaImagemUpload(blob);
+      return;
+    }
+  }
+}
+function pfNoticiaImagemArquivo(input){
+  if(input.files[0])pfNoticiaImagemUpload(input.files[0]);
+}
+async function pfNoticiaImagemUpload(blob){
+  var status=document.getElementById('pfNotStatus');
+  if(status)status.textContent='⏳ Subindo imagem...';
+  try{
+    var path='noticias/'+Date.now()+'_'+Math.random().toString(36).slice(2,9)+'.jpg';
+    var up=await sbFetch('/storage/v1/object/ferramentas-arquivos/'+path,{method:'POST',headers:{'Content-Type':blob.type||'image/jpeg'},body:blob});
+    if(!up.ok)throw new Error('upload falhou');
+    var url=SB_URL+'/storage/v1/object/public/ferramentas-arquivos/'+path;
+    pfNoticiaImagemPreview(url);
+    if(status)status.textContent='✅ Imagem anexada.';
+  }catch(e){
+    if(status)status.textContent='❌ Não consegui subir a imagem, tenta de novo.';
+  }
+}
+function pfNoticiaSalvarModal(grupo){
+  var titulo=(document.getElementById('pfNotTitulo').value||'').trim();
+  if(!titulo){pfAlert('Digita o título da notícia.');return;}
+  var link=(document.getElementById('pfNotLink').value||'').trim();
+  var fonte=(document.getElementById('pfNotFonte').value||'').trim();
+  var categoria=(document.getElementById('pfNotCategoria').value||'').trim();
+  var imgUrlDigitada=(document.getElementById('pfNotImgUrl').value||'').trim();
+  var imagem=window._pfNoticiaImagemPendente||imgUrlDigitada||'';
   var list=pfNoticiasLoad();
   var g=grupo||'mercado';
-  list.unshift({titulo:titulo,link:link,fonte:fonte,categoria:categoria,imagem:imagem,grupo:g,data:new Date().toLocaleDateString('pt-BR')});
+  list.unshift({titulo:titulo,link:link,fonte:fonte,categoria:categoria,imagem:imagem,grupo:g,data:new Date().toLocaleDateString('pt-BR'),origem:'manual'});
   list=pfNoticiasAplicarLimite(list,g);
   pfNoticiasSave(list);
+  window._pfNoticiaImagemPendente=null;
+  var modalEl=document.getElementById('pfNoticiaModal');if(modalEl)modalEl.remove();
   pfNoticiasRender();
 }
 var PF_AVISOS_ETAPAS=[

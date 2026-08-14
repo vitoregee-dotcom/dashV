@@ -1523,7 +1523,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1300</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1301</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1618,7 +1618,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1300</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1301</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -39823,7 +39823,7 @@ function pfComprasAutoVerificar(){
     pfComprasAutoVerificarNucleo();
   },300+Math.floor(Math.random()*300));
 }
-function pfComprasAutoVerificarNucleo(){
+async function pfComprasAutoVerificarNucleo(){
   var calcItems=(typeof pfComprasVarrer==='function')?pfComprasVarrer():window.calcItems;
   if(!calcItems||!calcItems.length)return;
   var prevSet={};
@@ -39924,48 +39924,56 @@ function pfComprasAutoVerificarNucleo(){
   // item que já apareceu no log de eventos (qualquer aparelho, já
   // sincronizado) nas últimas 6h com a mesma ref+marca -- se já foi
   // avisado recentemente por qualquer um, não avisa de novo.
-  function pfComprasJaAvisadoRecente(logKey, ref, marca){
-    var log=[];try{log=JSON.parse(localStorage.getItem(logKey)||'[]');}catch(e){}
+  // v115.1301 - BUG corrigido (a pedido do Vitor: item 2998229 CATERPILLAR
+  // apareceu 4x duplicado em "Chegaram recentemente", mesmo timestamp até
+  // o milissegundo -- veio de 4 abas/aparelhos diferentes detectando a
+  // MESMA mudança quase ao mesmo tempo, cada um só olhando seu PRÓPRIO
+  // localStorage antes de gravar. pfComprasJaAvisadoRecente (dedup local
+  // de 6h) não protege contra isso: cada aparelho tem seu próprio
+  // localStorage, nenhum vê o que o outro já gravou até o próximo sync
+  // completar -- e o sync de retorno pode demorar mais que o intervalo
+  // entre as detecções. Trocado por pfLogEventoComMerge, que busca o log
+  // ATUAL DO SERVIDOR (não só local) antes de decidir o que é
+  // "realmente novo" e gravar, fechando a corrida de verdade.
+  async function pfLogEventoComMerge(logKey,itens,extrasFn){
+    if(!itens.length)return [];
+    var logServ=[];
+    try{
+      var resp=await sbFetch('/rest/v1/user_sync?chave=eq.'+logKey+'&select=dados&order=updated_at.desc&limit=1');
+      var rows=await resp.json();
+      if(Array.isArray(rows)&&rows[0]&&rows[0].dados){
+        logServ=typeof rows[0].dados==='string'?JSON.parse(rows[0].dados):rows[0].dados;
+      }
+    }catch(e){
+      try{logServ=JSON.parse(localStorage.getItem(logKey)||'[]');}catch(e2){}
+    }
     var limite=Date.now()-6*60*60*1000;
-    return log.some(function(ev){
-      return ev.ref===ref&&ev.marca===marca&&new Date(ev.data).getTime()>limite;
+    var novos=itens.filter(function(c){
+      return !logServ.some(function(ev){return ev.ref===c.ref&&ev.marca===c.marca&&new Date(ev.data).getTime()>limite;});
     });
+    if(!novos.length)return [];
+    var agora=new Date().toISOString();
+    var linhas=novos.map(function(c){
+      var l={ref:c.ref,marca:c.marca,desc:c.desc||'',familia:c.familia||'',data:agora};
+      var extras=extrasFn(c);for(var k in extras)l[k]=extras[k];
+      return l;
+    });
+    var logFinal=linhas.concat(logServ).slice(0,50);
+    localStorage.setItem(logKey,JSON.stringify(logFinal));
+    if(typeof pfSyncPush==='function')pfSyncPush([logKey]);
+    return novos;
   }
-  novosComprados=novosComprados.filter(function(c){return !pfComprasJaAvisadoRecente('pfComprasEventos',c.ref,c.marca);});
-  faturados=faturados.filter(function(c){return !pfComprasJaAvisadoRecente('pfFaturadosEventos',c.ref,c.marca);});
-  chegadas=chegadas.filter(function(c){return !pfComprasJaAvisadoRecente('pfChegadasEventos',c.ref,c.marca);});
   if(novosComprados.length){
-    var log=[];
-    try{log=JSON.parse(localStorage.getItem('pfComprasEventos')||'[]');}catch(e){}
-    novosComprados.forEach(function(c){
-      log.unshift({ref:c.ref,marca:c.marca,desc:c.desc,familia:c.familia||'',pedido:c.pedido,data:new Date().toISOString()});
-    });
-    if(log.length>50)log=log.slice(0,50);
-    localStorage.setItem('pfComprasEventos',JSON.stringify(log));
-    if(typeof pfSyncPush==='function')pfSyncPush(['pfComprasEventos']);
-    pfComprasEnviarResumo('comprado',novosComprados).catch(function(e){console.warn('Falha ao avisar compras automáticas:',e);});
+    var comprDeVerdade=await pfLogEventoComMerge('pfComprasEventos',novosComprados,function(c){return {pedido:c.pedido};});
+    if(comprDeVerdade.length)pfComprasEnviarResumo('comprado',comprDeVerdade).catch(function(e){console.warn('Falha ao avisar compras automáticas:',e);});
   }
   if(faturados.length){
-    var logF=[];
-    try{logF=JSON.parse(localStorage.getItem('pfFaturadosEventos')||'[]');}catch(e){}
-    faturados.forEach(function(c){
-      logF.unshift({ref:c.ref,marca:c.marca,desc:c.desc,familia:c.familia||'',transito:c.transito,data:new Date().toISOString()});
-    });
-    if(logF.length>50)logF=logF.slice(0,50);
-    localStorage.setItem('pfFaturadosEventos',JSON.stringify(logF));
-    if(typeof pfSyncPush==='function')pfSyncPush(['pfFaturadosEventos']);
-    pfComprasEnviarResumo('faturado',faturados).catch(function(e){console.warn('Falha ao avisar faturamentos automáticos:',e);});
+    var fatDeVerdade=await pfLogEventoComMerge('pfFaturadosEventos',faturados,function(c){return {transito:c.transito};});
+    if(fatDeVerdade.length)pfComprasEnviarResumo('faturado',fatDeVerdade).catch(function(e){console.warn('Falha ao avisar faturamentos automáticos:',e);});
   }
   if(chegadas.length){
-    var logC=[];
-    try{logC=JSON.parse(localStorage.getItem('pfChegadasEventos')||'[]');}catch(e){}
-    chegadas.forEach(function(c){
-      logC.unshift({ref:c.ref,marca:c.marca,desc:c.desc,familia:c.familia||'',qtd:c.qtd,data:new Date().toISOString()});
-    });
-    if(logC.length>50)logC=logC.slice(0,50);
-    localStorage.setItem('pfChegadasEventos',JSON.stringify(logC));
-    if(typeof pfSyncPush==='function')pfSyncPush(['pfChegadasEventos']);
-    pfComprasEnviarResumo('chegou',chegadas).catch(function(e){console.warn('Falha ao avisar chegadas automáticas:',e);});
+    var chegDeVerdade=await pfLogEventoComMerge('pfChegadasEventos',chegadas,function(c){return {qtd:c.qtd};});
+    if(chegDeVerdade.length)pfComprasEnviarResumo('chegou',chegDeVerdade).catch(function(e){console.warn('Falha ao avisar chegadas automáticas:',e);});
   }
   // v115.1200 - A pedido do Vitor: sincroniza o status na lista de Me Avise
   // (meAvise_lista) conforme o item avança no roteiro -- sem isso, um item

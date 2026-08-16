@@ -45270,7 +45270,14 @@ function ccBuscaHtml(familia){
       // ver v115.1058 acima). Ficou só um botão, com visual mais discreto
       // (sem fundo/borda pesada, só texto sublinhável) em vez dos dois
       // botões cheios de antes.
-      '<span onclick="ccToggleTodosDetalhes()" style="padding:4px 2px;color:#1F4E79;font-size:11px;cursor:pointer;border-bottom:1px dashed #b8c6d9">'+(_ccDetalhesTodosVisiveis?'ocultar detalhes de todos':'exibir detalhes de todos')+'</span>'+
+      // v115.1327 - A pedido do Vitor (prévia aprovada no chat): trocado o
+      // linkzinho discreto por dois botões de verdade, mais "bonitinhos" --
+      // "Ver Monta com/Medidas/Aplicação" e "Exibir tudo" (Medidas já
+      // estava fundido no mesmo controle desde v115.1058, então os dois
+      // acionam o mesmo toggle -- não tem hoje um "extra" além desses 3
+      // campos + fotos pra separar num terceiro estado).
+      '<button onclick="ccToggleTodosDetalhes()" style="padding:7px 12px;border:1px solid #dbe3ee;border-radius:8px;background:#fff;color:#1F4E79;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px">👁️ '+(_ccDetalhesTodosVisiveis?'Ocultar':'Ver')+' Monta com / Medidas / Aplicação</button>'+
+      '<button onclick="ccToggleTodosDetalhes()" style="padding:7px 12px;border:none;border-radius:8px;background:#1F4E79;color:#fff;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px">📋 '+(_ccDetalhesTodosVisiveis?'Ocultar':'Exibir')+' tudo</button>'+
       '<button onclick="ccAbrirFamilia(\''+familia+'\',\'gabarito\')" style="padding:4px 10px;border:1px solid var(--pf-border);border-radius:6px;background:var(--pf-sidebar-bg);color:#1F4E79;font-size:11px;cursor:pointer">📄 Gerar gabarito</button>'+
       '<button onclick="_ccFiltro={texto:\'\',veiculos:\'\',tolerancia:\'2\'};ccRender();" style="margin-left:auto;padding:4px 10px;border:1px solid var(--pf-border);border-radius:6px;background:var(--pf-sidebar-bg);color:#556;font-size:11px;cursor:pointer">✕ Limpar filtros</button>'+
     '</div>'+
@@ -45459,6 +45466,7 @@ function ccExecutarBusca(){
       var ev=_ccFiltro[cfg.extraFiltro.k];
       if(String(rec[cfg.extraFiltro.k]||'').toLowerCase().indexOf(ev.toLowerCase())===-1) ok=false;
     }
+    var matchDireto=false;
     if(ok && _ccFiltro.texto){
       var t=_ccFiltro.texto.toLowerCase();
       // v115.1039 - A pedido do Vitor: buscar também pelo código de
@@ -45474,7 +45482,12 @@ function ccExecutarBusca(){
       if(equivalenteBusca && indiceEquivalente[equivalenteBusca]){
         bateNoIrmao=indiceEquivalente[equivalenteBusca].some(function(cod){return cod!==rec.codigo && cod.toLowerCase().indexOf(t)!==-1;});
       }
-      if((rec.codigo||'').toLowerCase().indexOf(t)===-1 && (rec.similar||'').toLowerCase().indexOf(t)===-1 && (rec.substitui||'').toLowerCase().indexOf(t)===-1 && !bateNoMontaCom && !bateNoIrmao) ok=false;
+      // v115.1327 - A pedido do Vitor: quando o código digitado bate DIRETO
+      // com o código/similar/substitui do próprio item (não só via Monta
+      // com/irmão), marca pra destacar o card na hora -- achar rápido em
+      // meio a uma lista maior.
+      matchDireto=(rec.codigo||'').toLowerCase().indexOf(t)!==-1 || (rec.similar||'').toLowerCase().indexOf(t)!==-1 || (rec.substitui||'').toLowerCase().indexOf(t)!==-1;
+      if(!matchDireto && !bateNoMontaCom && !bateNoIrmao) ok=false;
     }
     // v115.1242 - BUG corrigido (achado pelo Vitor): a lista principal
     // (essa aqui, com os cards completos) e a caixa "Buscar por Monta
@@ -45496,7 +45509,7 @@ function ccExecutarBusca(){
     if(ok && _ccFiltro.linha){
       if((rec.linha||'')!==_ccFiltro.linha) ok=false;
     }
-    return ok?{rec:rec, desvio:desvioTotal}:null;
+    return ok?{rec:rec, desvio:desvioTotal, matchDireto:matchDireto}:null;
   }).filter(Boolean).sort(function(a,b){return a.desvio-b.desvio;});
   // v115.1041 - A pedido do Vitor: a mesma peça física catalogada em
   // STAHL/SOROCARD/REI/SPICER aparecia como 3-4 cards separados e
@@ -45512,12 +45525,13 @@ function ccExecutarBusca(){
     if(existente){
       (r.rec.montaCom||[]).forEach(function(mc){ if(existente.rec.montaCom.indexOf(mc)<0)existente.rec.montaCom.push(mc); });
       (r.rec.veiculos||[]).forEach(function(v){ if(existente.rec.veiculos.indexOf(v)<0)existente.rec.veiculos.push(v); });
+      if(r.matchDireto) existente.matchDireto=true;
       return;
     }
     var clone=Object.assign({},r.rec);
     clone.montaCom=(r.rec.montaCom||[]).slice();
     clone.veiculos=(r.rec.veiculos||[]).slice();
-    var novo={rec:clone, desvio:r.desvio};
+    var novo={rec:clone, desvio:r.desvio, matchDireto:r.matchDireto};
     vistosChave[chave]=novo;
     resultadosDedup.push(novo);
   });
@@ -45725,12 +45739,17 @@ function ccExecutarBusca(){
     // v115.1058 - A pedido do Vitor: card inteiro em maiúsculo (title,
     // pills, cruzeta, tabela, aplicação, medidas), via text-transform no
     // container -- mais fácil de ler de longe/rápido numa oficina.
-    return '<div style="background:var(--pf-sidebar-bg);border:1px solid var(--pf-sidebar-border);border-radius:10px;padding:12px 14px;margin-bottom:10px;text-transform:uppercase">'+
+    // v115.1327 - A pedido do Vitor: card que bateu DIRETO com o texto
+    // buscado ganha destaque (borda + selo), pra achar rápido numa lista
+    // maior sem precisar ler item por item.
+    var destacar=_ccFiltro.texto && r.matchDireto;
+    return '<div style="background:'+(destacar?'#FFF9EC':'var(--pf-sidebar-bg)')+';border:'+(destacar?'2px solid #D97757':'1px solid var(--pf-sidebar-border)')+';border-radius:10px;padding:12px 14px;margin-bottom:10px;text-transform:uppercase'+(destacar?';box-shadow:0 0 0 3px rgba(217,119,87,.12)':'')+'">'+
       '<div style="display:flex;gap:10px;align-items:flex-start">'+
       '<div style="flex:1;min-width:0">'+
       '<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'+
         '<span style="font-weight:700;font-size:14px;color:#1E293B">'+(equivalenteRec?pfEscHtml(equivalenteRec):pfEscHtml(rec.codigo))+'</span>'+
         '<span style="font-size:12px;color:#556">— '+pfEscHtml(rec.descricao||rec.tipo||CC_NOME_SINGULAR[_ccFamiliaAtual]||'')+'</span>'+
+        (destacar?'<span style="background:#D97757;color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:none">✓ encontrado</span>':'')+
       '</div>'+
       equivHtml+
       cruzetaHtml+

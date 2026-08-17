@@ -1555,7 +1555,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1367</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1368</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1650,7 +1650,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1367</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1368</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -19830,12 +19830,32 @@ function pfCorEscurecer(hex,ratio){
   var c=pfHexParaRgb(hex);
   return pfRgbParaHex(c.r*(1-ratio),c.g*(1-ratio),c.b*(1-ratio));
 }
-// Decide texto branco ou escuro por cima de uma cor de fundo, pela
-// luminância (fórmula padrão de contraste WCAG simplificada).
-function pfCorContraste(hex){
+// v115.1368 - BUG corrigido (Vitor: às vezes o texto do cabeçalho ficava
+// difícil de ler): a fórmula antiga usava só um corte de luminância
+// simples (>0.6 → escuro, senão → branco) -- em tons "no meio do
+// caminho" (o laranja padrão, por exemplo, fica bem perto desse corte)
+// nenhuma das duas opções lia bem de verdade. Agora calcula a razão de
+// contraste de verdade (fórmula WCAG, com correção de gama) contra
+// branco E contra escuro, e escolhe quem realmente contrasta mais --
+// não só "mais perto de claro ou escuro".
+function pfLuminanciaRelativa(hex){
   var c=pfHexParaRgb(hex);
-  var lum=(0.299*c.r+0.587*c.g+0.114*c.b)/255;
-  return lum>0.6?'#1a2332':'#ffffff';
+  var chans=[c.r,c.g,c.b].map(function(v){
+    v=v/255;
+    return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);
+  });
+  return 0.2126*chans[0]+0.7152*chans[1]+0.0722*chans[2];
+}
+function pfRazaoContraste(hex1,hex2){
+  var l1=pfLuminanciaRelativa(hex1),l2=pfLuminanciaRelativa(hex2);
+  var clara=Math.max(l1,l2),escura=Math.min(l1,l2);
+  return (clara+0.05)/(escura+0.05);
+}
+function pfCorContraste(hex){
+  var escuro='#1a2332',branco='#ffffff';
+  var contrasteEscuro=pfRazaoContraste(hex,escuro);
+  var contrasteBranco=pfRazaoContraste(hex,branco);
+  return contrasteEscuro>=contrasteBranco?escuro:branco;
 }
 var PF_TEMA_PADRAO={destaque:'#D97757',fundo:'#F8FAFC',texto:'#1E293B',sucesso:'#166534',aviso:'#92400E',perigo:'#991B1B',textoDestaque:'auto'};
 // Mapa: cada variável CSS final = função das 6 cores mestras. Calculado

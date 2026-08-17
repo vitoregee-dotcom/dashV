@@ -1549,7 +1549,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1361</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1362</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1644,7 +1644,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1361</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1362</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -19796,6 +19796,152 @@ function getOps(){
   return calcItems.filter(d=>d.sk==="OP").sort((a,b)=>b.cotacoes-a.cotacoes);
 }
 function pfEscJs(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+// v115.1362 - A pedido do Vitor: personalização de cores do sistema
+// inteiro. Em vez de expor as ~40 variáveis CSS uma por uma, 6 cores
+// "mestras" (destaque/fundo/texto/sucesso/aviso/perigo) geram as outras
+// por cálculo (clarear/escurecer/contraste) -- mudar 1 cor já reflete em
+// tabela, botão, badge, navegação, tudo junto. Cobre só o modo claro
+// (:root) por enquanto -- modo escuro (.pf-dark) e os painéis isolados de
+// propósito (Notícias, Central de Avisos) ficam de fora dessa 1ª versão.
+function pfHexParaRgb(hex){
+  hex=String(hex||'#000000').replace('#','');
+  if(hex.length===3)hex=hex.split('').map(function(c){return c+c;}).join('');
+  var n=parseInt(hex,16);
+  return {r:(n>>16)&255,g:(n>>8)&255,b:n&255};
+}
+function pfRgbParaHex(r,g,b){
+  return '#'+[r,g,b].map(function(v){return Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0');}).join('');
+}
+// Mistura a cor com branco (ratio 0=cor pura, 1=branco puro) -- pra tons
+// claros de fundo/badge a partir de uma cor mais forte.
+function pfCorClarear(hex,ratio){
+  var c=pfHexParaRgb(hex);
+  return pfRgbParaHex(c.r+(255-c.r)*ratio,c.g+(255-c.g)*ratio,c.b+(255-c.b)*ratio);
+}
+// Mistura a cor com preto (ratio 0=cor pura, 1=preto puro) -- pra tons
+// escuros/bordas a partir de uma cor mais clara.
+function pfCorEscurecer(hex,ratio){
+  var c=pfHexParaRgb(hex);
+  return pfRgbParaHex(c.r*(1-ratio),c.g*(1-ratio),c.b*(1-ratio));
+}
+// Decide texto branco ou escuro por cima de uma cor de fundo, pela
+// luminância (fórmula padrão de contraste WCAG simplificada).
+function pfCorContraste(hex){
+  var c=pfHexParaRgb(hex);
+  var lum=(0.299*c.r+0.587*c.g+0.114*c.b)/255;
+  return lum>0.6?'#1a2332':'#ffffff';
+}
+var PF_TEMA_PADRAO={destaque:'#D97757',fundo:'#F8FAFC',texto:'#1E293B',sucesso:'#166534',aviso:'#92400E',perigo:'#991B1B'};
+// Mapa: cada variável CSS final = função das 6 cores mestras. Calculado
+// na hora de aplicar, nunca fica um valor "preso" -- se mudar a cor
+// mestra, tudo que depende dela recalcula.
+function pfTemaCalcularVariaveis(cores){
+  var d=cores.destaque,f=cores.fundo,t=cores.texto,s=cores.sucesso,a=cores.aviso,p=cores.perigo;
+  var destaqueTexto=pfCorContraste(d);
+  var sidebarBg=pfCorClarear(f,0.9);
+  var borda=pfCorEscurecer(f,0.08);
+  var textoMuted=pfCorClarear(t,0.55);
+  return{
+    '--pf-bg':f,'--pf-sidebar-bg':sidebarBg,'--pf-sidebar-border':borda,
+    '--pf-text':t,'--pf-text-muted':textoMuted,'--pf-border':borda,
+    '--pf-accent':d,'--pf-accent-light':pfCorClarear(d,0.85),'--pf-nav-hover':pfCorEscurecer(f,0.04),
+    '--pf-nav-active-bg':pfCorClarear(d,0.9),'--pf-nav-active-text':d,
+    '--pf-topbar-bg':sidebarBg,'--pf-topbar-border':borda,
+    '--pf-card-bg':sidebarBg,
+    '--pf-table-bg':pfCorEscurecer(f,0.03),'--pf-table-head-bg':d,'--pf-table-head-text':destaqueTexto,
+    '--pf-table-btn-primary-bg':d,'--pf-table-btn-primary-text':destaqueTexto,
+    '--pf-table-text':t,'--pf-table-text-muted':textoMuted,'--pf-table-border':borda,
+    '--pf-table-hover-bg':pfCorEscurecer(f,0.04),'--pf-table-selected-bg':pfCorClarear(d,0.92),
+    '--pf-table-badge-info-bg':pfCorClarear(d,0.85),'--pf-table-badge-info-text':d,
+    '--pf-table-badge-success-bg':pfCorClarear(s,0.85),'--pf-table-badge-success-text':s,
+    '--pf-table-badge-warning-bg':pfCorClarear(a,0.85),'--pf-table-badge-warning-text':a,
+    '--pf-table-badge-danger-bg':pfCorClarear(p,0.85),'--pf-table-badge-danger-text':p,
+    '--pf-btn-primary-bg':d,'--pf-btn-primary-text':destaqueTexto,
+    '--pf-badge-info-bg':pfCorClarear(d,0.85),'--pf-badge-info-text':d,
+    '--pf-badge-success-bg':pfCorClarear(s,0.85),'--pf-badge-success-text':s,
+    '--pf-badge-warning-bg':pfCorClarear(a,0.85),'--pf-badge-warning-text':a,
+    '--pf-badge-danger-bg':pfCorClarear(p,0.85),'--pf-badge-danger-text':p
+  };
+}
+function pfTemaAplicar(cores){
+  var vars=pfTemaCalcularVariaveis(cores);
+  Object.keys(vars).forEach(function(k){document.documentElement.style.setProperty(k,vars[k]);});
+}
+function pfTemaCarregar(){
+  try{return Object.assign({},PF_TEMA_PADRAO,JSON.parse(pfSafeGetItem('pfTemaCores','{}')));}catch(e){return Object.assign({},PF_TEMA_PADRAO);}
+}
+function pfTemaSalvar(cores){
+  pfSafeSetItem('pfTemaCores',JSON.stringify(cores));
+  if(typeof pfSyncPush==='function')pfSyncPush(['pfTemaCores']).catch(function(){});
+  pfTemaAplicar(cores);
+}
+// Aplica o tema salvo assim que o script carrega (antes do login até, pra
+// não "piscar" a cor padrão e trocar depois).
+pfTemaAplicar(pfTemaCarregar());
+var PF_TEMA_CAMPOS=[
+  {chave:'destaque',rotulo:'Destaque',desc:'Botões, links, cabeçalho de tabela, navegação ativa'},
+  {chave:'fundo',rotulo:'Fundo',desc:'Fundo geral, cards, barra lateral'},
+  {chave:'texto',rotulo:'Texto',desc:'Texto principal do sistema'},
+  {chave:'sucesso',rotulo:'Sucesso',desc:'Badges e status positivos (ex: comprado, ok)'},
+  {chave:'aviso',rotulo:'Aviso',desc:'Badges e status de atenção'},
+  {chave:'perigo',rotulo:'Perigo',desc:'Badges e status de erro/crítico'}
+];
+function pfTemaFecharEditor(){
+  var m=document.getElementById('pfTemaModal');
+  if(m)m.remove();
+  // Se cancelou sem salvar, volta pro tema salvo (desfaz qualquer preview)
+  if(typeof pfTemaAplicar==='function')pfTemaAplicar(pfTemaCarregar());
+}
+function pfTemaPreview(chave,valor){
+  var cores=window._pfTemaEmEdicao||pfTemaCarregar();
+  cores[chave]=valor;
+  window._pfTemaEmEdicao=cores;
+  pfTemaAplicar(cores);
+}
+function pfTemaSalvarEEfechar(){
+  var cores=window._pfTemaEmEdicao||pfTemaCarregar();
+  pfTemaSalvar(cores);
+  window._pfTemaEmEdicao=null;
+  var m=document.getElementById('pfTemaModal');
+  if(m)m.remove();
+}
+function pfTemaRestaurarPadrao(){
+  window._pfTemaEmEdicao=Object.assign({},PF_TEMA_PADRAO);
+  pfTemaAplicar(window._pfTemaEmEdicao);
+  pfTemaFecharEditor();
+  pfTemaAbrirEditor();
+}
+function pfTemaAbrirEditor(){
+  if(!pfUsoIAEhDono())return;
+  var mAntigo=document.getElementById('pfTemaModal');if(mAntigo)mAntigo.remove();
+  window._pfTemaEmEdicao=pfTemaCarregar();
+  var campos=PF_TEMA_CAMPOS.map(function(c){
+    var valor=window._pfTemaEmEdicao[c.chave];
+    return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--pf-sidebar-border)">'+
+      '<input type="color" value="'+pfEscHtml(valor)+'" oninput="pfTemaPreview(\''+c.chave+'\',this.value)" style="width:44px;height:44px;border:none;border-radius:8px;cursor:pointer;padding:0;background:none">'+
+      '<div style="flex:1"><div style="font-weight:700;font-size:13px;color:var(--pf-text)">'+c.rotulo+'</div><div style="font-size:11px;color:var(--pf-text-muted)">'+c.desc+'</div></div>'+
+    '</div>';
+  }).join('');
+  var modal=document.createElement('div');
+  modal.id='pfTemaModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;display:flex;align-items:center;justify-content:center';
+  modal.onclick=function(e){if(e.target===modal)pfTemaFecharEditor();};
+  modal.innerHTML='<div style="background:var(--pf-card-bg);border-radius:14px;max-width:440px;width:92%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden">'+
+    '<div style="padding:16px 20px;border-bottom:1px solid var(--pf-sidebar-border)">'+
+      '<div style="font-weight:800;font-size:15px;color:var(--pf-text)">🎨 Personalizar Cores</div>'+
+      '<div style="font-size:12px;color:var(--pf-text-muted);margin-top:2px">Mude uma cor mestra e o resto do sistema (botões, tabelas, badges, navegação) se ajusta sozinho. Visual da empresa — todo mundo vê igual.</div>'+
+    '</div>'+
+    '<div style="padding:6px 20px;overflow-y:auto;flex:1">'+campos+'</div>'+
+    '<div style="padding:14px 20px;border-top:1px solid var(--pf-sidebar-border);display:flex;justify-content:space-between;align-items:center">'+
+      '<span onclick="pfTemaRestaurarPadrao()" style="cursor:pointer;font-size:12px;color:var(--pf-text-muted)">Restaurar padrão</span>'+
+      '<div style="display:flex;gap:8px">'+
+        '<button onclick="pfTemaFecharEditor()" style="padding:8px 16px;border-radius:8px;border:1px solid var(--pf-sidebar-border);background:none;color:var(--pf-text-muted);cursor:pointer;font-size:13px;font-weight:700">Cancelar</button>'+
+        '<button onclick="pfTemaSalvarEEfechar()" style="padding:8px 16px;border-radius:8px;border:none;background:var(--pf-accent);color:#fff;cursor:pointer;font-size:13px;font-weight:700">Salvar</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+  document.body.appendChild(modal);
+}
 function pfEscHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 // v115.1020 - CORRIGIDO: o palpite por prefixo de código (v115.1017) estava
 // errado — "SP-" é Ponteira no Sorocard, mas no REI "SP-3079" (4 dígitos) é
@@ -32806,7 +32952,8 @@ var PF_SYNC_KEYS = [
   'pfComprasAtivosSemeado',
   'pfComprasEscopoAmpliadoSemeado',
   'pfPainelWidgetsCache',
-  'pfIconOverrides'
+  'pfIconOverrides',
+  'pfTemaCores'
 ];
 
 async function pfSyncPush(keys){
@@ -33020,12 +33167,16 @@ var PF_CATALOGO_UNICO_KEYS = ['componentes_cardan_v1', 'retentores_v1', 'mapas_l
   // qualquer card, escolhidos por botão direito -- visual da empresa,
   // todo mundo vê igual, só admin edita (ver pfIconPicker).
   'pfIconOverrides',
+  // v115.1362 - A pedido do Vitor: personalização de cores do sistema
+  // inteiro (6 cores mestras que geram o resto) -- mesmo padrão dos
+  // ícones: visual da empresa, todo mundo vê igual, admin edita.
+  'pfTemaCores',
   'pfAtalhosFerramentas'];
 async function pfSyncPull(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   try{
     // Chaves compartilhadas entre usuários — puxar de TODOS os usuários
-    var sharedKeys = ['cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'timken_interchange_v1', 'pfComprasAtivos', 'pfAtalhosFerramentas', 'pfIconOverrides'];
+    var sharedKeys = ['cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'timken_interchange_v1', 'pfComprasAtivos', 'pfAtalhosFerramentas', 'pfIconOverrides', 'pfTemaCores'];
     // v115.1219 - BUG corrigido (a pedido do Vitor, e-mails duplicados do
     // mesmo item em horários próximos): pfComprasEventos/pfFaturadosEventos/
     // pfChegadasEventos/pfSolicitadosEventos são LOGS (uma entrada por
@@ -33294,6 +33445,9 @@ async function pfSyncPull(){
     // v115.1338 - Ícones customizados (pfIconOverrides) também precisam
     // ser reaplicados depois de cada pull, mesmo motivo do pin acima.
     if(typeof pfAplicarIconOverridesNaTela==='function')pfAplicarIconOverridesNaTela();
+    // v115.1362 - Tema de cores também precisa reaplicar depois de cada
+    // pull, mesmo motivo do ícone acima (outro aparelho pode ter mudado).
+    if(typeof pfTemaAplicar==='function')pfTemaAplicar(pfTemaCarregar());
   }catch(e){console.warn('pfSyncPull erro:',e);}
 }
 
@@ -43958,6 +44112,7 @@ function ferrRender(){
   mkCard('⌨️','Central de Atalhos','Configure teclas de atalho pro seu trabalho','#5C3D99',function(){pfAbrirCentralAtalhos();});
   mkCard('📎','Atalhos de Texto','Copia endereço, script de doc, etc — cola no WhatsApp/e-mail','#0D7377',function(){ferrAtalhosTexto();});
   if(pfUsoIAEhDono()) mkCard('💰','Uso de IA','Custo estimado por leitura','#7B2D8B',function(){ferrUsoIA();});
+  if(pfUsoIAEhDono()) mkCard('🎨','Personalizar Cores','Cor de destaque, fundo, texto e status — reflete no sistema inteiro','#5B2D8E',function(){pfTemaAbrirEditor();});
   mkCard('🔔','Histórico de Avisos','Avisos de oportunidade anteriores','#E67E22',function(){ferrHistoricoAvisos();});
   mkCard('✂️','Remover Fundo de Foto','IA remove fundo de qualquer foto, direto no navegador','#0D7377',function(){ferrRemoverFundo();});
   pfArrastavelAplicar(grid,'ferramentas');

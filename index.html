@@ -1555,7 +1555,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1375</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1376</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1650,7 +1650,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1375</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1376</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -33109,6 +33109,19 @@ async function pfSyncPush(keys){
                   });
                   paraEnviar=JSON.stringify(Object.keys(porIdPin).map(function(k){return porIdPin[k];}));
                 }catch(ePin){paraEnviar=raw;}
+              }else if(chave==='pfIconOverrides'){
+                // v115.1376 - Mesmo motivo do pin acima: pfIconOverrides é
+                // objeto (mapa atalhoId->ícone), sem "ts" -- o merge
+                // genérico pra objeto sem ts fica só com o local inteiro,
+                // podendo apagar ícone que só existia no servidor (setado
+                // em outro aparelho) na hora de subir uma troca daqui.
+                try{
+                  var remotoIcP=JSON.parse(remotoRaw||'{}');
+                  var localIcP=JSON.parse(raw||'{}');
+                  var deletadosIcP=JSON.parse(localStorage.getItem('pfIconOverrides_deletados')||'[]');
+                  deletadosIcP.forEach(function(k){delete remotoIcP[k];});
+                  paraEnviar=JSON.stringify(Object.assign({},remotoIcP,localIcP));
+                }catch(eIcP){paraEnviar=raw;}
               }else{
                 paraEnviar = pfMergeSyncValue(raw, remotoRaw);
               }
@@ -33492,6 +33505,25 @@ async function pfSyncPull(){
           });
           var merged=Object.keys(porId).map(function(k){return porId[k];});
           pfSafeSetItem('pfAtalhosFixados',JSON.stringify(merged));
+          return;
+        }
+        // v115.1376 - BUG corrigido (Vitor: mudou ícone no PC do trabalho e
+        // alguns voltaram pro padrão) -- pfIconOverrides é um OBJETO (mapa
+        // atalhoId->ícone), não array, e o merge genérico (mais abaixo)
+        // pra objeto sem "ts" sempre fica com a cópia LOCAL inteira,
+        // ignorando a remota por completo -- se o navegador tivesse uma
+        // cópia local desatualizada (sem algum ícone que só existia no
+        // servidor, definido em outro aparelho), qualquer troca feita
+        // localmente e sincronizada apagava esse ícone remoto de vez.
+        // Corrigido pra unir as chaves dos dois lados (local vence só na
+        // MESMA chave, chaves só-remotas são preservadas).
+        if(row.chave==='pfIconOverrides'){
+          var remotoIc=JSON.parse(val||'{}');
+          var localIc=JSON.parse(pfSafeGetItem('pfIconOverrides','{}'));
+          var deletadosIcPull=JSON.parse(localStorage.getItem('pfIconOverrides_deletados')||'[]');
+          deletadosIcPull.forEach(function(k){delete remotoIc[k];});
+          var uniao=Object.assign({},remotoIc,localIc);
+          pfSafeSetItem('pfIconOverrides',JSON.stringify(uniao));
           return;
         }
         // Demais chaves (meAvise_lista, aviseItems, transitItems, cotações, etc.) — merge seguro,
@@ -43935,6 +43967,16 @@ function pfIconPickerEscolher(atalhoId,src){
 function pfIconPickerRemover(atalhoId){
   var mapa=pfIconOverridesLoad();
   delete mapa[atalhoId];
+  // v115.1376 - Mesma proteção de "lista de removidos" dos pins: sem
+  // isso, o merge por união (feito pra não perder ícone só-remoto)
+  // ressuscitava um ícone que a pessoa tinha acabado de tirar.
+  try{
+    var deletadosIc=JSON.parse(localStorage.getItem('pfIconOverrides_deletados')||'[]');
+    if(!deletadosIc.includes(atalhoId)){
+      deletadosIc.push(atalhoId);
+      localStorage.setItem('pfIconOverrides_deletados',JSON.stringify(deletadosIc));
+    }
+  }catch(e){}
   pfIconOverridesSalvar(mapa);
   pfIconPickerFechar();
   // Sem override, redesenha a tela pra voltar ao ícone padrão (o patch só

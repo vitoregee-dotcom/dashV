@@ -884,8 +884,17 @@ sempre), a versão agora mora perto do avatar em vez de embaixo do nome. */
    acima, track virou minmax(0,auto) pra poder ser espremida). Agora,
    nesse espaço espremido, rolagem horizontal em vez de sobrepor -- dá pra
    arrastar/deslizar pra ver o resto, sem nada cobrindo nada. */
-#pfNav{min-width:0;padding:0;display:flex;flex-direction:row;gap:0;align-items:center;justify-content:center;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#pfNav{min-width:0;padding:0;display:flex;flex-direction:row;gap:0;align-items:center;justify-content:center;overflow:visible;scrollbar-width:none}
 #pfNav::-webkit-scrollbar{display:none}
+/* v115.1357 - BUG corrigido (Vitor: zoom do hover parou de crescer,
+   "limitado dentro da barra") -- o overflow-x:auto/overflow-y:hidden da
+   v115.1351 (pra rolar quando tem muito item fixado) corta QUALQUER coisa
+   que cresça além da caixa, inclusive o transform:scale do hover. As duas
+   coisas não dão pra conviver com CSS puro sempre ligado -- então só ativa
+   o modo "rolagem" (via classe, alternada por JS em pfNavAtualizarOverflow)
+   quando os itens realmente não cabem na tela; do contrário fica em
+   overflow:visible, com o zoom livre igual antes. */
+#pfNav.pf-nav-rolando{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
 .pf-nav-item{
   display:flex;flex-direction:column;align-items:center;gap:4px;padding:2px 8px;
   border-radius:11px;cursor:pointer;font-size:13px;font-weight:600;
@@ -1540,7 +1549,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1356</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1357</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1635,7 +1644,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1356</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1357</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -37181,7 +37190,7 @@ function pfRenderTaskbar(){
   if(pfVendasTemMinimizado())itens.push({tabId:'__vendas__',label:pfVendasLabelMinimizado(),viewId:'vendas'});
   if(Object.keys(window._ferrTabs||{}).length)itens.push({tabId:'__ferramentas__',label:'Ferramentas',viewId:'ferramentas'});
   var todos=itens;
-  if(!todos.length)return;
+  if(!todos.length){pfNavAtualizarOverflow();return;}
   var divisor=document.createElement('div');
   divisor.className='pf-dock-divisor';
   divisor.style.cssText='width:1px;align-self:stretch;background:var(--pf-nav-hover);margin:4px 6px;flex-shrink:0';
@@ -37239,6 +37248,7 @@ function pfRenderTaskbar(){
     }
     nav.appendChild(item);
   });
+  pfNavAtualizarOverflow();
 }
 function pfRestaurarTelaVendaTab(tabId){
   window._vendasMinimized=false;
@@ -43494,6 +43504,19 @@ function pfAtalhosBarraRender(){
     var iconeOverride=(typeof pfIconOverrideHtml==='function')?pfIconOverrideHtml(a.id,46):null;
     item.innerHTML='<span class="pf-nav-icon">'+(iconeOverride||a.icon)+'</span><span class="pf-nav-label">'+pfEscHtml(a.title)+'</span>';
     nav.appendChild(item);
+  });
+  pfNavAtualizarOverflow();
+}
+// v115.1357 - Só liga a rolagem horizontal do dock quando os itens
+// realmente não cabem (senão fica em overflow:visible, deixando o zoom do
+// hover crescer livre igual antes da v115.1351). Chamado depois de
+// qualquer redesenho do dock (pins ou taskbar/minimizados).
+function pfNavAtualizarOverflow(){
+  var nav=document.getElementById('pfNav');
+  if(!nav)return;
+  requestAnimationFrame(function(){
+    if(nav.scrollWidth>nav.clientWidth+1)nav.classList.add('pf-nav-rolando');
+    else nav.classList.remove('pf-nav-rolando');
   });
 }
 // v115.1338 - A pedido do Vitor: ícones customizados (Canva Pro, licença

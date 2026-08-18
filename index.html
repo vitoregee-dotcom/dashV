@@ -1555,7 +1555,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1383</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1384</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1650,7 +1650,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1383</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1384</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -41731,6 +41731,73 @@ var _pfAvisosFiltroMarca='';
 var _pfAvisosFiltroFamilia='';
 var _pfAvisosFiltroTexto='';
 var _pfAvisosEtapaAtual='';
+// v115.1384 - Check-in por item nos 3 painéis (Comprados/Faturados/Chegados),
+// a pedido do Vitor: marca os itens que quer e gera um PDF só com os
+// selecionados. Seleção fica guardada por logChave (cada painel mantém a
+// própria, mesmo trocando de painel e voltando), só em memória (não
+// persiste entre sessões, é descartável por natureza).
+var _pfAvisosSel={};
+var _pfAvisosLogChaveAtual='';
+var _pfAvisosTituloAtual='';
+var _pfAvisosLinhaExtraAtual=null;
+var _pfAvisosFiltradoAtual=[];
+function pfAvisosItemKey(c){return (c.ref||'')+'|'+(c.marca||'')+'|'+(c.data||'');}
+function pfAvisosToggleSel(logChave,chave,checked){
+  var sel=_pfAvisosSel[logChave]=_pfAvisosSel[logChave]||{};
+  if(checked)sel[chave]=true; else delete sel[chave];
+  pfAvisosAbrirPainel(_pfAvisosEtapaAtual);
+}
+function pfAvisosToggleSelAll(checked){
+  var sel=_pfAvisosSel[_pfAvisosLogChaveAtual]=_pfAvisosSel[_pfAvisosLogChaveAtual]||{};
+  (_pfAvisosFiltradoAtual||[]).forEach(function(c){
+    var k=pfAvisosItemKey(c);
+    if(checked)sel[k]=true; else delete sel[k];
+  });
+  pfAvisosAbrirPainel(_pfAvisosEtapaAtual);
+}
+async function pfAvisosGerarPdfSelecionados(){
+  var sel=_pfAvisosSel[_pfAvisosLogChaveAtual]||{};
+  var itens=(_pfAvisosFiltradoAtual||[]).filter(function(c){return sel[pfAvisosItemKey(c)];});
+  if(!itens.length){pfAlert('Marque pelo menos um item antes de gerar o PDF.');return;}
+  var linhaFn=_pfAvisosLinhaExtraAtual||function(){return '';};
+  var linhasHtml=itens.map(function(c,i){
+    return '<tr style="border-bottom:1px solid #e0e8f0;background:'+(i%2===0?'#fff':'#FAFBFC')+'">'+
+      '<td style="padding:8px;font-size:12px"><b>'+pfEscHtml(c.ref)+'</b></td>'+
+      '<td style="padding:8px;color:#607080;font-size:12px">'+pfEscHtml(c.marca||'')+'</td>'+
+      '<td style="padding:8px;font-size:12px">'+pfEscHtml(c.desc||'')+'</td>'+
+      '<td style="padding:8px;color:#607080;font-size:12px">'+pfEscHtml(c.familia||'')+'</td>'+
+      '<td style="padding:8px;font-size:12px">'+pfEscHtml(linhaFn(c))+'</td>'+
+      '<td style="padding:8px;text-align:center;font-size:12px">'+new Date(c.data).toLocaleDateString('pt-BR')+'</td>'+
+    '</tr>';
+  }).join('');
+  var hoje=new Date().toLocaleDateString('pt-BR');
+  var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+pfEscHtml(_pfAvisosTituloAtual)+'</title>'+
+    '<style>body{font-family:Calibri,Arial,sans-serif;margin:0;font-size:12px;color:#1a2332;background:#eef1f5}'+
+    'table{width:100%;border-collapse:collapse}th{background:#F0F4F8;color:#1F4E79;padding:8px;font-size:12px;text-align:left;border-bottom:2px solid #1F4E79}'+
+    '</style></head><body>'+
+    '<div id="pfAvisosPdfConteudo" style="max-width:820px;margin:20px auto;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e8edf4">'+
+    pfDocHeaderHtml(_pfAvisosTituloAtual)+
+    pfEmailBodyOpen()+
+    pfDocCardHtml('',pfDocCampoHtml('Emissão',hoje)+pfDocCampoHtml('Itens',itens.length))+
+    '<table style="border-collapse:collapse;width:100%">'+
+    '<thead><tr><th>Código</th><th style="width:100px">Marca</th><th>Descrição</th><th style="width:140px">Família</th><th style="width:130px">Status</th><th style="width:90px;text-align:center">Data</th></tr></thead>'+
+    '<tbody>'+linhasHtml+'</tbody></table>'+
+    pfEmailBodyClose()+'</div></body></html>';
+  try{
+    await pfCarregarHtml2Pdf();
+    var container=document.createElement('div');
+    container.style.cssText='position:fixed;left:-9999px;top:0';
+    container.innerHTML=html;
+    document.body.appendChild(container);
+    var alvo=container.querySelector('#pfAvisosPdfConteudo')||container;
+    var blob=await html2pdf().set({margin:0,filename:'avisos.pdf',html2canvas:{scale:2},jsPDF:{unit:'pt',format:'a4'}}).from(alvo).outputPdf('blob');
+    container.remove();
+    var nomeArq=(_pfAvisosTituloAtual||'avisos').toLowerCase().replace(/[^a-z0-9]+/g,'-')+'-'+new Date().toISOString().slice(0,10)+'.pdf';
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');a.href=url;a.download=nomeArq;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(function(){URL.revokeObjectURL(url);},4000);
+  }catch(e){pfAlert('Erro ao gerar PDF: '+e.message);}
+}
 function pfAvisosSetFiltro(campo,valor){
   if(campo==='marca')_pfAvisosFiltroMarca=valor; else _pfAvisosFiltroFamilia=valor;
   pfAvisosAbrirPainel(_pfAvisosEtapaAtual);
@@ -41809,6 +41876,10 @@ function pfAvisosPreencherFamiliaRetroativo(logChave){
   return mudou;
 }
 function pfAvisosMontarListaComFiltro(titulo,cor,logChave,linhaExtraFn){
+  _pfAvisosLogChaveAtual=logChave;
+  _pfAvisosTituloAtual=titulo;
+  _pfAvisosLinhaExtraAtual=linhaExtraFn;
+  var sel=_pfAvisosSel[logChave]||{};
   pfAvisosPreencherFamiliaRetroativo(logChave);
   var log=[];try{log=JSON.parse(localStorage.getItem(logChave)||'[]');}catch(e){}
   var marcas=Array.from(new Set(log.map(function(x){return x.marca;}).filter(Boolean))).sort();
@@ -41820,6 +41891,7 @@ function pfAvisosMontarListaComFiltro(titulo,cor,logChave,linhaExtraFn){
     if(!textoBusca) return true;
     return (String(x.ref||'').toLowerCase().indexOf(textoBusca)>=0) || (String(x.desc||'').toLowerCase().indexOf(textoBusca)>=0);
   });
+  _pfAvisosFiltradoAtual=filtrado;
   var contagemTxt=filtrado.length+(filtrado.length!==log.length?' de '+log.length:'');
   // v115.1237 - A pedido do Vitor: fonte desse painel aumentada (estava
   // pequena demais) -- título 14→17px, dropdowns 11→13px, linha
@@ -41853,6 +41925,16 @@ function pfAvisosMontarListaComFiltro(titulo,cor,logChave,linhaExtraFn){
   } else if(!filtrado.length){
     html+='<div style="font-size:14px;color:var(--pf-text-muted)">Nenhum item bate com esse filtro.</div>';
   } else {
+    // v115.1384 - Selecionar todos (os que estão filtrados na tela) + botão
+    // pra gerar PDF só com os marcados, a pedido do Vitor.
+    var numSel=filtrado.filter(function(c){return sel[pfAvisosItemKey(c)];}).length;
+    var todosMarcados=numSel>0&&numSel===filtrado.length;
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px">'+
+      '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--pf-text-muted);cursor:pointer;white-space:nowrap">'+
+        '<input type="checkbox" '+(todosMarcados?'checked':'')+' onchange="pfAvisosToggleSelAll(this.checked)"> Selecionar todos'+
+      '</label>'+
+      (numSel>0?('<button onclick="pfAvisosGerarPdfSelecionados()" style="font-size:11px;padding:5px 10px;border:none;border-radius:6px;background:'+cor+';color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">&#128196; Gerar PDF ('+numSel+')</button>'):'')+
+    '</div>';
     filtrado.forEach(function(c){
       // v115.1284 - A pedido do Vitor: mostrar o saldo ATUAL do estoque
       // (não o saldo salvo no log, que é uma foto de quando o evento
@@ -41871,14 +41953,19 @@ function pfAvisosMontarListaComFiltro(titulo,cor,logChave,linhaExtraFn){
         var sNeg=!itAtual.saldo||itAtual.saldo<=0;
         saldoHtml='<span style="font-size:11px;padding:2px 8px;border-radius:6px;font-weight:700;background:'+(sNeg?'#FEE2E2':'#DCFCE7')+';color:'+(sNeg?'#991B1B':'#166534')+'">Saldo: '+(itAtual.saldo||0)+'</span>';
       }
-      html+='<div style="background:var(--pf-bg);border-radius:8px;padding:9px 11px;margin-bottom:6px;font-size:14px">'+
+      var chaveItem=pfAvisosItemKey(c);
+      var marcado=!!sel[chaveItem];
+      html+='<div style="background:var(--pf-bg);border-radius:8px;padding:9px 11px;margin-bottom:6px;font-size:14px;display:flex;gap:8px;align-items:flex-start">'+
+        '<input type="checkbox" '+(marcado?'checked':'')+' onchange="pfAvisosToggleSel(\''+pfEscJs(logChave)+'\',\''+pfEscJs(chaveItem)+'\',this.checked)" style="margin-top:4px;flex-shrink:0">'+
+        '<div style="flex:1;min-width:0">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px">'+
           '<div style="font-weight:700;color:#D97757">'+c.ref+' <span style="color:var(--pf-text-muted);font-weight:400">'+(c.marca||'')+'</span></div>'+
           saldoHtml+
         '</div>'+
         (c.desc?'<div style="color:var(--pf-text-muted)">'+c.desc+'</div>':'')+
         (c.familia?'<div style="color:var(--pf-text-muted);font-size:12px">'+c.familia+'</div>':'')+
-        '<div style="color:var(--pf-text-muted)">'+linhaExtraFn(c)+' · '+new Date(c.data).toLocaleDateString('pt-BR')+'</div></div>';
+        '<div style="color:var(--pf-text-muted)">'+linhaExtraFn(c)+' · '+new Date(c.data).toLocaleDateString('pt-BR')+'</div>'+
+        '</div></div>';
     });
     html+='<div onclick="pfAvisosLimparListaGlobal(\''+logChave+'\')" style="text-align:center;font-size:14px;color:'+cor+';cursor:pointer;margin-top:8px;padding-top:8px;border-top:1px solid var(--pf-sidebar-border)">Limpar lista</div>';
   }

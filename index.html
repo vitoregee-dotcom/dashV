@@ -1555,7 +1555,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1386</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1387</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1650,7 +1650,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1386</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1387</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -17256,12 +17256,20 @@ function toggleSolicitacao(ref,marca){
     delete solicitacoes[key];
     salvarSolicitacao(key,null);
   } else {
-    const item=calcItems.find(i=>solKey(i.ref,i.marca)===key);
+    // v115.1387 - Busca em allItems (catálogo inteiro) além de calcItems
+    // (só a família ativa do Dashboard): chamado agora também do Mapa de
+    // Compras, onde o item marcado pode ser de qualquer família -- sem
+    // isso, o saldo de referência ficava 0 quando calcItems não tinha o
+    // item, e o tick desmarcava sozinho na primeira sincronização (saldo
+    // real > 0 sempre "parecia" ter subido).
+    const item=calcItems.find(i=>solKey(i.ref,i.marca)===key)
+      ||(typeof allItems!=='undefined'&&allItems?allItems.find(i=>solKey(i.ref,i.marca)===key):null);
     const entry={saldo:item?item.saldo:0,consumo:item?item.consumo:0,wasOP:item?item.sk==='OP':false,ts:Date.now()};
     solicitacoes[key]=entry;
     salvarSolicitacao(key,entry);
   }
-  renderTable();
+  if(document.getElementById('tbody'))renderTable();
+  if(typeof currentView!=='undefined'&&currentView==='mapa'&&typeof mapaGoStep==='function')mapaGoStep(mapaStep||1);
 }
 // ── ME AVISE: detecção automática de chegada / mudança de pedido ──────
 // v115.678 - Antes, "Me Avise" só disparava o e-mail quando o usuário clicava
@@ -17476,13 +17484,19 @@ function maVerificarMudancasAutomaticas(){
   }
   proximo();
 }
-function applyFilt(){
-  // Antes: pra cada chave em `solicitacoes`, rodava calcItems.find(...) -- uma
-  // busca linear no array inteiro. Com calcItems na casa de 100k+ itens, isso
-  // vira O(chaves × itens). Agora monta um mapa ref+marca -> item UMA vez
-  // (O(itens)) e faz lookup O(1) por chave.
+// v115.1387 - Extraído de dentro de applyFilt() pra virar uma função
+// independente, reaproveitável em qualquer tela (não só Dashboard) --
+// usada agora também pelo tick "Solicitado" do Mapa de Compras, pra
+// desmarcar sozinho quando o saldo sobe, sem duplicar a lógica.
+// Trocado calcItems->allItems na fonte: calcItems é só o catálogo
+// FILTRADO pela família ativa do Dashboard, então rodando fora do
+// Dashboard (ou com outra família selecionada) ficaria cego pra itens de
+// outras famílias -- mesmo bug já corrigido em vários outros lugares do
+// sistema (Central de Avisos, v115.1370).
+function solicitacoesAutoLimpar(){
+  const fonte=(typeof allItems!=='undefined'&&allItems&&allItems.length)?allItems:(typeof calcItems!=='undefined'?calcItems:[]);
   const _itemPorChave={};
-  calcItems.forEach(i=>{_itemPorChave[solKey(i.ref,i.marca)]=i;});
+  fonte.forEach(i=>{_itemPorChave[solKey(i.ref,i.marca)]=i;});
   Object.keys(solicitacoes).forEach(key=>{
     const item=_itemPorChave[key];
     const entry=solicitacoes[key];
@@ -17516,6 +17530,9 @@ function applyFilt(){
     }
   });
   pfSafeSetItem('solicitacoes',JSON.stringify(solicitacoes));
+}
+function applyFilt(){
+  solicitacoesAutoLimpar();
   // v115.1086 - BUG GRAVE corrigido (emergência, a pedido do Vitor):
   // autoLimparTransit() rodava AQUI dentro de applyFilt() -- ou seja, a
   // CADA busca/filtro digitado (debounce de 220ms, mas mesmo assim). Antes
@@ -32499,35 +32516,21 @@ renderChips = function(items, savedArr, inputName, colorSel, bgSel){
 // ── 2. MAPA STEP1 — filtro + seleção + espaço + fantasia ─────────
 var _mapaFiltro = 'todos'; // 'todos' | 'naoimediato'
 
-// v115.1386 - A pedido do Vitor: check-in "Solicitado" por item em "Itens
-// para cotar" (Mapa de Compras) -- marca o item que já pediu ao
-// fornecedor, e desmarca SOZINHO quando o saldo do estoque aumentar
-// (sinal de que chegou). Guarda o saldo do momento em que marcou
-// (solicitadoSaldoBase) pra comparar depois -- se o saldo atual for maior
-// que esse valor, é porque entrou mercadoria, então o tick não faz mais
-// sentido e cai sozinho.
-function mapaSaldoAtualItem(item){
-  if(typeof allItems==='undefined'||!allItems)return 0;
-  var it=allItems.find(function(x){return x.ref===item.ref&&(!item.marca||x.marca===item.marca);})
-    ||allItems.find(function(x){return x.ref===item.ref;});
-  return it?(it.saldo||0):0;
-}
-function mapaLimparSolicitadosChegados(){
-  (mapaItens||[]).forEach(function(it){
-    if(it.solicitado){
-      var saldoAgora=mapaSaldoAtualItem(it);
-      if(saldoAgora>(it.solicitadoSaldoBase||0)){
-        it.solicitado=false;
-        delete it.solicitadoSaldoBase;
-      }
-    }
-  });
-}
+// v115.1387 - A pedido do Vitor (viu o tick "Solicitado" novo no Mapa de
+// Compras e perguntou se aparece no Dashboard): o Dashboard JÁ tinha um
+// check-in "Solicitado" pronto (coluna da tabela principal, com o mesmo
+// comportamento de desmarcar sozinho quando o saldo sobe -- ver
+// toggleSolicitacao/applyFilt). Em vez de manter dois sistemas paralelos e
+// desencontrados (um no Mapa, outro no Dashboard), o tick do Mapa passa a
+// usar o MESMO dado (objeto `solicitacoes`, chave solKey(ref,marca)) --
+// marcar num lugar mostra marcado no outro, e o saldo salvo/comparado é o
+// mesmo em ambos. toggleSolicitacao() já cuida de re-renderizar a tela
+// certa (Dashboard ou Mapa), então não precisa de wrapper próprio aqui.
 
 // Override mapaStep1 to add filter + space key + fantasia
 var _origMapaStep1 = mapaStep1;
 mapaStep1 = function(el){
-  mapaLimparSolicitadosChegados();
+  if(typeof solicitacoesAutoLimpar==='function')solicitacoesAutoLimpar();
   // v115.862 - Bug real corrigido (a pedido do Vitor: fornecedor "CHINA"
   // aparecia com código bruto na coluna e sumia do painel do item, mesmo
   // depois do fix anterior de v115.861): esta é a função que RENDERIZA de
@@ -32691,8 +32694,7 @@ mapaStep1 = function(el){
     html += '<td style="padding:8px;text-align:center"><span style="font-size:10px;background:'+pBg+';color:'+pCor+';padding:2px 8px;border-radius:8px;font-weight:700">'+(item.prazo||'—')+'</span></td>';
     html += '<td style="padding:8px"><span class="mLinhaTag" style="background:'+ln.b+';color:'+(ln.x||ln.c)+'">'+ln.l+'</span></td>';
     html += '<td style="padding:8px;font-size:11px;color:'+(fs.length?'#27AE60':'#E67E22')+'">'+(isNaoIm?(fs.length?(validNamesTbl.length?'✓ '+fnms:'')+orphanBadge:(sel?'Clique →':'—')):'—')+'</td>';
-    var saldoAtualSolic=mapaSaldoAtualItem(item);
-    html += '<td style="padding:8px;text-align:center" onclick="event.stopPropagation()"><input type="checkbox" '+(item.solicitado?'checked':'')+' onchange="mapaItens['+i+'].solicitado=this.checked;if(this.checked){mapaItens['+i+'].solicitadoSaldoBase='+saldoAtualSolic+';}else{delete mapaItens['+i+'].solicitadoSaldoBase;}mapaGoStep(1);" title="Já solicitei esse item ao fornecedor -- desmarca sozinho quando o saldo aumentar (chegou)" style="width:15px;height:15px;accent-color:#1F4E79"></td>';
+    html += '<td style="padding:8px;text-align:center" onclick="event.stopPropagation()"><input type="checkbox" '+(solicitacoes[solKey(item.ref,item.marca)]?'checked':'')+' onchange="toggleSolicitacao(\''+pfEscJs(item.ref)+'\',\''+pfEscJs(item.marca||'')+'\')" title="Já solicitei esse item ao fornecedor -- desmarca sozinho quando o saldo aumentar (chegou). Mesma marcação do Dashboard." style="width:15px;height:15px;accent-color:#1F4E79"></td>';
     html += '<td style="padding:8px;text-align:center" onclick="event.stopPropagation()"><button onclick="mapaItens.splice('+i+',1);mapaGoStep(1);" style="background:none;border:none;color:#C00000;cursor:pointer;font-size:15px">×</button></td>';
     html += '</tr>';
 

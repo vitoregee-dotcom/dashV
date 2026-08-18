@@ -1578,7 +1578,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1407</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1408</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1673,7 +1673,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1407</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1408</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -33432,7 +33432,7 @@ async function pfSyncPush(keys){
 // um item adicionado localmente que ainda não tinha sido "pushado" quando um pull
 // trouxe uma versão mais antiga (mesma classe de bug já corrigida nos Cadastros).
 function pfMergeSyncValue(localRaw, remoteRaw){
-  // v115.1407 - BUG GRAVE corrigido (a pedido do Vitor: criava fichas em
+  // v115.1408 - BUG GRAVE corrigido (a pedido do Vitor: criava fichas em
   // Cadastro>Produtos, sincronizava, e elas sumiam -- de novo a cada vez):
   // essa função sempre recebeu localRaw/remoteRaw CRUS, sem descomprimir
   // (chaves grandes como cad_produtos_v1 são salvas com prefixo "LZS1:"
@@ -51055,41 +51055,50 @@ function promoUsarDataSugerida(nome){
 function promoAcharFoto(codigo){
   var cod=(codigo||'').trim().toUpperCase();
   if(!cod)return null;
-  // v115.1407 - BUG corrigido (Vitor: "não puxou a foto -- até pq não tem
+  // v115.1408 - BUG corrigido (Vitor: "não puxou a foto -- até pq não tem
   // opção de escolher a marca né?! pq tem 2"): o mesmo código pode ter uma
   // ficha POR MARCA (ex: 212179-1XSC em SPICER e SPICER-R, cada marca é um
   // item separado no Cadastro -- ver nota em "Chave nova só sincroniza..."
   // acima sobre código+marca). Os 3 buscadores abaixo usavam .find(), que
   // para no PRIMEIRO registro achado -- se por acaso for a marca sem foto,
-  // desiste sem olhar a outra. Corrigido pra olhar TODOS os registros com
-  // esse código e usar o primeiro que realmente tiver foto, não o primeiro
-  // que aparecer.
+  // desiste sem olhar a outra.
+  // v115.1408 - AJUSTE (Vitor: "isso deve acontecer só na questão do -R, se
+  // fosse marca IMPORTADO já não poderia"): olhar qualquer marca com o
+  // mesmo código era largo demais -- duas marcas DIFERENTES DE VERDADE
+  // (ex: código genérico igual só por coincidência entre a marca real e
+  // "IMPORTADO") não deveriam trocar foto entre si. Corrigido pra só
+  // aceitar foto de outra marca quando as duas caem na MESMA família via
+  // familiaMarcaMain (a mesma função já usada em Solicitações pra saber
+  // que SPICER e SPICER-R são a mesma marca de verdade, só sufixo -R de
+  // reposição/rebaixado -- não generaliza pra marcas realmente distintas).
+  function fotoEntreCandidatos(lista){
+    if(!lista.length)return null;
+    var famPrincipal=familiaMarcaMain(lista[0].marca);
+    for(var i=0;i<lista.length;i++){
+      if(familiaMarcaMain(lista[i].marca)!==famPrincipal)continue;
+      var f=pfFotosArr(lista[i]);
+      if(f.length)return f[0];
+    }
+    return null;
+  }
   try{
     var ret=JSON.parse(pfSafeGetItem(RET_KEY,'[]'));
-    var candidatosRet=ret.filter(function(r){return (r.codigo||'').toUpperCase()===cod;});
-    for(var iR=0;iR<candidatosRet.length;iR++){
-      var fR=pfFotosArr(candidatosRet[iR]);
-      if(fR.length)return fR[0];
-    }
+    var fRet=fotoEntreCandidatos(ret.filter(function(r){return (r.codigo||'').toUpperCase()===cod;}));
+    if(fRet)return fRet;
   }catch(e){}
   try{
     var cc=JSON.parse(pfSafeGetItem(CC_KEY,'{}'));
-    var fotoAch=null;
+    var candidatosCc=[];
     Object.keys(cc).forEach(function(fam){
-      (cc[fam]||[]).forEach(function(r){
-        if(fotoAch)return;
-        if((r.codigo||'').toUpperCase()===cod){var f=pfFotosArr(r);if(f.length)fotoAch=f[0];}
-      });
+      (cc[fam]||[]).forEach(function(r){if((r.codigo||'').toUpperCase()===cod)candidatosCc.push(r);});
     });
-    if(fotoAch)return fotoAch;
+    var fCc=fotoEntreCandidatos(candidatosCc);
+    if(fCc)return fCc;
   }catch(e){}
   try{
     var prod=JSON.parse(pfSafeGetItem(PROD_KEY,'[]'));
-    var candidatosProd=prod.filter(function(p){return (p.codigo||'').toUpperCase()===cod;});
-    for(var iP=0;iP<candidatosProd.length;iP++){
-      var fP=pfFotosArr(candidatosProd[iP]);
-      if(fP.length)return fP[0];
-    }
+    var fProd=fotoEntreCandidatos(prod.filter(function(p){return (p.codigo||'').toUpperCase()===cod;}));
+    if(fProd)return fProd;
   }catch(e){}
   return null;
 }

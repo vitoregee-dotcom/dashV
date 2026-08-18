@@ -1555,7 +1555,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1384</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1385</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1650,7 +1650,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1384</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1385</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -19050,6 +19050,26 @@ var PF_CAMPOS_IMPORT=[
   {f:'cotacoes',label:'Nº de cotações',obrig:false}
 ];
 
+// v115.1385 - BUG GRAVE corrigido em TODOS os modais que fecham "clicando
+// fora" (achado pelo Vitor no modal "Editar mapa" de Mapa de Compras:
+// selecionar o texto do campo pra apagar e trocar o nome -- arrastando o
+// mouse/dedo de dentro do campo até sair da caixa branca, bem comum ao
+// selecionar tudo de uma vez -- fechava o modal no meio da edição, sem
+// dar tempo de digitar o novo nome). Causa raiz: o listener de 'click'
+// sozinho não distingue "cliquei no fundo escuro" de "comecei a
+// selecionar texto dentro do modal e soltei o mouse fora dele" -- os dois
+// disparam um evento 'click' com o mesmo alvo (o fundo), porque o
+// navegador usa o ancestral comum de mousedown+mouseup pra decidir o
+// alvo do click. Corrigido registrando ONDE o mousedown começou -- só
+// fecha se o mousedown E o click caíram os dois direto no fundo escuro,
+// nunca quando começou dentro do conteúdo do modal. Aplicado nos 12
+// modais do sistema que usavam o padrão antigo (Editar mapa, Importar
+// planilha, Lightbox de fotos, revisão de Solicitação, etc.).
+function pfOverlayFecharAoClicarFora(overlay,fecharFn){
+  var mdownNoOverlay=false;
+  overlay.addEventListener('mousedown',function(e){mdownNoOverlay=(e.target===overlay);});
+  overlay.addEventListener('click',function(e){if(e.target===overlay&&mdownNoOverlay)fecharFn();});
+}
 function pfAbrirMapeamentoManual(headers,autoMap,rows,file){
   window._pfImportPendente={headers:headers,rows:rows,file:file};
   var old=document.getElementById('importMapModal');if(old)old.remove();
@@ -19093,7 +19113,7 @@ function pfAbrirMapeamentoManual(headers,autoMap,rows,file){
         '<button onclick="pfConfirmarMapeamentoManual()" style="padding:9px 18px;border-radius:8px;border:none;background:#1F4E79;color:#fff;font-size:13px;font-weight:700;cursor:pointer">Importar</button>'+
       '</div>'+
     '</div>';
-  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+  pfOverlayFecharAoClicarFora(overlay,function(){overlay.remove();});
   document.body.appendChild(overlay);
 }
 
@@ -24112,7 +24132,7 @@ function pfAlert(msg){
     overlay.querySelector('div > div:nth-child(2)').textContent=s;
     document.body.appendChild(overlay);
     function fechar(){if(overlay&&overlay.parentNode)overlay.remove();}
-    overlay.addEventListener('click',function(e){if(e.target===overlay)fechar();});
+    pfOverlayFecharAoClicarFora(overlay,fechar);
     var btn=overlay.querySelector('#pfAlertOkBtn');
     btn.addEventListener('click',fechar);
     btn.addEventListener('touchend',function(e){e.preventDefault();fechar();});
@@ -24696,7 +24716,7 @@ function mapaAbrirFornecedoresEmTodos(){
         '<button onclick="mapaConfirmarFornecedoresEmTodos()" style="padding:8px 18px;border:none;background:#1F4E79;color:#fff;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">Incluir em todos</button>'+
       '</div>'+
     '</div>';
-  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+  pfOverlayFecharAoClicarFora(overlay,function(){overlay.remove();});
   document.body.appendChild(overlay);
 }
 function mapaFornTodosFiltrar(v){
@@ -27687,7 +27707,7 @@ function cadPadronizarDescricoesPrompt(){
         '<button onclick="cadPadronizarDescricoesAplicar()" style="padding:9px 18px;border-radius:8px;border:none;background:#1F4E79;color:#fff;font-size:13px;font-weight:700;cursor:pointer">Aplicar '+mudancas.length+' mudança(s)</button>'+
       '</div>'+
     '</div>';
-  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+  pfOverlayFecharAoClicarFora(overlay,function(){overlay.remove();});
   document.body.appendChild(overlay);
 }
 
@@ -35166,7 +35186,7 @@ function mapaRenomear(id,tituloAtual){
         '<button onclick="mapaConfirmarRenomear(\''+id+'\')" style="padding:8px 18px;border:none;background:#1F4E79;color:#fff;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">Salvar</button>'+
       '</div>'+
     '</div>';
-  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+  pfOverlayFecharAoClicarFora(overlay,function(){overlay.remove();});
   document.body.appendChild(overlay);
 }
 function mapaConfirmarRenomear(id){
@@ -39785,7 +39805,7 @@ function vendasAbrirRelacionados(i,scrollPos){
         }).join(''):'<div style="font-size:12px;color:#8a9ab0">Adicione outros itens nesta cotação pra poder marcá-los como relacionados.</div>')+
       '</div>'+
     '</div>';
-  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+  pfOverlayFecharAoClicarFora(overlay,function(){overlay.remove();});
   document.body.appendChild(overlay);
   if(scrollSalvo!=null){
     var novoScroll=overlay.querySelector('[data-relac-scroll]');
@@ -39883,7 +39903,7 @@ function vendasAbrirMarcarAplicacao(){
         '<button onclick="vendasConfirmarAplicacao(['+marcados.join(',')+'])" style="padding:9px 18px;border-radius:8px;border:none;background:#1F4E79;color:#fff;font-size:13px;font-weight:700;cursor:pointer">Salvar</button>'+
       '</div>'+
     '</div>';
-  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+  pfOverlayFecharAoClicarFora(overlay,function(){overlay.remove();});
   document.body.appendChild(overlay);
   setTimeout(function(){var el=document.getElementById('aplicModeloInput');if(el)el.focus();},50);
 }
@@ -40302,7 +40322,7 @@ function vendasAbrirMoverParaCotacao(){
         '<button onclick="document.getElementById(\'moverCotModal\').remove()" style="width:100%;padding:9px;border:1px solid #e0e8f0;border-radius:8px;background:#fff;color:#607080;font-size:13px;cursor:pointer">Cancelar</button>'+
       '</div>'+
     '</div>';
-  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+  pfOverlayFecharAoClicarFora(overlay,function(){overlay.remove();});
   document.body.appendChild(overlay);
 }
 
@@ -42350,7 +42370,7 @@ function pvAbrirChecklist(id){
         '<button id="pvAvancarBtn" onclick="pvMarcarStatus(\''+id+'\',\''+prox+'\');document.getElementById(\'pvChecklistModal\').remove()" '+(modoChecklist&&!todosMarcados?'disabled':'')+' style="width:100%;padding:11px;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:'+(modoChecklist&&!todosMarcados?'not-allowed':'pointer')+';background:'+(modoChecklist&&!todosMarcados?'#e0e8f0':proxInfo.txtCor)+';color:'+(modoChecklist&&!todosMarcados?'#8a9ab0':'#fff')+'">'+(modoChecklist&&!todosMarcados?'Marque todos os itens pra avançar':'✅ Avançar para '+proxInfo.label)+'</button>'+
       '</div>':'')+
     '</div>';
-  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+  pfOverlayFecharAoClicarFora(overlay,function(){overlay.remove();});
   document.body.appendChild(overlay);
 }
 
@@ -43450,7 +43470,7 @@ function vendasAbrirListaClientes(){
       '</div>'+
       '<div id="vendasListaClientesBody" style="overflow-y:auto;flex:1;min-height:0"></div>'+
     '</div>';
-  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+  pfOverlayFecharAoClicarFora(overlay,function(){overlay.remove();});
   document.body.appendChild(overlay);
   vendasFiltrarListaClientes();
   setTimeout(function(){var el=document.getElementById('vendasListaClientesFiltro');if(el)el.focus();},50);
@@ -47014,7 +47034,7 @@ function pfAbrirLightbox(fotos,idx){
   var overlay=document.createElement('div');
   overlay.id='pfLightboxOverlay';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:99999;display:flex;align-items:center;justify-content:center';
-  overlay.onclick=function(e){if(e.target===overlay)pfFecharLightbox();};
+  pfOverlayFecharAoClicarFora(overlay,pfFecharLightbox);
   overlay.innerHTML=
     '<button onclick="pfFecharLightbox()" title="Fechar" style="position:absolute;top:16px;right:20px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;line-height:1">×</button>'+
     (fotos.length>1?'<button onclick="pfLightboxNav(-1)" title="Anterior" style="position:absolute;left:16px;background:none;border:none;color:#fff;font-size:36px;cursor:pointer;line-height:1">‹</button>':'')+
@@ -49060,7 +49080,7 @@ function solicAbrirRevisao(id){
   overlay.id='solicRevisaoOverlay';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto';
   overlay.innerHTML=solicRevisaoHtml(s);
-  overlay.addEventListener('click',function(e){if(e.target===overlay)solicFecharRevisao();});
+  pfOverlayFecharAoClicarFora(overlay,solicFecharRevisao);
   document.body.appendChild(overlay);
   var fi=document.getElementById('solicRevisaoFileInput');
   if(fi)fi.addEventListener('change',function(){if(this.files[0])solicRevisaoProcessarArquivo(this.files[0]);});

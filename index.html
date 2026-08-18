@@ -1578,7 +1578,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1405</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1406</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1673,7 +1673,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1405</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1406</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -33432,6 +33432,26 @@ async function pfSyncPush(keys){
 // um item adicionado localmente que ainda não tinha sido "pushado" quando um pull
 // trouxe uma versão mais antiga (mesma classe de bug já corrigida nos Cadastros).
 function pfMergeSyncValue(localRaw, remoteRaw){
+  // v115.1406 - BUG GRAVE corrigido (a pedido do Vitor: criava fichas em
+  // Cadastro>Produtos, sincronizava, e elas sumiam -- de novo a cada vez):
+  // essa função sempre recebeu localRaw/remoteRaw CRUS, sem descomprimir
+  // (chaves grandes como cad_produtos_v1 são salvas com prefixo "LZS1:"
+  // por pfSafeSetItem quando passam de 20000 caracteres -- ver
+  // PF_CHAVES_COMPRIMIVEIS). JSON.parse numa string "LZS1:xxxx" sempre
+  // falha, então sempre que só um dos dois lados estava comprimido (ex:
+  // local acabou de crescer e comprimiu, mas o servidor ainda tinha a
+  // cópia antiga/menor sem compressão), o lado comprimido virava `null`
+  // no merge -- e "if(local==null)return JSON.stringify(remote)" jogava
+  // fora TUDO que só existia local (as fichas recém-criadas), tanto no
+  // pfSyncPull quanto no pfSyncPush (que também roda esse merge antes de
+  // subir, e regravava esse resultado por cima do localStorage). Cada
+  // nova leva de fichas criadas engatilhava o mesmo problema de novo, por
+  // isso "sempre que carrego, os itens somem". Corrigido descomprimindo os
+  // dois lados primeiro (pfDecompress já é um no-op seguro pra string que
+  // não começa com "LZS1:", então não quebra nenhuma chave não-comprimida
+  // que já passava por aqui).
+  localRaw = (typeof pfDecompress==='function') ? pfDecompress(localRaw) : localRaw;
+  remoteRaw = (typeof pfDecompress==='function') ? pfDecompress(remoteRaw) : remoteRaw;
   var local,remote;
   try{local=localRaw?JSON.parse(localRaw):null;}catch(e){local=null;}
   try{remote=remoteRaw?JSON.parse(remoteRaw):null;}catch(e){remote=null;}
@@ -51052,7 +51072,7 @@ function promoAcharFoto(codigo){
     });
     if(fotoAch)return fotoAch;
   }catch(e){}
-  // v115.1405 - BUG corrigido (Vitor: colou foto na ficha de um item em
+  // v115.1406 - BUG corrigido (Vitor: colou foto na ficha de um item em
   // Cadastro>Produtos, mas o Card de Promoção não puxou): faltava olhar o
   // cadastro geral de Produtos (PROD_KEY) -- só checava Retentores e
   // Componentes Cardan, que são famílias especiais à parte. A maioria dos

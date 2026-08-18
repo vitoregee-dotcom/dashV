@@ -1578,7 +1578,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1395</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1396</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1673,7 +1673,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1395</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1396</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -11218,6 +11218,14 @@ largura de comprasView/vendasView. -->
           <select id="grupoFilter" onchange="grupoF=this.value;applyFilt();renderCharts();renderRankings()" style="padding:5px 10px;border-radius:6px;border:1px solid #D4DDE8;font-size:12px;background:#fff;cursor:pointer;min-width:130px;font-weight:600"><option value="TODOS">Todos os Grupos</option><option value="CORRENTE/CORREIA">CORRENTE/CORREIA</option><option value="CORROSO/ACESSÓRIO">CORROSO/ACESSÓRIO</option><option value="EMBREAGEM">EMBREAGEM</option><option value="ENGRENAGEM">ENGRENAGEM</option><option value="FILTRO">FILTRO</option><option value="INJEÇÃO">INJEÇÃO</option><option value="OUTRO">OUTRO</option><option value="PISTÃO/SEGMENTO">PISTÃO/SEGMENTO</option><option value="ROLAMENTO">ROLAMENTO</option><option value="SOLENÓIDE">SOLENÓIDE</option><option value="VEDAÇÃO">VEDAÇÃO</option><option value="VÁLVULA">VÁLVULA</option><option value="ÓLEO">ÓLEO</option></select>
         </div>
         <div>
+          <!-- v115.1396 - A pedido do Vitor: filtro por Modelo/Série, pra
+          levantar rápido os itens de um componente/equipamento específico
+          -- reaproveita os vínculos já cadastrados em Aplicações. Opções
+          populadas dinamicamente (dashModeloSeriePopularDropdown), não dá
+          pra hardcodear igual Grupo porque depende do que foi cadastrado. -->
+          <div style="font-size:9px;font-weight:700;color:#8a9ab0;text-transform:uppercase;margin-bottom:4px">Modelo/Série</div>
+          <select id="modeloSerieFilter" onchange="dashModeloSerieSet(this.value)" style="padding:5px 10px;border-radius:6px;border:1px solid #D4DDE8;font-size:12px;background:#fff;cursor:pointer;min-width:160px;font-weight:600;max-width:220px"><option value="TODOS">Todos os Modelos/Séries</option></select>
+        <div>
           <div style="font-size:9px;font-weight:700;color:#8a9ab0;text-transform:uppercase;margin-bottom:4px">Pedido de compra</div>
           <div style="display:flex">
             <button class="pbtn act" data-p="T" onclick="setPedF(this)" style="border-radius:6px 0 0 6px">Todos</button>
@@ -16866,6 +16874,14 @@ let solicitacoes=JSON.parse(localStorage.getItem('solicitacoes')||'{}'); // {ref
 let filtroSolicitacao='TODOS'; // TODOS, COM, SEM
 let marcaF_painel='TODAS',marcaF_ranking='TODAS',grupoF='TODOS',sistemaF='TODOS',nomeArquivoAtual='';
 let afilt='T',abcF='TODOS',sCol='vP',sDir='desc',pg=1;
+// v115.1396 - A pedido do Vitor: filtro por Modelo/Série no Dashboard,
+// reaproveitando os vínculos que já existem em Aplicações (prod_aplicacoes_v1)
+// -- pra levantar rápido os itens de um componente/equipamento específico.
+// Guarda um Set de "ref||marca" (não recalculado a cada item filtrado, só
+// quando a seleção muda -- mesmo motivo de performance do marcasF já
+// existente, catálogo tem 200k+ itens).
+let modeloSerieF='TODOS';
+let _modeloSerieItensSet=null;
 const PPG=200;
 // ═══════════════════════════════════════════════════════════════
 // PARSE PLANILHA
@@ -17055,6 +17071,9 @@ async function recalc(skipRender){
   // mudaram de verdade (aqui, 1x por recalc), não a cada tecla digitada no
   // filtro (ver applyFilt) -- causava travamento na busca.
   if(typeof autoLimparTransit==='function')autoLimparTransit();
+  // v115.1396 - Popula o dropdown de Modelo/Série a cada recalc (a lista
+  // de Aplicações pode ter mudado desde a última vez).
+  if(typeof dashModeloSeriePopularDropdown==='function')dashModeloSeriePopularDropdown();
   if(skipRender){
     window._pfDashRendered=false; // sinaliza que a tela ainda precisa ser desenhada quando abrir
     return;
@@ -17602,6 +17621,7 @@ function applyFilt(){
     if(!(!q||refMatch(i.ref,q)||i.desc.toLowerCase().includes(q)))return false;
     if(!(marcasF.size===0||marcasF.has(i.marca)))return false;
     if(!(grupoF==="TODOS"||i.grupo===grupoF))return false;
+    if(!(modeloSerieF==="TODOS"||(_modeloSerieItensSet&&_modeloSerieItensSet.has(i.ref.toUpperCase()+'||'+(i.marca||'').toUpperCase()))))return false;
     if(!(sistemaF==="TODOS"||obterSistemaPorMarca(i.marca)===sistemaF))return false;
     if(!(pedF==="T"?true:pedF==="S"?i.pedido>0:pedF==="N"?i.pedido===0:pedF==="I"?(i.pedido>0&&i.pedido<i.qtdC&&i.qtdC>0):true))return false;
     if(!(filtroSolicitacao==='TODOS'?true:filtroSolicitacao==='COM'?solicitacoes[solKey(i.ref,i.marca)]:filtroSolicitacao==='SEM'?!solicitacoes[solKey(i.ref,i.marca)]:true))return false;
@@ -20701,6 +20721,10 @@ async function verAnalise(sidx){
   marcaF_ranking='TODAS';
   grupoF='TODOS';
   sistemaF='TODOS';
+  modeloSerieF='TODOS';
+  _modeloSerieItensSet=null;
+  const selModeloSerie=document.getElementById("modeloSerieFilter");
+  if(selModeloSerie)selModeloSerie.value='TODOS';
   const selPainel=document.getElementById("marcaFilterPainel");
   if(selPainel)selPainel.value='TODAS';
   const selRanking=document.getElementById("marcaFilterRanking");
@@ -39799,6 +39823,46 @@ function vendasPainelTab(t){
 // bastar digitar a série e já ver quais peças são usadas nesse componente,
 // sem precisar ficar procurando no catálogo.
 function aplicLoad(){return cadLoad(APLIC_KEY);}
+// v115.1396 - Funções do filtro de Modelo/Série no Dashboard (ver comentário
+// na declaração de modeloSerieF).
+function dashModeloSerieOpcoes(){
+  var lista=aplicLoad();
+  var vistos={};
+  var opcoes=[];
+  lista.forEach(function(a){
+    var chave=(a.modelo||'')+'|||'+(a.serie||'');
+    if(!a.modelo&&!a.serie)return;
+    if(vistos[chave])return;
+    vistos[chave]=true;
+    opcoes.push({chave:chave,rotulo:(a.modelo||'')+(a.serie?' — '+a.serie:'')});
+  });
+  opcoes.sort(function(x,y){return x.rotulo.localeCompare(y.rotulo,'pt-BR');});
+  return opcoes;
+}
+function dashModeloSeriePopularDropdown(){
+  var sel=document.getElementById('modeloSerieFilter');
+  if(!sel)return;
+  var opcoes=dashModeloSerieOpcoes();
+  sel.innerHTML='<option value="TODOS">Todos os Modelos/Séries</option>'+
+    opcoes.map(function(o){return '<option value="'+pfEscHtml(o.chave)+'">'+pfEscHtml(o.rotulo)+'</option>';}).join('');
+}
+function dashModeloSerieSet(valor){
+  modeloSerieF=valor;
+  if(valor==='TODOS'){
+    _modeloSerieItensSet=null;
+  }else{
+    var partes=valor.split('|||');
+    var modeloAlvo=partes[0],serieAlvo=partes[1];
+    var set=new Set();
+    aplicLoad().forEach(function(a){
+      if((a.modelo||'')===modeloAlvo&&(a.serie||'')===serieAlvo&&a.codigo){
+        set.add(String(a.codigo).toUpperCase()+'||'+String(a.marca||'').toUpperCase());
+      }
+    });
+    _modeloSerieItensSet=set;
+  }
+  applyFilt();
+}
 
 // ═══ RELACIONADOS (itens que trabalham juntos / parecidos) ═════
 // Igual ao recurso "Produtos Relacionados" do Sorocard: marca pares de itens

@@ -1578,7 +1578,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1390</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1391</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1673,7 +1673,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1390</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1391</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -34397,7 +34397,12 @@ cadMostrarPreviewImport=function(itens,marca){
     it._dup=plist.some(function(p){return p.codigo===it.codigo&&p.marca===(it.marca||marca);});
   });
   var novos=itens.filter(function(it){return !it._dup;}).length;
-  var aplic=cadGetAplicacao();
+  // v115.1391 - Restaurando da "Voltar à prévia" (banner de retomar): usa
+  // a aplicação FIXA que estava salva no cache, em vez de reler o
+  // formulário (que acabou de renderizar vazio de novo). Fora desse
+  // fluxo, comportamento normal -- lê do formulário como sempre.
+  var aplic = window._impRestaurando ? (window._impAplicCache||null) : cadGetAplicacao();
+  window._impRestaurando=false;
   var substLista=substCarregar();
   // v115.801 - A pedido do Vitor: quando o import é o "geral" (sem
   // formulário fixo de aplicação), mostra aplicação e custo POR ITEM na
@@ -34483,6 +34488,7 @@ cadMostrarPreviewImport=function(itens,marca){
   pfInitColResize(document.getElementById('impPreviewTableWrap'),IMP_PREVIEW_COLW_KEY);
   window._impItensCache=itens;
   window._impAplicCache=aplic;
+  window._impMarcaCache=marca;
   // v115.909 - BUG GRAVE corrigido (a pedido do Vitor, incidente real: uma
   // prévia de 357 itens já lida sumiu ao ler outro catálogo em seguida): essa
   // função só gravava a prévia em localStorage (imp_preview_cache_v1) quando o
@@ -34497,11 +34503,38 @@ cadMostrarPreviewImport=function(itens,marca){
   }catch(e){}
 };
 
+// v115.1391 - BUG corrigido (a pedido do Vitor: botão "Substituições →
+// Voltar" em Importar Produtos limpava os campos de Aplicação já
+// digitados): impAplicItemChanged/impCustoItemChanged/impDescChanged só
+// atualizavam window._impItensCache em MEMÓRIA -- nunca regravavam o
+// cache persistido (imp_preview_cache_v1). Então digitar Aplicação, ir
+// pra Substituições e voltar (que relê o cache do localStorage, "sem
+// reler o arquivo") trazia de volta a prévia do jeito que estava ANTES
+// de você preencher qualquer coisa. Agora toda edição por item regrava o
+// cache também (debounce de 400ms pra não bater no localStorage a cada
+// tecla).
+var _impPersistirCacheTimer=null;
+function impPersistirCacheAtual(){
+  clearTimeout(_impPersistirCacheTimer);
+  _impPersistirCacheTimer=setTimeout(function(){
+    if(!window._impItensCache)return;
+    try{
+      pfSafeSetItem(IMP_PREVIEW_KEY, JSON.stringify({
+        itens: window._impItensCache,
+        marca: window._impMarcaCache||'',
+        aplic: window._impAplicCache||null,
+        ts: Date.now()
+      }));
+      if(typeof pfSyncPush==='function')pfSyncPush([IMP_PREVIEW_KEY]);
+    }catch(e){}
+  },400);
+}
 function impAplicItemChanged(idx,campo,valor){
   if(!window._impItensCache||!window._impItensCache[idx])return;
   var it=window._impItensCache[idx];
   if(!it.aplicacao)it.aplicacao={};
   it.aplicacao[campo]=valor;
+  impPersistirCacheAtual();
 }
 // v115.1278 - A pedido do Vitor: preview de importação com muitos itens
 // (218 no caso dele) tendo que digitar Componente/Modelo/Série/Veículo
@@ -34557,16 +34590,19 @@ function impAplicPreencherTodosVisiveis(){
   });
   document.getElementById('impAplicMassaModal').remove();
   pfAlert('Aplicado em '+aplicados+' '+(aplicados===1?'item visível':'itens visíveis')+'.');
+  impPersistirCacheAtual();
 }
 function impCustoItemChanged(idx,valor){
   if(!window._impItensCache||!window._impItensCache[idx])return;
   window._impItensCache[idx].custo=(valor===''||valor==null)?null:Number(valor);
+  impPersistirCacheAtual();
 }
 
 function impDescChanged(input, idx){
   if(window._impItensCache&&window._impItensCache[idx]){
     window._impItensCache[idx].descricao=input.value;
     input.style.borderColor='#1F4E79';
+    impPersistirCacheAtual();
   }
 }
 
@@ -35831,7 +35867,7 @@ cadImportarProdutos = function(){
         banner.id='impRetomarBanner';
         banner.style.cssText='background:#EEF6FF;border:1.5px solid #1F4E79;border-radius:8px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:#1F4E79';
         banner.innerHTML='<span>📋 <b>Leitura salva:</b> '+saved.itens.length+' itens ('+dt+') -- ainda não confirmados</span>'+
-          '<button onclick="cadMostrarPreviewImport(JSON.parse(localStorage.getItem(\'imp_preview_cache_v1\')).itens, JSON.parse(localStorage.getItem(\'imp_preview_cache_v1\')).marca)" style="margin-left:auto;background:#1F4E79;color:#fff;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:12px;font-weight:700">← Voltar à prévia (sem reler o arquivo)</button>'+
+          '<button onclick="var _c=JSON.parse(localStorage.getItem(&#39;imp_preview_cache_v1&#39;));window._impRestaurando=true;window._impAplicCache=_c.aplic||null;window._impMarcaCache=_c.marca||&#39;&#39;;cadMostrarPreviewImport(_c.itens,_c.marca)" style="margin-left:auto;background:#1F4E79;color:#fff;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:12px;font-weight:700">← Voltar à prévia (sem reler o arquivo)</button>'+
           '<button onclick="localStorage.removeItem(\'imp_preview_cache_v1\');document.getElementById(\'impRetomarBanner\').remove()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">Descartar</button>';
         header.parentNode.insertBefore(banner, header.nextSibling);
       }

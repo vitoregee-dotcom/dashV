@@ -1555,7 +1555,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1385</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1386</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1650,7 +1650,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1385</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1386</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -32499,9 +32499,35 @@ renderChips = function(items, savedArr, inputName, colorSel, bgSel){
 // ── 2. MAPA STEP1 — filtro + seleção + espaço + fantasia ─────────
 var _mapaFiltro = 'todos'; // 'todos' | 'naoimediato'
 
+// v115.1386 - A pedido do Vitor: check-in "Solicitado" por item em "Itens
+// para cotar" (Mapa de Compras) -- marca o item que já pediu ao
+// fornecedor, e desmarca SOZINHO quando o saldo do estoque aumentar
+// (sinal de que chegou). Guarda o saldo do momento em que marcou
+// (solicitadoSaldoBase) pra comparar depois -- se o saldo atual for maior
+// que esse valor, é porque entrou mercadoria, então o tick não faz mais
+// sentido e cai sozinho.
+function mapaSaldoAtualItem(item){
+  if(typeof allItems==='undefined'||!allItems)return 0;
+  var it=allItems.find(function(x){return x.ref===item.ref&&(!item.marca||x.marca===item.marca);})
+    ||allItems.find(function(x){return x.ref===item.ref;});
+  return it?(it.saldo||0):0;
+}
+function mapaLimparSolicitadosChegados(){
+  (mapaItens||[]).forEach(function(it){
+    if(it.solicitado){
+      var saldoAgora=mapaSaldoAtualItem(it);
+      if(saldoAgora>(it.solicitadoSaldoBase||0)){
+        it.solicitado=false;
+        delete it.solicitadoSaldoBase;
+      }
+    }
+  });
+}
+
 // Override mapaStep1 to add filter + space key + fantasia
 var _origMapaStep1 = mapaStep1;
 mapaStep1 = function(el){
+  mapaLimparSolicitadosChegados();
   // v115.862 - Bug real corrigido (a pedido do Vitor: fornecedor "CHINA"
   // aparecia com código bruto na coluna e sumia do painel do item, mesmo
   // depois do fix anterior de v115.861): esta é a função que RENDERIZA de
@@ -32618,7 +32644,9 @@ mapaStep1 = function(el){
   html += '<th style="padding:8px 6px;width:32px"><input type="checkbox" id="mapaCkAll" onchange="mapaItens.forEach(function(i,x){i.sel=this.checked;});mapaGoStep(1);" style="width:15px;height:15px;accent-color:#C00000"></th>';
   html += '<th style="padding:8px">Código</th><th style="padding:8px">Descrição</th><th style="padding:8px">Marca</th>';
   html += '<th style="padding:8px;text-align:center">Qtd</th><th style="padding:8px;text-align:center">Prazo</th>';
-  html += '<th style="padding:8px">Linha</th><th style="padding:8px">Fornecedores</th><th style="width:28px"></th>';
+  html += '<th style="padding:8px">Linha</th><th style="padding:8px">Fornecedores</th>';
+  html += '<th style="padding:8px;text-align:center;width:70px">Solic.</th>';
+  html += '<th style="width:28px"></th>';
   html += '</tr></thead><tbody>';
 
   itensFiltrados.forEach(function(item,vidx){
@@ -32663,6 +32691,8 @@ mapaStep1 = function(el){
     html += '<td style="padding:8px;text-align:center"><span style="font-size:10px;background:'+pBg+';color:'+pCor+';padding:2px 8px;border-radius:8px;font-weight:700">'+(item.prazo||'—')+'</span></td>';
     html += '<td style="padding:8px"><span class="mLinhaTag" style="background:'+ln.b+';color:'+(ln.x||ln.c)+'">'+ln.l+'</span></td>';
     html += '<td style="padding:8px;font-size:11px;color:'+(fs.length?'#27AE60':'#E67E22')+'">'+(isNaoIm?(fs.length?(validNamesTbl.length?'✓ '+fnms:'')+orphanBadge:(sel?'Clique →':'—')):'—')+'</td>';
+    var saldoAtualSolic=mapaSaldoAtualItem(item);
+    html += '<td style="padding:8px;text-align:center" onclick="event.stopPropagation()"><input type="checkbox" '+(item.solicitado?'checked':'')+' onchange="mapaItens['+i+'].solicitado=this.checked;if(this.checked){mapaItens['+i+'].solicitadoSaldoBase='+saldoAtualSolic+';}else{delete mapaItens['+i+'].solicitadoSaldoBase;}mapaGoStep(1);" title="Já solicitei esse item ao fornecedor -- desmarca sozinho quando o saldo aumentar (chegou)" style="width:15px;height:15px;accent-color:#1F4E79"></td>';
     html += '<td style="padding:8px;text-align:center" onclick="event.stopPropagation()"><button onclick="mapaItens.splice('+i+',1);mapaGoStep(1);" style="background:none;border:none;color:#C00000;cursor:pointer;font-size:15px">×</button></td>';
     html += '</tr>';
 
@@ -32679,7 +32709,7 @@ mapaStep1 = function(el){
         mapaFornSelecionados[key]=sugs; // Sem fallback pra "todos" — melhor vazio (escolha manual) do que sugerir fornecedor errado
       }
 
-      html += '<tr style="border-bottom:1px solid #e0e8f0"><td colspan="9" style="padding:0">';
+      html += '<tr style="border-bottom:1px solid #e0e8f0"><td colspan="10" style="padding:0">';
       html += '<div style="background:#F8FAFC;border-left:4px solid #1F4E79;padding:14px 20px">';
       var flst2=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
       var fsSel=mapaFornSelecionados[key]||[];

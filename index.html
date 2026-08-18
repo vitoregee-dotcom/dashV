@@ -1578,7 +1578,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1389</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1390</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1673,7 +1673,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1389</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1390</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -17276,24 +17276,30 @@ function apostasVerificarVendas(){
 }
 function toggleSolicitacao(ref,marca){
   const key=solKey(ref,marca);
-  if(solicitacoes[key]){
-    delete solicitacoes[key];
-    salvarSolicitacao(key,null);
-  } else {
-    // v115.1387 - Busca em allItems (catálogo inteiro) além de calcItems
-    // (só a família ativa do Dashboard): chamado agora também do Mapa de
-    // Compras, onde o item marcado pode ser de qualquer família -- sem
-    // isso, o saldo de referência ficava 0 quando calcItems não tinha o
-    // item, e o tick desmarcava sozinho na primeira sincronização (saldo
-    // real > 0 sempre "parecia" ter subido).
+  solicitacaoDefinir(ref,marca,!solicitacoes[key]);
+  if(document.getElementById('tbody'))renderTable();
+  if(typeof currentView!=='undefined'&&currentView==='mapa'&&typeof mapaGoStep==='function')mapaGoStep(mapaStep||1);
+}
+// v115.1390 - Extraído de dentro de toggleSolicitacao() pra virar uma
+// função independente, sem re-renderizar nada -- assim o botão "marcar
+// todos" do Mapa de Compras pode marcar vários itens em sequência e
+// renderizar só UMA vez no final, em vez de uma vez por item.
+function solicitacaoDefinir(ref,marca,marcado){
+  const key=solKey(ref,marca);
+  if(marcado){
+    if(solicitacoes[key])return false;
     const item=calcItems.find(i=>solKey(i.ref,i.marca)===key)
       ||(typeof allItems!=='undefined'&&allItems?allItems.find(i=>solKey(i.ref,i.marca)===key):null);
     const entry={saldo:item?item.saldo:0,consumo:item?item.consumo:0,wasOP:item?item.sk==='OP':false,ts:Date.now()};
     solicitacoes[key]=entry;
     salvarSolicitacao(key,entry);
+    return true;
+  } else {
+    if(!solicitacoes[key])return false;
+    delete solicitacoes[key];
+    salvarSolicitacao(key,null);
+    return true;
   }
-  if(document.getElementById('tbody'))renderTable();
-  if(typeof currentView!=='undefined'&&currentView==='mapa'&&typeof mapaGoStep==='function')mapaGoStep(mapaStep||1);
 }
 // ── ME AVISE: detecção automática de chegada / mudança de pedido ──────
 // v115.678 - Antes, "Me Avise" só disparava o e-mail quando o usuário clicava
@@ -32624,6 +32630,18 @@ var _mapaFiltro = 'todos'; // 'todos' | 'naoimediato'
 // mesmo em ambos. toggleSolicitacao() já cuida de re-renderizar a tela
 // certa (Dashboard ou Mapa), então não precisa de wrapper próprio aqui.
 
+// v115.1390 - A pedido do Vitor: botão "marcar/desmarcar todos" no
+// cabeçalho da coluna Solic. (Itens para cotar) -- aplica em todos os
+// itens da lista ATUALMENTE na tela (respeita o filtro "Só NÃO IM." se
+// estiver ativo, igual o checkbox de seleção já respeita).
+function mapaMarcarTodosSolicitados(checked){
+  var itensAlvo=window._mapaFiltro==='naoimediato'
+    ? mapaItens.filter(function(i){return pfPrazoNaoIm(i.prazo);})
+    : mapaItens;
+  itensAlvo.forEach(function(item){solicitacaoDefinir(item.ref,item.marca,checked);});
+  mapaGoStep(1);
+}
+
 // Override mapaStep1 to add filter + space key + fantasia
 var _origMapaStep1 = mapaStep1;
 mapaStep1 = function(el){
@@ -32745,7 +32763,7 @@ mapaStep1 = function(el){
   html += '<th style="padding:8px">Código</th><th style="padding:8px">Descrição</th><th style="padding:8px">Marca</th>';
   html += '<th style="padding:8px;text-align:center">Qtd</th><th style="padding:8px;text-align:center">Prazo</th>';
   html += '<th style="padding:8px">Linha</th><th style="padding:8px">Fornecedores</th>';
-  html += '<th style="padding:8px;text-align:center;width:70px">Solic.</th>';
+  html += '<th style="padding:8px;text-align:center;width:70px">Solic. <input type="checkbox" onchange="mapaMarcarTodosSolicitados(this.checked)" title="Marcar/desmarcar Solicitado em todos os itens da lista" style="width:14px;height:14px;vertical-align:middle;margin-left:2px;accent-color:#1F4E79"></th>';
   html += '<th style="width:28px"></th>';
   html += '</tr></thead><tbody>';
 

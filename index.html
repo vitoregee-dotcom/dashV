@@ -1578,7 +1578,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1414</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1415</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1673,7 +1673,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1414</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1415</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -28150,6 +28150,11 @@ function cadRenderAplicacoes(el){
   html+='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">'+
     '<button onclick="cadAbrirCompararSeries()" style="background:#7B2D8B;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700">⚖️ Comparar Séries</button>'+
     '<button onclick="cadImportarProdutos()" style="background:#E67E22;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700" title="Pra catálogo de uma única máquina/modelo -- toda a leitura entra com a mesma aplicação fixa">📥 Importar Catálogo</button>'+
+    // v115.1415 - A pedido do Vitor: cria de uma vez a ficha (Cadastros >
+    // Produtos) dos itens que estão em Aplicações (visíveis com o filtro/
+    // busca atual) mas ainda não têm ficha cadastrada -- ex: catálogo do
+    // fabricante importado, mas nunca virou produto rastreável.
+    '<button onclick="cadCriarFichasEmFalta()" style="background:#0D7377;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700" title="Cria a ficha (Cadastros > Produtos) dos itens visíveis abaixo que ainda não têm">🧾 Criar fichas em falta</button>'+
     (cadListarRevisoes().length?'<button onclick="cadAbrirPainelRevisoes()" style="background:#FFF3E6;border:1.5px solid #E67E22;color:#E67E22;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:12px;font-weight:700">🚩 '+cadListarRevisoes().length+' pra revisar</button>':'')+
   '</div>';
   // v115.876 - BUG GRAVE corrigido (a pedido do Vitor: recarregou a página
@@ -40022,6 +40027,36 @@ function vendasPainelTab(t){
 // bastar digitar a série e já ver quais peças são usadas nesse componente,
 // sem precisar ficar procurando no catálogo.
 function aplicLoad(){return cadLoad(APLIC_KEY);}
+function cadCriarFichasEmFalta(){
+  var termo=(window._cadAplicTermo||'').trim().toUpperCase();
+  var list=aplicLoad();
+  if(termo){
+    list=list.filter(function(a){
+      return (a.modelo||'').toUpperCase().indexOf(termo)>=0||(a.serie||'').toUpperCase().indexOf(termo)>=0||(a.codigo||'').toUpperCase().indexOf(termo)>=0||(a.desc||'').toUpperCase().indexOf(termo)>=0||(a.equip||'').toUpperCase().indexOf(termo)>=0||(a.veiculo||'').toUpperCase().indexOf(termo)>=0||(a.marca||'').toUpperCase().indexOf(termo)>=0||(a.marcaVeiculo||'').toUpperCase().indexOf(termo)>=0;
+    });
+  }
+  var produtos=cadLoad(PROD_KEY);
+  var existentes={};
+  produtos.forEach(function(p){existentes[String(p.codigo||'').trim().toUpperCase()+'||'+String(p.marca||'').trim().toUpperCase()]=true;});
+  var vistos={};
+  var faltando=[];
+  list.forEach(function(a){
+    if(!a.codigo)return;
+    var chave=String(a.codigo).trim().toUpperCase()+'||'+String(a.marca||'').trim().toUpperCase();
+    if(existentes[chave]||vistos[chave])return;
+    vistos[chave]=true;
+    faltando.push({codigo:a.codigo,marca:a.marca||'',descricao:a.desc||a.equip||''});
+  });
+  if(!faltando.length){pfAlert(termo?'Todos os itens que batem com "'+termo+'" já têm ficha.':'Todos os itens visíveis já têm ficha.');return;}
+  pfConfirm('Criar ficha (Cadastros > Produtos) pra '+faltando.length+' item(ns) que ainda não têm'+(termo?' (dentro do filtro "'+termo+'")':'')+'? Só código, marca e descrição básica -- dá pra completar foto/detalhes depois.',function(){
+    faltando.forEach(function(f){
+      produtos.push({id:'p_'+Date.now()+'_'+Math.random().toString(36).slice(2),codigo:f.codigo,descricao:f.descricao||f.codigo,marca:f.marca,ncm:'',linha:'',unidade:'',grupo:'',subgrupo:'',conversoes:[],obs:'',foto:'',desenho:''});
+    });
+    cadSave(PROD_KEY,produtos);
+    pfAlert(faltando.length+' ficha(s) criada(s) com sucesso.');
+    cadRenderAplicacoes(document.getElementById('cadBody'));
+  },'Criar '+faltando.length+' ficha(s)');
+}
 // v115.1414 - A pedido do Vitor: coluna "Ficha" no Dashboard, abre a
 // ficha do produto (Cadastros > Produtos) direto -- se não existir ainda,
 // oferece criar uma nova já com código/marca/descrição preenchidos. ESC

@@ -1578,7 +1578,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1416</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1417</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1594,6 +1594,19 @@ button { min-height:36px; }
       <div class="authField"><label>E-mail</label><input type="email" id="forgotEmail" placeholder="seu@email.com"></div>
       <button class="authBtn" id="btnForgot" onclick="doForgot()">Enviar link de redefinição</button>
       <div class="authLink"><a onclick="showAuthView(&#39;viewLogin&#39;)">← Voltar ao login</a></div>
+    </div>
+    <div id="pfIdbLoadWrap" style="display:none">
+      <div id="pfIdbLoadHead">
+        <div id="pfIdbLoadIcon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"></ellipse><path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6"></path><path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"></path></svg>
+        </div>
+        <div>
+          <p id="pfIdbLoadTitle">Preparando seus catálogos</p>
+          <p id="pfIdbLoadSub">Carregando localmente</p>
+        </div>
+      </div>
+      <div id="pfIdbLoadTrack"><div id="pfIdbLoadBar"></div></div>
+      <div id="pfIdbLoadMeta"><span id="pfIdbLoadCount">0 de 12</span><span id="pfIdbLoadPct">0%</span></div>
     </div>
   </div>
 </div>
@@ -1673,7 +1686,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1416</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1417</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -16322,6 +16335,129 @@ window._pfStorageWarnShown = false;
 // na hora de ler se precisa descomprimir ou se é um dado antigo (de antes
 // dessa mudança) já salvo em texto puro -- os dois formatos continuam
 // funcionando ao ler, sem precisar migrar nada na marra.
+// ═══════════════════════════════════════════════════════════════
+// 🗄️ MIGRAÇÃO localStorage → IndexedDB (v115.1417) — a pedido do Vitor
+// As 12 chaves de PF_CHAVES_COMPRIMIVEIS (catálogos grandes) saem do
+// localStorage (teto prático de 5-10MB) e passam a viver no IndexedDB
+// (na prática, centenas de MB). Abordagem escolhida: cópia em memória
+// (_pfMemCache) sincronizada com o IndexedDB em background — assim
+// pfSafeGetItem/pfSafeSetItem continuam SÍNCRONOS pra quem já chama
+// elas (sem precisar reescrever pra async/Promise em todo lugar).
+// A sincronização com Supabase (pfSyncPush/pfSyncPull/pfMergeSyncValue)
+// não muda nada -- só os 2 pontos que liam localStorage.getItem(chave)
+// direto (raw, pra pegar o valor já comprimido) passam a usar
+// pfRawGetItem, que sabe buscar da memória pras chaves migradas.
+// ═══════════════════════════════════════════════════════════════
+var PF_IDB_KEYS = ['cad_produtos_v1','prod_aplicacoes_v1','cad_relacionados_v1',
+  'cad_fornecedores_v1','cad_clientes_v1','retentores_v1','componentes_cardan_v1',
+  'timken_interchange_v1','lp_regras_v1','opTrack','ficha_tecnica_v1','pfPendenciasAdmin'];
+var _pfMemCache = {};
+var _pfIdbReady = false;
+var _pfIdbDb = null;
+var _pfIdbWriteTimers = {};
+function pfIdbAbrir(){
+  return new Promise(function(resolve){
+    if(_pfIdbDb){resolve(_pfIdbDb);return;}
+    try{
+      var req = indexedDB.open('PartsFlowDB', 1);
+      req.onupgradeneeded = function(e){
+        var db = e.target.result;
+        if(!db.objectStoreNames.contains('kv'))db.createObjectStore('kv');
+      };
+      req.onsuccess = function(e){_pfIdbDb=e.target.result;resolve(_pfIdbDb);};
+      req.onerror = function(){console.warn('pfIdbAbrir falhou:',req.error);resolve(null);};
+    }catch(e){console.warn('pfIdbAbrir exceção:',e);resolve(null);}
+  });
+}
+function pfIdbGet(key){
+  return pfIdbAbrir().then(function(db){
+    if(!db)return null;
+    return new Promise(function(resolve){
+      try{
+        var tx = db.transaction('kv','readonly').objectStore('kv').get(key);
+        tx.onsuccess = function(){resolve(tx.result!==undefined?tx.result:null);};
+        tx.onerror = function(){resolve(null);};
+      }catch(e){resolve(null);}
+    });
+  });
+}
+function pfIdbSet(key, value){
+  return pfIdbAbrir().then(function(db){
+    if(!db)return false;
+    return new Promise(function(resolve){
+      try{
+        var tx = db.transaction('kv','readwrite').objectStore('kv').put(value, key);
+        tx.onsuccess = function(){resolve(true);};
+        tx.onerror = function(){resolve(false);};
+      }catch(e){resolve(false);}
+    });
+  });
+}
+function pfIdbDelete(key){
+  return pfIdbAbrir().then(function(db){
+    if(!db)return;
+    try{db.transaction('kv','readwrite').objectStore('kv').delete(key);}catch(e){}
+  });
+}
+// Carrega as 12 chaves do IndexedDB pra memória. Se uma chave ainda não
+// existe no IndexedDB mas existe no localStorage (usuário de antes da
+// migração), copia o valor cru (comprimido ou não, tanto faz -- é
+// exatamente o mesmo formato que pfSafeGetItem já sabe ler) pro
+// IndexedDB e pra memória, e remove do localStorage (libera espaço de
+// verdade). onProgresso(nomeAmigavel, indiceAtual, total) é chamado a
+// cada chave, pra alimentar a barra de progresso na tela de login.
+// Liga o pfIdbInit à barra visual da tela de login. Chamado pelo doLogin
+// ANTES de esconder o authOverlay -- é o único ponto do boot que fica
+// travado de verdade (rápido, é tudo local/IndexedDB, sem rede; o resto
+// do sync com o Supabase continua otimista, como já era antes).
+function pfIdbInitComBarra(){
+  var wrap=document.getElementById('pfIdbLoadWrap');
+  var bar=document.getElementById('pfIdbLoadBar');
+  var count=document.getElementById('pfIdbLoadCount');
+  var pct=document.getElementById('pfIdbLoadPct');
+  var sub=document.getElementById('pfIdbLoadSub');
+  var nomesAmigaveis={cad_produtos_v1:'Produtos',prod_aplicacoes_v1:'Aplicações',cad_relacionados_v1:'Relacionados',cad_fornecedores_v1:'Fornecedores',cad_clientes_v1:'Clientes',retentores_v1:'Retentores',componentes_cardan_v1:'Componentes Cardan',timken_interchange_v1:'Timken',lp_regras_v1:'Regras L.P.',opTrack:'OP Track',ficha_tecnica_v1:'Ficha Técnica',pfPendenciasAdmin:'Pendências'};
+  if(wrap)wrap.style.display='block';
+  return pfIdbInit(function(key, idx, total){
+    if(!wrap)return;
+    var p=Math.round((idx/total)*100);
+    if(bar)bar.style.width=p+'%';
+    if(count)count.textContent=idx+' de '+total;
+    if(pct)pct.textContent=p+'%';
+    if(sub)sub.textContent=(nomesAmigaveis[key]||key);
+  }).then(function(){
+    if(sub)sub.textContent='Pronto';
+    if(wrap)setTimeout(function(){wrap.style.display='none';},250);
+  });
+}
+function pfIdbInit(onProgresso){
+  var total = PF_IDB_KEYS.length;
+  var p = Promise.resolve();
+  PF_IDB_KEYS.forEach(function(key, idx){
+    p = p.then(function(){
+      return pfIdbGet(key).then(function(valorIdb){
+        if(valorIdb!=null){
+          _pfMemCache[key]=valorIdb;
+          // Limpeza: se por algum motivo ainda sobrou cópia no localStorage
+          // (ex: sessão anterior interrompida no meio da migração), remove.
+          try{if(localStorage.getItem(key)!=null)localStorage.removeItem(key);}catch(e){}
+          return;
+        }
+        var valorLocal = null;
+        try{valorLocal = localStorage.getItem(key);}catch(e){}
+        if(valorLocal!=null){
+          _pfMemCache[key]=valorLocal;
+          return pfIdbSet(key, valorLocal).then(function(){
+            try{localStorage.removeItem(key);}catch(e){}
+          });
+        }
+      });
+    }).then(function(){
+      if(typeof onProgresso==='function')onProgresso(key, idx+1, total);
+    });
+  });
+  return p.then(function(){_pfIdbReady=true;});
+}
 var PF_COMPRESS_MARK = 'LZS1:';
 function pfCompress(str){
   try{
@@ -16338,12 +16474,32 @@ function pfDecompress(str){
     return LZString.decompressFromUTF16(str.slice(PF_COMPRESS_MARK.length));
   }catch(e){console.warn('pfDecompress falhou:',e);return null;}
 }
+// Camada crua por baixo de pfSafeGetItem/pfSafeSetItem: pras 12 chaves em
+// PF_IDB_KEYS, lê/escreve na memória (_pfMemCache, espelhada no IndexedDB
+// em background) em vez do localStorage. Pra qualquer outra chave,
+// comportamento idêntico a antes (localStorage direto). Usado também
+// pelos 2 pontos do sync (pfSyncPush/pfSyncPull) que precisam do valor
+// CRU (comprimido) pra mandar/comparar com o Supabase.
+function pfRawGetItem(key){
+  if(PF_IDB_KEYS.indexOf(key)>=0)return _pfMemCache.hasOwnProperty(key)?_pfMemCache[key]:null;
+  return localStorage.getItem(key);
+}
+function pfRawSetItem(key, value){
+  if(PF_IDB_KEYS.indexOf(key)>=0){
+    _pfMemCache[key]=value;
+    clearTimeout(_pfIdbWriteTimers[key]);
+    _pfIdbWriteTimers[key]=setTimeout(function(){pfIdbSet(key,value);},800);
+    return true;
+  }
+  localStorage.setItem(key, value);
+  return true;
+}
 // Leitura que espelha pfSafeSetItem -- sempre usar esse par junto (nunca
 // misturar localStorage.getItem/setItem direto com essas duas em cima da
 // mesma chave, senão um lado não entende o formato salvo pelo outro).
 function pfSafeGetItem(key, fallback){
   try{
-    var raw = localStorage.getItem(key);
+    var raw = pfRawGetItem(key);
     if(raw==null)return fallback!=null?fallback:null;
     var out = pfDecompress(raw);
     return out!=null?out:(fallback!=null?fallback:null);
@@ -16391,6 +16547,15 @@ function pfRecomprimirExistentes(){
 try{pfRecomprimirExistentes();}catch(eRecomp){console.warn('pfRecomprimirExistentes na carga inicial falhou:',eRecomp);}
 function pfSafeSetItem(key, value){
   var toStore = (value&&value.length>20000&&PF_CHAVES_COMPRIMIVEIS.indexOf(key)>=0) ? pfCompress(value) : value;
+  // v115.1417 - As 12 chaves migradas pro IndexedDB não passam pelo
+  // try/catch de quota do localStorage abaixo -- gravação na memória é
+  // sempre síncrona e não estoura quota (o IndexedDB por baixo tem
+  // teto na prática de centenas de MB, bem longe do que esses
+  // catálogos ocupam mesmo comprimidos).
+  if(PF_IDB_KEYS.indexOf(key)>=0){
+    pfRawSetItem(key, toStore);
+    return true;
+  }
   try{
     localStorage.setItem(key, toStore);
     return true;
@@ -18432,6 +18597,14 @@ tr.opRow.selRow{background:#EEE5FF !important}
 
 #authOverlay{position:fixed;inset:0;background:linear-gradient(135deg,#0d2137 0%,#1F4E79 60%,#2e6fa3 100%);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',system-ui,sans-serif}
 .authBox{background:#fff;border-radius:18px;padding:40px 44px;width:100%;max-width:400px;box-shadow:0 24px 64px rgba(0,0,0,.35)}
+#pfIdbLoadWrap{margin-top:22px;padding-top:18px;border-top:1px solid #eef1f5}
+#pfIdbLoadHead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+#pfIdbLoadIcon{width:30px;height:30px;border-radius:9px;background:#E6F1FB;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#pfIdbLoadTitle{font-size:13px;font-weight:700;color:#0F1F35;margin:0}
+#pfIdbLoadSub{font-size:11px;color:#8a93a3;margin:0}
+#pfIdbLoadTrack{height:6px;border-radius:99px;background:#eef1f5;overflow:hidden;margin-bottom:8px}
+#pfIdbLoadBar{height:100%;width:0%;border-radius:99px;background:#378ADD;transition:width .28s ease}
+#pfIdbLoadMeta{display:flex;justify-content:space-between;font-size:11px;color:#8a93a3}
 .authLogo{text-align:center;margin-bottom:24px}
 .authLogo h1{font-size:20px;font-weight:900;color:#1F4E79;margin-top:8px}
 .authLogo p{font-size:12px;color:#607080;margin-top:4px}
@@ -22928,6 +23101,7 @@ async function doLogin(){
           sbSession=s; sbUser=s.user||cc.user;
           pfGarantirDadosDoUsuarioCerto(sbUser&&sbUser.id);
           sbGarantirSessaoValida();
+          await pfIdbInitComBarra();
           document.getElementById('authOverlay').style.display='none';
           if(typeof initDevMenu==='function')initDevMenu();
           if(typeof cadSyncFornecedores==='function')cadSyncFornecedores();
@@ -22976,6 +23150,7 @@ async function doLogin(){
     try{await carregarSolicitacoes();}catch(e){}
     try{await carregarApostasLog();}catch(e){}
     try{await carregarTransit();}catch(e){}
+    await pfIdbInitComBarra();
     document.getElementById('authOverlay').style.display='none';
     if(typeof initDevMenu==='function')initDevMenu();
     if(typeof cadSyncFornecedores==='function')cadSyncFornecedores();
@@ -23013,7 +23188,7 @@ function doLoginOffline(){
   document.body.appendChild(overlay);
   setTimeout(function(){var inp=document.getElementById('_pinInput');if(inp)inp.focus();},100);
 
-  function tryPin(){
+  async function tryPin(){
     var pin=(document.getElementById('_pinInput').value||'').trim();
     if(pin.length!==4){document.getElementById('_pinErr').textContent='PIN deve ter 4 dígitos';return;}
     var savedPin=localStorage.getItem('offline_pin_hash');
@@ -23028,6 +23203,7 @@ function doLoginOffline(){
     sbSession=s; sbUser=s.user||cc.user||{id:'e526fea4-d04f-4d2f-a700-145ac17b137c',email:'vitoregee@gmail.com'};
     pfGarantirDadosDoUsuarioCerto(sbUser&&sbUser.id);
     sbGarantirSessaoValida();
+    await pfIdbInitComBarra();
     document.getElementById('authOverlay').style.display='none';
     if(typeof initDevMenu==='function')initDevMenu();
     if(typeof cadSyncFornecedores==='function')cadSyncFornecedores();
@@ -23834,6 +24010,8 @@ async function lpSalvarSupabase(){
       _pfLap('carregarApostasLog');
       try{await carregarTransit();}catch(e){}
       _pfLap('carregarTransit');
+      await pfIdbInitComBarra();
+      _pfLap('pfIdbInitComBarra');
       document.getElementById('authOverlay').style.display='none';
       initUserUI();
       _pfLap('initUserUI');
@@ -33363,7 +33541,7 @@ async function pfSyncPush(keys){
     // que o pull usa -- só então sobe o resultado já mesclado (e atualiza o
     // localStorage com o merge, pra não voltar a divergir no próximo push).
     var resultados = await Promise.all(keys.map(async function(chave){
-      var raw=localStorage.getItem(chave);
+      var raw=pfRawGetItem(chave);
       if(raw===null){
         console.log('pfSyncPush: ' + chave + ' não encontrado localmente');
         return null;
@@ -33923,7 +34101,7 @@ async function pfSyncPull(){
         }
         // Demais chaves (meAvise_lista, aviseItems, transitItems, cotações, etc.) — merge seguro,
         // nunca sobrescreve às cegas um item local que ainda não tinha sido sincronizado.
-        var localRaw=localStorage.getItem(row.chave);
+        var localRaw=pfRawGetItem(row.chave);
         pfSafeSetItem(row.chave, pfMergeSyncValue(localRaw, val));
       }catch(e){}
     });

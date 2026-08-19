@@ -1578,7 +1578,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1426</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1427</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1686,7 +1686,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1426</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1427</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -35284,16 +35284,31 @@ cadConfirmarImport=function(itens){
   if(aplicacoesParaGravar.length&&typeof aplicLoad==='function'&&typeof aplicSave==='function'){
     var flatList=aplicLoad();
     var alterado=false;
+    // v115.1427 - BUG DE RAIZ corrigido (a pedido do Vitor: código 233166
+    // saiu do catálogo com qtd 6 em vez de 30, código 230911 saiu com 18 em
+    // vez de 9). Causa: catálogos "explodidos" (tipo os da Spicer/DANA) têm
+    // a MESMA peça aparecendo várias vezes dentro da MESMA série -- ex:
+    // 233166 aparece em 5 posições diferentes da transmissão 28000
+    // (Eixo Reverso e Alta pos.11 e 19, Eixo Frente & 2ª pos.27 e 36, Eixo
+    // Interno pos.19), 6 unidades em cada, 30 no total. A chave de
+    // deduplicação (modelo+série+código+marca) não incluía a posição/
+    // conjunto (equip), então a 2ª posição encontrada não virava um
+    // registro novo -- ela CAÍA EM CIMA da 1ª e sobrescrevia a
+    // quantidade (else if abaixo), perdendo as outras 4 ocorrências.
+    // Agora equip entra na chave: cada posição vira seu próprio registro,
+    // preservando a quantidade de cada uma. A tela de busca (Aplicações
+    // -- Modelos & Séries) já foi corrigida separadamente pra SOMAR essas
+    // posições na exibição, em vez de mostrar só uma.
     aplicacoesParaGravar.forEach(function(entry){
       var aplic=entry.aplic;
-      var modU=(aplic.modelo||'').toUpperCase(),serU=(aplic.serie||'').toUpperCase(),marU=(aplic.marca||entry.marcaProd||'').toUpperCase();
-      var existente=flatList.find(function(a){return (a.modelo||'').toUpperCase()===modU&&(a.serie||'').toUpperCase()===serU&&(a.codigo||'').toUpperCase()===entry.codigo.toUpperCase()&&(a.marca||'').toUpperCase()===marU;});
+      var modU=(aplic.modelo||'').toUpperCase(),serU=(aplic.serie||'').toUpperCase(),marU=(aplic.marca||entry.marcaProd||'').toUpperCase(),equU=(aplic.equip||'').toUpperCase();
+      var existente=flatList.find(function(a){return (a.modelo||'').toUpperCase()===modU&&(a.serie||'').toUpperCase()===serU&&(a.codigo||'').toUpperCase()===entry.codigo.toUpperCase()&&(a.marca||'').toUpperCase()===marU&&(a.equip||'').toUpperCase()===equU;});
       if(!existente){
         flatList.push({id:'apl_'+Date.now()+'_'+Math.random().toString(36).slice(2),modelo:aplic.modelo||'',serie:aplic.serie||'',codigo:entry.codigo,desc:entry.desc||'',marca:aplic.marca||entry.marcaProd||'',equip:aplic.equip||'',veiculo:aplic.veiculo||'',marcaVeiculo:aplic.marcaVeiculo||'',qtd:entry.qtd});
         aplicacoesVinculadas++;
         alterado=true;
       } else if(entry.qtd!=null&&existente.qtd!==entry.qtd){
-        // Reimportou o mesmo item/série e a quantidade mudou -- atualiza
+        // Reimportou a MESMA posição (mesma série+código+marca+equip) e a quantidade mudou -- atualiza
         existente.qtd=entry.qtd;
         alterado=true;
       }
@@ -40826,13 +40841,27 @@ function vendasBuscarPorSerieInput(){
     if(!nSel){box.style.display='none';box.innerHTML='';if(backdrop)backdrop.style.display='none';return;}
   }
   var res=termo.trim()?aplicBuscar(termo):[];
-  // Garante 1 item por código+marca na exibição (sem repetir a mesma marca 2x)
+  // v115.1427 - BUG corrigido junto com o de cima (a pedido do Vitor,
+  // código 233166 mostrando "x6" quando o total real da série é 30):
+  // antes esse filtro descartava silenciosamente qualquer ocorrência
+  // repetida do mesmo código+marca+modelo+série (cada posição do
+  // catálogo explodido virava um registro à parte, mas só a PRIMEIRA
+  // encontrada aparecia aqui -- as outras sumiam sem aviso, mesmo já
+  // estando salvas certas no catálogo). Agora agrupa por essa mesma
+  // chave e SOMA a quantidade de todas as posições, mostrando o total
+  // de verdade que precisa pra montar a série inteira.
   var vistos={};
-  res=res.filter(function(a){
+  var ordem=[];
+  res.forEach(function(a){
     var k=(a.codigo||'').toUpperCase()+'|'+(a.marca||'').toUpperCase()+'|'+(a.modelo||'').toUpperCase()+'|'+(a.serie||'').toUpperCase();
-    if(vistos[k])return false;
-    vistos[k]=true;return true;
+    if(!vistos[k]){
+      vistos[k]={codigo:a.codigo,desc:a.desc,marca:a.marca,modelo:a.modelo,serie:a.serie,qtd:(a.qtd!=null?Number(a.qtd):null)};
+      ordem.push(k);
+    } else if(a.qtd!=null){
+      vistos[k].qtd=(vistos[k].qtd||0)+Number(a.qtd);
+    }
   });
+  res=ordem.map(function(k){return vistos[k];});
   // v115.797 - A pedido do Vitor: filtro secundário por descrição, pra
   // achar rápido dentro de uma lista longa de peças do mesmo modelo/série
   // (ex: buscou "176/413" e apareceram 90+ itens -- agora dá pra digitar

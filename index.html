@@ -1578,7 +1578,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1425</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1426</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1686,7 +1686,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1425</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1426</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -17690,14 +17690,26 @@ function maVerificarMudancasAutomaticas(){
     // Agora, item nunca rastreado antes (===undefined) só SEMEIA o valor
     // atual silenciosamente, sem avisar -- só dispara aviso quando MUDA de
     // verdade a partir de um valor já conhecido.
-    if(a.pedido_ao_marcar===undefined||a.transito_ao_marcar===undefined||a.saldo_ao_marcar===undefined){
+    if(a.pedido_ao_marcar===undefined||a.transito_ao_marcar===undefined||a.saldo_ao_marcar===undefined||a.consumo_ao_marcar===undefined){
       if(a.pedido_ao_marcar===undefined){a.pedido_ao_marcar=item.pedido||0;a.comprado_avisado=item.pedido>0;}
       if(a.transito_ao_marcar===undefined){a.transito_ao_marcar=item.tA||0;a.faturado_avisado=item.tA>0;}
       if(a.saldo_ao_marcar===undefined)a.saldo_ao_marcar=item.saldo||0;
+      if(a.consumo_ao_marcar===undefined)a.consumo_ao_marcar=item.consumo||0;
       mudou=true;i++;proximo();return;
     }
     // 3) Chegou -- prioridade máxima, remove da lista (ciclo completo)
-    if(a.saldo_ao_marcar!=null&&item.saldo>a.saldo_ao_marcar){
+    // v115.1426 - A pedido do Vitor: mesmo caso do item 3200680 CATERPILLAR
+    // que ficava preso em trânsito (v115.1424) também acontecia aqui, na
+    // notificação de "Chegou" do Me Avise -- ela só disparava se o saldo
+    // subisse. Item "sob encomenda" (saldo sempre 0/negativo) nunca gerava
+    // esse sinal, então o aviso de chegada NUNCA disparava pra esses itens,
+    // mesmo a compra tendo sido atendida de verdade. Agora também dispara
+    // quando o consumo aumentou pelo menos a mesma quantidade que estava
+    // em pedido no momento em que foi marcado (item saiu do estoque assim
+    // que chegou, sem o saldo nunca subir de fato) -- mesmo raciocínio já
+    // usado no autoLimparTransit.
+    var _consumoSubiuOPedido=a.consumo_ao_marcar!=null&&a.pedido_ao_marcar>0&&(item.consumo-a.consumo_ao_marcar)>=a.pedido_ao_marcar;
+    if((a.saldo_ao_marcar!=null&&item.saldo>a.saldo_ao_marcar)||_consumoSubiuOPedido){
       maEnviarNotificacaoGlobal(a,'chegou').then(function(){
         lista.splice(i,1);mudou=true;proximo();
       }).catch(function(e){console.warn('Falha ao enviar aviso automático de chegada:',e);i++;proximo();});
@@ -52887,14 +52899,14 @@ function ferrMeAvise(){
           });
           if(found)waCliente=found.whatsapp||found.tel||'';
         }
-        var saldoAoMarcar=null,pedidoAoMarcar=null,transitoAoMarcar=null;
+        var saldoAoMarcar=null,pedidoAoMarcar=null,transitoAoMarcar=null,consumoAoMarcar=null;
         try{
           var itemAtual=(typeof calcItems!=='undefined'?calcItems:[]).find(function(c){return c.ref===it.ref&&(it.marca?c.marca===it.marca:true);});
-          if(itemAtual){saldoAoMarcar=itemAtual.saldo;pedidoAoMarcar=itemAtual.pedido;transitoAoMarcar=itemAtual.tA;}
+          if(itemAtual){saldoAoMarcar=itemAtual.saldo;pedidoAoMarcar=itemAtual.pedido;transitoAoMarcar=itemAtual.tA;consumoAoMarcar=itemAtual.consumo;}
         }catch(e){}
         var _novoItemCot={ref:it.ref,marca:it.marca,cod_cliente:it.cod_cliente,nome_cliente:it.nome_cliente,
           obs:'Extraído automaticamente de cotação'+(it.data?' — '+it.data:'')+(it.prazo?' · Prazo: '+it.prazo:''),wa_cliente:waCliente,ts:Date.now(),
-          saldo_ao_marcar:saldoAoMarcar,pedido_ao_marcar:pedidoAoMarcar,transito_ao_marcar:transitoAoMarcar,
+          saldo_ao_marcar:saldoAoMarcar,pedido_ao_marcar:pedidoAoMarcar,transito_ao_marcar:transitoAoMarcar,consumo_ao_marcar:consumoAoMarcar,
           comprado_avisado:pedidoAoMarcar>0,faturado_avisado:transitoAoMarcar>0};
         _novoItemCot.id=maChaveEstavel(_novoItemCot);
         lista.push(_novoItemCot);
@@ -52930,14 +52942,14 @@ function ferrMeAvise(){
     // v115.678 - Guarda saldo/pedido no momento de marcar, pra depois detectar
     // automaticamente se a peça chegou (saldo subiu) ou se o pedido de compra
     // mudou, sem precisar clicar manualmente em "Chegou" (ver maVerificarMudancas).
-    var saldoAoMarcar=null,pedidoAoMarcar=null,transitoAoMarcar=null;
+    var saldoAoMarcar=null,pedidoAoMarcar=null,transitoAoMarcar=null,consumoAoMarcar=null;
     try{
       var itemAtual=(typeof calcItems!=='undefined'?calcItems:[]).find(function(c){return c.ref===ref&&(marca?c.marca===marca:true);});
-      if(itemAtual){saldoAoMarcar=itemAtual.saldo;pedidoAoMarcar=itemAtual.pedido;transitoAoMarcar=itemAtual.tA;}
+      if(itemAtual){saldoAoMarcar=itemAtual.saldo;pedidoAoMarcar=itemAtual.pedido;transitoAoMarcar=itemAtual.tA;consumoAoMarcar=itemAtual.consumo;}
     }catch(e){}
     var _novoItemManual={ref:ref,marca:marca,cod_cliente:codCliente,nome_cliente:nomeCliente,obs:obs,wa_cliente:waCliente,ts:Date.now(),
       email_extra:emailExtra,
-      saldo_ao_marcar:saldoAoMarcar,pedido_ao_marcar:pedidoAoMarcar,transito_ao_marcar:transitoAoMarcar,
+      saldo_ao_marcar:saldoAoMarcar,pedido_ao_marcar:pedidoAoMarcar,transito_ao_marcar:transitoAoMarcar,consumo_ao_marcar:consumoAoMarcar,
       comprado_avisado:pedidoAoMarcar>0,faturado_avisado:transitoAoMarcar>0};
     _novoItemManual.id=maChaveEstavel(_novoItemManual);
     lista.push(_novoItemManual);

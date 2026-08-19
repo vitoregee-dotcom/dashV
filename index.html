@@ -1578,7 +1578,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1422</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1423</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1686,7 +1686,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1422</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1423</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -39766,7 +39766,8 @@ function vendasRenderCotacao(el){
     '<div style="position:relative;display:inline-flex;align-items:center;gap:6px">'+
       '<span style="font-size:11px;color:#7B2D8B;font-weight:600;white-space:nowrap">&#128668; S&#233;rie/Modelo:</span>'+
       '<input type="text" id="vendasSerieInput" placeholder="ex: VW 24.250" oninput="vendasBuscarPorSerieInput()" style="width:160px;padding:6px 10px;border:1.5px solid #7B2D8B;border-radius:7px;font-size:12px;color:#1a2332">'+
-      '<div id="vendasSerieResultados" style="display:none;position:fixed;background:#fff;border:1.5px solid #7B2D8B;border-radius:8px;z-index:999999;width:480px;max-width:90vw;box-shadow:0 6px 20px rgba(0,0,0,.15)"></div>'+
+      '<div id="vendasSerieBackdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:999998" onclick="vendasFecharSerieDropdown()"></div>'+
+      '<div id="vendasSerieResultados" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:1.5px solid #7B2D8B;border-radius:10px;z-index:999999;width:680px;max-width:92vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.3)"></div>'+
     '</div>'+
     '<label style="position:relative;overflow:hidden;background:#C00000;color:#fff;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">&#128206; Carregar PDF<input type="file" id="vendasFileInput" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0" accept="application/pdf,image/*,.md,.txt,text/markdown,text/plain"></label>'+
     '<button onclick="vendasColarPrint()" style="background:#6c757d;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer">&#128203; Colar Print</button>'+
@@ -40765,32 +40766,35 @@ function vendasConfirmarAplicacao(indices){
   pfAlert(msgFinal);
 }
 
+// v115.1423 - Fecha o modal de Aplicações (box + backdrop juntos) -- usado
+// pelo X, pelo clique fora (no backdrop), e pelos pontos que já fechavam
+// só o box antes de virar modal.
+function vendasFecharSerieDropdown(){
+  var box=document.getElementById('vendasSerieResultados');if(box){box.style.display='none';box.innerHTML='';}
+  var backdrop=document.getElementById('vendasSerieBackdrop');if(backdrop)backdrop.style.display='none';
+}
 function vendasBuscarPorSerieInput(){
   var inp=document.getElementById('vendasSerieInput');
   var box=document.getElementById('vendasSerieResultados');
   if(!inp||!box)return;
   // v115.1416 - BUG corrigido (a pedido do Vitor: botão roxo "+ Adicionar"
   // ficava atrás do dock/barra de baixo, mesmo "visível" -- clicar não
-  // funcionava). Causa: a caixa de resultados era position:absolute DENTRO
-  // da hierarquia normal da página -- numa janela baixa, ela crescia até
-  // ultrapassar a área da barra de baixo (fixa, position:fixed, sempre no
-  // topo da pilha por estar fora do fluxo normal), então o clique nunca
-  // chegava no botão por baixo dela. Virou position:fixed calculado pela
-  // posição real do campo na tela (getBoundingClientRect), com altura
-  // MÁXIMA sempre deixando um respiro embaixo pra barra de baixo nunca
-  // tampar o botão de ação.
-  var r=inp.getBoundingClientRect();
-  var respiroBaixo=64; // altura aproximada da barra de baixo + folga
-  var espacoDisponivel=Math.max(160,window.innerHeight-r.bottom-6-respiroBaixo);
-  box.style.left=Math.max(6,Math.min(r.left,window.innerWidth-480-6))+'px';
-  box.style.top=(r.bottom+2)+'px';
-  box.style.maxHeight=espacoDisponivel+'px';
-  box.style.overflowY='auto';
+  // funcionava). Causa original: a caixa de resultados era
+  // position:absolute DENTRO da hierarquia normal da página.
+  // v115.1423 - BUG corrigido de vez (a pedido do Vitor: "não adiantou
+  // nada" no v115.1422 -- a lista continuava curta): o v115.1422 calculava
+  // o espaço a partir do que sobrava ABAIXO do campo na tela, que em
+  // janelas curtas (app pequena, não maximizada) é sempre pouco, não
+  // importa o cálculo. Trocado de vez a estratégia: em vez de dropdown
+  // ancorado embaixo do campo, virou um modal CENTRALIZADO na tela (igual
+  // os outros modais do sistema), com tamanho fixo generoso (82vh) que não
+  // depende de onde o campo está nem da altura da janela abaixo dele.
+  var backdrop=document.getElementById('vendasSerieBackdrop');
   var termo=inp.value;
   window._vendasAplicSel=window._vendasAplicSel||{};
   var nSel=Object.keys(window._vendasAplicSel).length;
   if(!termo.trim()){
-    if(!nSel){box.style.display='none';box.innerHTML='';return;}
+    if(!nSel){box.style.display='none';box.innerHTML='';if(backdrop)backdrop.style.display='none';return;}
   }
   var res=termo.trim()?aplicBuscar(termo):[];
   // Garante 1 item por código+marca na exibição (sem repetir a mesma marca 2x)
@@ -40809,7 +40813,8 @@ function vendasBuscarPorSerieInput(){
   var resFiltrados=filtroU?res.filter(function(a){
     return (a.desc||'').toUpperCase().indexOf(filtroU)>=0||(a.codigo||'').toUpperCase().indexOf(filtroU)>=0;
   }):res;
-  box.style.display='block';
+  box.style.display='flex';
+  if(backdrop)backdrop.style.display='block';
   // Preserva a rolagem da lista -- antes, marcar um item redesenhava tudo e
   // a lista voltava pro topo, obrigando rolar de novo até onde estava.
   var listaAtual=document.getElementById('vendasSerieListaResultados');
@@ -40836,26 +40841,25 @@ function vendasBuscarPorSerieInput(){
     '</div>';
   }).join('')
   :(termo.trim()?'<div style="padding:10px;font-size:12px;color:#8a9ab0">'+(filtroU?'Nenhum item bate com "'+pfEscHtml(filtroDesc)+'" nesse resultado.':'Nenhuma aplicação encontrada para "'+termo.replace(/</g,'&lt;')+'"')+'</div>':'<div style="padding:10px;font-size:11px;color:#8a9ab0">Digite pra buscar mais, ou adicione os já marcados abaixo.</div>');
-  var filtroHtml=res.length>1?'<div style="padding:6px 10px;border-bottom:1px solid #f0f4f8;background:#FAFBFD"><input type="text" id="vendasSerieFiltroDesc" value="'+pfEscHtml(filtroDesc)+'" oninput="vendasBuscarPorSerieInput()" placeholder="🔍 Filtrar por descrição ou código..." style="width:100%;box-sizing:border-box;padding:6px 8px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px"></div>':'';
-  // v115.1422 - BUG corrigido (a pedido do Vitor: "ainda está cortando a
-  // lista, quero que apareça com mais itens de cara"): a lista interna
-  // tinha um teto FIXO de 60vh/520px (o menor dos dois), ignorando o
-  // `espacoDisponivel` que já é calculado logo no início desta função com
-  // a altura REAL da tela (só reservando o necessário pra barra de baixo
-  // não tampar o botão "+ Adicionar"). Numa tela grande, esse teto fixo
-  // cortava a lista bem antes do espaço de verdade acabar. Agora o teto da
-  // lista é o espaço real menos o que o filtro (quando aparece) e o rodapé
-  // (quando tem selecionados) realmente ocupam -- cresce a lista até onde
-  // a tela permitir, e só nesse limite real é que entra a rolagem.
-  var alturaFiltro=filtroHtml?38:0;
-  var alturaRodape=nSel?44:0;
-  var maxListaPx=Math.max(160,espacoDisponivel-alturaFiltro-alturaRodape);
+  // v115.1423 - BUG corrigido de vez (a pedido do Vitor: "não adiantou
+  // nada" no v115.1422): trocado de dropdown-ancorado-no-campo pra modal
+  // centralizado de tamanho fixo (82vh, ver criação do elemento acima) --
+  // não depende mais de quanto espaço sobra abaixo do campo na tela. O
+  // cabeçalho (título+fechar) e o filtro ficam fixos no topo, a lista
+  // ocupa o resto disponível (flex:1) com rolagem própria, e o rodapé
+  // (Adicionar/Limpar) fica fixo embaixo quando tem selecionados -- um
+  // layout flex column só, sem cálculo de pixel nenhum.
+  var filtroHtml=res.length>1?'<div style="padding:8px 12px;border-bottom:1px solid #f0f4f8;background:#FAFBFD;flex-shrink:0"><input type="text" id="vendasSerieFiltroDesc" value="'+pfEscHtml(filtroDesc)+'" oninput="vendasBuscarPorSerieInput()" placeholder="🔍 Filtrar por descrição ou código..." style="width:100%;box-sizing:border-box;padding:7px 9px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:13px"></div>':'';
   box.innerHTML=
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #f0f4f8;flex-shrink:0">'+
+      '<span style="font-weight:700;font-size:13px;color:#7B2D8B">🚜 Aplicações — '+(resFiltrados.length)+(resFiltrados.length!==res.length?' de '+res.length:'')+'</span>'+
+      '<button onclick="vendasFecharSerieDropdown()" style="background:none;border:none;color:#8a9ab0;font-size:20px;cursor:pointer;line-height:1;padding:0 4px">&#215;</button>'+
+    '</div>'+
     filtroHtml+
-    '<div id="vendasSerieListaResultados" style="max-height:'+maxListaPx+'px;overflow-y:auto">'+listaHtml+'</div>'+
-    (nSel?'<div style="display:flex;gap:6px;padding:8px 10px;border-top:1.5px solid #7B2D8B;background:#FAF5FC">'+
-      '<button onclick="vendasAplicAdicionarSelecionados()" style="flex:1;padding:7px;background:#7B2D8B;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">+ Adicionar '+nSel+' selecionado(s)</button>'+
-      '<button onclick="window._vendasAplicSel={};vendasBuscarPorSerieInput()" style="padding:7px 10px;background:#fff;border:1px solid #e0e8f0;color:#607080;border-radius:6px;font-size:12px;cursor:pointer">Limpar</button>'+
+    '<div id="vendasSerieListaResultados" style="flex:1;min-height:0;overflow-y:auto">'+listaHtml+'</div>'+
+    (nSel?'<div style="display:flex;gap:6px;padding:10px 12px;border-top:1.5px solid #7B2D8B;background:#FAF5FC;flex-shrink:0">'+
+      '<button onclick="vendasAplicAdicionarSelecionados()" style="flex:1;padding:8px;background:#7B2D8B;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer">+ Adicionar '+nSel+' selecionado(s)</button>'+
+      '<button onclick="window._vendasAplicSel={};vendasBuscarPorSerieInput()" style="padding:8px 12px;background:#fff;border:1px solid #e0e8f0;color:#607080;border-radius:6px;font-size:13px;cursor:pointer">Limpar</button>'+
     '</div>':'');
   var listaNova=document.getElementById('vendasSerieListaResultados');
   if(listaNova&&scrollAntes)listaNova.scrollTop=scrollAntes;
@@ -40914,13 +40918,12 @@ function vendasAplicAdicionarSelecionados(){
   window._vendasItemAtivo=insertAt+novosItens.length-1;
   window._vendasAplicSel={};
   var inp=document.getElementById('vendasSerieInput');if(inp)inp.value='';
-  var box=document.getElementById('vendasSerieResultados');if(box){box.style.display='none';box.innerHTML='';}
+  vendasFecharSerieDropdown();
   vendasRefresh();
 }
 
 function vendasAdicionarPorAplicacao(codigo){
-  var box=document.getElementById('vendasSerieResultados');
-  if(box){box.style.display='none';box.innerHTML='';}
+  vendasFecharSerieDropdown();
   var inp=document.getElementById('vendasSerieInput');if(inp)inp.value='';
   var cod=(codigo||'').trim().toUpperCase();
   if(!window._venda.itens)window._venda.itens=[];

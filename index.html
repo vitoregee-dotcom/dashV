@@ -1578,7 +1578,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1417</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1418</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1686,7 +1686,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1417</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1418</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -23101,8 +23101,15 @@ async function doLogin(){
           sbSession=s; sbUser=s.user||cc.user;
           pfGarantirDadosDoUsuarioCerto(sbUser&&sbUser.id);
           sbGarantirSessaoValida();
-          await pfIdbInitComBarra();
-          document.getElementById('authOverlay').style.display='none';
+          // v115.1418 - BUG corrigido (a pedido do Vitor: "demorou pra
+          // caramba" pra abrir Rolamentos): antes, pfIdbInitComBarra ficava
+          // na frente de tudo com "await", empurrando pfPullPlanilhas (que
+          // é quem carrega o catálogo geral que Rolamentos filtra) pra só
+          // começar DEPOIS dela terminar -- serializando 2 carregamentos
+          // que antes rodavam em paralelo. Agora dispara os dois ao mesmo
+          // tempo (a barra visual já aparece na hora) e só espera o
+          // IndexedDB mesmo bem no fim, antes de esconder a tela de login.
+          var _pfIdbP=pfIdbInitComBarra();
           if(typeof initDevMenu==='function')initDevMenu();
           if(typeof cadSyncFornecedores==='function')cadSyncFornecedores();
                 pfPullPlanilhas();
@@ -23111,6 +23118,8 @@ async function doLogin(){
           pfSyncAll();
           if(typeof vendasPullCotacoes==='function')vendasPullCotacoes();
           try{await loadProfile();}catch(e){}
+          await _pfIdbP;
+          document.getElementById('authOverlay').style.display='none';
           initUserUI();
           setAuthLoading(false);
           return;
@@ -23150,14 +23159,17 @@ async function doLogin(){
     try{await carregarSolicitacoes();}catch(e){}
     try{await carregarApostasLog();}catch(e){}
     try{await carregarTransit();}catch(e){}
-    await pfIdbInitComBarra();
-    document.getElementById('authOverlay').style.display='none';
+    // v115.1418 - Mesmo ajuste do login em cache: dispara pfIdbInitComBarra
+    // junto com o resto em vez de na frente, pra não atrasar pfPullPlanilhas.
+    var _pfIdbP2=pfIdbInitComBarra();
     if(typeof initDevMenu==='function')initDevMenu();
     if(typeof cadSyncFornecedores==='function')cadSyncFornecedores();
     pfPullPlanilhas();
     cadPullSupabase();
     if(typeof vendasPullCotacoes==='function')vendasPullCotacoes();
     pfSyncAll();  // ✅ ADICIONADO: sincronizar dados do Supabase
+    await _pfIdbP2;
+    document.getElementById('authOverlay').style.display='none';
     loadProfile().catch(function(){}).finally(function(){initUserUI();});
     // PIN desabilitado por ora
     // if(!localStorage.getItem('offline_pin_hash') && 'ontouchstart' in window){
@@ -23203,13 +23215,14 @@ function doLoginOffline(){
     sbSession=s; sbUser=s.user||cc.user||{id:'e526fea4-d04f-4d2f-a700-145ac17b137c',email:'vitoregee@gmail.com'};
     pfGarantirDadosDoUsuarioCerto(sbUser&&sbUser.id);
     sbGarantirSessaoValida();
-    await pfIdbInitComBarra();
-    document.getElementById('authOverlay').style.display='none';
+    var _pfIdbP3=pfIdbInitComBarra();
     if(typeof initDevMenu==='function')initDevMenu();
     if(typeof cadSyncFornecedores==='function')cadSyncFornecedores();
     pfPullPlanilhas();
     cadPullSupabase();
     if(typeof vendasPullCotacoes==='function')vendasPullCotacoes();
+    await _pfIdbP3;
+    document.getElementById('authOverlay').style.display='none';
     loadProfile().catch(function(){}).finally(function(){initUserUI();});
   }
 
@@ -24002,6 +24015,10 @@ async function lpSalvarSupabase(){
         console.log('⏱️ ['+((agora-_pfT0)/1000).toFixed(2)+'s total | +'+((agora-(_pfLap._ultimo||_pfT0))/1000).toFixed(2)+'s] '+nome);
         _pfLap._ultimo=agora;
       }
+      // v115.1418 - Dispara pfIdbInitComBarra em paralelo com as chamadas
+      // abaixo (que já eram sequenciais antes desta migração) em vez de
+      // depois delas -- só espera ela terminar no fim, junto com a última.
+      var _pfIdbP4=pfIdbInitComBarra();
       try{await loadProfile();}catch(e){}
       _pfLap('loadProfile');
       try{await carregarSolicitacoes();}catch(e){}
@@ -24010,7 +24027,7 @@ async function lpSalvarSupabase(){
       _pfLap('carregarApostasLog');
       try{await carregarTransit();}catch(e){}
       _pfLap('carregarTransit');
-      await pfIdbInitComBarra();
+      await _pfIdbP4;
       _pfLap('pfIdbInitComBarra');
       document.getElementById('authOverlay').style.display='none';
       initUserUI();

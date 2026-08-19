@@ -33700,12 +33700,6 @@ async function pfSyncPush(keys){
                   var remotoMAp=JSON.parse(remotoRaw||'[]');
                   var localMAp=JSON.parse(raw||'[]');
                   var deletadosMAp=JSON.parse(localStorage.getItem('meAvise_lista_deletados')||'[]');
-                  // v115.1421 - Mesma correção do merge no pull (ver
-                  // comentário lá): atribui id estável ANTES de montar o
-                  // mapa, senão item sem id vira a chave literal
-                  // "undefined" e nunca se junta com a cópia irmã.
-                  localMAp.forEach(function(a){if(!a.id)a.id=maChaveEstavel(a);});
-                  remotoMAp.forEach(function(a){if(!a.id)a.id=maChaveEstavel(a);});
                   var porIdMAp={};
                   localMAp.forEach(function(a){porIdMAp[a.id]=a;});
                   remotoMAp.forEach(function(a){
@@ -34089,19 +34083,6 @@ async function pfSyncPull(){
           var remotoMA=JSON.parse(val||'[]');
           var localMA=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');
           var deletadosMA=JSON.parse(localStorage.getItem('meAvise_lista_deletados')||'[]');
-          // v115.1421 - BUG corrigido (Vitor: item "apagado" sempre
-          // voltava, mesmo já com a proteção de lista de removidos):
-          // achado um item ÓRFÃO sem `id` sentado no servidor -- o merge
-          // usa `a.id` como chave do mapa (porIdMA[a.id]=a); um item sem
-          // id vira literalmente a chave "undefined", nunca se junta com
-          // a cópia irmã que TEM id de verdade (maChaveEstavel já
-          // resolvia isso, mas só rodava numa checagem periódica separada
-          // -- se o servidor já tivesse a órfã antes dessa checagem
-          // rodar em algum aparelho, ela sobrevivia pra sempre nesse
-          // merge). Agora atribui o id estável ANTES de montar o mapa,
-          // direto aqui na fonte, nos dois lados (local e remoto).
-          localMA.forEach(function(a){if(!a.id)a.id=maChaveEstavel(a);});
-          remotoMA.forEach(function(a){if(!a.id)a.id=maChaveEstavel(a);});
           var porIdMA={};
           localMA.forEach(function(a){porIdMA[a.id]=a;});
           remotoMA.forEach(function(a){
@@ -42691,6 +42672,35 @@ function pfAvisosToggleSelAll(checked){
   });
   pfAvisosAbrirPainel(_pfAvisosEtapaAtual);
 }
+// v115.1421 - A pedido do Vitor: pega os itens marcados (geralmente depois
+// de filtrar por família/marca/busca, ex: "ANÉIS") e manda todos de uma vez
+// pro Mapa de Compras (mesmo mapa que já estiver aberto na memória, ou um
+// novo se não tiver nenhum) -- sem precisar adicionar item por item na mão
+// em "+ Adicionar item". Quantidade usa o mesmo campo que o painel já
+// mostra pra cada tipo (pedido/transito/qtd, conforme o log).
+function pfAvisosMandarCotacao(){
+  var sel=_pfAvisosSel[_pfAvisosLogChaveAtual]||{};
+  var itens=(_pfAvisosFiltradoAtual||[]).filter(function(c){return sel[pfAvisosItemKey(c)];});
+  if(!itens.length){pfAlert('Marque pelo menos um item antes de mandar pra cotação.');return;}
+  if(typeof mapaItens==='undefined')window.mapaItens=[];
+  if(!mapaEstadoId)mapaEstadoId='mapa_'+Date.now();
+  var adicionados=0,jaTinha=0;
+  itens.forEach(function(c){
+    var ref=(c.ref||'').toUpperCase().trim();
+    if(!ref)return;
+    var marca=(c.marca||'').toUpperCase().trim();
+    var jaExiste=mapaItens.find(function(e){return e.ref===ref&&(e.marca||'')===marca;});
+    if(jaExiste){jaTinha++;return;}
+    var qtd=parseInt(c.pedido||c.transito||c.qtd||1)||1;
+    mapaItens.push({ref:ref,desc:c.desc||ref,marca:marca,qtd:qtd,prazo:'NÃO IM.',ln:idLinha(ref),sel:true,origem:'avisos'});
+    adicionados++;
+  });
+  if(typeof mapaSalvarEstado==='function')mapaSalvarEstado();
+  var painel=document.getElementById('pfAvisosPainel'); if(painel)painel.remove();
+  if(typeof pfNavigate==='function')pfNavigate('mapa');
+  if(typeof mapaRender==='function')setTimeout(mapaRender,50);
+  pfAlert(adicionados+' item(ns) adicionado(s) à cotação'+(jaTinha?(' ('+jaTinha+' já estava(m) na lista)'):'')+'.');
+}
 async function pfAvisosGerarPdfSelecionados(){
   var sel=_pfAvisosSel[_pfAvisosLogChaveAtual]||{};
   var itens=(_pfAvisosFiltradoAtual||[]).filter(function(c){return sel[pfAvisosItemKey(c)];});
@@ -42877,11 +42887,18 @@ function pfAvisosMontarListaComFiltro(titulo,cor,logChave,linhaExtraFn){
     // pra gerar PDF só com os marcados, a pedido do Vitor.
     var numSel=filtrado.filter(function(c){return sel[pfAvisosItemKey(c)];}).length;
     var todosMarcados=numSel>0&&numSel===filtrado.length;
-    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px">'+
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap">'+
       '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--pf-text-muted);cursor:pointer;white-space:nowrap">'+
         '<input type="checkbox" '+(todosMarcados?'checked':'')+' onchange="pfAvisosToggleSelAll(this.checked)"> Selecionar todos'+
       '</label>'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
       (numSel>0?('<button onclick="pfAvisosGerarPdfSelecionados()" style="font-size:11px;padding:5px 10px;border:none;border-radius:6px;background:'+cor+';color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">&#128196; Gerar PDF ('+numSel+')</button>'):'')+
+      // v115.1421 - A pedido do Vitor: filtrar (ex: por família "ANÉIS"),
+      // marcar todos os filtrados (checkbox "Selecionar todos" acima já
+      // fazia isso) e mandar os marcados direto pro Mapa de Compras de uma
+      // vez, sem precisar adicionar item por item na mão.
+      (numSel>0?('<button onclick="pfAvisosMandarCotacao()" style="font-size:11px;padding:5px 10px;border:none;border-radius:6px;background:#1F4E79;color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">&#128722; Mandar p/ Cotação ('+numSel+')</button>'):'')+
+      '</div>'+
     '</div>';
     filtrado.forEach(function(c){
       // v115.1284 - A pedido do Vitor: mostrar o saldo ATUAL do estoque
@@ -42947,6 +42964,21 @@ function pfAvisosAbrirPainel(etapaK){
   var painel=document.createElement('div');
   painel.id='pfAvisosPainel';
   painel.style.cssText='position:fixed;top:0;left:76px;bottom:0;width:260px;background:var(--pf-sidebar-bg);color:var(--pf-text);border-right:1px solid var(--pf-sidebar-border);box-shadow:4px 0 16px rgba(0,0,0,.08);z-index:10001;padding:16px;overflow:auto';
+  // v115.1421 - A pedido do Vitor: garante que a janela abre já com a
+  // rolagem no lugar certo -- reseta o scroll interno do painel (por via
+  // das dúvidas, se algum dia reaproveitar um painel existente) e rola a
+  // PÁGINA de fora pro topo, pra não ficar escondido atrás da barra do
+  // navegador no celular (quirk comum de mobile: painel é position:fixed
+  // top:0, mas se a página já estava rolada pra baixo quando abriu, a
+  // barra de endereço escondida do navegador pode cobrir o topo do painel).
+  function pfAvisosPainelPosAbrir(){
+    try{window.scrollTo(0,0);}catch(e){}
+    setTimeout(function(){
+      var p=document.getElementById('pfAvisosPainel');
+      if(p)p.scrollTop=0;
+      try{window.scrollTo(0,0);}catch(e){}
+    },50);
+  }
   if(etapaK==='solicitado'){
     pfAvisosMarcarLido('solicitado');
     var logS=[];try{logS=JSON.parse(localStorage.getItem('pfSolicitadosEventos')||'[]');}catch(e){}
@@ -42965,23 +42997,29 @@ function pfAvisosAbrirPainel(etapaK){
       htmlS+='<div onclick="pfAvisosLimparListaGlobal(\'pfSolicitadosEventos\')" style="text-align:center;font-size:12px;color:#D97757;cursor:pointer;margin-top:8px;padding-top:8px;border-top:1px solid var(--pf-sidebar-border)">Limpar lista</div>';
     }
     painel.innerHTML=htmlS;
+    document.body.appendChild(painel);
+    pfAvisosPainelPosAbrir();
+    return;
   }
-  else if(etapaK==='comprado'){
+  if(etapaK==='comprado'){
     pfAvisosMarcarLido('comprado');
     painel.innerHTML=pfAvisosMontarListaComFiltro('Comprados recentemente','#0D7377','pfComprasEventos',function(c){return 'Pedido: '+c.pedido+' un.';});
     document.body.appendChild(painel);
+    pfAvisosPainelPosAbrir();
     return;
   }
   if(etapaK==='faturado'){
     pfAvisosMarcarLido('faturado');
     painel.innerHTML=pfAvisosMontarListaComFiltro('Faturados recentemente','#7B2D8B','pfFaturadosEventos',function(c){return 'Em trânsito: '+c.transito+' un.';});
     document.body.appendChild(painel);
+    pfAvisosPainelPosAbrir();
     return;
   }
   if(etapaK==='chegou'){
     pfAvisosMarcarLido('chegou');
     painel.innerHTML=pfAvisosMontarListaComFiltro('Chegaram recentemente','#0EA5E9','pfChegadasEventos',function(c){return 'Chegou: '+pfArredondarQtd(c.qtd)+' un.';});
     document.body.appendChild(painel);
+    pfAvisosPainelPosAbrir();
     return;
   }
   var etapaInfo=PF_AVISOS_ETAPAS.find(function(e){return e.k===etapaK;});
@@ -43001,6 +43039,7 @@ function pfAvisosAbrirPainel(etapaK){
   }
   painel.innerHTML=html;
   document.body.appendChild(painel);
+  pfAvisosPainelPosAbrir();
 }
 function pfAvisosAbrirPedido(id){
   var painel=document.getElementById('pfAvisosPainel'); if(painel)painel.remove();

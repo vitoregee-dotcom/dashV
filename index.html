@@ -1578,7 +1578,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1418</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1419</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1686,7 +1686,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1418</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1419</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon">🛒</span>
@@ -25191,6 +25191,75 @@ function mapaConfirmarFornecedoresEmTodos(){
   var m=document.getElementById('mapaFornTodosModal');if(m)m.remove();
   mapaRender();
 }
+// v115.1419 - A pedido do Vitor: espelho do "Fornecedor em Todos", só que
+// pra REMOVER -- útil quando um fornecedor foi incluído em todo o mapa por
+// engano, ou saiu da cotação e precisa sumir de todo mundo de uma vez, sem
+// abrir item por item. Só lista os fornecedores que estão de fato
+// marcados em ALGUM item deste mapa (não o cadastro inteiro), já que
+// remover um que não está em lugar nenhum não faria sentido.
+function mapaAbrirRemoverFornecedoresEmTodos(){
+  var old=document.getElementById('mapaFornRemoverModal');if(old)old.remove();
+  var idsUsados={};
+  mapaItens.forEach(function(it){
+    var key=it.ref+'||'+(it.marca||'');
+    (mapaFornSelecionados[key]||[]).forEach(function(fid){idsUsados[fid]=true;});
+  });
+  var fornCad=cadLoad(FORN_KEY)||[];
+  var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
+  var fornecedores=Object.keys(idsUsados).map(function(fid){
+    var f=flist.find(function(x){return x.id===fid;})||fornCad.find(function(x){return x.id===fid;});
+    return {id:fid,razao:f?(f.razao||f.fantasia||f.nome||fid):fid};
+  }).sort(function(a,b){return (a.razao||'').localeCompare(b.razao||'');});
+  if(!fornecedores.length){pfAlert('Nenhum fornecedor selecionado em nenhum item deste mapa ainda.');return;}
+  var itensHtml=fornecedores.map(function(f){
+    return '<label class="mapaFornRemoverItem" data-nome="'+pfEscHtml((f.razao||'').toUpperCase())+'" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f0f4f8;cursor:pointer;font-size:12px">'
+      +'<input type="checkbox" class="mapaFornRemoverChk" value="'+f.id+'"> '+pfEscHtml(f.razao||'(sem nome)')
+      +'</label>';
+  }).join('');
+  var overlay=document.createElement('div');
+  overlay.id='mapaFornRemoverModal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML=
+    '<div style="background:#fff;border-radius:12px;max-width:480px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.3);overflow:hidden">'+
+      '<div style="background:#C00000;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">'+
+        '<span style="font-weight:700;font-size:14px">➖ Remover fornecedor(es) de todos os itens</span>'+
+        '<button onclick="document.getElementById(\'mapaFornRemoverModal\').remove()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;padding:0 4px">&#215;</button>'+
+      '</div>'+
+      '<div style="padding:12px 18px;border-bottom:1px solid #f0f4f8;flex-shrink:0">'+
+        '<div style="font-size:12px;color:#8a9ab0;margin-bottom:10px">Marca aqui, e remove esse(s) fornecedor(es) de TODOS os itens do mapa de uma vez -- só mexe em quem está marcado, o resto da seleção de cada item fica igual.</div>'+
+        '<input type="text" id="mapaFornRemoverBusca" placeholder="🔍 Buscar fornecedor..." oninput="mapaFornRemoverFiltrar(this.value)" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px">'+
+      '</div>'+
+      '<div style="overflow-y:auto;flex:1;min-height:0">'+itensHtml+'</div>'+
+      '<div style="display:flex;gap:8px;padding:14px 18px;border-top:1px solid #f0f4f8;justify-content:flex-end;flex-shrink:0">'+
+        '<button onclick="document.getElementById(\'mapaFornRemoverModal\').remove()" style="padding:8px 16px;border:1px solid #e0e8f0;background:#fff;border-radius:8px;cursor:pointer;font-size:12px">Cancelar</button>'+
+        '<button onclick="mapaConfirmarRemoverFornecedoresEmTodos()" style="padding:8px 18px;border:none;background:#C00000;color:#fff;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700">Remover de todos</button>'+
+      '</div>'+
+    '</div>';
+  pfOverlayFecharAoClicarFora(overlay,function(){overlay.remove();});
+  document.body.appendChild(overlay);
+}
+function mapaFornRemoverFiltrar(v){
+  v=(v||'').toUpperCase();
+  document.querySelectorAll('.mapaFornRemoverItem').forEach(function(el){
+    el.style.display=el.dataset.nome.indexOf(v)>=0?'flex':'none';
+  });
+}
+function mapaConfirmarRemoverFornecedoresEmTodos(){
+  var ids=Array.prototype.slice.call(document.querySelectorAll('.mapaFornRemoverChk:checked')).map(function(c){return c.value;});
+  if(!ids.length){pfAlert('Marca pelo menos um fornecedor.');return;}
+  mapaItens.forEach(function(it){
+    var key=it.ref+'||'+(it.marca||'');
+    if(!mapaFornSelecionados[key])return;
+    mapaFornSelecionados[key]=mapaFornSelecionados[key].filter(function(fid){return ids.indexOf(fid)<0;});
+  });
+  pfSafeSetItem('_mapaDados_fornSel',JSON.stringify(mapaFornSelecionados));
+  // Mesmo padrão do "Fornecedor em Todos"/"Zerar Fornecedores": grava
+  // também no estado completo do mapa (local + Supabase), senão reabrir
+  // pela lista desfaz a remoção.
+  if(typeof mapaSalvarEstado==='function')mapaSalvarEstado();
+  var m=document.getElementById('mapaFornRemoverModal');if(m)m.remove();
+  mapaRender();
+}
 function mapaTogForn(key,fid,idx){
   if(!mapaFornSelecionados[key])mapaFornSelecionados[key]=[];
   var arr=mapaFornSelecionados[key],p=arr.indexOf(fid);
@@ -33027,6 +33096,7 @@ mapaStep1 = function(el){
   if(mapaItens.length){
     html += '<button onclick="mapaZerarTodosFornecedores()" style="background:none;border:1px solid #e0e8f0;color:#C00000;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:11px">🗑 Zerar Fornecedores</button>';
     html += '<button onclick="mapaAbrirFornecedoresEmTodos()" style="background:none;border:1px solid #1F4E79;color:#1F4E79;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:11px;font-weight:700">➕ Fornecedor em Todos</button>';
+    html += '<button onclick="mapaAbrirRemoverFornecedoresEmTodos()" style="background:none;border:1px solid #C00000;color:#C00000;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:11px;font-weight:700">➖ Remover Fornecedor de Todos</button>';
   }
   html += '</div>';
   if(window._mapaAddItemForm){
@@ -54272,33 +54342,23 @@ function _pfNavigateOriginal(view){
     // (primeira entrada da sessão) mas tiver um estado salvo
     // (mapa_estado_v1, gravado sozinho a cada ação), restaura e avisa com
     // um banner com opção clara de descartar -- não é mais silencioso.
+    // v115.1419 - BUG corrigido (a pedido do Vitor: o card "Mapa de
+    // Compras" devia abrir a LISTA de mapas -- Etapa 1/Etapa 2 + tabela
+    // "Mapas em andamento" -- e estava indo direto pro último mapa
+    // mexido): o item (2) acima restaurava mapaItens ANTES de chamar
+    // mapaRender(), e mapaRender só mostra a lista quando mapaItens está
+    // vazio -- então a lista nunca aparecia numa entrada nova de sessão.
+    // Tirado o auto-restauro daqui; o item (1) continua intacto (troca de
+    // tela dentro da mesma sessão não perde nada).
     if(window._mapaItensPreCarregados){
       window._mapaItensPreCarregados=false;
     } else if(mapaItens && mapaItens.length){
       // já tem itens vivos na memória (só trocou de tela e voltou) -- não faz nada
-    } else if(typeof mapaRestaurarEstado==='function' && mapaRestaurarEstado()){
-      var _mapaSavedInfo=JSON.parse(localStorage.getItem(MAPA_SAVE_KEY)||'{}');
-      var _mapaDt=_mapaSavedInfo.ts?new Date(_mapaSavedInfo.ts).toLocaleString('pt-BR'):'';
-      window._mapaMostrarBannerRestaurado={dt:_mapaDt,qtd:mapaItens.length};
     } else {
       mapaItens=[];
     }
     if(typeof mapaRender==='function') mapaRender();
     else setTimeout(function(){ if(typeof mapaRender==='function') mapaRender(); }, 200);
-    if(window._mapaMostrarBannerRestaurado){
-      var _mapaBInfo=window._mapaMostrarBannerRestaurado;
-      window._mapaMostrarBannerRestaurado=null;
-      setTimeout(function(){
-        var body=document.getElementById('mapaBody');
-        if(!body)return;
-        var banner=document.createElement('div');
-        banner.style.cssText='background:#EEF6FF;border:1px solid #1F4E79;border-radius:8px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;gap:10px;font-size:12px;color:#1F4E79;flex-wrap:wrap';
-        banner.innerHTML='<span>🔄 <b>Continuando de onde você parou</b> — salvo em '+_mapaBInfo.dt+' ('+_mapaBInfo.qtd+' itens)</span>'+
-          '<button onclick="mapaLimparEstado();mapaItens=[];mapaGoStep&&mapaGoStep(1);mapaRender();" style="margin-left:auto;background:none;border:1px solid #607080;color:#607080;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px">🗑 Descartar e começar novo</button>'+
-          '<span onclick="this.parentElement.remove()" style="cursor:pointer;color:#1F4E79;font-size:14px;padding:2px 4px">✕</span>';
-        body.insertBefore(banner,body.firstChild);
-      },150);
-    }
   } else if(view==='cadastros'){
     // Hide ALL other views explicitly
     ['mapaView','ferramentasView','vendasView','upSec','dash','tabBar','legPanel'].forEach(function(id){

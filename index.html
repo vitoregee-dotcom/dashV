@@ -1639,7 +1639,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1449</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1450</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1747,7 +1747,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1449</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1450</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -42561,7 +42561,13 @@ async function pfNoticiasBuscarNovasComIA(apiKey){
         // essa tarefa é só montar uma lista de notícias a partir de resultado
         // de busca, não precisa do modelo mais caro pra isso.
         model:'claude-haiku-4-5-20251001',
-        max_tokens:4000,
+        // v115.1450 - BUG achado (Vitor: "resposta sem lista reconhecível" ao
+        // clicar Atualizar agora): 4000 tokens às vezes não é suficiente pra
+        // terminar as buscas web E escrever um array JSON de até 22 itens --
+        // a resposta cortava no meio do array (sem "]" de fechamento), e o
+        // regex que procura a lista não achava nada. Aumentado pra dar mais
+        // margem.
+        max_tokens:8000,
         tools:[{type:'web_search_20250305',name:'web_search'}],
         messages:[{role:'user',content:[{type:'text',text:montarPrompt(pedirMais)}]}]
       })
@@ -42576,7 +42582,21 @@ async function pfNoticiasBuscarNovasComIA(apiKey){
     if(!Array.isArray(lst)||!lst.length)throw new Error('lista vazia');
     return lst;
   }
-  var lista=await chamarIA(false);
+  var lista;
+  try{
+    lista=await chamarIA(false);
+  }catch(e){
+    // v115.1450 - "resposta sem lista reconhecível" costuma ser truncamento
+    // passageiro (ver comentário no max_tokens acima), não um erro real de
+    // API/chave -- vale tentar mais uma vez antes de desistir de vez. Outros
+    // erros (chave inválida, sem crédito, etc) não se beneficiam de retry,
+    // só passam direto.
+    if(e&&e.message==='resposta sem lista reconhecível'){
+      lista=await chamarIA(false);
+    }else{
+      throw e;
+    }
+  }
   lista=await pfNoticiasFiltrarComFotoValida(lista);
   // Se sobrou pouco depois de filtrar quem não tinha foto de verdade,
   // tenta de novo pedindo mais itens -- só 1 tentativa extra pra não

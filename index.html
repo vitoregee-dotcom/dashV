@@ -970,9 +970,21 @@ como antes. */
 .pf-nav-icon{
   font-size:44px;flex-shrink:0;width:58px;height:58px;border-radius:16px;
   background:transparent;display:flex;align-items:center;justify-content:center;
-  transition:background .12s,transform .15s ease;line-height:58px;transform-origin:center bottom;
+  transition:background .12s;line-height:58px;transform-origin:center bottom;
 }
 .pf-nav-icon svg{width:44px;height:44px}
+/* v115.1444 - BUG DE RAIZ corrigido (Vitor: ícones ficavam vívidos logo
+após F5, mas "desbotavam" sozinhos alguns segundos depois, parado, sem
+mexer o mouse). Reproduzido e confirmado aqui: getComputedStyle mostrava
+opacity/filter IDÊNTICOS antes/depois -- ou seja, não era CSS mudando de
+valor, era o Chrome baixando a qualidade de raster de uma camada GPU que
+ficou ociosa. `transition:transform` sempre ligado (mesmo parado, sem
+hover nenhum) fazia o navegador promover o ícone pra camada composta o
+tempo todo -- e camada composta que nunca repinta de verdade (porque
+nada tá de fato animando) é candidata a "textura rebaixada" pra
+economizar memória, comum em placas de vídeo integradas. Corrigido: a
+transição de transform só existe durante o hover de verdade agora (main
+não fica com camada de GPU permanentemente "pronta pra animar" à toa).
 /* v115.1350 - BUG corrigido (Vitor: ícone de Componentes Cardan ficava
    "apertado" no dock comparado aos outros): o HTML do ícone (guardado
    quando fixou) tem estilo próprio (ex: width:88px, feito pro tamanho do
@@ -989,7 +1001,7 @@ aplicado só nas imagens (não nos emoji, que não têm esse problema),
 pra compensar visualmente sem precisar trocar arquivo nenhum. */
 .pf-nav-icon img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;filter:saturate(1.4) contrast(1.15)}
 @media (hover: hover){
-  .pf-nav-item:hover .pf-nav-icon{transform:scale(2.4) translateY(-2px)}
+  .pf-nav-item:hover .pf-nav-icon{transition:transform .15s ease;transform:scale(2.4) translateY(-2px)}
   /* v115.1294 - A pedido do Vitor ("ainda ta ruim pra selecionar pq se
   movimenta"): o zoom do ícone ao passar o mouse (efeito estilo dock do
   macOS) deslocava o ponto de ancoragem da lista de hover junto com ele --
@@ -1621,7 +1633,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1443</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1444</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1729,7 +1741,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1443</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1444</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -34321,6 +34333,10 @@ async function pfSyncPull(){
     // manual já fazia.
     document.querySelectorAll('[data-pf-atalho-id]').forEach(function(el){
       var id=el.getAttribute('data-pf-atalho-id');
+      // v115.1444 - ver comentário completo mais abaixo (mesma função,
+      // versão chamada depois do pull) -- ids nav_* nunca são "fixáveis",
+      // não podem cair nessa opacidade de pin desmarcado.
+      if(id.indexOf('nav_')===0)return;
       var f=pfAtalhoEstaFixado(id);
       el.style.opacity=f?'1':'.35';
       el.title=f?'Remover da barra':'Fixar na barra';
@@ -45130,9 +45146,21 @@ function pfAtalhosSincronizarEstaticos(){
   // PINS de verdade) sempre achava "não fixado" e deixava o card inteiro
   // com opacidade .35, toda vez que rodava (depois de navegar, sincronizar,
   // etc). Agora pula qualquer id com esse prefixo.
+  // v115.1444 - BUG DE RAIZ achado e corrigido (Vitor: ícones da barra
+  // principal "desbotavam sozinhos" alguns segundos depois do F5, mesmo
+  // parado -- reproduzido e confirmado com getComputedStyle: opacity ia
+  // de 1 pra .35 sem nenhuma interação). MESMA classe de bug do atxt-
+  // acima, só que pros ids nav_* (Compras/Vendas/Ferramentas/etc,
+  // adicionados na v115.1429 pra poder trocar o ícone) -- nunca estão em
+  // pfAtalhosFixados (são itens fixos da barra, não "atalhos fixáveis"),
+  // então essa função sempre achava "não fixado" e aplicava opacity .35
+  // no ícone inteiro (não só num alfinete). Rodava toda vez que
+  // pfSyncPull terminava (login, pull periódico) -- por isso "sumia"
+  // sozinho um tempo depois de carregar, não era hover nem cache.
   document.querySelectorAll('[data-pf-atalho-id]').forEach(function(el){
     var id=el.getAttribute('data-pf-atalho-id');
     if(id.indexOf('atxt-')===0)return;
+    if(id.indexOf('nav_')===0)return;
     var f=pfAtalhoEstaFixado(id);
     el.style.opacity=f?'1':'.35';
     el.title=f?'Remover da barra':'Fixar na barra';

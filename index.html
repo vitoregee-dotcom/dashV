@@ -1614,7 +1614,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1435</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1436</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1722,7 +1722,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1435</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1436</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -28516,21 +28516,44 @@ function cadRenderAplicacoes(el){
       html+='</div>';
       if(aberto){
         html+='<div style="padding:6px 14px 12px">';
+        // v115.1436 - A pedido do Vitor: busca DENTRO do grupo aberto (382
+        // peças rolando a lista inteira pra achar uma era inviável) --
+        // filtro próprio por grupo, não mexe no filtro geral do topo.
+        var termoItem=(window._cadAplicItemBusca&&window._cadAplicItemBusca[k]||'').trim().toUpperCase();
+        html+='<input type="text" id="cadAplicItemBusca_'+gi+'" value="'+pfEscHtml(window._cadAplicItemBusca&&window._cadAplicItemBusca[k]||'')+'" onclick="event.stopPropagation()" oninput="event.stopPropagation();window._cadAplicItemBusca=window._cadAplicItemBusca||{};window._cadAplicItemBusca[\''+pfEscHtml(pfEscJs(k))+'\']=this.value;cadRenderAplicacoes(document.getElementById(&quot;cadBody&quot;))" placeholder="🔍 Buscar peça dentro desse grupo (código ou descrição)..." style="width:100%;box-sizing:border-box;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:12px;margin-bottom:8px">';
         // Mescla linhas com o mesmo código -- a mesma peça pode ter mais de um
         // registro de aplicação (ex: veio de duas seções/páginas diferentes do
         // catálogo), o que antes aparecia como item "duplicado" na lista.
         var porCodigo={};
         var ordem=[];
         g.itens.forEach(function(a){
-          var k=(a.codigo||'')+'|||'+(a.desc||'');
-          if(!porCodigo[k]){porCodigo[k]={desc:a.desc,codigo:a.codigo,qtd:a.qtd,marcas:{},equips:{},veiculos:{},marcasVeiculo:{},chaves:[]};ordem.push(k);}
-          var grp=porCodigo[k];
+          var kk=(a.codigo||'')+'|||'+(a.desc||'');
+          if(!porCodigo[kk]){porCodigo[kk]={desc:a.desc,codigo:a.codigo,qtd:0,marcas:{},equips:{},veiculos:{},marcasVeiculo:{},chaves:[]};ordem.push(kk);}
+          var grp=porCodigo[kk];
+          // v115.1436 - BUG corrigido (a pedido do Vitor: "quero que some e
+          // mostre o valor total do item e não o item várias vezes"): antes
+          // `qtd` pegava só do PRIMEIRO registro encontrado pra esse código
+          // (`qtd:a.qtd` na criação, nunca mais tocado) -- se o mesmo código
+          // aparecesse em 3 registros de aplicação diferentes (ex: mesmo
+          // parafuso usado em 3 pontos do catálogo, cada um com qtd própria),
+          // a tela mostrava só a quantidade do primeiro, escondendo os
+          // outros 2 registros por trás da mesma linha. Agora soma todos.
+          grp.qtd+=(a.qtd!=null?Number(a.qtd)||0:0);
           if(a.marca)grp.marcas[a.marca]=true;
           if(a.equip)grp.equips[a.equip]=true;
           if(a.veiculo)grp.veiculos[a.veiculo]=true;
           if(a.marcaVeiculo)grp.marcasVeiculo[a.marcaVeiculo]=true;
           grp.chaves.push(aplicChaveUnica(a));
         });
+        if(termoItem){
+          ordem=ordem.filter(function(kk){
+            var it=porCodigo[kk];
+            return (it.codigo||'').toUpperCase().indexOf(termoItem)>=0||(it.desc||'').toUpperCase().indexOf(termoItem)>=0;
+          });
+        }
+        if(!ordem.length){
+          html+='<div style="padding:14px 0;color:#8a9ab0;font-size:12px;text-align:center">Nenhuma peça bate com "'+pfEscHtml(window._cadAplicItemBusca[k]||'')+'" nesse grupo.</div>';
+        }
         ordem.forEach(function(k){
           var it=porCodigo[k];
           var marcasArr=Object.keys(it.marcas),equipsArr=Object.keys(it.equips),veiculosArr=Object.keys(it.veiculos),marcasVeiculoArr=Object.keys(it.marcasVeiculo);

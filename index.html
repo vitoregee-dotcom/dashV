@@ -1639,7 +1639,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1447</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1448</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1747,7 +1747,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1447</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1448</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -38356,12 +38356,31 @@ function pfDockAbrirFlyout(itemEl,titulo,linhas){
   '</div>';
   itemEl.appendChild(fly);
 }
+// v115.1448 - A pedido do Vitor ("ao invés de abrir outro ícone, coloque
+// as ferramentas abertas no ícone nativo -- desnecessário abrir outro"):
+// telas que já têm ícone fixo na barra principal (Ferramentas/Vendas/
+// Logística/Cadastros/Área Técnica) NÃO geram mais um ícone "espelho" no
+// dock pra indicar item minimizado/aberto -- o badge (contador) e a lista
+// no hover entram direto em cima do ícone nativo já existente. Só quem
+// NÃO tem ícone fixo na barra (Solicitações, Pedido de Compra) continua
+// ganhando um ícone próprio no dock, porque não tem onde mais morar.
+var PF_DOCK_NATIVE_MAP={ferramentas:'navTools',vendas:'navVendas',logistica:'navLogistica',cadastros:'navCad',area_tecnica:'navAreaTecnica'};
+function pfDockResetNativos(){
+  Object.keys(PF_DOCK_NATIVE_MAP).forEach(function(vid){
+    var elNat=document.getElementById(PF_DOCK_NATIVE_MAP[vid]);
+    if(!elNat)return;
+    var badgeVelho=elNat.querySelector('.pf-dock-native-badge');if(badgeVelho)badgeVelho.remove();
+    elNat.onmouseenter=null;elNat.onmouseleave=null;
+    elNat.onclick=(function(v){return function(){pfNavigate(v);};})(vid);
+  });
+}
 function pfRenderTaskbar(){
   var velho=document.getElementById('pfTaskbarFlyout');if(velho)velho.remove();
   var velhoDock=document.getElementById('pfTaskbarDock');if(velhoDock)velhoDock.remove();
   var nav=document.getElementById('pfNav');
   if(!nav)return;
   document.querySelectorAll('.pf-dock-item,.pf-dock-divisor').forEach(function(el){el.remove();});
+  pfDockResetNativos();
   // v115.1383 - A pedido do Vitor ("não fica marcando quantos tem"):
   // agrupa entradas automáticas (autoSnapshot) que são da MESMA tela
   // (viewId) num ícone só, com contador + lista ao passar o mouse --
@@ -38379,12 +38398,78 @@ function pfRenderTaskbar(){
   });
   Object.keys(autoGrupos).forEach(function(vid){
     var grupo=autoGrupos[vid];
+    // v115.1448 - Se esse viewId tem ícone nativo na barra E só tem UMA
+    // entrada minimizada, não cria nada -- voltar pra tela pelo ícone
+    // normal já restaura sozinho (ver auto-restore em pfNavigate).
+    if(grupo.length===1&&PF_DOCK_NATIVE_MAP[vid])return;
     if(grupo.length===1)itens.push(grupo[0]);
     else itens.push({tabId:'__auto_'+vid+'__',label:PF_VIEW_ROTULO[vid]||vid,viewId:vid,grupoAuto:grupo});
   });
   if(pfVendasTemMinimizado())itens.push({tabId:'__vendas__',label:pfVendasLabelMinimizado(),viewId:'vendas'});
   if(Object.keys(window._ferrTabs||{}).length)itens.push({tabId:'__ferramentas__',label:'Ferramentas',viewId:'ferramentas'});
-  var todos=itens;
+  // v115.1448 - separa quem já tem ícone fixo na barra (recebe badge+
+  // flyout em cima do ícone nativo) de quem ainda precisa de ícone
+  // próprio no dock (sem botão fixo pra emprestar).
+  var itensNativos=[],itensDock=[];
+  itens.forEach(function(m){(PF_DOCK_NATIVE_MAP[m.viewId]?itensNativos:itensDock).push(m);});
+  itensNativos.forEach(function(m){
+    var elNat=document.getElementById(PF_DOCK_NATIVE_MAP[m.viewId]);
+    if(!elNat)return;
+    var n=1;
+    if(m.tabId==='__vendas__')n=Object.keys(window._vendasTabs||{}).length;
+    else if(m.tabId==='__ferramentas__')n=Object.keys(window._ferrTabs||{}).length;
+    else if(m.grupoAuto)n=m.grupoAuto.length;
+    if(n>1){
+      var badgeEl=document.createElement('span');
+      badgeEl.className='pf-dock-native-badge';
+      badgeEl.style.cssText='position:absolute;top:-2px;right:6px;background:#D97757;color:#fff;border-radius:50%;min-width:14px;height:14px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 2px;z-index:2;pointer-events:none';
+      badgeEl.textContent=n;
+      elNat.style.position='relative';
+      elNat.appendChild(badgeEl);
+    }
+    if(m.tabId==='__vendas__'&&n>1){
+      elNat.onmouseenter=function(){
+        var linhas=Object.keys(window._vendasTabs).map(function(id){
+          var t=window._vendasTabs[id];
+          return {texto:'#'+pfEscHtml(String(t.num))+' — '+pfEscHtml(t.label),onclick:"pfDockFecharFlyout();pfRestaurarTelaVendaTab('"+id+"')"};
+        });
+        pfDockAbrirFlyout(elNat,'Cotações abertas',linhas);
+      };
+      elNat.onmouseleave=function(){pfDockFecharFlyout();};
+      elNat.onclick=function(){pfRestaurarTela(m.tabId);};
+    }else if(m.tabId==='__ferramentas__'&&n>1){
+      elNat.onmouseenter=function(){
+        var linhas=Object.keys(window._ferrTabs).map(function(id){
+          var t=window._ferrTabs[id];
+          return {texto:t.icon+' '+pfEscHtml(t.title),onclick:"pfDockFecharFlyout();ferrRestaurarTab('"+id+"')",fechar:"pfDockFecharFlyout();ferrFecharTab('"+id+"')"};
+        });
+        pfDockAbrirFlyout(elNat,'Ferramentas abertas',linhas);
+      };
+      elNat.onmouseleave=function(){pfDockFecharFlyout();};
+      elNat.onclick=function(){
+        var ids=Object.keys(window._ferrTabs);
+        ferrRestaurarTab(window._ferrActiveTabId&&window._ferrTabs[window._ferrActiveTabId]?window._ferrActiveTabId:ids[0]);
+      };
+    }else if(m.tabId==='__ferramentas__'){
+      elNat.onclick=function(){
+        var id=Object.keys(window._ferrTabs)[0];
+        if(id)ferrRestaurarTab(id);
+      };
+    }else if(m.grupoAuto){
+      var rotuloGrupo=PF_VIEW_ROTULO[m.viewId]||m.label;
+      elNat.onmouseenter=function(){
+        var linhas=m.grupoAuto.map(function(entry){
+          return {texto:pfEscHtml(entry.label),onclick:"pfDockFecharFlyout();pfRestaurarTela('"+entry.tabId+"')",fechar:"pfDockFecharFlyout();pfFecharMinimizado('"+entry.tabId+"',event)"};
+        });
+        pfDockAbrirFlyout(elNat,rotuloGrupo+' abertas',linhas);
+      };
+      elNat.onmouseleave=function(){pfDockFecharFlyout();};
+      elNat.onclick=function(){pfRestaurarTela(m.grupoAuto[m.grupoAuto.length-1].tabId);};
+    }else{
+      elNat.onclick=function(){pfRestaurarTela(m.tabId);};
+    }
+  });
+  var todos=itensDock;
   if(!todos.length){pfNavAtualizarOverflow();return;}
   var divisor=document.createElement('div');
   divisor.className='pf-dock-divisor';
@@ -38397,44 +38482,10 @@ function pfRenderTaskbar(){
     item.style.position='relative';
     var badge='';
     var n=1;
-    if(m.tabId==='__vendas__'){
-      n=Object.keys(window._vendasTabs||{}).length;
-    }else if(m.tabId==='__ferramentas__'){
-      n=Object.keys(window._ferrTabs||{}).length;
-    }else if(m.grupoAuto){
-      n=m.grupoAuto.length;
-    }
+    if(m.grupoAuto)n=m.grupoAuto.length;
     if(n>1)badge='<span style="position:absolute;top:-2px;right:6px;background:#D97757;color:#fff;border-radius:50%;min-width:14px;height:14px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 2px">'+n+'</span>';
     item.title=(n>1?'':m.label+' — clique pra voltar');
-    if(m.tabId==='__vendas__'&&n>1){
-      item.onmouseenter=function(){
-        var linhas=Object.keys(window._vendasTabs).map(function(id){
-          var t=window._vendasTabs[id];
-          return {texto:'#'+pfEscHtml(String(t.num))+' — '+pfEscHtml(t.label),onclick:"pfDockFecharFlyout();pfRestaurarTelaVendaTab('"+id+"')"};
-        });
-        pfDockAbrirFlyout(item,'Cotações abertas',linhas);
-      };
-      item.onmouseleave=function(){pfDockFecharFlyout();};
-      item.onclick=function(){pfRestaurarTela(m.tabId);};
-    }else if(m.tabId==='__ferramentas__'&&n>1){
-      item.onmouseenter=function(){
-        var linhas=Object.keys(window._ferrTabs).map(function(id){
-          var t=window._ferrTabs[id];
-          return {texto:t.icon+' '+pfEscHtml(t.title),onclick:"pfDockFecharFlyout();ferrRestaurarTab('"+id+"')",fechar:"pfDockFecharFlyout();ferrFecharTab('"+id+"')"};
-        });
-        pfDockAbrirFlyout(item,'Ferramentas abertas',linhas);
-      };
-      item.onmouseleave=function(){pfDockFecharFlyout();};
-      item.onclick=function(){
-        var ids=Object.keys(window._ferrTabs);
-        ferrRestaurarTab(window._ferrActiveTabId&&window._ferrTabs[window._ferrActiveTabId]?window._ferrActiveTabId:ids[0]);
-      };
-    }else if(m.tabId==='__ferramentas__'){
-      item.onclick=function(){
-        var id=Object.keys(window._ferrTabs)[0];
-        if(id)ferrRestaurarTab(id);
-      };
-    }else if(m.grupoAuto){
+    if(m.grupoAuto){
       var rotuloGrupo=PF_VIEW_ROTULO[m.viewId]||m.label;
       item.onmouseenter=function(){
         var linhas=m.grupoAuto.map(function(entry){
@@ -38448,7 +38499,7 @@ function pfRenderTaskbar(){
       item.onclick=function(){pfRestaurarTela(m.tabId);};
     }
     item.innerHTML='<span class="pf-nav-icon">'+emoji+badge+'</span><span class="pf-nav-label">'+pfEscHtml(m.label)+'</span>'+
-      (m.tabId!=='__ferramentas__'&&!m.grupoAuto?'<span class="pfDockX" onclick="pfFecharMinimizado(\''+m.tabId+'\',event)" style="display:none;position:absolute;top:-4px;right:2px;width:14px;height:14px;border-radius:50%;background:#607080;color:#fff;align-items:center;justify-content:center;font-size:9px;line-height:1;cursor:pointer">×</span>':'');
+      (!m.grupoAuto?'<span class="pfDockX" onclick="pfFecharMinimizado(\''+m.tabId+'\',event)" style="display:none;position:absolute;top:-4px;right:2px;width:14px;height:14px;border-radius:50%;background:#607080;color:#fff;align-items:center;justify-content:center;font-size:9px;line-height:1;cursor:pointer">×</span>':'');
     if(!(item.onmouseenter)){
       item.onmouseover=function(){var x=this.querySelector('.pfDockX');if(x)x.style.display='flex';};
       item.onmouseout=function(){var x=this.querySelector('.pfDockX');if(x)x.style.display='none';};

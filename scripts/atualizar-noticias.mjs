@@ -42,11 +42,44 @@ const CATEGORIAS = [
   { grupo: 'marcas', categoria: 'SNR', label: 'notícias recentes sobre a marca SNR/NTN-SNR (rolamentos)' }
 ];
 
+// v115.1457 - Busca a imagem oficial (og:image / twitter:image) direto da
+// página da notícia, em vez de confiar só na IA "adivinhar" uma URL --
+// mais confiável, é o mesmo padrão que WhatsApp/Twitter usam pra gerar
+// preview de link. Timeout curto (8s) e falha em silêncio (volta null),
+// pra nunca travar a rodada inteira por causa de UM site lento/bloqueando.
+async function extrairImagemDaPagina(url) {
+  try {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 8000);
+    const resp = await fetch(url, {
+      signal: ctrl.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PartsFlowBot/1.0)' }
+    });
+    clearTimeout(timeout);
+    if (!resp.ok) return null;
+    const html = await resp.text();
+    const trecho = html.slice(0, 60000); // meta tags sempre ficam no <head>, não precisa ler a página toda
+    const padroes = [
+      /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
+      /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i
+    ];
+    for (const re of padroes) {
+      const m = trecho.match(re);
+      if (m && m[1] && m[1].startsWith('http')) return m[1];
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function buscarNoticia(cat) {
   const prompt = `Busque UMA notícia relevante e recente (idealmente dos últimos 3 a 7 dias, no máximo dos últimos 30 dias) sobre: ${cat.label}.
 Priorize fontes em português do Brasil quando possível (ex: Revista M&T, AgFeed, Investing.com Brasil), mas aceite fontes em inglês se forem mais relevantes ou recentes.
 Responda SOMENTE com um JSON válido, sem nenhum texto antes ou depois, exatamente neste formato:
-{"titulo":"...","fonte":"nome do site/veículo","data":"DD/MM/AAAA","link":"URL completa e real da notícia","imagem":"URL de uma imagem real da matéria (tipo og:image), ou null se não achar nenhuma imagem confiável"}
+{"titulo":"...","fonte":"nome do site/veículo","data":"DD/MM/AAAA","link":"URL completa e real da notícia"}
 Se não encontrar nenhuma notícia relevante e recente sobre o assunto, responda exatamente: {"nada":true}`;
 
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
@@ -88,7 +121,8 @@ Se não encontrar nenhuma notícia relevante e recente sobre o assunto, responda
       categoria: cat.categoria,
       grupo: cat.grupo
     };
-    if (obj.imagem) item.imagem = obj.imagem;
+    const imagem = await extrairImagemDaPagina(obj.link);
+    if (imagem) item.imagem = imagem;
     return item;
   } catch (e) {
     console.warn(`JSON inválido pra ${cat.grupo}/${cat.categoria}:`, texto.slice(0, 200));

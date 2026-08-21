@@ -1631,7 +1631,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1460</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1461</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1739,7 +1739,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1460</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1461</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -25783,9 +25783,20 @@ async function mapaLerImagem(input){
     // o estado salvo antigo -- sem cliente/pedido nenhum, mesmo tendo lido
     // certinho do PDF. Isso explicava o "não vem o cliente/pedido" mesmo
     // fazendo tudo certo.
+// v115.1461 - BUG GRAVE corrigido (a pedido do Vitor: "não é assim que
+// deve ficar o mapa de compras, deve aparecer como no ferramentas"): as 3
+// chamadas que atualizavam esse contador faziam
+// `document.getElementById('navCompras').textContent = '🗂️ Mapa de
+// Compras (N)'` -- isso REESCREVE O DIV INTEIRO como um único nó de
+// texto, destruindo o ícone (🛒), o rótulo escondido, e o botão de opções
+// (⋮) que vivem dentro dele -- por isso o ícone de Compras virava uma
+// faixa de texto larga em vez de continuar compacto como os irmãos
+// (Vendas, Ferramentas etc). Ferramentas faz isso certo: mantém o ícone
+// intacto e só desenha uma bolinha de contagem por cima
+// (.pf-dock-native-badge). pfAtualizarBadgeCompras/pfMapaAtualizarLabelNav
+// (logo depois desta função) replicam esse padrão pro Compras.
     if(typeof mapaSalvarEstado==='function')mapaSalvarEstado();
-    var nm=document.getElementById('navCompras');
-    if(nm){var ns=mapaItens.filter(function(i){return i.sel!==false;}).length;nm.textContent='🗂️ Mapa de Compras'+(ns?' ('+ns+')':'');}
+    pfMapaAtualizarLabelNav();
     mapaStep=1;mapaRender();
   }catch(e){
     console.error(e);
@@ -25799,6 +25810,27 @@ async function mapaLerImagem(input){
   }
 }
 
+
+function pfAtualizarBadgeCompras(n){
+  var elNat=document.getElementById('navCompras');
+  if(!elNat)return;
+  var badgeVelho=elNat.querySelector('.pf-dock-native-badge');
+  if(badgeVelho)badgeVelho.remove();
+  if(n>0){
+    var badgeEl=document.createElement('span');
+    badgeEl.className='pf-dock-native-badge';
+    badgeEl.style.cssText='position:absolute;top:-2px;right:6px;background:#D97757;color:#fff;border-radius:50%;min-width:14px;height:14px;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 2px;z-index:2;pointer-events:none';
+    badgeEl.textContent=n;
+    elNat.style.position='relative';
+    elNat.appendChild(badgeEl);
+  }
+  elNat.title=n>0?('Mapa de Compras — '+n+' item(ns) selecionado(s)'):'Compras';
+}
+function pfMapaAtualizarLabelNav(){
+  if(typeof mapaItens==='undefined')return;
+  var ns=(mapaItens||[]).filter(function(i){return i.sel!==false;}).length;
+  pfAtualizarBadgeCompras(ns);
+}
 
 function mapaLerTexto(){
   var el=document.getElementById('mapaBody');
@@ -36318,8 +36350,7 @@ mapaSalvarEstado = function(){
       renderTabBar();
     }
     // Update nav button too
-    var nm=document.getElementById('navCompras');
-    if(nm){var nSel2=(mapaItens||[]).filter(function(i){return i.sel!==false;}).length;nm.textContent='🗂️ Mapa de Compras'+(nSel2?' ('+nSel2+')':'');}
+    pfMapaAtualizarLabelNav();
     if(typeof mapaRenderInfoHeader==='function')mapaRenderInfoHeader();
   }catch(e){console.warn('Erro ao salvar mapa:',e);}
 };

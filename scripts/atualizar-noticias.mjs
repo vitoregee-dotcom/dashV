@@ -107,7 +107,23 @@ async function main() {
     const rows = await rGet.json();
     if (rows.length) {
       const raw = typeof rows[0].dados === 'string' ? rows[0].dados : JSON.stringify(rows[0].dados);
-      try { lista = JSON.parse(raw); } catch (e) { lista = []; }
+      try {
+        const parsed = JSON.parse(raw);
+        // v115.1457 - BUG corrigido (achado a partir do "então não tem
+        // notícia?" do Vitor): o app (v115.1449) passou a gravar
+        // pfNoticiasSetor como {itens,ts} em vez de array puro, pra o sync
+        // conseguir escolher a versão mais nova sem unir pra sempre -- mas
+        // esse script (roda separado, via GitHub Actions) nunca foi
+        // atualizado pra esse formato novo. Resultado: ele não conseguia
+        // LER a lista existente (Array.isArray dava falso pro objeto novo,
+        // então sempre "resetava" pra lista vazia) nem GRAVAR nesse
+        // formato (gravava array puro de novo, que o app então ignorava
+        // por não ter timestamp mais novo que o local). Agora lê os dois
+        // formatos (array puro OU {itens,ts}) e grava sempre como
+        // {itens,ts}.
+        if (Array.isArray(parsed)) lista = parsed;
+        else if (parsed && Array.isArray(parsed.itens)) lista = parsed.itens;
+      } catch (e) { lista = []; }
     }
   }
   if (!Array.isArray(lista)) lista = [];
@@ -142,11 +158,13 @@ async function main() {
     if (contagem[k] <= MAX_POR_CATEGORIA) listaFinal.push(item);
   }
 
-  // 4. Gravar de volta
+  // 4. Gravar de volta -- {itens,ts}, igual o app grava (v115.1449), pra
+  // o merge no cliente saber escolher a versão mais nova em vez de tratar
+  // isso como "sem timestamp, ignorar" (ver nota na leitura acima).
   const body = JSON.stringify({
     user_id: MY_USER_ID,
     chave: CHAVE,
-    dados: JSON.stringify(listaFinal),
+    dados: JSON.stringify({ itens: listaFinal, ts: Date.now() }),
     updated_at: new Date().toISOString()
   });
   const rPost = await fetch(`${SUPABASE_URL}/rest/v1/user_sync?on_conflict=user_id,chave`, {

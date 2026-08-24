@@ -1631,7 +1631,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1472</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1473</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1739,7 +1739,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1472</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1473</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -16296,11 +16296,11 @@ largura de comprasView/vendasView. -->
         Digite os itens ou importe o CSV gerado pelo Claude. Eles serão descontados do cálculo de compra até você limpar.
       </p>
       <div style="margin-bottom:12px;padding:10px 14px;background:#F0F4F8;border-radius:8px;border:1px solid #D4DDE8">
-        <div style="font-size:11px;font-weight:700;color:#1F4E79;margin-bottom:6px">📂 Importar CSV</div>
+        <div style="font-size:11px;font-weight:700;color:#1F4E79;margin-bottom:6px">📂 Importar CSV, PDF ou foto</div>
         <div style="display:flex;gap:8px;align-items:center">
-          <input type="file" id="transitCSVIn" accept=".csv,.xlsx,.xls,.pdf" style="flex:1;font-size:11px" onchange="importTransitCSV(this.files[0])">
+          <input type="file" id="transitCSVIn" accept=".csv,.xlsx,.xls,.pdf,image/*" style="flex:1;font-size:11px" onchange="pfTransitImportarArquivo(this.files[0])">
         </div>
-        <div style="font-size:10px;color:#607080;margin-top:4px">Aceita Relatório de Nota de Entrada (.pdf, .xls/.xlsx) ou CSV (codigo,marca,qtd)</div>
+        <div style="font-size:10px;color:#607080;margin-top:4px">Aceita Relatório de Nota de Entrada (.pdf, .xls/.xlsx), CSV (codigo,marca,qtd) ou uma FOTO/print do relatório (a IA extrai os itens)</div>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
         <input type="text" id="transitCodIn" placeholder="Código (ex: 10165194)" style="flex:1;min-width:160px;padding:8px 12px;border:1.5px solid #D4DDE8;border-radius:8px;font-size:13px;outline:none" onkeydown="if(event.key===&#39;Enter&#39;)addTransitItem()">
@@ -21699,9 +21699,32 @@ function removeTransitItem(cod){
   renderTransitList();
   if(calcItems.length)recalc(_pfCurrentView!=='dash');
 }
+// v115.1473 - A pedido do Vitor: consegue subir uma FOTO/print do
+// relatório de nota de entrada direto no Trânsito (ele mostrou um print
+// de WhatsApp do relatório da DANA). Essa função já existia pronta pra
+// isso, mas nunca tinha sido conectada a nenhum input da tela -- e além
+// disso tinha 2 bugs que a deixariam falhar sempre mesmo se conectada:
+// (1) 'x-api-key':'' vazio, hardcoded -- nunca ia autenticar; corrigido
+// pra pegar do localStorage igual todo resto do sistema (com prompt se
+// não tiver ainda). (2) header errado
+// ('anthropic-dangerous-allow-browser' não existe; o certo é
+// 'anthropic-dangerous-direct-browser-access', usado em todas as outras
+// chamadas da API no app) -- também corrigido. Modelo atualizado pro
+// mesmo usado no resto do app.
+function pfTransitImportarArquivo(file){
+  if(!file)return;
+  if(file.type&&file.type.indexOf('image/')===0){
+    handleTransitFile(file);
+  }else{
+    importTransitCSV(file);
+  }
+}
 async function handleTransitFile(file){
   if(!file)return;
   const st=document.getElementById('transitStatus');
+  var apiKey=localStorage.getItem('anthropic_key')||'';
+  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)pfSafeSetItem('anthropic_key',apiKey);}
+  if(!apiKey){st.textContent='❌ Precisa de uma API Key pra ler a foto.';return;}
   st.textContent='⏳ Analisando imagem com IA...';
   try{
     // Converter para base64
@@ -21717,13 +21740,13 @@ async function handleTransitFile(file){
       method:'POST',
       headers:{
         'Content-Type':'application/json',
-        'x-api-key':'',
+        'x-api-key':apiKey,
         'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-allow-browser':'true'
+        'anthropic-dangerous-direct-browser-access':'true'
       },
       body:JSON.stringify({
-        model:'claude-sonnet-4-5',
-        max_tokens:1000,
+        model:'claude-sonnet-4-6',
+        max_tokens:2000,
         messages:[{role:'user',content:[
           {type:'image',source:{type:'base64',media_type:mediaType,data:b64}},
           {type:'text',text:'Este é um relatório de nota de entrada. Extraia TODOS os itens da tabela. Responda SOMENTE com JSON puro sem markdown, no formato exato: {"itens":[{"codigo":"XXXX","qtd":10}]}. Use o campo Codigo (não o campo Nota). Inclua todos os itens visíveis.'}
@@ -21731,6 +21754,7 @@ async function handleTransitFile(file){
       })
     });
     const data=await resp.json();
+    if(data.error)throw new Error(data.error.message||'erro na API');
     const txt=data.content[0].text;
     let parsed;
     try{parsed=JSON.parse(txt);}catch(e){
@@ -21739,13 +21763,22 @@ async function handleTransitFile(file){
       if(m)parsed=JSON.parse(m[0]);
       else throw new Error('Resposta inválida da IA');
     }
-    // Adicionar ao transitItems
+    // Adicionar ao transitItems -- v115.1473: usa salvarTransitItem (grava
+    // no Supabase) igual o import de CSV/PDF já faz, senão os itens
+    // extraídos da foto sumiriam ao recarregar a página (só ficavam na
+    // memória local, nunca sincronizavam).
+    const _baseItensImg=(typeof allItems!=='undefined'&&allItems&&allItems.length)?allItems:calcItems;
     let count=0;
     (parsed.itens||[]).forEach(i=>{
       const cod=String(i.codigo||'').trim();
       const qtd=parseInt(i.qtd)||0;
       if(cod&&qtd>0){
-        transitItems[cod]=(transitItems[cod]||0)+qtd;
+        const item=_baseItensImg.find(it=>it.ref===cod);
+        const prevQtd=typeof transitItems[cod]==='object'?transitItems[cod].qtd:(transitItems[cod]||0);
+        const prevData=(typeof transitItems[cod]==='object'&&transitItems[cod].data)?transitItems[cod].data:new Date().toISOString().slice(0,10);
+        const entry={qtd:prevQtd+qtd,saldo:item?item.saldo:0,consumo:item?item.consumo:0,data:prevData};
+        transitItems[cod]=entry;
+        salvarTransitItem(cod,entry);
         count++;
       }
     });

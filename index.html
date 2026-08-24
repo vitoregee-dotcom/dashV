@@ -1631,7 +1631,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1471</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1472</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1739,7 +1739,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1471</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1472</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -44807,7 +44807,12 @@ function vendasRenderLista(el){
     try{var sw=localStorage.getItem('vendas_cols_widths');if(sw)Object.assign(COLS_WIDTHS,JSON.parse(sw));}catch(e){}
     try{var saved=localStorage.getItem('vendas_cols_order_v2');if(saved){COLS_DEFAULT=JSON.parse(saved);if(COLS_DEFAULT.indexOf('vendedor')<0)COLS_DEFAULT.push('vendedor');}}catch(e){}
     window._vendasCols=COLS_DEFAULT;
-    window._vendasSort={col:'num',dir:1};
+    // v115.1472 - A pedido do Vitor: ordem padrão vira "maior pro menor"
+    // (cotação mais recente/número maior primeiro) -- antes começava em
+    // ascendente (dir:1) e só ficava decrescente se ele clicasse no
+    // cabeçalho pra inverter. Continua 100% clicável pra qualquer coluna
+    // e direção, isso só muda o estado inicial ao abrir a tela.
+    window._vendasSort={col:'num',dir:-1};
     var FILTERABLE=['fantasia','cidade','uf','contato','transp','vendedor'];
     function buildHeader(){
       thead.innerHTML='';
@@ -45038,9 +45043,35 @@ function vendasAtualizarLista(){
   });
   if(window._vendasSort&&window._vendasSort.col){
     var sc=window._vendasSort.col,sd=window._vendasSort.dir;
+    // v115.1472 - A pedido do Vitor ("já coloca esse de A a Z em todas as
+    // colunas"): Cidade, UF, Vendedor e % Saldo tinham a setinha clicável
+    // no cabeçalho (igual as outras) mas não faziam NADA de verdade --
+    // essas 4 colunas nunca entraram nessa função de valor, então caíam
+    // no "else ''" e ordenavam tudo como empatado. Adicionadas usando a
+    // mesma lógica/fallback já usado pra exibir cada uma na tabela.
+    function valorOrdenacao(c){
+      switch(sc){
+        case 'num': return c.num;
+        case 'itens': return c.itens?c.itens.length:0;
+        case 'vliq': return c.total||0;
+        case 'vbru': return c.totalBruto||0;
+        case 'dcot': return c.data||'';
+        case 'dped': return c.dataPedido||'';
+        case 'fantasia': return (c.nomeFantasia||c.cliente||'').toUpperCase();
+        case 'contato': return (c.contato||'').toUpperCase();
+        case 'transp': return (c.transportadora||'').toUpperCase();
+        case 'cidade': return ((c.cidade||(c.clienteObj&&c.clienteObj.cidade)||'')).toUpperCase();
+        case 'uf': return (c.uf||'').toUpperCase();
+        case 'vendedor': return (c.vendedorInterno||'').toUpperCase();
+        case 'pctSaldo':
+          var totIt=(c.itens||[]).length;
+          var comSaldo=(c.itens||[]).filter(function(it){return it.saldo>0;}).length;
+          return totIt?Math.round((comSaldo/totIt)*100):0;
+        default: return '';
+      }
+    }
     lista.sort(function(a,b){
-      var av=sc==='num'?a.num:sc==='itens'?(a.itens?a.itens.length:0):sc==='vliq'?(a.total||0):sc==='vbru'?(a.totalBruto||0):sc==='dcot'?(a.data||''):sc==='dped'?(a.dataPedido||''):sc==='fantasia'?(a.nomeFantasia||a.cliente||''):sc==='contato'?(a.contato||''):sc==='transp'?(a.transportadora||''):'';
-      var bv=sc==='num'?b.num:sc==='itens'?(b.itens?b.itens.length:0):sc==='vliq'?(b.total||0):sc==='vbru'?(b.totalBruto||0):sc==='dcot'?(b.data||''):sc==='dped'?(b.dataPedido||''):sc==='fantasia'?(b.nomeFantasia||b.cliente||''):sc==='contato'?(b.contato||''):sc==='transp'?(b.transportadora||''):'';
+      var av=valorOrdenacao(a),bv=valorOrdenacao(b);
       return (av>bv?1:av<bv?-1:0)*sd;
     });
   }

@@ -1631,7 +1631,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1467</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1468</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1739,7 +1739,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1467</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1468</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -43358,7 +43358,16 @@ function pfAvisosMandarCotacao(){
   if(typeof mapaRender==='function')setTimeout(mapaRender,50);
   pfAlert(adicionados+' item(ns) adicionado(s) à cotação'+(jaTinha?(' ('+jaTinha+' já estava(m) na lista)'):'')+'.');
 }
-async function pfAvisosGerarPdfSelecionados(){
+function pfAvisosPdfToggleMenu(){
+  var m=document.getElementById('pfAvisosPdfMenu');
+  if(m)m.style.display=(m.style.display==='none'||!m.style.display)?'block':'none';
+}
+function pfAvisosPdfFecharMenu(){
+  var m=document.getElementById('pfAvisosPdfMenu');
+  if(m)m.style.display='none';
+}
+async function pfAvisosGerarPdf(modo){
+  modo=modo||'baixar';
   var sel=_pfAvisosSel[_pfAvisosLogChaveAtual]||{};
   var itens=(_pfAvisosFiltradoAtual||[]).filter(function(c){return sel[pfAvisosItemKey(c)];});
   if(!itens.length){pfAlert('Marque pelo menos um item antes de gerar o PDF.');return;}
@@ -43395,11 +43404,73 @@ async function pfAvisosGerarPdfSelecionados(){
     var alvo=container.querySelector('#pfAvisosPdfConteudo')||container;
     var blob=await html2pdf().set({margin:0,filename:'avisos.pdf',html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'pt',format:'a4'}}).from(alvo).outputPdf('blob');
     container.remove();
+    if(modo==='visualizar'){
+      var urlView=URL.createObjectURL(blob);
+      window.open(urlView,'_blank');
+      setTimeout(function(){URL.revokeObjectURL(urlView);},15000);
+      return;
+    }
     var nomeArq=(_pfAvisosTituloAtual||'avisos').toLowerCase().replace(/[^a-z0-9]+/g,'-')+'-'+new Date().toISOString().slice(0,10)+'.pdf';
     var url=URL.createObjectURL(blob);
     var a=document.createElement('a');a.href=url;a.download=nomeArq;document.body.appendChild(a);a.click();a.remove();
     setTimeout(function(){URL.revokeObjectURL(url);},4000);
   }catch(e){pfAlert('Erro ao gerar PDF: '+e.message);}
+}
+// v115.1468 - A pedido do Vitor ("quero opção de copiar pra HTML, caso eu
+// queira colar no e-mail"): mesma técnica já usada em Condição de
+// Pagamento (v115.766) -- clipboard.write com ClipboardItem de verdade
+// (tipo 'text/html' + fallback 'text/plain'), não writeText() puro (que
+// cola as tags visíveis em vez de formatado). Tabela com bgcolor/atributos
+// inline em vez de CSS externo, porque cliente de e-mail (Outlook/Gmail)
+// costuma cortar <style>.
+function pfAvisosCopiarHtml(){
+  var sel=_pfAvisosSel[_pfAvisosLogChaveAtual]||{};
+  var itens=(_pfAvisosFiltradoAtual||[]).filter(function(c){return sel[pfAvisosItemKey(c)];});
+  if(!itens.length){pfAlert('Marque pelo menos um item antes de copiar.');return;}
+  var linhaFn=_pfAvisosLinhaExtraAtual||function(){return '';};
+  var hoje=new Date().toLocaleDateString('pt-BR');
+  var linhasHtml=itens.map(function(c,i){
+    var bg=(i%2===0?'#ffffff':'#FAFBFC');
+    return '<tr>'+
+      '<td style="padding:8px;font-size:12px;border-bottom:1px solid #e0e8f0" bgcolor="'+bg+'"><b>'+pfEscHtml(c.ref)+'</b></td>'+
+      '<td style="padding:8px;color:#607080;font-size:12px;border-bottom:1px solid #e0e8f0" bgcolor="'+bg+'">'+pfEscHtml(c.marca||'')+'</td>'+
+      '<td style="padding:8px;font-size:12px;border-bottom:1px solid #e0e8f0" bgcolor="'+bg+'">'+pfEscHtml(c.desc||'')+'</td>'+
+      '<td style="padding:8px;color:#607080;font-size:12px;border-bottom:1px solid #e0e8f0" bgcolor="'+bg+'">'+pfEscHtml(c.familia||'')+'</td>'+
+      '<td style="padding:8px;font-size:12px;border-bottom:1px solid #e0e8f0" bgcolor="'+bg+'">'+pfEscHtml(linhaFn(c))+'</td>'+
+      '<td style="padding:8px;text-align:center;font-size:12px;border-bottom:1px solid #e0e8f0" bgcolor="'+bg+'">'+new Date(c.data).toLocaleDateString('pt-BR')+'</td>'+
+    '</tr>';
+  }).join('');
+  var html='<table cellpadding="0" cellspacing="0" style="background:#ffffff;font-family:Calibri,Arial,sans-serif;color:#1a2332" bgcolor="#ffffff">'+
+    '<tr><td bgcolor="#ffffff">'+
+    '<table cellpadding="0" cellspacing="0" style="width:100%;border-bottom:2px solid #1F4E79"><tr>'+
+    '<td style="padding:16px 6px 16px 0;width:36px;vertical-align:middle;font-size:22px">📦</td>'+
+    '<td style="padding:16px 0 16px 0;vertical-align:middle"><div style="color:#1F4E79;font-size:17px;font-weight:800;letter-spacing:-.3px">PartsFlow</div>'+
+    '<div style="color:#607080;font-size:12px;margin-top:1px">'+pfEscHtml(_pfAvisosTituloAtual||'')+'</div></td>'+
+    '</tr></table></td></tr>'+
+    '<tr><td style="padding:14px 0" bgcolor="#ffffff"><span style="font-size:12px;color:#607080">Emissão: '+hoje+' &nbsp;·&nbsp; Itens: '+itens.length+'</span></td></tr>'+
+    '<tr><td bgcolor="#ffffff"><table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">'+
+    '<tr><th style="padding:8px;font-size:12px;text-align:left;border-bottom:2px solid #1F4E79;color:#1F4E79" bgcolor="#F0F4F8">Código</th>'+
+    '<th style="padding:8px;font-size:12px;text-align:left;border-bottom:2px solid #1F4E79;color:#1F4E79" bgcolor="#F0F4F8">Marca</th>'+
+    '<th style="padding:8px;font-size:12px;text-align:left;border-bottom:2px solid #1F4E79;color:#1F4E79" bgcolor="#F0F4F8">Descrição</th>'+
+    '<th style="padding:8px;font-size:12px;text-align:left;border-bottom:2px solid #1F4E79;color:#1F4E79" bgcolor="#F0F4F8">Família</th>'+
+    '<th style="padding:8px;font-size:12px;text-align:left;border-bottom:2px solid #1F4E79;color:#1F4E79" bgcolor="#F0F4F8">Status</th>'+
+    '<th style="padding:8px;font-size:12px;text-align:center;border-bottom:2px solid #1F4E79;color:#1F4E79" bgcolor="#F0F4F8">Data</th></tr>'+
+    linhasHtml+'</table></td></tr>'+
+    '</table>';
+  var plain=(_pfAvisosTituloAtual||'')+' - '+hoje+' - '+itens.length+' itens\n'+
+    itens.map(function(c){return c.ref+' | '+(c.marca||'')+' | '+(c.desc||'')+' | '+(c.familia||'')+' | '+linhaFn(c)+' | '+new Date(c.data).toLocaleDateString('pt-BR');}).join('\n');
+  var copiarFallback=function(){
+    navigator.clipboard.writeText(plain).then(function(){pfAlert('Copiado (texto simples -- esse navegador não aceitou HTML formatado).');});
+  };
+  if(navigator.clipboard && window.ClipboardItem){
+    var item=new ClipboardItem({
+      'text/html': new Blob([html],{type:'text/html'}),
+      'text/plain': new Blob([plain],{type:'text/plain'})
+    });
+    navigator.clipboard.write([item]).then(function(){pfAlert('✅ Copiado! Cole (Ctrl+V) no e-mail.');}).catch(copiarFallback);
+  } else {
+    copiarFallback();
+  }
 }
 function pfAvisosSetFiltro(campo,valor){
   if(campo==='marca')_pfAvisosFiltroMarca=valor; else _pfAvisosFiltroFamilia=valor;
@@ -43549,7 +43620,23 @@ function pfAvisosMontarListaComFiltro(titulo,cor,logChave,linhaExtraFn){
         '<input type="checkbox" '+(todosMarcados?'checked':'')+' onchange="pfAvisosToggleSelAll(this.checked)"> Selecionar todos'+
       '</label>'+
       '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
-      (numSel>0?('<button onclick="pfAvisosGerarPdfSelecionados()" style="font-size:11px;padding:5px 10px;border:none;border-radius:6px;background:'+cor+';color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">&#128196; Gerar PDF ('+numSel+')</button>'):'')+
+      // v115.1468 - A pedido do Vitor ("coloca aquele nosso botão que tem a
+      // setinha"): mesmo padrão split-button já usado em Ranking/NF+Especial
+      // -- clique principal continua baixando o PDF direto (comportamento de
+      // sempre), a seta abre um menu com Visualizar PDF e Copiar como HTML
+      // (pra colar formatado direto num e-mail, sem precisar anexar nada).
+      (numSel>0?(
+        '<div style="display:flex;align-items:stretch;flex-shrink:0">'+
+          '<button onclick="pfAvisosGerarPdf(\'baixar\')" style="font-size:11px;padding:5px 10px;border:none;border-radius:6px 0 0 6px;background:'+cor+';color:#fff;cursor:pointer;font-weight:700;white-space:nowrap">&#128196; Gerar PDF ('+numSel+')</button>'+
+          '<div style="position:relative">'+
+            '<button onclick="pfAvisosPdfToggleMenu()" style="background:'+cor+';color:#fff;border:none;border-left:1px solid rgba(255,255,255,.35);border-radius:0 6px 6px 0;padding:5px 8px;font-size:10px;cursor:pointer;height:100%">&#9662;</button>'+
+            '<div id="pfAvisosPdfMenu" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:#fff;border:1px solid #e0e8f0;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.15);z-index:10;min-width:180px;overflow:hidden">'+
+              '<div onclick="pfAvisosPdfFecharMenu();pfAvisosGerarPdf(\'visualizar\')" style="padding:9px 14px;font-size:12px;cursor:pointer;color:#1a2332" onmouseover="this.style.background=\'#F7F9FC\'" onmouseout="this.style.background=\'\'">&#128065; Visualizar PDF</div>'+
+              '<div onclick="pfAvisosPdfFecharMenu();pfAvisosCopiarHtml()" style="padding:9px 14px;font-size:12px;cursor:pointer;color:#1a2332;border-top:1px solid #f0f4f8" onmouseover="this.style.background=\'#F7F9FC\'" onmouseout="this.style.background=\'\'">&#128203; Copiar como HTML</div>'+
+            '</div>'+
+          '</div>'+
+        '</div>'
+      ):'')+
       // v115.1421 - A pedido do Vitor: filtrar (ex: por família "ANÉIS"),
       // marcar todos os filtrados (checkbox "Selecionar todos" acima já
       // fazia isso) e mandar os marcados direto pro Mapa de Compras de uma

@@ -1631,7 +1631,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1475</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1476</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1739,7 +1739,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1475</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1476</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -17001,6 +17001,49 @@ const qtdEdit={};
 const refsComSaldoSet=new Set();
 let minCotacoesOp=3;
 const transitItems={}; // chave→{qtd, saldo_na_marcação}
+// v115.1476 - A pedido do Vitor ("precisamos resolver logo isso", depois
+// de achar ~11 códigos SPICER/ALBARUS inflados 3-4x por reimportação da
+// mesma nota fiscal): correção estrutural, não só um aviso pra clicar
+// "cancelar" -- o sistema agora RECONHECE quando uma nota já foi
+// processada antes (tabela `transit_notas_processadas`, company-wide,
+// mesmo padrão de `transit_items`) e PULA automaticamente os itens
+// daquela nota em importações seguintes, sem somar de novo e sem depender
+// de ninguém lembrar de cancelar um aviso. O aviso "vai somar, confirma?"
+// continua existindo como resposta pra quando o código já tinha trânsito
+// aberto por outro motivo (ajuste manual, nota antiga sem número
+// reconhecido, etc) -- mas pra notas com número capturado, a duplicata
+// nem chega a acontecer.
+var _pfTransitNotasVistas={};
+async function pfTransitNotasCarregar(){
+  try{
+    var raw=localStorage.getItem('transitNotasProcessadas');
+    if(raw)JSON.parse(raw).forEach(function(n){_pfTransitNotasVistas[n]=true;});
+  }catch(e){}
+  if(!sbSession||!sbUser)return;
+  try{
+    var r=await sbFetch('/rest/v1/transit_notas_processadas?select=nota');
+    if(!r.ok)return;
+    var rows=await r.json();
+    rows.forEach(function(row){_pfTransitNotasVistas[row.nota]=true;});
+    pfSafeSetItem('transitNotasProcessadas',JSON.stringify(Object.keys(_pfTransitNotasVistas)));
+  }catch(e){console.error('Erro ao carregar notas processadas do trânsito:',e);}
+}
+function pfTransitNotaJaVista(nota){
+  return !!(nota&&_pfTransitNotasVistas[nota]);
+}
+async function pfTransitNotaMarcarVista(nota){
+  if(!nota||_pfTransitNotasVistas[nota])return;
+  _pfTransitNotasVistas[nota]=true;
+  pfSafeSetItem('transitNotasProcessadas',JSON.stringify(Object.keys(_pfTransitNotasVistas)));
+  if(!sbSession||!sbUser)return;
+  try{
+    await sbFetch('/rest/v1/transit_notas_processadas',{
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({nota:nota})
+    });
+  }catch(e){console.error('Erro ao marcar nota como processada:',e);}
+}
 
 async function carregarTransit(){
   try{const raw=localStorage.getItem('transitItems');if(raw)Object.assign(transitItems,JSON.parse(raw));}catch(e){}
@@ -21341,6 +21384,8 @@ function importTransitCSV(file){
         // Estratégia: tokenizar tudo e procurar padrão: NrNota Codigo ... Qtd
         const tokens=fullText.replace(/\n/g,' ').split(/\s+/).filter(Boolean);
         let count=0;
+        let puladosPorNota=0;
+        let notasNovasPdf={};
         let suspeitosPdf=[];
         // Detectar sequências: número(nota) codigo descrição... número(qtd)
         // Heurística: token é código se NÃO for só dígitos e tiver letras+números
@@ -21372,6 +21417,12 @@ function importTransitCSV(file){
             const qtd=i2<tokens.length?parseInt(tokens[i2])||0:0;
             if(qtd>0&&cod.length>=3&&desc.length>1){
               i2++; // pular qtd
+              // v115.1476 - A pedido do Vitor: se essa NOTA já foi
+              // processada antes (em qualquer importação passada, foto,
+              // PDF ou planilha), pula essa linha sem somar de novo -- ver
+              // comentário completo em pfTransitNotasCarregar().
+              if(pfTransitNotaJaVista(nota)){puladosPorNota++;continue;}
+              notasNovasPdf[nota]=true;
               // v115.886 - A pedido do Vitor: o mesmo aviso de "1,11E+08" que
               // já tinha pro XLS/XLSX faltava aqui no caminho de PDF -- o
               // texto do PDF é lido literalmente, então se o sistema que
@@ -21400,9 +21451,10 @@ function importTransitCSV(file){
             i2++;
           }
         }
-        if(count>0){
-          st.textContent='✅ '+count+' item(s) importado(s) do PDF!'+(suspeitosPdf.length?(' ⚠️ '+suspeitosPdf.length+' código(s) parecem corrompidos em notação científica: '+suspeitosPdf.slice(0,5).join(', ')+' — provavelmente já veio errado de uma planilha Excel usada pra gerar esse relatório, os dígitos certos se perderam antes do PDF existir.'):'');
-          setTimeout(function(){if(st)st.textContent='';},suspeitosPdf.length?12000:3000);
+        Object.keys(notasNovasPdf).forEach(function(n){pfTransitNotaMarcarVista(n);});
+        if(count>0||puladosPorNota>0){
+          st.textContent='✅ '+count+' item(s) importado(s) do PDF!'+(puladosPorNota?(' ⏭️ '+puladosPorNota+' já eram de nota(s) já importada(s) antes, ignorados.'):'')+(suspeitosPdf.length?(' ⚠️ '+suspeitosPdf.length+' código(s) parecem corrompidos em notação científica: '+suspeitosPdf.slice(0,5).join(', ')+' — provavelmente já veio errado de uma planilha Excel usada pra gerar esse relatório, os dígitos certos se perderam antes do PDF existir.'):'');
+          setTimeout(function(){if(st)st.textContent='';},suspeitosPdf.length||puladosPorNota?12000:3000);
           renderTransitList();
           if(calcItems.length)recalc(_pfCurrentView!=='dash');
           if(typeof pfComprasAutoVerificar==='function')pfComprasAutoVerificar();
@@ -21762,7 +21814,7 @@ async function handleTransitFile(file){
         max_tokens:2000,
         messages:[{role:'user',content:[
           {type:'image',source:{type:'base64',media_type:mediaType,data:b64}},
-          {type:'text',text:'Este é um relatório de nota de entrada. Extraia TODOS os itens da tabela. Responda SOMENTE com JSON puro sem markdown, no formato exato: {"itens":[{"codigo":"XXXX","qtd":10}]}. Use o campo Codigo (não o campo Nota). Inclua todos os itens visíveis.'}
+          {type:'text',text:'Este é um relatório de nota de entrada. Extraia TODOS os itens da tabela. Responda SOMENTE com JSON puro sem markdown, no formato exato: {"itens":[{"nota":"XXXX","codigo":"XXXX","qtd":10}]}. O campo "nota" é o número da Nota (geralmente a primeira coluna da tabela, um número de 3 a 7 dígitos, repetido em várias linhas). Inclua todos os itens visíveis.'}
         ]}]
       })
     });
@@ -21776,22 +21828,26 @@ async function handleTransitFile(file){
       if(m)parsed=JSON.parse(m[0]);
       else throw new Error('Resposta inválida da IA');
     }
-    // v115.1475 - BUG GRAVE corrigido (a pedido do Vitor: "esse item está
-    // com 4 em trânsito, mas foi comprado só 1 vez" -- rastreado até uma
-    // dezena de outros códigos também 3-4x inflados): esse caminho (foto/
-    // IA) somava direto (prevQtd+qtd) sem NUNCA avisar quando o código já
-    // tinha trânsito em aberto -- diferente do caminho de CSV/PDF, que já
-    // tinha esse aviso ("vão SOMAR, confirma?") desde antes. Reimportar a
-    // mesma nota (ou uma nota que já tinha sido lida por outro caminho)
-    // inflava silenciosamente. Agora os dois caminhos se comportam igual:
-    // só soma sem perguntar quando NENHUM código já tem trânsito aberto;
-    // se algum já tiver, mostra a mesma confirmação antes de aplicar.
+    // v115.1475/1476 - BUG GRAVE corrigido (a pedido do Vitor: "esse item
+    // está com 4 em trânsito, mas foi comprado só 1 vez" -- rastreado até
+    // uma dezena de outros códigos também 3-4x inflados por reimportação
+    // da mesma nota): esse caminho (foto/IA) somava direto sem avisar. A
+    // v115.1475 trouxe o aviso "vai somar, confirma?" pro mesmo nível do
+    // CSV/PDF, e a v115.1476 vai além -- reconhece a NOTA (agora extraída
+    // também da foto) e pula sozinho os itens de nota já processada antes,
+    // sem nem precisar mostrar aviso (ver pfTransitNotasCarregar).
     const _baseItensImg=(typeof allItems!=='undefined'&&allItems&&allItems.length)?allItems:calcItems;
     const porCodigoImg={};
+    const notasNovasImg={};
+    let puladosPorNotaImg=0;
     (parsed.itens||[]).forEach(i=>{
       const cod=String(i.codigo||'').trim();
       const qtd=parseInt(i.qtd)||0;
-      if(cod&&qtd>0)porCodigoImg[cod]=(porCodigoImg[cod]||0)+qtd;
+      const nota=String(i.nota||'').trim();
+      if(!cod||qtd<=0)return;
+      if(nota&&pfTransitNotaJaVista(nota)){puladosPorNotaImg++;return;}
+      if(nota)notasNovasImg[nota]=true;
+      porCodigoImg[cod]=(porCodigoImg[cod]||0)+qtd;
     });
     function aplicarImportacaoImg(){
       let count=0;
@@ -21804,10 +21860,15 @@ async function handleTransitFile(file){
         salvarTransitItem(cod,entry);
         count++;
       });
-      st.textContent=`✅ ${count} item(s) extraído(s)!`;
+      Object.keys(notasNovasImg).forEach(function(n){pfTransitNotaMarcarVista(n);});
+      st.textContent=`✅ ${count} item(s) extraído(s)!`+(puladosPorNotaImg?(' ⏭️ '+puladosPorNotaImg+' já eram de nota já importada antes, ignorados.'):'');
       renderTransitList();
       if(calcItems.length)recalc(_pfCurrentView!=='dash');
       if(typeof pfComprasAutoVerificar==='function')pfComprasAutoVerificar();
+    }
+    if(!Object.keys(porCodigoImg).length){
+      st.textContent=puladosPorNotaImg?('⏭️ Todos os '+puladosPorNotaImg+' itens já eram de nota já importada antes -- nada novo pra somar.'):'❌ Nenhum item reconhecido na imagem.';
+      return;
     }
     const conflitosImg=Object.keys(porCodigoImg).map(cod=>{
       const atual=typeof transitItems[cod]==='object'?transitItems[cod].qtd:(transitItems[cod]||0);
@@ -23533,6 +23594,7 @@ async function doLogin(){
     try{await carregarSolicitacoes();}catch(e){}
     try{await carregarApostasLog();}catch(e){}
     try{await carregarTransit();}catch(e){}
+    try{await pfTransitNotasCarregar();}catch(e){}
     // v115.1418 - Mesmo ajuste do login em cache: dispara pfIdbInitComBarra
     // junto com o resto em vez de na frente, pra não atrasar pfPullPlanilhas.
     var _pfIdbP2=pfIdbInitComBarra();
@@ -24404,6 +24466,8 @@ async function lpSalvarSupabase(){
       _pfLap('carregarApostasLog');
       try{await carregarTransit();}catch(e){}
       _pfLap('carregarTransit');
+      try{await pfTransitNotasCarregar();}catch(e){}
+      _pfLap('pfTransitNotasCarregar');
       await _pfIdbP4;
       _pfLap('pfIdbInitComBarra');
       document.getElementById('authOverlay').style.display='none';

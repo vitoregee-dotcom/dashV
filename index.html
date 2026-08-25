@@ -1631,7 +1631,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1480</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1481</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1739,7 +1739,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1480</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1481</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -34045,6 +34045,7 @@ var PF_SYNC_KEYS = [
   'pfChegadasEventos',
   'pfSolicitadosEventos',
   'meAvise_ordenacao',
+  'meAvise_ocultar_solic',
   'partsflow_cotacoes_v1',
   'partsflow_pedidos_venda_v1',
   'venda_rascunho_v1',
@@ -52049,7 +52050,13 @@ function solicAbrirEmail(itens,fornecedor,naoSalvar,numeroPedido,cliente,idExist
         var marca=(it.marca||'').toString().trim();
         var jaTem=avisosMA.some(function(a){return a.ref===ref&&(a.marca||'')===marca&&(a.obs||'').indexOf(numeroSolic)>=0;});
         if(jaTem)return;
-        var novoItemMA={ref:ref,marca:marca,cod_cliente:'',nome_cliente:cliente,obs:numeroSolic,ts:Date.now(),status:'solicitado',pedido_ao_marcar:null};
+        var novoItemMA={ref:ref,marca:marca,cod_cliente:'',nome_cliente:cliente,obs:numeroSolic,ts:Date.now(),status:'solicitado',pedido_ao_marcar:null,
+          // v115.1481 - A pedido do Vitor ("vai ficar muito cheio, dá pra
+          // ocultar esses e mostrar filtrado por solicitação/pedido/
+          // cliente"): antes só o "obs" guardava o número da solicitação,
+          // sem jeito estruturado de saber a origem. Agora grava também em
+          // campos próprios, pra filtrar de verdade na tela do Me Avise.
+          origem:'solicitacao',numeroSolic:numeroSolic,numeroPedido:numeroPedido||''};
         novoItemMA.id=maChaveEstavel(novoItemMA);
         avisosMA.push(novoItemMA);
         novosSolicitados.push(novoItemMA);
@@ -53737,6 +53744,16 @@ function pfMeAviseCarregarOrdenacao(){
   window._maSortCol=salvo.col||'data';
   window._maSortDir=salvo.dir!==undefined?salvo.dir:-1;
 }
+function pfMeAviseOcultarSolic(){
+  var v=localStorage.getItem('meAvise_ocultar_solic');
+  if(v===null)return true; // padrão: oculto
+  return v==='1';
+}
+function pfMeAviseSalvarOcultar(checked){
+  pfSafeSetItem('meAvise_ocultar_solic',checked?'1':'0');
+  if(typeof pfSyncPush==='function')pfSyncPush(['meAvise_ocultar_solic']);
+  if(typeof ferrMeAvise==='function')ferrMeAvise();
+}
 function pfMeAviseOrdenarPor(col){
   pfMeAviseCarregarOrdenacao();
   if(window._maSortCol===col)window._maSortDir=-window._maSortDir;
@@ -53767,6 +53784,25 @@ function ferrMeAvise(){
     var _maPrecisaBackfillId=false;
     avisos.forEach(function(a){if(!a.id){a.id=maChaveEstavel(a);_maPrecisaBackfillId=true;}});
     if(_maPrecisaBackfillId){pfSafeSetItem('meAvise_lista',JSON.stringify(avisos));if(typeof pfSyncPush==='function')pfSyncPush(['meAvise_lista']);}
+    // v115.1481 - Aplica o filtro de busca/ocultar ANTES de montar a
+    // tabela -- os botões de ação continuam corretos porque maChegou/
+    // maRemover/etc já resolvem o item pelo `id` estável buscando de novo
+    // na lista completa (localStorage), não pela posição neste array
+    // filtrado (ver comentário da v115.1312 logo abaixo).
+    var _maBuscaEl=document.getElementById('maBuscaSolic');
+    var termoBuscaSolic=(_maBuscaEl?_maBuscaEl.value:(window._maBuscaSolic||'')).trim();
+    window._maBuscaSolic=termoBuscaSolic;
+    if(termoBuscaSolic){
+      var _termoUpSolic=termoBuscaSolic.toUpperCase();
+      avisos=avisos.filter(function(a){
+        return (a.numeroSolic||'').toUpperCase().indexOf(_termoUpSolic)>=0||
+          (a.numeroPedido||'').toString().toUpperCase().indexOf(_termoUpSolic)>=0||
+          (a.nome_cliente||'').toUpperCase().indexOf(_termoUpSolic)>=0||
+          (a.cod_cliente||'').toString().toUpperCase().indexOf(_termoUpSolic)>=0;
+      });
+    }else if(pfMeAviseOcultarSolic()){
+      avisos=avisos.filter(function(a){return a.origem!=='solicitacao';});
+    }
     var html='<div style="width:100%">'+
       '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
       '<button onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">← Voltar <kbd style="font-size:9px;background:#f0f4f8;padding:1px 5px;border-radius:3px">Esc</kbd></button>'+
@@ -53792,6 +53828,16 @@ function ferrMeAvise(){
       '<input id="maEmailExtra" type="email" placeholder="✉ E-mail extra pra esse item (opcional)" style="flex:2;min-width:180px;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px">'+
       '<button onclick="maAdicionar()" style="background:#E67E22;color:#fff;border:none;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:13px;font-weight:700">+ Adicionar</button>'+
       '</div></div>'+
+      // v115.1481 - A pedido do Vitor: itens que entram automaticamente
+      // vindos de uma Solicitação de Compra tendem a acumular rápido --
+      // ficam ocultos por padrão (toggle salvo, sincronizado), com uma
+      // busca ao lado que reexibe filtrando por nº de Solicitação, nº de
+      // Pedido ou nome do Cliente -- a busca sempre vence o toggle (digitou
+      // algo, mostra o que bater, esteja oculto ou não).
+      '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+      '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#607080;font-weight:600;cursor:pointer;white-space:nowrap"><input type="checkbox" id="maOcultarSolic" onchange="pfMeAviseSalvarOcultar(this.checked)" '+(pfMeAviseOcultarSolic()?'checked':'')+' style="cursor:pointer">Ocultar itens vindos de Solicitação</label>'+
+      '<input id="maBuscaSolic" placeholder="🔎 Buscar por Solicitação (SOL-...), Pedido ou Cliente" oninput="ferrMeAvise()" value="'+(window._maBuscaSolic||'').replace(/"/g,'&quot;')+'" style="flex:1;min-width:220px;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:12px">'+
+      '</div>'+
       '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden">';
     if(!avisos.length){html+='<div style="padding:32px;text-align:center;color:#8a9ab0">Nenhum item monitorado.</div>';}
     else{

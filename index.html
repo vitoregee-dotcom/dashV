@@ -1631,7 +1631,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1482</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1483</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1739,7 +1739,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1482</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1483</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -17727,6 +17727,53 @@ async function maEnviarNotificacaoGlobal(item,tipo,detalhe){
     });
   }));
 }
+// v115.1483 - A pedido do Vitor ("qual a regra dos itens estarem
+// separados em e-mails separados?"): antes, CADA item do Me Avise que
+// mudava de status (comprado/faturado/pedido alterado) disparava seu
+// PRÓPRIO e-mail na hora, um atrás do outro -- um lote de 46 itens virava
+// 46 e-mails quase idênticos. Esses 3 tipos sempre vão pro MESMO
+// destinatário fixo (vitor.lima@triexpecas.com.br), então dá pra juntar
+// numa tabela só, um e-mail por tipo por passada -- mesmo padrão visual já
+// usado em pfComprasEnviarResumo. "Chegou" continua item a item (ver
+// maEnviarNotificacaoGlobal), porque o destinatário pode variar por item
+// (só quem pediu pra ser avisado daquele item específico).
+async function maEnviarNotificacaoLote(tipo,grupo){
+  if(!grupo||!grupo.length)return;
+  var corPorTipo={comprado:'#0D7377',faturado:'#7B2D8B',pedido_mudou:'#E67E22'};
+  var colPorTipo={comprado:'Pedido',faturado:'Em trânsito',pedido_mudou:'Pedido agora'};
+  var emojiPorTipo={comprado:'🛒',faturado:'📦',pedido_mudou:'📦'};
+  var rotuloPorTipo={comprado:'Novo pedido de compra',faturado:'Faturado pelo fornecedor',pedido_mudou:'Pedido de compra alterado'};
+  var cor=corPorTipo[tipo]||'#1F4E79';
+  var colQtd=colPorTipo[tipo]||'Qtd';
+  var titulo=(emojiPorTipo[tipo]||'🔔')+' '+(rotuloPorTipo[tipo]||'Aviso automático')+' — '+grupo.length+' '+(grupo.length===1?'item':'itens');
+  var linhas=grupo.map(function(x,i){
+    var bg=i%2===0?'#ffffff':'#f7f8fa';
+    return '<tr style="background:'+bg+';border-bottom:1px solid #e8edf4" bgcolor="'+bg+'">'+
+      '<td style="padding:8px 12px;font-family:monospace;font-weight:700;color:#1F4E79;font-size:12px">'+pfEscHtml(x.a.ref)+'</td>'+
+      '<td style="padding:8px 12px;color:#1a2332;font-size:12px">'+pfEscHtml(x.item.desc||'—')+'</td>'+
+      '<td style="padding:8px 12px;color:#607080;font-size:12px">'+pfEscHtml(x.a.marca||'—')+'</td>'+
+      '<td style="padding:8px 12px;text-align:center;color:#1a2332;font-size:12px;font-weight:700">'+pfEscHtml(String(x.detalhe))+'</td>'+
+    '</tr>';
+  }).join('');
+  var obsHtml=pfEmailWrapOpen('emailBody')+
+    pfDocHeaderHtml('Aviso automático — Me Avise')+
+    pfEmailBodyOpen()+
+    '<p style="margin:0 0 16px;font-size:14px;font-weight:700;color:'+cor+'">'+titulo+'</p>'+
+    '<table style="border:1px solid #e0e8f0;border-radius:8px;overflow:hidden;border-collapse:collapse;width:100%;font-size:12px">'+
+      '<thead><tr style="background:#EEF2F7;border-bottom:2px solid #1F4E79" bgcolor="#EEF2F7">'+
+        '<th style="padding:8px 12px;text-align:left;color:#1F4E79;font-weight:700;font-size:11px" bgcolor="#EEF2F7">Referência</th>'+
+        '<th style="padding:8px 12px;text-align:left;color:#1F4E79;font-weight:700;font-size:11px" bgcolor="#EEF2F7">Descrição</th>'+
+        '<th style="padding:8px 12px;text-align:left;color:#1F4E79;font-weight:700;font-size:11px" bgcolor="#EEF2F7">Marca</th>'+
+        '<th style="padding:8px 12px;text-align:center;color:#1F4E79;font-weight:700;font-size:11px" bgcolor="#EEF2F7">'+colQtd+'</th>'+
+      '</tr></thead><tbody>'+linhas+'</tbody></table>'+
+    '<p style="margin:16px 0 0;font-size:12px;color:#8a9ab0">Aviso automático do PartsFlow.</p>'+
+    pfEmailBodyClose()+pfEmailWrapClose();
+  return emailjs.send('service_2lp37gt','template_8r5j0sq',{
+    to_email:'vitor.lima@triexpecas.com.br',ref:grupo.length+' itens',marca:'—',obs:titulo,obs_html:obsHtml,
+    titulo:(rotuloPorTipo[tipo]||'Aviso automático'),
+    cod_cliente:'—',nome_cliente:'—'
+  });
+}
 function maVerificarMudancasAutomaticas(){
   // v115.679 - Agora acompanha as 3 etapas do ciclo de vida do item, não só
   // a chegada: 1) COMPRADO -- pedido de compra saiu de zero/vazio pra um
@@ -17773,76 +17820,76 @@ function maVerificarMudancasAutomaticas(){
   var _itemPorChaveMA={};
   (typeof calcItems!=='undefined'?calcItems:[]).forEach(function(c){_itemPorChaveMA[solKey(c.ref,c.marca)]=c;});
   var mudou=false;
-  var i=0;
-  function proximo(){
-    if(i>=lista.length){
-      if(mudou){pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
-        if(typeof _pfCurrentView!=='undefined'&&_pfCurrentView==='ferramentas'&&typeof ferrMeAvise==='function'){try{ferrMeAvise();}catch(e){}}}
-      return;
-    }
-    var a=lista[i];
+  // v115.1483 - A pedido do Vitor ("qual a regra dos itens estarem
+  // separados em e-mails separados?"): antes cada item disparava seu
+  // PRÓPRIO e-mail na hora que mudava de status -- um lote de 46 itens
+  // virava 46 e-mails quase idênticos, um atrás do outro. Agora passa a
+  // lista inteira categorizando (sem mandar nada ainda), e manda UM
+  // e-mail por tipo no final, com todos os itens daquele tipo numa tabela
+  // só (ver maEnviarNotificacaoLote). "Chegou" continua item a item logo
+  // abaixo, porque o destinatário pode variar por item (só quem pediu pra
+  // ser avisado daquele item específico) -- os outros 3 tipos sempre vão
+  // pro mesmo destinatário fixo, então dá pra juntar.
+  var itensChegou=[],loteComprado=[],loteFaturado=[],lotePedidoMudou=[];
+  lista.forEach(function(a){
     var item=_itemPorChaveMA[solKey(a.ref,a.marca||'')]||_itemPorChaveMA[a.ref+'||'];
-    if(!item){i++;proximo();return;}
-    // v115.684 - CORREÇÃO DO BUG REAL que causou o travamento: itens que já
-    // existiam na lista ANTES dessa funcionalidade existir não tinham esses
-    // campos (undefined), e o código tratava undefined==null como "estava
-    // zerado", disparando "Comprado"/"Faturado" retroativamente pra vários
-    // itens de uma vez (cada um mandando e-mail pra todos os usuários) na
-    // primeira checagem depois do deploy -- isso que sobrecarregou a tela.
-    // Agora, item nunca rastreado antes (===undefined) só SEMEIA o valor
-    // atual silenciosamente, sem avisar -- só dispara aviso quando MUDA de
-    // verdade a partir de um valor já conhecido.
+    if(!item)return;
     if(a.pedido_ao_marcar===undefined||a.transito_ao_marcar===undefined||a.saldo_ao_marcar===undefined||a.consumo_ao_marcar===undefined){
       if(a.pedido_ao_marcar===undefined){a.pedido_ao_marcar=item.pedido||0;a.comprado_avisado=item.pedido>0;}
       if(a.transito_ao_marcar===undefined){a.transito_ao_marcar=item.tA||0;a.faturado_avisado=item.tA>0;}
       if(a.saldo_ao_marcar===undefined)a.saldo_ao_marcar=item.saldo||0;
       if(a.consumo_ao_marcar===undefined)a.consumo_ao_marcar=item.consumo||0;
-      mudou=true;i++;proximo();return;
+      mudou=true;return;
     }
-    // 3) Chegou -- prioridade máxima, remove da lista (ciclo completo)
-    // v115.1426 - A pedido do Vitor: mesmo caso do item 3200680 CATERPILLAR
-    // que ficava preso em trânsito (v115.1424) também acontecia aqui, na
-    // notificação de "Chegou" do Me Avise -- ela só disparava se o saldo
-    // subisse. Item "sob encomenda" (saldo sempre 0/negativo) nunca gerava
-    // esse sinal, então o aviso de chegada NUNCA disparava pra esses itens,
-    // mesmo a compra tendo sido atendida de verdade. Agora também dispara
-    // quando o consumo aumentou pelo menos a mesma quantidade que estava
-    // em pedido no momento em que foi marcado (item saiu do estoque assim
-    // que chegou, sem o saldo nunca subir de fato) -- mesmo raciocínio já
-    // usado no autoLimparTransit.
     var _consumoSubiuOPedido=a.consumo_ao_marcar!=null&&a.pedido_ao_marcar>0&&(item.consumo-a.consumo_ao_marcar)>=a.pedido_ao_marcar;
     if((a.saldo_ao_marcar!=null&&item.saldo>a.saldo_ao_marcar)||_consumoSubiuOPedido){
-      maEnviarNotificacaoGlobal(a,'chegou').then(function(){
-        lista.splice(i,1);mudou=true;proximo();
-      }).catch(function(e){console.warn('Falha ao enviar aviso automático de chegada:',e);i++;proximo();});
-      return;
+      itensChegou.push(a);return;
     }
-    // 1) Comprado -- pedido saiu de zero/vazio pra positivo
     if(!a.comprado_avisado&&(a.pedido_ao_marcar==null||a.pedido_ao_marcar===0)&&item.pedido>0){
-      maEnviarNotificacaoGlobal(a,'comprado',item.pedido).then(function(){
-        a.pedido_ao_marcar=item.pedido;a.comprado_avisado=true;a.ts=Date.now();mudou=true;i++;proximo();
-      }).catch(function(e){console.warn('Falha ao enviar aviso automático de compra:',e);i++;proximo();});
-      return;
+      loteComprado.push({a:a,item:item,detalhe:item.pedido});return;
     }
-    // 2) Faturado -- quantidade em trânsito saiu de zero pra positivo
     if(!a.faturado_avisado&&(a.transito_ao_marcar==null||a.transito_ao_marcar===0)&&item.tA>0){
-      maEnviarNotificacaoGlobal(a,'faturado',item.tA).then(function(){
-        a.transito_ao_marcar=item.tA;a.faturado_avisado=true;a.ts=Date.now();mudou=true;i++;proximo();
-      }).catch(function(e){console.warn('Falha ao enviar aviso automático de faturamento:',e);i++;proximo();});
-      return;
+      loteFaturado.push({a:a,item:item,detalhe:item.tA});return;
     }
-    // Ajuste de pedido (depois de já ter avisado "comprado" uma vez) -- avisa
-    // sem remover da lista, e sem re-disparar "comprado" de novo.
     if(a.comprado_avisado&&a.pedido_ao_marcar!=null&&item.pedido!==a.pedido_ao_marcar){
-      var detalhe='era '+a.pedido_ao_marcar+', agora é '+item.pedido+' unidades';
-      maEnviarNotificacaoGlobal(a,'pedido_mudou',detalhe).then(function(){
-        a.pedido_ao_marcar=item.pedido;a.ts=Date.now();mudou=true;i++;proximo();
-      }).catch(function(e){console.warn('Falha ao enviar aviso automático de mudança de pedido:',e);i++;proximo();});
-      return;
+      lotePedidoMudou.push({a:a,item:item,detalhe:'era '+a.pedido_ao_marcar+', agora é '+item.pedido+' unidades'});return;
     }
-    i++;proximo();
-  }
-  proximo();
+  });
+  (async function(){
+    for(var j=0;j<itensChegou.length;j++){
+      var a2=itensChegou[j];
+      try{
+        await maEnviarNotificacaoGlobal(a2,'chegou');
+        var idx=lista.indexOf(a2);
+        if(idx>=0){lista.splice(idx,1);mudou=true;}
+      }catch(e){console.warn('Falha ao enviar aviso automático de chegada:',e);}
+    }
+    if(loteComprado.length){
+      try{
+        await maEnviarNotificacaoLote('comprado',loteComprado);
+        loteComprado.forEach(function(x){x.a.pedido_ao_marcar=x.item.pedido;x.a.comprado_avisado=true;x.a.ts=Date.now();});
+        mudou=true;
+      }catch(e){console.warn('Falha ao enviar aviso em lote de compra:',e);}
+    }
+    if(loteFaturado.length){
+      try{
+        await maEnviarNotificacaoLote('faturado',loteFaturado);
+        loteFaturado.forEach(function(x){x.a.transito_ao_marcar=x.item.tA;x.a.faturado_avisado=true;x.a.ts=Date.now();});
+        mudou=true;
+      }catch(e){console.warn('Falha ao enviar aviso em lote de faturamento:',e);}
+    }
+    if(lotePedidoMudou.length){
+      try{
+        await maEnviarNotificacaoLote('pedido_mudou',lotePedidoMudou);
+        lotePedidoMudou.forEach(function(x){x.a.pedido_ao_marcar=x.item.pedido;x.a.ts=Date.now();});
+        mudou=true;
+      }catch(e){console.warn('Falha ao enviar aviso em lote de mudança de pedido:',e);}
+    }
+    if(mudou){
+      pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
+      if(typeof _pfCurrentView!=='undefined'&&_pfCurrentView==='ferramentas'&&typeof ferrMeAvise==='function'){try{ferrMeAvise();}catch(e){}}
+    }
+  })();
 }
 // v115.1387 - Extraído de dentro de applyFilt() pra virar uma função
 // independente, reaproveitável em qualquer tela (não só Dashboard) --

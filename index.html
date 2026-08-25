@@ -1631,7 +1631,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1479</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1480</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1739,7 +1739,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1479</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1480</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -20741,9 +20741,18 @@ function apostasIncluirConfirmar(ref,marca){
   if(!item){pfAlert('Item não encontrado.');return;}
   var key=solKey(ref,marca);
   if(apostasLog[key]){pfAlert('Esse item já está sendo acompanhado.');return;}
+  // v115.1480 - A pedido do Vitor ("veja se tem consumo, se tiver pode
+  // colocar a quantidade como vendida"): antes o baseline (consumo_conversao)
+  // sempre começava igual ao consumo atual do item, então "vendido desde
+  // chegada" sempre nascia em 0 -- mesmo que o item já estivesse vendendo
+  // bem antes de ser incluído aqui manualmente. Agora, se já tem consumo
+  // registrado, o baseline começa em 0 -- o consumo existente já entra
+  // contando como vendido de cara, em vez de precisar vender de novo a
+  // partir do que já tinha.
+  var consumoJaTinha=item.consumo||0;
   var row={ref:item.ref,marca:item.marca||'',descricao:item.desc||'',
     saldo_marcado:item.saldo||0,saldo_conversao:item.saldo||0,
-    consumo_marcado:item.consumo||0,consumo_conversao:item.consumo||0,
+    consumo_marcado:consumoJaTinha,consumo_conversao:consumoJaTinha>0?0:consumoJaTinha,
     ts_marcado:Date.now(),ts_conversao:Date.now(),status:'aguardando'};
   apostasLog[key]=row;
   salvarApostaLog(key,row);
@@ -20789,7 +20798,16 @@ function renderApostas(){
   const totalVendido=apostas.reduce((s,a)=>s+vendidoDesdeChegada(a),0);
   const sucessos=apostas.filter(a=>a.status==='sucesso').length;
   const melhorQtd=Math.max(...apostas.map(vendidoDesdeChegada));
-  const cards=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:1.5rem"><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">Total Convertidas</p><p style="font-size:24px;font-weight:600;margin:0;color:#E67E22">${apostas.length}</p></div><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">Vendido Desde a Chegada</p><p style="font-size:24px;font-weight:600;margin:0;color:#70AD47">${totalVendido} un</p></div><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">🏆 Sucessos</p><p style="font-size:24px;font-weight:600;margin:0;color:#E67E22">${sucessos}</p></div></div><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--bg);border-bottom:0.5px solid var(--bd)"><th style="padding:10px;text-align:left;font-weight:500">Referência</th><th style="padding:10px;text-align:left;font-weight:500">Marca</th><th style="padding:10px;text-align:left;font-weight:500">Descrição</th><th style="padding:10px;text-align:center;font-weight:500">Vendido Desde Chegada</th><th style="padding:10px;text-align:center;font-weight:500">Status</th><th style="padding:10px;text-align:center;font-weight:500">Período</th><th style="padding:10px;text-align:center;font-weight:500">Data</th></tr></thead><tbody>${apostas.sort((a,b)=>vendidoDesdeChegada(b)-vendidoDesdeChegada(a)).slice(0,10).map(a=>{const qv=vendidoDesdeChegada(a);const dias=diasPeriodo(a);const periodoTxt=dias==null?'—':(a.ts_marcado?new Date(a.ts_marcado).toLocaleDateString('pt-BR'):'—')+' → '+(a.ts_conversao?new Date(a.ts_conversao).toLocaleDateString('pt-BR'):'—')+` (${dias}d)`;const dt=a.ts_conversao?new Date(a.ts_conversao).toLocaleDateString('pt-BR'):'—';const st=statusInfo(a);return`<tr style="border-bottom:0.5px solid var(--bd)"><td style="padding:10px;font-weight:500">${a.ref}</td><td style="padding:10px;color:var(--mu)">${a.marca||'—'}</td><td style="padding:10px;color:var(--mu)">${a.descricao}</td><td style="padding:10px;text-align:center"><span style="background:#E6F5EB;color:#0F6E56;padding:4px 8px;border-radius:4px;font-weight:600">${qv} un</span></td><td style="padding:10px;text-align:center"><span style="background:${st.bg};color:${st.cor};padding:4px 8px;border-radius:4px;font-weight:600;white-space:nowrap">${st.label}</span></td><td style="padding:10px;text-align:center;color:var(--mu);font-size:11px;white-space:nowrap">${periodoTxt}</td><td style="padding:10px;text-align:center;color:var(--mu)">${dt}</td></tr>`}).join('')}</tbody></table>`;
+  // v115.1480 - A pedido do Vitor ("inclui um item e ele não apareceu"):
+  // a tabela tinha .slice(0,10) fixo -- com mais de 10 apostas, os itens
+  // além do 10º nunca apareciam, mesmo contando certinho no "Total
+  // Convertidas" do resumo (que usa apostas.length, sem esse corte). Tirado
+  // o corte -- agora mostra todas, a caixa já tem rolagem própria.
+  const _fonteSaldoAp=(typeof allItems!=='undefined'&&allItems&&allItems.length)?allItems:(typeof calcItems!=='undefined'?calcItems:[]);
+  const _porChaveSaldoAp={};
+  _fonteSaldoAp.forEach(function(c){_porChaveSaldoAp[solKey(c.ref,c.marca)]=c;});
+  const saldoAtualAp=a=>{var it=_porChaveSaldoAp[solKey(a.ref,a.marca)];return it?(it.saldo||0):null;};
+  const cards=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:1.5rem"><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">Total Convertidas</p><p style="font-size:24px;font-weight:600;margin:0;color:#E67E22">${apostas.length}</p></div><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">Vendido Desde a Chegada</p><p style="font-size:24px;font-weight:600;margin:0;color:#70AD47">${totalVendido} un</p></div><div style="background:var(--bg);padding:1rem;border-radius:8px"><p style="font-size:11px;color:var(--mu);margin:0 0 8px;font-weight:600">🏆 Sucessos</p><p style="font-size:24px;font-weight:600;margin:0;color:#E67E22">${sucessos}</p></div></div><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--bg);border-bottom:0.5px solid var(--bd)"><th style="padding:10px;text-align:left;font-weight:500">Referência</th><th style="padding:10px;text-align:left;font-weight:500">Marca</th><th style="padding:10px;text-align:left;font-weight:500">Descrição</th><th style="padding:10px;text-align:center;font-weight:500">Saldo</th><th style="padding:10px;text-align:center;font-weight:500">Vendido Desde Chegada</th><th style="padding:10px;text-align:center;font-weight:500">Status</th><th style="padding:10px;text-align:center;font-weight:500">Período</th><th style="padding:10px;text-align:center;font-weight:500">Data</th></tr></thead><tbody>${apostas.sort((a,b)=>vendidoDesdeChegada(b)-vendidoDesdeChegada(a)).map(a=>{const qv=vendidoDesdeChegada(a);const dias=diasPeriodo(a);const periodoTxt=dias==null?'—':(a.ts_marcado?new Date(a.ts_marcado).toLocaleDateString('pt-BR'):'—')+' → '+(a.ts_conversao?new Date(a.ts_conversao).toLocaleDateString('pt-BR'):'—')+` (${dias}d)`;const dt=a.ts_conversao?new Date(a.ts_conversao).toLocaleDateString('pt-BR'):'—';const st=statusInfo(a);const sd=saldoAtualAp(a);return`<tr style="border-bottom:0.5px solid var(--bd)"><td style="padding:10px;font-weight:500">${a.ref}</td><td style="padding:10px;color:var(--mu)">${a.marca||'—'}</td><td style="padding:10px;color:var(--mu)">${a.descricao}</td><td style="padding:10px;text-align:center;font-weight:600">${sd==null?'—':sd}</td><td style="padding:10px;text-align:center"><span style="background:#E6F5EB;color:#0F6E56;padding:4px 8px;border-radius:4px;font-weight:600">${qv} un</span></td><td style="padding:10px;text-align:center"><span style="background:${st.bg};color:${st.cor};padding:4px 8px;border-radius:4px;font-weight:600;white-space:nowrap">${st.label}</span></td><td style="padding:10px;text-align:center;color:var(--mu);font-size:11px;white-space:nowrap">${periodoTxt}</td><td style="padding:10px;text-align:center;color:var(--mu)">${dt}</td></tr>`}).join('')}</tbody></table>`;
   document.getElementById("apostasBody").innerHTML=cards;
 }
 function toggleOpCard(chk){

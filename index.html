@@ -1631,7 +1631,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1490</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1491</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1739,7 +1739,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1490</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1491</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -22092,7 +22092,7 @@ function passaMarcaSistema(item){
 // completa" no rodapé, que abre um modal com tudo + exportação.
 // ═══════════════════════════════════════════════════════════════
 window._pfRankFullData=window._pfRankFullData||{};
-window._pfRankColunas=window._pfRankColunas||{codigo:true,marca:true,desc:true,qtd:true,consumoMensal:false,saldo:true,familia:false,mostrarContagem:true};
+window._pfRankColunas=window._pfRankColunas||{codigo:true,marca:true,desc:true,qtd:true,consumoMensal:false,saldo:true,familia:false,mostrarContagem:true,tempoEstoque:false,tempoEstoqueUnidade:'meses'};
 window._pfRankAmpliarSort=window._pfRankAmpliarSort||{};
 function pfRankLigarAmpliar(listElId,chave,titulo,fullArray){
   window._pfRankFullData[chave]={titulo:titulo,itens:fullArray};
@@ -22136,6 +22136,20 @@ function pfRankAmpliarHtml(chave,dados){
     // aqui pra escolher).
     {k:'consumoMensal',label:'Consumo Mensal',get:function(d){return d.cM!=null?d.cM.toFixed(1):'';},val:function(d){return d.cM||0;}},
     {k:'saldo',label:'Saldo',get:function(d){return d.saldo!=null?Math.round(d.saldo).toLocaleString('pt-BR'):'';},val:function(d){return d.saldo||0;}},
+    // v115.1491 - A pedido do Vitor: "quanto tempo de estoque tem, dias
+    // ou meses" -- Saldo ÷ Consumo Mensal, com um seletor de unidade
+    // (meses/dias) do lado do checkbox. Sem consumo no período (cM 0 ou
+    // vazio): mostra ∞ se ainda tem saldo (não vai faltar tão cedo pelo
+    // ritmo atual) ou — se também não tem saldo. A ordenação usa sempre a
+    // razão em meses (val), já que multiplicar por 30 pra virar dias não
+    // muda a ordem entre os itens.
+    {k:'tempoEstoque',label:'Tempo de Estoque',get:function(d){
+      if(d.cM==null||d.cM<=0)return d.saldo>0?'∞':'—';
+      var meses=(d.saldo||0)/d.cM;
+      var unidade=window._pfRankColunas.tempoEstoqueUnidade||'meses';
+      if(unidade==='dias'){var dias=meses*30;return (dias>=1000?Math.round(dias).toLocaleString('pt-BR'):dias.toFixed(1))+' d';}
+      return (meses>=1000?Math.round(meses).toLocaleString('pt-BR'):meses.toFixed(1))+' m';
+    },val:function(d){if(!d.cM||d.cM<=0)return d.saldo>0?999999:-1;return (d.saldo||0)/d.cM;}},
     {k:'familia',label:'Família',get:function(d){return d.familia||'';},val:function(d){return (d.familia||'').toUpperCase();}}
   ];
   var ativos=colDefs.filter(function(c){return cols[c.k];});
@@ -22158,8 +22172,12 @@ function pfRankAmpliarHtml(chave,dados){
     '</tr>';
   }).join('');
   var chkHtml=colDefs.map(function(c){
+    var extraUnidade=c.k==='tempoEstoque'?('<select onchange="event.stopPropagation();window._pfRankColunas.tempoEstoqueUnidade=this.value;pfRankAmpliarAtualizarTabela(\''+pfEscHtml(pfEscJs(chave))+'\')" style="font-size:11px;border:1px solid #e0e8f0;border-radius:5px;padding:1px 3px;margin-left:3px;cursor:pointer">'+
+      '<option value="meses"'+((cols.tempoEstoqueUnidade||'meses')==='meses'?' selected':'')+'>meses</option>'+
+      '<option value="dias"'+((cols.tempoEstoqueUnidade||'meses')==='dias'?' selected':'')+'>dias</option>'+
+    '</select>'):'';
     return '<label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#607080;cursor:pointer;white-space:nowrap">'+
-      '<input type="checkbox" '+(cols[c.k]?'checked':'')+' onchange="window._pfRankColunas[\''+c.k+'\']=this.checked;pfRankAmpliarAtualizarTabela(\''+pfEscHtml(pfEscJs(chave))+'\')" style="width:13px;height:13px;cursor:pointer"> '+c.label+
+      '<input type="checkbox" '+(cols[c.k]?'checked':'')+' onchange="window._pfRankColunas[\''+c.k+'\']=this.checked;pfRankAmpliarAtualizarTabela(\''+pfEscHtml(pfEscJs(chave))+'\')" style="width:13px;height:13px;cursor:pointer"> '+c.label+extraUnidade+
     '</label>';
   }).join('')+
     '<label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#607080;cursor:pointer;white-space:nowrap;border-left:1px solid #e0e8f0;padding-left:12px">'+
@@ -22228,6 +22246,13 @@ function pfRankMontarLinhasExport(chave){
     {k:'qtd',label:'Quantidade',get:function(d){return d.consumo!=null?Math.round(d.consumo):'';},val:function(d){return d.consumo||0;}},
     {k:'consumoMensal',label:'Consumo Mensal',get:function(d){return d.cM!=null?d.cM.toFixed(1):'';},val:function(d){return d.cM||0;}},
     {k:'saldo',label:'Saldo',get:function(d){return d.saldo!=null?Math.round(d.saldo):'';},val:function(d){return d.saldo||0;}},
+    {k:'tempoEstoque',label:'Tempo de Estoque',get:function(d){
+      if(d.cM==null||d.cM<=0)return d.saldo>0?'∞':'—';
+      var meses=(d.saldo||0)/d.cM;
+      var unidade=window._pfRankColunas.tempoEstoqueUnidade||'meses';
+      if(unidade==='dias'){var dias=meses*30;return (dias>=1000?Math.round(dias).toLocaleString('pt-BR'):dias.toFixed(1))+' d';}
+      return (meses>=1000?Math.round(meses).toLocaleString('pt-BR'):meses.toFixed(1))+' m';
+    },val:function(d){if(!d.cM||d.cM<=0)return d.saldo>0?999999:-1;return (d.saldo||0)/d.cM;}},
     {k:'familia',label:'Família',get:function(d){return d.familia||'';},val:function(d){return (d.familia||'').toUpperCase();}}
   ];
   var ativos=colDefs.filter(function(c){return cols[c.k];});

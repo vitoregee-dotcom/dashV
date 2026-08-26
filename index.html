@@ -1631,7 +1631,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1486</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1487</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1739,7 +1739,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1486</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1487</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -17049,7 +17049,7 @@ async function carregarTransit(){
   try{const raw=localStorage.getItem('transitItems');if(raw)Object.assign(transitItems,JSON.parse(raw));}catch(e){}
   if(!sbSession||!sbUser)return;
   try{
-    const r=await sbFetch('/rest/v1/transit_items?select=item_key,qtd,saldo_marcado,pico,consumo_marcado');
+    const r=await sbFetch('/rest/v1/transit_items?select=item_key,qtd,saldo_marcado,pico,consumo_marcado,data_faturamento');
     if(!r.ok)return;
     const rows=await r.json();
     Object.keys(transitItems).forEach(k=>delete transitItems[k]);
@@ -17063,7 +17063,10 @@ async function carregarTransit(){
     // a condição de limpeza "consumo aumentou desde a marcação" (a pedido
     // do Vitor) ficava morta na prática, só funcionando dentro da mesma
     // sessão antes de recarregar. Agora vem junto, igual o pico.
-    rows.forEach(row=>{transitItems[row.item_key]={qtd:row.qtd||0,saldo:row.saldo_marcado||0,pico:row.pico!=null?row.pico:(row.saldo_marcado||0),consumo:row.consumo_marcado!=null?row.consumo_marcado:null};});
+    // v115.1487 - mesmo problema, dessa vez com "data" (data de
+    // faturamento por item) -- também nunca vinha do banco. Ver
+    // salvarTransitItem().
+    rows.forEach(row=>{transitItems[row.item_key]={qtd:row.qtd||0,saldo:row.saldo_marcado||0,pico:row.pico!=null?row.pico:(row.saldo_marcado||0),consumo:row.consumo_marcado!=null?row.consumo_marcado:null,data:row.data_faturamento||''};});
     pfSafeSetItem('transitItems',JSON.stringify(transitItems));
   }catch(e){console.error('Erro ao carregar trânsito:',e);}
 }
@@ -17075,10 +17078,17 @@ async function salvarTransitItem(key,entry){
     if(entry===null){
       await sbFetch('/rest/v1/transit_items?item_key=eq.'+encodeURIComponent(key),{method:'DELETE'});
     }else{
+      // v115.1487 - BUG DE RAIZ corrigido (a pedido do Vitor: "quando eu
+      // subo a lista, por que não registra data?") -- mesmo padrão do bug
+      // já corrigido pro "consumo" (v115.1425): o campo `data` só existia
+      // localmente/na sessão, NUNCA era mandado pro Supabase (a coluna nem
+      // existia na tabela). Cada F5/sincronização voltava com o campo
+      // vazio, mesmo Vitor tendo acabado de editar a data na tela. Agora
+      // grava de verdade na coluna `data_faturamento` nova.
       await sbFetch('/rest/v1/transit_items',{
         method:'POST',
         headers:{'Prefer':'resolution=merge-duplicates'},
-        body:JSON.stringify({item_key:key,qtd:entry.qtd,saldo_marcado:entry.saldo,pico:entry.pico!=null?entry.pico:entry.saldo,consumo_marcado:entry.consumo!=null?entry.consumo:null})
+        body:JSON.stringify({item_key:key,qtd:entry.qtd,saldo_marcado:entry.saldo,pico:entry.pico!=null?entry.pico:entry.saldo,consumo_marcado:entry.consumo!=null?entry.consumo:null,data_faturamento:entry.data||null})
       });
     }
   }catch(e){console.error('Erro ao salvar trânsito:',e);}

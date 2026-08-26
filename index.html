@@ -1631,7 +1631,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1487</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1488</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1739,7 +1739,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1487</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1488</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -23212,18 +23212,19 @@ function verificarAvisos(){
   });
   salvarAvise();
   if(chegaram.length>0){
-    var toEmail=pfNotifEmail();
+    // v115.1488 - A pedido do Vitor ("pq ainda to recebendo e-mail desse
+    // item"): esse é o sistema ANTIGO/paralelo de Me Avise (aviseItems),
+    // já documentado no código como "tela não usada" (v115.1200) -- foi
+    // substituído pelo Me Avise de verdade (meAvise_lista, em Ferramentas).
+    // Só que continuava rodando escondido a cada load do Dashboard
+    // (verificarAvisos), e cada conta/aparelho tem sua PRÓPRIA cópia local
+    // de aviseItems com saldo desatualizado (0 em 3 das 4 contas checadas
+    // -- só a admin tinha saldo:5 certo) -- toda vez que uma dessas contas
+    // desatualizadas abre o Dashboard, saldo_ao_vivo(5) > saldo_salvo(0)
+    // dispara e-mail de novo, indefinidamente, mesmo sem ninguém mexer.
+    // Removido o envio de e-mail (emailjs.send) -- fica só o popup visual
+    // local, sem mandar nada pra caixa de entrada.
     // Dispara e-mail para cada item que chegou
-    chegaram.forEach(function(a){
-      emailjs.send('service_2lp37gt','template_8r5j0sq',{
-        to_email:toEmail,
-        ref:a.ref,
-        marca:a.marca||'—',
-        obs:(a.obs||'Saldo atual: '+a.saldo+' pçs'),
-        cod_cliente:a.cod_cliente||'—',
-        nome_cliente:a.nome_cliente||'—'
-      });
-    });
     // Popup visual — v115.775 agora com minimizar/expandir + reaparece
     // sozinho a cada 5 min se não for fechado de vez (mesmo padrão do
     // popup de "Foto recebida").
@@ -23232,7 +23233,6 @@ function verificarAvisos(){
       +'<div style="font-weight:800;font-size:14px;color:#7A5000">🔔 Itens que chegaram!</div>'
       +'<button onclick="pfMinimizarAviso(\''+avisoId+'\')" title="Minimizar" style="background:none;border:none;color:#8a9ab0;font-size:15px;cursor:pointer;line-height:1;padding:0;flex-shrink:0">➖</button>'
       +'</div>';
-    conteudoCompleto+='<div style="font-size:11px;color:#27AE60;margin:4px 0 8px">✅ E-mail enviado para '+toEmail+'</div>';
     chegaram.forEach(function(a){
       conteudoCompleto+='<div style="padding:6px 0;border-top:1px solid #eee">';
       conteudoCompleto+='<span style="font-weight:700;color:var(--navy)">'+a.ref+'</span> · '+a.marca+'<br>';
@@ -43068,17 +43068,25 @@ function pfNoticiasLoad(){
     pfNoticiasSave(list);
     eraFormatoAntigo=false; // já foi regravado no formato novo acima
   }
-  if(eraFormatoAntigo&&localStorage.getItem('pfNoticiasLimpezaV')!=='1'){
-    var vistos={};
-    list=list.filter(function(n){
-      if(!n)return false;
-      if(n.origem==='manual')return true;
-      if(!n.imagem)return false;
-      var chave=(n.titulo||'').toLowerCase().trim().replace(/\s+/g,' ');
-      if(vistos[chave])return false;
-      vistos[chave]=true;
-      return true;
-    });
+  // v115.1488 - A pedido do Vitor ("esta tudo sem foto"): a limpeza de item
+  // sem imagem/duplicado só rodava UMA VEZ, presa à migração do formato
+  // antigo (array cru -> {itens,ts}) -- quem já estava no formato novo
+  // nunca mais tinha esse filtro reaplicado, então lixo que entrasse depois
+  // (item da semente sem foto, ou qualquer brecha futura) ficava pra sempre.
+  // Agora roda em TODO load, como invariante permanente -- só regrava no
+  // Supabase se realmente tirou algo, pra não sobrescrever à toa.
+  var vistosSemFoto={};
+  var listLimpaSemFoto=list.filter(function(n){
+    if(!n)return false;
+    if(n.origem==='manual')return true;
+    if(!n.imagem)return false;
+    var chaveSemFoto=(n.titulo||'').toLowerCase().trim().replace(/\s+/g,' ');
+    if(vistosSemFoto[chaveSemFoto])return false;
+    vistosSemFoto[chaveSemFoto]=true;
+    return true;
+  });
+  if(listLimpaSemFoto.length!==list.length){
+    list=listLimpaSemFoto;
     localStorage.setItem('pfNoticiasLimpezaV','1');
     pfNoticiasSave(list);
   }

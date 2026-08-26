@@ -1631,7 +1631,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1483</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1484</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1739,7 +1739,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1483</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1484</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -27251,6 +27251,183 @@ function pfUsoIAEhDono(){
   return typeof sbUser!=='undefined'&&sbUser&&sbUser.id==='e526fea4-d04f-4d2f-a700-145ac17b137c';
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 🔑 Minhas Chaves (v115.1484) — a pedido do Vitor: um lugar dentro do
+// PartsFlow pra guardar tokens/API keys (GitHub, Anthropic, Supabase,
+// EmailJS...), sem precisar ficar procurando em conversas antigas.
+//
+// Cuidado de segurança que motivou o desenho abaixo: este repositório é
+// PÚBLICO no GitHub, e a tabela do Supabase está com RLS desligado --
+// guardar as chaves "normal" (texto puro sincronizado, como o resto do
+// app faz) deixaria elas tecnicamente legíveis por qualquer um que
+// soubesse consultar a API do Supabase direto, mesmo a TELA só
+// aparecendo pro Vitor. Por isso o conteúdo é criptografado (AES-GCM,
+// senha derivada via PBKDF2/150mil iterações, Web Crypto nativo do
+// navegador) ANTES de sincronizar -- mesmo com acesso direto ao banco,
+// só dá pra ler texto embaralhado sem a senha, que nunca é salva em
+// lugar nenhum (só fica na memória da aba enquanto ela estiver aberta).
+// ═══════════════════════════════════════════════════════════════
+var PF_CHAVES_CAMPOS=[
+  {k:'githubToken',label:'GitHub Token (acesso ao repo dashV)'},
+  {k:'anthropicKey',label:'Anthropic API Key (pessoal -- usada em "Atualizar agora" das Notícias)'},
+  {k:'supabaseServiceRole',label:'Supabase Service Role Key'},
+  {k:'emailjsServiceId',label:'EmailJS Service ID'},
+  {k:'emailjsTemplateId',label:'EmailJS Template ID'},
+  {k:'emailjsPublicKey',label:'EmailJS Public Key'}
+];
+function pfChavesBufToB64(buf){var bytes=new Uint8Array(buf);var bin='';for(var i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);return btoa(bin);}
+function pfChavesB64ToBuf(b64){var bin=atob(b64);var arr=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);return arr.buffer;}
+async function pfChavesDerivarKey(senha,saltBuf,uso){
+  var enc=new TextEncoder();
+  var material=await crypto.subtle.importKey('raw',enc.encode(senha),{name:'PBKDF2'},false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt:saltBuf,iterations:150000,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,[uso]);
+}
+async function pfChavesCriptografar(objeto,senha){
+  var salt=crypto.getRandomValues(new Uint8Array(16));
+  var iv=crypto.getRandomValues(new Uint8Array(12));
+  var key=await pfChavesDerivarKey(senha,salt,'encrypt');
+  var enc=new TextEncoder();
+  var cipherBuf=await crypto.subtle.encrypt({name:'AES-GCM',iv:iv},key,enc.encode(JSON.stringify(objeto)));
+  return {salt:pfChavesBufToB64(salt),iv:pfChavesBufToB64(iv),dados:pfChavesBufToB64(cipherBuf),ts:Date.now()};
+}
+async function pfChavesDescriptografar(pacote,senha){
+  var salt=new Uint8Array(pfChavesB64ToBuf(pacote.salt));
+  var iv=new Uint8Array(pfChavesB64ToBuf(pacote.iv));
+  var key=await pfChavesDerivarKey(senha,salt,'decrypt');
+  var plainBuf=await crypto.subtle.decrypt({name:'AES-GCM',iv:iv},key,pfChavesB64ToBuf(pacote.dados));
+  return JSON.parse(new TextDecoder().decode(plainBuf));
+}
+function ferrMinhasChaves(){
+  var el=document.getElementById('ferrBody');
+  if(!el)return;
+  var pacoteRaw=pfSafeGetItem('pfChavesDevEnc',null);
+  var pacote=null;
+  try{pacote=pacoteRaw?JSON.parse(pacoteRaw):null;}catch(e){pacote=null;}
+  if(window._pfChavesObj){
+    ferrChavesRenderDesbloqueado(el);
+    return;
+  }
+  if(!pacote){
+    el.innerHTML='<div style="max-width:420px;padding:24px">'+
+      '<div style="font-size:16px;font-weight:800;color:#1F4E79;margin-bottom:4px">🔑 Minhas Chaves</div>'+
+      '<div style="font-size:12px;color:var(--pf-text-muted);margin-bottom:18px">Primeira vez aqui -- crie uma senha pra proteger o conteúdo. Essa senha não fica salva em lugar nenhum (nem aqui, nem no banco) -- se esquecer, não tem como recuperar, só criar de novo do zero.</div>'+
+      '<input type="password" id="pfChavesSenhaNova" placeholder="Criar senha" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;margin-bottom:8px">'+
+      '<input type="password" id="pfChavesSenhaNova2" placeholder="Confirmar senha" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;margin-bottom:12px">'+
+      '<div id="pfChavesErro" style="color:#C00000;font-size:12px;margin-bottom:8px"></div>'+
+      '<button onclick="ferrChavesCriarSenha()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer">Criar e continuar</button>'+
+      '</div>';
+    return;
+  }
+  el.innerHTML='<div style="max-width:420px;padding:24px">'+
+    '<div style="font-size:16px;font-weight:800;color:#1F4E79;margin-bottom:4px">🔑 Minhas Chaves</div>'+
+    '<div style="font-size:12px;color:var(--pf-text-muted);margin-bottom:18px">Conteúdo criptografado. Digite a senha pra ver/editar.</div>'+
+    '<input type="password" id="pfChavesSenhaAtual" placeholder="Senha" onkeydown="if(event.key===\'Enter\')ferrChavesDesbloquear()" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;margin-bottom:8px">'+
+    '<div id="pfChavesErro" style="color:#C00000;font-size:12px;margin-bottom:8px"></div>'+
+    '<button onclick="ferrChavesDesbloquear()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer">Desbloquear</button>'+
+    '</div>';
+}
+async function ferrChavesCriarSenha(){
+  var s1=document.getElementById('pfChavesSenhaNova').value;
+  var s2=document.getElementById('pfChavesSenhaNova2').value;
+  var erroEl=document.getElementById('pfChavesErro');
+  if(s1.length<6){erroEl.textContent='A senha precisa ter pelo menos 6 caracteres.';return;}
+  if(s1!==s2){erroEl.textContent='As senhas não coincidem.';return;}
+  window._pfChavesSenha=s1;
+  window._pfChavesObj={};
+  var pacote=await pfChavesCriptografar({},s1);
+  pfSafeSetItem('pfChavesDevEnc',JSON.stringify(pacote));
+  if(typeof pfSyncPush==='function')pfSyncPush(['pfChavesDevEnc']);
+  ferrMinhasChaves();
+}
+async function ferrChavesDesbloquear(){
+  var senha=document.getElementById('pfChavesSenhaAtual').value;
+  var erroEl=document.getElementById('pfChavesErro');
+  var pacote=JSON.parse(pfSafeGetItem('pfChavesDevEnc','{}'));
+  try{
+    var obj=await pfChavesDescriptografar(pacote,senha);
+    window._pfChavesSenha=senha;
+    window._pfChavesObj=obj;
+    ferrMinhasChaves();
+  }catch(e){
+    erroEl.textContent='Senha errada.';
+  }
+}
+function ferrChavesBloquear(){
+  window._pfChavesSenha=null;
+  window._pfChavesObj=null;
+  ferrMinhasChaves();
+}
+function ferrChavesRenderDesbloqueado(el){
+  var obj=window._pfChavesObj||{};
+  var camposHtml=PF_CHAVES_CAMPOS.map(function(c){
+    var valorAtual=obj[c.k]||'';
+    return '<div style="margin-bottom:12px">'+
+      '<label style="font-size:11px;color:var(--pf-text-muted);font-weight:700;display:block;margin-bottom:3px">'+pfEscHtml(c.label)+'</label>'+
+      '<div style="display:flex;gap:6px">'+
+        '<input type="password" id="pfChavesCampo_'+c.k+'" value="'+pfEscHtml(valorAtual)+'" style="flex:1;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:12px;font-family:monospace">'+
+        '<button onclick="var i=document.getElementById(\'pfChavesCampo_'+c.k+'\');i.type=i.type===\'password\'?\'text\':\'password\';" title="Mostrar/esconder" style="padding:0 10px;border:1px solid #e0e8f0;background:#fff;border-radius:7px;cursor:pointer">👁</button>'+
+        '<button onclick="navigator.clipboard.writeText(document.getElementById(\'pfChavesCampo_'+c.k+'\').value);var m=document.getElementById(\'pfChavesSalvoMsg\');if(m){m.textContent=\'✓ Copiado\';setTimeout(function(){if(m)m.textContent=\'\';},1500);}" title="Copiar" style="padding:0 10px;border:1px solid #e0e8f0;background:#fff;border-radius:7px;cursor:pointer">📋</button>'+
+      '</div></div>';
+  }).join('');
+  var extrasHtml=(obj._extras||[]).map(function(ex,i){
+    return '<div style="margin-bottom:12px" data-extra-idx="'+i+'">'+
+      '<div style="display:flex;gap:6px;margin-bottom:3px">'+
+        '<input type="text" placeholder="Nome da chave" value="'+pfEscHtml(ex.nome||'')+'" class="pfChavesExtraNome" style="flex:1;box-sizing:border-box;padding:6px 8px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:11px;font-weight:700">'+
+        '<button onclick="ferrChavesRemoverExtra('+i+')" title="Remover" style="padding:0 8px;border:1px solid #e0e8f0;background:#fff;border-radius:6px;cursor:pointer;color:#C00000">✕</button>'+
+      '</div>'+
+      '<div style="display:flex;gap:6px">'+
+        '<input type="password" value="'+pfEscHtml(ex.valor||'')+'" class="pfChavesExtraValor" style="flex:1;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:7px;font-size:12px;font-family:monospace">'+
+        '<button onclick="var i=this.previousElementSibling;i.type=i.type===\'password\'?\'text\':\'password\';" title="Mostrar/esconder" style="padding:0 10px;border:1px solid #e0e8f0;background:#fff;border-radius:7px;cursor:pointer">👁</button>'+
+      '</div></div>';
+  }).join('');
+  el.innerHTML='<div style="max-width:480px;padding:24px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
+      '<div style="font-size:16px;font-weight:800;color:#1F4E79">🔑 Minhas Chaves</div>'+
+      '<button onclick="ferrChavesBloquear()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:7px;padding:6px 12px;font-size:11px;cursor:pointer">🔒 Bloquear</button>'+
+    '</div>'+
+    '<div style="font-size:11px;color:var(--pf-text-muted);margin-bottom:18px">Criptografado -- sincroniza entre seus aparelhos, mas só abre com essa senha (que nem eu nem o banco guardamos).</div>'+
+    camposHtml+
+    '<div id="pfChavesExtras">'+extrasHtml+'</div>'+
+    '<button onclick="ferrChavesAdicionarExtra()" style="background:none;border:1px dashed #cbd5e1;color:#607080;border-radius:7px;padding:8px 12px;font-size:12px;cursor:pointer;width:100%;margin-bottom:16px">+ Adicionar outra chave</button>'+
+    '<button onclick="ferrChavesSalvar()" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;width:100%">Salvar</button>'+
+    '<div id="pfChavesSalvoMsg" style="text-align:center;font-size:11px;color:#27AE60;margin-top:8px"></div>'+
+    '</div>';
+}
+function ferrChavesAdicionarExtra(){
+  window._pfChavesObj._extras=window._pfChavesObj._extras||[];
+  window._pfChavesObj._extras.push({nome:'',valor:''});
+  ferrChavesRenderDesbloqueado(document.getElementById('ferrBody'));
+}
+function ferrChavesRemoverExtra(i){
+  window._pfChavesObj._extras.splice(i,1);
+  ferrChavesRenderDesbloqueado(document.getElementById('ferrBody'));
+}
+async function ferrChavesSalvar(){
+  var obj=window._pfChavesObj||{};
+  PF_CHAVES_CAMPOS.forEach(function(c){
+    var i=document.getElementById('pfChavesCampo_'+c.k);
+    if(i)obj[c.k]=i.value;
+  });
+  var extrasEls=document.querySelectorAll('#pfChavesExtras [data-extra-idx]');
+  var extras=[];
+  extrasEls.forEach(function(row){
+    var nome=row.querySelector('.pfChavesExtraNome').value;
+    var valor=row.querySelector('.pfChavesExtraValor').value;
+    if(nome||valor)extras.push({nome:nome,valor:valor});
+  });
+  obj._extras=extras;
+  window._pfChavesObj=obj;
+  // Espelha a Anthropic Key também na chave que "Atualizar agora" (Notícias)
+  // já usa hoje (localStorage 'anthropic_key', plaintext, local) -- assim
+  // salvar aqui já atualiza o outro lugar também, sem precisar duplicar.
+  if(obj.anthropicKey)localStorage.setItem('anthropic_key',obj.anthropicKey);
+  var pacote=await pfChavesCriptografar(obj,window._pfChavesSenha);
+  pfSafeSetItem('pfChavesDevEnc',JSON.stringify(pacote));
+  if(typeof pfSyncPush==='function')pfSyncPush(['pfChavesDevEnc']);
+  var msg=document.getElementById('pfChavesSalvoMsg');
+  if(msg){msg.textContent='✓ Salvo';setTimeout(function(){if(msg)msg.textContent='';},2000);}
+}
+
 // ── Registro de acessos (quando cada usuário entrou no PartsFlow) ──────
 var PF_LOGIN_LOG_KEY='pf_login_log_v1';
 function pfLogLogin(){
@@ -34148,7 +34325,8 @@ var PF_SYNC_KEYS = [
   'pfTemaCores',
   'promoTemplates_v1',
   'pfAvisosLidoEm',
-  'meAvise_lista_deletados'
+  'meAvise_lista_deletados',
+  'pfChavesDevEnc'
 ];
 
 async function pfSyncPush(keys){
@@ -46537,6 +46715,7 @@ function ferrRender(){
   mkCard('📎','Atalhos de Texto','Copia endereço, script de doc, etc — cola no WhatsApp/e-mail','#0D7377',function(){ferrAtalhosTexto();});
   if(pfUsoIAEhDono()) mkCard('💰','Uso de IA','Custo estimado por leitura','#7B2D8B',function(){ferrUsoIA();});
   if(pfUsoIAEhDono()) mkCard('🎨','Personalizar Cores','Cor de destaque, fundo, texto e status — reflete no sistema inteiro','#5B2D8E',function(){pfTemaAbrirEditor();});
+  if(pfUsoIAEhDono()) mkCard('🔑','Minhas Chaves','Tokens e API keys, criptografado','#1F4E79',function(){ferrMinhasChaves();});
   mkCard('🔔','Histórico de Avisos','Avisos de oportunidade anteriores','#E67E22',function(){ferrHistoricoAvisos();});
   mkCard('✂️','Remover Fundo de Foto','IA remove fundo de qualquer foto, direto no navegador','#0D7377',function(){ferrRemoverFundo();});
   pfArrastavelAplicar(grid,'ferramentas');

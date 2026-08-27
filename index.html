@@ -1631,7 +1631,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1493</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1494</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1739,7 +1739,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1493</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1494</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -25704,7 +25704,15 @@ function mapaCriarOuAtualizarSolicitacaoInicial(){
           var _lst=JSON.parse(localStorage.getItem(MAPAS_LIST_KEY)||'[]');
           var _m=_lst.find(function(x){return x.id===mapaEstadoId;});
           if(_m){
-            if(!_m.numero){_m.numero=mapaProximoNumero();pfSafeSetItem(MAPAS_LIST_KEY,JSON.stringify(_lst));}
+            if(!_m.numero){
+              // v115.1494 - mesma checagem de colisão do auto-reparo em
+              // mapaListarSalvos() -- ver comentário lá.
+              var _emUso={};_lst.forEach(function(x){if(x.numero)_emUso[x.numero]=true;});
+              var _tent=mapaProximoNumero(),_t=0;
+              while(_emUso[_tent]&&_t<50){_tent=mapaProximoNumero();_t++;}
+              _m.numero=_tent;
+              pfSafeSetItem(MAPAS_LIST_KEY,JSON.stringify(_lst));
+            }
             return _m.numero;
           }
         }catch(e){}
@@ -34321,6 +34329,21 @@ function mapaSalvarEstado(){
   try{
     var estado={
       id: mapaEstadoId || ('mapa_'+Date.now()),
+      // v115.1494 - BUG DE RAIZ corrigido (Vitor: "criei em 14/08, abri só
+      // pra consultar, foi lá pro topo -- parece que mudou a data de
+      // criação"): esse campo `ts` é regravado com Date.now() em TODO save
+      // (25+ pontos no código chamam mapaSalvarEstado, incluindo ações bem
+      // corriqueiras -- adicionar item, expandir linha, trocar de etapa),
+      // e a lista "Mapas em andamento" mostra exatamente esse `ts` como
+      // "CRIADO EM". Ou seja, qualquer toque no mapa (mesmo só pra olhar)
+      // reescrevia a data de criação de verdade pra agora, permanentemente
+      // -- semjeito de recuperar a data original depois. Agora `ts`
+      // continua sendo atualizado a cada save (fica valendo como "última
+      // modificação", usado em outros lugares que dependem dele), mas
+      // `criadoTs` só é setado UMA VEZ (na primeira vez que o mapa é
+      // salvo) e nunca mais é sobrescrito -- é esse que a coluna "CRIADO
+      // EM" passa a usar.
+      criadoTs: (window._mapaEstado&&window._mapaEstado.criadoTs)?window._mapaEstado.criadoTs:((window._mapaEstado&&window._mapaEstado.ts)?window._mapaEstado.ts:Date.now()),
       ts: Date.now(),
       step: mapaStep,
       itens: mapaItens,
@@ -36595,6 +36618,13 @@ var MAPAS_LIST_KEY = 'mapas_lista_v1';
   }catch(e){console.warn('Reparo de estoqueOrigem falhou:',e);}
 })();
 
+function mapaOrdenarPor(col){
+  var atual=window._mapasOrdenacao||{col:null,dir:1};
+  if(atual.col===col)atual.dir*=-1;
+  else{atual.col=col;atual.dir=1;}
+  window._mapasOrdenacao=atual;
+  mapaRender();
+}
 function mapaListarSalvos(){
   var lista;
   try{lista=JSON.parse(localStorage.getItem(MAPAS_LIST_KEY)||'[]');}
@@ -36625,15 +36655,35 @@ function mapaListarSalvos(){
   // (regex /MAPA\s+(\d{3,})/); só gera um número novo se o título também não
   // tiver nenhuma pista.
   var mudouNumero=false;
+  // v115.1494 - BUG DE RAIZ corrigido (Vitor: "por que tem 2 mapas número
+  // 11?"): a v115.909 já tinha corrigido a criação de mapa NOVO pra usar
+  // um contador atômico no Supabase (mapaProximoNumeroServidor), mas esse
+  // auto-reparo aqui (que roda toda vez que a lista renderiza, pra
+  // qualquer mapa sem número) continuava chamando o contador antigo só
+  // local (mapaProximoNumero) -- sem nenhuma coordenação entre
+  // aparelhos/abas, reabrindo a mesma corrida que a v115.909 tinha
+  // fechado só na criação. Agora, além do contador local, checa se o
+  // número gerado já está em uso por OUTRO mapa da própria lista antes de
+  // aceitar -- se estiver, incrementa até achar um livre. Não elimina
+  // 100% a corrida entre dois aparelhos gerando ao mesmo tempo (só o
+  // servidor resolve isso de vez), mas evita a causa mais comum: duas
+  // sessões vendo a mesma lista desatualizada e "reparando" o mesmo mapa
+  // sem número pro mesmo valor.
+  var _numerosEmUso={};
+  listaExibicao.forEach(function(m){if(m.numero)_numerosEmUso[m.numero]=true;});
   listaExibicao.forEach(function(m){
     if(!m.numero){
       var _match=(m.titulo||'').match(/MAPA\s+(\d{3,})/i);
-      if(_match){
+      if(_match&&!_numerosEmUso[_match[1].padStart(4,'0')]){
         m.numero=_match[1].padStart(4,'0');
       } else {
-        m.numero=mapaProximoNumero();
+        var _tentativa=mapaProximoNumero();
+        var _tentativas=0;
+        while(_numerosEmUso[_tentativa]&&_tentativas<50){_tentativa=mapaProximoNumero();_tentativas++;}
+        m.numero=_tentativa;
       }
       mudouNumero=true;
+      _numerosEmUso[m.numero]=true;
     }
   });
   if(mudouNumero){
@@ -36665,6 +36715,11 @@ function mapaSalvarNaLista(estado){
   var resumo = {
     id: estado.id,
     ts: estado.ts,
+    // v115.1494 - ver comentário completo em mapaSalvarEstado(). criadoTs
+    // é o que a coluna "CRIADO EM" da lista passa a usar -- fallback pro
+    // ts antigo cobre mapas salvos antes desse fix (ainda não têm
+    // criadoTs na primeira leitura).
+    criadoTs: estado.criadoTs||(idx>=0?(lista[idx].criadoTs||lista[idx].ts):null)||estado.ts,
     nItens: nItens,
     nSel: (estado.itens||[]).filter(function(i){return i.sel!==false;}).length,
     step: estado.step,
@@ -37000,10 +37055,35 @@ mapaRender = function(){
       if(cf.usuario&&!((m.criadoPor&&m.criadoPor.nome||'').toLowerCase().indexOf(cf.usuario.toLowerCase())>=0))return false;
       if(cf.status&&st.label.toLowerCase().indexOf(cf.status.toLowerCase())<0)return false;
       if(cf.itens&&String(m.nItens).indexOf(cf.itens)<0)return false;
-      if(cf.data&&new Date(m.ts).toLocaleString('pt-BR').toLowerCase().indexOf(cf.data.toLowerCase())<0)return false;
+      if(cf.data&&new Date(m.criadoTs||m.ts).toLocaleString('pt-BR').toLowerCase().indexOf(cf.data.toLowerCase())<0)return false;
       if(cf.finalizado&&!(m.decididoTs&&new Date(m.decididoTs).toLocaleString('pt-BR').toLowerCase().indexOf(cf.finalizado.toLowerCase())>=0))return false;
       return true;
     });
+    // v115.1494 - A pedido do Vitor: ordenação A-Z clicável em todas as
+    // colunas (mesmo padrão já usado no modal "ampliar" dos Rankings).
+    window._mapasOrdenacao=window._mapasOrdenacao||{col:null,dir:1};
+    var _mOrd=window._mapasOrdenacao;
+    var _mColVal={
+      numero:function(m){var n=parseInt((m.numero||'').replace(/\D/g,''),10);return isNaN(n)?(m.numero||''):n;},
+      origem:function(m){return m.vendaOrigem?'cotação':(m.estoqueOrigem?'compra p/ estoque':'mapa');},
+      cliente:function(m){return (m.cliente||m.titulo||'').toUpperCase();},
+      status:function(m){return statusInfo(m.step).label;},
+      itens:function(m){return m.nItens||0;},
+      progresso:function(m){
+        var p=typeof solicCalcularProgressoMapa==='function'?solicCalcularProgressoMapa({mapaOrigem:m.id}):null;
+        return (p&&p.itensTotal)?(p.itensComPreco/p.itensTotal):-1;
+      },
+      data:function(m){return m.criadoTs||m.ts||0;},
+      finalizado:function(m){return m.decididoTs||0;}
+    };
+    if(_mOrd.col&&_mColVal[_mOrd.col]){
+      var _mGet=_mColVal[_mOrd.col];
+      listaFiltrada.sort(function(a,b){
+        var av=_mGet(a),bv=_mGet(b);
+        var v=(typeof av==='string'||typeof bv==='string')?String(av).localeCompare(String(bv),'pt-BR',{sensitivity:'base'}):(av<bv?-1:av>bv?1:0);
+        return v*_mOrd.dir;
+      });
+    }
     var html='<div style="max-width:100%">';
     html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">';
     html+='<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:18px">';
@@ -37040,14 +37120,21 @@ mapaRender = function(){
         {key:'acoes',def:185}
       ]);
       html+='<thead><tr style="background:var(--pf-table-head-bg);color:var(--pf-table-head-text)">';
-      html+=pfColTh(MCF_KEY,'numero','#',80,'left');
-      html+=pfColTh(MCF_KEY,'origem','ORIGEM',110,'left');
-      html+=pfColTh(MCF_KEY,'cliente','CLIENTE',280,'left');
-      html+=pfColTh(MCF_KEY,'status','STATUS',150,'center');
-      html+=pfColTh(MCF_KEY,'itens','ITENS',60,'center');
-      html+=pfColTh(MCF_KEY,'progresso','PROGRESSO',150,'left');
-      html+=pfColTh(MCF_KEY,'data','CRIADO EM',120,'left');
-      html+=pfColTh(MCF_KEY,'finalizado','FINALIZADO EM',120,'left');
+      // v115.1494 - Envolve só o TEXTO do label num span clicável (chama
+      // mapaOrdenarPor), sem tocar em pfColTh -- essa função é compartilhada
+      // com a tabela de Solicitações de Compras, que não pediu ordenação.
+      function mtLabelOrd(col,label){
+        var seta=_mOrd.col===col?(_mOrd.dir===1?' ↑':' ↓'):' ⇅';
+        return '<span onclick="mapaOrdenarPor(\''+col+'\')" style="cursor:pointer;user-select:none">'+label+seta+'</span>';
+      }
+      html+=pfColTh(MCF_KEY,'numero',mtLabelOrd('numero','#'),80,'left');
+      html+=pfColTh(MCF_KEY,'origem',mtLabelOrd('origem','ORIGEM'),110,'left');
+      html+=pfColTh(MCF_KEY,'cliente',mtLabelOrd('cliente','CLIENTE'),280,'left');
+      html+=pfColTh(MCF_KEY,'status',mtLabelOrd('status','STATUS'),150,'center');
+      html+=pfColTh(MCF_KEY,'itens',mtLabelOrd('itens','ITENS'),60,'center');
+      html+=pfColTh(MCF_KEY,'progresso',mtLabelOrd('progresso','PROGRESSO'),150,'left');
+      html+=pfColTh(MCF_KEY,'data',mtLabelOrd('data','CRIADO EM'),120,'left');
+      html+=pfColTh(MCF_KEY,'finalizado',mtLabelOrd('finalizado','FINALIZADO EM'),120,'left');
       html+='<th data-colkey="acoes" style="padding:8px 10px;text-align:right;font-size:10px;white-space:nowrap;overflow:hidden;background:var(--pf-table-head-bg)">AÇÕES</th>';
       html+='</tr>';
       // Linha de filtros por coluna
@@ -37070,7 +37157,7 @@ mapaRender = function(){
         html+='<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--pf-table-text-muted);font-size:13px">Nenhum mapa encontrado com esses filtros.</td></tr>';
       }
       listaFiltrada.forEach(function(m){
-        var dt=new Date(m.ts).toLocaleString('pt-BR');
+        var dt=new Date(m.criadoTs||m.ts).toLocaleString('pt-BR');
         var st=statusInfo(m.step);
         var prog=typeof solicCalcularProgressoMapa==='function'?solicCalcularProgressoMapa({mapaOrigem:m.id}):null;
         var progCompleto=!!(prog&&prog.fornTotal&&prog.itensComPreco===prog.itensTotal&&prog.itensTotal>0);
@@ -37085,8 +37172,11 @@ mapaRender = function(){
           m.estoqueOrigem?
           '<span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap;background:#FFF3E0;color:#B35C00">📦 Compra p/ Estoque</span>':
           '<span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap;background:#F3E8F7;color:#7B2D8B">📋 Mapa</span>';
-        html+='<tr style="border-bottom:0.5px solid var(--pf-table-border)" onmouseover="this.style.background=\'var(--pf-table-hover-bg)\'" onmouseout="this.style.background=\'\'">';
-        html+='<td style="padding:4px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(m.numero?'<span style="font-size:11px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 8px;border-radius:5px">'+pfEscHtml(m.numero)+'</span>':'—')+'</td>';
+        html+='<tr style="border-bottom:0.5px solid var(--pf-table-border);cursor:pointer" onmouseover="this.style.background=\'var(--pf-table-hover-bg)\'" onmouseout="this.style.background=\'\'" ondblclick="mapaAbrirDaListaSeguro(\''+m.id+'\',null);" title="Duplo clique pra abrir">';
+        // v115.1494 - A pedido do Vitor: descrição/título do mapa também
+        // embaixo do número (além de continuar em ORIGEM, onde já estava).
+        html+='<td style="padding:4px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(m.numero?'<span style="font-size:11px;font-family:monospace;font-weight:700;color:#7B2D8B;background:#F3E8F7;padding:2px 8px;border-radius:5px">'+pfEscHtml(m.numero)+'</span>':'—')+
+          (m.titulo?'<div style="font-size:10px;color:var(--pf-table-text-muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+pfEscHtml(m.titulo)+'">'+pfEscHtml(m.titulo)+'</div>':'')+'</td>';
         html+='<td style="padding:4px 10px;overflow:hidden;text-overflow:ellipsis">'+origemBadge+
           (m.titulo&&m.cliente?'<div style="font-size:11px;color:var(--pf-table-text);font-weight:600;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+pfEscHtml(m.titulo)+'">'+pfEscHtml(m.titulo)+'</div>':'')+
           '</td>';

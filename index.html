@@ -1631,7 +1631,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1494</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1495</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1739,7 +1739,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1494</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1495</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -55079,7 +55079,9 @@ async function mgLerArquivo(file){
   var status=document.getElementById('mgStatus');
   if(status)status.innerHTML='<span style="color:#1F4E79">🤖 Lendo...</span>';
   try{
-    var txt=await _anthropicReadDoc(file,'Extraia itens desta cotacao. JSON array: [{"ref":"","desc":"","marca":"","qtd":1,"preco":0,"ipi_pct":0,"st_val":0,"prazo":""}]. preco=unitario sem impostos. ipi_pct=% IPI (ex:7.8). prazo=valor da coluna Prazo (ex: IMEDIATO, NAO IM.). Sem markdown.','Margem - Leitura de Cotação');
+    // v115.1495 - Mesma correção do prompt de Leitura de Cotação (NF+
+    // Especial): st_val não pode ser confundido com Difal.
+    var txt=await _anthropicReadDoc(file,'Extraia itens desta cotacao. JSON array: [{"ref":"","desc":"","marca":"","qtd":1,"preco":0,"ipi_pct":0,"st_val":0,"prazo":""}]. preco=unitario sem impostos. ipi_pct=% IPI (ex:7.8). st_val=valor monetario de ICMS-ST (Substituicao Tributaria) por unidade -- so preencha se houver coluna ST/ICMS-ST explicita. A coluna "Difal" (diferencial de aliquota) NAO e ST, sao impostos diferentes -- nunca use o valor de Difal como st_val. Sem coluna ST explicita (ou rodape mostrando "Valor Sub. Trib.: R$ 0,00"), st_val=0. prazo=valor da coluna Prazo (ex: IMEDIATO, NAO IM.). Sem markdown.','Margem - Leitura de Cotação');
     var m=txt.match(/\[[\s\S]*/);if(m)txt=m[0];
     var itens=JSON.parse(txt);
     var naoImed=itens.filter(function(it){return pfPrazoNaoIm(it.prazo);});
@@ -55622,7 +55624,25 @@ async function nfLerPDF(input){
   nfRenderTabela();
   if(status)status.textContent='🤖 Lendo cotação...';
   try{
-    var prompt='Extraia todos os itens desta cotação de venda. Retorne SOMENTE JSON array, sem markdown. Cada objeto: {"ref":"codigo","desc":"descricao","marca":"","qtd":1,"preco":0.00,"st_val":0.00,"ipi_val":0.00,"total_liq":0.00,"prazo":""}. IMPORTANTE: preco = coluna Unitário (preço base sem impostos). st_val = valor monetário da ST por unidade (ex: 15.36). ipi_val = valor monetário do IPI por unidade. total_liq = preco + st_val + ipi_val (se a planilha tiver coluna própria use esse valor). prazo = IMEDIATO ou NAO IM. Extraia TODOS os itens.';
+    // v115.1495 - BUG DE RAIZ corrigido (Vitor: "a parte da nota desse
+    // calculo não bateu, o valor teria que ser 455,57" -- cotação 374996,
+    // NF saiu 523,10): o prompt pedia "st_val = valor monetário da ST",
+    // mas esse layout de cotação (TRIEX) não tem coluna "ST" nenhuma --
+    // tem ICMS%, Difal$ e "Unit. C/ST+IPI". Sem instrução clara, a IA
+    // pegava a coluna Difal (parecida, monetária, por unidade) e usava
+    // como se fosse ST -- inflando total_liq (e portanto a NF, que é 20%
+    // dele) em cada item. Só que Difal é OUTRO imposto, diferente de
+    // ICMS-ST -- essa cotação especificamente mostra "VALOR SUB. TRIB.:
+    // R$ 0,00" no rodapé, ou seja a ST de verdade já é zero. Prompt agora
+    // deixa explícito: Difal NUNCA é ST; se não tiver coluna ST/ICMS-ST
+    // dedicada (ou o rodapé mostrar Valor Sub. Trib. zerado), st_val=0.
+    var prompt='Extraia todos os itens desta cotação de venda. Retorne SOMENTE JSON array, sem markdown. Cada objeto: {"ref":"codigo","desc":"descricao","marca":"","qtd":1,"preco":0.00,"st_val":0.00,"ipi_val":0.00,"total_liq":0.00,"prazo":""}. '+
+      'IMPORTANTE: preco = coluna Unitário (preço base sem impostos). '+
+      'ipi_val = valor monetário do IPI por unidade (calcule preco × %IPI se só tiver a alíquota). '+
+      'st_val = valor monetário da ICMS-ST (Substituição Tributária) por unidade -- só existe se houver uma coluna explícita de ST/ICMS-ST, OU se puder ser calculado a partir dela. '+
+      'ATENÇÃO -- ERRO COMUM A EVITAR: a coluna "Difal" (diferencial de alíquota de ICMS) NÃO é ST -- são impostos diferentes, nunca confunda um pelo outro. Se o documento não tiver nenhuma coluna de ST/ICMS-ST explícita, ou se o rodapé mostrar algo como "Valor Sub. Trib.: R$ 0,00" (ST zerada pra cotação inteira), então st_val=0 pra TODOS os itens -- não pegue o valor de Difal nesse caso, mesmo que pareça a coluna monetária mais parecida. '+
+      'Se existir uma coluna já pronta tipo "Unit. C/ST+IPI" ou "Preço com impostos", use ela direto como total_liq (nesse caso não precisa recalcular st_val/ipi_val, só preencher com o que for coerente: total_liq - preco, dividido entre ipi_val e st_val se der pra separar, senão IPI primeiro). '+
+      'prazo = IMEDIATO ou NAO IM. Extraia TODOS os itens.';
     var txt=await _anthropicReadDoc(file, prompt, 'Leitura de Cotação');
     var m=txt.match(/\[[\s\S]*/); if(m)txt=m[0];
     var itens;

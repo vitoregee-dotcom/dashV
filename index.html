@@ -1025,9 +1025,20 @@ como antes. */
    conteudo da tela (lista/tabela atras da barra), sem isso ficaria
    ilegivel. Itens de dock (.pf-dock-item) nao ampliam (transform:none,
    v115.1294), entao pra eles o rotulo cola logo acima. */
-.pf-nav-label{display:block;position:absolute;left:50%;bottom:calc(100% + 64px);transform:translateX(-50%);font-size:11px;line-height:1.2;white-space:nowrap;text-align:center;padding:4px 9px;border-radius:8px;background:var(--pf-card-bg);border:1px solid var(--pf-sidebar-border);color:var(--pf-text);box-shadow:0 2px 8px rgba(0,0,0,.14);opacity:0;transition:opacity .15s ease;pointer-events:none;z-index:6}
+/* v115.1499 - BUG corrigido (Vitor: "nao estao saindo da caixa
+   flutuante"): a pilula do rotulo (v115.1498) e mais larga que o item e
+   fica centrada nele, entao sobra pra fora nas duas pontas. Elemento
+   ABSOLUTO ainda conta pro scrollWidth do container -- e com opacity:0
+   ele continua no layout, invisivel mas ocupando. Isso empurrava
+   nav.scrollWidth alem de nav.clientWidth e ligava sozinho o modo
+   "rolando" (overflow-y:hidden), que corta o zoom do hover. Mesmo
+   mecanismo da v115.1433 (botao de opcoes vazando 2px). Trocado
+   opacity por display:none -- escondido nao ocupa layout nenhum. O fade
+   virou animation, que roda no display:block do hover. */
+.pf-nav-label{display:none;position:absolute;left:50%;bottom:calc(100% + 64px);transform:translateX(-50%);font-size:11px;line-height:1.2;white-space:nowrap;text-align:center;padding:4px 9px;border-radius:8px;background:var(--pf-card-bg);border:1px solid var(--pf-sidebar-border);color:var(--pf-text);box-shadow:0 2px 8px rgba(0,0,0,.14);pointer-events:none;z-index:6}
 .pf-dock-item .pf-nav-label{bottom:calc(100% + 6px)}
-.pf-nav-item:hover .pf-nav-label{opacity:1}
+@keyframes pfNavLabelIn{from{opacity:0}to{opacity:1}}
+.pf-nav-item:hover .pf-nav-label{display:block;animation:pfNavLabelIn .15s ease}
 .pf-nav-sub{
   padding:7px 10px;border-radius:7px;cursor:pointer;font-size:12px;
   font-weight:600;color:var(--pf-text-muted);transition:background .12s,color .12s;
@@ -1649,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1498</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1499</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1757,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1498</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1499</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -46570,7 +46581,22 @@ function pfNavAtualizarOverflow(){
   var nav=document.getElementById('pfNav');
   if(!nav)return;
   requestAnimationFrame(function(){
-    if(nav.scrollWidth>nav.clientWidth+1)nav.classList.add('pf-nav-rolando');
+    // v115.1499 - Era medido por nav.scrollWidth, que soma QUALQUER
+    // descendente absoluto que vaze pra fora (rotulo, badge, botao de
+    // canto) mesmo invisivel -- ja ligou o modo rolagem sozinho duas
+    // vezes (v115.1433 e v115.1498). Agora soma so a largura de layout
+    // dos filhos EM FLUXO, que e o que realmente decide se cabe ou nao.
+    // offsetWidth ignora transform, entao o zoom do hover tambem nao
+    // contamina mais a conta.
+    var largura=0;
+    Array.prototype.forEach.call(nav.children,function(el){
+      var cs=window.getComputedStyle(el);
+      if(cs.display==='none'||cs.position==='absolute'||cs.position==='fixed')return;
+      largura+=el.offsetWidth;
+    });
+    var cn=window.getComputedStyle(nav);
+    var util=nav.clientWidth-(parseFloat(cn.paddingLeft)||0)-(parseFloat(cn.paddingRight)||0);
+    if(largura>util+1)nav.classList.add('pf-nav-rolando');
     else nav.classList.remove('pf-nav-rolando');
   });
 }

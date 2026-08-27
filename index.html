@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1501</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1502</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1501</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1502</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -22218,9 +22218,18 @@ function pfRankFiltroSetMeses(chave,v){
 // paraExport, em vez de manter duas listas que precisam ser editadas
 // juntas toda vez (mesmo tipo de armadilha do mapaEmail, que chegou a
 // ter 3 versoes empilhadas com so a ultima rodando).
-function pfRankColDefs(paraExport){
+// v115.1502 - BUG corrigido (Vitor: "valor em estoque acho que esta com
+// muitas casas decimais"): a flag chamava-se paraExport e era ligada pros
+// DOIS destinos, Excel e PDF -- mas so o Excel precisa de numero cru (pra
+// somar a coluna). O PDF e texto, entao recebia o float direto do
+// javascript, com o lixo de precisao binaria junto: 8052*21,87 sai como
+// 176097.24000000002. Renomeada pra paraExcel e o PDF passou a usar a
+// mesma formatacao da tela. No Excel o valor tambem passa a ser
+// arredondado em 2 casas, senao a celula guarda o mesmo lixo.
+function pfRankColDefs(paraExcel){
   var brl=function(v){return v?v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—';};
-  var num=function(v){return paraExport?v:Math.round(v).toLocaleString('pt-BR');};
+  var num=function(v){return paraExcel?v:Math.round(v).toLocaleString('pt-BR');};
+  var din=function(v){return paraExcel?Math.round(v*100)/100:brl(v);};
   return [
     {k:'codigo',label:'Código',get:function(d){return d.ref;},val:function(d){return (d.ref||'').toUpperCase();}},
     {k:'marca',label:'Marca',get:function(d){return d.marca||'';},val:function(d){return (d.marca||'').toUpperCase();}},
@@ -22248,8 +22257,8 @@ function pfRankColDefs(paraExport){
     // Estoque (saldo x custo), que e o que permite ordenar a lista por
     // dinheiro parado em vez de por quantidade de peca. Na exportacao vai
     // numero cru, pro Excel poder somar a coluna.
-    {k:'custo',label:'Custo Unit.',get:function(d){var v=+d.custo||0;return paraExport?v:brl(v);},val:function(d){return +d.custo||0;}},
-    {k:'valorEstoque',label:'Valor em Estoque',get:function(d){var v=(+d.saldo||0)*(+d.custo||0);return paraExport?v:brl(v);},val:function(d){return (+d.saldo||0)*(+d.custo||0);}},
+    {k:'custo',label:'Custo Unit.',get:function(d){return din(+d.custo||0);},val:function(d){return +d.custo||0;}},
+    {k:'valorEstoque',label:'Valor em Estoque',get:function(d){return din((+d.saldo||0)*(+d.custo||0));},val:function(d){return (+d.saldo||0)*(+d.custo||0);}},
     {k:'familia',label:'Família',get:function(d){return d.familia||'';},val:function(d){return (d.familia||'').toUpperCase();}}
   ];
 }
@@ -22381,9 +22390,26 @@ function pfRankAmpliarOrdenar(chave,col){
   window._pfRankAmpliarSort[chave]=atual;
   pfRankAmpliarAtualizarTabela(chave);
 }
+// v115.1502 - BUG corrigido (Vitor: "essa caixa de texto, esta saindo
+// cortada"): o menu abre com right:0, crescendo 190px pra ESQUERDA a
+// partir da setinha. Isso funcionava enquanto o grupo de exportar ficava
+// encostado na direita da barra -- so que com as colunas novas
+// (Custo/Valor em Estoque) os checkboxes passaram a ocupar duas linhas, o
+// flex-wrap jogou o grupo pro comeco da linha de baixo, e dali os 190px
+// pra esquerda estouram a borda do modal, que tem overflow:hidden e corta
+// o texto. Em vez de fixar um lado, agora mede depois de abrir e vira pro
+// outro lado se nao couber -- fica certo em qualquer largura de barra.
 function pfRankAmpliarToggleMenu(){
   var m=document.getElementById('pfRankAmpliarMenu');
-  if(m)m.style.display=(m.style.display==='none'||!m.style.display)?'block':'none';
+  if(!m)return;
+  var abrindo=(m.style.display==='none'||!m.style.display);
+  m.style.display=abrindo?'block':'none';
+  if(!abrindo)return;
+  m.style.left='auto';m.style.right='0';
+  var caixa=document.querySelector('#pfRankAmpliarModal > div');
+  if(!caixa)return;
+  var rm=m.getBoundingClientRect(),rc=caixa.getBoundingClientRect();
+  if(rm.left<rc.left+4){m.style.right='auto';m.style.left='0';}
 }
 function pfRankAmpliarAtualizarTabela(chave){
   var dados=window._pfRankFullData[chave];
@@ -22395,10 +22421,10 @@ function pfRankAmpliarAtualizarTabela(chave){
 // v115.1442 - Monta a mesma tabela HTML usada no modal (com as colunas
 // ativas no momento) pra reaproveitar tanto no PDF quanto no Excel --
 // sempre reflete a seleção de colunas marcada pelo Vitor.
-function pfRankMontarLinhasExport(chave){
+function pfRankMontarLinhasExport(chave,paraExcel){
   var dados=window._pfRankFullData[chave];
   var cols=window._pfRankColunas;
-  var colDefs=pfRankColDefs(true);
+  var colDefs=pfRankColDefs(!!paraExcel);
   var ativos=colDefs.filter(function(c){return cols[c.k];});
   // v115.1484 - Exportação (PDF/Excel) respeita a mesma ordenação que
   // está sendo mostrada na tela nesse momento.
@@ -22420,7 +22446,7 @@ function pfRankMontarLinhasExport(chave){
   return {dados:{titulo:dados.titulo,itens:itensOrdenados},ativos:ativos};
 }
 async function pfRankExportar(chave,modo){
-  var m=pfRankMontarLinhasExport(chave);
+  var m=pfRankMontarLinhasExport(chave,modo==='excel');
   if(!m.ativos.length){pfAlert('Marque pelo menos uma coluna antes de exportar.');return;}
   var hoje=new Date().toLocaleDateString('pt-BR');
   var nomeArqBase=(m.dados.titulo||'ranking').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')+'-'+new Date().toISOString().slice(0,10);
@@ -22466,6 +22492,7 @@ async function pfRankExportar(chave,modo){
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+pfEscHtml(m.dados.titulo)+'</title>'+
     '<style>body{font-family:Calibri,Arial,sans-serif;margin:0;font-size:11px;color:#1a2332;background:#eef1f5}'+
     '.pfRankTabela{width:100%;border-collapse:collapse}.pfRankTabela th{background:#F0F4F8;color:#1F4E79;padding:7px;font-size:11px;text-align:left;border-bottom:2px solid #1F4E79}'+
+    '.pfRankTabela tr,.pfRankTabela td,.pfRankTabela th{page-break-inside:avoid;break-inside:avoid}'+
     '</style></head><body>'+
     pfEmailWrapOpen('pfRankPdfConteudo')+
     pfDocHeaderHtml(m.dados.titulo)+
@@ -22481,7 +22508,13 @@ async function pfRankExportar(chave,modo){
     container.innerHTML=html;
     document.body.appendChild(container);
     var alvo=container.querySelector('#pfRankPdfConteudo')||container;
-    var opts={margin:0,filename:nomeArqBase+'.pdf',html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'pt',format:'a4'}};
+    // v115.1502 - BUG corrigido (Vitor: "o PDF que e criado tbm" [sai
+    // cortado]): sem opcao de pagebreak, o html2pdf fatia a imagem
+    // renderizada em altura fixa de pagina e corta no meio da linha da
+    // tabela -- metade do item no fim de uma pagina, metade no comeco da
+    // outra. avoid-all + a regra css tr{page-break-inside:avoid} empurram
+    // a linha inteira pra proxima pagina em vez de parti-la.
+    var opts={margin:0,filename:nomeArqBase+'.pdf',html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'pt',format:'a4'},pagebreak:{mode:['avoid-all','css','legacy']}};
     if(modo==='pdf-visualizar'){
       var blob=await html2pdf().set(opts).from(alvo).outputPdf('blob');
       container.remove();

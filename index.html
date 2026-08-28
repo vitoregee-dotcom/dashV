@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1510</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1511</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1510</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1511</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -17737,11 +17737,22 @@ async function maEnviarNotificacaoGlobal(item,tipo,detalhe){
   var ehChegou=tipo==='chegou';
   var emails=[];
   if(ehChegou){
-    var avise=[];
-    try{avise=JSON.parse(localStorage.getItem('aviseItems')||'[]');}catch(e){}
-    var chaveDe=function(r,m){return (r||'').toUpperCase()+'||'+(m||'').toUpperCase();};
-    var estaNaLista=avise.some(function(a){return chaveDe(a.ref,a.marca)===chaveDe(item.ref,item.marca);});
-    if(!estaNaLista)return; // ninguém (neste usuário) pediu pra ser avisado desse item
+    // v115.1511 - BUG DE RAIZ corrigido (Vitor: "recebi o aviso [genérico],
+    // e tinha o aviso que o cliente específico estava esperando... quero
+    // um aviso específico pra itens que tenham cliente esperando" -- item
+    // 231247, cliente T&M): essa função só é chamada com um item que JÁ
+    // VEIO da lista de Me Avise de verdade (meAvise_lista) -- é o único
+    // lugar que a chama. Mas antes de mandar o e-mail, checava se o
+    // mesmo item também estava na lista ANTIGA/paralela (`aviseItems`,
+    // desligada há uma sessão, v115.1490) -- como nunca estava (item só
+    // existia no meAvise_lista), a função saía sem mandar nada. Só que a
+    // remoção do item do Me Avise, feita pelo código que chama essa
+    // função, acontecia de qualquer jeito logo depois -- por isso o item
+    // sumia certinho do Me Avise, mas o aviso "cliente X estava
+    // aguardando" nunca saía. Vitor só recebia o e-mail genérico
+    // "Chegou no estoque" (de pfComprasEnviarResumo, sem nenhuma menção
+    // a cliente). Checagem removida -- não faz sentido mesmo, já que
+    // `item` sempre vem do Me Avise por construção.
     var manualChegou=(typeof pfNotifEmail==='function')?pfNotifEmail():'';
     if(manualChegou)emails.push(manualChegou);
     if(item.email_extra&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item.email_extra)&&emails.indexOf(item.email_extra)<0)emails.push(item.email_extra);
@@ -17750,10 +17761,16 @@ async function maEnviarNotificacaoGlobal(item,tipo,detalhe){
     emails=['vitor.lima@triexpecas.com.br'];
   }
   var vistos={};emails=emails.filter(function(e){var k=e.toLowerCase();if(vistos[k])return false;vistos[k]=true;return true;});
+  // v115.1511 - A pedido do Vitor: quando o item tem cliente marcado no
+  // Me Avise, o aviso de "chegou" passa a citar isso explicitamente, no
+  // formato que ele pediu ("231247 chegou, cliente T&M estava
+  // aguardando"), em vez de um texto genérico que não distingue item com
+  // cliente esperando de item sem ninguém esperando.
+  var textoChegouComCliente=(item.nome_cliente?(item.ref+' chegou, cliente '+item.nome_cliente+' estava aguardando.'):'✅ Chegou no estoque (detectado automaticamente)');
   var textos={
     comprado:'🛒 Comprado! Pedido de compra gerado ('+detalhe+' unidades)',
     faturado:'📦 Faturado! Já está a caminho, em trânsito ('+detalhe+' unidades)',
-    chegou:'✅ Chegou no estoque (detectado automaticamente)',
+    chegou:textoChegouComCliente,
     pedido_mudou:'📦 Pedido de compra alterado: '+detalhe
   };
   var obsTxt=textos[tipo]||textos.pedido_mudou;
@@ -17771,7 +17788,7 @@ async function maEnviarNotificacaoGlobal(item,tipo,detalhe){
     pfDocHeaderHtml('Aviso automático — Me Avise')+
     pfEmailBodyOpen()+
     '<p style="margin:0 0 16px;font-size:14px;font-weight:700;color:'+(corTipo[tipo]||'#1F4E79')+'">'+obsTxt+'</p>'+
-    pfDocCardHtml('',pfDocCampoHtml('Referência',item.ref)+pfDocCampoHtml('Marca',item.marca||'—')+(item.desc?pfDocCampoHtml('Descrição',item.desc):''))+
+    pfDocCardHtml('',pfDocCampoHtml('Referência',item.ref)+pfDocCampoHtml('Marca',item.marca||'—')+(item.desc?pfDocCampoHtml('Descrição',item.desc):'')+(item.nome_cliente?pfDocCampoHtml('Cliente aguardando',item.nome_cliente):''))+
     '<p style="margin:16px 0 0;font-size:12px;color:#8a9ab0">Aviso automático do PartsFlow.</p>'+
     pfEmailBodyClose()+pfEmailWrapClose();
   // Notificação do navegador (além do e-mail) -- só pra quem está com a

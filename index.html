@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1519</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1520</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1519</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1520</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -17774,6 +17774,12 @@ async function maEnviarNotificacaoGlobal(item,tipo,detalhe){
     pedido_mudou:'📦 Pedido de compra alterado: '+detalhe
   };
   var obsTxt=textos[tipo]||textos.pedido_mudou;
+  // v115.1520 - A pedido do Vitor (central de controle de notificações):
+  // essa função cobre TUDO que é "Me Avise" (comprado/faturado/chegou/
+  // pedido_mudou de item específico) -- os dois canais (e-mail e
+  // notificação do navegador) obedecem o que o usuário configurou pro
+  // aviso "meavise".
+  var cfgMeAvise=(typeof pfAvisosConfigGet==='function')?pfAvisosConfigGet('meavise'):{email:true,navegador:true};
   // v115.1001 - A pedido do Vitor: e-mail no "nosso padrão" (mesmo visual
   // bonito usado em Transferência/Carta de Correção etc — cabeçalho
   // PartsFlow, cartão de campos, cores da marca), em vez de texto simples.
@@ -17795,7 +17801,7 @@ async function maEnviarNotificacaoGlobal(item,tipo,detalhe){
   // aba aberta nesse instante, claro, mas é imediata (não depende de checar
   // e-mail).
   try{
-    if(typeof Notification!=='undefined'){
+    if(cfgMeAvise.navegador&&typeof Notification!=='undefined'){
       if(Notification.permission==='granted'){
         new Notification('🔔 Me Avise — '+item.ref,{body:obsTxt,tag:'meavise-'+item.ref,icon:'https://vitoregee-dotcom.github.io/dashV/icons/pack/pf-icon-086.png'});
       }else if(Notification.permission!=='denied'){
@@ -17803,6 +17809,7 @@ async function maEnviarNotificacaoGlobal(item,tipo,detalhe){
       }
     }
   }catch(eNotif){}
+  if(!cfgMeAvise.email)return;
   return Promise.all(emails.map(function(toEmail){
     return emailjs.send('service_2lp37gt','template_8r5j0sq',{
       to_email:toEmail,ref:item.ref,marca:item.marca||'—',obs:obsTxt,obs_html:obsHtml,
@@ -17823,6 +17830,10 @@ async function maEnviarNotificacaoGlobal(item,tipo,detalhe){
 // (só quem pediu pra ser avisado daquele item específico).
 async function maEnviarNotificacaoLote(tipo,grupo){
   if(!grupo||!grupo.length)return;
+  // v115.1520 - A pedido do Vitor (central de controle de notificações):
+  // mesmo canal "meavise" da maEnviarNotificacaoGlobal.
+  var cfgMeAviseLote=(typeof pfAvisosConfigGet==='function')?pfAvisosConfigGet('meavise'):{email:true};
+  if(!cfgMeAviseLote.email)return;
   var corPorTipo={comprado:'#0D7377',faturado:'#7B2D8B',pedido_mudou:'#E67E22'};
   var colPorTipo={comprado:'Pedido',faturado:'Em trânsito',pedido_mudou:'Pedido agora'};
   var emojiPorTipo={comprado:'🛒',faturado:'📦',pedido_mudou:'📦'};
@@ -27269,7 +27280,11 @@ function mapaNotificarCotacaoRecebida(fid){
     var mapaCliente=window._mapaEstadoCliente||'';
     var fornNome=forn.fantasia||forn.nome||forn.razao||'Fornecedor';
     var obsTxt=itensPreenchidos+'/'+itensTotal+' itens · '+prog.fornecedoresRespondidos+' de '+prog.fornecedoresTotal+' fornecedores responderam';
-    if(typeof emailjs!=='undefined'&&toEmail){
+    // v115.1520 - A pedido do Vitor (central de controle de notificações):
+    // e-mail e notificação do navegador obedecem o que foi configurado
+    // pro aviso "cotacao".
+    var cfgCotacao=(typeof pfAvisosConfigGet==='function')?pfAvisosConfigGet('cotacao'):{email:true,navegador:true};
+    if(cfgCotacao.email&&typeof emailjs!=='undefined'&&toEmail){
       emailjs.send('service_2lp37gt','template_8r5j0sq',{
         to_email:toEmail,
         ref:'🔔 Cotação recebida — '+mapaTitulo,
@@ -27286,20 +27301,13 @@ function mapaNotificarCotacaoRecebida(fid){
       +'<div style="font-weight:800;font-size:14px;color:#7A5000">🔔 Cotação recebida!</div>'
       +'<button onclick="pfMinimizarAviso(\''+cotAvisoId+'\')" title="Minimizar" style="background:none;border:none;color:#8a9ab0;font-size:15px;cursor:pointer;line-height:1;padding:0;flex-shrink:0">➖</button>'
       +'</div>';
-    if(toEmail)conteudoCompleto+='<div style="font-size:11px;color:#27AE60;margin:4px 0 8px">✅ E-mail enviado para '+toEmail+'</div>';
-    // v115.1516 - BUG DE RAIZ corrigido (Vitor: "eu não te mostrei onde é
-    // a barra lateral?" -- ele estava falando da barra de notificações DO
-    // SISTEMA/navegador, tipo Windows/Edge, não do dock do app. A v115.1515
-    // só tinha adicionado um badge DENTRO do app -- não é a mesma coisa. O
-    // padrão que já funciona pra Me Avise (linha ~17800, tag:'meavise-'+
-    // item.ref) é o que faz aparecer e empilhar naquela barra: cada
-    // notificação com uma tag ÚNICA vira uma entrada nova ali, em vez de
-    // substituir a anterior -- é assim que os contadores tipo "52" que o
-    // Vitor já via se acumulam. Replicado aqui, com o ícone real do "Mapa
-    // de Compras" (pf-icon-015.png, o mesmo que ele já escolheu no
-    // seletor de ícones -- não emoji nem desenho novo).
+    if(toEmail&&cfgCotacao.email)conteudoCompleto+='<div style="font-size:11px;color:#27AE60;margin:4px 0 8px">✅ E-mail enviado para '+toEmail+'</div>';
+    // v115.1520 - Comentário antigo aqui (v115.1516) mencionava um badge no
+    // ícone Compras do dock -- isso foi revertido na v115.1517 (o lugar
+    // certo é a barra de avisos #pfAvisosRail, não o dock). Notificação do
+    // navegador agora obedece cfgCotacao.navegador (central de controle).
     try{
-      if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
+      if(cfgCotacao.navegador&&typeof Notification!=='undefined'&&Notification.permission==='granted'){
         new Notification('🔔 Cotação recebida — '+fornNome,{
           body:mapaTitulo+' · '+obsTxt,
           tag:'cotrecebida-'+cotAvisoId,
@@ -27307,15 +27315,10 @@ function mapaNotificarCotacaoRecebida(fid){
         });
       }
     }catch(eNotifCot){}
-    // v115.1515 - A pedido do Vitor ("vamos colocar ele nessa barra tbm,
-    // ao invés daquele flutuante"): esse popup flutuante que ficava por
-    // cima da tela até você clicar OK saiu daqui -- agora é uma entrada
-    // na lista de "cotações não lidas" (pfCotacoesNaoLidas), que aparece
-    // como badge vermelho no ícone Compras da barra de baixo (mesmo
-    // padrão visual de Ferramentas Abertas), com um flyout no clique
-    // listando cada uma. Ver pfCotacoesNaoLidasAdicionar() e
-    // pfAtualizarBadgeCompras() (agora dando prioridade pra esse
-    // contador quando > 0, em vez do de "itens selecionados no mapa").
+    // v115.1517 - Esse popup flutuante que ficava por cima da tela até
+    // clicar OK saiu daqui -- virou entrada em "cotações não lidas"
+    // (pfCotacoesNaoLidas), que aparece no ícone de cotação da barra de
+    // avisos (#pfAvisosRail). Ver pfCotacoesNaoLidasAdicionar().
     pfCotacoesNaoLidasAdicionar({
       id:cotAvisoId,
       fid:fid,
@@ -34950,7 +34953,12 @@ var PF_SYNC_KEYS = [
   'pfAvisosLidoEm',
   'meAvise_lista_deletados',
   'pfChavesDevEnc',
-  'pfCotacoesNaoLidas'
+  'pfCotacoesNaoLidas',
+  // v115.1520 - A pedido do Vitor: central de controle de notificações --
+  // preferência PESSOAL (cada usuário decide a sua), por isso só entra
+  // aqui (sincroniza entre aparelhos do MESMO usuário) e não em
+  // sharedKeys/PF_CATALOGO_UNICO_KEYS (que é dado da empresa inteira).
+  'pfAvisosConfig'
 ];
 
 async function pfSyncPush(keys){
@@ -42904,6 +42912,11 @@ function pfArrastavelAplicar(container,storageKey){
 // item -- não manda e-mail vazio.
 async function pfComprasEnviarResumo(tipo,itens){
   if(!itens||!itens.length)return;
+  // v115.1520 - A pedido do Vitor (central de controle de notificações):
+  // não manda e-mail se o usuário desligou esse canal pra esse tipo de
+  // aviso na Central de Notificações.
+  var cfgAviso=(typeof pfAvisosConfigGet==='function')?pfAvisosConfigGet(tipo):{email:true};
+  if(!cfgAviso.email)return;
   // v115.1030 - BUG GRAVE corrigido (a pedido do Vitor): essa função mandava
   // e-mail pra TODOS os perfis cadastrados (`profiles?select=email`), sem
   // checar quem realmente pediu pra ser avisado daquele item. Agora os dois
@@ -44332,6 +44345,97 @@ async function pfAvisosLimparListaGlobal(chave){
     console.warn('pfAvisosLimparListaGlobal: não conseguiu apagar no servidor ainda, vai tentar de novo se abrir de novo', e);
   }
 }
+// v115.1520 - A pedido do Vitor: central de controle de notificações --
+// pra cada um dos 6 avisos da barra lateral (#pfAvisosRail), decide: 1)
+// se o ícone fica sempre visível ou só aparece quando tem algo pendente
+// (n>0); 2) se manda e-mail; 3) se dispara notificação do navegador.
+// "solicitado" só tem a opção 1 (nunca teve e-mail nem notificação de
+// navegador -- só o log/badge).
+var PF_AVISOS_CONFIG_DEFAULT={
+  solicitado:{fixo:true},
+  comprado:{fixo:true,email:true,navegador:false},
+  faturado:{fixo:true,email:true,navegador:false},
+  chegou:{fixo:true,email:true,navegador:false},
+  cotacao:{fixo:true,email:true,navegador:true},
+  meavise:{fixo:true,email:true,navegador:true}
+};
+function pfAvisosConfigLoad(){
+  var raw={};
+  try{raw=JSON.parse(pfSafeGetItem('pfAvisosConfig','{}'))||{};}catch(e){}
+  var merged={};
+  Object.keys(PF_AVISOS_CONFIG_DEFAULT).forEach(function(k){
+    merged[k]=Object.assign({},PF_AVISOS_CONFIG_DEFAULT[k],raw[k]||{});
+  });
+  return merged;
+}
+function pfAvisosConfigGet(tipo){
+  return pfAvisosConfigLoad()[tipo]||{fixo:true,email:true,navegador:false};
+}
+function pfAvisosConfigSalvar(cfg){
+  pfSafeSetItem('pfAvisosConfig',JSON.stringify(cfg));
+  if(typeof pfSyncPush==='function')pfSyncPush(['pfAvisosConfig']).catch(function(){});
+}
+function pfAvisosConfigToggle(tipo,campo){
+  var cfg=pfAvisosConfigLoad();
+  cfg[tipo][campo]=!cfg[tipo][campo];
+  pfAvisosConfigSalvar(cfg);
+  if(typeof pfAvisosAtualizar==='function')pfAvisosAtualizar();
+  pfAvisosConfigRenderModal();
+}
+var PF_AVISOS_CONFIG_LABELS={
+  solicitado:{icone:'pf-icon-010.png',nome:'Solicitado'},
+  comprado:{icone:'pf-icon-029.png',nome:'Comprado'},
+  faturado:{icone:'pf-icon-013.png',nome:'Faturado'},
+  chegou:{icone:'pf-icon-102.png',nome:'Chegou'},
+  cotacao:{icone:'pf-icon-015.png',nome:'Cotação recebida'},
+  meavise:{icone:'pf-icon-086.png',nome:'Me Avise'}
+};
+function pfAvisosConfigAbrirPainel(){
+  var existente=document.getElementById('pfAvisosConfigModal');
+  if(existente){existente.remove();return;}
+  var overlay=document.createElement('div');
+  overlay.id='pfAvisosConfigModal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+  overlay.innerHTML='<div id="pfAvisosConfigConteudo" style="background:var(--pf-card-bg,#fff);border-radius:12px;padding:22px;width:520px;max-width:100%;max-height:88vh;overflow:auto" onclick="event.stopPropagation()"></div>';
+  document.body.appendChild(overlay);
+  pfAvisosConfigRenderModal();
+}
+function pfAvisosConfigRenderModal(){
+  var box=document.getElementById('pfAvisosConfigConteudo');
+  if(!box)return;
+  var cfg=pfAvisosConfigLoad();
+  var linhasHtml=Object.keys(PF_AVISOS_CONFIG_LABELS).map(function(tipo){
+    var info=PF_AVISOS_CONFIG_LABELS[tipo];
+    var c=cfg[tipo];
+    var temCanais=(tipo!=='solicitado');
+    function toggleHtml(campo,ativo){
+      return '<span onclick="pfAvisosConfigToggle(\''+tipo+'\',\''+campo+'\')" style="display:inline-flex;align-items:center;width:34px;height:19px;border-radius:10px;background:'+(ativo?'#27AE60':'#D0D8E0')+';cursor:pointer;padding:2px;transition:background .15s">'+
+        '<span style="width:15px;height:15px;border-radius:50%;background:#fff;transform:translateX('+(ativo?'15px':'0')+');transition:transform .15s"></span></span>';
+    }
+    return '<tr style="border-bottom:1px solid var(--pf-sidebar-border)">'+
+      '<td style="padding:10px 6px;display:flex;align-items:center;gap:8px">'+
+        '<img src="icons/pack/'+info.icone+'" style="width:26px;height:26px;object-fit:contain">'+
+        '<span style="font-size:13px;font-weight:700;color:var(--pf-text)">'+info.nome+'</span>'+
+      '</td>'+
+      '<td style="padding:10px 6px;text-align:center">'+toggleHtml('fixo',c.fixo)+'</td>'+
+      '<td style="padding:10px 6px;text-align:center">'+(temCanais?toggleHtml('email',c.email):'<span style="color:var(--pf-text-muted);font-size:16px">—</span>')+'</td>'+
+      '<td style="padding:10px 6px;text-align:center">'+(temCanais?toggleHtml('navegador',c.navegador):'<span style="color:var(--pf-text-muted);font-size:16px">—</span>')+'</td>'+
+    '</tr>';
+  }).join('');
+  box.innerHTML='<h3 style="margin:0 0 4px;color:var(--pf-text)">🔔 Central de Notificações</h3>'+
+    '<div style="font-size:12px;color:var(--pf-text-muted);margin-bottom:14px">Pra cada aviso: se o ícone fica sempre visível na barra lateral (mesmo sem nada pendente), se manda e-mail e se dispara notificação do navegador.</div>'+
+    '<table style="width:100%;border-collapse:collapse">'+
+      '<thead><tr style="font-size:10px;color:var(--pf-text-muted);text-transform:uppercase;letter-spacing:.03em">'+
+        '<th style="text-align:left;padding:0 6px 8px">Aviso</th>'+
+        '<th style="padding:0 6px 8px">Sempre visível</th>'+
+        '<th style="padding:0 6px 8px">E-mail</th>'+
+        '<th style="padding:0 6px 8px">Navegador</th>'+
+      '</tr></thead><tbody>'+linhasHtml+'</tbody></table>'+
+    '<div style="text-align:right;margin-top:16px">'+
+      '<button onclick="document.getElementById(\'pfAvisosConfigModal\').remove()" style="background:var(--pf-accent);color:#fff;border:none;border-radius:7px;padding:8px 18px;cursor:pointer;font-size:13px;font-weight:700">Fechar</button>'+
+    '</div>';
+}
 // v115.1420 - A pedido do Vitor: "marcar como lido" pros 4 ícones dinâmicos
 // (solicitado/comprado/faturado/chegou) -- hoje o número vermelho é sempre
 // o total acumulado no log (por isso trava em "99+" e não dá pra saber o
@@ -44445,7 +44549,14 @@ function pfAvisosAtualizar(){
     // no card "Me Avise" (pf-icon-086.png, confirmado via pfIconOverrides).
     meavise:{emoji:'<img src="icons/pack/pf-icon-086.png" style="width:34px;height:34px;object-fit:contain">',titulo:'me avise'}
   };
+  var cfgAvisos=pfAvisosConfigLoad();
   function pfIconeComBadge(etapaK,n,tituloTip){
+    // v115.1520 - A pedido do Vitor (central de controle de notificações):
+    // se o aviso não está marcado como "sempre visível" e não tem nada
+    // pendente (n===0), o ícone nem aparece na barra -- só some quando
+    // não tem novidade, volta sozinho quando tiver.
+    var cfgEsseTipo=cfgAvisos[etapaK]||{fixo:true};
+    if(!cfgEsseTipo.fixo&&!(n>0))return '';
     var info=iconePorEtapa[etapaK];
     // v115.1154 - A pedido do Vitor: a bolinha de contagem não crescia
     // junto com o emoji no hover -- classe do efeito estava só no
@@ -44465,6 +44576,11 @@ function pfAvisosAtualizar(){
       '<div style="width:46px;height:46px;border-radius:13px;background:var(--pf-sidebar-bg);border:1px solid var(--pf-sidebar-border);display:flex;align-items:center;justify-content:center;font-size:19px">'+info.emoji+'</div>'+
       badge+'</div>';
   }
+  // v115.1520 - Engrenagem no topo do rail, abre a central de controle de
+  // notificações (pfAvisosConfigAbrirPainel) -- discreta (opacidade baixa,
+  // só destaca no hover), pra não competir visualmente com os ícones de
+  // verdade.
+  html+='<div onclick="pfAvisosConfigAbrirPainel()" title="Central de Notificações" style="cursor:pointer;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:.45;font-size:15px" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.45">⚙️</div>';
   var chegadasLog=[];try{chegadasLog=JSON.parse(localStorage.getItem('pfChegadasEventos')||'[]');}catch(e){}
   var jaChegaramBadge={};
   chegadasLog.forEach(function(c){jaChegaramBadge[(c.ref||'')+'||'+(c.marca||'')]=true;});

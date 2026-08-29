@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1521</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1522</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1521</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1522</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -27332,11 +27332,28 @@ function mapaNotificarCotacaoRecebida(fid){
     });
   }catch(e){console.warn('mapaNotificarCotacaoRecebida erro:',e);}
 }
+// v115.1522 - BUG DE RAIZ corrigido (Vitor: "a notificação de cotação
+// recebida sumiu quando abri, mas ela aparece novamente algum tempo
+// depois" -- mesma família de bug já resolvida em pfNoticiasSetor
+// v115.1449 e mapas_lista_v1): array puro (sem timestamp de conjunto)
+// cai no merge genérico de sync que faz UNIÃO por id (pfMergeSyncValue,
+// ~linha 35190) -- nunca REMOVE. Quando eu limpava a lista localmente
+// (v115.1521, marcar como vista) e sincronizava, o merge juntava de volta
+// com a cópia antiga do servidor (que ainda tinha os itens) -- sempre que
+// !atual (local vazio = "não tem esse id"), o item do lado remoto sempre
+// entra. Corrigido guardando como objeto {itens,ts} (mesmo padrão já
+// usado nessas outras 2 chaves) -- aí o merge cai no caminho de "objeto
+// inteiro, quem tem o ts mais novo vence" (linha 35207-35210), que
+// realmente respeita uma lista esvaziada.
 function pfCotacoesNaoLidasLoad(){
-  try{return JSON.parse(localStorage.getItem('pfCotacoesNaoLidas')||'[]');}catch(e){return [];}
+  try{
+    var raw=JSON.parse(localStorage.getItem('pfCotacoesNaoLidas')||'{"itens":[],"ts":0}');
+    if(Array.isArray(raw))return raw; // formato antigo, só durante a transição
+    return raw.itens||[];
+  }catch(e){return [];}
 }
 function pfCotacoesNaoLidasSalvar(lista){
-  localStorage.setItem('pfCotacoesNaoLidas',JSON.stringify(lista));
+  localStorage.setItem('pfCotacoesNaoLidas',JSON.stringify({itens:lista,ts:Date.now()}));
   if(typeof pfSyncPush==='function')pfSyncPush(['pfCotacoesNaoLidas']).catch(function(){});
 }
 function pfCotacoesNaoLidasAdicionar(entrada){

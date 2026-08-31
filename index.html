@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1526</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1527</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1526</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1527</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -55556,10 +55556,23 @@ function ferrMeAvise(){
       var lista=[];try{lista=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
       var clist=[];try{clist=cadLoad(CLIE_KEY);}catch(e){}
       var adicionados=0,duplicados=0;
-      itensExtraidos.forEach(function(it){
+      // v115.1527 - BUG corrigido (a pedido do Vitor: item extraído de cotação
+      // nunca avisou quando chegou saldo): saldo_ao_marcar/pedido_ao_marcar/
+      // transito_ao_marcar/consumo_ao_marcar ficavam null pra sempre quando o
+      // item não estava em `calcItems` (catálogo só da família/tela carregada
+      // naquele momento na Home) -- sem erro visível, e a comparação de
+      // "chegou" exige saldo_ao_marcar != null pra funcionar. Fallback: se não
+      // achar em calcItems, busca fresco direto do Supabase (todas as
+      // famílias), mesma função já usada pela verificação automática
+      // (pfComprasBuscarTodosItensFrescos) -- busca só 1x mesmo com vários
+      // itens na cotação (cache em _itensFrescosMA). forEach virou for-of pra
+      // poder usar await.
+      var _itensFrescosMA=null;
+      for(var _iME=0;_iME<itensExtraidos.length;_iME++){
+        var it=itensExtraidos[_iME];
         // Evita duplicar se já tem esse ref+marca+cliente monitorado
         var jaExiste=lista.some(function(a){return a.ref===it.ref&&(a.marca||'')===it.marca&&(a.nome_cliente||'')===it.nome_cliente;});
-        if(jaExiste){duplicados++;return;}
+        if(jaExiste){duplicados++;continue;}
         var waCliente='';
         if(it.cod_cliente||it.nome_cliente){
           var found=clist.find(function(c){
@@ -55570,6 +55583,14 @@ function ferrMeAvise(){
         var saldoAoMarcar=null,pedidoAoMarcar=null,transitoAoMarcar=null,consumoAoMarcar=null;
         try{
           var itemAtual=(typeof calcItems!=='undefined'?calcItems:[]).find(function(c){return c.ref===it.ref&&(it.marca?c.marca===it.marca:true);});
+          if(!itemAtual){
+            if(_itensFrescosMA===null&&typeof pfComprasBuscarTodosItensFrescos==='function'){
+              _itensFrescosMA=(await pfComprasBuscarTodosItensFrescos())||[];
+            }
+            if(_itensFrescosMA&&_itensFrescosMA.length){
+              itemAtual=_itensFrescosMA.find(function(c){return c.ref===it.ref&&(it.marca?c.marca===it.marca:true);});
+            }
+          }
           if(itemAtual){saldoAoMarcar=itemAtual.saldo;pedidoAoMarcar=itemAtual.pedido;transitoAoMarcar=itemAtual.tA;consumoAoMarcar=itemAtual.consumo;}
         }catch(e){}
         var _novoItemCot={ref:it.ref,marca:it.marca,cod_cliente:it.cod_cliente,nome_cliente:it.nome_cliente,
@@ -55579,7 +55600,7 @@ function ferrMeAvise(){
         _novoItemCot.id=maChaveEstavel(_novoItemCot);
         lista.push(_novoItemCot);
         adicionados++;
-      });
+      }
       pfSafeSetItem('meAvise_lista',JSON.stringify(lista));pfSyncPush(['meAvise_lista']);
       if(status)status.innerHTML='<span style="color:#27AE60;font-size:12px">✅ '+adicionados+' item(ns) adicionado(s)'+(duplicados?' · '+duplicados+' já estavam na lista':'')+'</span>';
       render();

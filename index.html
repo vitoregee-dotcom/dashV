@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1538</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1539</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1538</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1539</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -45973,36 +45973,66 @@ var PF_MAPA3D_PROJ={cx:-53.192459,cy:-14.238745,s:0.240441};
 function pfMapaComercialSedeGet(){
   try{
     var v=JSON.parse(pfSafeGetItem('pfMapaComercialSede','null'));
-    if(v&&v.cidade&&v.estado)return v;
+    if(v&&((v.lat&&v.lng)||(v.cidade&&v.estado)))return v;
   }catch(e){}
   return {nome:'Triex',cidade:'São Paulo',estado:'SP'};
 }
-function pfMapaComercialSedeSet(nome,cidade,estado){
-  var v={nome:nome||'Triex',cidade:cidade,estado:estado};
-  pfSafeSetItem('pfMapaComercialSede',JSON.stringify(v));
+function pfMapaComercialSedeSet(dados){
+  pfSafeSetItem('pfMapaComercialSede',JSON.stringify(dados));
   if(typeof pfSyncPush==='function')pfSyncPush(['pfMapaComercialSede']);
 }
-function pfMapaComercialSedeConfigurar(){
+// v115.1539 - A pedido do Vitor ("não consigo colocar o endereço
+// exato?"): geocodificação de endereço completo via Nominatim
+// (OpenStreetMap), gratuito e sem chave -- roda no navegador do usuário,
+// fora da rede do sandbox. Fallback pra cidade/estado (base offline já
+// existente) se o endereço não for encontrado.
+async function pfMapaComercialGeocodificarEndereco(endereco){
+  try{
+    var url='https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q='+encodeURIComponent(endereco);
+    var resp=await fetch(url,{headers:{'Accept':'application/json'}});
+    var dados=await resp.json();
+    if(dados&&dados.length)return {lat:parseFloat(dados[0].lat),lng:parseFloat(dados[0].lon)};
+  }catch(e){}
+  return null;
+}
+async function pfMapaComercialSedeConfigurar(){
   var atual=pfMapaComercialSedeGet();
   var nome=prompt('Nome (aparece no mapa):',atual.nome||'Triex');
   if(nome===null)return;
-  var cidade=prompt('Cidade da sede:',atual.cidade||'');
-  if(cidade===null)return;
-  var estado=prompt('Estado (sigla, ex: SP):',atual.estado||'');
-  if(estado===null)return;
-  pfMapaComercialSedeSet(nome.trim(),cidade.trim(),estado.trim().toUpperCase());
+  var enderecoAtual=atual.endereco||(atual.cidade?(atual.cidade+', '+atual.estado):'');
+  var endereco=prompt('Endereço completo (rua, número, cidade, estado):',enderecoAtual);
+  if(endereco===null)return;
+  endereco=endereco.trim();
+  if(!endereco)return;
+  var coord=await pfMapaComercialGeocodificarEndereco(endereco+', Brasil');
+  if(coord){
+    pfMapaComercialSedeSet({nome:nome.trim(),endereco:endereco,lat:coord.lat,lng:coord.lng});
+  }else{
+    alert('Não achei esse endereço exato. Me diz cidade e estado que eu localizo por aí.');
+    var cidade=prompt('Cidade:',atual.cidade||'');
+    if(cidade===null)return;
+    var estado=prompt('Estado (sigla, ex: SP):',atual.estado||'');
+    if(estado===null)return;
+    pfMapaComercialSedeSet({nome:nome.trim(),cidade:cidade.trim(),estado:estado.trim().toUpperCase(),endereco:endereco});
+  }
   if(_pfMapaComercialModo3D)pfMapaComercial3DRender();
 }
 async function pfMapaComercial3DAdicionarSede(group){
   var sede=pfMapaComercialSedeGet();
-  var coord=await pfGeocodificarCidade(sede.cidade,sede.estado);
   var info=document.getElementById('pfMapaComercial3DSedeInfo');
-  if(!coord){
-    if(info)info.textContent='📍 Sede ('+(sede.nome||'Triex')+'): cidade "'+sede.cidade+'/'+sede.estado+'" não encontrada na base de geocodificação.';
-    return;
+  var lat,lng;
+  if(sede.lat&&sede.lng){
+    lat=sede.lat;lng=sede.lng;
+  }else{
+    var coord=await pfGeocodificarCidade(sede.cidade,sede.estado);
+    if(!coord){
+      if(info)info.textContent='📍 Sede ('+(sede.nome||'Triex')+'): local não encontrado.';
+      return;
+    }
+    lat=coord[0];lng=coord[1];
   }
-  var x0=(coord[1]-PF_MAPA3D_PROJ.cx)*PF_MAPA3D_PROJ.s;
-  var y0=(coord[0]-PF_MAPA3D_PROJ.cy)*PF_MAPA3D_PROJ.s;
+  var x0=(lng-PF_MAPA3D_PROJ.cx)*PF_MAPA3D_PROJ.s;
+  var y0=(lat-PF_MAPA3D_PROJ.cy)*PF_MAPA3D_PROJ.s;
   var pinoGeo=new THREE.ConeGeometry(0.14,0.5,10);
   var pinoMat=new THREE.MeshStandardMaterial({color:0xFFD700,flatShading:true,roughness:0.4,metalness:0.3});
   var pino=new THREE.Mesh(pinoGeo,pinoMat);
@@ -46013,7 +46043,7 @@ async function pfMapaComercial3DAdicionarSede(group){
   var bola=new THREE.Mesh(bolaGeo,pinoMat);
   bola.position.set(x0,y0,0.42);
   group.add(bola);
-  if(info)info.textContent='📍 Sede: '+(sede.nome||'Triex')+' — '+sede.cidade+'/'+sede.estado;
+  if(info)info.textContent='📍 Sede: '+(sede.nome||'Triex')+' — '+(sede.endereco||(sede.cidade+'/'+sede.estado));
 }
 var PF_MAPA3D_UF_NOME={AC:'Acre',AL:'Alagoas',AM:'Amazonas',AP:'Amapá',BA:'Bahia',CE:'Ceará',DF:'Distrito Federal',ES:'Espírito Santo',GO:'Goiás',MA:'Maranhão',MG:'Minas Gerais',MS:'Mato Grosso do Sul',MT:'Mato Grosso',PA:'Pará',PB:'Paraíba',PE:'Pernambuco',PI:'Piauí',PR:'Paraná',RJ:'Rio de Janeiro',RN:'Rio Grande do Norte',RO:'Rondônia',RR:'Roraima',RS:'Rio Grande do Sul',SC:'Santa Catarina',SE:'Sergipe',SP:'São Paulo',TO:'Tocantins'};
 function pfMapaComercialFiltrarParaCounts(){
@@ -53821,7 +53851,10 @@ function pfPendenciasRender(){
   if(view)view.style.display='block';
   var body=document.getElementById('pfPendenciasBody');
   if(!body)return;
-  var lista=pfPendenciasLista().slice().sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});
+  var lista=pfPendenciasLista().slice().sort(function(a,b){
+    if(!!a.concluida!==!!b.concluida)return a.concluida?1:-1;
+    return (b.data||'').localeCompare(a.data||'');
+  });
   var html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'+
     '<div style="font-size:19px;font-weight:800;color:var(--pf-accent)">📌 Administrador — Pendências</div>'+
     '<button onclick="pfPendenciasNovaAbrir()" style="background:var(--pf-accent);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer">+ Nova pendência</button>'+
@@ -53833,10 +53866,14 @@ function pfPendenciasRender(){
     html+='<div style="grid-column:1/-1;color:var(--pf-text-muted);font-size:13px;padding:30px;text-align:center;background:var(--pf-card-bg);border-radius:10px">Nenhuma pendência salva ainda.</div>';
   }
   lista.forEach(function(p){
-    html+='<div style="background:var(--pf-card-bg);border:1px solid var(--pf-border);border-radius:10px;overflow:hidden;cursor:pointer" onclick="pfPendenciasVerDetalhe(\''+p.id+'\')">'+
+    html+='<div style="background:var(--pf-card-bg);border:1px solid var(--pf-border);border-radius:10px;overflow:hidden;cursor:pointer;position:relative'+(p.concluida?';opacity:.55':'')+'" onclick="pfPendenciasVerDetalhe(\''+p.id+'\')">'+
+      '<label onclick="event.stopPropagation()" style="position:absolute;top:8px;left:8px;z-index:2;background:rgba(255,255,255,.92);border-radius:6px;padding:3px 6px;display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.25)">'+
+        '<input type="checkbox" '+(p.concluida?'checked':'')+' onchange="pfPendenciasToggleConcluida(\''+p.id+'\')" style="margin:0;cursor:pointer">'+
+        (p.concluida?'✓ Feito':'Marcar feito')+
+      '</label>'+
       (p.imagem?('<img src="'+p.imagem+'" style="width:100%;height:130px;object-fit:cover;display:block">'):'<div style="width:100%;height:130px;background:var(--pf-nav-hover);display:flex;align-items:center;justify-content:center;font-size:28px">📝</div>')+
       '<div style="padding:10px 12px">'+
-      (p.titulo?'<div style="font-size:14px;font-weight:700;color:var(--pf-text);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+pfEscHtml(p.titulo)+'</div>':'')+
+      (p.titulo?'<div style="font-size:14px;font-weight:700;color:var(--pf-text);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'+(p.concluida?';text-decoration:line-through':'')+'">'+pfEscHtml(p.titulo)+'</div>':'')+
       '<div style="font-size:13px;color:var(--pf-text);line-height:1.4;max-height:54px;overflow:hidden">'+pfEscHtml((p.descricao||'').slice(0,120))+'</div>'+
       '<div style="font-size:11px;color:var(--pf-text-muted);margin-top:6px">'+pfEscHtml(new Date(p.data).toLocaleDateString('pt-BR'))+(p.anexos&&p.anexos.length?(' · 📎 '+p.anexos.length):'')+'</div>'+
       '</div></div>';
@@ -54229,6 +54266,26 @@ function pfPendenciasSalvar(){
     _pfPendSalvarComImagem(cv?cv.toDataURL('image/png'):null);
   }
 }
+function pfPendenciasToggleConcluida(id){
+  var lista=pfPendenciasLista();
+  var p=lista.find(function(x){return x.id===id;});
+  if(!p)return;
+  p.concluida=!p.concluida;
+  pfSafeSetItem(PF_PENDENCIAS_KEY,JSON.stringify(lista));
+  if(typeof pfSyncPush==='function')pfSyncPush([PF_PENDENCIAS_KEY]);
+  pfPendenciasRender();
+}
+// v115.1539 - A pedido do Vitor ("nem consigo ver do que se trata qnd
+// clico"): imagem do modal de detalhe ficava espremida em max-width:640px,
+// ilegível pra prints de tela cheia do sistema. Modal mais largo +
+// imagem clicável abre em overlay quase tela cheia (pfPendImagemExpandir).
+function pfPendImagemExpandir(url){
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:10050;display:flex;align-items:center;justify-content:center;padding:20px;cursor:zoom-out;overflow:auto';
+  ov.innerHTML='<img src="'+pfEscHtml(url)+'" style="max-width:100%;max-height:100%;width:auto;height:auto;border-radius:4px">';
+  ov.addEventListener('click',function(){ov.remove();});
+  document.body.appendChild(ov);
+}
 function pfPendenciasExcluir(id){
   if(!confirm('Excluir essa pendência?'))return;
   var lista=pfPendenciasLista().filter(function(p){return p.id!==id;});
@@ -54268,7 +54325,8 @@ function pfPendenciasVerDetalhe(id,editando){
   var botoes=editando
     ? '<button onclick="pfPendenciasSalvarEdicao(\''+p.id+'\')" style="background:var(--pf-accent);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer">💾 Salvar</button>'+
       '<button onclick="pfPendenciasVerDetalhe(\''+p.id+'\')" style="background:none;border:1px solid var(--pf-border);color:var(--pf-text-muted);border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer">Cancelar</button>'
-    : '<button onclick="pfPendenciasVerDetalhe(\''+p.id+'\',true)" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer">✏️ Editar</button>'+
+    : '<button onclick="pfPendenciasToggleConcluida(\''+p.id+'\');document.getElementById(\'pfPendDetalheModal\').remove();pfPendenciasVerDetalhe(\''+p.id+'\')" style="background:'+(p.concluida?'#2E7D5B':'#1F4E79')+';color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer">'+(p.concluida?'✓ Feito (desmarcar)':'☐ Marcar como feito')+'</button>'+
+      '<button onclick="pfPendenciasVerDetalhe(\''+p.id+'\',true)" style="background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer">✏️ Editar</button>'+
       '<button onclick="pfPendenciasExcluir(\''+p.id+'\')" style="background:#C0392B;color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer">🗑 Excluir</button>'+
       '<button onclick="document.getElementById(\'pfPendDetalheModal\').remove()" style="background:none;border:1px solid var(--pf-border);color:var(--pf-text-muted);border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer">Fechar</button>';
   // v115.1501 - Anexos aparecem como link direto pro arquivo no bucket.
@@ -54287,8 +54345,9 @@ function pfPendenciasVerDetalhe(id,editando){
       }).join('')+
     '</div>';
   }
-  modal.innerHTML='<div style="background:var(--pf-card-bg);border-radius:12px;max-width:640px;width:100%;max-height:90vh;overflow:auto;padding:20px">'+
-    (p.imagem?('<img src="'+p.imagem+'" style="width:100%;border-radius:8px;margin-bottom:14px">'):'')+
+  modal.innerHTML='<div style="background:var(--pf-card-bg);border-radius:12px;max-width:900px;width:100%;max-height:92vh;overflow:auto;padding:20px">'+
+    (p.imagem?('<img src="'+p.imagem+'" onclick="pfPendImagemExpandir(\''+p.imagem.replace(/'/g,"\\'")+'\')" title="Clique pra ampliar" style="width:100%;max-height:60vh;object-fit:contain;background:#00000010;border-radius:8px;margin-bottom:6px;cursor:zoom-in">'+
+        '<div style="font-size:11px;color:var(--pf-text-muted);margin-bottom:14px">🔍 Clique na imagem pra ampliar</div>'):'')+
     corpoTitulo+
     corpoDesc+
     anexosHtml+

@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1530</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1531</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1530</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1531</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -43688,6 +43688,30 @@ async function pfPainelWidgetsRender(){
     '</div>';
   }
   wrap.innerHTML=htmlCards;
+  // v115.1531 - A pedido do Vitor ("pensei até na principal uma miniatura
+  // como um widget"): card leve no painel da Home, mesmo padrão visual do
+  // Orçamento de IA acima -- só estatística (não carrega Leaflet/mapa de
+  // verdade aqui, isso ficaria pesado pra tela mais visitada do sistema).
+  // Clicar leva direto pro Mapa Comercial completo.
+  try{
+    var clientesWidget=(typeof cadLoad==='function'&&typeof CLIE_KEY!=='undefined')?cadLoad(CLIE_KEY):[];
+    var concWidget=pfMapaConcorrentesLoad();
+    var estadosWidget={};clientesWidget.forEach(function(c){if(c.estado)estadosWidget[c.estado.toUpperCase()]=true;});
+    var wrapMapa=document.getElementById('pfPainelWidgets');
+    if(wrapMapa){
+      wrapMapa.innerHTML+='<div onclick="pfNavigate(\'mapa_comercial\')" title="Abrir Mapa Comercial" style="cursor:pointer;background:var(--pf-noticias-card-bg);border:1px solid var(--pf-noticias-border);border-radius:12px;padding:14px 16px;margin-top:8px">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
+          '<span style="font-size:14px;color:var(--pf-noticias-text-muted)">🗺️ Mapa Comercial</span>'+
+          '<span style="font-size:11px;color:var(--pf-noticias-text-muted)">abrir →</span>'+
+        '</div>'+
+        '<div style="display:flex;gap:16px">'+
+          '<div><span style="font-size:19px;font-weight:700;color:#16A34A">'+clientesWidget.length+'</span><span style="font-size:12px;color:var(--pf-noticias-text-muted);margin-left:4px">clientes</span></div>'+
+          '<div><span style="font-size:19px;font-weight:700;color:#DC2626">'+concWidget.length+'</span><span style="font-size:12px;color:var(--pf-noticias-text-muted);margin-left:4px">concorrentes</span></div>'+
+          '<div><span style="font-size:19px;font-weight:700;color:var(--pf-noticias-text)">'+Object.keys(estadosWidget).length+'</span><span style="font-size:12px;color:var(--pf-noticias-text-muted);margin-left:4px">estados</span></div>'+
+        '</div>'+
+      '</div>';
+    }
+  }catch(eWidgetMapa){console.warn('Widget Mapa Comercial na Home falhou:',eWidgetMapa);}
 }
 // v115.1084 - A pedido do Vitor: 2a fase da expansão de Notícias -- fotos,
 // categorias por setor (agricultura/mineração/energia/construção, além de
@@ -45714,6 +45738,64 @@ function pfMapaConcorrentesSalvar(lista){
   pfSafeSetItem('pfMapaConcorrentes',JSON.stringify(lista));
   if(typeof pfSyncPush==='function')pfSyncPush(['pfMapaConcorrentes']);
 }
+// v115.1531 - A pedido do Vitor: busca de rede de concorrente via IA (ex:
+// digitar "Brasif Case" acha as filiais espalhadas pelo Brasil sozinho),
+// mesmo padrão de chamada Claude+web_search já usado em Notícias do Setor
+// (pfAnthropicHeaders, claude-haiku-4-5, parse de array JSON da resposta).
+async function pfMapaComercialBuscarConcorrenteIA(){
+  var termo=document.getElementById('pfMapaBuscaConcInput');
+  var q=termo?termo.value.trim():'';
+  if(!q){pfAlert('Digita o nome do concorrente/rede pra buscar (ex: Brasif Case).');return;}
+  var apiKey=localStorage.getItem('anthropic_key')||'';
+  if(!apiKey){pfAlert('Precisa configurar a chave da Anthropic primeiro (Minhas Chaves).');return;}
+  var btn=document.getElementById('pfMapaBuscaConcBtn');
+  var textoOriginal=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Buscando...';}
+  try{
+    var prompt='Você ajuda uma distribuidora de peças off-highway brasileira (Triex, marcas DANA/CARRARO/ALLISON/SPICER/PERKINS/CUMMINS/FPT) a mapear a concorrência.\n\n'+
+      'Pesquise na web as filiais/pontos de venda/distribuidores reais no Brasil de: "'+q+'".\n\n'+
+      'Devolva SOMENTE um array JSON (nada de texto antes/depois, nada de markdown), cada item assim:\n'+
+      '{"nome":"nome da filial/unidade (ex: Brasif Case - Filial Sorocaba)","cidade":"cidade sem abreviação","estado":"sigla UF"}\n\n'+
+      'Traga só filiais REAIS que você encontrou de verdade na pesquisa (não invente endereço). Se achar poucas, traga poucas -- não complete com suposição. Limite: até 30 filiais.';
+    var resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:pfAnthropicHeaders(apiKey),
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:4000,
+        tools:[{type:'web_search_20250305',name:'web_search',max_uses:8}],
+        messages:[{role:'user',content:[{type:'text',text:prompt}]}]
+      })
+    });
+    var data=await resp.json();
+    if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Mapa Comercial - busca concorrente',data.usage,pfUsuarioAtualSnapshot());
+    if(data.error)throw new Error(data.error.message||'erro na API');
+    var texto=(data.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('\n');
+    var m=texto.match(/\[[\s\S]*\]/);
+    if(!m)throw new Error('resposta sem lista reconhecível -- tenta de novo ou usa "Adicionar manual"');
+    var achados=JSON.parse(m[0]);
+    if(!Array.isArray(achados)||!achados.length)throw new Error('não achei nenhuma filial pra "'+q+'"');
+    var lista=pfMapaConcorrentesLoad();
+    var adicionados=0,semGeoIA=0;
+    for(var i=0;i<achados.length;i++){
+      var a=achados[i];
+      if(!a.nome||!a.cidade||!a.estado)continue;
+      var coordIA=await pfGeocodificarCidade(a.cidade,a.estado);
+      if(!coordIA){semGeoIA++;continue;}
+      lista.push({id:'conc_ia_'+Date.now()+'_'+i,nome:a.nome,cidade:a.cidade,estado:a.estado.toUpperCase(),
+        lat:coordIA[0],lng:coordIA[1],ts:Date.now(),origemBusca:q});
+      adicionados++;
+    }
+    pfMapaConcorrentesSalvar(lista);
+    pfAlert(adicionados+' filial(is) de "'+q+'" adicionadas no mapa'+(semGeoIA>0?' ('+semGeoIA+' sem cidade reconhecida, ignoradas)':'')+'.');
+    if(termo)termo.value='';
+    mapaComercialRender();
+  }catch(e){
+    pfAlert('Erro na busca: '+(e.message||e));
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=textoOriginal;}
+  }
+}
 async function pfMapaComercialAdicionarConcorrente(){
   var nome=prompt('Nome do concorrente/filial (ex: Brasif Case - Filial SP):');
   if(!nome)return;
@@ -45751,7 +45833,11 @@ async function mapaComercialRender(){
   box.innerHTML=
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">'+
       '<h2 style="margin:0;color:var(--pf-text);font-size:19px">🗺️ Mapa Comercial</h2>'+
-      '<button onclick="pfMapaComercialAdicionarConcorrente()" style="background:var(--pf-accent);color:#fff;border:none;border-radius:7px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:700">+ Adicionar concorrente</button>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<input id="pfMapaBuscaConcInput" placeholder="Buscar rede de concorrente (ex: Brasif Case)" style="padding:8px 10px;border:1px solid var(--pf-sidebar-border);border-radius:7px;font-size:13px;min-width:220px">'+
+        '<button id="pfMapaBuscaConcBtn" onclick="pfMapaComercialBuscarConcorrenteIA()" style="background:var(--pf-accent);color:#fff;border:none;border-radius:7px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:700">🔎 Buscar via IA</button>'+
+        '<button onclick="pfMapaComercialAdicionarConcorrente()" style="background:var(--pf-sidebar-bg);color:var(--pf-text);border:1px solid var(--pf-sidebar-border);border-radius:7px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:700">+ Manual</button>'+
+      '</div>'+
     '</div>'+
     '<div style="display:flex;gap:16px;font-size:12px;color:var(--pf-text-muted);margin-bottom:10px">'+
       '<span>🟢 Nossos clientes ('+clientes.length+')</span>'+

@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1528</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1529</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -17638,6 +17638,23 @@ function apostasVerificarVendas(){
     var consumoAtual=item.consumo||0;
     var vendidoTotal=Math.max(0,consumoAtual-(a.consumo_conversao||0));
     var cresceuAgora=consumoAtual>(a.consumo_atual!=null?a.consumo_atual:a.consumo_conversao||0);
+    // v115.1529 - A pedido do Vitor ("quero na barra de avisos uma
+    // notificação de venda dos itens de Oportunidades, toda vez que vender
+    // mesmo que só 1 un"): registra 1 evento de log toda vez que essa
+    // função detecta que o consumo subiu desde a última checagem -- mesmo
+    // padrão simples já usado em pfSolicitadosEventos (log local +
+    // pfSyncPush, sem depender de pfLogEventoComMerge que é privada de
+    // outra função). Roda ANTES de atualizar a.consumo_atual logo abaixo,
+    // pra calcular a quantidade vendida NESSA checagem (não o total).
+    if(cresceuAgora){
+      var qtdVendidaAgora=consumoAtual-(a.consumo_atual!=null?a.consumo_atual:a.consumo_conversao||0);
+      var logVendaAp=[];try{logVendaAp=JSON.parse(localStorage.getItem('pfApostasVendaEventos')||'[]');}catch(eLV){}
+      logVendaAp.unshift({ref:a.ref,marca:a.marca,desc:a.descricao||'',qtd:qtdVendidaAgora,data:new Date().toISOString()});
+      if(logVendaAp.length>50)logVendaAp=logVendaAp.slice(0,50);
+      localStorage.setItem('pfApostasVendaEventos',JSON.stringify(logVendaAp));
+      if(typeof pfSyncPush==='function')pfSyncPush(['pfApostasVendaEventos']);
+      if(typeof pfAvisosAtualizar==='function')pfAvisosAtualizar();
+    }
     var statusNovo=vendidoTotal>3&&cresceuAgora?'sucesso':(vendidoTotal>0?'vendendo':'aguardando');
     if(a.consumo_atual!==consumoAtual||a.status!==statusNovo){
       a.consumo_verificacao_anterior=a.consumo_atual!=null?a.consumo_atual:a.consumo_conversao;
@@ -34918,6 +34935,7 @@ var PF_SYNC_KEYS = [
   'pfFaturadosEventos',
   'pfChegadasEventos',
   'pfSolicitadosEventos',
+  'pfApostasVendaEventos',
   'meAvise_ordenacao',
   'meAvise_ocultar_solic',
   'partsflow_cotacoes_v1',
@@ -35340,7 +35358,7 @@ async function pfSyncPull(){
     // aparelho, perdendo os registros de qualquer outro que tenha gravado
     // por perto. Movidas pra cá (mesmo tratamento do log de uso/login),
     // que junta os registros de todos os aparelhos em vez de sobrescrever.
-    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin'];
+    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin','pfApostasVendaEventos'];
     var rows = [];
 
     // v115.765 - Antes eram 13 requisições ao Supabase em SEQUÊNCIA (1 do
@@ -44466,7 +44484,14 @@ var PF_AVISOS_CONFIG_DEFAULT={
   faturado:{fixo:true,email:true,navegador:false},
   chegou:{fixo:true,email:true,navegador:false},
   cotacao:{fixo:true,email:true,navegador:true},
-  meavise:{fixo:true,email:true,navegador:true}
+  meavise:{fixo:true,email:true,navegador:true},
+  // v115.1529 - A pedido do Vitor ("quero na barra de avisos uma
+  // notificação de venda dos itens de Oportunidades"): 7º ícone, dispara
+  // toda vez que um item de "Apostas Convertidas" vende pelo menos 1
+  // unidade (mesmo raciocínio de apostasVerificarVendas -- ver lá).
+  // Só badge por padrão (sem e-mail/navegador) -- Vitor liga os outros
+  // canais na Central de Notificações se quiser.
+  apostasvenda:{fixo:true,email:false,navegador:false}
 };
 function pfAvisosConfigLoad(){
   var raw={};
@@ -44497,7 +44522,8 @@ var PF_AVISOS_CONFIG_LABELS={
   faturado:{icone:'pf-icon-013.png',nome:'Faturado'},
   chegou:{icone:'pf-icon-102.png',nome:'Chegou'},
   cotacao:{icone:'pf-icon-015.png',nome:'Cotação recebida'},
-  meavise:{icone:'pf-icon-086.png',nome:'Me Avise'}
+  meavise:{icone:'pf-icon-086.png',nome:'Me Avise'},
+  apostasvenda:{icone:'pf-icon-103.png',nome:'Venda de Oportunidade'}
 };
 function pfAvisosConfigAbrirPainel(){
   var existente=document.getElementById('pfAvisosConfigModal');
@@ -44552,7 +44578,7 @@ function pfAvisosConfigRenderModal(){
 // (localStorage 'pfAvisosLidoEm', sincroniza entre dispositivos) e o badge
 // passa a contar só os itens do log com data DEPOIS desse timestamp. Os
 // ícones continuam sempre visíveis (fixos), só o número muda.
-var PF_AVISOS_LOG_KEYS={solicitado:'pfSolicitadosEventos',comprado:'pfComprasEventos',faturado:'pfFaturadosEventos',chegou:'pfChegadasEventos'};
+var PF_AVISOS_LOG_KEYS={solicitado:'pfSolicitadosEventos',comprado:'pfComprasEventos',faturado:'pfFaturadosEventos',chegou:'pfChegadasEventos',apostasvenda:'pfApostasVendaEventos'};
 function pfAvisosLidoCarregar(){
   try{return JSON.parse(pfSafeGetItem('pfAvisosLidoEm','{}'))||{};}catch(e){return {};}
 }
@@ -44656,7 +44682,11 @@ function pfAvisosAtualizar(){
     // v115.1519 - A pedido do Vitor ("o Avise-me também deve ir pra barra
     // lateral quando tiver um novo"): 6º ícone, mesmo ícone real já usado
     // no card "Me Avise" (pf-icon-086.png, confirmado via pfIconOverrides).
-    meavise:{emoji:'<img src="icons/pack/pf-icon-086.png" style="width:34px;height:34px;object-fit:contain">',titulo:'me avise'}
+    meavise:{emoji:'<img src="icons/pack/pf-icon-086.png" style="width:34px;height:34px;object-fit:contain">',titulo:'me avise'},
+    // v115.1529 - A pedido do Vitor: 7º ícone, venda de item de
+    // Oportunidades (Apostas Convertidas) -- mesmo ícone real já usado
+    // pra dinheiro/venda (pf-icon-103.png), não é desenho novo.
+    apostasvenda:{emoji:'<img src="icons/pack/pf-icon-103.png" style="width:34px;height:34px;object-fit:contain">',titulo:'venda de oportunidade'}
   };
   var cfgAvisos=pfAvisosConfigLoad();
   function pfIconeComBadge(etapaK,n,tituloTip){
@@ -44720,6 +44750,9 @@ function pfAvisosAtualizar(){
   var meAviseListaRail=[];try{meAviseListaRail=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(e){}
   var meAviseChegadosRail=meAviseListaRail.filter(function(a){return a.status==='chegou';}).length;
   html+=pfIconeComBadge('meavise',meAviseChegadosRail,'Me Avise -- itens chegados aguardando remoção ('+meAviseChegadosRail+')');
+  // v115.1529 - Ver comentário completo em iconePorEtapa/PF_AVISOS_CONFIG_DEFAULT.
+  var apostasVendaLogRail=[];try{apostasVendaLogRail=JSON.parse(localStorage.getItem('pfApostasVendaEventos')||'[]');}catch(e){}
+  html+=pfIconeComBadge('apostasvenda',pfAvisosLidoContarNaoLidos('apostasvenda'),'Vendas de itens de Oportunidades ('+apostasVendaLogRail.length+' no total)');
   PF_AVISOS_ETAPAS.forEach(function(e){
     var n=contagem[e.k]||0;
     if(!n)return;
@@ -45222,6 +45255,13 @@ function pfAvisosAbrirPainel(etapaK){
       });
     }
     painel.innerHTML=htmlCot;
+    document.body.appendChild(painel);
+    pfAvisosPainelPosAbrir();
+    return;
+  }
+  if(etapaK==='apostasvenda'){
+    pfAvisosMarcarLido('apostasvenda');
+    painel.innerHTML=pfAvisosMontarListaComFiltro('Vendas de Oportunidades','#70AD47','pfApostasVendaEventos',function(c){return 'Vendeu: '+pfArredondarQtd(c.qtd)+' un.';});
     document.body.appendChild(painel);
     pfAvisosPainelPosAbrir();
     return;

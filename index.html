@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1532</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1533</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1532</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1533</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -45742,6 +45742,13 @@ function pfMapaConcorrentesSalvar(lista){
 // digitar "Brasif Case" acha as filiais espalhadas pelo Brasil sozinho),
 // mesmo padrão de chamada Claude+web_search já usado em Notícias do Setor
 // (pfAnthropicHeaders, claude-haiku-4-5, parse de array JSON da resposta).
+// v115.1533 - A pedido do Vitor: busca via IA agora abre painel de REVISÃO
+// em vez de salvar tudo direto -- ele quer poder desmarcar itens errados,
+// definir a Linha (marca de máquina) e colocar Observação por filial antes
+// de confirmar. Salvar de verdade só acontece em
+// pfMapaComercialConfirmarRevisao(), chamada pelo botão "Salvar
+// selecionados" do painel.
+var _pfMapaComercialRevisao=[];
 async function pfMapaComercialBuscarConcorrenteIA(){
   var termo=document.getElementById('pfMapaBuscaConcInput');
   var q=termo?termo.value.trim():'';
@@ -45755,8 +45762,8 @@ async function pfMapaComercialBuscarConcorrenteIA(){
     var prompt='Você ajuda uma distribuidora de peças off-highway brasileira (Triex, marcas DANA/CARRARO/ALLISON/SPICER/PERKINS/CUMMINS/FPT) a mapear a concorrência.\n\n'+
       'Pesquise na web as filiais/pontos de venda/distribuidores reais no Brasil de: "'+q+'".\n\n'+
       'Devolva SOMENTE um array JSON (nada de texto antes/depois, nada de markdown), cada item assim:\n'+
-      '{"nome":"nome da filial/unidade (ex: Brasif Case - Filial Sorocaba)","cidade":"cidade sem abreviação","estado":"sigla UF","concessionaria":true ou false}\n\n'+
-      '"concessionaria" é true se for uma revenda/concessionária autorizada de uma marca de máquinas (ex: revenda Case, John Deere, Volvo CE), false se for distribuidor de peças/autopeças sem ser concessionária de marca.\n\n'+
+      '{"nome":"nome da filial/unidade (ex: Brasif Case - Filial Sorocaba)","cidade":"cidade sem abreviação","estado":"sigla UF","concessionaria":true ou false,"linha":"marca de máquina que revende, se for concessionária (ex: Case, John Deere, Volvo CE) ou vazio"}\n\n'+
+      '"concessionaria" é true se for uma revenda/concessionária autorizada de uma marca de máquinas, false se for distribuidor de peças/autopeças sem ser concessionária de marca.\n\n'+
       'Traga só filiais REAIS que você encontrou de verdade na pesquisa (não invente endereço). Se achar poucas, traga poucas -- não complete com suposição. Limite: até 30 filiais.';
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -45776,26 +45783,77 @@ async function pfMapaComercialBuscarConcorrenteIA(){
     if(!m)throw new Error('resposta sem lista reconhecível -- tenta de novo ou usa "Adicionar manual"');
     var achados=JSON.parse(m[0]);
     if(!Array.isArray(achados)||!achados.length)throw new Error('não achei nenhuma filial pra "'+q+'"');
-    var lista=pfMapaConcorrentesLoad();
-    var adicionados=0,semGeoIA=0;
-    for(var i=0;i<achados.length;i++){
-      var a=achados[i];
-      if(!a.nome||!a.cidade||!a.estado)continue;
-      var coordIA=await pfGeocodificarCidade(a.cidade,a.estado);
-      if(!coordIA){semGeoIA++;continue;}
-      lista.push({id:'conc_ia_'+Date.now()+'_'+i,nome:a.nome,cidade:a.cidade,estado:a.estado.toUpperCase(),
-        lat:coordIA[0],lng:coordIA[1],ts:Date.now(),origemBusca:q,concessionaria:!!a.concessionaria});
-      adicionados++;
-    }
-    pfMapaConcorrentesSalvar(lista);
-    pfAlert(adicionados+' filial(is) de "'+q+'" adicionadas no mapa'+(semGeoIA>0?' ('+semGeoIA+' sem cidade reconhecida, ignoradas)':'')+'.');
+    _pfMapaComercialRevisao=achados.filter(function(a){return a.nome&&a.cidade&&a.estado;}).map(function(a,i){
+      return {_ck:i,marcado:true,nome:a.nome,cidade:a.cidade,estado:a.estado.toUpperCase(),
+        concessionaria:!!a.concessionaria,linha:a.linha||'',observacao:'',origemBusca:q};
+    });
     if(termo)termo.value='';
-    mapaComercialRender();
+    pfMapaComercialAbrirRevisao();
   }catch(e){
     pfAlert('Erro na busca: '+(e.message||e));
   }finally{
     if(btn){btn.disabled=false;btn.textContent=textoOriginal;}
   }
+}
+function pfMapaComercialAbrirRevisao(){
+  var existente=document.getElementById('pfMapaRevisaoModal');if(existente)existente.remove();
+  var overlay=document.createElement('div');
+  overlay.id='pfMapaRevisaoModal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+  overlay.innerHTML='<div style="background:var(--pf-card-bg,#fff);border-radius:12px;padding:20px;width:640px;max-width:100%;max-height:88vh;overflow:auto" onclick="event.stopPropagation()">'+
+    '<h3 style="margin:0 0 4px;color:var(--pf-text)">Revisar filiais encontradas ('+_pfMapaComercialRevisao.length+')</h3>'+
+    '<div style="font-size:12px;color:var(--pf-text-muted);margin-bottom:12px">Desmarca o que não quer, ajusta Linha/Observação se precisar, e confirma.</div>'+
+    '<div id="pfMapaRevisaoLista"></div>'+
+    '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">'+
+      '<button onclick="document.getElementById(\'pfMapaRevisaoModal\').remove()" style="background:var(--pf-sidebar-bg);color:var(--pf-text);border:1px solid var(--pf-sidebar-border);border-radius:7px;padding:8px 16px;cursor:pointer;font-size:13px">Cancelar</button>'+
+      '<button onclick="pfMapaComercialConfirmarRevisao()" style="background:var(--pf-accent);color:#fff;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-size:13px;font-weight:700">Salvar selecionados</button>'+
+    '</div>'+
+  '</div>';
+  document.body.appendChild(overlay);
+  pfMapaComercialRenderRevisaoLista();
+}
+function pfMapaComercialRevisaoToggle(ck,campo,valor){
+  var item=_pfMapaComercialRevisao.find(function(a){return a._ck===ck;});
+  if(!item)return;
+  if(campo==='marcado')item.marcado=valor;
+  else item[campo]=valor;
+}
+function pfMapaComercialRenderRevisaoLista(){
+  var box=document.getElementById('pfMapaRevisaoLista');
+  if(!box)return;
+  box.innerHTML=_pfMapaComercialRevisao.map(function(a){
+    return '<div style="border:1px solid var(--pf-sidebar-border);border-radius:8px;padding:10px;margin-bottom:8px;'+(a.marcado?'':'opacity:.5')+'">'+
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'+
+        '<input type="checkbox" '+(a.marcado?'checked':'')+' onchange="pfMapaComercialRevisaoToggle('+a._ck+',\'marcado\',this.checked);pfMapaComercialRenderRevisaoLista()">'+
+        '<b style="font-size:13px;color:var(--pf-text)">'+pfEscHtml(a.nome)+'</b>'+
+        '<span style="font-size:11px;color:var(--pf-text-muted)">'+pfEscHtml(a.cidade)+'/'+pfEscHtml(a.estado)+(a.concessionaria?' · concessionária':'')+'</span>'+
+      '</div>'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+        '<input placeholder="Linha (ex: Case)" value="'+pfEscHtml(a.linha)+'" oninput="pfMapaComercialRevisaoToggle('+a._ck+',\'linha\',this.value)" style="flex:1;min-width:120px;padding:6px 8px;border:1px solid var(--pf-sidebar-border);border-radius:6px;font-size:12px">'+
+        '<input placeholder="Observação" value="'+pfEscHtml(a.observacao)+'" oninput="pfMapaComercialRevisaoToggle('+a._ck+',\'observacao\',this.value)" style="flex:2;min-width:160px;padding:6px 8px;border:1px solid var(--pf-sidebar-border);border-radius:6px;font-size:12px">'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+async function pfMapaComercialConfirmarRevisao(){
+  var marcados=_pfMapaComercialRevisao.filter(function(a){return a.marcado;});
+  if(!marcados.length){pfAlert('Nenhum item marcado.');return;}
+  var lista=pfMapaConcorrentesLoad();
+  var adicionados=0,semGeoIA=0;
+  for(var i=0;i<marcados.length;i++){
+    var a=marcados[i];
+    var coordIA=await pfGeocodificarCidade(a.cidade,a.estado);
+    if(!coordIA){semGeoIA++;continue;}
+    lista.push({id:'conc_ia_'+Date.now()+'_'+i,nome:a.nome,cidade:a.cidade,estado:a.estado,
+      lat:coordIA[0],lng:coordIA[1],ts:Date.now(),origemBusca:a.origemBusca,
+      concessionaria:a.concessionaria,linha:a.linha,observacao:a.observacao});
+    adicionados++;
+  }
+  pfMapaConcorrentesSalvar(lista);
+  var modal=document.getElementById('pfMapaRevisaoModal');if(modal)modal.remove();
+  pfAlert(adicionados+' filial(is) adicionadas no mapa'+(semGeoIA>0?' ('+semGeoIA+' sem cidade reconhecida, ignoradas)':'')+'.');
+  mapaComercialRender();
 }
 async function pfMapaComercialAdicionarConcorrente(){
   var nome=prompt('Nome do concorrente/filial (ex: Brasif Case - Filial SP):');
@@ -45805,13 +45863,27 @@ async function pfMapaComercialAdicionarConcorrente(){
   var estado=prompt('Estado (sigla, ex: SP):');
   if(!estado)return;
   var ehConcessionaria=confirm('É concessionária/revenda autorizada de alguma marca de máquina? (OK = sim, Cancelar = não)');
+  var linha=prompt('Linha/marca que revende (ex: Case) -- deixa vazio se não souber:')||'';
+  var observacao=prompt('Observação (opcional):')||'';
   var coord=await pfGeocodificarCidade(cidade,estado);
   if(!coord){
     pfAlert('Não achei essa cidade/estado na base ("'+cidade+'/'+estado+'"). Confere a grafia (sem abreviação) e tenta de novo.');
     return;
   }
   var lista=pfMapaConcorrentesLoad();
-  lista.push({id:'conc_'+Date.now(),nome:nome,cidade:cidade,estado:estado.toUpperCase(),lat:coord[0],lng:coord[1],ts:Date.now(),concessionaria:ehConcessionaria});
+  lista.push({id:'conc_'+Date.now(),nome:nome,cidade:cidade,estado:estado.toUpperCase(),lat:coord[0],lng:coord[1],ts:Date.now(),concessionaria:ehConcessionaria,linha:linha,observacao:observacao});
+  pfMapaConcorrentesSalvar(lista);
+  mapaComercialRender();
+}
+function pfMapaComercialEditarConcorrente(id){
+  var lista=pfMapaConcorrentesLoad();
+  var item=lista.find(function(c){return c.id===id;});
+  if(!item)return;
+  var linha=prompt('Linha/marca:',item.linha||'');
+  if(linha===null)return;
+  var observacao=prompt('Observação:',item.observacao||'');
+  if(observacao===null)return;
+  item.linha=linha;item.observacao=observacao;item.ts=Date.now();
   pfMapaConcorrentesSalvar(lista);
   mapaComercialRender();
 }
@@ -45825,7 +45897,7 @@ function pfMapaComercialRemoverConcorrente(id){
   mapaComercialRender();
 }
 var _pfMapaComercialInstancia=null;
-var _pfMapaComercialFiltros={tipo:'',setor:'',linha:''};
+var _pfMapaComercialFiltros={tipo:'',setor:'',linha:'',concLinha:'',concEstado:'',concMunicipio:''};
 async function mapaComercialRender(){
   var box=document.getElementById('mapaComercialBody');
   if(!box)return;
@@ -45843,6 +45915,14 @@ async function mapaComercialRender(){
     if(c.setor)setoresSet[c.setor]=true;
     (c.linhasPrinc||[]).forEach(function(l){if(l)linhasSet[l]=true;});
   });
+  // v115.1533 - Mesmo raciocínio pros concorrentes (Linha/Estado/
+  // Município), opções vindas do que já foi cadastrado até agora.
+  var concLinhasSet={},concEstadosSet={},concMunicipiosSet={};
+  concorrentes.forEach(function(c){
+    if(c.linha)concLinhasSet[c.linha]=true;
+    if(c.estado)concEstadosSet[c.estado]=true;
+    if(c.cidade)concMunicipiosSet[c.cidade]=true;
+  });
   function opcoesSelect(id,valores,valorAtual,label){
     return '<select id="'+id+'" onchange="pfMapaComercialAplicarFiltro(\''+id+'\',this.value)" style="padding:6px 8px;border:1px solid var(--pf-sidebar-border);border-radius:6px;font-size:12px">'+
       '<option value="">'+label+' (todos)</option>'+
@@ -45858,10 +45938,17 @@ async function mapaComercialRender(){
         '<button onclick="pfMapaComercialAdicionarConcorrente()" style="background:var(--pf-sidebar-bg);color:var(--pf-text);border:1px solid var(--pf-sidebar-border);border-radius:7px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:700">+ Manual</button>'+
       '</div>'+
     '</div>'+
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">'+
+      '<span style="font-size:11px;color:var(--pf-text-muted);align-self:center">🟢 Clientes:</span>'+
       opcoesSelect('pfMapaFiltroTipo',tiposSet,_pfMapaComercialFiltros.tipo,'Tipo')+
       opcoesSelect('pfMapaFiltroSetor',setoresSet,_pfMapaComercialFiltros.setor,'Setor')+
       opcoesSelect('pfMapaFiltroLinha',linhasSet,_pfMapaComercialFiltros.linha,'Linha')+
+    '</div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+
+      '<span style="font-size:11px;color:var(--pf-text-muted);align-self:center">🔴 Concorrentes:</span>'+
+      opcoesSelect('pfMapaFiltroConcLinha',concLinhasSet,_pfMapaComercialFiltros.concLinha,'Linha')+
+      opcoesSelect('pfMapaFiltroConcEstado',concEstadosSet,_pfMapaComercialFiltros.concEstado,'Estado')+
+      opcoesSelect('pfMapaFiltroConcMunicipio',concMunicipiosSet,_pfMapaComercialFiltros.concMunicipio,'Município')+
     '</div>'+
     '<div id="pfMapaComercialContagem" style="display:flex;gap:16px;font-size:12px;color:var(--pf-text-muted);margin-bottom:10px"></div>'+
     '<div id="pfMapaComercialMapa" style="width:100%;height:70vh;border-radius:10px;border:1px solid var(--pf-sidebar-border)"></div>';
@@ -45881,6 +45968,9 @@ function pfMapaComercialAplicarFiltro(id,valor){
   if(id==='pfMapaFiltroTipo')_pfMapaComercialFiltros.tipo=valor;
   if(id==='pfMapaFiltroSetor')_pfMapaComercialFiltros.setor=valor;
   if(id==='pfMapaFiltroLinha')_pfMapaComercialFiltros.linha=valor;
+  if(id==='pfMapaFiltroConcLinha')_pfMapaComercialFiltros.concLinha=valor;
+  if(id==='pfMapaFiltroConcEstado')_pfMapaComercialFiltros.concEstado=valor;
+  if(id==='pfMapaFiltroConcMunicipio')_pfMapaComercialFiltros.concMunicipio=valor;
   pfMapaComercialPlotarMarcadores();
 }
 var _pfMapaComercialLayerGroup=null;
@@ -45916,17 +46006,26 @@ async function pfMapaComercialPlotarMarcadores(){
     L.circleMarker([coordC[0],coordC[1]],{radius:7,color:'#0F1F35',weight:1,fillColor:'#16A34A',fillOpacity:0.85})
       .addTo(_pfMapaComercialLayerGroup).bindPopup(popupHtml);
   }
-  concorrentes.forEach(function(cc){
+  var concorrentesFiltrados=concorrentes.filter(function(c){
+    if(f.concLinha&&c.linha!==f.concLinha)return false;
+    if(f.concEstado&&c.estado!==f.concEstado)return false;
+    if(f.concMunicipio&&c.cidade!==f.concMunicipio)return false;
+    return true;
+  });
+  concorrentesFiltrados.forEach(function(cc){
     var popupC='<b>'+pfEscHtml(cc.nome)+'</b><br>'+pfEscHtml(cc.cidade)+'/'+pfEscHtml(cc.estado)+
+      (cc.linha?'<br><span style="color:#888;font-size:11px">Linha: '+pfEscHtml(cc.linha)+'</span>':'')+
       (cc.concessionaria?'<br><span style="color:#888;font-size:11px">Concessionária</span>':'')+
-      '<br><span onclick="pfMapaComercialRemoverConcorrente(\''+cc.id+'\')" style="color:#DC2626;cursor:pointer;font-size:11px">🗑 remover</span>';
+      (cc.observacao?'<br><span style="color:#888;font-size:11px">'+pfEscHtml(cc.observacao)+'</span>':'')+
+      '<br><span onclick="pfMapaComercialEditarConcorrente(\''+cc.id+'\')" style="color:#2563EB;cursor:pointer;font-size:11px">✏️ editar</span>'+
+      ' · <span onclick="pfMapaComercialRemoverConcorrente(\''+cc.id+'\')" style="color:#DC2626;cursor:pointer;font-size:11px">🗑 remover</span>';
     L.circleMarker([cc.lat,cc.lng],{radius:7,color:'#0F1F35',weight:1,fillColor:'#DC2626',fillOpacity:0.85})
       .addTo(_pfMapaComercialLayerGroup).bindPopup(popupC);
   });
   var contagemBox=document.getElementById('pfMapaComercialContagem');
   if(contagemBox){
     contagemBox.innerHTML='<span>🟢 Nossos clientes ('+clientesFiltrados.length+(clientesFiltrados.length!==clientes.length?' de '+clientes.length:'')+')</span>'+
-      '<span>🔴 Concorrentes ('+concorrentes.length+')</span>'+
+      '<span>🔴 Concorrentes ('+concorrentesFiltrados.length+(concorrentesFiltrados.length!==concorrentes.length?' de '+concorrentes.length:'')+')</span>'+
       (semGeo>0?'<span style="color:#C0392B">⚠️ '+semGeo+' cidade(s) não geocodificada(s)</span>':'');
   }
 }

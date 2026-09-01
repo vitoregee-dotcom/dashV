@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1533</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1534</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1533</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1534</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -45897,14 +45897,47 @@ function pfMapaComercialRemoverConcorrente(id){
   mapaComercialRender();
 }
 var _pfMapaComercialInstancia=null;
-var _pfMapaComercialFiltros={tipo:'',setor:'',linha:'',concLinha:'',concEstado:'',concMunicipio:''};
+var _pfMapaComercialFiltros={tipo:'',setor:'',linha:'',concLinha:'',concEstado:'',concMunicipio:'',fornTipo:'',fornLinha:'',fornMarca:''};
+// v115.1534 - Estilos/ícones dos marcadores do Mapa Comercial: cor+forma
+// por categoria (cliente=círculo verde, concorrente=quadrado vermelho,
+// fornecedor=diamante roxo) + animação de entrada e hover, via divIcon
+// (troca fácil por imagem/desenho customizado depois, a pedido do Vitor).
+function pfMapaComercialGarantirEstilosMarcador(){
+  if(document.getElementById('pfMapaMarcadorStyles'))return;
+  var st=document.createElement('style');
+  st.id='pfMapaMarcadorStyles';
+  st.textContent=
+    '.pf-mapa-marker{width:20px;height:20px;border:2px solid #0F1F35;box-shadow:0 1px 3px rgba(0,0,0,.35);cursor:pointer;transition:transform .15s ease;box-sizing:border-box}'+
+    '.pf-mapa-marker-circulo{border-radius:50%;animation:pfMapaMarkerIn .35s ease-out}'+
+    '.pf-mapa-marker-circulo:hover{transform:scale(1.4)}'+
+    '.pf-mapa-marker-quadrado{border-radius:4px;animation:pfMapaMarkerIn .35s ease-out}'+
+    '.pf-mapa-marker-quadrado:hover{transform:scale(1.4)}'+
+    '.pf-mapa-marker-diamante{border-radius:4px;transform:rotate(45deg);animation:pfMapaMarkerInDiamante .35s ease-out}'+
+    '.pf-mapa-marker-diamante:hover{transform:rotate(45deg) scale(1.4)}'+
+    '@keyframes pfMapaMarkerIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}'+
+    '@keyframes pfMapaMarkerInDiamante{from{transform:rotate(45deg) scale(0);opacity:0}to{transform:rotate(45deg) scale(1);opacity:1}}';
+  document.head.appendChild(st);
+}
+function pfMapaComercialIcone(cor,forma){
+  forma=forma||'circulo';
+  return L.divIcon({
+    className:'',
+    html:'<div class="pf-mapa-marker pf-mapa-marker-'+forma+'" style="background:'+cor+'"></div>',
+    iconSize:[20,20],iconAnchor:[10,10],popupAnchor:[0,-10]
+  });
+}
 async function mapaComercialRender(){
   var box=document.getElementById('mapaComercialBody');
   if(!box)return;
   box.innerHTML='<div style="text-align:center;padding:40px;color:var(--pf-text-muted)">Carregando mapa...</div>';
   await pfMapaComercialGarantirLeaflet();
+  pfMapaComercialGarantirEstilosMarcador();
   var clientes=(typeof cadLoad==='function'&&typeof CLIE_KEY!=='undefined')?cadLoad(CLIE_KEY):[];
   var concorrentes=pfMapaConcorrentesLoad();
+  // v115.1534 - A pedido do Vitor: Fornecedores no mapa, com os mesmos
+  // filtros que já existem no cadastro (Tipo/Linhas/Marcas trabalhadas) --
+  // sem campo novo, mesmo raciocínio das outras camadas.
+  var fornecedores=(typeof cadLoad==='function'&&typeof FORN_KEY!=='undefined')?cadLoad(FORN_KEY):[];
   // v115.1532 - A pedido do Vitor: filtros por Tipo/Setor/Linha, usando
   // dado real já existente no cadastro (não pediu campo novo pro
   // cliente) -- opções dos dropdowns vêm dos valores que de fato aparecem
@@ -45922,6 +45955,14 @@ async function mapaComercialRender(){
     if(c.linha)concLinhasSet[c.linha]=true;
     if(c.estado)concEstadosSet[c.estado]=true;
     if(c.cidade)concMunicipiosSet[c.cidade]=true;
+  });
+  // v115.1534 - Mesmo padrão pros Fornecedores (Tipo/Linhas/Marcas
+  // trabalhadas), opções vindas do que já está cadastrado.
+  var fornTiposSet={},fornLinhasSet={},fornMarcasSet={};
+  fornecedores.forEach(function(fo){
+    if(fo.tipo)fornTiposSet[fo.tipo]=true;
+    (fo.linhas||[]).forEach(function(l){if(l)fornLinhasSet[l]=true;});
+    (fo.marcasTrab||[]).forEach(function(m){if(m)fornMarcasSet[m]=true;});
   });
   function opcoesSelect(id,valores,valorAtual,label){
     return '<select id="'+id+'" onchange="pfMapaComercialAplicarFiltro(\''+id+'\',this.value)" style="padding:6px 8px;border:1px solid var(--pf-sidebar-border);border-radius:6px;font-size:12px">'+
@@ -45950,6 +45991,12 @@ async function mapaComercialRender(){
       opcoesSelect('pfMapaFiltroConcEstado',concEstadosSet,_pfMapaComercialFiltros.concEstado,'Estado')+
       opcoesSelect('pfMapaFiltroConcMunicipio',concMunicipiosSet,_pfMapaComercialFiltros.concMunicipio,'Município')+
     '</div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+
+      '<span style="font-size:11px;color:var(--pf-text-muted);align-self:center">🟣 Fornecedores:</span>'+
+      opcoesSelect('pfMapaFiltroFornTipo',fornTiposSet,_pfMapaComercialFiltros.fornTipo,'Tipo')+
+      opcoesSelect('pfMapaFiltroFornLinha',fornLinhasSet,_pfMapaComercialFiltros.fornLinha,'Linha')+
+      opcoesSelect('pfMapaFiltroFornMarca',fornMarcasSet,_pfMapaComercialFiltros.fornMarca,'Marca trabalhada')+
+    '</div>'+
     '<div id="pfMapaComercialContagem" style="display:flex;gap:16px;font-size:12px;color:var(--pf-text-muted);margin-bottom:10px"></div>'+
     '<div id="pfMapaComercialMapa" style="width:100%;height:70vh;border-radius:10px;border:1px solid var(--pf-sidebar-border)"></div>';
   if(_pfMapaComercialInstancia){try{_pfMapaComercialInstancia.remove();}catch(e){}_pfMapaComercialInstancia=null;}
@@ -45960,6 +46007,7 @@ async function mapaComercialRender(){
   }).addTo(mapa);
   window._pfMapaComercialClientesCache=clientes;
   window._pfMapaComercialConcorrentesCache=concorrentes;
+  window._pfMapaComercialFornecedoresCache=fornecedores;
   await pfMapaComercialPlotarMarcadores();
 }
 // v115.1532 - Mudar um filtro só replota os pontos (função separada), não
@@ -45971,6 +46019,9 @@ function pfMapaComercialAplicarFiltro(id,valor){
   if(id==='pfMapaFiltroConcLinha')_pfMapaComercialFiltros.concLinha=valor;
   if(id==='pfMapaFiltroConcEstado')_pfMapaComercialFiltros.concEstado=valor;
   if(id==='pfMapaFiltroConcMunicipio')_pfMapaComercialFiltros.concMunicipio=valor;
+  if(id==='pfMapaFiltroFornTipo')_pfMapaComercialFiltros.fornTipo=valor;
+  if(id==='pfMapaFiltroFornLinha')_pfMapaComercialFiltros.fornLinha=valor;
+  if(id==='pfMapaFiltroFornMarca')_pfMapaComercialFiltros.fornMarca=valor;
   pfMapaComercialPlotarMarcadores();
 }
 var _pfMapaComercialLayerGroup=null;
@@ -45981,6 +46032,7 @@ async function pfMapaComercialPlotarMarcadores(){
   _pfMapaComercialLayerGroup=L.layerGroup().addTo(mapa);
   var clientes=window._pfMapaComercialClientesCache||[];
   var concorrentes=window._pfMapaComercialConcorrentesCache||[];
+  var fornecedores=window._pfMapaComercialFornecedoresCache||[];
   var f=_pfMapaComercialFiltros;
   var clientesFiltrados=clientes.filter(function(c){
     if(f.tipo&&c.tipo!==f.tipo)return false;
@@ -46003,7 +46055,7 @@ async function pfMapaComercialPlotarMarcadores(){
     var popupHtml='<b>'+pfEscHtml(grupo.cidade)+'/'+pfEscHtml(grupo.estado)+'</b><br>'+
       grupo.itens.slice(0,8).map(function(c){return pfEscHtml(c.fantasia||c.razao||'(sem nome)')+(c.tipo?' <span style="color:#888">('+pfEscHtml(c.tipo)+')</span>':'');}).join('<br>')+
       (grupo.itens.length>8?'<br>+'+(grupo.itens.length-8)+' outros':'');
-    L.circleMarker([coordC[0],coordC[1]],{radius:7,color:'#0F1F35',weight:1,fillColor:'#16A34A',fillOpacity:0.85})
+    L.marker([coordC[0],coordC[1]],{icon:pfMapaComercialIcone('#16A34A','circulo')})
       .addTo(_pfMapaComercialLayerGroup).bindPopup(popupHtml);
   }
   var concorrentesFiltrados=concorrentes.filter(function(c){
@@ -46019,14 +46071,49 @@ async function pfMapaComercialPlotarMarcadores(){
       (cc.observacao?'<br><span style="color:#888;font-size:11px">'+pfEscHtml(cc.observacao)+'</span>':'')+
       '<br><span onclick="pfMapaComercialEditarConcorrente(\''+cc.id+'\')" style="color:#2563EB;cursor:pointer;font-size:11px">✏️ editar</span>'+
       ' · <span onclick="pfMapaComercialRemoverConcorrente(\''+cc.id+'\')" style="color:#DC2626;cursor:pointer;font-size:11px">🗑 remover</span>';
-    L.circleMarker([cc.lat,cc.lng],{radius:7,color:'#0F1F35',weight:1,fillColor:'#DC2626',fillOpacity:0.85})
+    L.marker([cc.lat,cc.lng],{icon:pfMapaComercialIcone('#DC2626','quadrado')})
       .addTo(_pfMapaComercialLayerGroup).bindPopup(popupC);
   });
+  // v115.1534 - Fornecedores: mesma lógica de agrupar por cidade/estado dos
+  // clientes, usando os filtros Tipo/Linha/Marca trabalhada do cadastro.
+  // Coverage real (checada antes de construir): só ~46% dos 109 tem
+  // cidade/estado preenchidos, e Linha só em ~16% -- avisado ao Vitor.
+  var fornecedoresFiltrados=fornecedores.filter(function(fo){
+    if(f.fornTipo&&fo.tipo!==f.fornTipo)return false;
+    if(f.fornLinha&&(fo.linhas||[]).indexOf(f.fornLinha)===-1)return false;
+    if(f.fornMarca&&(fo.marcasTrab||[]).indexOf(f.fornMarca)===-1)return false;
+    return true;
+  });
+  var semCidadeForn=0;
+  var porCidadeForn={};
+  for(var n=0;n<fornecedoresFiltrados.length;n++){
+    var fo=fornecedoresFiltrados[n];
+    if(!fo.cidade||!fo.estado){semCidadeForn++;continue;}
+    var chaveF=pfNormalizarCidade(fo.cidade)+'|'+(fo.estado||'').toUpperCase();
+    (porCidadeForn[chaveF]=porCidadeForn[chaveF]||{cidade:fo.cidade,estado:fo.estado,itens:[]}).itens.push(fo);
+  }
+  var chavesForn=Object.keys(porCidadeForn);
+  var semGeoForn=0;
+  for(var p=0;p<chavesForn.length;p++){
+    var grupoF=porCidadeForn[chavesForn[p]];
+    var coordF=await pfGeocodificarCidade(grupoF.cidade,grupoF.estado);
+    if(!coordF){semGeoForn++;continue;}
+    var popupF='<b>'+pfEscHtml(grupoF.cidade)+'/'+pfEscHtml(grupoF.estado)+'</b><br>'+
+      grupoF.itens.slice(0,8).map(function(fo){return pfEscHtml(fo.fantasia||fo.razao||'(sem nome)')+(fo.tipo?' <span style="color:#888">('+pfEscHtml(fo.tipo)+')</span>':'');}).join('<br>')+
+      (grupoF.itens.length>8?'<br>+'+(grupoF.itens.length-8)+' outros':'');
+    L.marker([coordF[0],coordF[1]],{icon:pfMapaComercialIcone('#7C3AED','diamante')})
+      .addTo(_pfMapaComercialLayerGroup).bindPopup(popupF);
+  }
   var contagemBox=document.getElementById('pfMapaComercialContagem');
   if(contagemBox){
+    var avisos=[];
+    if(semGeo>0)avisos.push(semGeo+' cidade(s) de cliente não geocodificada(s)');
+    if(semGeoForn>0)avisos.push(semGeoForn+' cidade(s) de fornecedor não geocodificada(s)');
+    if(semCidadeForn>0)avisos.push(semCidadeForn+' fornecedor(es) sem cidade/estado cadastrado');
     contagemBox.innerHTML='<span>🟢 Nossos clientes ('+clientesFiltrados.length+(clientesFiltrados.length!==clientes.length?' de '+clientes.length:'')+')</span>'+
       '<span>🔴 Concorrentes ('+concorrentesFiltrados.length+(concorrentesFiltrados.length!==concorrentes.length?' de '+concorrentes.length:'')+')</span>'+
-      (semGeo>0?'<span style="color:#C0392B">⚠️ '+semGeo+' cidade(s) não geocodificada(s)</span>':'');
+      '<span>🟣 Fornecedores ('+fornecedoresFiltrados.length+(fornecedoresFiltrados.length!==fornecedores.length?' de '+fornecedores.length:'')+')</span>'+
+      (avisos.length?'<span style="color:#C0392B">⚠️ '+avisos.join(' · ')+'</span>':'');
   }
 }
 function logisticaRender(){

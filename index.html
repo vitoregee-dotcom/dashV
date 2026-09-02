@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1559</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1561</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1559</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1561</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -19568,6 +19568,20 @@ function mostrarErro(msg){
   }
   el.textContent=msg;el.style.display="block";
 }
+// v115.1561 - Aviso NÃO-fatal (laranja, diferente do mostrarErro vermelho):
+// o import em si deu certo (dados na tela vieram do arquivo local), só a
+// sincronização com o servidor de uma família específica falhou -- ver
+// comentário completo em pfPushPlanilha.
+function mostrarAvisoSync(msg){
+  var zona=document.getElementById("upZone")||document.body;
+  var el=document.getElementById("avisoSyncMsg");
+  if(!el){
+    el=document.createElement("div");el.id="avisoSyncMsg";
+    el.style.cssText="background:#FFF3CD;color:#7A5C00;border:2px solid #E6A700;border-radius:8px;padding:14px 18px;margin-top:16px;font-size:12px;line-height:1.7;white-space:pre-wrap;text-align:left;";
+    zona.appendChild(el);
+  }
+  el.textContent=msg;el.style.display="block";
+}
 function handleFile(file){
   var errEl=document.getElementById("errMsg");
   if(errEl)errEl.style.display="none";
@@ -19874,7 +19888,19 @@ async function pfFinalizarImportPlanilha(result,file,sp){
       // disparar a verificação, garantindo que ela sempre veja o que
       // acabou de subir.
       if(typeof _pushPlanilhasPromises!=='undefined'&&_pushPlanilhasPromises&&_pushPlanilhasPromises.length){
-        try{await Promise.all(_pushPlanilhasPromises);}catch(e){console.warn('Falha ao aguardar push de planilha antes da verificação automática:',e);}
+        try{
+          var _resultadosPush=await Promise.all(_pushPlanilhasPromises);
+          // v115.1561 - A pedido do Vitor: falha de sincronização de uma
+          // família (ver pfPushPlanilha) agora aparece na tela em vez de só
+          // no console -- senão o import "parece" ter funcionado (os dados
+          // aparecem normal na tela, vieram do arquivo local) enquanto o
+          // Supabase (usado pelo detector automático de comprado/faturado/
+          // chegou) fica com a versão antiga, sem ninguém perceber.
+          var _falharam=(_resultadosPush||[]).filter(function(r){return r&&r.ok===false;}).map(function(r){return r.familia;});
+          if(_falharam.length&&typeof mostrarAvisoSync==='function'){
+            mostrarAvisoSync('⚠️ Falha ao sincronizar com o servidor: '+_falharam.join(', ')+'. Os dados dessa(s) família(s) só ficaram salvos neste navegador -- os avisos automáticos de compra/chegada podem continuar usando a versão antiga até uma reimportação dar certo. Tente importar de novo.');
+          }
+        }catch(e){console.warn('Falha ao aguardar push de planilha antes da verificação automática:',e);}
       }
       if(typeof pfComprasAutoVerificar==='function')pfComprasAutoVerificar();
       setTimeout(function(){renderCharts();renderKpis();renderOpBox();verificarOportunidades();},300); // v115.1490 - verificarAvisos() desligada (sistema antigo/duplicado do Me Avise, ver nota na função)
@@ -24370,23 +24396,78 @@ function showAuthView(id){
 // alter table user_planilhas enable row level security;
 // create policy "user own" on user_planilhas for all using (auth.uid() = user_id);
 
-async function pfPushPlanilha(items, familia, nomeArquivo){
-  if(!sbUser)return;
+// v115.1561 - BUG GRAVE corrigido (a pedido do Vitor, achado investigando
+// "aviso de chegou atrasado"): famílias pequenas (Componentes de Cardan,
+// Rolamentos etc) sempre sincronizaram normal, mas "Peças de Motor" (108 mil
+// linhas, ~20MB de JSON) e "Transmissão e Eixo" (77 mil linhas, ~14MB)
+// NUNCA completavam o push pro Supabase -- POST de uma família inteira numa
+// linha só estourava limite de payload/timeout do gateway, e o try/catch
+// aqui dentro engolia o erro sem avisar nada na tela. Resultado: essas 2
+// famílias ficaram PARADAS com dado de semanas atrás (18/08 e 26/08) mesmo
+// com o Vitor reimportando a planilha GERAL quase todo dia -- e o detector
+// automático de "chegou" (que compara com esse baseline requentado, não com
+// o arquivo de verdade) só disparava aviso quando a família finalmente
+// conseguia entrar de vez em quando, dias depois da chegada real.
+// Corrigido: família grande agora é dividida em pedaços de até 15 mil itens
+// (~2,9MB cada, folga segura abaixo do limite de payload), cada pedaço vira
+// sua PRÓPRIA linha na tabela (familia+'__pfchunk1de3' etc) -- famílias
+// pequenas continuam numa linha só, sem mudar nada pra elas. Do lado da
+// leitura (pfPullPlanilhas/pfComprasBuscarTodosItensFrescos) não precisou
+// mudar nada: os dois já concatenam os itens de TODAS as linhas retornadas
+// num array só, então pedaços de uma família grande se juntam sozinhos.
+// Resíduo de importação anterior com nº de pedaços diferente (família
+// cresceu/encolheu de tamanho) é limpo depois de um push bem-sucedido.
+var PF_PLANILHA_CHUNK_TAMANHO=15000;
+function pfBaseFamiliaChunk(f){
+  var m=/^(.*)__pfchunk\d+de\d+$/.exec(f||'');
+  return m?m[1]:f;
+}
+async function pfPushPlanilhaUmaLinha(items,familiaChave,nomeArquivo){
+  if(!sbUser)return false;
   try{
     var payload={
       user_id: sbUser.id,
-      familia: familia,
+      familia: familiaChave,
       nome_arquivo: nomeArquivo||'',
       items: JSON.stringify(items),
       configuracoes: JSON.stringify({leadTime,ciclo,periodo,modoC,mesesC}),
       updated_at: new Date().toISOString()
     };
-    await sbFetch('/rest/v1/user_planilhas?on_conflict=user_id,familia',{
+    var r=await sbFetch('/rest/v1/user_planilhas?on_conflict=user_id,familia',{
       method:'POST',
       headers:{'Prefer':'resolution=merge-duplicates'},
       body:JSON.stringify(payload)
     });
-  }catch(e){console.warn('pfPushPlanilha erro:',e);}
+    return !!(r&&r.ok);
+  }catch(e){console.warn('pfPushPlanilhaUmaLinha erro ('+familiaChave+'):',e);return false;}
+}
+async function pfPushPlanilha(items, familia, nomeArquivo){
+  if(!sbUser)return {familia:familia,ok:false,partes:0};
+  var chunks=[];
+  for(var i=0;i<items.length;i+=PF_PLANILHA_CHUNK_TAMANHO)chunks.push(items.slice(i,i+PF_PLANILHA_CHUNK_TAMANHO));
+  if(!chunks.length)chunks=[[]];
+  var nomes=chunks.map(function(c,i){return chunks.length===1?familia:(familia+'__pfchunk'+(i+1)+'de'+chunks.length);});
+  var oks=await Promise.all(chunks.map(function(c,i){return pfPushPlanilhaUmaLinha(c,nomes[i],nomeArquivo);}));
+  var falhou=oks.some(function(ok){return !ok;});
+  if(!falhou){
+    // Limpa resíduo de layout antigo -- ex: família que antes precisava de
+    // 3 pedaços e agora cabe em 2 (ou numa linha só), sobra lixo com o nome
+    // do pedaço 3 antigo que nunca mais vai ser sobrescrito.
+    try{
+      var rTodas=await sbFetch('/rest/v1/user_planilhas?user_id=eq.'+sbUser.id+'&select=familia');
+      var todas=(await rTodas.json())||[];
+      var manterSet={};nomes.forEach(function(n){manterSet[n]=true;});
+      var remover=todas.map(function(r){return r.familia;}).filter(function(f){
+        if(f===familia)return !manterSet[f];
+        if(f.indexOf(familia+'__pfchunk')===0)return !manterSet[f];
+        return false;
+      });
+      for(var ri2=0;ri2<remover.length;ri2++){
+        await sbFetch('/rest/v1/user_planilhas?user_id=eq.'+sbUser.id+'&familia=eq.'+encodeURIComponent(remover[ri2]),{method:'DELETE'});
+      }
+    }catch(eLimpar){console.warn('Falha ao limpar resíduo de chunks antigos de '+familia+':',eLimpar);}
+  }
+  return {familia:familia,ok:!falhou,partes:chunks.length};
 }
 
 async function pfPullPlanilhas(){
@@ -45521,13 +45602,34 @@ function pfAvisosAbrirPainel(etapaK){
     return;
   }
   if(etapaK==='meavise'){
-    // v115.1519 - A tela do Me Avise (ferrMeAvise) já mostra tudo direito
-    // (status, cliente, botão remover) -- não faz sentido duplicar isso
-    // num painel lateral, então clicar aqui só leva direto pra lá, mesmo
-    // caminho que "tools_me_avise" já usa nos Atalhos.
-    var painelJaAberto=document.getElementById('pfAvisosPainel');if(painelJaAberto)painelJaAberto.remove();
-    pfNavigate('ferramentas');
-    setTimeout(function(){if(typeof ferrMeAvise==='function')ferrMeAvise();},200);
+    // v115.1560 - BUG corrigido (a pedido do Vitor: "o sino da barra de
+    // avisos ainda está levando pra lista do Avise-me, quando era pra
+    // informar só os itens que alteraram o status"). A v115.1519 levava
+    // direto pra tela cheia (todos os itens, incluindo os que ainda estão
+    // "Aguardando"). O sino do Dashboard (pfMeAviseSinoClick, v115.1542)
+    // já resolveu isso mostrando só um resumo dos que MUDARAM de status
+    // (status:'chegou', mesma contagem do badge desse ícone) -- agora
+    // esse ícone da barra lateral segue o mesmo padrão, com um botão pra
+    // ver a lista completa só se quiser.
+    var listaMA=[];try{listaMA=JSON.parse(localStorage.getItem('meAvise_lista')||'[]');}catch(eMA){}
+    var chegadosMA=listaMA.filter(function(a){return a.status==='chegou';});
+    var htmlMA='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'+
+      '<b style="font-size:14px;color:#E67E22">Me Avise -- chegaram ('+chegadosMA.length+')</b>'+
+      '<span onclick="document.getElementById(\'pfAvisosPainel\').remove()" style="cursor:pointer;color:var(--pf-text-muted);font-size:16px">✕</span></div>';
+    if(!chegadosMA.length){
+      htmlMA+='<div style="font-size:12px;color:var(--pf-text-muted)">Nada novo -- nenhum item mudou de status.</div>';
+    }else{
+      chegadosMA.forEach(function(a){
+        htmlMA+='<div style="background:var(--pf-bg);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px">'+
+          '<div style="font-weight:700;color:#E67E22">'+pfEscHtml(a.ref||'')+' <span style="color:var(--pf-text-muted);font-weight:400">'+pfEscHtml(a.marca||'')+'</span></div>'+
+          (a.nome_cliente?'<div style="color:var(--pf-text-muted)">👤 '+pfEscHtml(a.nome_cliente)+'</div>':'')+
+          '<div style="color:var(--pf-text-muted)">✅ Chegou'+(a.obs?' · '+pfEscHtml(a.obs):'')+'</div></div>';
+      });
+    }
+    htmlMA+='<div onclick="document.getElementById(\'pfAvisosPainel\').remove();pfNavigate(\'ferramentas\');setTimeout(function(){if(typeof ferrMeAvise===\'function\')ferrMeAvise();},200)" style="text-align:center;font-size:12px;color:#1F4E79;cursor:pointer;margin-top:8px;padding-top:8px;border-top:1px solid var(--pf-sidebar-border)">Ver lista completa</div>';
+    painel.innerHTML=htmlMA;
+    document.body.appendChild(painel);
+    pfAvisosPainelPosAbrir();
     return;
   }
   var etapaInfo=PF_AVISOS_ETAPAS.find(function(e){return e.k===etapaK;});

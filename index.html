@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1558</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1559</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1558</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1559</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -22561,6 +22561,29 @@ async function pfRankExportar(chave,modo){
   if(!m.ativos.length){pfAlert('Marque pelo menos uma coluna antes de exportar.');return;}
   var hoje=new Date().toLocaleDateString('pt-BR');
   var nomeArqBase=(m.dados.titulo||'ranking').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')+'-'+new Date().toISOString().slice(0,10);
+  // v115.1559 - BUG DE RAIZ corrigido (Vitor: "não tá abrindo ainda" no
+  // Visualizar PDF de uma lista grande, mesmo depois da v115.1558): o
+  // window.open(url,'_blank') só acontecia lá no fim, depois do
+  // html2pdf/html2canvas terminar (vários segundos num relatório de 1051
+  // itens/43 páginas) -- o Chrome só permite window.open sem bloqueio de
+  // pop-up "colado" no clique do usuário; depois de alguns segundos de
+  // trabalho assíncrono no meio, essa "autorização" expira e o navegador
+  // bloqueia a aba silenciosamente, sem erro nenhum pro catch pegar (por
+  // isso parecia simplesmente não fazer nada). Corrigido abrindo a aba
+  // JÁ na primeira linha, ainda dentro do mesmo clique (com uma mensagem
+  // de "gerando..."), e só trocando o conteúdo dela pro PDF quando ficar
+  // pronto -- técnica padrão pra sobreviver a bloqueador de pop-up com
+  // conteúdo assíncrono demorado.
+  var pfRankAbaPreReservada=null;
+  if(modo==='pdf-visualizar'){
+    pfRankAbaPreReservada=window.open('','_blank');
+    if(pfRankAbaPreReservada){
+      try{
+        pfRankAbaPreReservada.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Gerando PDF…</title></head><body style="font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;color:#1F4E79;font-size:16px;background:#eef1f5">⏳ Gerando o PDF, aguarde…</body></html>');
+        pfRankAbaPreReservada.document.close();
+      }catch(e){}
+    }
+  }
   if(modo==='excel'){
     try{
       var ws_data=[m.ativos.map(function(c){return c.label;})].concat(m.dados.itens.map(function(d){return m.ativos.map(function(c){return c.get(d);});}));
@@ -22723,7 +22746,11 @@ async function pfRankExportar(chave,modo){
       var blob=await html2pdf().set(opts).from(alvo).outputPdf('blob');
       container.remove();
       var url=URL.createObjectURL(blob);
-      window.open(url,'_blank');
+      if(pfRankAbaPreReservada&&!pfRankAbaPreReservada.closed){
+        pfRankAbaPreReservada.location=url;
+      }else{
+        window.open(url,'_blank');
+      }
       // v115.1507 - BUG DE RAIZ corrigido (Vitor: "tentei salvar o pdf como
       // impressão e não consegui" -- erro "verifique a conexão" ao tentar
       // Salvar/Imprimir de dentro do visualizador do navegador): esse
@@ -22742,7 +22769,12 @@ async function pfRankExportar(chave,modo){
       var a=document.createElement('a');a.href=urlB;a.download=nomeArqBase+'.pdf';document.body.appendChild(a);a.click();a.remove();
       setTimeout(function(){URL.revokeObjectURL(urlB);},4000);
     }
-  }catch(e){pfAlert('Erro ao gerar PDF: '+e.message);}
+  }catch(e){
+    pfAlert('Erro ao gerar PDF: '+e.message);
+    if(pfRankAbaPreReservada&&!pfRankAbaPreReservada.closed){
+      try{pfRankAbaPreReservada.close();}catch(e2){}
+    }
+  }
 }
 function renderRankings(){
   if(!calcItems.length)return;

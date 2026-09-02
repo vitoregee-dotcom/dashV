@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1546</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1547</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1546</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1547</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -46459,6 +46459,14 @@ async function mapaComercialRender(){
   // filtros que já existem no cadastro (Tipo/Linhas/Marcas trabalhadas) --
   // sem campo novo, mesmo raciocínio das outras camadas.
   var fornecedores=(typeof cadLoad==='function'&&typeof FORN_KEY!=='undefined')?cadLoad(FORN_KEY):[];
+  // v115.1547 - A pedido do Vitor: painel lateral "Entidades" com lista de
+  // clientes/concorrentes/fornecedores/transportadoras. Transportadora
+  // entra só na lista (Vitor decidiu em chat: por enquanto sem pino no
+  // mapa, porque hoje só tem "Praça de atuação" em texto livre, sem
+  // cidade/estado estruturado pra geocodificar -- ideia futura dele é
+  // aprender a cobertura pelos pedidos dos clientes ou puxar do site da
+  // transportadora).
+  var transportadoras=(typeof cadLoad==='function'&&typeof TRANSP_KEY!=='undefined')?cadLoad(TRANSP_KEY):[];
   // v115.1532 - A pedido do Vitor: filtros por Tipo/Setor/Linha, usando
   // dado real já existente no cadastro (não pediu campo novo pro
   // cliente) -- opções dos dropdowns vêm dos valores que de fato aparecem
@@ -46486,11 +46494,41 @@ async function mapaComercialRender(){
     (fo.marcasTrab||[]).forEach(function(m){if(m)fornMarcasSet[m]=true;});
     (fo.tiposProduto||[]).forEach(function(t){if(t)fornTiposProdutoSet[t]=true;});
   });
-  function opcoesSelect(id,valores,valorAtual,label){
-    return '<select id="'+id+'" onchange="pfMapaComercialAplicarFiltro(\''+id+'\',this.value)" style="padding:6px 8px;border:1px solid var(--pf-sidebar-border);border-radius:6px;font-size:12px">'+
+  // v115.1547 - Cache das listas movido pra ANTES do innerHTML (antes só
+  // era setado no ramo 2D, depois do desenho do mapa -- no modo 3D o
+  // painel lateral e pfMapaComercialFiltrarParaCounts() ficavam sem dado
+  // fresco na primeira renderização daquela sessão). Agora os dois modos
+  // sempre têm cache atualizado antes de qualquer coisa ler ele.
+  window._pfMapaComercialClientesCache=clientes;
+  window._pfMapaComercialConcorrentesCache=concorrentes;
+  window._pfMapaComercialFornecedoresCache=fornecedores;
+  var contagens=pfMapaComercialFiltrarParaCounts();
+  // v115.1547 - Monta a lista unificada do painel "Entidades" (mesmos
+  // filtros ativos aplicados aos clientes/concorrentes/fornecedores;
+  // transportadora entra sem filtro, ainda não tem campo pra isso).
+  window._pfMapaEntidadesTodos=[]
+    .concat(contagens.clientes.map(function(c){return {tipo:'clientes',cor:'#16A34A',nome:c.razao||c.nome||'Cliente',sub:(c.cidade&&c.estado)?(c.cidade+', '+c.estado):(c.estado||'')};}))
+    .concat(contagens.concorrentes.map(function(c){return {tipo:'concorrentes',cor:'#DC2626',nome:c.nome||c.razao||'Concorrente',sub:(c.cidade&&c.estado)?(c.cidade+', '+c.estado):(c.estado||'')};}))
+    .concat(contagens.fornecedores.map(function(fo){return {tipo:'fornecedores',cor:'#7C3AED',nome:fo.fantasia||fo.nome||fo.razao||'Fornecedor',sub:(fo.cidade&&fo.estado)?(fo.cidade+', '+fo.estado):(fo.estado||'')};}))
+    .concat(transportadoras.map(function(t){return {tipo:'transportadoras',cor:'#D97757',nome:t.razao||'Transportadora',sub:t.praca?('Praça: '+t.praca):''};}));
+  window._pfMapaEntidadesTodos.sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
+  if(typeof window._pfMapaEntFiltroTipo==='undefined')window._pfMapaEntFiltroTipo=null;
+  function opcoesSelect(id,valores,valorAtual,label,cor){
+    cor=cor||{bg:'#F0F4F8',border:'#e0e8f0',text:'#607080'};
+    return '<select id="'+id+'" onchange="pfMapaComercialAplicarFiltro(\''+id+'\',this.value)" style="padding:5px 10px;border:1px solid '+cor.border+';border-radius:14px;font-size:11.5px;background:'+cor.bg+';color:'+cor.text+';font-weight:600;cursor:pointer">'+
       '<option value="">'+label+' (todos)</option>'+
       Object.keys(valores).sort().map(function(v){return '<option value="'+pfEscHtml(v)+'"'+(v===valorAtual?' selected':'')+'>'+pfEscHtml(v)+'</option>';}).join('')+
       '</select>';
+  }
+  var CORES_REGIAO={bg:'#EAF1FA',border:'#BBD3EE',text:'#1F4E79'};
+  var CORES_CLI={bg:'#EAF7EE',border:'#BBE5C8',text:'#166534'};
+  var CORES_CONC={bg:'#FDECEC',border:'#F3C6C6',text:'#991B1B'};
+  var CORES_FORN={bg:'#F3EEFD',border:'#D9CBF7',text:'#5B21B6'};
+  var totalEnt=contagens.clientes.length+contagens.concorrentes.length+contagens.fornecedores.length+transportadoras.length;
+  function statCard(tipo,label,n,cor){
+    var ativo=(window._pfMapaEntFiltroTipo===tipo);
+    return '<div id="pfMapaEntCard_'+tipo+'" onclick="pfMapaComercialEntidadesFiltroTipo(\''+tipo+'\')" style="flex:1;text-align:center;padding:5px 2px;border-radius:8px;background:'+cor.bg+';cursor:pointer'+(ativo?';outline:2px solid '+cor.text+';outline-offset:-1px':'')+'">'+
+      '<div style="font-size:13px;font-weight:700;color:'+cor.text+'">'+n+'</div><div style="font-size:8.5px;color:'+cor.text+'">'+label+'</div></div>';
   }
   box.innerHTML=
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">'+
@@ -46502,47 +46540,73 @@ async function mapaComercialRender(){
         '<button onclick="pfMapaComercialAlternarModo()" style="background:'+(_pfMapaComercialModo3D?'#1F4E79':'var(--pf-sidebar-bg)')+';color:'+(_pfMapaComercialModo3D?'#fff':'var(--pf-text)')+';border:1px solid var(--pf-sidebar-border);border-radius:7px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:700">'+(_pfMapaComercialModo3D?'🗺️ Ver em 2D':'🧊 Ver em 3D')+'</button>'+
       '</div>'+
     '</div>'+
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">'+
-      '<span style="font-size:11px;color:var(--pf-text-muted);align-self:center">🌎 Região (todas as camadas):</span>'+
-      '<select id="pfMapaFiltroRegiao" onchange="pfMapaComercialAplicarFiltro(\'pfMapaFiltroRegiao\',this.value)" style="padding:6px 8px;border:1px solid var(--pf-sidebar-border);border-radius:6px;font-size:12px">'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;align-items:center">'+
+      '<span style="font-size:11px;font-weight:700;color:'+CORES_REGIAO.text+'">🌎 Região</span>'+
+      '<select id="pfMapaFiltroRegiao" onchange="pfMapaComercialAplicarFiltro(\'pfMapaFiltroRegiao\',this.value)" style="padding:5px 10px;border:1px solid '+CORES_REGIAO.border+';border-radius:14px;font-size:11.5px;background:'+CORES_REGIAO.bg+';color:'+CORES_REGIAO.text+';font-weight:600;cursor:pointer">'+
         '<option value="">Região (todas)</option>'+
         ['Norte','Nordeste','Centro-Oeste','Sudeste','Sul'].map(function(r){return '<option value="'+r+'"'+(r===_pfMapaComercialFiltros.regiao?' selected':'')+'>'+r+'</option>';}).join('')+
       '</select>'+
     '</div>'+
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">'+
-      '<span style="font-size:11px;color:var(--pf-text-muted);align-self:center">🟢 Clientes:</span>'+
-      opcoesSelect('pfMapaFiltroTipo',tiposSet,_pfMapaComercialFiltros.tipo,'Tipo')+
-      opcoesSelect('pfMapaFiltroSetor',setoresSet,_pfMapaComercialFiltros.setor,'Setor')+
-      opcoesSelect('pfMapaFiltroLinha',linhasSet,_pfMapaComercialFiltros.linha,'Linha')+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;align-items:center">'+
+      '<span style="font-size:11px;font-weight:700;color:'+CORES_CLI.text+'">🟢 Clientes</span>'+
+      opcoesSelect('pfMapaFiltroTipo',tiposSet,_pfMapaComercialFiltros.tipo,'Tipo',CORES_CLI)+
+      opcoesSelect('pfMapaFiltroSetor',setoresSet,_pfMapaComercialFiltros.setor,'Setor',CORES_CLI)+
+      opcoesSelect('pfMapaFiltroLinha',linhasSet,_pfMapaComercialFiltros.linha,'Linha',CORES_CLI)+
     '</div>'+
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+
-      '<span style="font-size:11px;color:var(--pf-text-muted);align-self:center">🔴 Concorrentes:</span>'+
-      opcoesSelect('pfMapaFiltroConcLinha',concLinhasSet,_pfMapaComercialFiltros.concLinha,'Linha')+
-      opcoesSelect('pfMapaFiltroConcEstado',concEstadosSet,_pfMapaComercialFiltros.concEstado,'Estado')+
-      opcoesSelect('pfMapaFiltroConcMunicipio',concMunicipiosSet,_pfMapaComercialFiltros.concMunicipio,'Município')+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center">'+
+      '<span style="font-size:11px;font-weight:700;color:'+CORES_CONC.text+'">🔴 Concorrentes</span>'+
+      opcoesSelect('pfMapaFiltroConcLinha',concLinhasSet,_pfMapaComercialFiltros.concLinha,'Linha',CORES_CONC)+
+      opcoesSelect('pfMapaFiltroConcEstado',concEstadosSet,_pfMapaComercialFiltros.concEstado,'Estado',CORES_CONC)+
+      opcoesSelect('pfMapaFiltroConcMunicipio',concMunicipiosSet,_pfMapaComercialFiltros.concMunicipio,'Município',CORES_CONC)+
     '</div>'+
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+
-      '<span style="font-size:11px;color:var(--pf-text-muted);align-self:center">🟣 Fornecedores:</span>'+
-      opcoesSelect('pfMapaFiltroFornTipo',fornTiposSet,_pfMapaComercialFiltros.fornTipo,'Tipo')+
-      opcoesSelect('pfMapaFiltroFornLinha',fornLinhasSet,_pfMapaComercialFiltros.fornLinha,'Linha')+
-      opcoesSelect('pfMapaFiltroFornMarca',fornMarcasSet,_pfMapaComercialFiltros.fornMarca,'Marca trabalhada')+
-      opcoesSelect('pfMapaFiltroFornTipoProduto',fornTiposProdutoSet,_pfMapaComercialFiltros.fornTipoProduto,'Tipo de produto')+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">'+
+      '<span style="font-size:11px;font-weight:700;color:'+CORES_FORN.text+'">🟣 Fornecedores</span>'+
+      opcoesSelect('pfMapaFiltroFornTipo',fornTiposSet,_pfMapaComercialFiltros.fornTipo,'Tipo',CORES_FORN)+
+      opcoesSelect('pfMapaFiltroFornLinha',fornLinhasSet,_pfMapaComercialFiltros.fornLinha,'Linha',CORES_FORN)+
+      opcoesSelect('pfMapaFiltroFornMarca',fornMarcasSet,_pfMapaComercialFiltros.fornMarca,'Marca trabalhada',CORES_FORN)+
+      opcoesSelect('pfMapaFiltroFornTipoProduto',fornTiposProdutoSet,_pfMapaComercialFiltros.fornTipoProduto,'Tipo de produto',CORES_FORN)+
     '</div>'+
-    '<div id="pfMapaComercialContagem" style="display:flex;gap:16px;font-size:12px;color:var(--pf-text-muted);margin-bottom:10px"></div>'+
-    (_pfMapaComercialModo3D?
-      ('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">'+
-        '<div>'+
-          '<div id="pfMapaComercial3DInfo" style="font-size:13px;color:var(--pf-text)"></div>'+
-          '<div id="pfMapaComercial3DSedeInfo" style="font-size:12px;color:var(--pf-text-muted)"></div>'+
+    '<div style="display:flex;gap:12px;align-items:flex-start">'+
+      // v115.1547 - A pedido do Vitor ("mete bronca"): painel "Entidades" no
+      // espaço vazio à esquerda -- cards de contagem clicáveis (funcionam
+      // como atalho de filtro por tipo) + busca por nome/cidade + lista
+      // única ordenada A-Z com pontinho colorido por tipo (mistura das
+      // opções 3 e 4 mostradas em chat, que foram as preferidas). Respeita
+      // os mesmos filtros ativos acima; transportadora ainda sem filtro
+      // próprio, mostra a Praça de atuação em texto no lugar da cidade.
+      '<div style="width:230px;flex:none;border:1px solid var(--pf-sidebar-border);border-radius:12px;padding:12px">'+
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
+          '<span style="font-size:12.5px;font-weight:700;color:#1F4E79">Entidades</span>'+
+          '<span style="font-size:10.5px;color:var(--pf-text-muted)">'+totalEnt+'</span>'+
         '</div>'+
-        '<div style="display:flex;gap:6px">'+
-          '<button onclick="pfMapaComercial3DVistaPadrao()" style="background:var(--pf-sidebar-bg);color:var(--pf-text);border:1px solid var(--pf-sidebar-border);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer">Vista 3D</button>'+
-          '<button onclick="pfMapaComercial3DVistaCima()" style="background:var(--pf-sidebar-bg);color:var(--pf-text);border:1px solid var(--pf-sidebar-border);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer">Vista de cima</button>'+
-          '<button onclick="pfMapaComercialSedeConfigurar()" style="background:var(--pf-sidebar-bg);color:var(--pf-text);border:1px solid var(--pf-sidebar-border);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer">⚙️ Sede</button>'+
+        '<div style="display:flex;gap:5px;margin-bottom:8px">'+
+          statCard('clientes','clientes',contagens.clientes.length,CORES_CLI)+
+          statCard('concorrentes','concorr.',contagens.concorrentes.length,CORES_CONC)+
+          statCard('fornecedores','fornec.',contagens.fornecedores.length,CORES_FORN)+
+          statCard('transportadoras','transp.',transportadoras.length,{bg:'#F8EDE7',text:'#9A4A2C'})+
         '</div>'+
+        '<input id="pfMapaEntidadesBusca" oninput="pfMapaComercialEntidadesRender()" type="text" placeholder="Buscar por nome ou cidade" style="width:100%;box-sizing:border-box;padding:6px 9px;border:1px solid var(--pf-sidebar-border);border-radius:8px;font-size:11px;margin-bottom:8px;color:var(--pf-text)">'+
+        '<div id="pfMapaEntidadesLista" style="display:flex;flex-direction:column;gap:1px;max-height:340px;overflow-y:auto"></div>'+
       '</div>'+
-      '<div id="pfMapaComercialMapa3D" style="width:100%;height:65vh;border-radius:10px;border:1px solid var(--pf-sidebar-border);position:relative"></div>')
-      :'<div id="pfMapaComercialMapa" style="width:100%;height:70vh;border-radius:10px;border:1px solid var(--pf-sidebar-border)"></div>');
+      '<div style="flex:1;min-width:0">'+
+        '<div id="pfMapaComercialContagem" style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--pf-text-muted);margin-bottom:10px"></div>'+
+        (_pfMapaComercialModo3D?
+          ('<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">'+
+            '<div>'+
+              '<div id="pfMapaComercial3DInfo" style="font-size:13px;color:var(--pf-text)"></div>'+
+              '<div id="pfMapaComercial3DSedeInfo" style="font-size:12px;color:var(--pf-text-muted)"></div>'+
+            '</div>'+
+            '<div style="display:flex;gap:6px">'+
+              '<button onclick="pfMapaComercial3DVistaPadrao()" style="background:var(--pf-sidebar-bg);color:var(--pf-text);border:1px solid var(--pf-sidebar-border);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer">Vista 3D</button>'+
+              '<button onclick="pfMapaComercial3DVistaCima()" style="background:var(--pf-sidebar-bg);color:var(--pf-text);border:1px solid var(--pf-sidebar-border);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer">Vista de cima</button>'+
+              '<button onclick="pfMapaComercialSedeConfigurar()" style="background:var(--pf-sidebar-bg);color:var(--pf-text);border:1px solid var(--pf-sidebar-border);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer">⚙️ Sede</button>'+
+            '</div>'+
+          '</div>'+
+          '<div id="pfMapaComercialMapa3D" style="width:100%;height:65vh;border-radius:10px;border:1px solid var(--pf-sidebar-border);position:relative"></div>')
+          :'<div id="pfMapaComercialMapa" style="width:100%;height:70vh;border-radius:10px;border:1px solid var(--pf-sidebar-border)"></div>')+
+      '</div>'+
+    '</div>';
+  pfMapaComercialEntidadesRender();
   if(_pfMapaComercialModo3D){
     if(_pfMapaComercial3DEstado.rafId)cancelAnimationFrame(_pfMapaComercial3DEstado.rafId);
     _pfMapaComercial3DEstado={scene:null,camera:null,renderer:null,meshes:[],theta:_pfMapaComercial3DEstado.theta||0.35,phi:_pfMapaComercial3DEstado.phi||0.75,uf:_pfMapaComercial3DEstado.uf||null,rafId:null};
@@ -46555,10 +46619,45 @@ async function mapaComercialRender(){
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     attribution:'© OpenStreetMap',maxZoom:18
   }).addTo(mapa);
-  window._pfMapaComercialClientesCache=clientes;
-  window._pfMapaComercialConcorrentesCache=concorrentes;
-  window._pfMapaComercialFornecedoresCache=fornecedores;
   await pfMapaComercialPlotarMarcadores();
+}
+// v115.1547 - Painel lateral "Entidades": lista o conteúdo do card
+// (stat cards + campo de busca já existem no HTML, isso só repinta a
+// lista de dentro -- chamado na busca (oninput) e ao clicar num card de
+// contagem, sem precisar re-renderizar mapa/filtros inteiros.
+function pfMapaComercialEntidadesFiltroTipo(tipo){
+  window._pfMapaEntFiltroTipo=(window._pfMapaEntFiltroTipo===tipo)?null:tipo;
+  ['clientes','concorrentes','fornecedores','transportadoras'].forEach(function(t){
+    var el=document.getElementById('pfMapaEntCard_'+t);
+    if(!el)return;
+    el.style.outline=(window._pfMapaEntFiltroTipo===t)?'2px solid currentColor':'none';
+    el.style.outlineOffset='-1px';
+  });
+  pfMapaComercialEntidadesRender();
+}
+function pfMapaComercialEntidadesRender(){
+  var lista=document.getElementById('pfMapaEntidadesLista');
+  if(!lista)return;
+  var buscaEl=document.getElementById('pfMapaEntidadesBusca');
+  var termo=(buscaEl?buscaEl.value:'').toLowerCase().trim();
+  var tipo=window._pfMapaEntFiltroTipo;
+  var itens=(window._pfMapaEntidadesTodos||[]).filter(function(it){
+    if(tipo&&it.tipo!==tipo)return false;
+    if(termo&&it.nome.toLowerCase().indexOf(termo)===-1&&(it.sub||'').toLowerCase().indexOf(termo)===-1)return false;
+    return true;
+  });
+  if(!itens.length){
+    lista.innerHTML='<div style="padding:14px 4px;text-align:center;font-size:11.5px;color:var(--pf-text-muted)">Nenhuma entidade encontrada.</div>';
+    return;
+  }
+  var LIMITE=60;
+  lista.innerHTML=itens.slice(0,LIMITE).map(function(it){
+    return '<div style="display:flex;align-items:center;gap:7px;padding:6px 7px;border-radius:6px;font-size:11.5px" onmouseover="this.style.background=\'var(--pf-sidebar-bg)\'" onmouseout="this.style.background=\'transparent\'">'+
+      '<span style="width:6px;height:6px;border-radius:50%;background:'+it.cor+';flex:none"></span>'+
+      '<div style="min-width:0"><div style="font-weight:500;color:var(--pf-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+pfEscHtml(it.nome)+'</div>'+
+      (it.sub?'<div style="color:var(--pf-text-muted);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+pfEscHtml(it.sub)+'</div>':'')+'</div>'+
+    '</div>';
+  }).join('')+(itens.length>LIMITE?'<div style="padding:6px 7px;font-size:10.5px;color:var(--pf-text-muted)">+'+(itens.length-LIMITE)+' outras — refine a busca</div>':'');
 }
 // v115.1532 - Mudar um filtro só replota os pontos (função separada), não
 // recria o mapa/tiles do zero -- mais rápido e não perde zoom/posição.

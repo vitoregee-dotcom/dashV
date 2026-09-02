@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1548</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1550</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1548</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1550</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -46296,14 +46296,29 @@ async function pfMapaComercial3DRender(){
   pfMapaComercial3DAdicionarSede(group);
   pfMapaComercial3DAdicionarEntidades(group,contagens);
 }
-// v115.1543 - A pedido do Vitor ("pq as entidades não aparecem no 3D?"):
-// até agora o mapa 3D só desenhava os estados e mostrava contagem em texto
-// ao clicar; os pontos de clientes/concorrentes/fornecedores nunca eram
-// plotados de fato. Agora plota como marcadores 3D, mesma paleta/forma do
-// mapa 2D (cliente=verde esfera, concorrente=vermelho cubo, fornecedor=
-// roxo octaedro/diamante). Clientes e fornecedores agrupados por cidade
-// (mesma lógica de geocodificação do 2D); concorrentes usam lat/lng
-// próprios já salvos no cadastro.
+// v115.1550 - A pedido do Vitor ("quero isso pros 2 tipos de mapa"): os
+// marcadores do 3D trocaram as formas geométricas (esfera/cubo/octaedro)
+// pelos MESMOS pinos glossy do 2D, como sprites (THREE.Sprite) que sempre
+// ficam de frente pra câmera -- mais simples e mais parecido com o 2D do
+// que tentar extrudar uma geometria pra imitar o brilho da imagem.
+// Textura cacheada por tipo pra não recarregar a cada render. Fábrica
+// (Fornecedor com Tipo=FABRICANTE) virou grupo próprio aqui também, igual
+// no 2D e no painel lateral.
+var PF_MAPA3D_PIN_TEXTURAS={};
+function pfMapaComercial3DTextura(tipoEntidade){
+  if(!PF_MAPA3D_PIN_TEXTURAS[tipoEntidade]){
+    var loader=new THREE.TextureLoader();
+    PF_MAPA3D_PIN_TEXTURAS[tipoEntidade]=loader.load(PF_MAPA_PIN_BASE+tipoEntidade+'.png');
+  }
+  return PF_MAPA3D_PIN_TEXTURAS[tipoEntidade];
+}
+function pfMapaComercial3DCriarPino(tipoEntidade,altura){
+  var mat=new THREE.SpriteMaterial({map:pfMapaComercial3DTextura(tipoEntidade),transparent:true,depthWrite:false});
+  var spr=new THREE.Sprite(mat);
+  spr.scale.set(altura*0.88,altura,1);
+  spr.center.set(0.5,0);
+  return spr;
+}
 async function pfMapaComercial3DAdicionarEntidades(group,contagens){
   var proj=PF_MAPA3D_PROJ;
   function xy(lat,lng){return [(lng-proj.cx)*proj.s,(lat-proj.cy)*proj.s];}
@@ -46313,44 +46328,47 @@ async function pfMapaComercial3DAdicionarEntidades(group,contagens){
     var k=pfNormalizarCidade(c.cidade)+'|'+(c.estado||'').toUpperCase();
     (porCidadeCli[k]=porCidadeCli[k]||{cidade:c.cidade,estado:c.estado,n:0}).n++;
   });
-  var matCli=new THREE.MeshStandardMaterial({color:0x16A34A,flatShading:true,roughness:0.5});
   var chavesCli=Object.keys(porCidadeCli);
   for(var i=0;i<chavesCli.length;i++){
     var g=porCidadeCli[chavesCli[i]];
     var coord=await pfGeocodificarCidade(g.cidade,g.estado);
     if(!coord)continue;
     var p=xy(coord[0],coord[1]);
-    var raio=0.08+Math.min(g.n,10)*0.008;
-    var mesh=new THREE.Mesh(new THREE.SphereGeometry(raio,10,10),matCli);
-    mesh.position.set(p[0],p[1],0.42);
-    group.add(mesh);
+    var pino=pfMapaComercial3DCriarPino('cliente',0.32+Math.min(g.n,10)*0.02);
+    pino.position.set(p[0],p[1],0.4);
+    group.add(pino);
   }
-  var matConc=new THREE.MeshStandardMaterial({color:0xDC2626,flatShading:true,roughness:0.5});
   (contagens.concorrentes||[]).forEach(function(cc){
     if(!cc.lat||!cc.lng)return;
     var p=xy(cc.lat,cc.lng);
-    var mesh=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.16,0.16),matConc);
-    mesh.position.set(p[0],p[1],0.42);
-    group.add(mesh);
+    var pino=pfMapaComercial3DCriarPino('concorrente',0.36);
+    pino.position.set(p[0],p[1],0.4);
+    group.add(pino);
   });
-  var porCidadeForn={};
-  (contagens.fornecedores||[]).forEach(function(fo){
-    if(!fo.cidade||!fo.estado)return;
-    var k=pfNormalizarCidade(fo.cidade)+'|'+(fo.estado||'').toUpperCase();
-    (porCidadeForn[k]=porCidadeForn[k]||{cidade:fo.cidade,estado:fo.estado,n:0}).n++;
-  });
-  var matForn=new THREE.MeshStandardMaterial({color:0x7C3AED,flatShading:true,roughness:0.5});
-  var chavesForn=Object.keys(porCidadeForn);
-  for(var j=0;j<chavesForn.length;j++){
-    var gf=porCidadeForn[chavesForn[j]];
-    var coordF=await pfGeocodificarCidade(gf.cidade,gf.estado);
-    if(!coordF)continue;
-    var pf=xy(coordF[0],coordF[1]);
-    var raioF=0.1+Math.min(gf.n,10)*0.006;
-    var mesh=new THREE.Mesh(new THREE.OctahedronGeometry(raioF,0),matForn);
-    mesh.position.set(pf[0],pf[1],0.42);
-    group.add(mesh);
+  // v115.1550 - Fábrica (Fornecedor Tipo=FABRICANTE) sai do grupo roxo de
+  // Fornecedor e vira grupo navy próprio -- mesma decisão do 2D.
+  var fornecedoresSemFabrica=(contagens.fornecedores||[]).filter(function(fo){return (fo.tipo||'').toUpperCase()!=='FABRICANTE';});
+  var fabricas=(contagens.fornecedores||[]).filter(function(fo){return (fo.tipo||'').toUpperCase()==='FABRICANTE';});
+  async function plotarGrupo(lista,tipoEntidade){
+    var porCidade={};
+    lista.forEach(function(fo){
+      if(!fo.cidade||!fo.estado)return;
+      var k=pfNormalizarCidade(fo.cidade)+'|'+(fo.estado||'').toUpperCase();
+      (porCidade[k]=porCidade[k]||{cidade:fo.cidade,estado:fo.estado,n:0}).n++;
+    });
+    var chaves=Object.keys(porCidade);
+    for(var j=0;j<chaves.length;j++){
+      var g2=porCidade[chaves[j]];
+      var coordF=await pfGeocodificarCidade(g2.cidade,g2.estado);
+      if(!coordF)continue;
+      var pf=xy(coordF[0],coordF[1]);
+      var pino=pfMapaComercial3DCriarPino(tipoEntidade,0.34+Math.min(g2.n,10)*0.018);
+      pino.position.set(pf[0],pf[1],0.4);
+      group.add(pino);
+    }
   }
+  await plotarGrupo(fornecedoresSemFabrica,'fornecedor');
+  await plotarGrupo(fabricas,'fabrica');
 }
 function pfMapaComercial3DVistaCima(){
   var st=_pfMapaComercial3DEstado;
@@ -46395,24 +46413,46 @@ function pfMapaComercialGarantirEstilosMarcador(){
   var st=document.createElement('style');
   st.id='pfMapaMarcadorStyles';
   st.textContent=
-    '.pf-mapa-marker{width:20px;height:20px;border:2px solid #0F1F35;box-shadow:0 1px 3px rgba(0,0,0,.35);cursor:pointer;transition:transform .15s ease;box-sizing:border-box}'+
-    '.pf-mapa-marker-circulo{border-radius:50%;animation:pfMapaMarkerIn .35s ease-out}'+
-    '.pf-mapa-marker-circulo:hover{transform:scale(1.4)}'+
-    '.pf-mapa-marker-quadrado{border-radius:4px;animation:pfMapaMarkerIn .35s ease-out}'+
-    '.pf-mapa-marker-quadrado:hover{transform:scale(1.4)}'+
-    '.pf-mapa-marker-diamante{border-radius:4px;transform:rotate(45deg);animation:pfMapaMarkerInDiamante .35s ease-out}'+
-    '.pf-mapa-marker-diamante:hover{transform:rotate(45deg) scale(1.4)}'+
-    '@keyframes pfMapaMarkerIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}'+
-    '@keyframes pfMapaMarkerInDiamante{from{transform:rotate(45deg) scale(0);opacity:0}to{transform:rotate(45deg) scale(1);opacity:1}}';
+    '.pf-mapa-pin3d{width:26px;height:30px;background-repeat:no-repeat;background-position:center bottom;background-size:contain;cursor:pointer;position:relative;transition:transform .15s ease;animation:pfMapaMarkerIn .35s ease-out}'+
+    '.pf-mapa-pin3d:hover{transform:scale(1.18) translateY(-2px)}'+
+    '.pf-mapa-pin3d-glifo{position:absolute;top:40%;left:50%;width:32%;height:32%;transform:translate(-50%,-50%)}'+
+    '.pf-mapa-pin3d-glifo svg{width:100%;height:100%;display:block}'+
+    '@keyframes pfMapaMarkerIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}';
   document.head.appendChild(st);
 }
-function pfMapaComercialIcone(cor,forma){
-  forma=forma||'circulo';
-  return L.divIcon({
-    className:'',
-    html:'<div class="pf-mapa-marker pf-mapa-marker-'+forma+'" style="background:'+cor+'"></div>',
-    iconSize:[20,20],iconAnchor:[10,10],popupAnchor:[0,-10]
-  });
+// v115.1550 - A pedido do Vitor ("os marcadores quero que sejam parecidos
+// com esses [pino 3D glossy]"): pinos gerados por ele no Gemini a partir
+// do prompt que sugeri, fundo quadriculado removido/recortado por mim e
+// hospedados em icons/mapa-pins/. Um arquivo por TIPO de entidade (cor);
+// dentro do "buraco" do pino entra opcionalmente um glifo simples (SVG
+// embutido, sem depender de fonte de ícone) indicando o SUBTIPO -- hoje só
+// pros 3 valores reais de Tipo de Cliente (Consumidor/Revendedor/Oficina,
+// checados no cadastro -- o Vitor tinha citado "Concessionária" de
+// cabeça, mas esse valor não existe no cadastro de verdade). Usado nos
+// dois mapas (2D via L.divIcon aqui, 3D via THREE.Sprite com a mesma
+// imagem, ver pfMapaComercial3DAdicionarEntidades).
+var PF_MAPA_PIN_BASE='https://vitoregee-dotcom.github.io/dashV/icons/mapa-pins/pin-';
+var PF_MAPA_PIN_GLIFOS={
+  CONSUMIDOR:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4" fill="#0F1F35"/><path d="M4.5 20c0-4.4 3.4-7 7.5-7s7.5 2.6 7.5 7" fill="#0F1F35"/></svg>',
+  REVENDEDOR:'<svg viewBox="0 0 24 24"><path d="M3 9l1.5-5h15L21 9" fill="none" stroke="#0F1F35" stroke-width="2" stroke-linejoin="round"/><rect x="4" y="9" width="16" height="10" fill="none" stroke="#0F1F35" stroke-width="2"/><rect x="10" y="13" width="4" height="6" fill="#0F1F35"/></svg>',
+  OFICINA:'<svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 005.4-5.4l-2.6 2.6-2-2 2.6-2.6z" fill="#0F1F35"/></svg>'
+};
+function pfMapaComercialIconePin(tipoEntidade,glifoSvg){
+  var html='<div class="pf-mapa-pin3d" style="background-image:url(\''+PF_MAPA_PIN_BASE+tipoEntidade+'.png\')">'+
+    (glifoSvg?'<div class="pf-mapa-pin3d-glifo">'+glifoSvg+'</div>':'')+
+    '</div>';
+  return L.divIcon({className:'',html:html,iconSize:[26,30],iconAnchor:[13,29],popupAnchor:[0,-28]});
+}
+// v115.1550 - Dado um grupo de clientes (marcador agrupado por cidade),
+// decide qual glifo mostrar: só se TODOS do grupo tiverem o mesmo Tipo
+// (senão fica ambíguo mostrar um só ícone) -- pino fica liso quando
+// misto ou sem Tipo cadastrado.
+function pfMapaComercialGlifoDoGrupo(itens){
+  var tipos={};
+  itens.forEach(function(it){if(it.tipo)tipos[it.tipo.toUpperCase()]=true;});
+  var chaves=Object.keys(tipos);
+  if(chaves.length!==1)return null;
+  return PF_MAPA_PIN_GLIFOS[chaves[0]]||null;
 }
 // v115.1545 - A pedido do Vitor ("algo mais legal pra mostrar que tá
 // carregando"): loader animado no lugar do texto seco "Carregando
@@ -46503,13 +46543,18 @@ async function mapaComercialRender(){
   window._pfMapaComercialConcorrentesCache=concorrentes;
   window._pfMapaComercialFornecedoresCache=fornecedores;
   var contagens=pfMapaComercialFiltrarParaCounts();
+  // v115.1550 - Mesma separação Fornecedor/Fábrica do mapa (Tipo=
+  // FABRICANTE vira camada própria) aplicada aqui pro painel lateral.
+  var fabricasEnt=contagens.fornecedores.filter(function(fo){return (fo.tipo||'').toUpperCase()==='FABRICANTE';});
+  var fornecedoresEnt=contagens.fornecedores.filter(function(fo){return (fo.tipo||'').toUpperCase()!=='FABRICANTE';});
   // v115.1547 - Monta a lista unificada do painel "Entidades" (mesmos
   // filtros ativos aplicados aos clientes/concorrentes/fornecedores;
   // transportadora entra sem filtro, ainda não tem campo pra isso).
   window._pfMapaEntidadesTodos=[]
     .concat(contagens.clientes.map(function(c){return {tipo:'clientes',cor:'#16A34A',nome:c.razao||c.nome||'Cliente',sub:(c.cidade&&c.estado)?(c.cidade+', '+c.estado):(c.estado||'')};}))
     .concat(contagens.concorrentes.map(function(c){return {tipo:'concorrentes',cor:'#DC2626',nome:c.nome||c.razao||'Concorrente',sub:(c.cidade&&c.estado)?(c.cidade+', '+c.estado):(c.estado||'')};}))
-    .concat(contagens.fornecedores.map(function(fo){return {tipo:'fornecedores',cor:'#7C3AED',nome:fo.fantasia||fo.nome||fo.razao||'Fornecedor',sub:(fo.cidade&&fo.estado)?(fo.cidade+', '+fo.estado):(fo.estado||'')};}))
+    .concat(fornecedoresEnt.map(function(fo){return {tipo:'fornecedores',cor:'#7C3AED',nome:fo.fantasia||fo.nome||fo.razao||'Fornecedor',sub:(fo.cidade&&fo.estado)?(fo.cidade+', '+fo.estado):(fo.estado||'')};}))
+    .concat(fabricasEnt.map(function(fo){return {tipo:'fabricas',cor:'#0F1F35',nome:fo.fantasia||fo.nome||fo.razao||'Fábrica',sub:(fo.cidade&&fo.estado)?(fo.cidade+', '+fo.estado):(fo.estado||'')};}))
     .concat(transportadoras.map(function(t){return {tipo:'transportadoras',cor:'#D97757',nome:t.razao||'Transportadora',sub:t.praca?('Praça: '+t.praca):''};}));
   window._pfMapaEntidadesTodos.sort(function(a,b){return a.nome.localeCompare(b.nome,'pt-BR');});
   if(typeof window._pfMapaEntFiltroTipo==='undefined')window._pfMapaEntFiltroTipo=null;
@@ -46524,7 +46569,8 @@ async function mapaComercialRender(){
   var CORES_CLI={bg:'#EAF7EE',border:'#BBE5C8',text:'#166534'};
   var CORES_CONC={bg:'#FDECEC',border:'#F3C6C6',text:'#991B1B'};
   var CORES_FORN={bg:'#F3EEFD',border:'#D9CBF7',text:'#5B21B6'};
-  var totalEnt=contagens.clientes.length+contagens.concorrentes.length+contagens.fornecedores.length+transportadoras.length;
+  var CORES_FABRICA={bg:'#E7E9EC',text:'#0F1F35'};
+  var totalEnt=contagens.clientes.length+contagens.concorrentes.length+fornecedoresEnt.length+fabricasEnt.length+transportadoras.length;
   function statCard(tipo,label,n,cor){
     var ativo=(window._pfMapaEntFiltroTipo===tipo);
     return '<div id="pfMapaEntCard_'+tipo+'" onclick="pfMapaComercialEntidadesFiltroTipo(\''+tipo+'\')" style="flex:1;text-align:center;padding:5px 2px;border-radius:8px;background:'+cor.bg+';cursor:pointer'+(ativo?';outline:2px solid '+cor.text+';outline-offset:-1px':'')+'">'+
@@ -46582,7 +46628,8 @@ async function mapaComercialRender(){
         '<div style="display:flex;gap:5px;margin-bottom:8px">'+
           statCard('clientes','clientes',contagens.clientes.length,CORES_CLI)+
           statCard('concorrentes','concorr.',contagens.concorrentes.length,CORES_CONC)+
-          statCard('fornecedores','fornec.',contagens.fornecedores.length,CORES_FORN)+
+          statCard('fornecedores','fornec.',fornecedoresEnt.length,CORES_FORN)+
+          statCard('fabricas','fábrica',fabricasEnt.length,CORES_FABRICA)+
           statCard('transportadoras','transp.',transportadoras.length,{bg:'#F8EDE7',text:'#9A4A2C'})+
         '</div>'+
         '<input id="pfMapaEntidadesBusca" oninput="pfMapaComercialEntidadesRender()" type="text" placeholder="Buscar por nome ou cidade" style="width:100%;box-sizing:border-box;padding:6px 9px;border:1px solid var(--pf-sidebar-border);border-radius:8px;font-size:11px;margin-bottom:8px;color:var(--pf-text)">'+
@@ -46635,7 +46682,7 @@ async function mapaComercialRender(){
 // contagem, sem precisar re-renderizar mapa/filtros inteiros.
 function pfMapaComercialEntidadesFiltroTipo(tipo){
   window._pfMapaEntFiltroTipo=(window._pfMapaEntFiltroTipo===tipo)?null:tipo;
-  ['clientes','concorrentes','fornecedores','transportadoras'].forEach(function(t){
+  ['clientes','concorrentes','fornecedores','fabricas','transportadoras'].forEach(function(t){
     var el=document.getElementById('pfMapaEntCard_'+t);
     if(!el)return;
     el.style.outline=(window._pfMapaEntFiltroTipo===t)?'2px solid currentColor':'none';
@@ -46715,7 +46762,7 @@ async function pfMapaComercialPlotarMarcadores(){
     var popupHtml='<b>'+pfEscHtml(grupo.cidade)+'/'+pfEscHtml(grupo.estado)+'</b><br>'+
       grupo.itens.slice(0,8).map(function(c){return pfEscHtml(c.fantasia||c.razao||'(sem nome)')+(c.tipo?' <span style="color:#888">('+pfEscHtml(c.tipo)+')</span>':'');}).join('<br>')+
       (grupo.itens.length>8?'<br>+'+(grupo.itens.length-8)+' outros':'');
-    L.marker([coordC[0],coordC[1]],{icon:pfMapaComercialIcone('#16A34A','circulo')})
+    L.marker([coordC[0],coordC[1]],{icon:pfMapaComercialIconePin('cliente',pfMapaComercialGlifoDoGrupo(grupo.itens))})
       .addTo(_pfMapaComercialLayerGroup).bindPopup(popupHtml);
   }
   var concorrentesFiltrados=concorrentes.filter(function(c){
@@ -46732,7 +46779,7 @@ async function pfMapaComercialPlotarMarcadores(){
       (cc.observacao?'<br><span style="color:#888;font-size:11px">'+pfEscHtml(cc.observacao)+'</span>':'')+
       '<br><span onclick="pfMapaComercialEditarConcorrente(\''+cc.id+'\')" style="color:#2563EB;cursor:pointer;font-size:11px">✏️ editar</span>'+
       ' · <span onclick="pfMapaComercialRemoverConcorrente(\''+cc.id+'\')" style="color:#DC2626;cursor:pointer;font-size:11px">🗑 remover</span>';
-    L.marker([cc.lat,cc.lng],{icon:pfMapaComercialIcone('#DC2626','quadrado')})
+    L.marker([cc.lat,cc.lng],{icon:pfMapaComercialIconePin('concorrente')})
       .addTo(_pfMapaComercialLayerGroup).bindPopup(popupC);
   });
   // v115.1534 - Fornecedores: mesma lógica de agrupar por cidade/estado dos
@@ -46747,35 +46794,49 @@ async function pfMapaComercialPlotarMarcadores(){
     if(f.regiao&&pfMapaComercialRegiaoDeUF(fo.estado)!==f.regiao)return false;
     return true;
   });
-  var semCidadeForn=0;
-  var porCidadeForn={};
-  for(var n=0;n<fornecedoresFiltrados.length;n++){
-    var fo=fornecedoresFiltrados[n];
-    if(!fo.cidade||!fo.estado){semCidadeForn++;continue;}
-    var chaveF=pfNormalizarCidade(fo.cidade)+'|'+(fo.estado||'').toUpperCase();
-    (porCidadeForn[chaveF]=porCidadeForn[chaveF]||{cidade:fo.cidade,estado:fo.estado,itens:[]}).itens.push(fo);
+  // v115.1550 - A pedido do Vitor: "Fábrica" virou camada própria no mapa
+  // (pino navy) -- decisão dele foi deixar eu sugerir a fonte do dado, e
+  // reaproveitei o que já existe: fornecedores com Tipo=FABRICANTE (esse
+  // valor já existia no cadastro de Fornecedor) saem da camada roxa de
+  // Fornecedor e entram nessa camada nova, sem precisar de cadastro novo
+  // nem trabalho manual de recadastrar nada.
+  var fabricasFiltradas=fornecedoresFiltrados.filter(function(fo){return (fo.tipo||'').toUpperCase()==='FABRICANTE';});
+  fornecedoresFiltrados=fornecedoresFiltrados.filter(function(fo){return (fo.tipo||'').toUpperCase()!=='FABRICANTE';});
+  function pfMapaComercialPlotarGrupo(lista,tipoEntidade){
+    var semGeoLocal=0,semCidadeLocal=0,porCidadeLocal={};
+    lista.forEach(function(fo){
+      if(!fo.cidade||!fo.estado){semCidadeLocal++;return;}
+      var chaveF=pfNormalizarCidade(fo.cidade)+'|'+(fo.estado||'').toUpperCase();
+      (porCidadeLocal[chaveF]=porCidadeLocal[chaveF]||{cidade:fo.cidade,estado:fo.estado,itens:[]}).itens.push(fo);
+    });
+    var chaves=Object.keys(porCidadeLocal);
+    return (async function(){
+      for(var i=0;i<chaves.length;i++){
+        var g=porCidadeLocal[chaves[i]];
+        var coord=await pfGeocodificarCidade(g.cidade,g.estado);
+        if(!coord){semGeoLocal++;continue;}
+        var popup='<b>'+pfEscHtml(g.cidade)+'/'+pfEscHtml(g.estado)+'</b><br>'+
+          g.itens.slice(0,8).map(function(fo){return pfEscHtml(fo.fantasia||fo.razao||'(sem nome)')+(fo.tipo?' <span style="color:#888">('+pfEscHtml(fo.tipo)+')</span>':'');}).join('<br>')+
+          (g.itens.length>8?'<br>+'+(g.itens.length-8)+' outros':'');
+        L.marker([coord[0],coord[1]],{icon:pfMapaComercialIconePin(tipoEntidade)})
+          .addTo(_pfMapaComercialLayerGroup).bindPopup(popup);
+      }
+      return {semGeo:semGeoLocal,semCidade:semCidadeLocal};
+    })();
   }
-  var chavesForn=Object.keys(porCidadeForn);
-  var semGeoForn=0;
-  for(var p=0;p<chavesForn.length;p++){
-    var grupoF=porCidadeForn[chavesForn[p]];
-    var coordF=await pfGeocodificarCidade(grupoF.cidade,grupoF.estado);
-    if(!coordF){semGeoForn++;continue;}
-    var popupF='<b>'+pfEscHtml(grupoF.cidade)+'/'+pfEscHtml(grupoF.estado)+'</b><br>'+
-      grupoF.itens.slice(0,8).map(function(fo){return pfEscHtml(fo.fantasia||fo.razao||'(sem nome)')+(fo.tipo?' <span style="color:#888">('+pfEscHtml(fo.tipo)+')</span>':'');}).join('<br>')+
-      (grupoF.itens.length>8?'<br>+'+(grupoF.itens.length-8)+' outros':'');
-    L.marker([coordF[0],coordF[1]],{icon:pfMapaComercialIcone('#7C3AED','diamante')})
-      .addTo(_pfMapaComercialLayerGroup).bindPopup(popupF);
-  }
+  var resForn=await pfMapaComercialPlotarGrupo(fornecedoresFiltrados,'fornecedor');
+  var resFabrica=await pfMapaComercialPlotarGrupo(fabricasFiltradas,'fabrica');
+  var semGeoForn=resForn.semGeo,semCidadeForn=resForn.semCidade+resFabrica.semCidade;
   var contagemBox=document.getElementById('pfMapaComercialContagem');
   if(contagemBox){
     var avisos=[];
     if(semGeo>0)avisos.push(semGeo+' cidade(s) de cliente não geocodificada(s)');
-    if(semGeoForn>0)avisos.push(semGeoForn+' cidade(s) de fornecedor não geocodificada(s)');
-    if(semCidadeForn>0)avisos.push(semCidadeForn+' fornecedor(es) sem cidade/estado cadastrado');
+    if(semGeoForn+resFabrica.semGeo>0)avisos.push((semGeoForn+resFabrica.semGeo)+' cidade(s) de fornecedor/fábrica não geocodificada(s)');
+    if(semCidadeForn>0)avisos.push(semCidadeForn+' fornecedor(es)/fábrica(s) sem cidade/estado cadastrado');
     contagemBox.innerHTML='<span>🟢 Nossos clientes ('+clientesFiltrados.length+(clientesFiltrados.length!==clientes.length?' de '+clientes.length:'')+')</span>'+
       '<span>🔴 Concorrentes ('+concorrentesFiltrados.length+(concorrentesFiltrados.length!==concorrentes.length?' de '+concorrentes.length:'')+')</span>'+
-      '<span>🟣 Fornecedores ('+fornecedoresFiltrados.length+(fornecedoresFiltrados.length!==fornecedores.length?' de '+fornecedores.length:'')+')</span>'+
+      '<span>🟣 Fornecedores ('+fornecedoresFiltrados.length+')</span>'+
+      '<span>🔷 Fábricas ('+fabricasFiltradas.length+')</span>'+
       (avisos.length?'<span style="color:#C0392B">⚠️ '+avisos.join(' · ')+'</span>':'');
   }
 }

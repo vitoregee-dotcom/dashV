@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1579</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1580</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1579</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1580</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -45886,6 +45886,15 @@ function pfPainelTarefasToggle(){
   pfPainelTarefasRender();
 }
 var _pfTimerSeg=300, _pfTimerRodando=false, _pfTimerInt=null;
+// v115.1580 - A pedido do Vitor ("coloque um cronometro tbm"): modo
+// Cronômetro (conta pra CIMA, sem alvo) ao lado do Timer (conta pra
+// baixo), alternável no mesmo card pra não gastar espaço novo no painel.
+var _pfTimerModo='timer'; // 'timer' ou 'crono'
+var _pfCronoSeg=0, _pfCronoRodando=false, _pfCronoInt=null;
+function pfPainelTimerModoAlternar(){
+  _pfTimerModo=(_pfTimerModo==='timer')?'crono':'timer';
+  pfPainelTarefasRender();
+}
 function pfPainelTimerToggle(){
   if(_pfTimerRodando){
     clearInterval(_pfTimerInt); _pfTimerRodando=false;
@@ -45893,7 +45902,7 @@ function pfPainelTimerToggle(){
     _pfTimerRodando=true;
     _pfTimerInt=setInterval(function(){
       if(_pfTimerSeg>0){_pfTimerSeg--;}
-      else{clearInterval(_pfTimerInt);_pfTimerRodando=false; if(typeof pfLembreteNotificar==='function')pfLembreteNotificar('Timer','Tempo esgotado!',null,true);}
+      else{clearInterval(_pfTimerInt);_pfTimerRodando=false; if(typeof pfPainelTimerFimAviso==='function')pfPainelTimerFimAviso();}
       pfPainelTarefasRender();
     },1000);
   }
@@ -45901,6 +45910,60 @@ function pfPainelTimerToggle(){
 }
 function pfPainelTimerZerar(){clearInterval(_pfTimerInt);_pfTimerRodando=false;_pfTimerSeg=300;pfPainelTarefasRender();}
 function pfPainelTimerAjustar(delta){ if(!_pfTimerRodando){_pfTimerSeg=Math.max(0,_pfTimerSeg+delta);pfPainelTarefasRender();} }
+function pfPainelCronoToggle(){
+  if(_pfCronoRodando){
+    clearInterval(_pfCronoInt); _pfCronoRodando=false;
+  } else {
+    _pfCronoRodando=true;
+    _pfCronoInt=setInterval(function(){ _pfCronoSeg++; pfPainelTarefasRender(); },1000);
+  }
+  pfPainelTarefasRender();
+}
+function pfPainelCronoZerar(){clearInterval(_pfCronoInt);_pfCronoRodando=false;_pfCronoSeg=0;pfPainelTarefasRender();}
+// v115.1580 - A pedido do Vitor ("nao recebi aviso no navegador... o
+// aviso sonoro tem que continuar enquanto eu nao der um OK... esta muito
+// sutil"): o Timer usava a mesma pfLembreteNotificar dos Lembretes, que
+// na v115.1579 passou a depender só da notificação NATIVA do navegador
+// (pedido do Vitor, mas pensado pros Lembretes -- que têm link pra
+// abrir). O Timer não tem link, e precisa ser impossível de não notar,
+// então ganhou aviso PRÓPRIO: modal grande dentro do próprio app (não
+// depende de permissão nenhuma) + som que repete sozinho até o Vitor
+// clicar "OK".
+function pfPainelTimerFimAviso(){
+  if(document.getElementById('pfTimerFimOverlay'))return;
+  var overlay=document.createElement('div');
+  overlay.id='pfTimerFimOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(15,31,53,.55);z-index:99999;display:flex;align-items:center;justify-content:center';
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:18px;padding:34px 30px;max-width:320px;width:90%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.3);animation:pfTimerFimPulso 1s ease-in-out infinite';
+  box.innerHTML=
+    '<div style="width:64px;height:64px;border-radius:50%;background:#FBE9E4;display:flex;align-items:center;justify-content:center;margin:0 auto 14px"><img src="icons/pack/pf-icon-044.png" style="width:36px;height:36px;object-fit:contain"></div>'+
+    '<div style="font-size:19px;font-weight:800;color:#1a2332;margin-bottom:6px">⏰ Tempo esgotado!</div>'+
+    '<div style="font-size:13px;color:#8a9ab0;margin-bottom:20px">O Timer chegou a zero.</div>'+
+    '<button onclick="pfPainelTimerFimOk()" style="background:#D97757;color:#fff;border:none;border-radius:10px;padding:12px 32px;font-size:14px;font-weight:800;cursor:pointer">OK</button>';
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  if(!document.getElementById('pfTimerFimStyles')){
+    var st=document.createElement('style');
+    st.id='pfTimerFimStyles';
+    st.textContent='@keyframes pfTimerFimPulso{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}';
+    document.head.appendChild(st);
+  }
+  if(typeof pfLembreteTocarSom==='function')pfLembreteTocarSom();
+  window._pfTimerFimSomInt=setInterval(function(){ if(typeof pfLembreteTocarSom==='function')pfLembreteTocarSom(); },1800);
+  // Notificação nativa também, se já tiver permissão -- só bônus, o
+  // modal acima é quem garante que o Vitor vê de qualquer jeito.
+  try{
+    if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
+      new Notification('Timer',{body:'Tempo esgotado!',icon:'icons/pack/pf-icon-044.png'});
+    }
+  }catch(e){}
+}
+function pfPainelTimerFimOk(){
+  if(window._pfTimerFimSomInt){clearInterval(window._pfTimerFimSomInt);window._pfTimerFimSomInt=null;}
+  var ov=document.getElementById('pfTimerFimOverlay');
+  if(ov)ov.remove();
+}
 
 function pfLembreteTocarSom(){
   // v115.1577 - Beep gerado na hora via Web Audio API -- sem precisar de
@@ -46088,7 +46151,14 @@ function pfPainelTarefasRender(){
     // só precisa da largura das bolinhas, expandido precisa do painel
     // inteiro (ver abaixo). Isso empurra o conteúdo da Home certinho pra
     // depois do painel em vez de deixar as bolinhas por cima do texto.
-    document.body.style.setProperty('--pf-home-left-pad',(esquerda+46+10)+'px');
+    // v115.1580 - BUG corrigido (Vitor: "ta atropelando a noticia"): a
+    // folga de 10px depois do painel não dava conta do box-shadow (blur
+    // 16px) dos círculos, que vaza visualmente além da borda real -- o
+    // início do conteúdo (ícone do badge de carregamento, primeiras
+    // letras de "DESTAQUES DO SETOR") ficava embaixo da sombra e
+    // desaparecia. Subido pra 24px de folga (aqui e na versão expandida
+    // abaixo) pra sobrar espaço de verdade além da sombra.
+    document.body.style.setProperty('--pf-home-left-pad',(esquerda+46+24)+'px');
     el.innerHTML=
       '<div onclick="pfPainelTarefasToggle()" title="Timer" style="width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(31,78,121,.18);display:flex;align-items:center;justify-content:center;cursor:pointer"><img src="icons/pack/pf-icon-044.png" style="width:26px;height:26px;object-fit:contain"></div>'+
       '<div onclick="pfPainelTarefasToggle()" title="Pendências (minhas)" style="width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(31,78,121,.18);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative"><img src="icons/pack/pf-icon-010.png" style="width:26px;height:26px;object-fit:contain">'+
@@ -46108,9 +46178,11 @@ function pfPainelTarefasRender(){
   var dockEl=document.getElementById('pfSidebar');
   var dockAltura=dockEl?dockEl.getBoundingClientRect().height:70;
   var painelLargura=300; // v115.1573 - igualado à largura do painel de widgets da direita (300px), a pedido do Vitor
-  document.body.style.setProperty('--pf-home-left-pad',(esquerda+painelLargura+10)+'px');
+  document.body.style.setProperty('--pf-home-left-pad',(esquerda+painelLargura+24)+'px'); // v115.1580 - ver comentário acima
   el.style.cssText='position:fixed;left:'+esquerda+'px;top:16px;bottom:'+(Math.round(dockAltura)+12)+'px;width:'+painelLargura+'px;background:#fff;border-radius:12px;box-shadow:2px 2px 16px rgba(31,78,121,.1);padding:0;z-index:56;font-family:Calibri,Arial,sans-serif;color:#1a2332;display:flex;flex-direction:column;overflow:hidden';
   var circ=Math.round(119.4*(_pfTimerSeg/300));
+  var cronoMin=Math.floor(_pfCronoSeg/60), cronoSegRest=_pfCronoSeg%60;
+  var cronoTxt=('0'+cronoMin).slice(-2)+':'+('0'+cronoSegRest).slice(-2);
   // v115.1572 - A pedido do Vitor ("distribua bem isso, não preciso de
   // tanto espaço vazio"): com poucos itens, o split fixo 55/45 deixava os
   // dois blocos com sobra de espaço em branco no meio. Sem arrasto manual
@@ -46137,7 +46209,13 @@ function pfPainelTarefasRender(){
       '<span onclick="pfPainelTarefasToggle()" title="Ocultar" style="cursor:pointer;color:#c3cedd;font-size:16px">&#8210;</span>'+
     '</div>'+
     '<div style="padding:6px 18px 14px;border-bottom:1px solid #eef1f5;flex-shrink:0">'+
-      '<div style="font-size:14px;color:#8a9ab0;margin-bottom:7px;display:flex;align-items:center;gap:7px"><span style="width:20px;height:20px;border-radius:50%;background:#FBE9E4;display:flex;align-items:center;justify-content:center"><img src="icons/pack/pf-icon-044.png" style="width:14px;height:14px;object-fit:contain"></span>Timer</div>'+
+      // v115.1580 - A pedido do Vitor: alterna entre Timer (contagem
+      // regressiva) e Cronômetro (contagem progressiva), no mesmo card.
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">'+
+        '<div style="font-size:14px;color:#8a9ab0;display:flex;align-items:center;gap:7px"><span style="width:20px;height:20px;border-radius:50%;background:#FBE9E4;display:flex;align-items:center;justify-content:center"><img src="icons/pack/pf-icon-044.png" style="width:14px;height:14px;object-fit:contain"></span>'+(_pfTimerModo==='timer'?'Timer':'Cronômetro')+'</div>'+
+        '<span onclick="pfPainelTimerModoAlternar()" style="font-size:11px;color:#D97757;font-weight:700;cursor:pointer">⇄ '+(_pfTimerModo==='timer'?'Cronômetro':'Timer')+'</span>'+
+      '</div>'+
+      (_pfTimerModo==='timer'?(
       '<div style="display:flex;align-items:center;gap:14px">'+
         '<svg width="52" height="52" viewBox="0 0 46 46">'+
           '<circle cx="23" cy="23" r="19" fill="none" stroke="#F0F4F8" stroke-width="5"/>'+
@@ -46156,7 +46234,19 @@ function pfPainelTarefasRender(){
             '<span onclick="pfPainelTimerZerar()" title="Zerar" style="font-size:12px;color:#8a9ab0;font-weight:700;cursor:pointer;margin-left:2px">↺</span>'+
           '</div>'+
         '</div>'+
-      '</div>'+
+      '</div>'
+      ):(
+      '<div style="display:flex;align-items:center;gap:14px">'+
+        '<div style="width:52px;height:52px;border-radius:50%;background:'+(_pfCronoRodando?'#FBE9E4':'#F0F4F8')+';display:flex;align-items:center;justify-content:center;font-size:20px">⏱️</div>'+
+        '<div>'+
+          '<div style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1">'+cronoTxt+'</div>'+
+          '<div style="display:flex;gap:8px;margin-top:4px;align-items:center">'+
+            '<span onclick="pfPainelCronoToggle()" style="font-size:12px;color:#D97757;font-weight:700;cursor:pointer">'+(_pfCronoRodando?'⏸ pausar':'▶ iniciar')+'</span>'+
+            '<span onclick="pfPainelCronoZerar()" title="Zerar" style="font-size:12px;color:#8a9ab0;font-weight:700;cursor:pointer;margin-left:2px">↺</span>'+
+          '</div>'+
+        '</div>'+
+      '</div>'
+      ))+
     '</div>'+
     // v115.1570 - Pendências (minhas) e Lembretes agora são 2 blocos com
     // flex-basis EM PORCENTAGEM (_pfPainelSplit) e rolagem PRÓPRIA cada

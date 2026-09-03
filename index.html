@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1576</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1577</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1576</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1577</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -45893,7 +45893,7 @@ function pfPainelTimerToggle(){
     _pfTimerRodando=true;
     _pfTimerInt=setInterval(function(){
       if(_pfTimerSeg>0){_pfTimerSeg--;}
-      else{clearInterval(_pfTimerInt);_pfTimerRodando=false; if(typeof pfLembreteNotificar==='function')pfLembreteNotificar('Timer','Tempo esgotado!',null);}
+      else{clearInterval(_pfTimerInt);_pfTimerRodando=false; if(typeof pfLembreteNotificar==='function')pfLembreteNotificar('Timer','Tempo esgotado!',null,true);}
       pfPainelTarefasRender();
     },1000);
   }
@@ -45902,7 +45902,25 @@ function pfPainelTimerToggle(){
 function pfPainelTimerZerar(){clearInterval(_pfTimerInt);_pfTimerRodando=false;_pfTimerSeg=300;pfPainelTarefasRender();}
 function pfPainelTimerAjustar(delta){ if(!_pfTimerRodando){_pfTimerSeg=Math.max(0,_pfTimerSeg+delta);pfPainelTarefasRender();} }
 
-function pfLembreteNotificar(titulo,corpo,link){
+function pfLembreteTocarSom(){
+  // v115.1577 - Beep gerado na hora via Web Audio API -- sem precisar de
+  // arquivo de áudio externo pra hospedar/carregar.
+  try{
+    var ctx=new (window.AudioContext||window.webkitAudioContext)();
+    [0,0.18,0.36].forEach(function(atraso){
+      var osc=ctx.createOscillator(), gain=ctx.createGain();
+      osc.type='sine'; osc.frequency.value=880;
+      osc.connect(gain); gain.connect(ctx.destination);
+      var t=ctx.currentTime+atraso;
+      gain.gain.setValueAtTime(0.001,t);
+      gain.gain.exponentialRampToValueAtTime(0.25,t+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+0.15);
+      osc.start(t); osc.stop(t+0.16);
+    });
+  }catch(e){console.warn('pfLembreteTocarSom erro:',e);}
+}
+function pfLembreteNotificar(titulo,corpo,link,som){
+  if(som)pfLembreteTocarSom();
   try{
     if(typeof Notification==='undefined')return;
     if(Notification.permission==='granted'){
@@ -45927,7 +45945,7 @@ function pfLembretesVerificarDisparo(){
     var deveDisparar = l.repeticao==='diaria' || l.repeticao==='nenhuma' ||
       (l.repeticao==='dias_semana' && (l.dias||[]).indexOf(diaSemana)>=0);
     if(!deveDisparar)return;
-    pfLembreteNotificar(l.texto, l.link?'Clique pra abrir':'', l.link);
+    pfLembreteNotificar(l.texto, l.link?'Clique pra abrir':'', l.link, l.som!==false);
     l.ultimoDisparo=hoje;
     mudou=true;
   });
@@ -45956,11 +45974,14 @@ function pfLembreteNovoAbrir(){
     '</div>'+
     '<div id="lbDiasWrap" style="display:none;gap:4px;margin-bottom:12px;flex-wrap:wrap">'+
       ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(function(d,i){
-        return '<span data-dia="'+i+'" onclick="this.classList.toggle(\'on\')" class="lbDiaChip" style="width:30px;height:30px;border-radius:50%;background:#f0f4f8;color:#8a9ab0;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer">'+d+'</span>';
+        return '<span data-dia="'+i+'" onclick="pfLembreteDiaToggle(this)" class="lbDiaChip" style="width:32px;height:32px;border-radius:50%;background:#f0f4f8;color:#607080;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;transition:background .1s,color .1s">'+d+'</span>';
       }).join('')+
     '</div>'+
     '<div style="font-size:10px;font-weight:700;color:#8a9ab0;margin-bottom:4px">LINK (OPCIONAL)</div>'+
-    '<input id="lbLink" placeholder="https://..." style="width:100%;box-sizing:border-box;border:1.5px solid #e0e8f0;border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:6px;color:#1F4E79">'+
+    '<input id="lbLink" placeholder="https://..." style="width:100%;box-sizing:border-box;border:1.5px solid #e0e8f0;border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:10px;color:#1F4E79">'+
+    // v115.1577 - A pedido do Vitor: opção de aviso SONORO junto com a
+    // notificação do navegador (antes só vibrava/aparecia silenciosa).
+    '<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#3a4658;margin-bottom:14px;cursor:pointer"><input id="lbSom" type="checkbox" checked style="width:15px;height:15px">🔊 Tocar som ao disparar</label>'+
     '<div style="font-size:9.5px;color:#8a9ab0;margin-bottom:14px">Dispara como notificação do navegador no horário — com botão pra abrir o link, se tiver.</div>'+
     '<div style="display:flex;gap:8px">'+
       '<button onclick="document.getElementById(\'pfLembreteNovoOverlay\').remove()" style="flex:1;background:#F0F4F8;color:#607080;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:700;cursor:pointer">Cancelar</button>'+
@@ -45969,6 +45990,16 @@ function pfLembreteNovoAbrir(){
   overlay.appendChild(box);
   overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
   document.body.appendChild(overlay);
+}
+function pfLembreteDiaToggle(el){
+  // v115.1577 - BUG corrigido (Vitor: "não consigo marcar os dias"): o
+  // clique já trocava a classe "on" direitinho, mas não existia NENHUMA
+  // regra CSS pra essa classe -- visualmente nada mudava, parecia
+  // travado. Agora troca o estilo inline direto, então dá pra VER o dia
+  // marcado (fundo navy + texto branco).
+  var ligado=el.classList.toggle('on');
+  el.style.background=ligado?'#1F4E79':'#f0f4f8';
+  el.style.color=ligado?'#fff':'#607080';
 }
 function pfLembreteFormAtualizarDias(){
   var rep=document.querySelector('input[name="lbRep"]:checked').value;
@@ -45985,8 +46016,9 @@ function pfLembreteSalvarNovo(){
     if(!dias.length){pfAlert('Escolhe pelo menos um dia da semana.');return;}
   }
   var link=(document.getElementById('lbLink').value||'').trim();
+  var som=document.getElementById('lbSom').checked;
   var lista=pfLembretesLoad();
-  lista.push({id:'lb_'+Date.now(),texto:texto,hora:hora,repeticao:repeticao,dias:dias,link:link,ultimoDisparo:null});
+  lista.push({id:'lb_'+Date.now(),texto:texto,hora:hora,repeticao:repeticao,dias:dias,link:link,som:som,ultimoDisparo:null});
   pfLembretesSave(lista);
   var ov=document.getElementById('pfLembreteNovoOverlay');if(ov)ov.remove();
   pfPainelTarefasRender();
@@ -46121,7 +46153,7 @@ function pfPainelTarefasRender(){
           '</div>';
         }).join(''):'<div style="font-size:12px;color:#8a9ab0">Nada por aqui ainda</div>')+
       '</div>'+
-      '<div onclick="pfPendenciaPessoalNovaAbrir()" style="font-size:11px;color:#8a9ab0;background:#F7F9FB;border-radius:12px;padding:6px 12px;display:inline-block;margin-top:8px;cursor:pointer;flex-shrink:0">+ nova pendência</div>'+
+      '<div onclick="pfPendenciaPessoalNovaAbrir()" style="font-size:13px;color:#1F4E79;font-weight:700;background:#EAF1FB;border-radius:12px;padding:7px 12px;display:inline-block;margin-top:8px;cursor:pointer;flex-shrink:0;text-align:center">+ nova pendência</div>'+
     '</div>'+
     '<div onmousedown="pfPainelSplitIniciar(event)" ontouchstart="pfPainelSplitIniciar(event)" style="flex-shrink:0;height:10px;cursor:row-resize;display:flex;align-items:center;justify-content:center;background:#fff">'+
       '<div style="width:30px;height:3px;border-radius:2px;background:#e0e8f0"></div>'+
@@ -46140,7 +46172,7 @@ function pfPainelTarefasRender(){
           '<div style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:8px;display:inline-block;margin:0 0 4px 50px;'+tagCor+'">'+tagTxt+'</div>';
         }).join('')+
       '</div>'+
-      '<div onclick="pfLembreteNovoAbrir()" style="font-size:11px;color:#8a9ab0;background:#F7F9FB;border-radius:12px;padding:6px 12px;display:inline-block;margin-top:8px;cursor:pointer;flex-shrink:0">+ novo lembrete</div>'+
+      '<div onclick="pfLembreteNovoAbrir()" style="font-size:13px;color:#7B2D8B;font-weight:700;background:#F3EAF7;border-radius:12px;padding:7px 12px;display:inline-block;margin-top:8px;cursor:pointer;flex-shrink:0;text-align:center">+ novo lembrete</div>'+
     '</div>';
 }
 

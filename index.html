@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1567</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1568</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1567</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1568</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -35345,7 +35345,13 @@ var PF_SYNC_KEYS = [
   // preferência PESSOAL (cada usuário decide a sua), por isso só entra
   // aqui (sincroniza entre aparelhos do MESMO usuário) e não em
   // sharedKeys/PF_CATALOGO_UNICO_KEYS (que é dado da empresa inteira).
-  'pfAvisosConfig'
+  'pfAvisosConfig',
+  // v115.1568 - A pedido do Vitor: lembretes do painel de Tarefas --
+  // pessoal (cada usuário tem os seus, por isso aqui e não em
+  // sharedKeys/PF_CATALOGO_UNICO_KEYS). pfPainelTarefasOculto (se está
+  // recolhido ou não) fica só local -- não teria sentido sincronizar entre
+  // aparelhos com telas de tamanhos diferentes.
+  'pfLembretes'
 ];
 
 // v115.1525 - Wrapper único pra gravar a Anthropic Key: salva local E
@@ -45767,17 +45773,249 @@ function pfAvisosAbrirPedido(id){
   if(typeof vendasRender==='function')vendasRender();
   setTimeout(function(){ if(typeof pvVerDetalhe==='function') pvVerDetalhe(id); },80);
 }
+// ============================================================
+// v115.1568 - A pedido do Vitor: painel de Tarefas (Timer,
+// Pendências, Lembretes com horário/repetição/link) fixo do lado
+// do rail de avisos -- NUNCA por cima dele (#pfAvisosRail fica
+// intocado, esse painel nasce ao lado, left calculado a partir da
+// borda direita do rail). Responsivo: tela estreita (iPad/notebook,
+// <1550px) nasce recolhido (3 bolinhas, mesmo estilo do rail);
+// tela larga (desktop, >=1550px) nasce expandido, ocupando até
+// quase o rodapé (Pendências com scroll interno -- vai ficar cheio
+// sempre, por isso não trava numa altura pequena). Usuário pode
+// forçar recolher/expandir a qualquer momento (fica salvo,
+// sobrepõe o automático).
+// ============================================================
+var PF_LEMBRETES_KEY='pfLembretes';
+function pfLembretesLoad(){try{return JSON.parse(pfSafeGetItem(PF_LEMBRETES_KEY,'[]'));}catch(e){return[];}}
+function pfLembretesSave(lista){
+  pfSafeSetItem(PF_LEMBRETES_KEY,JSON.stringify(lista));
+  if(typeof pfSyncPush==='function')pfSyncPush([PF_LEMBRETES_KEY]);
+}
+function pfPainelTarefasOcultoGet(){
+  var v=pfSafeGetItem('pfPainelTarefasOculto',null);
+  if(v==='true')return true;
+  if(v==='false')return false;
+  return window.innerWidth<1550; // sem preferência salva: decide pela largura
+}
+function pfPainelTarefasToggle(){
+  pfSafeSetItem('pfPainelTarefasOculto', pfPainelTarefasOcultoGet()?'false':'true');
+  pfPainelTarefasRender();
+}
+var _pfTimerSeg=300, _pfTimerRodando=false, _pfTimerInt=null;
+function pfPainelTimerToggle(){
+  if(_pfTimerRodando){
+    clearInterval(_pfTimerInt); _pfTimerRodando=false;
+  } else {
+    _pfTimerRodando=true;
+    _pfTimerInt=setInterval(function(){
+      if(_pfTimerSeg>0){_pfTimerSeg--;}
+      else{clearInterval(_pfTimerInt);_pfTimerRodando=false; if(typeof pfLembreteNotificar==='function')pfLembreteNotificar('⏱️ Timer','Tempo esgotado!',null);}
+      pfPainelTarefasRender();
+    },1000);
+  }
+  pfPainelTarefasRender();
+}
+function pfPainelTimerZerar(){clearInterval(_pfTimerInt);_pfTimerRodando=false;_pfTimerSeg=300;pfPainelTarefasRender();}
+function pfPainelTimerAjustar(delta){ if(!_pfTimerRodando){_pfTimerSeg=Math.max(0,_pfTimerSeg+delta);pfPainelTarefasRender();} }
+
+function pfLembreteNotificar(titulo,corpo,link){
+  try{
+    if(typeof Notification==='undefined')return;
+    if(Notification.permission==='granted'){
+      var n=new Notification(titulo,{body:corpo,icon:'icons/pack/pf-icon-086.png'});
+      if(link)n.onclick=function(){window.open(link,'_blank');window.focus();};
+    } else if(Notification.permission!=='denied'){
+      Notification.requestPermission();
+    }
+  }catch(e){console.warn('pfLembreteNotificar erro:',e);}
+}
+function pfLembretesVerificarDisparo(){
+  var lista=pfLembretesLoad();
+  if(!lista.length)return;
+  var agora=new Date();
+  var hoje=agora.toISOString().slice(0,10);
+  var horaAtual=('0'+agora.getHours()).slice(-2)+':'+('0'+agora.getMinutes()).slice(-2);
+  var diaSemana=agora.getDay();
+  var mudou=false;
+  lista.forEach(function(l){
+    if(l.hora!==horaAtual)return;
+    if(l.ultimoDisparo===hoje)return; // já disparou hoje
+    var deveDisparar = l.repeticao==='diaria' || l.repeticao==='nenhuma' ||
+      (l.repeticao==='dias_semana' && (l.dias||[]).indexOf(diaSemana)>=0);
+    if(!deveDisparar)return;
+    pfLembreteNotificar('🔔 '+l.texto, l.link?'Clique pra abrir':'', l.link);
+    l.ultimoDisparo=hoje;
+    mudou=true;
+  });
+  if(mudou)pfLembretesSave(lista);
+}
+setInterval(pfLembretesVerificarDisparo,20000);
+
+function pfLembreteNovoAbrir(){
+  if(typeof Notification!=='undefined'&&Notification.permission==='default')Notification.requestPermission();
+  var overlay=document.createElement('div');
+  overlay.id='pfLembreteNovoOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center';
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:16px;padding:22px;max-width:300px;width:90%';
+  box.innerHTML=
+    '<div style="font-size:14px;font-weight:800;color:#1F4E79;margin-bottom:14px">🔔 Novo lembrete</div>'+
+    '<div style="font-size:10px;font-weight:700;color:#8a9ab0;margin-bottom:4px">TEXTO</div>'+
+    '<input id="lbTexto" placeholder="Ex: Marcar ponto" style="width:100%;box-sizing:border-box;border:1.5px solid #e0e8f0;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:12px">'+
+    '<div style="font-size:10px;font-weight:700;color:#8a9ab0;margin-bottom:4px">HORÁRIO</div>'+
+    '<input id="lbHora" type="time" value="12:00" style="width:100%;box-sizing:border-box;border:1.5px solid #e0e8f0;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:12px;font-family:monospace">'+
+    '<div style="font-size:10px;font-weight:700;color:#8a9ab0;margin-bottom:6px">REPETIR</div>'+
+    '<div style="display:flex;flex-direction:column;gap:6px;font-size:12px;margin-bottom:10px">'+
+      '<label style="display:flex;align-items:center;gap:7px"><input type="radio" name="lbRep" value="nenhuma" checked onchange="pfLembreteFormAtualizarDias()">Não repetir (só uma vez)</label>'+
+      '<label style="display:flex;align-items:center;gap:7px"><input type="radio" name="lbRep" value="diaria" onchange="pfLembreteFormAtualizarDias()">Todos os dias</label>'+
+      '<label style="display:flex;align-items:center;gap:7px"><input type="radio" name="lbRep" value="dias_semana" onchange="pfLembreteFormAtualizarDias()">Dias da semana específicos</label>'+
+    '</div>'+
+    '<div id="lbDiasWrap" style="display:none;gap:4px;margin-bottom:12px;flex-wrap:wrap">'+
+      ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(function(d,i){
+        return '<span data-dia="'+i+'" onclick="this.classList.toggle(\'on\')" class="lbDiaChip" style="width:30px;height:30px;border-radius:50%;background:#f0f4f8;color:#8a9ab0;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer">'+d+'</span>';
+      }).join('')+
+    '</div>'+
+    '<div style="font-size:10px;font-weight:700;color:#8a9ab0;margin-bottom:4px">LINK (OPCIONAL)</div>'+
+    '<input id="lbLink" placeholder="https://..." style="width:100%;box-sizing:border-box;border:1.5px solid #e0e8f0;border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:6px;color:#1F4E79">'+
+    '<div style="font-size:9.5px;color:#8a9ab0;margin-bottom:14px">Dispara como notificação do navegador no horário — com botão pra abrir o link, se tiver.</div>'+
+    '<div style="display:flex;gap:8px">'+
+      '<button onclick="document.getElementById(\'pfLembreteNovoOverlay\').remove()" style="flex:1;background:#F0F4F8;color:#607080;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:700;cursor:pointer">Cancelar</button>'+
+      '<button onclick="pfLembreteSalvarNovo()" style="flex:1;background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:700;cursor:pointer">Salvar</button>'+
+    '</div>';
+  overlay.appendChild(box);
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+  document.body.appendChild(overlay);
+}
+function pfLembreteFormAtualizarDias(){
+  var rep=document.querySelector('input[name="lbRep"]:checked').value;
+  document.getElementById('lbDiasWrap').style.display=rep==='dias_semana'?'flex':'none';
+}
+function pfLembreteSalvarNovo(){
+  var texto=(document.getElementById('lbTexto').value||'').trim();
+  if(!texto){pfAlert('Escreve o texto do lembrete.');return;}
+  var hora=document.getElementById('lbHora').value||'12:00';
+  var repeticao=document.querySelector('input[name="lbRep"]:checked').value;
+  var dias=[];
+  if(repeticao==='dias_semana'){
+    document.querySelectorAll('.lbDiaChip.on').forEach(function(el){dias.push(parseInt(el.dataset.dia,10));});
+    if(!dias.length){pfAlert('Escolhe pelo menos um dia da semana.');return;}
+  }
+  var link=(document.getElementById('lbLink').value||'').trim();
+  var lista=pfLembretesLoad();
+  lista.push({id:'lb_'+Date.now(),texto:texto,hora:hora,repeticao:repeticao,dias:dias,link:link,ultimoDisparo:null});
+  pfLembretesSave(lista);
+  var ov=document.getElementById('pfLembreteNovoOverlay');if(ov)ov.remove();
+  pfPainelTarefasRender();
+}
+function pfLembreteExcluir(id){
+  pfLembretesSave(pfLembretesLoad().filter(function(l){return l.id!==id;}));
+  pfPainelTarefasRender();
+}
+
+function pfPainelTarefasMontar(){
+  if(document.getElementById('pfPainelTarefas'))return;
+  var el=document.createElement('div');
+  el.id='pfPainelTarefas';
+  document.body.appendChild(el);
+  pfPainelTarefasRender();
+  window.addEventListener('resize',function(){
+    // só re-renderiza por causa da largura se o usuário nunca mexeu manualmente
+    if(pfSafeGetItem('pfPainelTarefasOculto',null)===null)pfPainelTarefasRender();
+  });
+}
+function pfPainelTarefasDesmontar(){
+  var el=document.getElementById('pfPainelTarefas');
+  if(el)el.remove();
+}
+function pfPainelTarefasRender(){
+  var el=document.getElementById('pfPainelTarefas');
+  if(!el)return;
+  var railEl=document.getElementById('pfAvisosRail');
+  var railDireita=railEl?railEl.getBoundingClientRect().right:58;
+  var esquerda=Math.round(railDireita+8);
+  var oculto=pfPainelTarefasOcultoGet();
+  var pend=[];try{pend=JSON.parse(pfSafeGetItem('pfPendenciasAdmin','[]'));}catch(e){}
+  var pendAbertas=pend.filter(function(p){return !p.concluida;});
+  var lembretes=pfLembretesLoad();
+  var minSeg=Math.floor(_pfTimerSeg/60), segRest=_pfTimerSeg%60;
+  var timerTxt=('0'+minSeg).slice(-2)+':'+('0'+segRest).slice(-2);
+
+  if(oculto){
+    el.style.cssText='position:fixed;left:'+esquerda+'px;top:16px;display:flex;flex-direction:column;gap:10px;z-index:56';
+    el.innerHTML=
+      '<div onclick="pfPainelTarefasToggle()" title="Timer" style="width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(31,78,121,.18);display:flex;align-items:center;justify-content:center;font-size:19px;cursor:pointer">⏱️</div>'+
+      '<div onclick="pfPainelTarefasToggle()" title="Pendências" style="width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(31,78,121,.18);display:flex;align-items:center;justify-content:center;font-size:19px;cursor:pointer;position:relative">📌'+
+        (pendAbertas.length?'<span style="position:absolute;top:-3px;right:-3px;background:#D97757;color:#fff;font-size:9px;font-weight:800;min-width:16px;height:16px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 3px">'+pendAbertas.length+'</span>':'')+
+      '</div>'+
+      '<div onclick="pfPainelTarefasToggle()" title="Lembretes" style="width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(31,78,121,.18);display:flex;align-items:center;justify-content:center;font-size:19px;cursor:pointer;position:relative">🔔'+
+        (lembretes.length?'<span style="position:absolute;top:-3px;right:-3px;background:#7B2D8B;color:#fff;font-size:9px;font-weight:800;min-width:16px;height:16px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 3px">'+lembretes.length+'</span>':'')+
+      '</div>';
+    return;
+  }
+
+  el.style.cssText='position:fixed;left:'+esquerda+'px;top:16px;bottom:74px;width:150px;background:#fff;border-radius:0 18px 18px 0;box-shadow:2px 0 12px rgba(31,78,121,.08);padding:0;z-index:56;font-family:Calibri,Arial,sans-serif;color:#1a2332;display:flex;flex-direction:column;overflow:hidden';
+  var circ=Math.round(119.4*(_pfTimerSeg/300));
+  el.innerHTML=
+    '<div style="display:flex;justify-content:flex-end;padding:6px 10px 0;flex-shrink:0">'+
+      '<span onclick="pfPainelTarefasToggle()" title="Ocultar" style="cursor:pointer;color:#c3cedd;font-size:13px">&#8210;</span>'+
+    '</div>'+
+    '<div style="padding:6px 14px 11px;border-bottom:1px solid #eef1f5;flex-shrink:0">'+
+      '<div style="font-size:10px;color:#8a9ab0;margin-bottom:5px;display:flex;align-items:center;gap:6px"><span style="width:16px;height:16px;border-radius:50%;background:#FBE9E4;display:flex;align-items:center;justify-content:center;font-size:9px">⏱️</span>Timer</div>'+
+      '<div style="display:flex;align-items:center;gap:10px">'+
+        '<svg width="40" height="40" viewBox="0 0 46 46">'+
+          '<circle cx="23" cy="23" r="19" fill="none" stroke="#F0F4F8" stroke-width="5"/>'+
+          '<circle cx="23" cy="23" r="19" fill="none" stroke="#D97757" stroke-width="5" stroke-linecap="round" stroke-dasharray="119.4" stroke-dashoffset="'+(119.4-circ)+'" transform="rotate(-90 23 23)"/>'+
+        '</svg>'+
+        '<div>'+
+          '<div style="font-size:15px;font-weight:800;font-variant-numeric:tabular-nums">'+timerTxt+'</div>'+
+          '<div style="display:flex;gap:6px;margin-top:2px">'+
+            '<span onclick="pfPainelTimerToggle()" style="font-size:9px;color:#D97757;font-weight:700;cursor:pointer">'+(_pfTimerRodando?'⏸ pausar':'▶ iniciar')+'</span>'+
+            '<span onclick="pfPainelTimerZerar()" style="font-size:9px;color:#8a9ab0;font-weight:700;cursor:pointer">↺</span>'+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+    '<div style="padding:9px 14px;border-bottom:1px solid #eef1f5;flex:1.4;min-height:0;display:flex;flex-direction:column">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0;cursor:pointer" onclick="pfPendenciasNavigate()">'+
+        '<div style="font-size:10px;color:#8a9ab0;display:flex;align-items:center;gap:6px"><span style="width:16px;height:16px;border-radius:50%;background:#EAF1FB;display:flex;align-items:center;justify-content:center;font-size:9px">✅</span>Pendências</div>'+
+        '<span style="font-size:8.5px;color:#1F4E79;background:#EAF1FB;padding:2px 8px;border-radius:10px;font-weight:700">'+pendAbertas.length+'</span>'+
+      '</div>'+
+      '<div style="margin-top:7px;overflow-y:auto;flex:1;min-height:0">'+
+        (pendAbertas.length?pendAbertas.map(function(p){
+          return '<div style="font-size:11px;color:#3a4658;padding:3px 0;display:flex;align-items:center;gap:7px"><span style="width:6px;height:6px;border-radius:50%;background:#c3cedd;flex-shrink:0"></span>'+pfEscHtml((p.titulo||p.descricao||'').slice(0,60))+'</div>';
+        }).join(''):'<div style="font-size:10px;color:#8a9ab0">Nada pendente 🎉</div>')+
+      '</div>'+
+    '</div>'+
+    '<div style="padding:9px 14px 12px;flex-shrink:0;border-top:1px solid #eef1f5">'+
+      '<div style="font-size:10px;color:#8a9ab0;margin-bottom:4px;display:flex;align-items:center;gap:6px"><span style="width:16px;height:16px;border-radius:50%;background:#F3EAF7;display:flex;align-items:center;justify-content:center;font-size:9px">🔔</span>Lembretes</div>'+
+      lembretes.map(function(l){
+        var tagTxt=l.repeticao==='diaria'?'diário':l.repeticao==='dias_semana'?'semanal':'só hoje';
+        var tagCor=l.repeticao==='nenhuma'?'background:#FBE9E4;color:#B4552F':'background:#EAF7EE;color:#1A7A3C';
+        return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0">'+
+          '<span style="background:#1F4E79;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;flex-shrink:0">'+l.hora+'</span>'+
+          '<span style="color:#3a4658;flex:1;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+pfEscHtml(l.texto)+(l.link?' 🔗':'')+'</span>'+
+          '<span onclick="pfLembreteExcluir(\''+l.id+'\')" style="color:#c3cedd;font-size:11px;cursor:pointer;flex-shrink:0">&times;</span>'+
+        '</div>'+
+        '<div style="font-size:7.5px;font-weight:700;padding:1px 6px;border-radius:8px;display:inline-block;margin:0 0 3px 42px;'+tagCor+'">'+tagTxt+'</div>';
+      }).join('')+
+      '<div onclick="pfLembreteNovoAbrir()" style="font-size:9px;color:#8a9ab0;background:#F7F9FB;border-radius:12px;padding:4px 10px;display:inline-block;margin-top:6px;cursor:pointer">+ novo lembrete</div>'+
+    '</div>';
+}
+
 // Observa o overlay de login: monta a central assim que ele some (login
 // concluído, por qualquer um dos caminhos -- online, PIN offline etc, sem
 // precisar mexer em cada um) e desmonta se ele reaparecer (logout).
 (function pfAvisosWatch(){
+
   var overlay=document.getElementById('authOverlay');
   var logado=overlay&&(overlay.style.display==='none');
   if(logado){
     pfAvisosMonta();
+    if(typeof pfPainelTarefasMontar==='function')pfPainelTarefasMontar();
     if(!window._pfNoticiasJaRenderizou&&typeof pfNoticiasRender==='function'){window._pfNoticiasJaRenderizou=true;pfNoticiasRender();if(typeof pfPainelWidgetsRender==='function')pfPainelWidgetsRender();if(typeof pfCategoriasRender==='function')pfCategoriasRender();if(typeof pfDicasImpactoGerar==='function')pfDicasImpactoGerar(false);}
     if(!window._pfAtalhosJaRenderizou&&typeof pfAtalhosBarraRender==='function'){window._pfAtalhosJaRenderizou=true;pfAtalhosBarraRender();if(typeof pfAtalhosSincronizarEstaticos==='function')pfAtalhosSincronizarEstaticos();}
-  } else pfAvisosDesmonta();
+  } else { pfAvisosDesmonta(); if(typeof pfPainelTarefasDesmontar==='function')pfPainelTarefasDesmontar(); }
   setTimeout(pfAvisosWatch,1000);
 })();
 setInterval(function(){ if(document.getElementById('pfAvisosRail'))pfAvisosAtualizar(); },30000);

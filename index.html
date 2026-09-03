@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1581</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1582</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1581</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1582</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -44517,7 +44517,20 @@ function pfNoticiasUltimoErroLoad(){
 // chave já cadastrada em Ferramentas) e salva pra todo mundo ver -- sem
 // precisar de ninguém pedir.
 var PF_NOTICIAS_INTERVALO_MS=24*60*60*1000; // 1 dia
-var PF_NOTICIAS_TRAVA_MS=15*60*1000; // 15min de trava contra tentativa simultânea
+var PF_NOTICIAS_TRAVA_MS=15*60*1000; // 15min de trava contra tentativa simultânea (vários aparelhos)
+// v115.1582 - BUG DE CUSTO corrigido (Vitor viu no "Uso de IA" a busca
+// automática rodando várias vezes no mesmo dia, pagando de novo cada
+// vez -- "vou ficar pagando isso toda hora?"): enquanto a busca falha
+// (ex: nenhuma imagem passa na validação), a lista NUNCA fica "fresca"
+// (a checagem de fresco exige item validado na lista) -- então toda vez
+// que o Vitor abria a Home de novo (bem mais que os 15min da trava
+// contra simultâneo), tentava de novo e pagava de novo, o dia inteiro.
+// Agora falha também entra em cooldown próprio: 2h depois de qualquer
+// falha, e se acumular 3 falhas seguidas, para de tentar sozinho por
+// 24h (só volta com clique manual em "Atualizar agora" ou depois desse
+// prazo) -- não fica batendo na mesma parede o dia todo pagando à toa.
+var PF_NOTICIAS_TRAVA_FALHA_MS=2*60*60*1000; // 2h de cooldown após qualquer falha
+var PF_NOTICIAS_TRAVA_FALHA_SEGUIDA_MS=24*60*60*1000; // 24h após 3+ falhas seguidas
 async function pfNoticiasVerificarAtualizacaoAuto(){
   try{
     var raw=localStorage.getItem('pfNoticiasSetorAtualizadoEm');
@@ -44552,6 +44565,15 @@ async function pfNoticiasVerificarAtualizacaoAuto(){
     // de verdade na lista -- lista vazia sempre força nova tentativa.
     var listaAtualCheck=(typeof pfNoticiasLoad==='function')?pfNoticiasLoad():[];
     if(obj&&obj.ts&&(agora-obj.ts)<PF_NOTICIAS_INTERVALO_MS&&listaAtualCheck.length>0)return; // ainda fresco
+    // v115.1582 - cooldown depois de falha (ver comentário acima) -- só
+    // conta como "falha recente" se o erro for MAIS NOVO que o último
+    // sucesso (senão um erro velho de antes de um sucesso mais recente
+    // ficaria travando pra sempre).
+    if(obj&&obj.ultimoErroEm&&(!obj.ts||obj.ultimoErroEm>obj.ts)){
+      var falhasSeguidas=obj.falhasSeguidas||0;
+      var cooldownFalha=falhasSeguidas>=3?PF_NOTICIAS_TRAVA_FALHA_SEGUIDA_MS:PF_NOTICIAS_TRAVA_FALHA_MS;
+      if((agora-obj.ultimoErroEm)<cooldownFalha)return;
+    }
     if(obj&&obj.tentativaEm&&(agora-obj.tentativaEm)<PF_NOTICIAS_TRAVA_MS)return; // outro aparelho já tentando
     var apiKey=localStorage.getItem('anthropic_key')||'';
     if(!apiKey)return; // sem chave cadastrada, não tenta sozinho
@@ -44575,6 +44597,7 @@ async function pfNoticiasVerificarAtualizacaoAuto(){
       var objErro=JSON.parse(localStorage.getItem('pfNoticiasSetorAtualizadoEm')||'{}');
       objErro.ultimoErro=(e&&e.message)?e.message:String(e);
       objErro.ultimoErroEm=Date.now();
+      objErro.falhasSeguidas=(objErro.falhasSeguidas||0)+1; // v115.1582
       localStorage.setItem('pfNoticiasSetorAtualizadoEm',JSON.stringify(objErro));
       if(typeof pfSyncPush==='function')pfSyncPush(['pfNoticiasSetorAtualizadoEm']).catch(function(){});
       if(typeof pfNoticiasRender==='function')pfNoticiasRender();
@@ -44683,7 +44706,14 @@ async function pfNoticiasBuscarNovasComIA(apiKey){
   }
   lista=lista.filter(function(n){return pfNoticiaDataRecente(n.data,30);});
   lista=await pfNoticiasFiltrarComFotoValida(lista);
-  if(lista.length<6){
+  // v115.1582 - BUG DE CUSTO corrigido: antes tentava de novo (2ª chamada
+  // à IA, custo dobrado) sempre que passavam menos de 6 -- inclusive
+  // quando passavam ZERO, que é sinal de problema sistêmico (ex: imagens
+  // não carregando agora) e não de "azar com poucos itens". Uma 2ª
+  // tentativa não costuma resolver problema sistêmico na hora -- só
+  // tenta de novo se pelo menos ALGUMA passou (sinal de que só faltou
+  // quantidade, não que está tudo quebrado).
+  if(lista.length>0&&lista.length<6){
     try{
       var lista2=await chamarIA(true);
       lista2=lista2.filter(function(n){return pfNoticiaDataRecente(n.data,30);});
@@ -44701,7 +44731,7 @@ async function pfNoticiasBuscarNovasComIA(apiKey){
   var listaAtual=(typeof pfNoticiasLoad==='function')?pfNoticiasLoad():[];
   var manuais=listaAtual.filter(function(n){return n&&n.origem==='manual';});
   if(typeof pfNoticiasSave==='function')pfNoticiasSave(manuais.concat(lista));
-  var estadoFinal={valor:new Date().toISOString(),ts:Date.now()}; // v115.1508 - sem ultimoErro: sucesso limpa o aviso
+  var estadoFinal={valor:new Date().toISOString(),ts:Date.now(),falhasSeguidas:0}; // v115.1508/1582 - sem ultimoErro: sucesso limpa o aviso e zera o contador de falhas
   localStorage.setItem('pfNoticiasSetorAtualizadoEm',JSON.stringify(estadoFinal));
   if(typeof pfSyncPush==='function')pfSyncPush(['pfNoticiasSetorAtualizadoEm']).catch(function(){});
   var _splashEl=document.getElementById('pfHomeSplash');

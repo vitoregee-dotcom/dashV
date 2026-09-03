@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1565</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1566</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1565</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1566</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -29860,7 +29860,18 @@ function cadCriarFichasEmLotes(somenteAtivos){
       if(existentes[chave]||vistos[chave])return;
       vistos[chave]=true;
       var descAplic=aplicPorCodMarca[chave];
-      pendentes.push({codigo:d.ref,descricao:descAplic||d.desc||'',marca:marca});
+      // v115.1566 - BUG DE RAIZ corrigido (causa real da duplicação em
+      // massa do catálogo de Produtos, achada investigando "212279
+      // duplicado no iPad"): produtos criados aqui NUNCA ganhavam campo
+      // `id`. O merge de sincronização (pfMergeSyncValue) identifica item
+      // por `id` -- sem ele, cai num fallback frágil (fingerprint do
+      // JSON.stringify inteiro), que trata a MENOR diferença de
+      // serialização como um item "novo" em vez de reconhecer como o
+      // mesmo -- então toda sincronização ia empilhando cópia em cima de
+      // cópia dos produtos criados por aqui, sem nunca unir. `id`
+      // determinístico (código+marca, igual o resto do sistema já usa
+      // pra achar duplicata) faz o merge reconhecer sempre o mesmo item.
+      pendentes.push({id:'p_est_'+cod+'||'+marca.toUpperCase(),codigo:d.ref,descricao:descAplic||d.desc||'',marca:marca});
     });
   });
   if(!pendentes.length){pfAlert('Nenhum item pendente encontrado.');return;}
@@ -29891,7 +29902,11 @@ function cadCriarFichasEmLotes(somenteAtivos){
   function finalizar(){
     try{
       pfSafeSetItem(PROD_KEY,JSON.stringify(plist));
-      if(typeof sbUser!=='undefined'&&sbUser&&typeof cadPushSupabase==='function')cadPushSupabase();
+      // v115.1566 - Esse fluxo grava direto com pfSafeSetItem (não passa
+      // por cadSave), então precisa chamar pfSyncPush aqui manualmente --
+      // ver nota completa em cadSave/_cadPushSupabaseReal (produtos saiu
+      // do caminho antigo, cadPushSupabase não sobe mais essa chave).
+      if(typeof sbUser!=='undefined'&&sbUser&&typeof pfSyncPush==='function')pfSyncPush([PROD_KEY]);
       overlay.remove();
       pfAlert('✅ '+pendentes.length+' ficha(s) criada(s) com código, descrição e marca. Ainda faltam: grupo/subgrupo, foto, desenho técnico, aplicações e conversões — preenche aos poucos quando precisar.');
       if(typeof cadGoTab==='function')cadGoTab('produtos');
@@ -30635,11 +30650,28 @@ function cadSave(key,data){
   // sincronização de entrada (que ainda não sabe dessa mudança) sobrescrever ela,
   // trazendo de volta algo que acabou de ser excluído localmente.
   pfSafeSetItem('cad_local_change_ts_'+key, Date.now());
+  // v115.1566 - A pedido do Vitor ("resolve de vez" -- duplicação em massa
+  // de Produtos, ver nota completa em _cadPushSupabaseReal): fornecedores/
+  // clientes/produtos/aplicações/solicitações_compras agora sobem só pelo
+  // caminho novo (pfSyncPush -> user_sync), nunca mais pelo
+  // cadPushSupabase (user_cadastros) -- só um caminho de sync por chave,
+  // sem os dois brigando pelo mesmo dado.
+  if(PF_CADASTROS_SYNC_NOVO.indexOf(key)>=0){
+    if(typeof pfSyncPush==='function')pfSyncPush([key]);
+    return;
+  }
   // Sempre sincroniza com Supabase ao salvar - garante servidor como fonte de verdade
   if(typeof sbUser!=='undefined'&&sbUser&&typeof cadPushSupabase==='function'){
     cadPushSupabase();
   }
 }
+// v115.1566 - Chaves de Cadastros que migraram pro caminho de sync único
+// (pfSyncPush/pfSyncPull, tabela user_sync) -- ver cadSave acima e nota
+// completa em _cadPushSupabaseReal. Lista à parte (em vez de comparar
+// contra PROD_KEY/FORN_KEY/etc diretamente) porque essas variáveis só são
+// atribuídas mais abaixo no arquivo -- comparar contra os valores literais
+// aqui evita depender de ordem de carregamento do script.
+var PF_CADASTROS_SYNC_NOVO=['cad_fornecedores_v1','cad_clientes_v1','cad_produtos_v1','prod_aplicacoes_v1','cad_solicitacoes_compras_v1'];
 
 var FORN_KEY='cad_fornecedores_v1';
 // v115.1510 - BUG DE RAIZ corrigido (achado enquanto investigava outro
@@ -30680,6 +30712,9 @@ function pfCriarFornecedorChinaSeNaoExiste(){
       });
       if(typeof pfSafeSetItem==='function')pfSafeSetItem(FORN_KEY,JSON.stringify(lista));
       else localStorage.setItem(FORN_KEY,JSON.stringify(lista));
+      // v115.1566 - Bypassa cadSave (grava direto) -- precisa chamar
+      // pfSyncPush manualmente, ver nota em cadSave/_cadPushSupabaseReal.
+      if(typeof pfSyncPush==='function')pfSyncPush([FORN_KEY]);
       if(typeof cadPushSupabase==='function')cadPushSupabase();
     }
   }catch(e){console.warn('Criação automática do fornecedor CHINA falhou:',e);}
@@ -31578,24 +31613,30 @@ async function cadPushSupabase(){
 }
 async function _cadPushSupabaseReal(){
   try{
-    var forn=cadLoad(FORN_KEY);
-    var clie=cadLoad(CLIE_KEY);
-    var prod=cadLoad(typeof PROD_KEY!=='undefined'?PROD_KEY:'cad_produtos_v1');
-    var aplic=cadLoad(typeof APLIC_KEY!=='undefined'?APLIC_KEY:'cad_aplicacoes_v1');
     var cadrHist=cadLoad(typeof CADR_HIST_KEY!=='undefined'?CADR_HIST_KEY:'cadr_historico_scripts_v1');
     var relac=cadLoad(typeof RELAC_KEY!=='undefined'?RELAC_KEY:'cad_relacionados_v1');
     var importTpl=cadLoad(typeof IMPORT_TPL_KEY!=='undefined'?IMPORT_TPL_KEY:'cad_import_templates_v1');
-    var solic=cadLoad(typeof SOLIC_KEY!=='undefined'?SOLIC_KEY:'cad_solicitacoes_compras_v1');
     var pedidosCompra=cadLoad(typeof PEDIDO_COMPRA_KEY!=='undefined'?PEDIDO_COMPRA_KEY:'cad_pedidos_compra_v1');
+    // v115.1566 - BUG GRAVE corrigido (a pedido do Vitor, "resolve de vez"
+    // -- achado investigando duplicação em massa de Produtos): fornecedores/
+    // clientes/produtos/aplicações/solicitações_compras saíram daqui.
+    // Motivo: essas 5 chaves TAMBÉM sincronizavam pelo caminho genérico
+    // novo (pfSyncPush/pfSyncPull, tabela user_sync, PF_CATALOGO_UNICO_KEYS)
+    // -- ou seja, dois sistemas de sincronização diferentes escrevendo o
+    // MESMO dado em DUAS tabelas do Supabase (user_cadastros aqui E
+    // user_sync), sem se falar. Um aparelho com cache velho salvando algo
+    // reinjetava a versão antiga numa tabela enquanto a outra já estava
+    // limpa -- e cada sincronização seguinte só piorava, empilhando cópia
+    // em cima de cópia (chegou a 28.918 produtos, mais que o catálogo
+    // ORIGINAL antes de qualquer limpeza). Essas 5 chaves agora usam só o
+    // caminho novo (ver cadSave -- chama pfSyncPush em vez de
+    // cadPushSupabase pra elas). Os outros 4 tipos abaixo (cadr_historico,
+    // relacionados, import_templates, pedidos_compra) NÃO têm chave
+    // equivalente no sistema novo ainda, então continuam aqui por enquanto.
     var tipos=[
-      {tipo:'fornecedores',dados:forn},
-      {tipo:'clientes',dados:clie},
-      {tipo:'produtos',dados:prod},
-      {tipo:'aplicacoes',dados:aplic},
       {tipo:'cadr_historico',dados:cadrHist},
       {tipo:'relacionados',dados:relac},
       {tipo:'import_templates',dados:importTpl},
-      {tipo:'solicitacoes_compras',dados:solic},
       {tipo:'pedidos_compra',dados:pedidosCompra}
     ];
     var falhas=[];
@@ -31676,7 +31717,15 @@ async function cadPullSupabase(){
     if(!data||!data.length){console.log('cadPullSupabase: nenhum cadastro no Supabase ainda');return;}
     data.forEach(function(row){
       try{
-        var key=row.tipo==='fornecedores'?FORN_KEY:row.tipo==='clientes'?CLIE_KEY:row.tipo==='aplicacoes'?(typeof APLIC_KEY!=='undefined'?APLIC_KEY:'cad_aplicacoes_v1'):row.tipo==='cadr_historico'?(typeof CADR_HIST_KEY!=='undefined'?CADR_HIST_KEY:'cadr_historico_scripts_v1'):row.tipo==='relacionados'?(typeof RELAC_KEY!=='undefined'?RELAC_KEY:'cad_relacionados_v1'):row.tipo==='import_templates'?(typeof IMPORT_TPL_KEY!=='undefined'?IMPORT_TPL_KEY:'cad_import_templates_v1'):row.tipo==='solicitacoes_compras'?(typeof SOLIC_KEY!=='undefined'?SOLIC_KEY:'cad_solicitacoes_compras_v1'):row.tipo==='pedidos_compra'?(typeof PEDIDO_COMPRA_KEY!=='undefined'?PEDIDO_COMPRA_KEY:'cad_pedidos_compra_v1'):(typeof PROD_KEY!=='undefined'?PROD_KEY:'cad_produtos_v1');
+        // v115.1566 - fornecedores/clientes/produtos/aplicacoes/
+        // solicitacoes_compras saíram desse caminho (ver nota completa em
+        // _cadPushSupabaseReal) -- ignora essas linhas aqui mesmo que
+        // ainda existam na tabela antiga (resíduo), pra nunca mais
+        // sobrescrever a cópia limpa que agora vive só em user_sync via
+        // pfSyncPull.
+        if(row.tipo==='fornecedores'||row.tipo==='clientes'||row.tipo==='produtos'||row.tipo==='aplicacoes'||row.tipo==='solicitacoes_compras')return;
+        var key=row.tipo==='cadr_historico'?(typeof CADR_HIST_KEY!=='undefined'?CADR_HIST_KEY:'cadr_historico_scripts_v1'):row.tipo==='relacionados'?(typeof RELAC_KEY!=='undefined'?RELAC_KEY:'cad_relacionados_v1'):row.tipo==='import_templates'?(typeof IMPORT_TPL_KEY!=='undefined'?IMPORT_TPL_KEY:'cad_import_templates_v1'):row.tipo==='pedidos_compra'?(typeof PEDIDO_COMPRA_KEY!=='undefined'?PEDIDO_COMPRA_KEY:'cad_pedidos_compra_v1'):null;
+        if(!key)return;
         // Proteção contra corrida: se alguma mudança local (ex: uma exclusão) aconteceu
         // DEPOIS da última atualização que o servidor registra, é sinal de que o push
         // dessa mudança ainda não chegou lá -- nesse caso NÃO sobrescreve o local com
@@ -34536,6 +34585,9 @@ function cadImportarKML() {
   });
 
   pfSafeSetItem(CLIE_KEY, JSON.stringify(existing));
+  // v115.1566 - Bypassa cadSave -- precisa chamar pfSyncPush manualmente
+  // (ver nota em cadSave/_cadPushSupabaseReal).
+  if(typeof sbUser!=='undefined'&&sbUser&&typeof pfSyncPush==='function')pfSyncPush([CLIE_KEY]);
   pfAlert('✅ '+added+' clientes importados! ('+skipped+' já existiam)');
   cadGoTab('clientes');
 }

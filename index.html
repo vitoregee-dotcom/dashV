@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1582</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1583</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1582</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1583</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -44605,9 +44605,20 @@ async function pfNoticiasVerificarAtualizacaoAuto(){
   }
 }
 // v115.1447 (REAPLICADO 20/08): valida de verdade carregando a imagem no
-// navegador antes de aceitar qualquer notícia -- não basta a IA "dizer"
-// que a URL é válida (hotlink bloqueado, link quebrado, etc passavam
-// batido antes disso).
+// v115.1583 - BUG DE RAIZ corrigido (Vitor: "com as mesmas notícias mais
+// de 30 dias"): essa validação de foto (carregar a imagem de verdade no
+// navegador antes de aceitar) continua necessária -- muita URL que a IA
+// devolve não carrega de verdade (hotlink bloqueado, link quebrado,
+// etc). O problema era o que acontecia DEPOIS: notícia com imagem que
+// falhou na validação era DESCARTADA por inteiro, mesmo sendo uma
+// notícia real e recente -- só por causa da foto. Isso vinha rejeitando
+// TUDO há mais de 1 mês (photo validation falhando pra praticamente
+// toda URL vinda da IA ultimamente), deixando o painel travado nas
+// mesmas notícias antigas o tempo todo. Mas o próprio HTML do banner
+// (pfBannerHtml/lateral de marcas) já tem fallback bonito pra quando
+// não tem imagem (degradê laranja) -- não precisava descartar a
+// notícia, só a imagem. Agora: imagem que falha vira null (a notícia
+// entra sem foto, com o degradê) em vez de sumir junto.
 function pfNoticiaImagemCarrega(url,timeoutMs){
   return new Promise(function(resolve){
     if(!url||typeof url!=='string'||url.indexOf('http')!==0){resolve(false);return;}
@@ -44622,7 +44633,12 @@ function pfNoticiaImagemCarrega(url,timeoutMs){
 async function pfNoticiasFiltrarComFotoValida(lista){
   var checagens=lista.map(function(n){return pfNoticiaImagemCarrega(n&&n.imagem,4000);});
   var resultados=await Promise.all(checagens);
-  return lista.filter(function(n,i){return resultados[i];});
+  // v115.1583 - não filtra mais (descartar a notícia inteira) -- só
+  // limpa o campo imagem de quem falhou, mantendo a notícia na lista.
+  return lista.map(function(n,i){
+    if(!resultados[i])return Object.assign({},n,{imagem:null});
+    return n;
+  });
 }
 async function pfNoticiasBuscarNovasComIA(apiKey){
   // v115.1446/1447/1450/1451 (REAPLICADO 20/08 -- ver nota em
@@ -44713,7 +44729,12 @@ async function pfNoticiasBuscarNovasComIA(apiKey){
   // tentativa não costuma resolver problema sistêmico na hora -- só
   // tenta de novo se pelo menos ALGUMA passou (sinal de que só faltou
   // quantidade, não que está tudo quebrado).
-  if(lista.length>0&&lista.length<6){
+  // v115.1583 - agora que a validação de foto não descarta mais notícia
+  // (só limpa a imagem, ver comentário acima), lista.length baixo só
+  // acontece por causa do filtro de DATA (nada recente o suficiente) --
+  // um motivo legítimo de "faltou quantidade", então volta a tentar de
+  // novo mesmo partindo de 0.
+  if(lista.length<6){
     try{
       var lista2=await chamarIA(true);
       lista2=lista2.filter(function(n){return pfNoticiaDataRecente(n.data,30);});

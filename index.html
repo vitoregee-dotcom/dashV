@@ -1078,7 +1078,7 @@ normal, então sem essa reserva de espaço o conteúdo começa da borda da tela
 e a barra fica flutuando por cima). Classe ligada/desligada junto com
 pfAvisosMonta()/pfAvisosDesmonta() (só existe em telas com espaço pra
 sobrar -- Home/Notícias). */
-body.pf-avisos-ativo #pfMain{padding-left:60px}
+body.pf-avisos-ativo #pfMain{padding-left:var(--pf-home-left-pad,60px)}
 /* v115.1152 - A pedido do Vitor (achou no print): o padding acima só
 alcança #pfMain, mas #pfHomeSplash (a tela de Notícias) é um painel
 fixed à parte (left:0, cobre a tela toda) que não passa por dentro de
@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1569</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1571</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1569</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1571</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -2003,7 +2003,7 @@ largura de comprasView/vendasView. -->
 <main>
 <div id="pfHomeSplash" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;display:flex;align-items:center;justify-content:flex-start;flex-direction:column;gap:8px;background:var(--pf-noticias-bg);overflow-y:auto;padding:10px 0 16px;padding-left:var(--pf-home-left-pad,0px)">
   <div id="pfHomeSplashStatus" style="margin-top:4px;display:none"></div>
-  <div style="width:min(1400px,94vw);margin-top:6px;display:flex;gap:12px;align-items:flex-start">
+  <div style="width:min(1600px,94vw);margin-top:6px;display:flex;gap:12px;align-items:flex-start">
     <div style="flex:2;min-width:0">
       <div id="pfNoticiasWrap"></div>
       <div id="pfDicasImpactoWrap" style="margin-top:6px"></div>
@@ -35351,7 +35351,10 @@ var PF_SYNC_KEYS = [
   // sharedKeys/PF_CATALOGO_UNICO_KEYS). pfPainelTarefasOculto (se está
   // recolhido ou não) fica só local -- não teria sentido sincronizar entre
   // aparelhos com telas de tamanhos diferentes.
-  'pfLembretes'
+  'pfLembretes',
+  // v115.1570 - Pendências PESSOAIS do painel de Tarefas -- lista própria
+  // por usuário, separada da pfPendenciasAdmin (compartilhada/geral).
+  'pfPendenciasPessoais'
 ];
 
 // v115.1525 - Wrapper único pra gravar a Anthropic Key: salva local E
@@ -45787,6 +45790,83 @@ function pfAvisosAbrirPedido(id){
 // sobrepõe o automático).
 // ============================================================
 var PF_LEMBRETES_KEY='pfLembretes';
+// v115.1570 - BUG DE ENTENDIMENTO corrigido (Vitor: "essas pendências aqui
+// é de cada usuário, e não geral igual a outra que tem no sistema"): a
+// v115.1568 puxava a lista COMPARTILHADA `pfPendenciasAdmin` (a mesma tela
+// de Pendências do Administrador) pra dentro do painel -- errado, aqui
+// devia ser uma lista PESSOAL, separada, uma pra cada usuário. Chave nova
+// `pfPendenciasPessoais` (só sync pessoal, PF_SYNC_KEYS -- NUNCA em
+// sharedKeys/PF_CATALOGO_UNICO_KEYS), nasce vazia de propósito.
+var PF_PENDENCIAS_PESSOAIS_KEY='pfPendenciasPessoais';
+function pfPendenciasPessoaisLoad(){try{return JSON.parse(pfSafeGetItem(PF_PENDENCIAS_PESSOAIS_KEY,'[]'));}catch(e){return[];}}
+function pfPendenciasPessoaisSave(lista){
+  pfSafeSetItem(PF_PENDENCIAS_PESSOAIS_KEY,JSON.stringify(lista));
+  if(typeof pfSyncPush==='function')pfSyncPush([PF_PENDENCIAS_PESSOAIS_KEY]);
+}
+function pfPendenciaPessoalConcluir(id){
+  pfPendenciasPessoaisSave(pfPendenciasPessoaisLoad().filter(function(p){return p.id!==id;}));
+  pfPainelTarefasRender();
+}
+function pfPendenciaPessoalNovaAbrir(){
+  var overlay=document.createElement('div');
+  overlay.id='pfPendPessoalNovaOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center';
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:16px;padding:22px;max-width:280px;width:90%';
+  box.innerHTML=
+    '<div style="font-size:14px;font-weight:800;color:#1F4E79;margin-bottom:12px;display:flex;align-items:center;gap:7px"><img src="icons/pack/pf-icon-010.png" style="width:20px;height:20px;object-fit:contain">Nova pendência (minha)</div>'+
+    '<input id="ppTexto" placeholder="Ex: Ligar pro fornecedor X" style="width:100%;box-sizing:border-box;border:1.5px solid #e0e8f0;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:14px" onkeydown="if(event.key===\'Enter\')pfPendenciaPessoalSalvarNova()">'+
+    '<div style="display:flex;gap:8px">'+
+      '<button onclick="document.getElementById(\'pfPendPessoalNovaOverlay\').remove()" style="flex:1;background:#F0F4F8;color:#607080;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:700;cursor:pointer">Cancelar</button>'+
+      '<button onclick="pfPendenciaPessoalSalvarNova()" style="flex:1;background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:700;cursor:pointer">Salvar</button>'+
+    '</div>';
+  overlay.appendChild(box);
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+  document.body.appendChild(overlay);
+  setTimeout(function(){var i=document.getElementById('ppTexto');if(i)i.focus();},50);
+}
+function pfPendenciaPessoalSalvarNova(){
+  var texto=(document.getElementById('ppTexto').value||'').trim();
+  if(!texto)return;
+  var lista=pfPendenciasPessoaisLoad();
+  lista.push({id:'pp_'+Date.now(),texto:texto});
+  pfPendenciasPessoaisSave(lista);
+  var ov=document.getElementById('pfPendPessoalNovaOverlay');if(ov)ov.remove();
+  pfPainelTarefasRender();
+}
+
+// v115.1570 - A pedido do Vitor: divisória arrastável entre Pendências e
+// Lembretes -- cada uma com rolagem própria, e ele decide quanto espaço
+// cada uma ocupa arrastando (não fixo no código). Proporção salva só
+// localmente (por aparelho -- não sincroniza, cada tela pode ter um
+// tamanho ideal diferente).
+var _pfPainelSplit=parseFloat(pfSafeGetItem('pfPainelTarefasSplit','0.55'))||0.55;
+var _pfPainelSplitArrastando=false;
+function pfPainelSplitIniciar(ev){
+  ev.preventDefault();
+  _pfPainelSplitArrastando=true;
+  var painel=document.getElementById('pfPainelTarefas');
+  var alturaTotal=painel.getBoundingClientRect().height;
+  function mover(e){
+    if(!_pfPainelSplitArrastando)return;
+    var y=(e.touches?e.touches[0].clientY:e.clientY)-painel.getBoundingClientRect().top;
+    _pfPainelSplit=Math.min(0.85,Math.max(0.15,y/alturaTotal));
+    pfPainelTarefasRender();
+  }
+  function soltar(){
+    _pfPainelSplitArrastando=false;
+    pfSafeSetItem('pfPainelTarefasSplit',String(_pfPainelSplit));
+    document.removeEventListener('mousemove',mover);
+    document.removeEventListener('mouseup',soltar);
+    document.removeEventListener('touchmove',mover);
+    document.removeEventListener('touchend',soltar);
+  }
+  document.addEventListener('mousemove',mover);
+  document.addEventListener('mouseup',soltar);
+  document.addEventListener('touchmove',mover,{passive:false});
+  document.addEventListener('touchend',soltar);
+}
+
 function pfLembretesLoad(){try{return JSON.parse(pfSafeGetItem(PF_LEMBRETES_KEY,'[]'));}catch(e){return[];}}
 function pfLembretesSave(lista){
   pfSafeSetItem(PF_LEMBRETES_KEY,JSON.stringify(lista));
@@ -45935,17 +46015,26 @@ function pfPainelTarefasRender(){
   var railDireita=railEl?railEl.getBoundingClientRect().right:58;
   var esquerda=Math.round(railDireita+8);
   var oculto=pfPainelTarefasOcultoGet();
-  var pend=[];try{pend=JSON.parse(pfSafeGetItem('pfPendenciasAdmin','[]'));}catch(e){}
-  var pendAbertas=pend.filter(function(p){return !p.concluida;});
+  // v115.1570 - lista PESSOAL (ver nota completa em pfPendenciasPessoaisLoad),
+  // não é mais a pfPendenciasAdmin compartilhada.
+  var pendAbertas=pfPendenciasPessoaisLoad();
   var lembretes=pfLembretesLoad();
   var minSeg=Math.floor(_pfTimerSeg/60), segRest=_pfTimerSeg%60;
   var timerTxt=('0'+minSeg).slice(-2)+':'+('0'+segRest).slice(-2);
 
   if(oculto){
     el.style.cssText='position:fixed;left:'+esquerda+'px;top:16px;display:flex;flex-direction:column;gap:10px;z-index:56';
+    // v115.1571 - A pedido do Vitor ("puxa os itens pro lado, assim o
+    // esquerdo pode ficar mais largo também"): a reserva de espaço à
+    // esquerda (--pf-home-left-pad, mesma variável que já existia só pro
+    // rail de avisos) agora soma o painel de Tarefas também -- recolhido
+    // só precisa da largura das bolinhas, expandido precisa do painel
+    // inteiro (ver abaixo). Isso empurra o conteúdo da Home certinho pra
+    // depois do painel em vez de deixar as bolinhas por cima do texto.
+    document.body.style.setProperty('--pf-home-left-pad',(esquerda+46+10)+'px');
     el.innerHTML=
       '<div onclick="pfPainelTarefasToggle()" title="Timer" style="width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(31,78,121,.18);display:flex;align-items:center;justify-content:center;cursor:pointer"><img src="icons/pack/pf-icon-044.png" style="width:26px;height:26px;object-fit:contain"></div>'+
-      '<div onclick="pfPainelTarefasToggle()" title="Pendências" style="width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(31,78,121,.18);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative"><img src="icons/pack/pf-icon-010.png" style="width:26px;height:26px;object-fit:contain">'+
+      '<div onclick="pfPainelTarefasToggle()" title="Pendências (minhas)" style="width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(31,78,121,.18);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative"><img src="icons/pack/pf-icon-010.png" style="width:26px;height:26px;object-fit:contain">'+
         (pendAbertas.length?'<span style="position:absolute;top:-3px;right:-3px;background:#D97757;color:#fff;font-size:9px;font-weight:800;min-width:16px;height:16px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 3px">'+pendAbertas.length+'</span>':'')+
       '</div>'+
       '<div onclick="pfPainelTarefasToggle()" title="Lembretes" style="width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(31,78,121,.18);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative"><img src="icons/pack/pf-icon-044.png" style="width:26px;height:26px;object-fit:contain">'+
@@ -45954,8 +46043,19 @@ function pfPainelTarefasRender(){
     return;
   }
 
-  el.style.cssText='position:fixed;left:'+esquerda+'px;top:16px;bottom:74px;width:150px;background:#fff;border-radius:0 18px 18px 0;box-shadow:2px 0 12px rgba(31,78,121,.08);padding:0;z-index:56;font-family:Calibri,Arial,sans-serif;color:#1a2332;display:flex;flex-direction:column;overflow:hidden';
+  // v115.1570 - A pedido do Vitor ("precisa ocupar quase todo o espaço,
+  // deixando um pequeno igual os do lado direito"): o `bottom:74px` fixo
+  // antigo foi trocado por uma conta em cima da altura REAL do dock
+  // (#pfSidebar) + a mesma folga pequena que ele já tem embaixo -- se o
+  // dock mudar de tamanho um dia, o painel acompanha sozinho.
+  var dockEl=document.getElementById('pfSidebar');
+  var dockAltura=dockEl?dockEl.getBoundingClientRect().height:70;
+  var painelLargura=150;
+  document.body.style.setProperty('--pf-home-left-pad',(esquerda+painelLargura+10)+'px');
+  el.style.cssText='position:fixed;left:'+esquerda+'px;top:16px;bottom:'+(Math.round(dockAltura)+12)+'px;width:'+painelLargura+'px;background:#fff;border-radius:0 18px 18px 0;box-shadow:2px 0 12px rgba(31,78,121,.08);padding:0;z-index:56;font-family:Calibri,Arial,sans-serif;color:#1a2332;display:flex;flex-direction:column;overflow:hidden';
   var circ=Math.round(119.4*(_pfTimerSeg/300));
+  var flexPend=Math.round(_pfPainelSplit*100);
+  var flexLemb=100-flexPend;
   el.innerHTML=
     '<div style="display:flex;justify-content:flex-end;padding:6px 10px 0;flex-shrink:0">'+
       '<span onclick="pfPainelTarefasToggle()" title="Ocultar" style="cursor:pointer;color:#c3cedd;font-size:13px">&#8210;</span>'+
@@ -45976,30 +46076,43 @@ function pfPainelTarefasRender(){
         '</div>'+
       '</div>'+
     '</div>'+
-    '<div style="padding:9px 14px;border-bottom:1px solid #eef1f5;flex:1.4;min-height:0;display:flex;flex-direction:column">'+
-      '<div style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0;cursor:pointer" onclick="pfPendenciasNavigate()">'+
+    // v115.1570 - Pendências (minhas) e Lembretes agora são 2 blocos com
+    // flex-basis EM PORCENTAGEM (_pfPainelSplit) e rolagem PRÓPRIA cada
+    // um (overflow-y:auto isolado), com uma divisória arrastável no meio
+    // (pfPainelSplitIniciar) pra ele redistribuir o espaço manualmente.
+    '<div style="padding:9px 14px;flex:'+flexPend+' 1 0;min-height:34px;display:flex;flex-direction:column;overflow:hidden">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0">'+
         '<div style="font-size:10px;color:#8a9ab0;display:flex;align-items:center;gap:6px"><span style="width:16px;height:16px;border-radius:50%;background:#EAF1FB;display:flex;align-items:center;justify-content:center"><img src="icons/pack/pf-icon-010.png" style="width:11px;height:11px;object-fit:contain"></span>Pendências</div>'+
         '<span style="font-size:8.5px;color:#1F4E79;background:#EAF1FB;padding:2px 8px;border-radius:10px;font-weight:700">'+pendAbertas.length+'</span>'+
       '</div>'+
       '<div style="margin-top:7px;overflow-y:auto;flex:1;min-height:0">'+
         (pendAbertas.length?pendAbertas.map(function(p){
-          return '<div style="font-size:11px;color:#3a4658;padding:3px 0;display:flex;align-items:center;gap:7px"><span style="width:6px;height:6px;border-radius:50%;background:#c3cedd;flex-shrink:0"></span>'+pfEscHtml((p.titulo||p.descricao||'').slice(0,60))+'</div>';
-        }).join(''):'<div style="font-size:10px;color:#8a9ab0">Nada pendente 🎉</div>')+
+          return '<div style="display:flex;align-items:flex-start;gap:6px;padding:3px 0">'+
+            '<span onclick="pfPendenciaPessoalConcluir(\''+p.id+'\')" title="Concluir" style="width:12px;height:12px;border:1.5px solid #c3cedd;border-radius:4px;flex-shrink:0;margin-top:1px;cursor:pointer"></span>'+
+            '<span style="font-size:11px;color:#3a4658;line-height:1.3">'+pfEscHtml(p.texto)+'</span>'+
+          '</div>';
+        }).join(''):'<div style="font-size:10px;color:#8a9ab0">Nada por aqui ainda</div>')+
       '</div>'+
+      '<div onclick="pfPendenciaPessoalNovaAbrir()" style="font-size:9px;color:#8a9ab0;background:#F7F9FB;border-radius:12px;padding:4px 10px;display:inline-block;margin-top:6px;cursor:pointer;flex-shrink:0">+ nova pendência</div>'+
     '</div>'+
-    '<div style="padding:9px 14px 12px;flex-shrink:0;border-top:1px solid #eef1f5">'+
-      '<div style="font-size:10px;color:#8a9ab0;margin-bottom:4px;display:flex;align-items:center;gap:6px"><span style="width:16px;height:16px;border-radius:50%;background:#F3EAF7;display:flex;align-items:center;justify-content:center"><img src="icons/pack/pf-icon-044.png" style="width:11px;height:11px;object-fit:contain"></span>Lembretes</div>'+
-      lembretes.map(function(l){
-        var tagTxt=l.repeticao==='diaria'?'diário':l.repeticao==='dias_semana'?'semanal':'só hoje';
-        var tagCor=l.repeticao==='nenhuma'?'background:#FBE9E4;color:#B4552F':'background:#EAF7EE;color:#1A7A3C';
-        return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0">'+
-          '<span style="background:#1F4E79;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;flex-shrink:0">'+l.hora+'</span>'+
-          '<span style="color:#3a4658;flex:1;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+pfEscHtml(l.texto)+(l.link?' 🔗':'')+'</span>'+
-          '<span onclick="pfLembreteExcluir(\''+l.id+'\')" style="color:#c3cedd;font-size:11px;cursor:pointer;flex-shrink:0">&times;</span>'+
-        '</div>'+
-        '<div style="font-size:7.5px;font-weight:700;padding:1px 6px;border-radius:8px;display:inline-block;margin:0 0 3px 42px;'+tagCor+'">'+tagTxt+'</div>';
-      }).join('')+
-      '<div onclick="pfLembreteNovoAbrir()" style="font-size:9px;color:#8a9ab0;background:#F7F9FB;border-radius:12px;padding:4px 10px;display:inline-block;margin-top:6px;cursor:pointer">+ novo lembrete</div>'+
+    '<div onmousedown="pfPainelSplitIniciar(event)" ontouchstart="pfPainelSplitIniciar(event)" style="flex-shrink:0;height:9px;cursor:row-resize;display:flex;align-items:center;justify-content:center;background:#fff">'+
+      '<div style="width:26px;height:3px;border-radius:2px;background:#e0e8f0"></div>'+
+    '</div>'+
+    '<div style="padding:0 14px 12px;flex:'+flexLemb+' 1 0;min-height:34px;display:flex;flex-direction:column;overflow:hidden;border-top:1px solid #eef1f5">'+
+      '<div style="font-size:10px;color:#8a9ab0;margin:9px 0 4px;display:flex;align-items:center;gap:6px;flex-shrink:0"><span style="width:16px;height:16px;border-radius:50%;background:#F3EAF7;display:flex;align-items:center;justify-content:center"><img src="icons/pack/pf-icon-044.png" style="width:11px;height:11px;object-fit:contain"></span>Lembretes</div>'+
+      '<div style="overflow-y:auto;flex:1;min-height:0">'+
+        lembretes.map(function(l){
+          var tagTxt=l.repeticao==='diaria'?'diário':l.repeticao==='dias_semana'?'semanal':'só hoje';
+          var tagCor=l.repeticao==='nenhuma'?'background:#FBE9E4;color:#B4552F':'background:#EAF7EE;color:#1A7A3C';
+          return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0">'+
+            '<span style="background:#1F4E79;color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;flex-shrink:0">'+l.hora+'</span>'+
+            '<span style="color:#3a4658;flex:1;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+pfEscHtml(l.texto)+(l.link?' 🔗':'')+'</span>'+
+            '<span onclick="pfLembreteExcluir(\''+l.id+'\')" style="color:#c3cedd;font-size:11px;cursor:pointer;flex-shrink:0">&times;</span>'+
+          '</div>'+
+          '<div style="font-size:7.5px;font-weight:700;padding:1px 6px;border-radius:8px;display:inline-block;margin:0 0 3px 42px;'+tagCor+'">'+tagTxt+'</div>';
+        }).join('')+
+      '</div>'+
+      '<div onclick="pfLembreteNovoAbrir()" style="font-size:9px;color:#8a9ab0;background:#F7F9FB;border-radius:12px;padding:4px 10px;display:inline-block;margin-top:6px;cursor:pointer;flex-shrink:0">+ novo lembrete</div>'+
     '</div>';
 }
 

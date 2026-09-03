@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1566</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1567</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1566</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1567</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -21014,6 +21014,20 @@ function apostasIncluirConfirmar(ref,marca){
     status:vendidoJaDeCara>0?'vendendo':'aguardando'};
   apostasLog[key]=row;
   salvarApostaLog(key,row);
+  // v115.1567 - A pedido do Vitor ("colocar na barra de avisos, novos
+  // itens de oportunidades"): registra 1 evento toda vez que um item NOVO
+  // entra em Oportunidades -- mesmo padrão simples já usado em
+  // apostasVerificarVendas pra venda (log local + pfSyncPush). Ícone/badge
+  // na barra lateral ainda não ligado -- falta confirmar com o Vitor qual
+  // ícone usar antes de mexer no #pfAvisosRail (regra do projeto: nunca
+  // ícone novo por conta própria).
+  try{
+    var logNovoAp=[];try{logNovoAp=JSON.parse(localStorage.getItem('pfApostasNovoEventos')||'[]');}catch(eNAp){}
+    logNovoAp.unshift({ref:item.ref,marca:item.marca||'',desc:item.desc||'',data:new Date().toISOString()});
+    if(logNovoAp.length>50)logNovoAp=logNovoAp.slice(0,50);
+    localStorage.setItem('pfApostasNovoEventos',JSON.stringify(logNovoAp));
+    if(typeof pfSyncPush==='function')pfSyncPush(['pfApostasNovoEventos']);
+  }catch(eNovoAp){}
   var modal=document.getElementById('apostasIncluirModal');if(modal)modal.remove();
   var body=document.getElementById('apostasBody');
   if(body&&body.style.display==='none')toggleApostas();
@@ -35253,6 +35267,8 @@ var PF_SYNC_KEYS = [
   'pfChegadasEventos',
   'pfSolicitadosEventos',
   'pfApostasVendaEventos',
+  'pfApostasNovoEventos',
+  'pfPedidoVendaEventos',
   'pfMapaConcorrentes',
   'pfMapaConcorrentes_deletados',
   'meAvise_ordenacao',
@@ -35693,7 +35709,7 @@ async function pfSyncPull(){
     // aparelho, perdendo os registros de qualquer outro que tenha gravado
     // por perto. Movidas pra cá (mesmo tratamento do log de uso/login),
     // que junta os registros de todos os aparelhos em vez de sobrescrever.
-    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin','pfApostasVendaEventos'];
+    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin','pfApostasVendaEventos','pfApostasNovoEventos','pfPedidoVendaEventos'];
     var rows = [];
 
     // v115.765 - Antes eram 13 requisições ao Supabase em SEQUÊNCIA (1 do
@@ -42925,6 +42941,11 @@ function vendasBuscarPorSerieInput(){
   var resFiltrados=filtroU?res.filter(function(a){
     return (a.desc||'').toUpperCase().indexOf(filtroU)>=0||(a.codigo||'').toUpperCase().indexOf(filtroU)>=0;
   }):res;
+  // v115.1567 - A pedido do Vitor ("selecionar todos respeitando o
+  // filtro ativo, caso queira pegar todos os discos, todos retentores
+  // etc"): guarda a lista filtrada atual num global pra
+  // vendasAplicToggleTodos() usar sem precisar recalcular o filtro.
+  window._vendasAplicResFiltrados=resFiltrados;
   box.style.display='flex';
   if(backdrop)backdrop.style.display='block';
   // Preserva a rolagem da lista -- antes, marcar um item redesenhava tudo e
@@ -42962,11 +42983,21 @@ function vendasBuscarPorSerieInput(){
   // (Adicionar/Limpar) fica fixo embaixo quando tem selecionados -- um
   // layout flex column só, sem cálculo de pixel nenhum.
   var filtroHtml=res.length>1?'<div style="padding:8px 12px;border-bottom:1px solid #f0f4f8;background:#FAFBFD;flex-shrink:0"><input type="text" id="vendasSerieFiltroDesc" value="'+pfEscHtml(filtroDesc)+'" oninput="vendasBuscarPorSerieInput()" placeholder="🔍 Filtrar por descrição ou código..." style="width:100%;box-sizing:border-box;padding:7px 9px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:13px"></div>':'';
+  var todosMarcadosAplic=resFiltrados.length>0&&resFiltrados.every(function(a){
+    var k=(a.codigo||'').toUpperCase()+'|'+(a.marca||'').toUpperCase();
+    return !!window._vendasAplicSel[k];
+  });
   box.innerHTML=
     '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #f0f4f8;flex-shrink:0">'+
       '<span style="font-weight:700;font-size:13px;color:#7B2D8B">🚜 Aplicações — '+(resFiltrados.length)+(resFiltrados.length!==res.length?' de '+res.length:'')+'</span>'+
       '<button onclick="vendasFecharSerieDropdown()" style="background:none;border:none;color:#8a9ab0;font-size:20px;cursor:pointer;line-height:1;padding:0 4px">&#215;</button>'+
     '</div>'+
+    (resFiltrados.length>1?'<div style="padding:6px 12px;border-bottom:1px solid #f0f4f8;background:#FAF5FC;flex-shrink:0">'+
+      '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#7B2D8B;font-weight:700;cursor:pointer">'+
+        '<input type="checkbox" '+(todosMarcadosAplic?'checked':'')+' onchange="vendasAplicToggleTodos(this.checked)" style="width:14px;height:14px;cursor:pointer">'+
+        'Selecionar todos ('+resFiltrados.length+(filtroU?' filtrado(s)':'')+')'+
+      '</label>'+
+    '</div>':'')+
     filtroHtml+
     '<div id="vendasSerieListaResultados" style="flex:1;min-height:0;overflow-y:auto">'+listaHtml+'</div>'+
     (nSel?'<div style="display:flex;gap:6px;padding:10px 12px;border-top:1.5px solid #7B2D8B;background:#FAF5FC;flex-shrink:0">'+
@@ -42984,6 +43015,16 @@ function vendasBuscarPorSerieInput(){
   }
 }
 
+function vendasAplicToggleTodos(marcarTodos){
+  window._vendasAplicSel=window._vendasAplicSel||{};
+  var lista=window._vendasAplicResFiltrados||[];
+  lista.forEach(function(a){
+    var key=(a.codigo||'').toUpperCase()+'|'+(a.marca||'').toUpperCase();
+    if(marcarTodos)window._vendasAplicSel[key]={codigo:a.codigo,marca:a.marca||'',desc:a.desc||'',qtd:(a.qtd!=null&&!isNaN(a.qtd))?Number(a.qtd):null};
+    else delete window._vendasAplicSel[key];
+  });
+  vendasBuscarPorSerieInput();
+}
 function vendasAplicToggleSel(key,codigo,marca,desc,qtd){
   window._vendasAplicSel=window._vendasAplicSel||{};
   if(window._vendasAplicSel[key])delete window._vendasAplicSel[key];
@@ -45965,6 +46006,19 @@ function pvMarcarStatus(id,novoStatus){
   if(!p.logHistorico)p.logHistorico=[];
   p.logHistorico.push({etapa:novoStatus,data:Date.now(),usuario:(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||'—'});
   pvSave(list);
+  // v115.1567 - A pedido do Vitor ("colocar notificação de Pedido de
+  // Venda também, mostrar em qual status está"): registra 1 evento por
+  // mudança de etapa (aberto/separado/conferido/faturado/despachado),
+  // mesmo padrão de log das outras notificações. Ícone/badge na barra
+  // ainda não ligado -- falta confirmar qual ícone usar antes de mexer no
+  // #pfAvisosRail.
+  try{
+    var logPV=[];try{logPV=JSON.parse(localStorage.getItem('pfPedidoVendaEventos')||'[]');}catch(ePV){}
+    logPV.unshift({pvId:id,pvNumero:p.numero||'',cliente:p.cliente||'',status:novoStatus,data:new Date().toISOString()});
+    if(logPV.length>50)logPV=logPV.slice(0,50);
+    localStorage.setItem('pfPedidoVendaEventos',JSON.stringify(logPV));
+    if(typeof pfSyncPush==='function')pfSyncPush(['pfPedidoVendaEventos']);
+  }catch(ePVlog){}
   // v115.781 - Antes só atualizava #vendasBody -- agora atualiza o que
   // estiver na tela de verdade (Vendas OU Logística), já que os dois
   // mostram a mesma lista de Pedidos de Venda.

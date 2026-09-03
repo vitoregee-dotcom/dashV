@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1583</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1584</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1583</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1584</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -44663,6 +44663,26 @@ async function pfNoticiasBuscarNovasComIA(apiKey){
       '{"titulo":"...(reescrito com suas palavras, não copie o título literal da fonte)","fonte":"nome do site","data":"DD/MM/AAAA","link":"URL real da notícia","categoria":"OBRAS/INFRA ou MINERAÇÃO ou AGRICULTURA ou EMPRESAS ou CÂMBIO ou o nome da marca em maiúsculas","grupo":"maquinas ou mercado ou marcas","imagem":"URL de uma imagem real e específica da notícia"}\n\n'+
       'Traga '+(pedirMais?'entre 10 e 14':'entre 6 e 10')+' itens no total. Varie as fontes -- não traga tudo da mesma revista. Fontes brasileiras confiáveis do setor pra pesquisar: Revista M&T, Frotas&Cia, NTC&Logística, Automotive Business, Portal do Transporte, AutoData, Diesel Motor, Revista Carga Pesada, Fenabrave, ANFAVEA, InfoMoney, Valor Econômico, sites oficiais das marcas (Dana, Allison, Carraro, Cummins, Perkins, FPT, Spicer), e Off-Highway Research/Off-Highway Engineering pra notícias internacionais relevantes.';
   }
+  // v115.1584 - BUG corrigido (Vitor: "resposta sem lista reconhecível"
+  // depois de clicar Atualizar agora): com até 8 buscas web na mesma
+  // chamada (max_uses:8), o texto final às vezes estourava o limite de
+  // 8000 tokens de saída e cortava NO MEIO do JSON -- sem "]" no final,
+  // o regex simplesmente não achava nada e a chamada inteira (já paga)
+  // era jogada fora. Corrigido em 2 frentes: (1) limite subido pra 12000
+  // (mais folga sem exagerar no custo); (2) se mesmo assim cortar
+  // (stop_reason==='max_tokens'), tenta recuperar os itens que já vieram
+  // completos até o corte, em vez de descartar a resposta inteira.
+  function pfNoticiasRepararArrayTruncado(texto){
+    var inicio=texto.indexOf('[');
+    if(inicio<0)return null;
+    var corpo=texto.slice(inicio);
+    var ultimoFecha=corpo.lastIndexOf('}'); // último item completo antes do corte
+    if(ultimoFecha<0)return null;
+    try{
+      var arr=JSON.parse(corpo.slice(0,ultimoFecha+1)+']');
+      return Array.isArray(arr)?arr:null;
+    }catch(e){return null;}
+  }
   async function chamarIA(pedirMais){
     var resp=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -44673,7 +44693,7 @@ async function pfNoticiasBuscarNovasComIA(apiKey){
         // essa tarefa é só montar uma lista de notícias a partir de resultado
         // de busca, não precisa do modelo mais caro pra isso.
         model:'claude-haiku-4-5-20251001',
-        max_tokens:8000,
+        max_tokens:12000,
         tools:[{type:'web_search_20250305',name:'web_search',max_uses:8}],
         messages:[{role:'user',content:[{type:'text',text:montarPrompt(pedirMais)}]}]
       })
@@ -44683,9 +44703,12 @@ async function pfNoticiasBuscarNovasComIA(apiKey){
     if(data.error)throw new Error(data.error.message||'erro na API');
     var texto=(data.content||[]).filter(function(b){return b.type==='text';}).map(function(b){return b.text||'';}).join('\n');
     var m=texto.match(/\[[\s\S]*\]/);
-    if(!m)throw new Error('resposta sem lista reconhecível');
-    var lst=JSON.parse(m[0]);
-    if(!Array.isArray(lst)||!lst.length)throw new Error('lista vazia');
+    var lst=null;
+    if(m){ try{ lst=JSON.parse(m[0]); }catch(eParse){ lst=null; } }
+    if((!lst||!Array.isArray(lst))&&data.stop_reason==='max_tokens'){
+      lst=pfNoticiasRepararArrayTruncado(texto);
+    }
+    if(!lst||!Array.isArray(lst)||!lst.length)throw new Error('resposta sem lista reconhecível');
     return lst;
   }
   var lista;

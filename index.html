@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1585</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1586</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1585</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1586</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -35351,7 +35351,14 @@ var PF_SYNC_KEYS = [
   // sharedKeys/PF_CATALOGO_UNICO_KEYS). pfPainelTarefasOculto (se está
   // recolhido ou não) fica só local -- não teria sentido sincronizar entre
   // aparelhos com telas de tamanhos diferentes.
+  // v115.1586 - BUG corrigido (Vitor: "não consigo excluir lembretes"):
+  // pfLembretes tava na lista de sync mas sem branch dedicado no pull
+  // (ver pfLembretes_deletados/branch logo abaixo) -- caía no merge
+  // genérico (só união por id, nunca remove), então um lembrete excluído
+  // localmente voltava sozinho na próxima sincronização (mesmo padrão já
+  // visto em pfMapaConcorrentes/meAvise_lista/etc).
   'pfLembretes',
+  'pfLembretes_deletados',
   // v115.1570 - Pendências PESSOAIS do painel de Tarefas -- lista própria
   // por usuário, separada da pfPendenciasAdmin (compartilhada/geral).
   'pfPendenciasPessoais'
@@ -35907,6 +35914,24 @@ async function pfSyncPull(){
           deletadosMC.forEach(function(id){delete porIdMC[id];});
           var mergedMC=Object.keys(porIdMC).map(function(k){return porIdMC[k];});
           pfSafeSetItem('pfMapaConcorrentes',JSON.stringify(mergedMC));
+          return;
+        }
+        // v115.1586 - Mesmo padrão tombstone acima (pfMapaConcorrentes) --
+        // sem isso, lembrete excluído localmente voltava sozinho na
+        // próxima sincronização (Vitor: "não consigo excluir lembretes").
+        if(row.chave==='pfLembretes'){
+          var remotoLb=JSON.parse(val||'[]');
+          var localLb=JSON.parse(localStorage.getItem('pfLembretes')||'[]');
+          var deletadosLb=JSON.parse(localStorage.getItem('pfLembretes_deletados')||'[]');
+          var porIdLb={};
+          localLb.forEach(function(l){porIdLb[l.id]=l;});
+          remotoLb.forEach(function(l){
+            if(deletadosLb.includes(l.id))return;
+            if(!porIdLb[l.id]||(l.ts||0)>(porIdLb[l.id].ts||0))porIdLb[l.id]=l;
+          });
+          deletadosLb.forEach(function(id){delete porIdLb[id];});
+          var mergedLb=Object.keys(porIdLb).map(function(k){return porIdLb[k];});
+          pfSafeSetItem('pfLembretes',JSON.stringify(mergedLb));
           return;
         }
         if(row.chave==='meAvise_lista'){
@@ -46111,7 +46136,18 @@ function pfLembreteNotificar(titulo,corpo,link,som){
       var n=new Notification(titulo,{body:corpo,icon:'icons/pack/pf-icon-044.png'});
       if(link)n.onclick=function(){window.open(link,'_blank');window.focus();};
     } else if(Notification.permission!=='denied'){
-      Notification.requestPermission();
+      // v115.1586 - BUG corrigido (Vitor: "não está chegando lembrete
+      // aviso no navegador"): antes só pedia a permissão e não fazia mais
+      // nada nessa mesma chamada -- se o Vitor concedesse na hora, o
+      // aviso daquele disparo específico já tinha sido perdido (só o
+      // PRÓXIMO lembrete apareceria). Agora dispara a notificação assim
+      // que a permissão for concedida, no mesmo disparo.
+      Notification.requestPermission().then(function(perm){
+        if(perm==='granted'){
+          var n2=new Notification(titulo,{body:corpo,icon:'icons/pack/pf-icon-044.png'});
+          if(link)n2.onclick=function(){window.open(link,'_blank');window.focus();};
+        }
+      });
     }
   }catch(e){console.warn('pfLembreteNotificar erro:',e);}
 }
@@ -46209,6 +46245,12 @@ function pfLembreteSalvarNovo(){
 }
 function pfLembreteExcluir(id){
   pfLembretesSave(pfLembretesLoad().filter(function(l){return l.id!==id;}));
+  // v115.1586 - grava o tombstone (ver branch dedicado no pull acima) --
+  // sem isso, a próxima sincronização trazia o lembrete excluído de volta.
+  var deletadosLb=[];try{deletadosLb=JSON.parse(localStorage.getItem('pfLembretes_deletados')||'[]');}catch(e){}
+  if(!deletadosLb.includes(id))deletadosLb.push(id);
+  localStorage.setItem('pfLembretes_deletados',JSON.stringify(deletadosLb));
+  if(typeof pfSyncPush==='function')pfSyncPush(['pfLembretes_deletados']);
   pfPainelTarefasRender();
 }
 

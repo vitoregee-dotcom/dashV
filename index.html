@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1588</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1591</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1588</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1591</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -35260,6 +35260,11 @@ var PF_SYNC_KEYS = [
   'meAvise_email_destino',
   'solicitacoes',
   'pfPendenciasAdmin',
+  // v115.1591 - RMA (Devolução), pedido do Vitor: dado compartilhado da
+  // empresa (mesmo padrão de pfPendenciasAdmin/meAvise_lista) -- todo
+  // usuário/aparelho vê a mesma lista.
+  'rma_lista_v1',
+  'rma_lista_v1_deletados',
   'transitItems',
   'pfComprasAtivos',
   'pfComprasEventos',
@@ -35535,6 +35540,25 @@ async function pfSyncPush(keys){
                   });
                   paraEnviar=JSON.stringify(Object.keys(porIdPendP).map(function(k){return porIdPendP[k];}));
                 }catch(ePendP){paraEnviar=raw;}
+              }else if(chave==='rma_lista_v1'){
+                // v115.1591 - Mesmo padrão de meAvise_lista/pfLembretes (ver
+                // comentário lá) -- RMA (novo, feature) já nasce com o
+                // tratamento certo de tombstone desde o primeiro dia, pra
+                // não cair no "PADRÃO RECORRENTE" já visto 4x (item
+                // apagado/editado que volta sozinho na sincronização).
+                try{
+                  var remotoRmaP=JSON.parse(remotoRaw||'[]');
+                  var localRmaP=JSON.parse(raw||'[]');
+                  var deletadosRmaP=JSON.parse(localStorage.getItem('rma_lista_v1_deletados')||'[]');
+                  var porIdRmaP={};
+                  localRmaP.forEach(function(r){porIdRmaP[r.id]=r;});
+                  remotoRmaP.forEach(function(r){
+                    if(deletadosRmaP.includes(r.id))return;
+                    if(!porIdRmaP[r.id]||(r.ts||0)>(porIdRmaP[r.id].ts||0))porIdRmaP[r.id]=r;
+                  });
+                  deletadosRmaP.forEach(function(id){delete porIdRmaP[id];});
+                  paraEnviar=JSON.stringify(Object.keys(porIdRmaP).map(function(k){return porIdRmaP[k];}));
+                }catch(eRmaP){paraEnviar=raw;}
               }else{
                 paraEnviar = pfMergeSyncValue(raw, remotoRaw);
               }
@@ -35725,7 +35749,7 @@ async function pfSyncPull(){
     // aparelho, perdendo os registros de qualquer outro que tenha gravado
     // por perto. Movidas pra cá (mesmo tratamento do log de uso/login),
     // que junta os registros de todos os aparelhos em vez de sobrescrever.
-    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin','pfApostasVendaEventos','pfApostasNovoEventos','pfPedidoVendaEventos'];
+    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin','pfApostasVendaEventos','pfApostasNovoEventos','pfPedidoVendaEventos','rma_lista_v1'];
     var rows = [];
 
     // v115.765 - Antes eram 13 requisições ao Supabase em SEQUÊNCIA (1 do
@@ -35971,6 +35995,22 @@ async function pfSyncPull(){
           });
           var mergedPend=Object.keys(porIdPend).map(function(k){return porIdPend[k];});
           pfSafeSetItem('pfPendenciasAdmin',JSON.stringify(mergedPend));
+          return;
+        }
+        if(row.chave==='rma_lista_v1'){
+          // v115.1591 - ver comentário completo no lado do push, acima.
+          var remotoRma=JSON.parse(val||'[]');
+          var localRma=JSON.parse(localStorage.getItem('rma_lista_v1')||'[]');
+          var deletadosRma=JSON.parse(localStorage.getItem('rma_lista_v1_deletados')||'[]');
+          var porIdRma={};
+          localRma.forEach(function(r){porIdRma[r.id]=r;});
+          remotoRma.forEach(function(r){
+            if(deletadosRma.includes(r.id))return;
+            if(!porIdRma[r.id]||(r.ts||0)>(porIdRma[r.id].ts||0))porIdRma[r.id]=r;
+          });
+          deletadosRma.forEach(function(id){delete porIdRma[id];});
+          var mergedRma=Object.keys(porIdRma).map(function(k){return porIdRma[k];});
+          localStorage.setItem('rma_lista_v1',JSON.stringify(mergedRma));
           return;
         }
         if(row.chave==='cad_fornecedores_v1'){
@@ -40539,6 +40579,242 @@ async function ajEnviarAjuste(){
   }catch(e){
     if(status)status.innerHTML='<span style="color:#C00000">Erro ao enviar: '+e.message+'</span>';
   }
+}
+
+// ── RMA (Devolução de Cliente ou Fornecedor) ─────────────────────────
+// v115.1591 - A pedido do Vitor (pendência "fazer tela de RMA"): tela nova
+// pra registrar devolução tanto de cliente (venda) quanto de fornecedor
+// (compra), com itens, motivo, e status até "Concluído" -- quando conclui,
+// gera um aviso de ajuste de estoque (mesmo e-mail/fluxo do Ajuste de
+// Saldo já existente, só que somando/subtraindo automaticamente pelo
+// sentido da devolução) em vez de inventar um "saldo oficial" editável que
+// não existe de verdade no sistema (o saldo real vem de import de
+// planilha, recalculado do zero a cada ciclo -- não é um campo ao vivo).
+var RMA_KEY='rma_lista_v1';
+function rmaLoad(){try{return JSON.parse(localStorage.getItem(RMA_KEY)||'[]');}catch(e){return[];}}
+function rmaSave(lista){
+  localStorage.setItem(RMA_KEY,JSON.stringify(lista));
+  if(typeof pfSyncPush==='function')pfSyncPush([RMA_KEY]);
+}
+function rmaProximoNumero(){
+  var lista=rmaLoad(),n=1;
+  lista.forEach(function(r){
+    var m=(r.numero||'').match(/RMA-(\d+)/);
+    if(m){var v=parseInt(m[1])||0;if(v>=n)n=v+1;}
+  });
+  return 'RMA-'+String(n).padStart(4,'0');
+}
+var RMA_STATUS=[
+  {k:'aberto',label:'Aberto',cor:'#607080'},
+  {k:'aguardando',label:'Aguardando material',cor:'#D97757'},
+  {k:'recebido',label:'Recebido / Conferido',cor:'#1F4E79'},
+  {k:'concluido',label:'Concluído',cor:'#2E7D5B'},
+  {k:'cancelado',label:'Cancelado',cor:'#C0392B'}
+];
+function rmaStatusInfo(k){return RMA_STATUS.find(function(s){return s.k===k;})||RMA_STATUS[0];}
+
+function ferrRMA(){
+  var el=document.getElementById('ferrBody');if(!el)return;
+  window._pfNavegouExplicitamente=true;
+  var lista=rmaLoad().slice().sort(function(a,b){return (b.ts||0)-(a.ts||0);});
+  var html='<div style="padding:20px">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:10px">'
+    +'<div><button onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;margin-bottom:8px">← Voltar</button>'
+    +'<h2 style="margin:0;color:#C0392B">🔄 RMA — Devolução</h2></div>'
+    +'<button onclick="rmaNovaAbrir()" style="background:#C0392B;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer">+ Nova RMA</button>'
+    +'</div>'
+    +'<div style="font-size:12px;color:#8a9ab0;margin-bottom:18px">Devolução de cliente (venda) ou de fornecedor (compra) — acompanha o status até concluir, que já avisa o ajuste de estoque.</div>'
+    +'<div id="rmaGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">';
+  if(!lista.length){
+    html+='<div style="grid-column:1/-1;color:var(--pf-text-muted);font-size:13px;padding:30px;text-align:center;background:var(--pf-card-bg);border-radius:10px">Nenhuma RMA registrada ainda.</div>';
+  }else{
+    lista.forEach(function(r){
+      var st=rmaStatusInfo(r.status);
+      var qtdItens=(r.itens||[]).length;
+      html+='<div onclick="rmaVerDetalhe(\''+r.id+'\')" style="background:var(--pf-card-bg);border:1px solid var(--pf-border);border-radius:10px;padding:14px;cursor:pointer">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+        +'<b style="color:#1F4E79;font-size:13px">'+pfEscHtml(r.numero||'')+'</b>'
+        +'<span style="background:'+st.cor+';color:#fff;border-radius:5px;padding:2px 8px;font-size:10px;font-weight:700">'+st.label+'</span></div>'
+        +'<div style="font-size:12px;color:var(--pf-text);font-weight:700">'+(r.tipo==='cliente'?'👤 Cliente':'🏭 Fornecedor')+' — '+pfEscHtml(r.nome||'—')+'</div>'
+        +'<div style="font-size:12px;color:var(--pf-text-muted);margin-top:3px">'+qtdItens+' ite'+(qtdItens===1?'m':'ns')+(r.refPedido?' · Ref: '+pfEscHtml(r.refPedido):'')+'</div>'
+        +'<div style="font-size:11px;color:var(--pf-text-muted);margin-top:4px">'+new Date(r.data).toLocaleDateString('pt-BR')+'</div>'
+        +'</div>';
+    });
+  }
+  html+='</div></div>';
+  el.innerHTML=html;
+}
+
+var _rmaItensForm=[];
+function rmaNovaAbrir(){
+  _rmaItensForm=[{codigo:'',marca:'',desc:'',qtd:1,motivo:''}];
+  var overlay=document.createElement('div');
+  overlay.id='rmaNovaOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto';
+  overlay.innerHTML=rmaFormHtml();
+  pfOverlayFecharAoClicarFora(overlay,function(){overlay.remove();});
+  document.body.appendChild(overlay);
+  rmaRenderItensArea();
+}
+function rmaFormHtml(){
+  var html='<div style="background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:90vh;overflow-y:auto;padding:24px" onclick="event.stopPropagation()">';
+  html+='<div style="font-size:16px;font-weight:800;color:#C0392B;margin-bottom:16px">🔄 Nova RMA</div>';
+  html+='<label style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase">Tipo</label>';
+  html+='<div style="display:flex;gap:8px;margin:6px 0 14px">'
+    +'<button id="rmaTipoBtnCliente" onclick="rmaSetTipo(\'cliente\')" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid #1F4E79;background:#1F4E79;color:#fff;font-size:12px;font-weight:700;cursor:pointer">👤 Cliente (venda)</button>'
+    +'<button id="rmaTipoBtnFornecedor" onclick="rmaSetTipo(\'fornecedor\')" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid #e0e8f0;background:#fff;color:#607080;font-size:12px;font-weight:700;cursor:pointer">🏭 Fornecedor (compra)</button>'
+    +'</div>';
+  html+='<input type="hidden" id="rmaTipoIn" value="cliente">';
+  html+='<label style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase">Nome do cliente/fornecedor</label>';
+  html+='<input type="text" id="rmaNomeIn" placeholder="Nome" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;margin:6px 0 14px">';
+  html+='<label style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase">Referência (Nº pedido / NF, opcional)</label>';
+  html+='<input type="text" id="rmaRefIn" placeholder="Ex: NF 12345" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;margin:6px 0 14px">';
+  html+='<label style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase">Itens</label>';
+  html+='<div id="rmaItensArea" style="margin:8px 0"></div>';
+  html+='<button onclick="rmaAdicionarLinhaItem()" style="display:block;background:#F0F4F8;color:#1F4E79;border:none;border-radius:6px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:14px">+ Adicionar item</button>';
+  html+='<label style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase">Observação (opcional)</label>';
+  html+='<textarea id="rmaObsIn" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;min-height:60px;margin:6px 0 18px;font-family:inherit"></textarea>';
+  html+='<div style="display:flex;justify-content:flex-end;gap:10px">'
+    +'<button onclick="document.getElementById(\'rmaNovaOverlay\').remove()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer">Cancelar</button>'
+    +'<button onclick="rmaSalvarNova()" style="background:#C0392B;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer">Salvar RMA</button>'
+    +'</div></div>';
+  return html;
+}
+function rmaSetTipo(t){
+  document.getElementById('rmaTipoIn').value=t;
+  var bc=document.getElementById('rmaTipoBtnCliente'),bf=document.getElementById('rmaTipoBtnFornecedor');
+  var ativo='border:1.5px solid #1F4E79;background:#1F4E79;color:#fff;font-size:12px;font-weight:700;cursor:pointer;flex:1;padding:9px;border-radius:8px';
+  var inativo='border:1.5px solid #e0e8f0;background:#fff;color:#607080;font-size:12px;font-weight:700;cursor:pointer;flex:1;padding:9px;border-radius:8px';
+  bc.style.cssText=(t==='cliente')?ativo:inativo;
+  bf.style.cssText=(t==='fornecedor')?ativo:inativo;
+}
+function rmaRenderItensArea(){
+  var area=document.getElementById('rmaItensArea');if(!area)return;
+  area.innerHTML=_rmaItensForm.map(function(it,i){
+    return '<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">'
+      +'<input placeholder="Código" value="'+pfEscHtml(it.codigo)+'" oninput="_rmaItensForm['+i+'].codigo=this.value" style="width:100px;padding:7px 8px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px">'
+      +'<input placeholder="Marca" value="'+pfEscHtml(it.marca)+'" oninput="_rmaItensForm['+i+'].marca=this.value" style="width:80px;padding:7px 8px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px">'
+      +'<input placeholder="Descrição" value="'+pfEscHtml(it.desc)+'" oninput="_rmaItensForm['+i+'].desc=this.value" style="flex:1;min-width:100px;padding:7px 8px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px">'
+      +'<input type="number" placeholder="Qtd" value="'+it.qtd+'" oninput="_rmaItensForm['+i+'].qtd=parseFloat(this.value)||0" style="width:60px;padding:7px 8px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px">'
+      +'<input placeholder="Motivo" value="'+pfEscHtml(it.motivo)+'" oninput="_rmaItensForm['+i+'].motivo=this.value" style="width:110px;padding:7px 8px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px">'
+      +(_rmaItensForm.length>1?'<span onclick="rmaRemoverLinhaItem('+i+')" style="cursor:pointer;color:#C0392B;font-size:16px;padding:0 4px">×</span>':'<span style="width:20px;display:inline-block"></span>')
+      +'</div>';
+  }).join('');
+}
+function rmaAdicionarLinhaItem(){_rmaItensForm.push({codigo:'',marca:'',desc:'',qtd:1,motivo:''});rmaRenderItensArea();}
+function rmaRemoverLinhaItem(i){_rmaItensForm.splice(i,1);rmaRenderItensArea();}
+
+function rmaSalvarNova(){
+  var tipo=document.getElementById('rmaTipoIn').value;
+  var nome=(document.getElementById('rmaNomeIn').value||'').trim();
+  var refPedido=(document.getElementById('rmaRefIn').value||'').trim();
+  var obs=(document.getElementById('rmaObsIn').value||'').trim();
+  var itens=_rmaItensForm.filter(function(it){return it.codigo||it.desc;});
+  if(!nome){pfAlert('Preenche o nome do cliente/fornecedor.');return;}
+  if(!itens.length){pfAlert('Adiciona pelo menos 1 item (código ou descrição).');return;}
+  var lista=rmaLoad();
+  var agora=Date.now();
+  lista.push({
+    id:'rma_'+agora+'_'+Math.random().toString(36).slice(2,7),
+    numero:rmaProximoNumero(),
+    tipo:tipo,
+    nome:nome,
+    refPedido:refPedido,
+    observacao:obs,
+    itens:itens,
+    status:'aberto',
+    data:new Date().toISOString(),
+    ts:agora
+  });
+  rmaSave(lista);
+  var ov=document.getElementById('rmaNovaOverlay');if(ov)ov.remove();
+  ferrRMA();
+}
+
+function rmaVerDetalhe(id){
+  var r=rmaLoad().find(function(x){return x.id===id;});
+  if(!r)return;
+  var existente=document.getElementById('rmaDetalheOverlay');if(existente)existente.remove();
+  var overlay=document.createElement('div');
+  overlay.id='rmaDetalheOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto';
+  var st=rmaStatusInfo(r.status);
+  var itensHtml=(r.itens||[]).map(function(it){
+    return '<div style="background:var(--pf-bg,#F7F9FC);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px">'
+      +'<b style="color:#1F4E79">'+pfEscHtml(it.codigo||'')+'</b> <span style="color:#607080">'+pfEscHtml(it.marca||'')+'</span> — '+pfEscHtml(it.desc||'')
+      +'<div style="color:#607080">Qtd: '+it.qtd+(it.motivo?' · Motivo: '+pfEscHtml(it.motivo):'')+'</div></div>';
+  }).join('');
+  var botoesStatus=RMA_STATUS.filter(function(s){return s.k!==r.status;}).map(function(s){
+    return '<button onclick="rmaMudarStatus(\''+r.id+'\',\''+s.k+'\')" style="background:'+s.cor+';color:#fff;border:none;border-radius:7px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer">'+s.label+'</button>';
+  }).join('');
+  overlay.innerHTML='<div style="background:#fff;border-radius:12px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;padding:24px" onclick="event.stopPropagation()">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+    +'<b style="font-size:16px;color:#1F4E79">'+pfEscHtml(r.numero)+'</b>'
+    +'<span onclick="document.getElementById(\'rmaDetalheOverlay\').remove()" style="cursor:pointer;color:#607080;font-size:18px">×</span></div>'
+    +'<div style="font-size:12px;color:#8a9ab0;margin-bottom:14px">'+(r.tipo==='cliente'?'👤 Cliente':'🏭 Fornecedor')+' — '+pfEscHtml(r.nome)+(r.refPedido?' · Ref: '+pfEscHtml(r.refPedido):'')+'</div>'
+    +'<div style="margin-bottom:14px">'+itensHtml+'</div>'
+    +(r.observacao?'<div style="font-size:12px;color:#607080;background:#FFF3CD;border-radius:8px;padding:8px 10px;margin-bottom:14px">'+pfEscHtml(r.observacao)+'</div>':'')
+    +'<div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:6px">Status atual: <span style="color:'+st.cor+'">'+st.label+'</span></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">'+botoesStatus+'</div>'
+    +'<button onclick="rmaExcluir(\''+r.id+'\')" style="background:none;border:1px solid #C0392B;color:#C0392B;border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer">🗑 Excluir RMA</button>'
+    +'</div>';
+  document.body.appendChild(overlay);
+  pfOverlayFecharAoClicarFora(overlay,function(){overlay.remove();});
+}
+
+function rmaMudarStatus(id,novoStatus){
+  var lista=rmaLoad();
+  var r=lista.find(function(x){return x.id===id;});
+  if(!r)return;
+  var statusAnterior=r.status;
+  r.status=novoStatus;
+  r.ts=Date.now();
+  rmaSave(lista);
+  var ov=document.getElementById('rmaDetalheOverlay');if(ov)ov.remove();
+  ferrRMA();
+  // v115.1591 - Quando conclui, oferece já mandar o aviso de ajuste de
+  // estoque (mesmo modelo de e-mail do Ajuste de Saldo já existente) --
+  // não escreve num "saldo oficial" direto porque esse campo não existe
+  // como valor vivo no sistema (vem de import de planilha). Cliente
+  // devolvendo = material voltou pro estoque (+); devolução pro
+  // fornecedor = material saiu do estoque (-).
+  if(novoStatus==='concluido'&&statusAnterior!=='concluido'){
+    rmaEnviarAvisoAjuste(r);
+  }
+}
+async function rmaEnviarAvisoAjuste(r){
+  var sinal=(r.tipo==='cliente')?'+':'-';
+  var linhas=(r.itens||[]).map(function(it){
+    return '• '+(it.codigo||'—')+' ('+(it.marca||'—')+') — '+pfEscHtml(it.desc||'')+' : '+sinal+it.qtd;
+  }).join('\n');
+  try{
+    await emailjs.send('service_2lp37gt','template_leyiqf4',{
+      to_email:'carlos.henrique@triexpecas.com.br',
+      ref:r.numero,
+      marca:'—',
+      obs:'🔄 RMA CONCLUÍDA — AJUSTE DE ESTOQUE\n\n'
+        +pfSaudacaoHorario()+', Henrique,\n\n'
+        +'A devolução abaixo foi concluída e precisa de ajuste no estoque ('+(r.tipo==='cliente'?'material voltou, soma':'material saiu, subtrai')+'):\n\n'
+        +'RMA: '+r.numero+'\n'
+        +(r.tipo==='cliente'?'Cliente':'Fornecedor')+': '+r.nome+'\n'
+        +(r.refPedido?'Referência: '+r.refPedido+'\n':'')
+        +'\nItens:\n'+linhas+'\n\n'
+        +'Registrado por '+pfNomeUsuario()+' em '+new Date().toLocaleString('pt-BR')+'.',
+      cod_cliente:'—',nome_cliente:r.nome||'—',subject:'🔄 RMA Concluída - Ajuste de Estoque - '+r.numero
+    });
+    pfAlert('RMA concluída — aviso de ajuste de estoque enviado pro Henrique.');
+  }catch(e){
+    pfAlert('RMA marcada como concluída, mas o aviso de ajuste de estoque não foi enviado (sem internet?). Avisa o Henrique manualmente.');
+  }
+}
+function rmaExcluir(id){
+  var lista=rmaLoad().filter(function(x){return x.id!==id;});
+  rmaSave(lista);
+  var deletados=[];try{deletados=JSON.parse(localStorage.getItem('rma_lista_v1_deletados')||'[]');}catch(e){}
+  if(!deletados.includes(id)){deletados.push(id);localStorage.setItem('rma_lista_v1_deletados',JSON.stringify(deletados));}
+  if(typeof pfSyncPush==='function')pfSyncPush(['rma_lista_v1_deletados']);
+  var ov=document.getElementById('rmaDetalheOverlay');if(ov)ov.remove();
+  ferrRMA();
 }
 
 // ── Tela "Histórico de Avisos" — consulta os avisos de oportunidade
@@ -50327,6 +50603,7 @@ function ferrRender(){
   if(_canSee('ferr_leitor')) mkCard('📝','Leitor de Peças','PDF/foto/texto → planilha','#0D7377',function(){ferrLeitorPecas();});
   if(_canSee('ferr_solic_fotos')){mkCard('📷','Solicitação de Fotos','Pede foto de um item, sobe pelo cel','#C2410C',function(){ferrSolicitacaoFotos();});setTimeout(function(){if(typeof sfAtualizarBadge==='function')sfAtualizarBadge();if(typeof sfProcessarPendentes==='function')sfProcessarPendentes();},50);}
   if(_canSee('ferr_ajuste_saldo')) mkCard('📦','Ajuste de Saldo','Físico ≠ sistema? Avisa em 1 clique','#0D7377',function(){ferrAjusteSaldo();});
+  if(_canSee('ferr_rma')) mkCard('🔄','RMA — Devolução','Cliente ou fornecedor, com aviso de ajuste de estoque','#C0392B',function(){ferrRMA();});
   if(_canSee('ferr_card_promo')) mkCard('🎨','Card de Promoção','Fundo + item(ns) + preço, vira PNG','#B3231C',function(){ferrCardPromo();});
   mkCard('⌨️','Central de Atalhos','Configure teclas de atalho pro seu trabalho','#5C3D99',function(){pfAbrirCentralAtalhos();});
   mkCard('📎','Atalhos de Texto','Copia endereço, script de doc, etc — cola no WhatsApp/e-mail','#0D7377',function(){ferrAtalhosTexto();});
@@ -50405,6 +50682,7 @@ var PF_ATALHOS_CATALOGO={
   tools_uso_ia:{label:'Ver Uso de IA',modulo:'ferramentas',fn:function(){pfNavigate('ferramentas');setTimeout(function(){if(typeof ferrUsoIA==='function')ferrUsoIA();},200);}},
   tools_solic_fotos:{label:'Solicitação de Fotos',modulo:'ferramentas',fn:function(){pfNavigate('ferramentas');setTimeout(function(){if(typeof ferrSolicitacaoFotos==='function')ferrSolicitacaoFotos();},200);}},
   tools_ajuste_saldo:{label:'Ajuste de Saldo',modulo:'ferramentas',fn:function(){pfNavigate('ferramentas');setTimeout(function(){if(typeof ferrAjusteSaldo==='function')ferrAjusteSaldo();},200);}},
+  tools_rma:{label:'RMA — Devolução',modulo:'ferramentas',fn:function(){pfNavigate('ferramentas');setTimeout(function(){if(typeof ferrRMA==='function')ferrRMA();},200);}},
   tools_margem:{label:'Cálculo de Margem',modulo:'ferramentas',fn:function(){pfNavigate('ferramentas');setTimeout(function(){if(typeof ferrMargem==='function')ferrMargem();},200);}},
   tools_nf:{label:'Cálculo NF',modulo:'ferramentas',fn:function(){pfNavigate('ferramentas');setTimeout(function(){if(typeof ferrNFBaixa==='function')ferrNFBaixa();},200);}},
   tools_transferencia:{label:'Transferência',modulo:'ferramentas',fn:function(){pfNavigate('ferramentas');setTimeout(function(){if(typeof ferrTransferencia==='function')ferrTransferencia();},200);}},

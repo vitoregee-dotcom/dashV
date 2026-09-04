@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1602</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1603</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1602</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1603</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -17651,9 +17651,27 @@ function apostasVerificarVendas(){
     var a=apostasLog[key];
     var item=_itemPorChaveAp[key];
     if(!item)return;
-    var consumoAtual=item.consumo||0;
+    var consumoBruto=item.consumo||0;
+    var pisoAnterior=a.consumo_atual!=null?a.consumo_atual:(a.consumo_conversao||0);
+    // v115.1602 - BUG corrigido (Vitor conferiu com a planilha real: um
+    // item que tinha consumo_conversao=7 na hora da conversão aparecia
+    // com consumo=0 na planilha mais nova, "vendido desde chegada" zerou
+    // sozinho): a coluna "Consumo" da planilha é uma JANELA MÓVEL (ex:
+    // últimos 3 meses -- confirmado pelo nome do arquivo
+    // "GERAL_03-06_A_03-09-2026"), não um total acumulado da vida
+    // inteira do item. Cada planilha nova é uma "foto" de uma janela
+    // diferente -- uma venda antiga sai da janela e o número pode CAIR
+    // entre uploads, mesmo sem nada ter "desvendido". Comparar
+    // consumo_atual (foto nova) com consumo_conversao (foto antiga)
+    // direto fazia o "vendido desde chegada" zerar nesses casos.
+    // Corrigido: nunca deixa o valor "andar pra trás" -- sempre guarda o
+    // MAIOR já visto (o valor bruto dessa janela, ou o que já tinha
+    // antes, o que for maior). Não recupera o histórico de itens que já
+    // zeraram antes desse fix (ver SQL de reparo aplicado junto), mas
+    // trava o problema pra frente.
+    var consumoAtual=Math.max(consumoBruto,pisoAnterior);
     var vendidoTotal=Math.max(0,consumoAtual-(a.consumo_conversao||0));
-    var cresceuAgora=consumoAtual>(a.consumo_atual!=null?a.consumo_atual:a.consumo_conversao||0);
+    var cresceuAgora=consumoAtual>pisoAnterior;
     // v115.1529 - A pedido do Vitor ("quero na barra de avisos uma
     // notificação de venda dos itens de Oportunidades, toda vez que vender
     // mesmo que só 1 un"): registra 1 evento de log toda vez que essa
@@ -17663,7 +17681,7 @@ function apostasVerificarVendas(){
     // outra função). Roda ANTES de atualizar a.consumo_atual logo abaixo,
     // pra calcular a quantidade vendida NESSA checagem (não o total).
     if(cresceuAgora){
-      var qtdVendidaAgora=consumoAtual-(a.consumo_atual!=null?a.consumo_atual:a.consumo_conversao||0);
+      var qtdVendidaAgora=consumoAtual-pisoAnterior;
       var logVendaAp=[];try{logVendaAp=JSON.parse(localStorage.getItem('pfApostasVendaEventos')||'[]');}catch(eLV){}
       logVendaAp.unshift({ref:a.ref,marca:a.marca,desc:a.descricao||'',qtd:qtdVendidaAgora,data:new Date().toISOString()});
       if(logVendaAp.length>50)logVendaAp=logVendaAp.slice(0,50);
@@ -17673,7 +17691,7 @@ function apostasVerificarVendas(){
     }
     var statusNovo=vendidoTotal>3&&cresceuAgora?'sucesso':(vendidoTotal>0?'vendendo':'aguardando');
     if(a.consumo_atual!==consumoAtual||a.status!==statusNovo){
-      a.consumo_verificacao_anterior=a.consumo_atual!=null?a.consumo_atual:a.consumo_conversao;
+      a.consumo_verificacao_anterior=pisoAnterior;
       a.consumo_atual=consumoAtual;
       a.ts_ultima_verificacao=Date.now();
       a.status=statusNovo;

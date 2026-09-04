@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1600</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1602</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1600</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1602</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -26500,7 +26500,16 @@ function mapaAbrirRemoverFornecedoresEmTodos(){
       '</div>'+
       '<div style="padding:12px 18px;border-bottom:1px solid #f0f4f8;flex-shrink:0">'+
         '<div style="font-size:12px;color:#8a9ab0;margin-bottom:10px">Marca aqui, e remove esse(s) fornecedor(es) de TODOS os itens do mapa de uma vez -- só mexe em quem está marcado, o resto da seleção de cada item fica igual.</div>'+
-        '<input type="text" id="mapaFornRemoverBusca" placeholder="🔍 Buscar fornecedor..." oninput="mapaFornRemoverFiltrar(this.value)" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px">'+
+        '<input type="text" id="mapaFornRemoverBusca" placeholder="🔍 Buscar fornecedor..." oninput="mapaFornRemoverFiltrar(this.value)" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;margin-bottom:8px">'+
+        // v115.1601 - A pedido do Vitor ("quero poder limpar todos
+        // fornecedor de todos os itens"): antes só dava pra marcar um por
+        // um -- pra limpar tudo tinha que clicar em cada checkbox da
+        // lista. "Marcar todos" seleciona (ou desmarca, se já estiverem
+        // todos marcados) de uma vez só os que estão visíveis no filtro
+        // atual -- clicando em "Remover de todos" em seguida some com
+        // TUDO igual ao "🗑 Zerar Fornecedores" já existente, só que
+        // direto por aqui, sem precisar abrir outro botão.
+        '<label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:#1F4E79;cursor:pointer"><input type="checkbox" id="mapaFornRemoverMarcarTodos" onchange="mapaFornRemoverMarcarTodos(this.checked)"> Marcar todos</label>'+
       '</div>'+
       '<div style="overflow-y:auto;flex:1;min-height:0">'+itensHtml+'</div>'+
       '<div style="display:flex;gap:8px;padding:14px 18px;border-top:1px solid #f0f4f8;justify-content:flex-end;flex-shrink:0">'+
@@ -26515,6 +26524,13 @@ function mapaFornRemoverFiltrar(v){
   v=(v||'').toUpperCase();
   document.querySelectorAll('.mapaFornRemoverItem').forEach(function(el){
     el.style.display=el.dataset.nome.indexOf(v)>=0?'flex':'none';
+  });
+}
+function mapaFornRemoverMarcarTodos(marcar){
+  document.querySelectorAll('.mapaFornRemoverItem').forEach(function(el){
+    if(el.style.display==='none')return; // respeita o filtro de busca ativo
+    var chk=el.querySelector('.mapaFornRemoverChk');
+    if(chk)chk.checked=marcar;
   });
 }
 function mapaConfirmarRemoverFornecedoresEmTodos(){
@@ -55730,9 +55746,18 @@ function solicRevisaoGerarEmail(id){
       if(elS)it.custo.st=parseFloat(elS.value)||0;
     }
   });
+  // v115.1601 - BUG corrigido (Vitor: "observação que coloco na
+  // solicitação não está vindo pro HTML") -- MESMA causa do bug de
+  // Preço/IPI/ST acima (v115.1585), só que a observação tinha ficado de
+  // fora daquele fix: relê `s.observacao` direto do storage recarregado
+  // no topo desta função, mas se o textarea da tela (`solicRevisaoObs`)
+  // tiver um valor diferente (ex: sync em segundo plano pegou o texto no
+  // meio da digitação, antes do `oninput` gravar), a TELA quem manda.
+  var elObs=document.getElementById('solicRevisaoObs');
+  if(elObs)s.observacao=elObs.value;
   var listaCompleta=solicLoad();
   var idx=listaCompleta.findIndex(function(x){return x.id===id;});
-  if(idx>=0){listaCompleta[idx].itens=s.itens;solicSave(listaCompleta);}
+  if(idx>=0){listaCompleta[idx].itens=s.itens;listaCompleta[idx].observacao=s.observacao;solicSave(listaCompleta);}
   var itensSel=(s.itens||[]).filter(function(it){return it.sel!==false;});
   if(!itensSel.length){pfAlert('Nenhum item selecionado — marque pelo menos 1 pra gerar o e-mail.');return;}
   solicAbrirEmail(s.itens,s.fornecedor,true,s.numeroPedido||'',s.cliente||'',s.id,s.origem,s.numeroOC||'',s.vendedor||'',s.nrCotacaoFornecedor||'',s.observacao||'');

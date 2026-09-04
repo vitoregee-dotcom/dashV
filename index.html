@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1587</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1588</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1587</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1588</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -55790,7 +55790,8 @@ function pfPendenciasSalvar(){
       imagem:imagemFinal,
       descricao:desc,
       anexos:anexos,
-      data:new Date().toISOString()
+      data:new Date().toISOString(),
+      ts:Date.now() // v115.1588 - ver comentário em pfPendenciasToggleConcluida
     });
     pfSafeSetItem(PF_PENDENCIAS_KEY,JSON.stringify(lista));
     pfPendenciasNovaFechar();
@@ -55820,6 +55821,18 @@ function pfPendenciasToggleConcluida(id){
   var p=lista.find(function(x){return x.id===id;});
   if(!p)return;
   p.concluida=!p.concluida;
+  // v115.1588 - BUG corrigido (Vitor: "pendências que já foram feitas não
+  // aparecem como feitas" / "estão como pendentes ainda"): o merge de
+  // sincronização dessa chave (pfSyncPull, ao entrar em Pendências)
+  // decide qual versão de cada item é mais nova comparando `ts` -- só que
+  // NENHUM lugar gravava esse campo (criação, marcar feito, editar).
+  // Com `ts` sempre ausente (0 dos dois lados), o merge não tinha como
+  // saber que o "concluída" marcado agora era mais novo que uma cópia
+  // antiga do servidor -- numa corrida entre o clique e o pull automático
+  // que roda toda vez que entra em Pendências, a marcação podia se perder
+  // voltando pra "pendente". Agora `ts` é gravado (aqui, na criação e na
+  // edição), garantindo que a marcação mais recente sempre vence o merge.
+  p.ts=Date.now();
   pfSafeSetItem(PF_PENDENCIAS_KEY,JSON.stringify(lista));
   if(typeof pfSyncPush==='function')pfSyncPush([PF_PENDENCIAS_KEY]);
   pfPendenciasRender();
@@ -55918,6 +55931,7 @@ function pfPendenciasSalvarEdicao(id){
   if(idx<0)return;
   lista[idx].titulo=novoTitulo;
   lista[idx].descricao=novaDesc;
+  lista[idx].ts=Date.now(); // v115.1588 - ver comentário em pfPendenciasToggleConcluida
   pfSafeSetItem(PF_PENDENCIAS_KEY,JSON.stringify(lista));
   if(typeof pfSyncPush==='function'){
     pfSyncPush([PF_PENDENCIAS_KEY]).catch(function(e){

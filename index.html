@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1599</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1600</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1599</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1600</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -35806,7 +35806,7 @@ async function pfSyncPull(){
     // aparelho, perdendo os registros de qualquer outro que tenha gravado
     // por perto. Movidas pra cá (mesmo tratamento do log de uso/login),
     // que junta os registros de todos os aparelhos em vez de sobrescrever.
-    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin','pfApostasVendaEventos','pfApostasNovoEventos','pfPedidoVendaEventos','rma_lista_v1','pfLembretes'];
+    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin','pfApostasVendaEventos','pfApostasNovoEventos','pfPedidoVendaEventos','rma_lista_v1','pfLembretes','pfLembretes_deletados'];
     var rows = [];
 
     // v115.765 - Antes eram 13 requisições ao Supabase em SEQUÊNCIA (1 do
@@ -35855,7 +35855,32 @@ async function pfSyncPull(){
       var rLog=logResponses[li];
       if(rLog && rLog.ok){
         var logRows = await rLog.json();
-        if(logRows && logRows.length>1){
+        // v115.1600 - BUG corrigido (Vitor: "não consigo apagar lembrete"):
+        // pfLembretes_deletados (tombstone) só existia como chave normal
+        // (só conta logada), não como logKey -- então excluir um lembrete
+        // numa conta nunca chegava pra outra conta, que trazia o item de
+        // volta no próximo pull cruzado de pfLembretes. É uma LISTA PLANA
+        // de ids (string), não objetos com "id" -- não pode passar pelo
+        // dedup genérico de "todosRegistros" (ev.id) logo abaixo, que
+        // colapsaria tudo numa entrada só. Trata à parte: união simples por
+        // VALOR, e já processa com só 1 linha remota (não exige >1) porque
+        // o caso comum é só UMA outra conta ter o tombstone.
+        if(lk==='pfLembretes_deletados' && logRows && logRows.length){
+          var idsUniao=[];
+          var vistosIds={};
+          logRows.forEach(function(lr){
+            try{
+              var arrIds=typeof lr.dados==='string'?JSON.parse(lr.dados):lr.dados;
+              if(Array.isArray(arrIds))arrIds.forEach(function(idVal){
+                if(idVal==null||vistosIds[idVal])return;
+                vistosIds[idVal]=true; idsUniao.push(idVal);
+              });
+            }catch(eDelParse){}
+          });
+          var combinadoDel={chave:lk,dados:JSON.stringify(idsUniao),updated_at:new Date().toISOString()};
+          var idxExistenteDel=rows.findIndex(function(r){return r.chave===lk;});
+          if(idxExistenteDel>=0)rows[idxExistenteDel]=combinadoDel;else rows.push(combinadoDel);
+        } else if(logRows && logRows.length>1){
           // Junta os arrays de todo mundo numa entrada só, pra passar pelo
           // merge por timestamp que já existe mais abaixo
           var todosRegistros=[];
@@ -35898,6 +35923,25 @@ async function pfSyncPull(){
     }
     
     if(!rows||!rows.length)return;
+    // v115.1600 - Aplica o tombstone unificado de pfLembretes_deletados NO
+    // localStorage ANTES do loop principal (a ordem dentro de `rows` não é
+    // garantida) -- assim, quando a branch de pfLembretes rodar mais
+    // abaixo (nesse mesmo pull), ela já lê a lista de deletados completa
+    // (de todas as contas), não só a desta conta/aparelho.
+    var rowDelLb=rows.find(function(r){return r.chave==='pfLembretes_deletados';});
+    if(rowDelLb){
+      try{
+        var remotoDelLb=JSON.parse((typeof rowDelLb.dados==='string'?rowDelLb.dados:JSON.stringify(rowDelLb.dados))||'[]');
+        var localDelLb2=JSON.parse(localStorage.getItem('pfLembretes_deletados')||'[]');
+        var vistoDelLb={}; localDelLb2.forEach(function(id){vistoDelLb[id]=true;});
+        var cresceuDelLb=false;
+        (remotoDelLb||[]).forEach(function(id){ if(id!=null && !vistoDelLb[id]){vistoDelLb[id]=true;localDelLb2.push(id);cresceuDelLb=true;} });
+        if(cresceuDelLb){
+          localStorage.setItem('pfLembretes_deletados',JSON.stringify(localDelLb2));
+          if(typeof pfSyncPush==='function')pfSyncPush(['pfLembretes_deletados']); // propaga a união de volta (self-heal p/ a conta que ainda não sabia)
+        }
+      }catch(eDelLb){}
+    }
     rows.forEach(function(row){
       try{
         if(!PF_SYNC_KEYS.includes(row.chave) && row.chave.indexOf('mapa_estado_')!==0 && row.chave.indexOf('pfCardOrder_')!==0)return;
@@ -45504,9 +45548,17 @@ function pfAvisosGarantirCss(){
     // tem z-index:55, mas o Painel de Tarefas (Timer/Pendências/
     // Lembretes) do lado tem z-index:56 -- maior. O ícone cresce (scale
     // 2x) mas fica ATRÁS do painel, cortado, porque o z-index dele é mais
-    // baixo. Sobe o z-index só no hover (não o tempo todo, pra não
-    // competir por cima de modais/overlays sem necessidade).
-    '@media (hover: hover){.pf-aviso-icone:hover{transform:scale(2);z-index:60}}';
+    // baixo. Sobe o z-index só no hover.
+    // v115.1600 - BUG corrigido de novo (Vitor: "o ícone ainda está para
+    // trás do painel quando expande"): a regra só existia dentro de
+    // `@media (hover: hover)` -- em janelas/configurações onde o navegador
+    // não reporta suporte a hover "de verdade" (comum em janela do Chrome
+    // redimensionada/estreita, PWA instalado, alguns notebooks touch), a
+    // regra inteira nem chegava a existir, e o ícone voltava a ficar atrás
+    // do painel. Tirado o gate de media query -- a regra `:hover` simples
+    // já funciona em qualquer navegador com mouse (e também no toque, sem
+    // depender da detecção de capacidade).
+    '.pf-aviso-icone:hover{transform:scale(2);z-index:60}';
   document.head.appendChild(st);
 }
 function pfAvisosMonta(){
@@ -46474,8 +46526,50 @@ function pfLembretesPedirPermissao(){
     Notification.requestPermission().then(function(){pfPainelTarefasRender();});
   }catch(e){console.warn('pfLembretesPedirPermissao erro:',e);}
 }
+// v115.1600 - A pedido do Vitor ("o som ta muito sutil e não fica tocando
+// até eu dar OK, igual o cronômetro" + "não funciona no navegador, coloca
+// o botão de abrir link de volta"): mesmo padrão já aprovado e testado no
+// Timer (pfPainelTimerFimAviso) -- modal PRÓPRIO dentro do app, que não
+// depende de permissão nenhuma de notificação, com som repetindo sozinho
+// até dar OK, e um botão MANUAL de abrir o link (clique real do usuário
+// não esbarra em bloqueio de pop-up, diferente de tentar abrir sozinho).
+function pfLembreteFimAviso(titulo,link,tocarSom){
+  if(document.getElementById('pfLembreteFimOverlay'))return;
+  var overlay=document.createElement('div');
+  overlay.id='pfLembreteFimOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(15,31,53,.55);z-index:99999;display:flex;align-items:center;justify-content:center';
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:18px;padding:34px 30px;max-width:320px;width:90%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.3);animation:pfTimerFimPulso 1s ease-in-out infinite';
+  box.innerHTML=
+    '<div style="width:64px;height:64px;border-radius:50%;background:#F3EAF7;display:flex;align-items:center;justify-content:center;margin:0 auto 14px"><img src="icons/pack/pf-icon-044.png" style="width:36px;height:36px;object-fit:contain"></div>'+
+    '<div style="font-size:19px;font-weight:800;color:#1a2332;margin-bottom:6px">🔔 Lembrete</div>'+
+    '<div style="font-size:14.5px;color:#3a4658;margin-bottom:22px;line-height:1.4;word-break:break-word">'+pfEscHtml(titulo)+'</div>'+
+    '<div style="display:flex;gap:8px">'+
+      '<button onclick="pfLembreteFimOk()" style="flex:1;background:#F0F4F8;color:#607080;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:800;cursor:pointer">OK</button>'+
+      (link?('<button onclick="window.open(\''+pfEscJs(link)+'\',\'_blank\');pfLembreteFimOk()" title="'+pfEscHtml(link)+'" style="flex:1;background:#7B2D8B;color:#fff;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:800;cursor:pointer">🔗 Abrir link</button>'):'')+
+    '</div>';
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  if(!document.getElementById('pfTimerFimStyles')){
+    var st=document.createElement('style');
+    st.id='pfTimerFimStyles';
+    st.textContent='@keyframes pfTimerFimPulso{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}';
+    document.head.appendChild(st);
+  }
+  if(tocarSom!==false && typeof pfLembreteTocarSom==='function')pfLembreteTocarSom();
+  window._pfLembreteFimSomInt=setInterval(function(){ if(tocarSom!==false && typeof pfLembreteTocarSom==='function')pfLembreteTocarSom(); },1800);
+}
+function pfLembreteFimOk(){
+  if(window._pfLembreteFimSomInt){clearInterval(window._pfLembreteFimSomInt);window._pfLembreteFimSomInt=null;}
+  var ov=document.getElementById('pfLembreteFimOverlay');
+  if(ov)ov.remove();
+}
 function pfLembreteNotificar(titulo,corpo,link,som){
-  if(som)pfLembreteTocarSom();
+  // v115.1600 - O modal in-app acima é quem GARANTE o aviso (não depende
+  // de permissão nenhuma) -- a notificação nativa do navegador abaixo
+  // continua rodando também, de bônus, pra quando a aba não estiver em
+  // primeiro plano.
+  if(typeof pfLembreteFimAviso==='function')pfLembreteFimAviso(titulo,link,som);
   try{
     if(typeof Notification==='undefined')return;
     if(Notification.permission==='granted'){
@@ -46519,44 +46613,54 @@ function pfLembretesVerificarDisparo(){
 }
 setInterval(pfLembretesVerificarDisparo,20000);
 
-function pfLembreteNovoAbrir(){
+// v115.1600 - A pedido do Vitor ("não consigo alterar lembrete"): agora
+// aceita um id opcional pra reabrir o mesmo formulário pré-preenchido em
+// modo EDIÇÃO (ver pfLembreteEditarAbrir/pfLembreteSalvarNovo abaixo).
+function pfLembreteNovoAbrir(editId){
   if(typeof Notification!=='undefined'&&Notification.permission==='default')Notification.requestPermission();
+  var editando=editId?(pfLembretesLoad().find(function(l){return l.id===editId;})||null):null;
   var overlay=document.createElement('div');
   overlay.id='pfLembreteNovoOverlay';
+  overlay.dataset.editId=editando?editId:'';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center';
   var box=document.createElement('div');
   box.style.cssText='background:#fff;border-radius:16px;padding:22px;max-width:300px;width:90%';
   box.innerHTML=
-    '<div style="font-size:14px;font-weight:800;color:#1F4E79;margin-bottom:14px;display:flex;align-items:center;gap:7px"><img src="icons/pack/pf-icon-044.png" style="width:20px;height:20px;object-fit:contain">Novo lembrete</div>'+
-    '<div style="font-size:10px;font-weight:700;color:#8a9ab0;margin-bottom:4px">TEXTO</div>'+
-    '<input id="lbTexto" placeholder="Ex: Marcar ponto" style="width:100%;box-sizing:border-box;border:1.5px solid #e0e8f0;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:12px">'+
-    '<div style="font-size:10px;font-weight:700;color:#8a9ab0;margin-bottom:4px">HORÁRIO</div>'+
-    '<input id="lbHora" type="time" value="12:00" style="width:100%;box-sizing:border-box;border:1.5px solid #e0e8f0;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:12px;font-family:monospace">'+
-    '<div style="font-size:10px;font-weight:700;color:#8a9ab0;margin-bottom:6px">REPETIR</div>'+
-    '<div style="display:flex;flex-direction:column;gap:6px;font-size:12px;margin-bottom:10px">'+
-      '<label style="display:flex;align-items:center;gap:7px"><input type="radio" name="lbRep" value="nenhuma" checked onchange="pfLembreteFormAtualizarDias()">Não repetir (só uma vez)</label>'+
-      '<label style="display:flex;align-items:center;gap:7px"><input type="radio" name="lbRep" value="diaria" onchange="pfLembreteFormAtualizarDias()">Todos os dias</label>'+
-      '<label style="display:flex;align-items:center;gap:7px"><input type="radio" name="lbRep" value="dias_semana" onchange="pfLembreteFormAtualizarDias()">Dias da semana específicos</label>'+
+    '<div style="font-size:15px;font-weight:800;color:#1F4E79;margin-bottom:14px;display:flex;align-items:center;gap:7px"><img src="icons/pack/pf-icon-044.png" style="width:20px;height:20px;object-fit:contain">'+(editando?'Editar lembrete':'Novo lembrete')+'</div>'+
+    '<div style="font-size:11px;font-weight:700;color:#8a9ab0;margin-bottom:4px">TEXTO</div>'+
+    '<input id="lbTexto" placeholder="Ex: Marcar ponto" value="'+(editando?pfEscHtml(editando.texto):'')+'" style="width:100%;box-sizing:border-box;border:1.5px solid #e0e8f0;border-radius:8px;padding:9px 10px;font-size:14px;margin-bottom:12px">'+
+    '<div style="font-size:11px;font-weight:700;color:#8a9ab0;margin-bottom:4px">HORÁRIO</div>'+
+    '<input id="lbHora" type="time" value="'+(editando?editando.hora:'12:00')+'" style="width:100%;box-sizing:border-box;border:1.5px solid #e0e8f0;border-radius:8px;padding:9px 10px;font-size:14px;margin-bottom:12px;font-family:monospace">'+
+    '<div style="font-size:11px;font-weight:700;color:#8a9ab0;margin-bottom:6px">REPETIR</div>'+
+    '<div style="display:flex;flex-direction:column;gap:7px;font-size:13px;margin-bottom:10px">'+
+      '<label style="display:flex;align-items:center;gap:7px"><input type="radio" name="lbRep" value="nenhuma" '+(!editando||editando.repeticao==='nenhuma'?'checked':'')+' onchange="pfLembreteFormAtualizarDias()">Não repetir (só uma vez)</label>'+
+      '<label style="display:flex;align-items:center;gap:7px"><input type="radio" name="lbRep" value="diaria" '+(editando&&editando.repeticao==='diaria'?'checked':'')+' onchange="pfLembreteFormAtualizarDias()">Todos os dias</label>'+
+      '<label style="display:flex;align-items:center;gap:7px"><input type="radio" name="lbRep" value="dias_semana" '+(editando&&editando.repeticao==='dias_semana'?'checked':'')+' onchange="pfLembreteFormAtualizarDias()">Dias da semana específicos</label>'+
     '</div>'+
-    '<div id="lbDiasWrap" style="display:none;gap:4px;margin-bottom:12px;flex-wrap:wrap">'+
+    '<div id="lbDiasWrap" style="display:'+(editando&&editando.repeticao==='dias_semana'?'flex':'none')+';gap:4px;margin-bottom:12px;flex-wrap:wrap">'+
       ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(function(d,i){
-        return '<span data-dia="'+i+'" onclick="pfLembreteDiaToggle(this)" class="lbDiaChip" style="width:32px;height:32px;border-radius:50%;background:#f0f4f8;color:#607080;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;transition:background .1s,color .1s">'+d+'</span>';
+        var ligado=!!(editando&&(editando.dias||[]).indexOf(i)>=0);
+        return '<span data-dia="'+i+'" onclick="pfLembreteDiaToggle(this)" class="lbDiaChip'+(ligado?' on':'')+'" style="width:32px;height:32px;border-radius:50%;background:'+(ligado?'#1F4E79':'#f0f4f8')+';color:'+(ligado?'#fff':'#607080')+';font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;transition:background .1s,color .1s">'+d+'</span>';
       }).join('')+
     '</div>'+
-    '<div style="font-size:10px;font-weight:700;color:#8a9ab0;margin-bottom:4px">LINK (OPCIONAL)</div>'+
-    '<input id="lbLink" placeholder="https://..." style="width:100%;box-sizing:border-box;border:1.5px solid #e0e8f0;border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:10px;color:#1F4E79">'+
+    '<div style="font-size:11px;font-weight:700;color:#8a9ab0;margin-bottom:4px">LINK (OPCIONAL)</div>'+
+    '<input id="lbLink" placeholder="https://..." value="'+(editando&&editando.link?pfEscHtml(editando.link):'')+'" style="width:100%;box-sizing:border-box;border:1.5px solid #e0e8f0;border-radius:8px;padding:9px 10px;font-size:13px;margin-bottom:10px;color:#1F4E79">'+
     // v115.1577 - A pedido do Vitor: opção de aviso SONORO junto com a
     // notificação do navegador (antes só vibrava/aparecia silenciosa).
-    '<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#3a4658;margin-bottom:14px;cursor:pointer"><input id="lbSom" type="checkbox" checked style="width:15px;height:15px">🔊 Tocar som ao disparar</label>'+
-    '<div style="font-size:9.5px;color:#8a9ab0;margin-bottom:14px">Dispara como notificação do navegador no horário — com botão pra abrir o link, se tiver.</div>'+
+    '<label style="display:flex;align-items:center;gap:8px;font-size:14px;color:#3a4658;margin-bottom:14px;cursor:pointer"><input id="lbSom" type="checkbox" '+(!editando||editando.som!==false?'checked':'')+' style="width:16px;height:16px">🔊 Tocar som ao disparar</label>'+
+    // v115.1600 - A pedido do Vitor ("o som ta sutil e não fica até eu dar
+    // OK", "não funciona no navegador"): texto atualizado -- não depende
+    // mais só da notificação nativa (ver pfLembreteFimAviso).
+    '<div style="font-size:11px;color:#8a9ab0;margin-bottom:14px;line-height:1.4">Ao disparar, abre um aviso na tela (com botão pra abrir o link, se tiver) e o som repete até você dar OK.</div>'+
     '<div style="display:flex;gap:8px">'+
-      '<button onclick="document.getElementById(\'pfLembreteNovoOverlay\').remove()" style="flex:1;background:#F0F4F8;color:#607080;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:700;cursor:pointer">Cancelar</button>'+
-      '<button onclick="pfLembreteSalvarNovo()" style="flex:1;background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:700;cursor:pointer">Salvar</button>'+
+      '<button onclick="document.getElementById(\'pfLembreteNovoOverlay\').remove()" style="flex:1;background:#F0F4F8;color:#607080;border:none;border-radius:8px;padding:11px;font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>'+
+      '<button onclick="pfLembreteSalvarNovo()" style="flex:1;background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:11px;font-size:13px;font-weight:700;cursor:pointer">Salvar</button>'+
     '</div>';
   overlay.appendChild(box);
   overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
   document.body.appendChild(overlay);
 }
+function pfLembreteEditarAbrir(id){ pfLembreteNovoAbrir(id); }
 function pfLembreteDiaToggle(el){
   // v115.1577 - BUG corrigido (Vitor: "não consigo marcar os dias"): o
   // clique já trocava a classe "on" direitinho, mas não existia NENHUMA
@@ -46583,10 +46687,26 @@ function pfLembreteSalvarNovo(){
   }
   var link=(document.getElementById('lbLink').value||'').trim();
   var som=document.getElementById('lbSom').checked;
+  var ov=document.getElementById('pfLembreteNovoOverlay');
+  var editId=ov?ov.dataset.editId:'';
   var lista=pfLembretesLoad();
-  lista.push({id:'lb_'+Date.now(),texto:texto,hora:hora,repeticao:repeticao,dias:dias,link:link,som:som,ultimoDisparo:null});
+  if(editId){
+    // v115.1600 - Edição de lembrete existente: mantém o id (senão vira
+    // "excluir + criar outro" e perde o histórico de sincronização), só
+    // atualiza os campos e bumpa "ts" (senão o merge cross-conta não sabe
+    // que essa versão é mais nova -- mesma lição do bug das fotos de
+    // Componentes Cardan, v115.1596).
+    var idx=lista.findIndex(function(l){return l.id===editId;});
+    if(idx>=0){
+      lista[idx].texto=texto; lista[idx].hora=hora; lista[idx].repeticao=repeticao;
+      lista[idx].dias=dias; lista[idx].link=link; lista[idx].som=som; lista[idx].ts=Date.now();
+      lista[idx].ultimoDisparo=null; // horário pode ter mudado -- libera disparar de novo hoje
+    }
+  } else {
+    lista.push({id:'lb_'+Date.now(),texto:texto,hora:hora,repeticao:repeticao,dias:dias,link:link,som:som,ultimoDisparo:null,ts:Date.now()});
+  }
   pfLembretesSave(lista);
-  var ov=document.getElementById('pfLembreteNovoOverlay');if(ov)ov.remove();
+  if(ov)ov.remove();
   pfPainelTarefasRender();
 }
 function pfLembreteExcluir(id){
@@ -46758,8 +46878,8 @@ function pfPainelTarefasRender(){
       '<div style="'+listaPendStyle+'">'+
         (pendAbertas.length?pendAbertas.map(function(p){
           return '<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0">'+
-            '<span onclick="pfPendenciaPessoalConcluir(\''+p.id+'\')" title="Concluir" style="width:15px;height:15px;border:1.5px solid #c3cedd;border-radius:5px;flex-shrink:0;margin-top:1px;cursor:pointer"></span>'+
-            '<span style="font-size:13px;color:#3a4658;line-height:1.35">'+pfEscHtml(p.texto)+'</span>'+
+            '<span onclick="pfPendenciaPessoalConcluir(\''+p.id+'\')" title="Concluir" style="width:17px;height:17px;border:1.5px solid #c3cedd;border-radius:5px;flex-shrink:0;margin-top:2px;cursor:pointer"></span>'+
+            '<span style="font-size:14.5px;color:#3a4658;line-height:1.4">'+pfEscHtml(p.texto)+'</span>'+
           '</div>';
         }).join(''):'<div style="font-size:12px;color:#8a9ab0">Nada por aqui ainda</div>')+
       '</div>'+
@@ -46770,17 +46890,18 @@ function pfPainelTarefasRender(){
     '</div>'+
     '<div style="padding:0 18px 14px;'+estiloLemb+';min-height:40px;display:flex;flex-direction:column;overflow:hidden;border-top:1px solid #eef1f5">'+
       '<div style="font-size:14px;color:#8a9ab0;margin:11px 0 6px;display:flex;align-items:center;gap:7px;flex-shrink:0"><span style="width:20px;height:20px;border-radius:50%;background:#F3EAF7;display:flex;align-items:center;justify-content:center"><img src="icons/pack/pf-icon-044.png" style="width:14px;height:14px;object-fit:contain"></span>Lembretes</div>'+
-      (pfLembretesPermissaoStatus()!=='granted'?('<div onclick="pfLembretesPedirPermissao()" style="font-size:12.5px;color:#B4552F;background:#FBE9E4;border-radius:10px;padding:8px 11px;margin-bottom:8px;cursor:pointer;font-weight:700;flex-shrink:0">🔔 Notificação do navegador '+(pfLembretesPermissaoStatus()==='denied'?'bloqueada — ative nas configurações do site':'desligada — clique pra ativar')+'</div>'):'')+
+      (pfLembretesPermissaoStatus()!=='granted'?('<div onclick="pfLembretesPedirPermissao()" style="font-size:13.5px;color:#B4552F;background:#FBE9E4;border-radius:10px;padding:8px 11px;margin-bottom:8px;cursor:pointer;font-weight:700;flex-shrink:0">🔔 Notificação do navegador '+(pfLembretesPermissaoStatus()==='denied'?'bloqueada — ative nas configurações do site':'desligada — clique pra ativar (opcional: o aviso na tela funciona mesmo sem isso)')+'</div>'):'')+
       '<div style="'+listaLembStyle+'">'+
         lembretes.map(function(l){
           var tagTxt=l.repeticao==='diaria'?'diário':l.repeticao==='dias_semana'?'semanal':'só hoje';
           var tagCor=l.repeticao==='nenhuma'?'background:#FBE9E4;color:#B4552F':'background:#EAF7EE;color:#1A7A3C';
-          return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0">'+
-            '<span style="background:#1F4E79;color:#fff;font-size:12px;font-weight:700;padding:3px 9px;border-radius:10px;flex-shrink:0">'+l.hora+'</span>'+
-            '<span style="color:#3a4658;flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+pfEscHtml(l.texto)+(l.link?' 🔗':'')+'</span>'+
-            '<span onclick="pfLembreteExcluir(\''+l.id+'\')" style="color:#c3cedd;font-size:15px;cursor:pointer;flex-shrink:0">&times;</span>'+
+          return '<div style="display:flex;align-items:center;gap:4px;padding:6px 0">'+
+            '<span style="background:#1F4E79;color:#fff;font-size:13px;font-weight:700;padding:3px 9px;border-radius:10px;flex-shrink:0">'+l.hora+'</span>'+
+            '<span style="color:#3a4658;flex:1;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0 4px">'+pfEscHtml(l.texto)+(l.link?' 🔗':'')+'</span>'+
+            '<span onclick="pfLembreteEditarAbrir(\''+l.id+'\')" title="Editar" style="color:#8a9ab0;font-size:16px;cursor:pointer;flex-shrink:0;padding:5px;line-height:1">&#9998;</span>'+
+            '<span onclick="pfLembreteExcluir(\''+l.id+'\')" title="Excluir" style="color:#c3cedd;font-size:21px;cursor:pointer;flex-shrink:0;padding:5px 3px;line-height:1">&times;</span>'+
           '</div>'+
-          '<div style="font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:8px;display:inline-block;margin:0 0 4px 50px;'+tagCor+'">'+tagTxt+'</div>';
+          '<div style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;display:inline-block;margin:0 0 5px 50px;'+tagCor+'">'+tagTxt+'</div>';
         }).join('')+
       '</div>'+
       '<div onclick="pfLembreteNovoAbrir()" style="font-size:15px;color:#7B2D8B;font-weight:700;background:#F3EAF7;border-radius:12px;padding:9px 12px;display:inline-block;margin-top:8px;cursor:pointer;flex-shrink:0;text-align:center">+ novo lembrete</div>'+

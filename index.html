@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1595</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1596</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1595</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1596</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -35569,6 +35569,40 @@ async function pfSyncPush(keys){
                   deletadosRmaP.forEach(function(id){delete porIdRmaP[id];});
                   paraEnviar=JSON.stringify(Object.keys(porIdRmaP).map(function(k){return porIdRmaP[k];}));
                 }catch(eRmaP){paraEnviar=raw;}
+              }else if(chave==='componentes_cardan_v1'){
+                // v115.1596 - Defesa extra além do fix do ts em ccSave (ver
+                // comentário lá): mesmo com ts certo, o merge genérico troca
+                // o objeto INTEIRO pelo lado mais novo -- se o Vitor editar 1
+                // item no celular sem ainda ter puxado uma foto adicionada
+                // em outro aparelho nesse meio-tempo, o push do celular
+                // apagaria essa foto de novo. Aqui faz merge CAMPO A CAMPO
+                // por item (casado por código dentro de cada família): todo
+                // campo que só existe do lado remoto (local não tem esse
+                // campo, tipo "foto") é preservado, mesmo quando o item em
+                // si foi editado localmente.
+                try{
+                  var remotoCC=JSON.parse(pfDecompress(remotoRaw)||'{}');
+                  var localCC=JSON.parse(pfDecompress(raw)||'{}');
+                  var familiasCC=Object.keys(Object.assign({},remotoCC,localCC));
+                  familiasCC.forEach(function(fam){
+                    if(fam==='ts')return;
+                    var remArrCC=Array.isArray(remotoCC[fam])?remotoCC[fam]:[];
+                    var locArrCC=Array.isArray(localCC[fam])?localCC[fam]:[];
+                    if(!remArrCC.length)return;
+                    var remPorCodigoCC={};
+                    remArrCC.forEach(function(it){if(it&&it.codigo)remPorCodigoCC[it.codigo]=it;});
+                    locArrCC.forEach(function(it){
+                      if(!it||!it.codigo)return;
+                      var remCC=remPorCodigoCC[it.codigo];
+                      if(!remCC)return;
+                      Object.keys(remCC).forEach(function(k){
+                        if((it[k]===undefined||it[k]===null)&&remCC[k]!==undefined&&remCC[k]!==null)it[k]=remCC[k];
+                      });
+                    });
+                  });
+                  localCC.ts=Date.now();
+                  paraEnviar=pfCompress(JSON.stringify(localCC));
+                }catch(eCC){paraEnviar=raw;}
               }else{
                 paraEnviar = pfMergeSyncValue(raw, remotoRaw);
               }
@@ -52364,7 +52398,21 @@ function ccLoad(){
   if(mudou){ try{ pfSafeSetItem(CC_KEY, JSON.stringify(data)); }catch(e){} }
   return data;
 }
-function ccSave(data){ pfSafeSetItem(CC_KEY, JSON.stringify(data)); }
+// v115.1596 - BUG GRAVE corrigido (Vitor: "não achei nenhum item com
+// foto ainda, o que houve?" -- as 391 fotos tinham sido gravadas direto
+// no banco horas antes e sumiram): componentes_cardan_v1 é um objeto
+// {ts, cruzetas:[...], flanges:[...], ...} -- o merge que protege o
+// pfSyncPush de sobrescrever o servidor (pfMergeSyncValue) compara só o
+// `ts` do TOPO do objeto pra decidir quem ganha (local vs remoto). Mas
+// ccSave() NUNCA atualizava esse `ts` em lugar nenhum -- ficava
+// congelado desde a criação original. Como o `ts` gravado direto no
+// banco também não tinha sido bumpado, na prática ERA UM EMPATE (nunca
+// "remoto mais novo"), e empate favorece local -- ou seja, literalmente
+// qualquer push desse objeto, de qualquer aparelho, por qualquer motivo
+// (adicionar 1 foto, editar 1 medida), sobrescrevia o servidor inteiro
+// com a cópia local, que podia estar bem mais velha/incompleta.
+// Corrigido bumpando `data.ts` aqui, sempre, em todo save.
+function ccSave(data){ data.ts=Date.now(); pfSafeSetItem(CC_KEY, JSON.stringify(data)); }
 
 function ccParseNum(v){
   if(v==null) return NaN;

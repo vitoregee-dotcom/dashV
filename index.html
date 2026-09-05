@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1605</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1606</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1605</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1606</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -53537,7 +53537,39 @@ async function ccRemoverFundoFotoItem(familia,codigo,linha){
 // entre fotos quando o item tem mais de uma) -- usado por Retentores e
 // Componentes Cardan, a pedido do Vitor.
 function pfFotosArr(rec){
-  return (rec.fotos&&rec.fotos.length)?rec.fotos:(rec.foto?[rec.foto]:[]);
+  var proprias=(rec.fotos&&rec.fotos.length)?rec.fotos:(rec.foto?[rec.foto]:[]);
+  if(proprias.length)return proprias;
+  // v115.1606 - BUG corrigido (Vitor: "kd as fotos?", print mostrando
+  // placeholder mesmo em itens que JÁ têm foto no banco -- ex: HCZ264,
+  // HCZ298): quando itens equivalentes de catálogos diferentes (STAHL/
+  // SPICER/SOROCARD/REI) são a MESMA peça física, o sistema de "irmãos"
+  // (ligados pelo campo substitui/similar) junta tudo num card só, mas
+  // só o registro escolhido como "principal" daquele card (o de menor
+  // desvio na busca, ou o primeiro da lista) tinha sua foto olhada --
+  // se a foto tivesse sido salva no registro IRMÃO (ex: a extração do
+  // catálogo Sorocard grava no código STAHL, mas o card mostra o
+  // SPICER como principal), a foto nunca aparecia mesmo existindo.
+  // Agora, se o registro principal não tem foto própria, procura nos
+  // irmãos (mesmo `substitui`/`similar`, em QUALQUER família) e usa a
+  // primeira foto que achar.
+  try{
+    var equivalente=rec.substitui||rec.similar;
+    if(equivalente&&typeof ccLoad==='function'){
+      var dadosCC=ccLoad();
+      for(var chaveFam in dadosCC){
+        var lista=dadosCC[chaveFam];
+        if(!lista)continue;
+        for(var i=0;i<lista.length;i++){
+          var it=lista[i];
+          if(it&&it.codigo!==rec.codigo&&(it.substitui||it.similar)===equivalente){
+            var fotoIrmao=(it.fotos&&it.fotos.length)?it.fotos:(it.foto?[it.foto]:[]);
+            if(fotoIrmao.length)return fotoIrmao;
+          }
+        }
+      }
+    }
+  }catch(eIrmaoFoto){}
+  return [];
 }
 function pfAbrirLightbox(fotos,idx){
   if(!fotos||!fotos.length)return;

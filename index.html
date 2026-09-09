@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1630</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1631</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1630</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1631</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -51066,11 +51066,11 @@ async function pfFreteModalAnalisarDoc(file){
       '2) cnpj: CNPJ do cliente -- formato 00.000.000/0000-00. '+
       '3) endereco: rua e número do endereço do cliente (sem bairro/cidade/UF/CEP, só logradouro+número). '+
       '4) bairro. 5) cidade. 6) uf: sigla de 2 letras. 7) cep: formato 00000-000. '+
-      '8) valor_nf: o valor total da cotação/pedido/nota (procure por "Total Geral", "Total da Cotação", "Valor Total" ou similar) -- só número, com vírgula decimal, sem "R$". '+
+      '8) valor_nf: o valor total da cotação/pedido/nota (procure por "Total Geral", "Total da Cotação", "Valor Total" ou similar) -- retorne como NÚMERO PURO no padrão internacional (ponto como separador decimal, SEM separador de milhar, sem "R$", ex: "48000.00" ou "48000", NUNCA "48.000,00"). '+
       '9) frete_por: se o documento mencionar quem paga o frete -- "CIF" ou frete por conta do emitente/remetente/vendedor vira "Emitente"; "FOB" ou por conta do destinatário/cliente/comprador vira "Destinatário"; se não mencionar, deixe null. '+
       '10) volumes: se o documento tiver medidas (comprimento/largura/altura) e peso de volume(s) pra despacho, retorne uma lista; se não tiver essa informação (a maioria das cotações de venda não tem), retorne uma lista vazia -- nunca invente. '+
       'Se não achar alguma informação, retorne null nela (nunca invente dado). '+
-      'Retorne SOMENTE um JSON, sem markdown, sem texto antes ou depois, no formato exato: {"razao":"<ou null>","cnpj":"<ou null>","endereco":"<ou null>","bairro":"<ou null>","cidade":"<ou null>","uf":"<ou null>","cep":"<ou null>","valor_nf":"<numero com virgula, ou null>","frete_por":"<Emitente, Destinatário ou null>","volumes":[{"c":"<compr cm>","l":"<larg cm>","a":"<alt cm>","peso":"<kg>"}]}';
+      '\n\nRetorne SOMENTE um JSON, sem markdown, sem texto antes ou depois, no formato exato: {"razao":"<ou null>","cnpj":"<ou null>","endereco":"<ou null>","bairro":"<ou null>","cidade":"<ou null>","uf":"<ou null>","cep":"<ou null>","valor_nf":"<numero com PONTO decimal, sem separador de milhar, ou null>","frete_por":"<Emitente, Destinatário ou null>","volumes":[{"c":"<compr cm>","l":"<larg cm>","a":"<alt cm>","peso":"<kg>"}]}';
     var txt=await _anthropicReadDoc(file,prompt,'Cotação de Frete - extração');
     var limpo=txt.replace(/^```json\s*|```\s*$/g,'').trim();
     var obj=JSON.parse(limpo);
@@ -51081,7 +51081,18 @@ async function pfFreteModalAnalisarDoc(file){
     if(obj.cidade)window._pfFreteCidadeCliente=obj.cidade;
     if(obj.uf)window._pfFreteUfCliente=obj.uf;
     if(obj.cep)window._pfFreteCepCliente=obj.cep;
-    if(obj.valor_nf)window._pfFreteValorNF=String(obj.valor_nf).replace('.',',');
+    if(obj.valor_nf){
+      // v115.1631 - BUG corrigido (Vitor: "o valor q esta 48,00 mas é
+      // 48.000,00"): quando a IA devolvia o valor já no padrão BR
+      // ("48.000,00"), o código antigo trocava só o 1º "." por "," (sem
+      // /g), bagunçando o número -- e o parseFloat de leitura também só
+      // pegava até o 1º separador estranho. Agora normaliza direto pra
+      // NÚMERO (parseFloat, tratando tanto "." quanto "," como decimal,
+      // nunca os dois juntos) e já guarda formatado em pt-BR certo.
+      var valorLimpo=String(obj.valor_nf).replace(',','.');
+      var valorNum=parseFloat(valorLimpo);
+      if(!isNaN(valorNum))window._pfFreteValorNF=valorNum.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+    }
     if(obj.frete_por==='Emitente'||obj.frete_por==='Destinatário')window._pfFretePor=obj.frete_por;
     if(obj.volumes&&obj.volumes.length)window._pfFreteVolumes=obj.volumes.map(function(v){return {c:v.c||'',l:v.l||'',a:v.a||'',peso:v.peso||''};});
     pfFreteModalRender();
@@ -51152,24 +51163,53 @@ function pfFreteModalGerarHtml(){
   var d=pfFreteModalMontarDados();
   if(!d.at)return;
   var saudacao=pfSaudacaoHorario();
-  var volumesCampos=d.vols.map(function(v,i){return pfDocCampoHtml('Volume '+(i+1),(v.c||'?')+' x '+(v.l||'?')+' x '+(v.a||'?')+' cm — '+(v.peso||'?')+' kg');}).join('');
+  // v115.1631 - BUG corrigido (Vitor: "ainda esta diferente"): 1) REMETENTE
+  // só tinha 2 campos genéricos (Razão Social + Endereço "tudo junto"),
+  // DESTINATÁRIO tinha 6 campos separados -- pfDocCardHtml quebra em até 4
+  // colunas por linha, então com quantidade de campo diferente cada card
+  // ficava com número de colunas diferente (larguras cambaleadas, texto
+  // longo do endereço espremido). Agora os dois têm a MESMA estrutura de 6
+  // campos (Razão Social/CNPJ/Endereço/Bairro/Cidade-UF/CEP), sempre 2 por
+  // linha nos dois -- helper local frCard2Col em vez de pfDocCardHtml (que
+  // não dá pra forçar 2 por linha sem afetar todo o resto do sistema que já
+  // usa ela com 4). 2) esqueci o colspan="2" no título do card de 1 campo
+  // (Volume) -- sem ele a barra cinza do título só cobria a 1ª coluna.
+  function frCampo(label,valor){
+    return '<td style="padding:13px 16px;border-right:1px solid #e8edf4;border-bottom:1px solid #e8edf4;vertical-align:top;width:50%;background:#fff" bgcolor="#ffffff"><div style="font-size:10px;color:#8a9ab0;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px">'+label+'</div><div style="font-size:14px;font-weight:700;color:#1a2332">'+pfEscHtml(valor||'—')+'</div></td>';
+  }
+  function frCard2Col(titulo,camposPares){
+    var linhas='';
+    for(var i=0;i<camposPares.length;i+=2){
+      var esq=frCampo(camposPares[i][0],camposPares[i][1]);
+      var dir=(i+1<camposPares.length)?frCampo(camposPares[i+1][0],camposPares[i+1][1]):'<td style="border-bottom:1px solid #e8edf4;background:#fff" bgcolor="#ffffff"></td>';
+      // último campo sem borda embaixo
+      if(i+2>=camposPares.length){esq=esq.replace('border-bottom:1px solid #e8edf4;','');dir=dir.replace('border-bottom:1px solid #e8edf4;','');}
+      linhas+='<tr>'+esq+dir+'</tr>';
+    }
+    return '<table cellpadding="0" cellspacing="0" style="border:1px solid #e8edf4;border-collapse:collapse;width:100%;margin:0 0 16px 0;background:#ffffff" bgcolor="#ffffff">'+
+      '<tr><td colspan="2" style="background:#F7F9FC;padding:9px 16px;font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #e8edf4" bgcolor="#F7F9FC">'+titulo+'</td></tr>'+
+      linhas+'</table>';
+  }
+  var camposRemetente=[
+    ['Razão social',pfEmpresaUsuario()],['CNPJ','00.609.213/0001-15'],
+    ['Endereço','Rua José Wasth Rodrigues, 252'],['Bairro','Vila Maria'],
+    ['Cidade/UF','São Paulo / SP'],['CEP','02121-010']
+  ];
+  var camposDestinatario=[
+    ['Razão social',d.razao],['CNPJ',d.cnpj],
+    ['Endereço',d.endereco],['Bairro',d.bairro],
+    ['Cidade/UF',(d.cidade||'')+(d.uf?' / '+d.uf:'')],['CEP',d.cep]
+  ];
+  var camposFrete=[['Por conta de',d.fretePor],['Valor da nota fiscal',d.valorNFTxt]];
+  var camposVolumes=d.vols.map(function(v,i){return ['Volume '+(i+1),(v.c||'?')+' x '+(v.l||'?')+' x '+(v.a||'?')+' cm — '+(v.peso||'?')+' kg'];});
   var html='<div style="max-width:640px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e8edf4;font-family:Calibri,Arial,sans-serif">'+
     pfDocHeaderHtml('Cotação de Frete')+
     '<div style="padding:20px 32px 24px">'+
     '<p style="font-size:13px;color:#1a2332;margin:0 0 16px">'+pfEscHtml(saudacao)+', por gentileza cotar o frete abaixo:</p>'+
-    pfDocCardHtml('Remetente',
-      pfDocCampoHtml('Razão social',pfEmpresaUsuario())+
-      pfDocCampoHtml('Endereço','Rua José Wasth Rodrigues, 252 — Vila Maria — São Paulo/SP — CEP 02121-010')
-    )+
-    pfDocCardHtml('Destinatário',
-      pfDocCampoHtml('Razão social',d.razao||'—')+pfDocCampoHtml('CNPJ',d.cnpj||'—')+
-      pfDocCampoHtml('Endereço',d.endereco||'—')+pfDocCampoHtml('Bairro',d.bairro||'—')+
-      pfDocCampoHtml('Cidade/UF',(d.cidade||'—')+(d.uf?' / '+d.uf:''))+pfDocCampoHtml('CEP',d.cep||'—')
-    )+
-    pfDocCardHtml('Frete',
-      pfDocCampoHtml('Por conta de',d.fretePor)+pfDocCampoHtml('Valor da nota fiscal',d.valorNFTxt)
-    )+
-    pfDocCardHtml('Volume(s)',volumesCampos)+
+    frCard2Col('Remetente',camposRemetente)+
+    frCard2Col('Destinatário',camposDestinatario)+
+    frCard2Col('Frete',camposFrete)+
+    frCard2Col('Volume(s)',camposVolumes)+
     '</div></div>';
   var overlay=document.createElement('div');
   overlay.id='pfFreteHtmlPreviewOverlay';

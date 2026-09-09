@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1617</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1618</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1617</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1618</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -50731,6 +50731,80 @@ async function ferrAtalhosTextoCopiar(id,btnEl){
     pfAlert('Não consegui copiar automaticamente. Selecione o texto manualmente:\n\n'+(at.conteudo||''));
   }
 }
+// v115.1618 - A pedido do Vitor: cliente manda uma "ficha cadastral" (print,
+// foto ou PDF, layout diferente em cada cliente -- sem padrão fixo) e ele
+// precisa 1) preencher o script (ex: "REANÁLISE CLIENTE ANTIGO") com o que
+// tiver na ficha e 2) saber o que falta pedir pro cliente. Funciona pra
+// QUALQUER atalho de texto com campos "rótulo:" em branco, não só esse --
+// reaproveita _anthropicReadDoc (mesmo motor já usado no Me Avise).
+window.ferrAtalhosTextoAbrirPreencher=function(id){
+  var lista=pfAtalhosTextoLoad();
+  var at=lista.find(function(a){return a.id===id;});
+  if(!at)return;
+  var overlay=document.createElement('div');
+  overlay.id='ferrPreencherModal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML=
+    '<div style="background:#fff;border-radius:12px;max-width:600px;width:100%;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.3);overflow:hidden">'+
+      '<div style="background:#1F4E79;color:#fff;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">'+
+        '<span style="font-weight:700;font-size:14px">🧾 Preencher "'+pfEscHtml(at.nome)+'" com ficha do cliente</span>'+
+        '<button onclick="document.getElementById(\'ferrPreencherModal\').remove()" style="background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;padding:0 4px">&#215;</button>'+
+      '</div>'+
+      '<div style="padding:16px 18px;overflow-y:auto;flex:1;min-height:0" id="ferrPreencherCorpo">'+
+        '<p style="font-size:12px;color:#607080;margin:0 0 12px">Anexe o print, foto ou PDF da ficha que o cliente mandou (o layout pode ser qualquer um, não precisa ser padronizado). A IA lê e preenche o script com o que encontrar, e avisa o que ficou faltando.</p>'+
+        '<label style="display:block;padding:14px;border:2px dashed #cfd8e3;border-radius:8px;text-align:center;cursor:pointer;font-size:13px;color:#1F4E79;font-weight:700">'+
+          '📎 Escolher arquivo da ficha<input type="file" accept="image/*,.pdf" style="display:none" onchange="ferrAtalhosTextoPreencherAnalisar(\''+id+'\',this.files[0])">'+
+        '</label>'+
+        '<div id="ferrPreencherStatus" style="font-size:12px;color:#607080;margin-top:10px"></div>'+
+        '<div id="ferrPreencherResultado"></div>'+
+      '</div>'+
+    '</div>';
+  pfOverlayFecharAoClicarFora(overlay,function(){overlay.remove();});
+  document.body.appendChild(overlay);
+};
+window.ferrAtalhosTextoPreencherAnalisar=async function(id,file){
+  if(!file)return;
+  var lista=pfAtalhosTextoLoad();
+  var at=lista.find(function(a){return a.id===id;});
+  if(!at)return;
+  var status=document.getElementById('ferrPreencherStatus');
+  var resultado=document.getElementById('ferrPreencherResultado');
+  if(resultado)resultado.innerHTML='';
+  if(status)status.innerHTML='🤖 Lendo a ficha e preenchendo...';
+  try{
+    var prompt='O texto abaixo é um SCRIPT/modelo com campos em branco (rótulo seguido de dois-pontos, e algumas opções entre parênteses pra marcar com um X). '+
+      'O documento anexo é uma ficha cadastral de um cliente -- o layout dela pode ser qualquer um, não tem padrão fixo, então procure a informação correspondente onde ela estiver, mesmo que o nome do campo lá seja um pouco diferente do rótulo do script (ex: "Comprador" no documento pode ser o "NOME DO CONTATO DE COMPRAS" do script; "Celular" pode ser o "WHATSAPP"). '+
+      'Preencha cada campo do script com a informação encontrada no documento, mantendo EXATAMENTE a mesma formatação, pontuação, emojis e quebras de linha do script original -- só troque o que vem depois de cada ":" ou marque a opção certa trocando o espaço dentro dos parênteses por um X. '+
+      'Se não achar a informação de algum campo, deixe aquele campo em branco no resultado (nunca invente dado). '+
+      'SCRIPT ORIGINAL:\n\n'+(at.conteudo||'')+
+      '\n\nRetorne SOMENTE um JSON, sem markdown, sem texto antes ou depois, no formato exato: {"preenchido":"<script inteiro, com quebras de linha reais, já preenchido>","faltando":["<rótulo do campo 1 que ficou sem informação>","<rótulo do campo 2>"]}';
+    var txt=await _anthropicReadDoc(file,prompt,'Preencher atalho com ficha do cliente');
+    var limpo=txt.replace(/^```json\s*|```\s*$/g,'').trim();
+    var obj=JSON.parse(limpo);
+    var faltandoHtml=(obj.faltando&&obj.faltando.length)?
+      '<div style="margin-top:12px;padding:10px 12px;background:#FFF4E5;border-radius:8px;border:1px solid #ffe0b2">'+
+        '<div style="font-size:12px;font-weight:700;color:#8a5a00;margin-bottom:4px">⚠️ Peça essas informações pro cliente:</div>'+
+        '<ul style="margin:0;padding-left:18px;font-size:12px;color:#8a5a00">'+obj.faltando.map(function(f){return '<li>'+pfEscHtml(f)+'</li>';}).join('')+'</ul>'+
+      '</div>'
+      : '<div style="margin-top:12px;font-size:12px;color:#2e7d32">✅ Nenhum campo faltando.</div>';
+    if(resultado)resultado.innerHTML=
+      '<textarea id="ferrPreencherTexto" readonly style="width:100%;min-height:220px;padding:10px;border:1px solid #e0e8f0;border-radius:8px;font-family:inherit;font-size:12px;box-sizing:border-box;margin-top:12px">'+pfEscHtml(obj.preenchido||'')+'</textarea>'+
+      '<button onclick="ferrAtalhosTextoPreencherCopiar(this)" style="margin-top:8px;padding:8px 16px;border-radius:6px;background:#1F4E79;color:#fff;border:none;cursor:pointer;font-weight:700;font-size:12px">📋 Copiar texto preenchido</button>'+
+      faltandoHtml;
+    if(status)status.innerHTML='';
+  }catch(e){
+    if(status)status.innerHTML='<span style="color:#C00000">Erro: '+pfEscHtml(e.message)+'</span>';
+  }
+};
+window.ferrAtalhosTextoPreencherCopiar=function(btn){
+  var ta=document.getElementById('ferrPreencherTexto');
+  if(!ta)return;
+  navigator.clipboard.writeText(ta.value).then(function(){
+    var orig=btn.textContent;
+    btn.textContent='✅ Copiado!';
+    setTimeout(function(){btn.textContent=orig;},1500);
+  });
+};
 // v115.1505 - Modal genérico de "formulário antes de copiar", pra qualquer
 // atalho marcado como formQuestionario. Hoje só a Cotação de Frete usa,
 // mas os marcadores CNPJ_CLIENTE/FRETE_POR/VOLUMES ficam disponíveis pra
@@ -50923,8 +50997,16 @@ function ferrAtalhosTexto(){
       '<span onclick="event.stopPropagation();ferrAtalhosTextoEditar(\''+a.id+'\')" title="Editar" style="cursor:pointer;color:var(--pf-text-muted);font-size:15px;padding:4px">✏️</span>'+
       '<span onclick="event.stopPropagation();ferrAtalhosTextoRemover(\''+a.id+'\')" title="Remover" style="cursor:pointer;color:var(--pf-text-muted);font-size:16px;padding:4px">🗑️</span>'
     ):'';
+    // v115.1618 - A pedido do Vitor: cliente manda uma ficha cadastral
+    // (print/foto/PDF, layout diferente em cada cliente, sem padrão) e ele
+    // precisa preencher o script (ex: "REANÁLISE CLIENTE ANTIGO") com o que
+    // tiver lá e saber o que falta pedir. Ícone extra em todo atalho de
+    // texto, sempre visível (não só no modo edição) -- abre modal separado,
+    // não mexe no clique normal de copiar.
+    var preencherIcone=a.tipo==='texto'?('<span onclick="event.stopPropagation();ferrAtalhosTextoAbrirPreencher(\''+a.id+'\')" title="Preencher com ficha do cliente (IA)" style="cursor:pointer;color:var(--pf-text-muted);font-size:14px;padding:4px">🧾</span>'):'';
     return '<div data-title="'+a.id+'" data-pf-atalho-id="'+atalhoIconId+'" style="background:var(--pf-card-bg);border:1.5px solid '+(a.id===editandoId?'var(--pf-accent)':'var(--pf-sidebar-border)')+';border-radius:12px;padding:14px 12px;display:flex;align-items:center;gap:4px;cursor:grab">'+
       '<button onclick="ferrAtalhosTextoCopiar(\''+a.id+'\',this)" style="flex:1;text-align:left;background:none;border:none;cursor:pointer;font-size:13px;font-weight:700;color:var(--pf-text);padding:6px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+iconeHtml+' '+pfEscHtml(a.nome)+'</button>'+
+      preencherIcone+
       acoes+
     '</div>';
   }).join('');

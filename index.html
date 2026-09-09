@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1622</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1623</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1622</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1623</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -50916,6 +50916,19 @@ function pfFreteModalRender(){
   overlay.onclick=function(e){if(e.target===overlay)pfFreteModalFechar();};
   overlay.innerHTML='<div style="background:var(--pf-card-bg);border-radius:12px;padding:22px;width:460px;max-width:100%;max-height:88vh;overflow:auto" onclick="event.stopPropagation()">'+
     '<h3 style="margin:0 0 14px;color:var(--pf-text)">🚚 Cotação de Frete</h3>'+
+    // v115.1623 - A pedido do Vitor: em vez de digitar CNPJ/valor da NF na
+    // mão, anexar ou colar print de UMA cotação de venda qualquer (layout
+    // livre, "posso mandar cotações diferentes" -- nunca assumir um
+    // formato fixo) e a IA preenche o que achar nos campos abaixo.
+    '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">'+
+      '<label style="flex:1;min-width:140px;padding:10px;border:2px dashed var(--pf-sidebar-border);border-radius:8px;text-align:center;cursor:pointer;font-size:12px;color:var(--pf-accent);font-weight:700">'+
+        '📎 Anexar cotação<input type="file" accept="image/*,.pdf" style="display:none" onchange="pfFreteModalAnalisarDoc(this.files[0])">'+
+      '</label>'+
+      '<button onclick="pfFreteModalColarPrint()" style="flex:1;min-width:140px;padding:10px;border:2px dashed var(--pf-sidebar-border);border-radius:8px;text-align:center;cursor:pointer;font-size:12px;color:var(--pf-accent);font-weight:700;background:none">'+
+        '📋 Colar print (Ctrl+V)'+
+      '</button>'+
+    '</div>'+
+    '<div id="pfFreteAnaliseStatus" style="font-size:12px;color:var(--pf-text-muted);margin:-6px 0 12px"></div>'+
     '<label style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">CNPJ do cliente</label>'+
     '<input id="pfFreteCnpj" placeholder="00.000.000/0000-00" value="'+pfEscHtml(window._pfFreteCnpj||'')+'" oninput="window._pfFreteCnpj=this.value" style="width:100%;padding:8px 10px;border:1px solid var(--pf-sidebar-border);border-radius:6px;margin:4px 0 14px;box-sizing:border-box">'+
     '<label style="font-size:12px;font-weight:700;color:var(--pf-text-muted)">Valor da nota fiscal (R$)</label>'+
@@ -50934,6 +50947,61 @@ function pfFreteModalRender(){
     '</div>'+
   '</div>';
   document.body.appendChild(overlay);
+  // v115.1623 - Ctrl+V direto no modal também dispara a análise, mesmo
+  // padrão já usado no modal de "Preencher com ficha do cliente".
+  overlay.addEventListener('paste',function(e){
+    var items=(e.clipboardData||window.clipboardData)&&(e.clipboardData||window.clipboardData).items;
+    if(!items)return;
+    for(var i=0;i<items.length;i++){
+      if(items[i].type&&items[i].type.startsWith('image/')){
+        var blob=items[i].getAsFile();
+        if(blob)pfFreteModalAnalisarDoc(new File([blob],'print.png',{type:blob.type}));
+        return;
+      }
+    }
+  });
+}
+function pfFreteModalColarPrint(){
+  navigator.clipboard.read().then(function(itens){
+    for(var i=0;i<itens.length;i++){
+      var tipo=itens[i].types.find(function(t){return t.startsWith('image/');});
+      if(tipo){
+        itens[i].getType(tipo).then(function(blob){
+          pfFreteModalAnalisarDoc(new File([blob],'print.png',{type:blob.type}));
+        });
+        return;
+      }
+    }
+    pfAlert('Sem imagem na área de transferência. Copia o print primeiro e tenta de novo.');
+  }).catch(function(){
+    pfAlert('Não consegui acessar a área de transferência. Tenta "Anexar cotação" em vez disso, ou Ctrl+V direto nessa janela.');
+  });
+}
+async function pfFreteModalAnalisarDoc(file){
+  if(!file)return;
+  var status=document.getElementById('pfFreteAnaliseStatus');
+  if(status)status.innerHTML='🤖 Lendo a cotação...';
+  try{
+    var prompt='O documento anexo é uma cotação, pedido de venda ou nota fiscal qualquer -- o LAYOUT PODE SER QUALQUER UM e MUDA de documento pra documento, não assuma um formato fixo, procure a informação onde ela estiver. '+
+      'Extraia: 1) CNPJ do CLIENTE (o comprador/destinatário da mercadoria, não o CNPJ da Triex/emitente) -- formato 00.000.000/0000-00. '+
+      '2) valor_nf: o valor total da cotação/pedido/nota (procure por "Total Geral", "Total da Cotação", "Valor Total" ou similar) -- só número, com vírgula decimal, sem "R$". '+
+      '3) frete_por: se o documento mencionar quem paga o frete -- "CIF" ou frete por conta do emitente/remetente/vendedor vira "Emitente"; "FOB" ou por conta do destinatário/cliente/comprador vira "Destinatário"; se não mencionar, deixe null. '+
+      '4) volumes: se o documento tiver medidas (comprimento/largura/altura) e peso de volume(s) pra despacho, retorne uma lista; se não tiver essa informação (a maioria das cotações de venda não tem), retorne uma lista vazia -- nunca invente. '+
+      'Se não achar alguma informação, retorne null nela (nunca invente dado). '+
+      'Retorne SOMENTE um JSON, sem markdown, sem texto antes ou depois, no formato exato: {"cnpj":"<ou null>","valor_nf":"<numero com virgula, ou null>","frete_por":"<Emitente, Destinatário ou null>","volumes":[{"c":"<compr cm>","l":"<larg cm>","a":"<alt cm>","peso":"<kg>"}]}';
+    var txt=await _anthropicReadDoc(file,prompt,'Cotação de Frete - extração');
+    var limpo=txt.replace(/^```json\s*|```\s*$/g,'').trim();
+    var obj=JSON.parse(limpo);
+    if(obj.cnpj)window._pfFreteCnpj=obj.cnpj;
+    if(obj.valor_nf)window._pfFreteValorNF=String(obj.valor_nf).replace('.',',');
+    if(obj.frete_por==='Emitente'||obj.frete_por==='Destinatário')window._pfFretePor=obj.frete_por;
+    if(obj.volumes&&obj.volumes.length)window._pfFreteVolumes=obj.volumes.map(function(v){return {c:v.c||'',l:v.l||'',a:v.a||'',peso:v.peso||''};});
+    pfFreteModalRender();
+    var st2=document.getElementById('pfFreteAnaliseStatus');
+    if(st2)st2.innerHTML='<span style="color:#2e7d32">✅ Preenchido com o que a IA achou -- confere antes de copiar.</span>';
+  }catch(e){
+    if(status)status.innerHTML='<span style="color:#C00000">Erro: '+pfEscHtml(e.message)+'</span>';
+  }
 }
 function pfFreteModalFechar(){
   var el=document.getElementById('pfFreteModalOverlay');

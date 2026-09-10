@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1636</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1637</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1636</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1637</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -17593,10 +17593,18 @@ async function salvarSolicitacao(key,entry){
     }
   }catch(e){console.error('Erro ao salvar solicitação:',e);}
 }
-function solKey(ref,marca){
-  const norm=marca?marca.split('+').map(s=>s.trim()).sort().join('+'):'';
-  return ref+'||'+norm;
-}
+// v115.1637 - BUG grave corrigido (achado em revisão de código, não
+// reportado ainda pelo Vitor): existiam DUAS declarações de `solKey` --
+// esta aqui (mais simples, sem normalizar por família de marca) vinha
+// DEPOIS no arquivo, então era ela que valia pra tudo (última declaração
+// sempre vence em JS), silenciosamente ignorando a normalização por
+// familiaMarcaMain que a primeira `solKey` faz (e que outro trecho do
+// código, em `fotoEntreCandidatos`, já documentava como comportamento
+// esperado de Solicitações: "SPICER e SPICER-R são a mesma marca de
+// verdade"). Efeito real: marcas com sufixo tipo "-R" geravam uma chave de
+// solicitação DIFERENTE da marca principal, quebrando o rastreio de saldo/
+// consumo entre elas. Duplicata removida -- a `solKey` original (com
+// familiaMarcaMain, lá em cima) volta a valer sozinha.
 // v115.671 - Registro PERMANENTE de "apostas convertidas" (itens marcados como
 // oportunidade que depois realmente venderam). Antes a tela recalculava essa
 // lista toda vez comparando o saldo ATUAL com o saldo da marcação -- se o
@@ -34509,7 +34517,20 @@ function activateTab(id) {
   _switchViewNoTab(tab.view);
 }
 
-function closeTab(id) {
+// v115.1637 - BUG grave corrigido (achado em revisão de código, não
+// reportado ainda pelo Vitor): esta função e a `closeTab(idx)` do sistema
+// de abas do Dashboard (mais acima no arquivo, usa `tabs`/`data-ci`) tinham
+// o MESMO NOME `closeTab` -- a última declaração no arquivo sempre vence
+// silenciosamente em JS, então desde que esta foi criada, clicar no "×" da
+// barra de abas do Dashboard (tabs.length>1, ex: "Uso de IA ×") não fechava
+// mais aquela aba: chamava ESSA função aqui com um número (índice) em vez
+// de uma chave de _tabsOpen, fazendo um delete que não apaga nada e, na
+// sequência, ou reativa uma aba aleatória do OUTRO sistema ou força abrir
+// o Dashboard -- possível causa real do bug "Dashboard/Atalhos misturados"
+// relatado antes nessa mesma sessão e nunca reproduzido. Renomeada pra
+// closeTabById (só ela, os 2 call sites dela atualizados) -- a closeTab(idx)
+// original volta a funcionar sozinha, sem ninguém pisando em cima.
+function closeTabById(id) {
   delete _tabsOpen[id];
   var ids = Object.keys(_tabsOpen);
   if(ids.length === 0) {
@@ -34534,7 +34555,7 @@ function renderTabBar() {
     html += '<div onclick="activateTab(&quot;'+id+'&quot;)" style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px 6px 0 0;cursor:pointer;font-size:12px;font-weight:'+fw+';color:'+color+';background:'+bg+';transition:all .12s;white-space:nowrap;border-bottom:'+bb+';min-height:36px;user-select:none">';
     html += '<span style="pointer-events:none">'+tab.title+'</span>';
     if(ids.length > 1){
-      html += '<span onclick="event.stopPropagation();closeTab(&quot;'+id+'&quot;)" style="font-size:18px;line-height:1;padding:2px 5px;margin-left:2px;border-radius:4px;cursor:pointer;opacity:.7;display:inline-flex;align-items:center;justify-content:center;min-width:24px;min-height:24px">×</span>';
+      html += '<span onclick="event.stopPropagation();closeTabById(&quot;'+id+'&quot;)" style="font-size:18px;line-height:1;padding:2px 5px;margin-left:2px;border-radius:4px;cursor:pointer;opacity:.7;display:inline-flex;align-items:center;justify-content:center;min-width:24px;min-height:24px">×</span>';
     }
     html += '</div>';
   });
@@ -39552,7 +39573,7 @@ var _tabBarHandler = function(e){
     if(!el || el.id==='multiTabBar') break;
     if(el.dataset && el.dataset.closeid){
       e.stopPropagation();
-      closeTab(el.dataset.closeid);
+      closeTabById(el.dataset.closeid);
       return;
     }
     if(el.dataset && el.dataset.tabid){

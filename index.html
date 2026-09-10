@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1667</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1668</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1667</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1668</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -62227,17 +62227,45 @@ function pfItemCardBuscar(){
   if(!inp)return;
   var cod=(inp.value||'').trim();
   if(!cod)return;
-  var codN=cod.toUpperCase();
+  var achou=pfItemCardBuscarExecutar(cod);
+  if(!achou){
+    var msg=document.getElementById('pfItemCardBuscaMsg');
+    if(msg)msg.textContent='Item não encontrado (procurado em Produtos e Componentes Cardan).';
+  }
+}
+// v115.1668 - BUG corrigido (Vitor buscou "5-515X", código de cruzeta, e
+// não achava nada): a busca só olhava cad_produtos_v1 (Cadastro de
+// Produtos geral) -- catálogos à parte como Componentes Cardan
+// (cruzetas/flanges/garfos/etc) nunca eram considerados. Agora, se não
+// achar em Produtos, cai pro Componentes Cardan reaproveitando
+// pfInfoItemPorCodigo (já existente, já resolve item+irmãos -- os
+// equivalentes de outras marcas/linhas pra mesma peça física).
+function pfItemCardBuscarExecutar(cod){
+  var codN=String(cod||'').trim().toUpperCase();
+  if(!codN)return false;
   var plist=cadLoad(PROD_KEY||'cad_produtos_v1');
   var p=plist.find(function(x){return String(x.codigo||'').trim().toUpperCase()===codN;});
-  if(!p){
-    var msg=document.getElementById('pfItemCardBuscaMsg');
-    if(msg)msg.textContent='Item não encontrado no Cadastro de Produtos.';
-    return;
+  if(p){
+    var busca=document.getElementById('pfItemCardBusca');
+    if(busca)busca.remove();
+    pfItemCardAbrir(p,[]);
+    return true;
   }
-  var busca=document.getElementById('pfItemCardBusca');
-  if(busca)busca.remove();
-  pfItemCardAbrir(p);
+  var info=(typeof pfInfoItemPorCodigo==='function')?pfInfoItemPorCodigo(cod):null;
+  if(info&&info.item){
+    var busca2=document.getElementById('pfItemCardBusca');
+    if(busca2)busca2.remove();
+    var it=info.item;
+    var pCC={
+      codigo:it.codigo,
+      marca:it.linha||'',
+      descricao:info.familia+(it.medida?(' — '+it.medida):''),
+      foto:it.foto||''
+    };
+    pfItemCardAbrir(pCC,info.irmaos||[]);
+    return true;
+  }
+  return false;
 }
 function pfItemCardDadosMapa(codigo,marca){
   try{
@@ -62276,7 +62304,7 @@ function pfItemCardTransito(codigo,marca){
     return total;
   }catch(e){return 0;}
 }
-function pfItemCardAbrir(p){
+function pfItemCardAbrir(p,irmaos){
   pfItemCardGarantirCss();
   pfItemCardFechar();
   var dadosMapa=pfItemCardDadosMapa(p.codigo,p.marca);
@@ -62302,6 +62330,10 @@ function pfItemCardAbrir(p){
       '<span onclick="pfItemCardFechar()" style="cursor:pointer;color:#8a9ab0;font-size:18px">&#215;</span>'+
     '</div>'+
     '<div style="padding:12px 14px">'+
+      (irmaos&&irmaos.length?('<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">'+
+        '<span style="font-size:11px;padding:3px 9px;border-radius:20px;background:#EAF1FB;color:#1F4E79;font-weight:700">'+pfEscHtml(p.marca||'')+' '+pfEscHtml(p.codigo)+'</span>'+
+        irmaos.map(function(ir){return '<span onclick="pfItemCardBuscarExecutar(\''+pfEscJs(ir.codigo)+'\')" style="cursor:pointer;font-size:11px;padding:3px 9px;border-radius:20px;background:#F7F9FC;color:#607080">'+pfEscHtml(ir.linha||'')+' '+pfEscHtml(ir.codigo)+'</span>';}).join('')+
+      '</div>'):'')+
       '<div style="font-size:13px;color:#607080;margin-bottom:10px">'+pfEscHtml(p.descricao||p.desc||'')+'</div>'+
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">'+
         '<div style="background:#F7F9FC;border-radius:6px;padding:6px 7px"><div style="font-size:11px;color:#8a9ab0">Saldo</div><div style="font-size:15px;font-weight:700;color:#1F4E79">'+fmt(dadosMapa?dadosMapa.saldo:null)+'</div></div>'+

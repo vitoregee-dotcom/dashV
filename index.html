@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1658</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1659</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1658</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1659</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -22871,8 +22871,16 @@ async function pfRankExportar(chave,modo){
 // + sync) -- reabre já com o último ajuste, não reseta.
 var PF_COMPRAR_FILTRO_KEY='pfComprarFiltro';
 function pfComprarFiltroLoad(){
-  var f={curva:'Todos',status:'Todos',marca:'Todas',meses:3};
-  try{var s=JSON.parse(localStorage.getItem(PF_COMPRAR_FILTRO_KEY)||'{}');Object.assign(f,s);}catch(e){}
+  var f={curvas:[],status:'Todos',marcas:[],meses:3};
+  try{
+    var s=JSON.parse(localStorage.getItem(PF_COMPRAR_FILTRO_KEY)||'{}');
+    Object.assign(f,s);
+    // v115.1659 - migração de versão antiga (curva/marca únicas, string) pra
+    // multi-seleção (array) -- sem isso, quem já tinha filtro salvo antes
+    // dessa mudança quebraria ao abrir.
+    if(typeof f.curvas==='string')f.curvas=(f.curvas==='Todos')?[]:[f.curvas];
+    if(typeof f.marcas==='string')f.marcas=(f.marcas==='Todas')?[]:[f.marcas];
+  }catch(e){}
   return f;
 }
 window._pfComprarFiltro=window._pfComprarFiltro||pfComprarFiltroLoad();
@@ -22881,8 +22889,8 @@ function pfComprarFiltroSalvar(){
   localStorage.setItem(PF_COMPRAR_FILTRO_KEY,JSON.stringify(window._pfComprarFiltro));
   if(typeof pfSyncPush==='function')pfSyncPush([PF_COMPRAR_FILTRO_KEY]);
 }
-function pfComprarChip(grupo,valor,label,ativo){
-  return '<button onclick="pfComprarSetFiltro(\''+grupo+'\','+(typeof valor==='number'?valor:"'"+valor+"'")+')" style="border:1px solid '+(ativo?'#1F4E79':'#e0e8f0')+';background:'+(ativo?'#1F4E79':'#fff')+';color:'+(ativo?'#fff':'#607080')+';font-size:11px;font-weight:700;padding:5px 10px;border-radius:6px;cursor:pointer">'+label+'</button>';
+function pfComprarChip(onclickJs,label,ativo){
+  return '<button onclick="'+onclickJs+'" style="border:1px solid '+(ativo?'#1F4E79':'#e0e8f0')+';background:'+(ativo?'#1F4E79':'#fff')+';color:'+(ativo?'#fff':'#607080')+';font-size:11px;font-weight:700;padding:5px 10px;border-radius:6px;cursor:pointer">'+label+'</button>';
 }
 function pfComprarAbrir(){
   var overlay=document.createElement('div');
@@ -22906,27 +22914,37 @@ function pfComprarAbrir(){
   pfComprarRenderFiltros();
   pfComprarRender();
 }
+function pfComprarFonteItens(){
+  // v115.1659 - BUG corrigido (Vitor: filtro Curva A + Zerado dava lista
+  // vazia mesmo tendo item assim no catálogo): calcItems é só o catálogo
+  // JÁ FILTRADO pela família ativa no Dashboard -- mesmo bug antigo
+  // documentado em vários outros lugares do sistema (ex: v115.1370).
+  // Trocado pra allItems (catálogo inteiro), que é o que faz sentido
+  // pra uma busca "o que precisa comprar" cruzando todas as famílias.
+  return (typeof allItems!=='undefined'&&allItems&&allItems.length)?allItems:((typeof calcItems!=='undefined')?calcItems:[]);
+}
 function pfComprarRenderFiltros(){
   var f=window._pfComprarFiltro;
-  var marcas=Array.from(new Set((window.calcItems||[]).map(function(d){return d.marca;}).filter(Boolean))).sort();
+  var marcasDisp=Array.from(new Set(pfComprarFonteItens().map(function(d){return d.marca;}).filter(Boolean))).sort();
   var html='<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:6px">'+
-    '<div><div style="font-size:10px;color:#8a9ab0;font-weight:700;text-transform:uppercase;margin-bottom:5px">Curva</div><div style="display:flex;gap:4px">'+
-      ['Todos','A','B','C'].map(function(v){return pfComprarChip('curva',v,v,f.curva===v);}).join('')+
+    '<div><div style="font-size:10px;color:#8a9ab0;font-weight:700;text-transform:uppercase;margin-bottom:5px">Curva (pode marcar mais de uma)</div><div style="display:flex;gap:4px">'+
+      pfComprarChip("pfComprarToggleCurva('')",'Todos',f.curvas.length===0)+
+      ['A','B','C'].map(function(v){return pfComprarChip("pfComprarToggleCurva('"+v+"')",v,f.curvas.indexOf(v)>=0);}).join('')+
     '</div></div>'+
     '<div><div style="font-size:10px;color:#8a9ab0;font-weight:700;text-transform:uppercase;margin-bottom:5px">Status</div><div style="display:flex;gap:4px">'+
-      ['Todos','Zerado','Zerando'].map(function(v){return pfComprarChip('status',v,v,f.status===v);}).join('')+
+      ['Todos','Zerado','Zerando'].map(function(v){return pfComprarChip("pfComprarSetFiltro('status','"+v+"')",v,f.status===v);}).join('')+
     '</div></div>'+
-    '<div style="flex:1;min-width:160px"><div style="font-size:10px;color:#8a9ab0;font-weight:700;text-transform:uppercase;margin-bottom:5px">Marca</div>'+
-      '<select onchange="pfComprarSetFiltro(\'marca\',this.value)" style="width:100%;height:30px;font-size:12px;border:1px solid #e0e8f0;border-radius:6px;padding:0 8px">'+
-        '<option'+(f.marca==='Todas'?' selected':'')+'>Todas</option>'+
-        marcas.map(function(m){return '<option'+(f.marca===m?' selected':'')+'>'+pfEscHtml(m)+'</option>';}).join('')+
-      '</select>'+
-    '</div>'+
+  '</div>'+
+  '<div style="margin-bottom:8px">'+
+    '<div style="font-size:10px;color:#8a9ab0;font-weight:700;text-transform:uppercase;margin-bottom:5px">Marca (segura Ctrl/Cmd pra marcar mais de uma -- vazio = todas)</div>'+
+    '<select multiple onchange="pfComprarSetMarcas(this)" style="width:100%;height:72px;font-size:12px;border:1px solid #e0e8f0;border-radius:6px;padding:4px">'+
+      marcasDisp.map(function(m){return '<option'+(f.marcas.indexOf(m)>=0?' selected':'')+'>'+pfEscHtml(m)+'</option>';}).join('')+
+    '</select>'+
   '</div>'+
   '<div style="background:#F7F9FC;border-radius:8px;padding:10px 12px;margin-top:8px">'+
     '<div style="font-size:10px;color:#8a9ab0;font-weight:700;text-transform:uppercase;margin-bottom:6px">Comprar pra quanto tempo?</div>'+
     '<div style="display:flex;gap:4px">'+
-      [[1,'1 mês'],[3,'3 meses'],[6,'6 meses'],[12,'1 ano']].map(function(p){return pfComprarChip('meses',p[0],p[1],f.meses===p[0]);}).join('')+
+      [[1,'1 mês'],[3,'3 meses'],[6,'6 meses'],[12,'1 ano']].map(function(p){return pfComprarChip('pfComprarSetFiltro(\'meses\','+p[0]+')',p[1],f.meses===p[0]);}).join('')+
     '</div>'+
   '</div>';
   var el=document.getElementById('pfComprarFiltros');
@@ -22938,12 +22956,28 @@ function pfComprarSetFiltro(campo,valor){
   pfComprarRenderFiltros();
   pfComprarRender();
 }
+function pfComprarToggleCurva(v){
+  var f=window._pfComprarFiltro;
+  if(v===''){f.curvas=[];}
+  else{
+    var i=f.curvas.indexOf(v);
+    if(i>=0)f.curvas.splice(i,1);else f.curvas.push(v);
+  }
+  pfComprarFiltroSalvar();
+  pfComprarRenderFiltros();
+  pfComprarRender();
+}
+function pfComprarSetMarcas(sel){
+  window._pfComprarFiltro.marcas=Array.from(sel.selectedOptions).map(function(o){return o.value;});
+  pfComprarFiltroSalvar();
+  pfComprarRender();
+}
 function pfComprarItemKey(d){return (d.ref||'')+'||'+(d.marca||'');}
 function pfComprarListaFiltrada(){
   var f=window._pfComprarFiltro;
-  return (window.calcItems||[]).filter(function(d){
-    if(f.curva!=='Todos'&&d.curva!==f.curva)return false;
-    if(f.marca!=='Todas'&&d.marca!==f.marca)return false;
+  return pfComprarFonteItens().filter(function(d){
+    if(f.curvas.length&&f.curvas.indexOf(d.curva)<0)return false;
+    if(f.marcas.length&&f.marcas.indexOf(d.marca)<0)return false;
     var cM=d.cM||0;
     var sugestao=Math.max(0,Math.round(cM*f.meses-(d.saldo||0)));
     if(sugestao<=0)return false;

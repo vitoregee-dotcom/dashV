@@ -16616,11 +16616,28 @@ function pfRawSetItem(key, value){
 // Leitura que espelha pfSafeSetItem -- sempre usar esse par junto (nunca
 // misturar localStorage.getItem/setItem direto com essas duas em cima da
 // mesma chave, senão um lado não entende o formato salvo pelo outro).
+// v115.1633 - BUG GRAVE corrigido (a pedido do Vitor: "todos esses campos
+// de todos os componentes" travando/atrasando a digitação): pfSafeGetItem
+// descomprimia o blob inteiro (LZString) TODA VEZ que era chamada, sem
+// nenhum cache -- e funções como ccLoad()/retLoad() chamam essa função de
+// novo a cada busca/filtro, inclusive a cada tecla digitada (mesmo com
+// debounce). Em catálogos grandes (Componentes Cardan, Retentores,
+// Produtos, e os outros 9 comprimidos) isso travava a thread principal por
+// vários segundos, repetidamente. Corrigido guardando a última string
+// descomprimida junto com a string comprimida que a gerou -- só descomprime
+// de novo se o dado comprimido realmente mudou (comparação de string,
+// praticamente grátis). Sem risco de mostrar dado desatualizado: qualquer
+// save/sync muda a string comprimida, o cache erra de propósito, e
+// descomprime normalmente.
+var _pfDecompressCache = {};
 function pfSafeGetItem(key, fallback){
   try{
     var raw = pfRawGetItem(key);
     if(raw==null)return fallback!=null?fallback:null;
+    var _cache = _pfDecompressCache[key];
+    if(_cache && _cache.raw === raw) return _cache.val;
     var out = pfDecompress(raw);
+    if(out!=null) _pfDecompressCache[key] = {raw: raw, val: out};
     return out!=null?out:(fallback!=null?fallback:null);
   }catch(e){console.warn('pfSafeGetItem falhou pra "'+key+'":',e);return fallback!=null?fallback:null;}
 }

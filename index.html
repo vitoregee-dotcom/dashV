@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1665</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1666</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1665</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1666</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -22871,7 +22871,7 @@ async function pfRankExportar(chave,modo){
 // + sync) -- reabre já com o último ajuste, não reseta.
 var PF_COMPRAR_FILTRO_KEY='pfComprarFiltro';
 function pfComprarFiltroLoad(){
-  var f={curvas:[],status:'Todos',marcas:[],meses:3};
+  var f={curvas:[],status:'Todos',familias:[],marcas:[],meses:3};
   try{
     var s=JSON.parse(localStorage.getItem(PF_COMPRAR_FILTRO_KEY)||'{}');
     Object.assign(f,s);
@@ -22880,6 +22880,7 @@ function pfComprarFiltroLoad(){
     // dessa mudança quebraria ao abrir.
     if(typeof f.curvas==='string')f.curvas=(f.curvas==='Todos')?[]:[f.curvas];
     if(typeof f.marcas==='string')f.marcas=(f.marcas==='Todas')?[]:[f.marcas];
+    if(!Array.isArray(f.familias))f.familias=[];
   }catch(e){}
   return f;
 }
@@ -22938,7 +22939,18 @@ function pfComprarFonteItens(){
 function pfComprarRenderFiltros(){
   var f=window._pfComprarFiltro;
   var buscaMarca=(window._pfComprarBuscaMarca||'').toUpperCase();
-  var marcasDisp=Array.from(new Set(pfComprarFonteItens().map(function(d){return d.marca;}).filter(Boolean))).sort();
+  // v115.1666 - Filtro de família NOVO, a pedido do Vitor ("muito ruim esse
+  // negócio de selecionar marcas... família já filtra algumas marcas"):
+  // aplicado ANTES do de marca -- reduz a lista de marcas disponíveis pro
+  // filtro seguinte. As marcas aparecem como strings compostas tipo "DANA +
+  // ALLISON SPICER + ALLISON-IMP" porque são o campo `marca` de itens já
+  // mesclados de vários catálogos (não dá pra separar sem quebrar essa
+  // mesclagem) -- filtrar por família primeiro reduz bastante quantas
+  // combinações desse tipo aparecem na lista.
+  var itensParaFamilia=pfComprarFonteItens();
+  var familiasDisp=Array.from(new Set(itensParaFamilia.map(function(d){return d.familia;}).filter(Boolean))).sort();
+  var itensNaFamilia=f.familias.length?itensParaFamilia.filter(function(d){return f.familias.indexOf(d.familia)>=0;}):itensParaFamilia;
+  var marcasDisp=Array.from(new Set(itensNaFamilia.map(function(d){return d.marca;}).filter(Boolean))).sort();
   if(buscaMarca)marcasDisp=marcasDisp.filter(function(m){return m.toUpperCase().indexOf(buscaMarca)>=0;});
   var html='<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:6px">'+
     '<div><div style="font-size:10px;color:#8a9ab0;font-weight:700;text-transform:uppercase;margin-bottom:5px">Curva (pode marcar mais de uma)</div><div style="display:flex;gap:4px">'+
@@ -22949,6 +22961,14 @@ function pfComprarRenderFiltros(){
       ['Todos','Zerado','Zerando'].map(function(v){return pfComprarChip("pfComprarSetFiltro('status','"+v+"')",v,f.status===v);}).join('')+
     '</div></div>'+
   '</div>'+
+  (familiasDisp.length?(
+  '<div style="margin-bottom:8px">'+
+    '<div style="font-size:10px;color:#8a9ab0;font-weight:700;text-transform:uppercase;margin-bottom:5px">Família (pode marcar mais de uma -- vazio = todas, já filtra as marcas abaixo)</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:4px">'+
+      pfComprarChip("pfComprarToggleFamilia('')",'Todas',f.familias.length===0)+
+      familiasDisp.map(function(v){return pfComprarChip("pfComprarToggleFamilia('"+pfEscJs(v)+"')",pfEscHtml(v),f.familias.indexOf(v)>=0);}).join('')+
+    '</div>'+
+  '</div>'):'')+
   '<div style="margin-bottom:8px">'+
     '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">'+
       '<div style="font-size:10px;color:#8a9ab0;font-weight:700;text-transform:uppercase">Marca (Ctrl/Cmd pra marcar mais de uma -- vazio = todas)</div>'+
@@ -22967,6 +22987,21 @@ function pfComprarRenderFiltros(){
   '</div>';
   var el=document.getElementById('pfComprarFiltros');
   if(el)el.innerHTML=html;
+}
+function pfComprarToggleFamilia(v){
+  var f=window._pfComprarFiltro;
+  if(v===''){f.familias=[];}
+  else{
+    var i=f.familias.indexOf(v);
+    if(i>=0)f.familias.splice(i,1);else f.familias.push(v);
+  }
+  // v115.1666 - trocar família invalida a seleção de marca atual (as
+  // marcas disponíveis mudam) -- evita ficar com marca marcada que nem
+  // aparece mais na lista filtrada, sem aviso nenhum.
+  f.marcas=[];
+  pfComprarFiltroSalvar();
+  pfComprarRenderFiltros();
+  pfComprarRender();
 }
 function pfComprarBuscarMarca(v){
   window._pfComprarBuscaMarca=v;
@@ -23010,6 +23045,7 @@ function pfComprarListaFiltrada(){
   var f=window._pfComprarFiltro;
   return pfComprarFonteItens().filter(function(d){
     if(f.curvas.length&&f.curvas.indexOf(d.curva)<0)return false;
+    if(f.familias.length&&f.familias.indexOf(d.familia)<0)return false;
     if(f.marcas.length&&f.marcas.indexOf(d.marca)<0)return false;
     var cM=pfComprarCM(d);
     var sugestao=Math.max(0,Math.round(cM*f.meses-(d.saldo||0)));

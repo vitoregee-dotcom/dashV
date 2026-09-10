@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1659</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1660</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1659</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1660</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -22914,6 +22914,18 @@ function pfComprarAbrir(){
   pfComprarRenderFiltros();
   pfComprarRender();
 }
+function pfComprarCM(d){
+  // v115.1660 - BUG DE RAIZ corrigido (Vitor: filtro sempre vazio, mesmo
+  // tendo item batendo com Curva/Status): "Consumo Mensal" (cM) NUNCA foi
+  // um campo real gravado no item -- é calculado na hora em outros
+  // lugares do sistema (consumo do período ÷ período em dias × 30, ver
+  // "const cD=periodo>0?d.consumo/periodo:0" já usado alhures). Eu tava
+  // lendo d.cM direto, que sempre voltava undefined/0 -- então a sugestão
+  // de compra dava sempre 0, e NADA nunca passava no filtro. Calculado
+  // aqui do mesmo jeito, usando a variável global "periodo" (dias do
+  // período de análise ativo no Dashboard).
+  return (typeof periodo!=='undefined'&&periodo>0)?(d.consumo||0)/periodo*30:0;
+}
 function pfComprarFonteItens(){
   // v115.1659 - BUG corrigido (Vitor: filtro Curva A + Zerado dava lista
   // vazia mesmo tendo item assim no catálogo): calcItems é só o catálogo
@@ -22925,7 +22937,9 @@ function pfComprarFonteItens(){
 }
 function pfComprarRenderFiltros(){
   var f=window._pfComprarFiltro;
+  var buscaMarca=(window._pfComprarBuscaMarca||'').toUpperCase();
   var marcasDisp=Array.from(new Set(pfComprarFonteItens().map(function(d){return d.marca;}).filter(Boolean))).sort();
+  if(buscaMarca)marcasDisp=marcasDisp.filter(function(m){return m.toUpperCase().indexOf(buscaMarca)>=0;});
   var html='<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:6px">'+
     '<div><div style="font-size:10px;color:#8a9ab0;font-weight:700;text-transform:uppercase;margin-bottom:5px">Curva (pode marcar mais de uma)</div><div style="display:flex;gap:4px">'+
       pfComprarChip("pfComprarToggleCurva('')",'Todos',f.curvas.length===0)+
@@ -22936,8 +22950,12 @@ function pfComprarRenderFiltros(){
     '</div></div>'+
   '</div>'+
   '<div style="margin-bottom:8px">'+
-    '<div style="font-size:10px;color:#8a9ab0;font-weight:700;text-transform:uppercase;margin-bottom:5px">Marca (segura Ctrl/Cmd pra marcar mais de uma -- vazio = todas)</div>'+
-    '<select multiple onchange="pfComprarSetMarcas(this)" style="width:100%;height:72px;font-size:12px;border:1px solid #e0e8f0;border-radius:6px;padding:4px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">'+
+      '<div style="font-size:10px;color:#8a9ab0;font-weight:700;text-transform:uppercase">Marca (Ctrl/Cmd pra marcar mais de uma -- vazio = todas)</div>'+
+      (f.marcas.length?'<span style="font-size:10px;color:#1F4E79;font-weight:700;cursor:pointer" onclick="pfComprarLimparMarcas()">limpar ('+f.marcas.length+' marcada'+(f.marcas.length>1?'s':'')+')</span>':'')+
+    '</div>'+
+    '<input type="text" placeholder="🔎 Filtrar marca..." value="'+pfEscHtml(window._pfComprarBuscaMarca||'')+'" oninput="pfComprarBuscarMarca(this.value)" style="width:100%;height:28px;font-size:12px;border:1px solid #e0e8f0;border-radius:6px;padding:0 8px;margin-bottom:4px">'+
+    '<select multiple onchange="pfComprarSetMarcas(this)" style="width:100%;height:90px;font-size:12px;border:1px solid #e0e8f0;border-radius:6px;padding:4px">'+
       marcasDisp.map(function(m){return '<option'+(f.marcas.indexOf(m)>=0?' selected':'')+'>'+pfEscHtml(m)+'</option>';}).join('')+
     '</select>'+
   '</div>'+
@@ -22949,6 +22967,21 @@ function pfComprarRenderFiltros(){
   '</div>';
   var el=document.getElementById('pfComprarFiltros');
   if(el)el.innerHTML=html;
+}
+function pfComprarBuscarMarca(v){
+  window._pfComprarBuscaMarca=v;
+  pfComprarRenderFiltros();
+  // v115.1660 - reaplica o foco+cursor no campo de busca depois de
+  // redesenhar (innerHTML novo perde o foco) -- senão cada letra digitada
+  // precisa clicar no campo de novo.
+  var inp=document.querySelector('#pfComprarFiltros input[type=text]');
+  if(inp){inp.focus();var p=inp.value.length;inp.setSelectionRange(p,p);}
+}
+function pfComprarLimparMarcas(){
+  window._pfComprarFiltro.marcas=[];
+  pfComprarFiltroSalvar();
+  pfComprarRenderFiltros();
+  pfComprarRender();
 }
 function pfComprarSetFiltro(campo,valor){
   window._pfComprarFiltro[campo]=valor;
@@ -22978,15 +23011,15 @@ function pfComprarListaFiltrada(){
   return pfComprarFonteItens().filter(function(d){
     if(f.curvas.length&&f.curvas.indexOf(d.curva)<0)return false;
     if(f.marcas.length&&f.marcas.indexOf(d.marca)<0)return false;
-    var cM=d.cM||0;
+    var cM=pfComprarCM(d);
     var sugestao=Math.max(0,Math.round(cM*f.meses-(d.saldo||0)));
     if(sugestao<=0)return false;
     var statusItem=(d.saldo||0)<=0?'Zerado':((d.saldo||0)<cM?'Zerando':'OK');
     if(f.status!=='Todos'&&statusItem!==f.status)return false;
     return true;
   }).sort(function(a,b){
-    var sa=Math.max(0,(a.cM||0)*f.meses-(a.saldo||0));
-    var sb=Math.max(0,(b.cM||0)*f.meses-(b.saldo||0));
+    var sa=Math.max(0,pfComprarCM(a)*f.meses-(a.saldo||0));
+    var sb=Math.max(0,pfComprarCM(b)*f.meses-(b.saldo||0));
     return sb-sa;
   });
 }
@@ -22997,7 +23030,7 @@ function pfComprarRender(){
   var head='<div style="display:grid;grid-template-columns:24px 1fr 90px 60px 90px 90px;gap:8px;background:#F0F4F8;padding:7px 10px;font-size:10px;font-weight:700;color:#1F4E79;text-transform:uppercase">'+
     '<div></div><div>Marca / Descrição</div><div style="text-align:center">Saldo</div><div style="text-align:center">Curva</div><div style="text-align:center">Consumo/M</div><div style="text-align:right">Sugestão</div></div>';
   var body=lista.map(function(d,i){
-    var cM=d.cM||0;
+    var cM=pfComprarCM(d);
     var sugestao=Math.max(0,Math.round(cM*f.meses-(d.saldo||0)));
     var key=pfComprarItemKey(d);
     var marcado=!!window._pfComprarSel[key];
@@ -23039,7 +23072,7 @@ function pfComprarEnviarMapa(){
     var marca=(d.marca||'').toUpperCase().trim();
     var jaExiste=mapaItens.find(function(e){return e.ref===ref&&(e.marca||'')===marca;});
     if(jaExiste){jaTinha++;return;}
-    var cM=d.cM||0;
+    var cM=pfComprarCM(d);
     var qtd=Math.max(1,Math.round(cM*f.meses-(d.saldo||0)));
     mapaItens.push({ref:ref,desc:d.desc||ref,marca:marca,qtd:qtd,prazo:'NÃO IM.',ln:idLinha(ref),sel:true,origem:'comprar'});
     adicionados++;

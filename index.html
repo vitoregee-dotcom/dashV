@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1644</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1645</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1644</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1645</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -22861,12 +22861,28 @@ async function pfRankExportar(chave,modo){
     // table-layout:fixed, replicado em TODAS as tabelas de página --
     // garante que o cabeçalho quebra sempre do mesmo jeito, página
     // nenhuma surpreende a conta de altura.
+    // v115.1645 - BUG corrigido de vez (Vitor manda o PDF real: cabeçalho
+    // aparecendo cortado -- só "#/Código/Marca/Descrição" visíveis, resto
+    // sumindo -- em algumas páginas sim, outras não): a v115.1643 usava
+    // <colgroup> com largura em PIXELS fixos, inserido via DOM só na
+    // tabela original antes do split -- mas a evidência (correto ora sim
+    // ora não, dado sempre certo embaixo) aponta pra uma inconsistência
+    // nessa mecânica de colgroup/DOM entre as várias <table> geradas, não
+    // só uma diferença de wrap. Trocado por uma abordagem mais simples e
+    // robusta: uma regra CSS por coluna (:nth-child, casando th E td da
+    // MESMA posição) com a largura em PORCENTAGEM (soma sempre exatamente
+    // 100%, sem depender de pixel/arredondamento) -- aplicada a QUALQUER
+    // tabela com a classe .pfRankTabela, então todo header/linha de toda
+    // página nasce com a mesma largura de coluna sem precisar duplicar
+    // colgroup em cada uma.
     var thsOriginais=Array.prototype.slice.call(tabelaOriginal.querySelectorAll('thead th'));
-    var colgroupHtml='<colgroup>'+thsOriginais.map(function(th){
-      return '<col style="width:'+th.getBoundingClientRect().width+'px">';
-    }).join('')+'</colgroup>';
-    tabelaOriginal.style.tableLayout='fixed';
-    tabelaOriginal.insertAdjacentHTML('afterbegin',colgroupHtml);
+    var somaLarguras=thsOriginais.reduce(function(s,th){return s+th.getBoundingClientRect().width;},0)||1;
+    var estiloLarguras=document.createElement('style');
+    estiloLarguras.textContent='.pfRankTabela{table-layout:fixed}'+thsOriginais.map(function(th,i){
+      var pct=(th.getBoundingClientRect().width/somaLarguras*100).toFixed(3);
+      return '.pfRankTabela th:nth-child('+(i+1)+'),.pfRankTabela td:nth-child('+(i+1)+'){width:'+pct+'%}';
+    }).join('');
+    container.appendChild(estiloLarguras);
     var theadOriginal=tabelaOriginal.querySelector('thead');
     var tfootOriginal=tabelaOriginal.querySelector('tfoot');
     var linhasEls=Array.prototype.slice.call(tabelaOriginal.querySelectorAll('tbody > tr'));
@@ -22890,8 +22906,8 @@ async function pfRankExportar(chave,modo){
     if(blocos.length>1){
       var tabelasHtml=blocos.map(function(linhasDoBloco,i){
         var ultimoBloco=(i===blocos.length-1);
-        return '<table class="pfRankTabela" style="table-layout:fixed;'+(ultimoBloco?'':'page-break-after:always')+'">'+
-          colgroupHtml+theadOriginal.outerHTML+'<tbody>'+linhasDoBloco.join('')+'</tbody>'+
+        return '<table class="pfRankTabela" style="'+(ultimoBloco?'':'page-break-after:always')+'">'+
+          theadOriginal.outerHTML+'<tbody>'+linhasDoBloco.join('')+'</tbody>'+
           (ultimoBloco&&tfootOriginal?tfootOriginal.outerHTML:'')+
         '</table>';
       }).join('');

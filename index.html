@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1642</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1643</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1642</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1643</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -22419,7 +22419,7 @@ function pfRankColDefs(paraExcel){
     // Sem consumo no período (cM<=0): ideal é 0, então o saldo inteiro
     // conta como excesso -- não tem base nenhuma pra justificar ter esse
     // saldo parado.
-    {k:'excessoQtd',label:'Excesso Além da Meta',soma:'num',get:function(d){
+    {k:'excessoQtd',label:'Excesso (qtd)',soma:'num',get:function(d){
       var meses=parseFloat((window._pfRankFiltro||{}).meses)||12;
       var ideal=(d.cM>0?d.cM:0)*meses;
       var exc=Math.max(0,(d.saldo||0)-ideal);
@@ -22436,7 +22436,7 @@ function pfRankColDefs(paraExcel){
     // numero cru, pro Excel poder somar a coluna.
     {k:'custo',label:'Custo Unit.',get:function(d){return din(+d.custo||0);},val:function(d){return +d.custo||0;}},
     {k:'valorEstoque',label:'Valor em Estoque',soma:'din',get:function(d){return din((+d.saldo||0)*(+d.custo||0));},val:function(d){return (+d.saldo||0)*(+d.custo||0);}},
-    {k:'excessoValor',label:'Excesso Além da Meta (R$)',soma:'din',get:function(d){
+    {k:'excessoValor',label:'Excesso (R$)',soma:'din',get:function(d){
       var meses=parseFloat((window._pfRankFiltro||{}).meses)||12;
       var ideal=(d.cM>0?d.cM:0)*meses;
       var exc=Math.max(0,(d.saldo||0)-ideal);
@@ -22837,6 +22837,31 @@ async function pfRankExportar(chave,modo){
     var PF_RANK_PDF_MARGEM_PX=25;
     var PF_RANK_PDF_PAGE_PX_EFETIVO=PF_RANK_PDF_PAGE_PX-PF_RANK_PDF_MARGEM_PX;
     var tabelaOriginal=alvo.querySelector('table.pfRankTabela');
+    // v115.1643 - BUG corrigido (Vitor: coluna nova "Excesso Além da Meta
+    // (R$)" com rótulo comprido -- cabeçalho quebrando em várias linhas e
+    // sobrepondo a primeira linha de dados, só na página seguinte à
+    // primeira): cada bloco de página vira uma <table> NOVA e SEPARADA
+    // (ver nota v115.1506 abaixo) -- sem largura de coluna fixada, cada
+    // uma recalcula sozinha o layout com base só nas linhas daquele
+    // bloco, então a MESMA célula de cabeçalho podia quebrar em 1 linha
+    // na tabela da página 1 (larguras informadas por ~90 linhas) e em 3-4
+    // linhas na tabela da página 2 (larguras informadas só pelas ~5
+    // linhas daquele bloco, números mais curtos = coluna mais estreita).
+    // A altura do cabeçalho usada pra decidir onde cortar página
+    // (alturaThead, abaixo) só é medida UMA vez, na tabela original -- se
+    // o clone de uma página seguinte acaba renderizando mais alto que
+    // isso por causa dessa quebra extra, estoura a conta e sobrepõe a
+    // linha de baixo. Corrigido travando a largura de cada coluna (medida
+    // na tabela original, já com todas as linhas) via colgroup +
+    // table-layout:fixed, replicado em TODAS as tabelas de página --
+    // garante que o cabeçalho quebra sempre do mesmo jeito, página
+    // nenhuma surpreende a conta de altura.
+    var thsOriginais=Array.prototype.slice.call(tabelaOriginal.querySelectorAll('thead th'));
+    var colgroupHtml='<colgroup>'+thsOriginais.map(function(th){
+      return '<col style="width:'+th.getBoundingClientRect().width+'px">';
+    }).join('')+'</colgroup>';
+    tabelaOriginal.style.tableLayout='fixed';
+    tabelaOriginal.insertAdjacentHTML('afterbegin',colgroupHtml);
     var theadOriginal=tabelaOriginal.querySelector('thead');
     var tfootOriginal=tabelaOriginal.querySelector('tfoot');
     var linhasEls=Array.prototype.slice.call(tabelaOriginal.querySelectorAll('tbody > tr'));
@@ -22860,8 +22885,8 @@ async function pfRankExportar(chave,modo){
     if(blocos.length>1){
       var tabelasHtml=blocos.map(function(linhasDoBloco,i){
         var ultimoBloco=(i===blocos.length-1);
-        return '<table class="pfRankTabela" style="'+(ultimoBloco?'':'page-break-after:always')+'">'+
-          theadOriginal.outerHTML+'<tbody>'+linhasDoBloco.join('')+'</tbody>'+
+        return '<table class="pfRankTabela" style="table-layout:fixed;'+(ultimoBloco?'':'page-break-after:always')+'">'+
+          colgroupHtml+theadOriginal.outerHTML+'<tbody>'+linhasDoBloco.join('')+'</tbody>'+
           (ultimoBloco&&tfootOriginal?tfootOriginal.outerHTML:'')+
         '</table>';
       }).join('');

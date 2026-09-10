@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1633</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1634</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1633</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1634</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -50909,19 +50909,83 @@ window.ferrAtalhosTextoPreencherAnalisar=async function(id,file){
     var txt=await _anthropicReadDoc(file,prompt,'Preencher atalho com ficha do cliente');
     var limpo=txt.replace(/^```json\s*|```\s*$/g,'').trim();
     var obj=JSON.parse(limpo);
+    window._ferrPreencherFaltando=obj.faltando||[];
     var faltandoHtml=(obj.faltando&&obj.faltando.length)?
       '<div style="margin-top:12px;padding:10px 12px;background:#FFF4E5;border-radius:8px;border:1px solid #ffe0b2">'+
         '<div style="font-size:12px;font-weight:700;color:#8a5a00;margin-bottom:4px">⚠️ Peça essas informações pro cliente:</div>'+
         '<ul style="margin:0;padding-left:18px;font-size:12px;color:#8a5a00">'+obj.faltando.map(function(f){return '<li>'+pfEscHtml(f)+'</li>';}).join('')+'</ul>'+
+        '<button onclick="ferrAtalhosTextoPreencherCopiarFaltando(this)" style="margin-top:8px;padding:6px 12px;border-radius:6px;background:#8a5a00;color:#fff;border:none;cursor:pointer;font-weight:700;font-size:11px">📋 Copiar mensagem pro cliente</button>'+
       '</div>'
       : '<div style="margin-top:12px;font-size:12px;color:#2e7d32">✅ Nenhum campo faltando.</div>';
     if(resultado)resultado.innerHTML=
       '<textarea id="ferrPreencherTexto" readonly style="width:100%;min-height:220px;padding:10px;border:1px solid #e0e8f0;border-radius:8px;font-family:inherit;font-size:12px;box-sizing:border-box;margin-top:12px">'+pfEscHtml(obj.preenchido||'')+'</textarea>'+
       '<button onclick="ferrAtalhosTextoPreencherCopiar(this)" style="margin-top:8px;padding:8px 16px;border-radius:6px;background:#1F4E79;color:#fff;border:none;cursor:pointer;font-weight:700;font-size:12px">📋 Copiar texto preenchido</button>'+
-      faltandoHtml;
+      faltandoHtml+
+      ferrPreencherRespostaHtml();
     if(status)status.innerHTML='';
   }catch(e){
     if(status)status.innerHTML='<span style="color:#C00000">Erro: '+pfEscHtml(e.message)+'</span>';
+  }
+};
+// v115.1633 - A pedido do Vitor: botão pra copiar uma mensagem já pronta com
+// os campos que faltaram (pra colar direto no WhatsApp/e-mail pro cliente),
+// e uma caixa pra colar a resposta do cliente de volta -- reprocessa com IA
+// juntando o script já preenchido + a resposta, preenchendo o resto sem
+// precisar montar tudo de novo na mão.
+window.ferrAtalhosTextoPreencherCopiarFaltando=function(btn){
+  var faltando=window._ferrPreencherFaltando||[];
+  if(!faltando.length)return;
+  var msg='Algumas informações faltaram:\n\n'+faltando.map(function(f){return '• '+f;}).join('\n')+'\n\nPode me mandar quando tiver, por favor?';
+  navigator.clipboard.writeText(msg).then(function(){
+    if(btn){var t=btn.textContent;btn.textContent='✓ Copiado!';setTimeout(function(){btn.textContent=t;},1500);}
+  }).catch(function(){pfAlert('Não consegui copiar. Tenta selecionar e copiar manualmente.');});
+};
+function ferrPreencherRespostaHtml(){
+  return '<div style="margin-top:14px;padding:10px 12px;background:#EEF6FF;border-radius:8px;border:1px solid #cfe2f7">'+
+    '<div style="font-size:12px;font-weight:700;color:#1F4E79;margin-bottom:6px">📩 Colar resposta do cliente aqui:</div>'+
+    '<textarea id="ferrPreencherResposta" placeholder="Cola aqui o que o cliente respondeu (WhatsApp, e-mail, etc)" style="width:100%;min-height:80px;padding:8px;border:1px solid #cfe2f7;border-radius:6px;font-family:inherit;font-size:12px;box-sizing:border-box"></textarea>'+
+    '<button onclick="ferrAtalhosTextoPreencherComResposta()" style="margin-top:6px;padding:7px 14px;border-radius:6px;background:#1F4E79;color:#fff;border:none;cursor:pointer;font-weight:700;font-size:12px">🔄 Preencher com essa resposta</button>'+
+    '<div id="ferrPreencherRespostaStatus" style="font-size:11px;color:#607080;margin-top:4px"></div>'+
+  '</div>';
+}
+window.ferrAtalhosTextoPreencherComResposta=async function(){
+  var respostaEl=document.getElementById('ferrPreencherResposta');
+  var resposta=respostaEl?respostaEl.value.trim():'';
+  if(!resposta){pfAlert('Cola a resposta do cliente primeiro.');return;}
+  var taAtual=document.getElementById('ferrPreencherTexto');
+  var textoAtual=taAtual?taAtual.value:'';
+  var statusResp=document.getElementById('ferrPreencherRespostaStatus');
+  var status=document.getElementById('ferrPreencherStatus');
+  if(statusResp)statusResp.textContent='🤖 Atualizando com a resposta do cliente...';
+  try{
+    var prompt='O texto abaixo é um script/modelo já parcialmente preenchido, com alguns campos ainda em branco (rótulo seguido de dois-pontos sem informação depois, ou opções entre parênteses sem X marcado). '+
+      'Depois vem a resposta que o cliente mandou preenchendo as informações que faltavam (pode vir em qualquer formato -- texto corrido, lista, mensagem de WhatsApp, etc). '+
+      'Preencha os campos que ainda estavam em branco usando a informação da resposta do cliente, mantendo tudo que já estava preenchido exatamente como está, e mantendo a mesma formatação/pontuação/emojis/quebras de linha do script. '+
+      'Todo campo de telefone/celular/whatsapp/fixo sempre como DDD-número, só dígitos, sem parênteses/espaço/traço. '+
+      'Se ainda faltar alguma informação mesmo depois da resposta do cliente, deixe em branco e liste em "faltando". '+
+      'SCRIPT ATUAL (parcialmente preenchido):\n\n'+textoAtual+
+      '\n\nRESPOSTA DO CLIENTE:\n\n'+resposta+
+      '\n\nRetorne SOMENTE um JSON, sem markdown, sem texto antes ou depois, no formato exato: {"preenchido":"<script inteiro atualizado>","faltando":["<campo que ainda falta, se houver>"]}';
+    var txt=await _anthropicAsk(prompt,1500,'Preencher atalho com resposta do cliente');
+    var limpo=txt.replace(/^```json\s*|```\s*$/g,'').trim();
+    var obj=JSON.parse(limpo);
+    window._ferrPreencherFaltando=obj.faltando||[];
+    var faltandoHtml2=(obj.faltando&&obj.faltando.length)?
+      '<div style="margin-top:12px;padding:10px 12px;background:#FFF4E5;border-radius:8px;border:1px solid #ffe0b2">'+
+        '<div style="font-size:12px;font-weight:700;color:#8a5a00;margin-bottom:4px">⚠️ Peça essas informações pro cliente:</div>'+
+        '<ul style="margin:0;padding-left:18px;font-size:12px;color:#8a5a00">'+obj.faltando.map(function(f){return '<li>'+pfEscHtml(f)+'</li>';}).join('')+'</ul>'+
+        '<button onclick="ferrAtalhosTextoPreencherCopiarFaltando(this)" style="margin-top:8px;padding:6px 12px;border-radius:6px;background:#8a5a00;color:#fff;border:none;cursor:pointer;font-weight:700;font-size:11px">📋 Copiar mensagem pro cliente</button>'+
+      '</div>'
+      : '<div style="margin-top:12px;font-size:12px;color:#2e7d32">✅ Nenhum campo faltando.</div>';
+    var resultado2=document.getElementById('ferrPreencherResultado');
+    if(resultado2)resultado2.innerHTML=
+      '<textarea id="ferrPreencherTexto" readonly style="width:100%;min-height:220px;padding:10px;border:1px solid #e0e8f0;border-radius:8px;font-family:inherit;font-size:12px;box-sizing:border-box;margin-top:12px">'+pfEscHtml(obj.preenchido||'')+'</textarea>'+
+      '<button onclick="ferrAtalhosTextoPreencherCopiar(this)" style="margin-top:8px;padding:8px 16px;border-radius:6px;background:#1F4E79;color:#fff;border:none;cursor:pointer;font-weight:700;font-size:12px">📋 Copiar texto preenchido</button>'+
+      faltandoHtml2+
+      ferrPreencherRespostaHtml();
+    if(status)status.innerHTML='';
+  }catch(e){
+    if(statusResp)statusResp.innerHTML='<span style="color:#C00000">Erro: '+pfEscHtml(e.message)+'</span>';
   }
 };
 window.ferrAtalhosTextoPreencherCopiar=function(btn){

@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1668</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1669</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1668</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1669</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -62267,7 +62267,61 @@ function pfItemCardBuscarExecutar(cod){
   }
   return false;
 }
+// v115.1669 - BUG corrigido (Vitor: "se digita na cotação não aparece
+// ele?" -- item tinha saldo real, mas o card mostrava "—"): a busca de
+// dados só olhava `mapaItens` (específico do módulo Mapa de Compras).
+// A tela de Cotação usa uma fonte bem mais ampla e mais frequentemente
+// disponível -- `tabs[].allItems` (todas as abas de planilha carregadas
+// no Dashboard), igual `vendasBuscarItem` já faz. Agora tenta essa fonte
+// PRIMEIRO (normalizando código igual ref==cod||refClean===codClean,
+// mesma lógica de vendasBuscarItem), com `mapaItens` como fallback.
+function pfItemCardCampo(row,nomes){
+  for(var i=0;i<nomes.length;i++){
+    var n=nomes[i];
+    if(row[n]!=null&&row[n]!=='')return row[n];
+  }
+  return null;
+}
+function pfItemCardDadosPlanilha(codigo,marca){
+  try{
+    var rows=[];
+    if(typeof tabs!=='undefined'&&tabs&&tabs.length){
+      for(var t=0;t<tabs.length;t++){
+        if(tabs[t]&&tabs[t].allItems&&tabs[t].allItems.length)rows=rows.concat(tabs[t].allItems);
+      }
+    }
+    if(!rows.length&&typeof allItems!=='undefined'&&allItems&&allItems.length)rows=allItems;
+    if(!rows.length)return null;
+    var codN=String(codigo||'').trim().toUpperCase();
+    var codClean=codN.replace(/[\s\-\.]/g,'');
+    var marcaN=String(marca||'').trim().toUpperCase();
+    var famAlvo=typeof familiaMarca==='function'?familiaMarca(marca).toUpperCase():marcaN;
+    var candidatos=rows.filter(function(row){
+      var ref=String(pfItemCardCampo(row,['ref','Ref','REF','Referencia','referencia','REFERENCIA','codigo','Codigo','CODIGO'])||'').trim().toUpperCase();
+      if(ref!==codN&&ref.replace(/[\s\-\.]/g,'')!==codClean)return false;
+      if(!marcaN)return true;
+      var rMarca=String(pfItemCardCampo(row,['marca','Marca','MARCA'])||'').trim().toUpperCase();
+      var rFam=typeof familiaMarca==='function'?familiaMarca(rMarca).toUpperCase():rMarca;
+      return rMarca===marcaN||rFam===famAlvo;
+    });
+    if(!candidatos.length)return null;
+    var row=candidatos[0];
+    var num=function(v){var n=parseFloat(v);return isNaN(n)?null:n;};
+    return{
+      saldo:num(pfItemCardCampo(row,['saldo','Saldo','SALDO'])),
+      consumo:num(pfItemCardCampo(row,['consumo','Consumo','CONSUMO'])),
+      custo:num(pfItemCardCampo(row,['custo','Custo','CUSTO'])),
+      minimo:num(pfItemCardCampo(row,['minimo','Minimo','MINIMO'])),
+      pedido:num(pfItemCardCampo(row,['pedido','Pedido','PEDIDO'])),
+      cotacoes:num(pfItemCardCampo(row,['cotacoes','Cotacoes','COTACOES'])),
+      curva:pfItemCardCampo(row,['curva','Curva','CURVA']),
+      _origem:'planilha'
+    };
+  }catch(e){return null;}
+}
 function pfItemCardDadosMapa(codigo,marca){
+  var viaPlanilha=pfItemCardDadosPlanilha(codigo,marca);
+  if(viaPlanilha)return viaPlanilha;
   try{
     if(typeof mapaItens==='undefined'||!mapaItens||!mapaItens.length)return null;
     var codN=String(codigo||'').trim().toUpperCase();

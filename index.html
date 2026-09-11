@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1683</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1684</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1804,7 +1804,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1683</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1684</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -23023,13 +23023,24 @@ function pfComprarRenderFiltros(){
   '</div>'):'')+
   '<div style="margin-bottom:8px">'+
     '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">'+
-      '<div style="font-size:10px;color:#8a9ab0;font-weight:700;text-transform:uppercase">Marca (Ctrl/Cmd pra marcar mais de uma -- vazio = todas)</div>'+
+      '<div style="font-size:10px;color:#8a9ab0;font-weight:700;text-transform:uppercase">Marca (pode marcar mais de uma -- vazio = todas)</div>'+
       (f.marcas.length?'<span style="font-size:10px;color:#1F4E79;font-weight:700;cursor:pointer" onclick="pfComprarLimparMarcas()">limpar ('+f.marcas.length+' marcada'+(f.marcas.length>1?'s':'')+')</span>':'')+
     '</div>'+
     '<input type="text" placeholder="🔎 Filtrar marca..." value="'+pfEscHtml(window._pfComprarBuscaMarca||'')+'" oninput="pfComprarBuscarMarca(this.value)" style="width:100%;height:28px;font-size:12px;border:1px solid #e0e8f0;border-radius:6px;padding:0 8px;margin-bottom:4px">'+
-    '<select multiple onchange="pfComprarSetMarcas(this)" style="width:100%;height:90px;font-size:12px;border:1px solid #e0e8f0;border-radius:6px;padding:4px">'+
-      marcasDisp.map(function(m){return '<option'+(f.marcas.indexOf(m)>=0?' selected':'')+'>'+pfEscHtml(m)+'</option>';}).join('')+
-    '</select>'+
+    // v115.1684 - BUG DE RAIZ corrigido (Vitor: "não consigo escolher mais
+    // de uma marca"): era um <select multiple> nativo, que exige segurar
+    // Ctrl/Cmd pra marcar mais de uma -- não existe tecla nenhuma pra
+    // segurar em touch (iPad/celular), e mesmo no desktop um clique sem
+    // modificador zera a seleção inteira sem querer. Trocado pra lista de
+    // linhas clicáveis (mesmo padrão já usado em Curva/Família logo acima
+    // nesse mesmo modal): cada clique simplesmente liga/desliga aquela
+    // marca, sem precisar de tecla nenhuma, igual em qualquer aparelho.
+    '<div style="width:100%;max-height:130px;overflow:auto;border:1px solid #e0e8f0;border-radius:6px;padding:2px">'+
+      (marcasDisp.length?marcasDisp.map(function(m){
+        var ativo=f.marcas.indexOf(m)>=0;
+        return '<div onclick="pfComprarToggleMarca(\''+pfEscJs(m)+'\')" style="padding:6px 8px;cursor:pointer;border-radius:4px;font-size:12px;background:'+(ativo?'#1F4E79':'transparent')+';color:'+(ativo?'#fff':'#1a2332')+';font-weight:'+(ativo?'700':'400')+'">'+pfEscHtml(m)+'</div>';
+      }).join(''):'<div style="padding:8px;color:#8a9ab0;font-size:11px">Nenhuma marca encontrada.</div>')+
+    '</div>'+
   '</div>'+
   '<div style="background:#F7F9FC;border-radius:8px;padding:10px 12px;margin-top:8px">'+
     '<div style="font-size:10px;color:#8a9ab0;font-weight:700;text-transform:uppercase;margin-bottom:6px">Comprar pra quanto tempo?</div>'+
@@ -23087,9 +23098,12 @@ function pfComprarToggleCurva(v){
   pfComprarRenderFiltros();
   pfComprarRender();
 }
-function pfComprarSetMarcas(sel){
-  window._pfComprarFiltro.marcas=Array.from(sel.selectedOptions).map(function(o){return o.value;});
+function pfComprarToggleMarca(v){
+  var f=window._pfComprarFiltro;
+  var i=f.marcas.indexOf(v);
+  if(i>=0)f.marcas.splice(i,1);else f.marcas.push(v);
   pfComprarFiltroSalvar();
+  pfComprarRenderFiltros();
   pfComprarRender();
 }
 function pfComprarItemKey(d){return (d.ref||'')+'||'+(d.marca||'');}

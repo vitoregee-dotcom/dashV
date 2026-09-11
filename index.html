@@ -1674,7 +1674,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1697</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1698</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1818,7 +1818,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1697</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1698</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -27366,6 +27366,11 @@ function mapaAbrirAnaliseEstoque(){
     {id:'cotacoes',label:'Número de cotações'},
     {id:'status',label:'Status (Urgente/Atenção/OK)'},
     {id:'custo',label:'Seu custo médio interno'},
+    // v115.1698 - A pedido do Vitor. Reaproveita Qtd (já sempre visível) ×
+    // seu custo médio interno (mesma fonte que a coluna "Seu custo médio
+    // interno" já usa) -- valor de referência interno, não é preço de
+    // fornecedor nenhum.
+    {id:'totalComprado',label:'Total comprado (Qtd × seu custo médio)'},
     {id:'precosForn',label:'Preços cotados por fornecedor'},
     {id:'vendaSugerida',label:'Venda sugerida por fornecedor (margem 30%, pra comparar)'}
   ];
@@ -27452,11 +27457,12 @@ function mapaGerarImpressaoAnalise(){
   }
 
   var titulos={marca:'Marca',consumo:'Consumo Mensal',saldo:'Saldo Atual',curva:'Curva',proj12:'Projeção 12m',
-    diasEstoque:'Dias Estoque',cotacoes:'Nº Cotações',status:'Status',custo:'Custo Médio',precosForn:'Preços Cotados',vendaSugerida:'Venda Sugerida (margem 30%)'};
+    diasEstoque:'Dias Estoque',cotacoes:'Nº Cotações',status:'Status',custo:'Custo Médio',totalComprado:'Total Comprado',precosForn:'Preços Cotados',vendaSugerida:'Venda Sugerida (margem 30%)'};
 
   var thead='<th style="padding:8px 10px;text-align:center">#</th><th style="padding:8px 10px;text-align:left">Código</th><th style="padding:8px 10px;text-align:left">Descrição</th><th style="padding:8px 10px;text-align:center">Qtd</th>';
   cols.forEach(function(c){thead+='<th style="padding:8px 10px;text-align:center">'+titulos[c]+'</th>';});
 
+  var totalComprovadoGeral=0;
   var linhas=itens.map(function(it,n){
     var d=achaCalc(it.ref,it.marca);
     // v115.1321 - A pedido do Vitor: listra azulada (não cinza) pra bater
@@ -27490,6 +27496,13 @@ function mapaGerarImpressaoAnalise(){
           } else v='—';
         }
         else if(c==='custo')v=(d.custo!=null)?('R$ '+Number(d.custo).toFixed(2)):'—';
+        else if(c==='totalComprado'){
+          if(d.custo!=null){
+            var totLinha=(it.qtd||0)*Number(d.custo);
+            totalComprovadoGeral+=totLinha;
+            v='R$ '+totLinha.toFixed(2);
+          }
+        }
       }
       tds+='<td style="padding:8px 10px;text-align:'+(alinhaEsq?'left':'center')+'">'+(c==='status'&&v!=='—'?v:(alinhaEsq?v:pfEscHtml(String(v))))+'</td>';
     });
@@ -27539,7 +27552,9 @@ function mapaGerarImpressaoAnalise(){
     '<div style="color:#607080;font-size:12px;margin-top:1px">Triex — Análise de Estoque</div></div></div>'+
     '<div id="docBody"><div style="font-size:15px;font-weight:800;color:#1a2332;margin-bottom:3px">'+pfEscHtml(window._mapaEstadoNome||'Compra para Estoque')+'</div>'+
     '<div style="font-size:11px;color:#8a9ab0;margin-bottom:14px">Emitido em: '+hoje+' &middot; '+itens.length+' itens</div>'+
-    '<table><thead><tr>'+thead+'</tr></thead><tbody>'+linhas+'</tbody></table></div>'+
+    '<table><thead><tr>'+thead+'</tr></thead><tbody>'+linhas+'</tbody>'+
+    (cols.indexOf('totalComprado')>=0?('<tfoot><tr><td colspan="'+(4+cols.length)+'" style="padding:10px;text-align:right;font-weight:800;color:#1F4E79;background:#F0F4F8;border-top:2px solid #1F4E79">TOTAL COMPRADO (geral): R$ '+totalComprovadoGeral.toFixed(2)+'</td></tr></tfoot>'):'')+
+    '</table></div>'+
     '<div id="docFooter">PartsFlow &middot; Triex Peças e Componentes</div>'+
     '</div>'+
     '<script>function pfBaixarHtml(){'+

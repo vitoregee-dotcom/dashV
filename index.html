@@ -1674,7 +1674,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1696</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1697</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1818,7 +1818,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1696</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1697</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -26852,7 +26852,22 @@ function mapaZerarTodosFornecedores(){
 }
 function mapaAbrirFornecedoresEmTodos(){
   var old=document.getElementById('mapaFornTodosModal');if(old)old.remove();
-  var fornecedores=cadLoad(FORN_KEY).sort(function(a,b){return (a.razao||'').localeCompare(b.razao||'');});
+  // v115.1697 - A pedido do Vitor ("pq esse monte de china?"): o cadastro
+  // acumulou 50+ fornecedores "CHINA" duplicados (bug de criação
+  // corrigido agora em pfCriarFornecedorChinaSeNaoExiste, mas os
+  // duplicados antigos continuam no cadastro). Sem mexer nos dados nem
+  // nas seleções já feitas em mapas antigos (que podem apontar pra
+  // qualquer um desses ids), essa lista só ESCONDE repetições na hora de
+  // exibir -- mantém o primeiro de cada nome (case-insensitive), some com
+  // os outros só aqui no picker.
+  var vistos={};
+  var fornecedores=cadLoad(FORN_KEY).sort(function(a,b){return (a.razao||'').localeCompare(b.razao||'');}).filter(function(f){
+    var chave=(f.razao||f.nome||'').trim().toUpperCase();
+    if(!chave)return true;
+    if(vistos[chave])return false;
+    vistos[chave]=true;
+    return true;
+  });
   var itensHtml=fornecedores.map(function(f){
     return '<label class="mapaFornTodosItem" data-nome="'+pfEscHtml((f.razao||'').toUpperCase())+'" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f0f4f8;cursor:pointer;font-size:12px">'
       +'<input type="checkbox" class="mapaFornTodosChk" value="'+f.id+'"> '+pfEscHtml(f.razao||'(sem nome)')
@@ -31201,19 +31216,26 @@ var FORN_KEY='cad_fornecedores_v1';
 function pfCriarFornecedorChinaSeNaoExiste(){
   try{
     var raw=(typeof pfSafeGetItem==='function')?pfSafeGetItem(FORN_KEY,'[]'):(localStorage.getItem(FORN_KEY)||'[]');
-    // v115.1068 - BUG corrigido (achado no console pelo Vitor): essa leitura
-    // usava localStorage.getItem() cru, que quebra com "Unexpected token 'L'"
-    // sempre que cad_fornecedores_v1 estiver salvo comprimido (prefixo
-    // "LZS1:", acontece quando o cadastro fica grande). pfSafeGetItem já
-    // descomprime sozinho -- mesma correção que já existia pro SetItem
-    // logo abaixo, só faltava espelhar aqui na leitura.
     var lista=(typeof raw==='string')?JSON.parse(raw):raw;
     var jaTem=lista.some(function(f){return (f.razao||'').trim().toUpperCase()==='CHINA';});
     if(!jaTem){
       var maxCod=0;
       lista.forEach(function(f){var n=parseInt(f.codigo,10);if(!isNaN(n)&&n>maxCod)maxCod=n;});
+      // v115.1697 - BUG DE RAIZ corrigido (Vitor: "pq esse monte de china?"
+      // -- achados mais de 50 fornecedores duplicados chamados "CHINA" no
+      // cadastro): mesmo chamando essa função só depois do pull (fix
+      // anterior), o `jaTem` ainda é uma checagem LOCAL -- em 2
+      // aparelhos/contas abrindo por perto um do outro, os dois podem
+      // checar local (ainda sem o CHINA que o OUTRO acabou de criar),
+      // achar que falta, e criar CADA UM o seu próprio, com
+      // 'forn_'+Date.now() (sempre diferente) -- o merge por id nunca via
+      // os dois como o mesmo fornecedor, então empilhava pra sempre.
+      // Trocado pra um id FIXO: não importa quantos aparelhos disparem
+      // essa criação "ao mesmo tempo", todos escrevem no MESMO id -- o
+      // merge (que já dedupe por id) passa a colapsar automaticamente em
+      // 1 registro só, não importa quantas vezes essa função rodar.
       lista.push({
-        id:'forn_'+Date.now(),
+        id:'forn_china_fixo',
         codigo:String(maxCod+1).padStart(6,'0'),
         razao:'CHINA',
         tipo:'FABRICANTE',

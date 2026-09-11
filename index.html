@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1674</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1675</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1768,7 +1768,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1674</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1675</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -41543,6 +41543,19 @@ function transpMapaAddCotacaoForm(id){
   var sugeridas=transpMapaTransportadorasSugeridas(m.destinoUF);
   el.innerHTML='<div style="padding:24px;max-width:420px">'+
     '<h3 style="margin:0 0 16px;color:#1F4E79">Nova cotação — '+pfEscHtml(m.origemUF)+' → '+pfEscHtml(m.destinoUF)+'</h3>'+
+    // v115.1675 - A pedido do Vitor: mesmo padrão de anexar/colar print já
+    // usado na Cotação de Frete (pfFreteModalAnalisarDoc) -- a transportadora
+    // manda a cotação dela (imagem/PDF, layout livre) e a IA já preenche
+    // transportadora/prazo/valor em vez de digitar na mão.
+    '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">'+
+      '<label style="flex:1;min-width:140px;padding:10px;border:2px dashed #e0e8f0;border-radius:8px;text-align:center;cursor:pointer;font-size:12px;color:#1F4E79;font-weight:700">'+
+        '📎 Anexar cotação<input type="file" accept="image/*,.pdf" style="display:none" onchange="transpMapaAnalisarDoc(\''+id+'\',this.files[0])">'+
+      '</label>'+
+      '<button onclick="transpMapaColarPrint(\''+id+'\')" style="flex:1;min-width:140px;padding:10px;border:2px dashed #e0e8f0;border-radius:8px;text-align:center;cursor:pointer;font-size:12px;color:#1F4E79;font-weight:700;background:none">'+
+        '📋 Colar print (Ctrl+V)'+
+      '</button>'+
+    '</div>'+
+    '<div id="tmAnaliseStatus" style="font-size:12px;color:#8a9ab0;margin:-6px 0 12px"></div>'+
     '<label style="font-size:11px;font-weight:700;color:#607080">Transportadora</label>'+
     '<input type="text" id="tcTransp" list="tcTranspLista" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;margin:6px 0 14px">'+
     '<datalist id="tcTranspLista">'+sugeridas.map(function(t){return '<option value="'+pfEscHtml(t.razao)+'">';}).join('')+'</datalist>'+
@@ -41555,6 +41568,59 @@ function transpMapaAddCotacaoForm(id){
       '<button onclick="transpMapaDetalhe(\''+id+'\')" style="background:#F0F4F8;color:#607080;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-size:13px;font-weight:700">Cancelar</button>'+
     '</div>'+
   '</div>';
+  // v115.1675 - Ctrl+V direto no formulário também dispara a leitura,
+  // mesmo padrão já usado no modal de Cotação de Frete.
+  el.onpaste=function(e){
+    var itens=(e.clipboardData||{}).items||[];
+    for(var i=0;i<itens.length;i++){
+      if(itens[i].type.indexOf('image/')===0){
+        transpMapaAnalisarDoc(id,itens[i].getAsFile());
+        return;
+      }
+    }
+  };
+}
+function transpMapaColarPrint(id){
+  navigator.clipboard.read().then(function(itens){
+    for(var i=0;i<itens.length;i++){
+      var tipo=itens[i].types.find(function(t){return t.startsWith('image/');});
+      if(tipo){
+        itens[i].getType(tipo).then(function(blob){
+          transpMapaAnalisarDoc(id,new File([blob],'print.png',{type:blob.type}));
+        });
+        return;
+      }
+    }
+    pfAlert('Sem imagem na área de transferência. Copia o print primeiro e tenta de novo.');
+  }).catch(function(){
+    pfAlert('Não consegui acessar a área de transferência. Tenta "Anexar cotação" em vez disso, ou Ctrl+V direto nessa janela.');
+  });
+}
+async function transpMapaAnalisarDoc(id,file){
+  if(!file)return;
+  var status=document.getElementById('tmAnaliseStatus');
+  if(status)status.innerHTML='🤖 Lendo a cotação...';
+  try{
+    var prompt='O documento anexo é uma cotação de FRETE enviada por uma transportadora -- o LAYOUT PODE SER QUALQUER UM e MUDA de transportadora pra transportadora, não assuma um formato fixo, procure a informação onde ela estiver. '+
+      'Extraia: 1) transportadora: nome/razão social da empresa transportadora que está cotando (quem vai fazer o transporte, não o cliente/destinatário da carga). '+
+      '2) prazo: prazo de entrega em texto (ex: "2 dias úteis"). '+
+      '3) valor: o valor total do frete cotado, como NÚMERO PURO no padrão internacional (ponto como separador decimal, sem separador de milhar, sem "R$", ex: "184.90"). '+
+      'Se não achar alguma informação, retorne null nela (nunca invente dado). '+
+      '\n\nRetorne SOMENTE um JSON, sem markdown, sem texto antes ou depois, no formato exato: {"transportadora":"<ou null>","prazo":"<ou null>","valor":"<numero com PONTO decimal, ou null>"}';
+    var txt=await _anthropicReadDoc(file,prompt,'Mapa de Transportadoras - extração de cotação');
+    var limpo=txt.replace(/^```json\s*|```\s*$/g,'').trim();
+    var obj=JSON.parse(limpo);
+    if(obj.transportadora){var elT=document.getElementById('tcTransp');if(elT)elT.value=obj.transportadora;}
+    if(obj.prazo){var elP=document.getElementById('tcPrazo');if(elP)elP.value=obj.prazo;}
+    if(obj.valor){
+      var valorNum=parseFloat(String(obj.valor).replace(',','.'));
+      if(!isNaN(valorNum)){var elV=document.getElementById('tcValor');if(elV)elV.value=valorNum.toFixed(2).replace('.',',');}
+    }
+    var st2=document.getElementById('tmAnaliseStatus');
+    if(st2)st2.innerHTML='<span style="color:#1A7A3C">✅ Preenchido com o que a IA achou -- confere antes de salvar.</span>';
+  }catch(e){
+    if(status)status.innerHTML='<span style="color:#C00000">Erro: '+pfEscHtml(e.message)+'</span>';
+  }
 }
 function transpMapaSalvarCotacao(id){
   var transp=(document.getElementById('tcTransp').value||'').trim();
@@ -51854,6 +51920,7 @@ function pfFreteModalRender(){
     '<span onclick="window._pfFreteVolumes.push({c:\'\',l:\'\',a:\'\',peso:\'\'});pfFreteModalRender()" style="font-size:12px;color:var(--pf-accent);cursor:pointer;font-weight:700">+ Incluir mais um volume</span>'+
     '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">'+
       '<button onclick="pfFreteModalFechar()" style="padding:9px 16px;border-radius:7px;border:1px solid var(--pf-sidebar-border);background:none;cursor:pointer;font-weight:700;font-size:13px;color:var(--pf-text)">Cancelar</button>'+
+      '<button onclick="pfFreteModalEnviarMapa()" style="padding:9px 16px;border-radius:7px;border:2px solid #0D7377;background:#EAF7F6;cursor:pointer;font-weight:700;font-size:13px;color:#0D7377">🚚 Enviar pro Mapa de Transportadoras</button>'+
       '<button onclick="pfFreteModalGerarHtml()" style="padding:9px 16px;border-radius:7px;border:1px solid var(--pf-sidebar-border);background:none;cursor:pointer;font-weight:700;font-size:13px;color:var(--pf-accent)">📧 Versão p/ e-mail (HTML)</button>'+
       '<button onclick="pfFreteModalCopiar()" style="padding:9px 16px;border-radius:7px;border:none;background:var(--pf-accent);color:#fff;cursor:pointer;font-weight:700;font-size:13px">📋 Copiar</button>'+
     '</div>'+
@@ -51962,6 +52029,32 @@ function pfFreteModalMontarDados(){
     cidade:window._pfFreteCidadeCliente||'', uf:window._pfFreteUfCliente||'', cep:window._pfFreteCepCliente||'',
     fretePor:window._pfFretePor||'Emitente'
   };
+}
+// v115.1675 - "Enviar pro Mapa de Transportadoras", a pedido do Vitor:
+// pega os dados já preenchidos aqui (UF destino, peso total, volumes) e
+// já cria a rota lá, abrindo direto na tela de sugestão de transportadoras
+// pra aquele destino -- sem precisar digitar tudo de novo no Mapa.
+function pfFreteModalEnviarMapa(){
+  var d=pfFreteModalMontarDados();
+  if(!d.uf){pfAlert('Preenche a UF de destino do cliente primeiro.');return;}
+  if(typeof transpMapaCarregar!=='function'){pfAlert('Mapa de Transportadoras não disponível.');return;}
+  var rota={
+    id:'tm_'+Date.now(),
+    origemUF:'SP', // Triex é sediada em São Paulo
+    destinoUF:d.uf,
+    peso:d.pesoTotal||null,
+    volumes:d.vols.length||1,
+    criadoEm:Date.now(),
+    cotacoes:[]
+  };
+  var lista=transpMapaCarregar();
+  lista.push(rota);
+  transpMapaSalvar(lista);
+  pfFreteModalFechar();
+  if(typeof pfNavigate==='function')pfNavigate('ferramentas');
+  setTimeout(function(){
+    if(typeof ferrAbrirTab==='function')ferrAbrirTab('🚚','Mapa de Transportadoras',function(){transpMapaDetalhe(rota.id);});
+  },150);
 }
 async function pfFreteModalCopiar(){
   var d=pfFreteModalMontarDados();

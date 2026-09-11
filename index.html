@@ -1660,7 +1660,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1677</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1678</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1804,7 +1804,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1677</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1678</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -31653,6 +31653,23 @@ function cadFormCliente(data,idx){
   html+=cadSelect('Setor','clieSetor',['CONSTRUÇÃO','MINERAÇÃO','ENERGIA','TRANSPORTE RODOVIÁRIO','MOVIMENTAÇÃO DE CARGA','MARÍTIMO'],d.setor||'');
   html+='</div>';
 
+  // v115.1678 - "Vendedor responsável", a pedido do Vitor: Mapa Comercial
+  // mostrando os clientes de TODO MUNDO pra quem loga como vendedor comum
+  // (ex: Adenicio) -- "esses clientes são meus, deveria aparecer só pra
+  // mim". Vazio = sem responsável definido ainda, continua aparecendo pra
+  // todo mundo (não esconde de repente o que nunca foi atribuído). Lista
+  // vem do Cadastro de Funcionários (precisa ter e-mail preenchido lá pra
+  // aparecer aqui -- é esse e-mail que casa com o login de quem tá vendo
+  // o mapa).
+  var funcsComEmail=(typeof cadLoad==='function'&&typeof FUNC_KEY!=='undefined')?cadLoad(FUNC_KEY).filter(function(f){return f.email;}):[];
+  html+='<div style="margin-top:14px"><label style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Vendedor responsável (Mapa Comercial)</label>';
+  html+='<select id="clieVendedorEmail" style="width:100%;max-width:340px;padding:9px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12px;background:#fff">';
+  html+='<option value="">Sem responsável (visível pra todos)</option>';
+  funcsComEmail.forEach(function(f){html+='<option value="'+pfEscHtml(f.email)+'" '+(d.vendedorEmail===f.email?'selected':'')+'>'+pfEscHtml(f.nome)+'</option>';});
+  html+='</select>';
+  html+='<div style="font-size:10.5px;color:#8a9ab0;margin-top:4px">Se preenchido, esse cliente só aparece no Mapa Comercial pra esse vendedor (e pra você/admin, que sempre vê todos).</div>';
+  html+='</div>';
+
   // Upload documento
   html+='<div style="margin-top:14px;padding:14px;border:2px dashed #e0e8f0;border-radius:10px;background:#F8FAFC">';
   html+='<div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:6px">🤖 Preencher com IA</div>';
@@ -31701,6 +31718,7 @@ function cadSalvarCliente(idx){
     tipo:document.getElementById('clieTipo').value||'',
     linha:document.getElementById('clieLinhaOp').value||'',
     setor:document.getElementById('clieSetor').value||'',
+    vendedorEmail:document.getElementById('clieVendedorEmail')?document.getElementById('clieVendedorEmail').value||'':'',
     obs:document.getElementById('clieObs').value||'',
     linhasPrinc:Array.from(document.querySelectorAll('input[name=clieLinhasPrinc]:checked')).map(function(el){return el.value;}),
     linhasSec:Array.from(document.querySelectorAll('input[name=clieLinhasSec]:checked')).map(function(el){return el.value;}),
@@ -49244,6 +49262,20 @@ async function mapaComercialRender(){
   await pfMapaComercialGarantirLeaflet();
   pfMapaComercialGarantirEstilosMarcador();
   var clientes=(typeof cadLoad==='function'&&typeof CLIE_KEY!=='undefined')?cadLoad(CLIE_KEY):[];
+  // v115.1678 - "Vendedor responsável", a pedido do Vitor (login do
+  // Adenicio via Mapa Comercial: "esses clientes são meus, deveria
+  // aparecer só pra mim"): cada cliente pode ter um vendedor responsável
+  // atribuído no cadastro (campo `vendedorEmail`). Quem não é admin só vê,
+  // no MAPA, os clientes SEM responsável (não atribuídos ainda, continuam
+  // visíveis a todos) + os que são dele mesmo. Vitor/admin sempre vê
+  // todos, sem filtro. Não mexe no Cadastro de Clientes em si (lista
+  // continua mostrando todos pra quem tem acesso a Cadastros) -- é só a
+  // camada de pinos/lista do Mapa Comercial que filtra.
+  var mcIsAdmin=(typeof sbUser!=='undefined'&&sbUser&&sbUser.email==='vitoregee@gmail.com')||(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.role==='admin');
+  if(!mcIsAdmin){
+    var mcMeuEmail=(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)?sbUser.email.toLowerCase():'';
+    clientes=clientes.filter(function(c){return !c.vendedorEmail||c.vendedorEmail.toLowerCase()===mcMeuEmail;});
+  }
   var concorrentes=pfMapaConcorrentesLoad();
   // v115.1534 - A pedido do Vitor: Fornecedores no mapa, com os mesmos
   // filtros que já existem no cadastro (Tipo/Linhas/Marcas trabalhadas) --

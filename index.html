@@ -1674,7 +1674,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1718</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1719</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1818,7 +1818,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1718</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1719</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -29811,7 +29811,7 @@ function mapaStep4(el){
       try{_rCalc=calcMargemLiq(r.preco,_icms_c,_ipiPct,_stVal,_icms_v,_marg/100);}catch(ex){}
       var _venda = _rCalc.venda>0?_rCalc.venda:0;
       // liq_custo e fator são constantes pra essa linha — usados pra resolver a fórmula nos dois sentidos (venda<->margem)
-      // v115.1718 - mesma correção de calcMargemLiq (ST não credita/cobra ICMS)
+      // v115.1719 - mesma correção de calcMargemLiq (ST não credita/cobra ICMS)
       var _temST=_stVal>0;
       var _cofinsC=r.preco*COFINS_PCT, _pisC=r.preco*PIS_PCT;
       var _icmsCredito=_temST?0:r.preco*_icms_c;
@@ -35887,6 +35887,12 @@ var PF_SYNC_KEYS = [
   'pfFaturadosEventos',
   'pfChegadasEventos',
   'pfSolicitadosEventos',
+  // v115.1719 - tombstones da remoção em cascata entre etapas (comprado
+  // tira de solicitado, faturado tira de comprado+solicitado) -- mesmo
+  // padrão de pfLembretes_deletados, ver pfSyncPull.
+  'pfSolicitadosEventos_deletados',
+  'pfComprasEventos_deletados',
+  'pfFaturadosEventos_deletados',
   'pfApostasVendaEventos',
   'pfApostasNovoEventos',
   'pfPedidoVendaEventos',
@@ -36435,7 +36441,7 @@ async function pfSyncPull(){
     // aparelho, perdendo os registros de qualquer outro que tenha gravado
     // por perto. Movidas pra cá (mesmo tratamento do log de uso/login),
     // que junta os registros de todos os aparelhos em vez de sobrescrever.
-    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin','pfApostasVendaEventos','pfApostasNovoEventos','pfPedidoVendaEventos','rma_lista_v1','pfLembretes','pfLembretes_deletados'];
+    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin','pfApostasVendaEventos','pfApostasNovoEventos','pfPedidoVendaEventos','rma_lista_v1','pfLembretes','pfLembretes_deletados','pfSolicitadosEventos_deletados','pfComprasEventos_deletados','pfFaturadosEventos_deletados'];
     var rows = [];
 
     // v115.765 - Antes eram 13 requisições ao Supabase em SEQUÊNCIA (1 do
@@ -36494,7 +36500,12 @@ async function pfSyncPull(){
         // colapsaria tudo numa entrada só. Trata à parte: união simples por
         // VALOR, e já processa com só 1 linha remota (não exige >1) porque
         // o caso comum é só UMA outra conta ter o tombstone.
-        if(lk==='pfLembretes_deletados' && logRows && logRows.length){
+        // v115.1719 - Mesmo tratamento estendido pros tombstones das etapas
+        // de avisos (pfSolicitadosEventos_deletados/pfComprasEventos_deletados/
+        // pfFaturadosEventos_deletados) -- listas planas de chaves
+        // "rmd:ref|marca|data", mesmo formato/motivo do pfLembretes_deletados.
+        var _ehTombstoneListaPlana=(lk==='pfLembretes_deletados'||lk==='pfSolicitadosEventos_deletados'||lk==='pfComprasEventos_deletados'||lk==='pfFaturadosEventos_deletados');
+        if(_ehTombstoneListaPlana && logRows && logRows.length){
           var idsUniao=[];
           var vistosIds={};
           logRows.forEach(function(lr){
@@ -36557,20 +36568,24 @@ async function pfSyncPull(){
     // garantida) -- assim, quando a branch de pfLembretes rodar mais
     // abaixo (nesse mesmo pull), ela já lê a lista de deletados completa
     // (de todas as contas), não só a desta conta/aparelho.
-    var rowDelLb=rows.find(function(r){return r.chave==='pfLembretes_deletados';});
+    // v115.1719 - Mesmo tratamento, generalizado em loop, pros 3 tombstones
+    // novos das etapas de avisos.
+    ['pfLembretes_deletados','pfSolicitadosEventos_deletados','pfComprasEventos_deletados','pfFaturadosEventos_deletados'].forEach(function(_chaveTomb){
+    var rowDelLb=rows.find(function(r){return r.chave===_chaveTomb;});
     if(rowDelLb){
       try{
         var remotoDelLb=JSON.parse((typeof rowDelLb.dados==='string'?rowDelLb.dados:JSON.stringify(rowDelLb.dados))||'[]');
-        var localDelLb2=JSON.parse(localStorage.getItem('pfLembretes_deletados')||'[]');
+        var localDelLb2=JSON.parse(localStorage.getItem(_chaveTomb)||'[]');
         var vistoDelLb={}; localDelLb2.forEach(function(id){vistoDelLb[id]=true;});
         var cresceuDelLb=false;
         (remotoDelLb||[]).forEach(function(id){ if(id!=null && !vistoDelLb[id]){vistoDelLb[id]=true;localDelLb2.push(id);cresceuDelLb=true;} });
         if(cresceuDelLb){
-          localStorage.setItem('pfLembretes_deletados',JSON.stringify(localDelLb2));
-          if(typeof pfSyncPush==='function')pfSyncPush(['pfLembretes_deletados']); // propaga a união de volta (self-heal p/ a conta que ainda não sabia)
+          localStorage.setItem(_chaveTomb,JSON.stringify(localDelLb2));
+          if(typeof pfSyncPush==='function')pfSyncPush([_chaveTomb]); // propaga a união de volta (self-heal p/ a conta que ainda não sabia)
         }
       }catch(eDelLb){}
     }
+    });
     rows.forEach(function(row){
       try{
         if(!PF_SYNC_KEYS.includes(row.chave) && row.chave.indexOf('mapa_estado_')!==0 && row.chave.indexOf('pfCardOrder_')!==0)return;
@@ -36686,6 +36701,30 @@ async function pfSyncPull(){
           deletadosLb.forEach(function(id){delete porIdLb[id];});
           var mergedLb=Object.keys(porIdLb).map(function(k){return porIdLb[k];});
           pfSafeSetItem('pfLembretes',JSON.stringify(mergedLb));
+          return;
+        }
+        // v115.1719 - Mesmo padrão tombstone acima (pfLembretes), pras 3
+        // etapas de avisos que podem ter itens removidos em cascata quando
+        // a etapa seguinte é registrada (comprado tira de solicitado,
+        // faturado tira de comprado+solicitado -- ver
+        // pfAvisosRemoverDeEtapasAnteriores). pfChegadasEventos (etapa
+        // final, nunca é removida de nada) continua no merge genérico
+        // (pfMergeSyncValue) mais abaixo, sem precisar de tombstone.
+        if(row.chave==='pfSolicitadosEventos'||row.chave==='pfComprasEventos'||row.chave==='pfFaturadosEventos'){
+          var remotoEv=JSON.parse(val||'[]');
+          var localEv=JSON.parse(localStorage.getItem(row.chave)||'[]');
+          var deletadosEv=JSON.parse(localStorage.getItem(row.chave+'_deletados')||'[]');
+          function _chaveEv(it){return 'rmd:'+it.ref+'|'+(it.marca||'')+'|'+it.data;}
+          var porChaveEv={};
+          localEv.forEach(function(it){porChaveEv[_chaveEv(it)]=it;});
+          remotoEv.forEach(function(it){
+            var k=_chaveEv(it);
+            if(deletadosEv.indexOf(k)>=0)return;
+            if(!porChaveEv[k])porChaveEv[k]=it;
+          });
+          deletadosEv.forEach(function(k){delete porChaveEv[k];});
+          var mergedEv=Object.keys(porChaveEv).map(function(k){return porChaveEv[k];}).slice(0,50);
+          pfSafeSetItem(row.chave,JSON.stringify(mergedEv));
           return;
         }
         if(row.chave==='meAvise_lista'){
@@ -42619,14 +42658,14 @@ function vendasRender(){
   var el=document.getElementById('vendasBody');
   if(!el)return;
   var tab=window._vendasMainTab||'cotacoes';
-  // v115.1718 - A pedido do Vitor ("quero aproveitar toda a tela" -- os 3
+  // v115.1719 - A pedido do Vitor ("quero aproveitar toda a tela" -- os 3
   // cards grandes de Cotações/Pedido de Venda/KPIs comiam ~90px de altura
   // só pra trocar de aba, e ainda vinham com padding generoso em volta):
   // trocados por uma faixa de abas fina (mesmo padrão visual das abas de
   // período do Card Dinâmico), padding do wrapper reduzido de 24px pra
   // 12px/16px. Ícone de fixar atalho (📌) e menu (⋮) preservados, só
   // reposicionados pro tamanho novo, bem mais compacto.
-  // v115.1718b - Achado real do "espaço sobrando": #vendasView cresce via
+  // v115.1719b - Achado real do "espaço sobrando": #vendasView cresce via
   // flex:1 até preencher a tela toda (correto), mas #vendasBody (e tudo
   // dentro) ficava em fluxo normal (display:block), sem esticar -- sobrava
   // um vão morto do tamanho da diferença entre a altura reservada e a
@@ -45305,6 +45344,53 @@ async function pfComprasAutoVerificarNucleo(){
   // entre as detecções. Trocado por pfLogEventoComMerge, que busca o log
   // ATUAL DO SERVIDOR (não só local) antes de decidir o que é
   // "realmente novo" e gravar, fechando a corrida de verdade.
+  // v115.1719 - A pedido do Vitor ("o item não deve estar em 2 etapas ao
+  // mesmo tempo" -- solicitado→comprado→faturado→chegou): até aqui cada
+  // etapa era um log independente, só ACRESCENTAVA -- um item comprado
+  // continuava aparecendo em "Solicitados" pra sempre, só saía se alguém
+  // clicasse em "Limpar lista" manualmente. Agora, sempre que um evento
+  // de verdade (`novos`, não reenvio duplicado) é gravado numa etapa,
+  // esse MESMO item (ref+marca) é removido de toda etapa ANTERIOR na
+  // cadeia -- comprado tira de solicitado; faturado tira de comprado e
+  // solicitado; chegou tira de faturado, comprado e solicitado.
+  // IMPORTANTE: precisa de tombstone (mesmo padrão de pfLembretes_deletados,
+  // ver pfSyncPull) -- sem isso, o merge genérico de array por união
+  // (pfMergeSyncValue, usado por essas 4 chaves) traria o registro
+  // removido de volta assim que sincronizasse com outro aparelho/linha do
+  // servidor que ainda tem a cópia antiga (é exatamente o padrão "item
+  // apagado que volta sozinho" já visto antes nesse sistema). Tombstone
+  // por identidade EXATA (ref|marca|data da entrada removida, não só
+  // ref+marca) -- assim uma solicitação NOVA de verdade pro mesmo item no
+  // futuro (data diferente) não fica bloqueada pra sempre.
+  var PF_AVISOS_ETAPAS_ORDEM=['pfSolicitadosEventos','pfComprasEventos','pfFaturadosEventos'];
+  function pfAvisosRemoverDeEtapasAnteriores(logKeyAtual,itensRemover){
+    var idx=PF_AVISOS_ETAPAS_ORDEM.indexOf(logKeyAtual);
+    // Se logKeyAtual for pfChegadasEventos (não está na lista -> idx=-1),
+    // trata como "depois de todas" -- remove das 3 etapas anteriores.
+    var limite=idx<0?PF_AVISOS_ETAPAS_ORDEM.length:idx;
+    if(limite<=0||!itensRemover.length)return;
+    for(var i=0;i<limite;i++){
+      var chaveAnterior=PF_AVISOS_ETAPAS_ORDEM[i];
+      var chaveDel=chaveAnterior+'_deletados';
+      var logAnterior=[];
+      try{logAnterior=JSON.parse(localStorage.getItem(chaveAnterior)||'[]');}catch(e){continue;}
+      if(!logAnterior.length)continue;
+      var removidos=logAnterior.filter(function(ev){
+        return itensRemover.some(function(c){return ev.ref===c.ref&&ev.marca===c.marca;});
+      });
+      if(!removidos.length)continue;
+      var filtrado=logAnterior.filter(function(ev){return removidos.indexOf(ev)<0;});
+      localStorage.setItem(chaveAnterior,JSON.stringify(filtrado));
+      var deletados=[];
+      try{deletados=JSON.parse(localStorage.getItem(chaveDel)||'[]');}catch(e){}
+      removidos.forEach(function(ev){
+        var chaveId='rmd:'+ev.ref+'|'+(ev.marca||'')+'|'+ev.data;
+        if(deletados.indexOf(chaveId)<0)deletados.push(chaveId);
+      });
+      localStorage.setItem(chaveDel,JSON.stringify(deletados));
+      if(typeof pfSyncPush==='function')pfSyncPush([chaveAnterior,chaveDel]);
+    }
+  }
   async function pfLogEventoComMerge(logKey,itens,extrasFn){
     if(!itens.length)return [];
     var logServ=[];
@@ -45348,6 +45434,7 @@ async function pfComprasAutoVerificarNucleo(){
     var logFinal=linhas.concat(logServ).slice(0,50);
     localStorage.setItem(logKey,JSON.stringify(logFinal));
     if(typeof pfSyncPush==='function')pfSyncPush([logKey]);
+    pfAvisosRemoverDeEtapasAnteriores(logKey,novos);
     return novos;
   }
   if(novosComprados.length){
@@ -46852,7 +46939,7 @@ function pfAvisosMonta(){
     // barra (só sobrava quando tinha 1-2 avisos, ficando "quadrado dentro
     // de quadrado" com o fundo de cada ícone) -- agora só o quadrado de
     // cada ícone aparece, o container em volta é só um espaçador invisível.
-    // v115.1718b - A pedido do Vitor de novo ("já pedi isso mil vezes"):
+    // v115.1719b - A pedido do Vitor de novo ("já pedi isso mil vezes"):
     // as 3 tentativas anteriores (v115.1597/1600/1663) só resolviam o
     // ícone ficar na frente durante o HOVER (:has(.pf-aviso-icone:hover)).
     // Mas o painel expandido cobre o rail mesmo sem ninguém passando o
@@ -48079,7 +48166,7 @@ function pfPainelTarefasAtualizarVisibilidade(){
   // clicar na logo) -- daí parecer que "não abre na hora".
   var naHome=(typeof currentView==='undefined')||currentView===null||currentView==='home';
   el.style.setProperty('display',naHome?'flex':'none','important');
-  // v115.1718 - BUG DE RAIZ achado (a pedido do Vitor, 2 prints seguidos
+  // v115.1719 - BUG DE RAIZ achado (a pedido do Vitor, 2 prints seguidos
   // "não tá vendo esse espaço" -- a faixa cinza continuava do lado do
   // pfAvisosRail em Vendas mesmo com o painel escondido): esconder o
   // painel (linha acima) nunca devolvia a variável CSS
@@ -48089,7 +48176,7 @@ function pfPainelTarefasAtualizarVisibilidade(){
   // (body.pf-avisos-ativo #pfMain{padding-left:var(--pf-home-left-pad)}),
   // e ficava travada nesse valor grande em QUALQUER outra tela, mesmo
   // sem o painel visível ocupando aquele espaço.
-  // v115.1718 - BUG corrigido (a pedido do Vitor: notícia "ficando pra
+  // v115.1719 - BUG corrigido (a pedido do Vitor: notícia "ficando pra
   // trás" do painel na própria Home): a correção acima só tratava o
   // sentido de SAIR da Home (encolhe pro tamanho do rail) -- faltava o
   // sentido inverso. pfIrParaHome() não chama pfPainelTarefasRender()
@@ -50475,7 +50562,7 @@ function vendasVerCotacoes(){
 function vendasRenderLista(el){
   if(!el.querySelector('#vendasListaFiltros')){
     el.innerHTML='';
-    // v115.1718b - wrap/fd/tblWrap viram uma cadeia flex (wrap=coluna,
+    // v115.1719b - wrap/fd/tblWrap viram uma cadeia flex (wrap=coluna,
     // tblWrap=flex:1) pra tabela esticar até o fim do espaço disponível
     // em vez de sobrar vão morto embaixo -- ver vendasRender().
     var wrap=document.createElement('div');wrap.style.cssText='width:100%;padding:4px 0;flex:1;display:flex;flex-direction:column;min-height:0;box-sizing:border-box';
@@ -51735,7 +51822,7 @@ var PF_ICON_PACK = [
   'icons/pack/pf-icon-128.png','icons/pack/pf-icon-129.png','icons/pack/pf-icon-130.png','icons/pack/pf-icon-131.png','icons/pack/pf-icon-132.png',
   'icons/pack/pf-icon-133.png','icons/pack/pf-icon-134.png','icons/pack/pf-icon-135.png','icons/pack/pf-icon-136.png','icons/pack/pf-icon-137.png',
   'icons/pack/pf-icon-138.png','icons/pack/pf-icon-139.png','icons/pack/pf-icon-140.png','icons/pack/pf-icon-141.png',
-  // v115.1718 - A pedido do Vitor: mais 94 icones 3D adicionados na galeria
+  // v115.1719 - A pedido do Vitor: mais 94 icones 3D adicionados na galeria
   // do picker (ferramentas, transferencia, cadastro, RMA, pinos de mapa,
   // etc), pra ficarem disponiveis se ele quiser usar em qualquer card/pin
   // (botao direito -> Trocar icone).
@@ -51873,7 +51960,7 @@ var PF_NAV_ICON_DEFAULTS={
   // v115.1686 - A pedido do Vitor: botão direito nos ícones da barra
   // inferior (perto do badge de versão) também, igual já existia nos
   // itens da barra principal.
-  // v115.1718 - Tema (🌙/☀️) e Sair (⏻) liberados também (a pedido do
+  // v115.1719 - Tema (🌙/☀️) e Sair (⏻) liberados também (a pedido do
   // Vitor, de novo): o de Tema não entra aqui porque o ícone certo
   // depende do estado atual (claro/escuro) -- "voltar ao padrão" dele é
   // tratado à parte em pfIconPickerRemover, chamando pfApplyTheme() de
@@ -51897,7 +51984,7 @@ function pfIconPickerRemover(atalhoId){
   }catch(e){}
   pfIconOverridesSalvar(mapa);
   pfIconPickerFechar();
-  // v115.1718 - topoicon_tema não usa PF_NAV_ICON_DEFAULTS (não tem um
+  // v115.1719 - topoicon_tema não usa PF_NAV_ICON_DEFAULTS (não tem um
   // ícone padrão FIXO -- é sol ou lua dependendo do tema atual). Redesenha
   // chamando pfApplyTheme() com o tema já salvo, que agora (sem override
   // no mapa) volta a desenhar o sol/lua certo sozinho.
@@ -52749,7 +52836,7 @@ function ferrRender(){
   var el=document.getElementById('ferrBody');
   if(!el)return;
   pfFerrEsconderBotaoMinimizar();
-  // v115.1718 - A pedido do Vitor ("vamos aproveitar a tela toda, pra que
+  // v115.1719 - A pedido do Vitor ("vamos aproveitar a tela toda, pra que
   // vou rolar se tem bastante espaço na tela?"): grade travada em 3
   // colunas + max-width:720px, então sobrava bastante espaço em branco
   // dos dois lados em telas largas e obrigava rolar pra ver os 21 cards.
@@ -60870,7 +60957,7 @@ var COFINS_PCT=0.076, PIS_PCT=0.0165;
 var ICMS_SAIDA={'SP':0.18,'MG':0.12,'RJ':0.12,'ES':0.12,'PR':0.12,'SC':0.12,'RS':0.12,'MS':0.12,'MT':0.12,'GO':0.12,'DF':0.12,'BA':0.12,'SE':0.12,'AL':0.12,'PE':0.12,'PB':0.12,'RN':0.12,'CE':0.12,'PI':0.12,'MA':0.12,'PA':0.12,'AP':0.12,'AM':0.12,'RR':0.12,'RO':0.12,'TO':0.12,'AC':0.12};
 var ICMS_ENTRADA={'SP':0.18,'MG':0.12,'RJ':0.12,'ES':0.12,'PR':0.12,'SC':0.12,'RS':0.12,'MS':0.12,'MT':0.12,'GO':0.12,'DF':0.12,'BA':0.12,'SE':0.12,'AL':0.07,'PE':0.07,'PB':0.07,'RN':0.07,'CE':0.07,'PI':0.07,'MA':0.07,'PA':0.07,'AP':0.07,'AM':0.07,'RR':0.07,'RO':0.07,'TO':0.07,'AC':0.07};
 
-// v115.1718 - A pedido do Vitor: alinhado com a planilha "Calculadora
+// v115.1719 - A pedido do Vitor: alinhado com a planilha "Calculadora
 // Nacional" que ele mandou (o cálculo oficial/correto). Duas correções
 // em relação à versão anterior:
 // 1) Item com ICMS-ST (st_val>0) NÃO gera crédito de ICMS na compra nem
@@ -62159,7 +62246,7 @@ function pfApplyTheme(theme){
   // etc. não resolvia pra nada nesses elementos soltos no body. Agora a
   // classe de tema vai pro <body> também, então tudo que pendura direto
   // nele também enxerga as variáveis de tema certas.
-  // v115.1718 - A pedido do Vitor (várias vezes: "não to conseguindo mudar
+  // v115.1719 - A pedido do Vitor (várias vezes: "não to conseguindo mudar
   // o ícone do botão de sair, e tbm o de modo noturno"): esses 2 tinham
   // ficado de fora de propósito (v115.1686, comentário acima do
   // PF_NAV_ICON_DEFAULTS) porque o ícone de tema muda sozinho conforme o
@@ -62183,7 +62270,7 @@ function pfApplyTheme(theme){
     document.body.classList.remove('pf-dark'); document.body.classList.add('pf-light');
     if(!_temaIconOverride)document.getElementById('pfThemeIcon').innerHTML='<svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" fill="#F0B429"/></svg>';
   }
-  // v115.1718 - A pedido do Vitor (várias vezes: "não to conseguindo mudar
+  // v115.1719 - A pedido do Vitor (várias vezes: "não to conseguindo mudar
   // o ícone do botão de sair, e tbm o de modo noturno"): esses 2 tinham
   // ficado de fora de propósito (v115.1686, comentário acima do
   // PF_NAV_ICON_DEFAULTS) porque o ícone de tema muda sozinho conforme o
@@ -62344,7 +62431,7 @@ function pfIrParaHome(){
   if(typeof pfNoticiasRender==='function')pfNoticiasRender();
   if(typeof pfNoticiasVerificarAtualizacaoAuto==='function')pfNoticiasVerificarAtualizacaoAuto();
   currentView='home';
-  // v115.1718 - garante que a reserva de espaço (--pf-home-left-pad) já
+  // v115.1719 - garante que a reserva de espaço (--pf-home-left-pad) já
   // volta pro tamanho certo (rail+painel) na hora, sem esperar o próximo
   // timer/toggle rodar pfPainelTarefasRender() por acaso -- ver comentário
   // completo em pfPainelTarefasAtualizarVisibilidade().
@@ -62384,7 +62471,7 @@ function _pfNavigateOriginal(view){
   // qualquer caminho (não só voltando pra grade da própria Ferramentas).
   if(view!=='ferramentas'&&typeof pfFerrEsconderBotaoMinimizar==='function')pfFerrEsconderBotaoMinimizar();
   var _splash=document.getElementById('pfHomeSplash');if(_splash)_splash.style.display='none';
-  // v115.1718 - BUG corrigido (a pedido do Vitor, achado num print de
+  // v115.1719 - BUG corrigido (a pedido do Vitor, achado num print de
   // Vendas: dropdown de família mostrando "FILTROS (14309)" e botão
   // "↩ Limpar" aparecendo numa tela que não tem nada a ver com isso):
   // esses dois só fazem sentido no Mapa de Compras (filtram/limpam a
@@ -62549,7 +62636,7 @@ function _pfNavigateOriginal(view){
     var bt4=document.getElementById('btnTroc'); if(bt4)bt4.style.display='none';
     var bl4=document.getElementById('btnLeg'); if(bl4)bl4.style.display='none';
     var vv=document.getElementById('vendasView');
-    // v115.1718 - A pedido do Vitor ("quero aproveitar toda a tela"):
+    // v115.1719 - A pedido do Vitor ("quero aproveitar toda a tela"):
     // vendasView virava display:block (crescia via flex:1 dentro do
     // #pfMain, que é flex column) mas o conteúdo dele (#vendasBody) ficava
     // em fluxo normal, sem esticar -- sobrava um espaço morto do tamanho
@@ -62676,7 +62763,7 @@ function _pfNavigateOriginal(view){
       if(typeof ferrIrParaPicker==='function')ferrIrParaPicker();
     },30);
   }
-  // v115.1718c - BUG DE RAIZ achado (a pedido do Vitor: "que usa aquele
+  // v115.1719c - BUG DE RAIZ achado (a pedido do Vitor: "que usa aquele
   // espaço" -- área cinza vazia do tamanho do Painel de Tarefas, do lado
   // do #pfAvisosRail, aparecendo em cima de Vendas/qualquer outra tela):
   // pfPainelTarefasAtualizarVisibilidade() só era chamada de dentro do

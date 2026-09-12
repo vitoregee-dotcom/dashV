@@ -1674,7 +1674,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1723</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1724</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1818,7 +1818,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1723</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1724</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -17538,6 +17538,9 @@ async function recalc(skipRender){
     if(inner)inner.style.display="block";
     if(capa)capa.style.display="none";
   }
+  // v115.1724 - Salvamento diário automático do histórico (não aguarda,
+  // roda em segundo plano; tem seu próprio try/catch e guarda de 1x/dia)
+  if(typeof pfAutoSalvarAnaliseDiaria==='function')pfAutoSalvarAnaliseDiaria();
 }
 // Renderiza a parte visual do Dashboard (tabela/KPIs/gráficos) sob demanda,
 // quando a tela é aberta e o cálculo já rodou em segundo plano com skipRender=true.
@@ -21355,12 +21358,44 @@ function salvarHistoricoLS(hist){
   catch(e){pfAlert("Não foi possível salvar: armazenamento cheio.");}
 }
 
-async function salvarAnalise(){
-  if(!calcItems.length){pfAlert("Carregue uma planilha antes de salvar.");return;}
-  const nome=document.getElementById("histNomeInp").value.trim()||nomeArquivoAtual||
-    new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"});
-  const dS=document.getElementById("dS").value;
-  const dE2=document.getElementById("dE").value;
+// v115.1724 - A pedido do Vitor: histórico diário automático + tendência.
+// pfGravarSnapAnalise() é o núcleo de gravação (local + Supabase), extraído
+// de salvarAnalise() pra ser reaproveitado tanto pelo clique manual quanto
+// pelo salvamento automático diário (pfAutoSalvarAnaliseDiaria). Retenção
+// mudou de "últimas 20 no total" pra "últimas 60 POR combinação de família"
+// -- com salvamento automático diário, o limite global de 20 zerava o
+// histórico de uma família em menos de 3 semanas.
+function pfHistFamiliasKey(familias){
+  return (familias&&familias.length)?familias.slice().sort().join('|'):'TODAS';
+}
+// v115.1724 - Marcador local de "já salvei hoje essa combinação de família",
+// pra não bater no Supabase a cada recalc() (que roda com bastante frequência)
+// e pra não duplicar quando o Vitor já salvou manualmente no dia.
+var PF_HIST_DIARIO_KEY='pfHistDiarioMarcador_v1';
+function pfHistDiarioHoje(){
+  var d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function pfHistDiarioJaSalvouHoje(key){
+  try{
+    var mapa=JSON.parse(localStorage.getItem(PF_HIST_DIARIO_KEY)||'{}');
+    return mapa[key]===pfHistDiarioHoje();
+  }catch(e){return false;}
+}
+function pfHistDiarioMarcar(key){
+  try{
+    var mapa=JSON.parse(localStorage.getItem(PF_HIST_DIARIO_KEY)||'{}');
+    mapa[key]=pfHistDiarioHoje();
+    pfSafeSetItem(PF_HIST_DIARIO_KEY,JSON.stringify(mapa));
+  }catch(e){}
+}
+async function pfGravarSnapAnalise(nome,silencioso){
+  if(!calcItems.length){
+    if(!silencioso)pfAlert("Carregue uma planilha antes de salvar.");
+    return null;
+  }
+  const dSEl=document.getElementById("dS"),dEEl=document.getElementById("dE");
+  const dS=dSEl?dSEl.value:'',dE2=dEEl?dEEl.value:'';
   const familiasAnalise=[...new Set(calcItems.map(d=>d.familia||'').filter(Boolean))];
   const snap={
     id:Date.now(),
@@ -21395,6 +21430,7 @@ async function salvarAnalise(){
     try{
       // Comprimir itens: só campos essenciais para reduzir tamanho
       const itensCompact=snap.itens.map(d=>[d.ref,d.marca,d.curva,d.sk,d.saldo,Math.round(d.consumo||0),Math.round((d.cM||0)*10)/10,d.vP||0,d.desc||'']);
+      const familiasStr=JSON.stringify(snap.familias||[]);
       const payload={
         analise_id:String(snap.id),
         user_id:sbUser.id,
@@ -21409,7 +21445,7 @@ async function salvarAnalise(){
         lead_time:snap.leadTime,
         modo:snap.modo,
         total_qtd_c:snap.totalQtdC||0,
-        familias:JSON.stringify(snap.familias||[]),
+        familias:familiasStr,
         itens:JSON.stringify(itensCompact)
       };
       const r=await sbFetch('/rest/v1/historico_analises_v2',{
@@ -21420,26 +21456,68 @@ async function salvarAnalise(){
       if(!r.ok){
         const err=await r.text();
         console.error('Erro Supabase:',err);
-        pfAlert("Erro ao salvar no servidor: "+err.slice(0,200));
-        return;
+        if(!silencioso)pfAlert("Erro ao salvar no servidor: "+err.slice(0,200));
+        return null;
       }
-      // Manter só as últimas 20 análises desse usuário
-      const lista=await sbFetch('/rest/v1/historico_analises_v2?select=analise_id,data_analise&order=data_analise.desc');
+      // Manter só as últimas 60 análises DESSA MESMA combinação de família
+      // (antes era 20 no total, cortava história de outras famílias)
+      const filtroFam='familias=eq.'+encodeURIComponent(familiasStr);
+      const lista=await sbFetch('/rest/v1/historico_analises_v2?select=analise_id,data_analise&'+filtroFam+'&order=data_analise.desc');
       if(lista.ok){
         const rows=await lista.json();
-        if(rows.length>20){
-          const excesso=rows.slice(20).map(r=>r.analise_id);
+        if(rows.length>60){
+          const excesso=rows.slice(60).map(r=>r.analise_id);
           for(const aid of excesso){
             await sbFetch('/rest/v1/historico_analises_v2?analise_id=eq.'+aid,{method:'DELETE'});
           }
         }
       }
-    }catch(e){console.error('Erro ao salvar:',e);pfAlert("Erro ao salvar: "+e.message);}
+    }catch(e){console.error('Erro ao salvar:',e);if(!silencioso)pfAlert("Erro ao salvar: "+e.message);}
   }
-
-  document.getElementById("histNomeInp").value="";
-  renderHistorico();
-  pfAlert("✅ Análise \""+nome+"\" salva com sucesso!");
+  return snap;
+}
+// v115.1724 - Salvamento diário automático (a pedido do Vitor: ele já vinha
+// tentando manter isso manualmente, mas dependia de lembrar de clicar
+// "Salvar Análise" -- ficou 06/07 a 21/07 sem nenhum save de Componentes).
+// Roda sozinho toda vez que o Dashboard termina de calcular (fim de
+// recalc(), só no caminho com render completo -- não no skipRender). Só
+// grava 1x por dia por combinação de família (pfHistDiarioJaSalvouHoje),
+// silencioso (sem alert, não mexe no campo de nome manual).
+async function pfAutoSalvarAnaliseDiaria(){
+  try{
+    if(!calcItems||!calcItems.length)return;
+    if(window._pfSalvandoAnalise)return; // não atropela um save manual em andamento
+    const familiasAtuais=[...new Set(calcItems.map(d=>d.familia||'').filter(Boolean))];
+    const key=pfHistFamiliasKey(familiasAtuais);
+    if(pfHistDiarioJaSalvouHoje(key))return;
+    const nomeAuto='Auto - '+new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'});
+    const snap=await pfGravarSnapAnalise(nomeAuto,true);
+    if(snap){
+      pfHistDiarioMarcar(key);
+      if(typeof renderHistorico==='function')renderHistorico();
+      console.log('📅 Histórico diário salvo automaticamente ('+key+').');
+    }
+  }catch(e){console.error('Erro no salvamento diário automático:',e);}
+}
+// v115.1724 - Guarda de clique duplo: o Vitor achou 2 análises salvas no
+// mesmíssimo segundo no histórico (double-click no botão). Trava enquanto
+// uma gravação já está em andamento.
+async function salvarAnalise(){
+  if(window._pfSalvandoAnalise)return;
+  window._pfSalvandoAnalise=true;
+  try{
+    const nomeInp=document.getElementById("histNomeInp");
+    const nome=(nomeInp?nomeInp.value.trim():'')||nomeArquivoAtual||
+      new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"});
+    const snap=await pfGravarSnapAnalise(nome,false);
+    if(!snap)return;
+    pfHistDiarioMarcar(pfHistFamiliasKey(snap.familias));
+    if(nomeInp)nomeInp.value="";
+    renderHistorico();
+    pfAlert("✅ Análise \""+nome+"\" salva com sucesso!");
+  }finally{
+    window._pfSalvandoAnalise=false;
+  }
 }
 
 // Progresso (itens preenchidos / fornecedores respondidos) de um registro do Histórico

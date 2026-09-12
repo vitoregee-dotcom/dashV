@@ -1674,7 +1674,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1704</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1705</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1818,7 +1818,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1704</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1705</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras">🛒</span>
@@ -48277,6 +48277,46 @@ setInterval(function(){ if(document.getElementById('pfAvisosRail'))pfAvisosAtual
 // precisar fazer nada -- mudança em um aparelho aparece nos outros sem
 // precisar de F5 nem de navegar pra forçar.
 setInterval(function(){ if(typeof pfSyncPull==='function')pfSyncPull().catch(function(){}); },2*60*1000);
+// v115.1705 - A pedido do Vitor ("corrige isso de uma vez por todas" --
+// aba/aparelho ficando dias com uma versão velha em memória, sem
+// perceber, e batendo em bug já corrigido há tempos): GitHub Pages não dá
+// pra configurar Cache-Control customizado, e como é um app de página
+// única, uma aba aberta nunca recarrega sozinha só porque um deploy novo
+// saiu. Checa periodicamente um arquivinho separado (version.txt, só o
+// número da versão -- não o index.html inteiro de ~2MB, pra não gastar
+// dado à toa numa checagem que só serve pra comparar 1 string) e avisa
+// com um banner se a versão no servidor for diferente da que essa aba tá
+// rodando. NÃO recarrega sozinho (podia derrubar algo que a pessoa tá no
+// meio de digitar) -- só avisa, com botão pra atualizar quando for
+// conveniente. Roda ao voltar pra aba (foco depois de tempo em segundo
+// plano é o cenário mais comum) e a cada 5 min como reforço.
+var _pfVersaoAtualTexto=(document.getElementById('pfVersionBadge')||{}).textContent||'';
+function pfMostrarAvisoNovaVersao(versaoNova){
+  if(document.getElementById('pfNovaVersaoAviso'))return;
+  var d=document.createElement('div');
+  d.id='pfNovaVersaoAviso';
+  d.style.cssText='position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:999999;background:#1F4E79;color:#fff;padding:10px 10px 10px 16px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.25);font-size:13px;display:flex;align-items:center;gap:10px;font-family:inherit;max-width:92vw';
+  d.innerHTML='<span>🔄 Tem uma versão mais nova ('+pfEscHtml(versaoNova)+') -- essa aba tá desatualizada.</span>'+
+    '<button onclick="location.reload(true)" style="background:#fff;color:#1F4E79;border:none;border-radius:7px;padding:7px 14px;font-weight:700;cursor:pointer;font-size:12px;white-space:nowrap">Atualizar agora</button>';
+  document.body.appendChild(d);
+}
+async function pfChecarNovaVersao(){
+  try{
+    var base=location.href.split('#')[0].split('?')[0];
+    var url=base.slice(0,base.lastIndexOf('/')+1)+'version.txt';
+    var resp=await fetch(url+'?_v='+Date.now(),{cache:'no-store'});
+    if(!resp.ok)return;
+    var versaoServidor=(await resp.text()).trim();
+    if(versaoServidor && _pfVersaoAtualTexto && versaoServidor!==_pfVersaoAtualTexto.trim()){
+      pfMostrarAvisoNovaVersao(versaoServidor);
+    }
+  }catch(e){/* rede falhou -- silencioso, tenta de novo no próximo ciclo */}
+}
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='visible')pfChecarNovaVersao();
+});
+setInterval(pfChecarNovaVersao, 5*60*1000);
+setTimeout(pfChecarNovaVersao, 60*1000);
 
 function vendasAtualizarPVBtn(){
   var count=Object.values(window._vendasSelPV||{}).filter(Boolean).length;

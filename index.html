@@ -1714,7 +1714,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1754</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1755</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1858,7 +1858,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1754</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1755</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -28985,6 +28985,63 @@ async function pfChavesDescriptografar(pacote,senha){
   var plainBuf=await crypto.subtle.decrypt({name:'AES-GCM',iv:iv},key,pfChavesB64ToBuf(pacote.dados));
   return JSON.parse(new TextDecoder().decode(plainBuf));
 }
+// v115.1755 - A pedido do Vitor: alerta de "armazenamento cheio" mandava
+// avisar o Vitor/suporte técnico, mas não existia nenhuma ferramenta pra
+// ele mesmo resolver. Lista TODAS as chaves do localStorage por tamanho;
+// marca como "cache" só as que o próprio código já trata como
+// reconstruível em outro lugar (mesma lista de _cachesParaLiberar/
+// _cachesReconstruiveis que o pfSafeSetItem usa pra liberar espaço
+// sozinho) -- o resto (promoTemplates_v1, pfComprasAtivos, etc, que
+// parecem dado de negócio de verdade) fica listado mas sem sugestão de
+// apagar, pra ele decidir com informação, não eu apagar às cegas.
+var PF_CACHES_RECONSTRUIVEIS_CONHECIDOS=['dashV_lastSheet','dash_historico_v1','imp_preview_cache_v1','perf_diagnostico_v1'];
+function ferrLiberarEspacoListar(){
+  var itens=[];
+  var totalKB=0;
+  for(var i=0;i<localStorage.length;i++){
+    var k=localStorage.key(i);
+    var v=localStorage.getItem(k)||'';
+    var kb=Math.round(v.length/1024*10)/10;
+    totalKB+=kb;
+    itens.push({chave:k,kb:kb,cache:PF_CACHES_RECONSTRUIVEIS_CONHECIDOS.indexOf(k)>=0});
+  }
+  itens.sort(function(a,b){return b.kb-a.kb;});
+  return {itens:itens,totalKB:totalKB};
+}
+function ferrLiberarEspaco(){
+  var el=document.getElementById('ferrBody');
+  if(!el)return;
+  var d=ferrLiberarEspacoListar();
+  var html='<div style="max-width:520px;padding:24px">';
+  html+='<div style="font-size:16px;font-weight:800;color:#1F4E79;margin-bottom:4px">🧹 Liberar Espaço</div>';
+  html+='<div style="font-size:12px;color:var(--pf-text-muted);margin-bottom:14px">O navegador guarda catálogos, modelos e caches localmente (fora do Supabase). Quando enche, aparece o alerta de "armazenamento cheio". Total guardado agora: <b>'+Math.round(d.totalKB)+' KB</b>.</div>';
+  html+='<div style="font-size:11px;color:#7A5000;background:#FFF7E6;border:1px solid #F5D98B;border-radius:8px;padding:8px 10px;margin-bottom:12px">🟡 = já tratado como cache em outro lugar do sistema (refaz sozinho, seguro apagar). Sem marcação = pode ser dado de verdade (modelo, configuração) -- confira antes de apagar.</div>';
+  html+='<div style="max-height:340px;overflow-y:auto;border:1px solid #e0e8f0;border-radius:8px">';
+  d.itens.forEach(function(it){
+    html+='<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #f0f4f8;cursor:pointer;font-size:12px">';
+    html+='<input type="checkbox" class="pfLiberarChk" value="'+pfEscHtml(it.chave)+'" '+(it.cache?'checked':'')+'>';
+    html+='<span style="flex:1;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+pfEscHtml(it.chave)+(it.cache?' <span style="background:#FFF3D6;color:#7A5000;font-size:9.5px;padding:1px 5px;border-radius:4px;font-weight:700">CACHE</span>':'')+'</span>';
+    html+='<span style="color:#8a9ab0;flex-shrink:0">'+it.kb+' KB</span>';
+    html+='</label>';
+  });
+  html+='</div>';
+  html+='<div style="display:flex;gap:8px;margin-top:14px">';
+  html+='<button onclick="ferrLiberarEspacoExecutar()" style="flex:1;background:#C00000;color:#fff;border:none;border-radius:8px;padding:10px 0;font-size:13px;font-weight:700;cursor:pointer">Apagar selecionados</button>';
+  html+='<button onclick="ferrLiberarEspaco()" style="padding:10px 16px;border:1px solid #e0e8f0;border-radius:8px;background:none;color:#5a6b80;font-size:13px;cursor:pointer">↻ Atualizar lista</button>';
+  html+='</div>';
+  html+='</div>';
+  el.innerHTML=html;
+}
+function ferrLiberarEspacoExecutar(){
+  var chks=document.querySelectorAll('.pfLiberarChk:checked');
+  if(!chks.length){pfAlert('Nenhuma chave selecionada.');return;}
+  var chaves=Array.prototype.map.call(chks,function(c){return c.value;});
+  pfConfirm('Apagar '+chaves.length+' chave(s) do armazenamento local? Isso não mexe no Supabase, só no que está guardado neste navegador.',function(){
+    chaves.forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
+    pfAlert('✅ '+chaves.length+' chave(s) apagada(s).');
+    ferrLiberarEspaco();
+  },'Apagar');
+}
 function ferrMinhasChaves(){
   var el=document.getElementById('ferrBody');
   if(!el)return;
@@ -53631,6 +53688,14 @@ function ferrRender(){
   if(pfUsoIAEhDono()) mkCard('💰','Uso de IA','Custo estimado por leitura','#7B2D8B',function(){ferrUsoIA();});
   if(pfUsoIAEhDono()) mkCard('🎨','Personalizar Cores','Cor de destaque, fundo, texto e status — reflete no sistema inteiro','#5B2D8E',function(){pfTemaAbrirEditor();});
   if(pfUsoIAEhDono()) mkCard('🔑','Minhas Chaves','Tokens e API keys, criptografado','#1F4E79',function(){ferrMinhasChaves();});
+  // v115.1755 - A pedido do Vitor (achado real: alerta de "armazenamento
+  // cheio" apontando pra ele mesmo/suporte técnico resolver, sem nenhuma
+  // ferramenta pra isso existir). Mostra TODAS as chaves do localStorage
+  // por tamanho, marca as conhecidamente reconstruíveis (cache, refaz
+  // sozinho) e deixa por conta dele decidir o resto -- nunca apaga nada
+  // sem ele escolher, pra não arriscar dado de negócio de verdade (ex:
+  // promoTemplates_v1, modelos que ele mesmo criou).
+  if(pfUsoIAEhDono()) mkCard('🧹','Liberar Espaço','Ver o que está ocupando o navegador e limpar','#7A5000',function(){ferrLiberarEspaco();});
   if(_canSee('ferr_historico_avisos')) mkCard('🔔','Histórico de Avisos','Avisos de oportunidade anteriores','#E67E22',function(){ferrHistoricoAvisos();});
   if(_canSee('ferr_mapa_transp')) mkCard('🚚','Mapa de Transportadoras','Compara cotações de frete por rota','#0D7377',function(){transpMapaAbrir();});
   if(_canSee('ferr_remover_fundo')) mkCard('✂️','Remover Fundo de Foto','IA remove fundo de qualquer foto, direto no navegador','#0D7377',function(){ferrRemoverFundo();});

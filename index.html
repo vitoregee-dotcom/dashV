@@ -1714,7 +1714,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1732</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1733</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1858,7 +1858,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1732</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1733</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -36088,6 +36088,11 @@ var PF_SYNC_KEYS = [
   'pfIconOverrides',
   'pfTemaCores',
   'promoTemplates_v1',
+  // v115.1733 - tombstone da remoção de modelos salvos do Card de
+  // Promoção (mesmo padrão de pfAtalhosFixados_deletados) -- sem isso o
+  // merge genérico (união pura, nunca remove) trazia o modelo apagado
+  // de volta.
+  'promoTemplates_v1_deletados',
   'pfAvisosLidoEm',
   'meAvise_lista_deletados',
   'pfChavesDevEnc',
@@ -36296,6 +36301,25 @@ async function pfSyncPush(keys){
                   deletadosMAp.forEach(function(id){delete porIdMAp[id];});
                   paraEnviar=JSON.stringify(Object.keys(porIdMAp).map(function(k){return porIdMAp[k];}));
                 }catch(eMAp){paraEnviar=raw;}
+              }else if(chave==='promoTemplates_v1'){
+                // v115.1733 - Mesmo motivo do meAvise_lista acima (bug
+                // gêmeo): sem essa proteção no push, apagar um modelo salvo
+                // do Card de Promoção e o próprio push (disparado logo
+                // depois) já trazia ele de volta do servidor via o merge
+                // genérico antigo.
+                try{
+                  var remotoPromoP=JSON.parse(remotoRaw||'[]');
+                  var localPromoP=JSON.parse(raw||'[]');
+                  var deletadosPromoP=JSON.parse(localStorage.getItem('promoTemplates_v1_deletados')||'[]');
+                  var porIdPromoP={};
+                  localPromoP.forEach(function(a){porIdPromoP[a.id]=a;});
+                  remotoPromoP.forEach(function(a){
+                    if(deletadosPromoP.includes(a.id))return;
+                    if(!porIdPromoP[a.id])porIdPromoP[a.id]=a;
+                  });
+                  deletadosPromoP.forEach(function(id){delete porIdPromoP[id];});
+                  paraEnviar=JSON.stringify(Object.keys(porIdPromoP).map(function(k){return porIdPromoP[k];}));
+                }catch(ePromoP){paraEnviar=raw;}
               }else if(chave==='pfPendenciasAdmin'){
                 // v115.1412 - Mesmo motivo do meAvise_lista logo acima --
                 // ver comentário lá. Diferença: pfPendenciasAdmin é chave
@@ -36580,7 +36604,7 @@ async function pfSyncPull(){
     // aparelho, perdendo os registros de qualquer outro que tenha gravado
     // por perto. Movidas pra cá (mesmo tratamento do log de uso/login),
     // que junta os registros de todos os aparelhos em vez de sobrescrever.
-    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin','pfApostasVendaEventos','pfApostasNovoEventos','pfPedidoVendaEventos','rma_lista_v1','pfLembretes','pfLembretes_deletados','pfSolicitadosEventos_deletados','pfComprasEventos_deletados','pfFaturadosEventos_deletados'];
+    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin','pfApostasVendaEventos','pfApostasNovoEventos','pfPedidoVendaEventos','rma_lista_v1','pfLembretes','pfLembretes_deletados','pfSolicitadosEventos_deletados','pfComprasEventos_deletados','pfFaturadosEventos_deletados','promoTemplates_v1_deletados'];
     var rows = [];
 
     // v115.765 - Antes eram 13 requisições ao Supabase em SEQUÊNCIA (1 do
@@ -36643,7 +36667,7 @@ async function pfSyncPull(){
         // de avisos (pfSolicitadosEventos_deletados/pfComprasEventos_deletados/
         // pfFaturadosEventos_deletados) -- listas planas de chaves
         // "rmd:ref|marca|data", mesmo formato/motivo do pfLembretes_deletados.
-        var _ehTombstoneListaPlana=(lk==='pfLembretes_deletados'||lk==='pfSolicitadosEventos_deletados'||lk==='pfComprasEventos_deletados'||lk==='pfFaturadosEventos_deletados');
+        var _ehTombstoneListaPlana=(lk==='pfLembretes_deletados'||lk==='pfSolicitadosEventos_deletados'||lk==='pfComprasEventos_deletados'||lk==='pfFaturadosEventos_deletados'||lk==='promoTemplates_v1_deletados');
         if(_ehTombstoneListaPlana && logRows && logRows.length){
           var idsUniao=[];
           var vistosIds={};
@@ -36709,7 +36733,7 @@ async function pfSyncPull(){
     // (de todas as contas), não só a desta conta/aparelho.
     // v115.1723 - Mesmo tratamento, generalizado em loop, pros 3 tombstones
     // novos das etapas de avisos.
-    ['pfLembretes_deletados','pfSolicitadosEventos_deletados','pfComprasEventos_deletados','pfFaturadosEventos_deletados'].forEach(function(_chaveTomb){
+    ['pfLembretes_deletados','pfSolicitadosEventos_deletados','pfComprasEventos_deletados','pfFaturadosEventos_deletados','promoTemplates_v1_deletados'].forEach(function(_chaveTomb){
     var rowDelLb=rows.find(function(r){return r.chave===_chaveTomb;});
     if(rowDelLb){
       try{
@@ -36885,6 +36909,25 @@ async function pfSyncPull(){
           deletadosMA.forEach(function(id){delete porIdMA[id];});
           var mergedMA=Object.keys(porIdMA).map(function(k){return porIdMA[k];});
           pfSafeSetItem('meAvise_lista',JSON.stringify(mergedMA));
+          return;
+        }
+        if(row.chave==='promoTemplates_v1'){
+          // v115.1733 - BUG DE RAIZ corrigido (a pedido do Vitor: "excluo e
+          // aparece de novo" no Card de Promoção): essa chave nunca teve
+          // tratamento dedicado, caía no merge genérico (união pura, nunca
+          // remove nada) -- mesmo padrão de tombstone do meAvise_lista acima.
+          var remotoPromo=JSON.parse(val||'[]');
+          var localPromo=JSON.parse(localStorage.getItem('promoTemplates_v1')||'[]');
+          var deletadosPromo=JSON.parse(localStorage.getItem('promoTemplates_v1_deletados')||'[]');
+          var porIdPromo={};
+          localPromo.forEach(function(a){porIdPromo[a.id]=a;});
+          remotoPromo.forEach(function(a){
+            if(deletadosPromo.includes(a.id))return;
+            if(!porIdPromo[a.id])porIdPromo[a.id]=a;
+          });
+          deletadosPromo.forEach(function(id){delete porIdPromo[id];});
+          var mergedPromo=Object.keys(porIdPromo).map(function(k){return porIdPromo[k];});
+          pfSafeSetItem('promoTemplates_v1',JSON.stringify(mergedPromo));
           return;
         }
         // v115.1412 - Mesmo padrão do meAvise_lista logo acima -- ver
@@ -59576,13 +59619,18 @@ function promoRenderModelos(){
   var el=document.getElementById('promoModelosLista');
   if(!el)return;
   var modelos=promoCarregarModelos();
+  var deletadosPromoRender=[];try{deletadosPromoRender=JSON.parse(localStorage.getItem('promoTemplates_v1_deletados')||'[]');}catch(e){}
+  modelos=modelos.filter(function(m){return deletadosPromoRender.indexOf(m.id)<0;});
   if(!modelos.length){el.innerHTML='<div style="font-size:11px;color:#8a9ab0">Nenhum modelo salvo ainda -- carrega ou cola um fundo e clica em "Salvar como modelo".</div>';return;}
   el.innerHTML='<div style="font-size:10px;font-weight:700;color:#8a9ab0;margin-bottom:6px;text-transform:uppercase">Modelos salvos</div>'+
     '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
     modelos.map(function(m){
-      return '<div style="position:relative;width:56px">'+
+      return '<div style="position:relative;width:56px;padding-top:6px">'+
         '<img src="'+m.imagem+'" onclick="promoUsarModelo(\''+pfEscJs(m.id)+'\')" title="'+pfEscHtml(m.nome)+'" style="width:56px;height:70px;object-fit:cover;border-radius:6px;border:1.5px solid #e0e8f0;cursor:pointer">'+
-        '<button onclick="event.stopPropagation();promoRemoverModelo(\''+pfEscJs(m.id)+'\')" title="Remover modelo" style="appearance:none;-webkit-appearance:none;box-sizing:border-box;padding:0;margin:0;min-width:16px;min-height:16px;position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:50%;border:1.5px solid #fff;background:#c0392b;color:#fff;font-size:10px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center">×</button>'+
+        // v115.1733 - A pedido do Vitor ("aumenta o tamanho do x"): botão
+        // de remover foi de 16x16 pra 22x22, mais fácil de acertar o clique
+        // (principalmente no touch/iPad).
+        '<button onclick="event.stopPropagation();promoRemoverModelo(\''+pfEscJs(m.id)+'\')" title="Remover modelo" style="appearance:none;-webkit-appearance:none;box-sizing:border-box;padding:0;margin:0;min-width:22px;min-height:22px;position:absolute;top:-2px;right:-2px;width:22px;height:22px;border-radius:50%;border:1.5px solid #fff;background:#c0392b;color:#fff;font-size:14px;font-weight:700;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center">×</button>'+
         '<div style="font-size:9px;color:#607080;text-align:center;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+pfEscHtml(m.nome)+'</div>'+
       '</div>';
     }).join('')+
@@ -59606,8 +59654,23 @@ function promoUsarModelo(id){
   promoDesenhar();
 }
 function promoRemoverModelo(id){
+  // v115.1733 - BUG DE RAIZ corrigido (a pedido do Vitor: "excluo e
+  // aparece de novo"): promoTemplates_v1 nunca teve tombstone -- caía no
+  // merge genérico (pfMergeSyncValue), que é só UNIÃO por identidade e
+  // NUNCA remove nada. Apagar localmente e sincronizar sempre trazia o
+  // modelo de volta na próxima sincronização (mesmo padrão de "item
+  // apagado que volta sozinho" já visto em pins/aplicações/etc). Mesmo
+  // padrão de lista de removidos usado nesses outros casos.
   var modelos=promoCarregarModelos().filter(function(x){return x.id!==id;});
   promoSalvarModelosLista(modelos);
+  try{
+    var deletadosPromo=JSON.parse(localStorage.getItem('promoTemplates_v1_deletados')||'[]');
+    if(deletadosPromo.indexOf(id)<0){
+      deletadosPromo.push(id);
+      localStorage.setItem('promoTemplates_v1_deletados',JSON.stringify(deletadosPromo));
+      if(typeof pfSyncPush==='function')pfSyncPush(['promoTemplates_v1_deletados']).catch(function(){});
+    }
+  }catch(e){}
   promoRenderModelos();
 }
 // v115.1044 - Calendário comercial 2026, a pedido do Vitor -- datas de

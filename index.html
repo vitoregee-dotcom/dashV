@@ -1674,7 +1674,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1726</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1727</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1818,7 +1818,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1726</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1727</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -36199,12 +36199,28 @@ async function pfSyncPush(keys){
                 // genérico pra objeto sem ts fica só com o local inteiro,
                 // podendo apagar ícone que só existia no servidor (setado
                 // em outro aparelho) na hora de subir uma troca daqui.
+                // v115.1727 - BUG DE RAIZ corrigido (mesmo caso do pull,
+                // ver pfSyncPull): Object.assign({},remoto,local) sempre
+                // priorizava LOCAL pra qualquer chave que já existisse dos
+                // dois lados, mesmo se o servidor tivesse acabado de ser
+                // atualizado por outro aparelho -- esse push aqui apagaria
+                // essa mudança de volta. Agora compara ts por entrada
+                // (formato novo {icon,ts}, ver pfIconPickerEscolher).
                 try{
                   var remotoIcP=JSON.parse(remotoRaw||'{}');
                   var localIcP=JSON.parse(raw||'{}');
                   var deletadosIcP=JSON.parse(localStorage.getItem('pfIconOverrides_deletados')||'[]');
-                  deletadosIcP.forEach(function(k){delete remotoIcP[k];});
-                  paraEnviar=JSON.stringify(Object.assign({},remotoIcP,localIcP));
+                  deletadosIcP.forEach(function(k){delete remotoIcP[k];delete localIcP[k];});
+                  var uniaoIcP={};
+                  Object.keys(remotoIcP).forEach(function(k){uniaoIcP[k]=remotoIcP[k];});
+                  Object.keys(localIcP).forEach(function(k){
+                    var vRemoto=remotoIcP[k],vLocal=localIcP[k];
+                    if(vRemoto==null){uniaoIcP[k]=vLocal;return;}
+                    var tsRemoto=(typeof vRemoto==='object'&&vRemoto)?(vRemoto.ts||0):0;
+                    var tsLocal=(typeof vLocal==='object'&&vLocal)?(vLocal.ts||0):0;
+                    if(tsLocal>=tsRemoto)uniaoIcP[k]=vLocal;
+                  });
+                  paraEnviar=JSON.stringify(uniaoIcP);
                 }catch(eIcP){paraEnviar=raw;}
               }else if(chave==='meAvise_lista'){
                 // v115.1412 - Mesmo motivo do pin/pfIconOverrides acima:
@@ -36948,12 +36964,31 @@ async function pfSyncPull(){
           return;
         }
         if(row.chave==='pfIconOverrides'){
+          // v115.1727 - BUG DE RAIZ corrigido (a pedido do Vitor: "troco lá
+          // e não muda aqui no iPad, nem depois de refresh"): antes era
+          // Object.assign({},remoto,local) -- LOCAL sempre vencia quando os
+          // dois lados já tinham valor pra aquele mesmo botão, não importa
+          // qual dos dois era mais recente (sem timestamp nenhum pra
+          // decidir). Agora cada entrada é {icon,ts} (ver
+          // pfIconOverrideGet/pfIconPickerEscolher) e o merge compara ts de
+          // verdade -- quem mudou por último em QUALQUER aparelho é quem
+          // vale. Entradas no formato antigo (string solta, sem ts) contam
+          // como ts:0 -- perdem pra qualquer mudança feita depois da
+          // v115.1727 em outro aparelho, mas continuam valendo até lá.
           var remotoIc=JSON.parse(val||'{}');
           var localIc=JSON.parse(pfSafeGetItem('pfIconOverrides','{}'));
           var deletadosIcPull=JSON.parse(localStorage.getItem('pfIconOverrides_deletados')||'[]');
-          deletadosIcPull.forEach(function(k){delete remotoIc[k];});
-          var uniao=Object.assign({},remotoIc,localIc);
-          pfSafeSetItem('pfIconOverrides',JSON.stringify(uniao));
+          deletadosIcPull.forEach(function(k){delete remotoIc[k];delete localIc[k];});
+          var uniaoIc={};
+          Object.keys(localIc).forEach(function(k){uniaoIc[k]=localIc[k];});
+          Object.keys(remotoIc).forEach(function(k){
+            var vLocal=localIc[k],vRemoto=remotoIc[k];
+            if(vLocal==null){uniaoIc[k]=vRemoto;return;}
+            var tsLocal=(typeof vLocal==='object'&&vLocal)?(vLocal.ts||0):0;
+            var tsRemoto=(typeof vRemoto==='object'&&vRemoto)?(vRemoto.ts||0):0;
+            if(tsRemoto>tsLocal)uniaoIc[k]=vRemoto;
+          });
+          pfSafeSetItem('pfIconOverrides',JSON.stringify(uniaoIc));
           return;
         }
         // Demais chaves (meAvise_lista, aviseItems, transitItems, cotações, etc.) — merge seguro,
@@ -51939,13 +51974,28 @@ function pfIconIsAdmin(){
 function pfIconOverridesLoad(){
   try{return JSON.parse(pfSafeGetItem('pfIconOverrides')||'{}');}catch(e){return{};}
 }
+// v115.1727 - BUG DE RAIZ achado (a pedido do Vitor: "troco lá e não muda
+// aqui no iPad, nem depois de dar refresh"): o merge de pfIconOverrides no
+// pull (ver pfSyncPull) fazia `Object.assign({}, remoto, local)` -- sempre
+// que os DOIS aparelhos já tinham algum valor pra aquele mesmo botão
+// (ex: iPad já tinha trocado esse ícone alguma vez, mesmo há meses), o
+// LOCAL sempre ganhava, não importa se o remoto era mais recente. Não
+// tinha timestamp nenhum pra decidir quem é mais novo -- só "local sempre
+// vence". Cada entrada agora vira {icon, ts}; pfIconOverrideGet() lê dos
+// dois formatos (novo objeto ou string antiga, pra não quebrar o que já
+// tava salvo) e o merge no pull compara ts de verdade.
+function pfIconOverrideGet(mapa,atalhoId){
+  var v=mapa?mapa[atalhoId]:null;
+  if(v==null)return null;
+  return (typeof v==='object')?v.icon:v;
+}
 function pfIconOverridesSalvar(mapa){
   pfSafeSetItem('pfIconOverrides',JSON.stringify(mapa));
   if(typeof pfSyncPush==='function')pfSyncPush(['pfIconOverrides']).catch(function(){});
 }
 function pfIconOverrideHtml(atalhoId,tamanhoPx){
   var mapa=pfIconOverridesLoad();
-  var src=mapa[atalhoId];
+  var src=pfIconOverrideGet(mapa,atalhoId);
   if(!src)return null;
   return '<img src="'+pfEscHtml(src)+'" style="width:'+(tamanhoPx||68)+'px;height:'+(tamanhoPx||68)+'px;object-fit:contain">';
 }
@@ -51957,7 +52007,7 @@ function pfAplicarIconOverridesNaTela(){
   var mapa=pfIconOverridesLoad();
   document.querySelectorAll('[data-pf-atalho-id]').forEach(function(el){
     var id=el.getAttribute('data-pf-atalho-id');
-    var src=mapa[id];
+    var src=pfIconOverrideGet(mapa,id);
     // v115.1429 - itens da barra principal (Compras/Vendas/Ferramentas/
     // Logística/Cadastros/Área Técnica): o próprio span com
     // data-pf-atalho-id JÁ é a caixa do ícone (.pf-nav-icon), não tem um
@@ -52033,7 +52083,7 @@ function pfIconPickerFechar(){
 }
 function pfIconPickerEscolher(atalhoId,src){
   var mapa=pfIconOverridesLoad();
-  mapa[atalhoId]=src;
+  mapa[atalhoId]={icon:src,ts:Date.now()};
   pfIconOverridesSalvar(mapa);
   pfIconPickerFechar();
   pfAplicarIconOverridesNaTela();
@@ -62354,7 +62404,7 @@ function pfApplyTheme(theme){
   // Vitor em vez de sobrescrever sozinho -- só desenha o sol/lua dinâmico
   // quando NÃO tem ícone customizado escolhido pra "topoicon_tema".
   var _temaIconOverride=null;
-  try{_temaIconOverride=JSON.parse(pfSafeGetItem('pfIconOverrides')||'{}').topoicon_tema;}catch(e){}
+  try{_temaIconOverride=pfIconOverrideGet(JSON.parse(pfSafeGetItem('pfIconOverrides')||'{}'),'topoicon_tema');}catch(e){}
   if(theme==='dark'){
     app.classList.remove('pf-light'); app.classList.add('pf-dark');
     document.body.classList.remove('pf-light'); document.body.classList.add('pf-dark');
@@ -62408,7 +62458,7 @@ function pfAplicarNavAutoHide(ativa){
   // o Vitor escolher um (via botão direito), sem deixar de trocar a
   // classe/comportamento de verdade do auto-ocultar.
   var _autoHideIconOverride=null;
-  try{_autoHideIconOverride=JSON.parse(pfSafeGetItem('pfIconOverrides')||'{}').topoicon_autohide;}catch(e){}
+  try{_autoHideIconOverride=pfIconOverrideGet(JSON.parse(pfSafeGetItem('pfIconOverrides')||'{}'),'topoicon_autohide');}catch(e){}
   if(icone){
     if(_autoHideIconOverride)icone.innerHTML='<img src="'+_autoHideIconOverride.replace(/"/g,'&quot;')+'" style="width:32px;height:32px;object-fit:contain">';
     else icone.textContent=ativa?'👁':'📌';

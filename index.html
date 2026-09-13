@@ -123,6 +123,46 @@ document.addEventListener('visibilitychange',function(){
   console.warn(msg+' em t='+(performance.now()/1000).toFixed(2)+'s');
   if(typeof _pfLogDiagnostico==='function')_pfLogDiagnostico('visibilidade',{estado:document.visibilityState});
 });
+// v115.1729 - BUG DE RAIZ achado (a pedido do Vitor: "o ipad precisa puxar
+// de algum lugar, se vira" -- refresh não bastava pra ver uma troca feita
+// em outro aparelho): o único pull automático era um setInterval de 2min
+// (ver pfSyncPull mais abaixo) -- mas o navegador PAUSA/atrasa timers de
+// abas em segundo plano de propósito (log logo acima já provava isso).
+// No iPad, a aba fica em segundo plano o tempo todo (tela apagada, trocou
+// de app) -- ao voltar, não tinha NADA forçando um pull imediato; ficava
+// esperando o próximo tick do timer de 2min, que também pode ter sido
+// pausado por tempo indefinido enquanto em background. Agora, toda vez
+// que a aba volta a ficar visível, puxa sincronização na hora -- não
+// depende mais de refresh manual nem de esperar o timer.
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState!=='visible')return;
+  if(window._pfUltimoPullVisivel&&Date.now()-window._pfUltimoPullVisivel<5000)return; // evita rajada se piscar rápido
+  window._pfUltimoPullVisivel=Date.now();
+  if(typeof pfSyncPull==='function')pfSyncPull().catch(function(){});
+  // v115.1729b - Puxar dado novo (acima) não adianta nada se o CÓDIGO em
+  // si (esse index.html) tá desatualizado no cache do navegador/CDN --
+  // um ícone recém-adicionado, por exemplo, nem existe ainda na página
+  // antiga rodando. Checa em segundo plano (sem travar nada, sem banner
+  // -- Vitor pediu pra tirar o banner de versão em v115.1706) se o
+  // arquivo publicado é mais novo que o rodando agora; se for, recarrega
+  // sozinho. cache:'no-store' força ignorar qualquer cache no meio do
+  // caminho (CDN do GitHub Pages / cache do Safari no iPad).
+  try{
+    if(window._pfUltimoCheckVersao&&Date.now()-window._pfUltimoCheckVersao<60000)return; // não baixa o HTML inteiro toda hora
+    window._pfUltimoCheckVersao=Date.now();
+    fetch(location.href.split('#')[0].split('?')[0]+'?_v='+Date.now(),{cache:'no-store'})
+      .then(function(r){return r.text();})
+      .then(function(html){
+        var m=html.match(/id="pfVersionBadge"[^>]*>v115\.(\d+)</);
+        var atualEl=document.getElementById('pfVersionBadge');
+        var mAtual=atualEl?atualEl.textContent.match(/v115\.(\d+)/):null;
+        if(m&&mAtual&&parseInt(m[1],10)>parseInt(mAtual[1],10)){
+          console.warn('🔄 Versão nova publicada (v115.'+m[1]+', rodando v115.'+mAtual[1]+') -- recarregando sozinho.');
+          location.reload();
+        }
+      }).catch(function(){});
+  }catch(e){}
+});
 </script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PartsFlow</title>
@@ -1674,7 +1714,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1728</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1729</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1818,7 +1858,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1728</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1729</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>

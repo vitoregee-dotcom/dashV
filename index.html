@@ -1714,7 +1714,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1745</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1746</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1858,7 +1858,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1745</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1746</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -36149,6 +36149,9 @@ var PF_SYNC_KEYS = [
   // fixado (pfAtalhosFixados) que o Vitor marcou no PC de casa nunca
   // aparecia no PC do trabalho, mesmo já indo pro banco.
   'pfAtalhosFixados',
+  // v115.1746 - Regras do Assistente de Vendas (Vitor pediu pra sincronizar
+  // entre aparelhos igual o resto).
+  'pfVendasRegrasIA',
   'pfAtalhosFerramentas',
   'vendas_row_height',
   'vendas_tabela_zoom',
@@ -43902,6 +43905,15 @@ function vendasAdicionarItem(){
   // (equivalência de rolamento com diferença de construção -- gaiola,
   // vedação, folga etc.), não adiciona direto -- mostra um aviso rápido
   // com o motivo, pra não vender peça diferente sem o vendedor saber.
+  // v115.1746 - A pedido do Vitor: aplica as regras do Assistente de
+  // Vendas (pfVendasAplicarRegrasIA) ANTES do aviso de ressalva/inserção
+  // -- ex: só sobe a marca configurada, ou só a de menor custo entre duas
+  // marcas parecidas. Se a regra zerar os itens (não deveria acontecer,
+  // mas por segurança), mantém a lista original em vez de sumir com tudo.
+  if(items&&items.length&&typeof pfVendasAplicarRegrasIA==='function'){
+    var itemsComRegra=pfVendasAplicarRegrasIA(codDigitado,items);
+    if(itemsComRegra&&itemsComRegra.length)items=itemsComRegra;
+  }
   var temRessalva=items&&items.some(function(it){return it.classificacao==='compativel_ressalva';});
   if(temRessalva){
     codEl.value='';
@@ -50646,6 +50658,179 @@ function vendasVerCadastroItem(cod){
   },400);
 }
 
+// v115.1746 - Assistente de Vendas (regras automáticas de cotação), a
+// pedido do Vitor: ele digita a regra em português normal (ex: "sobe só
+// a marca PERKINS pro item X", "entre SPICER e SPICER-R, manda só a de
+// menor preço"), a IA (mesma API já usada no Card de Promoção/leitura de
+// PDF) interpreta e monta uma regra estruturada -- ele confirma antes de
+// salvar. Aplicadas só no momento de adicionar item na cotação (Vendas),
+// não no Mapa de Compras (ver conversa no chat).
+var PF_VENDAS_REGRAS_IA_KEY='pfVendasRegrasIA';
+function pfVendasRegrasIALoad(){
+  try{return JSON.parse(pfSafeGetItem(PF_VENDAS_REGRAS_IA_KEY,'[]'));}catch(e){return [];}
+}
+function pfVendasRegrasIASalvar(lista){
+  pfSafeSetItem(PF_VENDAS_REGRAS_IA_KEY,JSON.stringify(lista));
+  if(typeof pfSyncPush==='function')pfSyncPush([PF_VENDAS_REGRAS_IA_KEY]);
+}
+// Aplica as regras ativas sobre os itens (já agrupados por marca) que
+// vendasBuscarItem() encontrou pra um código, ANTES de entrarem na
+// cotação. Duas regras suportadas por enquanto:
+// - marca_unica: pro código X, manda só a marca Y (as outras somem)
+// - menor_preco: entre um conjunto de marcas (ex: SPICER / SPICER-R),
+//   manda só a de menor custo (compara custo, não venda, porque venda é
+//   custo × margem fixa -- a ordem é sempre a mesma)
+function pfVendasAplicarRegrasIA(codDigitado,items){
+  if(!items||!items.length)return items;
+  var regras=pfVendasRegrasIALoad().filter(function(r){return r.ativo!==false;});
+  if(!regras.length)return items;
+  var resultado=items;
+  var codUp=(codDigitado||'').toUpperCase().trim();
+  regras.forEach(function(r){
+    if(r.tipo==='marca_unica'){
+      var alvo=(r.item||'').toUpperCase().trim();
+      if(!alvo||alvo!==codUp)return;
+      var marcaAlvo=(r.marca||'').toUpperCase().trim();
+      var filtrado=resultado.filter(function(it){return (it.marca||'').toUpperCase().trim()===marcaAlvo;});
+      if(filtrado.length)resultado=filtrado;
+    }else if(r.tipo==='menor_preco'){
+      var frags=(r.marcas||[]).map(function(s){return (s||'').toUpperCase();}).filter(Boolean);
+      if(frags.length<2)return;
+      var candidatos=resultado.filter(function(it){
+        var mm=(it.marca||'').toUpperCase();
+        return frags.some(function(f){return mm.indexOf(f)>=0;});
+      });
+      if(candidatos.length<2)return;
+      var vencedor=candidatos.slice().sort(function(a,b){
+        var ca=(a.custo==null)?Infinity:a.custo, cb=(b.custo==null)?Infinity:b.custo;
+        return ca-cb;
+      })[0];
+      resultado=resultado.filter(function(it){return candidatos.indexOf(it)===-1||it===vencedor;});
+    }
+  });
+  return resultado;
+}
+function pfVendasRegrasIADescricao(r){
+  if(r.tipo==='marca_unica')return 'Item <b>'+pfEscHtml(r.item||'')+'</b>: subir só marca <b>'+pfEscHtml(r.marca||'')+'</b>';
+  if(r.tipo==='menor_preco')return pfEscHtml((r.marcas||[]).join(' vs '))+': menor preço (custo)';
+  return 'Regra';
+}
+function pfVendasRegrasIAAbrirPainel(){
+  var existente=document.getElementById('pfVendasIAOverlay');if(existente)existente.remove();
+  var overlay=document.createElement('div');
+  overlay.id='pfVendasIAOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:12px;width:420px;max-width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;font-family:Calibri,Arial,sans-serif';
+  box.innerHTML=
+    '<div style="display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #e0e8f0;background:#F7F9FC">'+
+      '<div id="pfVendasIAAvatar" style="width:30px;height:30px;border-radius:50%;background:#1F4E79;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">'+((typeof pfIconOverrideHtml==='function'&&pfIconOverrideHtml('vendas_ia_regras',18))||'🤖')+'</div>'+
+      '<div style="flex:1"><div style="font-size:14px;font-weight:800;color:#1F4E79">Assistente de Vendas</div><div style="font-size:10.5px;color:#8a9ab0">Regras automáticas de cotação</div></div>'+
+      '<button onclick="document.getElementById(\'pfVendasIAOverlay\').remove()" style="background:none;border:none;font-size:18px;color:#5a6b80;cursor:pointer;padding:4px">×</button>'+
+    '</div>'+
+    '<div id="pfVendasIAChat" style="padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:#fafbfc;overflow-y:auto;flex:0 1 auto;min-height:40px;max-height:220px"></div>'+
+    '<div style="padding:10px 14px;border-top:1px solid #f0f4f8"><div style="display:flex;gap:6px">'+
+      '<input id="pfVendasIAInput" placeholder="Descreva a regra..." style="flex:1;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:20px;font-size:12.5px" onkeydown="if(event.key===\'Enter\')pfVendasIAEnviar()">'+
+      '<button onclick="pfVendasIAEnviar()" style="width:34px;height:34px;border-radius:50%;border:none;background:#1F4E79;color:#fff;font-size:14px;cursor:pointer;flex-shrink:0">➤</button>'+
+    '</div></div>'+
+    '<div style="border-top:1px solid #e0e8f0;padding:10px 14px;overflow-y:auto">'+
+      '<div style="font-size:11px;font-weight:700;color:#5a6b80;text-transform:uppercase;margin-bottom:8px">Regras salvas</div>'+
+      '<div id="pfVendasIALista"></div>'+
+    '</div>';
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  pfVendasIARenderLista();
+}
+function pfVendasIARenderLista(){
+  var wrap=document.getElementById('pfVendasIALista');if(!wrap)return;
+  var lista=pfVendasRegrasIALoad();
+  if(!lista.length){wrap.innerHTML='<div style="font-size:12px;color:#8a9ab0">Nenhuma regra ainda. Descreva uma ali em cima.</div>';return;}
+  wrap.innerHTML=lista.map(function(r,i){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #e0e8f0;border-radius:8px;margin-bottom:6px">'+
+      '<div onclick="pfVendasIAToggle('+i+')" title="'+(r.ativo!==false?'Desligar':'Ligar')+'" style="width:9px;height:9px;border-radius:50%;background:'+(r.ativo!==false?'#27AE60':'#c3cedd')+';flex-shrink:0;cursor:pointer"></div>'+
+      '<div style="flex:1;font-size:11.5px;color:#1a2332">'+pfVendasRegrasIADescricao(r)+'</div>'+
+      '<span onclick="pfVendasIARemover('+i+')" style="font-size:13px;color:#c00;cursor:pointer">✕</span>'+
+    '</div>';
+  }).join('');
+}
+function pfVendasIAToggle(i){
+  var lista=pfVendasRegrasIALoad();
+  if(!lista[i])return;
+  lista[i].ativo=lista[i].ativo===false?true:false;
+  pfVendasRegrasIASalvar(lista);
+  pfVendasIARenderLista();
+}
+function pfVendasIARemover(i){
+  var lista=pfVendasRegrasIALoad();
+  lista.splice(i,1);
+  pfVendasRegrasIASalvar(lista);
+  pfVendasIARenderLista();
+}
+function pfVendasIAChatBolha(texto,dele){
+  var chat=document.getElementById('pfVendasIAChat');if(!chat)return;
+  var b=document.createElement('div');
+  if(dele){
+    b.style.cssText='align-self:flex-end;max-width:80%;background:#1F4E79;color:#fff;padding:7px 11px;border-radius:10px 10px 2px 10px;font-size:12.5px';
+    b.textContent=texto;
+  }else{
+    b.style.cssText='align-self:flex-start;max-width:88%;background:#EAF1FB;padding:9px 11px;border-radius:10px 10px 10px 2px;font-size:12.5px;color:#12365e';
+    b.innerHTML=texto;
+  }
+  chat.appendChild(b);
+  chat.scrollTop=chat.scrollHeight;
+  return b;
+}
+async function pfVendasIAEnviar(){
+  var inp=document.getElementById('pfVendasIAInput');if(!inp)return;
+  var texto=(inp.value||'').trim();if(!texto)return;
+  inp.value='';
+  pfVendasIAChatBolha(texto,true);
+  var pensando=pfVendasIAChatBolha('<span style="color:#5a6b80">Pensando...</span>',false);
+  var apiKey=localStorage.getItem('anthropic_key')||'';
+  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)pfAnthropicKeySet(apiKey);}
+  if(!apiKey){pensando.innerHTML='Preciso de uma chave da Anthropic (Ferramentas → Minhas Chaves) pra entender a regra.';return;}
+  try{
+    var prompt2='Você transforma um pedido de vendedor em UMA regra estruturada de cotação, pro sistema PartsFlow. '+
+      'Responda APENAS JSON, sem markdown, num dos dois formatos:\n'+
+      '1) {"tipo":"marca_unica","item":"CODIGO_DO_ITEM","marca":"NOME_DA_MARCA"} -- quando ele quer que só uma marca específica suba pra cotação de um código específico.\n'+
+      '2) {"tipo":"menor_preco","marcas":["MARCA1","MARCA2"]} -- quando ele quer que, entre duas ou mais marcas parecidas, suba só a de menor preço/custo.\n'+
+      'Sempre em maiúsculas pro item e as marcas. Se não conseguir entender como nenhum dos dois formatos, responda {"tipo":"erro","motivo":"..."}.\n\n'+
+      'Pedido do vendedor: "'+texto+'"';
+    var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:pfAnthropicHeaders(apiKey),
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:300,messages:[{role:'user',content:prompt2}]})});
+    var data=await resp.json();
+    var raw=data.content.map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();
+    var m=raw.match(/\{[\s\S]*\}/);if(m)raw=m[0];
+    var regra=JSON.parse(raw);
+    if(regra.tipo==='erro'){
+      pensando.innerHTML='Não entendi direito: '+pfEscHtml(regra.motivo||'tenta descrever de outro jeito?');
+      return;
+    }
+    regra.ts=Date.now();regra.ativo=true;regra.textoOriginal=texto;
+    var resumo=pfVendasRegrasIADescricao(regra);
+    pensando.innerHTML='Entendi assim:<div style="font-size:12.5px;color:#12365e;font-weight:600;margin-top:4px">'+resumo+'</div>'+
+      '<div style="display:flex;gap:6px;margin-top:8px">'+
+        '<button onclick="pfVendasIAConfirmar(this)" style="padding:4px 12px;border-radius:6px;border:none;background:#1F4E79;color:#fff;font-size:11.5px;font-weight:700;cursor:pointer">Confirmar</button>'+
+        '<button onclick="this.closest(\'[style]\').remove()" style="padding:4px 12px;border-radius:6px;border:1px solid #e0e8f0;background:#fff;color:#5a6b80;font-size:11.5px;cursor:pointer">Descartar</button>'+
+      '</div>';
+    pensando.dataset.regra=JSON.stringify(regra);
+  }catch(e){
+    pensando.innerHTML='Deu erro: '+pfEscHtml(e.message);
+  }
+}
+function pfVendasIAConfirmar(btn){
+  var bolha=btn.closest('div[data-regra]')||btn.parentElement.parentElement;
+  var regraStr=bolha.dataset.regra;
+  if(!regraStr)return;
+  var regra=JSON.parse(regraStr);
+  var lista=pfVendasRegrasIALoad();
+  lista.push(regra);
+  pfVendasRegrasIASalvar(lista);
+  bolha.innerHTML='✅ Regra salva.';
+  pfVendasIARenderLista();
+}
 function vendasAbrirModal(cx){
   window._vendasTabs=window._vendasTabs||{};
   window._vendasModalMode=true;
@@ -50802,7 +50987,19 @@ function vendasRenderTabs(){
   closeAll.textContent='✕';closeAll.title='Fechar tudo';
   closeAll.onclick=function(){window._vendasTabs={};window._vendasModalMode=false;vendasFecharModal();};
   closeAll.addEventListener('touchend',function(e){e.preventDefault();window._vendasTabs={};window._vendasModalMode=false;vendasFecharModal();});
-  ctrl.appendChild(minBtn);ctrl.appendChild(maxBtn);ctrl.appendChild(escLbl);ctrl.appendChild(closeAll);
+  // v115.1746 - A pedido do Vitor: ícone de assistente de IA, abre painel
+  // de regras automáticas de cotação (ver pfVendasRegrasIAAbrirPainel).
+  // Ícone customizável (mesma infra data-pf-atalho-id/data-pf-icon-slot já
+  // usada em Atalhos de Texto e nos botões do Mapa de Compras) -- ele
+  // pediu explicitamente pra não ficar preso no emoji de robô padrão.
+  var iconIA=(typeof pfIconOverrideHtml==='function'&&pfIconOverrideHtml('vendas_ia_regras',16))||'🤖';
+  var iaBtn=document.createElement('button');
+  iaBtn.setAttribute('data-pf-atalho-id','vendas_ia_regras');
+  iaBtn.style.cssText='background:none;border:none;color:rgba(255,255,255,.85);font-size:16px;cursor:pointer;padding:4px 6px;border-radius:4px;display:flex;align-items:center';
+  iaBtn.title='Assistente de Vendas (regras automáticas)';
+  iaBtn.innerHTML='<span data-pf-icon-slot="vendas_ia_regras" style="font-size:16px;line-height:1;display:inline-flex;vertical-align:middle">'+iconIA+'</span>';
+  iaBtn.onclick=function(){pfVendasRegrasIAAbrirPainel();};
+  ctrl.appendChild(minBtn);ctrl.appendChild(maxBtn);ctrl.appendChild(iaBtn);ctrl.appendChild(escLbl);ctrl.appendChild(closeAll);
   tabBar.appendChild(ctrl);
   box.appendChild(tabBar);
 

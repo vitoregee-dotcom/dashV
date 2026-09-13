@@ -1714,7 +1714,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1748</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1749</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1858,7 +1858,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1748</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1749</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -48357,11 +48357,18 @@ function pfLembretesVerificarDisparo(){
   lista.forEach(function(l){
     if(l.hora!==horaAtual)return;
     if(l.ultimoDisparo===hoje)return; // já disparou hoje
+    // v115.1749 - "A cada N dias": só dispara quando a data de hoje já
+    // bateu ou passou de proximoDisparo (calculado quando o lembrete foi
+    // criado/editado, ou logo abaixo, na primeira vez que ele dispara).
     var deveDisparar = l.repeticao==='diaria' || l.repeticao==='nenhuma' ||
-      (l.repeticao==='dias_semana' && (l.dias||[]).indexOf(diaSemana)>=0);
+      (l.repeticao==='dias_semana' && (l.dias||[]).indexOf(diaSemana)>=0) ||
+      (l.repeticao==='intervalo' && l.proximoDisparo && hoje>=l.proximoDisparo);
     if(!deveDisparar)return;
     pfLembreteNotificar(l.texto, l.link?'Clique pra abrir':'', l.link, l.som!==false);
     l.ultimoDisparo=hoje;
+    if(l.repeticao==='intervalo'){
+      l.proximoDisparo=new Date(Date.now()+(l.intervaloDias||30)*86400000).toISOString().slice(0,10);
+    }
     mudou=true;
   });
   if(mudou)pfLembretesSave(lista);
@@ -48391,6 +48398,10 @@ function pfLembreteNovoAbrir(editId){
       '<label style="display:flex;align-items:center;gap:7px"><input type="radio" name="lbRep" value="nenhuma" '+(!editando||editando.repeticao==='nenhuma'?'checked':'')+' onchange="pfLembreteFormAtualizarDias()">Não repetir (só uma vez)</label>'+
       '<label style="display:flex;align-items:center;gap:7px"><input type="radio" name="lbRep" value="diaria" '+(editando&&editando.repeticao==='diaria'?'checked':'')+' onchange="pfLembreteFormAtualizarDias()">Todos os dias</label>'+
       '<label style="display:flex;align-items:center;gap:7px"><input type="radio" name="lbRep" value="dias_semana" '+(editando&&editando.repeticao==='dias_semana'?'checked':'')+' onchange="pfLembreteFormAtualizarDias()">Dias da semana específicos</label>'+
+      // v115.1749 - A pedido do Vitor ("de repente o sistema dar uma
+      // varredura a cada 15 ou 30 dias"): faltava um jeito de repetir em
+      // intervalo de N dias (só existia diário ou dias fixos da semana).
+      '<label style="display:flex;align-items:center;gap:7px"><input type="radio" name="lbRep" value="intervalo" '+(editando&&editando.repeticao==='intervalo'?'checked':'')+' onchange="pfLembreteFormAtualizarDias()">A cada <input id="lbIntervaloDias" type="number" min="1" value="'+(editando&&editando.intervaloDias?editando.intervaloDias:30)+'" style="width:46px;padding:2px 4px;border:1.5px solid #e0e8f0;border-radius:5px;font-size:12px;text-align:center;margin:0 4px" onclick="event.stopPropagation();document.querySelector(\'input[name=lbRep][value=intervalo]\').checked=true"> dias</label>'+
     '</div>'+
     '<div id="lbDiasWrap" style="display:'+(editando&&editando.repeticao==='dias_semana'?'flex':'none')+';gap:4px;margin-bottom:12px;flex-wrap:wrap">'+
       ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(function(d,i){
@@ -48440,6 +48451,14 @@ function pfLembreteSalvarNovo(){
     document.querySelectorAll('.lbDiaChip.on').forEach(function(el){dias.push(parseInt(el.dataset.dia,10));});
     if(!dias.length){pfAlert('Escolhe pelo menos um dia da semana.');return;}
   }
+  // v115.1749 - "A cada N dias": grava o intervalo e já calcula a
+  // primeira data de disparo (hoje + N dias) -- pfLembretesVerificarDisparo
+  // só dispara de novo quando a data de hoje bater com proximoDisparo.
+  var intervaloDias=0;
+  if(repeticao==='intervalo'){
+    intervaloDias=parseInt((document.getElementById('lbIntervaloDias')||{}).value,10)||30;
+    if(intervaloDias<1)intervaloDias=30;
+  }
   var link=(document.getElementById('lbLink').value||'').trim();
   var som=document.getElementById('lbSom').checked;
   var ov=document.getElementById('pfLembreteNovoOverlay');
@@ -48456,9 +48475,14 @@ function pfLembreteSalvarNovo(){
       lista[idx].texto=texto; lista[idx].hora=hora; lista[idx].repeticao=repeticao;
       lista[idx].dias=dias; lista[idx].link=link; lista[idx].som=som; lista[idx].ts=Date.now();
       lista[idx].ultimoDisparo=null; // horário pode ter mudado -- libera disparar de novo hoje
+      lista[idx].intervaloDias=intervaloDias;
+      if(repeticao==='intervalo')lista[idx].proximoDisparo=new Date(Date.now()+intervaloDias*86400000).toISOString().slice(0,10);
+      else delete lista[idx].proximoDisparo;
     }
   } else {
-    lista.push({id:'lb_'+Date.now(),texto:texto,hora:hora,repeticao:repeticao,dias:dias,link:link,som:som,ultimoDisparo:null,ts:Date.now()});
+    var novoLb={id:'lb_'+Date.now(),texto:texto,hora:hora,repeticao:repeticao,dias:dias,link:link,som:som,ultimoDisparo:null,ts:Date.now(),intervaloDias:intervaloDias};
+    if(repeticao==='intervalo')novoLb.proximoDisparo=new Date(Date.now()+intervaloDias*86400000).toISOString().slice(0,10);
+    lista.push(novoLb);
   }
   pfLembretesSave(lista);
   if(ov)ov.remove();
@@ -48481,6 +48505,18 @@ function pfPainelTarefasMontar(){
   el.id='pfPainelTarefas';
   document.body.appendChild(el);
   pfPainelTarefasRender();
+  // v115.1749 - A pedido do Vitor ("de repente o sistema dar uma
+  // varredura a cada 15 ou 30 dias" nas alíquotas de ICMS): cria esse
+  // lembrete UMA vez só (marcador id fixo, checa se já existe antes) --
+  // dono da conta pode editar/apagar normalmente depois se quiser outro
+  // intervalo ou não quiser mais.
+  try{
+    var _lembretesAtuais=pfLembretesLoad();
+    if(!_lembretesAtuais.some(function(l){return l.id==='lb_icms_check_v1';})){
+      _lembretesAtuais.push({id:'lb_icms_check_v1',texto:'Pedir pro Claude conferir se as alíquotas de ICMS por estado mudaram',hora:'09:00',repeticao:'intervalo',intervaloDias:30,dias:[],link:'',som:true,ultimoDisparo:null,ts:Date.now(),proximoDisparo:new Date(Date.now()+30*86400000).toISOString().slice(0,10)});
+      pfLembretesSave(_lembretesAtuais);
+    }
+  }catch(e){}
   window.addEventListener('resize',function(){
     // só re-renderiza por causa da largura se o usuário nunca mexeu manualmente
     if(pfSafeGetItem('pfPainelTarefasOculto',null)===null)pfPainelTarefasRender();
@@ -48688,7 +48724,7 @@ function pfPainelTarefasRender(){
       (pfLembretesPermissaoStatus()!=='granted'?('<div onclick="pfLembretesPedirPermissao()" style="font-size:15px;color:#B4552F;background:#FBE9E4;border-radius:10px;padding:8px 11px;margin-bottom:8px;cursor:pointer;font-weight:700;flex-shrink:0">🔔 Notificação do navegador '+(pfLembretesPermissaoStatus()==='denied'?'bloqueada — ative nas configurações do site':'desligada — clique pra ativar (opcional: o aviso na tela funciona mesmo sem isso)')+'</div>'):'')+
       '<div style="'+listaLembStyle+'">'+
         lembretes.map(function(l){
-          var tagTxt=l.repeticao==='diaria'?'diário':l.repeticao==='dias_semana'?'semanal':'só hoje';
+          var tagTxt=l.repeticao==='diaria'?'diário':l.repeticao==='dias_semana'?'semanal':l.repeticao==='intervalo'?('a cada '+(l.intervaloDias||30)+'d'):'só hoje';
           var tagCor=l.repeticao==='nenhuma'?'background:#FBE9E4;color:#B4552F':'background:#EAF7EE;color:#1A7A3C';
           return '<div style="display:flex;align-items:center;gap:4px;padding:6px 0">'+
             '<span style="background:#1F4E79;color:#fff;font-size:15px;font-weight:700;padding:3px 9px;border-radius:10px;flex-shrink:0">'+l.hora+'</span>'+
@@ -62137,6 +62173,21 @@ function mgRenderTabela(){
   });
   html+='</tbody></table>';
   html+='<div style="padding:8px 12px;font-size:11px;color:#8a9ab0;border-top:1px solid #f0f4f8">ICMS% = crédito na compra (C) e débito na venda (V), conforme Fornecedor UF / Cliente UF acima. Já está sendo usado no cálculo de Venda Sug. e Markup — mude a UF lá em cima pra recalcular todos.</div>';
+  // v115.1749 - A pedido do Vitor ("como podemos ficar de olho nisso" --
+  // as alíquotas de ICMS por estado mudam de vez em quando): mostra
+  // sempre que as tabelas foram conferidas pela última vez, e vira um
+  // aviso (fundo laranja) sozinho depois de 30 dias -- não tem como o
+  // sistema ir na Sefaz de cada estado checar sozinho, mas pelo menos
+  // fica visível quando já passou da hora de pedir uma conferida de novo.
+  html+=(function(){
+    var verificadoEm=new Date('2026-09-13');
+    var dias=Math.floor((Date.now()-verificadoEm.getTime())/86400000);
+    var vencido=dias>30;
+    return '<div style="padding:8px 12px;font-size:11px;'+(vencido?'background:#FBE9E4;color:#B4552F;font-weight:700':'color:#8a9ab0')+';border-top:1px solid #f0f4f8">'+
+      (vencido?'⚠️ ':'')+'Alíquotas de ICMS por estado conferidas em 13/09/2026 ('+dias+' dia(s) atrás)'+
+      (vencido?' — já passou de 30 dias, vale pedir pro Claude pesquisar e confirmar se mudou algo.':'.')+
+    '</div>';
+  })();
   el.innerHTML=html;
 }
 

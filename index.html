@@ -1714,7 +1714,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1758</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1759</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1858,7 +1858,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1758</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1759</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -44133,7 +44133,12 @@ function vendasInserirItensNaLista(cod, codDigitado, qtd, items){
   var novosItens=[];
   if(items&&items.length){
     items.forEach(function(it){
-      novosItens.push({codigo:cod,codigoOriginal:codDigitado,qtd:qtd,desc:it.desc,marca:marcaCot||it.marca,marcaInterna:it.marca,saldo:it.saldo,custo:it.custo,
+      // v115.1759 - Cada ficha usa o código REAL dela (_refExemplo), não
+      // mais sempre o código digitado -- necessário agora que a busca
+      // pode trazer fichas de códigos diferentes (variantes tipo
+      // 230857A/230857D) na mesma leva. codigoOriginal guarda o que foi
+      // digitado, pra rastreabilidade.
+      novosItens.push({codigo:it._refExemplo||cod,codigoOriginal:codDigitado,qtd:qtd,desc:it.desc,marca:marcaCot||it.marca,marcaInterna:it.marca,saldo:it.saldo,custo:it.custo,
         viaEquivalencia:it.viaEquivalencia||false,classificacaoEquivalencia:it.classificacao||null});
     });
   } else {
@@ -45183,12 +45188,32 @@ function vendasBuscarItem(cod){
   if(!rows.length){console.warn('vendasBuscarItem: planilha não carregada');return null;}
   var matches=[];
   var codClean=cod.replace(/[\s\-\.]/g,'').toUpperCase();
+  var _matchExato=[];
   for(var i=0;i<rows.length;i++){
     var row=rows[i];
     var ref=(row.ref||row.Ref||row.REF||row.Referencia||row.referencia||row.REFERENCIA||row.codigo||row.Codigo||row.CODIGO||'').toString().toUpperCase().trim();
     var refClean=ref.replace(/[\s\-\.]/g,'');
-    if(ref===cod||refClean===codClean) matches.push(row);
+    if(ref===cod||refClean===codClean){matches.push(row);_matchExato.push(refClean);}
   }
+  // v115.1759 - A pedido do Vitor (achado real: digitou 230857 na cotação
+  // e só achou a ficha exata; existem outras 4 fichas "irmãs" do mesmo
+  // código-base -- 230857A, 230857D, 230857-90 -- cada uma com
+  // descrição/marca/saldo PRÓPRIOS, uma delas com 392 de saldo, que nunca
+  // apareciam). Além do match exato, busca também variantes: mesmo
+  // código-base + um sufixo curto (1-3 letras/dígitos, com ou sem hífen)
+  // -- cobre o padrão real de sufixo usado nos catálogos (A/B/C, -90 etc)
+  // sem virar uma busca "contém" solta demais (que acertaria código
+  // errado por coincidência).
+  var _variantesEncontradas=[];
+  var _regexVariante=new RegExp('^'+codClean.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[A-Z0-9]{1,3}$');
+  for(var iv=0;iv<rows.length;iv++){
+    var rowV=rows[iv];
+    var refV=(rowV.ref||rowV.Ref||rowV.REF||rowV.Referencia||rowV.referencia||rowV.REFERENCIA||rowV.codigo||rowV.Codigo||rowV.CODIGO||'').toString().toUpperCase().trim();
+    var refCleanV=refV.replace(/[\s\-\.]/g,'');
+    if(refCleanV===codClean)continue; // já está em matches (exato)
+    if(_regexVariante.test(refCleanV))_variantesEncontradas.push(rowV);
+  }
+  if(_variantesEncontradas.length)matches=matches.concat(_variantesEncontradas);
   var viaEquivalencia=false;
   // v115.1131 - A pedido do Vitor: se o código existe mas TODAS as marcas
   // estão com saldo zerado, também busca por equivalência (em vez de só
@@ -45245,19 +45270,23 @@ function vendasBuscarItem(cod){
     console.warn('vendasBuscarItem: "'+cod+'" não encontrado. Exemplos:',sample);
     return null;
   }
-  // Agrupa por marca — cada marca vira uma linha separada na cotação,
-  // em vez de somar saldo de marcas diferentes e mostrar só o custo mais barato
-  // (isso escondia qual marca específica tinha qual saldo/custo).
+  // Agrupa por REF+marca — cada ficha física vira uma linha separada na
+  // cotação. Antes agrupava só por marca (v115 antigo); passou a ser um
+  // problema real com a busca por variantes (v115.1759): duas fichas
+  // DIFERENTES (ex: 230857 e 230857A) podiam calhar de ter a mesma marca
+  // e ficavam somadas/misturadas numa linha só, escondendo que eram
+  // peças físicas distintas.
   var grupos={},ordem=[];
   matches.forEach(function(row){
     var m=(row.marca||row.Marca||row.MARCA||'').toString()||'—';
-    if(!grupos[m]){grupos[m]={desc:'',marca:m,saldo:0,custo:null};ordem.push(m);}
+    var refRow=(row.ref||row.REF||row.Referencia||row.referencia||row.REFERENCIA||row.codigo||row.Codigo||row.CODIGO||'').toString().toUpperCase().trim()||cod;
+    var chaveGrupo=refRow+'|'+m;
+    if(!grupos[chaveGrupo]){grupos[chaveGrupo]={desc:'',marca:m,saldo:0,custo:null,_refExemplo:refRow};ordem.push(chaveGrupo);}
     var s=parseFloat(row.saldo||row.Saldo||row.SALDO||0)||0;
-    grupos[m].saldo+=s;
+    grupos[chaveGrupo].saldo+=s;
     var c=parseFloat(row.custo||row.Custo||row.CUSTO||0)||null;
-    if(c&&(!grupos[m].custo||c<grupos[m].custo))grupos[m].custo=c;
-    if(!grupos[m].desc)grupos[m].desc=(row.desc||row.Desc||row.DESC||row.Descricao||row.descricao||'').toString();
-    if(!grupos[m]._refExemplo) grupos[m]._refExemplo=row.ref||row.REF||row.Referencia||'';
+    if(c&&(!grupos[chaveGrupo].custo||c<grupos[chaveGrupo].custo))grupos[chaveGrupo].custo=c;
+    if(!grupos[chaveGrupo].desc)grupos[chaveGrupo].desc=(row.desc||row.Desc||row.DESC||row.Descricao||row.descricao||'').toString();
   });
   // v115.1121 - quando o item veio por equivalência (não achou o código
   // digitado literal), classifica cada grupo com o motor de regras
@@ -51103,6 +51132,166 @@ function pfVendasIAConfirmar(btn){
   bolha.innerHTML='✅ Regra salva.';
   pfVendasIARenderLista();
 }
+// v115.1759 - A pedido do Vitor: "quero poder escolher na hora o que vai
+// pro cliente" -- separado da cotação de trabalho (que mostra TODAS as
+// fichas encontradas). Agrupa por codigoOriginal (o código que ele
+// digitou), mostra as fichas de cada grupo com checkbox (desmarcado por
+// padrão se saldo<=0), e ações rápidas por grupo: só a mais barata, ou só
+// uma marca. O PDF final usa só o que estiver marcado -- não mexe na
+// cotação de trabalho em si.
+function pfVendasPdfClienteAbrir(){
+  var itens=(window._venda&&window._venda.itens)||[];
+  if(!itens.length){pfAlert('Adicione itens na cotação antes.');return;}
+  var grupos={},ordem=[];
+  itens.forEach(function(it,idx){
+    var chave=it.codigoOriginal||it.codigo||('item'+idx);
+    if(!grupos[chave]){grupos[chave]=[];ordem.push(chave);}
+    grupos[chave].push(idx);
+  });
+  var existente=document.getElementById('pfVendasPdfOverlay');if(existente)existente.remove();
+  var overlay=document.createElement('div');
+  overlay.id='pfVendasPdfOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove();};
+  var box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:12px;width:640px;max-width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;font-family:Calibri,Arial,sans-serif';
+  var html='<div style="padding:14px 18px;border-bottom:1px solid #e0e8f0;background:#F7F9FC">'+
+    '<div style="font-size:15px;font-weight:800;color:#1F4E79">📄 O que vai pro PDF do cliente?</div>'+
+    '<div style="font-size:11.5px;color:#5a6b80;margin-top:2px">Isso não altera a cotação de trabalho -- só escolhe o que sai no documento final.</div>'+
+  '</div>';
+  html+='<div style="padding:10px 18px;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;gap:8px">'+
+    '<input type="checkbox" id="pfVendasPdfSoComSaldo" checked onchange="pfVendasPdfAplicarSoComSaldo(this.checked)">'+
+    '<label for="pfVendasPdfSoComSaldo" style="font-size:12.5px;color:#1a2332;cursor:pointer">Desmarcar automaticamente itens sem saldo (saldo ≤ 0)</label>'+
+  '</div>';
+  html+='<div id="pfVendasPdfLista" style="padding:12px 18px;overflow-y:auto;flex:1"></div>';
+  html+='<div style="padding:12px 18px;border-top:1px solid #e0e8f0;display:flex;gap:8px">'+
+    '<button onclick="pfVendasPdfClienteGerar()" style="flex:1;background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:10px 0;font-size:13.5px;font-weight:700;cursor:pointer">Gerar PDF</button>'+
+    '<button onclick="document.getElementById(\'pfVendasPdfOverlay\').remove()" style="padding:10px 16px;border:1px solid #e0e8f0;border-radius:8px;background:none;color:#5a6b80;font-size:13px;cursor:pointer">Cancelar</button>'+
+  '</div>';
+  box.innerHTML=html;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  window._pfVendasPdfGrupos={grupos:grupos,ordem:ordem};
+  pfVendasPdfRenderLista();
+}
+function pfVendasPdfRenderLista(){
+  var wrap=document.getElementById('pfVendasPdfLista');if(!wrap)return;
+  var itens=(window._venda&&window._venda.itens)||[];
+  var g=window._pfVendasPdfGrupos;if(!g)return;
+  var soComSaldo=document.getElementById('pfVendasPdfSoComSaldo');
+  soComSaldo=soComSaldo?soComSaldo.checked:true;
+  var html='';
+  g.ordem.forEach(function(chave){
+    var idxs=g.grupos[chave];
+    var marcasDisponiveis=[];
+    idxs.forEach(function(i){var mm=itens[i].marca||'—';if(marcasDisponiveis.indexOf(mm)===-1)marcasDisponiveis.push(mm);});
+    html+='<div style="border:1px solid #e0e8f0;border-radius:8px;margin-bottom:10px;overflow:hidden">';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;background:#F7F9FC;padding:7px 10px">';
+    html+='<div style="font-size:12px;font-weight:700;color:#1F4E79">'+pfEscHtml(chave)+'</div>';
+    html+='<div style="display:flex;gap:6px;align-items:center">';
+    html+='<button onclick="pfVendasPdfSoMaisBarata(\''+pfEscJs(chave)+'\')" style="font-size:10.5px;padding:3px 8px;border-radius:5px;border:1px solid #e0e8f0;background:#fff;color:#5a6b80;cursor:pointer">Só + barata</button>';
+    if(marcasDisponiveis.length>1){
+      html+='<select onchange="pfVendasPdfSoMarca(\''+pfEscJs(chave)+'\',this.value)" style="font-size:10.5px;padding:3px 6px;border-radius:5px;border:1px solid #e0e8f0;background:#fff;color:#5a6b80">';
+      html+='<option value="">Só marca...</option>';
+      marcasDisponiveis.forEach(function(mm){html+='<option value="'+pfEscHtml(mm)+'">'+pfEscHtml(mm)+'</option>';});
+      html+='</select>';
+    }
+    html+='</div></div>';
+    idxs.forEach(function(i){
+      var it=itens[i];
+      var neg=!it.saldo||it.saldo<=0;
+      var marcado=(it._pdfCliente!=null)?it._pdfCliente:!(soComSaldo&&neg);
+      it._pdfCliente=marcado;
+      html+='<label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:0.5px solid #f0f4f8;cursor:pointer;font-size:12px">';
+      html+='<input type="checkbox" onchange="window._venda.itens['+i+']._pdfCliente=this.checked" '+(marcado?'checked':'')+'>';
+      html+='<span style="font-family:monospace;color:#D97757;width:70px;flex-shrink:0">'+pfEscHtml(it.codigo||'')+'</span>';
+      html+='<span style="flex:1;color:#1a2332">'+pfEscHtml(it.desc||'-')+'</span>';
+      html+='<span style="color:#607080;width:90px;flex-shrink:0">'+pfEscHtml(it.marca||'-')+'</span>';
+      html+='<span style="width:50px;text-align:center;font-weight:600;color:'+(neg?'#C00000':'#166534')+'">'+(it.saldo!=null?it.saldo:'-')+'</span>';
+      html+='</label>';
+    });
+    html+='</div>';
+  });
+  wrap.innerHTML=html;
+}
+function pfVendasPdfAplicarSoComSaldo(){
+  (window._venda.itens||[]).forEach(function(it){it._pdfCliente=null;});
+  pfVendasPdfRenderLista();
+}
+function pfVendasPdfSoMaisBarata(chave){
+  var g=window._pfVendasPdfGrupos;if(!g)return;
+  var idxs=g.grupos[chave];
+  var itens=window._venda.itens;
+  var melhor=null;
+  idxs.forEach(function(i){
+    var custo=itens[i].custo;
+    if(custo!=null&&(melhor==null||custo<itens[melhor].custo))melhor=i;
+  });
+  idxs.forEach(function(i){itens[i]._pdfCliente=(i===melhor);});
+  pfVendasPdfRenderLista();
+}
+function pfVendasPdfSoMarca(chave,marca){
+  if(!marca)return;
+  var g=window._pfVendasPdfGrupos;if(!g)return;
+  var idxs=g.grupos[chave];
+  var itens=window._venda.itens;
+  idxs.forEach(function(i){itens[i]._pdfCliente=((itens[i].marca||'')===marca);});
+  pfVendasPdfRenderLista();
+}
+async function pfVendasPdfClienteGerar(){
+  var itens=(window._venda.itens||[]).filter(function(it){return it._pdfCliente;});
+  if(!itens.length){pfAlert('Nenhum item selecionado pro PDF.');return;}
+  var v=window._venda;
+  var cliente=v.cliente?(v.cliente.razao||v.cliente.fantasia||''):'';
+  var totalGeral=0;
+  var linhasHtml=itens.map(function(it,i){
+    var custo=it.custoOverride!=null?it.custoOverride:it.custo;
+    var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf||'SP',v.margem||30):0);
+    var totalLinha=(venda||0)*(it.qtd||1);
+    totalGeral+=totalLinha;
+    return '<tr style="background:'+(i%2?'#F7F9FC':'#fff')+'">'+
+      '<td style="padding:7px 10px;font-family:monospace;font-size:11px;border-bottom:1px solid #eef2f6">'+pfEscHtml(it.codigo||'')+'</td>'+
+      '<td style="padding:7px 10px;font-size:11px;border-bottom:1px solid #eef2f6">'+pfEscHtml(it.desc||'-')+'</td>'+
+      '<td style="padding:7px 10px;font-size:11px;border-bottom:1px solid #eef2f6;text-align:center">'+pfEscHtml(it.marca||'-')+'</td>'+
+      '<td style="padding:7px 10px;font-size:11px;border-bottom:1px solid #eef2f6;text-align:center">'+(it.qtd||1)+'</td>'+
+      '<td style="padding:7px 10px;font-size:11px;border-bottom:1px solid #eef2f6;text-align:right">R$ '+(venda?venda.toFixed(2).replace('.',','):'-')+'</td>'+
+      '<td style="padding:7px 10px;font-size:11px;border-bottom:1px solid #eef2f6;text-align:right;font-weight:700">R$ '+totalLinha.toFixed(2).replace('.',',')+'</td>'+
+    '</tr>';
+  }).join('');
+  var htmlDoc='<div id="pfVendasPdfDocTemp" style="width:780px;font-family:Arial,sans-serif;padding:24px;background:#fff;color:#1a2332">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #FF6B6B;padding-bottom:12px;margin-bottom:16px">'+
+      '<div style="font-size:20px;font-weight:800;color:#1F4E79">PartsFlow <span style="font-weight:400;color:#5a6b80;font-size:13px">| Cotação</span></div>'+
+      '<div style="font-size:11px;color:#8a9ab0;text-align:right">'+new Date().toLocaleDateString('pt-BR')+'<br>Nº '+(v.nr||v.num||'—')+'</div>'+
+    '</div>'+
+    '<div style="font-size:12px;color:#5a6b80;margin-bottom:16px">'+
+      '<b>Cliente:</b> '+pfEscHtml(cliente)+' &nbsp; <b>Condição:</b> '+pfEscHtml(v.condicao||'-')+' &nbsp; <b>Comprador:</b> '+pfEscHtml(v.comprador||'-')+
+    '</div>'+
+    '<table style="width:100%;border-collapse:collapse">'+
+      '<thead><tr style="background:#FF6B6B">'+
+        '<th style="padding:8px 10px;font-size:10.5px;color:#fff;text-align:left">CÓDIGO</th>'+
+        '<th style="padding:8px 10px;font-size:10.5px;color:#fff;text-align:left">DESCRIÇÃO</th>'+
+        '<th style="padding:8px 10px;font-size:10.5px;color:#fff;text-align:center">MARCA</th>'+
+        '<th style="padding:8px 10px;font-size:10.5px;color:#fff;text-align:center">QTD</th>'+
+        '<th style="padding:8px 10px;font-size:10.5px;color:#fff;text-align:right">UNIT.</th>'+
+        '<th style="padding:8px 10px;font-size:10.5px;color:#fff;text-align:right">TOTAL</th>'+
+      '</tr></thead><tbody>'+linhasHtml+'</tbody>'+
+    '</table>'+
+    '<div style="text-align:right;margin-top:14px;font-size:14px;font-weight:800;color:#1F4E79">TOTAL GERAL: R$ '+totalGeral.toFixed(2).replace('.',',')+'</div>'+
+  '</div>';
+  var temp=document.createElement('div');
+  temp.style.cssText='position:fixed;left:-9999px;top:0';
+  temp.innerHTML=htmlDoc;
+  document.body.appendChild(temp);
+  try{
+    if(typeof pfCarregarHtml2Pdf==='function')await pfCarregarHtml2Pdf();
+    await html2pdf().set({margin:0,filename:'cotacao-'+(v.nr||v.num||'cliente')+'.pdf',html2canvas:{scale:2},jsPDF:{unit:'pt',format:'a4'},pagebreak:{mode:['css','legacy']}}).from(document.getElementById('pfVendasPdfDocTemp')).save();
+  }catch(e){
+    pfAlert('Erro ao gerar PDF: '+e.message);
+  }finally{
+    temp.remove();
+  }
+  var ov=document.getElementById('pfVendasPdfOverlay');if(ov)ov.remove();
+}
 function vendasAbrirModal(cx){
   window._vendasTabs=window._vendasTabs||{};
   window._vendasModalMode=true;
@@ -51271,7 +51460,14 @@ function vendasRenderTabs(){
   iaBtn.title='Assistente de Vendas (regras automáticas)';
   iaBtn.innerHTML='<span data-pf-icon-slot="vendas_ia_regras" style="font-size:16px;line-height:1;display:inline-flex;vertical-align:middle">'+iconIA+'</span>';
   iaBtn.onclick=function(){pfVendasRegrasIAAbrirPainel();};
-  ctrl.appendChild(minBtn);ctrl.appendChild(maxBtn);ctrl.appendChild(iaBtn);ctrl.appendChild(escLbl);ctrl.appendChild(closeAll);
+  // v115.1759 - A pedido do Vitor: botão pra abrir a etapa de seleção
+  // antes de gerar o PDF pro cliente (ver pfVendasPdfClienteAbrir).
+  var pdfClienteBtn=document.createElement('button');
+  pdfClienteBtn.style.cssText='background:none;border:none;color:rgba(255,255,255,.85);font-size:14px;cursor:pointer;padding:4px 8px;border-radius:4px;display:flex;align-items:center;gap:4px;font-weight:600';
+  pdfClienteBtn.title='Escolher o que vai pro cliente e gerar o PDF';
+  pdfClienteBtn.innerHTML='📄 PDF Cliente';
+  pdfClienteBtn.onclick=function(){pfVendasPdfClienteAbrir();};
+  ctrl.appendChild(minBtn);ctrl.appendChild(maxBtn);ctrl.appendChild(iaBtn);ctrl.appendChild(pdfClienteBtn);ctrl.appendChild(escLbl);ctrl.appendChild(closeAll);
   tabBar.appendChild(ctrl);
   box.appendChild(tabBar);
 

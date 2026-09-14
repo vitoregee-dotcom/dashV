@@ -137,10 +137,10 @@ document.addEventListener('visibilitychange',function(){
 document.addEventListener('visibilitychange',function(){
   if(document.visibilityState!=='visible')return;
   if(window._pfUltimoPullVisivel&&Date.now()-window._pfUltimoPullVisivel<5000)return; // evita rajada se piscar rápido
-  // v115.1789 - A pedido do Vitor (print do console mostrando LONGTASK de
+  // v115.1790 - A pedido do Vitor (print do console mostrando LONGTASK de
   // 5131ms bem em cima de "Aba voltou pra PRIMEIRO PLANO"): esse pull ao
   // voltar de segundo plano não tinha a MESMA proteção contra sobreposição
-  // que o relógio de 2min já ganhou na v115.1789 -- se o relógio de 2min
+  // que o relógio de 2min já ganhou na v115.1790 -- se o relógio de 2min
   // disparasse quase junto (ou a aba ficou fora tempo suficiente pra somar
   // vários pulls pendentes), rodavam 2 pulls PESADOS ao mesmo tempo. Reusa
   // a mesma trava (_pfSyncPullEmAndamento) pra nunca rodar sobreposto.
@@ -1709,7 +1709,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1789</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1790</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1853,7 +1853,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1789</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1790</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -16778,7 +16778,11 @@ function pfRecomprimirExistentes(){
 // localStorage + LZString (já carregado, script bloqueante lá no <head>).
 try{pfRecomprimirExistentes();}catch(eRecomp){console.warn('pfRecomprimirExistentes na carga inicial falhou:',eRecomp);}
 function pfSafeSetItem(key, value){
-  var toStore = (value&&value.length>20000&&PF_CHAVES_COMPRIMIVEIS.indexOf(key)>=0) ? pfCompress(value) : value;
+  // v115.1790 - guarda contra dupla compressão: pfSafeSetItemAsync (worker)
+  // pode chamar isso já com o valor comprimido (prefixo LZS1:) -- sem essa
+  // checagem, comprimiria de novo por cima, quebrando a leitura depois
+  // (pfDecompress só tira UMA camada do prefixo).
+  var toStore = (value&&value.length>20000&&PF_CHAVES_COMPRIMIVEIS.indexOf(key)>=0&&value.indexOf(PF_COMPRESS_MARK)!==0) ? pfCompress(value) : value;
   // v115.1417 - As 12 chaves migradas pro IndexedDB não passam pelo
   // try/catch de quota do localStorage abaixo -- gravação na memória é
   // sempre síncrona e não estoura quota (o IndexedDB por baixo tem
@@ -36688,9 +36692,26 @@ async function pfSyncPush(keys){
                   paraEnviar=pfCompress(JSON.stringify(localCC));
                 }catch(eCC){paraEnviar=raw;}
               }else{
-                paraEnviar = pfMergeSyncValue(raw, remotoRaw);
+                // v115.1790 - BUG DE RAIZ achado (a pedido do Vitor: "faz a
+                // grande, sem gambiarra" -- travas de 4-6s continuavam mesmo
+                // depois da v115.1784/1788/1789): o caminho genérico
+                // (pfMergeSyncValue) roda descompressão LZString +
+                // JSON.parse + JSON.stringify SÍNCRONO na thread principal,
+                // e pras chaves grandes (cad_produtos_v1 ~7MB, etc.) isso
+                // sozinho já é o LONGTASK inteiro, mesmo com a checagem
+                // "nada mudou" (v115.1784) pulando o caso comum -- quando
+                // ALGO muda de verdade (rotina, não rara), a trava continua
+                // batendo em cheio. Resolvido de vez: esse trabalho pesado
+                // (decompressão+parse+merge+stringify) agora roda numa Web
+                // Worker (thread separada) -- ver pfMergeSyncValueAsync,
+                // que reusa a MESMA lógica de pfMergeSyncValue linha por
+                // linha (só movida pra dentro do worker), com fallback
+                // síncrono automático se o worker falhar por qualquer
+                // motivo (nunca fica pior que antes).
+                if(remotoRaw===raw){paraEnviar=raw;}
+                else{paraEnviar = await pfMergeSyncValueAsync(raw, remotoRaw);}
               }
-              if(paraEnviar!==raw){ pfSafeSetItem(chave, paraEnviar); } // mantém o navegador consistente com o que foi mesclado
+              if(paraEnviar!==raw){ await pfSafeSetItemAsync(chave, paraEnviar); } // mantém o navegador consistente com o que foi mesclado
             }
           }
         }catch(eGet){
@@ -36801,6 +36822,147 @@ function pfMergeSyncValue(localRaw, remoteRaw){
     return (tr>tl)?JSON.stringify(remote):localRaw;
   }
   return localRaw; // fallback conservador: nunca perde o que já tem local
+}
+
+// ── v115.1790 - Worker de merge/compressão em segundo plano ─────────────
+// A pedido do Vitor ("faz a grande, sem gambiarra"): pfMergeSyncValue acima
+// e pfCompress (LZString) são as duas operações que mais travam a thread
+// principal por vários segundos em catálogos grandes (cad_produtos_v1
+// ~7MB, componentes_cardan_v1, etc.) -- decompressão+parse+merge+stringify
+// tudo síncrono. Movido pra uma Web Worker de verdade (thread separada),
+// reaproveitando a MESMA lógica linha por linha (não uma versão
+// simplificada) -- ver mergeGeneric()/compressIfNeeded() dentro do código
+// do worker abaixo, que são cópia fiel de pfMergeSyncValue/pfCompress.
+// Fallback automático pro caminho síncrono de sempre se o worker falhar
+// por qualquer motivo (CSP, navegador antigo, etc.) -- nunca fica pior do
+// que already era.
+var _pfMergeWorker=null, _pfMergeWorkerReqId=0, _pfMergeWorkerPending={};
+function _pfMergeWorkerCodigo(){
+  return "\n"+
+"try{ self.importScripts('https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js'); }catch(eImp){ /* segue sem LZString -- pfDecompressW/pfCompressW já checam typeof LZString */ }\n"+
+"function pfDecompressW(str){\n"+
+"  if(str==null)return str;\n"+
+"  if(str.indexOf('LZS1:')!==0)return str;\n"+
+"  try{ if(typeof LZString==='undefined')return null; return LZString.decompressFromUTF16(str.slice(5)); }catch(e){ return null; }\n"+
+"}\n"+
+"function pfCompressW(str){\n"+
+"  try{ if(typeof LZString==='undefined')return str; return 'LZS1:'+LZString.compressToUTF16(str); }catch(e){ return str; }\n"+
+"}\n"+
+"function mergeGeneric(localRaw, remoteRaw){\n"+
+"  localRaw = pfDecompressW(localRaw);\n"+
+"  remoteRaw = pfDecompressW(remoteRaw);\n"+
+"  var local, remote;\n"+
+"  try{ local = localRaw ? JSON.parse(localRaw) : null; }catch(e){ local = null; }\n"+
+"  try{ remote = remoteRaw ? JSON.parse(remoteRaw) : null; }catch(e){ remote = null; }\n"+
+"  if(remote==null)return localRaw;\n"+
+"  if(local==null)return JSON.stringify(remote);\n"+
+"  if(Array.isArray(local) && Array.isArray(remote)){\n"+
+"    function chaveDoItem(it){\n"+
+"      if(it && it.id!=null)return String(it.id);\n"+
+"      if(it && it.ref!=null && it.data!=null)return 'rmd:'+it.ref+'|'+(it.marca||'')+'|'+it.data;\n"+
+"      return 'fp:'+JSON.stringify(it);\n"+
+"    }\n"+
+"    var porId={};\n"+
+"    local.forEach(function(it){ porId[chaveDoItem(it)]=it; });\n"+
+"    remote.forEach(function(it){\n"+
+"      var k=chaveDoItem(it);\n"+
+"      var atual=porId[k];\n"+
+"      var tsA=(atual&&(atual.ts||atual.data))||0, tsB=(it&&(it.ts||it.data))||0;\n"+
+"      if(!atual||tsB>=tsA)porId[k]=it;\n"+
+"    });\n"+
+"    return JSON.stringify(Object.keys(porId).map(function(k){ return porId[k]; }));\n"+
+"  }\n"+
+"  if(typeof local==='object' && typeof remote==='object'){\n"+
+"    var tl=local.ts||local.updated_at||0, tr=remote.ts||remote.updated_at||0;\n"+
+"    return (tr>tl) ? JSON.stringify(remote) : localRaw;\n"+
+"  }\n"+
+"  return localRaw;\n"+
+"}\n"+
+"function compressIfNeeded(value){\n"+
+"  if(value && value.length>20000)return pfCompressW(value);\n"+
+"  return value;\n"+
+"}\n"+
+"self.onmessage=function(e){\n"+
+"  var msg=e.data;\n"+
+"  try{\n"+
+"    var result;\n"+
+"    if(msg.cmd==='merge')result=mergeGeneric(msg.localRaw, msg.remoteRaw);\n"+
+"    else if(msg.cmd==='compress')result=compressIfNeeded(msg.value);\n"+
+"    else throw new Error('comando desconhecido: '+msg.cmd);\n"+
+"    self.postMessage({id:msg.id, ok:true, result:result});\n"+
+"  }catch(err){\n"+
+"    self.postMessage({id:msg.id, ok:false, error:String((err&&err.message)||err)});\n"+
+"  }\n"+
+"};\n";
+}
+function _pfMergeWorkerEnsure(){
+  if(_pfMergeWorker)return _pfMergeWorker;
+  var blob=new Blob([_pfMergeWorkerCodigo()],{type:'application/javascript'});
+  _pfMergeWorker=new Worker(URL.createObjectURL(blob));
+  _pfMergeWorker.onmessage=function(e){
+    var msg=e.data;
+    var p=_pfMergeWorkerPending[msg.id];
+    if(!p)return;
+    delete _pfMergeWorkerPending[msg.id];
+    if(msg.ok)p.resolve(msg.result);else p.reject(new Error(msg.error));
+  };
+  _pfMergeWorker.onerror=function(e){
+    console.warn('pfMergeWorker erro geral (vai cair pro fallback síncrono nas próximas chamadas):',e);
+    try{_pfMergeWorker.terminate();}catch(e2){}
+    _pfMergeWorker=null;
+  };
+  return _pfMergeWorker;
+}
+function _pfMergeWorkerCall(cmd,payload,timeoutMs){
+  return new Promise(function(resolve,reject){
+    try{
+      var w=_pfMergeWorkerEnsure();
+      var id=++_pfMergeWorkerReqId;
+      var to=setTimeout(function(){
+        delete _pfMergeWorkerPending[id];
+        reject(new Error('timeout esperando o worker'));
+      },timeoutMs||15000);
+      _pfMergeWorkerPending[id]={
+        resolve:function(v){clearTimeout(to);resolve(v);},
+        reject:function(e){clearTimeout(to);reject(e);}
+      };
+      var msg={cmd:cmd,id:id};
+      for(var k in payload)msg[k]=payload[k];
+      w.postMessage(msg);
+    }catch(e){reject(e);}
+  });
+}
+// Mesmo resultado de pfMergeSyncValue(localRaw,remoteRaw), só que rodando
+// na worker (não trava a tela). Cai pro síncrono automaticamente se
+// qualquer coisa der errado com o worker.
+async function pfMergeSyncValueAsync(localRaw,remoteRaw){
+  try{
+    return await _pfMergeWorkerCall('merge',{localRaw:localRaw,remoteRaw:remoteRaw});
+  }catch(e){
+    console.warn('pfMergeSyncValueAsync: worker falhou, usando merge síncrono (fallback seguro):',e);
+    return pfMergeSyncValue(localRaw,remoteRaw);
+  }
+}
+// Mesma decisão/resultado do trecho de compressão de pfSafeSetItem, só que
+// na worker. Cai pro síncrono (pfCompress) automaticamente se preciso.
+async function pfWorkerCompress(value){
+  try{
+    return await _pfMergeWorkerCall('compress',{value:value});
+  }catch(e){
+    console.warn('pfWorkerCompress: worker falhou, comprimindo síncrono (fallback seguro):',e);
+    return (value&&value.length>20000)?pfCompress(value):value;
+  }
+}
+// Versão assíncrona de pfSafeSetItem: quando o valor é grande o bastante
+// pra valer comprimir, faz isso na worker antes de gravar -- só a escrita
+// final (rápida) continua na thread principal. Pra qualquer outro caso
+// (valor pequeno, chave não-comprimível), idêntico ao pfSafeSetItem normal.
+async function pfSafeSetItemAsync(key,value){
+  var toStore=value;
+  if(value&&value.length>20000&&PF_CHAVES_COMPRIMIVEIS.indexOf(key)>=0){
+    toStore=await pfWorkerCompress(value);
+  }
+  return pfSafeSetItem(key,toStore);
 }
 
 // v115.1022 - BUG GRAVE corrigido (achado por causa de uma linha duplicada
@@ -37022,6 +37184,12 @@ async function pfSyncPull(){
       }catch(eDelLb){}
     }
     });
+    // v115.1790 - fila do merge genérico (ver mais abaixo, dentro do
+    // forEach): esse forEach é síncrono (não dá pra usar await dentro dele
+    // diretamente), então as chaves que caem no caminho genérico (pesado)
+    // só são enfileiradas aqui -- processadas de verdade, em paralelo, na
+    // worker, logo depois que o forEach terminar (ver Promise.all abaixo).
+    var _pfMergeGenericoFila=[];
     rows.forEach(function(row){
       try{
         if(!PF_SYNC_KEYS.includes(row.chave) && row.chave.indexOf('mapa_estado_')!==0 && row.chave.indexOf('pfCardOrder_')!==0)return;
@@ -37371,9 +37539,26 @@ async function pfSyncPull(){
         // descomprimir) é praticamente grátis -- se bater, pula o resto
         // inteiro.
         if(val===localRaw)return;
-        pfSafeSetItem(row.chave, pfMergeSyncValue(localRaw, val));
+        // v115.1790 - antes chamava pfMergeSyncValue direto aqui (síncrono,
+        // trava a tela pras chaves grandes) -- agora só enfileira; quem
+        // processa de verdade é o Promise.all logo depois do forEach,
+        // rodando na worker (ver pfMergeSyncValueAsync).
+        _pfMergeGenericoFila.push({chave:row.chave, localRaw:localRaw, remoteRaw:val});
       }catch(e){}
     });
+    // v115.1790 - processa a fila do merge genérico (catálogos grandes) em
+    // paralelo, na worker -- só a escrita final (rápida) acontece aqui na
+    // thread principal. Isso é o que elimina de vez os LONGTASK de vários
+    // segundos que o print do Vitor mostrou logo depois de "Aba voltou pra
+    // PRIMEIRO PLANO".
+    if(_pfMergeGenericoFila.length){
+      await Promise.all(_pfMergeGenericoFila.map(async function(item){
+        try{
+          var merged=await pfMergeSyncValueAsync(item.localRaw, item.remoteRaw);
+          await pfSafeSetItemAsync(item.chave, merged);
+        }catch(eMergeGen){console.warn('merge genérico (worker) falhou pra "'+item.chave+'":',eMergeGen);}
+      }));
+    }
     // v115.1310 - A pedido do Vitor (atalho fixado num aparelho não
     // aparecia no outro): sem isso, o dado chegava certinho no
     // localStorage mas a barra só seria redesenhada da próxima vez que
@@ -43327,7 +43512,7 @@ function vendasItemColgroup(){
   return '<colgroup>'+widths.map(function(w){return '<col style="width:'+w+'">';}).join('')+'</colgroup>';
 }
 
-// v115.1789 - BUG achado pelo Vitor ("puxo a borda direita e a esquerda
+// v115.1790 - BUG achado pelo Vitor ("puxo a borda direita e a esquerda
 // também se mexe, ele empurra pro meio"): a tabela tava travada em
 // width:100% (ver vendasRenderCotacao), então redimensionar UMA coluna
 // (só o <col> dela) fazia o navegador espremer as OUTRAS colunas pra
@@ -43890,7 +44075,7 @@ function vendasRenderCotacao(el){
       '<td style="padding:3px 8px;text-align:center"><input type="number" min="1" value="'+it.qtd+'" oninput="window._venda.itens['+i+'].qtd=parseInt(this.value)||1" style="box-sizing:border-box;width:52px;height:30px;text-align:center;padding:0 4px;border:1px solid #e0e8f0;border-radius:6px;font-family:inherit;font-size:16px;color:#1a2332"></td>'+
       '<td style="padding:3px 8px;text-align:center;font-weight:500;color:'+(isNeg?'#C00000':'#1a2332')+'">'+(it.saldo!=null?it.saldo:'-')+(it.saldo>0&&it.saldo<=5?' <span title="Estoque baixo — pode acabar a qualquer momento" style="font-size:9px;background:#FEF3C7;color:#92400E;padding:1px 4px;border-radius:5px;margin-left:3px;white-space:nowrap">⚠ só '+it.saldo+' pç</span>':'')+'</td>'+
       '<td style="padding:3px 8px;text-align:center"><span style="font-size:12px;padding:4px 9px;border-radius:6px;font-weight:500;background:'+(isNeg?'#FEE2E2':'#DCFCE7')+';color:'+(isNeg?'#991B1B':'#166534')+'">'+(isNeg?'NEGATIVO':'IMEDIATO')+'</span></td>'+
-      // v115.1789 - A pedido do Vitor ("se estiver editável, melhor tirar"):
+      // v115.1790 - A pedido do Vitor ("se estiver editável, melhor tirar"):
       // Custo virou só leitura -- editar aqui direto na cotação já causou
       // confusão real (valor digitado à mão ficava parecendo erro de sync
       // com a planilha/Jboss, quando era só um custoOverride esquecido).
@@ -44433,7 +44618,7 @@ function vendasAtualizarLinha(i){
   var custoInp=tr.querySelector('[data-field="custo"]');
   var vendaInp=tr.querySelector('[data-field="venda"]');
   var pctInp=tr.querySelector('[data-field="pct"]');
-  // v115.1789 - Custo virou <span> (só leitura, ver render acima), não
+  // v115.1790 - Custo virou <span> (só leitura, ver render acima), não
   // <input> mais -- atualiza textContent em vez de .value.
   if(custoInp)custoInp.textContent=it.custoOverride!=null?it.custoOverride.toFixed(2):(custo?custo.toFixed(2):'—');
   if(vendaInp&&document.activeElement!==vendaInp)vendaInp.value=it.vendaOverride!=null?it.vendaOverride.toFixed(2):(venda?venda.toFixed(2):'');
@@ -49154,7 +49339,7 @@ setInterval(function(){ if(document.getElementById('pfAvisosRail'))pfAvisosAtual
 // outro dado compartilhado). Agora repuxa sozinho a cada 2min, sem
 // precisar fazer nada -- mudança em um aparelho aparece nos outros sem
 // precisar de F5 nem de navegar pra forçar.
-// v115.1789 - BUG DE RAIZ achado (a pedido do Vitor: "navegação lenta") --
+// v115.1790 - BUG DE RAIZ achado (a pedido do Vitor: "navegação lenta") --
 // dados reais de telemetria (perf_diagnostico_v1, hoje, 2 aparelhos):
 // 125 travas de 3s+ na thread principal, sendo 102 delas concentradas
 // entre 4-5,5s -- exatamente o formato de "puxar e processar vários
@@ -53146,7 +53331,7 @@ function pfIconOverrideGet(mapa,atalhoId){
 }
 function pfIconOverridesSalvar(mapa){
   pfSafeSetItem('pfIconOverrides',JSON.stringify(mapa));
-  // v115.1789 - BUG DE RAIZ corrigido (a pedido do Vitor: "mudei os ícones
+  // v115.1790 - BUG DE RAIZ corrigido (a pedido do Vitor: "mudei os ícones
   // do dock em casa e no trabalho não mudou"): o push aqui era fire-and-
   // forget com .catch(function(){}) -- qualquer falha (rede instável,
   // aba fechada rápido demais, etc.) era engolida em silêncio. A troca
@@ -62747,7 +62932,7 @@ function ferrMargem(){
     '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:20px;margin-bottom:16px">'+
     '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #f0f4f8">'+
     '<span style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;letter-spacing:.4px">Importar:</span>'+
-    // v115.1789 - A pedido do Vitor: botões de importação padronizados com
+    // v115.1790 - A pedido do Vitor: botões de importação padronizados com
     // o resto do sistema (mesmo vermelho #C00000 + cinza #6c757d usados em
     // Cálculo NF/Transferência/Solicitações) -- antes eram azul-marinho,
     // únicos dessa tela.
@@ -62777,7 +62962,7 @@ function ferrMargem(){
     '</div></div></div></div>'+
     '<div id="mgHistorico" style="margin-bottom:14px"></div>'+
     '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow-x:auto;margin-bottom:14px"><div id="mgTabela"></div></div>'+
-    // v115.1789 - A pedido do Vitor ("deixa mais intuitivo"): fundo sólido
+    // v115.1790 - A pedido do Vitor ("deixa mais intuitivo"): fundo sólido
     // leve + selo "+" circular (em vez de só texto tracejado, que parecia
     // decoração/placeholder em vez de botão clicável) + hover.
     '<button onclick="mgAdicionarItem()" onmouseover="this.style.background=\'#E4ECF5\'" onmouseout="this.style.background=\'#F0F4F8\'" style="background:#F0F4F8;border:2px dashed #b8c8dc;color:#1F4E79;border-radius:10px;padding:14px;width:100%;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s">'+
@@ -62922,7 +63107,7 @@ function mgRenderTabela(){
 function mkPasteBtn(label,onFileFn){
   var btn=document.createElement('button');
   btn.setAttribute('ontouchstart','');
-  // v115.1789 - A pedido do Vitor ("não estão padrão com as outras
+  // v115.1790 - A pedido do Vitor ("não estão padrão com as outras
   // telas"): cor/tamanho alinhados com o "Colar Print" padrão do resto do
   // sistema (#6c757d, padding 10px 18px, 13px -- igual Cálculo NF/
   // Transferência/Solicitações). Como essa função é usada em várias

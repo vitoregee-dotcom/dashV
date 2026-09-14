@@ -1709,7 +1709,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1794</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1795</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1853,7 +1853,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1794</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1795</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -43200,6 +43200,63 @@ function lpLerExcel(input){
   var files=Array.from(input.files);if(!files.length)return;
   lpConfirmarComecarLeitura(function(){lpLerExcelReal(files);});
 }
+// v115.1795 - A pedido do Vitor ("como eu coloco regras na planilha? de
+// como deve ler"): leitura de Excel não passa pela IA (é heurística fixa
+// procurando cabeçalho), então as "Regras de leitura" (texto livre pra
+// IA) não valiam pra ela -- não tinha NENHUM jeito de ajustar. Agora
+// mostra as colunas detectadas ANTES de importar, com dropdown pra
+// corrigir se precisar, e -- se marcado "lembrar" -- guarda esse
+// mapeamento pela assinatura do cabeçalho (os nomes das colunas em si),
+// então a PRÓXIMA planilha igual (mesmo cliente/fornecedor, mesmo
+// formato) importa direto sem perguntar de novo.
+var LP_EXCEL_MAP_KEY='lp_excel_mapeamentos_v1';
+function lpExcelMapeamentosLoad(){try{return JSON.parse(pfSafeGetItem(LP_EXCEL_MAP_KEY,'{}'));}catch(e){return {};}}
+function lpExcelMapeamentosSave(obj){pfSafeSetItem(LP_EXCEL_MAP_KEY,JSON.stringify(obj));if(typeof pfSyncPush==='function')pfSyncPush([LP_EXCEL_MAP_KEY]);}
+function lpExcelAssinaturaCabecalho(headerRow){
+  return (headerRow||[]).map(function(c){return String(c==null?'':c).trim().toLowerCase();}).join('|');
+}
+function lpExcelConfirmarColunas(fileName,headerRow,autoCod,autoDesc,autoQtd){
+  return new Promise(function(resolve){
+    var old=document.getElementById('lpExcelColOverlay');if(old)old.remove();
+    var overlay=document.createElement('div');
+    overlay.id='lpExcelColOverlay';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
+    function optsHtml(sel,comNenhuma){
+      var h='';
+      if(comNenhuma)h+='<option value="-1">(nenhuma)</option>';
+      h+=headerRow.map(function(h2,i){
+        var label=(h2==null||String(h2).trim()==='')?'(coluna '+(i+1)+')':String(h2);
+        return '<option value="'+i+'"'+(i===sel?' selected':'')+'>'+pfEscHtml(label)+'</option>';
+      }).join('');
+      return h;
+    }
+    overlay.innerHTML=
+      '<div style="background:#fff;border-radius:12px;max-width:440px;width:100%;padding:22px;box-shadow:0 12px 40px rgba(0,0,0,.3)">'+
+        '<div style="font-size:15px;font-weight:800;color:#1F4E79;margin-bottom:4px">Confirme as colunas</div>'+
+        '<div style="font-size:12px;color:#607080;margin-bottom:16px">"'+pfEscHtml(fileName)+'" — confere se detectei certo (pode trocar):</div>'+
+        '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">'+
+          '<div><div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:4px">Código</div><select id="lpExcelColCod" style="width:100%;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:13px">'+optsHtml(autoCod,false)+'</select></div>'+
+          '<div><div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:4px">Descrição</div><select id="lpExcelColDesc" style="width:100%;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:13px">'+optsHtml(autoDesc,true)+'</select></div>'+
+          '<div><div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:4px">Quantidade</div><select id="lpExcelColQtd" style="width:100%;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:13px">'+optsHtml(autoQtd,false)+'</select></div>'+
+        '</div>'+
+        '<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#3a4658;margin-bottom:16px;cursor:pointer"><input type="checkbox" id="lpExcelColLembrar" checked style="width:16px;height:16px;cursor:pointer">Lembrar esse mapeamento pra planilhas iguais</label>'+
+        '<div style="display:flex;gap:8px">'+
+          '<button id="lpExcelColCancelar" style="flex:1;padding:10px;background:none;border:1px solid #e0e8f0;color:#607080;border-radius:8px;font-size:13px;cursor:pointer">Cancelar</button>'+
+          '<button id="lpExcelColConfirmar" style="flex:2;padding:10px;background:#1F4E79;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Confirmar e importar</button>'+
+        '</div>'+
+      '</div>';
+    document.body.appendChild(overlay);
+    document.getElementById('lpExcelColCancelar').onclick=function(){overlay.remove();resolve(null);};
+    document.getElementById('lpExcelColConfirmar').onclick=function(){
+      var colCod=parseInt(document.getElementById('lpExcelColCod').value,10);
+      var colDesc=parseInt(document.getElementById('lpExcelColDesc').value,10);
+      var colQtd=parseInt(document.getElementById('lpExcelColQtd').value,10);
+      var lembrar=document.getElementById('lpExcelColLembrar').checked;
+      overlay.remove();
+      resolve({colCod:colCod,colDesc:colDesc,colQtd:colQtd,lembrar:lembrar});
+    };
+  });
+}
 async function lpLerExcelReal(files){
   var overlay=document.createElement('div');
   overlay.id='lpLoadingOverlay';
@@ -43208,6 +43265,7 @@ async function lpLerExcelReal(files){
   document.body.appendChild(overlay);
   try{
     if(!window.XLSX)throw new Error('Biblioteca de leitura de Excel não carregou (sem internet?). Tenta de novo.');
+    var mapeamentos=lpExcelMapeamentosLoad();
     var todosItens=[];
     for(var fi=0;fi<files.length;fi++){
       var file=files[fi];
@@ -43228,8 +43286,26 @@ async function lpLerExcelReal(files){
         if(cIdx>=0&&qIdx>=0){headerIdx=r;colCod=cIdx;colDesc=dIdx;colQtd=qIdx;break;}
       }
       if(headerIdx<0){
+        overlay.style.display='none';
         pfAlert('Não achei as colunas de Código/Quantidade em "'+file.name+'". Confirma se a planilha tem um cabeçalho com esses nomes.');
+        overlay.style.display='flex';
         continue;
+      }
+      var headerRow=rows[headerIdx]||[];
+      var assinatura=lpExcelAssinaturaCabecalho(headerRow);
+      var mapSalvo=mapeamentos[assinatura];
+      if(mapSalvo){
+        colCod=mapSalvo.colCod;colDesc=mapSalvo.colDesc;colQtd=mapSalvo.colQtd;
+      }else{
+        overlay.style.display='none';
+        var escolha=await lpExcelConfirmarColunas(file.name,headerRow,colCod,colDesc,colQtd);
+        overlay.style.display='flex';
+        if(!escolha)continue; // cancelado -- pula esse arquivo
+        colCod=escolha.colCod;colDesc=escolha.colDesc;colQtd=escolha.colQtd;
+        if(escolha.lembrar){
+          mapeamentos[assinatura]={colCod:colCod,colDesc:colDesc,colQtd:colQtd};
+          lpExcelMapeamentosSave(mapeamentos);
+        }
       }
       for(var r2=headerIdx+1;r2<rows.length;r2++){
         var row2=rows[r2]||[];

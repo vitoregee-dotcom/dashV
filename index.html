@@ -1709,7 +1709,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1797</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1798</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1853,7 +1853,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1797</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1798</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -43080,9 +43080,14 @@ function lpRenderFerr(){
             var nomeCod=cols[m.colCod]||('coluna '+(m.colCod+1));
             var nomeDesc=m.colDesc>=0?(cols[m.colDesc]||('coluna '+(m.colDesc+1))):null;
             var nomeQtd=cols[m.colQtd]||('coluna '+(m.colQtd+1));
+            var regrasTxt=(m.regras||[]).map(function(r){
+              var cond=r.condicao==='digitos'?('se '+r.digitos+' dígitos: '):'';
+              var acao=r.acao==='cortar'?('cortar em "'+r.valor+'"'):(r.acao==='sufixo'?('+"'+r.valor+'" no fim'):('+"'+r.valor+'" no início'));
+              return cond+acao;
+            }).join('; ');
             return '<div style="display:flex;align-items:center;gap:8px;padding:9px 10px;background:#F8FAFC;border-radius:7px;margin-bottom:6px">'+
               '<div style="flex:1;font-size:12px;color:#1a2332">'+
-                'Código=<strong>'+lpEsc(nomeCod)+'</strong>'+(m.corte?' (corta em "'+lpEsc(m.corte)+'")':'')+
+                'Código=<strong>'+lpEsc(nomeCod)+'</strong>'+(regrasTxt?' ('+lpEsc(regrasTxt)+')':'')+
                 (nomeDesc?', Descrição=<strong>'+lpEsc(nomeDesc)+'</strong>':'')+
                 ', Quantidade=<strong>'+lpEsc(nomeQtd)+'</strong>'+
               '</div>'+
@@ -43350,12 +43355,30 @@ function lpExcelDelMapeamento(assinatura){
   lpExcelMapeamentosSave(mapas);
   lpRenderFerr();
 }
-function lpExcelConfirmarColunas(fileName,headerRow,autoCod,autoDesc,autoQtd,amostraCod){
+// v115.1798 - A pedido do Vitor ("tem particularidades... itens de 6
+// dígitos incluir R1 no final... tem planilha que precisa de mais de uma
+// regra"): trocado o campo único de "cortar" por uma LISTA de regras,
+// cada uma com condição (sempre / só se o código tiver N dígitos) + ação
+// (cortar a partir de / acrescentar no fim / acrescentar no início).
+// Aplica todas em sequência, na ordem que aparecem na lista. Preview ao
+// vivo mostra o resultado de todas juntas.
+function lpExcelAplicarRegras(cod,regras){
+  (regras||[]).forEach(function(r){
+    var aplica=r.condicao==='sempre'||(r.condicao==='digitos'&&/^\d+$/.test(cod)&&cod.length===Number(r.digitos));
+    if(!aplica||!r.valor)return;
+    if(r.acao==='cortar')cod=cod.split(r.valor)[0];
+    else if(r.acao==='sufixo')cod=cod+r.valor;
+    else if(r.acao==='prefixo')cod=r.valor+cod;
+  });
+  return cod;
+}
+function lpExcelConfirmarColunas(fileName,headerRow,autoCod,autoDesc,autoQtd,amostraCod,regrasIniciais){
   return new Promise(function(resolve){
     var old=document.getElementById('lpExcelColOverlay');if(old)old.remove();
     var overlay=document.createElement('div');
     overlay.id='lpExcelColOverlay';
-    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
+    var regras=(regrasIniciais&&regrasIniciais.length)?JSON.parse(JSON.stringify(regrasIniciais)):[];
     function optsHtml(sel,comNenhuma){
       var h='';
       if(comNenhuma)h+='<option value="-1">(nenhuma)</option>';
@@ -43365,8 +43388,42 @@ function lpExcelConfirmarColunas(fileName,headerRow,autoCod,autoDesc,autoQtd,amo
       }).join('');
       return h;
     }
+    function linhaRegraHtml(r,i){
+      return '<div style="display:flex;gap:5px;align-items:center;margin-bottom:6px;flex-wrap:wrap" data-regra-idx="'+i+'">'+
+        '<select class="lpRegraCond" data-idx="'+i+'" style="padding:5px 6px;border:1px solid #e0e8f0;border-radius:5px;font-size:12px">'+
+          '<option value="sempre"'+(r.condicao==='sempre'?' selected':'')+'>Sempre</option>'+
+          '<option value="digitos"'+(r.condicao==='digitos'?' selected':'')+'>Se tiver</option>'+
+        '</select>'+
+        (r.condicao==='digitos'?'<input type="number" class="lpRegraDigitos" data-idx="'+i+'" value="'+(r.digitos||6)+'" min="1" max="20" style="width:44px;padding:5px 4px;border:1px solid #e0e8f0;border-radius:5px;font-size:12px">'+
+        '<span style="font-size:12px;color:#607080">dígitos,</span>':'')+
+        '<select class="lpRegraAcao" data-idx="'+i+'" style="padding:5px 6px;border:1px solid #e0e8f0;border-radius:5px;font-size:12px">'+
+          '<option value="cortar"'+(r.acao==='cortar'?' selected':'')+'>cortar a partir de</option>'+
+          '<option value="sufixo"'+(r.acao==='sufixo'?' selected':'')+'>acrescentar no fim</option>'+
+          '<option value="prefixo"'+(r.acao==='prefixo'?' selected':'')+'>acrescentar no início</option>'+
+        '</select>'+
+        '<input type="text" class="lpRegraValor" data-idx="'+i+'" value="'+pfEscHtml(r.valor||'')+'" placeholder="ex: / ou R1" style="width:64px;padding:5px 6px;border:1px solid #e0e8f0;border-radius:5px;font-size:12px;font-family:monospace">'+
+        '<button type="button" class="lpRegraDel" data-idx="'+i+'" style="background:none;border:none;color:#C00000;font-size:16px;cursor:pointer;padding:0 4px">×</button>'+
+      '</div>';
+    }
+    function renderRegras(){
+      var cont=document.getElementById('lpRegrasLista');
+      if(!cont)return;
+      cont.innerHTML=regras.length?regras.map(linhaRegraHtml).join(''):'<div style="font-size:12px;color:#8a9ab0;margin-bottom:6px">Nenhuma regra -- código importado igual está na planilha.</div>';
+      cont.querySelectorAll('.lpRegraCond').forEach(function(el){el.onchange=function(){regras[+this.dataset.idx].condicao=this.value;renderRegras();atualizarPreview();};});
+      cont.querySelectorAll('.lpRegraDigitos').forEach(function(el){el.oninput=function(){regras[+this.dataset.idx].digitos=this.value;atualizarPreview();};});
+      cont.querySelectorAll('.lpRegraAcao').forEach(function(el){el.onchange=function(){regras[+this.dataset.idx].acao=this.value;atualizarPreview();};});
+      cont.querySelectorAll('.lpRegraValor').forEach(function(el){el.oninput=function(){regras[+this.dataset.idx].valor=this.value;atualizarPreview();};});
+      cont.querySelectorAll('.lpRegraDel').forEach(function(el){el.onclick=function(){regras.splice(+this.dataset.idx,1);renderRegras();atualizarPreview();};});
+      atualizarPreview();
+    }
+    function atualizarPreview(){
+      var previewEl=document.getElementById('lpExcelColPreview');
+      if(!previewEl||!amostraCod)return;
+      var resultado=lpExcelAplicarRegras(amostraCod,regras);
+      previewEl.innerHTML='Preview: <strong>'+pfEscHtml(resultado)+'</strong>'+(resultado!==amostraCod?' <span style="color:#8a9ab0">(era "'+pfEscHtml(amostraCod)+'")</span>':'');
+    }
     overlay.innerHTML=
-      '<div style="background:#fff;border-radius:12px;max-width:440px;width:100%;padding:22px;box-shadow:0 12px 40px rgba(0,0,0,.3)">'+
+      '<div style="background:#fff;border-radius:12px;max-width:460px;width:100%;padding:22px;box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto">'+
         '<div style="font-size:15px;font-weight:800;color:#1F4E79;margin-bottom:4px">Confirme as colunas</div>'+
         '<div style="font-size:12px;color:#607080;margin-bottom:16px">"'+pfEscHtml(fileName)+'" — confere se detectei certo (pode trocar):</div>'+
         '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">'+
@@ -43374,18 +43431,11 @@ function lpExcelConfirmarColunas(fileName,headerRow,autoCod,autoDesc,autoQtd,amo
           '<div><div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:4px">Descrição</div><select id="lpExcelColDesc" style="width:100%;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:13px">'+optsHtml(autoDesc,true)+'</select></div>'+
           '<div><div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:4px">Quantidade</div><select id="lpExcelColQtd" style="width:100%;padding:7px 10px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:13px">'+optsHtml(autoQtd,false)+'</select></div>'+
         '</div>'+
-        // v115.1796 - A pedido do Vitor ("preciso poder criar regra --
-        // itens com final /alguma coisa, considerar só os números antes
-        // da barra"): campo opcional de corte do código. Ex: cliente manda
-        // "043132/O" e o código de verdade é só "043132" -- o "/O" é
-        // anotação do cliente. Mostra um PREVIEW ao vivo com o primeiro
-        // código real da planilha, pra confirmar visualmente que a regra
-        // ficou certa antes de importar tudo.
         '<div style="background:#F7F9FC;border-radius:8px;padding:10px 12px;margin-bottom:14px">'+
-          '<div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:4px">Cortar código a partir de (opcional)</div>'+
-          '<input id="lpExcelColCorte" type="text" placeholder="ex: /" maxlength="3" style="width:70px;padding:6px 8px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:13px;font-family:monospace;text-align:center">'+
-          '<span style="font-size:12px;color:#607080;margin-left:8px">tudo depois desse caractere é descartado</span>'+
-          (amostraCod?'<div id="lpExcelColPreview" style="font-size:12px;color:#217a3c;margin-top:8px;font-family:monospace">Preview: <strong>'+pfEscHtml(amostraCod)+'</strong></div>':'')+
+          '<div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin-bottom:8px">Regras de ajuste do código (opcional)</div>'+
+          '<div id="lpRegrasLista"></div>'+
+          '<button type="button" id="lpRegraAdd" style="background:none;border:1px dashed #1F4E79;color:#1F4E79;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-top:4px">+ Adicionar regra</button>'+
+          (amostraCod?'<div id="lpExcelColPreview" style="font-size:12px;color:#217a3c;margin-top:10px;font-family:monospace">Preview: <strong>'+pfEscHtml(amostraCod)+'</strong></div>':'')+
         '</div>'+
         '<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#3a4658;margin-bottom:16px;cursor:pointer"><input type="checkbox" id="lpExcelColLembrar" checked style="width:16px;height:16px;cursor:pointer">Lembrar esse mapeamento pra planilhas iguais</label>'+
         '<div style="display:flex;gap:8px">'+
@@ -43394,24 +43444,17 @@ function lpExcelConfirmarColunas(fileName,headerRow,autoCod,autoDesc,autoQtd,amo
         '</div>'+
       '</div>';
     document.body.appendChild(overlay);
-    var corteInp=document.getElementById('lpExcelColCorte');
-    var previewEl=document.getElementById('lpExcelColPreview');
-    if(corteInp&&previewEl&&amostraCod){
-      corteInp.addEventListener('input',function(){
-        var c=corteInp.value;
-        var resultado=c?amostraCod.split(c)[0]:amostraCod;
-        previewEl.innerHTML='Preview: <strong>'+pfEscHtml(resultado)+'</strong>'+(c?' <span style="color:#8a9ab0">(era "'+pfEscHtml(amostraCod)+'")</span>':'');
-      });
-    }
+    renderRegras();
+    document.getElementById('lpRegraAdd').onclick=function(){regras.push({condicao:'sempre',acao:'cortar',valor:''});renderRegras();};
     document.getElementById('lpExcelColCancelar').onclick=function(){overlay.remove();resolve(null);};
     document.getElementById('lpExcelColConfirmar').onclick=function(){
       var colCod=parseInt(document.getElementById('lpExcelColCod').value,10);
       var colDesc=parseInt(document.getElementById('lpExcelColDesc').value,10);
       var colQtd=parseInt(document.getElementById('lpExcelColQtd').value,10);
-      var corte=(document.getElementById('lpExcelColCorte').value||'').trim();
       var lembrar=document.getElementById('lpExcelColLembrar').checked;
+      var regrasValidas=regras.filter(function(r){return r.valor;});
       overlay.remove();
-      resolve({colCod:colCod,colDesc:colDesc,colQtd:colQtd,corte:corte,lembrar:lembrar});
+      resolve({colCod:colCod,colDesc:colDesc,colQtd:colQtd,regras:regrasValidas,lembrar:lembrar});
     };
   });
 }
@@ -43452,9 +43495,9 @@ async function lpLerExcelReal(files){
       var headerRow=rows[headerIdx]||[];
       var assinatura=lpExcelAssinaturaCabecalho(headerRow);
       var mapSalvo=mapeamentos[assinatura];
-      var corte='';
+      var regrasAtivas=[];
       if(mapSalvo){
-        colCod=mapSalvo.colCod;colDesc=mapSalvo.colDesc;colQtd=mapSalvo.colQtd;corte=mapSalvo.corte||'';
+        colCod=mapSalvo.colCod;colDesc=mapSalvo.colDesc;colQtd=mapSalvo.colQtd;regrasAtivas=mapSalvo.regras||[];
       }else{
         // v115.1796 - amostra do primeiro código real da planilha, pra
         // mostrar o preview ao vivo no modal (ver lpExcelConfirmarColunas).
@@ -43467,9 +43510,9 @@ async function lpLerExcelReal(files){
         var escolha=await lpExcelConfirmarColunas(file.name,headerRow,colCod,colDesc,colQtd,amostraCod);
         overlay.style.display='flex';
         if(!escolha)continue; // cancelado -- pula esse arquivo
-        colCod=escolha.colCod;colDesc=escolha.colDesc;colQtd=escolha.colQtd;corte=escolha.corte||'';
+        colCod=escolha.colCod;colDesc=escolha.colDesc;colQtd=escolha.colQtd;regrasAtivas=escolha.regras||[];
         if(escolha.lembrar){
-          mapeamentos[assinatura]={colCod:colCod,colDesc:colDesc,colQtd:colQtd,corte:corte};
+          mapeamentos[assinatura]={colCod:colCod,colDesc:colDesc,colQtd:colQtd,regras:regrasAtivas};
           lpExcelMapeamentosSave(mapeamentos);
         }
       }
@@ -43477,10 +43520,10 @@ async function lpLerExcelReal(files){
         var row2=rows[r2]||[];
         var cod=String(row2[colCod]==null?'':row2[colCod]).trim();
         if(!cod)continue;
-        // v115.1796 - A pedido do Vitor ("itens com final /alguma coisa,
-        // considerar só os números da / pra trás"): corta o código no
-        // caractere definido (ex: "/"), mantendo só a parte antes dele.
-        if(corte)cod=cod.split(corte)[0];
+        // v115.1798 - A pedido do Vitor ("tem planilha que precisa de mais
+        // de uma regra"): aplica TODAS as regras configuradas, em ordem
+        // (ver lpExcelAplicarRegras).
+        cod=lpExcelAplicarRegras(cod,regrasAtivas);
         var qtdRaw=colQtd>=0?row2[colQtd]:1;
         var qtd=parseFloat(String(qtdRaw==null?'':qtdRaw).replace(',','.'))||1;
         var desc=colDesc>=0?String(row2[colDesc]==null?'':row2[colDesc]).trim():'';

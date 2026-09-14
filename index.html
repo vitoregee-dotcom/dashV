@@ -1698,7 +1698,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1783</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1784</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1842,7 +1842,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1783</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1784</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -37348,6 +37348,18 @@ async function pfSyncPull(){
         // Demais chaves (meAvise_lista, aviseItems, transitItems, cotações, etc.) — merge seguro,
         // nunca sobrescreve às cegas um item local que ainda não tinha sido sincronizado.
         var localRaw=pfRawGetItem(row.chave);
+        // v115.1784 - BUG DE PERFORMANCE achado pelo Vitor ("ainda tá lento",
+        // confirmado com LONGTASK de 4+ segundos no console, repetindo
+        // periodicamente mesmo com a aba em primeiro plano): esse caminho
+        // genérico (pfMergeSyncValue) descomprime + faz JSON.parse dos DOIS
+        // lados (local e remoto) toda vez que essa função roda -- inclusive
+        // pra chaves gigantes tipo cad_produtos_v1 (catálogo inteiro,
+        // ~7MB), mesmo quando o valor remoto é BYTE A BYTE idêntico ao que
+        // já tá salvo local (ou seja, nada mudou desde o último pull, o
+        // caso comum a cada 2 minutos). Comparação de string crua (sem
+        // descomprimir) é praticamente grátis -- se bater, pula o resto
+        // inteiro.
+        if(val===localRaw)return;
         pfSafeSetItem(row.chave, pfMergeSyncValue(localRaw, val));
       }catch(e){}
     });
@@ -43644,14 +43656,19 @@ function pfPrecoUltimoBadge(ref,marca,cliente,vendaAtual){
   var vendido=(cache.cotacao_num||'').toString().indexOf('PV-')===0;
   var statusTxt=vendido?'vendido':'só cotado, nunca virou pedido';
   var tip='Última venda pra este cliente: R$ '+ultimo.toFixed(2).replace('.',',')+(dataTxt?' em '+dataTxt:'')+' ('+statusTxt+')'+(diffPct!==0?' — '+Math.abs(diffPct)+'% '+(diffPct>0?'mais caro agora':'mais barato agora'):' — preço igual');
-  var simbolo,cor;
-  if(diffPct===0){simbolo=vendido?'●':'○';cor='#607080';}
+  var simbolo,cor,texto;
+  if(diffPct===0){simbolo=vendido?'●':'○';cor='#607080';texto='igual';}
   else{
     var maior=diffPct>0;
     simbolo=maior?(vendido?'▲':'△'):(vendido?'▼':'▽');
     cor=maior?'#1A7A3C':'#C00000';
+    texto=Math.abs(diffPct)+'%';
   }
-  return '<span title="'+pfEscHtml(tip)+'" style="position:absolute;left:4px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:700;color:'+cor+';line-height:1;pointer-events:none">'+simbolo+'</span>';
+  // v115.1784 - A pedido do Vitor: voltou a esconder o percentual (só
+  // mostrava vazio ou o símbolo sozinho) -- agora mostra símbolo+percentual
+  // de novo, mas como selo AO LADO do campo (não mais sobreposto por
+  // cima), pra não ficar ilegível junto com o número do preço.
+  return '<span title="'+pfEscHtml(tip)+'" style="display:inline-flex;align-items:center;gap:1px;font-size:11px;font-weight:700;color:'+cor+';white-space:nowrap;margin-right:3px">'+simbolo+texto+'</span>';
 }
 async function pfAbrirHistoricoItem(ref,marca,desc){
   if(!ref){pfAlert('Selecione um item na cotação primeiro.');return;}
@@ -43844,7 +43861,7 @@ function vendasRenderCotacao(el){
       '<td style="padding:3px 8px;text-align:center;font-weight:500;color:'+(isNeg?'#C00000':'#1a2332')+'">'+(it.saldo!=null?it.saldo:'-')+(it.saldo>0&&it.saldo<=5?' <span title="Estoque baixo — pode acabar a qualquer momento" style="font-size:9px;background:#FEF3C7;color:#92400E;padding:1px 4px;border-radius:5px;margin-left:3px;white-space:nowrap">⚠ só '+it.saldo+' pç</span>':'')+'</td>'+
       '<td style="padding:3px 8px;text-align:center"><span style="font-size:12px;padding:4px 9px;border-radius:6px;font-weight:500;background:'+(isNeg?'#FEE2E2':'#DCFCE7')+';color:'+(isNeg?'#991B1B':'#166534')+'">'+(isNeg?'NEGATIVO':'IMEDIATO')+'</span></td>'+
       '<td style="padding:3px 8px;text-align:right"><input type="text" inputmode="decimal" data-field="custo" value="'+(it.custoOverride!=null?it.custoOverride.toFixed(2):(custo?custo.toFixed(2):''))+'" onchange="var _cv=parseFloat(this.value.replace(\',\',\'.\'));window._venda.itens['+i+'].custoOverride=isNaN(_cv)?null:_cv;window._venda.itens['+i+'].vendaOverride=null;vendasAtualizarLinha('+i+')" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" style="box-sizing:border-box;width:88px;height:30px;text-align:right;padding:0 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:16px;font-family:monospace;color:#607080" placeholder="—"></td>'+
-      '<td style="padding:3px 8px;text-align:right"><span style="display:inline-flex;align-items:center;justify-content:center;position:relative;box-sizing:border-box;height:30px"><input type="text" inputmode="decimal" data-field="venda" value="'+(it.vendaOverride!=null?it.vendaOverride.toFixed(2):(venda?venda.toFixed(2):''))+'" onchange="var _vv=parseFloat(this.value.replace(\',\',\'.\'));window._venda.itens['+i+'].vendaOverride=isNaN(_vv)?null:_vv;vendasAtualizarLinha('+i+')" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" style="box-sizing:border-box;width:92px;height:30px;text-align:right;padding:0 6px 0 16px;border:1px solid #1F4E79;border-radius:6px;font-size:16px;font-family:monospace;color:#1F4E79;font-weight:600;line-height:1" placeholder="—"><span data-badgeslot="'+i+'">'+(typeof pfPrecoUltimoBadge==='function'?pfPrecoUltimoBadge(it.codigo,it.marca,(v.cliente&&v.cliente.razao)||'',venda):'')+'</span></span></td>'+
+      '<td style="padding:3px 8px;text-align:right"><span style="display:inline-flex;align-items:center;justify-content:flex-end;box-sizing:border-box;height:30px"><span data-badgeslot="'+i+'">'+(typeof pfPrecoUltimoBadge==='function'?pfPrecoUltimoBadge(it.codigo,it.marca,(v.cliente&&v.cliente.razao)||'',venda):'')+'</span><input type="text" inputmode="decimal" data-field="venda" value="'+(it.vendaOverride!=null?it.vendaOverride.toFixed(2):(venda?venda.toFixed(2):''))+'" onchange="var _vv=parseFloat(this.value.replace(\',\',\'.\'));window._venda.itens['+i+'].vendaOverride=isNaN(_vv)?null:_vv;vendasAtualizarLinha('+i+')" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" style="box-sizing:border-box;width:92px;height:30px;text-align:right;padding:0 6px;border:1px solid #1F4E79;border-radius:6px;font-size:16px;font-family:monospace;color:#1F4E79;font-weight:600;line-height:1" placeholder="—"></span></td>'+
       '<td style="padding:3px 6px;text-align:center;white-space:nowrap"><span style="display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:30px;border:1px solid #27AE60;border-radius:6px;padding:0 8px;gap:1px"><input type="text" inputmode="decimal" data-field="pct" value="'+(venda&&custo?Math.round((1-(custo/venda))*100):'')+'" onchange="var pct=parseFloat(this.value.replace(\',\',\'.\'));if(!isNaN(pct)&&pct<100){var c=window._venda.itens['+i+'].custoOverride!=null?window._venda.itens['+i+'].custoOverride:window._venda.itens['+i+'].custo;if(c)window._venda.itens['+i+'].vendaOverride=Math.round((c/(1-pct/100))*100)/100;}vendasAtualizarLinha('+i+')" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" style="box-sizing:border-box;width:32px;height:100%;text-align:right;padding:0;border:none;background:transparent;font-size:16px;color:#27AE60;font-weight:600;line-height:1"><span style="font-size:13px;color:#27AE60;font-weight:600;line-height:1">%</span></span></td>'+
       '<td style="padding:3px 8px;text-align:center;white-space:nowrap;line-height:1;overflow:hidden">'+
         '<button onclick="vendasVerCadastroItem(\''+pfEscHtml(pfEscJs(it.codigo))+'\',\''+pfEscHtml(pfEscJs(it.desc||''))+'\')" style="appearance:none;-webkit-appearance:none;-moz-appearance:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;background:none;border:1px solid #1F4E79;border-radius:6px;padding:0;margin:0;width:30px;height:28px;min-height:0;overflow:hidden;font-size:13px;line-height:1;color:#1F4E79;cursor:pointer;margin-right:3px;vertical-align:middle" title="Ficha do item">📋</button>'+

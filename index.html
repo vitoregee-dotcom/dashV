@@ -1709,7 +1709,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1796</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1797</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1853,7 +1853,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1796</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1797</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -30691,6 +30691,95 @@ function cadPadronizarDescricoesAplicar(){
   if(typeof cadGoTab==='function')cadGoTab('produtos');
 }
 
+// v115.1797 - A pedido do Vitor ("está de novo duplicando as fichas"):
+// achado o tamanho real do problema direto no banco -- 44.463 registros
+// em cad_produtos_v1, só 12.588 combinações únicas de código+marca (quase
+// 70% duplicado). A grande maioria dos duplicados não tem `id` nenhum
+// (nem o antigo aleatório, nem o determinístico atual) -- são sobra de
+// versões anteriores do sistema, de antes da v115.1566 corrigir a raiz
+// pra fichas novas: sem id, cada sincronização não reconhece que é o
+// "mesmo" item, então nunca junta. Essa limpeza é só pro que já existe:
+// agrupa por código+marca, mantém o registro mais completo de cada
+// grupo (juntando aplicações/conversões de TODOS, pra não perder nada
+// cadastrado em qualquer duplicata), e garante id determinístico em todo
+// mundo que sobra -- assim nenhum duplicado novo nasce de novo por falta
+// de id.
+function cadDedupScore(p){
+  var s=0;
+  if(p.foto)s+=2;
+  if(p.fotos&&p.fotos.length)s+=p.fotos.length;
+  if(p.ncm)s++;
+  if(p.grupo)s++;
+  if(p.subgrupo)s++;
+  if(p.linha)s++;
+  if(p.unidade)s++;
+  if(p.obs)s++;
+  if(p.desenho)s+=2;
+  if(p.descricaoCompleta)s++;
+  if(p.descricaoResumida)s++;
+  if(p.conversoes&&p.conversoes.length)s+=p.conversoes.length;
+  if(p.aplicacoes&&p.aplicacoes.length)s+=p.aplicacoes.length;
+  if(p.id&&String(p.id).indexOf('p_est_')===0)s+=3; // já tem id determinístico -- preferir manter
+  return s;
+}
+function cadDeduplicarProdutosPrompt(){
+  var plist=cadLoad(PROD_KEY);
+  var grupos={};
+  plist.forEach(function(p){
+    var chave=String(p.codigo||'').trim().toUpperCase()+'||'+String(p.marca||'').trim().toUpperCase();
+    if(!grupos[chave])grupos[chave]=0;
+    grupos[chave]++;
+  });
+  var totalDuplicados=0,gruposComDup=0;
+  Object.keys(grupos).forEach(function(k){
+    if(grupos[k]>1){gruposComDup++;totalDuplicados+=grupos[k]-1;}
+  });
+  if(!totalDuplicados){pfAlert('Nenhum duplicado encontrado -- catálogo já está limpo.');return;}
+  pfConfirm('Encontrei '+totalDuplicados.toLocaleString('pt-BR')+' registro(s) duplicado(s) em '+gruposComDup.toLocaleString('pt-BR')+' código+marca diferentes (de '+plist.length.toLocaleString('pt-BR')+' no total). Vou manter só o mais completo de cada grupo, juntando aplicações/conversões de todos pra não perder nada. Isso não pode ser desfeito. Continuar?',function(){cadDeduplicarProdutosExecutar();},'Remover '+totalDuplicados.toLocaleString('pt-BR')+' duplicado(s)');
+}
+function cadDeduplicarProdutosExecutar(){
+  var plist=cadLoad(PROD_KEY);
+  var grupos={};
+  var ordem=[];
+  plist.forEach(function(p){
+    var chave=String(p.codigo||'').trim().toUpperCase()+'||'+String(p.marca||'').trim().toUpperCase();
+    if(!grupos[chave]){grupos[chave]=[];ordem.push(chave);}
+    grupos[chave].push(p);
+  });
+  var resultado=ordem.map(function(chave){
+    var itens=grupos[chave];
+    if(itens.length===1){
+      var unico=itens[0];
+      if(!unico.id)unico.id='p_est_'+chave;
+      return unico;
+    }
+    // Ordena do mais completo pro menos completo, mantém o primeiro como base
+    itens.sort(function(a,b){return cadDedupScore(b)-cadDedupScore(a);});
+    var base=Object.assign({},itens[0]);
+    // Junta aplicações e conversões de TODOS os duplicados (sem perder nada
+    // que alguém cadastrou numa cópia "perdida")
+    var aplicacoesUnidas=[],conversoesUnidas=[];
+    var vistoAplic={},vistoConv={};
+    itens.forEach(function(it){
+      (it.aplicacoes||[]).forEach(function(a){
+        var k=(a.equip||'')+'|'+(a.marca||'')+'|'+(a.modelo||'');
+        if(!vistoAplic[k]){vistoAplic[k]=true;aplicacoesUnidas.push(a);}
+      });
+      (it.conversoes||[]).forEach(function(c){
+        var k=(c.ref||'');
+        if(k&&!vistoConv[k]){vistoConv[k]=true;conversoesUnidas.push(c);}
+      });
+    });
+    if(aplicacoesUnidas.length)base.aplicacoes=aplicacoesUnidas;
+    if(conversoesUnidas.length)base.conversoes=conversoesUnidas;
+    if(!base.id||String(base.id).indexOf('p_est_')!==0)base.id='p_est_'+chave;
+    return base;
+  });
+  var removidos=plist.length-resultado.length;
+  cadSave(PROD_KEY,resultado);
+  pfAlert('Pronto! '+plist.length.toLocaleString('pt-BR')+' → '+resultado.length.toLocaleString('pt-BR')+' produtos ('+removidos.toLocaleString('pt-BR')+' duplicado(s) removido(s), nenhuma aplicação/conversão foi perdida).');
+  if(typeof cadRenderProdutosV3==='function')cadRenderProdutosV3(document.getElementById('cadBody'));
+}
 function cadCriarFichasParaTodosPrompt(){
   if(!calcItems||!calcItems.length){pfAlert('Nenhuma planilha carregada ainda — abre o Dashboard e carrega a planilha antes.');return;}
   var plist=cadLoad(PROD_KEY);
@@ -31505,6 +31594,13 @@ function cadRenderProdutosV3(el){
   html+='<button onclick="cadImportarProdutosGeral()" style="background:#E67E22;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700" title="Importa planilha de fabricante ou catálogo PDF -- cadastra/atualiza produtos">📥 Importar</button>';
   html+='<button onclick="cadCriarFichasParaTodosPrompt()" style="background:#27AE60;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700" title="Cria ficha (código+descrição+marca) pra todo item da planilha que ainda não tem">⚡ Criar fichas faltantes</button>';
   html+='<button onclick="cadPadronizarDescricoesPrompt()" style="background:#7B2D8B;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700" title="Ajusta maiusculas, espacos e abreviacoes C/S/P em todas as descricoes ja cadastradas">🧹 Padronizar Descrições</button>';
+  // v115.1797 - A pedido do Vitor ("está de novo duplicando as fichas"):
+  // botão de limpeza -- achado 30.818 registros sem id (quase 70% do
+  // catálogo) que nunca se juntam entre si numa sincronização. Sempre
+  // visível (não calcula "tem duplicado?" a cada render pra não repetir o
+  // mesmo tipo de lentidão já removido daqui -- ver comentário logo
+  // acima sobre "totalPlanilha"); o próprio botão avisa se não achar nada.
+  html+='<button onclick="cadDeduplicarProdutosPrompt()" style="background:#C00000;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700" title="Junta registros duplicados do mesmo codigo+marca, sem perder aplicacoes/conversoes cadastradas">🗑️ Remover Duplicados</button>';
   html+='</div>';
   if(!plist.length){
     html+='<div style="text-align:center;padding:48px;background:#fff;border-radius:12px;color:#8a9ab0">Nenhum produto. Clique em "+ Novo Produto".</div>';

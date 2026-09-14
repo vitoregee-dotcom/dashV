@@ -1709,7 +1709,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1790</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1792</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1853,7 +1853,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1790</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1792</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -43529,11 +43529,47 @@ function vendasItemAtualizarLarguraTabela(){
   cols.forEach(function(c){soma+=parseInt(c.style.width,10)||0;});
   if(soma>0)tbl.style.width=soma+'px';
 }
+// v115.1791 - A pedido do Vitor ("o sistema precisa se ajustar ao tamanho
+// da tela que estou" -- print mostrando espaço em branco enorme à direita
+// da tabela): a correção anterior (tabela = soma exata das colunas, pra
+// não espremer as outras ao redimensionar uma) resolveu aquele bug mas
+// criou este -- em tela larga, a soma das colunas fica bem menor que o
+// espaço disponível, sobrando um vazio real. Preenche essa sobra
+// esticando só a coluna Descrição (a única pensada pra crescer, já a
+// mais larga por padrão) até encostar na borda direita do container --
+// nunca encolhe abaixo do que o Vitor salvou/padrão, só cresce quando tem
+// espaço de sobra. Recalcula sozinho ao redimensionar a JANELA também.
+function vendasItemDistribuirLarguraSobra(){
+  var tbl=document.getElementById('vendasItensTable');
+  if(!tbl)return;
+  var wrap=tbl.parentElement;
+  if(!wrap)return;
+  var cols=tbl.querySelectorAll('colgroup col');
+  var idxDesc=5; // coluna Descrição (ver defaults/data-col em vendasItemColgroup)
+  if(cols.length<=idxDesc)return;
+  var defaults=['46px','28px','28px','100px','100px','230px','90px','62px','55px','85px','96px','102px','68px','100px'];
+  var saved=[];
+  try{saved=JSON.parse(localStorage.getItem('vendas_item_cols_widths')||'[]');}catch(e){}
+  var baseDescPx=parseInt((saved[idxDesc]||defaults[idxDesc]),10)||230;
+  var somaOutras=0;
+  cols.forEach(function(c,i){if(i!==idxDesc)somaOutras+=parseInt(c.style.width,10)||0;});
+  var disponivel=wrap.clientWidth;
+  cols[idxDesc].style.width=Math.max(baseDescPx, disponivel-somaOutras)+'px';
+  vendasItemAtualizarLarguraTabela();
+}
+var _pfVendasResizeDebounce;
+window.addEventListener('resize',function(){
+  clearTimeout(_pfVendasResizeDebounce);
+  _pfVendasResizeDebounce=setTimeout(function(){
+    if(document.getElementById('vendasItensTable'))vendasItemDistribuirLarguraSobra();
+  },150);
+});
 function vendasItemColResizeSetup(){
   var tbl=document.getElementById('vendasItensTable');
   if(!tbl||tbl._resizeSetup)return;
   tbl._resizeSetup=true;
   vendasItemAtualizarLarguraTabela();
+  vendasItemDistribuirLarguraSobra();
   var thead=tbl.querySelector('thead');
   thead.querySelectorAll('th[data-col]').forEach(function(th){
     var handle=document.createElement('div');
@@ -43567,10 +43603,15 @@ function vendasItemColResizeSetup(){
       function onUp(){
         document.removeEventListener('pointermove',onMove);
         document.removeEventListener('pointerup',onUp);
+        // v115.1791 - salva o valor CRU que o Vitor arrastou antes de
+        // esticar a Descrição pra preencher a tela -- senão a largura
+        // "de enchimento" virava o novo padrão salvo, crescendo sozinha
+        // um pouco mais a cada resize (efeito bola de neve).
         try{
           var widths=Array.from(tbl.querySelectorAll('colgroup col')).map(function(c){return c.style.width;});
           pfSafeSetItem('vendas_item_cols_widths',JSON.stringify(widths));
         }catch(ex){}
+        vendasItemDistribuirLarguraSobra();
       }
       document.addEventListener('pointermove',onMove);
       document.addEventListener('pointerup',onUp);
@@ -43701,32 +43742,37 @@ function vendasRenderCartaoCliente(cliente){
   if(!r)return '';
   var html='';
   if(r.obs){
-    html+='<div style="background:#FFF3E6;border:1.5px solid #E67E22;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px;color:#854F0B"><strong>⚠️ Observação:</strong> '+pfEscHtml(r.obs)+'</div>';
+    html+='<div style="background:#FFF3E6;border:1.5px solid #E67E22;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:13px;color:#854F0B"><strong>⚠️ Observação:</strong> '+pfEscHtml(r.obs)+'</div>';
   }
+  // v115.1791 - A pedido do Vitor ("aumentar o tamanho da fonte... tudo
+  // precisa ser meio que padrão"): esse painel (resumo do cliente + itens
+  // mais comprados) estava em 10px/11px, bem menor que o resto do
+  // sistema -- subido pra 12px/13px, o mesmo patamar já usado nos outros
+  // painéis de resumo da tela de Vendas.
   if(!r.temHistorico){
-    html+='<div style="background:#F8FAFC;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:11px;color:#8a9ab0">Primeira compra deste cliente — sem histórico ainda.</div>';
+    html+='<div style="background:#F8FAFC;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:13px;color:#8a9ab0">Primeira compra deste cliente — sem histórico ainda.</div>';
   }else{
     html+='<div style="background:#F8FAFC;border-radius:8px;padding:9px 14px;margin-bottom:8px;display:flex;flex-wrap:wrap;gap:16px;align-items:center">';
-    html+='<div style="font-size:11px"><span style="color:#8a9ab0">Última compra:</span> <strong style="color:'+(r.atrasado?'#C00000':'#1a2332')+'">'+new Date(r.ultimaCompra).toLocaleDateString('pt-BR')+' ('+r.diasDesde+'d atrás)</strong>'+(r.atrasado?' <span style="color:#C00000;font-weight:700">🔴 Atrasado</span>':'')+'</div>';
-    if(r.topMarcas.length)html+='<div style="font-size:11px"><span style="color:#8a9ab0">Marcas:</span> <strong style="color:#1a2332">'+r.topMarcas.map(function(m){return pfEscHtml(m.marca);}).join(', ')+'</strong></div>';
-    html+='<div style="font-size:11px;color:#8a9ab0">'+r.totalPedidos+' pedido(s) no histórico</div>';
+    html+='<div style="font-size:13px"><span style="color:#8a9ab0">Última compra:</span> <strong style="color:'+(r.atrasado?'#C00000':'#1a2332')+'">'+new Date(r.ultimaCompra).toLocaleDateString('pt-BR')+' ('+r.diasDesde+'d atrás)</strong>'+(r.atrasado?' <span style="color:#C00000;font-weight:700">🔴 Atrasado</span>':'')+'</div>';
+    if(r.topMarcas.length)html+='<div style="font-size:13px"><span style="color:#8a9ab0">Marcas:</span> <strong style="color:#1a2332">'+r.topMarcas.map(function(m){return pfEscHtml(m.marca);}).join(', ')+'</strong></div>';
+    html+='<div style="font-size:13px;color:#8a9ab0">'+r.totalPedidos+' pedido(s) no histórico</div>';
     html+='</div>';
   }
   // ── Top 15 itens mais comprados por este cliente — trazer pra cotação com 1 clique ──
   if(r.topItens&&r.topItens.length){
-    html+='<div style="border:1px solid #eee;border-radius:8px;padding:9px 12px;margin-bottom:10px">';
-    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
-    html+='<div style="font-size:10px;font-weight:700;color:#607080;text-transform:uppercase">🎯 '+r.topItens.length+' itens mais comprados</div>';
-    html+='<button onclick="vendasAdicionarTodosTopItens()" style="font-size:10px;padding:3px 10px;background:#1F4E79;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700">+ Trazer todos pra cotação</button>';
+    html+='<div style="border:1px solid #eee;border-radius:8px;padding:10px 14px;margin-bottom:10px">';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+    html+='<div style="font-size:12px;font-weight:700;color:#607080;text-transform:uppercase">🎯 '+r.topItens.length+' itens mais comprados</div>';
+    html+='<button onclick="vendasAdicionarTodosTopItens()" style="font-size:12px;padding:5px 12px;background:#1F4E79;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700">+ Trazer todos pra cotação</button>';
     html+='</div>';
-    html+='<div style="max-height:180px;overflow-y:auto">';
+    html+='<div style="max-height:200px;overflow-y:auto">';
     html+=r.topItens.map(function(it){
-      return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f5f7fa;font-size:11px">'+
-        '<span style="font-family:monospace;font-weight:700;color:#1F4E79;min-width:90px">'+pfEscHtml(it.codigo||'')+'</span>'+
+      return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f5f7fa;font-size:13px">'+
+        '<span style="font-family:monospace;font-weight:700;color:#1F4E79;min-width:96px">'+pfEscHtml(it.codigo||'')+'</span>'+
         '<span style="flex:1;color:#3a4658;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+pfEscHtml(it.desc||'')+'</span>'+
         '<span style="color:#8a9ab0;white-space:nowrap">'+pfEscHtml(it.marca||'—')+'</span>'+
         '<span style="color:#8a9ab0;white-space:nowrap">×'+it.qtd+'</span>'+
-        '<button onclick="vendasAdicionarItemDoResumo(\''+pfEscJs(it.codigo)+'\',\''+pfEscJs(it.marca||'')+'\',\''+pfEscJs(it.desc||'')+'\')" style="background:none;border:1px solid #1F4E79;color:#1F4E79;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap">+ cotar</button>'+
+        '<button onclick="vendasAdicionarItemDoResumo(\''+pfEscJs(it.codigo)+'\',\''+pfEscJs(it.marca||'')+'\',\''+pfEscJs(it.desc||'')+'\')" style="background:none;border:1px solid #1F4E79;color:#1F4E79;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">+ cotar</button>'+
         '</div>';
     }).join('');
     html+='</div></div>';
@@ -44060,7 +44106,7 @@ function vendasRenderCotacao(el){
     var fc=window._vendasFocusCol||'mp';
     var focoMp=ativo&&fc==='mp';
     var focoPv=ativo&&fc==='pv';
-    return '<tr data-vidx="'+i+'" onclick="vendasSetItemAtivo('+i+')" oncontextmenu="event.preventDefault();vendasMoverItemPrompt('+i+')" style="cursor:pointer;'+(ativo?'background:#EEF6FF;':isNeg?'background:#FFF5F5;':'')+'border-bottom:.5px solid #f0f4f8" title="Clique com o botão direito p/ mover de posição">'+
+    return '<tr data-vidx="'+i+'" onclick="vendasSetItemAtivo('+i+')" oncontextmenu="vendasAbrirMenuLinha(event,'+i+')" style="cursor:pointer;'+(ativo?'background:#EEF6FF;':isNeg?'background:#FFF5F5;':'')+'border-bottom:.5px solid #f0f4f8" title="Clique com o botão direito p/ mais opções">'+
       '<td style="padding:3px 4px;text-align:center;'+(focoMp?'box-shadow:inset 0 0 0 2px #1F4E79;border-radius:6px':'')+'"><div style="display:flex;align-items:center;justify-content:center;gap:3px"><input type="checkbox" onclick="event.stopPropagation()" '+(chk?'checked':'')+' onchange="window._vendasSel=window._vendasSel||{};window._vendasSel['+i+']=this.checked;vendasAtualizarMapaBtn()" style="width:15px;height:15px;cursor:pointer;vertical-align:middle" title="Selecionar (usado pelos botões de ação abaixo, e pela tecla Delete)"><button onclick="event.stopPropagation();window._venda.itens.splice('+i+',1);window._vendasSel=null;vendasRefresh()" style="appearance:none;-webkit-appearance:none;-moz-appearance:none;background:none;border:none;margin:0;cursor:pointer;padding:0;width:20px;flex-shrink:0" title="Excluir este item">'+pfXGlossyHtml(20)+'</button></div></td>'+
       '<td style="padding:3px 8px;text-align:center;'+(focoPv?'box-shadow:inset 0 0 0 2px #27AE60;border-radius:6px':'')+'">'+
         (it.pvNumero?
@@ -45456,6 +45502,75 @@ function vendasAdicionarPorAplicacao(codigo){
   vendasRefresh();
 }
 
+// v115.1791 - A pedido do Vitor: botão direito no item agora abre um menu
+// com opções (antes ia direto pro "mover posição") -- nova opção "Ver
+// cotações deste item" reaproveita 100% a infra já existente do selo de
+// preço (pfBuscarHistoricoPreco/item_historico_precos), só que mostrando a
+// lista inteira em vez de só o último valor: data, preço, nº da cotação e
+// cliente, separado em "deste cliente" e "outros clientes".
+function vendasAbrirMenuLinha(e,i){
+  e.preventDefault();
+  var old=document.getElementById('vendasMenuLinha');
+  if(old)old.remove();
+  var menu=document.createElement('div');
+  menu.id='vendasMenuLinha';
+  menu.style.cssText='position:fixed;top:'+e.clientY+'px;left:'+e.clientX+'px;background:#fff;border:1px solid #e0e8f0;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.15);z-index:99999;overflow:hidden;min-width:210px';
+  menu.innerHTML=
+    '<div onclick="document.getElementById(\'vendasMenuLinha\').remove();vendasVerCotacoesItem('+i+')" style="padding:9px 14px;font-size:13px;color:#1a2332;cursor:pointer" onmouseover="this.style.background=\'#F7F9FC\'" onmouseout="this.style.background=\'\'">📊 Ver cotações deste item</div>'+
+    '<div onclick="document.getElementById(\'vendasMenuLinha\').remove();vendasMoverItemPrompt('+i+')" style="padding:9px 14px;font-size:13px;color:#1a2332;cursor:pointer;border-top:1px solid #f0f4f8" onmouseover="this.style.background=\'#F7F9FC\'" onmouseout="this.style.background=\'\'">↕️ Mover posição</div>';
+  document.body.appendChild(menu);
+  setTimeout(function(){
+    document.addEventListener('click',function fechaFora(ev){
+      if(!menu.contains(ev.target)){menu.remove();document.removeEventListener('click',fechaFora);}
+    });
+  },0);
+}
+async function vendasVerCotacoesItem(i){
+  var itens=window._venda&&window._venda.itens;
+  if(!itens||!itens[i])return;
+  var it=itens[i];
+  var ref=it.codigo,marca=it.marca||it.marcaInterna||'';
+  var clienteAtual=(window._venda.cliente&&window._venda.cliente.razao)?window._venda.cliente.razao.toString().toUpperCase():'';
+  var overlay=document.createElement('div');
+  overlay.id='vendasCotHistOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99998;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML='<div style="background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:80vh;overflow-y:auto;padding:20px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'+
+    '<div style="font-size:16px;font-weight:800;color:#1F4E79">📊 Cotações de '+pfEscHtml(ref||'')+' ('+pfEscHtml(marca||'—')+')</div>'+
+    '<span onclick="document.getElementById(\'vendasCotHistOverlay\').remove()" style="cursor:pointer;font-size:18px;color:#8a9ab0">✕</span></div>'+
+    '<div id="vendasCotHistBody" style="font-size:13px;color:#8a9ab0">Carregando...</div></div>';
+  overlay.addEventListener('click',function(ev){if(ev.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+  var entries=[];
+  try{entries=await pfBuscarHistoricoPreco(ref,marca)||[];}catch(e){}
+  var body=document.getElementById('vendasCotHistBody');
+  if(!body)return; // overlay já fechado antes da resposta chegar
+  if(!entries.length){
+    body.innerHTML='<div style="padding:16px;text-align:center;color:#8a9ab0">Nenhuma cotação anterior encontrada pra esse item.</div>';
+    return;
+  }
+  var doCliente=entries.filter(function(e){return clienteAtual&&e.cliente&&e.cliente.toString().toUpperCase()===clienteAtual;});
+  var outros=entries.filter(function(e){return !(clienteAtual&&e.cliente&&e.cliente.toString().toUpperCase()===clienteAtual);});
+  function tabela(lista){
+    return '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="color:#8a9ab0;text-align:left">'+
+      '<th style="padding:4px 8px">Data</th><th style="padding:4px 8px">Cliente</th><th style="padding:4px 8px;text-align:right">Preço</th><th style="padding:4px 8px">Cotação</th></tr></thead><tbody>'+
+      lista.map(function(e){
+        var data=e.created_at?new Date(e.created_at).toLocaleDateString('pt-BR'):'—';
+        return '<tr style="border-bottom:1px solid #f0f4f8"><td style="padding:6px 8px">'+data+'</td>'+
+          '<td style="padding:6px 8px">'+pfEscHtml(e.cliente||'—')+'</td>'+
+          '<td style="padding:6px 8px;text-align:right;font-weight:700;color:#1F4E79">'+(e.preco!=null?'R$ '+Number(e.preco).toFixed(2).replace('.',','):'—')+'</td>'+
+          '<td style="padding:6px 8px">'+pfEscHtml(e.cotacao_num||'—')+'</td></tr>';
+      }).join('')+'</tbody></table>';
+  }
+  var html='';
+  if(clienteAtual&&doCliente.length){
+    html+='<div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin:10px 0 4px">Deste cliente</div>'+tabela(doCliente);
+  }
+  if(outros.length){
+    html+='<div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;margin:14px 0 4px">Outros clientes</div>'+tabela(outros);
+  }
+  body.innerHTML=html||'<div style="padding:16px;text-align:center;color:#8a9ab0">Nenhuma cotação anterior encontrada pra esse item.</div>';
+}
 function vendasMoverItemPrompt(i){
   var itens=window._venda&&window._venda.itens;
   if(!itens||!itens.length)return;
@@ -63042,9 +63157,11 @@ var _mgRenderDebounce=null;
 function mgRenderTabelaDebounced(){clearTimeout(_mgRenderDebounce);_mgRenderDebounce=setTimeout(mgRenderTabela,500);}
 function mgRecalcAll(){mgRenderTabela();}
 function mgAplicarTodos(){var m=parseFloat(String((document.getElementById('mgMargemGlobal')||{}).value||21).replace(',','.'))/100;(window._mgItens||[]).forEach(function(it){it.margem=m;});mgRenderTabela();}
-function mgAdicionarItem(){if(!window._mgItens)window._mgItens=[];var m=parseFloat(String((document.getElementById('mgMargemGlobal')||{}).value||21).replace(',','.'))/100;window._mgItens.push({ref:'REF',desc:'Descrição',marca:'',custo:0,ipi_pct:0,st_val:0,margem:m});mgRenderTabela();}
+function mgAdicionarItem(){if(!window._mgItens)window._mgItens=[];var m=parseFloat(String((document.getElementById('mgMargemGlobal')||{}).value||21).replace(',','.'))/100;window._mgItens.push({ref:'',desc:'',marca:'',custo:0,ipi_pct:0,st_val:0,margem:m});mgRenderTabela();}
 function mgRemItem(i){if(window._mgItens)window._mgItens.splice(i,1);mgRenderTabela();}
 function mgSetCusto(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].custo=parseFloat(String(v).replace(',','.'))||0;mgRenderTabelaDebounced();}
+function mgSetRef(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].ref=String(v).toUpperCase();}
+function mgSetDesc(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].desc=String(v).toUpperCase();}
 function mgSetIpi(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].ipi_pct=(parseFloat(String(v).replace(',','.'))||0)/100;mgRenderTabelaDebounced();}
 function mgSetSt(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].st_val=parseFloat(String(v).replace(',','.'))||0;mgRenderTabelaDebounced();}
 function mgSetMargem(i,v){if(window._mgItens&&window._mgItens[i])window._mgItens[i].margem=(parseFloat(String(v).replace(',','.'))||21)/100;mgRenderTabelaDebounced();}
@@ -63063,16 +63180,24 @@ function mgRenderTabela(){
   html+='<th style="padding:8px;text-align:right;width:60px">ST R$</th><th style="padding:8px;text-align:right;width:90px" title="Vem do Fornecedor UF / Cliente UF acima — compra (crédito) / venda (débito)">ICMS%</th>';
   html+='<th style="padding:8px;text-align:right;width:54px">Marg%</th>';
   html+='<th style="padding:8px;text-align:right;width:100px;background:#1B5E20">Venda Sug.</th>';
-  html+='<th style="padding:8px;text-align:right;width:70px">Markup</th><th style="padding:8px;text-align:center;width:40px">✕</th>';
+  html+='<th style="padding:8px;text-align:right;width:70px">Markup</th><th style="padding:8px;text-align:center;width:40px"></th>';
   html+='</tr></thead><tbody>';
   itens.forEach(function(item,i){
     var r={venda:0,markup:0};
     try{r=calcMargemLiq(item.custo,icms_c,item.ipi_pct,item.st_val,icms_v,item.margem,finalidade,clienteUF);}catch(e){}
     var bg=i%2===0?'#fff':'#FAFBFC';
     html+='<tr style="border-bottom:1px solid #f0f4f8;background:'+bg+'">';
-    html+='<td style="padding:7px 8px;font-family:monospace;font-weight:700;color:#1F4E79">'+item.ref+'</td>';
-    html+='<td style="padding:7px 8px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.desc+'</td>';
-    html+='<td style="padding:7px 8px;text-align:right"><input type="text" inputmode="decimal" value="'+item.custo+'" oninput="mgSetCusto('+i+',this.value)" style="width:72px;padding:3px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
+    // v115.1792 - A pedido do Vitor ("coloque tudo em letra maiúscula
+    // descrição, código"): Ref/Descrição não eram editáveis (ficavam
+    // travados em "REF"/"Descrição" pra item adicionado manualmente) --
+    // agora são campos de verdade, e sempre salvam em maiúsculo (igual o
+    // resto do sistema já faz em Cadastros).
+    html+='<td style="padding:7px 8px"><input type="text" value="'+pfEscHtml(item.ref||'')+'" oninput="mgSetRef('+i+',this.value)" placeholder="REF" style="width:90px;padding:3px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;font-family:monospace;font-weight:700;color:#1F4E79;text-transform:uppercase"></td>';
+    html+='<td style="padding:7px 8px"><input type="text" value="'+pfEscHtml(item.desc||'')+'" oninput="mgSetDesc('+i+',this.value)" placeholder="DESCRIÇÃO" style="width:100%;min-width:140px;padding:3px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-transform:uppercase"></td>';
+    // v115.1792 - A pedido do Vitor ("custo precisa mostrar em real"):
+    // prefixo "R$" fixo do lado do campo, mesmo padrão visual da Venda
+    // Sug. ao lado.
+    html+='<td style="padding:7px 8px;text-align:right"><div style="display:inline-flex;align-items:center;gap:3px"><span style="font-size:11px;color:#8a9ab0">R$</span><input type="text" inputmode="decimal" value="'+item.custo+'" oninput="mgSetCusto('+i+',this.value)" style="width:64px;padding:3px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></div></td>';
     html+='<td style="padding:7px 8px;text-align:right"><input type="text" inputmode="decimal" value="'+(item.ipi_pct*100).toFixed(1)+'" oninput="mgSetIpi('+i+',this.value)" style="width:50px;padding:3px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
     html+='<td style="padding:7px 8px;text-align:right"><input type="text" inputmode="decimal" value="'+item.st_val+'" oninput="mgSetSt('+i+',this.value)" style="width:56px;padding:3px 6px;border:1px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:right"></td>';
     html+='<td style="padding:7px 8px;text-align:right;color:#607080;font-size:11px;white-space:nowrap">C:'+(icms_c*100).toFixed(0)+'% V:'+((r.icms_venda_efetivo!=null?r.icms_venda_efetivo:icms_v)*100).toFixed(1)+'%'+(finalidade==='consumo'&&clienteUF!=='SP'?' <span title="Inclui DIFAL (venda pra consumo em outro estado)">🧾</span>':'')+'</td>';
@@ -63080,7 +63205,7 @@ function mgRenderTabela(){
     html+='<td style="padding:7px 8px;text-align:right" title="'+(_margemBaixa?'⚠ Abaixo do mínimo de 21%':'')+'"><input type="text" inputmode="decimal" value="'+(item.margem*100).toFixed(1)+'" oninput="mgSetMargem('+i+',this.value)" style="width:50px;padding:3px 6px;border:1.5px solid '+(_margemBaixa?'#C00000':'#1F4E79')+';border-radius:6px;font-size:12px;text-align:right;color:'+(_margemBaixa?'#C00000':'#1F4E79')+';font-weight:700"></td>';
     html+='<td style="padding:7px 8px;text-align:right;font-weight:800;color:'+(r.venda>0?'#217a3c':'#8a9ab0')+';background:#F0FAF0">'+(r.venda>0?'R$ '+r.venda.toFixed(2).replace('.',','):'—')+'</td>';
     html+='<td style="padding:7px 8px;text-align:right;color:#607080">'+(r.markup>0?r.markup.toFixed(1)+'%':'—')+'</td>';
-    html+='<td style="padding:7px 8px;text-align:center"><button onclick="mgRemItem('+i+')" style="background:none;border:1px solid #e0e8f0;color:#C00000;border-radius:6px;padding:2px 7px;cursor:pointer;font-size:11px">✕</button></td>';
+    html+='<td style="padding:7px 8px;text-align:center"><button onclick="mgRemItem('+i+')" style="appearance:none;-webkit-appearance:none;background:none;border:none;margin:0;cursor:pointer;padding:0" title="Excluir este item">'+pfXGlossyHtml(20)+'</button></td>';
     html+='</tr>';
   });
   html+='</tbody></table>';

@@ -1698,7 +1698,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1774</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1775</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1842,7 +1842,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1774</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1775</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -50903,6 +50903,26 @@ function pvConfirmarCriarPedido(){
   list.push(pedido);
   pvSave(list);
   pvAplicarAbatimento(pedido);
+  // v115.1775 - BUG achado pelo Vitor (selo ▲/▼ de preço não aparecia pra
+  // item já vendido antes pro cliente): emitir Pedido de Venda nunca
+  // registrava nada em item_historico_precos -- só o "Salvar" explícito da
+  // cotação fazia isso (vendasSalvarCotacaoReal). Quem trabalha direto pelo
+  // fluxo de Pedido de Venda (sem passar por "Salvar" cotação antes)
+  // nunca gerava histórico nenhum, então o selo nunca tinha o que comparar.
+  // Emitir o pedido é, se algo, o momento MAIS definitivo de venda -- tem
+  // que gravar aqui também. Usa it.marca (mesma marca que o selo consulta),
+  // não it.marcaInterna, senão nunca bate quando há "Marca p/Cotação".
+  if(typeof pfRegistrarHistoricoPreco==='function'){
+    itensSel.forEach(function(it){
+      if(it.venda>0){
+        pfRegistrarHistoricoPreco({
+          item_ref:it.codigo||'', marca:it.marca||it.marcaInterna||'', descricao:it.desc||'',
+          tipo:'venda', cliente:(v.cliente&&v.cliente.razao)||'',
+          preco:it.venda, custo:it.custo||null, qtd:it.qtd||null, cotacao_num:numero
+        });
+      }
+    });
+  }
   // Marca os itens enviados (fica visível na linha, sem excluir da cotação)
   itensSel.forEach(function(it){
     if(it._idx!=null&&v.itens[it._idx])v.itens[it._idx].pvNumero=numero;
@@ -52533,7 +52553,7 @@ async function vendasSalvarCotacaoReal(opts){
       var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf||'SP',v.margem||30):0);
       if(venda>0){
         pfRegistrarHistoricoPreco({
-          item_ref:it.codigo||it.ref||'', marca:it.marcaInterna||it.marca||'', descricao:it.desc||'',
+          item_ref:it.codigo||it.ref||'', marca:it.marca||it.marcaInterna||'', descricao:it.desc||'',
           tipo:'venda', cliente:(v.cliente&&v.cliente.razao)||'',
           preco:venda, custo:custo||null, qtd:it.qtd||null, cotacao_num:(cot.num?('V-'+cot.num):(v.nr||''))
         });

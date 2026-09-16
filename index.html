@@ -1709,7 +1709,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1847</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1848</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1859,7 +1859,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1847</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1848</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -17521,8 +17521,16 @@ async function recalc(skipRender){
     var data=typeof _e==='object'?(_e.data||''):'';
     return {tkRef:tkRef,tkRefNorm:normRef(tkRef),tkMarca:tkMarca,qty:qty,data:data};
   });
+  // v115.1848 - Diagnóstico temporário (Vitor: ainda sentindo lentidão --
+  // log mostrou 2 LONGTASK de 8+s SEM corresponder a nenhum pfSyncPull nem
+  // pfPullPlanilhas medidos -- sobrou só essa suspeita: o loop de trânsito
+  // aqui dentro é O(500 x transitItems.length) POR CHUNK, e só cede a
+  // thread ENTRE chunks -- se transitItems cresceu muito (sem limpeza,
+  // mesmo padrão do mapa_estado_ achado antes), um chunk só pode estourar
+  // vários segundos sem nenhum yield no meio. Só loga, não muda nada.
   for(let i=0;i<itemsParaCalc.length;i+=CHUNK){
     const slice=itemsParaCalc.slice(i,i+CHUNK);
+    const _pfChunkT0=performance.now();
     for(const d of slice){
       const cD=periodo>0?d.consumo/periodo:0;
       const cM=cD*30;
@@ -17566,6 +17574,11 @@ async function recalc(skipRender){
       const sl=sk==="U"?"URGENTE":sk==="A"?"ATENÇÃO":sk==="OP"?"OPORTUNIDADE":"OK";
       const grupo=classificarGrupo(d.desc||'',d.ref);
       calcItems.push({...d,cD,cM,dE,vP,qtdC,vC,sk,sl,grupo,tA,tDataMin,tDataMax,consProj});
+    }
+    const _pfChunkMs=performance.now()-_pfChunkT0;
+    if(_pfChunkMs>1000){
+      console.warn('🐌 recalc(): chunk '+i+'-'+(i+CHUNK)+' levou '+_pfChunkMs.toFixed(0)+'ms -- transitItems tem '+_transitParsed.length+' chave(s)');
+      if(typeof _pfLogDiagnostico==='function')_pfLogDiagnostico('recalc_chunk_lento',{i:i,ms:Math.round(_pfChunkMs),transitLen:_transitParsed.length});
     }
     if(i%CHUNK===0&&i>0){await new Promise(r=>setTimeout(r,0));if(_recalcGen!==myGen)return;}
   }

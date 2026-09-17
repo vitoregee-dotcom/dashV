@@ -1713,7 +1713,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1878</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1879</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1863,7 +1863,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1878</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1879</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -25418,6 +25418,7 @@ async function pfPullPlanilhas(){
     }
     console.log('pfPullPlanilhas: allItems.length='+allItems.length+' tabs='+JSON.stringify(typeof tabs)+' activeTab='+activeTab);
     window._pfVendasBuscaIndex=null; // v115.1877 - catálogo recarregou, índice de busca fica velho
+    window._pfPvFindFamiliaIndex=null; // v115.1879 - idem, índice do pvFindFamilia
     if(!allItems.length){if(sp)sp.style.display='none';return;}
     // Popula tabs[activeTab] para que vendasBuscarItem funcione
     if(typeof tabs!=='undefined'){
@@ -50779,19 +50780,24 @@ function vendasAtualizarPVBtn(){
   if(btn)btn.textContent='📦 Pedido de Venda ('+count+')';
 }
 
-// Deduz o saldo dos itens de um pedido em allItems/tabs (todas as linhas que
-// casam ref+marca, distribuindo a baixa entre elas até zerar a quantidade)
+// v115.1879 - BUG DE RAIZ corrigido (varredura, a pedido do Vitor depois
+// do achado em vendasBuscarItem): mesmo padrão -- varria TODO allRows (até
+// 228k) pra CADA item do pedido, sem índice. Reaproveita o mesmo índice de
+// vendasBuscaIndiceGet (Map por ref limpa), só filtra por marca dentro do
+// pequeno grupo já encontrado.
 function pvAplicarAbatimento(pedido){
   var allRows=[];
   if(typeof tabs!=='undefined'&&tabs&&tabs.length){
     tabs.forEach(function(t){if(t&&t.allItems)allRows=allRows.concat(t.allItems);});
   }
   if(!allRows.length&&typeof allItems!=='undefined'&&allItems)allRows=allItems;
+  var _idxAb=(typeof vendasBuscaIndiceGet==='function')?vendasBuscaIndiceGet(allRows):null;
   (pedido.itens||[]).forEach(function(it){
     var falta=it.qtd;
     var marcaReal=it.marcaInterna||it.marca;
     var codClean=(it.codigo||'').toString().toUpperCase().trim().replace(/[\s\-\.]/g,'');
-    allRows.forEach(function(row){
+    var candidatos=_idxAb?(_idxAb.porRefExata[codClean]||[]):allRows;
+    candidatos.forEach(function(row){
       if(falta<=0)return;
       var ref=(row.ref||row.codigo||'').toString().toUpperCase().trim().replace(/[\s\-\.]/g,'');
       var marca=(row.marca||'').toString();
@@ -52417,16 +52423,29 @@ function pvVerDetalhe(id){
 
 function pvFindFamilia(codigo,marca){
   var codClean=(codigo||'').toString().toUpperCase().trim().replace(/[\s\-\.]/g,'');
+  var rowsPv=[];
   if(typeof tabs!=='undefined'&&tabs&&tabs.length){
     for(var t=0;t<tabs.length;t++){
       var tb=tabs[t];
       if(!tb||!tb.allItems)continue;
-      for(var i=0;i<tb.allItems.length;i++){
-        var row=tb.allItems[i];
-        var ref=(row.ref||row.codigo||'').toString().toUpperCase().trim().replace(/[\s\-\.]/g,'');
-        if(ref===codClean&&(!marca||(row.marca||'')===marca))return tb.nome||tb.familia||'—';
-      }
+      rowsPv=rowsPv.concat(tb.allItems.map(function(r){return {row:r,fam:tb.nome||tb.familia||'—'};}));
     }
+  }
+  if(!rowsPv.length)return '—';
+  var _idxPv=window._pfPvFindFamiliaIndex;
+  if(!_idxPv||_idxPv.len!==rowsPv.length){
+    var porRef={};
+    rowsPv.forEach(function(x){
+      var ref=(x.row.ref||x.row.codigo||'').toString().toUpperCase().trim().replace(/[\s\-\.]/g,'');
+      if(!porRef[ref])porRef[ref]=[];
+      porRef[ref].push(x);
+    });
+    _idxPv={len:rowsPv.length,porRef:porRef};
+    window._pfPvFindFamiliaIndex=_idxPv;
+  }
+  var cands=_idxPv.porRef[codClean]||[];
+  for(var c=0;c<cands.length;c++){
+    if(!marca||(cands[c].row.marca||'')===marca)return cands[c].fam;
   }
   return '—';
 }

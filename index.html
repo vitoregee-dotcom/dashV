@@ -1733,7 +1733,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1937</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1940</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1883,7 +1883,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1937</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1940</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -40629,6 +40629,14 @@ function mapaListaOrdenar(v){
   window._mapasOrdenacao=mapa[v]||mapa.padrao;
   mapaRender();
 }
+// v115.1940 - Clique no cabeçalho da tabela ordena por aquela coluna;
+// clicar de novo na mesma coluna inverte a direção (mesmo padrão já
+// usado no modal "ampliar" dos Rankings).
+function mapaOrdenarPorCol(col){
+  var at=window._mapasOrdenacao||{col:null,dir:1};
+  window._mapasOrdenacao=(at.col===col)?{col:col,dir:-at.dir}:{col:col,dir:1};
+  mapaRender();
+}
 function mapaListaMenuFechar(){var o=document.getElementById('mapaListaMenu');if(o)o.remove();}
 function mapaListaMenuAbrir(id,btn){
   var velho=document.getElementById('mapaListaMenu');
@@ -40771,38 +40779,54 @@ mapaRender = function(){
     } else if(!listaFiltrada.length){
       html+='<div style="text-align:center;padding:40px 20px;color:var(--pf-text-muted);font-size:14px">Nenhum mapa encontrado com esses filtros.</div>';
     } else {
+      // v115.1940 - A pedido do Vitor: trocado o grid de cartões por uma
+      // TABELA densa (variação C, entre 5 opções mostradas em mockup) --
+      // mesmo padrão de tabela já usado no resto do sistema (Rankings,
+      // Itens pra Comprar: cabeçalho navy, zebra, hover -- herdado do
+      // CSS global de <table>, não reinventado aqui). Mantém toda a
+      // lógica de filtro/ordenação/menu "⋯" já existente, só troca o
+      // jeito de desenhar cada linha.
       function _dCurta(ts){if(!ts)return '';var d=new Date(ts),h=new Date(),o={day:'2-digit',month:'2-digit'};if(d.getFullYear()!==h.getFullYear())o.year='2-digit';return d.toLocaleDateString('pt-BR',o);}
-      var _rotEtapa=['Itens','Enviar','Preços','Decidir'];
-      html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">';
-      listaFiltrada.forEach(function(m){
+      function _thOrd(col,rot,align){
+        var seta=(_mOrd.col===col)?(_mOrd.dir===-1?' ▾':' ▴'):'';
+        return '<th onclick="mapaOrdenarPorCol(\''+col+'\')" style="cursor:pointer;'+(align?'text-align:'+align:'')+'" title="Ordenar por '+rot+'">'+rot+seta+'</th>';
+      }
+      html+='<div style="background:var(--pf-card-bg,#fff);border:1px solid var(--pf-border);border-radius:12px;overflow:hidden">'+
+        '<table style="font-size:12px">'+
+        '<thead><tr>'+
+          _thOrd('numero','Nº')+
+          _thOrd('cliente','Cliente','left')+
+          _thOrd('origem','Origem','left')+
+          _thOrd('itens','Itens')+
+          '<th>Preços</th>'+
+          _thOrd('status','Status','left')+
+          _thOrd('data','Data')+
+          '<th></th>'+
+        '</tr></thead><tbody>';
+      listaFiltrada.forEach(function(m,idx){
         var st=statusInfo(m.step);
-        var passo=Math.max(1,Math.min(4,parseInt(m.step,10)||1));
-        var prog=typeof solicCalcularProgressoMapa==='function'?solicCalcularProgressoMapa({mapaOrigem:m.id}):null;
-        var corDot=st.label.indexOf('Pronto')>=0?'var(--pf-table-badge-success-text,#16A34A)':(st.label.indexOf('Aguardando')>=0?'var(--pf-accent,#2563EB)':'var(--pf-table-badge-warning-text,#D97706)');
         var stLimpo=st.label.replace(/^[^A-Za-zÀ-ú]+/,'');
+        var badgeBg=st.label.indexOf('Pronto')>=0?'var(--pf-table-badge-success-bg,#DCFCE7)':(st.label.indexOf('Aguardando')>=0?'var(--pf-table-badge-info-bg,#E8F4FD)':'var(--pf-table-badge-warning-bg,#FEF3C7)');
+        var badgeCor=st.label.indexOf('Pronto')>=0?'var(--pf-table-badge-success-text,#166534)':(st.label.indexOf('Aguardando')>=0?'var(--pf-accent-legivel,var(--pf-accent))':'var(--pf-table-badge-warning-text,#92400E)');
         var origem=m.vendaOrigem?'Cotação':(m.estoqueOrigem?'Compra p/ estoque':'Mapa');
         var nome=m.cliente||m.titulo||'—';
-        var extra=[];
-        if(prog&&prog.fornTotal)extra.push('forn. '+prog.fornRespondidos+'/'+prog.fornTotal+' · preços '+prog.itensComPreco+'/'+prog.itensTotal);
-        if(m.decididoTs)extra.push('finalizado '+_dCurta(m.decididoTs));
-        var seg='',lab='';
-        for(var i=1;i<=4;i++){
-          seg+='<i style="height:5px;border-radius:3px;background:'+(i<=passo?'var(--pf-accent)':'var(--pf-border)')+'"></i>';
-          lab+='<span style="'+(i===passo?'color:var(--pf-accent-legivel,var(--pf-accent));font-weight:700':'')+'">'+_rotEtapa[i-1]+'</span>';
-        }
-        html+='<div onclick="mapaAbrirDaListaSeguro(\''+m.id+'\',null)" title="'+pfEscHtml(m.titulo||nome)+'" style="cursor:pointer;background:var(--pf-card-bg,#fff);border:1px solid var(--pf-border);border-radius:12px;padding:14px;display:flex;flex-direction:column;min-width:0;-webkit-tap-highlight-color:rgba(0,0,0,.06)">';
-        html+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--pf-accent-light,#EEF6FF);color:var(--pf-accent-legivel,var(--pf-accent));white-space:nowrap;font-family:monospace">'+(m.numero?pfEscHtml(m.numero):'—')+'</span><span style="font-size:11.5px;color:var(--pf-text-muted);white-space:nowrap">'+m.nItens+' iten'+(m.nItens===1?'':'s')+' · '+_dCurta(m.criadoTs||m.ts)+'</span></div>';
-        html+='<div style="font-size:14px;font-weight:700;color:var(--pf-text);margin:9px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pfEscHtml(nome)+'</div>';
-        html+='<div style="font-size:11.5px;color:var(--pf-text-muted);margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+origem+(m.criadoPor&&m.criadoPor.nome?' · 👤 '+pfEscHtml(m.criadoPor.nome):'')+'</div>';
-        html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px">'+seg+'</div>';
-        html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;font-size:11px;color:var(--pf-text-muted);margin:4px 0 8px">'+lab+'</div>';
-        html+='<div style="font-size:11.5px;color:var(--pf-text-muted);margin-bottom:12px;min-height:16px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+corDot+';margin-right:6px"></span>'+stLimpo+(extra.length?' · '+extra.join(' · '):'')+'</div>';
-        html+='<div onclick="event.stopPropagation()" style="display:flex;gap:6px;margin-top:auto">';
-        html+='<button onclick="mapaAbrirDaListaSeguro(\''+m.id+'\',null)" style="flex:1;min-height:40px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:700;background:var(--pf-accent-light,#EEF6FF);color:var(--pf-accent-legivel,var(--pf-accent));border:1px solid var(--pf-accent)">'+st.btn+'</button>';
-        html+='<button onclick="mapaListaMenuAbrir(\''+m.id+'\',this)" aria-label="Mais ações" title="Renomear, editar, excluir" style="min-width:44px;min-height:40px;border-radius:9px;cursor:pointer;font-size:17px;line-height:1;background:var(--pf-card-bg,#fff);color:var(--pf-text-muted);border:1px solid var(--pf-border)">⋯</button>';
-        html+='</div></div>';
+        var prog=typeof solicCalcularProgressoMapa==='function'?solicCalcularProgressoMapa({mapaOrigem:m.id}):null;
+        var precosTxt=(prog&&prog.itensTotal)?(prog.itensComPreco+'/'+prog.itensTotal):'—';
+        html+='<tr onclick="mapaAbrirDaListaSeguro(\''+m.id+'\',null)" title="'+pfEscHtml(m.titulo||nome)+'" style="cursor:pointer'+(idx%2===1?';background:var(--pf-table-hover-bg,#FAFBFC)':'')+'">'+
+          '<td><span style="font-family:monospace;font-weight:700;color:var(--pf-accent-legivel,var(--pf-accent))">'+(m.numero?pfEscHtml(m.numero):'—')+'</span></td>'+
+          '<td style="font-weight:700;color:var(--pf-text);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+pfEscHtml(nome)+'</td>'+
+          '<td style="color:var(--pf-text-muted)">'+origem+(m.criadoPor&&m.criadoPor.nome?' · 👤 '+pfEscHtml(m.criadoPor.nome):'')+'</td>'+
+          '<td style="text-align:center">'+m.nItens+'</td>'+
+          '<td style="text-align:center;color:var(--pf-text-muted)">'+precosTxt+'</td>'+
+          '<td><span style="padding:2px 10px;border-radius:20px;font-size:10.5px;font-weight:700;white-space:nowrap;background:'+badgeBg+';color:'+badgeCor+'">'+stLimpo+'</span></td>'+
+          '<td style="text-align:center;color:var(--pf-text-muted)">'+_dCurta(m.criadoTs||m.ts)+'</td>'+
+          '<td onclick="event.stopPropagation()" style="text-align:right;white-space:nowrap">'+
+            '<button onclick="mapaAbrirDaListaSeguro(\''+m.id+'\',null)" style="background:var(--pf-accent-light,#EEF6FF);color:var(--pf-accent-legivel,var(--pf-accent));border:1px solid var(--pf-accent);font-weight:700;font-size:11.5px;padding:5px 11px;border-radius:6px;cursor:pointer">'+st.btn+'</button> '+
+            '<button onclick="mapaListaMenuAbrir(\''+m.id+'\',this)" aria-label="Mais ações" title="Renomear, editar, excluir" style="background:var(--pf-card-bg,#fff);border:1px solid var(--pf-border);border-radius:6px;width:28px;height:28px;color:var(--pf-text-muted);cursor:pointer">⋯</button>'+
+          '</td>'+
+        '</tr>';
       });
-      html+='</div>';
+      html+='</tbody></table></div>';
     }
     html+='</div>';
     el.innerHTML=html;
@@ -58542,6 +58566,7 @@ function ftNavigateFicha(){
 function ftVoltarCards(){
   currentView='area_tecnica';
   areaTecnicaRender();
+  if(typeof pfAiAssistantDetach==='function')pfAiAssistantDetach();
 }
 function ftCampoHtml(rec,campo,label){
   var f=rec[campo]||{v:'',ok:true};
@@ -61353,6 +61378,7 @@ function rolToggleDetalhes(){
 function rolNavigate(){
   currentView='area_tecnica_rol';
   rolRender();
+  if(typeof pfAiAssistantAttach==='function')pfAiAssistantAttach({secao:'Rolamentos — Descobridor de Equivalência'});
 }
 // v115.1210 - BUG corrigido (a pedido do Vitor, achou tela vazia "0 de 0"):
 // Rolamentos usa o catálogo GERAL (allItems, filtrado por família), não
@@ -63279,8 +63305,25 @@ function pfPendenciasVerDetalhe(id,editando){
   // target=_blank porque PDF/planilha abre no visualizador do navegador ou
   // baixa, dependendo do tipo -- em nenhum dos dois casos pode navegar pra
   // fora do PartsFlow e derrubar a sessao aberta.
+  // v115.1937 - A pedido do Vitor (achado real: "só consigo anexar 1
+  // arquivo por vez" -- na verdade a criação de pendência JÁ aceitava
+  // vários de uma vez, mas EDITAR uma pendência já existente não tinha
+  // NENHUM jeito de anexar arquivo, nem um só -- esse modal só listava os
+  // anexos existentes como link, sem botão de adicionar/remover. Editando
+  // agora ganha "Anexar arquivo(s)" (multiple, igual à criação) e um X em
+  // cada anexo pra remover.
   var anexosHtml='';
-  if(p.anexos&&p.anexos.length){
+  if(editando){
+    anexosHtml='<div style="margin-top:12px;border-top:1px solid var(--pf-border);padding-top:10px">'+
+      '<div style="font-size:12px;color:var(--pf-text-muted);margin-bottom:6px">Anexos</div>'+
+      '<div id="pfPendEditAnexosLista">'+pfPendEditAnexosListaHtml(p.id,p.anexos)+'</div>'+
+      '<div id="pfPendEditAnexoStatus" style="font-size:12px;color:var(--pf-text-muted);margin:4px 0"></div>'+
+      '<label style="display:inline-flex;align-items:center;gap:6px;background:none;border:1px solid var(--pf-accent);color:var(--pf-accent);border-radius:7px;padding:6px 12px;cursor:pointer;font-size:12.5px;font-weight:700;position:relative;overflow:hidden;margin-top:4px">'+
+        '📎 Anexar arquivo(s)'+
+        '<input type="file" multiple onchange="pfPendEditAnexosUpload(\''+p.id+'\',this)" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer">'+
+      '</label>'+
+    '</div>';
+  }else if(p.anexos&&p.anexos.length){
     anexosHtml='<div style="margin-top:12px;border-top:1px solid var(--pf-border);padding-top:10px">'+
       '<div style="font-size:12px;color:var(--pf-text-muted);margin-bottom:6px">Anexos</div>'+
       p.anexos.map(function(a){
@@ -63325,6 +63368,90 @@ function pfPendenciasSalvarEdicao(id){
   }
   pfPendenciasRender();
   pfPendenciasVerDetalhe(id);
+}
+
+// v115.1937 - Anexar/remover arquivo numa pendência JÁ existente (editando
+// == true em pfPendenciasVerDetalhe). Mesmo bucket/pasta que a criação
+// (pfPendAnexarArquivosLista), mas grava direto no item da lista em vez de
+// no array temporário `window._pfPendAnexos` usado só durante a criação.
+function pfPendEditAnexosListaHtml(pendId,anexos){
+  if(!anexos||!anexos.length)return '<div style="font-size:12px;color:var(--pf-text-muted)">Nenhum anexo ainda</div>';
+  return anexos.map(function(a,i){
+    return '<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0">'+
+      '<a href="'+pfEscHtml(a.url)+'" target="_blank" rel="noopener" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--pf-accent);text-decoration:none">📎 '+pfEscHtml(a.nome||'arquivo')+'</a>'+
+      '<span style="color:var(--pf-text-muted);flex-shrink:0">'+pfEscHtml(pfPendFormatarTamanho(a.tamanho))+'</span>'+
+      '<span onclick="pfPendEditAnexoRemover(\''+pfEscJs(pendId)+'\','+i+')" title="Remover" style="cursor:pointer;color:var(--pf-text-muted);flex-shrink:0;padding:0 4px">'+pfXGlossyHtml(15)+'</span>'+
+    '</div>';
+  }).join('');
+}
+async function pfPendEditAnexosUpload(id,input){
+  var arquivos=Array.prototype.slice.call(input.files||[]);
+  input.value='';
+  if(!arquivos.length)return;
+  // Captura o que já foi digitado (título/descrição) ANTES de subir --
+  // o upload é assíncrono e a pessoa pode continuar editando o texto
+  // enquanto isso; sem isso, o re-render no final jogaria fora o que ela
+  // tinha acabado de digitar.
+  var ti=document.getElementById('pfPendEditTitulo');
+  var ta=document.getElementById('pfPendEditTextarea');
+  var tituloAtual=ti?ti.value:null;
+  var descAtual=ta?ta.value:null;
+  var status=document.getElementById('pfPendEditAnexoStatus');
+  var falhas=[],grandeDemais=[];
+  for(var i=0;i<arquivos.length;i++){
+    var file=arquivos[i];
+    if(file.size>PF_PEND_MAX_UPLOAD_BYTES){grandeDemais.push(file.name);continue;}
+    if(status)status.textContent='Subindo '+(i+1)+' de '+arquivos.length+'...';
+    var tentativas=0,ultimoErro=null;
+    while(tentativas<2){
+      tentativas++;
+      try{
+        var path='pendencias/'+Date.now()+'_'+Math.random().toString(36).slice(2,9)+'_'+file.name.replace(/[^\w.\-]/g,'_');
+        var up=await sbFetch('/storage/v1/object/ferramentas-arquivos/'+path,{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream'},body:file});
+        if(!up.ok){var motivo='';try{motivo=await up.text();}catch(eTxt){}throw new Error('HTTP '+up.status+(motivo?' — '+motivo.slice(0,200):''));}
+        var lista=pfPendenciasLista();
+        var idx=lista.findIndex(function(x){return x.id===id;});
+        if(idx<0)break;
+        lista[idx].anexos=lista[idx].anexos||[];
+        lista[idx].anexos.push({url:SB_URL+'/storage/v1/object/public/ferramentas-arquivos/'+path,nome:file.name,tamanho:file.size,tipo:file.type||''});
+        lista[idx].ts=Date.now();
+        pfSafeSetItem(PF_PENDENCIAS_KEY,JSON.stringify(lista));
+        ultimoErro=null;
+        break;
+      }catch(e){ultimoErro=e;}
+    }
+    if(ultimoErro)falhas.push(file.name+' ('+(ultimoErro.message||ultimoErro)+')');
+  }
+  if(typeof pfSyncPush==='function')pfSyncPush([PF_PENDENCIAS_KEY]).catch(function(e){console.warn('pfPendEditAnexosUpload: sync falhou',e);});
+  if(status)status.textContent='';
+  if(falhas.length)pfAlert('Não subiu: '+falhas.join('; '));
+  if(grandeDemais.length)pfAlert('Arquivo(s) grande demais (máx 50MB): '+grandeDemais.join(', '));
+  pfPendenciasRender();
+  pfPendenciasVerDetalhe(id,true);
+  // Restaura o texto que a pessoa tinha digitado antes do upload terminar.
+  var ti2=document.getElementById('pfPendEditTitulo');
+  var ta2=document.getElementById('pfPendEditTextarea');
+  if(ti2&&tituloAtual!==null)ti2.value=tituloAtual;
+  if(ta2&&descAtual!==null)ta2.value=descAtual;
+}
+function pfPendEditAnexoRemover(id,indice){
+  var lista=pfPendenciasLista();
+  var idx=lista.findIndex(function(x){return x.id===id;});
+  if(idx<0||!lista[idx].anexos)return;
+  var ti=document.getElementById('pfPendEditTitulo');
+  var ta=document.getElementById('pfPendEditTextarea');
+  var tituloAtual=ti?ti.value:null;
+  var descAtual=ta?ta.value:null;
+  lista[idx].anexos.splice(indice,1);
+  lista[idx].ts=Date.now();
+  pfSafeSetItem(PF_PENDENCIAS_KEY,JSON.stringify(lista));
+  if(typeof pfSyncPush==='function')pfSyncPush([PF_PENDENCIAS_KEY]).catch(function(e){console.warn('pfPendEditAnexoRemover: sync falhou',e);});
+  pfPendenciasRender();
+  pfPendenciasVerDetalhe(id,true);
+  var ti2=document.getElementById('pfPendEditTitulo');
+  var ta2=document.getElementById('pfPendEditTextarea');
+  if(ti2&&tituloAtual!==null)ti2.value=tituloAtual;
+  if(ta2&&descAtual!==null)ta2.value=descAtual;
 }
 
 function solicRotearArquivo(f){
@@ -67726,6 +67853,12 @@ var PF_SNAPSHOT_VIEWS={
 window._pfSnapshotsPorView=window._pfSnapshotsPorView||{};
 function pfNavigate(view){
   var telaAnterior=(typeof currentView!=='undefined')?currentView:null;
+  // v115.1938 - Rede de segurança: se sair da tela de Rolamentos por
+  // qualquer caminho que não seja o botão "←" (ex: clicar direto numa
+  // bolinha do dock), o botão flutuante de IA não pode ficar preso na
+  // tela seguinte. ftVoltarCards() já cobre o caminho normal; isso cobre
+  // o resto.
+  if(telaAnterior==='area_tecnica_rol'&&view!=='area_tecnica_rol'&&typeof pfAiAssistantDetach==='function')pfAiAssistantDetach();
   // v115.1285 - BUG corrigido (achado pelo Vitor: clicou numa bolinha do
   // dock estando dentro de uma cotação, e nada acontecia -- a tela de
   // trás mudava, mas a cotação (modal em tela cheia, z-index alto)
@@ -68810,6 +68943,8 @@ function pfAiRenderMensagens(){
   var htmlParts=[];
   if(c.codigo){
     htmlParts.push('<div style="align-self:flex-start;background:#EAF0F7;color:#1F4E79;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px">Contexto: item '+pfEscHtml(c.codigo)+(c.marca?' ('+pfEscHtml(c.marca)+')':'')+'</div>');
+  }else if(c.secao){
+    htmlParts.push('<div style="align-self:flex-start;background:#EAF0F7;color:#1F4E79;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px">Contexto: '+pfEscHtml(c.secao)+'</div>');
   }
   _pfAiChat.historico.forEach(function(m){
     if(m.role==='user'){
@@ -68847,7 +68982,7 @@ async function pfAiEnviar(){
     'Tira dúvidas técnicas de peças pra equipe interna: nomenclatura, sufixos de código, cruzamento/equivalência entre marcas, especificações. '+
     'Use a busca na web pra confirmar com fonte real -- catálogo oficial de fabricante é a fonte preferida; distribuidor técnico sério (nacional ou estrangeiro) serve quando não achar catálogo oficial acessível. NUNCA invente sufixo, medida ou equivalência sem fonte -- se não achar nada confiável, diga isso claramente em vez de arriscar. '+
     'Responda em português, direto e técnico, sem enrolação -- poucos parágrafos curtos, sem saudação.'+
-    (c.codigo?' Item que a pessoa está olhando agora: código '+c.codigo+(c.marca?' ('+c.marca+')':'')+(c.descricao?' -- '+c.descricao:'')+'.':'');
+    (c.codigo?' Item que a pessoa está olhando agora: código '+c.codigo+(c.marca?' ('+c.marca+')':'')+(c.descricao?' -- '+c.descricao:'')+'.':(c.secao?' Tela que a pessoa está usando agora: '+c.secao+'.':''));
   var mensagens=_pfAiChat.historico.map(function(m){return {role:m.role,content:m.texto};});
   try{
     var resp=await fetch('https://api.anthropic.com/v1/messages',{

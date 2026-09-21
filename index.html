@@ -1733,7 +1733,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1916</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1917</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1883,7 +1883,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1916</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1917</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -36748,6 +36748,84 @@ function mapaMarcarTodosSolicitados(checked){
 
 // Override mapaStep1 to add filter + space key + fantasia
 var _origMapaStep1 = mapaStep1;
+// v115.1912 - A pedido do Vitor (opção E, "fornecedores primeiro"): painel
+// "Fornecedores do mapa" ao lado da tabela da Etapa 1. Cada fornecedor em uso
+// vira um liga/desliga que vale pra TODOS os itens do mapa (liga = inclui em
+// todos, desliga = remove de todos -- mesma regra dos antigos botões
+// "Fornecedor em Todos"/"Remover Fornecedor de Todos"); "N de M" (âmbar) =
+// só alguns itens têm. A coluna da tabela deixa de repetir a lista inteira em
+// cada linha: mostra só a EXCEÇÃO ("sem X" / "+ Y") em relação aos
+// fornecedores ligados pra todos. Não muda os dados (mapaFornSelecionados).
+function mapaFornPainelNome(fid){
+  var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
+  var f=flist.find(function(x){return x.id===fid;})||(cadLoad(FORN_KEY)||[]).find(function(x){return x.id===fid;});
+  return f?(f.fantasia||f.nome||f.razao||''):'';
+}
+function mapaFornPainelDados(){
+  var rel=mapaItens.filter(function(it){return it.sel!==false&&pfPrazoNaoIm(it.prazo);});
+  var N=rel.length, cont={};
+  rel.forEach(function(it){
+    var k=it.ref+'||'+(it.marca||'');
+    (mapaFornSelecionados[k]||[]).forEach(function(fid){cont[fid]=(cont[fid]||0)+1;});
+  });
+  var usados=Object.keys(cont).filter(function(fid){return mapaFornPainelNome(fid);}).map(function(fid){
+    return {id:fid,nome:mapaFornPainelNome(fid),n:cont[fid]};
+  });
+  usados.sort(function(a,b){return b.n-a.n||a.nome.localeCompare(b.nome);});
+  var base=usados.filter(function(u){return N>0&&u.n*2>N;}).map(function(u){return u.id;});
+  var sug=[];
+  var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
+  flist.forEach(function(f){
+    if(cont[f.id])return;
+    var nome=f.fantasia||f.nome||f.razao||'';
+    if(!nome)return;
+    var casa=rel.some(function(it){var ln=it.ln||idLinha(it.ref);return mapaForCompativel(f,it,ln).match;});
+    if(casa&&!sug.some(function(x){return x.nome.toUpperCase()===nome.toUpperCase();}))sug.push({id:f.id,nome:nome,n:0});
+  });
+  return {N:N,usados:usados,base:base,sug:sug.slice(0,4)};
+}
+function mapaFornPainelHtml(d){
+  function lin(u){
+    var todos=d.N>0&&u.n===d.N, parcial=u.n>0&&u.n<d.N;
+    var cor=todos?'#1F4E79':(parcial?'#D97706':'#CBD5E1');
+    var pos=(todos||parcial)?'right:2px':'left:2px';
+    return '<div onclick="mapaFornPainelToggle(\''+pfEscJs(u.id)+'\')" style="display:flex;align-items:center;gap:9px;padding:9px 0;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f4f8;-webkit-tap-highlight-color:rgba(0,0,0,.08)">'+
+      '<span style="width:32px;height:18px;border-radius:9px;background:'+cor+';position:relative;flex-shrink:0"><span style="position:absolute;top:2px;'+pos+';width:14px;height:14px;border-radius:50%;background:#fff"></span></span>'+
+      '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1a2332;font-weight:'+(todos?'700':'400')+'">'+pfEscHtml(u.nome)+'</span>'+
+      '<span style="font-size:11px;color:'+(parcial?'#D97706':'#8a9ab0')+'">'+(parcial?(u.n+' de '+d.N):u.n)+'</span></div>';
+  }
+  var h='<div id="mapaFornPainel" style="flex:1 1 220px;max-width:240px;min-width:200px;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:12px 14px">';
+  h+='<div style="font-size:13px;font-weight:800;color:#1F4E79">Fornecedores do mapa</div>';
+  h+='<div style="font-size:11px;color:#8a9ab0;margin:2px 0 6px;line-height:1.35">Valem para todos os itens. Só mexa nas linhas da tabela se houver exceção.</div>';
+  if(!d.usados.length&&!d.sug.length){
+    h+='<div style="font-size:12px;color:#8a9ab0;padding:8px 0">'+(d.N?'Nenhum fornecedor escolhido ainda.':'Nenhum item com prazo NÃO IM. selecionado.')+'</div>';
+  }
+  h+=d.usados.map(lin).join('');
+  if(d.sug.length){
+    h+='<div style="font-size:10px;font-weight:700;color:#8a9ab0;margin:10px 0 0;letter-spacing:.4px">SUGERIDOS PELA MARCA/LINHA</div>';
+    h+=d.sug.map(lin).join('');
+  }
+  h+='<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">';
+  h+='<button onclick="mapaAbrirFornecedoresEmTodos()" style="background:none;border:1px solid #1F4E79;color:#1F4E79;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:12px;font-weight:700;min-height:36px">+ Adicionar</button>';
+  if(d.usados.length)h+='<button onclick="mapaZerarTodosFornecedores()" style="background:none;border:1px solid #e0e8f0;color:#C00000;border-radius:8px;padding:7px 12px;cursor:pointer;font-size:12px;min-height:36px">Zerar todos</button>';
+  h+='</div></div>';
+  return h;
+}
+function mapaFornPainelToggle(fid){
+  var d=mapaFornPainelDados();
+  var u=d.usados.concat(d.sug).find(function(x){return x.id===fid;});
+  var remover=!!(u&&d.N>0&&u.n===d.N);
+  mapaItens.forEach(function(it){
+    var k=it.ref+'||'+(it.marca||'');
+    if(!mapaFornSelecionados[k])mapaFornSelecionados[k]=[];
+    var arr=mapaFornSelecionados[k],p=arr.indexOf(fid);
+    if(remover){if(p>=0)arr.splice(p,1);}
+    else if(p<0)arr.push(fid);
+  });
+  pfSafeSetItem('_mapaDados_fornSel',JSON.stringify(mapaFornSelecionados));
+  if(typeof mapaSalvarEstado==='function')mapaSalvarEstado();
+  mapaRender();
+}
 mapaStep1 = function(el){
   if(typeof solicitacoesAutoLimpar==='function')solicitacoesAutoLimpar();
   // v115.862 - Bug real corrigido (a pedido do Vitor: fornecedor "CHINA"
@@ -36802,11 +36880,7 @@ mapaStep1 = function(el){
   // zero), outro pra incluir um ou mais fornecedores em TODOS os itens de
   // uma vez (ex: cotar "China" pra tudo, sem precisar clicar item por
   // item).
-  if(mapaItens.length){
-    html += '<button onclick="mapaZerarTodosFornecedores()" style="background:none;border:1px solid #e0e8f0;color:#C00000;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:11px">🗑 Zerar Fornecedores</button>';
-    html += '<button onclick="mapaAbrirFornecedoresEmTodos()" style="background:none;border:1px solid #1F4E79;color:#1F4E79;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:11px;font-weight:700">➕ Fornecedor em Todos</button>';
-    html += '<button onclick="mapaAbrirRemoverFornecedoresEmTodos()" style="background:none;border:1px solid #C00000;color:#C00000;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:11px;font-weight:700">➖ Remover Fornecedor de Todos</button>';
-  }
+  // v115.1912 - "Zerar", "Fornecedor em Todos" e "Remover Fornecedor de Todos" viraram o painel "Fornecedores do mapa" (ao lado da tabela).
   html += '</div>';
   if(window._mapaAddItemForm){
     html+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:12px;padding:12px;background:#F8FAFC;border-radius:8px;border:1px dashed #cbd5e0">';
@@ -36862,12 +36936,16 @@ mapaStep1 = function(el){
     return;
   }
 
+  var _pfd=mapaFornPainelDados();
+  html += '<div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">';
+  html += mapaFornPainelHtml(_pfd);
+  html += '<div style="flex:1 1 560px;min-width:0">';
   html += '<div class="mSection" style="padding:0;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
   html += '<thead><tr style="background:#F0F4F8;border-bottom:2px solid #e0e8f0">';
   html += '<th style="padding:8px 6px;width:32px"><input type="checkbox" id="mapaCkAll" onchange="mapaItens.forEach(function(i,x){i.sel=this.checked;});mapaGoStep(1);" style="width:15px;height:15px;accent-color:#C00000"></th>';
   html += '<th style="padding:8px">Código</th><th style="padding:8px">Descrição</th><th style="padding:8px">Marca</th>';
   html += '<th style="padding:8px;text-align:center">Qtd</th><th style="padding:8px;text-align:center">Prazo</th>';
-  html += '<th style="padding:8px">Linha</th><th style="padding:8px">Fornecedores</th>';
+  html += '<th style="padding:8px">Linha</th><th style="padding:8px">'+(_pfd.base.length?'Exceções':'Fornecedores')+'</th>';
   html += '<th style="padding:8px;text-align:center;width:70px">Solic. <input type="checkbox" onchange="mapaMarcarTodosSolicitados(this.checked)" title="Marcar/desmarcar Solicitado em todos os itens da lista" style="width:14px;height:14px;vertical-align:middle;margin-left:2px;accent-color:#1F4E79"></th>';
   html += '<th style="width:28px"></th>';
   html += '</tr></thead><tbody>';
@@ -36902,18 +36980,30 @@ mapaStep1 = function(el){
       ? ' <span onclick="event.stopPropagation();mapaLimparFornOrfaos(\''+key.replace(/'/g,"\\'")+'\')" style="color:#C00000;cursor:pointer;text-decoration:underline" title="Esses fornecedores não existem mais no Cadastro (provavelmente foram mesclados/removidos). Clique pra limpar só essa referência.">⚠️ '+orphanIdsTbl.length+' removido(s) do Cadastro — limpar</span>'
       : '';
 
-    html += '<tr data-idx="'+i+'" data-mapa-row-click="1" style="border-bottom:'+(exp?'none':'1px solid #e0e8f0')+';background:'+(sel?(isNaoIm?'#FFF5F5':'#F5F9FF'):'#FAFAFA')+';cursor:'+(isNaoIm?'pointer':'default')+'">';
+    html += '<tr data-idx="'+i+'" data-mapa-row-click="1" style="border-bottom:'+(exp?'none':'1px solid #e0e8f0')+';background:'+(sel?'#fff':'#FAFAFA')+';cursor:'+(isNaoIm?'pointer':'default')+'">';
     html += '<td style="padding:8px 6px;text-align:center" onclick="event.stopPropagation()"><input type="checkbox" '+(sel?'checked':'')+' onchange="mapaItens['+i+'].sel=this.checked;if(!this.checked)mapaItens['+i+']._exp=false;mapaGoStep(1);" style="width:15px;height:15px;accent-color:#C00000"></td>';
     html += '<td style="padding:8px;font-weight:700;color:#1F4E79;white-space:nowrap">'+
       '<button data-mapa-expand-btn="1" data-idx="'+i+'" style="background:none;border:1px solid '+(isNaoIm?'#FBC9C9':'#e0e8f0')+';border-radius:6px;padding:2px 7px;margin-right:6px;cursor:pointer;font-size:12px;color:#1F4E79;line-height:1.4" aria-label="Expandir fornecedores">'+(exp?'▾':'▸')+'</button>'+
       item.ref+'</td>';
-    html += '<td style="padding:8px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:#1a2332">'+item.desc+'</td>';
-    html += '<td style="padding:8px;font-size:13px;color:#607080">'+(item.marca||'—')+'</td>';
+    html += '<td style="padding:8px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:#1a2332">'+item.desc+'</td>';
+    html += '<td style="padding:8px;font-size:13px;color:#607080;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+pfEscHtml(item.marca||'')+'">'+(item.marca||'—')+'</td>';
     html += '<td style="padding:8px;text-align:center" onclick="event.stopPropagation()"><input type="number" min="1" id="mapaQtd_'+vidx+'" value="'+item.qtd+'" onchange="mapaItens['+i+'].qtd=+this.value" onkeydown="mapaQtdKeyNav(event,'+vidx+')" style="width:76px;padding:4px 2px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px;text-align:center;font-weight:700;box-sizing:border-box"></td>';
     var pBg=isNaoIm?'#FDEAEA':'#E8F5E2'; var pCor=isNaoIm?'#C00000':'#217a3c';
-    html += '<td style="padding:8px;text-align:center"><span style="font-size:10px;background:'+pBg+';color:'+pCor+';padding:2px 8px;border-radius:8px;font-weight:700">'+(item.prazo||'—')+'</span></td>';
+    html += '<td style="padding:8px;text-align:center"><span style="font-size:10px;background:'+pBg+';color:'+pCor+';padding:2px 8px;border-radius:8px;font-weight:700;white-space:nowrap">'+(item.prazo||'—')+'</span></td>';
     html += '<td style="padding:8px"><span class="mLinhaTag" style="background:'+ln.b+';color:'+(ln.x||ln.c)+'">'+ln.l+'</span></td>';
-    html += '<td style="padding:8px;font-size:11px;color:'+(fs.length?'#27AE60':'#E67E22')+'">'+(isNaoIm?(fs.length?(validNamesTbl.length?'✓ '+fnms:'')+orphanBadge:(sel?'Clique →':'—')):'—')+'</td>';
+    var _txtF='—', _corF='#8a9ab0';
+    if(isNaoIm){
+      if(!fs.length){_txtF=sel?'Clique →':'—';_corF='#E67E22';}
+      else if(_pfd.base.length){
+        var _falta=_pfd.base.filter(function(bf){return fs.indexOf(bf)<0;}).map(mapaFornPainelNome).filter(Boolean);
+        var _extra=fs.filter(function(ff){return _pfd.base.indexOf(ff)<0;}).map(mapaFornPainelNome).filter(Boolean);
+        var _pp=[];
+        if(_falta.length)_pp.push('sem '+_falta.join(', '));
+        if(_extra.length)_pp.push('+ '+_extra.join(', '));
+        if(_pp.length){_txtF=_pp.join(' · ');_corF='#B45309';}
+      } else {_txtF=validNamesTbl.length?'✓ '+fnms:'';_corF='#27AE60';}
+    }
+    html += '<td style="padding:8px;font-size:11px;color:'+_corF+'">'+pfEscHtml(_txtF)+(isNaoIm&&fs.length?orphanBadge:'')+'</td>';
     html += '<td style="padding:8px;text-align:center" onclick="event.stopPropagation()"><input type="checkbox" '+(solicitacoes[solKey(item.ref,item.marca)]?'checked':'')+' onchange="toggleSolicitacao(\''+pfEscJs(item.ref)+'\',\''+pfEscJs(item.marca||'')+'\')" title="Já solicitei esse item ao fornecedor -- desmarca sozinho quando o saldo aumentar (chegou). Mesma marcação do Dashboard." style="width:15px;height:15px;accent-color:#1F4E79"></td>';
     html += '<td style="padding:8px;text-align:center" onclick="event.stopPropagation()"><button onclick="mapaItens.splice('+i+',1);mapaGoStep(1);" style="background:none;border:none;color:#C00000;cursor:pointer;font-size:15px">×</button></td>';
     html += '</tr>';
@@ -36993,6 +37083,7 @@ mapaStep1 = function(el){
   });
 
   html += '</tbody></table></div>';
+  html += '</div></div>';
   if(itensFiltrados.length < mapaItens.length){
     html += '<div style="font-size:11px;color:#8a9ab0;margin-top:6px">Mostrando '+itensFiltrados.length+' de '+mapaItens.length+' itens (filtro ativo)</div>';
   }

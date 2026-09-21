@@ -1733,7 +1733,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1922</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1936</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1883,7 +1883,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1922</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1936</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -53861,16 +53861,18 @@ async function pfVendasPdfClienteGerarPDF(modo){
       window.open(URL.createObjectURL(blob),'_blank');
     }else if(modo==='baixar'){
       pfBaixarBlobPdf(blob);
+      pfAlert('✅ PDF baixado em Downloads!');
     }else if(navigator.clipboard&&window.ClipboardItem){
       try{
         await navigator.clipboard.write([new ClipboardItem({'application/pdf':blob})]);
         pfAlert('✅ PDF copiado! Cole (Ctrl+V) no WhatsApp ou e-mail.');
       }catch(eClip){
         pfBaixarBlobPdf(blob);
-        pfAlert('✅ PDF baixado (esse navegador não aceitou copiar PDF direto).');
+        pfAlert('✅ PDF baixado em Downloads! (esse navegador não aceita copiar PDF direto pro Ctrl+V)');
       }
     }else{
       pfBaixarBlobPdf(blob);
+      pfAlert('✅ PDF baixado em Downloads!');
     }
   }catch(e){
     temp.remove();
@@ -67017,7 +67019,8 @@ function nfGerarPDF(modo){
     }
     if(modo==='baixar'){
       pfBaixarBlobPdf(blob,nomeArquivoPdf);
-      if(statusEl)statusEl.innerHTML='<span style="color:#27AE60">✅ PDF baixado.</span>';
+      if(statusEl)statusEl.innerHTML='<span style="color:#27AE60">✅ PDF baixado em Downloads.</span>';
+      pfAlert('✅ PDF baixado em Downloads!');
       return;
     }
     // v115.1318 - Tenta copiar o PDF de verdade pra área de transferência
@@ -67025,16 +67028,37 @@ function nfGerarPDF(modo){
     // destino (colar num app que não aceita PDF pode não funcionar). Se
     // não der, baixa automaticamente na hora -- sem precisar clicar em
     // mais nada depois.
+    // v115.1936 - BUG GRAVE corrigido (a pedido do Vitor, "esse botão de
+    // copiar pdf não ta funcionando"): a maioria dos navegadores (Chrome
+    // incluído) NÃO aceita o tipo 'application/pdf' no Clipboard API (só
+    // aceita text/plain, text/html e image/png) -- o new ClipboardItem(...)
+    // lançava erro SÍNCRONO, e como estava fora de um try/catch local, esse
+    // erro escapava direto pro .catch() genérico lá embaixo, que só mostrava
+    // "❌ Não deu pra gerar o PDF" -- o PDF era gerado certinho mas descartado,
+    // sem baixar nada. Agora qualquer falha ao copiar (síncrona ou não) cai
+    // no download automático, e o aviso usa pfAlert() (bem visível) além do
+    // texto ao lado do botão, porque o Vitor pediu aviso claro de quando foi
+    // copiado / quando caiu pro download em Downloads.
     if(navigator.clipboard&&window.ClipboardItem){
-      return navigator.clipboard.write([new ClipboardItem({'application/pdf':blob})]).then(function(){
-        if(statusEl)statusEl.innerHTML='<span style="color:#27AE60">✅ PDF copiado! Cole (Ctrl+V) no WhatsApp ou e-mail.</span>';
-      }).catch(function(){
+      try{
+        return navigator.clipboard.write([new ClipboardItem({'application/pdf':blob})]).then(function(){
+          if(statusEl)statusEl.innerHTML='<span style="color:#27AE60">✅ PDF copiado! Cole (Ctrl+V) no WhatsApp ou e-mail.</span>';
+          pfAlert('✅ PDF copiado! Cole (Ctrl+V) no WhatsApp ou e-mail.');
+        }).catch(function(){
+          pfBaixarBlobPdf(blob,nomeArquivoPdf);
+          if(statusEl)statusEl.innerHTML='<span style="color:#27AE60">✅ PDF baixado em Downloads (esse navegador não aceita copiar PDF direto).</span>';
+          pfAlert('✅ PDF baixado em Downloads! (esse navegador não aceita copiar PDF direto pro Ctrl+V)');
+        });
+      }catch(eClipSync){
         pfBaixarBlobPdf(blob,nomeArquivoPdf);
-        if(statusEl)statusEl.innerHTML='<span style="color:#27AE60">✅ PDF baixado (esse navegador não aceitou copiar PDF direto).</span>';
-      });
+        if(statusEl)statusEl.innerHTML='<span style="color:#27AE60">✅ PDF baixado em Downloads (esse navegador não aceita copiar PDF direto).</span>';
+        pfAlert('✅ PDF baixado em Downloads! (esse navegador não aceita copiar PDF direto pro Ctrl+V)');
+        return;
+      }
     } else {
       pfBaixarBlobPdf(blob,nomeArquivoPdf);
-      if(statusEl)statusEl.innerHTML='<span style="color:#27AE60">✅ PDF baixado.</span>';
+      if(statusEl)statusEl.innerHTML='<span style="color:#27AE60">✅ PDF baixado em Downloads.</span>';
+      pfAlert('✅ PDF baixado em Downloads!');
     }
   }).catch(function(e){
     console.error('Erro ao gerar PDF:',e);
@@ -68583,6 +68607,7 @@ function pfItemCardAbrir(p,irmaos,forcarEstoque){
     '</div>';
   document.body.appendChild(el);
   pfItemCardDragInit();
+  if(typeof pfAiAssistantAttach==='function')pfAiAssistantAttach({codigo:p.codigo,marca:p.marca||'',descricao:p.descricao||p.desc||''});
 }
 function pfItemCardSalvarMinimo(codigo,marca){
   var input=document.getElementById('pfItemCardMinInput');
@@ -68605,6 +68630,7 @@ function pfItemCardFotoAmpliar(url){
 function pfItemCardFechar(){
   var el=document.getElementById('pfItemCard');
   if(el)el.remove();
+  if(typeof pfAiAssistantDetach==='function')pfAiAssistantDetach();
 }
 function pfItemCardDragInit(){
   var handle=document.getElementById('pfItemCardHandle');
@@ -68642,6 +68668,209 @@ function pfItemCardDragInit(){
   }
   handle.addEventListener('mousedown',onDown);
   handle.addEventListener('touchstart',onDown,{passive:true});
+}
+
+// ════════════════════════════════════════════════════════════════
+// v115.1935 - ASSISTENTE DE IA (padrão do sistema) — a pedido do
+// Vitor, nasceu em Rolamentos (dúvida de sufixo de código, ex: 30310
+// -> Koyo "30310JR") mas foi construído genérico pra ser o PADRÃO
+// VISUAL/FUNCIONAL de qualquer assistente de IA no sistema: botão
+// flutuante circular ("robozinho") no canto inferior direito + painel
+// lateral de chat. Preso ao Card Dinâmico de Item (Alt+B) por
+// enquanto, já que ele cobre TODAS as famílias (Rolamentos,
+// Componentes, Motores, etc) — qualquer tela nova que precisar de
+// assistente de IA deve chamar pfAiAssistantAttach(contexto) /
+// pfAiAssistantDetach(), nunca duplicar este HTML/CSS.
+// Mesmo padrão Claude+web_search já usado em Notícias do
+// Setor/Mapa Comercial (pfAnthropicHeaders, tools
+// web_search_20250305), mas com claude-sonnet-4-6 (não haiku) porque
+// aqui a resposta precisa ser tecnicamente confiável pro time
+// conferir na hora, não só um resumo -- e extrai as citações REAIS
+// que a própria API devolve nos blocos de texto (nunca inventa
+// fonte; sem citation real, não mostra "Fontes").
+var _pfAiChat={contexto:null,historico:[],carregando:false};
+
+function pfAiAssistantCss(){
+  if(document.getElementById('pfAiCss'))return;
+  var st=document.createElement('style');
+  st.id='pfAiCss';
+  st.textContent=
+    '#pfAiPainel::-webkit-scrollbar{width:6px}'+
+    '#pfAiPainel::-webkit-scrollbar-thumb{background:#d5dce5;border-radius:3px}'+
+    '@keyframes pfAiFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}'+
+    '#pfAiBotaoBolha{animation:pfAiFade .25s ease}';
+  document.head.appendChild(st);
+}
+
+function pfAiRobotSvg(tam){
+  tam=tam||30;
+  return '<svg width="'+tam+'" height="'+tam+'" viewBox="0 0 64 64" fill="none">'+
+    '<circle cx="32" cy="30" r="20" fill="#F4F6F8" stroke="#1F2A37" stroke-width="2"/>'+
+    '<circle cx="32" cy="30" r="14" fill="#1F2A37"/>'+
+    '<circle cx="26.5" cy="28" r="3.2" fill="#fff"/>'+
+    '<circle cx="37.5" cy="28" r="3.2" fill="#fff"/>'+
+    '<path d="M25 35 Q32 40 39 35" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>'+
+    '<rect x="29" y="6" width="6" height="6" rx="2" fill="#D97706"/>'+
+  '</svg>';
+}
+
+// v115.1935 - Botão fica ACIMA do dock inferior (#pfSidebar -- apesar do
+// nome, é a barra de navegação fixa embaixo, não uma lateral), calculado
+// na hora em vez de valor fixo: a barra pode variar de altura (itens
+// fixados/responsivo) e some inteira no modo "auto-ocultar"
+// (translateY(100%)) -- medir de verdade evita tampar o dock OU deixar
+// vão bobo quando ele some.
+function pfAiDockClearance(){
+  var dock=document.getElementById('pfSidebar');
+  if(!dock)return 24;
+  var r=dock.getBoundingClientRect();
+  if(r.top>=window.innerHeight-4||r.width===0)return 24; // dock oculto/auto-hide: não precisa desviar
+  return Math.max(24,Math.round(window.innerHeight-r.top)+12);
+}
+function pfAiReposicionar(){
+  var clr=pfAiDockClearance();
+  var b=document.getElementById('pfAiBotaoWrap');
+  if(b)b.style.bottom=clr+'px';
+  var p=document.getElementById('pfAiPainelWrap');
+  if(p)p.style.bottom=(clr+64)+'px';
+}
+function pfAiAssistantAttach(contexto){
+  pfAiAssistantCss();
+  pfAiAssistantDetach();
+  _pfAiChat.contexto=contexto||{};
+  _pfAiChat.historico=[];
+  var jaViu=localStorage.getItem('pfAiHintVisto');
+  var wrap=document.createElement('div');
+  wrap.id='pfAiBotaoWrap';
+  wrap.style.cssText='position:fixed;right:24px;bottom:'+pfAiDockClearance()+'px;z-index:99998;display:flex;flex-direction:column;align-items:flex-end;gap:8px';
+  wrap.innerHTML=
+    (jaViu?'':'<div id="pfAiBotaoBolha" style="background:#1F2A37;color:#fff;font-size:12px;padding:7px 11px;border-radius:8px;box-shadow:0 4px 10px rgba(16,24,40,.18);max-width:170px">Dúvida sobre esse item?</div>')+
+    '<div id="pfAiBotao" onclick="pfAiAssistantAbrir()" title="Tira-dúvidas com IA" style="cursor:pointer;width:56px;height:56px;border-radius:50%;background:linear-gradient(180deg,#2B3A4A,#1B2530);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(16,24,40,.28);border:3px solid #fff">'+pfAiRobotSvg(30)+'</div>';
+  document.body.appendChild(wrap);
+  localStorage.setItem('pfAiHintVisto','1');
+  window.addEventListener('resize',pfAiReposicionar);
+}
+
+function pfAiAssistantDetach(){
+  pfAiAssistantFechar();
+  window.removeEventListener('resize',pfAiReposicionar);
+  var b=document.getElementById('pfAiBotaoWrap');
+  if(b)b.remove();
+}
+
+function pfAiAssistantAbrir(){
+  if(document.getElementById('pfAiPainelWrap')){pfAiAssistantFechar();return;}
+  var bolha=document.getElementById('pfAiBotaoBolha');if(bolha)bolha.remove();
+  var c=_pfAiChat.contexto||{};
+  var wrap=document.createElement('div');
+  wrap.id='pfAiPainelWrap';
+  wrap.style.cssText='position:fixed;right:24px;bottom:'+(pfAiDockClearance()+64)+'px;top:100px;width:380px;max-width:calc(100vw - 32px);background:#fff;border-radius:14px;box-shadow:0 16px 40px rgba(16,24,40,.24);border:1px solid #d5dce5;z-index:99999;display:flex;flex-direction:column;overflow:hidden;font-family:Calibri,Arial,sans-serif';
+  wrap.innerHTML=
+    '<div style="background:#1F2A37;padding:13px 14px;display:flex;align-items:center;gap:9px;flex-shrink:0">'+
+      '<div style="width:34px;height:34px;border-radius:50%;background:#2B3A4A;display:flex;align-items:center;justify-content:center;border:2px solid #fff;flex-shrink:0">'+pfAiRobotSvg(19)+'</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="color:#fff;font-size:13.5px;font-weight:700">Tira-dúvidas de Peças</div>'+
+        '<div style="color:#9AA7B5;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(c.codigo?pfEscHtml(c.codigo+' '+(c.marca||'')):'Busca em fontes de fabricante')+'</div>'+
+      '</div>'+
+      '<span onclick="pfAiAssistantFechar()" style="cursor:pointer;color:#9AA7B5;font-size:18px;line-height:1;flex-shrink:0">'+pfXGlossyHtml(18)+'</span>'+
+    '</div>'+
+    '<div id="pfAiPainel" style="flex:1;padding:14px;overflow-y:auto;background:#F7F9FB"></div>'+
+    '<div style="padding:10px 12px;border-top:1px solid #e7ebef;display:flex;gap:8px;align-items:center;background:#fff;flex-shrink:0">'+
+      '<input id="pfAiInput" type="text" placeholder="Pergunte sobre este item..." style="flex:1;height:36px;border-radius:18px;background:#F1F3F6;border:1px solid #e1e6ec;padding:0 13px;font-size:12.5px;outline:none" onkeydown="if(event.key===\'Enter\')pfAiEnviar()">'+
+      '<div onclick="pfAiEnviar()" style="cursor:pointer;width:36px;height:36px;border-radius:50%;background:#1F4E79;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+
+        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(wrap);
+  pfAiRenderMensagens();
+  setTimeout(function(){var inp=document.getElementById('pfAiInput');if(inp)inp.focus();},50);
+}
+
+function pfAiAssistantFechar(){
+  var w=document.getElementById('pfAiPainelWrap');
+  if(w)w.remove();
+}
+
+function pfAiRenderMensagens(){
+  var painel=document.getElementById('pfAiPainel');
+  if(!painel)return;
+  var c=_pfAiChat.contexto||{};
+  var htmlParts=[];
+  if(c.codigo){
+    htmlParts.push('<div style="align-self:flex-start;background:#EAF0F7;color:#1F4E79;font-size:11px;font-weight:600;padding:5px 10px;border-radius:6px">Contexto: item '+pfEscHtml(c.codigo)+(c.marca?' ('+pfEscHtml(c.marca)+')':'')+'</div>');
+  }
+  _pfAiChat.historico.forEach(function(m){
+    if(m.role==='user'){
+      htmlParts.push('<div style="align-self:flex-end;max-width:88%;background:#1F4E79;color:#fff;font-size:12.5px;line-height:1.4;padding:9px 12px;border-radius:12px 12px 2px 12px">'+pfEscHtml(m.texto)+'</div>');
+    }else{
+      htmlParts.push('<div style="align-self:flex-start;max-width:92%;background:#fff;border:1px solid #e7ebef;color:#1a2332;font-size:12.3px;line-height:1.5;padding:11px 13px;border-radius:12px 12px 12px 2px;white-space:pre-wrap">'+pfEscHtml(m.texto)+'</div>');
+      if(m.fontes&&m.fontes.length){
+        htmlParts.push('<div style="align-self:flex-start;max-width:92%;background:#fff;border:1px solid #e7ebef;border-radius:10px;padding:9px 11px">'+
+          '<div style="font-size:10px;font-weight:700;color:#8a94a3;text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px">Fontes</div>'+
+          m.fontes.map(function(f){return '<div style="font-size:11.5px;margin-bottom:3px"><a href="'+pfEscHtml(f.url)+'" target="_blank" rel="noopener" style="color:#1F4E79;text-decoration:none">🔗 '+pfEscHtml(f.titulo||f.url)+'</a></div>';}).join('')+
+        '</div>');
+      }
+    }
+  });
+  if(_pfAiChat.carregando){
+    htmlParts.push('<div style="align-self:flex-start;font-size:12px;color:#8a94a3;padding:4px 2px">Pesquisando em fontes confiáveis…</div>');
+  }
+  painel.innerHTML='<div style="display:flex;flex-direction:column;gap:10px">'+htmlParts.join('')+'</div>';
+  painel.scrollTop=painel.scrollHeight;
+}
+
+async function pfAiEnviar(){
+  if(_pfAiChat.carregando)return;
+  var inp=document.getElementById('pfAiInput');
+  var pergunta=inp?inp.value.trim():'';
+  if(!pergunta)return;
+  inp.value='';
+  var apiKey=localStorage.getItem('anthropic_key')||'';
+  if(!apiKey){pfAlert('Precisa configurar a chave da Anthropic primeiro (Minhas Chaves).');return;}
+  _pfAiChat.historico.push({role:'user',texto:pergunta});
+  _pfAiChat.carregando=true;
+  pfAiRenderMensagens();
+  var c=_pfAiChat.contexto||{};
+  var sistema='Você é o assistente técnico de peças da Triex, distribuidora off-highway de São Paulo (autorizada DANA/CARRARO/ALLISON/SPICER/PERKINS/CUMMINS/FPT, e também SKF/INA/TIMKEN/NTN/FAG/SNR em Rolamentos). '+
+    'Tira dúvidas técnicas de peças pra equipe interna: nomenclatura, sufixos de código, cruzamento/equivalência entre marcas, especificações. '+
+    'Use a busca na web pra confirmar com fonte real -- catálogo oficial de fabricante é a fonte preferida; distribuidor técnico sério (nacional ou estrangeiro) serve quando não achar catálogo oficial acessível. NUNCA invente sufixo, medida ou equivalência sem fonte -- se não achar nada confiável, diga isso claramente em vez de arriscar. '+
+    'Responda em português, direto e técnico, sem enrolação -- poucos parágrafos curtos, sem saudação.'+
+    (c.codigo?' Item que a pessoa está olhando agora: código '+c.codigo+(c.marca?' ('+c.marca+')':'')+(c.descricao?' -- '+c.descricao:'')+'.':'');
+  var mensagens=_pfAiChat.historico.map(function(m){return {role:m.role,content:m.texto};});
+  try{
+    var resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:pfAnthropicHeaders(apiKey),
+      body:JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:1200,
+        system:sistema,
+        tools:[{type:'web_search_20250305',name:'web_search',max_uses:6}],
+        messages:mensagens
+      })
+    });
+    var data=await resp.json();
+    if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Assistente IA - Peças',data.usage,pfUsuarioAtualSnapshot());
+    if(data.error){
+      if(data.error.type==='authentication_error'||data.error.status===401)localStorage.removeItem('anthropic_key');
+      throw new Error(data.error.message||'Erro na API');
+    }
+    var blocos=(data.content||[]).filter(function(b){return b.type==='text';});
+    var texto=blocos.map(function(b){return b.text||'';}).join('\n').trim();
+    var fontesMap={};
+    blocos.forEach(function(b){
+      (b.citations||[]).forEach(function(cit){
+        if(cit.url&&!fontesMap[cit.url])fontesMap[cit.url]={url:cit.url,titulo:cit.title||cit.url};
+      });
+    });
+    var fontes=Object.keys(fontesMap).map(function(k){return fontesMap[k];});
+    _pfAiChat.historico.push({role:'assistant',texto:texto||'Não encontrei resposta confiável pra isso -- tenta reformular a pergunta.',fontes:fontes});
+  }catch(e){
+    _pfAiChat.historico.push({role:'assistant',texto:'Erro ao consultar: '+(e.message||e)});
+  }finally{
+    _pfAiChat.carregando=false;
+    pfAiRenderMensagens();
+  }
 }
 
 // ════════════════════════════════════════════════════════════════

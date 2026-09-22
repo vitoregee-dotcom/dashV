@@ -1733,7 +1733,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1945</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1946</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1883,7 +1883,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1945</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1946</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -31134,7 +31134,7 @@ function cadPadronizarDescricoesAplicar(){
   var n=0;
   plist.forEach(function(p){
     var nova=pfNormalizarDescricao(p.descricao||'');
-    if(nova&&nova!==(p.descricao||'')){p.descricao=nova;n++;}
+    if(nova&&nova!==(p.descricao||'')){p.descricao=nova;p.ts=Date.now();n++;}
   });
   cadSave(PROD_KEY,plist);
   document.getElementById('padronizarModal').remove();
@@ -31186,7 +31186,9 @@ function cadDedupScore(p){
 // varredura de ~44 mil itens, então só compensa rodar 1x por versão,
 // não a cada tecla digitada na busca.
 function cadAutoLimpezaProdutos(){
-  var FLAG_KEY='pfProdutosAutoLimpezaV1';
+  // v115.1946 - V2: roda de novo 1x com o colapso por código+marca do
+  // pfMergeProdutosArr (a V1 já rodou, mas as cópias voltaram pelo sync).
+  var FLAG_KEY='pfProdutosAutoLimpezaV2';
   if(pfSafeGetItem(FLAG_KEY))return;
   try{
     var plist=cadLoad(PROD_KEY);
@@ -31196,41 +31198,9 @@ function cadAutoLimpezaProdutos(){
     // verdade, só sobra de leitura falha.
     plist=plist.filter(function(p){return String(p.codigo||'').trim();});
     var removidosSemCodigo=totalAntes-plist.length;
-    // 2) dedup por código+marca normalizado (mesma lógica de
-    // cadDeduplicarProdutosExecutar, só sem o pfConfirm/pfAlert)
-    var grupos={},ordem=[];
-    plist.forEach(function(p){
-      var chave=String(p.codigo||'').trim().toUpperCase()+'||'+String(p.marca||'').trim().toUpperCase();
-      if(!grupos[chave]){grupos[chave]=[];ordem.push(chave);}
-      grupos[chave].push(p);
-    });
+    // 2) dedup por código+marca -- mesmo colapso usado no merge do sync
     var totalAntesDedup=plist.length;
-    var resultado=ordem.map(function(chave){
-      var itensG=grupos[chave];
-      if(itensG.length===1){
-        var unico=itensG[0];
-        if(!unico.id)unico.id='p_est_'+chave;
-        return unico;
-      }
-      itensG.sort(function(a,b){return cadDedupScore(b)-cadDedupScore(a);});
-      var base=Object.assign({},itensG[0]);
-      var aplicacoesUnidas=[],conversoesUnidas=[];
-      var vistoAplic={},vistoConv={};
-      itensG.forEach(function(it){
-        (it.aplicacoes||[]).forEach(function(a){
-          var k=(a.equip||'')+'|'+(a.marca||'')+'|'+(a.modelo||'');
-          if(!vistoAplic[k]){vistoAplic[k]=true;aplicacoesUnidas.push(a);}
-        });
-        (it.conversoes||[]).forEach(function(c){
-          var k=(c.ref||'');
-          if(k&&!vistoConv[k]){vistoConv[k]=true;conversoesUnidas.push(c);}
-        });
-      });
-      if(aplicacoesUnidas.length)base.aplicacoes=aplicacoesUnidas;
-      if(conversoesUnidas.length)base.conversoes=conversoesUnidas;
-      if(!base.id||String(base.id).indexOf('p_est_')!==0)base.id='p_est_'+chave;
-      return base;
-    });
+    var resultado=pfMergeProdutosArr(plist,[]);
     var removidosDedup=totalAntesDedup-resultado.length;
     var totalRemovidos=removidosSemCodigo+removidosDedup;
     if(totalRemovidos>0){
@@ -36300,6 +36270,7 @@ function cadSalvarProdutoV2(idx, opts){
   var plistAtual=cadLoad(PROD_KEY);
   var prod={
     id:idx>=0?plistAtual[idx].id:('p_'+Date.now()),
+    ts:Date.now(), // v115.1946 - merge de Produtos usa isso pra saber qual versão é a mais nova (ver pfMergeProdutosArr)
     codigo:codigo,descricao:descricao,descricaoResumida:descricaoResumida,descricaoCompleta:descricaoCompleta,
     marca:document.getElementById('prodMarca').value||'',
     marcaCotacao:(document.getElementById('prodMarcaCot')?document.getElementById('prodMarcaCot').value:'')||'',
@@ -37866,7 +37837,7 @@ async function pfSyncPush(keys){
                 // síncrono automático se o worker falhar por qualquer
                 // motivo (nunca fica pior que antes).
                 if(remotoRaw===raw){paraEnviar=raw;}
-                else{paraEnviar = await pfMergeSyncValueAsync(raw, remotoRaw);}
+                else{paraEnviar = await pfMergeSyncValueAsync(raw, remotoRaw, chave);}
               }
               if(paraEnviar!==raw){ await pfSafeSetItemAsync(chave, paraEnviar); } // mantém o navegador consistente com o que foi mesclado
             }
@@ -37904,10 +37875,103 @@ async function pfSyncPush(keys){
   }
 }
 
+// v115.1946 - A pedido do Vitor ("os itens ainda estão sendo duplicados,
+// corrigir de uma vez"): CAUSA RAIZ da duplicação de Produtos que voltava
+// mesmo depois das limpezas (v115.1797/v115.1845). O merge genérico
+// (pfMergeSyncValue) faz UNIÃO por `id` -- e a mesma ficha (mesmo
+// código+marca) existe com ids diferentes: 'p_'+Date.now() criado em cada
+// aparelho, 'p_est_...' da limpeza, sem id nenhum (vira fingerprint do
+// conteúdo). A limpeza juntava tudo localmente, mas no pull/push seguinte
+// a união trazia de volta TODAS as cópias que ainda estavam no servidor
+// (linha de cada usuário em user_sync) ou em outro aparelho -- e cada
+// sincronização reinjetava. Agora cad_produtos_v1 tem merge próprio:
+//   1) casa por id (edição que troca código/marca continua sendo a mesma
+//      ficha) -- vence o `ts` mais novo;
+//   2) depois COLAPSA por código+marca normalizado -- é impossível sair
+//      do merge duas fichas com o mesmo código+marca, venha de onde vier.
+//      Vence o `ts` mais novo (gravado ao salvar a ficha); empate, a mais
+//      completa. Se a perdedora é uma ficha antiga (sem ts), os campos
+//      vazios da vencedora são preenchidos com os dela e as
+//      aplicações/conversões são unidas -- nada cadastrado se perde.
+// Função pura e autocontida: o código dela é copiado pra dentro da Web
+// Worker de merge via .toString() (ver _pfMergeWorkerCodigo), então não
+// pode depender de nada de fora.
+function pfMergeProdutosArr(local, remote){
+  function norm(v){return String(v==null?'':v).trim().toUpperCase();}
+  function chaveCM(p){return norm(p.codigo)+'||'+norm(p.marca);}
+  function tsDe(p){return (p&&+p.ts)||0;}
+  function vazio(v){return v==null||v===''||(Array.isArray(v)&&!v.length);}
+  function score(p){
+    var s=0;
+    if(p.foto)s+=2;
+    if(p.fotos&&p.fotos.length)s+=p.fotos.length;
+    if(p.ncm)s++;if(p.grupo)s++;if(p.subgrupo)s++;if(p.linha)s++;if(p.unidade)s++;if(p.obs)s++;
+    if(p.desenho)s+=2;
+    if(p.descricaoCompleta)s++;if(p.descricaoResumida)s++;
+    if(p.conversoes&&p.conversoes.length)s+=p.conversoes.length;
+    if(p.aplicacoes&&p.aplicacoes.length)s+=p.aplicacoes.length;
+    if(p.id&&String(p.id).indexOf('p_est_')===0)s+=3;
+    return s;
+  }
+  function juntar(a,b){
+    var ta=tsDe(a),tb=tsDe(b),win,lose;
+    if(ta!==tb){win=ta>tb?a:b;}
+    else{var sa=score(a),sb=score(b);win=(sb>sa)?b:a;}
+    lose=(win===a)?b:a;
+    // Perdedora já foi salva no sistema novo (tem ts) e a vencedora é mais
+    // nova: é só uma versão anterior da mesma ficha -- vale a nova inteira
+    // (senão um campo apagado de propósito voltaria).
+    if(tsDe(lose))return win;
+    var r=Object.assign({},win);
+    Object.keys(lose).forEach(function(k){
+      if(k==='id'||k==='ts'||k==='aplicacoes'||k==='conversoes')return;
+      if(vazio(r[k])&&!vazio(lose[k]))r[k]=lose[k];
+    });
+    var apl=[],vA={};
+    (win.aplicacoes||[]).concat(lose.aplicacoes||[]).forEach(function(x){
+      var k=(x&&x.equip||'')+'|'+(x&&x.marca||'')+'|'+(x&&x.modelo||'');
+      if(!vA[k]){vA[k]=1;apl.push(x);}
+    });
+    var conv=[],vC={};
+    (win.conversoes||[]).concat(lose.conversoes||[]).forEach(function(x){
+      var k=x&&x.ref||'';
+      if(k&&!vC[k]){vC[k]=1;conv.push(x);}
+    });
+    if(apl.length)r.aplicacoes=apl;
+    if(conv.length)r.conversoes=conv;
+    return r;
+  }
+  // 1) por id -- remoto vence empate de ts (mesmo critério do merge genérico)
+  var porId={},semId=[],ordemId=[];
+  function addId(p,remoto){
+    if(!p||typeof p!=='object')return;
+    if(p.id==null||p.id===''){semId.push(p);return;}
+    var k=String(p.id),atual=porId[k];
+    if(!atual){porId[k]=p;ordemId.push(k);return;}
+    if(tsDe(p)>tsDe(atual)||(remoto&&tsDe(p)===tsDe(atual)))porId[k]=p;
+  }
+  (local||[]).forEach(function(p){addId(p,false);});
+  (remote||[]).forEach(function(p){addId(p,true);});
+  var todos=ordemId.map(function(k){return porId[k];}).concat(semId);
+  // 2) colapsa por código+marca
+  var porChave={},ordem=[],semCodigo=[];
+  todos.forEach(function(p){
+    if(!norm(p.codigo)){semCodigo.push(p);return;}
+    var k=chaveCM(p);
+    if(!porChave[k]){porChave[k]=p;ordem.push(k);}
+    else porChave[k]=juntar(porChave[k],p);
+  });
+  return ordem.map(function(k){
+    var p=porChave[k];
+    if(p.id==null||p.id===''){p=Object.assign({},p);p.id='p_est_'+k;}
+    return p;
+  }).concat(semCodigo);
+}
+
 // Faz merge seguro entre o valor local e o que veio do Supabase, pra nunca perder
 // um item adicionado localmente que ainda não tinha sido "pushado" quando um pull
 // trouxe uma versão mais antiga (mesma classe de bug já corrigida nos Cadastros).
-function pfMergeSyncValue(localRaw, remoteRaw){
+function pfMergeSyncValue(localRaw, remoteRaw, chave){
   // v115.1412 - BUG GRAVE corrigido (a pedido do Vitor: criava fichas em
   // Cadastro>Produtos, sincronizava, e elas sumiam -- de novo a cada vez):
   // essa função sempre recebeu localRaw/remoteRaw CRUS, sem descomprimir
@@ -37933,6 +37997,9 @@ function pfMergeSyncValue(localRaw, remoteRaw){
   try{remote=remoteRaw?JSON.parse(remoteRaw):null;}catch(e){remote=null;}
   if(remote==null)return localRaw;
   if(local==null)return JSON.stringify(remote);
+  if(chave==='cad_produtos_v1'&&Array.isArray(local)&&Array.isArray(remote)){
+    return JSON.stringify(pfMergeProdutosArr(local,remote));
+  }
   if(Array.isArray(local)&&Array.isArray(remote)){
     // v115.1303 - BUG corrigido (a pedido do Vitor: item duplicado 5x em
     // "Chegaram recentemente" voltava toda vez que sincronizava, mesmo
@@ -38005,7 +38072,7 @@ function _pfMergeWorkerCodigo(){
 "function pfCompressW(str){\n"+
 "  try{ if(typeof LZString==='undefined')return str; return 'LZS1:'+LZString.compressToUTF16(str); }catch(e){ return str; }\n"+
 "}\n"+
-"function mergeGeneric(localRaw, remoteRaw){\n"+
+"function mergeGeneric(localRaw, remoteRaw, chave){\n"+
 "  localRaw = pfDecompressW(localRaw);\n"+
 "  remoteRaw = pfDecompressW(remoteRaw);\n"+
 "  var local, remote;\n"+
@@ -38013,6 +38080,9 @@ function _pfMergeWorkerCodigo(){
 "  try{ remote = remoteRaw ? JSON.parse(remoteRaw) : null; }catch(e){ remote = null; }\n"+
 "  if(remote==null)return localRaw;\n"+
 "  if(local==null)return JSON.stringify(remote);\n"+
+"  if(chave==='cad_produtos_v1' && Array.isArray(local) && Array.isArray(remote)){\n"+
+"    return JSON.stringify(pfMergeProdutosArr(local, remote));\n"+
+"  }\n"+
 "  if(Array.isArray(local) && Array.isArray(remote)){\n"+
 "    function chaveDoItem(it){\n"+
 "      if(it && it.id!=null)return String(it.id);\n"+
@@ -38035,6 +38105,7 @@ function _pfMergeWorkerCodigo(){
 "  }\n"+
 "  return localRaw;\n"+
 "}\n"+
+"\n"+pfMergeProdutosArr.toString()+"\n"+
 "function compressIfNeeded(value){\n"+
 "  if(value && value.length>20000)return pfCompressW(value);\n"+
 "  return value;\n"+
@@ -38043,7 +38114,7 @@ function _pfMergeWorkerCodigo(){
 "  var msg=e.data;\n"+
 "  try{\n"+
 "    var result;\n"+
-"    if(msg.cmd==='merge')result=mergeGeneric(msg.localRaw, msg.remoteRaw);\n"+
+"    if(msg.cmd==='merge')result=mergeGeneric(msg.localRaw, msg.remoteRaw, msg.chave);\n"+
 "    else if(msg.cmd==='compress')result=compressIfNeeded(msg.value);\n"+
 "    else throw new Error('comando desconhecido: '+msg.cmd);\n"+
 "    self.postMessage({id:msg.id, ok:true, result:result});\n"+
@@ -38092,12 +38163,12 @@ function _pfMergeWorkerCall(cmd,payload,timeoutMs){
 // Mesmo resultado de pfMergeSyncValue(localRaw,remoteRaw), só que rodando
 // na worker (não trava a tela). Cai pro síncrono automaticamente se
 // qualquer coisa der errado com o worker.
-async function pfMergeSyncValueAsync(localRaw,remoteRaw){
+async function pfMergeSyncValueAsync(localRaw,remoteRaw,chave){
   try{
-    return await _pfMergeWorkerCall('merge',{localRaw:localRaw,remoteRaw:remoteRaw});
+    return await _pfMergeWorkerCall('merge',{localRaw:localRaw,remoteRaw:remoteRaw,chave:chave});
   }catch(e){
     console.warn('pfMergeSyncValueAsync: worker falhou, usando merge síncrono (fallback seguro):',e);
-    return pfMergeSyncValue(localRaw,remoteRaw);
+    return pfMergeSyncValue(localRaw,remoteRaw,chave);
   }
 }
 // Mesma decisão/resultado do trecho de compressão de pfSafeSetItem, só que
@@ -38736,7 +38807,7 @@ async function pfSyncPull(){
     if(_pfMergeGenericoFila.length){
       await Promise.all(_pfMergeGenericoFila.map(async function(item){
         try{
-          var merged=await pfMergeSyncValueAsync(item.localRaw, item.remoteRaw);
+          var merged=await pfMergeSyncValueAsync(item.localRaw, item.remoteRaw, item.chave);
           await pfSafeSetItemAsync(item.chave, merged);
         }catch(eMergeGen){console.warn('merge genérico (worker) falhou pra "'+item.chave+'":',eMergeGen);}
       }));

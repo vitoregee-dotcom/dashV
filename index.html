@@ -1733,7 +1733,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:#607080;margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1947</div>
+      <div style="font-size:15px;color:#1a2332;font-weight:800;margin-top:2px">v115.1948</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1883,7 +1883,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1947</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1948</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -37473,6 +37473,7 @@ var PF_SYNC_KEYS = [
   'pfVendasRegrasIA',
   'pfAtalhosFerramentas',
   'vendas_row_height',
+  'vendas_row_cores',
   'vendas_tabela_zoom',
   'pfDicasImpactoCache',
   'pfNoticiasSetorAtualizadoEm',
@@ -54407,8 +54408,47 @@ function vendasRenderLista(el){
     alturaWrap.appendChild(alturaLbl);alturaWrap.appendChild(alturaInp);alturaWrap.appendChild(document.createTextNode(''));
     var alturaPx=document.createElement('span');alturaPx.textContent='px';alturaPx.style.cssText='font-size:10px;color:#8da3c0';
     alturaWrap.appendChild(alturaPx);
+    // v115.1948 - A pedido do Vitor ("quero poder escolher as cores das
+    // linhas, pro contraste que eu quiser"): duas cores da zebra (linha
+    // ímpar / linha par), salvas e sincronizadas entre aparelhos igual a
+    // altura. ↺ volta pro padrão do tema (fundo da tabela + véu de 5%).
+    var coresWrap=document.createElement('div');
+    coresWrap.style.cssText=alturaWrap.style.cssText;
+    var coresLbl=document.createElement('span');coresLbl.textContent='🎨 Linhas';coresLbl.style.cssText='font-size:10px;color:#8da3c0;font-weight:600';
+    coresWrap.appendChild(coresLbl);
+    var _coresPadrao=function(){
+      var base=(getComputedStyle(document.documentElement).getPropertyValue('--pf-table-bg')||'').trim();
+      if(!/^#[0-9a-f]{6}$/i.test(base))base='#eef1f4';
+      return {a:base,b:(typeof pfCorEscurecer==='function')?pfCorEscurecer(base,0.05):base};
+    };
+    var _coresSalvas=vendasZebraCores();
+    var _coresIni=_coresSalvas||_coresPadrao();
+    var mkCor=function(qual,titulo){
+      var inp=document.createElement('input');inp.type='color';inp.value=_coresIni[qual];inp.title=titulo;
+      inp.style.cssText='width:24px;height:20px;padding:0;border:1px solid #1a273b;border-radius:4px;background:none;cursor:pointer';
+      inp.oninput=function(){
+        var atual=vendasZebraCores()||_coresPadrao();
+        atual[qual]=this.value;atual.ts=Date.now(); // ts: o merge do sync usa pra saber qual aparelho mudou por último
+        pfSafeSetItem('vendas_row_cores',JSON.stringify(atual));
+        if(typeof pfSyncPush==='function')pfSyncPush(['vendas_row_cores']);
+        vendasAtualizarLista();
+      };
+      return inp;
+    };
+    var corA=mkCor('a','Cor das linhas ímpares'),corB=mkCor('b','Cor das linhas pares');
+    var corReset=document.createElement('span');corReset.textContent='↺';corReset.title='Voltar às cores padrão do tema';
+    corReset.style.cssText='font-size:13px;color:#8da3c0;cursor:pointer;padding:0 2px';
+    corReset.onclick=function(){
+      pfSafeSetItem('vendas_row_cores',JSON.stringify({ts:Date.now()})); // sem a/b = padrão do tema (e sincroniza o reset)
+      if(typeof pfSyncPush==='function')pfSyncPush(['vendas_row_cores']);
+      var p=_coresPadrao();corA.value=p.a;corB.value=p.b;
+      vendasAtualizarLista();
+    };
+    coresWrap.appendChild(corA);coresWrap.appendChild(corB);coresWrap.appendChild(corReset);
+    var coresGrupo=mkGrupo('',[coresWrap]);
+    coresGrupo.style.marginLeft='auto';
+    fd.appendChild(coresGrupo);
     var alturaGrupo=mkGrupo('',[alturaWrap]);
-    alturaGrupo.style.marginLeft='auto';
     fd.appendChild(alturaGrupo);
     wrap.appendChild(fd);
     var tblWrap=document.createElement('div');tblWrap.id='vendasTblWrap';tblWrap.style.cssText='background:var(--pf-table-bg);border:1px solid var(--pf-table-border);border-top:none;border-radius:0 0 12px 12px;overflow:auto;margin-bottom:10px;flex:1;min-height:120px;box-shadow:0 4px 14px rgba(0,0,0,.1)';
@@ -54691,6 +54731,15 @@ function vendasListaTransportadorasConhecidas(){
     return Object.keys(nomes).sort();
   }catch(e){return [];}
 }
+// v115.1948 - Cores da zebra da lista de Cotações escolhidas pelo usuário
+// ({a:'#hex',b:'#hex'}), ou null pra usar o padrão do tema.
+function vendasZebraCores(){
+  try{
+    var c=JSON.parse(pfSafeGetItem('vendas_row_cores','null'));
+    if(c&&/^#[0-9a-f]{6}$/i.test(c.a)&&/^#[0-9a-f]{6}$/i.test(c.b))return c;
+  }catch(e){}
+  return null;
+}
 function vendasAtualizarLista(){
   var COTS_KEY='partsflow_cotacoes_v1';
   var cots=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');
@@ -54761,6 +54810,7 @@ function vendasAtualizarLista(){
     td0.textContent='NENHUMA COTAÇÃO ENCONTRADA';tr0.appendChild(td0);tbody.appendChild(tr0);return;
   }
   var COLS=window._vendasCols||['num','fantasia','contato','transp','itens','vliq','vbru','dcot','dped'];
+  var _zebra=vendasZebraCores();
   lista.forEach(function(c,iLinha){
     var isSel=window._vendasSelected===c.num;
     var efetivado=!!c.dataPedido;
@@ -54768,7 +54818,9 @@ function vendasAtualizarLista(){
     // linha sim, linha não, com um véu translúcido por cima do
     // --pf-table-bg -- assim funciona em qualquer tema (inclusive os
     // gerados por pfCorEscurecer) sem precisar de uma cor fixa por tema.
-    var bgBase=efetivado?'var(--pf-table-hover-bg)':(iLinha%2?'var(--pf-table-stripe-bg,rgba(0,0,0,.05))':'');
+    // v115.1948 - cores escolhidas pelo Vitor (🎨 na barra de filtros)
+    // têm prioridade; sem escolha, segue o padrão do tema.
+    var bgBase=efetivado?'var(--pf-table-hover-bg)':(_zebra?(iLinha%2?_zebra.b:_zebra.a):(iLinha%2?'var(--pf-table-stripe-bg,rgba(0,0,0,.05))':''));
     var tr=document.createElement('tr');
     tr.style.cssText='border-bottom:0.5px solid var(--pf-table-border);cursor:pointer;transition:background .1s, box-shadow .1s;height:'+(window._vendasRowH||22)+'px;color:var(--pf-table-text);'+(isSel?'border-left:3px solid var(--pf-table-text-muted);background:var(--pf-table-selected-bg);':bgBase?'background:'+bgBase+';':'');
     // v115.1868 - A pedido do Vitor: hover mais nítido (risco azul na

@@ -1809,7 +1809,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1972</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1973</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1960,7 +1960,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1972</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1973</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -47969,6 +47969,99 @@ function vendasConfirmarAplicacao(indices){
 // v115.1423 - Fecha o modal de Aplicações (box + backdrop juntos) -- usado
 // pelo X, pelo clique fora (no backdrop), e pelos pontos que já fechavam
 // só o box antes de virar modal.
+// v115.1973 - A pedido do Vitor ("levar isso pra cotação: coloco o modelo
+// do caminhão e me dá a lista dos componentes cardan que vão, e vou
+// selecionando -- e o monta com tem que funcionar"): a busca "Série/Modelo"
+// da cotação (modal 🚜 Aplicações) passa a procurar também na Área Técnica
+// (Componentes Cardan), pela lista de veículos de cada peça (rec.veiculos,
+// inclusive o que veio do "Colar print de aplicação"). Cada peça pode abrir o
+// "🔗 Monta com" e marcar as peças do conjunto. Tudo entra na mesma seleção
+// (_vendasAplicSel) e no mesmo "+ Adicionar selecionados".
+function vendasCcNorm(t){return String(t||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');}
+function vendasCcCodigoCotacao(it,lista){
+  // Escolhe o código que vai pra cotação: o primeiro que existir no estoque
+  // (próprio, Spicer, irmãos de outro catálogo, conversões, equivalentes);
+  // se nenhum existir, vai o código próprio da peça.
+  var cands=[it.codigo,it.substitui,it.similar];
+  var eq=it.substitui||it.similar;
+  if(eq&&lista)lista.forEach(function(o){if(o&&o!==it&&(o.substitui||o.similar)===eq)cands.push(o.codigo);});
+  (it.conversoes||[]).forEach(function(c){cands.push(c&&c.codigo);});
+  (it.equivalentesExtra||[]).forEach(function(c){cands.push(c&&c.codigo);});
+  var vistos={};
+  for(var i=0;i<cands.length;i++){
+    var c=String(cands[i]||'').trim();if(!c||vistos[c])continue;vistos[c]=1;
+    var f=null;try{f=vendasBuscarItem(c);}catch(e){}
+    if(f&&f.length)return {codigo:c,marca:f[0].marca||'',saldo:f.reduce(function(s,x){return s+(+x.saldo||0);},0),temEstoque:true};
+  }
+  return {codigo:it.codigo,marca:it.linha||'',saldo:null,temEstoque:false};
+}
+function vendasCcBuscarPorVeiculo(termo){
+  var toks=String(termo||'').split(/\s+/).map(vendasCcNorm).filter(Boolean);
+  if(!toks.length)return [];
+  var dados;try{dados=ccLoad();}catch(e){return [];}
+  var out=[];
+  Object.keys(CC_NOME_SINGULAR).forEach(function(fam){
+    var lista=dados[fam]||[];
+    lista.forEach(function(it){
+      if(!it||!it.veiculos||!it.veiculos.length)return;
+      var hit=null;
+      for(var i=0;i<it.veiculos.length;i++){
+        var v=vendasCcNorm(it.veiculos[i]);
+        if(toks.every(function(t){return v.indexOf(t)>=0;})){hit=it.veiculos[i];break;}
+      }
+      if(!hit)return;
+      out.push({fam:fam,famNome:CC_NOME_SINGULAR[fam],it:it,lista:lista,veic:hit});
+    });
+  });
+  // mesma peça física cadastrada em 2 catálogos (STAHL/REI apontando pro
+  // mesmo Spicer) aparece uma vez só
+  var vistos={};
+  out=out.filter(function(r){var k=r.fam+'|'+(r.it.substitui||r.it.similar||r.it.codigo);if(vistos[k])return false;vistos[k]=1;return true;});
+  return out.slice(0,200);
+}
+function vendasCcToggleMontaCom(k){
+  window._vendasCcAberto=window._vendasCcAberto||{};
+  window._vendasCcAberto[k]=!window._vendasCcAberto[k];
+  vendasBuscarPorSerieInput();
+}
+function vendasCcLinhaHtml(r,sub,dados){
+  var cc=vendasCcCodigoCotacao(r.it,r.lista);
+  var key=(cc.codigo||'').toUpperCase()+'|'+(cc.marca||'').toUpperCase();
+  var sel=window._vendasAplicSel||{};
+  var desc=(r.it.descricao||r.famNome||'').toUpperCase();
+  var onc='vendasAplicToggleSel(\''+pfEscHtml(pfEscJs(key))+'\',\''+pfEscHtml(pfEscJs(cc.codigo))+'\',\''+pfEscHtml(pfEscJs(cc.marca||''))+'\',\''+pfEscHtml(pfEscJs(desc))+'\',\'\')';
+  var mc=(r.it.montaCom||[]).filter(Boolean);
+  var abertoKey=r.fam+'|'+r.it.codigo;
+  var aberto=!!(window._vendasCcAberto||{})[abertoKey];
+  var h='<div onclick="'+onc+'" style="padding:'+(sub?'7px 12px 7px 40px':'8px 12px')+';border-bottom:1px solid var(--pf-fx-fundoSuave,#f0f4f8);cursor:pointer;display:flex;gap:8px;align-items:flex-start;font-size:12px'+(sub?';background:#FAFCFC':'')+'">'+
+    '<input type="checkbox" '+(sel[key]?'checked':'')+' style="margin-top:2px;width:14px;height:14px;cursor:pointer;flex-shrink:0" onclick="event.stopPropagation();'+onc+'">'+
+    '<div style="flex:1;min-width:0">'+
+      '<span style="display:inline-block;font-size:9px;font-weight:800;color:#fff;background:'+(sub?'#7B2D8B':'#0D7377')+';border-radius:4px;padding:1px 6px;margin-right:6px;vertical-align:1px">'+pfEscHtml(String(r.famNome||'').toUpperCase())+'</span>'+
+      '<b style="color:var(--pf-fx-marca,#1F4E79)">'+pfEscHtml(cc.codigo)+'</b> — '+pfEscHtml(desc)+(cc.marca?' <span style="color:var(--pf-fx-textoSuave,#8a9ab0)">('+pfEscHtml(cc.marca)+')</span>':'')+
+      (cc.temEstoque?' <span style="font-size:10px;font-weight:700;color:'+(cc.saldo>0?'#166534':'#C00000')+'">saldo '+cc.saldo+'</span>':' <span style="font-size:10px;color:var(--pf-fx-textoSuave,#8a9ab0)">sem ficha no estoque</span>')+
+      (r.veic?'<div style="font-size:10px;color:var(--pf-fx-verde,#27AE60);margin-top:1px">'+pfEscHtml(r.veic)+'</div>':'')+
+      (!sub&&mc.length?'<div onclick="event.stopPropagation();vendasCcToggleMontaCom(\''+pfEscHtml(pfEscJs(abertoKey))+'\')" style="display:inline-block;margin-top:4px;font-size:11px;font-weight:700;color:#7B2D8B;cursor:pointer">🔗 Monta com ('+mc.length+') '+(aberto?'▴':'▾')+'</div>':'')+
+    '</div></div>';
+  if(!sub&&aberto&&mc.length){
+    var famPorNome={};Object.keys(CC_NOME_SINGULAR).forEach(function(k){famPorNome[CC_NOME_SINGULAR[k]]=k;});
+    var vistos={};
+    mc.forEach(function(c){
+      var info=pfInfoItemPorCodigo(c);
+      var it2=info&&info.item?info.item:{codigo:c,descricao:''};
+      var lista2=(info&&dados)?(dados[famPorNome[info.familia]]||[]):null;
+      var k2=(info?info.familia:'')+'|'+(it2.substitui||it2.similar||it2.codigo);
+      if(vistos[k2])return;vistos[k2]=1;
+      h+=vendasCcLinhaHtml({fam:'',famNome:info?info.familia:'Peça',it:it2,lista:lista2,veic:''},true,dados);
+    });
+  }
+  return h;
+}
+function vendasCcListaHtml(ccRes){
+  if(!ccRes||!ccRes.length)return '';
+  var dados=null;try{dados=ccLoad();}catch(e){}
+  return '<div style="padding:6px 12px;background:#EEF7F6;border-bottom:1px solid #D5ECE9;font-size:11px;font-weight:800;color:#0D7377;position:sticky;top:0;z-index:1">🔩 COMPONENTES CARDAN — '+ccRes.length+' peça(s) pra esse veículo</div>'+
+    ccRes.map(function(r){return vendasCcLinhaHtml(r,false,dados);}).join('');
+}
 function vendasFecharSerieDropdown(){
   var box=document.getElementById('vendasSerieResultados');if(box){box.style.display='none';box.innerHTML='';}
   var backdrop=document.getElementById('vendasSerieBackdrop');if(backdrop)backdrop.style.display='none';
@@ -48018,6 +48111,7 @@ function vendasBuscarPorSerieInput(){
     }
   });
   res=ordem.map(function(k){return vistos[k];});
+  var ccRes=termo.trim()?vendasCcBuscarPorVeiculo(termo):[]; // v115.1973 - componentes cardan pelo veículo
   // v115.797 - A pedido do Vitor: filtro secundário por descrição, pra
   // achar rápido dentro de uma lista longa de peças do mesmo modelo/série
   // (ex: buscou "176/413" e apareceram 90+ itens -- agora dá pra digitar
@@ -48032,6 +48126,7 @@ function vendasBuscarPorSerieInput(){
   // etc"): guarda a lista filtrada atual num global pra
   // vendasAplicToggleTodos() usar sem precisar recalcular o filtro.
   window._vendasAplicResFiltrados=resFiltrados;
+  if(filtroU)ccRes=ccRes.filter(function(r){return (String(r.it.descricao||r.famNome||'')+' '+r.it.codigo+' '+(r.it.substitui||r.it.similar||'')).toUpperCase().indexOf(filtroU)>=0;});
   box.style.display='flex';
   if(backdrop)backdrop.style.display='block';
   // Preserva a rolagem da lista -- antes, marcar um item redesenhava tudo e
@@ -48068,14 +48163,15 @@ function vendasBuscarPorSerieInput(){
   // ocupa o resto disponível (flex:1) com rolagem própria, e o rodapé
   // (Adicionar/Limpar) fica fixo embaixo quando tem selecionados -- um
   // layout flex column só, sem cálculo de pixel nenhum.
-  var filtroHtml=res.length>1?'<div style="padding:8px 12px;border-bottom:1px solid var(--pf-fx-fundoSuave,#f0f4f8);background:#FAFBFD;flex-shrink:0"><input type="text" id="vendasSerieFiltroDesc" value="'+pfEscHtml(filtroDesc)+'" oninput="pfDebounceCall(&quot;vendasSerieFiltroDesc&quot;,vendasBuscarPorSerieInput,250)" placeholder="🔍 Filtrar por descrição ou código..." style="width:100%;box-sizing:border-box;padding:7px 9px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:6px;font-size:13px"></div>':'';
+  listaHtml=(!resFiltrados.length&&ccRes.length?'':listaHtml)+vendasCcListaHtml(ccRes); // v115.1973
+  var filtroHtml=(res.length+ccRes.length)>1?'<div style="padding:8px 12px;border-bottom:1px solid var(--pf-fx-fundoSuave,#f0f4f8);background:#FAFBFD;flex-shrink:0"><input type="text" id="vendasSerieFiltroDesc" value="'+pfEscHtml(filtroDesc)+'" oninput="pfDebounceCall(&quot;vendasSerieFiltroDesc&quot;,vendasBuscarPorSerieInput,250)" placeholder="🔍 Filtrar por descrição ou código..." style="width:100%;box-sizing:border-box;padding:7px 9px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:6px;font-size:13px"></div>':'';
   var todosMarcadosAplic=resFiltrados.length>0&&resFiltrados.every(function(a){
     var k=(a.codigo||'').toUpperCase()+'|'+(a.marca||'').toUpperCase();
     return !!window._vendasAplicSel[k];
   });
   box.innerHTML=
     '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--pf-fx-fundoSuave,#f0f4f8);flex-shrink:0">'+
-      '<span style="font-weight:700;font-size:13px;color:#7B2D8B">🚜 Aplicações — '+(resFiltrados.length)+(resFiltrados.length!==res.length?' de '+res.length:'')+'</span>'+
+      '<span style="font-weight:700;font-size:13px;color:#7B2D8B">🚜 Aplicações — '+(resFiltrados.length)+(resFiltrados.length!==res.length?' de '+res.length:'')+(ccRes.length?' · 🔩 '+ccRes.length+' cardan':'')+'</span>'+
       '<button onclick="vendasFecharSerieDropdown()" style="background:none;border:none;color:var(--pf-fx-textoSuave,#8a9ab0);font-size:20px;cursor:pointer;line-height:1;padding:0 4px">'+pfXGlossyHtml(20)+'</button>'+
     '</div>'+
     (resFiltrados.length>1?'<div style="padding:6px 12px;border-bottom:1px solid var(--pf-fx-fundoSuave,#f0f4f8);background:#FAF5FC;flex-shrink:0">'+

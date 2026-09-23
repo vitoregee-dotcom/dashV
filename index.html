@@ -1809,7 +1809,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1979</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1980</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1960,7 +1960,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1979</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1980</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -48178,6 +48178,7 @@ function vendasCcBuscarPorVeiculo(termo){
       if(!it||!it.veiculos||!it.veiculos.length)return;
       var hit=null;
       for(var i=0;i<it.veiculos.length;i++){
+        if(ccEhCaracteristica(it.veiculos[i]))continue; // v115.1980
         var v=vendasCcNorm(it.veiculos[i]);
         if(toks.every(function(t){return v.indexOf(t)>=0;})){hit=it.veiculos[i];break;}
       }
@@ -60327,6 +60328,50 @@ function ccSeedIfNeeded(){
   }
   localStorage.setItem(CC_SEEDED_KEY,'1');
 }
+// v115.1980 - A pedido do Vitor ("isso não é aplicação né?" -- DENTES
+// RETOS, ROSCA M12 X 1,75, Ø 76 MM 16 ESTRIAS aparecendo como aplicação):
+// alguns itens importados guardaram CARACTERÍSTICAS da peça dentro da lista
+// de veículos (rec.veiculos). Aqui separa: o que começa com um nome de
+// característica vai pra rec.especificacoes (bloco ESPECIFICAÇÕES do "Ver
+// detalhes"); só veículo de verdade fica como aplicação. Idempotente.
+var CC_RE_CARACTERISTICA=/^(Ø|DIAM|DENTE|ROSCA|ESTRIA|N[º°O]?\.?\s*(DE\s*)?(ESTRIA|DENTE)|SERIE|COMPR|ALTURA|LARGURA|FURO|CURSO|PESO|MATERIAL|GRAXEIRA|TRAVA|CHAVETA|MEDIDA|CAPA|PASSO|ESPESSURA|ROLAMENTO|ANGULO|OBS|CASTANHA|COPO|TUBO|ACABAMENTO|MODULO|ENCAIXE)[A-Z]*\b/;
+function ccEhCaracteristica(v){
+  var t=String(v||'').trim().toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if(t.charAt(0)==='Ø')return true;
+  return CC_RE_CARACTERISTICA.test(t);
+}
+function ccSepararVeiculos(lista){
+  var apl=[],specs=[];
+  (lista||[]).forEach(function(v){
+    var t=String(v||'').trim();if(!t)return;
+    if(!ccEhCaracteristica(t)){apl.push(v);return;}
+    var p=t.indexOf(':'),nome,valor;
+    if(p>0){nome=t.slice(0,p).trim();valor=t.slice(p+1).trim();}
+    else if(t.charAt(0)==='Ø'){nome='Ø';valor=t.slice(1).trim();}
+    else{var sp=t.indexOf(' ');nome=sp>0?t.slice(0,sp):t;valor=sp>0?t.slice(sp+1).trim():'';}
+    specs.push({nome:nome.toUpperCase(),valor:valor.toUpperCase()});
+  });
+  return {apl:apl,specs:specs};
+}
+function ccMigrarCaracteristicasVeiculos(data){
+  var mudou=false;
+  try{
+    Object.keys(CC_NOME_SINGULAR).forEach(function(fam){
+      (data[fam]||[]).forEach(function(it){
+        if(!it||!it.veiculos||!it.veiculos.length)return;
+        var sep=ccSepararVeiculos(it.veiculos);
+        if(!sep.specs.length)return;
+        it.veiculos=sep.apl;
+        it.especificacoes=it.especificacoes||[];
+        sep.specs.forEach(function(sp){
+          if(!it.especificacoes.some(function(e){return String(e.nome).toUpperCase()===sp.nome&&String(e.valor).toUpperCase()===sp.valor;}))it.especificacoes.push(sp);
+        });
+        it.ts=Date.now();mudou=true;
+      });
+    });
+  }catch(e){}
+  return mudou;
+}
 function ccLoad(){
   ccSeedIfNeeded();
   var data;
@@ -60363,6 +60408,7 @@ function ccLoad(){
   // roda de novo sem efeito em qualquer aparelho que ainda não tinha
   // sincronizado a correção.
   if(ccMigrarConversaoOEM(data))mudou=true;
+  if(ccMigrarCaracteristicasVeiculos(data))mudou=true; // v115.1980
   if(mudou){
     data.ts=Date.now();
     try{ pfSafeSetItem(CC_KEY, JSON.stringify(data)); }catch(e){}
@@ -61146,7 +61192,8 @@ function ccExecutarBusca(){
     // com/Medidas e ganhou controle PRÓPRIO (botão/toggle separado) --
     // antes vinha junto, sem jeito de ocultar só ela.
     var aplicacaoHtml='';
-    if(rec.veiculos&&rec.veiculos.length) aplicacaoHtml=ccAplicacaoOrganizadaHtml(rec.veiculos); // v115.1978
+    var _sepVeic=ccSepararVeiculos(rec.veiculos); // v115.1980 - característica não é aplicação
+    if(_sepVeic.apl.length) aplicacaoHtml=ccAplicacaoOrganizadaHtml(_sepVeic.apl); // v115.1978
     // v115.1025 - A pedido do Vitor: foto saiu do quadrado fixo à esquerda
     // do título (não tinha espaço decente pra mais de uma) e virou uma
     // fileira de miniaturas dentro do card, junto de Monta com/Aplicação --
@@ -61188,10 +61235,11 @@ function ccExecutarBusca(){
       )+
       '</div>';
     // v115.1979 - especificações do catálogo (Série, EAN, peso...) no "Ver detalhes"
-    if(rec.especificacoes&&rec.especificacoes.length){
+    var _specsCard=(rec.especificacoes||[]).concat(_sepVeic.specs);
+    if(_specsCard.length){
       rodapeHtml+='<div style="margin-top:8px"><div style="font-size:10px;font-weight:700;color:#7B2D8B;letter-spacing:.3px;margin-bottom:6px">ESPECIFICAÇÕES</div>'+
         '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px 16px;font-size:11.5px">'+
-        rec.especificacoes.map(function(e){return '<div><span style="color:var(--pf-text-muted)">'+pfEscHtml(e.nome)+':</span> <b>'+pfEscHtml(e.valor)+'</b></div>';}).join('')+'</div></div>';
+        _specsCard.map(function(e){return '<div><span style="color:var(--pf-text-muted)">'+pfEscHtml(e.nome)+':</span> <b>'+pfEscHtml(e.valor)+'</b></div>';}).join('')+'</div></div>';
     }
     var temDetalhes=!!(rodapeHtml||fotosArr.length>1);
     // v115.1058 - A pedido do Vitor: card inteiro em maiúsculo (title,

@@ -117,7 +117,7 @@ function _pfLogDiagnostico(tipo,detalhe){
     // Throttle: no máx 1 tentativa de sync a cada 5s, só se já tiver sessão
     if(typeof sbUser!=='undefined'&&sbUser&&typeof pfSyncPush==='function'){
       var agora2=Date.now();
-      if(!window._pfUltimoPushDiag||agora2-window._pfUltimoPushDiag>5000){
+      if(!window._pfUltimoPushDiag||agora2-window._pfUltimoPushDiag>60000){ // v115.1956 - era 5s; sobe no máx 1x/min
         window._pfUltimoPushDiag=agora2;
         pfSyncPush(['perf_diagnostico_v1']).catch(function(){});
       }
@@ -1765,7 +1765,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1955</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1956</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1915,7 +1915,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1955</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1956</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -38085,6 +38085,7 @@ async function pfSyncPush(keys){
                 // síncrono automático se o worker falhar por qualquer
                 // motivo (nunca fica pior que antes).
                 if(remotoRaw===raw){paraEnviar=raw;}
+                else if(chave==='perf_diagnostico_v1'){paraEnviar=raw;} // v115.1956 - só o deste aparelho (máx 300), sem união com o servidor
                 else{paraEnviar = await pfMergeSyncValueAsync(raw, remotoRaw, chave);}
               }
               if(paraEnviar!==raw){ await pfSafeSetItemAsync(chave, paraEnviar); } // mantém o navegador consistente com o que foi mesclado
@@ -38532,19 +38533,51 @@ async function pfSyncPull(){
     // era a causa real do "Página sem resposta" na abertura do sistema.
     // Agora todas disparam ao mesmo tempo com Promise.all; o tempo total
     // passa a ser o da requisição mais lenta, não a SOMA de todas.
+    // v115.1956 - A pedido do Vitor ("sistema meio lento"): diagnóstico real
+    // (perf_diagnostico_v1 no banco) mostrou travadas de 5-16s logo depois
+    // de "aba voltou pra primeiro plano" -- cada pull baixava TUDO de novo
+    // (~18MB: 10MB das linhas do próprio usuário + 8MB de catálogos
+    // compartilhados) a cada 2 min e a cada volta de aba, e fazia .json()
+    // disso na thread principal. Agora é INCREMENTAL: guarda a marca d'água
+    // (maior updated_at já recebido) e só pede linhas com updated_at maior
+    // que ela (menos 10 min de folga pra relógio de aparelho diferente).
+    // Pull completo (como antes) no 1º pull da sessão e a cada 15 min, de
+    // segurança. Chave que não vem = não mudou -- mesmo efeito do
+    // "val===localRaw" que já pulava tudo.
+    var _pfAgoraPull=Date.now();
+    if(window._pfSyncMarcaUser!==sbUser.id){window._pfSyncMarca=0;window._pfUltimoPullCompleto=0;window._pfChavesProprias=null;window._pfSyncMarcaUser=sbUser.id;} // trocou de conta = começa do zero
+    var _pfPullCompleto=!window._pfSyncMarca||!window._pfUltimoPullCompleto||(_pfAgoraPull-window._pfUltimoPullCompleto)>15*60*1000;
+    var _pfFiltroDesde=_pfPullCompleto?'':('&updated_at=gt.'+encodeURIComponent(new Date(window._pfSyncMarca-10*60*1000).toISOString()));
+    var _pfMarcaNova=window._pfSyncMarca||0;
+    var _pfVerMarca=function(r){var t=Date.parse(r&&r.updated_at);if(t&&t>_pfMarcaNova&&t<=_pfAgoraPull+60000)_pfMarcaNova=t;};
+    // logs (juntam as linhas de TODOS os usuários): no incremental, uma
+    // consulta leve SEM os dados descobre quais mudaram, e só essas são
+    // baixadas inteiras (todas as linhas da chave, igual antes).
+    var logKeysBuscar=logKeys;
+    if(!_pfPullCompleto){
+      logKeysBuscar=[];
+      try{
+        var rProbe=await sbFetch('/rest/v1/user_sync?chave=in.('+logKeys.map(encodeURIComponent).join(',')+')'+_pfFiltroDesde+'&select=chave');
+        if(rProbe.ok){(await rProbe.json()).forEach(function(x){if(logKeysBuscar.indexOf(x.chave)<0)logKeysBuscar.push(x.chave);});}
+        else logKeysBuscar=logKeys;
+      }catch(eProbe){logKeysBuscar=logKeys;}
+    }
+    // compartilhadas: onde o usuário já tem linha própria, a própria sempre
+    // venceu (ver "!rows.some" lá embaixo) -- no incremental nem pergunta.
+    var sharedKeysBuscar=_pfPullCompleto?sharedKeys:sharedKeys.filter(function(sk){return !(window._pfChavesProprias&&window._pfChavesProprias[sk]);});
     var results = await Promise.all([
-      sbFetch('/rest/v1/user_sync?user_id=eq.'+sbUser.id+'&select=chave,dados,updated_at'),
-      Promise.all(logKeys.map(function(lk){ return sbFetch('/rest/v1/user_sync?chave=eq.'+lk+'&select=chave,dados,updated_at,user_id'); })),
+      sbFetch('/rest/v1/user_sync?user_id=eq.'+sbUser.id+_pfFiltroDesde+'&select=chave,dados,updated_at'),
+      Promise.all(logKeysBuscar.map(function(lk){ return sbFetch('/rest/v1/user_sync?chave=eq.'+lk+'&select=chave,dados,updated_at,user_id'); })),
       // v115.1022 - pras 2 chaves de catálogo único (PF_CATALOGO_UNICO_KEYS),
       // filtra direto pelo MY_USER_ID fixo em vez de "a mais recente de
       // qualquer usuário" -- agora que o push também sempre escreve nesse
       // mesmo id fixo pra essas duas, não tem mais ambiguidade a resolver.
       // As demais chaves continuam exatamente como antes.
-      Promise.all(sharedKeys.map(function(sk){
+      Promise.all(sharedKeysBuscar.map(function(sk){
         var ehCatalogoUnico = PF_CATALOGO_UNICO_KEYS.indexOf(sk)>=0;
         var filtroUser = ehCatalogoUnico ? ('&user_id=eq.'+MY_USER_ID) : '';
         var ordenacao = ehCatalogoUnico ? '' : '&order=updated_at.desc';
-        return sbFetch('/rest/v1/user_sync?chave=eq.'+sk+filtroUser+'&select=chave,dados,updated_at,user_id'+ordenacao+'&limit=1');
+        return sbFetch('/rest/v1/user_sync?chave=eq.'+sk+filtroUser+_pfFiltroDesde+'&select=chave,dados,updated_at,user_id'+ordenacao+'&limit=1');
       }))
     ]);
     var rUser=results[0], logResponses=results[1], sharedResponses=results[2];
@@ -38552,8 +38585,17 @@ async function pfSyncPull(){
     // 1. Dados do próprio usuário (não-compartilhados)
     if(rUser.ok){
       var userRows = await rUser.json();
+      if(_pfPullCompleto)window._pfChavesProprias={};
       if(userRows && userRows.length){
         userRows.forEach(r => {
+          _pfVerMarca(r);
+          window._pfChavesProprias=window._pfChavesProprias||{};
+          window._pfChavesProprias[r.chave]=true;
+          // v115.1956 - diagnóstico de performance é só deste aparelho: não
+          // volta do servidor (antes a união local+servidor fazia a lista
+          // crescer sem limite -- 4.800 registros / 1,4MB reprocessados a
+          // cada registro novo, virando ele mesmo causa de travada).
+          if(r.chave==='perf_diagnostico_v1')return;
           // Incluir dados do próprio usuário (compartilhados ou não)
           rows.push(r);
         });
@@ -38566,11 +38608,12 @@ async function pfSyncPull(){
     // pras outras chaves compartilhadas, tipo cadastros -- ali faz sentido
     // pegar só o mais atual, mas aqui perderia os registros de todo mundo
     // menos de quem sincronizou por último).
-    for(var li=0;li<logKeys.length;li++){
-      var lk=logKeys[li];
+    for(var li=0;li<logKeysBuscar.length;li++){
+      var lk=logKeysBuscar[li];
       var rLog=logResponses[li];
       if(rLog && rLog.ok){
         var logRows = await rLog.json();
+        if(logRows)logRows.forEach(_pfVerMarca);
         // v115.1600 - BUG corrigido (Vitor: "não consigo apagar lembrete"):
         // pfLembretes_deletados (tombstone) só existia como chave normal
         // (só conta logada), não como logKey -- então excluir um lembrete
@@ -38630,11 +38673,12 @@ async function pfSyncPull(){
     }
 
     // 2. Dados compartilhados de TODOS os usuários (pega o mais recente de cada chave)
-    for(var si=0;si<sharedKeys.length;si++){
-      var sk=sharedKeys[si];
+    for(var si=0;si<sharedKeysBuscar.length;si++){
+      var sk=sharedKeysBuscar[si];
       var rShared=sharedResponses[si];
       if(rShared && rShared.ok){
         var sharedRows = await rShared.json();
+        if(sharedRows)sharedRows.forEach(_pfVerMarca);
         if(sharedRows && sharedRows.length){
           // Pegar o mais recente
           var latest = sharedRows.sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at))[0];
@@ -38643,6 +38687,12 @@ async function pfSyncPull(){
       }
     }
     
+    // v115.1956 - só avança a marca d'água se as 3 frentes responderam
+    // (se alguma falhou, o próximo pull pede tudo desde a marca antiga)
+    if(rUser.ok&&logResponses.every(function(x){return x&&x.ok;})&&sharedResponses.every(function(x){return x&&x.ok;})){
+      window._pfSyncMarca=_pfMarcaNova||_pfAgoraPull;
+      if(_pfPullCompleto)window._pfUltimoPullCompleto=_pfAgoraPull;
+    }
     if(!rows||!rows.length)return;
     // v115.1600 - Aplica o tombstone unificado de pfLembretes_deletados NO
     // localStorage ANTES do loop principal (a ordem dentro de `rows` não é

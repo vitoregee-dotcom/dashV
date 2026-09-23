@@ -1765,7 +1765,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1956</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1957</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1915,7 +1915,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1956</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1957</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -16844,7 +16844,14 @@ function pfSafeSetItem(key, value){
   // pode chamar isso já com o valor comprimido (prefixo LZS1:) -- sem essa
   // checagem, comprimiria de novo por cima, quebrando a leitura depois
   // (pfDecompress só tira UMA camada do prefixo).
-  var toStore = (value&&value.length>20000&&PF_CHAVES_COMPRIMIVEIS.indexOf(key)>=0&&value.indexOf(PF_COMPRESS_MARK)!==0) ? pfCompress(value) : value;
+  // v115.1957 - A pedido do Vitor (travadas de 20+s logo após salvar
+  // Produtos): chaves que vivem no IndexedDB (PF_IDB_KEYS -- ex.:
+  // cad_produtos_v1, ~7MB) NÃO são mais comprimidas. A compressão LZString
+  // existe só pra caber no limite de 5MB do localStorage; no IndexedDB não
+  // tem esse limite, e comprimir 7MB na thread principal levava 20s.
+  // Leitura continua igual (pfDecompress é no-op pra texto sem "LZS1:").
+  var _ehIdb = PF_IDB_KEYS.indexOf(key)>=0;
+  var toStore = (!_ehIdb&&value&&value.length>20000&&PF_CHAVES_COMPRIMIVEIS.indexOf(key)>=0&&value.indexOf(PF_COMPRESS_MARK)!==0) ? pfCompress(value) : value;
   // v115.1417 - As 12 chaves migradas pro IndexedDB não passam pelo
   // try/catch de quota do localStorage abaixo -- gravação na memória é
   // sempre síncrona e não estoura quota (o IndexedDB por baixo tem
@@ -38398,7 +38405,7 @@ function _pfMergeWorkerCall(cmd,payload,timeoutMs){
       var to=setTimeout(function(){
         delete _pfMergeWorkerPending[id];
         reject(new Error('timeout esperando o worker'));
-      },timeoutMs||15000);
+      },timeoutMs||120000); // v115.1957 - era 15s: com a fila cheia (vários merges/compressões de catálogo grande) a worker ocupada estourava o prazo e o fallback refazia tudo NA THREAD PRINCIPAL (travadas de 20-30s)
       _pfMergeWorkerPending[id]={
         resolve:function(v){clearTimeout(to);resolve(v);},
         reject:function(e){clearTimeout(to);reject(e);}
@@ -38426,8 +38433,11 @@ async function pfWorkerCompress(value){
   try{
     return await _pfMergeWorkerCall('compress',{value:value});
   }catch(e){
-    console.warn('pfWorkerCompress: worker falhou, comprimindo síncrono (fallback seguro):',e);
-    return (value&&value.length>20000)?pfCompress(value):value;
+    // v115.1957 - não comprime mais na thread principal (travava 20s+ em
+    // catálogo grande): devolve sem comprimir; pfSafeSetItem ainda comprime
+    // (síncrono) se for chave de localStorage -- aí é valor menor.
+    console.warn('pfWorkerCompress: worker falhou -- seguindo sem comprimir aqui (não trava a tela):',e);
+    return value;
   }
 }
 // Versão assíncrona de pfSafeSetItem: quando o valor é grande o bastante
@@ -38436,7 +38446,7 @@ async function pfWorkerCompress(value){
 // (valor pequeno, chave não-comprimível), idêntico ao pfSafeSetItem normal.
 async function pfSafeSetItemAsync(key,value){
   var toStore=value;
-  if(value&&value.length>20000&&PF_CHAVES_COMPRIMIVEIS.indexOf(key)>=0){
+  if(value&&value.length>20000&&PF_CHAVES_COMPRIMIVEIS.indexOf(key)>=0&&PF_IDB_KEYS.indexOf(key)<0){ // v115.1957 - IndexedDB não comprime
     toStore=await pfWorkerCompress(value);
   }
   return pfSafeSetItem(key,toStore);
@@ -43776,8 +43786,23 @@ function pfChegouConfSave(list){
   if(typeof pfSyncPush==='function')pfSyncPush([PF_CHEGOU_CONF_KEY]).catch(function(){});
 }
 function pfChegouConfSaldoAtual(codigo,marca){
-  if(typeof vendasBuscarItem!=='function')return null;
-  var rows=vendasBuscarItem(codigo)||[];
+  // v115.1957 - Era a travada de 5-6s a cada 30s: a barra de avisos
+  // (pfAvisosAtualizar, setInterval 30s) chama isso pra CADA item em
+  // conferência, e vendasBuscarItem, quando o item está com saldo 0 ou não
+  // é achado, ainda varre os catálogos de equivalência de rolamentos. Aqui
+  // só importa o saldo do próprio código: usa o índice direto (exato, depois
+  // variante de sufixo -- mesma ordem de antes), sem equivalências.
+  if(typeof vendasTodasLinhas!=='function'||typeof vendasBuscaIndiceGet!=='function')return null;
+  var todas=vendasTodasLinhas();
+  if(!todas||!todas.length)return null;
+  var idxCC=vendasBuscaIndiceGet(todas);
+  var codCleanCC=String(codigo||'').replace(/[\s\-\.]/g,'').toUpperCase();
+  if(!codCleanCC)return null;
+  var rows=(idxCC.porRefExata[codCleanCC]||[]).slice();
+  if(!rows.length&&codCleanCC.length>=3){
+    var reCC=new RegExp('^'+codCleanCC.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[A-Z0-9]{1,3}$');
+    (idxCC.porPrefixo[codCleanCC.slice(0,3)]||[]).forEach(function(b){if(reCC.test(b.refClean))rows.push(b.row);});
+  }
   if(!rows.length)return null;
   if(marca){
     var r=rows.find(function(x){return (x.marca||'').trim().toUpperCase()===String(marca).trim().toUpperCase();});
@@ -48030,6 +48055,23 @@ function vendasSetItemAtivo(i){
 // caracteres pra variante) UMA VEZ e reaproveita entre chamadas -- só
 // reconstrói se o tamanho do catálogo mudar (proxy barato de "os dados
 // mudaram", evita comparação profunda a cada chamada).
+// v115.1957 - A pedido do Vitor (travava ao clicar num campo; log mostrou
+// LONGTASK de 5-6s EXATAMENTE a cada 30s): junta as linhas de todas as
+// abas da planilha UMA vez e reaproveita enquanto nenhuma aba mudar de
+// tamanho -- antes cada vendasBuscarItem fazia rows.concat() das 228 mil
+// linhas de novo.
+function vendasTodasLinhas(){
+  var partes=[],sig='';
+  if(typeof tabs!=='undefined'&&tabs&&tabs.length){
+    for(var _t=0;_t<tabs.length;_t++){var _tab=tabs[_t];if(_tab&&_tab.allItems&&_tab.allItems.length){partes.push(_tab.allItems);sig+=_tab.allItems.length+',';}}
+  }
+  if(!partes.length&&typeof allItems!=='undefined'&&allItems&&allItems.length){partes.push(allItems);sig='a'+allItems.length;}
+  var c=window._pfLinhasPlanilhaCache;
+  if(c&&c.sig===sig&&c.partes.length===partes.length&&c.partes.every(function(pt,i){return pt===partes[i];}))return c.rows;
+  var rows=partes.length===1?partes[0]:[].concat.apply([],partes);
+  window._pfLinhasPlanilhaCache={sig:sig,partes:partes,rows:rows};
+  return rows;
+}
 function vendasBuscaIndiceGet(rows){
   var idx=window._pfVendasBuscaIndex;
   if(idx&&idx.rowsLen===rows.length)return idx;
@@ -48054,16 +48096,7 @@ function vendasBuscarItem(cod){
   // Busca em TODAS as familias (abas) juntas — antes só olhava a aba ativa do
   // Dashboard (allItems) ou, no máximo, a primeira aba com dados, então um item
   // de outra família "desaparecia" dependendo de qual aba estava aberta.
-  var rows=[];
-  if(typeof tabs!=='undefined'&&tabs&&tabs.length){
-    for(var _t=0;_t<tabs.length;_t++){
-      var _tab=tabs[_t];
-      if(_tab&&_tab.allItems&&_tab.allItems.length)rows=rows.concat(_tab.allItems);
-    }
-  }
-  if(!rows.length&&typeof allItems!=='undefined'&&allItems&&allItems.length){
-    rows=allItems;
-  }
+  var rows=vendasTodasLinhas(); // v115.1957 - cache (antes: concat das 228 mil linhas a cada chamada)
   if(!rows.length){console.warn('vendasBuscarItem: planilha não carregada');return null;}
   var matches=[];
   var codClean=cod.replace(/[\s\-\.]/g,'').toUpperCase();
@@ -51916,7 +51949,7 @@ function pfPainelTarefasRender(){
   } else { pfAvisosDesmonta(); if(typeof pfPainelTarefasDesmontar==='function')pfPainelTarefasDesmontar(); }
   setTimeout(pfAvisosWatch,1000);
 })();
-setInterval(function(){ if(document.getElementById('pfAvisosRail'))pfAvisosAtualizar(); },30000);
+setInterval(function(){ if(document.visibilityState!=='visible')return; if(document.getElementById('pfAvisosRail'))pfAvisosAtualizar(); },30000); // v115.1957 - não roda com a aba escondida
 // v115.1592 - A pedido do Vitor ("os ícones da barra inferior estão
 // diferentes entre dispositivos, quero todos sincronizados"): o DADO em
 // si (pfIconOverrides) já é único da empresa (1 linha só no banco,

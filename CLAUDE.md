@@ -19,6 +19,8 @@
 ## Peças do sistema mexidas recentemente (set/2026)
 - Tema: `pfTemaCalcularVariaveis` — cores principais, "Painel escuro" (`--pf-painel-*`), Partes do sistema,
   Cores fixas (`--pf-fx-*`, com a cor original de fallback; e-mail/impressão/PDF ficam fora de propósito) e paletas.
+- Tamanho da letra: `pfFonteAplicar(nivel)` (tema `fonteNivel`, 0–8, padrão 3) gera o `<style id="pfFonteEscala">`
+  que sobe os `font-size` inline pequenos (9–14px) dentro de `#pfMain` e dos modais; níveis altos somam `zoom` nas views.
 - Ferramentas: `pfFerrAplicarPadrao` deixa o cabeçalho escuro em qualquer ferramenta (layout "B");
   botão padrão 3D = classe `.pfBtn` (+ `pfBtnVermelho/Escuro/Verde/Azul/Claro`).
 - Sync: `pfSyncPull` é incremental (marca d'água de `updated_at`); `cad_produtos_v1` tem merge próprio

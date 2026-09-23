@@ -1809,7 +1809,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1973</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1974</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1960,7 +1960,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1973</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1974</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -61120,7 +61120,9 @@ async function ccPrintAplLer(file){
     var b64=dataUrl.split(',')[1];
     var prompt='Esta imagem é um print de catálogo de peças (ex: site Spicer) mostrando a APLICAÇÃO de uma peça em veículos e códigos EQUIVALENTES. '+
       'Extraia TODAS as linhas da tabela de aplicação e todos os equivalentes. Responda SÓ com JSON, sem texto antes/depois, no formato: '+
-      '{"aplicacoes":[{"montadora":"","modelo":"","versao":"","ano_inicial":"","ano_final":"","motor":"","tracao":"","posicao":""}],"equivalentes":[{"marca":"","codigo":"","tipo":""}]}. '+
+      '{"aplicacoes":[{"montadora":"","modelo":"","versao":"","ano_inicial":"","ano_final":"","motor":"","tracao":"","posicao":""}],"equivalentes":[{"marca":"","codigo":"","tipo":""}],"foto_peca":{"x":0,"y":0,"w":0,"h":0}}. '+
+      // v115.1974 - A pedido do Vitor: puxar a foto da peça do print também
+      '"foto_peca" = retângulo da FOTO DA PEÇA no print (a foto do produto, não logotipo, marca d\'água nem ícone), em frações da imagem de 0 a 1 (x,y = canto superior esquerdo; w,h = largura/altura). Se não tiver foto da peça, "foto_peca": null. '+
       // v115.1972 - A pedido do Vitor: o print às vezes traz também
       // conversões/equivalências em outras seções -- pegar tudo quando tiver.
       'Em "equivalentes" coloque TODO código de outra marca/fabricante que aparecer em qualquer parte do print: colunas ou seções chamadas Equivalente, Conversão, Conversões, '+
@@ -61135,10 +61137,48 @@ async function ccPrintAplLer(file){
     var txt=(data.content||[]).map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();
     var m=txt.match(/\{[\s\S]*\}/);if(m)txt=m[0];
     var j=JSON.parse(txt);
+    window._ccPrintAplFoto=null;
+    try{if(j.foto_peca)window._ccPrintAplFoto=await ccPrintAplCortarFoto(dataUrl,j.foto_peca);}catch(eF){}
     ccPrintAplPrevia(j);
   }catch(e){
     corpo.innerHTML='<div style="padding:20px;color:#C00000;font-weight:700">Não consegui ler o print: '+pfEscHtml(e.message)+'</div>';
   }
+}
+// v115.1974 - recorta a foto da peça do print (retângulo que a IA devolveu,
+// em frações 0-1) e comprime igual às outras fotos do card (480px).
+function ccPrintAplCortarFoto(dataUrl,bb){
+  return new Promise(function(res){
+    var x=+bb.x,y=+bb.y,w=+bb.w,h=+bb.h;
+    if(!(w>0.03&&h>0.03)||x<0||y<0||x>1||y>1){res(null);return;}
+    var img=new Image();
+    img.onload=async function(){
+      try{
+        var W=img.naturalWidth,H=img.naturalHeight,pad=0.01;
+        var sx=Math.max(0,(x-pad)*W),sy=Math.max(0,(y-pad)*H);
+        var sw=Math.min(W-sx,(w+2*pad)*W),sh=Math.min(H-sy,(h+2*pad)*H);
+        if(sw<20||sh<20){res(null);return;}
+        var cv=document.createElement('canvas');cv.width=Math.round(sw);cv.height=Math.round(sh);
+        var cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);
+        cx.drawImage(img,sx,sy,sw,sh,0,0,cv.width,cv.height);
+        var out=cv.toDataURL('image/jpeg',0.9);
+        if(typeof pfComprimirImagemDataUrl==='function')out=await pfComprimirImagemDataUrl(out,480,0.72);
+        res(out);
+      }catch(e){res(null);}
+    };
+    img.onerror=function(){res(null);};
+    img.src=dataUrl;
+  });
+}
+function ccTemFotoPropria(r){return !!((r.fotos&&r.fotos.length)||r.foto);}
+// Itens relacionados = a MESMA peça cadastrada em outro catálogo (STAHL/REI/
+// SOROCARD/SPICER), ligados pelo mesmo código equivalente (substitui/similar).
+function ccPrintAplRelacionados(arr,rec){
+  var eq=rec.substitui||rec.similar||'';
+  return arr.filter(function(o){
+    if(!o||o===rec)return false;
+    var eqO=o.substitui||o.similar||'';
+    return (eq&&(eqO===eq||o.codigo===eq))||(eqO&&eqO===rec.codigo);
+  });
 }
 function ccPrintAplFormatar(a){
   var anos=(a.ano_inicial||a.ano_final)?((a.ano_inicial||'')+(a.ano_final&&a.ano_final!==a.ano_inicial?' A '+a.ano_final:'')):'';
@@ -61179,6 +61219,28 @@ function ccPrintAplPrevia(j){
         (x.ja?' <span style="font-size:10px;font-weight:700">(já tem)</span>':'')+'</label>';
     });
   }
+  // v115.1974 - foto da peça (só pra quem ainda não tem) e itens relacionados
+  var foto=window._ccPrintAplFoto;
+  var rel=ach.idx>=0?ccPrintAplRelacionados(ach.arr,rec):[];
+  window._ccPrintAplRel=rel;
+  if(foto){
+    var semFoto=!ccTemFotoPropria(rec)||rel.some(function(o){return !ccTemFotoPropria(o);});
+    h+='<div style="font-size:11px;font-weight:800;color:var(--pf-painel-bg,#1c2940);text-transform:uppercase;margin:14px 0 6px">Foto da peça</div>'+
+      '<div style="display:flex;align-items:center;gap:12px">'+
+        '<img src="'+foto+'" style="width:96px;height:96px;object-fit:contain;background:#F7F9FC;border:1px solid var(--pf-border);border-radius:8px">'+
+        (semFoto?
+          '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer"><input type="checkbox" id="ccPaFoto" checked> Usar no card de quem ainda não tem foto'+(ccTemFotoPropria(rec)?' <span style="font-size:11px;color:var(--pf-text-muted)">(este item já tem — só os relacionados)</span>':'')+'</label>'
+          :'<span style="font-size:12px;color:var(--pf-text-muted)">Este item (e os relacionados) já têm foto — não vou trocar.</span>')+
+      '</div>';
+  }
+  if(rel.length){
+    h+='<div style="font-size:11px;font-weight:800;color:var(--pf-painel-bg,#1c2940);text-transform:uppercase;margin:14px 0 6px">Juntar também nos relacionados (mesma peça em outro catálogo)</div>';
+    rel.forEach(function(o,i){
+      h+='<label style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px;cursor:pointer"><input type="checkbox" class="ccPaRel" data-i="'+i+'" checked>'+
+        '<span style="font-size:9px;font-weight:800;color:#fff;background:#0D7377;border-radius:4px;padding:2px 6px">'+pfEscHtml(o.linha||'—')+'</span><b>'+pfEscHtml(o.codigo)+'</b>'+
+        (o.descricao?' <span style="color:var(--pf-text-muted)">'+pfEscHtml(o.descricao)+'</span>':'')+'</label>';
+    });
+  }
   h+='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">'+
     '<button onclick="document.getElementById(\'ccPrintAplModal\').remove()" class="pfBtn pfBtnClaro">Cancelar</button>'+
     '<button onclick="ccPrintAplSalvar()" class="pfBtn pfBtnVerde">✓ Juntar ao item</button></div>';
@@ -61189,27 +61251,51 @@ function ccPrintAplSalvar(){
   var ach=ccAcharItemIdx(alvo.familia,alvo.codigo,alvo.linha);
   if(ach.idx<0){pfAlert('Item não encontrado (pode ter sido alterado). Tenta buscar de novo.');return;}
   var rec=ach.arr[ach.idx];
-  rec.veiculos=rec.veiculos||[];
-  var normExist=rec.veiculos.map(ccNormAplic),addA=0,addE=0;
+  // v115.1974 - junta no item e nos relacionados marcados (mesma peça em
+  // outro catálogo); foto só em quem ainda não tem nenhuma.
+  var relTodos=window._ccPrintAplRel||[];
+  var alvos=[rec];
+  document.querySelectorAll('#ccPrintAplModal .ccPaRel').forEach(function(cb){
+    if(!cb.checked)return;
+    var o=relTodos[+cb.dataset.i];if(!o)return;
+    var idxO=ach.arr.findIndex(function(x){return x&&x.codigo===o.codigo&&(x.linha||'')===(o.linha||'');});
+    if(idxO>=0&&alvos.indexOf(ach.arr[idxO])<0)alvos.push(ach.arr[idxO]);
+  });
+  var aplSel=[],eqSel=[];
   document.querySelectorAll('#ccPrintAplModal .ccPaA').forEach(function(cb){
     if(!cb.checked)return;
     var inp=document.querySelector('#ccPrintAplModal .ccPaAT[data-i="'+cb.dataset.i+'"]');
     var t=String(inp?inp.value:'').trim().toUpperCase();
-    if(!t||normExist.indexOf(ccNormAplic(t))>=0)return;
-    rec.veiculos.push(t);normExist.push(ccNormAplic(t));addA++;
+    if(t)aplSel.push(t);
   });
   document.querySelectorAll('#ccPrintAplModal .ccPaE').forEach(function(cb){
     if(!cb.checked)return;
-    var e=lido.eqs[+cb.dataset.i];if(!e)return;
-    rec.equivalentesExtra=rec.equivalentesExtra||[];
-    if(rec.equivalentesExtra.some(function(x){return ccNormAplic(x.codigo)===ccNormAplic(e.codigo);}))return;
-    rec.equivalentesExtra.push({marca:e.marca,codigo:e.codigo,tipo:e.tipo||'EQUIVALENTE'});addE++;
+    var e=lido.eqs[+cb.dataset.i];if(e)eqSel.push(e);
   });
-  rec.ts=Date.now();
+  var cbFoto=document.getElementById('ccPaFoto');
+  var foto=(cbFoto&&cbFoto.checked)?window._ccPrintAplFoto:null;
+  var addA=0,addE=0,addF=0;
+  alvos.forEach(function(alvo,ai){
+    alvo.veiculos=alvo.veiculos||[];
+    var normExist=alvo.veiculos.map(ccNormAplic);
+    aplSel.forEach(function(t){
+      if(normExist.indexOf(ccNormAplic(t))>=0)return;
+      alvo.veiculos.push(t);normExist.push(ccNormAplic(t));if(ai===0)addA++;
+    });
+    var proprios=[alvo.codigo,alvo.substitui,alvo.similar].concat((alvo.conversoes||[]).map(function(c){return c.codigo;})).map(ccNormAplic);
+    eqSel.forEach(function(e){
+      alvo.equivalentesExtra=alvo.equivalentesExtra||[];
+      if(proprios.indexOf(ccNormAplic(e.codigo))>=0)return;
+      if(alvo.equivalentesExtra.some(function(x){return ccNormAplic(x.codigo)===ccNormAplic(e.codigo);}))return;
+      alvo.equivalentesExtra.push({marca:e.marca,codigo:e.codigo,tipo:e.tipo||'EQUIVALENTE'});if(ai===0)addE++;
+    });
+    if(foto&&!ccTemFotoPropria(alvo)){alvo.fotos=[foto];delete alvo.foto;addF++;}
+    alvo.ts=Date.now();
+  });
   ccSave(ach.data);
   var m=document.getElementById('ccPrintAplModal');if(m)m.remove();
-  if(typeof pfToast==='function')pfToast('✓ '+addA+' aplicação(ões) e '+addE+' equivalente(s)/conversão(ões) juntados');
-  else pfAlert('✓ '+addA+' aplicação(ões) e '+addE+' equivalente(s)/conversão(ões) juntados ao item.');
+  var msgF='✓ '+addA+' aplicação(ões) e '+addE+' equivalente(s)/conversão(ões) juntados'+(alvos.length>1?' (no item e em '+(alvos.length-1)+' relacionado(s))':'')+(addF?' · foto colocada em '+addF+' card(s)':'');
+  if(typeof pfToast==='function')pfToast(msgF);else pfAlert(msgF+'.');
   if(typeof ccRender==='function')ccRender();
 }
 function ccToggleTodaAplicacao(){

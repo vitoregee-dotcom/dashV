@@ -1765,7 +1765,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1959</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1960</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1845,6 +1845,7 @@ button { min-height:36px; }
         <div class="permSection" style="margin-top:8px">Ferramentas</div>
         <div class="permRow"><span>Cálculo NF</span><button class="pfToggle on" data-mod="ferr_nf"></button></div>
         <div class="permRow"><span>Calculadora de Margem</span><button class="pfToggle on" data-mod="ferr_margem"></button></div>
+        <div class="permRow"><span>Catálogo PDF → Excel</span><button class="pfToggle on" data-mod="ferr_catalogo_pdf"></button></div>
         <div class="permRow"><span>Transferência Encopel</span><button class="pfToggle on" data-mod="ferr_transferencia"></button></div>
         <div class="permRow"><span>Condição de Pgto</span><button class="pfToggle on" data-mod="ferr_cond_pgto"></button></div>
         <div class="permRow"><span>Card de Promoção</span><button class="pfToggle on" data-mod="ferr_card_promo"></button></div>
@@ -1915,7 +1916,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1959</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1960</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -31446,7 +31447,9 @@ function cadDedupScore(p){
 function cadAutoLimpezaProdutos(){
   // v115.1946 - V2: roda de novo 1x com o colapso por código+marca do
   // pfMergeProdutosArr (a V1 já rodou, mas as cópias voltaram pelo sync).
-  var FLAG_KEY='pfProdutosAutoLimpezaV2';
+  // v115.1960 - V3: roda de novo pra tirar as cópias-fantasma sem código
+  // (a lista local tinha chegado a 1,2 milhão).
+  var FLAG_KEY='pfProdutosAutoLimpezaV3';
   if(pfSafeGetItem(FLAG_KEY))return;
   try{
     var plist=cadLoad(PROD_KEY);
@@ -31468,6 +31471,9 @@ function cadAutoLimpezaProdutos(){
   }catch(e){console.warn('cadAutoLimpezaProdutos falhou:',e);}
   pfSafeSetItem(FLAG_KEY,'1');
 }
+// v115.1960 - roda a limpeza também sozinha logo depois de abrir o sistema
+// (não só ao entrar em Produtos), pra lista inchada não ser reenviada antes.
+setTimeout(function(){try{if(typeof sbUser!=='undefined'&&sbUser&&typeof PROD_KEY!=='undefined')cadAutoLimpezaProdutos();}catch(e){console.warn('limpeza automática de Produtos falhou:',e);}},15000);
 function cadDeduplicarProdutosPrompt(){
   var plist=cadLoad(PROD_KEY);
   var grupos={};
@@ -37739,6 +37745,7 @@ var PF_SYNC_KEYS = [
   'pfAtalhosFerramentas',
   'vendas_row_height',
   'vendas_row_cores',
+  'catpdf_traducoes_v1',
   'vendas_tabela_zoom',
   'pfDicasImpactoCache',
   'pfNoticiasSetorAtualizadoEm',
@@ -38221,9 +38228,17 @@ function pfMergeProdutosArr(local, remote){
   (remote||[]).forEach(function(p){addId(p,true);});
   var todos=ordemId.map(function(k){return porId[k];}).concat(semId);
   // 2) colapsa por código+marca
+  // v115.1960 - BUG GRAVE corrigido (a pedido do Vitor: "itens duplicados de
+  // novo" -- 1.242.837 produtos): item SEM código passava direto pro
+  // resultado (ia pro final sem colapsar) -- e sem id, também não casava no
+  // passo 1. Resultado: local + remoto somavam as cópias a cada sync, a
+  // lista dobrava a cada rodada. Eram 53 mil cópias de um registro-fantasma
+  // {codigo:"",aplicacoes:[DANA 28.000]} criado por
+  // vendasPatchAplicacaoNoProdutoEmLista com código vazio. Produto sem
+  // código não existe (cadSalvarProdutoV2 exige código) -- descartado aqui.
   var porChave={},ordem=[],semCodigo=[];
   todos.forEach(function(p){
-    if(!norm(p.codigo)){semCodigo.push(p);return;}
+    if(!norm(p.codigo)){return;}
     var k=chaveCM(p);
     if(!porChave[k]){porChave[k]=p;ordem.push(k);}
     else porChave[k]=juntar(porChave[k],p);
@@ -47479,6 +47494,7 @@ function relacRemover(id){
 // Retorna true se algo mudou na lista.
 function vendasPatchAplicacaoNoProdutoEmLista(plist,codigo,marca,modelo,serie){
   var cod=(codigo||'').toUpperCase();
+  if(!cod.trim())return false; // v115.1960 - sem código não cria ficha-fantasma (ver pfMergeProdutosArr)
   var idx=plist.findIndex(function(p){return (p.codigo||'').toUpperCase()===cod;});
   if(idx<0){plist.push({codigo:codigo,aplicacoes:[]});idx=plist.length-1;}
   if(!plist[idx].aplicacoes)plist[idx].aplicacoes=[];
@@ -57887,6 +57903,7 @@ function ferrRender(){
   if(_canSee('ferr_me_avise')) mkCard('🔔','Me Avise','Alertas de reposição','#E67E22',function(){ferrMeAvise();});
   if(_canSee('ferr_cad_reativ')) mkCard('📋','Cadastro / Reativ.','Script faturado a prazo','#7B2D8B',function(){ferrCadastroReativ();});
   if(_canSee('ferr_leitor')) mkCard('📝','Leitor de Peças','PDF/foto/texto → planilha','#0D7377',function(){ferrLeitorPecas();});
+  if(_canSee('ferr_catalogo_pdf')) mkCard('📘','Catálogo PDF → Excel','Catálogo de peças vira lista pra importar, sem IA','#1F4E79',function(){ferrCatalogoPdf();}); // v115.1960
   if(_canSee('ferr_solic_fotos')){mkCard('📷','Solicitação de Fotos','Pede foto de um item, sobe pelo cel','#C2410C',function(){ferrSolicitacaoFotos();});setTimeout(function(){if(typeof sfAtualizarBadge==='function')sfAtualizarBadge();if(typeof sfProcessarPendentes==='function')sfProcessarPendentes();},50);}
   if(_canSee('ferr_ajuste_saldo')) mkCard('📦','Ajuste de Saldo','Físico ≠ sistema? Avisa em 1 clique','#0D7377',function(){ferrAjusteSaldo();});
   if(_canSee('ferr_rma')) mkCard('🔄','RMA — Devolução','Cliente ou fornecedor, com aviso de ajuste de estoque','#C0392B',function(){ferrRMA();});
@@ -66828,6 +66845,319 @@ async function cadRemoverFundoFoto(idx){
     if(statusEl3)statusEl3.textContent='Erro ao remover fundo: '+(e&&e.message?e.message:e);
   }
 }
+// v115.1960 - A pedido do Vitor ("não dá pra criar uma ferramenta que faz a
+// mesma coisa que você fez, de converter o catálogo em PDF pra Excel?"):
+// ferramenta "Catálogo PDF → Excel". Mesmas regras do extrator Python
+// (scripts/catalogo-pdf/extrair.py), rodando no navegador: pdf.js lê o texto
+// (sem IA, sem tokens), as regras abaixo montam os itens, e o dicionário
+// traduz. Formato suportado: Perkins "Parts Book" (cabeçalho
+// "Item Part No. References Qty. Description Notes").
+// Diferenças do pdf.js em relação ao pypdf (tratadas aqui): marcadores
+// ("R a.", "E") às vezes vêm numa linha própria; a linha "F <código>"
+// ("faz parte de") vem acima OU abaixo do item -- como item "faz parte de"
+// nunca entra na importação, essas linhas são ignoradas; itens sem código
+// próprio viram descarte.
+var PF_CATPDF_DIC={"desc": {"ADAPTOR": "ADAPTADOR", "AIR FILTER ASSEMBLY": "FILTRO DE AR COMPLETO", "ALTERNATOR": "ALTERNADOR", "ALTERNATOR BRACKET": "SUPORTE DO ALTERNADOR", "ANTI-TAMPER CAP": "TAMPA ANTIVIOLAÇÃO", "ARM": "BRAÇO", "ARMATURE": "INDUZIDO", "BACKPLATE": "PLACA TRASEIRA", "BALL BEARING": "ROLAMENTO DE ESFERAS", "BANJO BOLT": "PARAFUSO BANJO", "BAR": "BARRA", "BEARING": "ROLAMENTO", "BEARING HOLDER ASSEMBLY": "CAPA DE MANCAL COMPLETA", "BELT": "CORREIA", "BIG END BEARING KIT": "JOGO DE BRONZINA DE BIELA", "BIG END BRG KIT - U/S": "JOGO DE BRONZINA DE BIELA", "BIG END BRG KIT - U/S (U/S 0.25)": "JOGO DE BRONZINA DE BIELA 0,25MM", "BIG END BRG KIT - U/S (U/S 0.50)": "JOGO DE BRONZINA DE BIELA 0,50MM", "BOLT": "PARAFUSO", "BRACKET": "SUPORTE", "BUSH": "BUCHA", "CAMSHAFT": "EIXO COMANDO DE VÁLVULAS", "CAMSHAFT GEAR": "ENGRENAGEM DO COMANDO", "CAP": "CAPA", "CIRCLIP": "ANEL TRAVA", "CLAMP": "ABRAÇADEIRA", "CLIP": "PRESILHA", "COLLAR": "COLAR", "CON ROD ASSEMBLY": "BIELA COMPLETA", "CON ROD BOLT": "PARAFUSO DA BIELA", "CON ROD NUT": "PORCA DA BIELA", "CONNECTION": "CONEXÃO", "CONNECTION KIT": "KIT DE CONEXÃO", "CONNECTOR": "CONECTOR", "CONTROL LEVER": "ALAVANCA DE CONTROLE", "COVER": "TAMPA", "CRANKSHAFT": "VIRABREQUIM", "CRANKSHAFT ASSEMBLY": "VIRABREQUIM COMPLETO", "CRANKSHAFT GEAR": "ENGRENAGEM DO VIRABREQUIM", "CRANKSHAFT PULLEY": "POLIA DO VIRABREQUIM", "CYLINDER HEAD": "CABEÇOTE", "CYLINDER HEAD ASSEMBLY": "CABEÇOTE COMPLETO", "CYLINDER HEAD BOLT": "PARAFUSO DO CABEÇOTE", "CYLINDER HEAD COVER": "TAMPA DE VÁLVULAS", "DIPSTICK": "VARETA DE ÓLEO", "DIPSTICK TUBE": "TUBO DA VARETA DE ÓLEO", "DOWEL": "PINO GUIA", "DRAIN PLUG": "BUJÃO DE DRENO", "DRIVE": "ACIONAMENTO", "DRIVE SHAFT": "EIXO DE ACIONAMENTO", "ELEMENT": "ELEMENTO FILTRANTE", "ENGINE OVERHAUL KIT": "KIT DE RETÍFICA DO MOTOR", "EXCHANGE ALTERNATOR": "ALTERNADOR (BASE DE TROCA)", "EXHAUST MANIFOLD": "COLETOR DE ESCAPE", "EXHAUST VALVE": "VÁLVULA DE ESCAPE", "EXTENSION": "EXTENSÃO", "FAN": "VENTOINHA", "FAN DRIVE PULLEY": "POLIA DA VENTOINHA", "FAN GUARD": "PROTEÇÃO DA VENTOINHA", "FLANGE": "FLANGE", "FLYWHEEL": "VOLANTE", "FLYWHEEL ASSEMBLY": "VOLANTE COMPLETO", "FLYWHEEL HOUSING": "CARCAÇA DO VOLANTE", "FUEL FILTER": "FILTRO DE COMBUSTÍVEL", "FUEL FILTER ASSEMBLY": "FILTRO DE COMBUSTÍVEL COMPLETO", "FUEL INJECTION PUMP": "BOMBA INJETORA", "GASKET": "JUNTA", "GASKET - CYL. HEAD COVER": "JUNTA DA TAMPA DE VÁLVULAS", "GASKET - CYLINDER HEAD": "JUNTA DO CABEÇOTE", "GASKET - CYLINDER HEAD 1.1MM": "JUNTA DO CABEÇOTE 1,1MM", "GASKET - CYLINDER HEAD 1.2MM": "JUNTA DO CABEÇOTE 1,2MM", "GASKET - CYLINDER HEAD 1.3MM": "JUNTA DO CABEÇOTE 1,3MM", "GASKET - CYLINDER HEAD 1.5MM": "JUNTA DO CABEÇOTE 1,5MM", "GASKET - EXHAUST": "JUNTA DO ESCAPE", "GASKET - EXHAUST MANIFOLD": "JUNTA DO COLETOR DE ESCAPE", "GASKET - LIFT PUMP": "JUNTA DA BOMBA ALIMENTADORA", "GASKET - SUMP": "JUNTA DO CÁRTER", "GASKET - THERMOSTAT HSG": "JUNTA DA CARCAÇA DA VÁLVULA TERMOSTÁTICA", "GASKET - TIMING CASE": "JUNTA DA CARCAÇA DE DISTRIBUIÇÃO", "GASKET - TIMING CASE COVER": "JUNTA DA TAMPA DE DISTRIBUIÇÃO", "GASKET - WATER PUMP": "JUNTA DA BOMBA D'ÁGUA", "GASKET KIT - COMPLETE ENG": "JOGO DE JUNTAS COMPLETO DO MOTOR", "GAUZE": "TELA", "GLOWPLUG": "VELA AQUECEDORA", "GUARD": "PROTEÇÃO", "GUDGEON PIN": "PINO DO PISTÃO", "HOLDER": "SUPORTE", "HOSE": "MANGUEIRA", "HOSE - FUEL": "MANGUEIRA DE COMBUSTÍVEL", "HOSE CLIP": "ABRAÇADEIRA DE MANGUEIRA", "HOUSING": "CARCAÇA", "IDLER GEAR": "ENGRENAGEM INTERMEDIÁRIA", "IGNITION KEY": "CHAVE DE IGNIÇÃO", "IGNITION SWITCH": "COMUTADOR DE IGNIÇÃO", "INDICATOR": "INDICADOR", "INJECTOR": "BICO INJETOR", "INTAKE VALVE": "VÁLVULA DE ADMISSÃO", "KEY": "CHAVETA", "KIT": "KIT", "LABEL": "ETIQUETA", "LAMP": "LÂMPADA", "LEVER": "ALAVANCA", "LIFT PUMP": "BOMBA ALIMENTADORA", "LIFTING EYE": "OLHAL DE IÇAMENTO", "LONG ENGINE - ASSEMBLY": "MOTOR PARCIAL (LONG ENGINE)", "MAIN AIR FILTER": "FILTRO DE AR PRIMÁRIO", "MAIN BEARING KIT": "JOGO DE BRONZINA DE MANCAL", "MOUNTING": "COXIM", "NEEDLE BEARING": "ROLAMENTO DE AGULHAS", "NUT": "PORCA", "O RING": "ANEL O'RING", "OIL COOLER": "RADIADOR DE ÓLEO", "OIL FILLER CAP": "TAMPA DE ABASTECIMENTO DE ÓLEO", "OIL FILTER": "FILTRO DE ÓLEO", "OIL PRESSURE SWITCH": "INTERRUPTOR DE PRESSÃO DE ÓLEO", "OIL PUMP KIT": "KIT BOMBA DE ÓLEO", "OIL SUCTION STRAINER": "PESCADOR DE ÓLEO", "OLIVE": "ANILHA", "PIN": "PINO", "PIPE - AIR": "TUBO DE AR", "PIPE - FUEL INJ LEAK OFF": "TUBO DE RETORNO DOS BICOS", "PIPE - FUEL INJ NO 1 CYL": "TUBO DE INJEÇÃO CIL. 1", "PIPE - FUEL INJ NO 2 CYL": "TUBO DE INJEÇÃO CIL. 2", "PIPE - FUEL INJ NO 3 CYL": "TUBO DE INJEÇÃO CIL. 3", "PIPE - FUEL INJ NO 4 CYL": "TUBO DE INJEÇÃO CIL. 4", "PIPE - LOW PRESSURE FUEL": "TUBO DE COMBUSTÍVEL BAIXA PRESSÃO", "PIPE - OIL": "TUBO DE ÓLEO", "PIPE - OIL SUCTION": "TUBO DE SUCÇÃO DE ÓLEO", "PISTON": "PISTÃO", "PISTON AND RING KIT": "JOGO DE PISTÃO E ANÉIS", "PISTON AND RING KIT - O/S": "JOGO DE PISTÃO E ANÉIS SOBREMEDIDA", "PISTON RING KIT": "JOGO DE ANÉIS", "PISTON RING KIT - OVERSIZE": "JOGO DE ANÉIS SOBREMEDIDA", "PLATE": "PLACA", "PLUG": "BUJÃO", "PRE-FUEL FILTER": "PRÉ-FILTRO DE COMBUSTÍVEL", "PRIMING PUMP": "BOMBA ESCORVA", "PUSHROD": "VARETA DE VÁLVULA", "RADIATOR": "RADIADOR", "RADIATOR CAP": "TAMPA DO RADIADOR", "RELIEF VALVE": "VÁLVULA DE ALÍVIO", "RING": "ANEL", "ROCKER ARM ASSEMBLY": "BALANCIM COMPLETO", "ROCKER BOX": "CAIXA DOS BALANCINS", "ROCKER SHAFT": "EIXO DOS BALANCINS", "ROCKER SHAFT SPRING": "MOLA DO EIXO DOS BALANCINS", "ROTOR": "ROTOR", "SCREW": "PARAFUSO", "SEAL": "RETENTOR", "SEAL - FRONT END OIL": "RETENTOR DIANTEIRO DO VIRABREQUIM", "SEAL - INJECTOR": "VEDAÇÃO DO BICO INJETOR", "SEAL - O RING": "ANEL O'RING", "SEAL - REAR END OIL": "RETENTOR TRASEIRO DO VIRABREQUIM", "SEAL - ROCKER BOX": "VEDAÇÃO DA CAIXA DOS BALANCINS", "SEAL - VALVE STEM": "RETENTOR DE VÁLVULA", "SHAFT": "EIXO", "SHIM": "CALÇO", "SHIM KIT": "KIT DE CALÇOS", "SHROUD": "DEFLETOR", "SLIDER": "CURSOR", "SOLENOID": "SOLENOIDE", "SPACER": "ESPAÇADOR", "SPEED SENSOR": "SENSOR DE ROTAÇÃO", "SPRING": "MOLA", "SPRING PIN": "PINO ELÁSTICO", "STARTER MOTOR": "MOTOR DE PARTIDA", "STARTER MOTOR - EXCHANGE": "MOTOR DE PARTIDA (BASE DE TROCA)", "STARTER RING": "CREMALHEIRA", "STUD": "PRISIONEIRO", "SUMP": "CÁRTER", "SWITCH": "INTERRUPTOR", "TAPPET": "TUCHO", "TERMINAL KIT": "KIT DE TERMINAIS", "THERMOSTAT": "VÁLVULA TERMOSTÁTICA", "THERMOSTAT HOUSING": "CARCAÇA DA VÁLVULA TERMOSTÁTICA", "THRUST WASHER": "ARRUELA DE ENCOSTO", "TIMING CASE": "CARCAÇA DE DISTRIBUIÇÃO", "TOOL": "FERRAMENTA", "VALVE": "VÁLVULA", "VALVE COLLET": "TRAVA DE VÁLVULA", "VALVE SEAT INSERT": "SEDE DE VÁLVULA", "VALVE SPRING": "MOLA DE VÁLVULA", "VALVE SPRING CAP": "PRATO DA MOLA DE VÁLVULA", "WASHER": "ARRUELA", "WATER PUMP": "BOMBA D'ÁGUA", "WATER TEMPERATURE SWITCH": "INTERRUPTOR DE TEMPERATURA DA ÁGUA"}, "sec": {"Air Filter Assembly": "FILTRO DE AR", "Alternator": "ALTERNADOR", "Application Miscellaneous & Auxiliaries": "DIVERSOS E AUXILIARES", "Atomisers": "BICOS INJETORES", "Camshaft & Gears": "COMANDO E ENGRENAGENS", "Cold Start System": "PARTIDA A FRIO", "Crankshaft, Pistons & Connecting Rods": "VIRABREQUIM, PISTÕES E BIELAS", "Cylinder Block": "BLOCO DO MOTOR", "Cylinder Head": "CABEÇOTE", "Cylinder Head Cover": "TAMPA DE VÁLVULAS", "Dipstick & Filler Tube": "VARETA E TUBO DE ÓLEO", "Drive Belt & Tensioner": "CORREIA E TENSOR", "Electrical": "ELÉTRICA", "Engine Lifting Eyes": "OLHAIS DE IÇAMENTO", "Engine Overhaul Kit": "KIT DE RETÍFICA", "Exhaust Connection": "CONEXÃO DE ESCAPE", "Exhaust Manifold": "COLETOR DE ESCAPE", "Fan": "VENTOINHA", "Feed Pipes": "TUBOS DE ALIMENTAÇÃO", "Filler": "ABASTECIMENTO", "Flywheel & Starter Ring": "VOLANTE E CREMALHEIRA", "Flywheel Housing": "CARCAÇA DO VOLANTE", "Front End Drive Input": "ACIONAMENTO DIANTEIRO (ENTRADA)", "Front End Drive Output": "ACIONAMENTO DIANTEIRO (SAÍDA)", "Fuel Filter": "FILTRO DE COMBUSTÍVEL", "Fuel Injection Pump": "BOMBA INJETORA", "Fuel Leak-Off Pipe": "TUBO DE RETORNO", "Fuel Pre-Lift Pump": "PRÉ-BOMBA DE COMBUSTÍVEL", "Guards": "PROTEÇÕES", "Heater and Starter Switch": "AQUECIMENTO E COMUTADOR DE PARTIDA", "High Pressure Fuel Pipes": "TUBOS DE ALTA PRESSÃO", "Instrumentation": "INSTRUMENTAÇÃO", "Kit": "KIT", "Lift Pump": "BOMBA ALIMENTADORA", "Long Engine": "MOTOR PARCIAL", "Miscellaneous": "DIVERSOS", "Oil Cooler": "RADIADOR DE ÓLEO", "Oil Filter": "FILTRO DE ÓLEO", "Oil Pump": "BOMBA DE ÓLEO", "Pipes": "TUBOS", "Pipework & Connections": "TUBULAÇÕES E CONEXÕES", "Pulleys": "POLIAS", "Radiator & Cowling": "RADIADOR E DEFLETOR", "Rear End Oil Seal": "RETENTOR TRASEIRO", "Relief Valve": "VÁLVULA DE ALÍVIO", "Rocker Shaft Assembly": "EIXO DOS BALANCINS", "Service Kits": "KITS DE SERVIÇO", "Starter Motor": "MOTOR DE PARTIDA", "Starter Motor Breakdown": "MOTOR DE PARTIDA (PEÇAS)", "Sump": "CÁRTER", "Thermostat & Housing": "VÁLVULA TERMOSTÁTICA E CARCAÇA", "Throttle & Stop Controls": "ACELERADOR E PARADA", "Timing Case": "CARCAÇA DE DISTRIBUIÇÃO", "Water Outlet & Inlet": "SAÍDA E ENTRADA DE ÁGUA", "Water Pump": "BOMBA D'ÁGUA"}};
+var PF_CATPDF_FORA={'LABEL':1,'TOOL':1,'LONG ENGINE - ASSEMBLY':1,'LEAFLET':1};
+var PF_CATPDF_KITS={'KIT':1,'KITS DE SERVIÇO':1,'KIT DE RETÍFICA':1};
+// Leitura POR COLUNA (posição x de cada pedaço de texto): as colunas vêm do
+// cabeçalho "Item | Part No. | References | Qty. | Description | Notes" de
+// cada página. Uma linha com número na coluna Item abre um item; linhas sem
+// número completam o item de cima (descrição quebrada, qtd/marcadores numa
+// linha à parte). "F <código>" na coluna References = "faz parte de" --
+// só vale pra item SEM código próprio (o código é do conjunto pai).
+// paginas: [ [ {y, cells:[{x,s}]} ...de cima pra baixo ] ]
+function pfCatPdfExtrair(paginas){
+  var itens=[],descartes=[],pags=0;
+  paginas.forEach(function(rows,pi){
+    var col=null,hIdx=-1;
+    for(var r=0;r<rows.length;r++){
+      var t=rows[r].cells.map(function(c){return c.s;}).join(' ');
+      if(/^Item\b/.test(t)&&/Part\s?No\./.test(t)){hIdx=r;break;}
+    }
+    if(hIdx<0)return;
+    pags++;
+    var pos={};
+    rows.slice(Math.max(0,hIdx-2),hIdx+2).forEach(function(rw){rw.cells.forEach(function(c){
+      var s=c.s.replace(/\s+/g,' ');
+      if(/^Item$/.test(s))pos.item=c.x; else if(/^Part ?No\./.test(s))pos.part=c.x;
+      else if(/^References/.test(s))pos.ref=c.x; else if(/^Qty/.test(s))pos.qty=c.x;
+      else if(/^Description/.test(s))pos.desc=c.x; else if(/^Notes/.test(s))pos.notes=c.x;
+    });});
+    if(pos.part==null||pos.desc==null||pos.qty==null)return;
+    if(pos.ref==null)pos.ref=(pos.part+pos.qty)/2;
+    if(pos.notes==null)pos.notes=9999;
+    var colDe=function(x){
+      if(x<pos.part-4)return 'item';
+      if(x<pos.ref-4)return 'part';
+      if(x<pos.qty-4)return 'ref';
+      if(x<pos.desc-4)return 'qty';
+      if(x<pos.notes-4)return 'desc';
+      return 'notes';
+    };
+    var secao='',grupoCod='';
+    for(var h=0;h<hIdx;h++){
+      var cs=rows[h].cells;
+      var plate=cs.filter(function(c){return /^Plate\s+\S+$/.test(c.s);})[0];
+      if(plate){
+        secao=cs.filter(function(c){return c!==plate;}).map(function(c){return c.s;}).join(' ').trim();
+        var prox=rows[h+1];
+        if(prox&&h+1<hIdx&&prox.cells.length===1&&!/^Qty/.test(prox.cells[0].s))grupoCod=prox.cells[0].s.trim();
+        break;
+      }
+    }
+    var modo='itens',cur=null;
+    var fechar=function(){
+      if(!cur)return;
+      var refsTk=cur.refs.join(' ').split(/\s+/).filter(Boolean);
+      var fIdx=refsTk.indexOf('F');
+      var codigoPai=(fIdx>=0&&refsTk[fIdx+1]&&/\d/.test(refsTk[fIdx+1]))?refsTk[fIdx+1]:null;
+      var codigo=cur.part.join('').trim();
+      var parteDe=false;
+      if(!codigo&&codigoPai){codigo=codigoPai;parteDe=true;}
+      var desc=cur.desc.join(' ').replace(/\s+/g,' ').trim();
+      var notas=cur.notes.join(' ').trim();
+      var m=desc.match(/\s*((?:\(\d+\))+)\s*$/);if(m){notas=(m[1]+' '+notas).trim();desc=desc.slice(0,m.index).trim();}
+      var refs=refsTk.filter(function(x,i){return !(codigoPai&&(i===fIdx||i===fIdx+1));}).join(' ');
+      if(codigo&&/^[A-Z0-9]{4,}$/.test(codigo)&&cur.qtd!=null&&desc){
+        itens.push({pagina:pi+1,secao:secao,grupoCod:grupoCod,item:cur.item,parteDe:parteDe,codigo:codigo,qtd:cur.qtd,descEn:desc,refs:refs,notas:notas});
+      }else descartes.push({pagina:pi+1,linha:[cur.item,codigo,cur.qtd,desc].join(' ')});
+      cur=null;
+    };
+    for(var n=hIdx+1;n<rows.length;n++){
+      var rw=rows[n];
+      if(rw.y<45||rw.y>832)continue;                                   // rodapé/topo (nº de página)
+      var txt=rw.cells.map(function(c){return c.s;}).join(' ').trim();
+      if(/^Qty\.?\s*Description/.test(txt))continue;
+      if(txt==='History'||txt==='Footnotes'){fechar();modo='fora';continue;}
+      if(/^Service ?Options$/.test(txt)){fechar();modo='itens';continue;}
+      if(modo!=='itens')continue;
+      var campos={item:[],part:[],ref:[],qty:[],desc:[],notes:[]};
+      rw.cells.forEach(function(c){campos[colDe(c.x)].push(c.s.trim());});
+      var itemTxt=campos.item.join(' ').trim();
+      if(/^\d+$/.test(itemTxt)){
+        fechar();
+        cur={item:+itemTxt,part:[],refs:[],qtd:null,desc:[],notes:[]};
+      }else if(itemTxt){ // texto na coluna Item que não é número -- fora da tabela
+        fechar();continue;
+      }
+      if(!cur)continue;
+      // "F T430998" às vezes cai colado na coluna Part No. -- separa
+      campos.part.forEach(function(p){
+        var mm=p.match(/^F\s+(\S+)$/);
+        if(mm)cur.refs.push('F '+mm[1]); else cur.part.push(p.replace(/\s+/g,''));
+      });
+      cur.refs=cur.refs.concat(campos.ref);
+      var q=campos.qty.join(' ').trim();
+      if(cur.qtd==null&&/^\d+$/.test(q))cur.qtd=+q;
+      cur.desc=cur.desc.concat(campos.desc);
+      cur.notes=cur.notes.concat(campos.notes);
+    }
+    fechar();
+  });
+  return {itens:itens,descartes:descartes,paginas:pags};
+}
+// Monta as duas abas. extra = traduções cadastradas na própria ferramenta.
+function pfCatPdfMontar(res,marca,extra){
+  extra=extra||{desc:{},sec:{}};
+  var D=PF_CATPDF_DIC;
+  var tr0=function(d){return (extra.desc&&extra.desc[d])||D.desc[d]||d;};
+  var tr=function(i){var t=tr0(i.descEn),md=medidaDe(i);return (md&&t.replace(/\s/g,'').indexOf(md)<0)?(t+' '+md):t;};
+  var ts=function(s){return (extra.sec&&extra.sec[s])||D.sec[s]||String(s||'').toUpperCase();};
+  // limpa marca registrada colada na descrição (ex.: "OIL FILLER CAP BLUETOOTH®")
+  res.itens.forEach(function(i){i.descEn=i.descEn.split(' ').filter(function(w){return w.indexOf('®')<0;}).join(' ').trim();});
+  var itens=res.itens.filter(function(i){return !PF_CATPDF_FORA[i.descEn];});
+  // medida que o catálogo põe na coluna References (ex.: "J 1.3MM",
+  // "(U/S 0.25)", "(-) 0.25MM") vai pro fim da descrição -- é o que separa
+  // uma junta de 1,2 de uma de 1,3.
+  var medidaDe=function(i){
+    var t=(i.refs||'')+' '+(i.notas||'')+' '+i.descEn;
+    var m=t.match(/(?:U\/S|O\/S)\s*(\d+(?:\.\d+)?)/)||t.match(/(\d+\.\d+)\s*MM\b/);
+    return m?m[1].replace('.',',')+'MM':'';
+  };
+  var faltaDesc={},faltaSec={};
+  itens.forEach(function(i){
+    if(!(extra.desc&&extra.desc[i.descEn])&&!D.desc[i.descEn])faltaDesc[i.descEn]=1;
+    if(i.secao&&!(extra.sec&&extra.sec[i.secao])&&!D.sec[i.secao])faltaSec[i.secao]=1;
+  });
+  var uniq={},ordem=[];
+  itens.forEach(function(i){
+    if(i.parteDe)return;
+    if(!uniq[i.codigo]){uniq[i.codigo]={it:i,secoes:[],pags:[]};ordem.push(i.codigo);}
+    var u=uniq[i.codigo],sec=ts(i.secao);
+    if(u.secoes.indexOf(sec)<0)u.secoes.push(sec);
+    if(u.pags.indexOf(i.pagina)<0)u.pags.push(i.pagina);
+  });
+  var grupo=function(u){var r=u.secoes.filter(function(x){return !PF_CATPDF_KITS[x];});return (r.length?r:u.secoes)[0]||'';};
+  var importar=ordem.map(function(c){var u=uniq[c];return {codigo:c,descricao:tr(u.it),marca:marca,grupo:grupo(u),textoIngles:u.it.descEn,qtd:u.it.qtd,apareceEm:u.secoes.join(', '),pagina:u.pags.join(', ')};});
+  var completo=itens.map(function(i){return {pagina:i.pagina,grupo:ts(i.secao),grupoCod:i.grupoCod,item:i.item,codigo:i.codigo,qtd:i.qtd,descricao:tr(i)+(i.parteDe?' (FAZ PARTE DO '+i.codigo+')':''),textoIngles:i.descEn,obs:(i.refs+' '+i.notas).trim()};});
+  return {importar:importar,completo:completo,faltaDesc:Object.keys(faltaDesc).sort(),faltaSec:Object.keys(faltaSec).sort(),descartes:res.descartes,paginas:res.paginas};
+}
+
+// ── Tela da ferramenta ──────────────────────────────────────────
+var PF_CATPDF_TRAD_KEY='catpdf_traducoes_v1'; // traduções que o Vitor cadastra na própria tela (somam ao dicionário fixo)
+function pfCatPdfTradLoad(){try{var t=JSON.parse(pfSafeGetItem(PF_CATPDF_TRAD_KEY,'{}'));return {desc:t.desc||{},sec:t.sec||{},ts:t.ts||0};}catch(e){return {desc:{},sec:{},ts:0};}}
+function pfCatPdfTradSave(t){t.ts=Date.now();pfSafeSetItem(PF_CATPDF_TRAD_KEY,JSON.stringify(t));if(typeof pfSyncPush==='function')pfSyncPush([PF_CATPDF_TRAD_KEY]);}
+function pfCarregarPdfJs(){
+  if(window.pdfjsLib)return Promise.resolve();
+  return new Promise(function(res,rej){
+    var s=document.createElement('script');
+    s.src='https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js';
+    s.onload=function(){window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';res();};
+    s.onerror=function(){rej(new Error('não consegui carregar o leitor de PDF (sem internet?)'));};
+    document.head.appendChild(s);
+  });
+}
+function ferrCatalogoPdf(){
+  var el=document.getElementById('ferrBody');if(!el)return;
+  var marcas=(typeof pfListaMarcas==='function')?pfListaMarcas():[];
+  var linhas=(typeof pfListaLinhas==='function')?pfListaLinhas():[];
+  var lbl=function(t){return '<div style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">'+t+'</div>';};
+  var campo='padding:8px 12px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px;font-weight:700;text-transform:uppercase;width:170px;box-sizing:border-box;height:38px';
+  el.innerHTML='<div style="width:100%">'+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
+      '<button onclick="ferrRender()" style="background:none;border:1px solid #e0e8f0;color:#607080;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px">← Voltar</button>'+
+      '<div style="font-size:16px;font-weight:800;color:#1F4E79">📘 Catálogo PDF → Excel</div>'+
+    '</div>'+
+    '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:18px 20px;margin-bottom:16px">'+
+      '<div style="font-size:12px;color:#607080;margin-bottom:14px;line-height:1.5">Converte catálogo de peças em PDF numa lista pronta pra importar em <b>Aplicações</b> — lida aqui no navegador, <b>sem IA e sem gastar tokens</b>. Formato reconhecido: catálogo Perkins (<i>Parts Book</i>). Descrições traduzidas pro português (dá pra corrigir antes de importar).</div>'+
+      '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end">'+
+        '<div>'+lbl('Marca')+'<input id="catPdfMarca" list="catPdfMarcas" value="PERKINS" style="'+campo+'"><datalist id="catPdfMarcas">'+marcas.map(function(m){return '<option value="'+pfEscHtml(m)+'">';}).join('')+'</datalist></div>'+
+        '<div>'+lbl('Linha')+'<input id="catPdfLinha" list="catPdfLinhas" value="PERKINS" style="'+campo+'"><datalist id="catPdfLinhas">'+linhas.map(function(m){return '<option value="'+pfEscHtml(m)+'">';}).join('')+'</datalist></div>'+
+        '<div>'+lbl('Catálogo (PDF)')+pfBtnCarregarArquivoHtml(42,'catPdfInput','application/pdf,.pdf','catPdfLer(this)')+'</div>'+
+        '<div id="catPdfStatus" style="font-size:12px;color:#607080;padding-bottom:10px"></div>'+
+      '</div>'+
+    '</div>'+
+    '<div id="catPdfResultado"></div>'+
+  '</div>';
+  if(window._catPdfRes)catPdfRender();
+}
+async function catPdfLer(input){
+  var file=input&&input.files&&input.files[0];if(!file)return;
+  var st=document.getElementById('catPdfStatus');
+  var info=function(t){if(st)st.innerHTML=t;};
+  try{
+    info('⏳ Carregando leitor de PDF...');
+    await pfCarregarPdfJs();
+    var buf=await file.arrayBuffer();
+    var pdf=await pdfjsLib.getDocument({data:new Uint8Array(buf)}).promise;
+    var paginas=[];
+    for(var p=1;p<=pdf.numPages;p++){
+      if(p%4===1){info('📖 Lendo página '+p+' de '+pdf.numPages+'...');await new Promise(function(r){setTimeout(r,0);});}
+      var page=await pdf.getPage(p);
+      var c=await page.getTextContent();
+      var rows={};
+      c.items.forEach(function(it){if(!it.str||!it.str.trim())return;var y=Math.round(it.transform[5]);(rows[y]=rows[y]||[]).push({x:it.transform[4],s:it.str});});
+      paginas.push(Object.keys(rows).map(Number).sort(function(a,b){return b-a;}).map(function(y){return {y:y,cells:rows[y].sort(function(a,b){return a.x-b.x;})};}));
+    }
+    var res=pfCatPdfExtrair(paginas);
+    res.arquivo=file.name;res.totalPaginas=pdf.numPages;
+    window._catPdfRes=res;
+    info(res.paginas?('✅ '+file.name):'');
+    catPdfRender();
+  }catch(e){console.error(e);info('<span style="color:#C00000">❌ '+pfEscHtml(e.message||String(e))+'</span>');}
+  input.value='';
+}
+function catPdfMontarAtual(){
+  var res=window._catPdfRes;if(!res)return null;
+  var marca=((document.getElementById('catPdfMarca')||{}).value||'PERKINS').trim().toUpperCase();
+  return pfCatPdfMontar(JSON.parse(JSON.stringify(res)),marca,pfCatPdfTradLoad());
+}
+function catPdfRender(){
+  var box=document.getElementById('catPdfResultado');if(!box)return;
+  var res=window._catPdfRes;if(!res){box.innerHTML='';return;}
+  var card='background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:18px 20px;margin-bottom:16px';
+  if(!res.paginas){
+    box.innerHTML='<div style="'+card+';border-left:4px solid #E67E22"><b>Formato não reconhecido</b> em "'+pfEscHtml(res.arquivo||'')+'" ('+res.totalPaginas+' páginas).<div style="font-size:12px;color:#607080;margin-top:6px;line-height:1.5">Esta ferramenta entende catálogos com a tabela <i>Item · Part No. · References · Qty. · Description · Notes</i> (Perkins Parts Book). Se for de outro fabricante, ou escaneado (imagem sem texto), manda o PDF pro Claude pelo GitHub que ele adapta o leitor.</div></div>';
+    return;
+  }
+  var m=catPdfMontarAtual();
+  var chip=function(t,cor,bg){return '<span style="font-size:12px;font-weight:700;padding:4px 10px;border-radius:8px;background:'+bg+';color:'+cor+'">'+t+'</span>';};
+  var faz=m.completo.filter(function(r){return /FAZ PARTE DO/.test(r.descricao);}).length;
+  var h='<div style="'+card+'">'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px">'+
+      '<b style="font-size:14px;color:#1F4E79;margin-right:4px">'+pfEscHtml(res.arquivo||'')+'</b>'+
+      chip(m.importar.length+' peças pra importar','#217a3c','#E8F5E2')+
+      chip(m.paginas+' páginas de peças','#1F4E79','#EEF6FF')+
+      chip(m.completo.length+' linhas no catálogo','#607080','#F0F4F8')+
+      (faz?chip(faz+' "faz parte de" (fora da importação)','#607080','#F0F4F8'):'')+
+      (m.descartes.length?'<span title="'+pfEscHtml(m.descartes.map(function(d){return 'p.'+d.pagina+': '+d.linha;}).join('\n'))+'" style="cursor:help">'+chip(m.descartes.length+' sem código (componente de kit)','#92400E','#FEF3C7')+'</span>':'')+
+    '</div>'+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">'+
+      '<button class="pfBtn pfBtnAzul" onclick="catPdfEnviarImport()">➡ Enviar pra Importar em Aplicações</button>'+
+      '<button class="pfBtn pfBtnVerde" onclick="catPdfBaixarExcel()">⬇ Baixar Excel</button>'+
+    '</div>'+
+  '</div>';
+  if(m.faltaDesc.length||m.faltaSec.length){
+    var linha=function(tipo,t){return '<tr><td style="padding:6px 8px;font-family:monospace;font-size:12px;color:#607080">'+pfEscHtml(t)+'</td><td style="padding:4px 8px"><input data-tipo="'+tipo+'" data-en="'+pfEscHtml(t)+'" class="catPdfTradInp" placeholder="tradução..." style="width:100%;box-sizing:border-box;padding:6px 8px;border:1.5px solid #e0e8f0;border-radius:6px;font-size:12px;text-transform:uppercase"></td></tr>';};
+    h+='<div style="'+card+';border-left:4px solid #E67E22">'+
+      '<div style="font-weight:800;color:#92400E;margin-bottom:4px">🈯 '+(m.faltaDesc.length+m.faltaSec.length)+' termo(s) sem tradução</div>'+
+      '<div style="font-size:12px;color:#607080;margin-bottom:10px">Vão em inglês se ficar em branco. O que você traduzir aqui fica salvo pros próximos catálogos.</div>'+
+      '<table style="width:100%;border-collapse:collapse">'+m.faltaSec.map(function(t){return linha('sec',t);}).join('')+m.faltaDesc.map(function(t){return linha('desc',t);}).join('')+'</table>'+
+      '<button class="pfBtn pfBtnEscuro" style="margin-top:10px;height:34px" onclick="catPdfSalvarTraducoes()">💾 Salvar traduções</button>'+
+    '</div>';
+  }
+  var amostra=m.importar.slice(0,200);
+  h+='<div style="'+card+';padding:0;overflow:hidden">'+
+    '<div style="padding:12px 16px;font-size:11px;font-weight:800;color:#607080;text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid #e0e8f0;background:#F0F4F8">Prévia '+(m.importar.length>200?'(primeiras 200 de '+m.importar.length+')':'')+'</div>'+
+    '<div style="max-height:420px;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead class="mgHead"><tr><th style="padding:8px;text-align:left">Código</th><th style="padding:8px;text-align:left">Descrição</th><th style="padding:8px;text-align:left">Grupo</th><th style="padding:8px;text-align:center">Qtd</th><th style="padding:8px;text-align:left">Original</th></tr></thead><tbody>'+
+    amostra.map(function(r){return '<tr style="border-bottom:1px solid #eef2f7"><td style="padding:6px 8px;font-family:monospace;font-weight:700;color:#1F4E79">'+pfEscHtml(r.codigo)+'</td><td style="padding:6px 8px;font-weight:600">'+pfEscHtml(r.descricao)+'</td><td style="padding:6px 8px;color:#607080">'+pfEscHtml(r.grupo)+'</td><td style="padding:6px 8px;text-align:center">'+r.qtd+'</td><td style="padding:6px 8px;color:#8a9ab0;font-size:11px">'+pfEscHtml(r.textoIngles)+'</td></tr>';}).join('')+
+    '</tbody></table></div></div>';
+  box.innerHTML=h;
+}
+function catPdfSalvarTraducoes(){
+  var t=pfCatPdfTradLoad(),n=0;
+  document.querySelectorAll('.catPdfTradInp').forEach(function(i){
+    var v=(i.value||'').trim().toUpperCase();if(!v)return;
+    t[i.getAttribute('data-tipo')==='sec'?'sec':'desc'][i.getAttribute('data-en')]=v;n++;
+  });
+  if(!n){pfAlert('Preencha pelo menos uma tradução.');return;}
+  pfCatPdfTradSave(t);
+  catPdfRender();
+}
+function catPdfBaixarExcel(){
+  var m=catPdfMontarAtual();if(!m)return;
+  if(typeof XLSX==='undefined'){pfAlert('Gerador de Excel não carregou (sem internet?). Tente de novo.');return;}
+  var wb=XLSX.utils.book_new();
+  var a1=[['codigo','descricao','marca','grupo','texto em ingles','qtd no motor','aparece em','pagina']].concat(m.importar.map(function(r){return [r.codigo,r.descricao,r.marca,r.grupo,r.textoIngles,r.qtd,r.apareceEm,r.pagina];}));
+  var ws1=XLSX.utils.aoa_to_sheet(a1);ws1['!cols']=[14,42,11,30,34,12,40,12].map(function(w){return {wch:w};});
+  XLSX.utils.book_append_sheet(wb,ws1,'Importar');
+  var a2=[['pagina','grupo','cod. grupo','item','codigo','qtd','descricao','texto em ingles','obs catalogo']].concat(m.completo.map(function(r){return [r.pagina,r.grupo,r.grupoCod,r.item,r.codigo,r.qtd,r.descricao,r.textoIngles,r.obs];}));
+  var ws2=XLSX.utils.aoa_to_sheet(a2);ws2['!cols']=[8,30,12,6,14,6,50,34,18].map(function(w){return {wch:w};});
+  XLSX.utils.book_append_sheet(wb,ws2,'Catalogo completo');
+  var nome=((window._catPdfRes&&window._catPdfRes.arquivo)||'catalogo').replace(/\.pdf$/i,'')+'_pecas.xlsx';
+  XLSX.writeFile(wb,nome);
+}
+// Manda direto pra prévia de Cadastros > Aplicações > Importar Catálogo
+// (mesma prévia da planilha/PDF: edita descrição, escolhe linha, confirma).
+function catPdfEnviarImport(){
+  var m=catPdfMontarAtual();if(!m||!m.importar.length)return;
+  var nomeLinha=((document.getElementById('catPdfLinha')||{}).value||'').trim().toUpperCase();
+  var lnObj=null;
+  if(nomeLinha){
+    lnObj=(typeof LINHAS!=='undefined'&&LINHAS.find(function(l){return l.l===nomeLinha;}))||null;
+    if(!lnObj){if(typeof pfAdicionarLinhaCustom==='function')pfAdicionarLinhaCustom(nomeLinha);lnObj={l:nomeLinha,c:'#607080',b:'#F0F2F4'};}
+  }
+  var marca=m.importar[0].marca;
+  var itens=m.importar.map(function(r){
+    var it={codigo:r.codigo,descricao:r.descricao,descOriginal:r.descricao,marca:r.marca,grupo:r.grupo,qtd:r.qtd};
+    it.linhaObj=lnObj||(typeof idLinha==='function'?idLinha(r.codigo):{l:''});it.linha=it.linhaObj.l||'';
+    return it;
+  });
+  pfNavigate('cadastros');
+  setTimeout(function(){
+    if(typeof cadGoTab==='function')cadGoTab('aplicacoes');
+    setTimeout(function(){
+      if(typeof cadImportarProdutos==='function')cadImportarProdutos();
+      setTimeout(function(){
+        cadMostrarPreviewImport(itens,marca);
+        var pv=document.getElementById('impPreview');if(pv)pv.scrollIntoView({behavior:'smooth',block:'start'});
+        pfAlert('✅ '+itens.length+' peças na prévia. Preencha a Aplicação lá em cima (Componente, Fabricante, Modelo, Série...) e confira antes de importar.');
+      },350);
+    },200);
+  },200);
+}
+
 function ferrMargem(){
   // v115.1955 - A pedido do Vitor: layout B (igual às outras ferramentas) --
   // só o título no cabeçalho escuro (aplicado por pfFerrAplicarPadrao), campos

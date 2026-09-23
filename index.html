@@ -16844,7 +16844,14 @@ function pfSafeSetItem(key, value){
   // pode chamar isso já com o valor comprimido (prefixo LZS1:) -- sem essa
   // checagem, comprimiria de novo por cima, quebrando a leitura depois
   // (pfDecompress só tira UMA camada do prefixo).
-  var toStore = (value&&value.length>20000&&PF_CHAVES_COMPRIMIVEIS.indexOf(key)>=0&&value.indexOf(PF_COMPRESS_MARK)!==0) ? pfCompress(value) : value;
+  // v115.1957 - A pedido do Vitor (travadas de 20+s logo após salvar
+  // Produtos): chaves que vivem no IndexedDB (PF_IDB_KEYS -- ex.:
+  // cad_produtos_v1, ~7MB) NÃO são mais comprimidas. A compressão LZString
+  // existe só pra caber no limite de 5MB do localStorage; no IndexedDB não
+  // tem esse limite, e comprimir 7MB na thread principal levava 20s.
+  // Leitura continua igual (pfDecompress é no-op pra texto sem "LZS1:").
+  var _ehIdb = PF_IDB_KEYS.indexOf(key)>=0;
+  var toStore = (!_ehIdb&&value&&value.length>20000&&PF_CHAVES_COMPRIMIVEIS.indexOf(key)>=0&&value.indexOf(PF_COMPRESS_MARK)!==0) ? pfCompress(value) : value;
   // v115.1417 - As 12 chaves migradas pro IndexedDB não passam pelo
   // try/catch de quota do localStorage abaixo -- gravação na memória é
   // sempre síncrona e não estoura quota (o IndexedDB por baixo tem
@@ -38398,7 +38405,7 @@ function _pfMergeWorkerCall(cmd,payload,timeoutMs){
       var to=setTimeout(function(){
         delete _pfMergeWorkerPending[id];
         reject(new Error('timeout esperando o worker'));
-      },timeoutMs||15000);
+      },timeoutMs||120000); // v115.1957 - era 15s: com a fila cheia (vários merges/compressões de catálogo grande) a worker ocupada estourava o prazo e o fallback refazia tudo NA THREAD PRINCIPAL (travadas de 20-30s)
       _pfMergeWorkerPending[id]={
         resolve:function(v){clearTimeout(to);resolve(v);},
         reject:function(e){clearTimeout(to);reject(e);}
@@ -38426,8 +38433,11 @@ async function pfWorkerCompress(value){
   try{
     return await _pfMergeWorkerCall('compress',{value:value});
   }catch(e){
-    console.warn('pfWorkerCompress: worker falhou, comprimindo síncrono (fallback seguro):',e);
-    return (value&&value.length>20000)?pfCompress(value):value;
+    // v115.1957 - não comprime mais na thread principal (travava 20s+ em
+    // catálogo grande): devolve sem comprimir; pfSafeSetItem ainda comprime
+    // (síncrono) se for chave de localStorage -- aí é valor menor.
+    console.warn('pfWorkerCompress: worker falhou -- seguindo sem comprimir aqui (não trava a tela):',e);
+    return value;
   }
 }
 // Versão assíncrona de pfSafeSetItem: quando o valor é grande o bastante
@@ -38436,7 +38446,7 @@ async function pfWorkerCompress(value){
 // (valor pequeno, chave não-comprimível), idêntico ao pfSafeSetItem normal.
 async function pfSafeSetItemAsync(key,value){
   var toStore=value;
-  if(value&&value.length>20000&&PF_CHAVES_COMPRIMIVEIS.indexOf(key)>=0){
+  if(value&&value.length>20000&&PF_CHAVES_COMPRIMIVEIS.indexOf(key)>=0&&PF_IDB_KEYS.indexOf(key)<0){ // v115.1957 - IndexedDB não comprime
     toStore=await pfWorkerCompress(value);
   }
   return pfSafeSetItem(key,toStore);

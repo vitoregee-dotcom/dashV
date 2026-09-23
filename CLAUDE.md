@@ -22,8 +22,14 @@
 - Ferramentas: `pfFerrAplicarPadrao` deixa o cabeçalho escuro em qualquer ferramenta (layout "B");
   botão padrão 3D = classe `.pfBtn` (+ `pfBtnVermelho/Escuro/Verde/Azul/Claro`).
 - Sync: `pfSyncPull` é incremental (marca d'água de `updated_at`); `cad_produtos_v1` tem merge próprio
-  (`pfMergeProdutosArr`, colapsa por código+marca).
+  (`pfMergeProdutosArr`, colapsa por código+marca e **descarta item sem código** — em set/2026 um fantasma
+  sem código dobrava a cada sync e chegou a 1,2 milhão; qualquer merge novo precisa colapsar TUDO, nada pode
+  passar "direto" sem chave).
+- Chaves do IndexedDB (`PF_IDB_KEYS`) não são comprimidas (a compressão LZString na thread principal travava 20s).
 - Diagnóstico de lentidão real: tabela `user_sync`, chave `perf_diagnostico_v1` (Supabase).
 
 ## Catálogos de peças em PDF
-Converter para Excel **sem IA**: ver `scripts/catalogo-pdf/LEIAME.md`.
+- No próprio sistema: Ferramentas → **📘 Catálogo PDF → Excel** (`ferrCatalogoPdf`, pdf.js no navegador,
+  leitura por coluna, dicionário embutido + traduções salvas em `catpdf_traducoes_v1`).
+- Fora do sistema (formato novo, ajustes): `scripts/catalogo-pdf/LEIAME.md` (Python). Ao adicionar termos ao
+  `traducoes.py`, levar também pro dicionário `PF_CATPDF_DIC` do `index.html`.

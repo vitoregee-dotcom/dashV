@@ -1860,7 +1860,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2009</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2010</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2013,7 +2013,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2009</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2010</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -16737,7 +16737,14 @@ window._pfStorageWarnShown = false;
 // ═══════════════════════════════════════════════════════════════
 var PF_IDB_KEYS = ['cad_produtos_v1','prod_aplicacoes_v1','cad_relacionados_v1',
   'cad_fornecedores_v1','cad_clientes_v1','retentores_v1','componentes_cardan_v1',
-  'timken_interchange_v1','lp_regras_v1','opTrack','ficha_tecnica_v1','pfPendenciasAdmin'];
+  'timken_interchange_v1','lp_regras_v1','opTrack','ficha_tecnica_v1','pfPendenciasAdmin',
+  // v115.2010 - A pedido do Vitor (aviso "armazenamento local cheio" com
+  // lp_regras_v1_deletados 602KB, promoTemplates_v1 319KB, pfComprasAtivos
+  // 292KB, lp_exemplos_v1 253KB no topo): as 4 maiores vão pro IndexedDB
+  // (sem o limite de ~5MB). Todo acesso direto a elas passou a usar
+  // pfSafeGetItem/pfSafeSetItem (que sabem buscar no IndexedDB); a
+  // migração do que já existe é automática no pfIdbInit.
+  'lp_regras_v1_deletados','promoTemplates_v1','pfComprasAtivos','lp_exemplos_v1'];
 var _pfMemCache = {};
 var _pfIdbReady = false;
 var _pfIdbDb = null;
@@ -16992,7 +16999,7 @@ function pfSafeSetItem(key, value){
     // jeito -- falhar ao salvar ele mesmo não deveria travar a tela com
     // alerta, já que é só a última planilha carregada, recarrega puxando
     // de novo sem perda real.
-    var PF_CHAVES_DESCARTAVEIS=['perf_diagnostico_v1','dashV_lastSheet'];
+    var PF_CHAVES_DESCARTAVEIS=['perf_diagnostico_v1','dashV_lastSheet','dash_historico_v1']; // v115.2010 - histórico do Dashboard é cache (refaz sozinho): não alerta
     if(PF_CHAVES_DESCARTAVEIS.indexOf(key)>=0)return false;
     // v115.794 - Bug real encontrado (achado pela verificação pós-salvamento
     // adicionada em v115.793): o armazenamento local do navegador enche
@@ -39445,12 +39452,12 @@ async function pfSyncPull(){
     if(rowDelLb){
       try{
         var remotoDelLb=JSON.parse((typeof rowDelLb.dados==='string'?rowDelLb.dados:JSON.stringify(rowDelLb.dados))||'[]');
-        var localDelLb2=JSON.parse(localStorage.getItem(_chaveTomb)||'[]');
+        var localDelLb2=JSON.parse(pfSafeGetItem(_chaveTomb,'[]')||'[]'); // v115.2010 - lp_regras_v1_deletados vive no IndexedDB
         var vistoDelLb={}; localDelLb2.forEach(function(id){vistoDelLb[id]=true;});
         var cresceuDelLb=false;
         (remotoDelLb||[]).forEach(function(id){ if(id!=null && !vistoDelLb[id]){vistoDelLb[id]=true;localDelLb2.push(id);cresceuDelLb=true;} });
         if(cresceuDelLb){
-          localStorage.setItem(_chaveTomb,JSON.stringify(localDelLb2));
+          pfSafeSetItem(_chaveTomb,JSON.stringify(localDelLb2)); // v115.2010
           if(typeof pfSyncPush==='function')pfSyncPush([_chaveTomb]); // propaga a união de volta (self-heal p/ a conta que ainda não sabia)
         }
       }catch(eDelLb){}
@@ -39642,7 +39649,7 @@ async function pfSyncPull(){
           // tratamento dedicado, caía no merge genérico (união pura, nunca
           // remove nada) -- mesmo padrão de tombstone do meAvise_lista acima.
           var remotoPromo=JSON.parse(val||'[]');
-          var localPromo=JSON.parse(localStorage.getItem('promoTemplates_v1')||'[]');
+          var localPromo=JSON.parse(pfSafeGetItem('promoTemplates_v1','[]')||'[]'); // v115.2010 - IndexedDB
           var deletadosPromo=JSON.parse(localStorage.getItem('promoTemplates_v1_deletados')||'[]');
           var porIdPromo={};
           localPromo.forEach(function(a){porIdPromo[a.id]=a;});
@@ -45684,7 +45691,7 @@ function lpRegrasLoad(){
   // tombstone (lp_regras_v1_deletados) nunca aparece, mesmo que a
   // sincronização traga ela de volta pro array bruto.
   var deletadas={};
-  try{(JSON.parse(localStorage.getItem('lp_regras_v1_deletados')||'[]')||[]).forEach(function(fp){deletadas[fp]=true;});}catch(e){}
+  try{(JSON.parse(pfSafeGetItem('lp_regras_v1_deletados','[]')||'[]')||[]).forEach(function(fp){deletadas[fp]=true;});}catch(e){} // v115.2010
   return (arr||[]).filter(function(r){return !deletadas[lpRegraFingerprint(r)];});
 }
 function lpRegrasSave(arr){
@@ -45762,11 +45769,11 @@ function lpDelRegra(idx){
   lpRegrasSave(regras);
   if(removida!==undefined){
     try{
-      var deletadas=JSON.parse(localStorage.getItem('lp_regras_v1_deletados')||'[]');
+      var deletadas=JSON.parse(pfSafeGetItem('lp_regras_v1_deletados','[]')||'[]'); // v115.2010
       var fp=lpRegraFingerprint(removida);
       if(deletadas.indexOf(fp)<0){
         deletadas.push(fp);
-        localStorage.setItem('lp_regras_v1_deletados',JSON.stringify(deletadas));
+        pfSafeSetItem('lp_regras_v1_deletados',JSON.stringify(deletadas)); // v115.2010
         if(typeof pfSyncPush==='function')pfSyncPush(['lp_regras_v1_deletados']);
       }
     }catch(e){}
@@ -49596,8 +49603,12 @@ async function pfComprasAutoVerificarNucleo(){
   var itensFrescos=(typeof pfComprasBuscarTodosItensFrescos==='function')?await pfComprasBuscarTodosItensFrescos():null;
   var calcItems=(itensFrescos&&itensFrescos.length)?pfComprasVarrerDe(itensFrescos):((typeof pfComprasVarrer==='function')?pfComprasVarrer():window.calcItems);
   if(!calcItems||!calcItems.length)return;
+  // v115.2010 - pfComprasAtivos agora vive no IndexedDB: antes de ele
+  // carregar, a lista "já avisados" viria vazia e dispararia aviso de tudo
+  // de novo -- nesse caso pula essa verificação (roda de novo na próxima).
+  if(typeof _pfIdbReady!=='undefined'&&!_pfIdbReady)return;
   var prevSet={};
-  try{prevSet=JSON.parse(localStorage.getItem('pfComprasAtivos')||'{}');}catch(e){}
+  try{prevSet=JSON.parse(pfSafeGetItem('pfComprasAtivos','{}')||'{}');}catch(e){}
   var novoSet={};
   var novosComprados=[];
   var faturados=[];
@@ -49705,7 +49716,7 @@ async function pfComprasAutoVerificarNucleo(){
   // (mesmo padrão documentado pras outras chaves compartilhadas), senão a
   // comparação de quem é mais novo não tem como funcionar entre aparelhos.
   novoSet.ts=Date.now();
-  localStorage.setItem('pfComprasAtivos',JSON.stringify(novoSet));
+  pfSafeSetItem('pfComprasAtivos',JSON.stringify(novoSet)); // v115.2010
   // v115.1198 - A pedido do Vitor (regra: TUDO sincronizado entre
   // aparelhos e usuários): sobe esse estado pro Supabase toda vez que
   // muda, pra qualquer aparelho/usuário enxergar o mesmo "já avisado" --

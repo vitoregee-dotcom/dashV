@@ -1848,7 +1848,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2002</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2003</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1884,6 +1884,8 @@ button { min-height:36px; }
   <div class="adminBox">
     <div class="adminHdr">
       <h2>👤 Gerenciar Usuários</h2>
+      <!-- v115.2003 - relatório de sessões (só admin, com senha) -->
+      <button onclick="pfSessoesAbrir()" title="Tempo de uso, telas e IP de cada usuário (protegido por senha)" style="margin-left:auto;margin-right:10px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:inherit;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">⏱ Sessões</button>
       <button class="adminClose" onclick="closeAdmin()"><img src="icons/btn-x-glossy.png" style="width:16px;height:16px;display:inline-block;vertical-align:middle;object-fit:contain"></button>
     </div>
     <div class="adminBody">
@@ -1999,7 +2001,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2002</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2003</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -26304,6 +26306,7 @@ function initUserUI(){
   // adm"): o botão 📌 Pendências ficava visível pra qualquer conta.
   var pendBtn=document.getElementById('btnPendenciasPF');if(pendBtn)pendBtn.style.display=isAdmin?'flex':'none';
   if(typeof pfAjudaAplicarModo==='function')try{pfAjudaAplicarModo();}catch(e){} // v115.1994 - modo apresentação padrão por conta
+  if(typeof pfSessaoIniciar==='function')try{pfSessaoIniciar();}catch(e){} // v115.2003 - registro de sessão
   const hsl=document.querySelector('.hsl');
   if(hsl){
     const bar=document.createElement('div');
@@ -26397,6 +26400,218 @@ async function doLogout(){
       window.location.href=window.location.pathname;
     }
   }
+}
+// ════════════════════════════════════════════════════════════════
+// v115.2003 - A pedido do Vitor ("está ficando registrado o tempo de cada
+// sessão dos usuários? ... registre IP também ... deixe escondido, só adm
+// vê, bom até colocar senha"): REGISTRO DE SESSÕES.
+// - Cada vez que o sistema abre (após login) nasce uma sessão (id próprio).
+// - A cada 15s soma o tempo SÓ se a aba está visível e houve mexida
+//   (mouse/teclado/toque/rolagem) nos últimos 5 min -- tempo "ativo" de
+//   verdade, não conta sistema esquecido aberto. Soma separada por tela.
+// - A cada 60s (e ao esconder/fechar a aba) envia pro Supabase pela função
+//   pf_sessao_sinal, que grava e pega o IP no próprio servidor (cabeçalho
+//   da requisição) -- não depende de serviço de fora.
+// - Tabela pf_sessoes: cada conta só GRAVA a própria sessão (via função);
+//   LER, só quem é admin (RLS). Relatório em Usuários > "⏱ Sessões", com
+//   senha própria (hash SHA-256 em pf_admin_config, também só admin).
+// ════════════════════════════════════════════════════════════════
+var _pfSess=null;
+var PF_SESS_TELAS={home:'Início',dash:'Dashboard',mapa:'Mapa de Compras',compras:'Compras',vendas:'Vendas / Cotações',ferramentas:'Ferramentas',cadastros:'Cadastros',area_tecnica:'Área Técnica',logistica:'Logística',mapa_comercial:'Mapa Comercial',solicitacoes:'Solicitações',pedido_compra:'Pedido de Compra',pf_pendencias:'Pendências'};
+function pfSessaoTelaAtual(){
+  var v=(typeof currentView!=='undefined'&&currentView)?String(currentView):'home';
+  var sp=document.getElementById('pfHomeSplash');
+  if(sp&&sp.style.display!=='none'&&sp.offsetParent!==null)v='home';
+  return v.slice(0,40);
+}
+function pfSessaoNovoId(){
+  if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0;return (c==='x'?r:(r&3|8)).toString(16);});
+}
+function pfSessaoEnviar(seg,tela,fechando){
+  if(!_pfSess||typeof sbUser==='undefined'||!sbUser||typeof sbFetch!=='function')return;
+  var nome=(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)?sbProfile.nome:(sbUser.email||'');
+  try{
+    sbFetch('/rest/v1/rpc/pf_sessao_sinal',{method:'POST',keepalive:!!fechando,
+      body:JSON.stringify({p_id:_pfSess.id,p_ativo:Math.round(seg||0),p_tela:tela||null,p_nome:nome,p_ua:(navigator.userAgent||'').slice(0,300)})
+    }).catch(function(){});
+  }catch(e){}
+}
+function pfSessaoTick(){
+  if(!_pfSess)return;
+  var agora=Date.now();
+  var dt=Math.min(20,(agora-_pfSess.ultimoTick)/1000);
+  _pfSess.ultimoTick=agora;
+  var visivel=document.visibilityState==='visible';
+  var mexeu=(agora-_pfSess.ultimaMexida)<5*60*1000;
+  if(!visivel||!mexeu||dt<=0)return;
+  var t=pfSessaoTelaAtual();
+  _pfSess.acum[t]=(_pfSess.acum[t]||0)+dt;
+}
+function pfSessaoFlush(fechando){
+  if(!_pfSess)return;
+  pfSessaoTick();
+  var acum=_pfSess.acum;_pfSess.acum={};
+  var enviou=false;
+  Object.keys(acum).forEach(function(t){if(acum[t]>=1){pfSessaoEnviar(acum[t],t,fechando);enviou=true;}});
+  if(!enviou&&document.visibilityState==='visible'&&(Date.now()-_pfSess.ultimaMexida)<5*60*1000)pfSessaoEnviar(0,null,fechando);
+}
+function pfSessaoIniciar(){
+  if(_pfSess||typeof sbUser==='undefined'||!sbUser)return;
+  _pfSess={id:pfSessaoNovoId(),acum:{},ultimoTick:Date.now(),ultimaMexida:Date.now(),user:sbUser.id};
+  pfSessaoEnviar(0,null);
+  ['mousemove','mousedown','keydown','wheel','touchstart','scroll'].forEach(function(ev){
+    document.addEventListener(ev,function(){if(_pfSess)_pfSess.ultimaMexida=Date.now();},{passive:true,capture:true});
+  });
+  setInterval(pfSessaoTick,15000);
+  setInterval(function(){pfSessaoFlush(false);},60000);
+  document.addEventListener('visibilitychange',function(){
+    if(!_pfSess)return;
+    if(document.visibilityState==='hidden')pfSessaoFlush(true);
+    else{_pfSess.ultimoTick=Date.now();_pfSess.ultimaMexida=Date.now();}
+  });
+  window.addEventListener('pagehide',function(){pfSessaoFlush(true);});
+}
+
+// ── Relatório (só admin, com senha) ─────────────────────────────
+var _pfSessDesbloqueadoAte=0;
+async function pfSessHash(senha){
+  var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('pf-sessoes|'+senha));
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
+function pfSessEhAdmin(){return typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.role==='admin';}
+function pfSessSenhaModal(titulo,texto,duasVezes,cb){
+  var m=document.createElement('div');
+  m.id='pfSessSenhaModal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(10,20,35,.6);z-index:100001;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML='<div style="background:var(--pf-card-bg);border-radius:14px;padding:20px;width:340px;max-width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35)">'+
+    '<div style="font-size:16px;font-weight:800;color:var(--pf-text);margin-bottom:6px">🔒 '+titulo+'</div>'+
+    '<div style="font-size:12.5px;color:var(--pf-text-muted);margin-bottom:12px">'+texto+'</div>'+
+    '<input type="password" id="pfSessSenha1" placeholder="Senha" autocomplete="new-password" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--pf-border);border-radius:8px;margin-bottom:8px;font-size:14px">'+
+    (duasVezes?'<input type="password" id="pfSessSenha2" placeholder="Repita a senha" autocomplete="new-password" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid var(--pf-border);border-radius:8px;margin-bottom:8px;font-size:14px">':'')+
+    '<div id="pfSessSenhaErro" style="font-size:12px;color:#C00000;min-height:16px;margin-bottom:6px"></div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end"><button class="pfBtn pfBtnClaro" id="pfSessSenhaCancelar">Cancelar</button><button class="pfBtn pfBtnAzul" id="pfSessSenhaOk">Entrar</button></div>'+
+  '</div>';
+  document.body.appendChild(m);
+  var i1=m.querySelector('#pfSessSenha1'),i2=m.querySelector('#pfSessSenha2'),er=m.querySelector('#pfSessSenhaErro');
+  function fechar(){m.remove();}
+  function ok(){
+    var a=i1.value||'';
+    if(a.length<4){er.textContent='Use pelo menos 4 caracteres.';return;}
+    if(i2&&a!==i2.value){er.textContent='As duas senhas não batem.';return;}
+    cb(a,fechar,function(msg){er.textContent=msg;i1.value='';if(i2)i2.value='';i1.focus();});
+  }
+  m.querySelector('#pfSessSenhaOk').onclick=ok;
+  m.querySelector('#pfSessSenhaCancelar').onclick=fechar;
+  [i1,i2].forEach(function(x){if(x)x.onkeydown=function(e){if(e.key==='Enter')ok();if(e.key==='Escape')fechar();};});
+  setTimeout(function(){i1.focus();},50);
+}
+async function pfSessoesAbrir(){
+  if(!pfSessEhAdmin()){pfAlert('Acesso restrito.');return;}
+  if(Date.now()<_pfSessDesbloqueadoAte){pfSessoesRelatorio();return;}
+  var r=await sbFetch('/rest/v1/pf_admin_config?chave=eq.senha_sessoes&select=valor');
+  var j=r.ok?await r.json():[];
+  var hashSalvo=j&&j[0]?j[0].valor:null;
+  if(!hashSalvo){
+    pfSessSenhaModal('Criar senha do relatório','Primeiro acesso: escolha a senha que vai proteger o relatório de sessões.',true,async function(senha,fechar,erro){
+      var h=await pfSessHash(senha);
+      var rs=await sbFetch('/rest/v1/pf_admin_config',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({chave:'senha_sessoes',valor:h,updated_at:new Date().toISOString()})});
+      if(!rs.ok){erro('Não consegui salvar ('+rs.status+').');return;}
+      fechar();_pfSessDesbloqueadoAte=Date.now()+10*60*1000;pfSessoesRelatorio();
+    });
+    return;
+  }
+  pfSessSenhaModal('Relatório de sessões','Digite a senha do relatório.',false,async function(senha,fechar,erro){
+    if(await pfSessHash(senha)!==hashSalvo){erro('Senha incorreta.');return;}
+    fechar();_pfSessDesbloqueadoAte=Date.now()+10*60*1000;pfSessoesRelatorio();
+  });
+}
+function pfSessoesTrocarSenha(){
+  pfSessSenhaModal('Trocar senha do relatório','Digite a nova senha.',true,async function(senha,fechar,erro){
+    var h=await pfSessHash(senha);
+    var rs=await sbFetch('/rest/v1/pf_admin_config?on_conflict=chave',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({chave:'senha_sessoes',valor:h,updated_at:new Date().toISOString()})});
+    if(!rs.ok){erro('Não consegui salvar ('+rs.status+').');return;}
+    fechar();pfAlert('✅ Senha trocada.');
+  });
+}
+function pfSessFmtDur(seg){
+  seg=Math.round(seg||0);
+  var h=Math.floor(seg/3600),m=Math.floor((seg%3600)/60);
+  if(h)return h+'h'+String(m).padStart(2,'0');
+  if(m)return m+' min';
+  return seg+' s';
+}
+function pfSessFmtData(iso){
+  var d=new Date(iso);
+  return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+function pfSessNavegador(ua){
+  ua=ua||'';
+  var disp=/iPad/.test(ua)?'iPad':/iPhone/.test(ua)?'iPhone':/Android/.test(ua)?'Android':/Windows/.test(ua)?'Windows':/Mac OS/.test(ua)?'Mac':'—';
+  var nav=/Edg\//.test(ua)?'Edge':/OPR\//.test(ua)?'Opera':/Chrome\//.test(ua)?'Chrome':/Firefox\//.test(ua)?'Firefox':/Safari\//.test(ua)?'Safari':'';
+  return disp+(nav?' · '+nav:'');
+}
+async function pfSessoesRelatorio(dias){
+  dias=dias||window._pfSessDias||7;window._pfSessDias=dias;
+  var desde=new Date();desde.setHours(0,0,0,0);desde.setDate(desde.getDate()-(dias-1));
+  var m=document.getElementById('pfSessRel');
+  if(!m){
+    m=document.createElement('div');m.id='pfSessRel';
+    m.style.cssText='position:fixed;inset:0;background:rgba(10,20,35,.55);z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px';
+    m.onclick=function(e){if(e.target===m)m.remove();};
+    document.body.appendChild(m);
+  }
+  m.innerHTML='<div style="background:var(--pf-card-bg);border-radius:14px;padding:24px;color:var(--pf-text)">Carregando sessões...</div>';
+  var r=await sbFetch('/rest/v1/pf_sessoes?inicio=gte.'+encodeURIComponent(desde.toISOString())+'&order=inicio.desc&limit=2000');
+  if(!r.ok){m.innerHTML='<div style="background:var(--pf-card-bg);border-radius:14px;padding:24px;color:#C00000">Erro ao carregar ('+r.status+').</div>';return;}
+  var ses=await r.json();
+  var agora=Date.now();
+  var porUser={};
+  ses.forEach(function(s){
+    var k=s.user_id;
+    var u=porUser[k]=porUser[k]||{nome:s.nome||s.email,email:s.email,ativo:0,n:0,ult:null,prim:null,ips:{},telas:{}};
+    u.ativo+=s.ativo_seg||0;u.n++;
+    if(!u.ult||s.ultimo_sinal>u.ult)u.ult=s.ultimo_sinal;
+    if(!u.prim||s.inicio<u.prim)u.prim=s.inicio;
+    if(s.ip)u.ips[s.ip]=1;if(s.ip_ultimo)u.ips[s.ip_ultimo]=1;
+    Object.keys(s.telas||{}).forEach(function(t){u.telas[t]=(u.telas[t]||0)+(s.telas[t]||0);});
+  });
+  var online=Object.keys(porUser).filter(function(k){return agora-new Date(porUser[k].ult).getTime()<150000;});
+  function topTelas(obj,n){
+    return Object.keys(obj).sort(function(a,b){return obj[b]-obj[a];}).slice(0,n).map(function(t){return (PF_SESS_TELAS[t]||t)+' <b>'+pfSessFmtDur(obj[t])+'</b>';}).join(' · ')||'—';
+  }
+  var th='style="text-align:left;padding:7px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--pf-painel-texto,#fff);background:var(--pf-painel-bg,#1c2940);position:sticky;top:0"';
+  var td='style="padding:7px 8px;border-top:1px solid var(--pf-border);font-size:12.5px;vertical-align:top"';
+  var resumo=Object.keys(porUser).sort(function(a,b){return porUser[b].ativo-porUser[a].ativo;}).map(function(k){
+    var u=porUser[k];var on=online.indexOf(k)>=0;
+    return '<tr><td '+td+'>'+(on?'<span title="online agora" style="color:#16a34a">●</span> ':'')+'<b>'+pfEscHtml(u.nome||'')+'</b><div style="font-size:11px;color:var(--pf-text-muted)">'+pfEscHtml(u.email||'')+'</div></td>'+
+      '<td '+td+'><b>'+pfSessFmtDur(u.ativo)+'</b></td><td '+td+'>'+u.n+'</td><td '+td+'>'+pfSessFmtData(u.ult)+'</td>'+
+      '<td '+td+'>'+Object.keys(u.ips).map(pfEscHtml).join('<br>')+'</td><td '+td+'>'+topTelas(u.telas,3)+'</td></tr>';
+  }).join('');
+  var linhas=ses.map(function(s){
+    var dur=(new Date(s.ultimo_sinal)-new Date(s.inicio))/1000;
+    var on=agora-new Date(s.ultimo_sinal).getTime()<150000;
+    var ipTxt=pfEscHtml(s.ip||'—')+(s.ip_ultimo&&s.ip_ultimo!==s.ip?'<br><span style="color:var(--pf-text-muted)">→ '+pfEscHtml(s.ip_ultimo)+'</span>':'');
+    return '<tr><td '+td+'>'+pfEscHtml(s.nome||s.email||'')+'</td><td '+td+'>'+pfSessFmtData(s.inicio)+'</td>'+
+      '<td '+td+'>'+(on?'<span style="color:#16a34a;font-weight:700">online</span>':pfSessFmtData(s.ultimo_sinal))+'</td>'+
+      '<td '+td+'>'+pfSessFmtDur(dur)+'</td><td '+td+'><b>'+pfSessFmtDur(s.ativo_seg)+'</b></td><td '+td+'>'+ipTxt+'</td>'+
+      '<td '+td+'>'+pfSessNavegador(s.user_agent)+'</td><td '+td+'>'+topTelas(s.telas||{},4)+'</td></tr>';
+  }).join('');
+  var btnDias=function(d,l){return '<button class="pfBtn '+(dias===d?'pfBtnAzul':'pfBtnClaro')+'" onclick="pfSessoesRelatorio('+d+')">'+l+'</button>';};
+  m.innerHTML='<div style="background:var(--pf-card-bg);border-radius:14px;width:1200px;max-width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);color:var(--pf-text)">'+
+    '<div style="padding:14px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--pf-border)">'+
+      '<div style="font-size:17px;font-weight:800;flex:1;min-width:200px">⏱ Sessões dos usuários <span style="font-size:12px;font-weight:600;color:var(--pf-text-muted)">· '+online.length+' online agora</span></div>'+
+      btnDias(1,'Hoje')+btnDias(7,'7 dias')+btnDias(30,'30 dias')+
+      '<button class="pfBtn pfBtnClaro" onclick="pfSessoesTrocarSenha()">🔑 Trocar senha</button>'+
+      '<button onclick="document.getElementById(\'pfSessRel\').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--pf-text-muted)">✕</button>'+
+    '</div>'+
+    '<div style="overflow:auto;padding:12px 18px 18px">'+
+      '<div style="font-size:11.5px;color:var(--pf-text-muted);margin-bottom:10px">Tempo <b>ativo</b> = aba visível e com uso (mouse/teclado/toque) nos últimos 5 min. <b>Duração</b> = do início ao último sinal. Registro a partir de 24/09/2026.</div>'+
+      '<div style="font-weight:800;margin:4px 0 6px">Resumo por usuário</div>'+
+      (resumo?'<table style="width:100%;border-collapse:collapse;margin-bottom:18px"><thead><tr><th '+th+'>Usuário</th><th '+th+'>Tempo ativo</th><th '+th+'>Sessões</th><th '+th+'>Último sinal</th><th '+th+'>IPs</th><th '+th+'>Telas mais usadas</th></tr></thead><tbody>'+resumo+'</tbody></table>':'<div style="color:var(--pf-text-muted);margin-bottom:18px">Nenhuma sessão no período.</div>')+
+      '<div style="font-weight:800;margin:4px 0 6px">Sessões ('+ses.length+')</div>'+
+      (linhas?'<table style="width:100%;border-collapse:collapse"><thead><tr><th '+th+'>Usuário</th><th '+th+'>Início</th><th '+th+'>Fim</th><th '+th+'>Duração</th><th '+th+'>Ativo</th><th '+th+'>IP</th><th '+th+'>Aparelho</th><th '+th+'>Telas</th></tr></thead><tbody>'+linhas+'</tbody></table>':'')+
+    '</div></div>';
 }
 async function openAdmin(){
   if(!sbProfile||sbProfile.role!=='admin'){pfAlert('Acesso restrito.');return;}

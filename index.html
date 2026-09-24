@@ -1867,7 +1867,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2015</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2016</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2020,7 +2020,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2015</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2016</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -26383,6 +26383,7 @@ function initUserUI(){
   var pendBtn=document.getElementById('btnPendenciasPF');if(pendBtn)pendBtn.style.display=isAdmin?'flex':'none';
   if(typeof pfAjudaAplicarModo==='function')try{pfAjudaAplicarModo();}catch(e){} // v115.1994 - modo apresentação padrão por conta
   if(typeof pfSessaoIniciar==='function')try{pfSessaoIniciar();}catch(e){} // v115.2003 - registro de sessão
+  if(typeof pfLembretesLimparAlheios==='function')setTimeout(function(){try{pfLembretesLimparAlheios();}catch(e){}},4000); // v115.2016 - lembretes do vitoregee fora das outras contas
   const hsl=document.querySelector('.hsl');
   if(hsl){
     const bar=document.createElement('div');
@@ -39297,7 +39298,9 @@ async function pfSyncPull(){
     // aparelho, perdendo os registros de qualquer outro que tenha gravado
     // por perto. Movidas pra cá (mesmo tratamento do log de uso/login),
     // que junta os registros de todos os aparelhos em vez de sobrescrever.
-    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin','pfApostasVendaEventos','pfApostasNovoEventos','pfPedidoVendaEventos','rma_lista_v1','pfLembretes','pfLembretes_deletados','pfSolicitadosEventos_deletados','pfComprasEventos_deletados','pfFaturadosEventos_deletados','promoTemplates_v1_deletados','lp_regras_v1_deletados','cad_clientes_deletados','cad_fornecedores_deletados'];
+    // v115.2016 - A pedido do Vitor: lembrete é de cada usuário -- pfLembretes/pfLembretes_deletados saíram daqui
+    // (juntava os lembretes de TODAS as contas e os do vitoregee apareciam pra todo mundo). Agora só a própria linha.
+    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin','pfApostasVendaEventos','pfApostasNovoEventos','pfPedidoVendaEventos','rma_lista_v1','pfSolicitadosEventos_deletados','pfComprasEventos_deletados','pfFaturadosEventos_deletados','promoTemplates_v1_deletados','lp_regras_v1_deletados','cad_clientes_deletados','cad_fornecedores_deletados'];
     var rows = [];
 
     // v115.765 - Antes eram 13 requisições ao Supabase em SEQUÊNCIA (1 do
@@ -39626,6 +39629,7 @@ async function pfSyncPull(){
           });
           deletadosLb.forEach(function(id){delete porIdLb[id];});
           var mergedLb=Object.keys(porIdLb).map(function(k){return porIdLb[k];});
+          if(typeof pfLembretesTirarAlheios==='function')mergedLb=pfLembretesTirarAlheios(mergedLb); // v115.2016
           pfSafeSetItem('pfLembretes',JSON.stringify(mergedLb));
           return;
         }
@@ -52318,7 +52322,28 @@ function pfPainelSplitIniciar(ev){
   document.addEventListener('touchend',soltar);
 }
 
-function pfLembretesLoad(){try{return JSON.parse(pfSafeGetItem(PF_LEMBRETES_KEY,'[]'));}catch(e){return[];}}
+// v115.2016 - A pedido do Vitor: os lembretes dele (vitoregee) tinham ido pra
+// todas as contas (pfLembretes era juntado entre contas). Nas contas que não
+// são dele, esses ids específicos são tirados -- do navegador e do banco (o
+// próximo push manda a lista já limpa). Lembrete criado pelo próprio usuário
+// não é mexido.
+var PF_LEMBRETES_DONO_CONTAS=['vitoregee@gmail.com','vitor.lima@triexpecas.com.br'];
+var PF_LEMBRETES_DONO_IDS=['lb_1788871902928','lb_1788871989663','lb_1788987510446','lb_1788987553513','lb_1789042361285'];
+function pfLembretesTirarAlheios(lista){
+  try{
+    var em=(typeof sbUser!=='undefined'&&sbUser&&sbUser.email||'').toLowerCase();
+    if(!em||PF_LEMBRETES_DONO_CONTAS.indexOf(em)>=0||!Array.isArray(lista))return lista;
+    return lista.filter(function(l){return !(l&&PF_LEMBRETES_DONO_IDS.indexOf(l.id)>=0);});
+  }catch(e){return lista;}
+}
+function pfLembretesLimparAlheios(){
+  try{
+    var bruto=JSON.parse(pfSafeGetItem(PF_LEMBRETES_KEY,'[]')||'[]');
+    var limpo=pfLembretesTirarAlheios(bruto);
+    if(limpo.length!==bruto.length){pfSafeSetItem(PF_LEMBRETES_KEY,JSON.stringify(limpo));if(typeof pfSyncPush==='function')pfSyncPush([PF_LEMBRETES_KEY]);}
+  }catch(e){}
+}
+function pfLembretesLoad(){try{return pfLembretesTirarAlheios(JSON.parse(pfSafeGetItem(PF_LEMBRETES_KEY,'[]')));}catch(e){return[];}}
 function pfLembretesSave(lista){
   pfSafeSetItem(PF_LEMBRETES_KEY,JSON.stringify(lista));
   if(typeof pfSyncPush==='function')pfSyncPush([PF_LEMBRETES_KEY]);

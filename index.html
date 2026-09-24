@@ -1867,7 +1867,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2016</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2017</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2020,7 +2020,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2016</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2017</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -58120,6 +58120,12 @@ function pfFormClienteDecodificarUrl(){
 // quebrar em erro nenhum, só fica visualmente escondido atrás do overlay.
 function pfFormClienteRenderizarOverlay(payload){
   var dados=pfFormClienteExtrairCampos(payload.texto);
+  // v115.2017 - A pedido do Vitor ("dar o mínimo de trabalho pro cliente"):
+  // CNPJ vira o 1º campo -- digitou os 14 números, o formulário busca na
+  // base pública (BrasilAPI / cnpj.ws, mesmas do Cadastro) e já preenche o
+  // que dá; o cliente só confere e altera o que precisar.
+  var _iCnpj=dados.campos.findIndex(function(c){return c.tipo!=='radio'&&/cnpj/i.test(c.rotuloBase||'');});
+  if(_iCnpj>0)dados.campos.unshift(dados.campos.splice(_iCnpj,1)[0]);
   var camposHtml=dados.campos.map(function(c){
     if(c.tipo==='radio'){
       return '<div style="margin-bottom:14px">'+
@@ -58156,6 +58162,99 @@ function pfFormClienteRenderizarOverlay(payload){
     e.preventDefault();
     pfFormClienteEnviar(payload,dados);
   });
+  pfFormClienteCnpjPrepararAuto(dados); // v115.2017
+}
+// v115.2017 - Busca automática do CNPJ no formulário público (ver acima).
+function pfFormClienteCnpjPrepararAuto(dados){
+  var cCnpj=dados.campos.find(function(c){return c.tipo!=='radio'&&/cnpj/i.test(c.rotuloBase||'');});
+  var form=document.getElementById('pfFormClienteForm');
+  if(!cCnpj||!form)return;
+  var inp=form.querySelector('input[name="'+cCnpj.chave+'"]');
+  if(!inp)return;
+  inp.setAttribute('inputmode','numeric');
+  inp.placeholder='Digite o CNPJ -- o resto a gente preenche';
+  var st=document.createElement('div');
+  st.id='pfFormCnpjStatus';
+  st.style.cssText='font-size:12px;margin-top:5px;min-height:15px;color:#607080';
+  st.textContent='Digite o CNPJ que preenchemos os dados da empresa pra você.';
+  inp.parentNode.appendChild(st);
+  var ultimo='';
+  function tentar(){
+    var num=(inp.value||'').replace(/\D/g,'');
+    if(num.length!==14||num===ultimo)return;
+    ultimo=num;
+    inp.value=num.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+    pfFormClienteCnpjBuscar(num,dados,st);
+  }
+  inp.addEventListener('input',tentar);
+  inp.addEventListener('blur',tentar);
+  inp.addEventListener('paste',function(){setTimeout(tentar,50);});
+}
+async function pfFormClienteCnpjConsultar(num){
+  var apis=['https://brasilapi.com.br/api/cnpj/v1/'+num,'https://publica.cnpj.ws/cnpj/'+num];
+  for(var i=0;i<apis.length;i++){
+    try{
+      var r=await fetch(apis[i]);
+      if(!r.ok)continue;
+      var j=await r.json();
+      var est=j.estabelecimento||{};
+      var d={
+        razao:j.razao_social||'',
+        email:(j.email||est.email||'').toLowerCase(),
+        tel:j.ddd_telefone_1||(est.ddd1&&est.telefone1?(est.ddd1+est.telefone1):''),
+        simples:j.opcao_pelo_simples===true||(j.simples&&/sim/i.test(j.simples.simples||'')),
+        mei:j.opcao_pelo_mei===true||(j.simples&&/sim/i.test(j.simples.mei||'')),
+        porte:(j.porte&&j.porte.descricao)||j.porte||'',
+        regimes:Array.isArray(j.regime_tributario)?j.regime_tributario:[]
+      };
+      if(d.razao)return d;
+    }catch(e){}
+  }
+  return null;
+}
+function pfFormClienteFoneFormatar(t){
+  var n=String(t||'').replace(/\D/g,'');
+  if(n.length===10)return '('+n.slice(0,2)+') '+n.slice(2,6)+'-'+n.slice(6);
+  if(n.length===11)return '('+n.slice(0,2)+') '+n.slice(2,7)+'-'+n.slice(7);
+  return t||'';
+}
+async function pfFormClienteCnpjBuscar(num,dados,st){
+  var form=document.getElementById('pfFormClienteForm');
+  st.style.color='#607080';st.textContent='🔍 Buscando dados da empresa...';
+  var d=await pfFormClienteCnpjConsultar(num);
+  if(!d){st.style.color='#8a5a00';st.textContent='Não achamos esse CNPJ na base pública -- pode preencher normalmente.';return;}
+  var preenchidos=0;
+  function por(re){return dados.campos.filter(function(c){return c.tipo!=='radio'&&!/refer[eê]ncia/i.test(c.rotuloBase||'')&&re.test(c.rotuloBase||'');});}
+  function pOr(c,v,forcar){
+    if(!v)return;
+    var el=form.querySelector('input[name="'+c.chave+'"]');
+    if(!el||(el.value.trim()&&!forcar))return;
+    el.value=v;preenchidos++;
+    el.style.background='#F0FAF3';el.style.borderColor='#7BC89A';
+    el.addEventListener('input',function(){el.style.background='';el.style.borderColor='';},{once:true});
+  }
+  por(/raz[aã]o social/i).forEach(function(c){pOr(c,d.razao,true);});
+  por(/telefone/i).forEach(function(c){pOr(c,pfFormClienteFoneFormatar(d.tel));});
+  // e-mail da Receita costuma ser do contador -- vai só pro financeiro/NF-e, nunca pro de compras
+  if(d.email)por(/e-?mail/i).forEach(function(c){if(!/compra/i.test(c.rotuloBase||''))pOr(c,d.email);});
+  // Regime tributário: Simples (ME/EPP) pelo porte; senão o regime mais recente declarado
+  var cReg=dados.campos.find(function(c){return c.tipo==='radio'&&c.opcoes&&c.opcoes.some(function(o){return /simples|presumido|lucro/i.test(o.rotulo);});});
+  if(cReg){
+    var alvo=null;
+    if(d.simples||d.mei){alvo=/pequeno|epp/i.test(d.porte)?/epp/i:/\bme\b/i;}
+    else if(d.regimes.length){
+      var ult=d.regimes.slice().sort(function(a,b){return (b.ano||0)-(a.ano||0);})[0];
+      var f=String(ult&&ult.forma_de_tributacao||'');
+      alvo=/presumido/i.test(f)?/presumido/i:/real/i.test(f)?/lucro real/i:/arbitrado|estimad/i.test(f)?/estimado/i:null;
+    }
+    if(alvo){
+      var op=cReg.opcoes.find(function(o){return alvo.test(o.rotulo);});
+      var rd=op&&form.querySelector('input[name="'+cReg.chave+'"][value="'+op.rotulo.replace(/"/g,'\\"')+'"]');
+      if(rd&&!form.querySelector('input[name="'+cReg.chave+'"]:checked')){rd.checked=true;preenchidos++;}
+    }
+  }
+  st.style.color='#1E8449';
+  st.textContent='✅ '+d.razao+' -- '+preenchidos+' campo(s) preenchido(s) (em verde). Confira e altere o que precisar.';
 }
 async function pfFormClienteEnviar(payload,dados){
   var form=document.getElementById('pfFormClienteForm');

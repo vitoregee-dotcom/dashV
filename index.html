@@ -1867,7 +1867,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2022</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2023</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2020,7 +2020,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2022</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2023</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -51767,7 +51767,8 @@ async function pfAvisosGerarPdf(modo){
     container.innerHTML=html;
     document.body.appendChild(container);
     var alvo=container.querySelector('#pfAvisosPdfConteudo')||container;
-    var blob=await html2pdf().set({margin:0,filename:'avisos.pdf',html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'pt',format:'a4'}}).from(alvo).outputPdf('blob');
+    pfPdfCaberNaFolha(container,alvo,18); // v115.2023
+    var blob=await html2pdf().set({margin:18,filename:'avisos.pdf',html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'pt',format:'a4'}}).from(alvo).outputPdf('blob');
     container.remove();
     if(modo==='visualizar'){
       var urlView=URL.createObjectURL(blob);
@@ -70547,6 +70548,31 @@ function nfPdfFecharMenu(){
   var m=document.getElementById('nfPdfMenu');
   if(m)m.style.display='none';
 }
+// v115.2023 - A pedido do Vitor ("pq não tem margem aqui? igual do outro
+// lado"): o bloco do PDF tinha 820px + margem de 20px, mais largo que a
+// folha A4 (~794px) -- a margem aparecia só na esquerda e a direita ficava
+// cortada. Agora o bloco ocupa exatamente a área útil da folha (margem do
+// PDF igual nos 4 lados) e, se a tabela ainda não couber (fonte do
+// aparelho mais larga, valores grandes), reduz um pouco a letra das
+// células até caber (mínimo 9px) -- nunca corta.
+function pfPdfCaberNaFolha(container,alvo,margemPt,travarTabela){
+  try{
+    var larg=Math.floor((595.28-2*margemPt)*96/72);
+    container.style.width=larg+'px';
+    alvo.style.margin='0';alvo.style.maxWidth='none';alvo.style.width=larg+'px';alvo.style.boxSizing='border-box';
+    // tabela travada na largura do bloco: valor grande quebra linha dentro da célula, nunca passa da borda
+    if(travarTabela||alvo.scrollWidth>larg+1)alvo.querySelectorAll('table').forEach(function(t){t.style.tableLayout='fixed';t.style.width='100%';t.style.maxWidth='100%';});
+    var cels=alvo.querySelectorAll('td,th');
+    for(var passo=0;passo<8&&alvo.scrollWidth>larg+1;passo++){
+      cels.forEach(function(c){
+        var fs=parseFloat(getComputedStyle(c).fontSize)||12;
+        if(fs>9)c.style.fontSize=(fs-0.5)+'px';
+        var pl=parseFloat(getComputedStyle(c).paddingLeft)||8;
+        if(pl>4){c.style.paddingLeft=(pl-1)+'px';c.style.paddingRight=(pl-1)+'px';}
+      });
+    }
+  }catch(e){}
+}
 function nfGerarPDF(modo){
   modo=modo||'copiar';
   if(!_nfItens.length){pfAlert('Carregue uma cotação primeiro.');return;}
@@ -70604,7 +70630,7 @@ function nfGerarPDF(modo){
   var html='<!DOCTYPE html><html><head><meta charset="UTF-8">'+
     '<title>Cotação NF + Especial</title>'+
     '<style>body{font-family:Calibri,Arial,sans-serif;margin:0;font-size:12px;color:#1a2332;background:#eef1f5}'+
-    'table{width:100%;border-collapse:collapse}th{background:#F0F4F8;color:#1F4E79;padding:8px;font-size:12px;text-align:left;border-bottom:2px solid #1F4E79}'+
+    'table{width:100%;border-collapse:collapse}th{background:#F0F4F8;color:#1F4E79;padding:7px 5px;font-size:10.5px;line-height:1.2;white-space:normal!important;text-align:left;border-bottom:2px solid #1F4E79}td{padding-left:5px!important;padding-right:5px!important;font-size:11px!important}'+
     '.total-row{background:#F0F4F8;color:#1F4E79;font-weight:800;border-top:2px solid #1F4E79}'+
     // v115.1613 - BUG corrigido (Vitor: "pq esta com todo esse espaço aqui
     // no pdf de calculo de nf?"): o modo 'avoid-all' do html2pdf trata a
@@ -70627,17 +70653,17 @@ function nfGerarPDF(modo){
     // empurra ele inteiro pra página 2, deixando o header sozinho lá em
     // cima. Trocado por uma <div> simples com o mesmo padding (24px 32px)
     // só nesse PDF -- <div> pode ser cortada normalmente entre elementos.
-    '<div style="padding:24px 32px">'+
+    '<div style="padding:22px 20px">'+
     pfDocCardHtml('',(_nfCliente?pfDocCampoHtml('Cliente',_nfCliente):'')+pfDocCampoHtml('Emissão',hoje)+(_nfMostrarDesconto?pfDocCampoHtml('Desconto sem PPL',_nfDesconto+'%'):''))+
     '<table style="border-collapse:collapse;width:100%;margin-bottom:14px">'+
     '<thead><tr>'+
-    '<th style="width:40px;text-align:center">Item</th><th style="width:40px;text-align:center">Qtd</th>'+
-    '<th>Descrição</th><th style="width:100px">Marca</th>'+
-    '<th style="width:70px;text-align:center">Prazo</th>'+
-    '<th style="width:80px;text-align:right">NF</th>'+
-    '<th style="width:80px;text-align:right">Especial</th>'+
-    '<th style="width:90px;text-align:right">Custo Final Unit.</th>'+
-    '<th style="width:90px;text-align:right">Total Cliente</th>'+
+    '<th style="width:5%;text-align:center">Item</th><th style="width:4%;text-align:center">Qtd</th>'+
+    '<th style="width:20.5%">Descrição</th><th style="width:14.5%">Marca</th>'+
+    '<th style="width:10%;text-align:center">Prazo</th>'+
+    '<th style="width:11%;text-align:right">NF</th>'+
+    '<th style="width:11%;text-align:right">Especial</th>'+
+    '<th style="width:11.5%;text-align:right">Custo Final Unit.</th>'+
+    '<th style="width:12%;text-align:right">Total Cliente</th>'+
     '</tr></thead><tbody>'+linhas+
     '<tr class="total-row"><td colspan="5" style="padding:8px">TOTAL</td>'+
     '<td style="padding:8px;text-align:right">'+nfFmt(totalNF)+'</td>'+
@@ -70675,7 +70701,8 @@ function nfGerarPDF(modo){
     // -- sem ele, cai no nome genérico de sempre (sem quebrar nada pra
     // quem carregou um item manual, sem cotação nenhuma por trás).
     var nomeArquivoPdf='cotacao-nf-especial'+(_nfNumeroCotacao?('-'+_nfNumeroCotacao):'')+'.pdf';
-    return html2pdf().set({margin:0,filename:nomeArquivoPdf,html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'pt',format:'a4'},pagebreak:{mode:['css','legacy']}}).from(alvo).outputPdf('blob').then(function(blob){
+    pfPdfCaberNaFolha(container,alvo,18,true); // v115.2023
+    return html2pdf().set({margin:18,filename:nomeArquivoPdf,html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'pt',format:'a4'},pagebreak:{mode:['css','legacy']}}).from(alvo).outputPdf('blob').then(function(blob){
       container.remove();
       return blob;
     }).catch(function(e){container.remove();throw e;});

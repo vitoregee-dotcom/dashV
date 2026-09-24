@@ -999,6 +999,10 @@ item da barra, só visível com o modo ligado (botão 🎓 na barra de cima). */
   background:transparent;border:1px solid var(--pf-sidebar-border);color:var(--pf-text-muted);
   font-size:11px;font-weight:700;line-height:16px;text-align:center;box-sizing:border-box;
   cursor:pointer;z-index:3;opacity:.6;font-family:Inter,sans-serif;transition:opacity .12s,background .12s,color .12s}
+/* v115.1988 - alça de largura das colunas de Cadastros */
+.pf-cad-col-resizer{position:absolute;top:0;right:0;bottom:0;width:7px;cursor:col-resize;z-index:2;border-right:2px solid transparent}
+.pf-cad-col-resizer:hover{border-right-color:var(--pf-accent,#D97757)}
+#cadBody table[data-pf-ajust] td{overflow:hidden;overflow-wrap:break-word}
 .pf-ajuda-btn:hover{opacity:1;background:var(--pf-accent);border-color:var(--pf-accent);color:#fff}
 body.pf-modo-apresentacao .pf-ajuda-btn{display:block}
 /* v115.1986 - A pedido do Vitor: linhas verticais separando as colunas
@@ -1834,7 +1838,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1987</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1988</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1985,7 +1989,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1987</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1988</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -2116,7 +2120,7 @@ button { min-height:36px; }
 </div>
 
 <!-- CADASTROS -->
-<div id="cadastrosView" style="display:none;width:100%;max-width:1100px;box-sizing:border-box;margin:0 auto;padding:20px 16px">
+<div id="cadastrosView" style="display:none;width:100%;max-width:1800px;box-sizing:border-box;margin:0 auto;padding:20px 16px">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
     <span style="font-size:13px;color:var(--pf-fx-textoSuave,#8a9ab0)" id="cadSyncStatus"></span>
     <button onclick="cadSyncManual()" class="pfBtn pfBtnAzul" style="height:34px;font-size:12px">☁️ Sincronizar agora</button>
@@ -57263,6 +57267,93 @@ function pfAjudaIrPara(atalhoId){
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.getElementById('pfAjudaModal'))pfAjudaFechar();});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',pfAjudaAplicarModo);
 else pfAjudaAplicarModo();
+
+// v115.1988 - A pedido do Vitor ("não está estreito isso aqui? tá até
+// cortado" + "quero poder controlar a largura das colunas"): Cadastros
+// passou a usar a largura da tela (max-width 1100 -> 1800) e TODA tabela
+// que aparece em #cadBody (Fornecedores, Clientes, Transportadoras,
+// Funcionários, Produtos...) ganha alça na borda direita de cada cabeçalho
+// pra arrastar a largura da coluna. Largura fica salva por tabela
+// (chave = títulos das colunas), neste navegador. Duplo clique na alça
+// volta as colunas ao tamanho automático. Aplicado por MutationObserver
+// porque cada filtro redesenha a tabela inteira.
+function pfCadColKey(ths){
+  return 'pfCadColW_'+ths.map(function(th){return (th.textContent||'').trim();}).join('|').toLowerCase().replace(/[^a-z0-9|]+/g,'').slice(0,120);
+}
+function pfCadTabelaAjustavel(t){
+  if(!t||t.dataset.pfAjust)return;
+  var tr=t.tHead&&t.tHead.rows[0];
+  if(!tr||tr.cells.length<3||!t.offsetWidth)return;
+  t.dataset.pfAjust='1';
+  var ths=[].slice.call(tr.cells);
+  var key=pfCadColKey(ths);
+  var salvo={};try{salvo=JSON.parse(localStorage.getItem(key)||'{}');}catch(e){}
+  var temSalvo=Object.keys(salvo).length>0;
+  var ws=ths.map(function(th,i){return salvo[i]||th.offsetWidth;});
+  var soma=ws.reduce(function(s,w){return s+w;},0)||1;
+  var cg=document.createElement('colgroup');
+  // Sem largura salva: colunas em % (sempre cabe na caixa, qualquer tela).
+  // Ao arrastar pela 1ª vez, congela tudo em px e a tabela pode passar da
+  // tela (rola na horizontal), igual planilha.
+  var cols=ws.map(function(w){var c=document.createElement('col');c.style.width=temSalvo?(w+'px'):((w/soma*100).toFixed(3)+'%');cg.appendChild(c);return c;});
+  t.insertBefore(cg,t.firstChild);
+  function totalW(){return cols.reduce(function(s,c){return s+parseFloat(c.style.width);},0);}
+  function congelar(){
+    if(cols[0].style.width.indexOf('%')<0)return;
+    var px=ths.map(function(th){return th.offsetWidth;});
+    cols.forEach(function(c,k){c.style.width=px[k]+'px';});
+    t.style.width=totalW()+'px';
+  }
+  t.style.tableLayout='fixed';
+  t.style.width=temSalvo?(totalW()+'px'):'100%';
+  t.style.minWidth='100%';
+  ths.forEach(function(th,i){
+    th.style.position='relative';th.style.overflow='hidden';
+    var h=document.createElement('div');
+    h.className='pf-cad-col-resizer';
+    h.title='Arraste para ajustar a largura (duplo clique: volta todas as colunas ao automático)';
+    function iniciar(x0){
+      congelar();
+      var w0=parseFloat(cols[i].style.width);
+      return function(x){cols[i].style.width=Math.max(40,w0+(x-x0))+'px';t.style.width=totalW()+'px';};
+    }
+    function salvar(){cols.forEach(function(c,k){salvo[k]=Math.round(parseFloat(c.style.width));});try{localStorage.setItem(key,JSON.stringify(salvo));}catch(e){}}
+    h.onmousedown=function(e){
+      e.preventDefault();e.stopPropagation();
+      var mv=iniciar(e.clientX);
+      function onMove(e2){mv(e2.clientX);}
+      function onUp(){document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp);salvar();}
+      document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp);
+    };
+    h.ontouchstart=function(e){
+      e.preventDefault();e.stopPropagation();
+      var mv=iniciar(e.touches[0].clientX);
+      function onMove(e2){mv(e2.touches[0].clientX);}
+      function onEnd(){document.removeEventListener('touchmove',onMove);document.removeEventListener('touchend',onEnd);salvar();}
+      document.addEventListener('touchmove',onMove,{passive:false});document.addEventListener('touchend',onEnd);
+    };
+    h.onclick=function(e){e.stopPropagation();};
+    h.ondblclick=function(e){
+      e.stopPropagation();salvo={};
+      try{localStorage.removeItem(key);}catch(e2){}
+      t.removeAttribute('data-pf-ajust');cg.remove();t.style.tableLayout='';t.style.width='100%';
+      t.querySelectorAll('.pf-cad-col-resizer').forEach(function(r){r.remove();});
+      pfCadTabelaAjustavel(t);
+    };
+    th.appendChild(h);
+  });
+}
+(function(){
+  function aplicar(){document.querySelectorAll('#cadBody table').forEach(pfCadTabelaAjustavel);}
+  function iniciar(){
+    var body=document.getElementById('cadBody');
+    if(!body)return;
+    var pend=false;
+    new MutationObserver(function(){if(pend)return;pend=true;requestAnimationFrame(function(){pend=false;aplicar();});}).observe(body,{childList:true,subtree:true});
+    aplicar();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);else iniciar();
+})();
 function pfIconPickerFechar(){
   var m=document.getElementById('pfIconPickerModal');
   if(m)m.remove();

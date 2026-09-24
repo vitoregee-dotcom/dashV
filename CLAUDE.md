@@ -9,6 +9,8 @@
   e **sempre informar "a versão mudou de X para Y"**.
 - Comentários no código seguem o padrão `// v115.NNNN - A pedido do Vitor: ...` explicando o porquê.
 - Quando ele pedir "como ficaria?", mostrar captura/prévia antes de publicar.
+- **Coisa nova** (funcionalidade/tela nova): primeiro SUGERIR opções (com prévia quando der) e ele decide; só publicar depois do ok.
+  **Correção** de bug pode fazer e publicar direto.
 
 ## Testar antes de publicar
 - Sintaxe: extrair os `<script>` inline e rodar `new Function(bloco)` em cada um.

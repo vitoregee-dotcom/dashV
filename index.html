@@ -61743,19 +61743,21 @@ function ccDesenhoAparar(img){
 function ccDesenhoTrocarAbrir(fam){
   if(!ccDesenhoEhAdmin())return;
   var old=document.getElementById('ccDesenhoModal');if(old)old.remove();
-  window._ccDesenhoNovo=null;
+  window._ccDesenhoNovo=null;window._ccDesenhoMarcas=[];window._ccDesenhoFam=fam;window._ccDesenhoLetra=null;
   var ov=document.createElement('div');ov.id='ccDesenhoModal';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99991;display:flex;align-items:center;justify-content:center;padding:16px';
   ov.innerHTML='<div style="background:#fff;border-radius:12px;width:100%;max-width:460px;box-shadow:0 12px 40px rgba(0,0,0,.3);overflow:hidden">'+
     '<div style="background:var(--pf-painel-bg,#1a2332);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center"><b style="font-size:14px">🖼️ Desenho — '+pfEscHtml(CC_NOME_SINGULAR[fam]||fam)+'</b>'+
     '<button onclick="document.getElementById(\'ccDesenhoModal\').remove()" style="background:none;border:none;cursor:pointer">'+pfXGlossyHtml(20)+'</button></div>'+
     '<div style="padding:16px">'+
-      '<div style="font-size:12px;color:#607080;margin-bottom:10px">Cole o print do desenho (<b>Ctrl+V</b>) ou escolha um arquivo. As bordas vazias são cortadas sozinhas. Vale pra todos os usuários.</div>'+
+      '<div style="font-size:12px;color:#607080;margin-bottom:10px">Cole o print do desenho (<b>Ctrl+V</b>) ou escolha um arquivo. As bordas vazias são cortadas sozinhas. Depois dá pra marcar as letras clicando no desenho. Vale pra todos os usuários.</div>'+
       '<label style="display:block;text-align:center;padding:10px;border:1.5px dashed #cfd8e3;border-radius:8px;cursor:pointer;font-size:13px;color:var(--pf-fx-marca,#1F4E79);font-weight:700">📎 Escolher arquivo<input type="file" accept="image/*" style="display:none" onchange="if(this.files&&this.files[0])ccDesenhoCarregar(this.files[0])"></label>'+
+      ccDesenhoLegendaHtml(fam)+ // v115.2021 - legenda das letras = campos da busca
       '<div id="ccDesenhoPrevia" style="margin-top:12px;min-height:150px;display:flex;align-items:center;justify-content:center;background:#fbfcfe;border:1px solid #e0e8f0;border-radius:8px;color:#8a9ab0;font-size:12px">Nenhuma imagem ainda — cole o print aqui</div>'+
+      '<div id="ccDesenhoMarcar" style="display:none;margin-top:10px"></div>'+
       '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">'+
         '<button onclick="document.getElementById(\'ccDesenhoModal\').remove()" class="pfBtn pfBtnClaro">Cancelar</button>'+
-        '<button id="ccDesenhoSalvarBtn" disabled onclick="if(window._ccDesenhoNovo){ccDesenhoSalvar(\''+pfEscJs(fam)+'\',window._ccDesenhoNovo);document.getElementById(\'ccDesenhoModal\').remove();}" class="pfBtn pfBtnVerde" style="opacity:.5">✓ Usar este desenho</button>'+
+        '<button id="ccDesenhoSalvarBtn" disabled onclick="ccDesenhoConfirmar(\''+pfEscJs(fam)+'\')" class="pfBtn pfBtnVerde" style="opacity:.5">✓ Usar este desenho</button>'+
       '</div>'+
     '</div></div>';
   document.body.appendChild(ov);
@@ -61766,15 +61768,89 @@ function ccDesenhoTrocarAbrir(fam){
   };
   document.addEventListener('paste',onPaste);
 }
+function ccDesenhoCampos(fam){
+  var f=(typeof CC_FAMILIAS!=='undefined'?CC_FAMILIAS:[]).find(function(x){return x.key===fam;});
+  return (f&&f.campos)||[];
+}
+function ccDesenhoLegendaHtml(fam){
+  var cs=ccDesenhoCampos(fam);if(!cs.length)return '';
+  return '<div style="margin-top:10px;padding:8px 10px;background:#FFF8E6;border:1px solid #FFE0A3;border-radius:8px;font-size:11.5px;line-height:1.6;color:#6b5000">'+
+    '<b>Letras dos campos desta família:</b><br>'+cs.map(function(c){
+      var nome=String(c.label||'').replace(/\s*\([A-Z]\)\s*$/,'');
+      return /^[A-Z]$/.test(c.k)?'<b style="color:#C00000">'+c.k+'</b> = '+pfEscHtml(nome):pfEscHtml(c.label||c.k);
+    }).join(' · ')+'</div>';
+}
+// v115.2021 - Marcar as letras clicando no desenho: escolhe a letra (botões
+// = campos da família) e clica onde ela vai. Posição guardada em fração
+// (0-1) e "queimada" na imagem só na hora de salvar.
+function ccDesenhoMarcarBarra(){
+  var box=document.getElementById('ccDesenhoMarcar');if(!box)return;
+  var letras=ccDesenhoCampos(window._ccDesenhoFam).map(function(c){return c.k;}).filter(function(k){return /^[A-Z]$/.test(k);});
+  if(!letras.length){box.style.display='none';return;}
+  var usadas={};(window._ccDesenhoMarcas||[]).forEach(function(m){usadas[m.k]=1;});
+  if(!window._ccDesenhoLetra||usadas[window._ccDesenhoLetra]){window._ccDesenhoLetra=letras.find(function(k){return !usadas[k];})||null;}
+  box.style.display='block';
+  box.innerHTML='<div style="font-size:12px;font-weight:700;color:#1F4E79;margin-bottom:6px">🔤 Marcar medidas <span style="font-weight:400;color:#607080">— escolha a letra e clique no desenho onde ela vai</span></div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">'+letras.map(function(k){
+      var sel=window._ccDesenhoLetra===k,us=usadas[k];
+      return '<button onclick="window._ccDesenhoLetra=\''+k+'\';ccDesenhoMarcarBarra()" style="width:30px;height:28px;border-radius:6px;font-weight:800;font-size:13px;cursor:pointer;border:1.5px solid '+(sel?'#C00000':'#cfd8e3')+';background:'+(sel?'#C00000':(us?'#F0FAF3':'#fff'))+';color:'+(sel?'#fff':(us?'#1E8449':'#1a2332'))+'">'+k+'</button>';
+    }).join('')+
+    '<button onclick="window._ccDesenhoMarcas.pop();ccDesenhoMarcasDesenhar();ccDesenhoMarcarBarra()" style="margin-left:6px;font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #cfd8e3;background:#fff;cursor:pointer">↶ Desfazer</button>'+
+    '<button onclick="window._ccDesenhoMarcas=[];ccDesenhoMarcasDesenhar();ccDesenhoMarcarBarra()" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #cfd8e3;background:#fff;cursor:pointer;color:#8a9ab0">Limpar</button>'+
+    '</div>';
+}
+function ccDesenhoClicar(ev){
+  var k=window._ccDesenhoLetra;if(!k)return;
+  var palco=document.getElementById('ccDesenhoPalco');if(!palco)return;
+  var r=palco.getBoundingClientRect();
+  var x=(ev.clientX-r.left)/r.width,y=(ev.clientY-r.top)/r.height;
+  if(x<0||y<0||x>1||y>1)return;
+  window._ccDesenhoMarcas=(window._ccDesenhoMarcas||[]).filter(function(m){return m.k!==k;}); // mesma letra de novo = muda de lugar
+  window._ccDesenhoMarcas.push({k:k,x:x,y:y});
+  ccDesenhoMarcasDesenhar();ccDesenhoMarcarBarra();
+}
+function ccDesenhoMarcasDesenhar(){
+  var palco=document.getElementById('ccDesenhoPalco');if(!palco)return;
+  palco.querySelectorAll('.ccDesMarca').forEach(function(e){e.remove();});
+  (window._ccDesenhoMarcas||[]).forEach(function(m){
+    var sp=document.createElement('span');sp.className='ccDesMarca';sp.textContent=m.k;
+    sp.style.cssText='position:absolute;left:'+(m.x*100)+'%;top:'+(m.y*100)+'%;transform:translate(-50%,-50%);font:800 22px Arial,sans-serif;color:#C00000;line-height:1;pointer-events:none;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff';
+    palco.appendChild(sp);
+  });
+}
+function ccDesenhoComMarcas(url,marcas){
+  return new Promise(function(res){
+    if(!marcas||!marcas.length){res(url);return;}
+    var img=new Image();
+    img.onload=function(){
+      var cv=document.createElement('canvas');cv.width=img.width;cv.height=img.height;
+      var c=cv.getContext('2d');c.drawImage(img,0,0);
+      var fs=Math.max(18,Math.round(Math.max(img.width,img.height)*0.085));
+      c.font='800 '+fs+'px Arial, sans-serif';c.textAlign='center';c.textBaseline='middle';
+      c.lineJoin='round';c.lineWidth=Math.max(3,fs*0.22);c.strokeStyle='#fff';c.fillStyle='#C00000';
+      marcas.forEach(function(m){var x=m.x*img.width,y=m.y*img.height;c.strokeText(m.k,x,y);c.fillText(m.k,x,y);});
+      res(cv.toDataURL('image/png'));
+    };
+    img.onerror=function(){res(url);};
+    img.src=url;
+  });
+}
+async function ccDesenhoConfirmar(fam){
+  if(!window._ccDesenhoNovo)return;
+  var final=await ccDesenhoComMarcas(window._ccDesenhoNovo,window._ccDesenhoMarcas);
+  ccDesenhoSalvar(fam,final);
+  var m=document.getElementById('ccDesenhoModal');if(m)m.remove();
+}
 function ccDesenhoCarregar(file){
   var fr=new FileReader();
   fr.onload=function(){
     var img=new Image();
     img.onload=function(){
       var url=null;try{url=ccDesenhoAparar(img);}catch(e){url=fr.result;}
-      window._ccDesenhoNovo=url;
+      window._ccDesenhoNovo=url;window._ccDesenhoMarcas=[];
       var pv=document.getElementById('ccDesenhoPrevia');
-      if(pv)pv.innerHTML='<img src="'+url+'" style="max-width:100%;max-height:260px;display:block">';
+      if(pv)pv.innerHTML='<div id="ccDesenhoPalco" onclick="ccDesenhoClicar(event)" style="position:relative;display:inline-block;line-height:0"><img src="'+url+'" style="max-width:100%;max-height:300px;display:block;user-select:none;-webkit-user-drag:none" draggable="false"></div>';
+      ccDesenhoMarcarBarra();
       var b=document.getElementById('ccDesenhoSalvarBtn');if(b){b.disabled=false;b.style.opacity='1';}
     };
     img.src=fr.result;

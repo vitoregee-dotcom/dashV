@@ -1838,7 +1838,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1997</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.1998</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -1989,7 +1989,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1997</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.1998</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -49976,6 +49976,7 @@ function pfDicasImpactoRenderAtual(){
 function pfNoticiasLoad(){
   var list=null;
   var eraFormatoAntigo=false;
+  var tsAtual=0; // v115.1998 - ts da versão guardada (ver limpeza abaixo)
   try{
     var raw=localStorage.getItem(PF_NOTICIAS_KEY);
     if(raw){
@@ -49985,7 +49986,7 @@ function pfNoticiasLoad(){
       // antigo (array cru) convivendo com o novo ({itens,ts}) durante a
       // transição.
       if(Array.isArray(parsed)){list=parsed;eraFormatoAntigo=true;}
-      else if(parsed&&Array.isArray(parsed.itens))list=parsed.itens;
+      else if(parsed&&Array.isArray(parsed.itens)){list=parsed.itens;tsAtual=parsed.ts||0;}
     }
   }catch(e){}
   if(!list){
@@ -50026,7 +50027,7 @@ function pfNoticiasLoad(){
     });
     PF_NOTICIAS_SEED.forEach(function(n){if(!linksExistentes[n.link])list.push(n);});
     localStorage.setItem('pfNoticiasSeedV','9');
-    pfNoticiasSave(list);
+    pfNoticiasSave(list,tsAtual); // v115.1998 - mantém o ts (não é notícia nova)
     eraFormatoAntigo=false; // já foi regravado no formato novo acima
   }
   // v115.1488 - A pedido do Vitor ("esta tudo sem foto"): a limpeza de item
@@ -50049,11 +50050,17 @@ function pfNoticiasLoad(){
   if(listLimpaSemFoto.length!==list.length){
     list=listLimpaSemFoto;
     localStorage.setItem('pfNoticiasLimpezaV','1');
-    pfNoticiasSave(list);
+    // v115.1998 - BUG DE RAIZ (Vitor: "loguei com vitor triex e apareceu
+    // essas notícias antigas"): essa limpeza regravava com ts=agora. Na
+    // semente (ts=1, notícias de julho, 5 sem foto) virava 12 itens com
+    // data de HOJE -- "mais nova" que as notícias reais, sobrescrevendo a
+    // chave compartilhada pra todo mundo (aconteceu em 24/09 01:16). Tirar
+    // item sem foto não é notícia nova: mantém o ts que já tinha.
+    pfNoticiasSave(list,tsAtual);
   }
   return list;
 }
-function pfNoticiasSave(list){
+function pfNoticiasSave(list,tsManter){ // v115.1998 - tsManter: regravação de limpeza/migração, sem virar "mais nova"
   // v115.1449 (REAPLICADO 20/08): pfNoticiasSetor nunca teve branch
   // dedicado no sync -- caía no merge genérico, que pra arrays faz UNIÃO
   // por fingerprint de conteúdo e NUNCA remove. Guardar como {itens,ts}
@@ -50063,7 +50070,7 @@ function pfNoticiasSave(list){
   // sumido inteira -- uma sessão em paralelo commitou por cima a partir de
   // um checkout bem antigo (de antes de tudo isso existir) e reverteu sem
   // querer. Reaplicado igual da primeira vez.
-  var payload={itens:list,ts:Date.now()};
+  var payload={itens:list,ts:(typeof tsManter==='number'?tsManter:Date.now())};
   localStorage.setItem(PF_NOTICIAS_KEY,JSON.stringify(payload));
   if(typeof pfSyncPush==='function')pfSyncPush([PF_NOTICIAS_KEY]);
 }

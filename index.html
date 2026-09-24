@@ -1860,7 +1860,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2011</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2012</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2013,7 +2013,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2011</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2012</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -25387,14 +25387,38 @@ document.addEventListener('click',function(e){
 // (v115.1853) fica num <td onclick=...>, tag que a correção original não
 // cobria. Generalizar pra qualquer tag evita esse mesmo buraco reaparecer
 // toda vez que um ícone novo usar uma tag diferente de span/div.
-document.addEventListener('pointerdown',function(e){
-  if(e.pointerType!=='touch')return;
-  var el=e.target.closest('[onclick]');
-  if(el&&typeof el.onclick==='function'){
-    e.preventDefault();
+// v115.2012 - A pedido do Vitor: no iPad, arrastar o dedo pro lado no Dock
+// inferior CLICAVA no ícone em vez de rolar -- o onclick era disparado já no
+// pointerdown (encostar o dedo), antes de saber se era toque ou arraste.
+// Agora só dispara no pointerup se o dedo não andou (>10px = rolagem; o
+// navegador também manda pointercancel quando assume a rolagem). O click
+// nativo que vem logo depois é descartado pra não executar 2x.
+(function(){
+  var tap=null,suprimir=null;
+  document.addEventListener('pointerdown',function(e){
+    tap=null;
+    if(e.pointerType!=='touch')return;
+    var el=e.target.closest('[onclick]');
+    if(el&&typeof el.onclick==='function')tap={el:el,id:e.pointerId,x:e.clientX,y:e.clientY};
+  },{passive:true});
+  document.addEventListener('pointermove',function(e){
+    if(tap&&e.pointerId===tap.id&&(Math.abs(e.clientX-tap.x)>10||Math.abs(e.clientY-tap.y)>10))tap=null;
+  },{passive:true});
+  document.addEventListener('pointercancel',function(){tap=null;},{passive:true});
+  document.addEventListener('pointerup',function(e){
+    if(!tap||e.pointerId!==tap.id)return;
+    var el=tap.el;tap=null;
+    suprimir={el:el,t:Date.now()};
     el.onclick(e);
-  }
-},{passive:false});
+  },{passive:true});
+  document.addEventListener('click',function(e){
+    if(!suprimir)return;
+    if(Date.now()-suprimir.t>800){suprimir=null;return;}
+    if(suprimir.el.contains(e.target)||e.target.contains(suprimir.el)){
+      e.preventDefault();e.stopImmediatePropagation();suprimir=null;
+    }
+  },true);
+})();
 document.addEventListener('scroll',function(){
   const tt=document.getElementById('globalTooltip');
   if(tt)tt.style.display='none';

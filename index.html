@@ -1867,7 +1867,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2021</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2022</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2020,7 +2020,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2021</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2022</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -61600,6 +61600,79 @@ function ccAbrirFamilia(key, modo){
   ccRender();
 }
 
+// v115.2022 - A pedido do Vitor ("às vezes tenho o código e não sei em qual
+// grupo procurar"): busca em TODAS as famílias de componentes cardan de uma
+// vez. Código: próprio, equivalente (Spicer), conversões e equivalentes
+// extras, ignorando traço/ponto/espaço, a partir de 3 caracteres. Se não
+// bater código (ou tiver espaço no texto), procura também nas aplicações
+// (veículo). Clicar abre a família já filtrada pelo código.
+function ccBuscaGeralHtml(){
+  var v=window._ccBuscaGeralTxt||'';
+  if(v)setTimeout(function(){ccBuscaGeralExecutar(v);},0);
+  return '<div style="max-width:760px;margin-bottom:16px;background:var(--pf-sidebar-bg);border:1.5px solid var(--pf-fx-marca,#1F4E79);border-radius:10px;padding:10px 12px">'+
+    '<div style="font-size:11px;font-weight:700;color:var(--pf-fx-marca,#1F4E79);margin-bottom:6px">🔍 BUSCAR EM TODOS OS COMPONENTES</div>'+
+    '<input id="ccBuscaGeralInp" value="'+pfEscHtml(v)+'" oninput="clearTimeout(window._ccBgT);var t=this.value;window._ccBgT=setTimeout(function(){ccBuscaGeralExecutar(t);},200)" placeholder="Código de qualquer fabricante (ex: 5-310X, HCZ120) ou veículo (ex: HILUX 2010)" style="width:100%;box-sizing:border-box;font-size:13px;padding:8px 10px;border:1px solid var(--pf-border);border-radius:6px">'+
+    '<div id="ccBuscaGeralRes"></div>'+
+  '</div>';
+}
+function ccBgNorm(x){return String(x||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+function ccBgNormTxt(x){return String(x||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();}
+function ccBuscaGeralExecutar(txt){
+  window._ccBuscaGeralTxt=txt;
+  var box=document.getElementById('ccBuscaGeralRes');if(!box)return;
+  var q=ccBgNorm(txt);
+  if(q.length<3){box.innerHTML=txt.trim()?'<div style="font-size:11px;color:var(--pf-text-muted);margin-top:6px">Digite pelo menos 3 caracteres.</div>':'';return;}
+  var dados={};try{dados=ccLoad()||{};}catch(e){}
+  var porCod=[],porApl=[],vistos={};
+  var toks=ccBgNormTxt(txt).split(/\s+/).filter(Boolean);
+  Object.keys(CC_NOME_SINGULAR).forEach(function(fam){
+    (dados[fam]||[]).forEach(function(it){
+      if(!it)return;
+      var cods=[it.codigo,it.similar,it.substitui];
+      (it.conversoes||[]).forEach(function(c){cods.push(c&&(c.codigo||c));});
+      (it.equivalentesExtra||[]).forEach(function(c){cods.push(c&&c.codigo);});
+      var melhor=0,achou='';
+      cods.forEach(function(c){var n=ccBgNorm(c);if(!n)return;var sc=n===q?3:(n.indexOf(q)===0?2:(n.indexOf(q)>=0?1:0));if(sc>melhor){melhor=sc;achou=String(c);}});
+      var gk=fam+'|'+ccBgNorm(it.substitui||it.similar||it.codigo);
+      if(melhor){
+        var r=vistos[gk];
+        if(!r){r=vistos[gk]={fam:fam,itens:[],sc:0,achou:achou};porCod.push(r);}
+        r.itens.push(it);if(melhor>r.sc){r.sc=melhor;r.achou=achou;}
+        return;
+      }
+      if(toks.length&&(it.veiculos||[]).length){
+        var hit=null;
+        for(var i=0;i<it.veiculos.length;i++){var vv=ccBgNormTxt(it.veiculos[i]);if(toks.every(function(t){return vv.indexOf(t)>=0;})){hit=it.veiculos[i];break;}}
+        if(hit){var ka='A'+gk;if(!vistos[ka]){vistos[ka]={fam:fam,itens:[it],veic:hit};porApl.push(vistos[ka]);}else vistos[ka].itens.push(it);}
+      }
+    });
+  });
+  porCod.sort(function(a,b){return b.sc-a.sc;});
+  var mostrarApl=!porCod.length||/\s/.test(txt.trim());
+  function linha(r){
+    var it=r.itens[0],eq=it.substitui||it.similar||'';
+    var foto=null;r.itens.some(function(x){var f=(x.fotos&&x.fotos[0])||x.foto;if(f){foto=(typeof f==='string')?f:(f.url||f.src||f.dataUrl||null);}return !!foto;});
+    var cods=r.itens.map(function(x){return (x.linha?'<span style="color:#8a9ab0">'+pfEscHtml(String(x.linha).charAt(0)+String(x.linha).slice(1).toLowerCase())+'</span> ':'')+pfEscHtml(x.codigo||'');});
+    var abrir=r.achou||it.codigo||'';
+    return '<div onclick="ccBuscaGeralAbrir(\''+pfEscJs(r.fam)+'\',\''+pfEscJs(abrir)+'\')" style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-bottom:1px solid var(--pf-fx-fundoSuave,#f0f4f8);cursor:pointer;font-size:12px" onmouseover="this.style.background=\'#F4F8FC\'" onmouseout="this.style.background=\'\'">'+
+      '<div style="width:40px;height:40px;flex-shrink:0;border-radius:6px;border:1px solid #e0e8f0;background:#fff center/contain no-repeat'+(foto?';background-image:url(\''+foto.replace(/'/g,'%27')+'\')':'')+'"></div>'+
+      '<span style="flex-shrink:0;font-size:9px;font-weight:800;color:#fff;background:#0D7377;border-radius:4px;padding:2px 6px;text-transform:uppercase">'+pfEscHtml(CC_NOME_SINGULAR[r.fam]||r.fam)+'</span>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div><b style="color:var(--pf-fx-marca,#1F4E79);font-family:monospace;font-size:13px">'+pfEscHtml(eq||it.codigo||'')+'</b>'+(eq?' <span style="color:#8a9ab0;font-size:11px">Spicer</span>':'')+' <span style="font-family:monospace;font-size:11px">· '+cods.join(' · ')+'</span></div>'+
+        (r.veic?'<div style="font-size:10.5px;color:var(--pf-fx-verde,#27AE60)">'+pfEscHtml(r.veic)+'</div>':'')+
+      '</div><span style="color:#8a9ab0;font-size:14px">›</span></div>';
+  }
+  var h='';
+  if(porCod.length)h+='<div style="font-size:10.5px;font-weight:700;color:#607080;margin:10px 0 2px">POR CÓDIGO — '+porCod.length+'</div>'+porCod.slice(0,40).map(linha).join('');
+  if(mostrarApl&&porApl.length)h+='<div style="font-size:10.5px;font-weight:700;color:#607080;margin:10px 0 2px">POR APLICAÇÃO (VEÍCULO) — '+porApl.length+'</div>'+porApl.slice(0,40).map(linha).join('');
+  if(!h)h='<div style="font-size:12px;color:var(--pf-text-muted);margin-top:8px">Nada encontrado em nenhuma família.</div>';
+  box.innerHTML='<div style="max-height:360px;overflow-y:auto;margin-top:4px">'+h+'</div>';
+}
+function ccBuscaGeralAbrir(fam,codigo){
+  ccAbrirFamilia(fam);
+  _ccFiltro.texto=codigo||'';
+  ccRender();
+}
 function ccRender(){
   var el=document.getElementById('areaTecnicaBody');
   if(!el) return;
@@ -61622,10 +61695,11 @@ function ccRender(){
     }).join('');
     el.innerHTML='<div style="width:100%;padding:20px 24px">'+
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">'+
-        '<button onclick="ftVoltarCards()" style="border:none;background:none;cursor:pointer;font-size:18px;color:var(--pf-fx-marca,#1F4E79)">←</button>'+
+        '<button onclick="ftVoltarCards()" style="border:none;background:none;cursor:pointer;font-size:18px;color:var(--pf-fx-marca,#1F4E79)">← Voltar</button>'+
         '<div style="font-size:17px;font-weight:800;color:var(--pf-fx-marca,#1F4E79);display:flex;align-items:center;gap:8px"><img src="icons/componentes-cardan.png" style="width:34px;height:auto"> Componentes Cardan</div>'+
       '</div>'+
       '<div style="font-size:12px;color:var(--pf-text-muted);margin-bottom:16px">Escolha o tipo de peça pra gerar um gabarito (enviar ao cliente preencher) ou buscar pelo código a partir das medidas já preenchidas</div>'+
+      ccBuscaGeralHtml()+ // v115.2022 - busca em todas as famílias
       '<div id="ccFamiliasGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:760px">'+cardsHtml+'</div>'+
       '</div>';
     pfArrastavelAplicar(document.getElementById('ccFamiliasGrid'),'cc_familias');
@@ -61633,7 +61707,7 @@ function ccRender(){
   }
   var cfg=ccFamiliaConfig(_ccFamiliaAtual);
   var header='<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">'+
-      '<button onclick="ccAbrirFamilia(null)" style="border:none;background:none;cursor:pointer;font-size:18px;color:var(--pf-fx-marca,#1F4E79)">←</button>'+
+      '<button onclick="ccAbrirFamilia(null)" style="border:none;background:none;cursor:pointer;font-size:18px;color:var(--pf-fx-marca,#1F4E79)">← Voltar</button>'+ // v115.2022 - "← Voltar" = cabeçalho escuro padrão (pfFerrAplicarPadrao), igual às Ferramentas
       '<div style="font-size:17px;font-weight:800;color:var(--pf-fx-marca,#1F4E79)">'+cfg.icon+' '+cfg.label+'</div>'+
     '</div>';
   var el2=document.getElementById('areaTecnicaBody');

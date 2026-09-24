@@ -1867,7 +1867,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2019</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2020</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2020,7 +2020,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2019</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2020</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -62490,7 +62490,7 @@ async function ccPrintAplLer(file){
       'Extraia TODAS as linhas da tabela de aplicação e todos os equivalentes. Responda SÓ com JSON, sem texto antes/depois, no formato: '+
       '{"aplicacoes":[{"montadora":"","modelo":"","versao":"","ano_inicial":"","ano_final":"","motor":"","tracao":"","posicao":"","complemento":"","observacao":""}],"equivalentes":[{"marca":"","codigo":"","tipo":""}],"foto_peca":{"x":0,"y":0,"w":0,"h":0}}. '+
       // v115.1974 - A pedido do Vitor: puxar a foto da peça do print também
-      '"foto_peca" = retângulo da FOTO DA PEÇA no print (a foto do produto, não logotipo, marca d\'água nem ícone), em frações da imagem de 0 a 1 (x,y = canto superior esquerdo; w,h = largura/altura). Se não tiver foto da peça, "foto_peca": null. '+
+      '"foto_peca" = retângulo JUSTO só em volta da FOTO DA PEÇA no print (a foto do produto; sem títulos/abas tipo "Imagem"/"Embalagem", sem textos, sem logotipo, marca d\'água nem ícone), em frações da imagem de 0 a 1 (x,y = canto superior esquerdo; w,h = largura/altura). Se não tiver foto da peça, "foto_peca": null. '+
       // v115.1972 - A pedido do Vitor: o print às vezes traz também
       // conversões/equivalências em outras seções -- pegar tudo quando tiver.
       'Em "equivalentes" coloque TODO código de outra marca/fabricante que aparecer em qualquer parte do print: colunas ou seções chamadas Equivalente, Conversão, Conversões, '+
@@ -62521,13 +62521,14 @@ function ccPrintAplCortarFoto(dataUrl,bb){
     var img=new Image();
     img.onload=async function(){
       try{
-        var W=img.naturalWidth,H=img.naturalHeight,pad=0.01;
+        var W=img.naturalWidth,H=img.naturalHeight,pad=0.04; // v115.2020 - folga maior: o ajuste fino abaixo corta o excesso
         var sx=Math.max(0,(x-pad)*W),sy=Math.max(0,(y-pad)*H);
         var sw=Math.min(W-sx,(w+2*pad)*W),sh=Math.min(H-sy,(h+2*pad)*H);
         if(sw<20||sh<20){res(null);return;}
         var cv=document.createElement('canvas');cv.width=Math.round(sw);cv.height=Math.round(sh);
         var cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);
         cx.drawImage(img,sx,sy,sw,sh,0,0,cv.width,cv.height);
+        try{cv=ccFotoAjustarAoObjeto(cv)||cv;}catch(eAj){} // v115.2020
         var out=cv.toDataURL('image/jpeg',0.9);
         if(typeof pfComprimirImagemDataUrl==='function')out=await pfComprimirImagemDataUrl(out,480,0.72);
         res(out);
@@ -62536,6 +62537,54 @@ function ccPrintAplCortarFoto(dataUrl,bb){
     img.onerror=function(){res(null);};
     img.src=dataUrl;
   });
+}
+// v115.2020 - A pedido do Vitor ("não dá pra pegar a foto mais certinho?"):
+// o retângulo que a IA devolve é aproximado -- vinha junto título/aba do site
+// ("Imagem | Embalagem"), texto e muito fundo branco. Aqui acha o MAIOR
+// objeto da imagem (pixels diferentes do fundo, colados uns nos outros) --
+// que é a peça -- e corta justo em volta dele, com uma margem pequena.
+// Texto solto vira manchas pequenas separadas e fica de fora.
+function ccFotoAjustarAoObjeto(cv){
+  var W=cv.width,H=cv.height;if(W<30||H<30)return null;
+  var esc=Math.min(1,220/Math.max(W,H)),w=Math.max(1,Math.round(W*esc)),h=Math.max(1,Math.round(H*esc));
+  var pc=document.createElement('canvas');pc.width=w;pc.height=h;
+  var px=pc.getContext('2d');px.drawImage(cv,0,0,w,h);
+  var d=px.getImageData(0,0,w,h).data;
+  // cor de fundo = média da borda
+  var br=0,bg=0,bb=0,n=0;
+  function soma(x,y){var i=(y*w+x)*4;br+=d[i];bg+=d[i+1];bb+=d[i+2];n++;}
+  for(var x=0;x<w;x++){soma(x,0);soma(x,h-1);}
+  for(var y=0;y<h;y++){soma(0,y);soma(w-1,y);}
+  br/=n;bg/=n;bb/=n;
+  var m=new Uint8Array(w*h);
+  for(var k=0;k<w*h;k++){var i2=k*4;var dist=Math.abs(d[i2]-br)+Math.abs(d[i2+1]-bg)+Math.abs(d[i2+2]-bb);if(dist>60)m[k]=1;}
+  // engorda 2px pra partes da mesma peça (sombra, detalhe) ficarem juntas
+  var md=new Uint8Array(w*h),R=2;
+  for(var yy=0;yy<h;yy++)for(var xx=0;xx<w;xx++){if(!m[yy*w+xx])continue;for(var dy=-R;dy<=R;dy++)for(var dx=-R;dx<=R;dx++){var X=xx+dx,Y=yy+dy;if(X>=0&&Y>=0&&X<w&&Y<h)md[Y*w+X]=1;}}
+  // maior componente conectado
+  var vis=new Int32Array(w*h),melhor=null,rot=0,fila=new Int32Array(w*h);
+  for(var s0=0;s0<w*h;s0++){
+    if(!md[s0]||vis[s0])continue;
+    rot++;var ini=0,fim=0,cnt=0,x0=w,y0=h,x1=0,y1=0;fila[fim++]=s0;vis[s0]=rot;
+    while(ini<fim){var q=fila[ini++];var qx=q%w,qy=(q-qx)/w;if(m[q])cnt++;
+      if(qx<x0)x0=qx;if(qx>x1)x1=qx;if(qy<y0)y0=qy;if(qy>y1)y1=qy;
+      var viz=[q-1,q+1,q-w,q+w];
+      for(var v=0;v<4;v++){var nq=viz[v];if(nq<0||nq>=w*h)continue;if((v===0&&qx===0)||(v===1&&qx===w-1))continue;if(md[nq]&&!vis[nq]){vis[nq]=rot;fila[fim++]=nq;}}
+    }
+    if(!melhor||cnt>melhor.cnt)melhor={cnt:cnt,x0:x0,y0:y0,x1:x1,y1:y1};
+  }
+  if(!melhor||melhor.cnt<30)return null;
+  var bw=melhor.x1-melhor.x0+1,bh=melhor.y1-melhor.y0+1;
+  if(bw>w*0.97&&bh>h*0.97)return null; // já está justo
+  var mg=Math.round(Math.max(bw,bh)*0.06);
+  var cx0=Math.max(0,(melhor.x0-mg)/esc),cy0=Math.max(0,(melhor.y0-mg)/esc);
+  var cx1=Math.min(W,(melhor.x1+1+mg)/esc),cy1=Math.min(H,(melhor.y1+1+mg)/esc);
+  var ow=Math.round(cx1-cx0),oh=Math.round(cy1-cy0);if(ow<20||oh<20)return null;
+  // quadrado com fundo branco (card mostra quadrado), peça centralizada
+  var lado=Math.max(ow,oh),out=document.createElement('canvas');out.width=lado;out.height=lado;
+  var oc=out.getContext('2d');oc.fillStyle='rgb('+Math.round(br)+','+Math.round(bg)+','+Math.round(bb)+')';oc.fillRect(0,0,lado,lado);
+  oc.drawImage(cv,cx0,cy0,ow,oh,Math.round((lado-ow)/2),Math.round((lado-oh)/2),ow,oh);
+  return out;
 }
 function ccTemFotoPropria(r){return !!((r.fotos&&r.fotos.length)||r.foto);}
 // Itens relacionados = a MESMA peça cadastrada em outro catálogo (STAHL/REI/
@@ -62625,7 +62674,7 @@ async function ccNovoLerPrint(file){
       '"medidas" = só as especificações que correspondem a campos de medida da família escolhida, usando a letra do campo como chave e só o número (ex: {"D":"45"}). '+
       '"especificacoes" = TODAS as especificações do print (Diâmetro, Série, Múltiplo de venda, EAN, peso, embalagem etc.), com unidade no valor. '+
       '"equivalentes" = todo código de outra marca (Original OEM, Suporte REI, Conversão, Equivalente, Substitui...); "tipo" = EQUIVALENTE, CONVERSÃO, ORIGINAL ou SUBSTITUI. '+
-      '"foto_peca" = retângulo da FOTO DA PEÇA em frações 0-1 (não logotipo nem caixa/embalagem genérica); se não tiver foto da peça, null. '+
+      '"foto_peca" = retângulo JUSTO só em volta da FOTO DA PEÇA em frações 0-1 (sem títulos/abas tipo "Imagem"/"Embalagem", sem textos, não logotipo nem caixa/embalagem genérica); se não tiver foto da peça, null. '+
       'Na aplicação, a montadora vale para as linhas de baixo até aparecer outra. Campo vazio = "". Não invente nada que não esteja na imagem.';
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:pfAnthropicHeaders(apiKey),
       body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mt,data:b64}},{type:'text',text:prompt}]}]})});

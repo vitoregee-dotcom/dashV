@@ -1879,7 +1879,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2027</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2028</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2032,7 +2032,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2027</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2028</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -48551,6 +48551,7 @@ function vendasAbrirRelacionados(i,scrollPos){
   }
 }
 function aplicSave(list){
+  window._aplicBuscarCache=null; // v115.2028
   // Regra: série (e código) de aplicação nunca deve ter espaço -- "TLB 1" e "TLB1"
   // têm que ser tratados como a mesma série, senão a mesma máquina cai em grupos
   // diferentes só por causa de espaço digitado/extraído de forma inconsistente.
@@ -48621,7 +48622,9 @@ function cadSalvarSubstAplicItem(btn){
 function aplicBuscar(termo){
   termo=(termo||'').trim().toUpperCase();
   if(!termo)return [];
-  var list=aplicLoad();
+  // v115.2028 - reaproveita a lista por 15s (cada letra digitada relia e descomprimia o catálogo inteiro)
+  var c=window._aplicBuscarCache,list;
+  if(c&&(Date.now()-c.t)<15000)list=c.l;else{list=aplicLoad();window._aplicBuscarCache={t:Date.now(),l:list};}
   return list.filter(function(a){
     return (a.serie||'').toUpperCase().indexOf(termo)>=0||(a.modelo||'').toUpperCase().indexOf(termo)>=0;
   });
@@ -48831,6 +48834,13 @@ function vendasBuscarPorSerieInput(){
   if(!termo.trim()){
     if(!nSel){box.style.display='none';box.innerHTML='';if(backdrop)backdrop.style.display='none';return;}
   }
+  // v115.2028 - A pedido do Vitor ("travou quando fui no campo série/modelo" -- digitou só "W"): com 1-2
+  // letras a busca batia em milhares de aplicações e desenhava todas de uma vez (página sem resposta).
+  // Agora só busca a partir de 3 caracteres, e a lista mostra no máximo 300 (pede pra refinar).
+  if(termo.trim()&&termo.trim().length<3){
+    if(!nSel){box.style.display='none';box.innerHTML='';if(backdrop)backdrop.style.display='none';return;}
+    termo='';
+  }
   var res=termo.trim()?aplicBuscar(termo):[];
   // v115.1427 - BUG corrigido junto com o de cima (a pedido do Vitor,
   // código 233166 mostrando "x6" quando o total real da série é 30):
@@ -48887,7 +48897,8 @@ function vendasBuscarPorSerieInput(){
   var focoEraFiltro=(document.activeElement&&document.activeElement.id==='vendasSerieFiltroDesc');
   var selStart=focoEraFiltro&&document.activeElement.selectionStart!=null?document.activeElement.selectionStart:null;
   var selEnd=focoEraFiltro&&document.activeElement.selectionEnd!=null?document.activeElement.selectionEnd:null;
-  var listaHtml=resFiltrados.length?resFiltrados.map(function(a){
+  var _limLista=300,_totalLista=resFiltrados.length; // v115.2028
+  var listaHtml=resFiltrados.length?resFiltrados.slice(0,_limLista).map(function(a){
     var key=(a.codigo||'').toUpperCase()+'|'+(a.marca||'').toUpperCase();
     var checked=!!window._vendasAplicSel[key];
     return '<div onclick="vendasAplicToggleSel(\''+pfEscHtml(pfEscJs(key))+'\',\''+pfEscHtml(pfEscJs(a.codigo))+'\',\''+pfEscHtml(pfEscJs(a.marca||''))+'\',\''+pfEscHtml(pfEscJs(a.desc||''))+'\',\''+(a.qtd!=null?a.qtd:'')+'\')" style="padding:8px 10px;border-bottom:1px solid var(--pf-fx-fundoSuave,#f0f4f8);cursor:pointer;font-size:12px;display:flex;gap:8px;align-items:flex-start" onmouseover="this.style.background=\'#F7F9FC\'" onmouseout="this.style.background=\'\'">'+
@@ -48905,6 +48916,7 @@ function vendasBuscarPorSerieInput(){
   // ocupa o resto disponível (flex:1) com rolagem própria, e o rodapé
   // (Adicionar/Limpar) fica fixo embaixo quando tem selecionados -- um
   // layout flex column só, sem cálculo de pixel nenhum.
+  if(_totalLista>_limLista)listaHtml+='<div style="padding:10px 12px;font-size:12px;color:#8a5a00;background:#FFF8E6;border-top:1px solid #FFE0A3">Mostrando '+_limLista+' de '+_totalLista+' — digite mais (ex: modelo + série) ou use o filtro de descrição pra achar mais rápido.</div>'; // v115.2028
   listaHtml=(!resFiltrados.length&&ccRes.length?'':listaHtml)+vendasCcListaHtml(ccRes); // v115.1973
   var filtroHtml=(res.length+ccRes.length)>1?'<div style="padding:8px 12px;border-bottom:1px solid var(--pf-fx-fundoSuave,#f0f4f8);background:#FAFBFD;flex-shrink:0"><input type="text" id="vendasSerieFiltroDesc" value="'+pfEscHtml(filtroDesc)+'" oninput="pfDebounceCall(&quot;vendasSerieFiltroDesc&quot;,vendasBuscarPorSerieInput,250)" placeholder="🔍 Filtrar por descrição ou código..." style="width:100%;box-sizing:border-box;padding:7px 9px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:6px;font-size:13px"></div>':'';
   var todosMarcadosAplic=resFiltrados.length>0&&resFiltrados.every(function(a){

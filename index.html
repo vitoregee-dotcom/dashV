@@ -1879,7 +1879,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2041</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2042</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2032,7 +2032,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2041</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2042</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -63401,17 +63401,21 @@ function ccColarPrintAplicacao(familia,codigo,linha){
   document.addEventListener('paste',onPaste);
   setTimeout(function(){var z=document.getElementById('ccPrintAplZona');if(z)z.focus();},50);
 }
+// v115.2042 - A pedido do Vitor ("do catálogo da REI não leu, por quê?"): BUG -- o texto mandado pra IA
+// ficava numa variável chamada `prompt`, e o `var` sobe pro começo da função e esconde o prompt() do
+// navegador. Aparelho sem a chave da Anthropic salva caía em "prompt is not a function" antes do try,
+// sem mostrar nada (nem "Lendo…", nem erro). Renomeado pra pedidoIA (aqui e no ccNovoLerPrint).
 async function ccPrintAplLer(file){
   var corpo=document.getElementById('ccPrintAplCorpo');if(!corpo)return;
   var apiKey=localStorage.getItem('anthropic_key')||'';
-  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)pfAnthropicKeySet(apiKey);}
+  if(!apiKey){apiKey=window.prompt('Cole sua Anthropic API Key:');if(apiKey)pfAnthropicKeySet(apiKey);}
   if(!apiKey)return;
   corpo.innerHTML='<div style="text-align:center;padding:40px;color:var(--pf-text-muted)"><div style="font-size:28px">⏳</div><div style="font-weight:700;margin-top:6px">Lendo o print…</div></div>';
   try{
     var dataUrl=await rfLerArquivoComoDataUrl(file);
     var mt=(dataUrl.match(/^data:([^;]+)/)||[])[1]||'image/png';
     var b64=dataUrl.split(',')[1];
-    var prompt='Esta imagem é um print de catálogo de peças (ex: site Spicer) mostrando a APLICAÇÃO de uma peça em veículos e códigos EQUIVALENTES. '+
+    var pedidoIA='Esta imagem é um print de catálogo de peças (ex: site Spicer) mostrando a APLICAÇÃO de uma peça em veículos e códigos EQUIVALENTES. '+
       'Extraia TODAS as linhas da tabela de aplicação e todos os equivalentes. Responda SÓ com JSON, sem texto antes/depois, no formato: '+
       '{"aplicacoes":[{"montadora":"","modelo":"","versao":"","ano_inicial":"","ano_final":"","motor":"","tracao":"","posicao":"","complemento":"","observacao":""}],"equivalentes":[{"marca":"","codigo":"","tipo":""}],"foto_peca":{"x":0,"y":0,"w":0,"h":0}}. '+
       // v115.1974 - A pedido do Vitor: puxar a foto da peça do print também
@@ -63423,7 +63427,7 @@ async function ccPrintAplLer(file){
       '"tipo" = EQUIVALENTE, CONVERSÃO, ORIGINAL (código da montadora/OEM) ou SUBSTITUI, conforme o rótulo do print (sem rótulo claro = EQUIVALENTE). '+
       'Regras: a montadora vale para as linhas de baixo até aparecer outra; texto em MAIÚSCULO; campo vazio = ""; se não tiver aplicação ou equivalente no print, devolva a lista vazia. Não invente nada que não esteja na imagem.';
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:pfAnthropicHeaders(apiKey),
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mt,data:b64}},{type:'text',text:prompt}]}]})});
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mt,data:b64}},{type:'text',text:pedidoIA}]}]})});
     var data=await resp.json();
     if(data.error)throw new Error(data.error.message||'erro na leitura');
     if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Área Técnica — print de aplicação',data.usage);
@@ -63582,7 +63586,7 @@ function ccNovoMedidasHtml(vals){
 async function ccNovoLerPrint(file){
   var st=document.getElementById('ccNovoStatus');
   var apiKey=localStorage.getItem('anthropic_key')||'';
-  if(!apiKey){apiKey=prompt('Cole sua Anthropic API Key:');if(apiKey)pfAnthropicKeySet(apiKey);}
+  if(!apiKey){apiKey=window.prompt('Cole sua Anthropic API Key:');if(apiKey)pfAnthropicKeySet(apiKey);}
   if(!apiKey)return;
   if(st)st.innerHTML='⏳ Lendo o print…';
   try{
@@ -63590,7 +63594,7 @@ async function ccNovoLerPrint(file){
     var mt=(dataUrl.match(/^data:([^;]+)/)||[])[1]||'image/png',b64=dataUrl.split(',')[1];
     var famAtual=(document.getElementById('ccNovoFam')||{}).value;
     var famLista=CC_FAMILIAS.map(function(f){return f.key+' = '+f.label+' (medidas: '+f.campos.map(function(c){return c.k+' = '+c.label;}).join('; ')+'; extra '+f.extraFiltro.k+' = '+f.extraFiltro.label+')';}).join('\n');
-    var prompt='Este é um print de catálogo de peças (ex: site Spicer) de UMA peça. Extraia os dados pra cadastrar a peça. Responda SÓ com JSON, sem texto antes/depois:\n'+
+    var pedidoIA='Este é um print de catálogo de peças (ex: site Spicer) de UMA peça. Extraia os dados pra cadastrar a peça. Responda SÓ com JSON, sem texto antes/depois:\n'+
       '{"codigo":"","descricao":"","marca_catalogo":"","familia":"","medidas":{},"especificacoes":[{"nome":"","valor":""}],'+
       '"aplicacoes":[{"montadora":"","modelo":"","versao":"","ano_inicial":"","ano_final":"","motor":"","tracao":"","posicao":"","complemento":"","observacao":""}],'+
       '"equivalentes":[{"marca":"","codigo":"","tipo":""}],"foto_peca":{"x":0,"y":0,"w":0,"h":0}}\n'+
@@ -63602,7 +63606,7 @@ async function ccNovoLerPrint(file){
       '"foto_peca" = retângulo JUSTO só em volta da FOTO DA PEÇA em frações 0-1 (sem títulos/abas tipo "Imagem"/"Embalagem", sem textos, não logotipo nem caixa/embalagem genérica); se não tiver foto da peça, null. '+
       'Na aplicação, a montadora vale para as linhas de baixo até aparecer outra. Campo vazio = "". Não invente nada que não esteja na imagem.';
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:pfAnthropicHeaders(apiKey),
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mt,data:b64}},{type:'text',text:prompt}]}]})});
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mt,data:b64}},{type:'text',text:pedidoIA}]}]})});
     var data=await resp.json();
     if(data.error)throw new Error(data.error.message||'erro na leitura');
     if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Área Técnica — cadastrar item por print',data.usage);

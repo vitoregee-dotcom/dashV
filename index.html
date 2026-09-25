@@ -1879,7 +1879,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2053</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2054</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2032,7 +2032,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2053</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2054</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -26306,7 +26306,7 @@ async function pfPullPlanilhas(){
     // _onDash aqui só decide se o cálculo pesado roda "na hora" (usuário já
     // está mesmo olhando o Dashboard) ou fica adiado/silencioso -- nunca mais
     // força a TELA a aparecer sozinha.
-    var _onDash=(_pfCurrentView==='dash');
+    var _onDash=pfEstaNoDashDeVerdade(); // v115.2054
     document.body.classList.remove('no-data');document.body.classList.add('has-data');
     // v115.818 - Bug real encontrado (a pedido do Vitor: Dashboard vazando
     // embaixo da tela de Vendas): essa linha de cima roda toda vez que a
@@ -27369,7 +27369,7 @@ async function lpSalvarSupabase(){
         if(!dashboardRendered && typeof allItems !== 'undefined' && allItems.length > 0){
           dashboardRendered = true;
           clearInterval(dashMonitor);
-          var _onDashNow=(_pfCurrentView==='dash');
+          var _onDashNow=pfEstaNoDashDeVerdade(); // v115.2054
           // v115.1610 - BUG corrigido (Vitor: "Pq o dash as vezes não
           // aparece?", ao abrir o app/F5): quando o usuário já clica no
           // Dashboard ANTES do carregamento em segundo plano terminar
@@ -62471,9 +62471,23 @@ function ccBuscaGeralAbrir(fam,codigo){
   _ccFiltro.texto=codigo||'';
   ccRender();
 }
+// v115.2054 - A pedido do Vitor (print: painel de Estoque aparecendo embaixo de Componentes Cardan): se a tela de
+// Componentes está sendo desenhada, a tela ativa É a Área Técnica -- acerta o estado se algum caminho chegou aqui sem
+// passar pelo pfNavigate (o body ficava com pf-view-dash e a regra CSS mostrava o #dash junto).
+function ccGarantirTelaAreaTecnica(){
+  try{
+    if(typeof _pfCurrentView!=='undefined'&&_pfCurrentView==='dash'){
+      _pfCurrentView='area_tecnica';
+      document.body.classList.remove('pf-view-dash');document.body.classList.add('pf-outra-view');
+      var d=document.getElementById('dash');if(d)d.style.setProperty('display','none','important');
+      var u=document.getElementById('upSec');if(u)u.style.setProperty('display','none','important');
+    }
+  }catch(e){}
+}
 function ccRender(){
   var el=document.getElementById('areaTecnicaBody');
   if(!el) return;
+  ccGarantirTelaAreaTecnica(); // v115.2054
   if(!_ccFamiliaAtual){
     var cardsHtml=CC_FAMILIAS.map(function(f){
       var _lf=(ccLoad()[f.key]||[]),count=_lf.length,_pk={};_lf.forEach(function(it){if(it)_pk[it.substitui||it.similar||it.codigo]=1;});var pecas=Object.keys(_pk).length; // v115.2032
@@ -71888,6 +71902,15 @@ function pfBaixarBlobPdf(blob,filename){
 
 var PF_THEME_KEY = 'pf_theme_v1';
 var _pfToolsOpen = false;
+// v115.2054 - A pedido do Vitor (print: painel de Estoque aparecendo embaixo de Componentes Cardan): _pfCurrentView só
+// muda pelo pfNavigate; entrar numa tela por atalho fixado (ex: família de Componentes) troca só currentView. O
+// monitor do estoque, ao terminar de carregar, via _pfCurrentView ainda 'dash' e reexibia o painel. Agora é "no Dash"
+// só quando as DUAS dizem dash.
+function pfEstaNoDashDeVerdade(){
+  if(_pfCurrentView!=='dash')return false;
+  try{if(typeof currentView!=='undefined'&&currentView&&currentView!=='dash')return false;}catch(e){}
+  return true;
+}
 var _pfCurrentView = null; // null = ainda não navegou pra lugar nenhum (tela azul de início) -- antes começava como 'dash', o que fazia rotinas de fundo (tipo o dashMonitor) acharem que o usuário já estava olhando o Dashboard e forçá-lo a aparecer sozinho
 
 // ── Tema ─────────────────────────────────────────────────────────

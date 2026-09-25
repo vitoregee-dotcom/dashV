@@ -48750,15 +48750,27 @@ function relRegrasLinhaNova(){
 }
 function relRegrasSalvarDaTela(){
   var m=document.getElementById('relRegrasModal');if(!m)return;
-  var antigas=relRegrasLoad(),out=[];
+  var antigas=relRegrasLoad(),out=[],incompletas=[];
   m.querySelectorAll('[data-regra]').forEach(function(row,k){
     var sp=function(v){return String(v||'').split(',').map(function(x){return x.trim().toUpperCase();}).filter(Boolean);};
     var a=sp(row.querySelector('[data-k=a]').value),b=sp(row.querySelector('[data-k=b]').value);
     var tipo=(row.querySelector('[data-k=tipo]')||{}).value||'ab',fam=(row.querySelector('[data-k=familia]')||{}).value||'';
-    if(!a.length||(tipo!=='entre'&&!b.length)||(tipo==='entre'&&a.length<2))return;
+    // v115.2037 - A pedido do Vitor ("coloquei a regra mas não salvou"): linha incompleta era descartada em
+    // silêncio. "Todas montam entre si" agora junta as duas colunas (o que foi digitado em B antes de trocar o
+    // tipo não se perde) e linha incompleta com algo digitado avisa e não salva, em vez de sumir.
+    if(tipo==='entre'){b.forEach(function(x){if(a.indexOf(x)<0)a.push(x);});}
+    if(!a.length&&!b.length)return;
+    if(!a.length||(tipo!=='entre'&&!b.length)||(tipo==='entre'&&a.length<2)){
+      incompletas.push(row);row.style.outline='2px solid #C00000';row.style.borderRadius='6px';return;
+    }
+    row.style.outline='';
     var idx=row.getAttribute('data-regra');var ant=idx!=='novo'?antigas[+idx]:null;
     out.push({id:(ant&&ant.id)||('r'+Date.now()+'_'+k),tipo:tipo,familia:fam,a:a,b:tipo==='entre'?[]:b,ativo:row.querySelector('[data-k=ativo]').checked});
   });
+  if(incompletas.length){
+    pfAlert('⚠️ '+incompletas.length+' regra(s) incompleta(s) (em vermelho): "A monta com B" precisa das duas colunas; "Todas montam entre si" precisa de pelo menos 2 peças separadas por vírgula. Nada foi salvo ainda.');
+    return;
+  }
   relRegrasSalvar(out);
   m.remove();
   if(typeof vendasRefresh==='function'&&window._venda)vendasRefresh();

@@ -1879,7 +1879,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2045</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2046</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2032,7 +2032,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2045</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2046</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -21618,7 +21618,7 @@ function pfInfoItemPorCodigo(cod){
           if(equivalenteIt){
             irmaos=lista.filter(function(o){return o&&o.codigo!==it.codigo&&(o.substitui||o.similar)===equivalenteIt;});
           }
-          return {familia:CC_NOME_SINGULAR[chave],item:it,irmaos:irmaos};
+          return {familia:CC_NOME_SINGULAR[chave],famKey:chave,item:it,irmaos:irmaos}; // v115.2046 - famKey pro clique abrir o card
         }
       }
     }
@@ -63119,13 +63119,17 @@ function ccExecutarBusca(){
     // (Sorocard) e SP-3040 (REI), todos apontando pra "4-40-761". Isso é
     // diferente de "Monta com" (que são OUTRAS peças do conjunto, não a
     // mesma peça).
-    if(equivalenteRec){
+    // v115.2046 - card cuja base é o próprio registro Spicer (sem substitui/similar): os paralelos apontam pro código dele
+    var chaveIrmaos=equivalenteRec||(ccEhLinhaSpicer(rec.linha)?rec.codigo:'');
+    var jaMostrados={};jaMostrados[ccNormCod(rec.codigo)]=1;
+    if(chaveIrmaos){
       try{
         var listaFamiliaAtual=(ccLoad()[_ccFamiliaAtual]||[]);
         var irmaos=listaFamiliaAtual.filter(function(it){
-          return it && it.codigo!==rec.codigo && (it.substitui||it.similar)===equivalenteRec;
+          return it && it.codigo!==rec.codigo && (it.substitui||it.similar)===chaveIrmaos;
         });
         irmaos.forEach(function(irmao){
+          jaMostrados[ccNormCod(irmao.codigo)]=1;
           pillsEquiv.push('<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px">'+(pillPorLinha[irmao.linha]||pillStahl)+'<span>'+pfEscHtml(irmao.codigo)+'</span></span>');
         });
       }catch(eIrmaos){}
@@ -63137,6 +63141,7 @@ function ccExecutarBusca(){
     }
     // v115.1971 - equivalentes trazidos do print de catálogo (ex: IVECO 500053719)
     (rec.equivalentesExtra||[]).forEach(function(eq){
+      if(eq&&jaMostrados[ccNormCod(eq.codigo)])return; // v115.2046 - já aparece como paralelo
       pillsEquiv.push('<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px"><span style="display:inline-block;font-size:9px;font-weight:800;color:#fff;background:#475569;border-radius:4px;padding:2px 7px;min-width:52px;text-align:center;vertical-align:middle">'+pfEscHtml(eq.marca||'ORIGINAL')+'</span><span>'+pfEscHtml(eq.codigo)+(eq.tipo&&eq.tipo!=='EQUIVALENTE'?' <span style="font-size:9px;font-weight:700;color:var(--pf-text-muted)">('+pfEscHtml(eq.tipo.toLowerCase())+')</span>':'')+'</span></span>');
     });
     var equivHtml=pillsEquiv.length?'<div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:4px">'+pillsEquiv.join('')+'</div>':'';
@@ -63196,7 +63201,8 @@ function ccExecutarBusca(){
         var colMap={};
         if(info&&info.item){
           var equivalente=info.item.substitui||info.item.similar;
-          if(equivalente&&equivalente!==c){ todosOsCodigos.push(equivalente); colMap.Spicer=[equivalente]; }
+          // v115.2046 - só vai pra coluna Spicer o que parece código Spicer (8.127.225 é nº Volvo, não Spicer)
+          if(equivalente&&equivalente!==c){ todosOsCodigos.push(equivalente); var eqSp=String(equivalente).split(/\s*\/\s*/).filter(ccPareceSpicerCod); if(eqSp.length)colMap.Spicer=eqSp; }
           var colProprio=LINHA_PARA_COL[(info.item.linha||'').toUpperCase()];
           if(colProprio){ colMap[colProprio]=(colMap[colProprio]||[]).concat([info.item.codigo]); }
           (info.irmaos||[]).forEach(function(irmao){
@@ -63208,7 +63214,9 @@ function ccExecutarBusca(){
         var chaveDedup=familia+'|'+todosOsCodigos.slice().sort().join(',');
         if(vistosMontaCom[chaveDedup])return null;
         vistosMontaCom[chaveDedup]=true;
-        return {familia:familia,colMap:colMap};
+        // v115.2046 - registro Spicer de verdade tem prioridade na coluna Spicer
+        if(colMap.Spicer&&info&&info.item){var spReg=[info.item].concat(info.irmaos||[]).filter(function(o){return ccEhLinhaSpicer(o.linha);}).map(function(o){return o.codigo;});if(spReg.length)colMap.Spicer=spReg.filter(function(v,i,a){return a.indexOf(v)===i;});}
+        return {familia:familia,famKey:info?info.famKey:'',colMap:colMap};
       }).filter(Boolean);
       if(linhasTabela.length){
         // v115.1058 - A pedido do Vitor: colunas mais espaçadas (16px em
@@ -63222,7 +63230,8 @@ function ccExecutarBusca(){
             '<td style="font-size:11.5px;color:#556;padding:6px 16px 6px 0;white-space:nowrap;'+bg+'">'+pfEscHtml(l.familia)+'</td>'+
             COL_ORDEM.map(function(col){
               var vals=l.colMap[col];
-              return '<td style="text-align:center;padding:6px 16px;font-family:monospace;font-size:11.5px;'+bg+(vals?'':';color:#c3cedd')+'">'+(vals?vals.map(pfEscHtml).join('<br>'):'—')+'</td>';
+              // v115.2046 - A pedido do Vitor: clicar no código abre o card daquela peça
+              return '<td style="text-align:center;padding:6px 16px;font-family:monospace;font-size:11.5px;'+bg+(vals?'':';color:#c3cedd')+'">'+(vals?vals.map(function(v){return l.famKey?'<span onclick="event.stopPropagation();ccBuscaGeralAbrir(\''+pfEscJs(l.famKey)+'\',\''+pfEscJs(v)+'\')" title="Abrir o card desta peça" style="cursor:pointer;color:var(--pf-fx-marca,#1F4E79);text-decoration:underline dotted">'+pfEscHtml(v)+'</span>':pfEscHtml(v);}).join('<br>'):'—')+'</td>';
             }).join('')+
           '</tr>';
         }).join('');
@@ -63431,9 +63440,9 @@ async function ccPrintAplLer(file){
     var b64=dataUrl.split(',')[1];
     var pedidoIA='Esta imagem é um print de catálogo de peças (ex: site Spicer) mostrando a APLICAÇÃO de uma peça em veículos e códigos EQUIVALENTES. '+
       'Extraia TODAS as linhas da tabela de aplicação e todos os equivalentes. Responda SÓ com JSON, sem texto antes/depois, no formato: '+
-      '{"marca_catalogo":"","descricao":"","aplicacoes":[{"montadora":"","modelo":"","versao":"","ano_inicial":"","ano_final":"","motor":"","tracao":"","posicao":"","complemento":"","observacao":""}],"equivalentes":[{"marca":"","codigo":"","tipo":""}],"foto_peca":{"x":0,"y":0,"w":0,"h":0}}. '+
+      '{"marca_catalogo":"","codigo":"","descricao":"","aplicacoes":[{"montadora":"","modelo":"","versao":"","ano_inicial":"","ano_final":"","motor":"","tracao":"","posicao":"","complemento":"","observacao":""}],"equivalentes":[{"marca":"","codigo":"","tipo":""}],"foto_peca":{"x":0,"y":0,"w":0,"h":0}}. '+
       // v115.2044 - marca do catálogo do print (logo/site: SPICER, REI, STAHL...) e a descrição do item, em MAIÚSCULO
-      '"marca_catalogo" = fabricante dono do catálogo/site do print (pelo logotipo, ex: SPICER, REI, STAHL, SOROCARD). "descricao" = a descrição do item como está no print, em MAIÚSCULO. '+
+      '"marca_catalogo" = fabricante dono do catálogo/site do print (pelo logotipo, ex: SPICER, REI, STAHL, SOROCARD). "codigo" = o código do item no catálogo do print (coluna Código). "descricao" = a descrição do item como está no print, em MAIÚSCULO. '+
       // v115.1974 - A pedido do Vitor: puxar a foto da peça do print também
       '"foto_peca" = retângulo JUSTO só em volta da FOTO DA PEÇA no print (a foto do produto; sem títulos/abas tipo "Imagem"/"Embalagem", sem textos, sem logotipo, marca d\'água nem ícone), em frações da imagem de 0 a 1 (x,y = canto superior esquerdo; w,h = largura/altura). Se não tiver foto da peça, "foto_peca": null. '+
       // v115.1972 - A pedido do Vitor: o print às vezes traz também
@@ -63579,6 +63588,26 @@ function ccGuardarDescCatalogo(o){
   var nome='Descrição do catálogo'+(o.linha?' ('+o.linha+')':'');
   o.especificacoes=o.especificacoes||[];
   if(!o.especificacoes.some(function(e){return e&&e.nome===nome;}))o.especificacoes.push({nome:nome,valor:o.descricaoCatalogo});
+}
+// v115.2046 - A pedido do Vitor ("8.127.225 não é Spicer, é padrão Volvo"): código de montadora (com ponto, ou só
+// dígitos) não é tratado como Spicer. Spicer: 250-82-31X, 5-310X, 04-895-1, 2508221X, SPL-250-1XS...
+function ccPareceSpicerCod(c){c=String(c||'').trim();return !!c&&!/\./.test(c)&&!/^\d+$/.test(c)&&!/\s/.test(c);}
+// Troca a chave (código principal) de todo o grupo pelo código Spicer; a chave antiga vai pros equivalentes
+// (ORIGINAL se for número de montadora). Não mexe no registro Spicer.
+function ccRechavearGrupoSpicer(arr,chaveAntiga,codSpicer){
+  var n=0,toks=String(chaveAntiga||'').split(/\s*[\/,]\s*| OU /).map(function(t){return t.trim();}).filter(Boolean);
+  arr.forEach(function(o){
+    if(!o||ccEhLinhaSpicer(o.linha)||ccChaveGrupoCC(o)!==chaveAntiga)return;
+    if(o.substitui)o.substitui=codSpicer;else o.similar=codSpicer;
+    o.equivalentesExtra=o.equivalentesExtra||[];
+    toks.forEach(function(t){
+      if(ccNormCod(t)===ccNormCod(o.codigo)||ccNormCod(t)===ccNormCod(codSpicer))return;
+      if(o.equivalentesExtra.some(function(e){return e&&ccNormCod(e.codigo)===ccNormCod(t);}))return;
+      var sp=ccPareceSpicerCod(t);o.equivalentesExtra.push({marca:sp?'SPICER':'ORIGINAL',codigo:t,tipo:sp?'EQUIVALENTE':'ORIGINAL'});
+    });
+    o.ts=Date.now();n++;
+  });
+  return n;
 }
 // Aplica descrição/foto da Spicer em todos os itens do grupo (menos o próprio registro Spicer). Devolve quantos mudaram.
 function ccAplicarSpicerNoGrupo(arr,chave,desc,foto,excecao){
@@ -63784,6 +63813,17 @@ function ccNovoSalvar(){
   if(ehSpicer){
     rec.linha='SPICER';
     var kSp=ccChaveSpicerExistente(data[fam],cod);if(kSp&&kSp!==cod)rec.similar=kSp;
+    else{
+      // v115.2046 - nenhum card tem esse código Spicer: acha a peça pelos equivalentes do print (ex: Spicer 250-82-31X
+      // cita REI S-373, que estava agrupada pelo nº Volvo 8.127.225) e o código Spicer vira o principal dela
+      (rec.equivalentesExtra||[]).some(function(e){
+        var alvoEq=data[fam].find(function(o){return o&&!ccEhLinhaSpicer(o.linha)&&ccNormCod(o.codigo)===ccNormCod(e.codigo);});
+        if(!alvoEq)return false;
+        var nRe=ccRechavearGrupoSpicer(data[fam],ccChaveGrupoCC(alvoEq),cod);
+        if(nRe)msgSp=' '+cod+' virou o código principal de '+nRe+' item(ns) ('+alvoEq.codigo+'...).';
+        return true;
+      });
+    }
   }else{
     var eqSp=(rec.equivalentesExtra||[]).filter(function(e){return ccEhLinhaSpicer(e.marca)&&e.tipo!=='ORIGINAL';});
     if(eqSp.length){
@@ -63796,7 +63836,7 @@ function ccNovoSalvar(){
   data[fam].unshift(rec);
   if(ehSpicer){
     var nSp=ccAplicarSpicerNoGrupo(data[fam],rec.similar||rec.codigo,rec.descricao,rec.fotos&&rec.fotos[0],rec);
-    if(nSp)msgSp=' Foto/descrição da Spicer aplicadas em '+nSp+' item(ns) paralelo(s) da mesma peça.';
+    if(nSp)msgSp+=' Foto/descrição da Spicer aplicadas em '+nSp+' item(ns) paralelo(s) da mesma peça.';
   }
   ccSave(data);
   var m=document.getElementById('ccNovoModal');if(m)m.remove();
@@ -63825,7 +63865,8 @@ function ccPrintAplPrevia(j){
   var apl=(j.aplicacoes||[]).map(function(a){var t=ccPrintAplFormatar(a);return {txt:t,ja:jaTem(t)};}).filter(function(x){return x.txt;});
   var eqs=(j.equivalentes||[]).filter(function(e){return e&&e.codigo;}).map(function(e){return {marca:String(e.marca||'').toUpperCase().trim(),codigo:String(e.codigo).toUpperCase().trim(),tipo:String(e.tipo||'EQUIVALENTE').toUpperCase().trim(),ja:!!eqExist[ccNormAplic(e.codigo)]};});
   var ehSp=ccEhLinhaSpicer(j.marca_catalogo);var descSp=ehSp?String(j.descricao||'').toUpperCase().trim():'';
-  window._ccPrintAplLido={apl:apl,eqs:eqs,spicer:ehSp,descSpicer:descSp};
+  var codSp=ehSp?String(j.codigo||'').toUpperCase().trim():'';if(codSp&&ccMesmoGrupoCC(rec,codSp))codSp=''; // v115.2046 - já é o principal
+  window._ccPrintAplLido={apl:apl,eqs:eqs,spicer:ehSp,descSpicer:descSp,codSpicer:codSp};
   var novosA=apl.filter(function(x){return !x.ja;}).length,novosE=eqs.filter(function(x){return !x.ja;}).length;
   var h='<div style="font-size:13px;margin-bottom:12px;color:var(--pf-text)">Encontrei <b>'+apl.length+'</b> aplicação(ões) — <b style="color:#166534">'+novosA+' nova(s)</b> — e <b>'+eqs.length+'</b> equivalente(s) — <b style="color:#166534">'+novosE+' novo(s)</b> (equivalentes/conversões). Confira, edite se precisar e salve.</div>';
   h+='<div style="font-size:11px;font-weight:800;color:var(--pf-painel-bg,#1c2940);text-transform:uppercase;margin:6px 0">Aplicações</div>';
@@ -63855,6 +63896,7 @@ function ccPrintAplPrevia(j){
       '<div style="font-weight:800;color:#7B2D8B;margin-bottom:4px">🟣 Print da Spicer — ela é a principal</div>'+
       (descSp?'<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="ccPaSpDesc" checked> Trocar a descrição por <b>'+pfEscHtml(descSp)+'</b> <span style="font-size:11px;color:var(--pf-text-muted)">(a atual fica como "Descrição do catálogo")</span></label>':'')+
       (foto?'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:4px"><input type="checkbox" id="ccPaSpFoto" checked> Trocar a foto pela da Spicer</label>':'')+
+      (codSp?'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:4px"><input type="checkbox" id="ccPaSpCod" checked> Usar <b>'+pfEscHtml(codSp)+'</b> como código principal desta peça <span style="font-size:11px;color:var(--pf-text-muted)">(o atual '+pfEscHtml(ccChaveGrupoCC(rec))+' fica como equivalente/original)</span></label>':'')+
     '</div>';
   }
   if(foto&&!ehSp){
@@ -63930,6 +63972,8 @@ function ccPrintAplSalvar(){
     if(spDesc&&alvo.descricao!==spDesc){if(!ccEhLinhaSpicer(alvo.linha))ccGuardarDescCatalogo(alvo);alvo.descricao=spDesc;alvo.descSpicer=true;}
     alvo.ts=Date.now();
   });
+  var cbSpC=document.getElementById('ccPaSpCod'); // v115.2046 - código Spicer vira o principal do grupo
+  if(lido.codSpicer&&cbSpC&&cbSpC.checked)ccRechavearGrupoSpicer(ach.arr,ccChaveGrupoCC(rec),lido.codSpicer);
   ccSave(ach.data);
   var m=document.getElementById('ccPrintAplModal');if(m)m.remove();
   var msgF='✓ '+addA+' aplicação(ões) e '+addE+' equivalente(s)/conversão(ões) juntados'+(alvos.length>1?' (no item e em '+(alvos.length-1)+' relacionado(s))':'')+(addF?' · foto colocada em '+addF+' card(s)':'');

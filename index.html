@@ -1879,7 +1879,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2035</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2036</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2032,7 +2032,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2035</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2036</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -49227,14 +49227,31 @@ function vendasBuscarPorSerieInput(){
 // estoque (a mesma do Dashboard, vem da aba/planilha de cada item). Botões de família no topo filtram;
 // cada grupo abre/fecha e tem "selecionar grupo". Componentes cardan ficam na família deles, ordenados
 // por tipo (cruzeta, luva, ponteira...). Item que não está no estoque cai em "SEM FAMÍLIA".
+// v115.2036 - A pedido do Vitor ("ainda travando no campo série/modelo"): a família de cada resultado era
+// descoberta com vendasBuscarItem() -- busca completa (variantes + equivalências) -- uma por peça; com
+// peças que não estão no estoque isso levava ~8s por letra. Agora usa um índice código -> família montado
+// UMA vez a partir das linhas da planilha (refeito só quando a planilha muda).
+function vendasFamiliaIndice(){
+  var rows=[];try{rows=vendasTodasLinhas()||[];}catch(e){}
+  var c=window._pfFamiliaIndice;
+  if(c&&c.rows===rows&&c.n===rows.length)return c;
+  var porRef={},porRefMarca={};
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i];if(!r||!r.familia)continue;
+    var ref=String(r.ref||r.REF||r.Ref||r.Referencia||r.referencia||r.REFERENCIA||r.codigo||r.Codigo||r.CODIGO||'').toUpperCase().replace(/[\s\-\.]/g,'');
+    if(!ref)continue;
+    var fam=String(r.familia).toUpperCase(),mk=String(r.marca||r.Marca||r.MARCA||'').toUpperCase();
+    if(!porRef[ref])porRef[ref]=fam;
+    if(mk&&!porRefMarca[ref+'|'+mk])porRefMarca[ref+'|'+mk]=fam;
+  }
+  c={rows:rows,n:rows.length,porRef:porRef,porRefMarca:porRefMarca};window._pfFamiliaIndice=c;return c;
+}
 function vendasSerieFamiliaDe(codigo,marca){
   try{
-    var f=vendasBuscarItem(String(codigo||''));
-    if(f&&f.length){
-      var m=String(marca||'').toUpperCase();
-      var hit=f.find(function(x){return String(x.marca||'').toUpperCase()===m&&x.familia;})||f.find(function(x){return x.familia;});
-      if(hit&&hit.familia)return String(hit.familia).toUpperCase();
-    }
+    var ix=vendasFamiliaIndice();
+    var ref=String(codigo||'').toUpperCase().replace(/[\s\-\.]/g,'');if(!ref)return '';
+    var mk=String(marca||'').toUpperCase();
+    return (mk&&ix.porRefMarca[ref+'|'+mk])||ix.porRef[ref]||'';
   }catch(e){}
   return '';
 }

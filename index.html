@@ -1879,7 +1879,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2030</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2031</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2032,7 +2032,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2030</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2031</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -48465,7 +48465,7 @@ function vendasCcRelHtml(it){
   var titulo='<div style="font-size:11px;font-weight:700;color:#7B2D8B;text-transform:uppercase;margin-bottom:8px">🔩 Monta com (Área Técnica)</div>';
   if(!lista.length)return titulo+'<div style="font-size:12px;color:var(--pf-fx-textoSuave,#8a9ab0);margin-bottom:14px">Nada cadastrado no "Monta com" pra esse código.</div>';
   var ix=vendasCcRelIndice();
-  var LINHAS=['STAHL','SOROCARD','REI'];
+  var LINHAS=['STAHL','SOROCARD','REI','LNG']; // v115.2031 - LNG
   return titulo+lista.map(function(x){
     var rep=x.g.itens[0];
     var cc=vendasCcCodigoCotacao(rep,ix.dados[x.g.fam]);
@@ -61972,6 +61972,96 @@ function ccAbrirFamilia(key, modo){
 // extras, ignorando traço/ponto/espaço, a partir de 3 caracteres. Se não
 // bater código (ou tiver espaço no texto), procura também nas aplicações
 // (veículo). Clicar abre a família já filtrada pelo código.
+// v115.2031 - A pedido do Vitor: catálogo LNG de cruzetas (PDF MAR/2020) lido fora do sistema e salvo em
+// data/lng-cruzetas.json (158 cruzetas: aplicações, medidas, similares, códigos originais, montagem) +
+// fotos em fotos-componentes-cardan/lng/ (fora do componentes_cardan_v1, pra não pesar o sync). Aqui o admin
+// importa: cada cruzeta LNG vira um registro linha LNG, ligado à mesma peça que já existe (mesmo "similar"
+// do STAHL/SPICER/REI equivalente) -- assim aparece junto nos cards, no Monta com e no 🔗 da cotação. As que
+// não têm par entram como peça nova. Resumo antes de gravar; marca a importação pra não repetir.
+function ccImportarLngBotaoHtml(){
+  var adm=(typeof ccDesenhoEhAdmin==='function')&&ccDesenhoEhAdmin();if(!adm)return '';
+  var d={};try{d=ccLoad()||{};}catch(e){}
+  if(d.importacoes&&d.importacoes.lng_cruzetas_2020)return '';
+  return '<div style="max-width:760px;margin-bottom:16px;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px dashed #1F4E79;border-radius:10px;background:#F4F8FC">'+
+    '<span style="font-size:12.5px;flex:1">📘 <b>Catálogo LNG — Cruzetas (MAR/2020)</b> pronto pra importar: 158 cruzetas com aplicações, medidas, similares e fotos.</span>'+
+    '<button class="pfBtn pfBtnAzul" onclick="ccImportarLngAbrir()">📥 Importar catálogo LNG</button></div>';
+}
+function ccNormCod(x){return String(x||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+async function ccImportarLngPlano(){
+  var r=await fetch('data/lng-cruzetas.json',{cache:'no-store'});if(!r.ok)throw new Error('não achei data/lng-cruzetas.json');
+  var cat=await r.json();
+  var dados=ccLoad()||{};var lista=dados.cruzetas=dados.cruzetas||[];
+  var porCod={},porTok={};
+  lista.forEach(function(it){
+    if(!it)return;var eq=it.substitui||it.similar||'';
+    porCod[ccNormCod(it.codigo)]=it;
+    String(eq).split(/[\/,]| OU /).forEach(function(t){t=ccNormCod(t);if(t&&!porTok[t])porTok[t]=it;});
+    if(!porTok[ccNormCod(it.codigo)])porTok[ccNormCod(it.codigo)]=it;
+  });
+  var plano={novos:[],ligados:0,viaStahl:0,viaDana:0,viaOutro:0,semPar:0,atualizados:0,gruposSemFotoGanham:0,dados:dados};
+  var gruposComFoto={};
+  lista.forEach(function(it){var eq=it&&(it.substitui||it.similar);if(eq&&((it.fotos&&it.fotos.length)||it.foto))gruposComFoto[eq]=1;});
+  cat.itens.forEach(function(L){
+    var ex=lista.find(function(it){return it&&String(it.linha||'').toUpperCase()==='LNG'&&ccNormCod(it.codigo)===ccNormCod(L.codigo);});
+    var par=null,via='';
+    (L.equivalentes||[]).some(function(e){if(e.marca==='STAHL'){var x=porCod[ccNormCod(e.codigo)];if(x){par=x;via='stahl';return true;}}return false;});
+    if(!par)(L.equivalentes||[]).some(function(e){if(e.marca==='DANA'||e.marca==='SPICER'){var x=porTok[ccNormCod(e.codigo)];if(x){par=x;via='dana';return true;}}return false;});
+    if(!par)(L.equivalentes||[]).some(function(e){if(e.marca==='REI'||e.marca==='SOROCARD'){var x=porCod[ccNormCod(e.codigo)];if(x){par=x;via='outro';return true;}}return false;});
+    var dana=(L.equivalentes||[]).filter(function(e){return e.marca==='DANA'||e.marca==='SPICER';}).map(function(e){return e.codigo;});
+    var eqKey=par?(par.substitui||par.similar||par.codigo):(dana[0]||'');
+    var extras=(L.equivalentes||[]).filter(function(e){return e.marca!=='DANA'&&e.marca!=='SPICER';}).map(function(e){return {marca:e.marca,codigo:e.codigo,tipo:'similar'};});
+    dana.forEach(function(c,i){if(i>0||eqKey!==c)extras.push({marca:'SPICER',codigo:c,tipo:'similar'});});
+    (L.originais||[]).forEach(function(o){extras.push({marca:'ORIGINAL',codigo:o,tipo:'original'});});
+    var espec=[];if((L.montagem||[]).length)espec.push({nome:'Monta com (LNG)',valor:L.montagem.join(' | ')});if(L.rosca)espec.push({nome:'Rosca',valor:L.rosca});
+    var rec={codigo:L.codigo,linha:'LNG',descricao:L.descricao,similar:eqKey,veiculos:(L.veiculos||[]).slice(),equivalentesExtra:extras,especificacoes:espec,fotos:L.foto?[L.foto]:[],origem:'Catálogo LNG Cruzetas MAR/2020'};
+    Object.keys(L.medidas||{}).forEach(function(k){rec[k]=L.medidas[k];});
+    if(par){plano.ligados++;if(via==='stahl')plano.viaStahl++;else if(via==='dana')plano.viaDana++;else plano.viaOutro++;}else plano.semPar++;
+    if(eqKey&&L.foto&&!gruposComFoto[eqKey]){plano.gruposSemFotoGanham++;gruposComFoto[eqKey]=1;}
+    plano.novos.push({rec:rec,existente:ex,par:par});
+  });
+  return plano;
+}
+async function ccImportarLngAbrir(){
+  var plano;
+  try{plano=await ccImportarLngPlano();}catch(e){pfAlert('Não consegui ler o catálogo LNG: '+e.message);return;}
+  window._ccLngPlano=plano;
+  var ex=plano.novos.slice(0,6).map(function(n){return '<tr><td style="padding:4px 8px;font-family:monospace;font-weight:700">'+pfEscHtml(n.rec.codigo)+'</td><td style="padding:4px 8px">'+(n.par?('↔ '+pfEscHtml(n.par.codigo)+' <span style="color:#8a9ab0">('+pfEscHtml(n.par.linha||'')+')</span>'):'<span style="color:#8a5a00">peça nova</span>')+'</td><td style="padding:4px 8px;font-size:11px;color:#607080">'+pfEscHtml((n.rec.veiculos[0]||'').slice(0,50))+'</td></tr>';}).join('');
+  var ov=document.createElement('div');ov.id='ccLngModal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99995;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:620px;width:100%;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3)">'+
+    '<div style="background:var(--pf-painel-bg,#1c2940);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center"><b>📥 Importar catálogo LNG — Cruzetas</b><button onclick="document.getElementById(\'ccLngModal\').remove()" style="background:none;border:none;cursor:pointer">'+pfXGlossyHtml(20)+'</button></div>'+
+    '<div style="padding:16px;font-size:13px;line-height:1.7">'+
+      '<div><b>'+plano.novos.length+'</b> cruzetas LNG no catálogo</div>'+
+      '<div>🔗 <b>'+plano.ligados+'</b> ligadas a uma peça que já existe <span style="color:#607080">('+plano.viaStahl+' pelo Stahl, '+plano.viaDana+' pelo Dana/Spicer'+(plano.viaOutro?', '+plano.viaOutro+' por REI/Sorocard':'')+')</span></div>'+
+      '<div>🆕 <b>'+plano.semPar+'</b> sem par no sistema — entram como peça nova</div>'+
+      '<div>📷 <b>'+plano.gruposSemFotoGanham+'</b> peças que ainda não tinham foto passam a ter (foto da LNG)</div>'+
+      '<div style="color:#607080;font-size:12px">Cada cruzeta leva: aplicações, medidas (A/B/C/D), similares (Stahl, Mecpar, Inpel...), códigos originais e montagem (abraçadeira/grampo LNG).</div>'+
+      '<table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;background:#F7F9FC;border-radius:8px">'+ex+'</table>'+
+    '</div>'+
+    '<div style="padding:10px 16px;border-top:1px solid #e8edf4;display:flex;justify-content:flex-end;gap:8px"><button onclick="document.getElementById(\'ccLngModal\').remove()" class="pfBtn pfBtnClaro">Cancelar</button><button onclick="ccImportarLngAplicar()" class="pfBtn pfBtnVerde">✓ Importar</button></div>'+
+  '</div>';
+  document.body.appendChild(ov);
+}
+function ccImportarLngAplicar(){
+  var plano=window._ccLngPlano;if(!plano)return;
+  var dados=plano.dados,lista=dados.cruzetas;
+  plano.novos.forEach(function(n){
+    if(n.existente){
+      var e=n.existente;(n.rec.veiculos||[]).forEach(function(v){e.veiculos=e.veiculos||[];if(e.veiculos.indexOf(v)<0)e.veiculos.push(v);});
+      ['similar','descricao','A','B','C','D','E','F'].forEach(function(k){if(!e[k]&&n.rec[k])e[k]=n.rec[k];});
+      if(!(e.fotos&&e.fotos.length)&&n.rec.fotos.length)e.fotos=n.rec.fotos;
+      if(!e.equivalentesExtra||!e.equivalentesExtra.length)e.equivalentesExtra=n.rec.equivalentesExtra;
+      if(!e.especificacoes||!e.especificacoes.length)e.especificacoes=n.rec.especificacoes;
+    } else lista.push(n.rec);
+  });
+  dados.importacoes=dados.importacoes||{};dados.importacoes.lng_cruzetas_2020=Date.now();
+  ccSave(dados);
+  if(typeof pfSyncPush==='function')try{pfSyncPush([CC_KEY]);}catch(e){}
+  var m=document.getElementById('ccLngModal');if(m)m.remove();
+  window._vendasCcRelCache=null;
+  pfAlert('✅ Catálogo LNG importado: '+plano.novos.length+' cruzetas ('+plano.ligados+' ligadas a peças existentes, '+plano.semPar+' novas).');
+  if(typeof ccRender==='function')ccRender();
+}
 function ccBuscaGeralHtml(){
   var v=window._ccBuscaGeralTxt||'';
   if(v)setTimeout(function(){ccBuscaGeralExecutar(v);},0);
@@ -62066,6 +62156,7 @@ function ccRender(){
       '</div>'+
       '<div style="font-size:12px;color:var(--pf-text-muted);margin-bottom:16px">Escolha o tipo de peça pra gerar um gabarito (enviar ao cliente preencher) ou buscar pelo código a partir das medidas já preenchidas</div>'+
       ccBuscaGeralHtml()+ // v115.2022 - busca em todas as famílias
+      ccImportarLngBotaoHtml()+ // v115.2031
       '<div id="ccFamiliasGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:760px">'+cardsHtml+'</div>'+
       '</div>';
     pfArrastavelAplicar(document.getElementById('ccFamiliasGrid'),'cc_familias');
@@ -62480,6 +62571,8 @@ function ccBuscaHtml(familia){
         '<option value=""'+(!_ccFiltro.linha?' selected':'')+'>Linha: todas</option>'+
         '<option value="STAHL"'+(_ccFiltro.linha==='STAHL'?' selected':'')+'>STAHL</option>'+
         '<option value="REI"'+(_ccFiltro.linha==='REI'?' selected':'')+'>REI</option>'+
+        '<option value="SOROCARD"'+(_ccFiltro.linha==='SOROCARD'?' selected':'')+'>SOROCARD</option>'+
+        '<option value="LNG"'+(_ccFiltro.linha==='LNG'?' selected':'')+'>LNG</option>'+ // v115.2031
       '</select>'+
     '</div>'+
     '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">'+
@@ -62771,7 +62864,8 @@ function ccExecutarBusca(){
     var pillRei='<span style="display:inline-block;font-size:9px;font-weight:800;color:#fff;background:#E67E22;border-radius:4px;padding:2px 7px;min-width:52px;text-align:center;vertical-align:middle">REI</span>';
     var pillSorocard='<span style="display:inline-block;font-size:9px;font-weight:800;color:#fff;background:#0D7377;border-radius:4px;padding:2px 7px;min-width:52px;text-align:center;vertical-align:middle">SOROCARD</span>';
     var pillSpicer='<span style="display:inline-block;font-size:9px;font-weight:800;color:#fff;background:#7B2D8B;border-radius:4px;padding:2px 7px;min-width:52px;text-align:center;vertical-align:middle">SPICER</span>';
-    var pillPorLinha={STAHL:pillStahl,REI:pillRei,SOROCARD:pillSorocard,SPICER:pillSpicer};
+    var pillLng='<span style="display:inline-block;font-size:9px;font-weight:800;color:#fff;background:#B3231C;border-radius:4px;padding:2px 7px;min-width:52px;text-align:center;vertical-align:middle">LNG</span>'; // v115.2031
+    var pillPorLinha={STAHL:pillStahl,REI:pillRei,SOROCARD:pillSorocard,SPICER:pillSpicer,LNG:pillLng};
     // v115.1057 - A pedido do Vitor: reorganização do cabeçalho pra
     // aproveitar melhor o espaço --
     // (1) descrição (quando tiver) vira sua própria linha, embaixo do
@@ -62786,6 +62880,7 @@ function ccExecutarBusca(){
     //     sempre começando por Spicer e Stahl.
     var pillsEquiv=[];
     var equivalenteRec=rec.substitui||rec.similar;
+    if(!equivalenteRec&&rec.linha==='LNG')pillsEquiv.push('<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px">'+pillLng+'<span>'+pfEscHtml(rec.codigo)+'</span></span>'); // v115.2031 - peça nova da LNG, sem par
     if(equivalenteRec&&rec.linha){
       // Título virou o Spicer -> mostra o código próprio (STAHL ou REI) como equivalência
       pillsEquiv.push('<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px">'+(pillPorLinha[rec.linha]||pillStahl)+'<span>'+pfEscHtml(rec.codigo)+'</span></span>');
@@ -62822,7 +62917,7 @@ function ccExecutarBusca(){
     // salvo no item), ordem fixa Spicer primeiro, Stahl em seguida.
     var cruzetaHtml='';
     if(rec.cruzetaNumero){
-      var ORDEM_CRUZETA=['SPICER','STAHL','SOROCARD','REI'];
+      var ORDEM_CRUZETA=['SPICER','STAHL','SOROCARD','REI','LNG']; // v115.2031 - LNG
       var codigosPorLinha={};
       var infoCruzeta=pfInfoItemPorCodigo(rec.cruzetaNumero);
       if(infoCruzeta&&infoCruzeta.item){
@@ -62863,9 +62958,9 @@ function ccExecutarBusca(){
       // que foi combinado: uma linha por peça relacionada, uma coluna por
       // catálogo, "—" discreto onde não tem código, tabela de verdade (não
       // largura fixa) pra cada coluna crescer só o que o conteúdo pedir.
-      var COL_ORDEM=['Spicer','Stahl','Sorocard','REI'];
-      var COL_LABEL={Spicer:'Spicer',Stahl:'Stahl',Sorocard:'Sorocard',REI:'REI'};
-      var LINHA_PARA_COL={STAHL:'Stahl',REI:'REI',SOROCARD:'Sorocard',SPICER:'Spicer'};
+      var COL_ORDEM=['Spicer','Stahl','Sorocard','REI','LNG']; // v115.2031 - LNG
+      var COL_LABEL={Spicer:'Spicer',Stahl:'Stahl',Sorocard:'Sorocard',REI:'REI',LNG:'LNG'};
+      var LINHA_PARA_COL={STAHL:'Stahl',REI:'REI',SOROCARD:'Sorocard',SPICER:'Spicer',LNG:'LNG'};
       var vistosMontaCom={};
       var linhasTabela=rec.montaCom.map(function(c){
         var info=pfInfoItemPorCodigo(c);

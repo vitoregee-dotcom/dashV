@@ -1879,7 +1879,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2034</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2035</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2032,7 +2032,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2034</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2035</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -47408,13 +47408,7 @@ function vendasRenderCotacao(el){
   // Pré-computa o mapa de itens relacionados UMA vez por render (antes rodava
   // relacBuscar() -- que relê e reprocessa o localStorage inteiro -- 2x por
   // item, então numa cotação com muitos itens isso ficava bem lento)
-  var _relacMap={};
-  relacLoad().forEach(function(r){
-    if(!r.id&&!relRegraDoPar(r.descA,r.descB,relFamiliaCache(r.codigoA)))return; // v115.2030 - ligação de catálogo só conta se bater numa regra
-    var a=(r.codigoA||'').toUpperCase(),b=(r.codigoB||'').toUpperCase();
-    if(a){(_relacMap[a]=_relacMap[a]||[]).push({codigo:r.codigoB,desc:r.descB});}
-    if(b){(_relacMap[b]=_relacMap[b]||[]).push({codigo:r.codigoA,desc:r.descA});}
-  });
+  var _relacMap=relacMapaFiltrado(); // v115.2035 - montado uma vez e guardado (antes: a cada atualização da cotação)
   function relacBuscarFast(codigo){return _relacMap[(codigo||'').toUpperCase()]||[];}
 
   var itensRows=(v.itens||[]).map(function(it,i){
@@ -48292,7 +48286,27 @@ function dashAplicBuscaSet(termoBruto){
 // Igual ao recurso "Produtos Relacionados" do Sorocard: marca pares de itens
 // que costumam ser usados/trocados juntos, pra ir sugerindo com o tempo.
 function relacLoad(){return cadLoad(RELAC_KEY);}
-function relacSave(list){cadSave(RELAC_KEY,list);}
+function relacSave(list){cadSave(RELAC_KEY,list);window._relacMapaCache=null;window._relacParesCache=null;}
+// v115.2035 - mapa código -> relacionados visíveis (manuais + catálogo que bate regra), guardado até mudar
+// ligação/regra (ou 5 min, pra pegar o que veio por sincronização).
+function relacParesTodos(){
+  var c=window._relacParesCache;if(c&&(Date.now()-c.t)<300000&&!c.sujo)return c.p;
+  var p={};try{relacLoad().forEach(function(r){p[relParKey(r.codigoA,r.codigoB)]=1;});}catch(e){}
+  window._relacParesCache={t:Date.now(),p:p};return p;
+}
+function relacMapaFiltrado(){
+  var c=window._relacMapaCache,rt=(window._relRegrasVer||0);
+  if(c&&c.rt===rt&&(Date.now()-c.t)<300000)return c.m;
+  var m={};
+  relacLoad().forEach(function(r){
+    if(!r.id&&!relRegraDoPar(r.descA,r.descB,function(){return relFamiliaCache(r.codigoA);}))return;
+    var a=(r.codigoA||'').toUpperCase(),b=(r.codigoB||'').toUpperCase();
+    if(a){(m[a]=m[a]||[]).push({codigo:r.codigoB,desc:r.descB});}
+    if(b){(m[b]=m[b]||[]).push({codigo:r.codigoA,desc:r.descA});}
+  });
+  window._relacMapaCache={t:Date.now(),rt:rt,m:m};
+  return m;
+}
 function relacBuscar(codigo){
   var cod=(codigo||'').toUpperCase();
   if(!cod)return [];
@@ -48526,7 +48540,7 @@ function relCoocorrencia(){
 function relCandidatos(soCodigos){
   var co=relCoocorrencia(),dec=relDecisoesMapa(),out=[];
   var filtro=null;if(soCodigos){filtro={};soCodigos.forEach(function(x){filtro[relNorm(x)]=1;});}
-  var jaRel={};try{relacLoad().forEach(function(r){jaRel[relParKey(r.codigoA,r.codigoB)]=1;});}catch(e){}
+  var jaRel=relacParesTodos(); // v115.2035 - cache (antes relia as 12 mil ligações a cada atualização)
   Object.keys(co.nPar).forEach(function(pk){
     var n=co.nPar[pk];if(n<REL_MIN_VEZES)return;
     var ab=pk.split('||');if(filtro&&!(filtro[ab[0]]&&filtro[ab[1]]))return;
@@ -48602,18 +48616,19 @@ var REL_REGRAS_PADRAO=[
 ];
 function relTxtNorm(x){return String(x||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').replace(/\b(DE|DA|DO|DOS|DAS)\b/g,' ').replace(/\s+/g,' ').trim();}
 function relRegrasLoad(){try{var raw=pfSafeGetItem(REL_REGRAS_KEY,'');if(!raw)return REL_REGRAS_PADRAO.slice();var l=JSON.parse(raw);return Array.isArray(l)?l:REL_REGRAS_PADRAO.slice();}catch(e){return REL_REGRAS_PADRAO.slice();}}
-function relRegrasSalvar(l){pfSafeSetItem(REL_REGRAS_KEY,JSON.stringify(l));window._relRegrasCache=null;if(typeof pfSyncPush==='function')try{pfSyncPush([REL_REGRAS_KEY]);}catch(e){}}
+function relRegrasSalvar(l){pfSafeSetItem(REL_REGRAS_KEY,JSON.stringify(l));window._relRegrasCache=null;window._relRegrasVer=(window._relRegrasVer||0)+1;window._relacMapaCache=null;if(typeof pfSyncPush==='function')try{pfSyncPush([REL_REGRAS_KEY]);}catch(e){}}
 function relRegrasAtivas(){var c=window._relRegrasCache;if(c&&(Date.now()-c.t)<5000)return c.l;var l=relRegrasLoad().filter(function(r){return r&&r.ativo!==false;}).map(function(r){return {id:r.id,tipo:r.tipo||'ab',familia:relTxtNorm(r.familia||''),a:(r.a||[]).map(relTxtNorm).filter(Boolean),b:(r.b||[]).map(relTxtNorm).filter(Boolean)};});window._relRegrasCache={t:Date.now(),l:l};return l;}
 function relComeca(desc,termos){for(var i=0;i<termos.length;i++){var t=termos[i];if(desc===t||desc.indexOf(t+' ')===0)return t;}return '';}
 function relRegraDoPar(descA,descB,familia){
   var a=relTxtNorm(descA),b=relTxtNorm(descB);if(!a||!b)return null;
-  var fam=relTxtNorm(familia||'');
+  // v115.2035 - família só é buscada (vendasBuscarItem, pesado) quando uma regra de família bate nos termos --
+  // antes era buscada pra CADA ligação de catálogo (12 mil+) e travava a cotação.
+  var famCache=null,famOk=function(r){if(!r.familia)return true;if(famCache===null){var f=(typeof familia==='function')?familia():familia;famCache=relTxtNorm(f||'');}return !famCache||famCache===r.familia;};
   var rs=relRegrasAtivas();
   for(var i=0;i<rs.length;i++){var r=rs[i];
-    if(r.familia&&fam&&r.familia!==fam)continue; // família só filtra quando a da peça é conhecida
-    if(r.tipo==='entre'){var c1=relComeca(a,r.a),c2=relComeca(b,r.a);if(c1&&c2&&c1!==c2)return {id:r.id,nome:c1+' × '+c2+(r.familia?' ('+r.familia.toLowerCase()+')':'')};continue;}
-    var x1=relComeca(a,r.a),y1=relComeca(b,r.b);if(x1&&y1)return {id:r.id,nome:x1+' × '+y1};
-    var x2=relComeca(b,r.a),y2=relComeca(a,r.b);if(x2&&y2)return {id:r.id,nome:x2+' × '+y2};
+    if(r.tipo==='entre'){var c1=relComeca(a,r.a),c2=relComeca(b,r.a);if(c1&&c2&&c1!==c2&&famOk(r))return {id:r.id,nome:c1+' × '+c2+(r.familia?' ('+r.familia.toLowerCase()+')':'')};continue;}
+    var x1=relComeca(a,r.a),y1=relComeca(b,r.b);if(x1&&y1&&famOk(r))return {id:r.id,nome:x1+' × '+y1};
+    var x2=relComeca(b,r.a),y2=relComeca(a,r.b);if(x2&&y2&&famOk(r))return {id:r.id,nome:x2+' × '+y2};
   }
   // bônus: junta que cita a outra peça inteira
   var jA=a.indexOf('JUNTA ')===0,jB=b.indexOf('JUNTA ')===0;
@@ -48635,7 +48650,7 @@ function relRelacionadosListaHtml(it,relacionados){
     var ehA=(r.codigoA||'').toUpperCase()===codU;
     var o={cod:ehA?r.codigoB:r.codigoA,desc:ehA?r.descB:r.descA,meuDesc:ehA?r.descA:r.descB,manual:!!r.id};
     if(o.manual){vis.push(o);return;}
-    var rg=relRegraDoPar(o.meuDesc||it.desc,o.desc,relFamiliaCache(it.codigo));
+    var rg=relRegraDoPar(o.meuDesc||it.desc,o.desc,function(){return relFamiliaCache(it.codigo);});
     if(rg){o.regra=rg.nome;vis.push(o);}else ocultos.push(o);
   });
   var linha=function(o,oculto){

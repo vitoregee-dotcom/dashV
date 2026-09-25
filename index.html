@@ -1879,7 +1879,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2044</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2045</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2032,7 +2032,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2044</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2045</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -63538,6 +63538,25 @@ function ccTemFotoPropria(r){return !!((r.fotos&&r.fotos.length)||r.foto);}
 // substitui/similar); agora foto e descrição também seguem a Spicer. A descrição que o outro catálogo tinha não
 // some -- vai pra descricaoCatalogo + especificação "Descrição do catálogo (MARCA)". Marcas: fotoSpicer/descSpicer.
 function ccEhLinhaSpicer(x){return /^(SPICER|DANA)$/.test(String(x||'').toUpperCase().trim());}
+// v115.2045 - nome curto da marca ("REI AUTO PARTS" -> REI, "DANA SPICER" -> SPICER), pra casar com as pills/linhas do sistema
+function ccNormMarcaCC(m){
+  var u=String(m||'').toUpperCase().trim();if(!u)return '';
+  if(/SPICER|DANA/.test(u))return 'SPICER';
+  var fixas=['STAHL','SOROCARD','LNG','MECPAR','AEMCO','EATON','MERITOR','ORIGINAL'];
+  for(var i=0;i<fixas.length;i++)if(u.indexOf(fixas[i])>=0)return fixas[i];
+  if(/\bREI\b/.test(u))return 'REI';
+  return u;
+}
+// descrições que a Spicer já usa no sistema (registro Spicer ou descrição vinda de print da Spicer), pra IA seguir o mesmo vocabulário
+function ccVocabSpicer(){
+  var d={};try{d=ccLoad()||{};}catch(e){}
+  var vistos={},out=[];
+  Object.keys(CC_NOME_SINGULAR).forEach(function(f){(d[f]||[]).forEach(function(o){
+    if(!o||!o.descricao||!ccPrioSpicer(o))return;var t=String(o.descricao).toUpperCase().trim();
+    if(t.length<=40&&!vistos[t]){vistos[t]=1;out.push('"'+t+'"');}
+  });});
+  return out.slice(0,60).join(', ');
+}
 function ccPrioSpicer(o){return !o?0:(ccEhLinhaSpicer(o.linha)?2:((o.fotoSpicer||o.descSpicer)?1:0));}
 function ccChaveGrupoCC(o){return o?(o.substitui||o.similar||o.codigo||''):'';}
 function ccTokensGrupoCC(k){return String(k||'').split(/[\/,]| OU /).map(ccNormCod).filter(Boolean);}
@@ -63549,6 +63568,9 @@ function ccMesmoGrupoCC(o,chave){
 function ccChaveSpicerExistente(arr,codSpicer){
   var n=ccNormCod(codSpicer);if(!n)return '';
   for(var i=0;i<arr.length;i++){var k=ccChaveGrupoCC(arr[i]);if(k&&(ccNormCod(k)===n||ccTokensGrupoCC(k).indexOf(n)>=0))return k;}
+  // v115.2045 - também pelos códigos Spicer citados nos equivalentes (ex: REI S620 cita 2508221X e 5800310041X; o card
+  // ficou pelo 1º, mas o print da Spicer 58-00310041X tem que cair no mesmo card)
+  for(var j=0;j<arr.length;j++){var o=arr[j];if(o&&(o.equivalentesExtra||[]).some(function(e){return e&&ccEhLinhaSpicer(e.marca)&&ccNormCod(e.codigo)===n;}))return ccChaveGrupoCC(o);}
   return String(codSpicer).toUpperCase().trim();
 }
 function ccGuardarDescCatalogo(o){
@@ -63612,7 +63634,9 @@ function ccNovoItem(familia){
         '<div><label style="'+lbl+'">Marca do catálogo</label><input id="ccNovoLinha" list="ccNovoLinhas" style="'+inp+'"><datalist id="ccNovoLinhas"><option>SPICER</option><option>STAHL</option><option>REI</option><option>SOROCARD</option></datalist></div>'+
         '<div><label style="'+lbl+'">Família</label><select id="ccNovoFam" onchange="ccNovoMedidasHtml()" style="'+inp+'">'+famOpts+'</select></div>'+
       '</div>'+
-      '<label style="'+lbl+'">Descrição</label><input id="ccNovoDesc" style="'+inp+'">'+
+      '<label style="'+lbl+'">Descrição <span style="text-transform:none;font-weight:400">(padrão Spicer, curta)</span></label><input id="ccNovoDesc" style="'+inp+'"><div id="ccNovoDescAviso" style="font-size:11.5px;color:#7B2D8B;margin-top:3px"></div>'+
+      // v115.2045 - descrição completa do catálogo fica guardada à parte (aparece no card como especificação)
+      '<label style="'+lbl+'">Descrição do catálogo <span style="text-transform:none;font-weight:400">(texto completo como veio no print)</span></label><input id="ccNovoDescCat" style="'+inp+';color:var(--pf-text-muted)">'+
       '<div id="ccNovoMedidas"></div>'+
       '<label style="'+lbl+'">Especificações <span style="text-transform:none;font-weight:400">(uma por linha — nome: valor)</span></label><textarea id="ccNovoSpecs" rows="4" style="'+inp+';font-family:inherit"></textarea>'+
       '<label style="'+lbl+'">Aplicações <span style="text-transform:none;font-weight:400">(uma por linha)</span></label><textarea id="ccNovoApl" rows="5" style="'+inp+';font-family:inherit"></textarea>'+
@@ -63666,15 +63690,22 @@ async function ccNovoLerPrint(file){
     var mt=(dataUrl.match(/^data:([^;]+)/)||[])[1]||'image/png',b64=dataUrl.split(',')[1];
     var famAtual=(document.getElementById('ccNovoFam')||{}).value;
     var famLista=CC_FAMILIAS.map(function(f){return f.key+' = '+f.label+' (medidas: '+f.campos.map(function(c){return c.k+' = '+c.label;}).join('; ')+'; extra '+f.extraFiltro.k+' = '+f.extraFiltro.label+')';}).join('\n');
+    var vocabSpicer=ccVocabSpicer(); // v115.2045
     var pedidoIA='Este é um print de catálogo de peças (ex: site Spicer) de UMA peça. Extraia os dados pra cadastrar a peça. Responda SÓ com JSON, sem texto antes/depois:\n'+
-      '{"codigo":"","descricao":"","marca_catalogo":"","familia":"","medidas":{},"especificacoes":[{"nome":"","valor":""}],'+
+      '{"codigo":"","descricao":"","descricao_catalogo":"","marca_catalogo":"","familia":"","medidas":{},"especificacoes":[{"nome":"","valor":""}],'+
       '"aplicacoes":[{"montadora":"","modelo":"","versao":"","ano_inicial":"","ano_final":"","motor":"","tracao":"","posicao":"","complemento":"","observacao":""}],'+
       '"equivalentes":[{"marca":"","codigo":"","tipo":""}],"foto_peca":{"x":0,"y":0,"w":0,"h":0}}\n'+
-      'Regras: descricao em MAIÚSCULO. marca_catalogo = fabricante do catálogo (ex: SPICER). '+
+      // v115.2045 - A pedido do Vitor ("ainda está com a descrição longa; esse item ainda não tem Spicer"): descrição
+      // CURTA no padrão Spicer (só o nome da peça); o texto inteiro do print vai pra descricao_catalogo e os detalhes
+      // (estrias, material, cruzeta, medidas...) pros campos de medida/especificações.
+      'Regras: "descricao" = descrição PADRÃO, CURTA, em MAIÚSCULO, no vocabulário da SPICER (só o nome da peça, sem medidas, estrias, material, cruzeta, códigos nem detalhes -- ex: "KIT PONTUVA LUVEIRA", "TERMINAL DIFERENCIAL", "CRUZETA", "SUPORTE CARDAN"). '+
+      (vocabSpicer?'Descrições que a Spicer já usa no sistema (prefira uma destas quando servir): '+vocabSpicer+'. ':'')+
+      '"descricao_catalogo" = a descrição COMPLETA exatamente como está no print, em MAIÚSCULO. '+
+      'marca_catalogo = fabricante dono do catálogo/site do print, pelo logotipo, só o nome curto (ex: SPICER, REI, STAHL, SOROCARD -- "REI AUTO PARTS" = REI). '+
       '"familia" = a chave de família mais adequada desta lista (se nenhuma servir, use "'+famAtual+'"):\n'+famLista+'\n'+
       '"medidas" = só as especificações que correspondem a campos de medida da família escolhida, usando a letra do campo como chave e só o número (ex: {"D":"45"}). '+
       '"especificacoes" = TODAS as especificações do print (Diâmetro, Série, Múltiplo de venda, EAN, peso, embalagem etc.), com unidade no valor. '+
-      '"equivalentes" = todo código de outra marca (Original OEM, Suporte REI, Conversão, Equivalente, Substitui...); "tipo" = EQUIVALENTE, CONVERSÃO, ORIGINAL ou SUBSTITUI. '+
+      '"equivalentes" = todo código de outra marca (Original OEM, Suporte REI, Conversão, Equivalente, Substitui...); "tipo" = EQUIVALENTE, CONVERSÃO, ORIGINAL ou SUBSTITUI; "marca" = de quem é o código (Substitui Spicer = SPICER; Nº original = ORIGINAL; conversão sem marca escrita = a própria marca do catálogo). '+
       '"foto_peca" = retângulo JUSTO só em volta da FOTO DA PEÇA em frações 0-1 (sem títulos/abas tipo "Imagem"/"Embalagem", sem textos, não logotipo nem caixa/embalagem genérica); se não tiver foto da peça, null. '+
       'Na aplicação, a montadora vale para as linhas de baixo até aparecer outra. Campo vazio = "". Não invente nada que não esteja na imagem.';
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:pfAnthropicHeaders(apiKey),
@@ -63694,12 +63725,25 @@ function ccNovoPreencher(j,foto){
   var set=function(id,v){var el=document.getElementById(id);if(el&&v!=null&&v!=='')el.value=v;};
   set('ccNovoCod',String(j.codigo||'').toUpperCase().trim());
   set('ccNovoDesc',String(j.descricao||'').toUpperCase().trim());
-  set('ccNovoLinha',String(j.marca_catalogo||'').toUpperCase().trim());
+  // v115.2045 - marca curta; texto completo à parte; conversão sem marca = marca do catálogo
+  var marcaCat=ccNormMarcaCC(j.marca_catalogo);
+  set('ccNovoLinha',marcaCat);
+  var dCat=String(j.descricao_catalogo||'').toUpperCase().trim();
+  if(dCat&&dCat!==String(j.descricao||'').toUpperCase().trim())set('ccNovoDescCat',dCat);
+  (j.equivalentes||[]).forEach(function(e){if(e){e.marca=ccNormMarcaCC(e.marca)||(String(e.tipo||'').toUpperCase()==='ORIGINAL'?'ORIGINAL':marcaCat);}});
   if(j.familia&&ccFamiliaConfig(j.familia)){var f=document.getElementById('ccNovoFam');if(f)f.value=j.familia;}
   ccNovoMedidasHtml(j.medidas||{});
   set('ccNovoSpecs',(j.especificacoes||[]).filter(function(e){return e&&e.nome;}).map(function(e){return e.nome+': '+(e.valor||'');}).join('\n'));
   set('ccNovoApl',(j.aplicacoes||[]).map(ccPrintAplFormatar).filter(Boolean).join('\n'));
   set('ccNovoEq',(j.equivalentes||[]).filter(function(e){return e&&e.codigo;}).map(function(e){return String(e.marca||'').toUpperCase()+': '+String(e.codigo).toUpperCase()+(e.tipo&&e.tipo.toUpperCase()!=='EQUIVALENTE'?' ('+e.tipo.toUpperCase()+')':'');}).join('\n'));
+  // v115.2045 - se a peça já tem Spicer no sistema, a descrição dela já aparece aqui (Spicer é a principal)
+  try{
+    var fam=(document.getElementById('ccNovoFam')||{}).value,arrF=(ccLoad()[fam]||[]),av=document.getElementById('ccNovoDescAviso');
+    var sp=null;(j.equivalentes||[]).some(function(e){if(!e||!ccEhLinhaSpicer(e.marca))return false;var k=ccChaveSpicerExistente(arrF,e.codigo);
+      sp=arrF.filter(function(o){return ccMesmoGrupoCC(o,k)&&ccPrioSpicer(o)&&o.descricao;}).sort(function(a,b){return ccPrioSpicer(b)-ccPrioSpicer(a);})[0]||null;return !!sp;});
+    if(sp){var dAtual=String(j.descricao||'').toUpperCase().trim();set('ccNovoDesc',sp.descricao);if(!document.getElementById('ccNovoDescCat').value&&dAtual&&dAtual!==sp.descricao)set('ccNovoDescCat',dAtual);if(av)av.textContent='🟣 Descrição da Spicer '+(sp.codigo||'')+' (a peça já tem Spicer no sistema)';}
+    else if(av)av.textContent='';
+  }catch(eSp){}
   window._ccNovoFoto=foto||null;
   var fb=document.getElementById('ccNovoFotoBox');
   if(fb)fb.innerHTML=foto?'<label style="display:flex;align-items:center;gap:12px;font-size:13px;cursor:pointer"><img src="'+foto+'" style="width:96px;height:96px;object-fit:contain;background:#F7F9FC;border:1px solid var(--pf-border);border-radius:8px"><input type="checkbox" id="ccNovoUsarFoto" checked> Usar esta foto no card</label>':'';
@@ -63715,16 +63759,20 @@ function ccNovoSalvar(){
   // repetido: entra como o registro Spicer do mesmo card.
   Object.keys(CC_NOME_SINGULAR).forEach(function(k){(data[k]||[]).forEach(function(it){if(!jaExiste&&it&&(ccNormAplic(it.codigo)===ccNormAplic(cod)||(!ehSpicer&&ccNormAplic(it.substitui||'')===ccNormAplic(cod))))jaExiste={fam:k,it:it};});});
   if(jaExiste){pfAlert('Esse código já existe em '+(CC_NOME_SINGULAR[jaExiste.fam]||jaExiste.fam)+' ('+jaExiste.it.codigo+'). Use o "📋 Colar print de aplicação" no card dele pra juntar o que faltar.');return;}
-  var rec={codigo:cod,linha:g('ccNovoLinha').toUpperCase(),descricao:g('ccNovoDesc').toUpperCase(),ts:Date.now(),criadoManual:true};
+  var rec={codigo:cod,linha:ccNormMarcaCC(g('ccNovoLinha')),descricao:g('ccNovoDesc').toUpperCase(),ts:Date.now(),criadoManual:true};
+  var descCat=g('ccNovoDescCat').toUpperCase(); // v115.2045
+  if(descCat&&descCat!==rec.descricao)rec.descricaoCatalogo=descCat;
   document.querySelectorAll('#ccNovoMedidas input').forEach(function(i){if(i.value.trim())rec[i.dataset.k]=i.value.trim();});
   var specs=g('ccNovoSpecs').split('\n').map(function(l){var p=l.indexOf(':');return p>0?{nome:l.slice(0,p).trim(),valor:l.slice(p+1).trim()}:null;}).filter(function(e){return e&&e.nome;});
   if(specs.length)rec.especificacoes=specs;
+  if(rec.descricaoCatalogo)ccGuardarDescCatalogo(rec); // v115.2045 - vira a especificação "Descrição do catálogo (MARCA)"
   var apl=g('ccNovoApl').split('\n').map(function(l){return l.trim().toUpperCase();}).filter(Boolean);
   if(apl.length)rec.veiculos=apl;
   var eqs=g('ccNovoEq').split('\n').map(function(l){
     l=l.trim();if(!l)return null;
     var tipo='EQUIVALENTE',mt=l.match(/\(([^)]+)\)\s*$/);if(mt){tipo=mt[1].toUpperCase().trim();l=l.slice(0,mt.index).trim();}
-    var p=l.indexOf(':');var marca=p>0?l.slice(0,p).trim().toUpperCase():'';var c=(p>0?l.slice(p+1):l).trim().toUpperCase();
+    // v115.2045 - ": LPL620" (sem marca) = marca do catálogo; marca por extenso vira o nome curto
+    var p=l.indexOf(':');var marca=ccNormMarcaCC(p>0?l.slice(0,p).trim():'')||(tipo==='ORIGINAL'?'ORIGINAL':rec.linha);var c=(p>=0?l.slice(p+1):l).trim().toUpperCase();
     return c?{marca:marca,codigo:c,tipo:tipo}:null;
   }).filter(Boolean);
   if(eqs.length)rec.equivalentesExtra=eqs;

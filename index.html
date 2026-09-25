@@ -47410,7 +47410,7 @@ function vendasRenderCotacao(el){
   // item, então numa cotação com muitos itens isso ficava bem lento)
   var _relacMap={};
   relacLoad().forEach(function(r){
-    if(!r.id&&!relRegraDoPar(r.descA,r.descB))return; // v115.2030 - ligação de catálogo só conta se bater numa regra
+    if(!r.id&&!relRegraDoPar(r.descA,r.descB,relFamiliaCache(r.codigoA)))return; // v115.2030 - ligação de catálogo só conta se bater numa regra
     var a=(r.codigoA||'').toUpperCase(),b=(r.codigoB||'').toUpperCase();
     if(a){(_relacMap[a]=_relacMap[a]||[]).push({codigo:r.codigoB,desc:r.descB});}
     if(b){(_relacMap[b]=_relacMap[b]||[]).push({codigo:r.codigoA,desc:r.descA});}
@@ -48589,21 +48589,29 @@ function relSugestoesAbrir(){
 // (o que a peça é) -- "LUVA DA CARCAÇA" é luva, não carcaça. Bônus automático: junta cuja descrição cita a
 // outra peça inteira ("JUNTA DA TAMPA DO FURO DA BOMBA" × "TAMPA DO FURO DA BOMBA"). Regras em rel_regras_v1.
 var REL_REGRAS_KEY='rel_regras_v1';
+// v115.2030 - regra tem tipo: 'ab' (peça A monta com B) ou 'entre' (todas da lista montam entre si -- peças
+// separadas, não um kit), e família opcional (só vale quando a peça é daquela família no estoque -- ex: ANEL
+// no MOTOR é anel de pistão).
 var REL_REGRAS_PADRAO=[
-  {id:'r1',a:['DISCO DE FRICCAO','DISCO SINTERIZADO','DISCO DE FRICAO'],b:['DISCO DE ACO','PLACA DE ACO','DISCO SEPARADOR'],ativo:true},
-  {id:'r2',a:['PISTA'],b:['ANEL','CONE','CAPA'],ativo:true},
-  {id:'r3',a:['CARCACA','VALVULA','BOMBA','TAMPA'],b:['JUNTA'],ativo:true},
-  {id:'r4',a:['COROA'],b:['ARRUELA DE AJUSTE','CALCO'],ativo:true}
+  {id:'r1',tipo:'ab',familia:'',a:['DISCO DE FRICCAO','DISCO SINTERIZADO'],b:['DISCO DE ACO','PLACA DE ACO','DISCO SEPARADOR'],ativo:true},
+  {id:'r2',tipo:'ab',familia:'',a:['PISTA'],b:['ANEL','CONE','CAPA'],ativo:true},
+  {id:'r3',tipo:'ab',familia:'',a:['CARCACA','VALVULA','BOMBA','TAMPA'],b:['JUNTA'],ativo:true},
+  {id:'r4',tipo:'ab',familia:'',a:['COROA'],b:['ARRUELA DE AJUSTE','CALCO'],ativo:true},
+  {id:'r5',tipo:'entre',familia:'MOTOR',a:['PISTAO','BIELA','ANEL DO PISTAO','ANEIS DO PISTAO','BUCHA DA BIELA','BRONZINA DE BIELA','PINO DO PISTAO'],b:[],ativo:true},
+  {id:'r6',tipo:'ab',familia:'MOTOR',a:['VIRABREQUIM'],b:['BRONZINA DE MANCAL','ARRUELA DE ENCOSTO'],ativo:true}
 ];
-function relTxtNorm(x){return String(x||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
+function relTxtNorm(x){return String(x||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').replace(/\b(DE|DA|DO|DOS|DAS)\b/g,' ').replace(/\s+/g,' ').trim();}
 function relRegrasLoad(){try{var raw=pfSafeGetItem(REL_REGRAS_KEY,'');if(!raw)return REL_REGRAS_PADRAO.slice();var l=JSON.parse(raw);return Array.isArray(l)?l:REL_REGRAS_PADRAO.slice();}catch(e){return REL_REGRAS_PADRAO.slice();}}
 function relRegrasSalvar(l){pfSafeSetItem(REL_REGRAS_KEY,JSON.stringify(l));window._relRegrasCache=null;if(typeof pfSyncPush==='function')try{pfSyncPush([REL_REGRAS_KEY]);}catch(e){}}
-function relRegrasAtivas(){var c=window._relRegrasCache;if(c&&(Date.now()-c.t)<5000)return c.l;var l=relRegrasLoad().filter(function(r){return r&&r.ativo!==false;}).map(function(r){return {id:r.id,a:(r.a||[]).map(relTxtNorm).filter(Boolean),b:(r.b||[]).map(relTxtNorm).filter(Boolean)};});window._relRegrasCache={t:Date.now(),l:l};return l;}
+function relRegrasAtivas(){var c=window._relRegrasCache;if(c&&(Date.now()-c.t)<5000)return c.l;var l=relRegrasLoad().filter(function(r){return r&&r.ativo!==false;}).map(function(r){return {id:r.id,tipo:r.tipo||'ab',familia:relTxtNorm(r.familia||''),a:(r.a||[]).map(relTxtNorm).filter(Boolean),b:(r.b||[]).map(relTxtNorm).filter(Boolean)};});window._relRegrasCache={t:Date.now(),l:l};return l;}
 function relComeca(desc,termos){for(var i=0;i<termos.length;i++){var t=termos[i];if(desc===t||desc.indexOf(t+' ')===0)return t;}return '';}
-function relRegraDoPar(descA,descB){
+function relRegraDoPar(descA,descB,familia){
   var a=relTxtNorm(descA),b=relTxtNorm(descB);if(!a||!b)return null;
+  var fam=relTxtNorm(familia||'');
   var rs=relRegrasAtivas();
   for(var i=0;i<rs.length;i++){var r=rs[i];
+    if(r.familia&&fam&&r.familia!==fam)continue; // família só filtra quando a da peça é conhecida
+    if(r.tipo==='entre'){var c1=relComeca(a,r.a),c2=relComeca(b,r.a);if(c1&&c2&&c1!==c2)return {id:r.id,nome:c1+' × '+c2+(r.familia?' ('+r.familia.toLowerCase()+')':'')};continue;}
     var x1=relComeca(a,r.a),y1=relComeca(b,r.b);if(x1&&y1)return {id:r.id,nome:x1+' × '+y1};
     var x2=relComeca(b,r.a),y2=relComeca(a,r.b);if(x2&&y2)return {id:r.id,nome:x2+' × '+y2};
   }
@@ -48613,6 +48621,12 @@ function relRegraDoPar(descA,descB){
   if(jB&&!jA&&a.split(' ').length>=2&&b.indexOf(a)>0)return {id:'junta',nome:'junta da própria peça'};
   return null;
 }
+function relFamiliaCache(cod){
+  var c=window._relFamCache=window._relFamCache||{};var k=String(cod||'').toUpperCase();
+  if(k in c)return c[k];
+  var f='';try{f=(typeof vendasSerieFamiliaDe==='function')?vendasSerieFamiliaDe(cod,''):'';}catch(e){}
+  c[k]=f;return f;
+}
 function relPrimeirasPalavras(desc){var w=relTxtNorm(desc).split(' ');var liga={DE:1,DA:1,DO:1,DOS:1,DAS:1,E:1};var out=[w[0]||''];if(w[1]&&liga[w[1]]&&w[2])out.push(w[1],w[2]);return out.join(' ');}
 function relRelacionadosListaHtml(it,relacionados){
   var codU=(it.codigo||'').toUpperCase();
@@ -48621,7 +48635,7 @@ function relRelacionadosListaHtml(it,relacionados){
     var ehA=(r.codigoA||'').toUpperCase()===codU;
     var o={cod:ehA?r.codigoB:r.codigoA,desc:ehA?r.descB:r.descA,meuDesc:ehA?r.descA:r.descB,manual:!!r.id};
     if(o.manual){vis.push(o);return;}
-    var rg=relRegraDoPar(o.meuDesc||it.desc,o.desc);
+    var rg=relRegraDoPar(o.meuDesc||it.desc,o.desc,relFamiliaCache(it.codigo));
     if(rg){o.regra=rg.nome;vis.push(o);}else ocultos.push(o);
   });
   var linha=function(o,oculto){
@@ -48643,7 +48657,7 @@ function relRelacionadosListaHtml(it,relacionados){
 }
 function relRegraNovaDoPar(descA,descB){
   var l=relRegrasLoad();
-  l.push({id:'r'+Date.now(),a:[relPrimeirasPalavras(descA)],b:[relPrimeirasPalavras(descB)],ativo:true});
+  l.push({id:'r'+Date.now(),tipo:'ab',familia:'',a:[relPrimeirasPalavras(descA)],b:[relPrimeirasPalavras(descB)],ativo:true});
   relRegrasSalvar(l);
   relRegrasAbrir();
 }
@@ -48654,16 +48668,19 @@ function relRegrasAbrir(){
   var ov=document.createElement('div');ov.id='relRegrasModal';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000000;display:flex;align-items:center;justify-content:center;padding:16px';
   var inp='width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #cfd8e3;border-radius:6px;font-size:12px';
-  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:760px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3)">'+
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:1040px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3)">'+
     '<div style="background:var(--pf-painel-bg,#1c2940);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center"><b>⚙️ Regras de relacionamento</b><button onclick="document.getElementById(\'relRegrasModal\').remove()" style="background:none;border:none;cursor:pointer">'+pfXGlossyHtml(20)+'</button></div>'+
-    '<div style="padding:8px 16px;font-size:11.5px;color:#607080;background:#F7F9FC;border-bottom:1px solid #e8edf4">Peças da <b>mesma figura do catálogo</b> só aparecem no 🔗 quando batem numa regra. Compara o <b>começo</b> da descrição (o que a peça é). Separe as opções por vírgula. Junta que cita a outra peça já vale sozinha.</div>'+
+    '<div style="padding:8px 16px;font-size:11.5px;color:#607080;background:#F7F9FC;border-bottom:1px solid #e8edf4">Peças da <b>mesma figura do catálogo</b> só aparecem no 🔗 quando batem numa regra. Compara o <b>começo</b> da descrição (o que a peça é; ignora de/da/do). <b>A monta com B</b>: as da 1ª lista montam com as da 2ª. <b>Todas montam entre si</b>: peças separadas que montam umas com as outras (ex: pistão, biela, bronzina de biela). <b>Família</b>: só vale pra peças daquela família do estoque. Separe por vírgula. Junta que cita a outra peça já vale sozinha.</div>'+
     '<div style="overflow-y:auto;flex:1;padding:12px 16px">'+
-      '<div style="display:grid;grid-template-columns:1fr 26px 1fr 70px 30px;gap:8px;font-size:10.5px;font-weight:700;color:#607080;margin-bottom:6px"><div>PEÇA QUE COMEÇA COM</div><div></div><div>TRABALHA COM PEÇA QUE COMEÇA COM</div><div style="text-align:center">ATIVA</div><div></div></div>'+
+      '<div style="display:grid;grid-template-columns:120px 150px 1fr 22px 1fr 44px 24px;gap:8px;font-size:10.5px;font-weight:700;color:#607080;margin-bottom:6px"><div>FAMÍLIA</div><div>TIPO</div><div>PEÇA QUE COMEÇA COM</div><div></div><div>MONTA COM PEÇA QUE COMEÇA COM</div><div style="text-align:center">ATIVA</div><div></div></div>'+
       l.map(function(r,i){
-        return '<div data-regra="'+i+'" style="display:grid;grid-template-columns:1fr 26px 1fr 70px 30px;gap:8px;align-items:center;margin-bottom:8px">'+
+        var ent=(r.tipo==='entre');
+        return '<div data-regra="'+i+'" style="display:grid;grid-template-columns:120px 150px 1fr 22px 1fr 44px 24px;gap:8px;align-items:center;margin-bottom:8px">'+
+          relRegraFamiliaSelect(r.familia,adm)+
+          '<select '+(adm?'':'disabled ')+'data-k="tipo" onchange="relRegraTipoMudou(this)" style="'+inp+'"><option value="ab"'+(ent?'':' selected')+'>A monta com B</option><option value="entre"'+(ent?' selected':'')+'>Todas montam entre si</option></select>'+
           '<input '+(adm?'':'disabled ')+'data-k="a" value="'+pfEscHtml((r.a||[]).join(', '))+'" style="'+inp+'">'+
-          '<div style="text-align:center;color:#8a9ab0">×</div>'+
-          '<input '+(adm?'':'disabled ')+'data-k="b" value="'+pfEscHtml((r.b||[]).join(', '))+'" style="'+inp+'">'+
+          '<div class="relX" style="text-align:center;color:#8a9ab0;visibility:'+(ent?'hidden':'visible')+'">×</div>'+
+          '<input '+(adm?'':'disabled ')+'data-k="b" value="'+pfEscHtml((r.b||[]).join(', '))+'" style="'+inp+';visibility:'+(ent?'hidden':'visible')+'">'+
           '<div style="text-align:center"><input '+(adm?'':'disabled ')+'type="checkbox" data-k="ativo" '+(r.ativo!==false?'checked':'')+' style="width:16px;height:16px"></div>'+
           (adm?'<button onclick="this.closest(\'[data-regra]\').remove()" title="Excluir regra" style="background:none;border:none;cursor:pointer">'+pfXGlossyHtml(16)+'</button>':'<div></div>')+
         '</div>';
@@ -48676,12 +48693,23 @@ function relRegrasAbrir(){
   pfOverlayFecharAoClicarFora(ov,function(){ov.remove();});
   document.body.appendChild(ov);
 }
+function relRegraTipoMudou(sel){
+  var rw=sel.closest('[data-regra]');var ent=sel.value==='entre';
+  rw.querySelector('[data-k=b]').style.visibility=ent?'hidden':'visible';rw.querySelector('.relX').style.visibility=ent?'hidden':'visible';
+}
+function relRegraFamiliaSelect(val,adm){
+  var fams={};try{(vendasTodasLinhas()||[]).forEach(function(r){if(r&&r.familia)fams[String(r.familia).toUpperCase()]=1;});}catch(e){}
+  ['MOTOR','TRANSMISSAO','EIXO','COMPONENTES DE CARDAN'].forEach(function(f){if(!Object.keys(fams).some(function(x){return relTxtNorm(x)===f;}))fams[f]=1;});
+  if(val&&!Object.keys(fams).some(function(x){return relTxtNorm(x)===relTxtNorm(val);}))fams[String(val).toUpperCase()]=1;
+  return '<select '+(adm?'':'disabled ')+'data-k="familia" style="width:100%;box-sizing:border-box;padding:6px 4px;border:1px solid #cfd8e3;border-radius:6px;font-size:12px"><option value="">Todas</option>'+Object.keys(fams).sort().map(function(f){return '<option value="'+pfEscHtml(f)+'"'+(val&&relTxtNorm(f)===relTxtNorm(val)?' selected':'')+'>'+pfEscHtml(f)+'</option>';}).join('')+'</select>';
+}
 function relRegrasLinhaNova(){
   var box=document.getElementById('relRegrasNovas');if(!box)return;
   var inp='width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #cfd8e3;border-radius:6px;font-size:12px';
   var d=document.createElement('div');d.setAttribute('data-regra','novo');
-  d.style.cssText='display:grid;grid-template-columns:1fr 26px 1fr 70px 30px;gap:8px;align-items:center;margin-bottom:8px';
-  d.innerHTML='<input data-k="a" placeholder="ex: RETENTOR" style="'+inp+'"><div style="text-align:center;color:#8a9ab0">×</div><input data-k="b" placeholder="ex: ANEL O, ANEL DE VEDACAO" style="'+inp+'"><div style="text-align:center"><input type="checkbox" data-k="ativo" checked style="width:16px;height:16px"></div><button onclick="this.closest(\'[data-regra]\').remove()" style="background:none;border:none;cursor:pointer">'+pfXGlossyHtml(16)+'</button>';
+  var adm=true,ent=false;
+  d.style.cssText='display:grid;grid-template-columns:120px 150px 1fr 22px 1fr 44px 24px;gap:8px;align-items:center;margin-bottom:8px';
+  d.innerHTML=relRegraFamiliaSelect('',true)+'<select '+(adm?'':'disabled ')+'data-k="tipo" onchange="relRegraTipoMudou(this)" style="'+inp+'"><option value="ab"'+(ent?'':' selected')+'>A monta com B</option><option value="entre"'+(ent?' selected':'')+'>Todas montam entre si</option></select>'+'<input data-k="a" placeholder="ex: RETENTOR" style="'+inp+'"><div class="relX" style="text-align:center;color:#8a9ab0">×</div><input data-k="b" placeholder="ex: ANEL O, ANEL DE VEDACAO" style="'+inp+'"><div style="text-align:center"><input type="checkbox" data-k="ativo" checked style="width:16px;height:16px"></div><button onclick="this.closest(\'[data-regra]\').remove()" style="background:none;border:none;cursor:pointer">'+pfXGlossyHtml(16)+'</button>';
   box.appendChild(d);d.querySelector('input').focus();
 }
 function relRegrasSalvarDaTela(){
@@ -48690,9 +48718,10 @@ function relRegrasSalvarDaTela(){
   m.querySelectorAll('[data-regra]').forEach(function(row,k){
     var sp=function(v){return String(v||'').split(',').map(function(x){return x.trim().toUpperCase();}).filter(Boolean);};
     var a=sp(row.querySelector('[data-k=a]').value),b=sp(row.querySelector('[data-k=b]').value);
-    if(!a.length||!b.length)return;
+    var tipo=(row.querySelector('[data-k=tipo]')||{}).value||'ab',fam=(row.querySelector('[data-k=familia]')||{}).value||'';
+    if(!a.length||(tipo!=='entre'&&!b.length)||(tipo==='entre'&&a.length<2))return;
     var idx=row.getAttribute('data-regra');var ant=idx!=='novo'?antigas[+idx]:null;
-    out.push({id:(ant&&ant.id)||('r'+Date.now()+'_'+k),a:a,b:b,ativo:row.querySelector('[data-k=ativo]').checked});
+    out.push({id:(ant&&ant.id)||('r'+Date.now()+'_'+k),tipo:tipo,familia:fam,a:a,b:tipo==='entre'?[]:b,ativo:row.querySelector('[data-k=ativo]').checked});
   });
   relRegrasSalvar(out);
   m.remove();

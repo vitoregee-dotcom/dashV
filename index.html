@@ -38422,6 +38422,7 @@ var PF_SYNC_KEYS = [
   'partsflow_cotacoes_v1',
   'cc_desenhos_v1', // v115.2021 - desenho de cada família (Área Técnica), trocado pelo admin
   'rel_decisoes_v1', // v115.2030 - respostas às sugestões de relacionamento (cotados juntos)
+  'rel_regras_v1', // v115.2030 - regras que filtram as ligações vindas de catálogo
   'partsflow_pedidos_venda_v1',
   'venda_rascunho_v1',
   'imp_preview_cache_v1',
@@ -39249,7 +39250,7 @@ async function pfSafeSetItemAsync(key,value){
 // de dado único da empresa (tudo, exceto os 2 logs de atividade por
 // usuário -- esses fazem sentido continuar por conta) passam a usar o
 // mesmo ID fixo. Isso fecha a causa raiz de uma vez.
-var PF_CATALOGO_UNICO_KEYS = ['componentes_cardan_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'retentores_v1', 'mapas_lista_v1', 'cc_vinculos_estoque_v1',
+var PF_CATALOGO_UNICO_KEYS = ['componentes_cardan_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'retentores_v1', 'mapas_lista_v1', 'cc_vinculos_estoque_v1',
   // v115.1987 - A pedido do Vitor ("cotação deve ser compartilhada com
   // todos"): cotações deixam de ser por conta -- todo mundo lê e grava a
   // mesma lista (linha do MY_USER_ID, que já tinha todas as cotações).
@@ -39303,7 +39304,7 @@ async function pfSyncPull(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   try{
     // Chaves compartilhadas entre usuários — puxar de TODOS os usuários
-    var sharedKeys = ['partsflow_cotacoes_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'lp_regras_v1_deletados', 'lp_exemplos_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'cc_vinculos_estoque_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'pfNoticiasMarcasAtualizadoEm', 'pfNoticiasMarcasHistorico', 'timken_interchange_v1', 'pfComprasAtivos', 'pfAtalhosFerramentas', 'pfIconOverrides', 'pfTemaCores', 'pfCotacoesNaoLidas', 'pfMapaComercialSede', 'pfMapaPinsCores', 'pf_transp_mapa_v1', 'pfChegadasConf'];
+    var sharedKeys = ['partsflow_cotacoes_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'lp_regras_v1_deletados', 'lp_exemplos_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'cc_vinculos_estoque_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'pfNoticiasMarcasAtualizadoEm', 'pfNoticiasMarcasHistorico', 'timken_interchange_v1', 'pfComprasAtivos', 'pfAtalhosFerramentas', 'pfIconOverrides', 'pfTemaCores', 'pfCotacoesNaoLidas', 'pfMapaComercialSede', 'pfMapaPinsCores', 'pf_transp_mapa_v1', 'pfChegadasConf'];
     // v115.1219 - BUG corrigido (a pedido do Vitor, e-mails duplicados do
     // mesmo item em horários próximos): pfComprasEventos/pfFaturadosEventos/
     // pfChegadasEventos/pfSolicitadosEventos são LOGS (uma entrada por
@@ -47409,6 +47410,7 @@ function vendasRenderCotacao(el){
   // item, então numa cotação com muitos itens isso ficava bem lento)
   var _relacMap={};
   relacLoad().forEach(function(r){
+    if(!r.id&&!relRegraDoPar(r.descA,r.descB))return; // v115.2030 - ligação de catálogo só conta se bater numa regra
     var a=(r.codigoA||'').toUpperCase(),b=(r.codigoB||'').toUpperCase();
     if(a){(_relacMap[a]=_relacMap[a]||[]).push({codigo:r.codigoB,desc:r.descB});}
     if(b){(_relacMap[b]=_relacMap[b]||[]).push({codigo:r.codigoA,desc:r.descA});}
@@ -47615,6 +47617,7 @@ function vendasRenderCotacao(el){
         '<button id="vendasExcluirSelBtn" onclick="vendasFecharMaisAcoes();vendasExcluirSelecionados()" style="display:block;width:100%;text-align:left;background:none;border:none;border-top:1px solid var(--pf-fx-fundoSuave,#f0f4f8);padding:9px 14px;font-size:13px;color:var(--pf-fx-textoEscuro,#1a2332);cursor:pointer;opacity:.4" disabled>🗑 Excluir (0)</button>'+
         (v.itens.length?'<div onclick="vendasFecharMaisAcoes();vendasToggleDescPanel()" style="padding:9px 14px;font-size:13px;color:var(--pf-fx-textoEscuro,#1a2332);cursor:pointer;border-top:1px solid var(--pf-fx-fundoSuave,#f0f4f8)">% Desconto geral</div>':'')+
         (v.itens.length?'<div onclick="vendasFecharMaisAcoes();vendasRevisarPrecos()" style="padding:9px 14px;font-size:13px;color:var(--pf-fx-textoEscuro,#1a2332);cursor:pointer;border-top:1px solid var(--pf-fx-fundoSuave,#f0f4f8)">🔍 Revisar preços</div>':'')+
+        '<div onclick="vendasFecharMaisAcoes();relRegrasAbrir()" style="padding:9px 14px;font-size:13px;color:var(--pf-fx-textoEscuro,#1a2332);cursor:pointer;border-top:1px solid var(--pf-fx-fundoSuave,#f0f4f8)">⚙️ Regras de relacionamento</div>'+
         '<div onclick="vendasFecharMaisAcoes();relSugestoesAbrir()" style="padding:9px 14px;font-size:13px;color:var(--pf-fx-textoEscuro,#1a2332);cursor:pointer;border-top:1px solid var(--pf-fx-fundoSuave,#f0f4f8)">💡 Sugestões de relacionamento</div>'+ // v115.2030
         (totalNeg>0?'<div onclick="vendasFecharMaisAcoes();vendasZerarNegativos()" style="padding:9px 14px;font-size:13px;color:var(--pf-fx-textoEscuro,#1a2332);cursor:pointer;border-top:1px solid var(--pf-fx-fundoSuave,#f0f4f8)">Zerar negativos</div>':'')+
         // v115.1471 - A pedido do Vitor: remover itens duplicados da cotação
@@ -48580,6 +48583,122 @@ function relSugestoesAbrir(){
   document.body.appendChild(ov);
   var sc=ov.querySelector('[data-sc]');if(sc&&scroll)sc.scrollTop=scroll;
 }
+// v115.2030 - A pedido do Vitor: as ligações de catálogo (toda peça da mesma figura com todas as outras,
+// 12 mil+) não são apagadas, mas no 🔗 só aparecem quando batem numa REGRA "peça que começa com X
+// trabalha com peça que começa com Y" (ex: DISCO DE FRICÇÃO × DISCO DE AÇO). Compara o COMEÇO da descrição
+// (o que a peça é) -- "LUVA DA CARCAÇA" é luva, não carcaça. Bônus automático: junta cuja descrição cita a
+// outra peça inteira ("JUNTA DA TAMPA DO FURO DA BOMBA" × "TAMPA DO FURO DA BOMBA"). Regras em rel_regras_v1.
+var REL_REGRAS_KEY='rel_regras_v1';
+var REL_REGRAS_PADRAO=[
+  {id:'r1',a:['DISCO DE FRICCAO','DISCO SINTERIZADO','DISCO DE FRICAO'],b:['DISCO DE ACO','PLACA DE ACO','DISCO SEPARADOR'],ativo:true},
+  {id:'r2',a:['PISTA'],b:['ANEL','CONE','CAPA'],ativo:true},
+  {id:'r3',a:['CARCACA','VALVULA','BOMBA','TAMPA'],b:['JUNTA'],ativo:true},
+  {id:'r4',a:['COROA'],b:['ARRUELA DE AJUSTE','CALCO'],ativo:true}
+];
+function relTxtNorm(x){return String(x||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
+function relRegrasLoad(){try{var raw=pfSafeGetItem(REL_REGRAS_KEY,'');if(!raw)return REL_REGRAS_PADRAO.slice();var l=JSON.parse(raw);return Array.isArray(l)?l:REL_REGRAS_PADRAO.slice();}catch(e){return REL_REGRAS_PADRAO.slice();}}
+function relRegrasSalvar(l){pfSafeSetItem(REL_REGRAS_KEY,JSON.stringify(l));window._relRegrasCache=null;if(typeof pfSyncPush==='function')try{pfSyncPush([REL_REGRAS_KEY]);}catch(e){}}
+function relRegrasAtivas(){var c=window._relRegrasCache;if(c&&(Date.now()-c.t)<5000)return c.l;var l=relRegrasLoad().filter(function(r){return r&&r.ativo!==false;}).map(function(r){return {id:r.id,a:(r.a||[]).map(relTxtNorm).filter(Boolean),b:(r.b||[]).map(relTxtNorm).filter(Boolean)};});window._relRegrasCache={t:Date.now(),l:l};return l;}
+function relComeca(desc,termos){for(var i=0;i<termos.length;i++){var t=termos[i];if(desc===t||desc.indexOf(t+' ')===0)return t;}return '';}
+function relRegraDoPar(descA,descB){
+  var a=relTxtNorm(descA),b=relTxtNorm(descB);if(!a||!b)return null;
+  var rs=relRegrasAtivas();
+  for(var i=0;i<rs.length;i++){var r=rs[i];
+    var x1=relComeca(a,r.a),y1=relComeca(b,r.b);if(x1&&y1)return {id:r.id,nome:x1+' × '+y1};
+    var x2=relComeca(b,r.a),y2=relComeca(a,r.b);if(x2&&y2)return {id:r.id,nome:x2+' × '+y2};
+  }
+  // bônus: junta que cita a outra peça inteira
+  var jA=a.indexOf('JUNTA ')===0,jB=b.indexOf('JUNTA ')===0;
+  if(jA&&!jB&&b.split(' ').length>=2&&a.indexOf(b)>0)return {id:'junta',nome:'junta da própria peça'};
+  if(jB&&!jA&&a.split(' ').length>=2&&b.indexOf(a)>0)return {id:'junta',nome:'junta da própria peça'};
+  return null;
+}
+function relPrimeirasPalavras(desc){var w=relTxtNorm(desc).split(' ');var liga={DE:1,DA:1,DO:1,DOS:1,DAS:1,E:1};var out=[w[0]||''];if(w[1]&&liga[w[1]]&&w[2])out.push(w[1],w[2]);return out.join(' ');}
+function relRelacionadosListaHtml(it,relacionados){
+  var codU=(it.codigo||'').toUpperCase();
+  var vis=[],ocultos=[];
+  relacionados.forEach(function(r){
+    var ehA=(r.codigoA||'').toUpperCase()===codU;
+    var o={cod:ehA?r.codigoB:r.codigoA,desc:ehA?r.descB:r.descA,meuDesc:ehA?r.descA:r.descB,manual:!!r.id};
+    if(o.manual){vis.push(o);return;}
+    var rg=relRegraDoPar(o.meuDesc||it.desc,o.desc);
+    if(rg){o.regra=rg.nome;vis.push(o);}else ocultos.push(o);
+  });
+  var linha=function(o,oculto){
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:'+(oculto?'#FAFBFC':'#FFF8F0')+';border:1px solid '+(oculto?'#eef2f7':'#FBE3C8')+';border-radius:8px;margin-bottom:6px">'+
+      '<div style="font-size:12px;min-width:0"><b style="color:var(--pf-fx-laranja,#E67E22)">'+pfEscHtml(o.cod||'')+'</b> — '+pfEscHtml(o.desc||'')+
+        (o.regra?'<div style="font-size:10px;color:#1F4E79;margin-top:2px">📘 catálogo · regra '+pfEscHtml(o.regra.toLowerCase())+'</div>':(o.manual?'':'<div style="font-size:10px;color:#8a9ab0;margin-top:2px">📘 mesma figura do catálogo</div>'))+'</div>'+
+      '<div style="display:flex;gap:4px;flex-shrink:0">'+
+      (oculto?'<button onclick="relRegraNovaDoPar(\''+pfEscHtml(pfEscJs(o.meuDesc||it.desc||''))+'\',\''+pfEscHtml(pfEscJs(o.desc||''))+'\')" title="Criar regra: peças que começam assim trabalham juntas" style="background:#fff;color:#1F4E79;border:1px solid #cfe2f7;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">➕ virar regra</button>':'')+
+      '<button onclick="document.getElementById(\'relacModal\').remove();vendasAdicionarPorAplicacao(\''+pfEscHtml(pfEscJs(o.cod||''))+'\')" style="background:var(--pf-fx-laranja,#E67E22);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">+ Cotação</button></div>'+
+    '</div>';
+  };
+  var h=vis.length?vis.map(function(o){return linha(o,false);}).join(''):'<div style="font-size:12px;color:var(--pf-fx-textoSuave,#8a9ab0);margin-bottom:10px">Nenhum item relacionado'+(ocultos.length?' (pelas regras)':'')+' ainda.</div>';
+  if(ocultos.length){
+    var aberto=!!window._relOcultosAberto;
+    h+='<div onclick="window._relOcultosAberto='+(aberto?'false':'true')+';vendasAbrirRelacionados('+(window._venda&&window._venda.itens?window._venda.itens.indexOf(it):0)+')" style="cursor:pointer;font-size:11.5px;color:#607080;margin:4px 0 8px">'+(aberto?'▾':'▸')+' Ver todas da mesma figura do catálogo ('+ocultos.length+') · <span onclick="event.stopPropagation();relRegrasAbrir()" style="color:#1F4E79;text-decoration:underline">⚙️ regras</span></div>';
+    if(aberto)h+=ocultos.map(function(o){return linha(o,true);}).join('');
+  }
+  return h;
+}
+function relRegraNovaDoPar(descA,descB){
+  var l=relRegrasLoad();
+  l.push({id:'r'+Date.now(),a:[relPrimeirasPalavras(descA)],b:[relPrimeirasPalavras(descB)],ativo:true});
+  relRegrasSalvar(l);
+  relRegrasAbrir();
+}
+function relRegrasAbrir(){
+  var adm=(typeof ccDesenhoEhAdmin==='function')?ccDesenhoEhAdmin():true;
+  var old=document.getElementById('relRegrasModal');if(old)old.remove();
+  var l=relRegrasLoad();
+  var ov=document.createElement('div');ov.id='relRegrasModal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000000;display:flex;align-items:center;justify-content:center;padding:16px';
+  var inp='width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #cfd8e3;border-radius:6px;font-size:12px';
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:760px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3)">'+
+    '<div style="background:var(--pf-painel-bg,#1c2940);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center"><b>⚙️ Regras de relacionamento</b><button onclick="document.getElementById(\'relRegrasModal\').remove()" style="background:none;border:none;cursor:pointer">'+pfXGlossyHtml(20)+'</button></div>'+
+    '<div style="padding:8px 16px;font-size:11.5px;color:#607080;background:#F7F9FC;border-bottom:1px solid #e8edf4">Peças da <b>mesma figura do catálogo</b> só aparecem no 🔗 quando batem numa regra. Compara o <b>começo</b> da descrição (o que a peça é). Separe as opções por vírgula. Junta que cita a outra peça já vale sozinha.</div>'+
+    '<div style="overflow-y:auto;flex:1;padding:12px 16px">'+
+      '<div style="display:grid;grid-template-columns:1fr 26px 1fr 70px 30px;gap:8px;font-size:10.5px;font-weight:700;color:#607080;margin-bottom:6px"><div>PEÇA QUE COMEÇA COM</div><div></div><div>TRABALHA COM PEÇA QUE COMEÇA COM</div><div style="text-align:center">ATIVA</div><div></div></div>'+
+      l.map(function(r,i){
+        return '<div data-regra="'+i+'" style="display:grid;grid-template-columns:1fr 26px 1fr 70px 30px;gap:8px;align-items:center;margin-bottom:8px">'+
+          '<input '+(adm?'':'disabled ')+'data-k="a" value="'+pfEscHtml((r.a||[]).join(', '))+'" style="'+inp+'">'+
+          '<div style="text-align:center;color:#8a9ab0">×</div>'+
+          '<input '+(adm?'':'disabled ')+'data-k="b" value="'+pfEscHtml((r.b||[]).join(', '))+'" style="'+inp+'">'+
+          '<div style="text-align:center"><input '+(adm?'':'disabled ')+'type="checkbox" data-k="ativo" '+(r.ativo!==false?'checked':'')+' style="width:16px;height:16px"></div>'+
+          (adm?'<button onclick="this.closest(\'[data-regra]\').remove()" title="Excluir regra" style="background:none;border:none;cursor:pointer">'+pfXGlossyHtml(16)+'</button>':'<div></div>')+
+        '</div>';
+      }).join('')+
+      '<div id="relRegrasNovas"></div>'+
+      (adm?'<button onclick="relRegrasLinhaNova()" style="margin-top:6px;font-size:12px;padding:6px 12px;border-radius:7px;border:1px dashed #1F4E79;background:#fff;color:#1F4E79;font-weight:700;cursor:pointer">+ Nova regra</button>':'')+
+    '</div>'+
+    (adm?'<div style="padding:10px 16px;border-top:1px solid #e8edf4;display:flex;justify-content:flex-end;gap:8px"><button onclick="document.getElementById(\'relRegrasModal\').remove()" class="pfBtn pfBtnClaro">Cancelar</button><button onclick="relRegrasSalvarDaTela()" class="pfBtn pfBtnVerde">✓ Salvar regras</button></div>':'')+
+  '</div>';
+  pfOverlayFecharAoClicarFora(ov,function(){ov.remove();});
+  document.body.appendChild(ov);
+}
+function relRegrasLinhaNova(){
+  var box=document.getElementById('relRegrasNovas');if(!box)return;
+  var inp='width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #cfd8e3;border-radius:6px;font-size:12px';
+  var d=document.createElement('div');d.setAttribute('data-regra','novo');
+  d.style.cssText='display:grid;grid-template-columns:1fr 26px 1fr 70px 30px;gap:8px;align-items:center;margin-bottom:8px';
+  d.innerHTML='<input data-k="a" placeholder="ex: RETENTOR" style="'+inp+'"><div style="text-align:center;color:#8a9ab0">×</div><input data-k="b" placeholder="ex: ANEL O, ANEL DE VEDACAO" style="'+inp+'"><div style="text-align:center"><input type="checkbox" data-k="ativo" checked style="width:16px;height:16px"></div><button onclick="this.closest(\'[data-regra]\').remove()" style="background:none;border:none;cursor:pointer">'+pfXGlossyHtml(16)+'</button>';
+  box.appendChild(d);d.querySelector('input').focus();
+}
+function relRegrasSalvarDaTela(){
+  var m=document.getElementById('relRegrasModal');if(!m)return;
+  var antigas=relRegrasLoad(),out=[];
+  m.querySelectorAll('[data-regra]').forEach(function(row,k){
+    var sp=function(v){return String(v||'').split(',').map(function(x){return x.trim().toUpperCase();}).filter(Boolean);};
+    var a=sp(row.querySelector('[data-k=a]').value),b=sp(row.querySelector('[data-k=b]').value);
+    if(!a.length||!b.length)return;
+    var idx=row.getAttribute('data-regra');var ant=idx!=='novo'?antigas[+idx]:null;
+    out.push({id:(ant&&ant.id)||('r'+Date.now()+'_'+k),a:a,b:b,ativo:row.querySelector('[data-k=ativo]').checked});
+  });
+  relRegrasSalvar(out);
+  m.remove();
+  if(typeof vendasRefresh==='function'&&window._venda)vendasRefresh();
+  pfAlert('✅ '+out.length+' regra(s) salva(s).');
+}
 function relSubstitutosDe(codigo){
   var k=relNorm(codigo);
   return relDecisoesLoad().filter(function(d){return d&&d.tipo==='substituto'&&(relNorm(d.a)===k||relNorm(d.b)===k);}).map(function(d){return relNorm(d.a)===k?{codigo:d.b,desc:d.descB}:{codigo:d.a,desc:d.descA};});
@@ -48635,15 +48754,8 @@ function vendasAbrirRelacionados(i,scrollPos){
         // esse trecho usava r.codigo, que sempre vinha undefined. Isso
         // quebrava com TypeError ao chamar .toUpperCase() nele mais abaixo.
         // Corrigido: pega o lado do par que NÃO é o item atual (it.codigo).
-        (relacionados.length?relacionados.map(function(r){
-          var codU=(it.codigo||'').toUpperCase();
-          var outroCod=(r.codigoA||'').toUpperCase()===codU?r.codigoB:r.codigoA;
-          var outroDesc=(r.codigoA||'').toUpperCase()===codU?r.descB:r.descA;
-          return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:#FFF8F0;border:1px solid #FBE3C8;border-radius:8px;margin-bottom:6px">'+
-            '<div style="font-size:12px"><b style="color:var(--pf-fx-laranja,#E67E22)">'+pfEscHtml(outroCod||'')+'</b> — '+pfEscHtml(outroDesc||'')+'</div>'+
-            '<button onclick="document.getElementById(\'relacModal\').remove();vendasAdicionarPorAplicacao(\''+pfEscHtml(pfEscJs(outroCod||''))+'\')" style="background:var(--pf-fx-laranja,#E67E22);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">+ Cotação</button>'+
-          '</div>';
-        }).join(''):'<div style="font-size:12px;color:var(--pf-fx-textoSuave,#8a9ab0);margin-bottom:10px">Nenhum item relacionado marcado ainda.</div>')+
+        relRelacionadosListaHtml(it,relacionados)+ // v115.2030 - manuais + catálogo filtrado pelas regras
+
         '<div style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSec,#607080);text-transform:uppercase;margin:16px 0 8px">Marcar como relacionado (itens desta cotação)</div>'+
         (outros.length?outros.map(function(x){
           var jaChecado=relacionados.some(function(r){

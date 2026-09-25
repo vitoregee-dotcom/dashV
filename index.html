@@ -1879,7 +1879,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2036</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2037</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2032,7 +2032,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2036</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2037</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -48612,15 +48612,36 @@ var REL_REGRAS_PADRAO=[
   {id:'r3',tipo:'ab',familia:'',a:['CARCACA','VALVULA','BOMBA','TAMPA'],b:['JUNTA'],ativo:true},
   {id:'r4',tipo:'ab',familia:'',a:['COROA'],b:['ARRUELA DE AJUSTE','CALCO'],ativo:true},
   {id:'r5',tipo:'entre',familia:'MOTOR',a:['PISTAO','BIELA','ANEL DO PISTAO','ANEIS DO PISTAO','BUCHA DA BIELA','BRONZINA DE BIELA','PINO DO PISTAO'],b:[],ativo:true},
-  {id:'r6',tipo:'ab',familia:'MOTOR',a:['VIRABREQUIM'],b:['BRONZINA DE MANCAL','ARRUELA DE ENCOSTO'],ativo:true}
+  {id:'r6',tipo:'ab',familia:'MOTOR',a:['VIRABREQUIM'],b:['BRONZINA DE MANCAL','ARRUELA DE ENCOSTO'],ativo:true},
+  // v115.2037 - A pedido do Vitor: no catálogo de transmissão (Dana etc.) o pacote da embreagem vem como
+  // "DISCO EXTERNO" (aço, dente por fora) × "DISCO INTERNO" (fricção, dente por dentro) -- nenhuma regra pegava.
+  {id:'r7',tipo:'ab',familia:'',a:['DISCO EXTERNO'],b:['DISCO INTERNO'],ativo:true}
 ];
+// v115.2037 - regras padrão novas entram também em quem já tinha a lista salva (compartilhada), uma vez só:
+// o marcador {id:'_mig'} guarda a última versão aplicada -- se o admin excluir a regra depois, não volta.
+var REL_REGRAS_MIG=[{v:2037,ids:['r7']}];
+function relRegrasMigrar(l){
+  var mk=l.filter(function(r){return r&&r.id==='_mig';})[0],v=mk?(+mk.v||0):0,mudou=false;
+  REL_REGRAS_MIG.forEach(function(m){
+    if(m.v<=v)return;
+    m.ids.forEach(function(id){if(!l.some(function(r){return r&&r.id===id;})){var p=REL_REGRAS_PADRAO.filter(function(r){return r.id===id;})[0];if(p){l.push(JSON.parse(JSON.stringify(p)));mudou=true;}}});
+    v=m.v;
+  });
+  if(!mk||+mk.v!==v){l=l.filter(function(r){return !r||r.id!=='_mig';});l.push({id:'_mig',v:v,ativo:false,a:[],b:[]});mudou=true;}
+  return {l:l,mudou:mudou};
+}
 function relTxtNorm(x){return String(x||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').replace(/\b(DE|DA|DO|DOS|DAS)\b/g,' ').replace(/\s+/g,' ').trim();}
-function relRegrasLoad(){try{var raw=pfSafeGetItem(REL_REGRAS_KEY,'');if(!raw)return REL_REGRAS_PADRAO.slice();var l=JSON.parse(raw);return Array.isArray(l)?l:REL_REGRAS_PADRAO.slice();}catch(e){return REL_REGRAS_PADRAO.slice();}}
-function relRegrasSalvar(l){pfSafeSetItem(REL_REGRAS_KEY,JSON.stringify(l));window._relRegrasCache=null;window._relRegrasVer=(window._relRegrasVer||0)+1;window._relacMapaCache=null;if(typeof pfSyncPush==='function')try{pfSyncPush([REL_REGRAS_KEY]);}catch(e){}}
+function relRegrasLoad(){try{var raw=pfSafeGetItem(REL_REGRAS_KEY,'');if(!raw)return REL_REGRAS_PADRAO.slice();var l=JSON.parse(raw);if(!Array.isArray(l))return REL_REGRAS_PADRAO.slice();
+  var mg=relRegrasMigrar(l);if(mg.mudou){pfSafeSetItem(REL_REGRAS_KEY,JSON.stringify(mg.l));if(typeof pfSyncPush==='function')try{pfSyncPush([REL_REGRAS_KEY]);}catch(e){}}
+  return mg.l.filter(function(r){return r&&r.id!=='_mig';});}catch(e){return REL_REGRAS_PADRAO.slice();}}
+function relRegrasSalvar(l){l=relRegrasMigrar(l.filter(function(r){return r&&r.id!=='_mig';}).concat([{id:'_mig',v:REL_REGRAS_MIG[REL_REGRAS_MIG.length-1].v,ativo:false,a:[],b:[]}])).l;pfSafeSetItem(REL_REGRAS_KEY,JSON.stringify(l));window._relRegrasCache=null;window._relRegrasVer=(window._relRegrasVer||0)+1;window._relacMapaCache=null;if(typeof pfSyncPush==='function')try{pfSyncPush([REL_REGRAS_KEY]);}catch(e){}}
 function relRegrasAtivas(){var c=window._relRegrasCache;if(c&&(Date.now()-c.t)<5000)return c.l;var l=relRegrasLoad().filter(function(r){return r&&r.ativo!==false;}).map(function(r){return {id:r.id,tipo:r.tipo||'ab',familia:relTxtNorm(r.familia||''),a:(r.a||[]).map(relTxtNorm).filter(Boolean),b:(r.b||[]).map(relTxtNorm).filter(Boolean)};});window._relRegrasCache={t:Date.now(),l:l};return l;}
+function relNumeroConjunto(d){var m=d.match(/\b(\d+) (EMBREAGEM|MARCHA|VELOCIDADE)\b/);return m?m[2]+m[1]:'';}
 function relComeca(desc,termos){for(var i=0;i<termos.length;i++){var t=termos[i];if(desc===t||desc.indexOf(t+' ')===0)return t;}return '';}
 function relRegraDoPar(descA,descB,familia){
   var a=relTxtNorm(descA),b=relTxtNorm(descB);if(!a||!b)return null;
+  // v115.2037 - disco da 3ª embreagem não monta com disco da 1ª: se as duas citam número de embreagem/marcha diferentes, não liga.
+  var nA=relNumeroConjunto(a),nB=relNumeroConjunto(b);if(nA&&nB&&nA!==nB)return null;
   // v115.2035 - família só é buscada (vendasBuscarItem, pesado) quando uma regra de família bate nos termos --
   // antes era buscada pra CADA ligação de catálogo (12 mil+) e travava a cotação.
   var famCache=null,famOk=function(r){if(!r.familia)return true;if(famCache===null){var f=(typeof familia==='function')?familia():familia;famCache=relTxtNorm(f||'');}return !famCache||famCache===r.familia;};
@@ -48729,15 +48750,27 @@ function relRegrasLinhaNova(){
 }
 function relRegrasSalvarDaTela(){
   var m=document.getElementById('relRegrasModal');if(!m)return;
-  var antigas=relRegrasLoad(),out=[];
+  var antigas=relRegrasLoad(),out=[],incompletas=[];
   m.querySelectorAll('[data-regra]').forEach(function(row,k){
     var sp=function(v){return String(v||'').split(',').map(function(x){return x.trim().toUpperCase();}).filter(Boolean);};
     var a=sp(row.querySelector('[data-k=a]').value),b=sp(row.querySelector('[data-k=b]').value);
     var tipo=(row.querySelector('[data-k=tipo]')||{}).value||'ab',fam=(row.querySelector('[data-k=familia]')||{}).value||'';
-    if(!a.length||(tipo!=='entre'&&!b.length)||(tipo==='entre'&&a.length<2))return;
+    // v115.2037 - A pedido do Vitor ("coloquei a regra mas não salvou"): linha incompleta era descartada em
+    // silêncio. "Todas montam entre si" agora junta as duas colunas (o que foi digitado em B antes de trocar o
+    // tipo não se perde) e linha incompleta com algo digitado avisa e não salva, em vez de sumir.
+    if(tipo==='entre'){b.forEach(function(x){if(a.indexOf(x)<0)a.push(x);});}
+    if(!a.length&&!b.length)return;
+    if(!a.length||(tipo!=='entre'&&!b.length)||(tipo==='entre'&&a.length<2)){
+      incompletas.push(row);row.style.outline='2px solid #C00000';row.style.borderRadius='6px';return;
+    }
+    row.style.outline='';
     var idx=row.getAttribute('data-regra');var ant=idx!=='novo'?antigas[+idx]:null;
     out.push({id:(ant&&ant.id)||('r'+Date.now()+'_'+k),tipo:tipo,familia:fam,a:a,b:tipo==='entre'?[]:b,ativo:row.querySelector('[data-k=ativo]').checked});
   });
+  if(incompletas.length){
+    pfAlert('⚠️ '+incompletas.length+' regra(s) incompleta(s) (em vermelho): "A monta com B" precisa das duas colunas; "Todas montam entre si" precisa de pelo menos 2 peças separadas por vírgula. Nada foi salvo ainda.');
+    return;
+  }
   relRegrasSalvar(out);
   m.remove();
   if(typeof vendasRefresh==='function'&&window._venda)vendasRefresh();

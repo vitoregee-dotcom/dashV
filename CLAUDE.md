@@ -37,6 +37,9 @@
   equivalentesExtra[{marca,codigo,tipo}], especificacoes[{nome,valor}], fotos[], medidas por letra}`.
 - "📋 Colar print de aplicação" (`ccColarPrintAplicacao`) junta aplicação/equivalentes/foto num item existente e nos relacionados;
   "➕ Cadastrar item" (`ccNovoItem`) cria item novo por print ou à mão. Aplicação exibida por `ccAplicacaoOrganizadaHtml`.
+- **Spicer é a principal** (fabrica pras montadoras; REI/Sorocard/Stahl/LNG são paralelos): código, descrição e foto da Spicer
+  mandam no card (`ccPrioSpicer`, `ccAplicarSpicerNoGrupo`); a descrição de outro catálogo vai pra `descricaoCatalogo`.
+  Catálogo LNG 2015 (cardan) em `data/lng-cardan-2015.json` + família `acessorios`.
 - Cotação: busca Série/Modelo também acha componentes cardan pelo veículo (`vendasCcBuscarPorVeiculo`) + Monta com.
 
 ## Catálogos de peças em PDF

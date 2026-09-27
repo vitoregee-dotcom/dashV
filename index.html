@@ -1898,7 +1898,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2069</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2070</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2051,7 +2051,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2069</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2070</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -47288,7 +47288,14 @@ function pfPrecoUltimoBadge(ref,marca,cliente,vendaAtual){
       var entries=await pfBuscarHistoricoPreco(ref,marca);
       var clienteUp=cliente.toString().toUpperCase();
       var doCliente=entries.filter(function(e){return e.tipo==='venda'&&e.cliente&&e.cliente.toString().toUpperCase()===clienteUp;});
-      window._pfPrecoUltimoCache[chave]=doCliente.length?doCliente[0]:false;
+      // v115.2070 - A pedido do Vitor ("eu vendi pra ele, a setinha não teria que estar cheia?"): comparava com o
+      // registro MAIS RECENTE -- que muitas vezes era a própria cotação aberta (autosave, "V-23"), vazada. Agora ignora
+      // a cotação que está aberta e compara primeiro com o último preço VENDIDO (Pedido de Venda, "PV-"); só se nunca
+      // vendeu é que usa a última cotação (vazada).
+      var _vAt=window._venda||{};var _numAt=_vAt.num?('V-'+_vAt.num):'';var _nrAt=_vAt.nr||'';
+      var doClienteOutros=doCliente.filter(function(e){var n=String(e.cotacao_num||'');return !(n&&(n===_numAt||n===_nrAt));});
+      var vendidos=doClienteOutros.filter(function(e){return String(e.cotacao_num||'').indexOf('PV-')===0;});
+      window._pfPrecoUltimoCache[chave]=vendidos.length?vendidos[0]:(doClienteOutros.length?doClienteOutros[0]:false);
       // v115.1783 - Performance: antes chamava vendasRender() aqui (redesenha
       // a tabela INTEIRA, incluindo reconstruir o mapa de relacionados do
       // zero) toda vez que o histórico de UM item respondia -- numa cotação
@@ -47385,7 +47392,7 @@ async function pfAbrirHistoricoItem(ref,marca,desc){
     var isCompra=e.tipo==='compra';
     var isNegativo=e.tipo==='negativo';
     var badge=isNegativo?'<span style="background:#FDEDEC;color:var(--pf-fx-vermelho,#C00000);padding:1px 6px;border-radius:4px;font-weight:700;font-size:10px">SEM ESTOQUE</span>'
-      :'<span style="background:'+(isCompra?'#DBEAFE':'#E1F5EE')+';color:'+(isCompra?'#1F4E79':'#085041')+';padding:1px 6px;border-radius:4px;font-weight:700;font-size:10px">'+(isCompra?'COMPRA':'VENDA')+'</span>';
+      :'<span style="background:'+(isCompra?'#DBEAFE':(String(e.cotacao_num||'').indexOf('PV-')===0?'#E1F5EE':'#EEF1F5'))+';color:'+(isCompra?'#1F4E79':(String(e.cotacao_num||'').indexOf('PV-')===0?'#085041':'#607080'))+';padding:1px 6px;border-radius:4px;font-weight:700;font-size:10px">'+(isCompra?'COMPRA':(String(e.cotacao_num||'').indexOf('PV-')===0?'VENDIDO':'COTADO'))+'</span>'; // v115.2070 - venda de verdade (Pedido de Venda) x só cotado
     return '<tr style="border-bottom:1px solid var(--pf-fx-fundoSuave,#f0f4f8)'+(isNegativo?';opacity:.7':'')+'">'+
       '<td style="padding:6px 10px;color:var(--pf-fx-textoSuave,#8a9ab0);white-space:nowrap">'+fmtData(e.created_at)+'</td>'+
       '<td style="padding:6px 10px;white-space:nowrap">'+badge+'</td>'+
@@ -48116,6 +48123,84 @@ function vendasAtualizarResumo(){
   var elNeg=document.getElementById('vendasResumoNeg');if(elNeg)elNeg.textContent=totalNeg;
   var elVal=document.getElementById('vendasResumoVal');if(elVal)elVal.textContent='R$ '+totalVal.toFixed(2).replace('.',',');
 }
+// v115.2070 - A pedido do Vitor ("sempre que abrir essas janelas quero poder mover elas, pra ainda ver a tela de trás
+// -- em todo o sistema"): arrastar QUALQUER janela que abre por cima (modal) pela faixa de cima (título). Regra única,
+// sem mexer em cada tela: a "janela" é o filho direto de um fundo escuro fixo de tela cheia (padrão de todos os modais
+// do sistema) ou um painel fixo com sombra (ex: Série/Modelo). Só arrasta pelos primeiros ~60px, e nunca a partir de
+// botão/campo/link/algo clicável -- clique normal continua igual. Não vale pra janela principal da cotação (já ocupa
+// a tela) nem pro dock/menu lateral. Só mouse (no iPad o toque continua rolando normal). A posição volta ao centro na
+// próxima vez que a janela abrir.
+(function(){
+  var FAIXA=60;
+  function telaCheia(el){var r=el.getBoundingClientRect();return r.width>=window.innerWidth*0.9&&r.height>=window.innerHeight*0.9;}
+  function temFundo(el){var m=(getComputedStyle(el).backgroundColor||'').match(/rgba?\(([^)]+)\)/);if(!m)return false;var p=m[1].split(',');return p.length<4||parseFloat(p[3])>0;}
+  function acharJanela(t){
+    var el=t,filho=null;
+    while(el&&el!==document.body&&el!==document.documentElement){
+      if(el.id==='vendasModal'||el.id==='pfSidebar'||el.id==='pfNav'||el.id==='pfDock'||(el.dataset&&el.dataset.pfSemArrastar!=null))return null;
+      var cs=getComputedStyle(el);
+      if(cs.position==='fixed'){
+        if(telaCheia(el))return (filho&&temFundo(el))?filho:null;
+        if(cs.boxShadow&&cs.boxShadow!=='none')return el;
+        return null;
+      }
+      filho=el;el=el.parentElement;
+    }
+    return null;
+  }
+  function clicavel(t,janela){
+    var el=t;
+    while(el&&el!==janela){
+      var tag=el.tagName;
+      if(tag==='BUTTON'||tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA'||tag==='A'||tag==='LABEL'||tag==='IMG'||tag==='svg')return true;
+      if(el.hasAttribute&&(el.hasAttribute('onclick')||el.hasAttribute('contenteditable')))return true;
+      if(getComputedStyle(el).cursor==='pointer')return true;
+      el=el.parentElement;
+    }
+    return false;
+  }
+  function alvoArrasto(e){
+    var j=acharJanela(e.target);if(!j)return null;
+    var r=j.getBoundingClientRect();
+    if(e.clientY-r.top>FAIXA||e.clientY<r.top)return null;
+    if(clicavel(e.target,j))return null;
+    return j;
+  }
+  var arr=null,rafCursor=0;
+  document.addEventListener('mousedown',function(e){
+    if(e.button!==0)return;
+    var j=alvoArrasto(e);if(!j)return;
+    arr={j:j,x:e.clientX,y:e.clientY,dx:parseFloat(j.dataset.pfDx||0),dy:parseFloat(j.dataset.pfDy||0),mexeu:false};
+  },true);
+  document.addEventListener('mousemove',function(e){
+    if(arr){
+      var mx=e.clientX-arr.x,my=e.clientY-arr.y;
+      if(!arr.mexeu&&Math.abs(mx)+Math.abs(my)<4)return;
+      if(!arr.mexeu){arr.mexeu=true;document.body.classList.add('pfArrastando');}
+      var nx=arr.dx+mx,ny=arr.dy+my;
+      // não deixa o título sumir da tela
+      var r=arr.j.getBoundingClientRect();var topoAtual=r.top-(parseFloat(arr.j.dataset.pfDy||0));
+      ny=Math.max(ny,-topoAtual);ny=Math.min(ny,window.innerHeight-40-topoAtual);
+      arr.j.style.translate=nx+'px '+ny+'px';arr.j.dataset.pfDx=nx;arr.j.dataset.pfDy=ny;
+      e.preventDefault();return;
+    }
+    if(e.buttons)return;
+    if(rafCursor)return;
+    rafCursor=requestAnimationFrame(function(){rafCursor=0;
+      var pode=false;try{pode=!!alvoArrasto(e);}catch(x){}
+      document.body.classList.toggle('pfPodeArrastar',pode);
+    });
+  },true);
+  document.addEventListener('mouseup',function(){
+    if(!arr)return;
+    var mexeu=arr.mexeu;arr=null;document.body.classList.remove('pfArrastando');
+    // o clique que vem depois de arrastar não pode "cair" no fundo e fechar a janela
+    if(mexeu){var cancela=function(ev){ev.stopPropagation();ev.preventDefault();window.removeEventListener('click',cancela,true);};window.addEventListener('click',cancela,true);setTimeout(function(){window.removeEventListener('click',cancela,true);},50);}
+  },true);
+  var st=document.createElement('style');
+  st.textContent='body.pfPodeArrastar,body.pfPodeArrastar *{cursor:move}body.pfArrastando,body.pfArrastando *{cursor:move!important;user-select:none!important;-webkit-user-select:none!important}';
+  (document.head||document.documentElement).appendChild(st);
+})();
 // v115.2062 - A pedido do Vitor ("nada me sinaliza que o item tem foto, itens relacionados ou alguma observação";
 // escolheu etiquetas ao lado da descrição, "mas quero poder trocar as etiquetas se eu quiser"): etiquetas pequenas
 // na linha da cotação, só quando o item TEM aquilo. Cada tipo pode ser ligado/desligado e ter símbolo (emoji, texto

@@ -1898,7 +1898,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2070</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2071</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2051,7 +2051,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2070</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2071</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -47294,8 +47294,14 @@ function pfPrecoUltimoBadge(ref,marca,cliente,vendaAtual){
       // vendeu é que usa a última cotação (vazada).
       var _vAt=window._venda||{};var _numAt=_vAt.num?('V-'+_vAt.num):'';var _nrAt=_vAt.nr||'';
       var doClienteOutros=doCliente.filter(function(e){var n=String(e.cotacao_num||'');return !(n&&(n===_numAt||n===_nrAt));});
-      var vendidos=doClienteOutros.filter(function(e){return String(e.cotacao_num||'').indexOf('PV-')===0;});
-      window._pfPrecoUltimoCache[chave]=vendidos.length?vendidos[0]:(doClienteOutros.length?doClienteOutros[0]:false);
+      // v115.2071 - A pedido do Vitor (TX COMPONENTES comparando com o preço da SPICER-R): o histórico vem com TODAS as
+      // marcas do código -- agora usa só a MESMA marca; se essa marca nunca teve preço pro cliente, usa as outras (e o
+      // balão avisa de qual marca era).
+      var mU=(marca||'').toString().toUpperCase().trim();
+      var mesmaMarca=doClienteOutros.filter(function(e){return (e.marca||'').toString().toUpperCase().trim()===mU;});
+      var base=mesmaMarca.length?mesmaMarca:doClienteOutros;
+      var vendidos=base.filter(function(e){return String(e.cotacao_num||'').indexOf('PV-')===0;});
+      window._pfPrecoUltimoCache[chave]=vendidos.length?vendidos[0]:(base.length?base[0]:false);
       // v115.1783 - Performance: antes chamava vendasRender() aqui (redesenha
       // a tabela INTEIRA, incluindo reconstruir o mapa de relacionados do
       // zero) toda vez que o histórico de UM item respondia -- numa cotação
@@ -47353,7 +47359,9 @@ function pfPrecoUltimoBadge(ref,marca,cliente,vendaAtual){
   // cima), pra não ficar ilegível junto com o número do preço.
   // v115.2069 - A pedido do Vitor ("colocar a explicação quando passar o cursor, pro usuário não esquecer como
   // funciona"): o balão agora traz a legenda completa, e clicar na setinha abre o histórico de preços do item.
-  var tipLongo='ÚLTIMO PREÇO P/ ESTE CLIENTE: R$ '+ultimo.toFixed(2).replace('.',',')+(dataTxt?' em '+dataTxt:'')+' — '+(vendido?'VENDIDO (virou Pedido de Venda)':'SÓ COTADO (não virou pedido)')+
+  var outraMarca=cache.marca&&marca&&cache.marca.toString().toUpperCase().trim()!==marca.toString().toUpperCase().trim();
+  var tipLongo='ÚLTIMO PREÇO P/ ESTE CLIENTE: R$ '+ultimo.toFixed(2).replace('.',',')+(dataTxt?' em '+dataTxt:'')+' — '+(vendido?'VENDIDO (virou Pedido de Venda'+(cache.cotacao_num?' '+cache.cotacao_num:'')+')':'SÓ COTADO (não virou pedido)')+
+    (outraMarca?'\n(atenção: esse preço foi da marca '+cache.marca+' — essa marca ainda não tinha preço pra ele)':'')+
     '\nAgora: '+(diffPct===0?'preço igual':Math.abs(diffPct)+'% '+(diffPct>0?'mais caro':'mais barato'))+
     '\n\nComo ler a setinha:'+
     '\n  ▲ ▼ ●  cheia = foi vendido'+
@@ -47388,11 +47396,17 @@ async function pfAbrirHistoricoItem(ref,marca,desc){
   var margemMedia=margens.length?(margens.reduce(function(a,b){return a+b;},0)/margens.length):null;
   function fmtR$(v){return v==null?'—':'R$ '+Number(v).toFixed(2).replace('.',',');}
   function fmtData(d){return new Date(d).toLocaleDateString('pt-BR');}
+  // v115.2071 - identifica a cotação aberta e a linha que a setinha está usando
+  var _vH=window._venda||{};var _numH=_vH.num?('V-'+_vH.num):'';var _nrH=_vH.nr||'';
+  var _cliH=(_vH.cliente&&_vH.cliente.razao)||'';
+  var _cacheH=window._pfPrecoUltimoCache&&window._pfPrecoUltimoCache[(ref||'').toString().toUpperCase()+'|'+(marca||'').toString().toUpperCase()+'|'+_cliH.toString().toUpperCase()];
   var linhas=entries.map(function(e){
+    var _nH=String(e.cotacao_num||'');var ehEsta=_nH&&(_nH===_numH||_nH===_nrH);
+    var ehSetinha=_cacheH&&_cacheH.created_at===e.created_at&&Number(_cacheH.preco)===Number(e.preco);
     var isCompra=e.tipo==='compra';
     var isNegativo=e.tipo==='negativo';
     var badge=isNegativo?'<span style="background:#FDEDEC;color:var(--pf-fx-vermelho,#C00000);padding:1px 6px;border-radius:4px;font-weight:700;font-size:10px">SEM ESTOQUE</span>'
-      :'<span style="background:'+(isCompra?'#DBEAFE':(String(e.cotacao_num||'').indexOf('PV-')===0?'#E1F5EE':'#EEF1F5'))+';color:'+(isCompra?'#1F4E79':(String(e.cotacao_num||'').indexOf('PV-')===0?'#085041':'#607080'))+';padding:1px 6px;border-radius:4px;font-weight:700;font-size:10px">'+(isCompra?'COMPRA':(String(e.cotacao_num||'').indexOf('PV-')===0?'VENDIDO':'COTADO'))+'</span>'; // v115.2070 - venda de verdade (Pedido de Venda) x só cotado
+      :'<span style="background:'+(isCompra?'#DBEAFE':(String(e.cotacao_num||'').indexOf('PV-')===0?'#E1F5EE':'#EEF1F5'))+';color:'+(isCompra?'#1F4E79':(String(e.cotacao_num||'').indexOf('PV-')===0?'#085041':'#607080'))+';padding:1px 6px;border-radius:4px;font-weight:700;font-size:10px">'+(isCompra?'COMPRA':(ehEsta?'ESTA COTAÇÃO':(String(e.cotacao_num||'').indexOf('PV-')===0?'VENDIDO':'COTADO')))+'</span>'+(ehSetinha?'<div style="font-size:10px;font-weight:800;color:#1F4E79;margin-top:2px" title="A setinha da cotação compara com esta linha">◀ setinha</div>':''); // v115.2070/2071 - vendido x cotado; esta cotação; linha da setinha
     return '<tr style="border-bottom:1px solid var(--pf-fx-fundoSuave,#f0f4f8)'+(isNegativo?';opacity:.7':'')+'">'+
       '<td style="padding:6px 10px;color:var(--pf-fx-textoSuave,#8a9ab0);white-space:nowrap">'+fmtData(e.created_at)+'</td>'+
       '<td style="padding:6px 10px;white-space:nowrap">'+badge+'</td>'+

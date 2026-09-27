@@ -1898,7 +1898,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2075</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2076</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2051,7 +2051,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2075</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2076</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -48942,15 +48942,25 @@ function relCoocorrencia(){
   var nItem={},nPar={},info={};
   (cots||[]).forEach(function(ct){
     var vistos={},cods=[];
+    // v115.2076 - A pedido do Vitor (5-263X e 5-263XS "já foram cotados juntos" -- é o mesmo item, só muda a marca):
+    // as fichas que vieram da MESMA busca (mesmo código digitado, codigoOriginal) contam como um item só.
     (ct&&ct.itens||[]).forEach(function(it){
-      var k=relNorm(it&&it.codigo);if(!k||vistos[k])return;vistos[k]=1;cods.push(k);
-      if(!info[k])info[k]={codigo:it.codigo,desc:it.desc||'',marca:it.marca||''};
+      var k=relNorm(it&&(it.codigoOriginal||it.codigo));if(!k||vistos[k])return;vistos[k]=1;cods.push(k);
+      if(!info[k])info[k]={codigo:it.codigoOriginal||it.codigo,desc:it.desc||'',marca:it.marca||''};
     });
     cods.forEach(function(k){nItem[k]=(nItem[k]||0)+1;});
     if(cods.length>60)return; // cotação enorme não entra na contagem de pares
     for(var i=0;i<cods.length;i++)for(var j=i+1;j<cods.length;j++){var pk=cods[i]<cods[j]?cods[i]+'||'+cods[j]:cods[j]+'||'+cods[i];nPar[pk]=(nPar[pk]||0)+1;}
   });
   c={t:Date.now(),nItem:nItem,nPar:nPar,info:info};window._relCoCache=c;return c;
+}
+// v115.2076 - mesmo item com outra marca/variação: um código é o outro + até 3 letras/números no fim (5263X / 5263XS),
+// igual à regra de variante da busca da cotação (vendasBuscarItem).
+function relMesmoItem(a,b){
+  a=String(a||'').replace(/[\s\-\.]/g,'').toUpperCase();b=String(b||'').replace(/[\s\-\.]/g,'').toUpperCase();
+  if(!a||!b)return false;if(a===b)return true;
+  var curto=a.length<=b.length?a:b,longo=a.length<=b.length?b:a;
+  return curto.length>=3&&longo.indexOf(curto)===0&&/^[A-Z0-9]{1,3}$/.test(longo.slice(curto.length));
 }
 function relCandidatos(soCodigos){
   var co=relCoocorrencia(),dec=relDecisoesMapa(),out=[];
@@ -48959,6 +48969,7 @@ function relCandidatos(soCodigos){
   Object.keys(co.nPar).forEach(function(pk){
     var n=co.nPar[pk];if(n<REL_MIN_VEZES)return;
     var ab=pk.split('||');if(filtro&&!(filtro[ab[0]]&&filtro[ab[1]]))return;
+    if(relMesmoItem(ab[0],ab[1]))return; // v115.2076 - variação do mesmo código (5-263X / 5-263XS) não é "relacionado"
     if(dec[pk]||jaRel[pk])return;
     var menor=Math.min(co.nItem[ab[0]]||n,co.nItem[ab[1]]||n);
     if(n/menor<REL_MIN_FRACAO)return;
@@ -48986,7 +48997,7 @@ function vendasRelSugRender(){
   var its=(window._venda&&window._venda.itens)||[];
   if(its.length<2){box.innerHTML='';return;}
   window._relDepois=window._relDepois||{};
-  var cands=relCandidatos(its.map(function(i){return i.codigo;})).filter(function(c){return !window._relDepois[c.id];});
+  var cands=relCandidatos(its.map(function(i){return i.codigo;}).concat(its.map(function(i){return i.codigoOriginal||i.codigo;}))).filter(function(c){return !window._relDepois[c.id];});
   if(!cands.length){box.innerHTML='';return;}
   var c=cands[0];
   var nome=function(x){return '<b style="font-family:monospace;color:#1F4E79">'+pfEscHtml(x.codigo)+'</b>'+(x.desc?' <span style="color:#607080">('+pfEscHtml(String(x.desc).slice(0,28))+')</span>':'');};

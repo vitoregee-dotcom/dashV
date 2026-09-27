@@ -942,6 +942,12 @@ sempre), a versão agora mora perto do avatar em vez de embaixo do nome. */
    quando os itens realmente não cabem na tela; do contrário fica em
    overflow:visible, com o zoom livre igual antes. */
 #pfNav.pf-nav-rolando{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch}
+/* v115.2066 - A pedido do Vitor ("dock bugado, o ícone não sai pra fora"): no modo rolagem o overflow-y:hidden cortava o
+   zoom do hover. A caixa de rolagem agora tem 100px de "folga" invisível pra cima (padding-top + margin-top negativos,
+   então os ícones não saem do lugar) -- o ícone ampliado cabe dentro dela. A folga não pega clique (pointer-events),
+   só os ícones pegam, então a página logo acima do dock continua clicável. */
+#pfNav.pf-nav-rolando{padding-top:100px;margin-top:-100px;pointer-events:none}
+#pfNav.pf-nav-rolando>*{pointer-events:auto}
 .pf-nav-item{
   display:flex;flex-direction:column;align-items:center;gap:4px;padding:2px 8px 17px;
   border-radius:11px;cursor:pointer;font-size:13px;font-weight:600;
@@ -1892,7 +1898,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2065</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2066</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2045,7 +2051,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2065</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2066</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -48032,15 +48038,38 @@ function vendasConfirmarEquivalencia(idx){
 
 // Traz um item do "Top 15 mais comprados" direto pra cotação atual, buscando
 // saldo/custo atualizados na planilha (mesmo item pode já ter preço diferente hoje)
+// v115.2066 - BUG achado pelo Vitor (5-263X: Dashboard com saldo 9 na TX COMPONENTES, cotação trouxe SPICER-R com
+// saldo 0): "+ cotar"/"Trazer todos" dos mais comprados pegavam SEMPRE a marca do último pedido, mesmo sem saldo,
+// e ignoravam a ficha com estoque (e as regras / cotação enxuta). Agora: a marca de antes só vem se tiver saldo;
+// se não tiver e outra ficha do mesmo código tiver, vem a que tem (passando pelas regras do Assistente), e o aviso
+// "↩ Subir mesmo assim" deixa trazer a de antes.
+function vendasEscolherFichaResumo(codigo,marca){
+  var items=vendasBuscarItem(codigo);
+  if(!items||!items.length)return {ficha:null,trocada:null};
+  var mU=(marca||'').toUpperCase();
+  var pedida=items.find(function(it){return (it.marca||'').toUpperCase()===mU;})||null;
+  if(pedida&&(parseFloat(pedida.saldo)||0)>0)return {ficha:pedida,trocada:null};
+  var candidatos=items;
+  if(typeof pfVR2Aplicar==='function'){try{var rr=pfVR2Aplicar(codigo,items,window._venda&&window._venda.cliente);if(rr.items&&rr.items.length)candidatos=rr.items;}catch(e){}}
+  var comSaldo=candidatos.filter(function(it){return (parseFloat(it.saldo)||0)>0;});
+  if(comSaldo.length){
+    var melhor=comSaldo.slice().sort(function(a,b){return (parseFloat(a.custo)||Infinity)-(parseFloat(b.custo)||Infinity);})[0];
+    return {ficha:melhor,trocada:pedida};
+  }
+  return {ficha:pedida||candidatos[0]||items[0],trocada:null};
+}
+function vendasItemDaFicha(codigo,f,desc,marcaHist){
+  var prodCad=null;try{prodCad=(vendasProdIdx&&vendasProdIdx()[(codigo||'').toUpperCase().trim()])||null;}catch(e){}
+  var marcaCot=prodCad&&prodCad.marcaCotacao?prodCad.marcaCotacao:null;
+  if(!f)return {codigo:codigo,codigoOriginal:codigo,qtd:1,desc:desc||'',marca:marcaCot||marcaHist||'',marcaInterna:'',saldo:null,custo:null};
+  return {codigo:f._refExemplo||codigo,codigoOriginal:codigo,qtd:1,desc:f.desc||desc||'',marca:marcaCot||f.marca,marcaInterna:f.marca,saldo:f.saldo,custo:f.custo};
+}
 function vendasAdicionarItemDoResumo(codigo,marca,desc){
   if(!window._venda)return;
   if(!window._venda.itens)window._venda.itens=[];
-  var items=vendasBuscarItem(codigo);
-  var match=items&&items.length?(items.find(function(it){return (it.marca||'').toUpperCase()===(marca||'').toUpperCase();})||items[0]):null;
-  var novoItem=match
-    ?{codigo:codigo,codigoOriginal:codigo,qtd:1,desc:match.desc||desc,marca:marca||match.marca,marcaInterna:match.marca,saldo:match.saldo,custo:match.custo}
-    :{codigo:codigo,codigoOriginal:codigo,qtd:1,desc:desc,marca:marca||'',marcaInterna:'',saldo:null,custo:null};
-  window._venda.itens.push(novoItem);
+  var r=vendasEscolherFichaResumo(codigo,marca);
+  window._venda.itens.push(vendasItemDaFicha(codigo,r.ficha,desc,marca));
+  window._vr2UltimoOculto=r.trocada?{cod:codigo,codDigitado:codigo,qtd:1,removidos:[{item:r.trocada,motivo:'sem saldo — veio '+(r.ficha&&r.ficha.marca||'outra')+' que tem saldo',regra:'enxuta'}]}:null;
   vendasRefresh();
 }
 // Traz TODOS os itens do Top 15 de uma vez
@@ -48050,11 +48079,8 @@ function vendasAdicionarTodosTopItens(){
   if(!r||!r.topItens||!r.topItens.length)return;
   if(!window._venda.itens)window._venda.itens=[];
   r.topItens.forEach(function(it){
-    var items=vendasBuscarItem(it.codigo);
-    var match=items&&items.length?(items.find(function(x){return (x.marca||'').toUpperCase()===(it.marca||'').toUpperCase();})||items[0]):null;
-    window._venda.itens.push(match
-      ?{codigo:it.codigo,codigoOriginal:it.codigo,qtd:1,desc:match.desc||it.desc,marca:it.marca||match.marca,marcaInterna:match.marca,saldo:match.saldo,custo:match.custo}
-      :{codigo:it.codigo,codigoOriginal:it.codigo,qtd:1,desc:it.desc,marca:it.marca||'',marcaInterna:'',saldo:null,custo:null});
+    var esc=vendasEscolherFichaResumo(it.codigo,it.marca); // v115.2066 - prefere ficha com saldo
+    window._venda.itens.push(vendasItemDaFicha(it.codigo,esc.ficha,it.desc,it.marca));
   });
   vendasRefresh();
 }
@@ -49660,6 +49686,7 @@ function vendasAplicAdicionarSelecionados(){
     // número quando ele existir, só cai pra 1 se realmente não souber.
     var qtdAplic=(s.qtd!=null&&!isNaN(s.qtd)&&s.qtd>0)?s.qtd:1;
     var found=vendasBuscarItem(cod);
+    if(found&&found.length&&typeof pfVR2Aplicar==='function'){try{var rrA=pfVR2Aplicar(cod,found,window._venda&&window._venda.cliente);if(rrA.items&&rrA.items.length)found=rrA.items;}catch(eA){}} // v115.2066 - regras + cotação enxuta também pela aplicação
     var prodCad=cadLoad(PROD_KEY).find(function(p){return (p.codigo||'').toUpperCase()===cod;});
     var marcaCot=prodCad&&prodCad.marcaCotacao?prodCad.marcaCotacao:null;
     if(found&&found.length){
@@ -49687,6 +49714,7 @@ function vendasAdicionarPorAplicacao(codigo){
   var cod=(codigo||'').trim().toUpperCase();
   if(!window._venda.itens)window._venda.itens=[];
   var found=vendasBuscarItem(cod);
+  if(found&&found.length&&typeof pfVR2Aplicar==='function'){try{var rrB=pfVR2Aplicar(cod,found,window._venda&&window._venda.cliente);if(rrB.items&&rrB.items.length)found=rrB.items;}catch(eB){}} // v115.2066
   var novosItens=[];
   var prodCad=cadLoad(PROD_KEY).find(function(p){return (p.codigo||'').toUpperCase()===cod;});
   var marcaCot=prodCad&&prodCad.marcaCotacao?prodCad.marcaCotacao:null;

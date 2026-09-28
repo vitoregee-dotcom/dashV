@@ -1898,7 +1898,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2085</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2086</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2051,7 +2051,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2085</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2086</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -54272,7 +54272,10 @@ function pcMontarDados(){
     if(!clientes[k])clientes[k]={k:k,nome:c?(c.fantasia||c.razao||razao):razao,razao:c?(c.razao||razao):razao,cad:c,vendEmail:c?(c.vendedorEmail||'').toLowerCase():'',cots:[],peds:[]};
     return clientes[k];
   }
-  cots.forEach(function(c){var x=achar(c.cliente,c.clienteObj);if(x)x.cots.push(c);});
+  // v115.2086 - BUG (print do Vitor: cliente com 1 pedido e "0 de 3 cotações fecharam"): só contava como fechada a
+  // cotação com dataPedido gravado nela; agora também a que tem pedido de venda apontando pra ela (cotacaoNum).
+  var numsComPedido={};peds.forEach(function(p){if(p.cotacaoNum!=null)numsComPedido[String(p.cotacaoNum)]=1;});
+  cots.forEach(function(c){c._pcFech=!!c.dataPedido||!!numsComPedido[String(c.num)];var x=achar(c.cliente,c.clienteObj);if(x)x.cots.push(c);});
   peds.forEach(function(p){var x=achar(p.clienteRazao,null);if(x){x.peds.push(p);if(!x.vendEmail&&!x.cad&&p.vendedorEmail)x.vendEmail=p.vendedorEmail.toLowerCase();}});
   return Object.keys(clientes).map(function(k){return clientes[k];});
 }
@@ -54291,12 +54294,44 @@ function pcCalc(c,ini){
   c.cotsP=c.cots.filter(function(x){return dentro(x.data);});
   c.valorP=c.pedsP.reduce(function(s,p){return s+pcTotalPedido(p);},0);
   c.valorTotal=c.peds.reduce(function(s,p){return s+pcTotalPedido(p);},0);
-  c.fechadasP=c.cotsP.filter(function(x){return x.dataPedido;}).length;
+  c.fechadasP=c.cotsP.filter(function(x){return x._pcFech;}).length;
   c.convP=c.cotsP.length?Math.round(c.fechadasP/c.cotsP.length*100):null;
   var ds=c.peds.map(function(p){return new Date(p.data).getTime();}).filter(function(t){return !isNaN(t);}).sort(function(a,b){return a-b;});
   c.primeira=ds.length?ds[0]:null;c.ultima=ds.length?ds[ds.length-1]:null;
   c.datasCompra=ds;
   return c;
+}
+// v115.2086 - A pedido do Vitor ("frequência que cota, que compra, valor por ano e por mês, gráficos de cotação e
+// compras"): séries mensais dos últimos 12 meses e gráfico de barras simples (uma medida por gráfico, sem eixo duplo).
+function pcSerieMeses(cots,peds,n){
+  n=n||12;var hoje=new Date(),out=[],idx={};
+  for(var i=n-1;i>=0;i--){var d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1);var k=d.getFullYear()+'-'+d.getMonth();idx[k]=out.length;
+    out.push({rot:d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+(d.getMonth()===0||i===n-1?'/'+String(d.getFullYear()).slice(2):''),nome:d.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}),cots:0,cotsV:0,peds:0,valor:0});}
+  var chave=function(dt){var d=new Date(dt);return isNaN(d)?null:d.getFullYear()+'-'+d.getMonth();};
+  (cots||[]).forEach(function(c){var k=chave(c.data);if(k!=null&&idx[k]!=null){out[idx[k]].cots++;}});
+  (peds||[]).forEach(function(p){var k=chave(p.data);if(k!=null&&idx[k]!=null){out[idx[k]].peds++;out[idx[k]].valor+=pcTotalPedido(p);}});
+  return out;
+}
+function pcGraficoMeses(serie,campo,cor,titulo,fmt){
+  var max=0;serie.forEach(function(m){if(m[campo]>max)max=m[campo];});
+  var tot=serie.reduce(function(s,m){return s+m[campo];},0);
+  var h='<div style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSuave,#8a9ab0);text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between"><span>'+titulo+'</span><span style="color:var(--pf-fx-textoEscuro,#1a2332)">'+fmt(tot)+' em 12 meses</span></div>';
+  h+='<div style="display:flex;align-items:flex-end;gap:2px;height:110px;border-bottom:1px solid var(--pf-fx-bordaClara,#e0e8f0);padding-top:14px">';
+  serie.forEach(function(m){
+    var v=m[campo],pct=max?Math.max(v?3:0,Math.round(v/max*100)):0;
+    var tip=m.nome+': '+fmt(v)+(campo==='valor'?' ('+m.peds+' pedido'+(m.peds===1?'':'s')+')':'');
+    h+='<div title="'+pfEscHtml(tip)+'" style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;cursor:default;position:relative" onmouseenter="this.firstChild.style.visibility=\'visible\'" onmouseleave="this.firstChild.style.visibility=\''+(v&&v===max?'visible':'hidden')+'\'">'+
+      '<div style="font-size:10px;font-weight:700;color:var(--pf-fx-textoEscuro,#1a2332);white-space:nowrap;margin-bottom:2px;visibility:'+(v&&v===max?'visible':'hidden')+'">'+fmt(v)+'</div>'+
+      '<div style="width:70%;max-width:26px;height:'+pct+'%;background:'+cor+';border-radius:4px 4px 0 0"></div></div>';
+  });
+  h+='</div><div style="display:flex;gap:2px;margin-top:3px">'+serie.map(function(m){return '<div style="flex:1;text-align:center;font-size:9.5px;color:var(--pf-fx-textoSuave,#8a9ab0);white-space:nowrap;overflow:hidden">'+m.rot+'</div>';}).join('')+'</div>';
+  return h;
+}
+function pcFmtN(v){return (v||0).toLocaleString('pt-BR');}
+// intervalo médio (dias) entre datas
+function pcIntervaloDias(datas){
+  var ds=datas.map(function(d){return new Date(d).getTime();}).filter(function(t){return !isNaN(t);}).sort(function(a,b){return a-b;});
+  return ds.length>=2?Math.round((ds[ds.length-1]-ds[0])/(ds.length-1)/86400000):null;
 }
 function pvRenderKpis(el){
   var pg=pfVR2PodeGeral();
@@ -54349,15 +54384,21 @@ function pvRenderKpis(el){
     kpi('Ticket médio',nPed?pcFmtR(vend/nPed):'—','por pedido')+
     kpi('Clientes ativos',ativos,'compraram no período')+
   '</div>';
+  // v115.2086 - gráficos mensais da carteira visível (12 meses, não depende do filtro de período)
+  var _cA=[],_pA=[];lista.forEach(function(c){_cA=_cA.concat(c.cots);_pA=_pA.concat(c.peds);});
+  var _ser=pcSerieMeses(_cA,_pA,12);
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px;margin-bottom:12px">'+
+    '<div style="'+card+'">'+pcGraficoMeses(_ser,'cots','#5B8DB8','📋 Cotações por mês',pcFmtN)+'</div>'+
+    '<div style="'+card+'">'+pcGraficoMeses(_ser,'valor','var(--pf-fx-marca,#1F4E79)','💰 Compras por mês (R$)',pcFmtR)+'</div></div>';
 
   var grid='display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-bottom:12px';
   h+='<div style="'+grid+'">';
   // Mais compram
   var comp=lista.filter(function(c){return c.valorP>0;}).sort(function(a,b){return b.valorP-a.valorP;}).slice(0,10);
-  h+='<div style="'+card+'">'+tit('🏆 Clientes que mais compram')+(comp.length?comp.map(function(c){return linhaCli(c,pcFmtR(c.valorP),c.pedsP.length+' pedido'+(c.pedsP.length===1?'':'s'));}).join(''):vazio('Nenhuma compra no período.'))+'</div>';
+  h+='<div style="'+card+'">'+tit('🏆 Clientes que mais compram')+(comp.length?comp.map(function(c){var iv=pcIntervaloDias(c.peds.map(function(p){return p.data;}));return linhaCli(c,pcFmtR(c.valorP),c.pedsP.length+' pedido'+(c.pedsP.length===1?'':'s')+(iv!=null?' · compra a cada '+iv+' dias':''));}).join(''):vazio('Nenhuma compra no período.'))+'</div>';
   // Mais cotam
   var cot=lista.filter(function(c){return c.cotsP.length>0;}).sort(function(a,b){return b.cotsP.length-a.cotsP.length;}).slice(0,10);
-  h+='<div style="'+card+'">'+tit('📋 Clientes que mais cotam')+(cot.length?cot.map(function(c){return linhaCli(c,c.cotsP.length+' cot.',c.fechadasP+' fechada'+(c.fechadasP===1?'':'s'));}).join(''):vazio('Nenhuma cotação no período.'))+'</div>';
+  h+='<div style="'+card+'">'+tit('📋 Clientes que mais cotam')+(cot.length?cot.map(function(c){var iv=pcIntervaloDias(c.cots.map(function(q){return q.data;}));return linhaCli(c,c.cotsP.length+' cot.',c.fechadasP+' fechada'+(c.fechadasP===1?'':'s')+(iv!=null?' · cota a cada '+iv+' dias':''));}).join(''):vazio('Nenhuma cotação no período.'))+'</div>';
   // Cotam muito, compram pouco
   var baixa=lista.filter(function(c){return c.cotsP.length>=3&&c.convP<30;}).sort(function(a,b){return (b.cotsP.length-b.fechadasP)-(a.cotsP.length-a.fechadasP);}).slice(0,10);
   h+='<div style="'+card+'">'+tit('⚠️ Cotam muito, compram pouco','(3+ cotações, conversão abaixo de 30%)')+(baixa.length?baixa.map(function(c){return linhaCli(c,'<span style="color:#C0392B">'+c.convP+'%</span>',c.fechadasP+' de '+c.cotsP.length+' cotações fecharam');}).join(''):vazio('Nenhum cliente nessa situação. 👍'))+'</div>';
@@ -54395,7 +54436,7 @@ function pcAbrirFicha(i){
   var c=(window._pcLista||[])[i];if(!c)return;
   var old=document.getElementById('pcFichaModal');if(old)old.remove();
   var agora=Date.now();
-  var valorTotal=c.valorTotal, nPed=c.peds.length, nCot=c.cots.length, fech=c.cots.filter(function(x){return x.dataPedido;}).length;
+  var valorTotal=c.valorTotal, nPed=c.peds.length, nCot=c.cots.length, fech=c.cots.filter(function(x){return x._pcFech;}).length;
   var ds=c.datasCompra, intervalo=null, prox=null;
   if(ds.length>=2){intervalo=Math.round((ds[ds.length-1]-ds[0])/(ds.length-1)/86400000);prox=ds[ds.length-1]+intervalo*86400000;}
   var itens={},marcas={};
@@ -54428,7 +54469,7 @@ function pcAbrirFicha(i){
   c.cots.slice().sort(function(a,b){return new Date(b.data)-new Date(a.data);}).forEach(function(x){
     (x.itens||[]).forEach(function(it){if(!it.pvNumero&&it.codigo&&naoFech.length<15)naoFech.push({num:x.num,data:x.data,codigo:it.codigo,desc:it.desc,marca:it.marca,qtd:it.qtd});});
   });
-  var hist=c.cots.map(function(x){return {t:'Cotação',n:'#'+x.num,d:x.data,v:vendasCalcularTotalCotacao(x),ok:!!x.dataPedido};})
+  var hist=c.cots.map(function(x){return {t:'Cotação',n:'#'+x.num,d:x.data,v:vendasCalcularTotalCotacao(x),ok:!!x._pcFech};})
     .concat(c.peds.map(function(p){return {t:'Pedido',n:p.numero,d:p.data,v:pcTotalPedido(p),ok:true};}))
     .sort(function(a,b){return new Date(b.d)-new Date(a.d);}).slice(0,20);
   var mini=function(r,v){return '<div style="background:var(--pf-fx-fundoSuave,#f0f4f8);border-radius:8px;padding:8px 10px"><div style="font-size:10px;color:var(--pf-fx-textoSuave,#8a9ab0);font-weight:700;text-transform:uppercase">'+r+'</div><div style="font-size:15px;font-weight:800;color:var(--pf-fx-textoEscuro,#1a2332)">'+v+'</div></div>';};
@@ -54441,6 +54482,8 @@ function pcAbrirFicha(i){
     mini('Já comprou',pcFmtR(valorTotal))+mini('Pedidos',nPed)+mini('Cotações',nCot+(nCot?' ('+Math.round(fech/nCot*100)+'% fecham)':''))+
     mini('Última compra',c.ultima?pcFmtD(c.ultima)+' ('+Math.floor((agora-c.ultima)/86400000)+'d)':'—')+
     mini('Compra a cada',intervalo!=null?intervalo+' dias':'—')+
+    mini('Cota a cada',(function(){var x=pcIntervaloDias(c.cots.map(function(q){return q.data;}));return x!=null?x+' dias':'—';})())+
+    mini('Média por mês',(function(){var ser=pcSerieMeses([],c.peds,12);return pcFmtR(ser.reduce(function(s,m){return s+m.valor;},0)/12);})()+'<div style="font-size:10px;color:#8a9ab0;font-weight:400">últimos 12 meses</div>')+
     mini('Próxima compra',prox?(prox<agora?'<span style="color:#C0392B">atrasada ('+pcFmtD(prox)+')</span>':pcFmtD(prox)):'—')+'</div>';
   h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">';
   h+='<div>'+sec('O que ele mais compra')+(topIt.length?'<table style="width:100%;border-collapse:collapse;font-size:12px">'+topIt.map(function(it){return '<tr><td style="'+td+';font-family:monospace;color:#D97757">'+pfEscHtml(it.codigo)+'</td><td style="'+td+';color:var(--pf-fx-textoSec,#607080)">'+pfEscHtml(it.desc||'')+'</td><td style="'+td+'">'+pfEscHtml(it.marca||'')+'</td><td style="'+td+';text-align:right;font-weight:700">'+it.qtd+'</td></tr>';}).join('')+'</table>':'<div style="font-size:12px;color:#8a9ab0">Ainda não comprou.</div>')+
@@ -54454,6 +54497,21 @@ function pcAbrirFicha(i){
   h+='<div>'+sec('⏸️ Parou de comprar (nada nos últimos 90 dias)')+(famParou.length?'<div style="display:flex;flex-wrap:wrap;gap:6px">'+famParou.map(function(f){return chip(pfEscHtml(f)+' · desde '+pcFmtD(famCli[f].ultima),'#FFF5F5','#C0392B');}).join('')+'</div>':'<div style="font-size:12px;color:#8a9ab0">Nenhuma — continua comprando todas.</div>')+
     sec('💡 Nunca comprou (outros clientes compram)')+(famNunca.length?'<div style="display:flex;flex-wrap:wrap;gap:6px">'+famNunca.map(function(f){var n=Object.keys(famGeral[f].clientes).length;return chip(pfEscHtml(f)+' · '+n+' cliente'+(n===1?'':'s'),'#EAF9F0','#166534');}).join('')+'</div>':'<div style="font-size:12px;color:#8a9ab0">Já compra todas as famílias vendidas.</div>')+'</div>';
   h+='</div>';
+  // v115.2086 - gráficos mensais do cliente + resumo por ano
+  var _serC=pcSerieMeses(c.cots,c.peds,12);
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:14px">'+
+    '<div>'+pcGraficoMeses(_serC,'cots','#5B8DB8','📋 Cotações por mês',pcFmtN)+'</div>'+
+    '<div>'+pcGraficoMeses(_serC,'valor','var(--pf-fx-marca,#1F4E79)','💰 Compras por mês (R$)',pcFmtR)+'</div></div>';
+  var anos={};
+  c.cots.forEach(function(q){var y=new Date(q.data).getFullYear();if(isNaN(y))return;anos[y]=anos[y]||{cots:0,fech:0,peds:0,valor:0};anos[y].cots++;if(q._pcFech)anos[y].fech++;});
+  c.peds.forEach(function(p){var y=new Date(p.data).getFullYear();if(isNaN(y))return;anos[y]=anos[y]||{cots:0,fech:0,peds:0,valor:0};anos[y].peds++;anos[y].valor+=pcTotalPedido(p);});
+  var anoAtual=new Date().getFullYear(),mesesAnoAtual=new Date().getMonth()+1;
+  var anosOrd=Object.keys(anos).sort(function(a,b){return b-a;});
+  if(anosOrd.length){
+    var th='padding:4px;text-align:right;font-size:10px;color:var(--pf-fx-textoSuave,#8a9ab0)';
+    h+=sec('Por ano')+'<table style="width:100%;border-collapse:collapse;font-size:12px"><tr><th style="'+th+';text-align:left">ANO</th><th style="'+th+'">COMPROU</th><th style="'+th+'">MÉDIA/MÊS</th><th style="'+th+'">PEDIDOS</th><th style="'+th+'">COTAÇÕES</th><th style="'+th+'">CONVERSÃO</th></tr>'+
+      anosOrd.map(function(y){var a=anos[y],m=(+y===anoAtual?mesesAnoAtual:12);return '<tr><td style="'+td+';font-weight:700">'+y+(+y===anoAtual?' <span style="font-weight:400;color:#8a9ab0">(até agora)</span>':'')+'</td><td style="'+td+';text-align:right;font-weight:700;color:var(--pf-fx-marca,#1F4E79)">'+pcFmtR(a.valor)+'</td><td style="'+td+';text-align:right">'+pcFmtR(a.valor/m)+'</td><td style="'+td+';text-align:right">'+a.peds+'</td><td style="'+td+';text-align:right">'+a.cots+'</td><td style="'+td+';text-align:right">'+(a.cots?Math.round(a.fech/a.cots*100)+'%':'—')+'</td></tr>';}).join('')+'</table>';
+  }
   h+=sec('Histórico')+'<table style="width:100%;border-collapse:collapse;font-size:12px">'+hist.map(function(x){return '<tr><td style="'+td+'">'+pcFmtD(x.d)+'</td><td style="'+td+'">'+x.t+' <b>'+pfEscHtml(x.n)+'</b></td><td style="'+td+'">'+(x.t==='Cotação'?(x.ok?'<span style="color:#1A7A3C">✔ virou pedido</span>':'<span style="color:#8a9ab0">em aberto</span>'):'')+'</td><td style="'+td+';text-align:right;font-weight:700">'+pcFmtR(x.v)+'</td></tr>';}).join('')+'</table>';
   var m=document.createElement('div');m.id='pcFichaModal';
   m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';

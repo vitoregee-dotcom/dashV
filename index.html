@@ -1898,7 +1898,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2090</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2091</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2051,7 +2051,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2090</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2091</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -54704,7 +54704,7 @@ function pfOrbDados(){
     var dias=c.ultima?Math.floor((agora-c.ultima)/86400000):null;
     var novo=c.primeira&&c.primeira>=agora-60*86400000;
     var pot=(cots90.length>=3&&fech90/cots90.length<0.3)||novo||(dias==null&&ultCot>=a90);
-    return {c:c,k:c.k,nome:c.nome,dias:dias,valor12m:c.valorP,compraACada:pcIntervaloDias(c.peds.map(function(p){return p.data;})),vend:pcVendedorTxt(c),pot:!!pot,ultCot:ultCot,nCot:c.cotsP.length};
+    return {c:c,k:c.k,nome:c.nome,dias:dias,valor12m:c.valorP,compraACada:pcIntervaloDias(c.peds.map(function(p){return p.data;})),vend:pcVendedorTxt(c),potBruto:!!pot,potScore:(cots90.length-fech90)*3+(novo?5:0)+(dias==null?cots90.length*2:0),ultCot:ultCot,nCot:c.cotsP.length,valorAno:c.valorTotal/Math.max(1,(Date.now()-(c.primeira||Date.now()))/(365*86400000))};
   }).filter(function(x){
     // fora da órbita: quem não compra há mais de 1 ano e nem cotou nos últimos 6 meses
     if(x.dias!=null&&x.dias<=365)return true;
@@ -54712,13 +54712,18 @@ function pfOrbDados(){
   });
   var porValor=lista.filter(function(x){return x.valor12m>0;}).sort(function(a,b){return b.valor12m-a.valor12m;});
   porValor.slice(0,Math.min(10,Math.max(3,Math.ceil(porValor.length/4)))).forEach(function(x){x.top=true;}); // top 10 (com carteira pequena, só o 1/4 de cima)
-  var med=porValor.length?porValor[Math.floor(porValor.length/2)].valor12m:0;
-  lista.forEach(function(x){x.alerta=x.dias!=null&&x.dias>60&&x.valor12m>0&&x.valor12m>=med;x.sit=pfOrbSituacao(x.dias);});
+  // v115.2091 - A pedido do Vitor ("como os clientes potencial vão ficar marcados? clientes que compram ou compravam
+  // bem"): marcações seletivas pra se destacarem numa carteira grande --
+  //   ⭐ compram bem = top 10 em 12 meses (acima); halo vermelho = compravam bem e pararam: os 10 maiores pela média
+  //   anual do histórico entre os com +60 dias sem comprar; anel azul = potencial: no máximo os 15 mais fortes.
+  lista.forEach(function(x){x.sit=pfOrbSituacao(x.dias);x.alerta=false;x.pot=false;});
+  lista.filter(function(x){return x.dias!=null&&x.dias>60&&x.valorAno>0;}).sort(function(a,b){return b.valorAno-a.valorAno;}).slice(0,10).forEach(function(x){x.alerta=true;});
+  lista.filter(function(x){return x.potBruto;}).sort(function(a,b){return b.potScore-a.potScore;}).slice(0,15).forEach(function(x){x.pot=true;});
   // v115.2088 - A pedido do Vitor (print com dados reais: 15 clientes só cotando, bolinhas minúsculas sem nome):
   // quem só cota ganha tamanho pelo nº de cotações (12 meses) e os 6 que mais cotam mostram o nome.
   lista.filter(function(x){return x.sit==='cota';}).sort(function(a,b){return b.nCot-a.nCot;}).slice(0,6).forEach(function(x){if(x.nCot>0)x.destCota=true;});
   // muitos clientes: fica com os 120 mais relevantes (valor + destacados)
-  if(lista.length>120)lista=lista.sort(function(a,b){return (b.valor12m+(b.pot?1e6:0))-(a.valor12m+(a.pot?1e6:0));}).slice(0,120);
+  if(lista.length>2000)lista=lista.sort(function(a,b){return (b.valor12m+(b.pot?1e6:0))-(a.valor12m+(a.pot?1e6:0));}).slice(0,120);
   return lista;
 }
 // Raio relativo (0..1) pela quantidade de dias sem comprar
@@ -54756,16 +54761,21 @@ function pfOrbitaRender(){
         '<option value="__sem"'+(window._pfOrbVendedor==='__sem'?' selected':'')+'>(sem vendedor)</option></select>':'')+
       '<button onclick="window._pfOrbLegenda=!window._pfOrbLegenda;var l=document.getElementById(\'pfOrbLeg\');if(l)l.style.display=window._pfOrbLegenda?\'block\':\'none\';this.style.background=window._pfOrbLegenda?\'var(--pf-noticias-accent,#1F4E79)\':\'transparent\';this.style.color=window._pfOrbLegenda?\'#fff\':\'var(--pf-noticias-accent,#1F4E79)\'" title="Como ler a órbita" style="width:22px;height:22px;border-radius:50%;border:1.5px solid var(--pf-noticias-accent,#1F4E79);background:'+(leg?'var(--pf-noticias-accent,#1F4E79)':'transparent')+';color:'+(leg?'#fff':'var(--pf-noticias-accent,#1F4E79)')+';font-weight:800;font-size:12px;cursor:pointer;padding:0;line-height:1">?</button></div>'+
     '</div>'+
-    '<div style="position:relative"><canvas id="pfOrbCanvas" style="width:100%;height:240px;display:block;cursor:default"></canvas>'+
+    '<div style="position:relative"><canvas id="pfOrbCanvas" style="width:100%;height:240px;display:block;cursor:default;touch-action:none"></canvas>'+
+      // v115.2091 - zoom (roda do mouse / botões / arrastar), a pedido do Vitor: carteira grande = bolinhas menores + "perspectiva"
+      '<div style="position:absolute;right:2px;bottom:4px;display:flex;flex-direction:column;gap:3px;z-index:3">'+
+        ['＋','−','⟲'].map(function(b,i){return '<button onclick="pfOrbZoomBtn('+i+')" title="'+['Aproximar','Afastar','Voltar ao normal'][i]+'" style="width:24px;height:24px;border-radius:6px;border:1px solid var(--pf-noticias-border,#e0e8f0);background:var(--pf-noticias-card-bg,#fff);color:var(--pf-noticias-text,#1a2332);font-size:14px;line-height:1;cursor:pointer;padding:0">'+b+'</button>';}).join('')+
+      '</div>'+
       '<div id="pfOrbTip" style="position:absolute;display:none;pointer-events:none;background:#1a2332;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.45;box-shadow:0 6px 18px rgba(0,0,0,.25);z-index:5;max-width:240px"></div>'+
       '<div id="pfOrbLeg" style="display:'+(leg?'block':'none')+';position:absolute;top:4px;right:0;z-index:4;background:var(--pf-noticias-card-bg,#fff);border:1px solid var(--pf-noticias-border,#e0e8f0);border-radius:8px;padding:8px 11px;font-size:11.5px;line-height:1.6;color:var(--pf-noticias-text,#1a2332);box-shadow:0 4px 14px rgba(0,0,0,.12);max-width:380px">'+
         '<b style="color:var(--pf-noticias-accent,#1F4E79)">Como ler a órbita</b><br>'+
         'A <b>distância da Triex</b> = dias sem comprar (anéis de 30, 60, 90 e 180+ dias).<br>'+
         '🟢 até 30d · 🟡 31–60d · 🟠 61–90d · 🔴 +90d · 🔵 só cota<br>'+
         '<b>Tamanho</b> = quanto comprou em 12 meses.<br>'+
-        '⭐ anel dourado = maiores compradores<br>'+
-        '<span style="color:'+PF_ORB.cores.azul+'">◎ anel azul</span> = potencial (cota muito e compra pouco, cliente novo ou só cota)<br>'+
-        '<span style="color:'+PF_ORB.cores.r+'">◉ halo vermelho</span> = cliente grande parado — vale ligar<br>'+
+        '⭐ anel dourado = <b>compram bem</b> (os 10 que mais compraram em 12 meses)<br>'+
+        '<span style="color:'+PF_ORB.cores.r+'">◉ halo vermelho</span> = <b>compravam bem e pararam</b> (os 10 maiores, há +60 dias sem comprar) — vale ligar<br>'+
+        '<span style="color:'+PF_ORB.cores.azul+'">◎ anel azul</span> = <b>potencial</b> (até 15: cota muito e compra pouco, cliente novo ou só cota com cotação recente)<br>'+
+        'Quanto mais clientes, menores as bolinhas. <b>Zoom</b>: roda do mouse ou ＋ −, arraste pra mover, 2 cliques volta. Com zoom aparecem mais nomes.<br>'+
         'Os contadores em cima filtram. Clique no cliente = ficha.'+
       '</div></div>'+
     '</div>';
@@ -54791,24 +54801,45 @@ function pfOrbIniciar(lista){
       x.alfa=1;
     });
   });
-  var st={gestor:pfVR2PodeGeral(),lista:lista,cv:cv,t0:performance.now(),hover:null,rot:0,ultimo:performance.now(),reduz:window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches};
+  // v115.2091 - A pedido do Vitor ("são bastante clientes -- só eu tenho uns 150; o certo é, na medida que aumenta
+  // o número de clientes, as bolinhas irem diminuindo pra caber mais, ou a perspectiva"): tamanho encolhe com a
+  // quantidade (até ~40 clientes fica igual; 150 ≈ metade; 500+ ≈ 1/3) e nomes fixos só dos ~14 mais importantes;
+  // os outros aparecem ao dar zoom (roda do mouse/botões) -- quanto mais perto, mais nomes.
+  var kEsc=Math.max(0.32,Math.min(1,Math.sqrt(40/Math.max(40,lista.length))));
+  lista.forEach(function(x){x.tam=Math.max(1.8,x.tam*kEsc);x.imp=x.valor12m*(x.dias!=null&&x.dias>60?2:1)+(x.sit==='cota'?(x.nCot||0)*500:0);});
+  var cand=lista.filter(function(x){return x.top||x.alerta||x.destCota;}).sort(function(a,b){return b.imp-a.imp;});
+  cand.forEach(function(x,i){x.rotulo=i<14;});
+  var st={gestor:pfVR2PodeGeral(),lista:lista,cv:cv,t0:performance.now(),hover:null,rot:0,ultimo:performance.now(),z:1,px:0,py:0,reduz:window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches};
   if(window._pfOrbSt&&window._pfOrbSt.raf)cancelAnimationFrame(window._pfOrbSt.raf);
   window._pfOrbSt=st;
-  cv.onmousemove=function(e){var r=cv.getBoundingClientRect();pfOrbHover(e.clientX-r.left,e.clientY-r.top);};
+  cv.onmousemove=function(e){var r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+    if(st.arr){var dx=mx-st.arr.x,dy=my-st.arr.y;if(Math.abs(dx)+Math.abs(dy)>3)st.arr.moveu=true;st.px=st.arr.px-dx/st.z;st.py=st.arr.py-dy/st.z;pfOrbLimitarPan(st);return;}
+    pfOrbHover(mx,my);};
+  cv.onmousedown=function(e){if(st.z<=1.01)return;var r=cv.getBoundingClientRect();st.arr={x:e.clientX-r.left,y:e.clientY-r.top,px:st.px,py:st.py};cv.style.cursor='grabbing';};
+  if(!window._pfOrbMU){window._pfOrbMU=1;window.addEventListener('mouseup',function(){var s2=window._pfOrbSt;if(s2&&s2.arr){setTimeout(function(){s2.arr=null;},0);s2.cv.style.cursor='default';}});}
+  cv.onwheel=function(e){e.preventDefault();var r=cv.getBoundingClientRect();pfOrbZoomEm(st,e.clientX-r.left,e.clientY-r.top,e.deltaY<0?1.25:0.8);};
+  cv.ondblclick=function(){st.z=1;st.px=0;st.py=0;};
   cv.onmouseleave=function(){st.hover=null;st.dentro=false;var t=document.getElementById('pfOrbTip');if(t)t.style.display='none';};
   cv.onmouseenter=function(){st.dentro=true;};
-  cv.onclick=function(){if(st.hover)pcAbrirFichaPorChave(st.hover.k);};
+  cv.onclick=function(){if(st.arr&&st.arr.moveu)return;if(st.hover)pcAbrirFichaPorChave(st.hover.k);};
   var loop=function(now){
     if(window._pfOrbSt!==st||!document.body.contains(cv))return;
     st.raf=requestAnimationFrame(loop);
     if(!cv.offsetParent)return; // tela escondida: não desenha
     if(!st.ultAlt||now-st.ultAlt>1000){st.ultAlt=now;pfOrbAjustarAltura(cv);}
     var dt=Math.min(50,now-st.ultimo);st.ultimo=now;
-    if(!st.dentro&&!st.reduz)st.rot+=dt;
+    if(!st.dentro&&!st.reduz&&st.z<1.05)st.rot+=dt; // com zoom, para de girar pra dar pra ler
     pfOrbDesenhar(st,now);
   };
   st.raf=requestAnimationFrame(loop);
 }
+function pfOrbZoomEm(st,mx,my,f){
+  var cv=st.cv,cx=cv.clientWidth/2,cy=cv.clientHeight/2,z2=Math.max(1,Math.min(8,st.z*f));
+  var wx=cx+st.px+(mx-cx)/st.z,wy=cy+st.py+(my-cy)/st.z; // ponto do mundo sob o mouse fica parado
+  st.z=z2;st.px=wx-cx-(mx-cx)/z2;st.py=wy-cy-(my-cy)/z2;if(z2===1){st.px=0;st.py=0;}pfOrbLimitarPan(st);
+}
+function pfOrbLimitarPan(st){var w=st.cv.clientWidth/2,h=st.cv.clientHeight/2;st.px=Math.max(-w,Math.min(w,st.px));st.py=Math.max(-h,Math.min(h,st.py));}
+function pfOrbZoomBtn(i){var st=window._pfOrbSt;if(!st)return;var cx=st.cv.clientWidth/2,cy=st.cv.clientHeight/2;if(i===2){st.z=1;st.px=0;st.py=0;return;}pfOrbZoomEm(st,cx,cy,i===0?1.5:1/1.5);}
 function pfOrbAjustarAltura(cv){
   // espaço livre do topo do canvas até a barra de baixo (dock); mín. 200px, máx. 380px
   var r=cv.getBoundingClientRect(),clr=(typeof pfAiDockClearance==='function')?pfAiDockClearance():24;
@@ -54831,6 +54862,9 @@ function pfOrbDesenhar(st,now){
   var escuro=document.body.classList.contains('pf-dark')||(document.getElementById('pfApp')&&!document.getElementById('pfApp').classList.contains('pf-light'))&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches;
   var cs=getComputedStyle(cv),corTxt=cs.getPropertyValue('--pf-noticias-text').trim()||(escuro?'#e6edf5':'#1a2332'),corMut=cs.getPropertyValue('--pf-noticias-text-muted').trim()||'#8a9ab0';
   ctx.setTransform(g.dpr,0,0,g.dpr,0,0);ctx.clearRect(0,0,g.w,g.h);
+  // v115.2091 - zoom: tudo passa por essa conversão mundo→tela (centro, raios e posições)
+  var Z=st.z||1,T=function(x,y){return {x:g.cx+(x-g.cx-st.px)*Z,y:g.cy+(y-g.cy-st.py)*Z};},C=T(g.cx,g.cy);
+  var g0=g;g={w:g0.w,h:g0.h,dpr:g0.dpr,cx:C.x,cy:C.y,rx:g0.rx*Z,ry:g0.ry*Z,_mundo:g0};
   // anéis
   ctx.setLineDash([4,5]);ctx.lineWidth=1;
   [[30,'30 dias'],[60,'60 dias'],[90,'90 dias'],[180,'180+ dias']].forEach(function(r){
@@ -54844,26 +54878,29 @@ function pfOrbDesenhar(st,now){
   }
   ctx.setLineDash([]);ctx.globalAlpha=1;
   // sol TRIEX com brilho respirando
-  var resp=st.reduz?0:Math.sin(now/900)*0.5+0.5,rs=Math.min(30,g.ry*0.2);
+  var resp=st.reduz?0:Math.sin(now/900)*0.5+0.5,rs=Math.min(30,g0.ry*0.2)*Math.pow(Z,0.6);
   var grd=ctx.createRadialGradient(g.cx,g.cy,rs*0.6,g.cx,g.cy,rs*2.4);grd.addColorStop(0,'rgba(31,78,121,'+(0.35+resp*0.2)+')');grd.addColorStop(1,'rgba(31,78,121,0)');
   ctx.fillStyle=grd;ctx.beginPath();ctx.arc(g.cx,g.cy,rs*2.4,0,Math.PI*2);ctx.fill();
   var g2=ctx.createRadialGradient(g.cx-rs*0.3,g.cy-rs*0.3,2,g.cx,g.cy,rs);g2.addColorStop(0,'#3a78b5');g2.addColorStop(1,'#163a5c');
   ctx.fillStyle=g2;ctx.beginPath();ctx.arc(g.cx,g.cy,rs,0,Math.PI*2);ctx.fill();
   ctx.fillStyle='#fff';ctx.font='800 '+Math.round(rs*0.42)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('TRIEX',g.cx,g.cy+1);ctx.textBaseline='alphabetic';
   var f=window._pfOrbFiltro||'',pulso=st.reduz?0.5:(Math.sin(now/450)*0.5+0.5);
-  var ordem=st.lista.slice().sort(function(a,b){return b.rr-a.rr;});
+  var ordem=st.lista.slice().sort(function(a,b){return b.rr-a.rr;}),rotOcup=[]; // v115.2091 - caixas dos nomes já escritos (evita encavalar)
   ordem.forEach(function(x){
     var ok=!f||(f==='pot'?x.pot:x.sit===f);x.alfa+=((ok?1:0.12)-x.alfa)*0.12;
     var p=pfOrbPos(x,g,st,now);x._x=p.x;x._y=p.y;
-    var esc=Math.max(0.7,Math.min(1,g.h/320)),t=x.tam*esc*(st.hover===x?1.25:1),cor=x.sit==='cota'?'#9fb3c8':PF_ORB.cores[x.sit];
+    if(p.x<-30||p.x>g.w+30||p.y<-30||p.y>g.h+30){x._x=null;return;} // fora da tela (com zoom)
+    var esc=Math.max(0.7,Math.min(1,g.h/320))*Math.pow(Z,0.6),t=x.tam*esc*(st.hover===x?1.25:1);x._t=t;var cor=x.sit==='cota'?'#9fb3c8':PF_ORB.cores[x.sit];
     ctx.globalAlpha=x.alfa;
-    if(x.alerta){ctx.fillStyle='rgba(192,57,43,'+(0.12+pulso*0.18)+')';ctx.beginPath();ctx.arc(p.x,p.y,t+6+pulso*4,0,Math.PI*2);ctx.fill();}
-    if(x.pot){ctx.strokeStyle=PF_ORB.cores.azul;ctx.lineWidth=2;ctx.globalAlpha=x.alfa*(0.35+pulso*0.65);ctx.beginPath();ctx.arc(p.x,p.y,t+4+pulso*3,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=x.alfa;}
+    var dec=Math.max(2,Math.min(6,t*0.6));if(x.alerta){ctx.fillStyle='rgba(192,57,43,'+(0.15+pulso*0.2)+')';ctx.beginPath();ctx.arc(p.x,p.y,t+dec+pulso*dec*0.6,0,Math.PI*2);ctx.fill();}
+    if(x.pot){ctx.strokeStyle=PF_ORB.cores.azul;ctx.lineWidth=2;ctx.globalAlpha=x.alfa*(0.35+pulso*0.65);ctx.beginPath();ctx.arc(p.x,p.y,t+dec*0.7+pulso*dec*0.5,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=x.alfa;}
     var gp=ctx.createRadialGradient(p.x-t*0.35,p.y-t*0.35,1,p.x,p.y,t);gp.addColorStop(0,'rgba(255,255,255,.55)');gp.addColorStop(0.35,cor);gp.addColorStop(1,cor);
     ctx.fillStyle=gp;ctx.beginPath();ctx.arc(p.x,p.y,t,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle=escuro?'rgba(0,0,0,.4)':'#fff';ctx.lineWidth=1.5;ctx.stroke();
     if(x.top){ctx.strokeStyle=PF_ORB.cores.ouro;ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,t+2.5,0,Math.PI*2);ctx.stroke();ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText('⭐',p.x,p.y-t-4);}
-    if(x.top||x.alerta||x.destCota||st.hover===x){ctx.fillStyle=corTxt;ctx.font='600 9.5px sans-serif';ctx.textAlign='center';var n=x.nome.length>18?x.nome.slice(0,17)+'…':x.nome;ctx.fillText(n,p.x,p.y+t+12);
+    var querRot=x.rotulo||st.hover===x||(Z>=2.2&&x.tam*Z>=5)||Z>=4,bx={x:p.x-45,y:p.y+t+2,w:90,h:(st.gestor&&!window._pfOrbVendedor?22:12)};
+    if(querRot&&st.hover!==x&&rotOcup.some(function(o){return bx.x<o.x+o.w&&o.x<bx.x+bx.w&&bx.y<o.y+o.h&&o.y<bx.y+bx.h;}))querRot=false;
+    if(querRot){rotOcup.push(bx);ctx.fillStyle=corTxt;ctx.font='600 9.5px sans-serif';ctx.textAlign='center';var n=x.nome.length>18?x.nome.slice(0,17)+'…':x.nome;ctx.fillText(n,p.x,p.y+t+12);
       if(st.gestor&&!window._pfOrbVendedor&&x.vend){ctx.fillStyle=corMut;ctx.font='9px sans-serif';ctx.fillText('👤 '+(x.vend.length>20?x.vend.slice(0,19)+'…':x.vend),p.x,p.y+t+22);}} // v115.2087 - gestor vê quem atende
   });
   ctx.globalAlpha=1;
@@ -54871,7 +54908,7 @@ function pfOrbDesenhar(st,now){
 function pfOrbHover(mx,my){
   var st=window._pfOrbSt;if(!st)return;
   var melhor=null,dm=1e9;
-  st.lista.forEach(function(x){if(x._x==null||x.alfa<0.5)return;var d=Math.hypot(mx-x._x,my-x._y);if(d<x.tam+7&&d<dm){dm=d;melhor=x;}});
+  st.lista.forEach(function(x){if(x._x==null||x.alfa<0.5)return;var d=Math.hypot(mx-x._x,my-x._y);if(d<(x._t||x.tam)+6&&d<dm){dm=d;melhor=x;}});
   st.hover=melhor;st.cv.style.cursor=melhor?'pointer':'default';
   var tip=document.getElementById('pfOrbTip');if(!tip)return;
   if(!melhor){tip.style.display='none';return;}

@@ -1898,7 +1898,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2092</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2093</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2051,7 +2051,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2092</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2093</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -54691,6 +54691,18 @@ var PF_ORB={cores:{v:'#27AE60',a:'#E6A817',l:'#E67E22',r:'#C0392B',azul:'#2E86DE
 function pfOrbSituacao(d){return d==null?'cota':d<=30?'v':d<=60?'a':d<=90?'l':'r';}
 function pfOrbRotSit(k){return {v:'🟢 Ativo (comprou até 30 dias)',a:'🟡 Esfriando (31–60 dias)',l:'🟠 Atenção (61–90 dias)',r:'🔴 Parado (mais de 90 dias)',cota:'🔵 Só cota (nunca comprou)'}[k];}
 // Monta a lista de clientes da órbita a partir das cotações/pedidos (mesma base do Painel de Clientes)
+// v115.2093 - A pedido do Vitor ("um rastro mostrando se está se afastando ou se aproximando, comparado ao
+// passado"): onde o cliente estava há N dias (30 ou 90, seletor "Rastro") e a tendência de volume
+// (últimos 90 dias x 90 anteriores: ▲ +30% ou mais, ▼ -30% ou mais).
+function pfOrbHistorico(c,agora){
+  var per=window._pfOrbRastro==null?30:window._pfOrbRastro,dia=86400000,tP=agora-per*dia;
+  var antes=(c.datasCompra||[]).filter(function(t){return t<=tP;});
+  var diasAntes=antes.length?Math.floor((tP-antes[antes.length-1])/dia):null;
+  var v1=0,v0=0;(c.peds||[]).forEach(function(p){var t=new Date(p.data).getTime(),v=pcTotalPedido(p);if(t>=agora-90*dia)v1+=v;else if(t>=agora-180*dia)v0+=v;});
+  var tend=0,pct=null;
+  if(v0>0){pct=Math.round((v1-v0)/v0*100);if(pct>=30)tend=1;else if(pct<=-30)tend=-1;}else if(v1>0){tend=1;}
+  return {per:per,diasAntes:diasAntes,tend:tend,pct:pct,v1:v1,v0:v0};
+}
 function pfOrbDados(){
   var agora=Date.now(),a12=agora-365*86400000,a90=agora-90*86400000;
   var fvSalvo=window._pcVendedor;window._pcVendedor=window._pfOrbVendedor||'';
@@ -54704,7 +54716,7 @@ function pfOrbDados(){
     var dias=c.ultima?Math.floor((agora-c.ultima)/86400000):null;
     var novo=c.primeira&&c.primeira>=agora-60*86400000;
     var pot=(cots90.length>=3&&fech90/cots90.length<0.3)||novo||(dias==null&&ultCot>=a90);
-    return {c:c,k:c.k,nome:c.nome,dias:dias,valor12m:c.valorP,compraACada:pcIntervaloDias(c.peds.map(function(p){return p.data;})),vend:pcVendedorTxt(c),potBruto:!!pot,potScore:(cots90.length-fech90)*3+(novo?5:0)+(dias==null?cots90.length*2:0),ultCot:ultCot,nCot:c.cotsP.length,valorAno:c.valorTotal/Math.max(1,(Date.now()-(c.primeira||Date.now()))/(365*86400000))};
+    return {c:c,k:c.k,nome:c.nome,dias:dias,valor12m:c.valorP,compraACada:pcIntervaloDias(c.peds.map(function(p){return p.data;})),vend:pcVendedorTxt(c),potBruto:!!pot,hist:pfOrbHistorico(c,agora),potScore:(cots90.length-fech90)*3+(novo?5:0)+(dias==null?cots90.length*2:0),ultCot:ultCot,nCot:c.cotsP.length,valorAno:c.valorTotal/Math.max(1,(Date.now()-(c.primeira||Date.now()))/(365*86400000))};
   }).filter(function(x){
     // fora da órbita: quem não compra há mais de 1 ano e nem cotou nos últimos 6 meses
     if(x.dias!=null&&x.dias<=365)return true;
@@ -54719,6 +54731,17 @@ function pfOrbDados(){
   lista.forEach(function(x){x.sit=pfOrbSituacao(x.dias);x.alerta=false;x.pot=false;});
   lista.filter(function(x){return x.dias!=null&&x.dias>60&&x.valorAno>0;}).sort(function(a,b){return b.valorAno-a.valorAno;}).slice(0,10).forEach(function(x){x.alerta=true;});
   lista.filter(function(x){return x.potBruto;}).sort(function(a,b){return b.potScore-a.potScore;}).slice(0,15).forEach(function(x){x.pot=true;});
+  // rastro só quando é notícia: VOLTOU (comprou no período depois de estar com +60 dias) ou PIOROU de faixa sendo
+  // cliente relevante (compra/comprava bem ou valor anual acima da mediana)
+  var ords={v:0,a:1,l:2,r:3},va=lista.map(function(x){return x.valorAno||0;}).filter(function(v){return v>0;}).sort(function(a,b){return a-b;}),medA=va.length?va[Math.floor(va.length/2)]:0;
+  lista.forEach(function(x){
+    var h=x.hist;x.rastro='';if(!h||!h.per)return;
+    var sitA=pfOrbSituacao(h.diasAntes);
+    if(x.dias!=null&&x.dias<=h.per&&h.diasAntes!=null&&h.diasAntes>60)x.rastro='volta';
+    else if(h.diasAntes!=null&&ords[x.sit]!=null&&ords[sitA]!=null&&ords[x.sit]>ords[sitA]&&(x.top||x.alerta||(x.valorAno||0)>=medA))x.rastro='afasta';
+  });
+  // carteira grande: no máximo 8 de cada (os de maior valor anual), pra não virar um emaranhado de caudas
+  ['volta','afasta'].forEach(function(tp){lista.filter(function(x){return x.rastro===tp;}).sort(function(a,b){return (b.valorAno||0)-(a.valorAno||0);}).slice(8).forEach(function(x){x.rastro='';});});
   // v115.2088 - A pedido do Vitor (print com dados reais: 15 clientes só cotando, bolinhas minúsculas sem nome):
   // quem só cota ganha tamanho pelo nº de cotações (12 meses) e os 6 que mais cotam mostram o nome.
   lista.filter(function(x){return x.sit==='cota';}).sort(function(a,b){return b.nCot-a.nCot;}).slice(0,6).forEach(function(x){if(x.nCot>0)x.destCota=true;});
@@ -54755,6 +54778,7 @@ function pfOrbitaRender(){
       chip('v','🟢',cont.v)+chip('a','🟡',cont.a)+chip('l','🟠',cont.l)+chip('r','🔴',cont.r)+(cont.cota?chip('cota','🔵',cont.cota):'')+chip('pot','◎',lista.filter(function(x){return x.pot;}).length)+
       '<span style="font-size:11.5px;color:var(--pf-noticias-text-muted,#8a9ab0);white-space:nowrap" title="Soma do que os clientes em atenção/parados compravam por ano">'+pcFmtR(risco)+'/ano em risco</span>'+
       '<div style="margin-left:auto;display:flex;align-items:center;gap:6px">'+
+      (function(){var r=window._pfOrbRastro==null?30:window._pfOrbRastro;return '<select title="Rastro: de onde o cliente veio" onchange="window._pfOrbRastro=+this.value;pfOrbitaRender()" style="font-size:11.5px;padding:2px 5px;border-radius:6px;border:1px solid var(--pf-noticias-border,#e0e8f0);background:transparent;color:inherit">'+[[30,'Rastro: 30 dias'],[90,'Rastro: 90 dias'],[0,'Sem rastro']].map(function(o){return '<option value="'+o[0]+'"'+(r===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>';})()+
       pcSegmentoSelectHtml(pcMontarDados(),window._pfOrbSegmento||'','window._pfOrbSegmento=this.value;pfOrbitaRender()')+
       (pg?'<select onchange="window._pfOrbVendedor=this.value;pfOrbitaRender()" style="font-size:11.5px;padding:2px 5px;border-radius:6px;border:1px solid var(--pf-noticias-border,#e0e8f0);background:transparent;color:var(--pf-noticias-text,#1a2332)"><option value="">Vendedor: todos</option>'+
         (function(){var em={};pcMontarDados().forEach(function(c){if(c.vendEmail)em[c.vendEmail]=1;});return Object.keys(em).sort().map(function(e){return '<option value="'+pfEscHtml(e)+'"'+(window._pfOrbVendedor===e?' selected':'')+'>'+pfEscHtml(pcNomeVendedor(e))+'</option>';}).join('');})()+
@@ -54776,6 +54800,8 @@ function pfOrbitaRender(){
         '<span style="color:'+PF_ORB.cores.r+'">◉ halo vermelho</span> = <b>compravam bem e pararam</b> (os 10 maiores, há +60 dias sem comprar) — vale ligar<br>'+
         '<span style="color:'+PF_ORB.cores.azul+'">◎ anel azul</span> = <b>potencial</b> (até 15: cota muito e compra pouco, cliente novo ou só cota com cotação recente)<br>'+
         'Quanto mais clientes, menores as bolinhas. <b>Zoom</b>: roda do mouse, pinça (iPad/celular) ou ＋ −; arraste pra mover; 2 cliques/toques no vazio volta. Com zoom aparecem mais nomes.<br>No iPad: toque no cliente pra ver os dados, toque de novo pra abrir a ficha.<br>'+
+        '<span style="color:#27AE60">━━●</span> rastro verde = <b>voltou</b> (comprou de novo depois de +60 dias) · <span style="color:#C0392B">●━━</span> rastro vermelho = <b>se afastando</b> (cliente relevante que caiu de faixa). O rastro sai de onde ele estava há 30 (ou 90) dias.<br>'+
+        '<b style="color:#27AE60">▲</b>/<b style="color:#C0392B">▼</b> = comprando mais/menos que o trimestre anterior (30% ou mais).<br>'+
         'Os contadores em cima filtram. Clique no cliente = ficha.'+
       '</div></div>'+
     '</div>';
@@ -54887,10 +54913,10 @@ function pfOrbGeom(cv){
   if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}
   return {w:w,h:h,dpr:dpr,cx:w/2,cy:h/2,rx:Math.min(w/2-16,(h/2-24)*2.6),ry:h/2-24}; // v115.2088 - margem pro nome do cliente embaixo não cortar
 }
-function pfOrbPos(x,g,st,now){
+function pfOrbPos(x,g,st,now,rrAlt,dAng){
   var ent=st.reduz?1:Math.min(1,(now-st.t0)/1300),e=1-Math.pow(1-ent,3);
   var vel=0.000045/Math.pow(Math.max(0.25,x.rr),1.5); // mais longe = mais devagar
-  var a=x.ang+st.rot*vel,r=x.rr*e;
+  var a=x.ang+st.rot*vel+(dAng||0),r=(rrAlt!=null?rrAlt:x.rr)*e;
   return {x:g.cx+Math.cos(a)*g.rx*r,y:g.cy+Math.sin(a)*g.ry*r};
 }
 function pfOrbDesenhar(st,now){
@@ -54922,6 +54948,21 @@ function pfOrbDesenhar(st,now){
   ctx.fillStyle='#fff';ctx.font='800 '+Math.round(rs*0.42)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('TRIEX',g.cx,g.cy+1);ctx.textBaseline='alphabetic';
   var f=window._pfOrbFiltro||'',pulso=st.reduz?0.5:(Math.sin(now/450)*0.5+0.5);
   var ordem=st.lista.slice().sort(function(a,b){return b.rr-a.rr;}),rotOcup=[]; // v115.2091 - caixas dos nomes já escritos (evita encavalar)
+  // v115.2093 - rastros (cauda de cometa) por baixo das bolinhas
+  var escR=Math.max(0.7,Math.min(1,g.h/320))*Math.pow(Z,0.6);
+  st.lista.forEach(function(x){
+    var h=x.hist;if(!h||!h.per||h.diasAntes==null&&x.rastro!=='volta')return;
+    var mostra=x.rastro||st.hover===x;if(!mostra)return;
+    var rrA=h.diasAntes==null?0.965:pfOrbRaio(h.diasAntes);if(Math.abs(rrA-x.rr)<0.02)return;
+    var p1=pfOrbPos(x,g,st,now),p0=pfOrbPos(x,g,st,now,rrA,-0.28);
+    if(p1.x<-30||p1.x>g.w+30||p1.y<-30||p1.y>g.h+30)return;
+    var aprox=rrA>x.rr,c=aprox?'39,174,96':'192,57,43',wd=Math.max(1.5,x.tam*escR*0.85),al=(x.alfa==null?1:x.alfa)*(x.rastro?1:0.55);
+    var gr=ctx.createLinearGradient(p0.x,p0.y,p1.x,p1.y);gr.addColorStop(0,'rgba('+c+',0)');gr.addColorStop(1,'rgba('+c+','+(0.7*al)+')');
+    ctx.strokeStyle=gr;ctx.lineWidth=wd;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(p0.x,p0.y);
+    ctx.quadraticCurveTo((p0.x+p1.x)/2+(p1.y-p0.y)*0.15,(p0.y+p1.y)/2-(p1.x-p0.x)*0.15,p1.x,p1.y);ctx.stroke();
+    ctx.globalAlpha=0.45*al;ctx.fillStyle='rgba('+c+',1)';ctx.beginPath();ctx.arc(p0.x,p0.y,Math.max(1.5,wd*0.35),0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  });
+  ctx.lineCap='butt';
   ordem.forEach(function(x){
     var ok=!f||(f==='pot'?x.pot:x.sit===f);x.alfa+=((ok?1:0.12)-x.alfa)*0.12;
     var p=pfOrbPos(x,g,st,now);x._x=p.x;x._y=p.y;
@@ -54936,6 +54977,8 @@ function pfOrbDesenhar(st,now){
     if(x.top){ctx.strokeStyle=PF_ORB.cores.ouro;ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,t+2.5,0,Math.PI*2);ctx.stroke();ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText('⭐',p.x,p.y-t-4);}
     var querRot=x.rotulo||st.hover===x||(Z>=2.2&&x.tam*Z>=5)||Z>=4,bx={x:p.x-45,y:p.y+t+2,w:90,h:(st.gestor&&!window._pfOrbVendedor?22:12)};
     if(querRot&&st.hover!==x&&rotOcup.some(function(o){return bx.x<o.x+o.w&&o.x<bx.x+bx.w&&bx.y<o.y+o.h&&o.y<bx.y+bx.h;}))querRot=false;
+    var tnd=x.hist&&x.hist.tend;
+    if(tnd&&(x.rotulo||x.rastro||st.hover===x)){ctx.fillStyle=tnd>0?'#27AE60':'#C0392B';ctx.font='700 '+(Z>=2.2?10:9)+'px sans-serif';ctx.textAlign='left';ctx.fillText(tnd>0?'▲':'▼',p.x+t+2,p.y-t*0.3);} // v115.2093 - tendência de volume
     if(querRot){rotOcup.push(bx);ctx.fillStyle=corTxt;ctx.font='600 9.5px sans-serif';ctx.textAlign='center';var n=x.nome.length>18?x.nome.slice(0,17)+'…':x.nome;ctx.fillText(n,p.x,p.y+t+12);
       if(st.gestor&&!window._pfOrbVendedor&&x.vend){ctx.fillStyle=corMut;ctx.font='9px sans-serif';ctx.fillText('👤 '+(x.vend.length>20?x.vend.slice(0,19)+'…':x.vend),p.x,p.y+t+22);}} // v115.2087 - gestor vê quem atende
   });
@@ -54954,6 +54997,8 @@ function pfOrbHover(mx,my){
     (x.sit==='cota'?'':'<br>Comprou em 12 meses: <b>'+pcFmtR(x.valor12m)+'</b>')+
     '<br>Cotações em 12 meses: <b>'+(x.nCot||0)+'</b>'+ // v115.2088
     (x.compraACada!=null?'<br>Compra a cada '+x.compraACada+' dias':'')+
+    (x.hist&&x.hist.per&&x.hist.diasAntes!=null?'<br>Há '+x.hist.per+' dias: '+x.hist.diasAntes+' dias sem comprar'+(x.rastro==='volta'?' <b style="color:#8ee6a8">→ voltou!</b>':x.rastro==='afasta'?' <b style="color:#ff9b8f">→ se afastando</b>':''):'')+
+    (x.hist&&x.hist.tend?'<br>'+(x.hist.tend>0?'<span style="color:#8ee6a8">▲ comprando mais</span>':'<span style="color:#ff9b8f">▼ comprando menos</span>')+(x.hist.pct!=null?' ('+(x.hist.pct>0?'+':'')+x.hist.pct+'%)':'')+' vs trimestre anterior':'')+
     '<br>Vendedor: '+pfEscHtml(x.vend)+
     (x.top?'<br>⭐ Top 10 compradores':'')+(x.pot?'<br><span style="color:#8cc4ff">◎ Potencial</span>':'')+(x.alerta?'<br><span style="color:#ff9b8f">⚠ Cliente grande parado — vale ligar</span>':'')+
     '<br><span style="opacity:.7">'+(st.toque?'toque de novo pra abrir a ficha':'clique pra abrir a ficha')+'</span>';

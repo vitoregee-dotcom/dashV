@@ -54281,9 +54281,31 @@ function pcMontarDados(){
   peds.forEach(function(p){var x=achar(p.clienteRazao,null);if(x){x.peds.push(p);if(!x.vendEmail&&!x.cad&&p.vendedorEmail)x.vendEmail=p.vendedorEmail.toLowerCase();}});
   return Object.keys(clientes).map(function(k){return clientes[k];});
 }
-function pcVisiveis(lista){
+function pcSetorCli(c){return ((c.cad&&c.cad.setor)||'').trim().toUpperCase();}
+// v115.2087 - A pedido do Vitor ("vou precisar de filtros por segmento"): segmento = Setor do cadastro do cliente
+function pcSegmentoOk(c,seg){if(!seg)return true;var st=pcSetorCli(c);return seg==='__sem'?!st:st===seg;}
+function pcSegmentoSelectHtml(lista,atual,onchange){
+  var sets={};lista.forEach(function(c){var st=pcSetorCli(c);if(st)sets[st]=1;});
+  return '<select onchange="'+onchange+'" style="font-size:11.5px;padding:2px 5px;border-radius:6px;border:1px solid var(--pf-noticias-border,var(--pf-fx-bordaClara,#e0e8f0));background:transparent;color:inherit"><option value="">Segmento: todos</option>'+
+    Object.keys(sets).sort().map(function(x){return '<option value="'+pfEscHtml(x)+'"'+(atual===x?' selected':'')+'>'+pfEscHtml(x.charAt(0)+x.slice(1).toLowerCase())+'</option>';}).join('')+
+    '<option value="__sem"'+(atual==='__sem'?' selected':'')+'>(sem segmento)</option></select>';
+}
+// v115.2087 - A pedido do Vitor ("na visão do gestor, mostrar o vendedor que atende ou o último que atendeu"):
+// 1º o vendedor do cadastro do cliente; sem ele, quem atendeu por último (pedido de venda, cotação salva ou
+// vendedor interno marcado na cotação).
+function pcVendedorInfo(c){
+  if(c.vendEmail&&c.cad)return {nome:pcNomeVendedor(c.vendEmail),ultimo:false};
+  var ev=[];
+  (c.peds||[]).forEach(function(p){var n=p.vendedor||(p.vendedorEmail?pcNomeVendedor(p.vendedorEmail.toLowerCase()):'');if(n)ev.push({t:new Date(p.data).getTime(),n:n});});
+  (c.cots||[]).forEach(function(q){var n=q.atendenteNome||(q.atendenteEmail?pcNomeVendedor(q.atendenteEmail.toLowerCase()):'')||q.vendedorInterno||'';if(n)ev.push({t:new Date(q.data).getTime(),n:n});});
+  ev.sort(function(a,b){return b.t-a.t;});
+  if(ev.length)return {nome:ev[0].n,ultimo:true};
+  return {nome:'',ultimo:false};
+}
+function pcVendedorTxt(c){var v=pcVendedorInfo(c);return v.nome?(v.ultimo?'último: '+v.nome:v.nome):'sem vendedor';}
+function pcVisiveis(lista,seg){
   var pg=pfVR2PodeGeral(),eu=pfVR2MeuEmail(),fv=window._pcVendedor||'';
-  return lista.filter(function(c){
+  return lista.filter(function(c){return pcSegmentoOk(c,seg);}).filter(function(c){
     if(!pg)return !!(eu&&c.vendEmail===eu);
     if(fv==='__sem')return !c.vendEmail;
     if(fv)return c.vendEmail===fv;
@@ -54340,13 +54362,14 @@ function pvRenderKpis(el){
   var per=window._pcPeriodo!=null?window._pcPeriodo:90, dp=pcDiasParado();
   var agora=Date.now(), ini=per?agora-per*86400000:0;
   var todos=pcMontarDados();
-  var lista=pcVisiveis(todos).map(function(c){return pcCalc(c,ini);});
+  var lista=pcVisiveis(todos,window._pcSegmento||'').map(function(c){return pcCalc(c,ini);});
   window._pcLista=lista;
   var card='background:#fff;border-radius:10px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,.08);min-width:0';
   var tit=function(t,sub){return '<div style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSuave,#8a9ab0);text-transform:uppercase;margin-bottom:8px">'+t+(sub?' <span style="font-weight:400;text-transform:none">'+sub+'</span>':'')+'</div>';};
   var vazio=function(t){return '<div style="font-size:12px;color:var(--pf-fx-textoSuave,#8a9ab0);padding:6px 0">'+t+'</div>';};
   var linhaCli=function(c,dir,sub){
     var i=lista.indexOf(c);
+    if(pg&&!window._pcVendedor)sub=(sub?sub+'<br>':'')+'👤 '+pfEscHtml(pcVendedorTxt(c)); // v115.2087 - gestor vê quem atende
     return '<div onclick="pcAbrirFicha('+i+')" style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-bottom:.5px solid var(--pf-fx-fundoSuave,#f0f4f8);cursor:pointer;font-size:12px" onmouseenter="this.style.background=\'var(--pf-fx-fundoSuave,#f0f4f8)\'" onmouseleave="this.style.background=\'\'">'+
       '<div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;color:var(--pf-fx-textoEscuro,#1a2332)">'+pfEscHtml(c.nome)+(sub?'<div style="font-weight:400;font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0)">'+sub+'</div>':'')+'</div>'+
       '<div style="text-align:right;white-space:nowrap;font-weight:700;color:var(--pf-fx-marca,#1F4E79)">'+dir+'</div></div>';
@@ -54358,6 +54381,7 @@ function pvRenderKpis(el){
   h+='<div style="font-size:14px;font-weight:700;color:var(--pf-fx-marca,#1F4E79)">📊 PAINEL DE CLIENTES</div>';
   h+='<div style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0)">'+(pg?'Visão do gestor — todos os clientes':'Seus clientes (vendedor no cadastro)')+'</div>';
   h+='<div style="margin-left:auto;display:flex;gap:4px;align-items:center;flex-wrap:wrap">';
+  h+=pcSegmentoSelectHtml(todos,window._pcSegmento||'','window._pcSegmento=this.value;vendasRender()').replace('font-size:11.5px;padding:2px 5px','font-size:12px;padding:5px 8px;margin-right:6px');
   [[30,'30 dias'],[90,'90 dias'],[365,'12 meses'],[0,'Tudo']].forEach(function(p){
     var a=p[0]===per;
     h+='<button onclick="pcSetPeriodo('+p[0]+')" style="padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid '+(a?'var(--pf-fx-marca,#1F4E79)':'var(--pf-fx-bordaClara,#e0e8f0)')+';background:'+(a?'var(--pf-fx-marca,#1F4E79)':'#fff')+';color:'+(a?'#fff':'var(--pf-fx-textoSec,#607080)')+'">'+p[1]+'</button>';
@@ -54417,7 +54441,7 @@ function pvRenderKpis(el){
   // Ranking de vendedores (só gestor/admin)
   if(pg){
     var pv={};
-    pcVisiveis(todos).forEach(function(c){
+    pcVisiveis(todos,window._pcSegmento||'').forEach(function(c){
       var e=c.vendEmail||'';
       if(!pv[e])pv[e]={email:e,valor:0,peds:0,cots:0,fech:0,ativos:0};
       var r=pv[e];r.valor+=c.valorP;r.peds+=c.pedsP.length;r.cots+=c.cotsP.length;r.fech+=c.fechadasP;if(c.pedsP.length)r.ativos++;
@@ -54478,7 +54502,7 @@ function pcAbrirFicha(i){
   var sec=function(t){return '<div style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSuave,#8a9ab0);text-transform:uppercase;margin:14px 0 6px">'+t+'</div>';};
   var td='padding:4px;border-bottom:.5px solid var(--pf-fx-fundoSuave,#f0f4f8)';
   var h='<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="flex:1"><div style="font-size:16px;font-weight:800;color:var(--pf-fx-marca,#1F4E79)">'+pfEscHtml(c.nome)+'</div>'+
-    '<div style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0)">'+pfEscHtml(c.razao!==c.nome?c.razao:'')+(c.cad&&c.cad.codigo?' · cód. '+pfEscHtml(c.cad.codigo):'')+' · vendedor: '+pfEscHtml(pcNomeVendedor(c.vendEmail))+'</div></div>'+
+    '<div style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0)">'+pfEscHtml(c.razao!==c.nome?c.razao:'')+(c.cad&&c.cad.codigo?' · cód. '+pfEscHtml(c.cad.codigo):'')+' · vendedor: '+pfEscHtml(pcVendedorTxt(c))+'</div></div>'+
     '<span onclick="document.getElementById(\'pcFichaModal\').remove()" style="cursor:pointer">'+(typeof pfXGlossyHtml==='function'?pfXGlossyHtml(16):'✕')+'</span></div>';
   h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px">'+
     mini('Já comprou',pcFmtR(valorTotal))+mini('Pedidos',nPed)+mini('Cotações',nCot+(nCot?' ('+Math.round(fech/nCot*100)+'% fecham)':''))+
@@ -54636,7 +54660,7 @@ function pfOrbRotSit(k){return {v:'🟢 Ativo (comprou até 30 dias)',a:'🟡 Es
 function pfOrbDados(){
   var agora=Date.now(),a12=agora-365*86400000,a90=agora-90*86400000;
   var fvSalvo=window._pcVendedor;window._pcVendedor=window._pfOrbVendedor||'';
-  var todos=pcMontarDados(),vis=pcVisiveis(todos);
+  var todos=pcMontarDados(),vis=pcVisiveis(todos,window._pfOrbSegmento||'');
   window._pcVendedor=fvSalvo;
   var lista=vis.map(function(c){
     pcCalc(c,a12);
@@ -54646,7 +54670,7 @@ function pfOrbDados(){
     var dias=c.ultima?Math.floor((agora-c.ultima)/86400000):null;
     var novo=c.primeira&&c.primeira>=agora-60*86400000;
     var pot=(cots90.length>=3&&fech90/cots90.length<0.3)||novo||(dias==null&&ultCot>=a90);
-    return {c:c,k:c.k,nome:c.nome,dias:dias,valor12m:c.valorP,compraACada:pcIntervaloDias(c.peds.map(function(p){return p.data;})),vend:pcNomeVendedor(c.vendEmail),pot:!!pot,ultCot:ultCot};
+    return {c:c,k:c.k,nome:c.nome,dias:dias,valor12m:c.valorP,compraACada:pcIntervaloDias(c.peds.map(function(p){return p.data;})),vend:pcVendedorTxt(c),pot:!!pot,ultCot:ultCot};
   }).filter(function(x){
     // fora da órbita: quem não compra há mais de 1 ano e nem cotou nos últimos 6 meses
     if(x.dias!=null&&x.dias<=365)return true;
@@ -54678,24 +54702,36 @@ function pfOrbitaRender(){
   lista.forEach(function(x){cont[x.sit]++;if(x.sit==='r')risco+=x.valor12m;});
   // "em risco" = o que os parados compravam por ano (valor de antes de parar, estimado pelo total histórico/ano)
   risco=lista.filter(function(x){return x.sit==='r'||x.sit==='l';}).reduce(function(s,x){var anos=Math.max(1,(Date.now()-(x.c.primeira||Date.now()))/(365*86400000));return s+x.c.valorTotal/anos;},0);
-  var chip=function(k,rot,n){var at=window._pfOrbFiltro===k;return '<span onclick="pfOrbFiltrar(\''+k+'\')" style="cursor:pointer;padding:3px 9px;border-radius:12px;font-size:12px;white-space:nowrap;border:1px solid '+(at?'var(--pf-noticias-accent,#1F4E79)':'var(--pf-noticias-border,#e0e8f0)')+';background:'+(at?'rgba(31,78,121,.1)':'transparent')+';color:var(--pf-noticias-text,#1a2332)">'+rot+' <b>'+n+'</b></span>';};
-  var h='<div style="background:var(--pf-noticias-card-bg,#fff);border:1px solid var(--pf-noticias-border,#e0e8f0);border-radius:10px;padding:10px 14px 8px;position:relative">'+
-    '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">'+
-      '<div style="font-size:13px;font-weight:700;color:var(--pf-noticias-accent,#1F4E79);white-space:nowrap">🪐 Órbita da carteira</div>'+
-      '<div style="font-size:11.5px;color:var(--pf-noticias-text-muted,#8a9ab0)">'+(pg?'todos os clientes':'seus clientes')+' · quanto mais longe da Triex, mais tempo sem comprar</div>'+
-      (pg?'<select onchange="window._pfOrbVendedor=this.value;pfOrbitaRender()" style="margin-left:auto;font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--pf-noticias-border,#e0e8f0);background:transparent;color:var(--pf-noticias-text,#1a2332)"><option value="">Vendedor: todos</option>'+
+  var chipTit={v:'Ativos (comprou até 30 dias)',a:'Esfriando (31–60 dias)',l:'Atenção (61–90 dias)',r:'Parados (mais de 90 dias)',cota:'Só cotam (nunca compraram)',pot:'Potencial'};
+  var chip=function(k,rot,n){var at=window._pfOrbFiltro===k;return '<span title="'+chipTit[k]+' — clique pra destacar" onclick="pfOrbFiltrar(\''+k+'\')" style="cursor:pointer;padding:2px 8px;border-radius:12px;font-size:12px;white-space:nowrap;border:1px solid '+(at?'var(--pf-noticias-accent,#1F4E79)':'var(--pf-noticias-border,#e0e8f0)')+';background:'+(at?'rgba(31,78,121,.1)':'transparent')+';color:var(--pf-noticias-text,#1a2332)">'+rot+' <b>'+n+'</b></span>';};
+  // v115.2087 - A pedido do Vitor (ajustes antes de publicar): cabeçalho numa linha só (título + contadores +
+  // vendedor + "?"), legenda escondida atrás do "?" e altura que se ajusta ao espaço até a barra de baixo.
+  var leg=window._pfOrbLegenda;
+  var h='<div style="background:var(--pf-noticias-card-bg,#fff);border:1px solid var(--pf-noticias-border,#e0e8f0);border-radius:10px;padding:8px 12px 6px;position:relative">'+
+    '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+
+      '<div style="font-size:13px;font-weight:700;color:var(--pf-noticias-accent,#1F4E79);white-space:nowrap;margin-right:4px" title="Quanto mais longe da Triex, mais tempo sem comprar">🪐 Órbita da carteira</div>'+
+      chip('v','🟢',cont.v)+chip('a','🟡',cont.a)+chip('l','🟠',cont.l)+chip('r','🔴',cont.r)+(cont.cota?chip('cota','🔵',cont.cota):'')+chip('pot','◎',lista.filter(function(x){return x.pot;}).length)+
+      '<span style="font-size:11.5px;color:var(--pf-noticias-text-muted,#8a9ab0);white-space:nowrap" title="Soma do que os clientes em atenção/parados compravam por ano">'+pcFmtR(risco)+'/ano em risco</span>'+
+      '<div style="margin-left:auto;display:flex;align-items:center;gap:6px">'+
+      pcSegmentoSelectHtml(pcMontarDados(),window._pfOrbSegmento||'','window._pfOrbSegmento=this.value;pfOrbitaRender()')+
+      (pg?'<select onchange="window._pfOrbVendedor=this.value;pfOrbitaRender()" style="font-size:11.5px;padding:2px 5px;border-radius:6px;border:1px solid var(--pf-noticias-border,#e0e8f0);background:transparent;color:var(--pf-noticias-text,#1a2332)"><option value="">Vendedor: todos</option>'+
         (function(){var em={};pcMontarDados().forEach(function(c){if(c.vendEmail)em[c.vendEmail]=1;});return Object.keys(em).sort().map(function(e){return '<option value="'+pfEscHtml(e)+'"'+(window._pfOrbVendedor===e?' selected':'')+'>'+pfEscHtml(pcNomeVendedor(e))+'</option>';}).join('');})()+
         '<option value="__sem"'+(window._pfOrbVendedor==='__sem'?' selected':'')+'>(sem vendedor)</option></select>':'')+
+      '<button onclick="window._pfOrbLegenda=!window._pfOrbLegenda;var l=document.getElementById(\'pfOrbLeg\');if(l)l.style.display=window._pfOrbLegenda?\'block\':\'none\';this.style.background=window._pfOrbLegenda?\'var(--pf-noticias-accent,#1F4E79)\':\'transparent\';this.style.color=window._pfOrbLegenda?\'#fff\':\'var(--pf-noticias-accent,#1F4E79)\'" title="Como ler a órbita" style="width:22px;height:22px;border-radius:50%;border:1.5px solid var(--pf-noticias-accent,#1F4E79);background:'+(leg?'var(--pf-noticias-accent,#1F4E79)':'transparent')+';color:'+(leg?'#fff':'var(--pf-noticias-accent,#1F4E79)')+';font-weight:800;font-size:12px;cursor:pointer;padding:0;line-height:1">?</button></div>'+
     '</div>'+
-    '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+
-      chip('v','🟢 Ativos',cont.v)+chip('a','🟡 Esfriando',cont.a)+chip('l','🟠 Atenção',cont.l)+chip('r','🔴 Parados',cont.r)+(cont.cota?chip('cota','🔵 Só cotam',cont.cota):'')+chip('pot','◎ Potencial',lista.filter(function(x){return x.pot;}).length)+
-      '<span style="font-size:12px;color:var(--pf-noticias-text-muted,#8a9ab0);margin-left:4px" title="Soma do que os clientes em atenção/parados compravam por ano">'+pcFmtR(risco)+'/ano em risco</span>'+
-    '</div>'+
-    '<div style="position:relative"><canvas id="pfOrbCanvas" style="width:100%;height:340px;display:block;cursor:default"></canvas>'+
-      '<div id="pfOrbTip" style="position:absolute;display:none;pointer-events:none;background:#1a2332;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.45;box-shadow:0 6px 18px rgba(0,0,0,.25);z-index:5;max-width:240px"></div></div>'+
-    '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--pf-noticias-text-muted,#8a9ab0)">'+
-      '<span>● cor = situação</span><span>tamanho = quanto comprou em 12 meses</span><span>⭐ anel dourado = maiores compradores</span><span style="color:'+PF_ORB.cores.azul+'">◎ anel azul = potencial</span><span style="color:'+PF_ORB.cores.r+'">◉ halo vermelho = cliente grande parado</span><span>clique no cliente = ficha</span>'+
-    '</div></div>';
+    '<div style="position:relative"><canvas id="pfOrbCanvas" style="width:100%;height:240px;display:block;cursor:default"></canvas>'+
+      '<div id="pfOrbTip" style="position:absolute;display:none;pointer-events:none;background:#1a2332;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.45;box-shadow:0 6px 18px rgba(0,0,0,.25);z-index:5;max-width:240px"></div>'+
+      '<div id="pfOrbLeg" style="display:'+(leg?'block':'none')+';position:absolute;top:4px;right:0;z-index:4;background:var(--pf-noticias-card-bg,#fff);border:1px solid var(--pf-noticias-border,#e0e8f0);border-radius:8px;padding:8px 11px;font-size:11.5px;line-height:1.6;color:var(--pf-noticias-text,#1a2332);box-shadow:0 4px 14px rgba(0,0,0,.12);max-width:380px">'+
+        '<b style="color:var(--pf-noticias-accent,#1F4E79)">Como ler a órbita</b><br>'+
+        'A <b>distância da Triex</b> = dias sem comprar (anéis de 30, 60, 90 e 180+ dias).<br>'+
+        '🟢 até 30d · 🟡 31–60d · 🟠 61–90d · 🔴 +90d · 🔵 só cota<br>'+
+        '<b>Tamanho</b> = quanto comprou em 12 meses.<br>'+
+        '⭐ anel dourado = maiores compradores<br>'+
+        '<span style="color:'+PF_ORB.cores.azul+'">◎ anel azul</span> = potencial (cota muito e compra pouco, cliente novo ou só cota)<br>'+
+        '<span style="color:'+PF_ORB.cores.r+'">◉ halo vermelho</span> = cliente grande parado — vale ligar<br>'+
+        'Os contadores em cima filtram. Clique no cliente = ficha.'+
+      '</div></div>'+
+    '</div>';
   wrap.innerHTML=h;
   if(!lista.length){wrap.querySelector('canvas').parentNode.innerHTML='<div style="padding:30px;text-align:center;font-size:13px;color:var(--pf-noticias-text-muted,#8a9ab0)">'+(pg?'Ainda não há cotações nem pedidos com cliente.':'Nenhum cliente no seu nome ainda (Cadastros → Clientes → Vendedor).')+'</div>';return;}
   pfOrbIniciar(lista);
@@ -54716,7 +54752,7 @@ function pfOrbIniciar(lista){
       x.alfa=1;
     });
   });
-  var st={lista:lista,cv:cv,t0:performance.now(),hover:null,rot:0,ultimo:performance.now(),reduz:window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches};
+  var st={gestor:pfVR2PodeGeral(),lista:lista,cv:cv,t0:performance.now(),hover:null,rot:0,ultimo:performance.now(),reduz:window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches};
   if(window._pfOrbSt&&window._pfOrbSt.raf)cancelAnimationFrame(window._pfOrbSt.raf);
   window._pfOrbSt=st;
   cv.onmousemove=function(e){var r=cv.getBoundingClientRect();pfOrbHover(e.clientX-r.left,e.clientY-r.top);};
@@ -54727,16 +54763,23 @@ function pfOrbIniciar(lista){
     if(window._pfOrbSt!==st||!document.body.contains(cv))return;
     st.raf=requestAnimationFrame(loop);
     if(!cv.offsetParent)return; // tela escondida: não desenha
+    if(!st.ultAlt||now-st.ultAlt>1000){st.ultAlt=now;pfOrbAjustarAltura(cv);}
     var dt=Math.min(50,now-st.ultimo);st.ultimo=now;
     if(!st.dentro&&!st.reduz)st.rot+=dt;
     pfOrbDesenhar(st,now);
   };
   st.raf=requestAnimationFrame(loop);
 }
+function pfOrbAjustarAltura(cv){
+  // espaço livre do topo do canvas até a barra de baixo (dock); mín. 200px, máx. 380px
+  var r=cv.getBoundingClientRect(),clr=(typeof pfAiDockClearance==='function')?pfAiDockClearance():24;
+  var alt=Math.max(200,Math.min(380,Math.round(window.innerHeight-r.top-clr-14)));
+  if(Math.abs(cv.clientHeight-alt)>4)cv.style.height=alt+'px';
+}
 function pfOrbGeom(cv){
   var w=cv.clientWidth,h=cv.clientHeight,dpr=window.devicePixelRatio||1;
   if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);}
-  return {w:w,h:h,dpr:dpr,cx:w/2,cy:h/2,rx:Math.min(w/2-20,(h/2-18)*2.3),ry:h/2-18};
+  return {w:w,h:h,dpr:dpr,cx:w/2,cy:h/2,rx:Math.min(w/2-16,(h/2-14)*2.6),ry:h/2-14};
 }
 function pfOrbPos(x,g,st,now){
   var ent=st.reduz?1:Math.min(1,(now-st.t0)/1300),e=1-Math.pow(1-ent,3);
@@ -54753,7 +54796,7 @@ function pfOrbDesenhar(st,now){
   ctx.setLineDash([4,5]);ctx.lineWidth=1;
   [[30,'30 dias'],[60,'60 dias'],[90,'90 dias'],[180,'180+ dias']].forEach(function(r){
     var rr=pfOrbRaio(r[0]);ctx.strokeStyle=corMut;ctx.globalAlpha=.35;ctx.beginPath();ctx.ellipse(g.cx,g.cy,g.rx*rr,g.ry*rr,0,0,Math.PI*2);ctx.stroke();
-    ctx.globalAlpha=.8;ctx.fillStyle=corMut;ctx.font='10px sans-serif';ctx.textAlign='left';ctx.fillText(r[1],g.cx+g.rx*rr+3,g.cy-3);
+    ctx.globalAlpha=.7;ctx.fillStyle=corMut;ctx.font='9px sans-serif';ctx.textAlign='left';ctx.fillText(r[1],g.cx+g.rx*rr+3,g.cy-3);
   });
   ctx.setLineDash([]);ctx.globalAlpha=1;
   // sol TRIEX com brilho respirando
@@ -54768,7 +54811,7 @@ function pfOrbDesenhar(st,now){
   ordem.forEach(function(x){
     var ok=!f||(f==='pot'?x.pot:x.sit===f);x.alfa+=((ok?1:0.12)-x.alfa)*0.12;
     var p=pfOrbPos(x,g,st,now);x._x=p.x;x._y=p.y;
-    var t=x.tam*(st.hover===x?1.25:1),cor=x.sit==='cota'?'#9fb3c8':PF_ORB.cores[x.sit];
+    var esc=Math.max(0.7,Math.min(1,g.h/320)),t=x.tam*esc*(st.hover===x?1.25:1),cor=x.sit==='cota'?'#9fb3c8':PF_ORB.cores[x.sit];
     ctx.globalAlpha=x.alfa;
     if(x.alerta){ctx.fillStyle='rgba(192,57,43,'+(0.12+pulso*0.18)+')';ctx.beginPath();ctx.arc(p.x,p.y,t+6+pulso*4,0,Math.PI*2);ctx.fill();}
     if(x.pot){ctx.strokeStyle=PF_ORB.cores.azul;ctx.lineWidth=2;ctx.globalAlpha=x.alfa*(0.35+pulso*0.65);ctx.beginPath();ctx.arc(p.x,p.y,t+4+pulso*3,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=x.alfa;}
@@ -54776,14 +54819,15 @@ function pfOrbDesenhar(st,now){
     ctx.fillStyle=gp;ctx.beginPath();ctx.arc(p.x,p.y,t,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle=escuro?'rgba(0,0,0,.4)':'#fff';ctx.lineWidth=1.5;ctx.stroke();
     if(x.top){ctx.strokeStyle=PF_ORB.cores.ouro;ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,t+2.5,0,Math.PI*2);ctx.stroke();ctx.font='11px sans-serif';ctx.textAlign='center';ctx.fillText('⭐',p.x,p.y-t-4);}
-    if(x.top||x.alerta||st.hover===x){ctx.fillStyle=corTxt;ctx.font='600 10px sans-serif';ctx.textAlign='center';var n=x.nome.length>18?x.nome.slice(0,17)+'…':x.nome;ctx.fillText(n,p.x,p.y+t+12);}
+    if(x.top||x.alerta||st.hover===x){ctx.fillStyle=corTxt;ctx.font='600 9.5px sans-serif';ctx.textAlign='center';var n=x.nome.length>18?x.nome.slice(0,17)+'…':x.nome;ctx.fillText(n,p.x,p.y+t+12);
+      if(st.gestor&&!window._pfOrbVendedor&&x.vend){ctx.fillStyle=corMut;ctx.font='9px sans-serif';ctx.fillText('👤 '+(x.vend.length>20?x.vend.slice(0,19)+'…':x.vend),p.x,p.y+t+22);}} // v115.2087 - gestor vê quem atende
   });
   ctx.globalAlpha=1;
 }
 function pfOrbHover(mx,my){
   var st=window._pfOrbSt;if(!st)return;
   var melhor=null,dm=1e9;
-  st.lista.forEach(function(x){if(x._x==null||x.alfa<0.5)return;var d=Math.hypot(mx-x._x,my-x._y);if(d<x.tam+6&&d<dm){dm=d;melhor=x;}});
+  st.lista.forEach(function(x){if(x._x==null||x.alfa<0.5)return;var d=Math.hypot(mx-x._x,my-x._y);if(d<x.tam+7&&d<dm){dm=d;melhor=x;}});
   st.hover=melhor;st.cv.style.cursor=melhor?'pointer':'default';
   var tip=document.getElementById('pfOrbTip');if(!tip)return;
   if(!melhor){tip.style.display='none';return;}
@@ -59076,7 +59120,7 @@ async function vendasSalvarCotacaoReal(opts){
   var cots=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');
   var idxExistente=v.num?cots.findIndex(function(c){return c.num===v.num;}):-1;
   var num=idxExistente>=0?v.num:(cots.length>0?Math.max.apply(null,cots.map(function(c){return c.num||0;}))+1:1);
-  var cot={num:num,id:v.nr,data:new Date().toISOString(),cliente:v.cliente?v.cliente.razao:'',clienteObj:v.cliente||null,uf:v.uf||'SP',margem:v.margem||30,condicao:v.condicao||'',comprador:v.comprador||'',itens:(v.itens||[]).slice(),total:(v.itens||[]).reduce(function(s,it){
+  var cot={num:num,id:v.nr,data:new Date().toISOString(),atendenteEmail:(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||'',atendenteNome:(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)||'',/* v115.2087 - quem atendeu (Painel/Órbita do gestor) */cliente:v.cliente?v.cliente.razao:'',clienteObj:v.cliente||null,uf:v.uf||'SP',margem:v.margem||30,condicao:v.condicao||'',comprador:v.comprador||'',itens:(v.itens||[]).slice(),total:(v.itens||[]).reduce(function(s,it){
     var custo=it.custoOverride!=null?it.custoOverride:it.custo;
     var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf||'SP',v.margem||30):0);
     return s+(venda||0)*(it.qtd||1);

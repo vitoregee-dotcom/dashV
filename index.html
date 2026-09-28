@@ -1898,7 +1898,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2082</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2083</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2051,7 +2051,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2082</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2083</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -74727,8 +74727,14 @@ function pfItemCardDadosPlanilha(codigo,marca){
       return famParts.indexOf(famAlvo)>=0;
     });
     if(!candidatos.length)return null;
-    var row=candidatos[0];
     var num=function(v){var n=parseFloat(v);return isNaN(n)?null:n;};
+    // v115.2083 - BUG (Vitor: "pq não tá mostrando os dados do estoque?"): com código sem marca (ex: "similar
+    // 5-153X") várias linhas batem e pegava sempre a 1ª, mesmo zerada -- agora a que tem mais saldo (depois consumo).
+    var row=candidatos.slice().sort(function(a,b){
+      var sa=num(pfItemCardCampo(a,['saldo','Saldo','SALDO']))||0,sb=num(pfItemCardCampo(b,['saldo','Saldo','SALDO']))||0;
+      if(sb!==sa)return sb-sa;
+      return (num(pfItemCardCampo(b,['consumo','Consumo','CONSUMO']))||0)-(num(pfItemCardCampo(a,['consumo','Consumo','CONSUMO']))||0);
+    })[0];
     return{
       saldo:num(pfItemCardCampo(row,['saldo','Saldo','SALDO'])),
       consumo:num(pfItemCardCampo(row,['consumo','Consumo','CONSUMO'])),
@@ -74802,6 +74808,14 @@ function pfItemCardCandidatosCatalogo(it){
       it.conversoes.forEach(function(c){
         if(c&&c.codigo){
           out.push({codigo:c.codigo,marca:c.linha||'',rotulo:(c.linha?c.linha+' ':'')+c.codigo,origem:'conversao'});
+        }
+      });
+    }
+    // v115.2083 - equivalentes extras (colados de print/catálogo) também entram na busca de estoque
+    if(it&&Array.isArray(it.equivalentesExtra)){
+      it.equivalentesExtra.forEach(function(e){
+        if(e&&e.codigo&&e.codigo!==(it.codigo||'')&&!out.some(function(o){return o.codigo===e.codigo&&o.marca===(e.marca||'');})){
+          out.push({codigo:e.codigo,marca:e.marca||'',rotulo:(e.marca?e.marca+' ':'')+e.codigo,origem:'equivalente'});
         }
       });
     }
@@ -74903,12 +74917,25 @@ function pfItemCardAbrir(p,irmaos,forcarEstoque){
     // v115.1908 - A pedido do Vitor: se o código principal não bate com
     // nada na planilha, tenta pelos códigos equivalentes do catálogo
     // (conversões + similar) antes de mostrar o aviso de "sem planilha".
-    if(!dadosMapa&&!forcarEstoque&&p.codigosAlternativos&&p.codigosAlternativos.length){
-      for(var _ai=0;_ai<p.codigosAlternativos.length;_ai++){
-        var _alt=p.codigosAlternativos[_ai];
+    // v115.2083 - BUG (Vitor: card mostrava tudo 0 "via similar 5-153X"): parava no 1º equivalente que existisse
+    // na planilha, mesmo zerado, e ignorava os códigos irmãos do topo do card (ex: STAHL HCZ121, LNG 801009).
+    // Agora testa todos (equivalentes + irmãos) e fica com o de mais saldo (depois consumo); também troca quando
+    // o principal existe mas está zerado e um equivalente tem saldo.
+    // v115.2083 - principal cadastrado na planilha com outro nome de marca (ex: "LNG" x nome do fornecedor): tenta só pelo código
+    if(!dadosMapa&&!forcarEstoque&&p.marca){var _semMarca=pfItemCardDadosMapa(p.codigo,'');if(_semMarca)dadosMapa=_semMarca;}
+    var _semSaldo=function(d){return !d||!((d.saldo||0)>0);};
+    if(!forcarEstoque&&_semSaldo(dadosMapa)&&!(estoqueAtivo&&estoqueAtivo.origem==='vinculo')){
+      var _alts=(p.codigosAlternativos||[]).slice();
+      (irmaos||[]).forEach(function(ir){if(ir&&ir.codigo&&ir.codigo!==p.codigo&&!_alts.some(function(a){return a.codigo===ir.codigo;}))_alts.push({codigo:ir.codigo,marca:ir.linha||'',rotulo:(ir.linha?ir.linha+' ':'')+ir.codigo,origem:'irmao'});});
+      var _melhor=null,_melhorAlt=null;
+      _alts.forEach(function(_alt){
         var _achou=pfItemCardDadosMapa(_alt.codigo,_alt.marca);
-        if(_achou){dadosMapa=_achou;estoqueAtivo=_alt;break;}
-      }
+        if(!_achou)return;
+        var sc=((_achou.saldo||0)>0?1e9:0)+(_achou.saldo||0)*1000+(_achou.consumo||0);
+        var sm=_melhor?(((_melhor.saldo||0)>0?1e9:0)+(_melhor.saldo||0)*1000+(_melhor.consumo||0)):-1;
+        if(sc>sm){_melhor=_achou;_melhorAlt=_alt;}
+      });
+      if(_melhor&&(!dadosMapa||!_semSaldo(_melhor))){dadosMapa=_melhor;estoqueAtivo=_melhorAlt;}
     }
   }
   var transito=pfItemCardTransito(p.codigo,p.marca);

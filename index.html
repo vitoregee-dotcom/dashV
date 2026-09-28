@@ -1898,7 +1898,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2096</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2097</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2051,7 +2051,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2096</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2097</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -20122,10 +20122,22 @@ var PF_CAMPOS_IMPORT=[
 // nunca quando começou dentro do conteúdo do modal. Aplicado nos 12
 // modais do sistema que usavam o padrão antigo (Editar mapa, Importar
 // planilha, Lightbox de fotos, revisão de Solicitação, etc.).
+// v115.2097 - A pedido do Vitor ("estava preenchendo, cliquei fora, fechou a tela e perdi tudo -- arrumar pra não
+// acontecer mais"): se a pessoa já digitou algo na janela (ou ela marcou overlay._pfSujo), clicar fora pergunta
+// antes de fechar em vez de fechar direto. Vale pra todas as janelas que usam essa função.
 function pfOverlayFecharAoClicarFora(overlay,fecharFn){
   var mdownNoOverlay=false;
+  overlay.addEventListener('input',function(){overlay._pfSujo=true;},true);
   overlay.addEventListener('mousedown',function(e){mdownNoOverlay=(e.target===overlay);});
-  overlay.addEventListener('click',function(e){if(e.target===overlay&&mdownNoOverlay)fecharFn();});
+  overlay.addEventListener('click',function(e){
+    if(!(e.target===overlay&&mdownNoOverlay))return;
+    if(overlay._pfSujo){
+      if(typeof pfConfirm==='function')pfConfirm('Você já preencheu coisas nesta janela.\n\nFechar mesmo assim?',fecharFn,'Fechar');
+      else if(confirm('Você já preencheu coisas nesta janela. Fechar mesmo assim?'))fecharFn();
+      return;
+    }
+    fecharFn();
+  });
 }
 function pfAbrirMapeamentoManual(headers,autoMap,rows,file){
   window._pfImportPendente={headers:headers,rows:rows,file:file};
@@ -60921,6 +60933,44 @@ async function ferrAtalhosTextoCopiar(id,btnEl){
 // tiver na ficha e 2) saber o que falta pedir pro cliente. Funciona pra
 // QUALQUER atalho de texto com campos "rótulo:" em branco, não só esse --
 // reaproveita _anthropicReadDoc (mesmo motor já usado no Me Avise).
+// v115.2097 - Rascunho do "Preencher com ficha do cliente": tudo que já foi lido/preenchido (texto do script,
+// campos faltando, dados do pedido de crédito, resposta colada) fica guardado neste navegador por 48h e, ao abrir
+// o mesmo atalho de novo, aparece "Retomar preenchimento". Some quando o texto é copiado ou ao descartar.
+var PF_PREENCHER_RASC='pfPreencherRascunho_';
+function ferrPreencherRascunhoSalvar(id){
+  var res=document.getElementById('ferrPreencherResultado');if(!res||!res.innerHTML.trim())return;
+  var ta=document.getElementById('ferrPreencherTexto'),resp=document.getElementById('ferrPreencherResposta');
+  var d={ts:Date.now(),html:res.innerHTML,texto:ta?ta.value:'',resposta:resp?resp.value:'',cred:window._ferrCred||{},faltando:window._ferrPreencherFaltando||[]};
+  try{localStorage.setItem(PF_PREENCHER_RASC+id,JSON.stringify(d));}catch(e){}
+}
+function ferrPreencherRascunhoLer(id){try{var d=JSON.parse(localStorage.getItem(PF_PREENCHER_RASC+id)||'null');if(d&&Date.now()-d.ts<48*3600000)return d;}catch(e){}return null;}
+function ferrPreencherRascunhoApagar(id){try{localStorage.removeItem(PF_PREENCHER_RASC+id);}catch(e){}}
+function ferrPreencherRascunhoIniciar(id,overlay){
+  var res=document.getElementById('ferrPreencherResultado');if(!res)return;
+  var tSalvar=null,agendar=function(){clearTimeout(tSalvar);tSalvar=setTimeout(function(){ferrPreencherRascunhoSalvar(id);},400);};
+  try{new MutationObserver(function(){if(res.innerHTML.trim()){overlay._pfSujo=true;agendar();}}).observe(res,{childList:true});}catch(e){}
+  overlay.addEventListener('input',agendar,true);overlay.addEventListener('click',agendar,true);
+  var d=ferrPreencherRascunhoLer(id);if(!d)return;
+  var st=document.getElementById('ferrPreencherStatus');if(!st)return;
+  var hora=new Date(d.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  st.innerHTML='<div style="background:#FFF8E1;border:1px solid #F0C86B;border-radius:8px;padding:9px 11px;font-size:12px;color:#5D4037;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+    '💾 Você tem um preenchimento não terminado deste atalho ('+hora+').'+
+    '<button onclick="ferrPreencherRascunhoRetomar(\''+id+'\')" class="pfBtn pfBtnAzul" style="padding:4px 12px;font-size:12px">Retomar</button>'+
+    '<button onclick="ferrPreencherRascunhoApagar(\''+id+'\');document.getElementById(\'ferrPreencherStatus\').innerHTML=\'\'" style="background:none;border:none;color:#8a5a00;text-decoration:underline;cursor:pointer;font-size:12px">Descartar</button></div>';
+}
+window.ferrPreencherRascunhoRetomar=function(id){
+  var d=ferrPreencherRascunhoLer(id);if(!d)return;
+  window._ferrCred=d.cred||{};window._ferrPreencherFaltando=d.faltando||[];
+  var res=document.getElementById('ferrPreencherResultado');if(res)res.innerHTML=d.html;
+  var ta=document.getElementById('ferrPreencherTexto');if(ta)ta.value=d.texto||'';
+  var resp=document.getElementById('ferrPreencherResposta');if(resp)resp.value=d.resposta||'';
+  var c=d.cred||{},e1=document.getElementById('ferrCredCot'),e2=document.getElementById('ferrCredValor'),e3=document.getElementById('ferrCredCond');
+  if(e1)e1.value=c.cot||'';if(e2)e2.value=c.valor||'';if(e3)e3.value=c.cond||'';
+  if(typeof ferrPreencherCredChips==='function')ferrPreencherCredChips();
+  if(typeof ferrPreencherCredPopular==='function'){var sel=document.getElementById('ferrCredCotSel');if(sel){while(sel.options.length>1)sel.remove(1);sel.disabled=false;ferrPreencherCredPopular();}}
+  var st=document.getElementById('ferrPreencherStatus');if(st)st.innerHTML='<span style="color:#2e7d32">✅ Preenchimento retomado.</span>';
+  var ov=document.getElementById('ferrPreencherModal');if(ov)ov._pfSujo=true;
+};
 window.ferrAtalhosTextoAbrirPreencher=function(id){
   var lista=pfAtalhosTextoLoad();
   var at=lista.find(function(a){return a.id===id;});
@@ -60956,6 +61006,7 @@ window.ferrAtalhosTextoAbrirPreencher=function(id){
     '</div>';
   pfOverlayFecharAoClicarFora(overlay,function(){overlay.remove();});
   document.body.appendChild(overlay);
+  ferrPreencherRascunhoIniciar(id,overlay); // v115.2097
   // v115.1620 - Ctrl+V direto no modal também funciona, sem precisar
   // clicar no botão "Colar print" -- mesmo evento paste usado em outros
   // pontos do sistema (ex: cadReativColarPrint).
@@ -61200,14 +61251,16 @@ function ferrPreencherCredTexto(corpo){
 window.ferrAtalhosTextoPreencherCopiar=function(btn){
   var ta=document.getElementById('ferrPreencherTexto');
   if(!ta)return;
+  var terminou=function(){if(window._ferrPreencherAtalho)ferrPreencherRascunhoApagar(window._ferrPreencherAtalho.id);var ov=document.getElementById('ferrPreencherModal');if(ov)ov._pfSujo=false;}; // v115.2097 - copiou = terminou
   if(ferrPreencherEhCredito()){
     var st=window._ferrCred||{};
     var falta=[];if(!String(st.cot||'').trim())falta.push('nº da cotação');if(!String(st.valor||'').trim())falta.push('valor do pedido');if(!String(st.cond||'').trim())falta.push('condição de pgto');
-    var copiar=function(){navigator.clipboard.writeText(ferrPreencherCredTexto(ta.value)).then(function(){var o=btn.textContent;btn.textContent='✅ Copiado!';setTimeout(function(){btn.textContent=o;},1500);});};
+    var copiar=function(){navigator.clipboard.writeText(ferrPreencherCredTexto(ta.value)).then(function(){terminou();var o=btn.textContent;btn.textContent='✅ Copiado!';setTimeout(function(){btn.textContent=o;},1500);});};
     if(falta.length){pfConfirm('Faltou preencher: '+falta.join(', ')+'.\n\nCopiar mesmo assim?',copiar,'Copiar assim');return;}
     copiar();return;
   }
   navigator.clipboard.writeText(ta.value).then(function(){
+    terminou();
     var orig=btn.textContent;
     btn.textContent='✅ Copiado!';
     setTimeout(function(){btn.textContent=orig;},1500);

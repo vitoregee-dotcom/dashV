@@ -1898,7 +1898,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2081</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2082</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2051,7 +2051,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2081</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2082</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -58044,6 +58044,9 @@ function vendasZebraCores(){
 function vendasAtualizarLista(){
   var COTS_KEY='partsflow_cotacoes_v1';
   var cots=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');
+  // v115.2082 - cotação -> pedidos de venda que saíram dela (sinaliza mesmo se a cotação perdeu a dataPedido)
+  var _pvPorCot={};
+  try{(typeof pvLoad==='function'?pvLoad():[]).forEach(function(p){if(p&&p.cotacaoNum!=null){var k=p.cotacaoNum;var e=_pvPorCot[k]||(_pvPorCot[k]={data:p.data,nums:[]});if(p.data&&(!e.data||p.data<e.data))e.data=p.data;e.nums.push(p.numero);}});}catch(e){}
   var f=window._vendasFiltro||{};
   var lista=cots.filter(function(c){
     if(f.cli&&!(c.cliente||'').toUpperCase().includes(f.cli.toUpperCase()))return false;
@@ -58078,7 +58081,7 @@ function vendasAtualizarLista(){
         case 'vliq': return c.total||0;
         case 'vbru': return c.totalBruto||0;
         case 'dcot': return c.data||'';
-        case 'dped': return c.dataPedido||'';
+        case 'dped': return c.dataPedido||(_pvPorCot[c.num]&&_pvPorCot[c.num].data)||''; // v115.2082
         case 'fantasia': return (c.nomeFantasia||c.cliente||'').toUpperCase();
         case 'contato': return vendasResolverContato(c).toUpperCase();
         case 'transp': return (c.transportadora||'').toUpperCase();
@@ -58117,6 +58120,10 @@ function vendasAtualizarLista(){
   if(_fonteLinhas)tbody.style.setProperty('--pf-table-text',_fonteLinhas);else tbody.style.removeProperty('--pf-table-text');
   lista.forEach(function(c,iLinha){
     var isSel=window._vendasSelected===c.num;
+    // v115.2082 - também reconhece a cotação pelo próprio Pedido de Venda (cotacaoNum) -- cobre as que perderam
+    // a dataPedido num salvamento antes da correção
+    var _pvC=_pvPorCot[c.num];
+    if(!c.dataPedido&&_pvC)c=Object.assign({},c,{dataPedido:_pvC.data});
     var efetivado=!!c.dataPedido;
     // v115.1945 - A pedido do Vitor: zebra na lista de Cotações --
     // linha sim, linha não, com um véu translúcido por cima do
@@ -58185,6 +58192,7 @@ function vendasAtualizarLista(){
       else if(col==='dped'){
         td.style.cssText='padding:0px 8px';
         if(c.dataPedido){
+          if(_pvC)td.title='Pedido de Venda: '+_pvC.nums.join(', '); // v115.2082
           td.innerHTML='<span style="background:var(--pf-table-badge-success-bg);color:var(--pf-table-badge-success-text);font-size:10px;font-weight:700;padding:1px 7px;border-radius:6px;white-space:nowrap">✅ '+dtP+'</span>';
         } else {
           td.style.color='var(--pf-table-text)';td.style.fontSize='12px';td.textContent=dtP;
@@ -58594,6 +58602,11 @@ async function vendasSalvarCotacaoReal(opts){
     var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf||'SP',v.margem||30):0);
     return s+(venda||0)*(it.qtd||1);
   },0)};
+  // v115.2082 - BUG corrigido (a pedido do Vitor: "as cotações que tiveram pedido de venda não estão sendo
+  // sinalizadas"): a cotação era remontada do zero a cada salvamento (inclusive o autosave) e perdia o que não vem
+  // da tela -- dataPedido (gravada ao emitir o pedido), vendedor/transportadora editados direto na lista etc.
+  // Agora o que já estava salvo e a tela não tem continua.
+  if(idxExistente>=0){var _ant=cots[idxExistente]||{};Object.keys(_ant).forEach(function(k){if(!(k in cot))cot[k]=_ant[k];});}
   if(idxExistente>=0)cots[idxExistente]=cot;else cots.unshift(cot);
   pfSafeSetItem(COTS_KEY,JSON.stringify(cots));
   window._relCoCache=null; // v115.2030

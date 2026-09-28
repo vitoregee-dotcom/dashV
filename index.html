@@ -1898,7 +1898,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2079</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2080</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2051,7 +2051,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2079</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2080</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -47633,7 +47633,7 @@ function vendasRenderCotacao(el){
         (it.pvNumero?
           // v115.2074 - A pedido do Vitor ("tudo embolado"): o nº do pedido embaixo do ✓ não cabia na coluna (28px) e
           // saía "PV-PV-2026-…" (o número já vem com PV-). Agora só o ✓; o número aparece no balão.
-          '<div title="Já enviado ao Pedido de Venda '+pfEscHtml(String(it.pvNumero).indexOf('PV-')===0?it.pvNumero:'PV-'+it.pvNumero)+'" style="display:flex;align-items:center;justify-content:center;line-height:1;cursor:help"><span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--pf-fx-verde,#27AE60);color:#fff;font-size:10px;font-weight:700">✓</span></div>'
+          '<div title="Já enviado ao Pedido de Venda '+pfEscHtml(pvNumAtual(String(it.pvNumero).indexOf('PV-')===0?it.pvNumero:'PV-'+it.pvNumero))+'" style="display:flex;align-items:center;justify-content:center;line-height:1;cursor:help"><span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--pf-fx-verde,#27AE60);color:#fff;font-size:10px;font-weight:700">✓</span></div>'
           :'<input type="checkbox" '+(chkPV?'checked':'')+' onchange="window._vendasSelPV=window._vendasSelPV||{};window._vendasSelPV['+i+']=this.checked;vendasAtualizarPVBtn()" style="width:15px;height:15px;cursor:pointer;accent-color:var(--pf-fx-verde,#27AE60);vertical-align:middle" title="Selecionar p/ Pedido de Venda">')+
       '</td>'+
       '<td style="padding:3px 8px;text-align:center;font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0)">'+(i+1)+'</td>'+
@@ -50403,7 +50403,26 @@ function vendasMoverParaCotacao(numDestino){
 }
 
 var PV_KEY='partsflow_pedidos_venda_v1';
-function pvLoad(){ try{return JSON.parse(localStorage.getItem(PV_KEY)||'[]');}catch(e){return [];} }
+// v115.2080 - A pedido do Vitor ("não gosto desse tipo de sequência pro pedido, precisa ser algo mais simples pra
+// poder decorar"; escolheu sequencial começando do 100): número do pedido agora é PV-100, PV-101, PV-102... (antes era
+// ano + 4 dígitos SORTEADOS, ex: PV-2026-5829). O "PV-" fica porque é ele que marca "vendido" no histórico de preço.
+// Os 3 pedidos antigos foram renumerados pela data; a troca é feita aqui ao carregar (idempotente), porque o pedido
+// vive em várias cópias sincronizadas -- se uma cópia antiga voltar com o número velho, ele é trocado de novo.
+var PV_RENUM={'PV-2026-5984':'PV-100','PV-2026-8089':'PV-101','PV-2026-5829':'PV-102'};
+function pvNumAtual(n){return PV_RENUM[n]||n;}
+function pvProximoNumero(list){
+  var maior=99;
+  (list||[]).forEach(function(p){var m=/^PV-(\d+)$/.exec(String(p.numero||''));if(m&&+m[1]>maior)maior=+m[1];});
+  return 'PV-'+(maior+1);
+}
+function pvLoad(){
+  var list;try{list=JSON.parse(localStorage.getItem(PV_KEY)||'[]');}catch(e){return [];}
+  if(Array.isArray(list)&&list.some(function(p){return p&&PV_RENUM[p.numero];})){
+    list.forEach(function(p){if(p&&PV_RENUM[p.numero])p.numero=PV_RENUM[p.numero];});
+    try{pvSave(list);}catch(e){}
+  }
+  return list;
+}
 function pvSave(list){ pfSafeSetItem(PV_KEY, JSON.stringify(list)); if(typeof pfSyncPush==='function')pfSyncPush([PV_KEY]); if(typeof pfAvisosAtualizar==='function')pfAvisosAtualizar(); }
 
 // v115.1001 - A pedido do Vitor: Central de Avisos e Acompanhamento — faixa
@@ -56258,7 +56277,7 @@ function pvConfirmarCriarPedido(){
   var transp=window._pvEntregaTipo==='Transportadora'?(document.getElementById('pvTranspInput').value||'').trim():'';
   var obs=(document.getElementById('pvObsInput')||{}).value||'';
   var list=pvLoad();
-  var numero='PV-'+new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9000)+1000);
+  var numero=pvProximoNumero(list); // v115.2080 - sequencial a partir do PV-100 (antes: ano + 4 dígitos sorteados)
   var pedido={
     id:'pv_'+Date.now(),
     numero:numero,

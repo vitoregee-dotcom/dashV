@@ -54407,6 +54407,23 @@ function pcAbrirFicha(i){
   });});
   var topIt=Object.keys(itens).map(function(k){return itens[k];}).sort(function(a,b){return b.qtd-a.qtd;}).slice(0,10);
   var topMar=Object.keys(marcas).sort(function(a,b){return marcas[b]-marcas[a];}).slice(0,6);
+  // v115.2082 - A pedido do Vitor ("coloca algo sobre família que mais compra, família que nunca comprou"):
+  // famílias dele (valor + última compra), as que ele PAROU de comprar (nada nos últimos 90 dias) e as que a
+  // empresa vende pra outros clientes e ele nunca comprou (oportunidade, ordenadas pelo quanto vendem no geral).
+  var famCli={},famGeral={},d90=agora-90*86400000;
+  c.peds.forEach(function(p){var t=new Date(p.data).getTime();(p.itens||[]).forEach(function(it){
+    var f=it.familia||'';if(!f||f==='—')return;
+    if(!famCli[f])famCli[f]={valor:0,qtd:0,ultima:0};
+    famCli[f].valor+=(parseFloat(it.venda)||0)*(parseFloat(it.qtd)||0);famCli[f].qtd+=parseFloat(it.qtd)||0;if(t>famCli[f].ultima)famCli[f].ultima=t;
+  });});
+  (typeof pvLoad==='function'?pvLoad():[]).forEach(function(p){(p.itens||[]).forEach(function(it){
+    var f=it.familia||'';if(!f||f==='—')return;
+    if(!famGeral[f])famGeral[f]={valor:0,clientes:{}};
+    famGeral[f].valor+=(parseFloat(it.venda)||0)*(parseFloat(it.qtd)||0);famGeral[f].clientes[(p.clienteRazao||'').toUpperCase()]=1;
+  });});
+  var famOrd=Object.keys(famCli).sort(function(a,b){return famCli[b].valor-famCli[a].valor;});
+  var famParou=famOrd.filter(function(f){return famCli[f].ultima<d90;});
+  var famNunca=Object.keys(famGeral).filter(function(f){return !famCli[f];}).sort(function(a,b){return famGeral[b].valor-famGeral[a].valor;}).slice(0,10);
   var naoFech=[];
   c.cots.slice().sort(function(a,b){return new Date(b.data)-new Date(a.data);}).forEach(function(x){
     (x.itens||[]).forEach(function(it){if(!it.pvNumero&&it.codigo&&naoFech.length<15)naoFech.push({num:x.num,data:x.data,codigo:it.codigo,desc:it.desc,marca:it.marca,qtd:it.qtd});});
@@ -54429,6 +54446,13 @@ function pcAbrirFicha(i){
   h+='<div>'+sec('O que ele mais compra')+(topIt.length?'<table style="width:100%;border-collapse:collapse;font-size:12px">'+topIt.map(function(it){return '<tr><td style="'+td+';font-family:monospace;color:#D97757">'+pfEscHtml(it.codigo)+'</td><td style="'+td+';color:var(--pf-fx-textoSec,#607080)">'+pfEscHtml(it.desc||'')+'</td><td style="'+td+'">'+pfEscHtml(it.marca||'')+'</td><td style="'+td+';text-align:right;font-weight:700">'+it.qtd+'</td></tr>';}).join('')+'</table>':'<div style="font-size:12px;color:#8a9ab0">Ainda não comprou.</div>')+
     (topMar.length?sec('Marcas preferidas')+'<div style="display:flex;flex-wrap:wrap;gap:6px">'+topMar.map(function(m){return '<span style="background:var(--pf-fx-fundoSuave,#f0f4f8);border-radius:12px;padding:3px 10px;font-size:12px;font-weight:600">'+pfEscHtml(m)+' · '+pcFmtR(marcas[m])+'</span>';}).join('')+'</div>':'')+'</div>';
   h+='<div>'+sec('Cotou e não fechou')+(naoFech.length?'<table style="width:100%;border-collapse:collapse;font-size:12px">'+naoFech.map(function(it){return '<tr><td style="'+td+';color:#8a9ab0">#'+pfEscHtml(it.num)+' '+pcFmtD(it.data)+'</td><td style="'+td+';font-family:monospace;color:#D97757">'+pfEscHtml(it.codigo)+'</td><td style="'+td+';color:var(--pf-fx-textoSec,#607080)">'+pfEscHtml(it.desc||'')+'</td><td style="'+td+';text-align:right">'+(it.qtd||'')+'</td></tr>';}).join('')+'</table>':'<div style="font-size:12px;color:#8a9ab0">Nada pendente.</div>')+'</div>';
+  h+='</div>';
+  var maxF=famOrd.length?famCli[famOrd[0]].valor||1:1;
+  var chip=function(t,bg,cor){return '<span style="background:'+bg+';color:'+cor+';border-radius:12px;padding:3px 10px;font-size:12px;font-weight:600">'+t+'</span>';};
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">';
+  h+='<div>'+sec('Famílias que ele mais compra')+(famOrd.length?famOrd.slice(0,8).map(function(f){var x=famCli[f];return '<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:12px"><b>'+pfEscHtml(f)+'</b><span style="color:var(--pf-fx-textoSec,#607080)">'+pcFmtR(x.valor)+' · última '+pcFmtD(x.ultima)+'</span></div><div style="background:var(--pf-fx-fundoSuave,#F0F4F8);border-radius:4px;height:7px;overflow:hidden"><div style="background:#7B3FC4;height:100%;width:'+Math.max(3,Math.round(x.valor/maxF*100))+'%"></div></div></div>';}).join(''):'<div style="font-size:12px;color:#8a9ab0">Ainda não comprou.</div>')+'</div>';
+  h+='<div>'+sec('⏸️ Parou de comprar (nada nos últimos 90 dias)')+(famParou.length?'<div style="display:flex;flex-wrap:wrap;gap:6px">'+famParou.map(function(f){return chip(pfEscHtml(f)+' · desde '+pcFmtD(famCli[f].ultima),'#FFF5F5','#C0392B');}).join('')+'</div>':'<div style="font-size:12px;color:#8a9ab0">Nenhuma — continua comprando todas.</div>')+
+    sec('💡 Nunca comprou (outros clientes compram)')+(famNunca.length?'<div style="display:flex;flex-wrap:wrap;gap:6px">'+famNunca.map(function(f){var n=Object.keys(famGeral[f].clientes).length;return chip(pfEscHtml(f)+' · '+n+' cliente'+(n===1?'':'s'),'#EAF9F0','#166534');}).join('')+'</div>':'<div style="font-size:12px;color:#8a9ab0">Já compra todas as famílias vendidas.</div>')+'</div>';
   h+='</div>';
   h+=sec('Histórico')+'<table style="width:100%;border-collapse:collapse;font-size:12px">'+hist.map(function(x){return '<tr><td style="'+td+'">'+pcFmtD(x.d)+'</td><td style="'+td+'">'+x.t+' <b>'+pfEscHtml(x.n)+'</b></td><td style="'+td+'">'+(x.t==='Cotação'?(x.ok?'<span style="color:#1A7A3C">✔ virou pedido</span>':'<span style="color:#8a9ab0">em aberto</span>'):'')+'</td><td style="'+td+';text-align:right;font-weight:700">'+pcFmtR(x.v)+'</td></tr>';}).join('')+'</table>';
   var m=document.createElement('div');m.id='pcFichaModal';

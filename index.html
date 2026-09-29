@@ -1898,7 +1898,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2101</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2102</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2051,7 +2051,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2101</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2102</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -33551,6 +33551,7 @@ function cadSalvarForn(idx){
     historico:idx>=0?(cadLoad(FORN_KEY)[idx].historico||[]):[],
   };
   var flist=cadLoad(FORN_KEY);
+  forn.ts=Date.now(); // v115.2102 - ts pro merge da sync
   if(idx>=0)flist[idx]=Object.assign({},flist[idx],forn);else flist.push(forn); // v115.2100 - mescla: não apaga grupo/campos fora do formulário
   cadSave(FORN_KEY,flist);
   // Sync with cotFornecedores for mapa de compras
@@ -33875,6 +33876,7 @@ function cadSalvarCliente(idx){
   var clist=cadLoad(CLIE_KEY);
   // v115.2098 - BUG: salvar trocava o cliente inteiro pelo que está no formulário e apagava o que não aparece nele
   // (anotações, grupo...). Agora mescla com o que já existia.
+  cli.ts=Date.now(); // v115.2102 - sem ts o merge da sync devolvia a versão do servidor
   if(idx>=0)clist[idx]=Object.assign({},clist[idx],cli);else clist.push(cli);
   cadSave(CLIE_KEY,clist);
   cadPushSupabase();
@@ -35985,6 +35987,7 @@ function cadSalvarFornV2(idx){
     historico: idx>=0?(cadLoad(FORN_KEY)[idx].historico||[]):[],
   };
   var flist = cadLoad(FORN_KEY);
+  forn.ts=Date.now(); // v115.2102 - ts pro merge da sync
   if(idx>=0)flist[idx]=Object.assign({},flist[idx],forn); else flist.push(forn); // v115.2100 - mescla: não apaga grupo/campos fora do formulário
   cadSave(FORN_KEY,flist);
   cadPushSupabase();
@@ -36300,6 +36303,7 @@ function cadSalvarClienteV2(idx){
   var clist = cadLoad(CLIE_KEY);
   // v115.2098 - BUG: salvar trocava o cliente inteiro pelo formulário e apagava o que não aparece nele (vendedor
   // responsável, anotações, grupo...). Agora mescla com o que já existia.
+  cli.ts=Date.now(); // v115.2102 - sem ts o merge da sync devolvia a versão do servidor
   if(idx>=0)clist[idx]=Object.assign({},clist[idx],cli); else clist.push(cli);
   cadSave(CLIE_KEY,clist);
   cadGoTab('clientes');
@@ -54423,7 +54427,7 @@ function pfGrupoPickerEscolher(tipo,i,k){
   var key=PF_GRUPO_LISTAS[tipo](),lista=cadLoad(key)||[],c=lista[i];
   var m=document.getElementById('pfGrupoPicker');if(m)m.remove();
   if(!c)return;
-  c.grupo=k||'';cadSave(key,lista);if(typeof cadPushSupabase==='function')cadPushSupabase();
+  c.grupo=k||'';c.ts=Date.now(); /* v115.2102 - ts pro merge da sync não desfazer */cadSave(key,lista);if(typeof cadPushSupabase==='function')cadPushSupabase();
   window._pfOrbUlt=0;
   var cel=document.getElementById('pfGrpCel_'+tipo+'_'+i);if(cel)cel.outerHTML=pfGrupoCelulaHtml(tipo,i,c);
 }
@@ -54469,6 +54473,9 @@ function pfClassificarRender(){
 }
 function pfClassificarSet(i,campo,v){
   var lista=cadLoad(CLIE_KEY)||[];var c=lista[i];if(!c)return;
+  // v115.2102 - BUG (Vitor: "não dá, não marca"): sem 'ts' no item, o merge da sincronização (pfMergeSyncValue)
+  // empata e fica com a versão do SERVIDOR -- a edição era desfeita logo depois. Carimbar ts em toda alteração.
+  c.ts=Date.now();
   if(campo==='grupo')c.grupo=(c.grupo===v?'':v);
   else{var tt=PF_TIPOS_CLI.find(function(a){return a[0]===v;});c.tipo=pfTipoCli(c)===v?'':(tt?tt[2]:'');} // clicar de novo desmarca
   cadSave(CLIE_KEY,lista);if(typeof cadPushSupabase==='function')cadPushSupabase();
@@ -54478,7 +54485,7 @@ function pfClassificarSet(i,campo,v){
 }
 function pfClassificarAceitarSugestoes(){
   var lista=cadLoad(CLIE_KEY)||[],n=0;
-  lista.forEach(function(c){if(!c.grupo){var s=pfGrupoSugerido(c);if(s){c.grupo=s;n++;}}});
+  lista.forEach(function(c){if(!c.grupo){var s=pfGrupoSugerido(c);if(s){c.grupo=s;c.ts=Date.now();n++;}}}); // v115.2102 - ts
   if(!n)return;cadSave(CLIE_KEY,lista);if(typeof cadPushSupabase==='function')cadPushSupabase();window._pfOrbUlt=0;pfClassificarRender();
 }
 

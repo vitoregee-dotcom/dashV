@@ -1906,7 +1906,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2111</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2112</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2059,7 +2059,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2111</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2112</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -66145,6 +66145,7 @@ function ccExecutarBusca(){
       equivHtml+
       cruzetaHtml+
       '</div>'+
+      ccDesenhoMiniHtml(rec,_ccFamiliaAtual,codJs,linhaJs)+ // v115.2112 - desenho técnico (opção A: ao lado da foto)
       fotoTopoHtml+
       '</div>'+
       (temDetalhes?
@@ -66162,6 +66163,7 @@ function ccExecutarBusca(){
         '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">'+
           (aplicacaoHtml?'<span onclick="ccToggleAplicacaoItem(\''+aplicId+'\',this)" style="font-size:11px;color:#1F4E79;cursor:pointer;white-space:nowrap">'+(_ccAplicacaoTodasVisiveis?'▴ ocultar aplicação':'▾ Ver aplicação')+'</span>':'')+
           '<span onclick="ccColarPrintAplicacao(\''+_ccFamiliaAtual+'\',\''+codJs+'\',\''+linhaJs+'\')" title="Cole o print do catálogo (Spicer, fabricante...) e o sistema junta as aplicações que faltam" style="font-size:11px;color:#7B2D8B;font-weight:700;cursor:pointer;white-space:nowrap;text-transform:none">📋 Colar print de aplicação</span>'+
+          '<span onclick="'+(pfDesenhoDe(rec)?'ccDesenhoVer':'ccColarDesenho')+'(\''+_ccFamiliaAtual+'\',\''+codJs+'\',\''+linhaJs+'\')" title="Desenho técnico da peça (print do catálogo) -- o sistema tira o fundo" style="font-size:11px;color:#1F4E79;font-weight:700;cursor:pointer;white-space:nowrap;text-transform:none">📐 '+(pfDesenhoDe(rec)?'Ver desenho técnico':'Colar desenho técnico')+'</span>'+ // v115.2112
         '</div>'+
         (aplicacaoHtml?'<div id="'+aplicId+'" style="display:'+(_ccAplicacaoTodasVisiveis?'block':'none')+';margin-top:8px">'+aplicacaoHtml+'</div>':'')+
       '</div>'+
@@ -67024,6 +67026,255 @@ function ccAbrirLightboxFoto(familia,codigo,linha,fi){
   var ach=ccAcharItemIdx(familia,codigo,linha);
   if(ach.idx<0)return;
   pfAbrirLightbox(pfFotosArr(ach.arr[ach.idx]),fi);
+}
+// v115.2112 - A pedido do Vitor ("no card da peça, um lugar pra eu colar print do desenho técnico... e se der pra
+// não deixar o fundo, melhor ainda"): desenho técnico por peça (item.desenho = imagem com fundo transparente).
+//  * Colar = só colar (sem IA): o sistema tira o fundo e a marca d'água do catálogo (cinza claro e grosso, tipo
+//    "LBR"), mantendo as linhas finas das cotas; borracha pra apagar o que sobrar; logo PartsFlow clarinho por trás
+//    (item.desenhoLogo, desenhado na exibição -- a imagem guardada fica limpa pra leitura).
+//  * Card: miniatura ao lado da foto (opção A); clique amplia com zoom/arrastar.
+//  * No desenho ampliado: "🤖 Ler medidas com IA" (opcional) preenche as medidas da família (A, B, C... e nº de
+//    dentes), que já entram na busca por medidas -- ex: achar ponteira deslizante pelas medidas.
+var PF_DES_LOGO_BG='url(\'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 90"><g opacity=".1"><rect x="0" y="5" width="80" height="80" rx="18" fill="#1F4E79"/><text x="40" y="66" font-family="Arial,sans-serif" font-size="58" font-weight="800" fill="#fff" text-anchor="middle">R</text><line x1="44" y1="52" x2="62" y2="72" stroke="#E67E22" stroke-width="6" stroke-linecap="round"/><text x="96" y="62" font-family="Arial,sans-serif" font-size="46" font-weight="800" fill="#1F4E79">PartsFlow</text></g></svg>')+'\')'; // aspas simples: vai dentro de style="..." 
+function pfDesenhoFundoCss(logo){return 'background:#fff'+(logo?' '+PF_DES_LOGO_BG+' center/62% no-repeat':'')+';';}
+// Desenho do item; sem desenho próprio, procura no irmão (mesma peça em outro catálogo -- igual pfFotosArr)
+function pfDesenhoDe(rec){
+  if(!rec)return null;
+  if(rec.desenho)return {img:rec.desenho,logo:rec.desenhoLogo!==false,rec:rec};
+  try{
+    var eq=rec.substitui||rec.similar;
+    if(eq){var dd=ccLoad();for(var f in dd){var l=dd[f];if(!Array.isArray(l))continue;for(var i=0;i<l.length;i++){var it=l[i];
+      if(it&&it.desenho&&it.codigo!==rec.codigo&&(it.substitui||it.similar)===eq)return {img:it.desenho,logo:it.desenhoLogo!==false,rec:it};}}}
+  }catch(e){}
+  return null;
+}
+function ccDesenhoMiniHtml(rec,fam,codJs,linhaJs){
+  var d=pfDesenhoDe(rec);if(!d)return '';
+  return '<div onclick="ccDesenhoVer(\''+fam+'\',\''+codJs+'\',\''+linhaJs+'\')" title="Desenho técnico -- clique pra ampliar" style="flex-shrink:0;width:150px;height:96px;position:relative;border-radius:8px;border:1px solid var(--pf-sidebar-border);cursor:zoom-in;overflow:hidden;'+pfDesenhoFundoCss(d.logo)+'">'+
+    '<img src="'+d.img+'" style="width:100%;height:100%;object-fit:contain;display:block">'+
+    '<span style="position:absolute;left:4px;bottom:3px;font-size:10px;font-weight:700;background:#1F4E79;color:#fff;border-radius:6px;padding:0 5px;text-transform:none">📐 desenho</span></div>';
+}
+// ── limpeza: tira fundo e marca d'água; linha fina (cota) fica mesmo sendo clarinha ──
+function pfDesenhoLimparCanvas(img,limpar){
+  var maxW=1100,sc=Math.min(1,maxW/img.naturalWidth),W=Math.max(1,Math.round(img.naturalWidth*sc)),H=Math.max(1,Math.round(img.naturalHeight*sc));
+  var c=document.createElement('canvas');c.width=W;c.height=H;var x=c.getContext('2d');
+  x.fillStyle='#fff';x.fillRect(0,0,W,H);x.drawImage(img,0,0,W,H);
+  if(!limpar)return c;
+  var id=x.getImageData(0,0,W,H),d=id.data,L=new Float32Array(W*H),i;
+  for(i=0;i<W*H;i++)L[i]=d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114;
+  var T=207,T0=110,F=238,R=3;
+  var claro=function(px,py){return px<0||py<0||px>=W||py>=H||L[py*W+px]>=F;};
+  var fino=function(px,py){var e=0,dd=0,cc=0,bb=0;for(var k=1;k<=R;k++){if(claro(px-k,py))e=1;if(claro(px+k,py))dd=1;if(claro(px,py-k))cc=1;if(claro(px,py+k))bb=1;}return (e&&dd)||(cc&&bb);};
+  for(var py=0;py<H;py++)for(var px=0;px<W;px++){
+    i=py*W+px;var l=L[i],a=0;
+    if(l<T)a=Math.pow(Math.min(1,(T-l)/(T-T0)),0.55);
+    else if(l<F&&fino(px,py))a=Math.pow((F-l)/(F-T0),0.55);
+    d[i*4]=d[i*4+1]=d[i*4+2]=20;d[i*4+3]=Math.round(Math.min(1,a)*15)*17; // 16 níveis de transparência (arquivo menor)
+  }
+  x.putImageData(id,0,0);return c;
+}
+function pfDesenhoAplicarBorracha(c,rets,limpar){
+  var x=c.getContext('2d');
+  (rets||[]).forEach(function(r){if(limpar)x.clearRect(r.x,r.y,r.w,r.h);else{x.fillStyle='#fff';x.fillRect(r.x,r.y,r.w,r.h);}});
+}
+// corta a sobra transparente em volta (só com limpeza)
+function pfDesenhoCortar(c){
+  var W=c.width,H=c.height,d=c.getContext('2d').getImageData(0,0,W,H).data,x0=W,y0=H,x1=-1,y1=-1;
+  for(var y=0;y<H;y++)for(var x=0;x<W;x++)if(d[(y*W+x)*4+3]>40){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}
+  if(x1<0)return c;
+  var m=10;x0=Math.max(0,x0-m);y0=Math.max(0,y0-m);x1=Math.min(W-1,x1+m);y1=Math.min(H-1,y1+m);
+  var o=document.createElement('canvas');o.width=x1-x0+1;o.height=y1-y0+1;o.getContext('2d').drawImage(c,x0,y0,o.width,o.height,0,0,o.width,o.height);return o;
+}
+function pfDesenhoParaDataUrl(c,limpar){
+  if(!limpar)return c.toDataURL('image/jpeg',0.85);
+  var u=c.toDataURL('image/webp',0.9); // Safari não gera webp e devolve png -- tudo bem
+  return u.indexOf('data:image/webp')===0?u:c.toDataURL('image/png');
+}
+// ── tela de colar ──
+function ccColarDesenho(fam,codigo,linha){
+  var old=document.getElementById('ccDesModal');if(old)old.remove();
+  window._ccDes={fam:fam,codigo:codigo,linha:linha,img:null,limpar:true,logo:true,rets:[],borracha:false};
+  var ov=document.createElement('div');ov.id='ccDesModal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99990;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:900px;width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,.3)">'+
+    '<div class="pfCorpHead" data-pf-corp="1" style="border-radius:0!important;margin:0!important;display:flex;align-items:center;gap:10px"><div style="flex:1"><div class="pfCorpTitulo" style="font-weight:800;font-size:15px">📐 Colar desenho técnico</div><div class="pfCorpSub" style="font-size:12px">'+pfEscHtml(codigo)+' — o sistema tira o fundo e a marca d\'água do catálogo</div></div>'+
+    '<button onclick="document.getElementById(\'ccDesModal\').remove()" title="Fechar" style="background:none;border:none;cursor:pointer;line-height:1;padding:0 4px">'+pfXGlossyHtml(24)+'</button></div>'+
+    '<div id="ccDesCorpo" style="padding:16px 18px;overflow:auto">'+
+      '<div id="ccDesZona" tabindex="0" style="border:2px dashed #c3cedd;border-radius:10px;padding:22px 16px;text-align:center;color:var(--pf-text-muted);outline:none">'+
+        '<div style="display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap">'+
+          pfBtnCarregarArquivoHtml(40,'ccDesArqInput','image/*','if(this.files[0])ccDesenhoLer(this.files[0])')+
+          pfBtnColarPrintHtml(40,"ccColarPrintClipboard(ccDesenhoLer,'ccDesStatus')")+
+        '</div>'+
+        '<div style="font-size:11.5px;margin-top:8px">Print do desenho (catálogo Sorocard, REI, Spicer...). Também dá pra apertar Ctrl+V.</div>'+
+        '<div id="ccDesStatus" style="font-size:12px;margin-top:4px"></div>'+
+      '</div>'+
+      '<div id="ccDesEditor"></div>'+
+    '</div></div>';
+  document.body.appendChild(ov);
+  var onPaste=function(e){
+    if(!document.getElementById('ccDesModal')){document.removeEventListener('paste',onPaste);return;}
+    var its=(e.clipboardData&&e.clipboardData.items)||[];
+    for(var i=0;i<its.length;i++){if(its[i].type&&its[i].type.indexOf('image/')===0){e.preventDefault();ccDesenhoLer(its[i].getAsFile());return;}}
+  };
+  document.addEventListener('paste',onPaste);
+  setTimeout(function(){var z=document.getElementById('ccDesZona');if(z)z.focus();},50);
+}
+async function ccDesenhoLer(file){
+  var s=window._ccDes;if(!s)return;
+  try{
+    var url=await rfLerArquivoComoDataUrl(file);
+    var img=new Image();img.src=url;await img.decode();
+    s.img=img;s.rets=[];
+    var z=document.getElementById('ccDesZona');if(z)z.style.display='none';
+    ccDesenhoEditor();
+  }catch(e){var st=document.getElementById('ccDesStatus');if(st)st.innerHTML='<span style="color:#C00000;font-weight:700">Não consegui abrir a imagem.</span>';}
+}
+function ccDesenhoEditor(){
+  var s=window._ccDes,el=document.getElementById('ccDesEditor');if(!s||!el||!s.img)return;
+  var chk=function(id,on,txt,tit,fn){return '<label title="'+tit+'" style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;color:#1a2332"><input type="checkbox" id="'+id+'"'+(on?' checked':'')+' onchange="'+fn+'"> '+txt+'</label>';};
+  el.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:10px">'+
+      chk('ccDesLimpar',s.limpar,'Tirar fundo e marca d\'água','Deixa só as linhas do desenho, com fundo transparente','window._ccDes.limpar=this.checked;window._ccDes.rets=[];ccDesenhoPrevia()')+
+      chk('ccDesLogo',s.logo,'Logo PartsFlow por trás','Logo clarinho atrás do desenho','window._ccDes.logo=this.checked;ccDesenhoPrevia()')+
+      '<span style="flex:1"></span>'+
+      '<button type="button" id="ccDesBtnBorracha" class="pfBtn pfBtnClaro" onclick="window._ccDes.borracha=!window._ccDes.borracha;ccDesenhoPrevia()">🧽 Borracha</button>'+
+      '<button type="button" class="pfBtn pfBtnClaro" onclick="window._ccDes.rets.pop();ccDesenhoPrevia()">↶ Desfazer</button>'+
+      '<button type="button" class="pfBtn pfBtnClaro" onclick="window._ccDes.img=null;document.getElementById(\'ccDesEditor\').innerHTML=\'\';document.getElementById(\'ccDesZona\').style.display=\'\'">Colar outro</button>'+
+    '</div>'+
+    '<div id="ccDesDica" style="font-size:11.5px;color:#607080;margin-bottom:6px"></div>'+
+    '<div id="ccDesPrevWrap" style="border:1px solid #e0e8f0;border-radius:8px;overflow:hidden;position:relative"><canvas id="ccDesCanvas" style="width:100%;display:block;touch-action:none"></canvas><div id="ccDesRet" style="position:absolute;display:none;border:2px dashed #C0392B;background:rgba(192,57,43,.08);pointer-events:none"></div></div>'+
+    '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button type="button" class="pfBtn pfBtnClaro" onclick="document.getElementById(\'ccDesModal\').remove()">Cancelar</button><button type="button" class="pfBtn pfBtnAzul" onclick="ccDesenhoSalvar()">💾 Salvar desenho</button></div>';
+  ccDesenhoPrevia();
+  var cv=document.getElementById('ccDesCanvas'),ini=null;
+  var pos=function(e){var r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height,cx:e.clientX-r.left,cy:e.clientY-r.top};};
+  cv.onpointerdown=function(e){if(!window._ccDes.borracha)return;ini=pos(e);cv.setPointerCapture(e.pointerId);};
+  cv.onpointermove=function(e){if(!ini)return;var p=pos(e),rt=document.getElementById('ccDesRet');rt.style.display='block';rt.style.left=Math.min(ini.cx,p.cx)+'px';rt.style.top=Math.min(ini.cy,p.cy)+'px';rt.style.width=Math.abs(p.cx-ini.cx)+'px';rt.style.height=Math.abs(p.cy-ini.cy)+'px';};
+  cv.onpointerup=function(e){if(!ini)return;var p=pos(e);document.getElementById('ccDesRet').style.display='none';
+    var r={x:Math.min(ini.x,p.x),y:Math.min(ini.y,p.y),w:Math.abs(p.x-ini.x),h:Math.abs(p.y-ini.y)};ini=null;
+    if(r.w>2&&r.h>2){window._ccDes.rets.push(r);ccDesenhoPrevia();}};
+}
+function ccDesenhoPrevia(){
+  var s=window._ccDes,cv=document.getElementById('ccDesCanvas');if(!s||!cv||!s.img)return;
+  if(!s._cache||s._cache.limpar!==s.limpar||s._cache.img!==s.img)s._cache={limpar:s.limpar,img:s.img,c:pfDesenhoLimparCanvas(s.img,s.limpar)};
+  var base=s._cache.c;cv.width=base.width;cv.height=base.height;
+  var x=cv.getContext('2d');x.clearRect(0,0,cv.width,cv.height);x.drawImage(base,0,0);
+  pfDesenhoAplicarBorracha(cv,s.rets,s.limpar);
+  var wrap=document.getElementById('ccDesPrevWrap');if(wrap)wrap.style.cssText='border:1px solid #e0e8f0;border-radius:8px;overflow:hidden;position:relative;'+pfDesenhoFundoCss(s.logo);
+  cv.style.cursor=s.borracha?'crosshair':'default';
+  var b=document.getElementById('ccDesBtnBorracha');if(b){b.style.background=s.borracha?'#1F4E79':'';b.style.color=s.borracha?'#fff':'';}
+  var dica=document.getElementById('ccDesDica');if(dica)dica.innerHTML=s.borracha?'🧽 Arraste um retângulo em cima do que quer apagar (texto do catálogo, logo...).':(s.limpar?'Sobrou algum texto ou logo do catálogo? Use a 🧽 Borracha.':'Sem limpeza: o desenho fica como veio.');
+}
+function ccDesenhoSalvar(){
+  var s=window._ccDes;if(!s||!s.img)return;
+  var c=document.createElement('canvas'),base=pfDesenhoLimparCanvas(s.img,s.limpar);c.width=base.width;c.height=base.height;c.getContext('2d').drawImage(base,0,0);
+  pfDesenhoAplicarBorracha(c,s.rets,s.limpar);
+  if(s.limpar)c=pfDesenhoCortar(c);
+  var url=pfDesenhoParaDataUrl(c,s.limpar);
+  var ach=ccAcharItemIdx(s.fam,s.codigo,s.linha);
+  if(ach.idx<0){pfAlert('Item não encontrado (pode ter sido alterado). Tenta buscar de novo.');return;}
+  ach.arr[ach.idx].desenho=url;ach.arr[ach.idx].desenhoLogo=!!s.logo;
+  ccSave(ach.data);
+  var m=document.getElementById('ccDesModal');if(m)m.remove();
+  ccExecutarBusca();
+}
+// ── visualizador: ampliar com zoom (roda do mouse, pinça, + −) e arrastar ──
+function ccDesenhoVer(fam,codigo,linha){
+  var ach=ccAcharItemIdx(fam,codigo,linha);if(ach.idx<0)return;
+  var d=pfDesenhoDe(ach.arr[ach.idx]);if(!d)return;
+  var old=document.getElementById('ccDesVer');if(old)old.remove();
+  var a='\''+pfEscJs(fam)+'\',\''+pfEscJs(codigo)+'\',\''+pfEscJs(linha)+'\'';
+  var ov=document.createElement('div');ov.id='ccDesVer';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(10,18,32,.88);z-index:99991;display:flex;flex-direction:column;padding:14px;gap:10px';
+  ov.innerHTML='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#fff">'+
+      '<div style="font-weight:800;font-size:15px;flex:1">📐 '+pfEscHtml(codigo)+' <span style="font-weight:400;font-size:12px;opacity:.75">roda do mouse / pinça = zoom · arraste pra mover · 2 cliques volta</span></div>'+
+      '<button class="pfBtn pfBtnClaro" onclick="ccDesZoom(1.4)">＋</button><button class="pfBtn pfBtnClaro" onclick="ccDesZoom(1/1.4)">−</button><button class="pfBtn pfBtnClaro" onclick="ccDesZoom(0)">⟲</button>'+
+      '<button class="pfBtn pfBtnAzul" onclick="ccDesenhoLerMedidasIA('+a+')" title="A IA lê as cotas do desenho e preenche as medidas do item (você confere antes de salvar)">🤖 Ler medidas com IA</button>'+
+      '<button class="pfBtn pfBtnClaro" onclick="document.getElementById(\'ccDesVer\').remove();ccColarDesenho('+a+')">🔄 Trocar</button>'+
+      '<button class="pfBtn pfBtnVermelho" onclick="ccDesenhoRemover('+a+')">🗑 Remover</button>'+
+      '<button onclick="document.getElementById(\'ccDesVer\').remove()" title="Fechar" style="background:none;border:none;cursor:pointer;line-height:1">'+pfXGlossyHtml(30)+'</button>'+
+    '</div>'+
+    '<div id="ccDesVerArea" style="flex:1;position:relative;overflow:hidden;border-radius:10px;touch-action:none;cursor:grab;'+pfDesenhoFundoCss(d.logo)+'">'+
+      '<img id="ccDesVerImg" src="'+d.img+'" draggable="false" style="position:absolute;left:50%;top:50%;max-width:94%;max-height:94%;transform-origin:center;user-select:none"></div>';
+  document.body.appendChild(ov);
+  var st=window._ccDesVerSt={z:1,x:0,y:0,pts:{},d0:0,z0:1};
+  var area=document.getElementById('ccDesVerArea'),img=document.getElementById('ccDesVerImg');
+  window.ccDesAplicar=function(){img.style.transform='translate(-50%,-50%) translate('+st.x+'px,'+st.y+'px) scale('+st.z+')';};
+  ccDesAplicar();
+  area.onwheel=function(e){e.preventDefault();var r=area.getBoundingClientRect(),mx=e.clientX-r.left-r.width/2,my=e.clientY-r.top-r.height/2;var f=e.deltaY<0?1.15:1/1.15,nz=Math.max(1,Math.min(10,st.z*f));f=nz/st.z;st.x=mx-(mx-st.x)*f;st.y=my-(my-st.y)*f;st.z=nz;if(st.z===1){st.x=0;st.y=0;}ccDesAplicar();};
+  area.onpointerdown=function(e){area.setPointerCapture(e.pointerId);st.pts[e.pointerId]={x:e.clientX,y:e.clientY};var k=Object.keys(st.pts);if(k.length===2){var p=st.pts[k[0]],q=st.pts[k[1]];st.d0=Math.hypot(p.x-q.x,p.y-q.y);st.z0=st.z;}area.style.cursor='grabbing';};
+  area.onpointermove=function(e){var p0=st.pts[e.pointerId];if(!p0)return;var k=Object.keys(st.pts);
+    if(k.length===2){st.pts[e.pointerId]={x:e.clientX,y:e.clientY};var p=st.pts[k[0]],q=st.pts[k[1]],dd=Math.hypot(p.x-q.x,p.y-q.y);if(st.d0>0){st.z=Math.max(1,Math.min(10,st.z0*dd/st.d0));ccDesAplicar();}return;}
+    st.x+=e.clientX-p0.x;st.y+=e.clientY-p0.y;st.pts[e.pointerId]={x:e.clientX,y:e.clientY};ccDesAplicar();};
+  area.onpointerup=area.onpointercancel=function(e){delete st.pts[e.pointerId];area.style.cursor='grab';};
+  area.ondblclick=function(){ccDesZoom(0);};
+  var esc=function(e){if(e.key==='Escape'){var o=document.getElementById('ccDesVer');if(o)o.remove();document.removeEventListener('keydown',esc);}};document.addEventListener('keydown',esc);
+}
+function ccDesZoom(f){var st=window._ccDesVerSt;if(!st)return;if(!f){st.z=1;st.x=0;st.y=0;}else{st.z=Math.max(1,Math.min(10,st.z*f));st.x*=f;st.y*=f;if(st.z===1){st.x=0;st.y=0;}}if(window.ccDesAplicar)ccDesAplicar();}
+function ccDesenhoRemover(fam,codigo,linha){
+  if(!confirm('Remover o desenho técnico desta peça?'))return;
+  var ach=ccAcharItemIdx(fam,codigo,linha);if(ach.idx<0)return;
+  var it=ach.arr[ach.idx],d=pfDesenhoDe(it);
+  if(!it.desenho&&d&&d.rec){ // desenho vem do irmão (mesma peça em outro catálogo): tira de lá
+    var dd=ach.data;for(var f in dd){var l=dd[f];if(!Array.isArray(l))continue;l.forEach(function(x){if(x&&x.codigo===d.rec.codigo&&(x.linha||'')===(d.rec.linha||'')){delete x.desenho;delete x.desenhoLogo;}});}}
+  delete it.desenho;delete it.desenhoLogo;
+  ccSave(ach.data);
+  var o=document.getElementById('ccDesVer');if(o)o.remove();
+  ccExecutarBusca();
+}
+// ── IA (opcional, só quando o Vitor mandar): lê as cotas e propõe as medidas da família ──
+async function ccDesenhoLerMedidasIA(fam,codigo,linha){
+  var ach=ccAcharItemIdx(fam,codigo,linha);if(ach.idx<0)return;
+  var it=ach.arr[ach.idx],d=pfDesenhoDe(it);if(!d)return;
+  var cfg=ccFamiliaConfig(fam),campos=(cfg.campos||[]).slice();
+  if(cfg.extraFiltro&&!(cfg.extraFiltro.opcoes&&cfg.extraFiltro.opcoes.length))campos.push({k:cfg.extraFiltro.k,label:cfg.extraFiltro.label});
+  if(!campos.length){pfAlert('Essa família ainda não tem campos de medida cadastrados.');return;}
+  var apiKey=localStorage.getItem('anthropic_key')||'';
+  if(!apiKey){apiKey=window.prompt('Cole sua Anthropic API Key:');if(apiKey)pfAnthropicKeySet(apiKey);}
+  if(!apiKey)return;
+  var old=document.getElementById('ccDesIA');if(old)old.remove();
+  var ov=document.createElement('div');ov.id='ccDesIA';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99995;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div id="ccDesIACx" style="background:#fff;border-radius:12px;max-width:560px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 16px 48px rgba(0,0,0,.3);padding:18px"><div style="text-align:center;padding:30px;color:#607080"><div style="font-size:28px">⏳</div><div style="font-weight:700;margin-top:6px">Lendo as medidas do desenho…</div></div></div>';
+  document.body.appendChild(ov);
+  try{
+    // desenho sobre fundo branco (a IA lê melhor sem transparência)
+    var im=new Image();im.src=d.img;await im.decode();
+    var c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;var x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0);
+    var b64=c.toDataURL('image/png').split(',')[1];
+    var pedidoIA='Esta imagem é o DESENHO TÉCNICO de uma peça de cardan ('+(CC_NOME_SINGULAR[fam]||fam)+', código '+codigo+(it.descricao?', '+it.descricao:'')+'), com cotas em milímetros. '+
+      'Preencha os campos abaixo com o valor da cota correspondente no desenho, em mm (número com vírgula decimal, sem "mm"; Ø = diâmetro). '+
+      'Campos: '+campos.map(function(c){return '"'+c.k+'" = '+c.label;}).join('; ')+'. '+
+      'Responda SÓ com JSON, sem texto antes/depois: {"medidas":{"<campo>":"<valor>"},"obs":"<o que ficou em dúvida, curto>"}. '+
+      'Só coloque o campo se a cota estiver clara no desenho; não invente nem calcule o que não aparece. Número de dentes/estrias = contagem escrita no desenho (ex: "16 Dentes").';
+    var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:pfAnthropicHeaders(apiKey),
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/png',data:b64}},{type:'text',text:pedidoIA}]}]})});
+    var data=await resp.json();
+    if(data.error)throw new Error(data.error.message||'erro na leitura');
+    if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Área Técnica — medidas do desenho',data.usage);
+    var txt=(data.content||[]).map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();
+    var mm=txt.match(/\{[\s\S]*\}/);if(mm)txt=mm[0];
+    var j=JSON.parse(txt),med=j.medidas||{};
+    window._ccDesIAAlvo={fam:fam,codigo:codigo,linha:linha,campos:campos};
+    document.getElementById('ccDesIACx').innerHTML='<div style="font-weight:800;font-size:15px;color:#1F4E79;margin-bottom:4px">🤖 Medidas lidas do desenho</div>'+
+      '<div style="font-size:12px;color:#607080;margin-bottom:10px">Confira e corrija se precisar. Campo em branco não muda nada.</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="color:#607080;font-size:11px;text-align:left"><th style="padding:4px">Medida</th><th>Hoje</th><th>Do desenho</th></tr>'+
+      campos.map(function(c){var ia=med[c.k]!=null?String(med[c.k]).trim():'',atual=it[c.k]!=null?String(it[c.k]):'';var dif=ia&&atual&&ccParseNum(ia)!==ccParseNum(atual);
+        return '<tr style="border-top:1px solid #f0f3f7"><td style="padding:5px 4px">'+pfEscHtml(c.label)+'</td><td style="color:#8a9ab0">'+pfEscHtml(atual||'—')+'</td>'+
+          '<td><input data-k="'+pfEscHtml(c.k)+'" value="'+pfEscHtml(ia)+'" style="width:90px;padding:5px 7px;border:1.5px solid '+(dif?'#E67E22':'#e0e8f0')+';border-radius:6px;font-size:13px"'+(dif?' title="Diferente do que está cadastrado"':'')+'></td></tr>';}).join('')+'</table>'+
+      (j.obs?'<div style="margin-top:8px;font-size:12px;color:#854F0B">💬 '+pfEscHtml(j.obs)+'</div>':'')+
+      '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px"><button class="pfBtn pfBtnClaro" onclick="document.getElementById(\'ccDesIA\').remove()">Cancelar</button><button class="pfBtn pfBtnAzul" onclick="ccDesenhoIASalvar()">💾 Salvar medidas</button></div>';
+  }catch(e){
+    document.getElementById('ccDesIACx').innerHTML='<div style="padding:10px;color:#C00000;font-weight:700">Não consegui ler as medidas: '+pfEscHtml(e.message)+'</div><div style="text-align:right"><button class="pfBtn pfBtnClaro" onclick="document.getElementById(\'ccDesIA\').remove()">Fechar</button></div>';
+  }
+}
+function ccDesenhoIASalvar(){
+  var a=window._ccDesIAAlvo;if(!a)return;
+  var ach=ccAcharItemIdx(a.fam,a.codigo,a.linha);if(ach.idx<0){pfAlert('Item não encontrado.');return;}
+  var it=ach.arr[ach.idx],n=0;
+  document.querySelectorAll('#ccDesIA input[data-k]').forEach(function(inp){var v=inp.value.trim();if(v){it[inp.getAttribute('data-k')]=v;n++;}});
+  ccSave(ach.data);
+  var o=document.getElementById('ccDesIA');if(o)o.remove();
+  if(typeof pfToast==='function')pfToast('✅ '+n+' medida(s) salva(s)');
+  ccExecutarBusca();
 }
 async function ccColarMaisUmaFotoItem(familia,codigo,linha){
   try{

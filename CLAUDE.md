@@ -48,3 +48,10 @@
   leitura por coluna, dicionário embutido + traduções salvas em `catpdf_traducoes_v1`).
 - Fora do sistema (formato novo, ajustes): `scripts/catalogo-pdf/LEIAME.md` (Python). Ao adicionar termos ao
   `traducoes.py`, levar também pro dicionário `PF_CATPDF_DIC` do `index.html`.
+
+## Perfil da revenda / parceiros (v115.2111)
+- Cliente Revenda: `revPerfil` ('concessionaria'|'independente'), `concMarcas[]` (marca de máquina), `distribMarcas[]`
+  (marcas da Triex que ele também distribui = **parceiro 🤝**, usado na 🚨 emergência da cotação), `margemPropria`, `estrategia`.
+  Helpers `pfRevInfo`, `pfRevMargemDoCliente`, `pfRevFaixaCotacaoHtml`, bloco do cadastro `cadRevBlocoHtml`/`cadRevColetar`.
+- Margem por perfil: `pfVendasMargemPerfis` (compartilhada; Assistente de Vendas → Geral). Ordem: regra do Assistente > margem própria > perfil > geral.
+- Órbita: filtro `window._pfOrbRev` e marcação da concessionária escolhível (`pfOrbConcEstilo`: C anel / B selo / D sigla).

@@ -40,6 +40,10 @@
 - **Spicer é a principal** (fabrica pras montadoras; REI/Sorocard/Stahl/LNG são paralelos): código, descrição e foto da Spicer
   mandam no card (`ccPrioSpicer`, `ccAplicarSpicerNoGrupo`); a descrição de outro catálogo vai pra `descricaoCatalogo`.
   Catálogo LNG 2015 (cardan) em `data/lng-cardan-2015.json` + família `acessorios`.
+- Desenho técnico (v115.2112): `item.desenho` (webp/png com fundo transparente, ~15 KB) + `desenhoLogo`; colar em
+  `ccColarDesenho` (limpeza `pfDesenhoLimparCanvas`: tira cinza claro GROSSO = marca d'água, mantém linha fina = cota; borracha),
+  miniatura no card `ccDesenhoMiniHtml`, ampliar com zoom `ccDesenhoVer`, "🤖 Ler medidas com IA" opcional `ccDesenhoLerMedidasIA`
+  (preenche os campos da família, que entram na busca por medidas). Irmãos (substitui/similar) compartilham via `pfDesenhoDe`.
 - Cotação: busca Série/Modelo também acha componentes cardan pelo veículo (`vendasCcBuscarPorVeiculo`) + Monta com.
 
 ## Catálogos de peças em PDF

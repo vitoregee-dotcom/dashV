@@ -32,6 +32,11 @@
 - Chaves do IndexedDB (`PF_IDB_KEYS`) não são comprimidas (a compressão LZString na thread principal travava 20s).
 - Diagnóstico de lentidão real: tabela `user_sync`, chave `perf_diagnostico_v1` (Supabase).
 
+## Cor dos ícones da barra (v115.2120)
+- `pfIconeCor` {geral, por{atalhoId}} (compartilhada); Tema → 🎨 Cor dos ícones da barra e ⋮ → 🎨 Cor deste ícone.
+  `pfIconesAplicarCor` recolore na exibição (MutationObserver em `#pfSidebar`) só ícone de bolinha azul-marinho
+  (detectado pelos pixels, `pfIconeRecolorir`); os coloridos ficam. Ícones 297–327 foram refeitos sem sombra (v115.2119).
+
 ## Área Técnica (Componentes Cardan, `componentes_cardan_v1`)
 - Famílias em `CC_FAMILIAS` (+ `CC_NOME_SINGULAR`); item = `{codigo, linha, descricao, veiculos[], montaCom[], conversoes[],
   equivalentesExtra[{marca,codigo,tipo}], especificacoes[{nome,valor}], fotos[], medidas por letra}`.

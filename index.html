@@ -1906,7 +1906,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2109</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2110</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2059,7 +2059,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2109</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2110</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -49035,38 +49035,55 @@ function cadMigrarGrupoRolamentoVedacao(){
 // equivalente (a mesma peça em Stahl/REI/Sorocard/Spicer conta uma vez só).
 // Índice montado uma vez e guardado por 20s (a tabela da cotação consulta
 // ele em toda linha pra pintar o botão).
+// v115.2110 - BUG (Vitor: "esse item não tem somente 1 relacionado no Monta com... tem que exibir a mesma coisa que tem
+// na Área Técnica, independente da marca"): a ligação era por código EXATO -- código cadastrado junto ("5-263X / 5-263XS"),
+// com espaço/traço diferente ou repetido em 2 cadastros ficava sem ligação, e código do Monta com que não tem ficha
+// própria na Área Técnica sumia (lá ele aparece na tabela). Agora: códigos separados por "/" e comparados sem
+// traço/espaço, um código pode apontar pra mais de um grupo, e o que não tem ficha aparece solto.
+// v115.2110 - A pedido do Vitor: "sempre que for X ou XS é a mesma coisa nos cardans" (5-263X = 5-263XS, só muda o graxeiro)
+function vendasCcRelCods(x){return String(x||'').split(/\s*[\/,;]\s*/).map(function(c){return ccNormCod(c).replace(/(\d)XS$/,'$1X');}).filter(function(c){return c.length>=2;});}
 function vendasCcRelIndice(){
   var c=window._vendasCcRelCache;
   if(c&&(Date.now()-c.t)<20000)return c;
   var dados={};try{dados=ccLoad()||{};}catch(e){}
-  var porCod={},grupos={},rel={};
-  function gk(fam,it){return fam+'|'+String(it.substitui||it.similar||it.codigo||'').toUpperCase();}
+  var porCod={},grupos={},rel={},soltos={};
+  function gk(fam,it){return fam+'|'+ccNormCod(it.substitui||it.similar||it.codigo);}
   Object.keys(CC_NOME_SINGULAR).forEach(function(fam){
-    (dados[fam]||[]).forEach(function(it){
+    (Array.isArray(dados[fam])?dados[fam]:[]).forEach(function(it){
       if(!it)return;
       var k=gk(fam,it);
       var g=grupos[k]||(grupos[k]={fam:fam,itens:[]});
       g.itens.push(it);
-      [it.codigo,it.similar,it.substitui].forEach(function(x){x=String(x||'').trim().toUpperCase();if(x&&!porCod[x])porCod[x]=k;});
+      [it.codigo,it.similar,it.substitui].forEach(function(x){vendasCcRelCods(x).forEach(function(n){var a=porCod[n]||(porCod[n]=[]);if(a.indexOf(k)<0)a.push(k);});});
     });
   });
   function liga(a,b){if(!a||!b||a===b)return;(rel[a]=rel[a]||{})[b]=1;(rel[b]=rel[b]||{})[a]=1;}
   Object.keys(grupos).forEach(function(k){
     grupos[k].itens.forEach(function(it){
-      (it.montaCom||[]).forEach(function(mc){liga(k,porCod[String(mc||'').trim().toUpperCase()]);});
+      (it.montaCom||[]).forEach(function(mc){
+        var ns=vendasCcRelCods(mc),achou=false;
+        ns.forEach(function(n){(porCod[n]||[]).forEach(function(k2){achou=true;liga(k,k2);});});
+        if(!achou&&ns.length){var s=soltos[k]||(soltos[k]={});var cod=String(mc).trim();if(!s[ccNormCod(cod)])s[ccNormCod(cod)]=cod;}
+      });
     });
   });
-  c={t:Date.now(),dados:dados,porCod:porCod,grupos:grupos,rel:rel};
+  c={t:Date.now(),dados:dados,porCod:porCod,grupos:grupos,rel:rel,soltos:soltos};
   window._vendasCcRelCache=c;
   return c;
 }
 function vendasCcRelDoCodigo(codigo){
   var ix=vendasCcRelIndice();
-  var k=ix.porCod[String(codigo||'').trim().toUpperCase()];
-  if(!k||!ix.rel[k])return [];
-  var ordem=Object.keys(CC_NOME_SINGULAR);
-  return Object.keys(ix.rel[k]).map(function(k2){return {k:k2,g:ix.grupos[k2]};}).filter(function(x){return x.g;})
-    .sort(function(a,b){return ordem.indexOf(a.g.fam)-ordem.indexOf(b.g.fam);});
+  var ks=[];vendasCcRelCods(codigo).forEach(function(n){(ix.porCod[n]||[]).forEach(function(k){if(ks.indexOf(k)<0)ks.push(k);});});
+  if(!ks.length)return [];
+  var ordem=Object.keys(CC_NOME_SINGULAR),vistos={},out=[];
+  ks.forEach(function(k){
+    Object.keys(ix.rel[k]||{}).forEach(function(k2){if(vistos[k2]||ks.indexOf(k2)>=0||!ix.grupos[k2])return;vistos[k2]=1;out.push({k:k2,g:ix.grupos[k2]});});
+  });
+  out.sort(function(a,b){return ordem.indexOf(a.g.fam)-ordem.indexOf(b.g.fam);});
+  // códigos do Monta com sem ficha própria na Área Técnica -- lá aparecem na tabela, aqui também
+  ks.forEach(function(k){Object.keys((ix.soltos||{})[k]||{}).forEach(function(n){if(vistos['s|'+n])return;vistos['s|'+n]=1;
+    out.push({k:'s|'+n,g:{fam:'',itens:[{codigo:ix.soltos[k][n],linha:''}]},solto:true});});});
+  return out;
 }
 function vendasCcRelAdicionar(btn,codigo,marca,desc){
   vendasAdicionarItemDoResumo(codigo,marca,desc);
@@ -49081,7 +49098,7 @@ function vendasCcRelHtml(it){
   return titulo+lista.map(function(x){
     var rep=x.g.itens[0];
     var cc=vendasCcCodigoCotacao(rep,ix.dados[x.g.fam]);
-    var nomeFam=CC_NOME_SINGULAR[x.g.fam]||'';
+    var nomeFam=CC_NOME_SINGULAR[x.g.fam]||'Peça'; // v115.2110 - solto (sem ficha na Área Técnica)
     var desc=String(rep.descricao||nomeFam).toUpperCase();
     var eq=rep.substitui||rep.similar;
     var cods=(eq?['<span title="Spicer">'+pfEscHtml(eq)+'</span>']:[]).concat(LINHAS.map(function(l){

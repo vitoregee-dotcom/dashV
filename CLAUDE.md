@@ -156,7 +156,8 @@
   "🔄 Atualizar agora" do dono busca marcas na hora.
 
 ## Garantia DANA pelo RMA (v115.2132)
-- RMA de cliente → bloco "🛠️ Garantia DANA" (`pfGarBlocoHtml` dentro de `rmaVerDetalhe`). "🔗 Mandar link pro cliente"
+- RMA de cliente → bloco "🛠️ Garantia DANA" (`pfGarBlocoHtml` dentro de `rmaVerDetalhe`); desde v115.2135 também dá pra marcar
+  "🛠️ É garantia DANA" na Nova RMA (`rmaGarDanaIn` → `r.garantiaDana`, abre `pfGarLinkAbrir` ao salvar) e o card da lista mostra a etapa. "🔗 Mandar link pro cliente"
   (`pfGarLinkAbrir`/`pfGarLinkEnviar`) grava `formulario_links` com tipo `garantia_dana`, `cliente_ref` = id do RMA, prefill
   {cliente, rma, peca, pecaDesc, nf, nfData} (NF = a da Triex pro cliente = "venda ao consumidor final" da Dana).
 - Página pública: `pfFormClienteBootstrap` desvia pra `pfGarFormRender` quando o link é `garantia_dana`; campos em

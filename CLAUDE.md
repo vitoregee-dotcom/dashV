@@ -96,6 +96,22 @@
   colunas empilhadas em cima/embaixo — Cód.Produto/Descrição · Conversão · Cód.Marca/Marca · Dt.Atualiz./Estoque · ST/Prazo ·
   IPI/Unitário · Prev.Cheg./Total · nItemPed/xPed · Marca Fantasia (+ R, Item, Qtde à esquerda). Fundo verde claro na linha,
   código em amarelo, Estoque e Total em lilás. O Vitor quer TESTAR se fica bom pra eles antes de adotar (fazer como opção/prévia).
-- **Ofertas complementares na cotação** (óleo de eixo quando a cotação é de diferencial; aditivo/cola de junta quando é motor
-  de REFORMA, não estoque) e **TVs do estoque** (TV de solicitações: fila com quem pediu/o quê/horário + som; TV de pedidos):
-  proposta feita em 30/set/2026, aguardando decisões do Vitor.
+- **📺 TVs do estoque — PENDÊNCIA** (prévias aprovadas em 30/set/2026, falta decidir e fazer): `docs/referencias/tv-estoque/`
+  (`tv-solicitacoes.png`, `celular-estoque.png`, `tv-pedidos.png`). TV 1 = fila de solicitações ao estoque (📏 medida, 📷 foto,
+  🔍 conferir saldo, 📦 amostra) com quem pediu, o quê, horário, tempo esperando (verde ≤15 min, amarelo ≤30, vermelho >30),
+  "🔔 NOVA" + som/voz, "🙋 fulano pegou"; QR code → celular do estoque (Peguei / Feito com foto ou medida → cadastro + aviso
+  ao vendedor). Base: tabela `fotos_solicitacoes` (+ campo tipo), medida em `medida_pecas_v1`; botão 📷/📏 na linha do item da cotação.
+  TV 2 = pedidos em colunas A separar → Separando → Separado → Faturado (urgente em vermelho). Em aberto: andamento dos pedidos
+  vem do ERP ou o estoque marca no celular? Som = bipe ou bipe + voz? URL própria em tela cheia (ex. `?tv=solicitacoes`).
+
+## Ofertas complementares na cotação (v115.2130)
+- Faixa "💡 Ofereça também" (`#vendasOfertaBox`, `pfOfertaRender`, chamada no render da cotação e no `vendasRefresh`).
+  Regras compartilhadas `pfVendasOfertas` (`PF_OFERTAS_PADRAO`: eixo→óleo 85W140/80W90, motor de REFORMA→aditivo/silicone/
+  trava-rosca/15W40, transmissão→óleo de transmissão, hidráulico→óleo hidráulico): termos na descrição (`relComeca`) + % mínimo
+  dos itens + família opcional + `soReforma`. Reforma = pontos em `pfOfertaReforma` (kit do motor, qtd 3/4/6/8, cliente
+  serviço/consumo) contra estoque (qtd ≥10, cliente revenda); precisa ≥2.
+- "Oferecer" aceita código (sem espaço, com número → `vendasBuscarItem`) ou palavras da descrição (`pfOfertaBuscarProdutos`,
+  filtro rápido `pfOfertaRegexSemAcento`, cache 2 min; normalizar as 228 mil linhas travava ~3 s). Item adicionado leva
+  `it.oferta=<id da regra>` (estatística de 30 dias sai das cotações salvas); "dispensar" = `v.ofertasDispensadas`.
+- Tela de regras `pfOfertasAbrir` (⋮ Mais ações e Assistente de Vendas → Geral); só admin/gestor altera (`pfVR2PodeGeral`).
+  Os códigos reais dos químicos ainda não foram passados pelo Vitor — as regras padrão buscam por descrição.

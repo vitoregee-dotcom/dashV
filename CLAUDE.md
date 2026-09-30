@@ -135,6 +135,8 @@
   preenche o modelo oficial `data/modelos/garantia-dana.xlsx` com ExcelJS 4.4.0 (jsdelivr/cdnjs, `pfGarExcelJS`) — mantém
   logo/formatação — e encaixa as fotos nos quadros da aba FOTOS (`PF_GAR_DANA_BLOCOS`). Dados fixos da Triex em `PF_GAR_TRIEX`
   (CNPJ 00.609.213/0001-15, São Paulo/SP, (11) 2632-5622). Só Dana (cada fábrica tem formulário próprio).
+
+## Ofertas complementares na cotação (v115.2130)
 - Faixa "💡 Ofereça também" (`#vendasOfertaBox`, `pfOfertaRender`, chamada no render da cotação e no `vendasRefresh`).
   Regras compartilhadas `pfVendasOfertas` (`PF_OFERTAS_PADRAO`: eixo→óleo 85W140/80W90, motor de REFORMA→aditivo/silicone/
   trava-rosca/15W40, transmissão→óleo de transmissão, hidráulico→óleo hidráulico): termos na descrição (`relComeca`) + % mínimo

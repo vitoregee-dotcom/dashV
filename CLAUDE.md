@@ -44,6 +44,13 @@
   + cotações (num 900001+, não mexe na numeração real) e vendedores MINEIRO/Carlos Candis/Vitor (`PF_DEMO_VENDEDORES`) — v115.2124;
   apagar registra o lote em `pfDemoLotesApagados` (pvLoad/crLoad filtram — a sync só junta listas) e clientes em `cad_clientes_deletados`.
 
+## Cliente inativo / novo → o que precisa pra vender (v115.2126)
+- Cotação: 90+ dias sem comprar = "⛔ inativo" (`PF_INATIVO_DIAS`), sem histórico = "🆕 primeira compra"; clique → `pfInatAbrir(modo)`
+  (reanalise / novo_prazo / novo_vista), lista montada do PRÓPRIO atalho de texto (`pfCadCampoDoRotulo` mapeia rótulo→campo do cadastro).
+- Link por cliente: `formulario_links` ganhou cliente_ref/prefill/tipo/expira_em(15d)/aceita_arquivos; anon NÃO lê prefill (só via rpc `pf_form_prefill`);
+  anexos no bucket PRIVADO `cadastro-clientes/<codigo>/...` (anon só insere com link válido). Resposta → `cad.respostaCadastro` + `cad.documentos`
+  (`pfFormClienteChecarSubmissoes`), etiqueta "📥 resposta do cliente"; conferir/gravar `pfInatConferir`/`pfInatGravar`; abrir doc = URL assinada `pfCadDocAbrir`.
+
 ## Área Técnica (Componentes Cardan, `componentes_cardan_v1`)
 - Famílias em `CC_FAMILIAS` (+ `CC_NOME_SINGULAR`); item = `{codigo, linha, descricao, veiculos[], montaCom[], conversoes[],
   equivalentesExtra[{marca,codigo,tipo}], especificacoes[{nome,valor}], fotos[], medidas por letra}`.

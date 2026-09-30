@@ -1906,7 +1906,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2125</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2126</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2060,7 +2060,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2125</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2126</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -36098,6 +36098,7 @@ cadFormCliente = function(data, idx){
   html += '<input type="hidden" id="clieLinhaOp" value="'+pfEscHtml(d.linha||'')+'"><input type="hidden" id="clieSetor" value="'+pfEscHtml(d.setor||'')+'">';
   html += '</div>';
   html += cadRevBlocoHtml(d); // v115.2111 - perfil da revenda (concessionária/independente) + parceiro 🤝
+  if(typeof pfCadDocsHtml==='function')html += pfCadDocsHtml(d); // v115.2126 - documentos que o cliente mandou (link) ou foram anexados na cotação
 
   // v115.1748 - A pedido do Vitor ("tenho mta variação de regime
   // tributário e se venda pra consumo ou revenda... inclusive nos
@@ -48565,6 +48566,282 @@ function vendasRefresh(){
 }
 
 // v115.2059 - A pedido do Vitor: cabeçalho compacto da cotação (ver comentário em vendasRenderCotacao).
+// v115.2126 - A pedido do Vitor: cliente INATIVO (90+ dias sem comprar) ou NOVO precisa de análise antes de vender
+// a prazo. Na cotação a etiqueta vira clicável e mostra o que precisa pra efetivar a venda:
+//   * reanálise (cliente antigo inativo) -- atalho "REANÁLISE CLIENTE ANTIGO"
+//   * cliente novo a prazo -- atalho "CADASTRO CLIENTE NOVO A PRAZO" (+ contrato social)
+//   * cliente novo à vista -- atalho "CADASTRO À VISTA (EXPRESSO)"
+// A lista do que pedir sai do PRÓPRIO atalho (rótulo "CAMPO:"), comparada com o cadastro (✅ tem / ⚠️ pedir).
+// Caminhos da resposta: 🔗 link pro cliente (já preenchido, aceita anexos -- chega sozinho no cadastro dele),
+// 💬 WhatsApp com o texto, ou colar o texto / anexar print-PDF (IA). Conferência "hoje x do cliente" e gravação no
+// cadastro; documentos ficam em cad.documentos (bucket privado cadastro-clientes).
+var PF_INATIVO_DIAS=90;
+var PF_CAD_MODOS={
+  reanalise:{titulo:'Cliente inativo — reanálise pra vender a prazo',re:/rean[aá]lise/i,docs:[]},
+  novo_prazo:{titulo:'Cliente novo — cadastro a prazo',re:/novo.*prazo|prazo.*novo/i,docs:['Contrato social']},
+  novo_vista:{titulo:'Cliente novo — cadastro à vista (expresso)',re:/vista/i,docs:[]}
+};
+var PF_CAD_PADRAO={
+  reanalise:'REANÁLISE DE CADASTRO A PRAZO (tempo para análise: 48 horas)\n\nRAZÃO SOCIAL:\nCNPJ:\nNOME DO CONTATO DE COMPRAS:\nE-MAIL DE COMPRAS:\nWHATSAPP COMPRAS:\nTELEFONE DE CONTATO FIXO:\nNOME DO RESPONSÁVEL DO FINANCEIRO:\nE-MAIL FINANCEIRO:\nE-MAIL DE NFE:\n\nREFERÊNCIA COMERCIAL (NOME E TELEFONE):\nREFERÊNCIA COMERCIAL (NOME E TELEFONE):\nREFERÊNCIA COMERCIAL (NOME E TELEFONE):\nREFERÊNCIA COMERCIAL (NOME E TELEFONE):',
+  novo_prazo:'CADASTRO DE CLIENTE A PRAZO (tempo para análise: 48 horas)\n\nEnviar contrato social.\n\nRAZÃO SOCIAL:\nCNPJ:\nNOME DO CONTATO DE COMPRAS:\nE-MAIL DE COMPRAS:\nWHATSAPP COMPRAS:\nTELEFONE DE CONTATO FIXO:\nNOME DO RESPONSÁVEL DO FINANCEIRO:\nE-MAIL FINANCEIRO:\nE-MAIL DE NFE:\n\nREFERÊNCIA COMERCIAL (NOME E TELEFONE):\nREFERÊNCIA COMERCIAL (NOME E TELEFONE):\nREFERÊNCIA COMERCIAL (NOME E TELEFONE):\nREFERÊNCIA COMERCIAL (NOME E TELEFONE):',
+  novo_vista:'CADASTRO PARA PAGAMENTO À VISTA (EXPRESSO)\n\nCNPJ/CPF:\nRAZÃO SOCIAL:\nNOME FANTASIA:\nE-MAIL:\nTELEFONE:\nENDEREÇO:\nCIDADE:\nESTADO:\nBAIRRO:\nCEP:\n\nNOME DO CONTATO (COMPRADOR):\nE-MAIL DO COMPRADOR:\nWHATSAPP COMPRADOR:\nE-MAIL DE NFE:\nCOMO CONHECEU A TRIEX?:'
+};
+function pfInatAtalho(re){try{return (pfAtalhosTextoLoad()||[]).find(function(a){return a&&re.test(String(a.nome||''));})||null;}catch(e){return null;}}
+function pfCadAtalhoDoModo(m){return pfInatAtalho(PF_CAD_MODOS[m].re);}
+function pfCadTextoDoModo(m){var a=pfCadAtalhoDoModo(m);return a?String(a.conteudo||''):PF_CAD_PADRAO[m];}
+function pfInatNorm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+// rótulo do formulário -> campo do cadastro
+function pfCadCampoDoRotulo(rot){
+  var n=pfInatNorm(rot).replace(/\d+$/,'');
+  if(/^REFERENCIACOMERCIAL/.test(n))return 'ref';
+  var M={RAZAOSOCIAL:'razao',CNPJ:'cnpj',CNPJCPF:'cnpj',NOMEFANTASIA:'fantasia',EMAIL:'email',TELEFONE:'tel',TELEFONEDECONTATOFIXO:'tel',ENDERECO:'endereco',CIDADE:'cidade',ESTADO:'estado',BAIRRO:'bairro',CEP:'cep',
+    NOMEDOCONTATODECOMPRAS:'cc_nome',NOMEDOCONTATOCOMPRADOR:'cc_nome',EMAILDECOMPRAS:'cc_email',EMAILDOCOMPRADOR:'cc_email',WHATSAPPCOMPRAS:'cc_tel',WHATSAPPCOMPRADOR:'cc_tel',
+    NOMEDORESPONSAVELDOFINANCEIRO:'cf_nome',EMAILFINANCEIRO:'cf_email',EMAILDENFE:'nfe',COMOCONHECEUATRIEX:'comoConheceu'};
+  if(M[n])return M[n];
+  if(/REGIMETRIBUTARIO/.test(n))return 'regime';
+  return '';
+}
+function pfCadValor(cad,campo){
+  cad=cad||{};var cc=cad.contatoCompras||{},cf=cad.contatoFinanceiro||{},cn=cad.contatoNfe||{};
+  switch(campo){case 'cc_nome':return cc.nome||cad.contato||'';case 'cc_email':return cc.email||'';case 'cc_tel':return cc.tel||cad.whatsapp||'';
+    case 'cf_nome':return cf.nome||'';case 'cf_email':return cf.email||'';case 'nfe':return cn.email||'';
+    case 'regime':return cad.regimeTrib&&cad.regimeTrib!=='Não informado'?cad.regimeTrib:'';
+    default:return campo&&campo!=='ref'?String(cad[campo]||''):'';}
+}
+function pfCadSetValor(x,campo,v){
+  x.contatoCompras=x.contatoCompras||{};x.contatoFinanceiro=x.contatoFinanceiro||{};x.contatoNfe=x.contatoNfe||{};
+  switch(campo){case 'cc_nome':x.contatoCompras.nome=v;if(!x.contato)x.contato=v;break;case 'cc_email':x.contatoCompras.email=v;break;case 'cc_tel':x.contatoCompras.tel=v;if(!x.whatsapp)x.whatsapp=v;break;
+    case 'cf_nome':x.contatoFinanceiro.nome=v;break;case 'cf_email':x.contatoFinanceiro.email=v;break;case 'nfe':x.contatoNfe.email=v;break;
+    case 'regime':x.regimeTrib=v;break;default:if(campo&&campo!=='ref')x[campo]=v;}
+}
+function pfInatRegimeTxt(v){var s=pfInatNorm(v);if(/^[12]$/.test(s)||/SIMPLES/.test(s))return 'Simples Nacional';if(s==='3'||/PRESUMIDO/.test(s))return 'Lucro Presumido';if(s==='5'||/REAL/.test(s))return 'Lucro Real';if(/MEI/.test(s))return 'MEI';return '';}
+// resposta (qualquer origem: texto colado, IA, link) -> {campos:{campo:valor}, refs:[{nome,tel}]}
+function pfCadRespostaDeRotulos(mapa){
+  var out={campos:{},refs:[]};
+  Object.keys(mapa||{}).forEach(function(rot){
+    var v=String(mapa[rot]==null?'':mapa[rot]).trim();if(!v)return;
+    var c=pfCadCampoDoRotulo(rot);
+    if(c==='ref'){var tel=(v.match(/\(?\d{2}\)?\s*9?\d{4}-?\d{4}/)||[''])[0];out.refs.push({nome:(tel?v.replace(tel,''):v).replace(/[-–—|,()]\s*$/,'').replace(/\s[-–—|]\s*$/,'').trim(),tel:tel});return;}
+    if(c==='regime'){var r=pfInatRegimeTxt(v);if(r)out.campos.regime=r;return;}
+    if(c)out.campos[c]=v;
+  });
+  return out;
+}
+function pfInatLerTexto(txt){
+  var mapa={},n=0,regime='';
+  String(txt||'').split(/\r?\n/).forEach(function(l){
+    var m=/^\s*\*?([^:]{2,70}):\s*(.*)$/.exec(l);
+    if(m&&!/^https?$/i.test(m[1].trim())){var rot=m[1].replace(/\*/g,'').trim(),val=m[2].replace(/\*/g,'').trim();if(pfCadCampoDoRotulo(rot)==='ref')rot+=' #'+(++n);if(val)mapa[rot]=val;return;}
+    var r=/\(\s*[xX✓✔*]\s*\)\s*(\d)/.exec(l);if(r)regime=r[1];
+  });
+  if(regime)mapa['REGIME TRIBUTARIO']=regime;
+  return pfCadRespostaDeRotulos(mapa);
+}
+function pfInatTotalCotacao(v){
+  return (v&&v.itens||[]).reduce(function(s,it){var c=it.custoOverride!=null?it.custoOverride:it.custo;var vd=it.vendaOverride!=null?it.vendaOverride:(c&&typeof vendasCalcVenda==='function'?vendasCalcVenda(c,v.uf||'SP',v.margem||30):0);return s+(+vd||0)*(+it.qtd||1);},0);
+}
+function pfInatCondicaoPorValor(total){
+  var at=pfInatAtalho(/prazo de pagamento/i);if(!at||!total)return '';
+  var num=function(x){return parseFloat(String(x).replace(/\./g,'').replace(',','.'))||0;};
+  var linhas=String(at.conteudo||'').split('\n');
+  for(var i=0;i<linhas.length;i++){var m=/R\$\s*([\d.,]+)\s*a\s*R\$\s*([\d.,]+)\s*-\s*Condi[çc][õo]es?:\s*(.+)/i.exec(linhas[i]);
+    if(m&&total>=num(m[1])&&total<=num(m[2])+0.99)return m[3].trim();}
+  return '';
+}
+// ── tela ──
+function pfInatAbrir(modo){
+  var v=window._venda||{},cli=v.cliente;if(!cli)return;
+  var cad=(typeof pfRevCadDoCliente==='function'?pfRevCadDoCliente(cli):null)||{razao:cli.razao,cnpj:cli.cnpj,cidade:cli.cidade,estado:cli.estado,codigo:cli.codigo};
+  var r=null;try{r=vendasClienteResumo(cli);}catch(e){}
+  var dias=r&&r.diasDesde!=null?r.diasDesde:null,novo=!(r&&r.temHistorico);
+  if(!modo)modo=(cad.respostaCadastro&&!cad.respostaCadastro.aplicadaEm&&cad.respostaCadastro.tipo)||(novo?'novo_prazo':'reanalise');
+  var M=PF_CAD_MODOS[modo],at=pfCadAtalhoDoModo(modo),texto=pfCadTextoDoModo(modo);
+  var form=pfFormClienteExtrairCampos(texto),nRef=0,refs=(cad.referenciasComerciais||[]).filter(function(x){return x&&(x.nome||x.tel);});
+  var linhas=form.campos.map(function(c){
+    var campo=c.tipo==='radio'?'regime':pfCadCampoDoRotulo(c.rotuloBase),val='';
+    if(campo==='ref'){var rf=refs[nRef++];val=rf?((rf.nome||'')+(rf.tel?' · '+rf.tel:'')):'';}
+    else val=pfCadValor(cad,campo);
+    return {rot:c.rotulo,campo:campo,val:val};
+  });
+  var docsReq=M.docs.slice();if(/contrato social/i.test(texto)&&docsReq.indexOf('Contrato social')<0)docsReq.push('Contrato social');
+  var docs=cad.documentos||[];
+  var falta=linhas.filter(function(l){return !l.val;}).length+docsReq.filter(function(d){return !docs.some(function(x){return pfInatNorm(x.nome+' '+(x.tipoDoc||'')).indexOf(pfInatNorm(d))>=0;});}).length;
+  var total=pfInatTotalCotacao(v),cond=pfInatCondicaoPorValor(total);
+  var ok='<span style="color:#1E8449;font-weight:700">✅</span>',pedir='<span style="color:#B7791F;font-weight:700">⚠️ pedir</span>';
+  var aba=function(m,t){var on=m===modo;return '<span onclick="pfInatAbrir(\''+m+'\')" style="cursor:pointer;padding:6px 12px;border-radius:8px 8px 0 0;font-size:12.5px;font-weight:700;background:'+(on?'#fff':'transparent')+';color:'+(on?'#1F4E79':'#fff')+'">'+t+'</span>';};
+  var resp=cad.respostaCadastro&&!cad.respostaCadastro.aplicadaEm?cad.respostaCadastro:null;
+  var old=document.getElementById('pfInatModal');if(old)old.remove();
+  var ov=document.createElement('div');ov.id='pfInatModal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99990;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:92vh;overflow:auto;box-shadow:0 16px 48px rgba(0,0,0,.3)">'+
+    '<div style="background:'+(modo==='reanalise'?'#8B1A1A':'#1F4E79')+';color:#fff;padding:14px 18px 0">'+
+      '<div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-weight:800;font-size:15px">'+(modo==='reanalise'?'⛔ ':'🆕 ')+pfEscHtml(M.titulo)+'</div>'+
+      '<div style="font-size:12px;opacity:.9">'+pfEscHtml(cli.razao||'')+(dias!=null?' · sem comprar há '+dias+' dias'+(modo==='reanalise'?' (inativo a partir de '+PF_INATIVO_DIAS+')':''):' · sem compras no sistema')+'</div></div>'+
+      '<button onclick="document.getElementById(\'pfInatModal\').remove()" style="background:none;border:none;cursor:pointer;line-height:1">'+pfXGlossyHtml(24)+'</button></div>'+
+      '<div style="display:flex;gap:4px;margin-top:10px">'+aba('reanalise','Reanálise (cliente antigo)')+aba('novo_prazo','Novo · a prazo')+aba('novo_vista','Novo · à vista')+'</div></div>'+
+    '<div style="padding:14px 18px;font-size:13px;line-height:1.55;color:#1a2332">'+
+      (resp?'<div style="background:#E9F7EF;border:1.5px solid #1E8449;border-radius:10px;padding:10px 12px;margin-bottom:12px"><b style="color:#1E6B3A">📥 O cliente respondeu pelo link</b> em '+new Date(resp.recebidoEm).toLocaleString('pt-BR')+(resp.arquivos&&resp.arquivos.length?' · '+resp.arquivos.length+' arquivo(s) anexado(s)':'')+'. Confira embaixo e grave no cadastro.</div>':'')+
+      (modo==='reanalise'?
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+
+          '<div style="border:1.5px solid #1E8449;border-radius:10px;padding:10px 12px;background:#F2FBF5"><b style="color:#1E8449">💵 À vista</b><br>Pode faturar direto — não precisa de análise.</div>'+
+          '<div style="border:1.5px solid #B7791F;border-radius:10px;padding:10px 12px;background:#FFF8EC"><b style="color:#8a5a00">📅 A prazo</b><br>Precisa de <b>reanálise de crédito</b> (até 48 horas).'+(total?'<br><span style="font-size:12px">Cotação: <b>'+(typeof crFmt==='function'?crFmt(total):total.toFixed(2))+'</b>'+(cond?' → condição da tabela: <b>'+pfEscHtml(cond)+'</b>':'')+'</span>':'')+'</div></div>'
+        :'<div style="border:1.5px solid '+(modo==='novo_prazo'?'#B7791F':'#1E8449')+';border-radius:10px;padding:10px 12px;background:'+(modo==='novo_prazo'?'#FFF8EC':'#F2FBF5')+';margin-bottom:12px">'+
+          (modo==='novo_prazo'?'<b style="color:#8a5a00">📅 A prazo</b>: cadastro + <b>análise de crédito</b> (até 48 horas)'+(docsReq.length?', com <b>'+docsReq.join(', ')+'</b>':'')+'.'+(total?'<br><span style="font-size:12px">Cotação: <b>'+(typeof crFmt==='function'?crFmt(total):total.toFixed(2))+'</b>'+(cond?' → condição da tabela: <b>'+pfEscHtml(cond)+'</b>':'')+'</span>':'')
+            :'<b style="color:#1E8449">💵 À vista</b>: cadastro expresso — com os dados abaixo já dá pra faturar.')+'</div>')+
+      '<div style="font-weight:800;color:#1F4E79;margin-bottom:4px">O que pedir ao cliente '+(falta?'<span style="font-weight:600;color:#B7791F">· faltam '+falta+'</span>':'<span style="font-weight:600;color:#1E8449">· está completo</span>')+
+        (at?'':' <span style="font-weight:400;font-size:11.5px;color:#8a9ab0">(lista padrão — não achei o atalho em Atalhos de Texto)</span>')+'</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'+linhas.map(function(l){
+        return '<tr style="border-top:1px solid #f0f3f7"><td style="padding:5px 4px">'+pfEscHtml(l.rot)+'</td><td style="padding:5px 4px;color:'+(l.val?'#1a2332':'#8a9ab0')+'">'+(l.val?pfEscHtml(l.val):'—')+'</td><td style="padding:5px 4px;text-align:right;white-space:nowrap">'+(l.val?ok:pedir)+'</td></tr>';}).join('')+
+        docsReq.map(function(d){var tem=docs.some(function(x){return pfInatNorm(x.nome+' '+(x.tipoDoc||'')).indexOf(pfInatNorm(d))>=0;});return '<tr style="border-top:1px solid #f0f3f7"><td style="padding:5px 4px">📎 '+d+' (arquivo)</td><td></td><td style="padding:5px 4px;text-align:right">'+(tem?ok:pedir)+'</td></tr>';}).join('')+'</table>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px">'+
+        '<button class="pfBtn pfBtnVerde" onclick="pfCadLinkEnviar(\'whats\')" title="O cliente preenche pelo celular (já vem com o que temos) e anexa os arquivos — chega sozinho aqui">🔗 Mandar link pro cliente (WhatsApp)</button>'+
+        '<button class="pfBtn pfBtnClaro" onclick="pfCadLinkEnviar(\'copiar\')">🔗 Copiar link</button>'+
+        '<button class="pfBtn pfBtnClaro" onclick="pfInatWhats()">💬 Mandar o texto</button>'+
+        (at?'<button class="pfBtn pfBtnAzul" onclick="document.getElementById(\'pfInatModal\').remove();ferrAtalhosTextoAbrirPreencher(\''+pfEscJs(at.id)+'\')">🧾 Preencher e mandar pro cadastro</button>':'')+
+      '</div>'+
+      '<div id="pfCadLinkStatus" style="font-size:12px;margin-top:6px;color:#607080"></div>'+
+      pfCadDocsHtml(cad)+
+      pfInatRespostaHtml()+
+    '</div></div>';
+  document.body.appendChild(ov);
+  window._pfInatCtx={cli:cli,cad:cad,modo:modo,at:at,texto:texto,form:form,arquivosNovos:[]};
+  if(resp)pfInatConferir(pfCadRespostaDeRotulos(resp.dados||{}),resp.arquivos||[]);
+}
+function pfCadDocsHtml(cad){
+  var docs=(cad&&cad.documentos)||[];if(!docs.length)return '';
+  return '<div style="border-top:1px solid #eef1f5;margin-top:12px;padding-top:10px"><div style="font-weight:800;color:#1F4E79;margin-bottom:4px">📎 Documentos no cadastro</div>'+
+    docs.map(function(d){return '<div style="font-size:12.5px;padding:3px 0">📄 <span onclick="pfCadDocAbrir(\''+pfEscJs(d.path)+'\')" style="color:#1F4E79;text-decoration:underline;cursor:pointer">'+pfEscHtml(d.nome||d.path)+'</span> <span style="color:#8a9ab0">· '+new Date(d.em||Date.now()).toLocaleDateString('pt-BR')+(d.origem?' · '+pfEscHtml(d.origem):'')+'</span></div>';}).join('')+'</div>';
+}
+async function pfCadDocAbrir(path){
+  var w=window.open('','_blank');
+  try{var r=await sbFetch('/storage/v1/object/sign/cadastro-clientes/'+path.split('/').map(encodeURIComponent).join('/'),{method:'POST',body:JSON.stringify({expiresIn:600})});
+    var j=await r.json();if(!j.signedURL)throw new Error(j.message||'sem link');
+    var u=SB_URL+'/storage/v1'+j.signedURL;if(w)w.location=u;else window.open(u,'_blank');
+  }catch(e){if(w)w.close();pfAlert('Não consegui abrir o arquivo: '+e.message);}
+}
+// valores pré-preenchidos (rótulo exato do formulário -> valor) pro link / pro texto
+function pfCadPrefill(){
+  var c=window._pfInatCtx||{},cad=c.cad||{},nRef=0,refs=(cad.referenciasComerciais||[]).filter(function(x){return x&&(x.nome||x.tel);}),out={};
+  (c.form&&c.form.campos||[]).forEach(function(f){
+    if(f.tipo==='radio'){var rg=cad.regimeTrib||'';var o=f.opcoes.find(function(op){return rg&&pfInatNorm(op.rotulo).indexOf(pfInatNorm(rg).replace('NACIONAL',''))>=0;});if(o)out[f.rotulo]=o.rotulo;return;}
+    var campo=pfCadCampoDoRotulo(f.rotuloBase),v='';
+    if(campo==='ref'){var rf=refs[nRef++];if(rf)v=(rf.nome||'')+(rf.tel?' - '+rf.tel:'');}else v=pfCadValor(cad,campo);
+    if(v)out[f.rotulo]=v;
+  });
+  return out;
+}
+async function pfCadLinkEnviar(como){
+  var c=window._pfInatCtx||{},cad=c.cad||{},st=document.getElementById('pfCadLinkStatus');
+  if(st)st.textContent='⏳ Gerando o link…';
+  try{
+    var codigo=Math.random().toString(36).slice(2,8)+Math.random().toString(36).slice(2,6);
+    var r=await sbFetch('/rest/v1/formulario_links',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify({codigo:codigo,atalho_id:c.at?c.at.id:'padrao_'+c.modo,atalho_nome:c.at?c.at.nome:PF_CAD_MODOS[c.modo].titulo,texto:c.texto,
+      cliente_ref:cad.id||cad.razao||'',cliente_nome:cad.razao||'',prefill:pfCadPrefill(),tipo:c.modo,expira_em:new Date(Date.now()+15*86400000).toISOString(),aceita_arquivos:true})});
+    if(!r.ok)throw new Error('status '+r.status);
+    var url=location.origin+location.pathname+'?f='+codigo;
+    var msg='Olá'+(cad.contato?' '+cad.contato:'')+', tudo bem? Aqui é da Triex. '+(c.modo==='reanalise'?'Como faz um tempo desde a última compra, pra liberar o faturamento a prazo precisamos atualizar o cadastro de vocês.':'Pra fazer o seu cadastro'+(c.modo==='novo_prazo'?' a prazo':'')+' com a gente,')+
+      ' É rapidinho: abra o link, confira o que já está preenchido, complete o que faltar'+(c.modo==='novo_prazo'?' e anexe o contrato social':' e, se tiver, anexe a ficha cadastral')+':\n'+url+'\n(o link vale por 15 dias)';
+    if(como==='whats'){var cc=cad.contatoCompras||{},tel=String(cc.tel||cad.whatsapp||cad.tel||'').replace(/\D/g,'');if(tel&&tel.length<=11)tel='55'+tel;window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');}
+    else{try{await navigator.clipboard.writeText(msg);}catch(e){window.prompt('Copie:',msg);}}
+    if(st)st.innerHTML='<span style="color:#1E8449;font-weight:700">✅ Link '+(como==='whats'?'aberto no WhatsApp':'copiado')+'.</span> Quando o cliente enviar, aparece "📥 resposta do cliente" na cotação dele.';
+  }catch(e){if(st)st.innerHTML='<span style="color:#C00000">Não consegui gerar o link: '+pfEscHtml(e.message)+'</span>';}
+}
+function pfInatTexto(){
+  var c=window._pfInatCtx||{},cad=c.cad||{},pre=pfCadPrefill();
+  var usados={};
+  var txt=String(c.texto||'').split('\n').map(function(l){var m=/^([^:]+):\s*$/.exec(l.trim());if(!m)return l;var base=m[1].trim(),k=base;usados[base]=(usados[base]||0)+1;if(usados[base]>1)k=base+' ('+usados[base]+')';return pre[k]?base+': '+pre[k]:l;}).join('\n');
+  return 'Olá'+(cad.contato?' '+cad.contato:'')+', tudo bem? Aqui é da Triex. '+(c.modo==='reanalise'?'Como faz um tempo desde a última compra, pra liberar o faturamento a prazo precisamos atualizar o cadastro de vocês. Pode conferir e completar os dados abaixo? (à vista conseguimos faturar na hora)':'Pra fazer o seu cadastro, pode preencher os dados abaixo?')+'\n\n'+txt;
+}
+function pfInatWhats(){
+  var c=window._pfInatCtx||{},cad=c.cad||{},cc=cad.contatoCompras||{};
+  var tel=String(cc.tel||cad.whatsapp||cad.tel||'').replace(/\D/g,'');if(tel&&tel.length<=11)tel='55'+tel;
+  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(pfInatTexto()),'_blank');
+}
+function pfInatRespostaHtml(){
+  return '<div style="border-top:1px solid #eef1f5;margin-top:14px;padding-top:12px">'+
+    '<div style="font-weight:800;color:#1F4E79;margin-bottom:6px">📥 Resposta do cliente por fora do link? Cole ou anexe aqui</div>'+
+    '<textarea id="pfInatResp" placeholder="Cole aqui o texto que o cliente mandou (RAZÃO SOCIAL:, E-MAIL FINANCEIRO:, REFERÊNCIA COMERCIAL:...)" style="width:100%;box-sizing:border-box;min-height:80px;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12.5px"></textarea>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center">'+
+      '<button class="pfBtn pfBtnAzul" onclick="pfInatConferir(pfInatLerTexto(document.getElementById(\'pfInatResp\').value))">🔍 Ler o texto</button>'+
+      '<label class="pfBtn pfBtnClaro" style="position:relative;cursor:pointer">📎 Anexar ficha / print / PDF (IA)<input type="file" multiple accept="image/*,application/pdf" onchange="if(this.files.length)pfInatLerArquivos(this.files)" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>'+
+      '<span id="pfInatRespStatus" style="font-size:12px;color:#607080"></span>'+
+    '</div><div id="pfInatConferir"></div></div>';
+}
+// arquivos anexados aqui: sobem pro bucket (ficam no cadastro ao gravar) e a IA lê os campos
+async function pfInatLerArquivos(files){
+  var st=document.getElementById('pfInatRespStatus'),c=window._pfInatCtx||{},cad=c.cad||{};
+  var apiKey=localStorage.getItem('anthropic_key')||'';
+  if(!apiKey){apiKey=window.prompt('Cole sua Anthropic API Key:');if(apiKey)pfAnthropicKeySet(apiKey);}
+  if(!apiKey)return;
+  try{
+    if(st)st.textContent='⏳ Guardando e lendo '+files.length+' arquivo(s)…';
+    var blocos=[],subidos=[];
+    for(var i=0;i<files.length;i++){
+      var f=files[i],url=await rfLerArquivoComoDataUrl(f),mt=(url.match(/^data:([^;]+)/)||[])[1]||'image/png',b64=url.split(',')[1];
+      blocos.push(mt==='application/pdf'?{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}:{type:'image',source:{type:'base64',media_type:mt,data:b64}});
+      var up=await pfCadDocSubir(f,'interno/'+pfInatNorm(cad.id||cad.razao||'cliente').slice(0,40));if(up)subidos.push(up);
+    }
+    var rot=(c.form&&c.form.campos||[]).map(function(x){return x.tipo==='radio'?'REGIME TRIBUTARIO':x.rotulo;});
+    var pedidoIA='Estes arquivos são a resposta de um cliente pra um cadastro/reanálise de crédito (ficha cadastral, cartão CNPJ, formulário preenchido, contrato social...). '+
+      'Preencha os campos abaixo com o que aparecer nos arquivos e responda SÓ com JSON {"<campo>":"<valor>"} usando EXATAMENTE estes nomes de campo: '+JSON.stringify(rot)+'. '+
+      'Referência comercial = "nome - telefone". REGIME TRIBUTARIO = Simples Nacional / Lucro Presumido / Lucro Real / MEI. Campo que não aparecer: não inclua. Não invente.';
+    var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:pfAnthropicHeaders(apiKey),
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:blocos.concat([{type:'text',text:pedidoIA}])}]})});
+    var data=await resp.json();if(data.error)throw new Error(data.error.message||'erro na leitura');
+    if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Cotação — cadastro/reanálise do cliente',data.usage);
+    var txt=(data.content||[]).map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();var m=txt.match(/\{[\s\S]*\}/);if(m)txt=m[0];
+    if(st)st.textContent='';
+    pfInatConferir(pfCadRespostaDeRotulos(JSON.parse(txt)),subidos);
+  }catch(e){if(st)st.innerHTML='<span style="color:#C00000">Não consegui ler: '+pfEscHtml(e.message)+'</span>';}
+}
+async function pfCadDocSubir(file,pasta){
+  try{
+    var nome=String(file.name||'arquivo').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w.-]+/g,'_').slice(-80);
+    var path=pasta+'/'+Date.now()+'_'+nome;
+    var r=await sbFetch('/storage/v1/object/cadastro-clientes/'+path,{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream'},body:file});
+    if(!r.ok)throw new Error('status '+r.status);
+    return {path:path,nome:file.name||nome,tipo:file.type||'',tam:file.size||0,em:Date.now(),origem:'anexado na cotação'};
+  }catch(e){console.warn('pfCadDocSubir falhou:',e);return null;}
+}
+// hoje x do cliente, com caixinhas
+function pfInatConferir(novo,arquivos){
+  var box=document.getElementById('pfInatConferir');if(!box)return;
+  var c=window._pfInatCtx||{},cad=c.cad||{};
+  c.arquivosNovos=(c.arquivosNovos||[]).concat(arquivos||[]);
+  var nomes={razao:'Razão social',cnpj:'CNPJ',fantasia:'Nome fantasia',email:'E-mail',tel:'Telefone',endereco:'Endereço',cidade:'Cidade',estado:'Estado',bairro:'Bairro',cep:'CEP',cc_nome:'Contato de compras',cc_email:'E-mail de compras',cc_tel:'WhatsApp de compras',cf_nome:'Responsável do financeiro',cf_email:'E-mail do financeiro',nfe:'E-mail de NF-e',comoConheceu:'Como conheceu a Triex',regime:'Regime tributário'};
+  var mud=[];
+  Object.keys(novo.campos||{}).forEach(function(k){var n=String(novo.campos[k]||'').trim(),a=pfCadValor(cad,k);if(n&&n!==String(a||'').trim())mud.push({k:k,rot:nomes[k]||k,de:a,para:n});});
+  if(novo.refs&&novo.refs.length)mud.push({k:'refs',rot:'Referências comerciais',de:(cad.referenciasComerciais||[]).length+' cadastradas',para:novo.refs.map(function(r){return (r.nome||'')+(r.tel?' ('+r.tel+')':'');}).join(' · ')});
+  window._pfInatNovo=novo;
+  var arqs=c.arquivosNovos;
+  if(!mud.length&&!arqs.length){box.innerHTML='<div style="margin-top:8px;color:#607080;font-size:12.5px">Não achei nada novo pra gravar (ou o texto não segue o formulário).</div>';return;}
+  box.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px"><tr style="color:#607080;font-size:11px;text-align:left"><th></th><th style="padding:4px">CAMPO</th><th style="padding:4px">HOJE</th><th style="padding:4px">DO CLIENTE</th></tr>'+
+    mud.map(function(m){return '<tr style="border-top:1px solid #f0f3f7"><td style="padding:4px"><input type="checkbox" data-k="'+m.k+'" checked></td><td style="padding:4px;font-weight:600">'+m.rot+'</td><td style="padding:4px;color:#8a9ab0">'+pfEscHtml(m.de||'—')+'</td><td style="padding:4px;color:#1E6B3A;font-weight:600">'+pfEscHtml(m.para)+'</td></tr>';}).join('')+
+    arqs.map(function(a,i){return '<tr style="border-top:1px solid #f0f3f7"><td style="padding:4px"><input type="checkbox" data-arq="'+i+'" checked></td><td style="padding:4px;font-weight:600">📎 Arquivo</td><td></td><td style="padding:4px"><span onclick="pfCadDocAbrir(\''+pfEscJs(a.path)+'\')" style="color:#1F4E79;text-decoration:underline;cursor:pointer">'+pfEscHtml(a.nome||a.path)+'</span></td></tr>';}).join('')+
+    '</table><div style="margin-top:10px;display:flex;gap:8px"><button class="pfBtn pfBtnVerde" onclick="pfInatGravar()">💾 Gravar no cadastro do cliente</button></div>';
+}
+function pfInatGravar(){
+  var c=window._pfInatCtx||{},novo=window._pfInatNovo||{campos:{},refs:[]},cad=c.cad||{};
+  var sel={},selArq={};document.querySelectorAll('#pfInatConferir input[data-k]').forEach(function(i){if(i.checked)sel[i.getAttribute('data-k')]=1;});
+  document.querySelectorAll('#pfInatConferir input[data-arq]').forEach(function(i){if(i.checked)selArq[i.getAttribute('data-arq')]=1;});
+  var lista=cadLoad(CLIE_KEY)||[],idx=lista.findIndex(function(x){return x&&((cad.id&&x.id===cad.id)||(x.razao&&x.razao===cad.razao&&(x.cnpj||'')===(cad.cnpj||'')));});
+  var x=idx>=0?lista[idx]:null;
+  if(!x){ // cliente novo que ainda não tem cadastro
+    x={id:'cli_'+Date.now(),codigo:'',razao:String((novo.campos&&novo.campos.razao)||cad.razao||'').toUpperCase(),tipo:'',ts:Date.now()};lista.push(x);
+  }
+  Object.keys(sel).forEach(function(k){if(k==='refs')return;var v=String((novo.campos||{})[k]||'').trim();if(v)pfCadSetValor(x,k,v);});
+  if(sel.refs&&novo.refs&&novo.refs.length)x.referenciasComerciais=novo.refs.map(function(r){return {nome:r.nome||'',local:'',tel:r.tel||''};});
+  var arqs=(c.arquivosNovos||[]).filter(function(a,i){return selArq[i];});
+  if(arqs.length){x.documentos=x.documentos||[];arqs.forEach(function(a){if(!x.documentos.some(function(d){return d.path===a.path;}))x.documentos.push(a);});}
+  if(x.respostaCadastro&&!x.respostaCadastro.aplicadaEm)x.respostaCadastro.aplicadaEm=Date.now();
+  x.cadastroAtualizadoEm=Date.now();x.ts=Date.now();
+  cadSave(CLIE_KEY,lista);
+  var n=Object.keys(sel).length+arqs.length;
+  pfInatAbrir(c.modo);
+  var st=document.getElementById('pfCadLinkStatus');if(st)st.innerHTML='<span style="color:#1E8449;font-weight:700">✅ '+n+' informação(ões)/arquivo(s) gravado(s) no cadastro.</span>'+(c.modo!=='novo_vista'?' Agora é "🧾 Preencher e mandar pro cadastro" pra análise de crédito.':'');
+  if(typeof vendasRefresh==='function')try{vendasRefresh();}catch(e){}
+}
 function vendasCabecalhoCompactoHtml(v,hoje,botoesHtml){
   var inpSt='padding:6px 9px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:7px;font-size:13px;color:var(--pf-fx-textoEscuro,#1a2332);box-sizing:border-box';
   var lbl=function(t){return '<span style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSuave,#8a9ab0);text-transform:uppercase">'+t+'</span>';};
@@ -48598,9 +48875,10 @@ function vendasCabecalhoCompactoHtml(v,hoje,botoesHtml){
     };
     var chips='';
     if(r){
-      if(!r.temHistorico)chips+=chip('🆕','primeira compra','cliente','#607080','#F1F4F8','Sem pedidos anteriores no sistema');
+      if(!r.temHistorico)chips+='<span onclick="pfInatAbrir(\'novo_prazo\')" title="Cliente novo: clique pra ver o que precisa pro cadastro (à vista ou a prazo)" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:14px;background:#EEF4FB;color:#1F4E79;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;border:1.5px solid #b9cde4">🆕 primeira compra <span style="font-weight:700;text-decoration:underline">o que precisa?</span></span>'; // v115.2126
       else{
-        chips+=chip('🕒','última compra há '+r.diasDesde+' dia'+(r.diasDesde===1?'':'s'),'cliente',r.atrasado?'#C00000':'#1F4E79',r.atrasado?'#FDECEC':'#F1F5FA',r.atrasado?'Está demorando mais que o normal pra comprar':'');
+        if(r.diasDesde>=PF_INATIVO_DIAS)chips+='<span onclick="pfInatAbrir()" title="Cliente inativo: clique pra ver o que precisa pra efetivar a venda" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:14px;background:#FDECEC;color:#B3231C;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;border:1.5px solid #E8A0A0">⛔ inativo · última compra há '+r.diasDesde+' dias <span style="font-weight:700;text-decoration:underline">o que precisa?</span></span>'; // v115.2126
+        else chips+=chip('🕒','última compra há '+r.diasDesde+' dia'+(r.diasDesde===1?'':'s'),'cliente',r.atrasado?'#C00000':'#1F4E79',r.atrasado?'#FDECEC':'#F1F5FA',r.atrasado?'Está demorando mais que o normal pra comprar':'');
         chips+=chip('📦',r.totalPedidos+' pedido'+(r.totalPedidos===1?'':'s')+(r.intervaloMedio?' · a cada ~'+r.intervaloMedio+'d':''),'cliente');
         if(r.topMarcas&&r.topMarcas.length)chips+=chip('🏷️',pfEscHtml(r.topMarcas.slice(0,2).map(function(m){return m.marca;}).join(', ')),'cliente','#1F4E79','#F1F5FA','Marcas que mais compra');
         if(r.topItens&&r.topItens.length)chips+=chip('🎯',r.topItens.length+' mais comprados','cliente','#1F4E79','#F1F5FA','Itens que ele mais compra — dá pra trazer pra cotação');
@@ -48608,6 +48886,7 @@ function vendasCabecalhoCompactoHtml(v,hoje,botoesHtml){
       var nAn=(r.anotacoes||[]).length;
       if(nAn)chips+=chip('📝',nAn+' anotaç'+(nAn===1?'ão':'ões'),'cliente','#8a5a00','#FFF3CD');
     }
+    try{var _cadR=(typeof pfRevCadDoCliente==='function')?pfRevCadDoCliente(c):null;if(_cadR&&_cadR.respostaCadastro&&!_cadR.respostaCadastro.aplicadaEm)chips+='<span onclick="pfInatAbrir()" title="O cliente preencheu o link de cadastro — confira e grave" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:14px;background:#E9F7EF;color:#1E6B3A;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;border:1.5px solid #8fd1a8">📥 resposta do cliente — conferir</span>';}catch(eRc){} // v115.2126
     try{var _crv=crResumoCliente(c.razao);if(_crv)chips+=chip('🔴',crFmt(_crv.valor)+' vencido · '+_crv.n+' título'+(_crv.n>1?'s':'')+' (maior atraso '+_crv.maior+' dias)','cliente','#B3231C','#FDECEC','Cliente com cobrança vencida — ver Vendas → 💰 Contas a Receber');}catch(eCr){} // v115.2123
     if(c.contato)chips+=chip('👤',pfEscHtml(c.contato)+(c.tel?' · '+pfEscHtml(c.tel):''),'cliente','#1F4E79','#F1F5FA','Contato');
     var aberto=window._vendasPainelAberto===true||window._vendasPainelFixado===true;
@@ -61605,6 +61884,10 @@ function pfFormClienteRenderizarOverlay(payload){
       '<h2 style="margin:0 0 4px;font-size:17px;color:var(--pf-fx-marca,#1F4E79);font-weight:800">'+pfEscHtml(dados.titulo||payload.nome||'Formulário')+'</h2>'+
       (dados.avisos.length?'<div style="font-size:12.5px;color:#8a5a00;background:#FFF8E6;border-radius:8px;padding:9px 11px;margin:10px 0;line-height:1.5">'+dados.avisos.map(pfEscHtml).join('<br>')+'</div>':'')+
       '<form id="pfFormClienteForm" style="margin-top:14px">'+camposHtml+
+      // v115.2126 - anexos (link de cadastro/reanálise por cliente)
+      (payload.aceitaArquivos?'<div style="margin-bottom:14px"><label style="font-size:12.5px;font-weight:700;color:#3d4a5c;display:block;margin-bottom:4px">📎 Anexar documentos '+(payload.tipo==='novo_prazo'?'(contrato social — obrigatório; se tiver, cartão CNPJ)':'(ficha cadastral, cartão CNPJ... — opcional)')+'</label>'+
+        '<input type="file" id="pfFormClienteArquivos" multiple accept="application/pdf,image/*" style="width:100%;box-sizing:border-box;padding:10px;border:1.5px dashed #b9c6d6;border-radius:8px;font-size:13px;background:#fafcff">'+
+        '<div style="font-size:11.5px;color:#8a9ab0;margin-top:3px">PDF ou foto, até 15 MB cada.</div></div>':'')+
       '<button type="submit" style="width:100%;margin-top:6px;background:var(--pf-fx-marca,#1F4E79);color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:700;cursor:pointer">Enviar cadastro</button>'+
       '<div id="pfFormClienteMsg" style="font-size:12.5px;text-align:center;margin-top:8px;min-height:16px"></div>'+
       '</form>'+
@@ -61615,6 +61898,11 @@ function pfFormClienteRenderizarOverlay(payload){
     pfFormClienteEnviar(payload,dados);
   });
   pfFormClienteCnpjPrepararAuto(dados); // v115.2017
+  // v115.2126 - o que a Triex já tem vem preenchido (o cliente só confere)
+  try{var pre=payload.prefill||{},frm=document.getElementById('pfFormClienteForm');
+    dados.campos.forEach(function(c){var v=pre[c.rotulo];if(!v)return;
+      if(c.tipo==='radio'){var rb=frm.querySelector('input[name="'+c.chave+'"][value="'+String(v).replace(/"/g,'\\"')+'"]');if(rb)rb.checked=true;}
+      else{var ip=frm.querySelector('input[name="'+c.chave+'"]');if(ip&&!ip.value)ip.value=v;}});}catch(ePre){}
 }
 // v115.2017 - Busca automática do CNPJ no formulário público (ver acima).
 function pfFormClienteCnpjPrepararAuto(dados){
@@ -61729,14 +62017,27 @@ async function pfFormClienteEnviar(payload,dados){
     if(msgEl){msgEl.style.color='#c3924a';msgEl.textContent='Preenche tudo antes de enviar (faltou: '+faltando.slice(0,3).join(', ')+(faltando.length>3?'...':'')+').';}
     return;
   }
+  // v115.2126 - anexos: contrato social obrigatório no cadastro novo a prazo
+  var arqInp=document.getElementById('pfFormClienteArquivos'),arqs=arqInp?Array.prototype.slice.call(arqInp.files||[]):[];
+  if(payload.aceitaArquivos&&payload.tipo==='novo_prazo'&&!arqs.length){if(msgEl){msgEl.style.color='#c3924a';msgEl.textContent='Anexe o contrato social antes de enviar.';}return;}
+  if(arqs.some(function(f){return f.size>15*1024*1024;})){if(msgEl){msgEl.style.color='#c3924a';msgEl.textContent='Cada arquivo pode ter no máximo 15 MB.';}return;}
   var btn=form.querySelector('button[type="submit"]');
   if(btn){btn.disabled=true;btn.textContent='Enviando...';}
   if(msgEl){msgEl.style.color='var(--pf-fx-textoSec,#607080)';msgEl.textContent='';}
   try{
+    var arquivos=[];
+    for(var ia=0;ia<arqs.length;ia++){
+      var fa=arqs[ia],nm=String(fa.name||'arquivo').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w.-]+/g,'_').slice(-80);
+      var pth=payload.codigo+'/'+Date.now()+'_'+ia+'_'+nm;
+      if(btn)btn.textContent='Enviando arquivo '+(ia+1)+' de '+arqs.length+'...';
+      var ru=await fetch(SB_URL+'/storage/v1/object/cadastro-clientes/'+pth,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':fa.type||'application/octet-stream'},body:fa});
+      if(!ru.ok)throw new Error('arquivo '+(ia+1)+' não subiu (status '+ru.status+')');
+      arquivos.push({path:pth,nome:fa.name||nm,tipo:fa.type||'',tam:fa.size||0,em:Date.now(),origem:'enviado pelo cliente (link)'});
+    }
     var r=await fetch(SB_URL+'/rest/v1/formulario_submissoes',{
       method:'POST',
       headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=minimal'},
-      body:JSON.stringify({atalho_id:payload.id,atalho_nome:payload.nome,dados:respostas})
+      body:JSON.stringify(Object.assign({atalho_id:payload.id,atalho_nome:payload.nome,dados:respostas},payload.codigo?{link_codigo:payload.codigo,arquivos:arquivos}:{}))
     });
     if(!r.ok)throw new Error('status '+r.status);
     document.getElementById('pfFormClienteOverlay').innerHTML=
@@ -61757,7 +62058,7 @@ async function pfFormClienteEnviar(payload,dados){
 async function pfFormClienteChecarSubmissoes(){
   if(!sbUser)return;
   try{
-    var r=await sbFetch('/rest/v1/formulario_submissoes?processado=eq.false&select=id,atalho_nome,dados,criado_em&order=criado_em.asc');
+    var r=await sbFetch('/rest/v1/formulario_submissoes?processado=eq.false&select=id,atalho_nome,dados,criado_em,link_codigo,arquivos&order=criado_em.asc');
     if(!r.ok)return;
     var novas=await r.json();
     if(!novas||!novas.length)return;
@@ -61765,9 +62066,17 @@ async function pfFormClienteChecarSubmissoes(){
     for(var i=0;i<novas.length;i++){
       var s=novas[i];
       var linhas=Object.keys(s.dados||{}).map(function(k){return k+': '+(s.dados[k]||'—');});
+      // v115.2126 - veio do link de um cliente: a resposta e os arquivos vão pro cadastro dele (conferir na cotação)
+      var cliNome='';
+      if(s.link_codigo){try{var rl=await sbFetch('/rest/v1/formulario_links?codigo=eq.'+encodeURIComponent(s.link_codigo)+'&select=cliente_ref,cliente_nome,tipo');var L=rl.ok?(await rl.json())[0]:null;
+        if(L){cliNome=L.cliente_nome||'';var cl=cadLoad(CLIE_KEY)||[],cx=cl.find(function(x){return x&&((L.cliente_ref&&x.id===L.cliente_ref)||(x.razao&&x.razao===L.cliente_ref)||(x.razao&&x.razao===L.cliente_nome));});
+          if(cx){cx.respostaCadastro={subId:s.id,tipo:L.tipo||'',dados:s.dados||{},arquivos:s.arquivos||[],recebidoEm:new Date(s.criado_em||Date.now()).getTime(),linkCodigo:s.link_codigo};
+            if((s.arquivos||[]).length){cx.documentos=cx.documentos||[];s.arquivos.forEach(function(a){if(!cx.documentos.some(function(d){return d.path===a.path;}))cx.documentos.push(a);});}
+            cx.ts=Date.now();cadSave(CLIE_KEY,cl);}}}catch(eL){}
+        if((s.arquivos||[]).length)linhas.push('Arquivos: '+s.arquivos.map(function(a){return a.nome;}).join(', '));}
       lista.push({
         id:'pend_formcliente_'+s.id,
-        titulo:'📋 Novo cadastro recebido: '+(s.atalho_nome||'Formulário'),
+        titulo:(cliNome?'📥 Cliente respondeu o cadastro: '+cliNome+' (confira na cotação dele)':'📋 Novo cadastro recebido: '+(s.atalho_nome||'Formulário')),
         imagem:null,
         descricao:linhas.join('\n'),
         anexos:[],
@@ -61785,13 +62094,18 @@ async function pfFormClienteChecarSubmissoes(){
 // é exatamente o que a página pública roda antes de qualquer login.
 async function pfFormClienteBuscarPorCodigo(codigo){
   try{
-    var r=await fetch(SB_URL+'/rest/v1/formulario_links?codigo=eq.'+encodeURIComponent(codigo)+'&select=atalho_id,atalho_nome,texto',{
+    var r=await fetch(SB_URL+'/rest/v1/formulario_links?codigo=eq.'+encodeURIComponent(codigo)+'&select=atalho_id,atalho_nome,texto,tipo,expira_em,aceita_arquivos',{
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
     });
     if(!r.ok)return null;
     var linhas=await r.json();
     if(!linhas||!linhas[0])return null;
-    return {id:linhas[0].atalho_id,nome:linhas[0].atalho_nome,texto:linhas[0].texto};
+    var L=linhas[0];
+    if(L.expira_em&&new Date(L.expira_em).getTime()<Date.now())return null; // v115.2126 - link vencido
+    // v115.2126 - pré-preenchimento do cliente (função que devolve só deste link)
+    var pre={};
+    try{var rp=await fetch(SB_URL+'/rest/v1/rpc/pf_form_prefill',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_codigo:codigo})});if(rp.ok)pre=(await rp.json())||{};}catch(eP){}
+    return {id:L.atalho_id,nome:L.atalho_nome,texto:L.texto,codigo:codigo,tipo:L.tipo||'',aceitaArquivos:!!L.aceita_arquivos,prefill:pre};
   }catch(e){return null;}
 }
 function pfFormClienteLinkInvalidoOverlay(){

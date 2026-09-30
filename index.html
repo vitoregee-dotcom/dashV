@@ -1906,7 +1906,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2125</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2126</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2060,7 +2060,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2125</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2126</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -48565,6 +48565,176 @@ function vendasRefresh(){
 }
 
 // v115.2059 - A pedido do Vitor: cabeçalho compacto da cotação (ver comentário em vendasRenderCotacao).
+// v115.2126 - A pedido do Vitor ("com 90 dias o cliente deve ficar inativo, sendo necessária uma análise financeira...
+// quando eu clicar em 'última compra há 97 dias' já me informar o que eu preciso pra efetivar a venda"): cliente com
+// 90+ dias sem comprar vira ⛔ INATIVO na cotação; o clique abre o que falta pra fechar -- à vista pode faturar direto;
+// a prazo precisa da reanálise de crédito (atalho "REANÁLISE CLIENTE ANTIGO" dos Atalhos de Texto), mostrando o que o
+// cadastro já tem (✅) e o que pedir (⚠️), a condição da tabela "PRAZO DE PAGAMENTOS" pro valor da cotação, e botões
+// pra mandar pro cliente no WhatsApp ou preencher e enviar pro cadastro.
+var PF_INATIVO_DIAS=90;
+function pfInatAtalho(re){try{return (pfAtalhosTextoLoad()||[]).find(function(a){return a&&re.test(String(a.nome||''));})||null;}catch(e){return null;}}
+function pfInatTotalCotacao(v){
+  return (v&&v.itens||[]).reduce(function(s,it){var c=it.custoOverride!=null?it.custoOverride:it.custo;var vd=it.vendaOverride!=null?it.vendaOverride:(c&&typeof vendasCalcVenda==='function'?vendasCalcVenda(c,v.uf||'SP',v.margem||30):0);return s+(+vd||0)*(+it.qtd||1);},0);
+}
+// condição permitida pela tabela "PRAZO DE PAGAMENTOS" (linhas "R$ a R$ - Condição: ...")
+function pfInatCondicaoPorValor(total){
+  var at=pfInatAtalho(/prazo de pagamento/i);if(!at||!total)return '';
+  var num=function(x){return parseFloat(String(x).replace(/\./g,'').replace(',','.'))||0;};
+  var linhas=String(at.conteudo||'').split('\n');
+  for(var i=0;i<linhas.length;i++){var m=/R\$\s*([\d.,]+)\s*a\s*R\$\s*([\d.,]+)\s*-\s*Condi[çc][õo]es?:\s*(.+)/i.exec(linhas[i]);
+    if(m&&total>=num(m[1])&&total<=num(m[2])+0.99)return m[3].trim();}
+  return '';
+}
+function pfInatAbrir(){
+  var v=window._venda||{},cli=v.cliente;if(!cli)return;
+  var cad=(typeof pfRevCadDoCliente==='function'?pfRevCadDoCliente(cli):null)||{};
+  var r=null;try{r=vendasClienteResumo(cli);}catch(e){}
+  var dias=r&&r.diasDesde!=null?r.diasDesde:null;
+  var cc=cad.contatoCompras||{},cf=cad.contatoFinanceiro||{},cn=cad.contatoNfe||{},refs=(cad.referenciasComerciais||[]).filter(function(x){return x&&(x.nome||x.tel);});
+  // o que a reanálise pede x o que o cadastro já tem
+  var itens=[
+    ['Razão social',cad.razao||cli.razao],['CNPJ',cad.cnpj||cli.cnpj],
+    ['Contato de compras (nome)',cc.nome||cad.contato],['E-mail de compras',cc.email||cad.email],['WhatsApp de compras',cc.tel||cad.whatsapp],['Telefone fixo',cad.tel],
+    ['Responsável do financeiro',cf.nome],['E-mail do financeiro',cf.email],['E-mail de NF-e',cn.email],
+    ['4 referências comerciais (nome e telefone)',refs.length>=4?refs.length+' cadastradas':(refs.length?'só '+refs.length+' — faltam '+(4-refs.length):'')],
+    ['Regime tributário',cad.regimeTrib&&cad.regimeTrib!=='Não informado'?cad.regimeTrib:'']
+  ];
+  var falta=itens.filter(function(x){return !x[1]||/^só /.test(x[1]);});
+  var total=pfInatTotalCotacao(v),cond=pfInatCondicaoPorValor(total);
+  var atR=pfInatAtalho(/rean[aá]lise/i);
+  var ok='<span style="color:#1E8449;font-weight:700">✅</span>',pedir='<span style="color:#B7791F;font-weight:700">⚠️ pedir</span>';
+  var old=document.getElementById('pfInatModal');if(old)old.remove();
+  var ov=document.createElement('div');ov.id='pfInatModal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99990;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 16px 48px rgba(0,0,0,.3)">'+
+    '<div style="background:#8B1A1A;color:#fff;padding:14px 18px;display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-weight:800;font-size:15px">⛔ Cliente inativo — para efetivar a venda</div>'+
+      '<div style="font-size:12px;opacity:.9">'+pfEscHtml(cli.razao||'')+(dias!=null?' · sem comprar há '+dias+' dias (inativo a partir de '+PF_INATIVO_DIAS+')':'')+'</div></div>'+
+      '<button onclick="document.getElementById(\'pfInatModal\').remove()" style="background:none;border:none;cursor:pointer;line-height:1">'+pfXGlossyHtml(24)+'</button></div>'+
+    '<div style="padding:14px 18px;font-size:13px;line-height:1.55;color:#1a2332">'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+
+        '<div style="border:1.5px solid #1E8449;border-radius:10px;padding:10px 12px;background:#F2FBF5"><b style="color:#1E8449">💵 À vista</b><br>Pode faturar direto — não precisa de análise.</div>'+
+        '<div style="border:1.5px solid #B7791F;border-radius:10px;padding:10px 12px;background:#FFF8EC"><b style="color:#8a5a00">📅 A prazo</b><br>Precisa de <b>reanálise de crédito</b> (até 48 horas).'+(total?'<br><span style="font-size:12px">Cotação: <b>'+(typeof crFmt==='function'?crFmt(total):total.toFixed(2))+'</b>'+(cond?' → condição da tabela: <b>'+pfEscHtml(cond)+'</b>':'')+'</span>':'')+'</div>'+
+      '</div>'+
+      '<div style="font-weight:800;color:#1F4E79;margin-bottom:4px">O que a reanálise pede '+(falta.length?'<span style="font-weight:600;color:#B7791F">· faltam '+falta.length+'</span>':'<span style="font-weight:600;color:#1E8449">· cadastro completo</span>')+'</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'+itens.map(function(x){var f=!x[1]||/^só /.test(x[1]);
+        return '<tr style="border-top:1px solid #f0f3f7"><td style="padding:5px 4px">'+x[0]+'</td><td style="padding:5px 4px;color:'+(f?'#8a9ab0':'#1a2332')+'">'+(x[1]?pfEscHtml(x[1]):'—')+'</td><td style="padding:5px 4px;text-align:right;white-space:nowrap">'+(f?pedir:ok)+'</td></tr>';}).join('')+'</table>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px">'+
+        '<button class="pfBtn pfBtnVerde" onclick="pfInatWhats()">💬 Pedir ao cliente no WhatsApp</button>'+
+        (atR?'<button class="pfBtn pfBtnAzul" onclick="document.getElementById(\'pfInatModal\').remove();ferrAtalhosTextoAbrirPreencher(\''+pfEscJs(atR.id)+'\')">🧾 Preencher e mandar pro cadastro</button>':'')+
+        '<button class="pfBtn pfBtnClaro" onclick="pfInatCopiar()">📋 Copiar o pedido</button>'+
+      '</div>'+
+      (atR?'':'<div style="margin-top:8px;font-size:11.5px;color:#8a9ab0">Não achei o atalho "Reanálise Cliente Antigo" em Atalhos de Texto — usei a lista padrão.</div>')+
+      pfInatRespostaHtml()+
+    '</div></div>';
+  document.body.appendChild(ov);
+  window._pfInatCtx={cli:cli,cad:cad,itens:itens,atR:atR};
+}
+// texto pro cliente: o script de reanálise com o que já temos preenchido (ele só confere e completa)
+function pfInatTexto(){
+  var c=window._pfInatCtx||{},cad=c.cad||{},cc=cad.contatoCompras||{},cf=cad.contatoFinanceiro||{},cn=cad.contatoNfe||{};
+  var base=c.atR?String(c.atR.conteudo||''):'REANÁLISE DE CADASTRO A PRAZO (tempo para análise: 48 horas)\n\nRAZÃO SOCIAL:\nCNPJ:\nNOME DO CONTATO DE COMPRAS:\nE-MAIL DE COMPRAS:\nWHATSAPP COMPRAS:\nTELEFONE DE CONTATO FIXO:\nNOME DO RESPONSÁVEL DO FINANCEIRO:\nE-MAIL FINANCEIRO:\nE-MAIL DE NFE:\n\nREFERÊNCIA COMERCIAL (NOME E TELEFONE):\nREFERÊNCIA COMERCIAL (NOME E TELEFONE):\nREFERÊNCIA COMERCIAL (NOME E TELEFONE):\nREFERÊNCIA COMERCIAL (NOME E TELEFONE):\n\nQual é o regime tributário da empresa?';
+  var val={'RAZÃO SOCIAL':cad.razao||(c.cli&&c.cli.razao),'CNPJ':cad.cnpj,'NOME DO CONTATO DE COMPRAS':cc.nome||cad.contato,'E-MAIL DE COMPRAS':cc.email||cad.email,'WHATSAPP COMPRAS':cc.tel||cad.whatsapp,
+    'TELEFONE DE CONTATO FIXO':cad.tel,'NOME DO RESPONSÁVEL DO FINANCEIRO':cf.nome,'E-MAIL FINANCEIRO':cf.email,'E-MAIL DE NFE':cn.email};
+  var txt=base.split('\n').map(function(l){var m=/^([^:]+):\s*$/.exec(l);if(m&&val[m[1].trim()])return m[1].trim()+': '+val[m[1].trim()];return l;}).join('\n');
+  return 'Olá'+(cad.contato?' '+cad.contato:'')+', tudo bem? Aqui é da Triex. Como faz um tempo desde a última compra, pra liberar o faturamento a prazo precisamos atualizar o cadastro de vocês. Pode conferir e completar os dados abaixo? (à vista conseguimos faturar na hora)\n\n'+txt;
+}
+function pfInatWhats(){
+  var c=window._pfInatCtx||{},cad=c.cad||{},cc=cad.contatoCompras||{};
+  var tel=String(cc.tel||cad.whatsapp||cad.tel||'').replace(/\D/g,'');if(tel&&tel.length<=11)tel='55'+tel;
+  window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(pfInatTexto()),'_blank');
+}
+function pfInatCopiar(){
+  var t=pfInatTexto(),ok=function(){pfAlert('📋 Pedido de reanálise copiado — é só colar pro cliente.');};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(ok,function(){window.prompt('Copie:',t);});else window.prompt('Copie:',t);
+}
+// v115.2126 - (continuação, a pedido do Vitor: "aí mando pro cliente, ele me manda e eu colo ou anexo algo que vai
+// pro meu cadastro") -- 📥 resposta do cliente: texto colado é lido direto pelos rótulos do script (sem IA); print/PDF
+// vai pra IA. Mostra o que muda (antes → depois) e grava no cadastro do cliente.
+var PF_INAT_CAMPOS=[
+  ['razao','RAZÃO SOCIAL'],['cnpj','CNPJ'],['cc_nome','NOME DO CONTATO DE COMPRAS'],['cc_email','E-MAIL DE COMPRAS'],['cc_tel','WHATSAPP COMPRAS'],
+  ['tel','TELEFONE DE CONTATO FIXO'],['cf_nome','NOME DO RESPONSÁVEL DO FINANCEIRO'],['cf_email','E-MAIL FINANCEIRO'],['nfe','E-MAIL DE NFE']];
+function pfInatNorm(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+function pfInatLerTexto(txt){
+  var out={refs:[],regime:''},mapa={};PF_INAT_CAMPOS.forEach(function(c){mapa[pfInatNorm(c[1])]=c[0];});
+  String(txt||'').split(/\r?\n/).forEach(function(l){
+    var m=/^\s*\*?([^:]{3,60}):\s*(.*)$/.exec(l);
+    if(m){var rot=pfInatNorm(m[1].replace(/\*/g,'')),val=m[2].replace(/\*/g,'').trim();
+      if(/^REFERENCIACOMERCIAL/.test(rot)){if(val){var p=val.split(/\s[-–—|]\s|\s{2,}|,\s*(?=[\d(])/);var tel=(val.match(/\(?\d{2}\)?\s*\d{4,5}-?\d{4}/)||[''])[0];
+        out.refs.push({nome:(tel?val.replace(tel,''):val).replace(/[-–—|,]\s*$/,'').trim(),tel:tel,local:''});}return;}
+      if(mapa[rot]&&val)out[mapa[rot]]=val;return;}
+    var r=/\(\s*[xX✓✔*]\s*\)\s*(\d)/.exec(l);if(r)out.regime=r[1];
+  });
+  return out;
+}
+function pfInatRegimeTxt(n){return {'1':'Simples Nacional','2':'Simples Nacional','3':'Lucro Presumido','5':'Lucro Real'}[String(n)]||'';}
+function pfInatRespostaHtml(){
+  return '<div style="border-top:1px solid #eef1f5;margin-top:14px;padding-top:12px">'+
+    '<div style="font-weight:800;color:#1F4E79;margin-bottom:6px">📥 O cliente respondeu? Cole ou anexe aqui que vai pro cadastro</div>'+
+    '<textarea id="pfInatResp" placeholder="Cole aqui o texto que o cliente mandou (com RAZÃO SOCIAL:, E-MAIL FINANCEIRO:, REFERÊNCIA COMERCIAL:...)" style="width:100%;box-sizing:border-box;min-height:90px;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:12.5px"></textarea>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center">'+
+      '<button class="pfBtn pfBtnAzul" onclick="pfInatConferir(pfInatLerTexto(document.getElementById(\'pfInatResp\').value))">🔍 Ler o texto</button>'+
+      '<label class="pfBtn pfBtnClaro" style="position:relative;cursor:pointer">📎 Anexar print/PDF (IA)<input type="file" accept="image/*,application/pdf" onchange="if(this.files[0])pfInatLerArquivo(this.files[0])" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>'+
+      '<span id="pfInatRespStatus" style="font-size:12px;color:#607080"></span>'+
+    '</div><div id="pfInatConferir"></div></div>';
+}
+async function pfInatLerArquivo(file){
+  var st=document.getElementById('pfInatRespStatus');
+  var apiKey=localStorage.getItem('anthropic_key')||'';
+  if(!apiKey){apiKey=window.prompt('Cole sua Anthropic API Key:');if(apiKey)pfAnthropicKeySet(apiKey);}
+  if(!apiKey)return;
+  if(st)st.textContent='⏳ Lendo a resposta do cliente…';
+  try{
+    var url=await rfLerArquivoComoDataUrl(file),mt=(url.match(/^data:([^;]+)/)||[])[1]||'image/png',b64=url.split(',')[1];
+    var bloco=mt==='application/pdf'?{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}:{type:'image',source:{type:'base64',media_type:mt,data:b64}};
+    var pedidoIA='Este é o retorno de um cliente com o formulário de reanálise de cadastro a prazo preenchido. Extraia os dados e responda SÓ com JSON: '+
+      '{"razao":"","cnpj":"","cc_nome":"","cc_email":"","cc_tel":"","tel":"","cf_nome":"","cf_email":"","nfe":"","refs":[{"nome":"","tel":""}],"regime":""}. '+
+      'cc_* = contato de COMPRAS (cc_tel = WhatsApp de compras); cf_* = responsável do FINANCEIRO; nfe = e-mail de NF-e; tel = telefone fixo; refs = referências comerciais; '+
+      'regime = só o número marcado (1 ME Simples, 2 EPP Simples, 3 Lucro Presumido, 4 Lucro Estimado, 5 Lucro Real, 6 Outros). Campo que não aparecer = "". Não invente.';
+    var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:pfAnthropicHeaders(apiKey),
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1500,messages:[{role:'user',content:[bloco,{type:'text',text:pedidoIA}]}]})});
+    var data=await resp.json();if(data.error)throw new Error(data.error.message||'erro na leitura');
+    if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Cotação — reanálise do cliente',data.usage);
+    var txt=(data.content||[]).map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();var m=txt.match(/\{[\s\S]*\}/);if(m)txt=m[0];
+    var j=JSON.parse(txt);j.refs=(j.refs||[]).filter(function(x){return x&&(x.nome||x.tel);});
+    if(st)st.textContent='';pfInatConferir(j);
+  }catch(e){if(st)st.innerHTML='<span style="color:#C00000">Não consegui ler: '+pfEscHtml(e.message)+'</span>';}
+}
+// antes → depois, com caixinha pra escolher o que gravar
+function pfInatConferir(novo){
+  var box=document.getElementById('pfInatConferir');if(!box)return;
+  var c=window._pfInatCtx||{},cad=c.cad||{},cc=cad.contatoCompras||{},cf=cad.contatoFinanceiro||{},cn=cad.contatoNfe||{};
+  var atual={razao:cad.razao,cnpj:cad.cnpj,cc_nome:cc.nome,cc_email:cc.email,cc_tel:cc.tel,tel:cad.tel,cf_nome:cf.nome,cf_email:cf.email,nfe:cn.email};
+  var rot={razao:'Razão social',cnpj:'CNPJ',cc_nome:'Contato de compras',cc_email:'E-mail de compras',cc_tel:'WhatsApp de compras',tel:'Telefone fixo',cf_nome:'Responsável do financeiro',cf_email:'E-mail do financeiro',nfe:'E-mail de NF-e'};
+  var mud=[];
+  PF_INAT_CAMPOS.forEach(function(x){var k=x[0],n=String(novo[k]||'').trim();if(n&&n!==String(atual[k]||'').trim())mud.push({k:k,rot:rot[k],de:atual[k]||'',para:n});});
+  var reg=pfInatRegimeTxt(novo.regime);if(reg&&reg!==cad.regimeTrib)mud.push({k:'regime',rot:'Regime tributário',de:cad.regimeTrib||'',para:reg});
+  if(novo.refs&&novo.refs.length)mud.push({k:'refs',rot:'Referências comerciais',de:(cad.referenciasComerciais||[]).length+' cadastradas',para:novo.refs.map(function(r){return (r.nome||'')+(r.tel?' ('+r.tel+')':'');}).join(' · ')});
+  window._pfInatNovo=novo;
+  if(!mud.length){box.innerHTML='<div style="margin-top:8px;color:#607080;font-size:12.5px">Não achei nada novo pra gravar (ou o texto não segue o formulário).</div>';return;}
+  box.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px"><tr style="color:#607080;font-size:11px;text-align:left"><th></th><th style="padding:4px">CAMPO</th><th style="padding:4px">HOJE</th><th style="padding:4px">DO CLIENTE</th></tr>'+
+    mud.map(function(m){return '<tr style="border-top:1px solid #f0f3f7"><td style="padding:4px"><input type="checkbox" data-k="'+m.k+'" checked></td><td style="padding:4px;font-weight:600">'+m.rot+'</td><td style="padding:4px;color:#8a9ab0">'+pfEscHtml(m.de||'—')+'</td><td style="padding:4px;color:#1E6B3A;font-weight:600">'+pfEscHtml(m.para)+'</td></tr>';}).join('')+
+    '</table><div style="margin-top:10px;display:flex;gap:8px"><button class="pfBtn pfBtnVerde" onclick="pfInatGravar()">💾 Gravar no cadastro do cliente</button></div>';
+}
+function pfInatGravar(){
+  var c=window._pfInatCtx||{},novo=window._pfInatNovo||{};if(!c.cad||!c.cad.razao){pfAlert('Não achei o cadastro desse cliente pra gravar.');return;}
+  var sel={};document.querySelectorAll('#pfInatConferir input[data-k]').forEach(function(i){if(i.checked)sel[i.getAttribute('data-k')]=1;});
+  var lista=cadLoad(CLIE_KEY)||[],idx=lista.findIndex(function(x){return x===c.cad||(x&&x.razao===c.cad.razao&&(x.cnpj||'')===(c.cad.cnpj||''));});
+  if(idx<0){pfAlert('Não achei o cadastro desse cliente pra gravar.');return;}
+  var x=lista[idx];x.contatoCompras=x.contatoCompras||{};x.contatoFinanceiro=x.contatoFinanceiro||{};x.contatoNfe=x.contatoNfe||{};
+  var put=function(k,fn){if(sel[k]&&novo[k])fn(String(novo[k]).trim());};
+  put('razao',function(v){x.razao=v;});put('cnpj',function(v){x.cnpj=v;});
+  put('cc_nome',function(v){x.contatoCompras.nome=v;});put('cc_email',function(v){x.contatoCompras.email=v;});put('cc_tel',function(v){x.contatoCompras.tel=v;if(!x.whatsapp)x.whatsapp=v;});
+  put('tel',function(v){x.tel=v;});put('cf_nome',function(v){x.contatoFinanceiro.nome=v;});put('cf_email',function(v){x.contatoFinanceiro.email=v;});put('nfe',function(v){x.contatoNfe.email=v;});
+  if(sel.regime&&pfInatRegimeTxt(novo.regime))x.regimeTrib=pfInatRegimeTxt(novo.regime);
+  if(sel.refs&&novo.refs&&novo.refs.length)x.referenciasComerciais=novo.refs.map(function(r){return {nome:r.nome||'',local:r.local||'',tel:r.tel||''};});
+  x.reanaliseRecebidaEm=Date.now();x.ts=Date.now();
+  cadSave(CLIE_KEY,lista);
+  c.cad=x;
+  var n=Object.keys(sel).length;
+  pfInatAbrir();
+  var st=document.getElementById('pfInatRespStatus');if(st)st.innerHTML='<span style="color:#1E8449;font-weight:700">✅ '+n+' informação(ões) gravada(s) no cadastro. Agora é "🧾 Preencher e mandar pro cadastro".</span>';
+}
 function vendasCabecalhoCompactoHtml(v,hoje,botoesHtml){
   var inpSt='padding:6px 9px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:7px;font-size:13px;color:var(--pf-fx-textoEscuro,#1a2332);box-sizing:border-box';
   var lbl=function(t){return '<span style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSuave,#8a9ab0);text-transform:uppercase">'+t+'</span>';};
@@ -48600,7 +48770,8 @@ function vendasCabecalhoCompactoHtml(v,hoje,botoesHtml){
     if(r){
       if(!r.temHistorico)chips+=chip('🆕','primeira compra','cliente','#607080','#F1F4F8','Sem pedidos anteriores no sistema');
       else{
-        chips+=chip('🕒','última compra há '+r.diasDesde+' dia'+(r.diasDesde===1?'':'s'),'cliente',r.atrasado?'#C00000':'#1F4E79',r.atrasado?'#FDECEC':'#F1F5FA',r.atrasado?'Está demorando mais que o normal pra comprar':'');
+        if(r.diasDesde>=PF_INATIVO_DIAS)chips+='<span onclick="pfInatAbrir()" title="Cliente inativo: clique pra ver o que precisa pra efetivar a venda" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:14px;background:#FDECEC;color:#B3231C;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;border:1.5px solid #E8A0A0">⛔ inativo · última compra há '+r.diasDesde+' dias <span style="font-weight:700;text-decoration:underline">o que precisa?</span></span>'; // v115.2126
+        else chips+=chip('🕒','última compra há '+r.diasDesde+' dia'+(r.diasDesde===1?'':'s'),'cliente',r.atrasado?'#C00000':'#1F4E79',r.atrasado?'#FDECEC':'#F1F5FA',r.atrasado?'Está demorando mais que o normal pra comprar':'');
         chips+=chip('📦',r.totalPedidos+' pedido'+(r.totalPedidos===1?'':'s')+(r.intervaloMedio?' · a cada ~'+r.intervaloMedio+'d':''),'cliente');
         if(r.topMarcas&&r.topMarcas.length)chips+=chip('🏷️',pfEscHtml(r.topMarcas.slice(0,2).map(function(m){return m.marca;}).join(', ')),'cliente','#1F4E79','#F1F5FA','Marcas que mais compra');
         if(r.topItens&&r.topItens.length)chips+=chip('🎯',r.topItens.length+' mais comprados','cliente','#1F4E79','#F1F5FA','Itens que ele mais compra — dá pra trazer pra cotação');

@@ -104,7 +104,20 @@
   TV 2 = pedidos em colunas A separar → Separando → Separado → Faturado (urgente em vermelho). Em aberto: andamento dos pedidos
   vem do ERP ou o estoque marca no celular? Som = bipe ou bipe + voz? URL própria em tela cheia (ex. `?tv=solicitacoes`).
 
-## Ofertas complementares na cotação (v115.2130)
+- **🛠️ Garantia Dana pelo RMA — PENDÊNCIA** (proposta de 30/set/2026, aguardando o Vitor escolher): `docs/referencias/garantia-dana/`
+  (modelo oficial `MODELO-Formulario-Garantia-Dana-jun2023.xlsx`, exemplo preenchido e prévias). Ideia: RMA tipo "garantia" gera
+  LINK pro cliente (mesma infra de `formulario_links`/bucket privado do v115.2126) em 3 passos (peça/NF já vêm preenchidas da nossa
+  venda → máquina/horas/defeito → fotos obrigatórias: marca gravada, lote, NF, defeito); resposta cai no RMA com conferência
+  e botão "📄 Gerar formulário Dana" que preenche o PRÓPRIO modelo (células amarelas: C8 E8 G8 / C9 E9 G9 / C10 E10 / C11 E11 /
+  C14 E14 G14 / C15 / C17 / C18 E18; aba FOTOS em blocos B3:F16, G3:K16, B17:F30, G17:K30... de 14 linhas) com ExcelJS
+  (cdnjs) — SheetJS 0.18 não guarda formatação nem imagem; o logo (xl/media/image1.png) precisa ser mantido. Dados do
+  distribuidor (Triex) fixos numa configuração. "Quilometragem" em máquina = horas de uso. Cuidado: Dana pede NF de venda ao
+  CONSUMIDOR FINAL (se o cliente é revenda, a NF é a dele, não a nossa).
+- **⌨️ Atalho de busca de PEDIDO do cliente — PENDÊNCIA** (pedido do Vitor em 30/set/2026): um atalho rápido igual ao Alt+B
+  (`pfItemCardAtalho`/`pfItemCardBuscaAbrir`, busca de item) que busque pelo pedido do cliente (nº do pedido, nome do cliente,
+  talvez nº da NF/OC do cliente) e mostre como está o pedido — situação (solicitado/comprado/faturado/chegou: logs
+  `pfSolicitadosEventos`/`pfComprasEventos`/`pfFaturadosEventos`/`pfChegadasEventos`, pedidos de venda) e a PREVISÃO DE ENTREGA,
+  pro vendedor responder o cliente na hora. Tecla ainda a definir (Alt+C já é usado; sugerir Alt+P).
 - Faixa "💡 Ofereça também" (`#vendasOfertaBox`, `pfOfertaRender`, chamada no render da cotação e no `vendasRefresh`).
   Regras compartilhadas `pfVendasOfertas` (`PF_OFERTAS_PADRAO`: eixo→óleo 85W140/80W90, motor de REFORMA→aditivo/silicone/
   trava-rosca/15W40, transmissão→óleo de transmissão, hidráulico→óleo hidráulico): termos na descrição (`relComeca`) + % mínimo

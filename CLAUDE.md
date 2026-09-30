@@ -118,6 +118,14 @@
   talvez nº da NF/OC do cliente) e mostre como está o pedido — situação (solicitado/comprado/faturado/chegou: logs
   `pfSolicitadosEventos`/`pfComprasEventos`/`pfFaturadosEventos`/`pfChegadasEventos`, pedidos de venda) e a PREVISÃO DE ENTREGA,
   pro vendedor responder o cliente na hora. Tecla ainda a definir (Alt+C já é usado; sugerir Alt+P).
+- **📲 Avisos ao cliente pelo WhatsApp — PENDÊNCIA** (pedido do Vitor em 30/set/2026): sincronizar com o WhatsApp pra avisar o
+  cliente (1) quando o PEDIDO FOI EMITIDO e (2) quando foi FATURADO e está DISPONÍVEL PRA RETIRADA. Hoje o sistema só abre
+  link `wa.me` (a pessoa aperta enviar); não há API. Opções a propor: (a) semiautomático — botão/lembrete no pedido que abre o
+  WhatsApp com a mensagem pronta (grátis, sem risco de bloqueio); (b) automático — WhatsApp Business Cloud API (Meta, oficial,
+  modelos de mensagem aprovados, custo por conversa, precisa de número próprio e Edge Function no Supabase guardando o token)
+  ou provedor tipo Z-API/Evolution (mais simples, não oficial, risco de banimento). Gatilhos: pedido de venda criado
+  (`pfPedidoVendaEventos`) e faturado (`pfFaturadosEventos`); telefone/WhatsApp do cadastro do cliente; opt-in do cliente.
+  Casa com a pendência do atalho de pedido (mesma "situação do pedido").
 - Faixa "💡 Ofereça também" (`#vendasOfertaBox`, `pfOfertaRender`, chamada no render da cotação e no `vendasRefresh`).
   Regras compartilhadas `pfVendasOfertas` (`PF_OFERTAS_PADRAO`: eixo→óleo 85W140/80W90, motor de REFORMA→aditivo/silicone/
   trava-rosca/15W40, transmissão→óleo de transmissão, hidráulico→óleo hidráulico): termos na descrição (`relComeca`) + % mínimo

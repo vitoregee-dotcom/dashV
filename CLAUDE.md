@@ -104,15 +104,11 @@
   TV 2 = pedidos em colunas A separar → Separando → Separado → Faturado (urgente em vermelho). Em aberto: andamento dos pedidos
   vem do ERP ou o estoque marca no celular? Som = bipe ou bipe + voz? URL própria em tela cheia (ex. `?tv=solicitacoes`).
 
-- **🛠️ Garantia Dana pelo RMA — PENDÊNCIA** (proposta de 30/set/2026, aguardando o Vitor escolher): `docs/referencias/garantia-dana/`
-  (modelo oficial `MODELO-Formulario-Garantia-Dana-jun2023.xlsx`, exemplo preenchido e prévias). Ideia: RMA tipo "garantia" gera
-  LINK pro cliente (mesma infra de `formulario_links`/bucket privado do v115.2126) em 3 passos (peça/NF já vêm preenchidas da nossa
-  venda → máquina/horas/defeito → fotos obrigatórias: marca gravada, lote, NF, defeito); resposta cai no RMA com conferência
-  e botão "📄 Gerar formulário Dana" que preenche o PRÓPRIO modelo (células amarelas: C8 E8 G8 / C9 E9 G9 / C10 E10 / C11 E11 /
-  C14 E14 G14 / C15 / C17 / C18 E18; aba FOTOS em blocos B3:F16, G3:K16, B17:F30, G17:K30... de 14 linhas) com ExcelJS
-  (cdnjs) — SheetJS 0.18 não guarda formatação nem imagem; o logo (xl/media/image1.png) precisa ser mantido. Dados do
-  distribuidor (Triex) fixos numa configuração. "Quilometragem" em máquina = horas de uso. Cuidado: Dana pede NF de venda ao
-  CONSUMIDOR FINAL (se o cliente é revenda, a NF é a dele, não a nossa).
+- **🧾 Itens cotados SEM cadastro — PENDÊNCIA** (pedido do Vitor em 30/set/2026): na cotação, todo item — mesmo sem cadastro
+  (código que não existe no estoque/cadastro) — precisa ficar registrado (código, marca/descrição digitada, cliente, vendedor,
+  data, qtd). Quando esse item for cadastrado no futuro, o sistema avisa "este item foi cotado N vezes (por X clientes) antes de
+  ter cadastro". Base provável: as cotações salvas (`partsflow_cotacoes_v1`) já guardam os itens — dá pra contar de lá; se não
+  guardarem o item sem ficha, gravar num log próprio compartilhado (colapsar por código normalizado — ver regra do sync).
 - **⌨️ Atalho de busca de PEDIDO do cliente — PENDÊNCIA** (pedido do Vitor em 30/set/2026): um atalho rápido igual ao Alt+B
   (`pfItemCardAtalho`/`pfItemCardBuscaAbrir`, busca de item) que busque pelo pedido do cliente (nº do pedido, nome do cliente,
   talvez nº da NF/OC do cliente) e mostre como está o pedido — situação (solicitado/comprado/faturado/chegou: logs
@@ -126,6 +122,19 @@
   ou provedor tipo Z-API/Evolution (mais simples, não oficial, risco de banimento). Gatilhos: pedido de venda criado
   (`pfPedidoVendaEventos`) e faturado (`pfFaturadosEventos`); telefone/WhatsApp do cadastro do cliente; opt-in do cliente.
   Casa com a pendência do atalho de pedido (mesma "situação do pedido").
+
+## Garantia DANA pelo RMA (v115.2132)
+- RMA de cliente → bloco "🛠️ Garantia DANA" (`pfGarBlocoHtml` dentro de `rmaVerDetalhe`). "🔗 Mandar link pro cliente"
+  (`pfGarLinkAbrir`/`pfGarLinkEnviar`) grava `formulario_links` com tipo `garantia_dana`, `cliente_ref` = id do RMA, prefill
+  {cliente, rma, peca, pecaDesc, nf, nfData} (NF = a da Triex pro cliente = "venda ao consumidor final" da Dana).
+- Página pública: `pfFormClienteBootstrap` desvia pra `pfGarFormRender` quando o link é `garantia_dana`; campos em
+  `PF_GAR_DANA_CAMPOS` (cada um com a célula do modelo), fotos em `PF_GAR_DANA_FOTOS` (marca/lote/NF/defeito obrigatórias),
+  reduzidas pra ~1600 px JPEG e subidas em `cadastro-clientes/<codigo>/` (policy já existente), `arquivos[].slot`.
+- Resposta: `pfFormClienteChecarSubmissoes` joga em `rma.garantia.resposta` + pendência "🛠️ Cliente respondeu a garantia".
+  O Vitor confere/corrige no RMA (`pfGarCampo` → `rma.garantia.validado`) e "📄 Gerar formulário Dana" (`pfGarGerarExcel`)
+  preenche o modelo oficial `data/modelos/garantia-dana.xlsx` com ExcelJS 4.4.0 (jsdelivr/cdnjs, `pfGarExcelJS`) — mantém
+  logo/formatação — e encaixa as fotos nos quadros da aba FOTOS (`PF_GAR_DANA_BLOCOS`). Dados fixos da Triex em `PF_GAR_TRIEX`
+  (CNPJ 00.609.213/0001-15, São Paulo/SP, (11) 2632-5622). Só Dana (cada fábrica tem formulário próprio).
 - Faixa "💡 Ofereça também" (`#vendasOfertaBox`, `pfOfertaRender`, chamada no render da cotação e no `vendasRefresh`).
   Regras compartilhadas `pfVendasOfertas` (`PF_OFERTAS_PADRAO`: eixo→óleo 85W140/80W90, motor de REFORMA→aditivo/silicone/
   trava-rosca/15W40, transmissão→óleo de transmissão, hidráulico→óleo hidráulico): termos na descrição (`relComeca`) + % mínimo

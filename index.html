@@ -1906,7 +1906,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2131</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2132</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2060,7 +2060,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2131</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2132</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -45265,6 +45265,291 @@ function rmaSalvarNova(){
   ferrRMA();
 }
 
+// ── Garantia DANA pelo RMA ─────────────────────────────────────────
+// v115.2132 - A pedido do Vitor ("uma peça de um cliente deu problema... quero que o cliente faça, eu só meio que valido;
+// da DANA quero que preencha exatamente a deles"): no RMA de cliente, "🛠️ Garantia DANA" gera um LINK (formulario_links,
+// tipo 'garantia_dana', cliente_ref = id do RMA) em que o cliente preenche máquina/defeito e manda as fotos que a Dana
+// exige; a resposta volta sozinha pro RMA (pfFormClienteChecarSubmissoes), o Vitor confere/ajusta e "📄 Gerar formulário
+// Dana" preenche o PRÓPRIO modelo oficial (data/modelos/garantia-dana.xlsx, com logo e formatação) via ExcelJS e encaixa
+// as fotos na aba FOTOS. A NF de venda ao consumidor final é a da Triex pro cliente (vem preenchida do RMA). Só Dana por
+// enquanto -- cada fábrica tem um formulário diferente.
+var PF_GAR_TRIEX={razao:'Triex Comércio de Peças e Serviços Ltda.',cnpj:'00.609.213/0001-15',cidade:'São Paulo',uf:'SP',tel:'(11) 2632-5622'};
+var PF_GAR_DANA_MODELO='data/modelos/garantia-dana.xlsx';
+// fotos pedidas no link; 'bloco' = onde entra na aba FOTOS do modelo (coluna B=1 / G=6, linha do título, base 0)
+var PF_GAR_DANA_FOTOS=[
+  {k:'marca',curto:'Marca',rot:'Marca gravada na peça',dica:'Spicer, Albarus ou Victor Reinz bem legível',obr:true},
+  {k:'lote',curto:'Lote',rot:'Número do lote / rastreabilidade',dica:'o número gravado ou na etiqueta',obr:true},
+  {k:'nf',curto:'NF',rot:'Nota fiscal de compra',dica:'a nota da Triex',obr:true},
+  {k:'defeito',curto:'Defeito',rot:'Defeito de perto',dica:'onde quebrou / desgastou',obr:true},
+  {k:'peca',curto:'Peça',rot:'Peça inteira',dica:'',obr:false},
+  {k:'outras',curto:'Outra',rot:'Outras fotos',dica:'montagem, aplicação...',obr:false,multi:true}
+];
+var PF_GAR_DANA_BLOCOS=[[1,2],[6,2],[1,16],[6,16],[1,30],[6,30],[1,44],[6,44],[1,58],[6,58],[1,72],[6,72]];
+// campos do cliente -> célula do modelo
+var PF_GAR_DANA_CAMPOS=[
+  {k:'nf',rot:'Nº da nota fiscal de compra',cel:'C10',obr:true},
+  {k:'nfData',rot:'Data da nota fiscal',cel:'E10',tipo:'date',obr:true},
+  {k:'uso',rot:'Horas de uso (ou km) com a peça',cel:'C11',obr:true,ph:'ex.: 1.250 horas'},
+  {k:'dataFalha',rot:'Data em que falhou',cel:'E11',tipo:'date',obr:true},
+  {k:'maqMarca',rot:'Marca da máquina / veículo',cel:'C14',obr:true,ph:'ex.: JOHN DEERE'},
+  {k:'maqModelo',rot:'Modelo',cel:'E14',obr:true,ph:'ex.: 310L'},
+  {k:'maqAno',rot:'Ano',cel:'G14',obr:true,ph:'ex.: 2019'},
+  {k:'maqVersao',rot:'Versão',cel:'C15',obr:true,ph:'ex.: 4x4 cabinada (se não souber, escreva NÃO SEI)'},
+  {k:'detalhes',rot:'O que aconteceu? (defeito, quando começou, como foi montada)',cel:'C17',tipo:'area',obr:true},
+  {k:'peca',rot:'Código da peça',cel:'C18',obr:true},
+  {k:'lote',rot:'Número do lote / rastreabilidade (gravado na peça)',cel:'E18',obr:true,ph:'se não achar, escreva NÃO ENCONTRADO'},
+  {k:'contatoCli',rot:'Seu nome e telefone (pra gente tirar dúvida)',rotRma:'Contato do cliente',obr:false}
+];
+function pfGarDataBR(v){var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v||''));return m?m[3]+'/'+m[2]+'/'+m[1]:String(v||'');}
+function pfGarDataISO(v){var m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v||'').trim());return m?m[3]+'-'+m[2]+'-'+m[1]:String(v||'');}
+
+// ---------- página pública (o cliente abre o link) ----------
+function pfGarFormRender(payload){
+  var pre=payload.prefill||{};
+  var inp='width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #d5dce5;border-radius:8px;font-size:14px;font-family:inherit';
+  var campos=PF_GAR_DANA_CAMPOS.map(function(c){
+    var v=pre[c.k]||'';if(c.tipo==='date')v=pfGarDataISO(v);
+    var ctl=c.tipo==='area'?'<textarea name="'+c.k+'" rows="4" style="'+inp+'">'+pfEscHtml(v)+'</textarea>':
+      '<input name="'+c.k+'" type="'+(c.tipo==='date'?'date':'text')+'" value="'+pfEscHtml(v)+'" placeholder="'+pfEscHtml(c.ph||'')+'" style="'+inp+(v&&(c.k==='nf'||c.k==='nfData'||c.k==='peca')?';background:#F4F8F2':'')+'">';
+    return '<div style="margin-bottom:12px"><label style="font-size:12.5px;font-weight:700;color:#3d4a5c;display:block;margin-bottom:4px">'+pfEscHtml(c.rot)+(c.obr?' <span style="color:#C0392B">*</span>':'')+'</label>'+ctl+'</div>';
+  }).join('');
+  var fotos=PF_GAR_DANA_FOTOS.map(function(f){
+    return '<label style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:96px;border:2px dashed #c9d4e2;border-radius:10px;padding:8px;text-align:center;cursor:pointer;background:#fafcff;overflow:hidden" id="pfGarSlot_'+f.k+'">'+
+      '<span style="font-size:22px" data-ic>📷</span><b style="font-size:12px;color:#3d4a5c">'+pfEscHtml(f.rot)+(f.obr?' <span style="color:#C0392B">*</span>':'')+'</b>'+
+      (f.dica?'<span style="font-size:10.5px;color:#8a9ab0">'+pfEscHtml(f.dica)+'</span>':'')+'<span data-n style="font-size:11px;color:#1E8449;font-weight:700"></span>'+
+      '<input type="file" accept="image/*"'+(f.multi?' multiple':'')+' data-slot="'+f.k+'" onchange="pfGarFotoEscolhida(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>';
+  }).join('');
+  var html='<div id="pfFormClienteOverlay" style="position:fixed;inset:0;background:#f4f6f8;z-index:999999;overflow:auto;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1a2332">'+
+    '<div style="max-width:560px;margin:0 auto;padding:24px 14px 60px">'+
+    '<div style="text-align:center;margin-bottom:14px;font-size:14px;font-weight:800;color:#1F4E79">📦 Triex Peças · Garantia</div>'+
+    '<div style="background:#fff;border:1px solid #e0e8f0;border-radius:12px;padding:18px 16px;box-shadow:0 1px 4px rgba(0,0,0,.05)">'+
+      '<h2 style="margin:0 0 4px;font-size:17px;color:#1F4E79;font-weight:800">🛠️ Solicitação de garantia DANA</h2>'+
+      '<div style="font-size:12.5px;color:#607080;margin-bottom:10px">'+(pre.rma?'Protocolo '+pfEscHtml(pre.rma)+' · ':'')+pfEscHtml(pre.cliente||'')+(pre.pecaDesc?'<br>Peça: <b>'+pfEscHtml(pre.peca||'')+'</b> '+pfEscHtml(pre.pecaDesc):'')+'</div>'+
+      '<div style="font-size:12.5px;color:#8a5a00;background:#FFF8E6;border-radius:8px;padding:9px 11px;margin-bottom:14px;line-height:1.5">A fábrica (Dana) só analisa a garantia com <b>todos os campos</b> e as <b>fotos obrigatórias</b>. O que já sabemos veio preenchido — é só conferir. Tire as fotos com boa luz, com a marca e o lote legíveis.</div>'+
+      '<form id="pfGarForm">'+campos+
+      '<div style="font-size:13px;font-weight:800;color:#1F4E79;margin:16px 0 8px">📷 Fotos</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+fotos+'</div>'+
+      '<button type="submit" style="width:100%;margin-top:16px;background:#1E9E55;color:#fff;border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:700;cursor:pointer">Enviar pra Triex</button>'+
+      '<div id="pfGarMsg" style="font-size:12.5px;text-align:center;margin-top:8px;min-height:16px"></div>'+
+      '</form></div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+  window._pfGarFotos={};
+  document.getElementById('pfGarForm').addEventListener('submit',function(e){e.preventDefault();pfGarFormEnviar(payload);});
+}
+function pfGarFotoEscolhida(inp){
+  var k=inp.getAttribute('data-slot'),fs=Array.prototype.slice.call(inp.files||[]);
+  var f=PF_GAR_DANA_FOTOS.find(function(x){return x.k===k;})||{};
+  window._pfGarFotos=window._pfGarFotos||{};
+  // o evento de troca pode chegar 2x pro mesmo arquivo -- não repete (mesmo nome+tamanho+data)
+  var chave=function(x){return (x.name||'')+'|'+(x.size||0)+'|'+(x.lastModified||0);};
+  window._pfGarFotos[k]=f.multi?(window._pfGarFotos[k]||[]).concat(fs).filter(function(x,i,arr){return arr.findIndex(function(y){return chave(y)===chave(x);})===i;}):fs.slice(0,1);
+  var slot=document.getElementById('pfGarSlot_'+k),n=window._pfGarFotos[k].length;
+  if(!slot)return;
+  slot.style.borderStyle=n?'solid':'dashed';slot.style.borderColor=n?'#1E9E55':'#c9d4e2';slot.style.background=n?'#F0FAF3':'#fafcff';
+  slot.querySelector('[data-ic]').textContent=n?'✅':'📷';
+  slot.querySelector('[data-n]').textContent=n?(n>1?n+' fotos':'foto ok')+' · toque pra trocar':'';
+  if(n&&fs[0]&&/^image\//.test(fs[0].type||'')){try{slot.style.backgroundImage='linear-gradient(rgba(240,250,243,.82),rgba(240,250,243,.82)),url('+URL.createObjectURL(fs[0])+')';slot.style.backgroundSize='cover';slot.style.backgroundPosition='center';}catch(e){}}
+}
+// reduz a foto (celular manda 4-12 MB) pra ~1600 px JPEG antes de subir
+function pfGarFotoReduzir(file){
+  return new Promise(function(res){
+    if(!/^image\//.test(file.type||'')){res(file);return;}
+    var url=URL.createObjectURL(file),img=new Image();
+    img.onload=function(){try{var m=1600,s=Math.min(1,m/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);c.toBlob(function(b){URL.revokeObjectURL(url);res(b||file);},'image/jpeg',0.85);}catch(e){res(file);}};
+    img.onerror=function(){URL.revokeObjectURL(url);res(file);};
+    img.src=url;
+  });
+}
+async function pfGarFormEnviar(payload){
+  var form=document.getElementById('pfGarForm'),msg=document.getElementById('pfGarMsg'),dados={},falta=[];
+  PF_GAR_DANA_CAMPOS.forEach(function(c){var el=form.querySelector('[name="'+c.k+'"]');var v=el?String(el.value||'').trim():'';if(c.tipo==='date')v=pfGarDataBR(v);dados[c.k]=v;if(c.obr&&!v)falta.push(c.rot);});
+  var fotos=window._pfGarFotos||{};
+  PF_GAR_DANA_FOTOS.forEach(function(f){if(f.obr&&!(fotos[f.k]&&fotos[f.k].length))falta.push('foto: '+f.rot);});
+  if(falta.length){msg.style.color='#c3924a';msg.textContent='Falta preencher: '+falta.slice(0,3).join(', ')+(falta.length>3?' e mais '+(falta.length-3):'')+'.';return;}
+  var btn=form.querySelector('button[type="submit"]');btn.disabled=true;
+  try{
+    var arquivos=[],todas=[];
+    PF_GAR_DANA_FOTOS.forEach(function(f){(fotos[f.k]||[]).forEach(function(fl,i){todas.push({slot:f.k,rot:f.rot,file:fl,i:i});});});
+    for(var i=0;i<todas.length;i++){
+      var t=todas[i];btn.textContent='Enviando foto '+(i+1)+' de '+todas.length+'...';
+      var b=await pfGarFotoReduzir(t.file),ext=(b.type==='image/jpeg')?'jpg':(String(t.file.name||'').split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
+      var pth=payload.codigo+'/'+Date.now()+'_'+t.slot+'_'+t.i+'.'+ext;
+      var ru=await fetch(SB_URL+'/storage/v1/object/cadastro-clientes/'+pth,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':b.type||'application/octet-stream'},body:b});
+      if(!ru.ok)throw new Error('foto '+(i+1)+' não subiu (status '+ru.status+')');
+      arquivos.push({path:pth,nome:t.rot+(t.i?' ('+(t.i+1)+')':'')+'.'+ext,slot:t.slot,tipo:b.type||'',tam:b.size||0,em:Date.now(),origem:'enviado pelo cliente (garantia)'});
+    }
+    btn.textContent='Enviando...';
+    var r=await fetch(SB_URL+'/rest/v1/formulario_submissoes',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'return=minimal'},
+      body:JSON.stringify({atalho_id:payload.id||'garantia_dana',atalho_nome:payload.nome||'Garantia DANA',dados:dados,link_codigo:payload.codigo,arquivos:arquivos})});
+    if(!r.ok)throw new Error('status '+r.status);
+    document.getElementById('pfFormClienteOverlay').innerHTML='<div style="max-width:480px;margin:100px auto;padding:24px;text-align:center"><div style="font-size:42px;margin-bottom:14px">✅</div>'+
+      '<div style="font-size:16px;font-weight:800;color:#1F4E79;margin-bottom:6px">Recebido, obrigado!</div><div style="font-size:13px;color:#607080">A Triex vai conferir e encaminhar a garantia pra Dana. Qualquer dúvida a gente te chama.</div></div>';
+  }catch(e){btn.disabled=false;btn.textContent='Enviar pra Triex';msg.style.color='#C00000';msg.textContent='Não consegui enviar agora ('+e.message+') — confere a internet e tenta de novo.';}
+}
+
+// ---------- dentro do sistema (RMA) ----------
+function pfGarRma(id){return rmaLoad().find(function(x){return x.id===id;})||null;}
+function pfGarRmaSalvar(r){var l=rmaLoad(),i=l.findIndex(function(x){return x.id===r.id;});r.ts=Date.now();if(i>=0)l[i]=r;else l.push(r);rmaSave(l);}
+function pfGarBlocoHtml(r){
+  if(r.tipo!=='cliente')return '';
+  var g=r.garantia;
+  var box=function(c){return '<div style="border:1.5px solid #cfe0f2;background:#F5F9FE;border-radius:10px;padding:10px 12px;margin-bottom:14px">'+c+'</div>';};
+  if(!g)return box('<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div style="flex:1;font-size:12.5px"><b>🛠️ Garantia DANA</b><div style="font-size:11.5px;color:#607080">O cliente preenche e manda as fotos pelo link; volta aqui pronto pra você conferir e gerar o formulário da Dana.</div></div>'+
+    '<button class="pfBtn pfBtnAzul" style="height:34px;font-size:12px" onclick="pfGarLinkAbrir(\''+r.id+'\')">🔗 Mandar link pro cliente</button></div>');
+  var h='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><b style="flex:1">🛠️ Garantia DANA</b>'+
+    '<span style="font-size:11px;font-weight:700;border-radius:10px;padding:3px 9px;background:'+(g.resposta?'#E3F4EA;color:#1E8449':'#FFF3CD;color:#8a5a00')+'">'+(g.geradoEm?'📄 formulário gerado '+new Date(g.geradoEm).toLocaleDateString('pt-BR'):g.resposta?'📥 cliente respondeu '+new Date(g.resposta.recebidoEm).toLocaleDateString('pt-BR'):'⏳ aguardando o cliente')+'</span></div>';
+  if(!g.resposta){
+    h+='<div style="font-size:12px;color:#607080">Link enviado em '+new Date(g.linkEm||Date.now()).toLocaleString('pt-BR')+' (vale 15 dias). A resposta aparece aqui sozinha.</div>'+
+      '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button class="pfBtn pfBtnClaro" style="height:30px;font-size:11.5px" onclick="pfGarLinkEnviar(\''+r.id+'\',\'copiar\',true)">🔗 Copiar link de novo</button>'+
+      '<button class="pfBtn pfBtnClaro" style="height:30px;font-size:11.5px" onclick="pfGarLinkEnviar(\''+r.id+'\',\'whats\',true)">💬 Reenviar no WhatsApp</button>'+
+      '<button class="pfBtn pfBtnClaro" style="height:30px;font-size:11.5px" onclick="pfGarChecarAgora(\''+r.id+'\')">🔄 Ver se respondeu</button></div>';
+    return box(h);
+  }
+  var v=pfGarValidado(r);
+  var inp='width:100%;box-sizing:border-box;padding:5px 7px;border:1.5px solid #dfe6ef;border-radius:6px;font-size:12px;font-family:inherit';
+  var linha=function(k,rot,area){var val=v[k]||'',vazio=!val;return '<div style="display:grid;grid-template-columns:150px 1fr;gap:6px;align-items:'+(area?'start':'center')+';margin-bottom:4px"><span style="font-size:11px;color:'+(vazio?'#C0392B':'#607080')+';font-weight:'+(vazio?'800':'600')+'">'+rot+(vazio?' ⚠️':'')+'</span>'+
+    (area?'<textarea rows="3" onchange="pfGarCampo(\''+r.id+'\',\''+k+'\',this.value)" style="'+inp+'">'+pfEscHtml(val)+'</textarea>':'<input value="'+pfEscHtml(val)+'" onchange="pfGarCampo(\''+r.id+'\',\''+k+'\',this.value)" style="'+inp+'">')+'</div>';};
+  h+='<div style="font-size:11px;color:#607080;margin:2px 0 8px">Confira e corrija se precisar — é exatamente o que vai pro formulário da Dana.</div>';
+  h+='<div style="font-size:10.5px;font-weight:800;color:#8a9ab0;text-transform:uppercase;margin:6px 0 4px">Distribuidor</div>'+linha('contato','Nome do contato')+
+    '<div style="font-size:11px;color:#607080;margin:0 0 6px">'+pfEscHtml(PF_GAR_TRIEX.razao+' · CNPJ '+PF_GAR_TRIEX.cnpj+' · '+PF_GAR_TRIEX.cidade+'/'+PF_GAR_TRIEX.uf+' · '+PF_GAR_TRIEX.tel)+'</div>';
+  h+='<div style="font-size:10.5px;font-weight:800;color:#8a9ab0;text-transform:uppercase;margin:6px 0 4px">Resposta do cliente</div>';
+  PF_GAR_DANA_CAMPOS.forEach(function(c){h+=linha(c.k,c.rotRma||c.rot.replace(/ \(.*\)$/,''),c.tipo==='area');});
+  var arqs=(g.resposta.arquivos||[]);
+  var faltaFoto=PF_GAR_DANA_FOTOS.filter(function(f){return f.obr&&!arqs.some(function(a){return a.slot===f.k;});});
+  h+='<div style="font-size:10.5px;font-weight:800;color:#8a9ab0;text-transform:uppercase;margin:8px 0 4px">📷 Fotos ('+arqs.length+')</div><div id="pfGarFotos_'+r.id+'" style="display:flex;gap:6px;flex-wrap:wrap">'+
+    arqs.map(function(a,i){return '<div onclick="pfCadDocAbrir(\''+pfEscJs(a.path)+'\')" title="'+pfEscHtml(a.nome||'')+'" style="cursor:pointer;width:74px;text-align:center;font-size:10px;color:#607080"><div data-garth="'+i+'" style="width:74px;height:56px;border-radius:6px;background:#dfe6ef center/cover no-repeat;display:flex;align-items:center;justify-content:center">📷</div>'+pfEscHtml((PF_GAR_DANA_FOTOS.find(function(f){return f.k===a.slot;})||{curto:'foto'}).curto)+'</div>';}).join('')+'</div>';
+  var faltaCampo=PF_GAR_DANA_CAMPOS.filter(function(c){return c.obr&&!v[c.k];});
+  h+='<div style="margin-top:8px;font-size:12px;font-weight:700;color:'+(faltaCampo.length||faltaFoto.length?'#C0392B':'#1E8449')+'">'+
+    (faltaCampo.length||faltaFoto.length?'⚠️ Falta: '+faltaCampo.map(function(c){return c.rot.replace(/ \(.*\)$/,'').toLowerCase();}).concat(faltaFoto.map(function(f){return 'foto '+f.rot.toLowerCase();})).join(', '):'✅ Tudo que a Dana pede está preenchido.')+'</div>';
+  h+='<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="pfBtn pfBtnVerde" style="height:34px;font-size:12px" onclick="pfGarGerarExcel(\''+r.id+'\',this)">📄 Gerar formulário Dana (Excel)</button>'+
+    '<button class="pfBtn pfBtnClaro" style="height:34px;font-size:11.5px" onclick="pfGarLinkAbrir(\''+r.id+'\')">🔗 Mandar link novo</button></div>';
+  setTimeout(function(){pfGarMiniaturas(r);},0);
+  return box(h);
+}
+function pfGarValidado(r){
+  var g=r.garantia||{},d=(g.resposta&&g.resposta.dados)||{};
+  var v=Object.assign({contato:(typeof pfNomeUsuario==='function'?pfNomeUsuario():'')},{nf:g.nf||'',nfData:g.nfData||'',peca:g.peca||''},d,g.validado||{});
+  return v;
+}
+function pfGarCampo(id,k,val){var r=pfGarRma(id);if(!r||!r.garantia)return;r.garantia.validado=r.garantia.validado||{};r.garantia.validado[k]=String(val||'').trim();pfGarRmaSalvar(r);}
+async function pfGarUrlAssinada(path){
+  var r=await sbFetch('/storage/v1/object/sign/cadastro-clientes/'+path.split('/').map(encodeURIComponent).join('/'),{method:'POST',body:JSON.stringify({expiresIn:600})});
+  var j=await r.json();if(!j.signedURL)throw new Error(j.message||'sem link');return SB_URL+'/storage/v1'+j.signedURL;
+}
+async function pfGarMiniaturas(r){
+  var box=document.getElementById('pfGarFotos_'+r.id);if(!box)return;
+  var arqs=(r.garantia&&r.garantia.resposta&&r.garantia.resposta.arquivos)||[];
+  for(var i=0;i<arqs.length;i++){try{if(!/^image\//.test(arqs[i].tipo||'image/'))continue;var u=await pfGarUrlAssinada(arqs[i].path);var el=box.querySelector('[data-garth="'+i+'"]');if(el){el.style.backgroundImage='url("'+u+'")';el.textContent='';}}catch(e){}}
+}
+function pfGarLinkAbrir(id){
+  var r=pfGarRma(id);if(!r)return;
+  var old=document.getElementById('pfGarLinkModal');if(old)old.remove();
+  var g=r.garantia||{},it=(r.itens||[])[0]||{};
+  var inp='width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e0e8f0;border-radius:8px;font-size:13px';
+  var cad=null;try{cad=pfRevCadDoCliente({razao:r.nome});}catch(e){}
+  var tel=cad?String((cad.contatoCompras||{}).tel||cad.whatsapp||cad.tel||''):'';
+  var ref=String(r.refPedido||''),nfM=/(\d{3,})/.exec(ref);
+  var ov=document.createElement('div');ov.id='pfGarLinkModal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:480px;width:100%;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3)" onclick="event.stopPropagation()">'+
+    '<div style="background:var(--pf-painel-bg,#1c2940);color:#fff;padding:12px 16px;display:flex;align-items:center"><b style="flex:1">🛠️ Garantia DANA — '+pfEscHtml(r.numero)+'</b><span onclick="document.getElementById(\'pfGarLinkModal\').remove()" style="cursor:pointer;font-size:18px">✕</span></div>'+
+    '<div style="padding:14px 16px;font-size:12.5px">'+
+      '<div style="color:#607080;margin-bottom:10px">Isso já vai preenchido no link — o cliente só confere e completa máquina, defeito e fotos.</div>'+
+      '<label style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase">Peça</label>'+
+      '<select id="pfGarItem" style="'+inp+';margin:4px 0 10px">'+(r.itens||[]).map(function(x,i){return '<option value="'+i+'"'+(g.peca&&g.peca===x.codigo?' selected':'')+'>'+pfEscHtml((x.codigo||'')+' — '+(x.desc||'')+(x.marca?' ('+x.marca+')':''))+'</option>';}).join('')+'</select>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase">NF Triex pro cliente</label><input id="pfGarNf" value="'+pfEscHtml(g.nf||(nfM?nfM[1]:''))+'" placeholder="nº da nota" style="'+inp+';margin-top:4px"></div>'+
+      '<div><label style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase">Data da NF</label><input id="pfGarNfData" type="date" value="'+pfEscHtml(pfGarDataISO(g.nfData||''))+'" style="'+inp+';margin-top:4px"></div></div>'+
+      '<label style="font-size:11px;font-weight:700;color:#607080;text-transform:uppercase;display:block;margin-top:10px">WhatsApp do cliente</label><input id="pfGarTel" value="'+pfEscHtml(g.tel||tel)+'" placeholder="(DDD) número" style="'+inp+';margin-top:4px">'+
+      '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button class="pfBtn pfBtnVerde" onclick="pfGarLinkEnviar(\''+r.id+'\',\'whats\')">💬 Mandar no WhatsApp</button><button class="pfBtn pfBtnClaro" onclick="pfGarLinkEnviar(\''+r.id+'\',\'copiar\')">🔗 Copiar link</button></div>'+
+      '<div id="pfGarLinkSt" style="font-size:12px;margin-top:8px;color:#607080"></div>'+
+    '</div></div>';
+  pfOverlayFecharAoClicarFora(ov,function(){ov.remove();});
+  document.body.appendChild(ov);
+}
+function pfGarMsg(r,url){
+  return 'Olá, tudo bem? Aqui é da Triex. Pra abrir a garantia da peça '+(r.garantia.peca||'')+' com a fábrica (Dana), precisamos de algumas informações e fotos. '+
+    'É rapidinho pelo celular: abra o link, confira o que já está preenchido, complete os dados da máquina e do defeito e tire as fotos pedidas:\n'+url+'\n(o link vale por 15 dias)';
+}
+async function pfGarLinkEnviar(id,como,reusar){
+  var r=pfGarRma(id);if(!r)return;
+  var st=document.getElementById('pfGarLinkSt');
+  try{
+    if(!reusar||!r.garantia||!r.garantia.linkCodigo){
+      var sel=document.getElementById('pfGarItem'),it=(r.itens||[])[sel?+sel.value:0]||{};
+      var g=Object.assign({},r.garantia||{},{fab:'dana',peca:it.codigo||'',pecaDesc:it.desc||'',marca:it.marca||'',
+        nf:(document.getElementById('pfGarNf')||{}).value||'',nfData:pfGarDataBR((document.getElementById('pfGarNfData')||{}).value||''),tel:(document.getElementById('pfGarTel')||{}).value||''});
+      if(st)st.textContent='⏳ Gerando o link…';
+      var codigo=Math.random().toString(36).slice(2,8)+Math.random().toString(36).slice(2,6);
+      var resp=await sbFetch('/rest/v1/formulario_links',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify({codigo:codigo,atalho_id:'garantia_dana',atalho_nome:'Garantia DANA '+r.numero,texto:'',
+        cliente_ref:r.id,cliente_nome:r.nome||'',prefill:{cliente:r.nome||'',rma:r.numero,peca:g.peca,pecaDesc:g.pecaDesc,nf:g.nf,nfData:g.nfData},tipo:'garantia_dana',
+        expira_em:new Date(Date.now()+15*86400000).toISOString(),aceita_arquivos:true})});
+      if(!resp.ok)throw new Error('status '+resp.status);
+      g.linkCodigo=codigo;g.linkEm=Date.now();delete g.resposta;delete g.validado;delete g.geradoEm;
+      r.garantia=g;pfGarRmaSalvar(r);
+    }
+    var url=location.origin+location.pathname+'?f='+r.garantia.linkCodigo,msg=pfGarMsg(r,url);
+    if(como==='whats'){var tel=String(r.garantia.tel||'').replace(/\D/g,'');if(tel&&tel.length<=11)tel='55'+tel;window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');}
+    else{try{await navigator.clipboard.writeText(msg);}catch(e){window.prompt('Copie:',msg);}}
+    var m=document.getElementById('pfGarLinkModal');if(m)m.remove();
+    rmaVerDetalhe(r.id);
+    if(como!=='whats')pfAlert('Link copiado. Quando o cliente enviar, a resposta aparece aqui no RMA.');
+  }catch(e){if(st)st.innerHTML='<span style="color:#C00000">Não consegui gerar o link: '+pfEscHtml(e.message)+'</span>';else pfAlert('Não consegui: '+e.message);}
+}
+async function pfGarChecarAgora(id){
+  try{await pfFormClienteChecarSubmissoes();}catch(e){}
+  var r=pfGarRma(id);rmaVerDetalhe(id);
+  if(r&&r.garantia&&!r.garantia.resposta)pfAlert('O cliente ainda não enviou.');
+}
+// ExcelJS (preenche o modelo mantendo logo/formatação; o SheetJS do sistema perde os dois)
+function pfGarExcelJS(){
+  if(window.ExcelJS)return Promise.resolve(window.ExcelJS);
+  var urls=['https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js','https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js'];
+  return new Promise(function(res,rej){var i=0;(function tenta(){if(i>=urls.length){rej(new Error('não carregou o ExcelJS'));return;}
+    var s=document.createElement('script');s.src=urls[i++];s.onload=function(){window.ExcelJS?res(window.ExcelJS):tenta();};s.onerror=tenta;document.head.appendChild(s);})();});
+}
+// foto -> JPEG base64 que cabe no quadro (sem distorcer)
+function pfGarFotoParaExcel(url,maxW,maxH){
+  return fetch(url).then(function(rs){if(!rs.ok)throw new Error('status '+rs.status);return rs.blob();}).then(function(bl){return new Promise(function(res,rej){var img=new Image(),ou=URL.createObjectURL(bl);
+    img.onload=function(){URL.revokeObjectURL(ou);var s=Math.min(maxW*2/img.width,maxH*2/img.height,1),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*s));c.height=Math.max(1,Math.round(img.height*s));
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);var k=Math.min(maxW/img.width,maxH/img.height);
+      res({base64:c.toDataURL('image/jpeg',0.85),w:Math.round(img.width*k),h:Math.round(img.height*k)});};
+    img.onerror=function(){URL.revokeObjectURL(ou);rej(new Error('foto não abriu'));};img.src=ou;});});
+}
+async function pfGarGerarExcel(id,btn){
+  var r=pfGarRma(id);if(!r||!r.garantia)return;
+  var txt=btn?btn.innerHTML:'';if(btn){btn.disabled=true;btn.innerHTML='⏳ Montando...';}
+  try{
+    var EJ=await pfGarExcelJS();
+    var buf=await (await fetch(PF_GAR_DANA_MODELO,{cache:'no-cache'})).arrayBuffer();
+    var wb=new EJ.Workbook();await wb.xlsx.load(buf);
+    var ws=wb.getWorksheet('SOLICITAÇÃO DE GARANTIA')||wb.worksheets[0],wf=wb.getWorksheet('FOTOS')||wb.worksheets[1];
+    var v=pfGarValidado(r);
+    var fixo={C8:PF_GAR_TRIEX.razao,E8:v.contato||'',G8:PF_GAR_TRIEX.tel,C9:PF_GAR_TRIEX.cnpj,E9:PF_GAR_TRIEX.cidade,G9:PF_GAR_TRIEX.uf};
+    Object.keys(fixo).forEach(function(c){ws.getCell(c).value=fixo[c];});
+    PF_GAR_DANA_CAMPOS.forEach(function(c){if(!c.cel)return;var val=v[c.k]||'';if(c.k==='peca'&&r.garantia.pecaDesc&&val===r.garantia.peca)val=val+' — '+r.garantia.pecaDesc;ws.getCell(c.cel).value=val;});
+    // fotos: marca, lote e NF nos 3 quadros com título; o resto nos "FOTOS DIVERSAS"
+    var arqs=(r.garantia.resposta&&r.garantia.resposta.arquivos)||[],ordem=['marca','lote','nf'];
+    var fixos={},resto=[];
+    arqs.forEach(function(a){var p=ordem.indexOf(a.slot);if(p>=0&&!fixos[a.slot])fixos[a.slot]=a;else resto.push(a);});
+    var lista=[fixos.marca,fixos.lote,fixos.nf].concat(resto);
+    var semFoto=0;
+    for(var i=0;i<lista.length&&i<PF_GAR_DANA_BLOCOS.length;i++){
+      var a=lista[i];if(!a)continue;
+      if(btn)btn.innerHTML='⏳ Foto '+(i+1)+'...';
+      try{var u=await pfGarUrlAssinada(a.path);var ft=await pfGarFotoParaExcel(u,450,300);
+        var idImg=wb.addImage({base64:ft.base64,extension:'jpeg'}),bl=PF_GAR_DANA_BLOCOS[i];
+        wf.addImage(idImg,{tl:{col:bl[0]+0.15,row:bl[1]+1.4},ext:{width:ft.w,height:ft.h}});
+      }catch(eF){semFoto++;}
+    }
+    var out=await wb.xlsx.writeBuffer();
+    var nome='Garantia DANA - '+r.numero+' - '+String(r.nome||'cliente').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\\\/:*?"<>|]+/g,' ').slice(0,40)+'.xlsx'; // sem acento: alguns navegadores trocam o nome por "download"
+    var blob=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),aEl=document.createElement('a');
+    aEl.href=URL.createObjectURL(blob);aEl.download=nome;document.body.appendChild(aEl);aEl.click();setTimeout(function(){URL.revokeObjectURL(aEl.href);aEl.remove();},1500);
+    r.garantia.geradoEm=Date.now();pfGarRmaSalvar(r);rmaVerDetalhe(r.id);
+    if(semFoto)pfAlert('Formulário gerado, mas '+semFoto+' foto(s) não entraram (não abriram). Confira e cole à mão se precisar.');
+  }catch(e){pfAlert('Não consegui gerar o formulário: '+e.message);if(btn){btn.disabled=false;btn.innerHTML=txt;}}
+}
 function rmaVerDetalhe(id){
   var r=rmaLoad().find(function(x){return x.id===id;});
   if(!r)return;
@@ -45288,6 +45573,7 @@ function rmaVerDetalhe(id){
     +'<div style="font-size:12px;color:var(--pf-fx-textoSuave,#8a9ab0);margin-bottom:14px">'+(r.tipo==='cliente'?'👤 Cliente':'🏭 Fornecedor')+' — '+pfEscHtml(r.nome)+(r.refPedido?' · Ref: '+pfEscHtml(r.refPedido):'')+'</div>'
     +'<div style="margin-bottom:14px">'+itensHtml+'</div>'
     +(r.observacao?'<div style="font-size:12px;color:var(--pf-fx-textoSec,#607080);background:#FFF3CD;border-radius:8px;padding:8px 10px;margin-bottom:14px">'+pfEscHtml(r.observacao)+'</div>':'')
+    +pfGarBlocoHtml(r) // v115.2132 - garantia DANA
     +'<div style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSec,#607080);text-transform:uppercase;margin-bottom:6px">Status atual: <span style="color:'+st.cor+'">'+st.label+'</span></div>'
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">'+botoesStatus+'</div>'
     +'<button onclick="rmaExcluir(\''+r.id+'\')" style="background:none;border:1px solid #C0392B;color:#C0392B;border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer">🗑 Excluir RMA</button>'
@@ -62656,6 +62942,13 @@ async function pfFormClienteChecarSubmissoes(){
       // v115.2126 - veio do link de um cliente: a resposta e os arquivos vão pro cadastro dele (conferir na cotação)
       var cliNome='';
       if(s.link_codigo){try{var rl=await sbFetch('/rest/v1/formulario_links?codigo=eq.'+encodeURIComponent(s.link_codigo)+'&select=cliente_ref,cliente_nome,tipo');var L=rl.ok?(await rl.json())[0]:null;
+        // v115.2132 - link de garantia: a resposta vai pro RMA (cliente_ref = id do RMA), não pro cadastro
+        if(L&&L.tipo==='garantia_dana'){cliNome=L.cliente_nome||'';var lr=rmaLoad(),rx=lr.find(function(x){return x&&x.id===L.cliente_ref;});
+          if(rx){rx.garantia=rx.garantia||{fab:'dana'};rx.garantia.resposta={subId:s.id,dados:s.dados||{},arquivos:s.arquivos||[],recebidoEm:new Date(s.criado_em||Date.now()).getTime(),linkCodigo:s.link_codigo};rx.ts=Date.now();rmaSave(lr);}
+          lista.push({id:'pend_formcliente_'+s.id,titulo:'🛠️ Cliente respondeu a garantia DANA: '+cliNome+(rx?' ('+rx.numero+')':'')+' — confira no RMA',imagem:null,
+            descricao:linhas.join('\n')+((s.arquivos||[]).length?'\nFotos: '+s.arquivos.length:''),anexos:[],data:s.criado_em||new Date().toISOString(),ts:Date.now()});
+          await sbFetch('/rest/v1/formulario_submissoes?id=eq.'+s.id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({processado:true})});
+          continue;}
         if(L){cliNome=L.cliente_nome||'';var cl=cadLoad(CLIE_KEY)||[],cx=cl.find(function(x){return x&&((L.cliente_ref&&x.id===L.cliente_ref)||(x.razao&&x.razao===L.cliente_ref)||(x.razao&&x.razao===L.cliente_nome));});
           if(cx){cx.respostaCadastro={subId:s.id,tipo:L.tipo||'',dados:s.dados||{},arquivos:s.arquivos||[],recebidoEm:new Date(s.criado_em||Date.now()).getTime(),linkCodigo:s.link_codigo};
             if((s.arquivos||[]).length){cx.documentos=cx.documentos||[];s.arquivos.forEach(function(a){if(!cx.documentos.some(function(d){return d.path===a.path;}))cx.documentos.push(a);});}
@@ -62708,7 +63001,8 @@ async function pfFormClienteBootstrap(){
   var codigo=params.get('f');
   if(codigo){
     var payloadCurto=await pfFormClienteBuscarPorCodigo(codigo);
-    if(payloadCurto)pfFormClienteRenderizarOverlay(payloadCurto);
+    if(payloadCurto&&payloadCurto.tipo==='garantia_dana')pfGarFormRender(payloadCurto); // v115.2132
+    else if(payloadCurto)pfFormClienteRenderizarOverlay(payloadCurto);
     else pfFormClienteLinkInvalidoOverlay();
     return;
   }

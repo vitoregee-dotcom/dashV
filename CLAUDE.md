@@ -41,6 +41,7 @@
 - Vendas → aba 💰 Contas a Receber (`pvRenderReceber`), títulos em `pfContasReceber_v1` (compartilhado), etiqueta 🔴 vencido na cotação (`crResumoCliente`).
   Pedidos reais NÃO geram título sozinhos (financeiro real está no ERP).
 - Ferramentas → 🎭 Dados de demonstração (`ferrDadosDemo`, só dono): grava clientes/pedidos/títulos com `demo:true` + `demoLote`;
+  + cotações (num 900001+, não mexe na numeração real) e vendedores MINEIRO/Carlos Candis/Vitor (`PF_DEMO_VENDEDORES`) — v115.2124;
   apagar registra o lote em `pfDemoLotesApagados` (pvLoad/crLoad filtram — a sync só junta listas) e clientes em `cad_clientes_deletados`.
 
 ## Área Técnica (Componentes Cardan, `componentes_cardan_v1`)

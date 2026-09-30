@@ -109,6 +109,13 @@
   data, qtd). Quando esse item for cadastrado no futuro, o sistema avisa "este item foi cotado N vezes (por X clientes) antes de
   ter cadastro". Base provável: as cotações salvas (`partsflow_cotacoes_v1`) já guardam os itens — dá pra contar de lá; se não
   guardarem o item sem ficha, gravar num log próprio compartilhado (colapsar por código normalizado — ver regra do sync).
+- **🔄 Substituto quando o item está ZERADO — PENDÊNCIA** (pedido do Vitor em 30/set/2026): na TELA DA COTAÇÃO, item sem saldo
+  (ou sem cadastro) precisa mostrar na própria linha se tem outro que dá pra usar no lugar e que TEM saldo (ex.: "🔄 212345 tem
+  saldo 8 — trocar"), com botão pra trocar/adicionar. Já existe: pares "substituto" em `rel_decisoes_v1` (`relSubstitutosDe`,
+  resposta "🔄 Um substitui o outro") — mas só aparecem dentro do modal 🔗 (`relSubstitutosHtml`), e a etiqueta conta `_nSubst`
+  sem dizer se tem saldo. Juntar outras fontes: irmãos substitui/similar dos Componentes Cardan (`pfDesenhoDe`/equivalentes),
+  conversões/equivalentes do cadastro de produto, e as outras fichas do mesmo código (a "cotação enxuta" já troca por marca com
+  saldo). Mostrar só quem tem saldo > 0 primeiro.
 - **⌨️ Atalho de busca de PEDIDO do cliente — PENDÊNCIA** (pedido do Vitor em 30/set/2026): um atalho rápido igual ao Alt+B
   (`pfItemCardAtalho`/`pfItemCardBuscaAbrir`, busca de item) que busque pelo pedido do cliente (nº do pedido, nome do cliente,
   talvez nº da NF/OC do cliente) e mostre como está o pedido — situação (solicitado/comprado/faturado/chegou: logs

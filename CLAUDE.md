@@ -37,6 +37,12 @@
   `pfIconesAplicarCor` recolore na exibição (MutationObserver em `#pfSidebar`) só ícone de bolinha azul-marinho
   (detectado pelos pixels, `pfIconeRecolorir`); os coloridos ficam. Ícones 297–327 foram refeitos sem sombra (v115.2119).
 
+## Contas a Receber + Dados de demonstração (v115.2123)
+- Vendas → aba 💰 Contas a Receber (`pvRenderReceber`), títulos em `pfContasReceber_v1` (compartilhado), etiqueta 🔴 vencido na cotação (`crResumoCliente`).
+  Pedidos reais NÃO geram título sozinhos (financeiro real está no ERP).
+- Ferramentas → 🎭 Dados de demonstração (`ferrDadosDemo`, só dono): grava clientes/pedidos/títulos com `demo:true` + `demoLote`;
+  apagar registra o lote em `pfDemoLotesApagados` (pvLoad/crLoad filtram — a sync só junta listas) e clientes em `cad_clientes_deletados`.
+
 ## Área Técnica (Componentes Cardan, `componentes_cardan_v1`)
 - Famílias em `CC_FAMILIAS` (+ `CC_NOME_SINGULAR`); item = `{codigo, linha, descricao, veiculos[], montaCom[], conversoes[],
   equivalentesExtra[{marca,codigo,tipo}], especificacoes[{nome,valor}], fotos[], medidas por letra}`.

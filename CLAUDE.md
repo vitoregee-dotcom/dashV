@@ -115,3 +115,5 @@
   `it.oferta=<id da regra>` (estatística de 30 dias sai das cotações salvas); "dispensar" = `v.ofertasDispensadas`.
 - Tela de regras `pfOfertasAbrir` (⋮ Mais ações e Assistente de Vendas → Geral); só admin/gestor altera (`pfVR2PodeGeral`).
   Os códigos reais dos químicos ainda não foram passados pelo Vitor — as regras padrão buscam por descrição.
+- "❓ Como funciona" (v115.2131, `pfOfertasComoFuncionaHtml`) no topo da tela de regras + "?" na faixa da cotação (pra todos)
+  abre direto nele. Se mudar a pontuação da reforma ou a busca, ATUALIZAR esse texto junto.

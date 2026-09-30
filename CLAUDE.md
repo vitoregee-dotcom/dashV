@@ -130,6 +130,21 @@
   (`pfPedidoVendaEventos`) e faturado (`pfFaturadosEventos`); telefone/WhatsApp do cadastro do cliente; opt-in do cliente.
   Casa com a pendência do atalho de pedido (mesma "situação do pedido").
 
+## Segurança do banco (revisão de 30/09/2026) — LER antes de criar tabela/política
+- O app COMPARTILHA linhas entre usuários (dados da empresa gravados em `user_id = MY_USER_ID`, logs de todos): a regra
+  é "da empresa", não "só o dono". Função `pf_eh_da_empresa()` (logado + tem linha em `profiles`) e `pf_eh_admin()`
+  (security definer, só `authenticated` executa). `user_sync`, `user_cadastros`, `transit_notas_processadas`, `cot_*` =
+  RLS ligado + política "empresa acessa (logado com perfil)". Antes estavam com RLS DESLIGADO = abertas pra quem tivesse
+  a chave pública do site (inclusive sem login) — incluindo a `anthropic_key` que vai no sync.
+- **Tabela nova: SEMPRE `enable row level security` + política** (nunca deixar RLS off). Backups/temporárias: RLS ligado
+  sem política (trancadas). Testar com `set local role anon` / `authenticated` + `request.jwt.claims` num `begin…rollback`.
+- `profiles`: só admin cria/remove (`pf_eh_admin`); leitura só logado; `handle_new_user` (sem gatilho) grava sempre role
+  'user'. Edge Functions temporárias `claude-tmp-*` e `debug-scrape` DESATIVADAS (410 + JWT) — não criar função aberta
+  com service role; `resposta-fornecedor` usa segredo no header.
+- Pendências (doc "PartsFlow — Segurança e manutenção"): trocar a chave da Anthropic; desligar signup público e ligar
+  proteção de senha vazada no painel; rever login externo (Encopel, role `ferr_margem`); `cached_credentials` guarda
+  `btoa(senha)` no navegador (login offline) — trocar; levar a chave da IA pra Edge Function.
+
 ## Notícias do setor / banners de marca (v115.2133)
 - Robô `noticias-scraper` (Edge Function, v5): lê a home da Revista M&T CARD POR CARD (bloco de um `DataNota` até o próximo);
   a v4 casava data/foto/título por ORDEM em listas separadas e, com 30 datas × 22 fotos, trocava foto/categoria/data das

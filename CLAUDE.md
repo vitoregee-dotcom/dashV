@@ -155,6 +155,15 @@
   com as marcas da semente se tiver < 2; card sem foto/foto bloqueada = degradê laranja com o NOME DA MARCA grande (foto por cima);
   "🔄 Atualizar agora" do dono busca marcas na hora.
 
+## Campos de número / link do cliente (v115.2136)
+- Clicar num campo de NÚMERO seleciona o valor inteiro (é só digitar): listener global `focusin`+1º `mouseup` (perto de
+  `pfItemCardGarantirCss`); vale pra type=number, inputmode numeric/decimal e texto que só tem número/preço/% —
+  código com letra (212279-1XSC), data e telefone ficam normais; `data-pf-no-sel` desliga.
+- Link de cliente (`?f=`): CSS no `<head>` (`#pfLinkPublicoCss`) esconde tudo do body menos `#pfFormClienteOverlay` e mostra
+  "Carregando formulário…" — o sistema por trás nunca aparece (nem logado). Todo formulário público usa esse id.
+- Garantia: o PartsFlow NÃO tem nº de NF (é do ERP); a janela do link lista os pedidos de venda da peça pro cliente
+  (`pfGarVendasRender`, via `pvLoad`) e "usar esta data" preenche a data.
+
 ## Garantia DANA pelo RMA (v115.2132)
 - RMA de cliente → bloco "🛠️ Garantia DANA" (`pfGarBlocoHtml` dentro de `rmaVerDetalhe`); desde v115.2135 também dá pra marcar
   "🛠️ É garantia DANA" na Nova RMA (`rmaGarDanaIn` → `r.garantiaDana`, abre `pfGarLinkAbrir` ao salvar) e o card da lista mostra a etapa. "🔗 Mandar link pro cliente"

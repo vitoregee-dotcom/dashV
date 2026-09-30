@@ -90,3 +90,12 @@
   pra câmera), `pfOrb3DQuadro` (loop), `pfOrb3DEnquadrar` (distância que cabe no quadro), `pfOrb3DParar` (libera o WebGL — chamar antes de refazer).
 - Estilos (`pfOrb3DEstilo`, localStorage `pfOrb3DEstilo`): A = planeta desenho + anel realista, B = tudo desenho, C = tudo realista.
   Anel dourado = top 10, azul = potencial, halo vermelho = comprava bem e parou; quem compra/cota pouco fica transparente (até 30%, `x.opac`); botão direito/segurar = menu ⭐ importante / 🌫️ pouco importante / automático (`pfOrbImportancia`, compartilhada). Concessionária no 3D = plaquinha azul-marinho "🏛 SIGLA" em cima do planeta (`pfOrb3DTexPlaca`, v115.2128), parceiro = plaquinha verde 🤝. Balão do cliente = `pfOrbTipHtml` (compartilhado com a 2D).
+
+## Ideias guardadas pra testar depois (não implementadas)
+- **Linha dupla do item da cotação** (referência do ERP: `docs/referencias/cotacao-linha-dupla-erp.png`): cada item ocupa 2 linhas,
+  colunas empilhadas em cima/embaixo — Cód.Produto/Descrição · Conversão · Cód.Marca/Marca · Dt.Atualiz./Estoque · ST/Prazo ·
+  IPI/Unitário · Prev.Cheg./Total · nItemPed/xPed · Marca Fantasia (+ R, Item, Qtde à esquerda). Fundo verde claro na linha,
+  código em amarelo, Estoque e Total em lilás. O Vitor quer TESTAR se fica bom pra eles antes de adotar (fazer como opção/prévia).
+- **Ofertas complementares na cotação** (óleo de eixo quando a cotação é de diferencial; aditivo/cola de junta quando é motor
+  de REFORMA, não estoque) e **TVs do estoque** (TV de solicitações: fila com quem pediu/o quê/horário + som; TV de pedidos):
+  proposta feita em 30/set/2026, aguardando decisões do Vitor.

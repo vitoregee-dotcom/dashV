@@ -83,3 +83,10 @@
   Helpers `pfRevInfo`, `pfRevMargemDoCliente`, `pfRevFaixaCotacaoHtml`, bloco do cadastro `cadRevBlocoHtml`/`cadRevColetar`.
 - Margem por perfil: `pfVendasMargemPerfis` (compartilhada; Assistente de Vendas → Geral). Ordem: regra do Assistente > margem própria > perfil > geral.
 - Órbita: filtro `window._pfOrbRev` e marcação da concessionária escolhível (`pfOrbConcEstilo`: C anel / B selo / D sigla).
+
+## Órbita 3D (v115.2127)
+- Botão "🪐 3D"/"◐ 2D" no cabeçalho da Órbita (`pfOrb3DLigado`, localStorage `pfOrb3D`); mesmos dados/filtros da 2D (`pfOrbDados`).
+  `pfOrb3DIniciar` → `pfOrb3DMontar` (three.js r128, sprites de planeta em canvas `pfOrb3DTexPlaneta`, anel `RingGeometry` sempre inclinado
+  pra câmera), `pfOrb3DQuadro` (loop), `pfOrb3DEnquadrar` (distância que cabe no quadro), `pfOrb3DParar` (libera o WebGL — chamar antes de refazer).
+- Estilos (`pfOrb3DEstilo`, localStorage `pfOrb3DEstilo`): A = planeta desenho + anel realista, B = tudo desenho, C = tudo realista.
+  Anel dourado = top 10, azul = potencial, halo vermelho = comprava bem e parou; quem compra/cota pouco fica transparente (até 30%, `x.opac`); botão direito/segurar = menu ⭐ importante / 🌫️ pouco importante / automático (`pfOrbImportancia`, compartilhada). Balão do cliente = `pfOrbTipHtml` (compartilhado com a 2D).

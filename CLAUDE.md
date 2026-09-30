@@ -123,6 +123,16 @@
   (`pfPedidoVendaEventos`) e faturado (`pfFaturadosEventos`); telefone/WhatsApp do cadastro do cliente; opt-in do cliente.
   Casa com a pendência do atalho de pedido (mesma "situação do pedido").
 
+## Notícias do setor / banners de marca (v115.2133)
+- Robô `noticias-scraper` (Edge Function, v5): lê a home da Revista M&T CARD POR CARD (bloco de um `DataNota` até o próximo);
+  a v4 casava data/foto/título por ORDEM em listas separadas e, com 30 datas × 22 fotos, trocava foto/categoria/data das
+  notícias. Foto só vale se o nome do arquivo bater com o slug do link (mesma trava no app, `pfNoticiasBuscarViaScraper`).
+  Pra testar o robô daqui: `net.http_get` (pg_net) pelo SQL e ler `net._http_response` (o proxy bloqueia supabase.co/revistamt).
+- Marcas (lateral do banner): `pfNoticiasLoad` NÃO apaga mais notícia de marca sem foto; `pfNoticiasBuscarMarcasComIA` não
+  apaga as antigas quando volta vazio (nova substitui só a da mesma marca, até 7) e aceita notícia sem imagem; lateral completa
+  com as marcas da semente se tiver < 2; card sem foto/foto bloqueada = degradê laranja com o NOME DA MARCA grande (foto por cima);
+  "🔄 Atualizar agora" do dono busca marcas na hora.
+
 ## Garantia DANA pelo RMA (v115.2132)
 - RMA de cliente → bloco "🛠️ Garantia DANA" (`pfGarBlocoHtml` dentro de `rmaVerDetalhe`). "🔗 Mandar link pro cliente"
   (`pfGarLinkAbrir`/`pfGarLinkEnviar`) grava `formulario_links` com tipo `garantia_dana`, `cliente_ref` = id do RMA, prefill

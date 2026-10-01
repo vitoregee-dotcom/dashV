@@ -106,6 +106,10 @@
   pra câmera), `pfOrb3DQuadro` (loop), `pfOrb3DEnquadrar` (distância que cabe no quadro), `pfOrb3DParar` (libera o WebGL — chamar antes de refazer).
 - Estilos (`pfOrb3DEstilo`, localStorage `pfOrb3DEstilo`): A = planeta desenho + anel realista, B = tudo desenho, C = tudo realista.
   Anel dourado = top 10, azul = potencial, halo vermelho = comprava bem e parou; quem compra/cota pouco fica transparente (até 30%, `x.opac`); botão direito/segurar = menu ⭐ importante / 🌫️ pouco importante / automático (`pfOrbImportancia`, compartilhada). Concessionária no 3D = plaquinha azul-marinho "🏛 SIGLA" em cima do planeta (`pfOrb3DTexPlaca`, v115.2128), parceiro = plaquinha verde 🤝. Balão do cliente = `pfOrbTipHtml` (compartilhado com a 2D).
+- v115.2141/2142: legenda "Como ler a órbita" = `pfOrbLegendaHtml()` (blocos posição/anéis/movimento + "Usar", ✕; clique fora fecha);
+  balão do cliente `pfOrbTipHtml` no formato "B" (rótulo × valor, etiqueta da situação, bloco Tendência, alerta em caixa);
+  ⛶ Ampliar (`pfOrbAmpliar`, `_pfOrbAmpliada`): o `#pfOrbitaWrap` vai pro `<body>` em tela cheia (volta pro lugar ao fechar;
+  Esc/fundo/✕ Fechar) e `pfOrbAjustarAltura` usa a altura toda (sem o teto de 380px). Vale pra 2D e 3D.
 
 ## Cotação em 2 linhas (v115.2140)
 - Botão "▦ Tabela | ▤ 2 linhas | ☰ Compacta" (`vendasViewModo()`/`vendasViewModoSet`, localStorage `pf_vendas_view_modo`);

@@ -1909,7 +1909,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2137</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2138</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2063,7 +2063,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2137</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2138</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -67178,6 +67178,71 @@ function ccGerarGabaritoPDF(familia){
 }
 
 // ── Busca por medida ──────────────────────────────────────────────
+// v115.2138 - A pedido do Vitor ("sabe a diferença de ponteira fixa e deslizante? ... por favor" -- filtro na busca):
+// só 53 de 256 ponteiras diziam o tipo na descrição. O tipo sai, nesta ordem: marcado à mão (it.tipoPonteira) > descrição
+// > rosca G preenchida (só a FIXA tem rosca) -- e vale pro GRUPO inteiro (mesma peça em Spicer/Stahl/Sorocard/REI/LNG,
+// mesma chave do agrupamento dos cards: substitui||similar||codigo). Sem nada disso, Stahl com medidas e SEM rosca =
+// deslizante (dedução). Pescoço conta como deslizante.
+var CC_PONT_TIPOS={fixa:'🔩 Fixa',deslizante:'↔️ Deslizante'};
+function ccPontNorm(x){return String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();}
+function ccPontChave(rec){return String((rec&&(rec.substitui||rec.similar||rec.codigo))||'').toUpperCase();}
+function ccPontTipoProprio(it){
+  if(!it)return null;
+  if(it.tipoPonteira==='fixa'||it.tipoPonteira==='deslizante')return {t:it.tipoPonteira,o:'manual',p:3};
+  var d=ccPontNorm([it.descricao,it.descricaoCatalogo,it.tipo].join(' '));
+  if(/DESLIZ|PESCO/.test(d))return {t:'deslizante',o:'descrição',p:2};
+  if(/FIXA|ROSCA/.test(d))return {t:'fixa',o:'descrição',p:2};
+  var g=String(it.G==null?'':it.G).trim();
+  if(g&&g!=='-'&&g!=='0')return {t:'fixa',o:'rosca (G)',p:1};
+  return null;
+}
+function ccPontTipoMapa(){
+  var c=window._ccPontMapaCache;
+  if(c&&(Date.now()-c.t)<3000)return c.m; // calculado 1x por busca (ccLoad descompacta o catálogo inteiro)
+  var data=ccLoad(),lista=data.ponteiras||[];
+  var m={};
+  lista.forEach(function(it){var k=ccPontChave(it),t=ccPontTipoProprio(it);if(!t)return;if(!m[k]||t.p>m[k].p)m[k]=t;});
+  lista.forEach(function(it){var k=ccPontChave(it);if(m[k])return;
+    var g=String(it.G==null?'':it.G).trim(),temMed=it.A!=null&&String(it.A).trim()!=='';
+    if(String(it.linha||'').toUpperCase()==='STAHL'&&temMed&&(!g||g==='-'))m[k]={t:'deslizante',o:'medidas Stahl sem rosca',p:0};});
+  window._ccPontMapaCache={t:Date.now(),m:m};
+  return m;
+}
+function ccPontTipoDe(rec){return ccPontTipoMapa()[ccPontChave(rec)]||null;}
+function ccPontFiltroHtml(){
+  var m=ccPontTipoMapa(),lista=(ccLoad().ponteiras||[]),vist={},n={fixa:0,deslizante:0,sem:0};
+  lista.forEach(function(it){var k=ccPontChave(it);if(vist[k])return;vist[k]=1;var t=m[k];n[t?t.t:'sem']++;});
+  var at=_ccFiltro.tipoPont||'';
+  var op=function(v,l){return '<option value="'+v+'"'+(at===v?' selected':'')+'>'+l+'</option>';};
+  return '<select onchange="_ccFiltro.tipoPont=this.value;ccExecutarBusca();" title="Fixa = tem rosca na ponta · Deslizante = corre dentro da luva" style="font-size:12px;padding:6px 8px;border:1.5px solid #1F4E79;border-radius:6px;font-weight:700;color:#1F4E79">'+
+    op('','Tipo: todas')+op('fixa','🔩 Fixa ('+n.fixa+')')+op('deslizante','↔️ Deslizante ('+n.deslizante+')')+op('sem','❔ Sem tipo ('+n.sem+')')+'</select>';
+}
+function ccPontBadgeHtml(rec){
+  var t=ccPontTipoDe(rec),adm=ccDesenhoEhAdmin();
+  var cod=pfEscJs(rec.codigo||''),lin=pfEscJs(rec.linha||'');
+  var estilo='font-size:10px;font-weight:800;border-radius:10px;padding:2px 9px;text-transform:none;'+(adm?'cursor:pointer;':'');
+  var clique=adm?' onclick="event.stopPropagation();ccPontEscolher(this,\''+cod+'\',\''+lin+'\')"':'';
+  if(!t)return '<span'+clique+' title="Tipo não identificado'+(adm?' — clique pra marcar':'')+'" style="'+estilo+'background:#FFF3CD;color:#8a5a00;border:1px dashed #D9B84A">❔ Fixa ou deslizante?</span>';
+  return '<span'+clique+' title="Tipo: '+t.o+(adm?' — clique pra trocar':'')+'" style="'+estilo+'background:'+(t.t==='fixa'?'#E8F1FB;color:#1F4E79':'#E9F7EF;color:#1E8449')+'">'+CC_PONT_TIPOS[t.t]+(t.o==='manual'||t.o==='descrição'?'':' <span style="font-weight:600;opacity:.7">('+(t.p===0?'deduzido: Stahl sem rosca':'tem rosca G')+')</span>')+'</span>';
+}
+function ccPontEscolher(el,codigo,linha){
+  var old=document.getElementById('ccPontMenu');if(old)old.remove();
+  var r=el.getBoundingClientRect(),m=document.createElement('div');m.id='ccPontMenu';
+  m.style.cssText='position:fixed;left:'+r.left+'px;top:'+(r.bottom+4)+'px;z-index:100000;background:#fff;border:1px solid #d5dce5;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:4px;font-size:12.5px;text-transform:none';
+  var it=function(v,l){return '<div onclick="ccPontDefinir(\''+pfEscJs(codigo)+'\',\''+pfEscJs(linha)+'\',\''+v+'\')" style="padding:7px 12px;cursor:pointer;border-radius:6px" onmouseover="this.style.background=\'#F0F4F8\'" onmouseout="this.style.background=\'\'">'+l+'</div>';};
+  m.innerHTML=it('fixa','🔩 Fixa (tem rosca na ponta)')+it('deslizante','↔️ Deslizante (corre na luva)')+it('','Tirar o que marquei');
+  document.body.appendChild(m);
+  setTimeout(function(){document.addEventListener('click',function f(e){if(!m.contains(e.target)){m.remove();document.removeEventListener('click',f);}});},0);
+}
+function ccPontDefinir(codigo,linha,tipo){
+  var m=document.getElementById('ccPontMenu');if(m)m.remove();
+  var data=ccLoad(),lista=data.ponteiras||[];
+  var base=lista.find(function(r){return r.codigo===codigo&&(r.linha||'')===linha;});if(!base)return;
+  var k=ccPontChave(base),n=0;
+  lista.forEach(function(r){if(ccPontChave(r)!==k)return;if(tipo)r.tipoPonteira=tipo;else delete r.tipoPonteira;n++;}); // vale pro grupo todo (mesma peça nos outros catálogos)
+  ccSave(data);if(typeof pfSyncPush==='function')try{pfSyncPush([CC_KEY]);}catch(e){}
+  window._ccPontMapaCache=null;ccRender();
+}
 function ccBuscaHtml(familia){
   var cfg=ccFamiliaConfig(familia);
   var camposHtml=cfg.campos.map(function(c){
@@ -67220,7 +67285,7 @@ function ccBuscaHtml(familia){
       '<input id="ccBuscaMontaComInput" placeholder="Ex: código da cruzeta, garfo, terminal... acha as peças que montam com ele" value="'+pfEscHtml(_ccBuscaMontaComTexto||'')+'" oninput="ccBuscaMontaComDebounced(this.value)" style="width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--pf-border);border-radius:6px">'+
       '<div id="ccResultadosMontaCom" style="margin-top:8px"></div>'+
     '</div>'+
-    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">'+camposHtml+extraHtml+
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">'+(familia==='ponteiras'?ccPontFiltroHtml():'')+camposHtml+extraHtml+ // v115.2138 - tipo da ponteira primeiro
       '<input placeholder="Veículo aplicado" value="'+pfEscHtml(_ccFiltro.veiculos||'')+'" oninput="_ccFiltro.veiculos=this.value;ccExecutarBusca();" style="font-size:12px;padding:6px 8px;border:1px solid var(--pf-border);border-radius:6px">'+
       '<select onchange="_ccFiltro.linha=this.value;ccExecutarBusca();" style="font-size:12px;padding:6px 8px;border:1px solid var(--pf-border);border-radius:6px">'+
         '<option value=""'+(!_ccFiltro.linha?' selected':'')+'>Linha: todas</option>'+
@@ -67532,6 +67597,10 @@ function ccExecutarBusca(){
     if(ok && _ccFiltro.linha){
       if((rec.linha||'')!==_ccFiltro.linha) ok=false;
     }
+    if(ok && _ccFamiliaAtual==='ponteiras' && _ccFiltro.tipoPont){ // v115.2138
+      var _tp=ccPontTipoDe(rec);
+      if(_ccFiltro.tipoPont==='sem'?!!_tp:(!_tp||_tp.t!==_ccFiltro.tipoPont)) ok=false;
+    }
     return ok?{rec:rec, desvio:desvioTotal, matchDireto:matchDireto}:null;
   }).filter(Boolean).sort(function(a,b){return a.desvio-b.desvio;});
   // v115.1041 - A pedido do Vitor: a mesma peça física catalogada em
@@ -67822,6 +67891,7 @@ function ccExecutarBusca(){
         '<span style="font-weight:700;font-size:14px;color:#1E293B">'+((equivalenteRec&&!ccEhLinhaSpicer(rec.linha))?pfEscHtml(equivalenteRec):pfEscHtml(rec.codigo))+'</span>'+ // v115.2044 - com cadastro Spicer, o título é o código Spicer
         '<span style="font-size:13px;font-weight:600;color:#334155">— '+pfEscHtml(rec.descricao||rec.tipo||CC_NOME_SINGULAR[_ccFamiliaAtual]||'')+'</span>'+
         (destacar?'<span style="background:#D97757;color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:none">✓ encontrado</span>':'')+
+        (_ccFamiliaAtual==='ponteiras'?ccPontBadgeHtml(rec):'')+ // v115.2138 - fixa / deslizante
       '</div>'+
       equivHtml+
       cruzetaHtml+

@@ -66,6 +66,12 @@
 - 3D montado pelas medidas (v115.2116, sem IA): `ccPeca3DMedidas`/`ccPeca3DAbrir` (three.js r128 via `pfMapaComercial3DGarantirLib`),
   por enquanto só `ponteiras` (E,C,F,B,A,D,numDentes; o que faltar vira proporção e avisa); cotas em canvas por cima, 📷 baixa PNG.
   **Só aparece no card com `item.modelo3d`** (v115.2118): o Vitor marca pelo "🧊 Montar 3D" no desenho ampliado (`ccPeca3DMarcar`); logo PF no canto.
+- **Ponteira fixa × deslizante** (v115.2138): fixa = tem ROSCA (medida G) e é presa por porca; deslizante = corre dentro
+  da luva, sem rosca (pescoço conta como deslizante). Em 01/10/2026 só 53 de 256 diziam o tipo na descrição. Tipo por GRUPO
+  (`ccPontChave` = substitui||similar||codigo, igual ao agrupamento dos cards): marcado à mão `it.tipoPonteira` > descrição >
+  G preenchida (fixa) > dedução Stahl com medidas e sem G (deslizante). Filtro "Tipo" na busca (`ccPontFiltroHtml`,
+  `_ccFiltro.tipoPont` fixa/deslizante/sem) e etiqueta no card (`ccPontBadgeHtml`); admin clica e marca (`ccPontDefinir`
+  grava em todo o grupo). Ideia não usada (falta o Vitor confirmar): código Spicer com "-40-" = deslizante, "-53-" = fixa.
 - Cotação: busca Série/Modelo também acha componentes cardan pelo veículo (`vendasCcBuscarPorVeiculo`) + Monta com.
 
 ## Catálogos de peças em PDF

@@ -114,6 +114,8 @@
   balão do cliente `pfOrbTipHtml` no formato "B" (rótulo × valor, etiqueta da situação, bloco Tendência, alerta em caixa);
   ⛶ Ampliar (`pfOrbAmpliar`, `_pfOrbAmpliada`): o `#pfOrbitaWrap` vai pro `<body>` em tela cheia (volta pro lugar ao fechar;
   Esc/fundo/✕ Fechar) e `pfOrbAjustarAltura` usa a altura toda (sem o teto de 380px). Vale pra 2D e 3D.
+- v115.2148: balão do cliente dá pra alcançar com o mouse (`pfOrbTipEsconder` some só ~0,35 s depois; `pfOrbTipDentro` segura;
+  clique = ficha `pfOrbTipClique`; `pfOrbTipPosicionar` mantém dentro do quadro). No 3D, mouse no balão = ele para de seguir o planeta.
 
 ## Cotação em 2 linhas (v115.2140)
 - Botão "▦ Tabela | ▤ 2 linhas | ☰ Compacta" (`vendasViewModo()`/`vendasViewModoSet`, localStorage `pf_vendas_view_modo`);

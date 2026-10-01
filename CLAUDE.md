@@ -125,6 +125,9 @@
   `pfBuscarHistoricoPreco`; PV- = vendido, V- = só cotado; ignora a cotação aberta; mesma marca, senão outra avisando):
   etiqueta + preço + data, apagado; mouse/toque → `vendasHistPop` mostra o OUTRO (vendido ↔ só cotado).
 - Total do item embaixo (`vendasAtualizarTotalLinha`). Ações = `vendasItemAcoesHtml` (compartilhado com a tabela).
+- v115.2144: largura das colunas ajustável (alça na borda do cabeçalho, `vendas2ColRes`; 2 cliques/"↺ larguras" volta,
+  `vendas2ColPadrao`; localStorage `vendas_item2_cols`, padrão `VENDAS_C2_PADRAO`); 🎨 no cabeçalho DESCRIÇÃO = cor do último
+  preço (`vendasHistCor`, localStorage `pf_hist_cor`, com cor = sem transparência); listra do tema por ITEM (`vendas2Fundo`).
 - PENDENTE: IPI/ST da venda (prévia aprovada "Y" = UNIT. FINAL em cima, preço sem imposto + IPI + ST embaixo) — falta o
   Vitor dizer de onde vêm (digitado / cadastro do produto / cadastro editável). Hoje mostra "sem impostos".
   Prévias em `docs/referencias/previa-cotacao-2-linhas*.png`.

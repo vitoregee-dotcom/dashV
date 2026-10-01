@@ -71,7 +71,17 @@
   (`ccPontChave` = substitui||similar||codigo, igual ao agrupamento dos cards): marcado à mão `it.tipoPonteira` > descrição >
   G preenchida (fixa) > dedução Stahl com medidas e sem G (deslizante). Filtro "Tipo" na busca (`ccPontFiltroHtml`,
   `_ccFiltro.tipoPont` fixa/deslizante/sem) e etiqueta no card (`ccPontBadgeHtml`); admin clica e marca (`ccPontDefinir`
-  grava em todo o grupo). Ideia não usada (falta o Vitor confirmar): código Spicer com "-40-" = deslizante, "-53-" = fixa.
+  grava em todo o grupo). Desde v115.2139 o código Spicer do grupo também decide (entre a G e a dedução Stahl):
+  "-53-" = fixa, "-40-" = deslizante (etiqueta "pelo código Spicer -53-").
+- **Códigos Spicer** (v115.2139, pedido do Vitor "deixe guardado no PF essas regras"): `pfSpicerDecifrar(cod)` —
+  formato 1 SÉRIE-TIPO-NÚMERO (`PF_SPICER_SERIES` 2/3/4/6/6.5/8/90/140/170/250; tipo do meio `PF_SPICER_TIPO_MEIO`:
+  1 flange companheiro, 2 flange de orelha, 3 luva, 4 terminal, 26/28 garfo, 40 ponteira deslizante, 53 ponteira fixa,
+  55 luva pesada, 70/74/86 acessório); formato 2 TIPO-NÚMERO (`PF_SPICER_TIPO_FRENTE` 01 flange, 02 garfo, 03 luva,
+  04 terminal, 53/54 ponteira, 55/82 pontuva); cruzeta 5-153X / SPL-250-1X; mancal 47-9xx-X / 210xxx-1X. Sufixo
+  (X/KX/XS/C) NÃO decifrado. Tela "📖 Códigos Spicer" (`pfSpicerAbrir`, botão na busca geral dos Componentes Cardan +
+  faixa "📖 Lendo o código" `pfSpicerDicaHtml` nos resultados): decifrador, regras, conferência ao vivo com o cadastro
+  (`pfSpicerConferir`), outras peças da mesma série e anotações compartilhadas (`pfSpicerCodNotas`, só admin edita).
+  Regra nova descoberta → acrescentar nas tabelas E no texto da tela.
 - Cotação: busca Série/Modelo também acha componentes cardan pelo veículo (`vendasCcBuscarPorVeiculo`) + Monta com.
 
 ## Catálogos de peças em PDF

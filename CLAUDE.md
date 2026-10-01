@@ -50,6 +50,10 @@
 - Link por cliente: `formulario_links` ganhou cliente_ref/prefill/tipo/expira_em(15d)/aceita_arquivos; anon NÃO lê prefill (só via rpc `pf_form_prefill`);
   anexos no bucket PRIVADO `cadastro-clientes/<codigo>/...` (anon só insere com link válido). Resposta → `cad.respostaCadastro` + `cad.documentos`
   (`pfFormClienteChecarSubmissoes`), etiqueta "📥 resposta do cliente"; conferir/gravar `pfInatConferir`/`pfInatGravar`; abrir doc = URL assinada `pfCadDocAbrir`.
+- v115.2143: "💬 Mandar o que falta" / "📋 Copiar o que falta" (`pfInatTexto` monta SÓ os campos vazios + perguntas de opção +
+  arquivos que faltam; `pfInatCopiarFalta`). **Todo envio por WhatsApp passa por `pfWhatsAbrir(tel,texto)`**: computador =
+  WhatsApp Web numa aba nomeada `pfWhatsWeb` (reaproveitada, não abre guia nova) ou `whatsapp://` (app instalado), escolha
+  `pf_whats_modo` (`pfWhatsModoSelectHtml`); celular/iPad = wa.me. Envio novo pelo WhatsApp: usar esse helper.
 
 ## Área Técnica (Componentes Cardan, `componentes_cardan_v1`)
 - Famílias em `CC_FAMILIAS` (+ `CC_NOME_SINGULAR`); item = `{codigo, linha, descricao, veiculos[], montaCom[], conversoes[],

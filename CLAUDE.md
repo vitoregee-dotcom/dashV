@@ -107,11 +107,21 @@
 - Estilos (`pfOrb3DEstilo`, localStorage `pfOrb3DEstilo`): A = planeta desenho + anel realista, B = tudo desenho, C = tudo realista.
   Anel dourado = top 10, azul = potencial, halo vermelho = comprava bem e parou; quem compra/cota pouco fica transparente (até 30%, `x.opac`); botão direito/segurar = menu ⭐ importante / 🌫️ pouco importante / automático (`pfOrbImportancia`, compartilhada). Concessionária no 3D = plaquinha azul-marinho "🏛 SIGLA" em cima do planeta (`pfOrb3DTexPlaca`, v115.2128), parceiro = plaquinha verde 🤝. Balão do cliente = `pfOrbTipHtml` (compartilhado com a 2D).
 
+## Cotação em 2 linhas (v115.2140)
+- Botão "▦ Tabela | ▤ 2 linhas | ☰ Compacta" (`vendasViewModo()`/`vendasViewModoSet`, localStorage `pf_vendas_view_modo`);
+  a tabela de 1 linha NÃO mudou. `vendasItens2LinhasHtml(v)` (tabela `#vendasItensTable2`, sem arrastar/redimensionar coluna):
+  linha de cima = a de hoje sem CUSTO (linha `tr[data-vidx]`, tem os inputs venda/pct → `vendasAtualizarLinha` funciona);
+  linha de baixo `tr[data-vidx2]`. CÓDIGO: laranja = o que o cliente passou (`codigoOriginal`), azul embaixo = principal
+  (só se diferente); MARCA: em cima a do cliente (`marca`), azul embaixo a interna (`marcaInterna`). Descrição editável.
+- Último preço do cliente (`pfHistCliDados`, cache `_pfHistCliCache`, vem de `item_historico_precos` via
+  `pfBuscarHistoricoPreco`; PV- = vendido, V- = só cotado; ignora a cotação aberta; mesma marca, senão outra avisando):
+  etiqueta + preço + data, apagado; mouse/toque → `vendasHistPop` mostra o OUTRO (vendido ↔ só cotado).
+- Total do item embaixo (`vendasAtualizarTotalLinha`). Ações = `vendasItemAcoesHtml` (compartilhado com a tabela).
+- PENDENTE: IPI/ST da venda (prévia aprovada "Y" = UNIT. FINAL em cima, preço sem imposto + IPI + ST embaixo) — falta o
+  Vitor dizer de onde vêm (digitado / cadastro do produto / cadastro editável). Hoje mostra "sem impostos".
+  Prévias em `docs/referencias/previa-cotacao-2-linhas*.png`.
+
 ## Ideias guardadas pra testar depois (não implementadas)
-- **Linha dupla do item da cotação** (referência do ERP: `docs/referencias/cotacao-linha-dupla-erp.png`): cada item ocupa 2 linhas,
-  colunas empilhadas em cima/embaixo — Cód.Produto/Descrição · Conversão · Cód.Marca/Marca · Dt.Atualiz./Estoque · ST/Prazo ·
-  IPI/Unitário · Prev.Cheg./Total · nItemPed/xPed · Marca Fantasia (+ R, Item, Qtde à esquerda). Fundo verde claro na linha,
-  código em amarelo, Estoque e Total em lilás. O Vitor quer TESTAR se fica bom pra eles antes de adotar (fazer como opção/prévia).
 - **📺 TVs do estoque — PENDÊNCIA** (prévias aprovadas em 30/set/2026, falta decidir e fazer): `docs/referencias/tv-estoque/`
   (`tv-solicitacoes.png`, `celular-estoque.png`, `tv-pedidos.png`). TV 1 = fila de solicitações ao estoque (📏 medida, 📷 foto,
   🔍 conferir saldo, 📦 amostra) com quem pediu, o quê, horário, tempo esperando (verde ≤15 min, amarelo ≤30, vermelho >30),

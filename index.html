@@ -1911,7 +1911,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2146</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2147</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2065,7 +2065,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2146</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2147</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -55085,6 +55085,34 @@ function pfPainelTimerToggle(){
   pfPainelTarefasRender();
 }
 function pfPainelTimerZerar(){clearInterval(_pfTimerInt);_pfTimerRodando=false;_pfTimerSeg=_pfTimerDuracaoAtual;pfPainelTarefasRender();}
+// v115.2147 - A pedido do Vitor ("dá pra só digitar o tempo rapidão?"): clicar no tempo (parado) vira campo; aceita
+// "10" (minutos), "1:30" (min:seg), "1:10:00" (h:min:seg), "45s", "2h", "1h30". Enter = já inicia; Esc cancela.
+function pfPainelTimerLerTexto(t){
+  t=String(t||'').trim().toLowerCase().replace(',','.');if(!t)return null;
+  var m;
+  if((m=/^(\d+(?:\.\d+)?)\s*h\s*(\d+)?\s*(?:m(?:in)?)?$/.exec(t)))return Math.round(parseFloat(m[1])*3600+(m[2]?parseInt(m[2],10)*60:0));
+  if((m=/^(\d+(?:\.\d+)?)\s*s(?:eg)?$/.exec(t)))return Math.round(parseFloat(m[1]));
+  if((m=/^(\d+(?:\.\d+)?)\s*(?:m|min)?$/.exec(t)))return Math.round(parseFloat(m[1])*60);
+  if(/^\d+(:\d{1,2}){1,2}$/.test(t)){var p=t.split(':').map(function(x){return parseInt(x,10);});return p.length===3?p[0]*3600+p[1]*60+p[2]:p[0]*60+p[1];}
+  return null;
+}
+function pfPainelTimerEditar(el){
+  if(_pfTimerRodando||!el||el.querySelector('input'))return;
+  var txt=el.textContent;
+  el.innerHTML='<input type="text" inputmode="numeric" data-pf-no-sel value="'+txt+'" style="width:100%;max-width:130px;font-size:28px;font-variant-numeric:tabular-nums;border:1.5px solid #1F4E79;border-radius:8px;padding:0 6px;box-sizing:border-box;outline:none">';
+  var inp=el.querySelector('input'),feito=false;
+  var aplicar=function(iniciar){
+    if(feito)return;feito=true;
+    var seg=pfPainelTimerLerTexto(inp.value);
+    if(seg!=null&&seg>0){_pfTimerSeg=seg;_pfTimerDuracaoAtual=seg;}
+    pfPainelTarefasRender();
+    if(iniciar&&seg!=null&&seg>0&&!_pfTimerRodando)pfPainelTimerToggle();
+  };
+  inp.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();aplicar(true);}else if(e.key==='Escape'){feito=true;pfPainelTarefasRender();}};
+  inp.onblur=function(){aplicar(false);};
+  inp.onclick=function(e){e.stopPropagation();};
+  inp.focus();inp.select();
+}
 function pfPainelTimerAjustar(delta){ if(!_pfTimerRodando){_pfTimerSeg=Math.max(0,_pfTimerSeg+delta);_pfTimerDuracaoAtual=_pfTimerSeg;pfPainelTarefasRender();} }
 // v115.1581 - A pedido do Vitor ("coloca aqui tbm um botão pra retomar"):
 // reinicia o timer com a MESMA duração configurada antes, direto do
@@ -55598,7 +55626,7 @@ function pfPainelTarefasRender(){
           '<circle cx="23" cy="23" r="19" fill="none" stroke="#1F4E79" stroke-width="4" stroke-linecap="round" stroke-dasharray="119.4" stroke-dashoffset="'+(119.4-circ)+'" transform="rotate(-90 23 23)"/>'+
         '</svg>'+
         '<div style="flex:1;min-width:0">'+
-          '<div style="font-size:30px;font-weight:400;font-variant-numeric:tabular-nums;line-height:1">'+timerTxt+'</div>'+
+          '<div'+(_pfTimerRodando?'':' onclick="pfPainelTimerEditar(this)" title="Clique e digite o tempo (ex.: 10 = 10 min, 1:30 = 1min30, 45s, 1h) — Enter já inicia"')+' style="font-size:30px;font-weight:400;font-variant-numeric:tabular-nums;line-height:1;'+(_pfTimerRodando?'':'cursor:text')+'">'+timerTxt+'</div>'+ // v115.2147
           '<div style="display:flex;align-items:center;justify-content:space-between;color:#1F4E79;font-size:16px;font-weight:600;margin-top:7px;padding-right:4px">'+
             '<span onclick="pfPainelTimerAjustar(-60)" style="cursor:pointer;font-size:18px">−</span>'+
             '<span onclick="pfPainelTimerToggle()" style="cursor:pointer">'+(_pfTimerRodando?'pausar':'iniciar')+'</span>'+

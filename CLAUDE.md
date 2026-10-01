@@ -152,7 +152,7 @@
   Pra testar o robô daqui: `net.http_get` (pg_net) pelo SQL e ler `net._http_response` (o proxy bloqueia supabase.co/revistamt).
 - Marcas (lateral do banner): `pfNoticiasLoad` NÃO apaga mais notícia de marca sem foto; `pfNoticiasBuscarMarcasComIA` não
   apaga as antigas quando volta vazio (nova substitui só a da mesma marca, até 7) e aceita notícia sem imagem; lateral completa
-  com as marcas da semente se tiver < 2; card sem foto/foto bloqueada = degradê laranja com o NOME DA MARCA grande (foto por cima);
+  com as marcas da semente se tiver < 2; card sem foto/foto bloqueada = degradê AZUL (v115.2137, era laranja) com o NOME DA MARCA grande (foto por cima); banners trocam a cada 10 s, marcas a cada 25 s;
   "🔄 Atualizar agora" do dono busca marcas na hora.
 
 ## Campos de número / link do cliente (v115.2136)

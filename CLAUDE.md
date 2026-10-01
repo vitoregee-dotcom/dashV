@@ -214,6 +214,9 @@
   preenche o modelo oficial `data/modelos/garantia-dana.xlsx` com ExcelJS 4.4.0 (jsdelivr/cdnjs, `pfGarExcelJS`) — mantém
   logo/formatação — e encaixa as fotos nos quadros da aba FOTOS (`PF_GAR_DANA_BLOCOS`). Dados fixos da Triex em `PF_GAR_TRIEX`
   (CNPJ 00.609.213/0001-15, São Paulo/SP, (11) 2632-5622). Só Dana (cada fábrica tem formulário próprio).
+- v115.2146: `formulario_links` ganhou política SELECT pra `authenticated` (`pf_eh_da_empresa()`) — antes o logado não lia o
+  link e a resposta de garantia virava "📋 Novo cadastro recebido" e era marcada processada sem ir pro RMA. Agora sem achar o
+  link/RMA a submissão NÃO é marcada (tenta de novo); pendência com mesmo id não duplica.
 - v115.2145: aviso 🔄 **RMA / Garantia** na barra de notificações (`rma` em PF_AVISOS_CONFIG_DEFAULT/LABELS/LOG_KEYS e
   iconePorEtapa): log compartilhado `pfRmaEventos` (`pfRmaEventoAdd`, entra no merge de logs do sync), hoje gerado quando o
   cliente responde a garantia pelo link; painel lista e abre `rmaVerDetalhe`. Outros eventos de RMA: usar `pfRmaEventoAdd`.

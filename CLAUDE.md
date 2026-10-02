@@ -146,7 +146,8 @@
   etiqueta + preço + data, apagado; mouse/toque → `vendasHistPop` mostra o OUTRO (vendido ↔ só cotado).
 - Total do item embaixo (`vendasAtualizarTotalLinha`). Ações = `vendasItemAcoesHtml` (compartilhado com a tabela).
 - v115.2144: largura das colunas ajustável (alça na borda do cabeçalho, `vendas2ColRes`; 2 cliques/"↺ larguras" volta,
-  `vendas2ColPadrao`; localStorage `vendas_item2_cols`, padrão `VENDAS_C2_PADRAO`); 🎨 no cabeçalho DESCRIÇÃO = cor do último
+  `vendas2ColPadrao`; localStorage `vendas_item2_cols`, padrão `VENDAS_C2_PADRAO`); v115.2158: a divisória troca espaço SÓ entre as duas vizinhas
+  (antes saía da DESCRIÇÃO, a elástica); 🎨 no cabeçalho DESCRIÇÃO = cor do último
   preço (`vendasHistCor`, localStorage `pf_hist_cor`, com cor = sem transparência); listra do tema por ITEM (`vendas2Fundo`).
 - v115.2150 IPI/ST (jeito "Y"): vêm do CADASTRO DO PRODUTO — campos `ipi`/`st` em % (form do produto `prodIpi`/`prodSt`,
   importação de planilha mapeia colunas ipi/st; `pfImpostoPct` lê "3,25"/"3.25%"). Ficha = código + marca interna/cliente,

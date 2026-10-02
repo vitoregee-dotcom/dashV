@@ -100,6 +100,9 @@
   Esc: a busca por "← Voltar" ignora espaços e inclui `areaTecnicaBody`.
   v115.2166: a sync só redesenha os cards da Área Técnica se o menu (`#areaTecnicaGrid`) estiver na tela — antes
   Aplicações/Guia Perkins (abrem no `areaTecnicaBody` sem trocar o currentView) voltavam sozinhos pros cards.
+  v115.2167: **Esc volta SEMPRE** (pedido do Vitor): menu da Área Técnica ganhou "← Voltar" (tela inicial); no handler global
+  do Esc, o passo 1 (fechar janela fixa z≥9990) ignora `#pfAiBotaoWrap` (botão do assistente de IA — o Esc APAGAVA ele e não
+  voltava, ex.: Rolamentos) e `data-pf-esc-ignora`; fallback: `area_tecnica*` → `ftVoltarCards`, menu → `pfIrParaHome`.
 
 ## Catálogos de peças em PDF
 - **Guia Perkins** (v115.2114): `PF_GUIA_PERKINS` (grupo inglês x componentes, tabela MD Power pág. 68/69) + linhas extras

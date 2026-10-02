@@ -129,6 +129,9 @@
   (mesma marca) ganha esse modelo → 1 card por série; selo "🖼 N desenho(s)" no card (`pfAplicDesenhosDaSerie`).
   v115.2172 **série = 1 motor só** (Vitor): `pfAplicJuntarSemModelo(fixo)` passa TODA a série pro modelo mais usado (ou pro
   `fixo` = modelo digitado agora no Alimentar); `pfAplicModeloDaSerie` preenche o modelo no Alimentar ao digitar/abrir a série.
+  v115.2173: desenho sobe em **PNG** (o bucket NÃO aceita WEBP; >1,2 MB vai JPEG). Desenho depois: o campo Grupo do Alimentar
+  sugere os grupos da série (datalist) e lista os "🖼 Sem desenho" clicáveis; no card de Aplicações o selo vira "🖼 x/y desenho(s)"
+  → `pfAplicDesenhosDaSerie` mostra os grupos sem desenho com "➕ Subir desenho" (`pfAlimAbrirCom(marca,serie,grupo,modelo)`).
 - **Catálogos já lidos** (sem IA): `data/catalogos/<id>.json` (+ o PDF) listados em `PF_CAT_PRONTOS`; Cadastros → Importar Produtos → "📚 Catálogos já lidos" abre a prévia normal (`pfCatProntoAbrir`) e cada peça leva todos os motores em `aplicacoesCatalogo` (qtd por motor). Cummins motores 2019 = 861 peças.
 - No próprio sistema: Ferramentas → **📘 Catálogo PDF → Excel** (`ferrCatalogoPdf`, pdf.js no navegador,
   leitura por coluna, dicionário embutido + traduções salvas em `catpdf_traducoes_v1`).

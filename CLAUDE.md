@@ -114,6 +114,14 @@
   balão do cliente `pfOrbTipHtml` no formato "B" (rótulo × valor, etiqueta da situação, bloco Tendência, alerta em caixa);
   ⛶ Ampliar (`pfOrbAmpliar`, `_pfOrbAmpliada`): o `#pfOrbitaWrap` vai pro `<body>` em tela cheia (volta pro lugar ao fechar;
   Esc/fundo/✕ Fechar) e `pfOrbAjustarAltura` usa a altura toda (sem o teto de 380px). Vale pra 2D e 3D.
+- v115.2149 **anéis por motivo** (`pfOrbMotivos`, chamada no `pfOrbDados`): 🟡 valor alto (top R$ 12m) · 🟢 frequência (top nº pedidos)
+  · 🟣 ticket médio (top R$/pedido, mín. pedidos) · 🔵 potencial — `x.motivos` (ordenados pela posição relativa) e `x.aneis` (os 2
+  mais fortes; anel de 2 cores = metade de cada; no 3D `pfOrb3DMatAnel` usa uv.y = ângulo). Comportamento SEM marca no planeta:
+  ❤️ `x.pref` (fecha ≥70% das cotações 12m, mín. 5, ou marcado), 💎 `x.naoNeg` (só marcado), 🐜 `x.form` formiguinha (≥8 cotações
+  em 90 dias + até R$ 10 mil no trimestre ou ticket nos 25% menores, sem motivo; contorno fino cinza). Selo ❤️/💎/🐜 só aparece
+  no ✨ Destacar (`_pfOrbDest`, `pfOrbPassa`, `pfOrbDestSelectHtml`). Gestor: ⚙️ `pfOrbCfgAbrir` (compartilhada `pfOrbCfg`,
+  padrão `PF_ORB_CFG_PADRAO`, inclui quais anéis aparecem). Marcas à mão no botão direito (2D e 3D, `pfOrbMenuAbrir`,
+  compartilhada `pfOrbMarcas` {por:{k:{pref,naoNeg,form}}}). Tamanho do planeta = `pfOrbTamValor` (12 meses, diferença mais forte).
 - v115.2148: balão do cliente dá pra alcançar com o mouse (`pfOrbTipEsconder` some só ~0,35 s depois; `pfOrbTipDentro` segura;
   clique = ficha `pfOrbTipClique`; `pfOrbTipPosicionar` mantém dentro do quadro). No 3D, mouse no balão = ele para de seguir o planeta.
 

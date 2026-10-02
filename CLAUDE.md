@@ -42,6 +42,8 @@
   Pedidos reais NÃO geram título sozinhos (financeiro real está no ERP).
 - Ferramentas → 🎭 Dados de demonstração (`ferrDadosDemo`, só dono): grava clientes/pedidos/títulos com `demo:true` + `demoLote`;
   + cotações (num 900001+, não mexe na numeração real) e vendedores MINEIRO/Carlos Candis/Vitor (`PF_DEMO_VENDEDORES`) — v115.2124;
+  v115.2153: "Clientes fictícios" (padrão 150, `pfDemoClientesLista(n)`: os 30 fixos + ramo×nome×cidade de `PF_DEMO_RAMOS`/
+  `PF_DEMO_NOMES`/`PF_DEMO_CIDADES`, permutação sem repetir) e pedidos padrão 600 (até 2000); atalho "📺 Abrir as TVs do estoque" (demo/estoque-tv.html);
   apagar registra o lote em `pfDemoLotesApagados` (pvLoad/crLoad filtram — a sync só junta listas) e clientes em `cad_clientes_deletados`.
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)

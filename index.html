@@ -1911,7 +1911,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2171</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2172</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2065,7 +2065,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2171</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2172</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -32987,18 +32987,26 @@ function cadAplicEl(){
 // v115.2171 - BUG (Vitor: "criou outra ao invés de juntar"): um grupo gravado SEM modelo e outro COM modelo (404C-22T) na
 // mesma série viravam 2 cards (a tela agrupa por modelo+série). Junta: aplicação sem modelo de uma série que tem UM só modelo
 // conhecido (mesma marca) ganha esse modelo -- na lista de aplicações e nas fichas. Roda ao abrir a tela e ao gravar.
-function pfAplicJuntarSemModelo(){
-  var flat=(typeof aplicLoad==='function'?aplicLoad():[])||[],mods={},U=function(x){return String(x||'').trim().toUpperCase();};
-  flat.forEach(function(a){if(a.serie&&a.modelo){var k=U(a.marca)+'|'+U(a.serie);(mods[k]=mods[k]||{})[String(a.modelo).trim()]=1;}});
-  var um={};Object.keys(mods).forEach(function(k){var l=Object.keys(mods[k]);if(l.length===1)um[k]=l[0];});
-  var n=0;flat.forEach(function(a){if(a.serie&&!a.modelo){var m=um[U(a.marca)+'|'+U(a.serie)];if(m){a.modelo=m;n++;}}});
-  if(!n)return 0;
-  aplicSave(flat);
+// v115.2172 - A pedido do Vitor ("se é da mesma série precisa ter 1 único motor"): série (+ marca) = UM modelo de motor.
+// fixo = modelo escolhido pra série (ex.: digitado agora no Alimentar) -> vale pra TODAS as aplicações dela; sem fixo, fica o
+// modelo mais usado na série e o resto (vazio ou diferente) passa a ele. Lista de aplicações + fichas.
+function pfAplicModeloDaSerie(marca,serie){
+  var U=function(x){return String(x||'').trim().toUpperCase();},M=U(marca),S=U(serie),cnt={};if(!S)return '';
+  ((typeof aplicLoad==='function'?aplicLoad():[])||[]).forEach(function(a){if(U(a.serie)===S&&(!M||U(a.marca)===M)&&a.modelo){var m=U(a.modelo);cnt[m]=(cnt[m]||0)+1;}});
+  return Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a];})[0]||'';
+}
+function pfAplicJuntarSemModelo(fixo){
+  var flat=(typeof aplicLoad==='function'?aplicLoad():[])||[],cnt={},U=function(x){return String(x||'').trim().toUpperCase();};
+  flat.forEach(function(a){if(a.serie&&a.modelo){var k=U(a.marca)+'|'+U(a.serie),m=U(a.modelo);(cnt[k]=cnt[k]||{})[m]=(cnt[k][m]||0)+1;}});
+  var um={};Object.keys(cnt).forEach(function(k){um[k]=Object.keys(cnt[k]).sort(function(a,b){return cnt[k][b]-cnt[k][a];})[0];});
+  if(fixo&&fixo.serie&&fixo.modelo)um[U(fixo.marca)+'|'+U(fixo.serie)]=U(fixo.modelo);
+  var n=0;flat.forEach(function(a){if(!a.serie)return;var m=um[U(a.marca)+'|'+U(a.serie)];if(m&&U(a.modelo)!==m){a.modelo=m;n++;}});
   var plist=cadLoad(PROD_KEY)||[],np=0;
-  plist.forEach(function(p){(p.aplicacoes||[]).forEach(function(a){if(a.serie&&!a.modelo){var m=um[U(a.marca)+'|'+U(a.serie)];if(m){a.modelo=m;np++;p.ts=Date.now();}}});});
+  plist.forEach(function(p){(p.aplicacoes||[]).forEach(function(a){if(!a.serie)return;var m=um[U(a.marca)+'|'+U(a.serie)];if(m&&U(a.modelo)!==m){a.modelo=m;np++;p.ts=Date.now();}});});
+  if(n)aplicSave(flat);
   if(np)cadSave(PROD_KEY,plist);
-  if(typeof pfSyncPush==='function')try{pfSyncPush(np?[PROD_KEY,APLIC_KEY]:[APLIC_KEY]);}catch(e){}
-  return n;
+  if((n||np)&&typeof pfSyncPush==='function')try{pfSyncPush(np?[PROD_KEY,APLIC_KEY]:[APLIC_KEY]);}catch(e){}
+  return n+np;
 }
 function atAplicAbrir(){
   try{pfAplicJuntarSemModelo();}catch(e){console.warn('juntar séries:',e);}
@@ -76981,6 +76989,11 @@ function pfGuiaCopiarBtn(txt,peq){return '<span onclick="event.stopPropagation()
 (function(){var _o=cadRenderAplicacoes;cadRenderAplicacoes=function(el){var r=_o.apply(this,arguments);try{atAplicAjustar(el);}catch(e){}return r;};})();
 var PF_ALIM_CTX_KEY='pfAlimAplicCtx',PF_APLIC_DES_KEY='pfAplicDesenhos_v1';
 function pfAlimCtx(){var c={};try{c=JSON.parse(localStorage.getItem(PF_ALIM_CTX_KEY)||'{}')||{};}catch(e){}return {marca:c.marca||'PERKINS',serie:c.serie||'',modelo:c.modelo||'',grupo:c.grupo||''};}
+// v115.2172 - série já conhecida: o modelo do motor vem sozinho (série = 1 motor só)
+function pfAlimModeloDaSerie(){
+  var c=pfAlimCtxSalvar(),m=pfAplicModeloDaSerie(c.marca,c.serie),e=document.getElementById('pfAlimModelo');
+  if(m&&e&&!String(e.value||'').trim()){e.value=m;pfAlimCtxSalvar();}
+}
 function pfAlimCtxSalvar(){var g=function(id){var e=document.getElementById(id);return e?String(e.value||'').trim():'';};
   var c={marca:g('pfAlimMarca').toUpperCase(),serie:g('pfAlimSerie').toUpperCase().replace(/\s+/g,''),modelo:g('pfAlimModelo').toUpperCase(),grupo:g('pfAlimGrupo')};
   try{localStorage.setItem(PF_ALIM_CTX_KEY,JSON.stringify(c));}catch(e){}return c;}
@@ -77064,7 +77077,7 @@ function pfAlimAbrir(){
     '<div style="padding:14px 16px;font-size:13px;color:#1a2332">'+
       '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">'+
         '<div>'+lab('Marca do motor')+'<input id="pfAlimMarca" value="'+pfEscHtml(c.marca)+'" oninput="pfAlimCtxSalvar();pfAlimContador()" style="'+inp+';width:130px;font-weight:700"></div>'+
-        '<div>'+lab('Série (lista de peças) *')+'<input id="pfAlimSerie" value="'+pfEscHtml(c.serie)+'" oninput="pfAlimCtxSalvar();pfAlimContador()" placeholder="ex.: RJ51161B" style="'+inp+';width:150px;font-weight:700"></div>'+
+        '<div>'+lab('Série (lista de peças) *')+'<input id="pfAlimSerie" value="'+pfEscHtml(c.serie)+'" oninput="pfAlimCtxSalvar();pfAlimContador()" onchange="pfAlimModeloDaSerie()" placeholder="ex.: RJ51161B" style="'+inp+';width:150px;font-weight:700"></div>'+
         '<div>'+lab('Modelo do motor (se souber)')+'<input id="pfAlimModelo" value="'+pfEscHtml(c.modelo)+'" oninput="pfAlimCtxSalvar()" placeholder="ex.: 1104D-44T" style="'+inp+';width:150px"></div>'+
         '<div style="flex:1;min-width:220px">'+lab('Grupo do catálogo (deste print)')+'<input id="pfAlimGrupo" value="" oninput="pfAlimCtxSalvar();if(window._pfAlim.linhas.length)pfAlimRender()" placeholder="ex.: Filtros de ar (PPL042865)" style="'+inp+';width:100%"></div>'+
       '</div>'+
@@ -77092,6 +77105,7 @@ function pfAlimAbrir(){
   var cola=document.getElementById('pfAlimCola');
   cola.addEventListener('paste',pfAlimColar);ov.addEventListener('paste',function(e){if(e.target&&e.target.tagName==='INPUT')return;pfAlimColar(e);});
   setTimeout(function(){var s=document.getElementById(c.serie?'pfAlimGrupo':'pfAlimSerie');if(s)s.focus();},50);
+  try{pfAlimModeloDaSerie();}catch(e){} // v115.2172
   pfAlimContador();pfAlimRender();
 }
 function pfAlimContador(){
@@ -77260,7 +77274,7 @@ async function pfAlimGravar(){
       else{flat.push({id:'apl_'+agora+'_'+Math.random().toString(36).slice(2),modelo:c.modelo||'',serie:c.serie,codigo:r.codigo,desc:fichas[0].descricao||r.desc,marca:c.marca,equip:aplic.equip,veiculo:'',marcaVeiculo:'',qtd:r.qtd});nApl++;}
     });
     if(sel.length){cadSave(PROD_KEY,plist);if(typeof aplicSave==='function')aplicSave(flat);if(typeof pfSyncPush==='function')try{pfSyncPush([PROD_KEY,APLIC_KEY]);}catch(e){}
-      try{pfAplicJuntarSemModelo();}catch(e){}} // v115.2171 - série com e sem modelo vira um card só
+      try{pfAplicJuntarSemModelo(c.modelo?c:null);}catch(e){}} // v115.2171/2172 - série = 1 motor só (o modelo digitado agora vale pra série toda)
     var desOk='';
     if(querDes){
       if(btn)btn.textContent='⏳ Subindo o desenho…';

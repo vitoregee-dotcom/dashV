@@ -107,6 +107,11 @@
   Cadastros/Logística → tela inicial (`pfIrParaHome`); campo com texto em foco: o 1º Esc só tira o foco.
   v115.2169: "← Voltar" (`pfVoltarHomeBtnHtml`) nos menus de Compras/Ferramentas/Cadastros/Logística/Área Técnica; Esc passo 2
   só clica em Voltar VISÍVEL; Cadastros com grupo aberto → `cadVoltarGrupos`.
+- **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo
+  (arrastar seleção e soltar fora fechava e perdia tudo); **rascunho** `pfFtRascunho_v1` (`ftRascunhoSalvar/Ler/Ligar/Apagar`, por id ou
+  'novo', inclui fotos de plaqueta se couber) volta sozinho ao reabrir + faixa "♻️ Continuar preenchendo" na lista; Cancelar com
+  alteração pede confirmação (`ftCancelarForm`); Esc com o formulário aberto fecha SÓ o formulário. Janela termina acima do dock
+  (padding = `pfAiDockClearance`) com Cancelar/Salvar presos no rodapé. Lista mostra Ano/Série embaixo do modelo (busca acha).
 
 ## Catálogos de peças em PDF
 - **Guia Perkins** (v115.2114): `PF_GUIA_PERKINS` (grupo inglês x componentes, tabela MD Power pág. 68/69) + linhas extras

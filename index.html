@@ -1911,7 +1911,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2153</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2154</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2065,7 +2065,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2153</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2154</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -57349,10 +57349,18 @@ function pfOrbitaRender(){
   if(!lista.length){wrap.querySelector('canvas').parentNode.innerHTML='<div style="padding:30px;text-align:center;font-size:13px;color:var(--pf-noticias-text-muted,#8a9ab0)">'+(pg?'Ainda não há cotações nem pedidos com cliente.':'Nenhum cliente no seu nome ainda (Cadastros → Clientes → Vendedor).')+'</div>';return;}
   if(pfOrb3DLigado())pfOrb3DIniciar(lista);else{pfOrb3DParar();pfOrbIniciar(lista);}
 }
+// v115.2154 - A pedido do Vitor ("a órbita precisa aumentar conforme a quantidade de clientes, pra não ficar amontoado";
+// com 150 clientes de demonstração quase todos caíam na faixa de 30 dias, um em cima do outro): com muitos clientes na
+// mesma faixa, eles se dividem em "pistas" (raio um pouco pra dentro/fora, até ±0,08) e, no 3D, a órbita fica mais
+// "grossa" na vertical; o quadro também cresce com a quantidade (pfOrbAjustarAltura, até +220 px).
+function pfOrbPistas(n){return Math.max(1,Math.min(5,Math.ceil(n/20)));}
+function pfOrbPistaDesl(i,n,sit){var p=pfOrbPistas(n);if(p<2)return ((i%3)-1)*0.015;var passo=Math.min(0.05,0.22/(p-1));
+  return ((i%p)-(p-1)/2)*passo+(sit==='v'?passo*(p-1)*0.35:0);} // a faixa de 30 dias é a mais perto do centro (menor volta): empurra um pouco pra fora
 function pfOrbFiltrar(k){window._pfOrbFiltro=window._pfOrbFiltro===k?'':k;pfOrbitaRender();}
 // Posições iniciais: por anel de situação, ângulos igualmente espaçados (+ defasagem por anel) pra não empilhar
 function pfOrbIniciar(lista){
   var cv=document.getElementById('pfOrbCanvas');if(!cv)return;
+  window._pfOrbN=lista.length; // v115.2154
   var vmax=lista.reduce(function(m,x){return Math.max(m,x.valor12m);},0)||1;
   var cmax=lista.reduce(function(m,x){return x.sit==='cota'?Math.max(m,x.nCot||0):m;},0)||1;
   var grupos={};lista.forEach(function(x){(grupos[x.sit]=grupos[x.sit]||[]).push(x);});
@@ -57361,7 +57369,7 @@ function pfOrbIniciar(lista){
     var arr=grupos[g].sort(function(a,b){return (a.dias||0)-(b.dias||0);});
     arr.forEach(function(x,i){
       x.ang=defas[g]+i*(2*Math.PI/arr.length)+(i%2?0.12:-0.12);
-      x.rr=pfOrbRaio(x.dias)+((i%3)-1)*0.015; // leve variação pra não formar fila
+      x.rr=pfOrbRaio(x.dias)+pfOrbPistaDesl(i,arr.length,g); // leve variação pra não formar fila (v115.2154: pistas com muitos clientes)
       x.tam=x.sit==='cota'?5+Math.sqrt((x.nCot||0)/cmax)*9:pfOrbTamValor(x.valor12m,vmax); // v115.2088 - só cota: tamanho pelo nº de cotações
       if(x.sit==='cota')x.rr=0.965+((i%3)-1)*0.012;
       x.alfa=1;
@@ -57459,7 +57467,8 @@ function pfOrbAjustarAltura(cv){
   }
   // espaço livre do topo do canvas até a barra de baixo (dock); mín. 200px, máx. 380px
   var r=cv.getBoundingClientRect(),clr=(typeof pfAiDockClearance==='function')?pfAiDockClearance():24;
-  var alt=Math.max(200,Math.min(380,Math.round(window.innerHeight-r.top-clr-14)));
+  var extra=Math.max(0,Math.min(220,((window._pfOrbN||0)-40)*1.6)); // v115.2154 - mais clientes, quadro mais alto
+  var alt=Math.max(200+extra*0.5,Math.min(380+extra,Math.round(window.innerHeight-r.top-clr-14)));
   if(Math.abs(cv.clientHeight-alt)>4)cv.style.height=alt+'px';
 }
 function pfOrbGeom(cv){
@@ -57769,6 +57778,7 @@ function pfOrb3DIniciar(lista){
   });
 }
 function pfOrb3DMontar(lista,div){
+  window._pfOrbN=lista.length; // v115.2154
   pfOrbAjustarAltura(div);div.innerHTML='';
   var W=div.clientWidth||600,H=div.clientHeight||240,R=100,SX=Math.max(1,Math.min(2.1,W/H/1.5)); // quadro largo: órbita esticada na horizontal (como na 2D)
   var renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
@@ -57804,7 +57814,7 @@ function pfOrb3DMontar(lista,div){
   var kEsc=Math.max(0.32,Math.min(1,Math.sqrt(40/Math.max(40,lista.length)))),grupos={},defas={v:0,a:0.7,l:1.4,r:2.1,cota:2.8};
   lista.forEach(function(x){(grupos[x.sit]=grupos[x.sit]||[]).push(x);});
   Object.keys(grupos).forEach(function(gk){var arr=grupos[gk].sort(function(a,b){return (a.dias||0)-(b.dias||0);});
-    arr.forEach(function(x,i){x.ang=defas[gk]+i*(2*Math.PI/arr.length)+(i%2?0.12:-0.12);x.rr=x.sit==='cota'?0.965+((i%3)-1)*0.012:pfOrbRaio(x.dias)+((i%3)-1)*0.015;x.y3=((i%5)-2)*0.9;
+    arr.forEach(function(x,i){x.ang=defas[gk]+i*(2*Math.PI/arr.length)+(i%2?0.12:-0.12);x.rr=x.sit==='cota'?0.965+((i%3)-1)*0.012:pfOrbRaio(x.dias)+pfOrbPistaDesl(i,arr.length,gk);x.y3=((i%5)-2)*0.9*Math.min(3,1+arr.length/60); // v115.2154
       var tam=x.sit==='cota'?5+Math.sqrt((x.nCot||0)/cmax)*9:pfOrbTamValor(x.valor12m,vmax);x.r3=Math.max(1.1,tam*kEsc*0.32);
       x.imp=x.valor12m*(x.dias!=null&&x.dias>60?2:1)+(x.sit==='cota'?(x.nCot||0)*500:0);});});
   lista.filter(function(x){return x.top||x.alerta||x.destCota;}).sort(function(a,b){return b.imp-a.imp;}).forEach(function(x,i){x.rotulo=i<14;});

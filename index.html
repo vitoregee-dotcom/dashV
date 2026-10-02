@@ -1911,7 +1911,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2156</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2157</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2065,7 +2065,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2156</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2157</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -57364,6 +57364,33 @@ function pfOrbRaioGrupo(x,i,n,g){
   var gcd=function(a,b){return b?gcd(b,a%b):a;},k=[7,11,13,17,19,23].find(function(c){return gcd(c,n)===1;})||1;
   return fx[0]+0.015+((i*k)%n)/(n-1)*(fx[1]-fx[0]-0.03);
 }
+// v115.2157 - A pedido do Vitor ("deveria se espalhar pelos espaços e evitar ficar grudado"): (1) todos giram JUNTOS, na
+// mesma velocidade (PF_ORB_VEL) -- antes os de dentro giravam mais rápido, alcançavam os outros e encostavam; (2) antes de
+// começar, pfOrbAfastar empurra os que se encostam (pelo tamanho do planeta + anel), cada um sem sair da sua faixa de dias.
+var PF_ORB_VEL=0.00007;
+function pfOrbFaixaLim(x){
+  if(x.sit==='cota')return [0.945,0.99];
+  var f=PF_ORB_FAIXAS[x.sit];return f?[f[0]+0.01,f[1]-0.01]:[Math.max(0.2,x.rr-0.05),Math.min(0.93,x.rr+0.05)];
+}
+// pega: (x) -> raio ocupado (mesma unidade do raio da órbita = 1); sy: achatamento do eixo vertical do desenho
+function pfOrbAfastar(lista,pega,sx,sy){
+  var n=lista.length;if(n<2)return;
+  var P=lista.map(function(x){var lim=pfOrbFaixaLim(x);return {x:x,a:x.ang,r:Math.max(lim[0],Math.min(lim[1],x.rr)),lim:lim,f:pega(x)};});
+  for(var it=0;it<80;it++){
+    var mexeu=false;
+    for(var i=0;i<n;i++){var A=P[i],ax=Math.cos(A.a)*A.r*sx,ay=Math.sin(A.a)*A.r*sy;
+      for(var j=i+1;j<n;j++){var B=P[j],bx=Math.cos(B.a)*B.r*sx,by=Math.sin(B.a)*B.r*sy;
+        var dx=bx-ax,dy=by-ay,d=Math.sqrt(dx*dx+dy*dy)||0.0001,min=A.f+B.f+0.008;
+        if(d>=min)continue;mexeu=true;
+        var emp=(min-d)/2,ux=dx/d,uy=dy/d;
+        [[A,-1],[B,1]].forEach(function(o){var Q=o[0],qx=Math.cos(Q.a)*Q.r*sx+ux*emp*o[1],qy=Math.sin(Q.a)*Q.r*sy+uy*emp*o[1];
+          Q.a=Math.atan2(qy/sy,qx/sx);Q.r=Math.max(Q.lim[0],Math.min(Q.lim[1],Math.sqrt(Math.pow(qx/sx,2)+Math.pow(qy/sy,2))));});
+        ax=Math.cos(A.a)*A.r*sx;ay=Math.sin(A.a)*A.r*sy;
+      }}
+    if(!mexeu)break;
+  }
+  P.forEach(function(o){o.x.ang=o.a;o.x.rr=o.r;});
+}
 function pfOrbFiltrar(k){window._pfOrbFiltro=window._pfOrbFiltro===k?'':k;pfOrbitaRender();}
 // Posições iniciais: por anel de situação, ângulos igualmente espaçados (+ defasagem por anel) pra não empilhar
 function pfOrbIniciar(lista){
@@ -57389,6 +57416,7 @@ function pfOrbIniciar(lista){
   // os outros aparecem ao dar zoom (roda do mouse/botões) -- quanto mais perto, mais nomes.
   var kEsc=Math.max(0.32,Math.min(1,Math.sqrt(40/Math.max(40,lista.length))));
   lista.forEach(function(x){x.tam=Math.max(1.8,x.tam*kEsc);x.imp=x.valor12m*(x.dias!=null&&x.dias>60?2:1)+(x.sit==='cota'?(x.nCot||0)*500:0);});
+  try{var g0=pfOrbGeom(cv),esc0=Math.max(0.7,Math.min(1,g0.h/320));if(g0.rx>40)pfOrbAfastar(lista,function(x){return x.tam*esc0*((x.aneis&&x.aneis.length)||x.top||x.pot?1.9:1.25)/g0.rx;},1,g0.ry/g0.rx);}catch(eA){} // v115.2157
   var cand=lista.filter(function(x){return x.top||x.alerta||x.destCota;}).sort(function(a,b){return b.imp-a.imp;});
   cand.forEach(function(x,i){x.rotulo=i<14;});
   var st={gestor:pfVR2PodeGeral(),lista:lista,cv:cv,t0:performance.now(),hover:null,rot:0,ultimo:performance.now(),z:1,px:0,py:0,reduz:window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches};
@@ -57486,7 +57514,7 @@ function pfOrbGeom(cv){
 }
 function pfOrbPos(x,g,st,now,rrAlt,dAng){
   var ent=st.reduz?1:Math.min(1,(now-st.t0)/1300),e=1-Math.pow(1-ent,3);
-  var vel=0.000045/Math.pow(Math.max(0.25,x.rr),1.5); // mais longe = mais devagar
+  var vel=PF_ORB_VEL; // v115.2157 - todos juntos (antes: mais longe = mais devagar, e os de dentro alcançavam os outros)
   var a=x.ang+st.rot*vel+(dAng||0),r=(rrAlt!=null?rrAlt:x.rr)*e;
   return {x:g.cx+Math.cos(a)*g.rx*r,y:g.cy+Math.sin(a)*g.ry*r};
 }
@@ -57829,6 +57857,7 @@ function pfOrb3DMontar(lista,div){
     arr.forEach(function(x,i){x.ang=defas[gk]+i*(2*Math.PI/arr.length)+(i%2?0.12:-0.12);x.rr=x.sit==='cota'?0.965+((i%3)-1)*0.012:pfOrbRaioGrupo(x,i,arr.length,gk);x.y3=((i%5)-2)*0.9*Math.min(3,1+arr.length/30); // v115.2154 (v115.2155: mais grossa já com ~30)
       var tam=x.sit==='cota'?5+Math.sqrt((x.nCot||0)/cmax)*9:pfOrbTamValor(x.valor12m,vmax);x.r3=Math.max(1.1,tam*kEsc*0.32);
       x.imp=x.valor12m*(x.dias!=null&&x.dias>60?2:1)+(x.sit==='cota'?(x.nCot||0)*500:0);});});
+  pfOrbAfastar(lista,function(x){return x.r3*((x.aneis&&x.aneis.length)?2.3:1.2)/R;},SX,1); // v115.2157
   lista.filter(function(x){return x.top||x.alerta||x.destCota;}).sort(function(a,b){return b.imp-a.imp;}).forEach(function(x,i){x.rotulo=i<14;});
   // v115.2127 - A pedido do Vitor ("os clientes que menos cotam ou compram, o planeta vai ficando mais transparente --
   // fica menos poluído"): relevância = compra em 12 meses + cotações; os de baixo vão até 30% de opacidade.
@@ -57884,7 +57913,7 @@ function pfOrb3DQuadro(st,now){
   var q=cam.quaternion.clone().multiply(st.qT),dir=new THREE.Vector3(1,0,0).applyQuaternion(cam.quaternion),cima=new THREE.Vector3(0,1,0).applyQuaternion(cam.quaternion);
   st.lista.forEach(function(x){
     var g=x._g;if(!g)return;
-    var vel=0.000045/Math.pow(Math.max(0.25,x.rr),1.5),a=x.ang+st.rot*vel,r=x.rr*R*e;
+    var vel=PF_ORB_VEL,a=x.ang+st.rot*vel,r=x.rr*R*e; // v115.2157 - todos juntos
     g.position.set(Math.cos(a)*r*st.SX,x.y3,Math.sin(a)*r);
     var s=st.hover===x?1.25:1;g.scale.set(s,s,s);
     var spm=g.children[0].material;if(spm.opacity>0.2){var alvo=st.hover===x?1:x.opac;if(spm.opacity!==alvo){spm.opacity=alvo;spm.transparent=alvo<0.99;}}

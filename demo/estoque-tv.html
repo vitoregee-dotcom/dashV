@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Estoque TV">
+<meta name="theme-color" content="#0f1626">
+<title>PartsFlow — TVs do estoque (demonstração)</title>
+<!--
+  A pedido do Vitor (02/10/2026, "na apresentação, conseguimos simular as telas do estoque no iPad? apresento no
+  notebook/TV e simulo as telas do estoque no iPad"; "as 2 telas que fizemos do estoque" = prévias aprovadas em
+  docs/referencias/tv-estoque/ tv-solicitacoes.png e tv-pedidos.png): página de DEMONSTRAÇÃO, separada do sistema
+  (não lê nem grava nada do PartsFlow, dados fictícios), pra abrir no iPad deitado e mostrar as duas TVs vivas:
+   * Solicitações ao estoque: tempo esperando ao vivo (verde até 15 min, amarelo até 30, vermelho passou de 30),
+     chega solicitação nova com 🔔 NOVA + bipe + voz; tocar no cartão = "🙋 fulano pegou", tocar de novo = feito.
+   * Pedidos — separação: colunas A separar → Separando → Separado → Faturado, os pedidos andam sozinhos
+     (barra de separação enchendo), chega pedido novo, urgente em vermelho; tocar no pedido = avança uma coluna.
+  Botões no rodapé: trocar de tela, ⏸ pausar o automático, 🔊 som, ↺ recomeçar. Teclado (se ligar no notebook):
+  1/2 troca de tela, espaço pausa, N = chegou nova solicitação, P = chegou pedido novo.
+-->
+<style>
+:root{--bg:#0f1626;--card:#1b2840;--card2:#16223a;--txt:#fff;--sub:#a9b6cc;--verde:#22a75a;--amarelo:#f2b51d;--vermelho:#e5484d;--azul:#3b78c4}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none}
+.tela{position:absolute;inset:0;padding:2.2vw 2.2vw 0;display:none;flex-direction:column}
+.tela.on{display:flex}
+.topo{display:flex;align-items:center;gap:1vw;margin-bottom:1.6vw}
+.topo h1{font-size:2.5vw;margin:0 1vw 0 0;font-weight:800;white-space:nowrap}
+.pill{background:var(--card);border-radius:.8vw;padding:.55vw 1.1vw;font-size:1.25vw;color:var(--sub);white-space:nowrap}
+.pill b{font-size:1.75vw;color:#fff;margin-right:.3vw}
+.pill.vm b{color:var(--vermelho)}.pill.vd b{color:#5fd38d}
+.relogio{margin-left:auto;margin-top:2.2vw;font-size:3vw;font-weight:800;font-variant-numeric:tabular-nums}
+/* solicitações */
+.grade{display:grid;grid-template-columns:1fr 1fr;gap:1.2vw;align-content:start;flex:1;overflow:hidden}
+.sol{position:relative;display:flex;align-items:center;gap:1.4vw;background:var(--card);border-radius:1vw;padding:1.4vw 1.6vw 1.4vw 2vw;border-left:.55vw solid var(--verde);cursor:pointer;transition:transform .35s,opacity .35s,background .35s;animation:entra .5s ease-out}
+.sol.am{border-left-color:var(--amarelo)}.sol.vm{border-left-color:var(--vermelho);background:#2a1f2c}
+.sol .ic{font-size:4vw;line-height:1;width:5vw;text-align:center}
+.sol .meio{flex:1;min-width:0}
+.sol .cod{font-size:2.1vw;font-weight:800;letter-spacing:.02em}
+.sol .desc{font-size:1.45vw;color:var(--sub);margin-top:.2vw;line-height:1.25}
+.sol .quem{font-size:1.3vw;color:var(--sub);margin-top:.35vw}.sol .quem b{color:#fff}
+.sol .pegou{display:inline-block;margin-top:.45vw;background:var(--verde);color:#fff;font-weight:700;font-size:1.15vw;border-radius:.5vw;padding:.2vw .7vw}
+.sol .tempo{text-align:right;white-space:nowrap}
+.sol .tempo b{display:block;font-size:3.1vw;font-weight:800;color:#fff;font-variant-numeric:tabular-nums}
+.sol.am .tempo b{color:var(--amarelo)}.sol.vm .tempo b{color:var(--vermelho)}
+.sol .tempo span{font-size:1.15vw;color:var(--sub)}
+.sol .nova{position:absolute;top:-.8vw;right:1.4vw;background:var(--vermelho);color:#fff;font-weight:800;font-size:1.1vw;border-radius:.6vw;padding:.25vw .8vw;animation:pisca 1s infinite}
+.sol.saindo{transform:scale(.92);opacity:0}
+.sol.feito{background:#163a2a;border-left-color:#5fd38d}
+.vazio{grid-column:1/-1;text-align:center;color:var(--sub);font-size:1.8vw;padding:6vw 0}
+/* pedidos */
+.colunas{display:grid;grid-template-columns:repeat(4,1fr);gap:1.2vw;flex:1;overflow:hidden;padding-bottom:1.2vw}
+.col{background:#141f33;border-radius:1vw;padding:1.1vw;display:flex;flex-direction:column;gap:.9vw;overflow:hidden}
+.col>div{display:flex;flex-direction:column;gap:.9vw}
+.col h2{margin:0 0 .2vw;font-size:1.65vw;display:flex;align-items:center;gap:.5vw}
+.col h2 span{margin-left:auto;color:#fff}
+.ped{background:var(--card);border-radius:.8vw;padding:.9vw 1.1vw;border-left:.45vw solid var(--azul);cursor:pointer;animation:entra .5s ease-out}
+.ped.urg{border:.18vw solid var(--vermelho);border-left-width:.45vw}
+.ped.sep{border-left-color:var(--azul)}.ped.ok{border-left-color:var(--verde)}.ped.fat{border-left-color:#2c7a4c;opacity:.75}
+.ped .n{font-size:1.55vw;font-weight:800}
+.ped .tag{display:inline-block;background:var(--vermelho);color:#fff;font-size:.9vw;font-weight:800;border-radius:.4vw;padding:.1vw .5vw;margin-left:.5vw;vertical-align:middle}
+.ped .cli{font-size:1.35vw;margin-top:.1vw}
+.ped .inf{font-size:1.05vw;color:var(--sub);margin-top:.25vw}
+.barra{height:.55vw;background:#0d1524;border-radius:.3vw;margin-top:.6vw;overflow:hidden}.barra i{display:block;height:100%;background:var(--azul);transition:width .8s}
+/* rodapé */
+.rodape{display:flex;align-items:center;gap:1.2vw;padding:1vw 0 calc(1.2vw + env(safe-area-inset-bottom));font-size:1.15vw;color:var(--sub)}
+.qr{width:5.2vw;height:5.2vw;background:#fff;border-radius:.5vw;padding:.4vw;flex-shrink:0}
+.legenda{margin-left:auto;white-space:nowrap}
+.ctl{position:fixed;right:1.2vw;top:.2vw;display:flex;gap:.6vw;opacity:.35;transition:opacity .3s;z-index:5}
+.ctl:hover,.ctl.vis{opacity:1}
+.ctl button{background:#22314d;color:#fff;border:1px solid #33456a;border-radius:.7vw;font-size:1.25vw;padding:.55vw 1vw;cursor:pointer;font-family:inherit}
+.ctl button.on{background:var(--azul);border-color:var(--azul)}
+.demo{position:fixed;left:1.2vw;top:.4vw;font-size:.95vw;color:#6f7f9c;letter-spacing:.08em}
+#inicio{position:fixed;inset:0;background:rgba(9,14,25,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.6vw;z-index:10;text-align:center;padding:4vw}
+#inicio h1{font-size:3.2vw;margin:0}#inicio p{font-size:1.5vw;color:var(--sub);max-width:60vw;line-height:1.5;margin:0}
+#inicio button{font-size:2vw;font-weight:800;background:var(--verde);color:#fff;border:none;border-radius:1vw;padding:1.2vw 3vw;cursor:pointer;font-family:inherit}
+@keyframes entra{from{transform:translateY(-1.2vw);opacity:0}to{transform:none;opacity:1}}
+@keyframes pisca{50%{opacity:.45}}
+@media (orientation:portrait){
+  .tela{padding:3vw 3vw 0}.topo h1{font-size:4vw}.pill{font-size:2vw}.pill b{font-size:2.8vw}.relogio{font-size:4.6vw}
+  .grade{grid-template-columns:1fr}.sol .cod{font-size:3.4vw}.sol .desc{font-size:2.4vw}.sol .quem{font-size:2.1vw}.sol .tempo b{font-size:4.8vw}.sol .tempo span{font-size:1.9vw}.sol .ic{font-size:6vw;width:7vw}.sol .pegou{font-size:1.9vw}.sol .nova{font-size:1.8vw}
+  .colunas{grid-template-columns:1fr 1fr}.col h2{font-size:2.6vw}.ped .n{font-size:2.5vw}.ped .cli{font-size:2.2vw}.ped .inf{font-size:1.8vw}
+  .rodape,.ctl button{font-size:2vw}.qr{width:8vw;height:8vw}
+}
+</style>
+</head>
+<body>
+<div class="demo">DEMONSTRAÇÃO · DADOS FICTÍCIOS</div>
+
+<section class="tela on" id="tSol">
+  <div class="topo">
+    <h1>📺 Solicitações ao estoque</h1>
+    <div class="pill"><b id="kFila">0</b>na fila</div>
+    <div class="pill vm"><b id="kAtr">0</b>atrasada</div>
+    <div class="pill vd"><b id="kFeitas">12</b>feitas hoje</div>
+    <div class="relogio" data-relogio></div>
+  </div>
+  <div class="grade" id="grade"></div>
+  <div class="rodape">
+    <svg class="qr" viewBox="0 0 21 21" shape-rendering="crispEdges" id="qr"></svg>
+    <div>📱 <b style="color:#fff">Aponte o celular</b> pra pegar e responder as solicitações · 🟢 até 15 min · 🟡 até 30 min · 🔴 passou de 30 min<br><span id="voz">🔊 Som ligado · a voz avisa cada solicitação nova</span></div>
+  </div>
+</section>
+
+<section class="tela" id="tPed">
+  <div class="topo">
+    <h1>📺 Pedidos — separação</h1>
+    <div class="pill"><b id="kAbertos">0</b>abertos hoje</div>
+    <div class="pill vm"><b id="kUrg">0</b>urgente</div>
+    <div class="relogio" data-relogio></div>
+  </div>
+  <div class="colunas">
+    <div class="col"><h2>📥 A separar <span id="c0n"></span></h2><div id="c0"></div></div>
+    <div class="col"><h2>🧺 Separando <span id="c1n"></span></h2><div id="c1"></div></div>
+    <div class="col"><h2>📦 Separado <span id="c2n"></span></h2><div id="c2"></div></div>
+    <div class="col"><h2>🚚 Faturado <span id="c3n"></span></h2><div id="c3"></div></div>
+  </div>
+</section>
+
+<div class="ctl" id="ctl">
+  <button id="bSol" class="on" onclick="mostrar('sol')">📺 Solicitações</button>
+  <button id="bPed" onclick="mostrar('ped')">📺 Pedidos</button>
+  <button id="bAuto" class="on" onclick="alternarAuto()">⏸ Automático</button>
+  <button id="bSom" class="on" onclick="alternarSom()">🔊 Som</button>
+  <button onclick="recomecar()">↺</button>
+</div>
+
+<div id="inicio">
+  <h1>📺 TVs do estoque</h1>
+  <p>Demonstração com dados fictícios. Toque num cartão de solicitação pra "pegar" e toque de novo pra concluir; toque num pedido pra ele andar de coluna. Sozinho, a cada pouco chega solicitação e pedido novo.</p>
+  <button onclick="iniciar()">▶ Começar</button>
+  <p style="font-size:1.15vw">Dica: no iPad, Compartilhar → "Adicionar à Tela de Início" abre em tela cheia.</p>
+</div>
+
+<script>
+var MIN=60000;
+var VENDEDORES=['MINEIRO','Carlos Candis','Vitor'];
+var ESTOQUE=['João','Pedro','Marcos'];
+var TIPOS={medida:{ic:'📏'},foto:{ic:'📷'},saldo:{ic:'🔍'},amostra:{ic:'📦'}};
+var SOL_BASE=[
+  {tipo:'medida',cod:'CA0141781',desc:'COROA E PINHÃO 9X37 — medir diâmetro e nº de dentes',quem:'Carlos Candis',cot:'004815',idade:38},
+  {tipo:'foto',cod:'U5LL0106',desc:'PISTÃO C/ PINO 1104C — foto de cima e do lado',quem:'MINEIRO',idade:19,pegou:'João'},
+  {tipo:'saldo',cod:'T422292',desc:'ARRUELA ENCOSTO — conferir saldo físico (sistema diz 12)',quem:'Vitor',idade:7},
+  {tipo:'foto',cod:'CA0068590',desc:'ENGRENAGEM SATÉLITE — foto da etiqueta',quem:'Carlos Candis',cot:'004815',idade:3}
+];
+var SOL_NOVAS=[
+  {tipo:'amostra',cod:'FL-2231',desc:'FILTRO DE AR — separar amostra pro balcão',quem:'MINEIRO',fala:'separar amostra do filtro FL-2231'},
+  {tipo:'medida',cod:'210541-1X',desc:'MANCAL CARDAN — medir furação e altura',quem:'Carlos Candis',cot:'004822',fala:'medir o mancal 210541'},
+  {tipo:'foto',cod:'2-28-827',desc:'GARFO SOLDA TUBO — foto da marca gravada',quem:'Vitor',fala:'foto do garfo 2-28-827'},
+  {tipo:'saldo',cod:'HM803149',desc:'ROLAMENTO CÔNICO — conferir saldo (cliente quer 20)',quem:'MINEIRO',fala:'conferir saldo do rolamento HM803149'},
+  {tipo:'medida',cod:'5-153X',desc:'CRUZETA SPICER — medir capa e comprimento',quem:'Carlos Candis',fala:'medir a cruzeta 5-153X'},
+  {tipo:'foto',cod:'3-40-1621',desc:'PONTEIRA DESLIZANTE — foto do estriado',quem:'Vitor',cot:'004830',fala:'foto da ponteira 3-40-1621'}
+];
+var PED_BASE=[
+  {n:18842,cli:'MINERAÇÃO SERRA AZUL',itens:6,vend:'Carlos',hora:'14:05',env:'🚚 Braspress',urg:true,col:0},
+  {n:18845,cli:'AGRO PEÇAS RIO VERDE',itens:4,vend:'MINEIRO',hora:'14:20',env:'🚚 Patrus',col:0},
+  {n:18846,cli:'RETÍFICA SANTA LUZIA',itens:8,vend:'Carlos',hora:'14:31',env:'🏪 retira',col:0},
+  {n:18839,cli:'TRATORES DO VALE',itens:12,quem:'João',feitos:7,col:1},
+  {n:18840,cli:'PORTO SECO LOG',itens:3,quem:'Pedro',feitos:2,col:1},
+  {n:18831,cli:'CONSTRUTORA ALFA',itens:5,col:2},
+  {n:18835,cli:'USINA SÃO JOSÉ',itens:2,col:2},
+  {n:18820,cli:'FAZENDA BOA VISTA',itens:3,nf:55210,saiu:'11:40',col:3},
+  {n:18825,cli:'MOTOPEÇAS CENTRAL',itens:7,nf:55214,saiu:'13:15',col:3}
+];
+var PED_NOVOS=[
+  {cli:'LOCADORA MONTANA',itens:5,vend:'Vitor',env:'🚚 Jadlog'},
+  {cli:'TERRAPLENAGEM IPÊ',itens:9,vend:'MINEIRO',env:'🏪 retira',urg:true},
+  {cli:'AUTO ELÉTRICA SUL',itens:2,vend:'Carlos',env:'🚚 Braspress'},
+  {cli:'COOPERATIVA AGRÍCOLA',itens:14,vend:'MINEIRO',env:'🚚 Patrus'}
+];
+var st={};
+function hhmm(t){var d=new Date(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function recomecar(){
+  var agora=Date.now();
+  st={auto:st.auto!==false,som:st.som!==false,sol:SOL_BASE.map(function(s,i){return Object.assign({id:'s'+i,t:agora-s.idade*MIN},s);}),
+    feitas:12,iNova:0,iPed:0,proxNum:18847,ped:PED_BASE.map(function(p){return Object.assign({},p);}),tick:0};
+  render();
+}
+// ---------- áudio: bipe + voz (no iPad só funciona depois do primeiro toque -> botão Começar) ----------
+var ac=null;
+function bipe(){
+  if(!st.som)return;
+  try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();
+    [0,.22].forEach(function(d){var o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=d?1175:880;
+      g.gain.setValueAtTime(.0001,ac.currentTime+d);g.gain.exponentialRampToValueAtTime(.35,ac.currentTime+d+.02);g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+d+.2);
+      o.connect(g);g.connect(ac.destination);o.start(ac.currentTime+d);o.stop(ac.currentTime+d+.22);});}catch(e){}
+}
+function falar(txt){
+  if(!st.som||!window.speechSynthesis)return;
+  try{var u=new SpeechSynthesisUtterance(txt);u.lang='pt-BR';u.rate=1.02;
+    var v=speechSynthesis.getVoices().find(function(x){return /pt[-_]BR/i.test(x.lang);});if(v)u.voice=v;
+    speechSynthesis.cancel();setTimeout(function(){speechSynthesis.speak(u);},450);}catch(e){}
+}
+// ---------- solicitações ----------
+function minDe(s){return Math.max(0,Math.floor((Date.now()-s.t)/MIN));}
+function corDe(m){return m>30?'vm':m>15?'am':'';}
+function renderSol(){
+  var g=document.getElementById('grade'),lista=st.sol.slice().sort(function(a,b){return a.t-b.t;});
+  var atr=0;
+  g.innerHTML=lista.length?lista.map(function(s){
+    var m=minDe(s),c=s.feito?'':corDe(m);if(c==='vm'&&!s.feito)atr++;
+    return '<div class="sol '+c+(s.feito?' feito':'')+(s.saindo?' saindo':'')+'" onclick="tocarSol(\''+s.id+'\')">'+
+      (s.nova?'<div class="nova">🔔 NOVA</div>':'')+
+      '<div class="ic">'+(s.feito?'✅':TIPOS[s.tipo].ic)+'</div>'+
+      '<div class="meio"><div class="cod">'+esc(s.cod)+'</div><div class="desc">'+esc(s.desc)+'</div>'+
+      '<div class="quem">Pedido por <b>'+esc(s.quem)+'</b>'+(s.cot?' · cotação '+esc(s.cot):'')+'</div>'+
+      (s.feito?'<span class="pegou">✅ Feito por '+esc(s.pegou||'João')+' — '+esc(s.quem.split(' ')[0])+' avisado na cotação</span>':s.pegou?'<span class="pegou">🙋 '+esc(s.pegou)+' pegou</span>':'')+'</div>'+
+      '<div class="tempo"><b>'+(m<1?'agora':m+' min')+'</b><span>'+(m<1?hhmm(s.t):'desde '+hhmm(s.t))+'</span></div></div>';
+  }).join(''):'<div class="vazio">✅ Nenhuma solicitação na fila</div>';
+  document.getElementById('kFila').textContent=st.sol.filter(function(s){return !s.feito;}).length;
+  document.getElementById('kAtr').textContent=atr;
+  document.getElementById('kFeitas').textContent=st.feitas;
+}
+function tocarSol(id){
+  var s=st.sol.find(function(x){return x.id===id;});if(!s||s.feito)return;
+  s.nova=false;
+  if(!s.pegou){s.pegou=ESTOQUE[Math.floor(Math.random()*ESTOQUE.length)];renderSol();return;}
+  concluirSol(s);
+}
+function concluirSol(s){
+  s.feito=true;st.feitas++;renderSol();
+  setTimeout(function(){s.saindo=true;renderSol();},2600);
+  setTimeout(function(){st.sol=st.sol.filter(function(x){return x!==s;});renderSol();},3000);
+}
+function novaSol(){
+  var b=SOL_NOVAS[st.iNova++%SOL_NOVAS.length];
+  var s=Object.assign({id:'n'+Date.now(),t:Date.now(),nova:true},b);
+  st.sol.push(s);
+  if(st.sol.filter(function(x){return !x.feito;}).length>6){var velho=st.sol.find(function(x){return !x.feito&&x.pegou;})||st.sol.find(function(x){return !x.feito;});if(velho)concluirSol(velho);}
+  renderSol();bipe();falar('Nova solicitação d'+(/^(Carlos|Vitor)/.test(b.quem)?'o ':'o ')+b.quem.split(' ')[0]+': '+b.fala);
+  setTimeout(function(){s.nova=false;renderSol();},20000);
+}
+// ---------- pedidos ----------
+function renderPed(){
+  var cols=[[],[],[],[]];
+  st.ped.forEach(function(p){cols[p.col].push(p);});
+  cols.forEach(function(l,ci){
+    if(ci===0)l.sort(function(a,b){return (b.urg?1:0)-(a.urg?1:0);});
+    if(ci===3)l.reverse();
+    document.getElementById('c'+ci+'n').textContent=l.length;
+    document.getElementById('c'+ci).innerHTML=l.slice(0,6).map(function(p){
+      var cls=['','sep','ok','fat'][ci]+(p.urg&&ci<3?' urg':'');
+      var inf=ci===0?p.itens+' itens · '+esc(p.vend)+' · '+esc(p.hora)+' · '+esc(p.env):
+        ci===1?p.itens+' itens · '+esc(p.quem)+' separando · '+p.feitos+'/'+p.itens:
+        ci===2?p.itens+' itens · aguardando nota':'NF '+p.nf+' · saiu '+esc(p.saiu);
+      return '<div class="ped '+cls+'" onclick="avancarPed('+p.n+')"><div class="n">#'+p.n+(p.urg&&ci<3?'<span class="tag">🚨 URGENTE</span>':'')+'</div>'+
+        '<div class="cli">'+esc(p.cli)+'</div><div class="inf">'+inf+'</div>'+
+        (ci===1?'<div class="barra"><i style="width:'+Math.round(p.feitos/p.itens*100)+'%"></i></div>':'')+'</div>';
+    }).join('')+(l.length>6?'<div style="text-align:center;color:var(--sub);font-size:1.1vw">+'+(l.length-6)+'</div>':'');
+  });
+  document.getElementById('kAbertos').textContent=st.ped.length;
+  document.getElementById('kUrg').textContent=st.ped.filter(function(p){return p.urg&&p.col<3;}).length;
+}
+function avancarPed(n){var p=st.ped.find(function(x){return x.n===n;});if(p)mover(p);renderPed();}
+function mover(p){
+  if(p.col===0){p.col=1;p.quem=ESTOQUE[Math.floor(Math.random()*ESTOQUE.length)];p.feitos=0;}
+  else if(p.col===1){p.col=2;}
+  else if(p.col===2){p.col=3;p.nf=55215+Math.floor(Math.random()*80);p.saiu=hhmm(Date.now());}
+  else{st.ped=st.ped.filter(function(x){return x!==p;});}
+}
+function novoPed(){
+  var b=PED_NOVOS[st.iPed++%PED_NOVOS.length];
+  st.ped.push(Object.assign({n:st.proxNum++,hora:hhmm(Date.now()),col:0},b));
+  renderPed();if(b.urg){bipe();}
+}
+function passoPedidos(){
+  // separando: vai enchendo; cheio -> separado
+  st.ped.filter(function(p){return p.col===1;}).forEach(function(p){p.feitos=Math.min(p.itens,p.feitos+1+Math.floor(Math.random()*2));});
+  var cheio=st.ped.find(function(p){return p.col===1&&p.feitos>=p.itens;});if(cheio)mover(cheio);
+  if(st.tick%3===0){var aSep=st.ped.filter(function(p){return p.col===0;}).sort(function(a,b){return (b.urg?1:0)-(a.urg?1:0);})[0];
+    if(aSep&&st.ped.filter(function(p){return p.col===1;}).length<3)mover(aSep);}
+  if(st.tick%5===2){var sep=st.ped.find(function(p){return p.col===2;});if(sep)mover(sep);}
+  if(st.ped.filter(function(p){return p.col===3;}).length>5){var f=st.ped.find(function(p){return p.col===3;});if(f)mover(f);}
+}
+// ---------- relógio / ciclo ----------
+function render(){renderSol();renderPed();relogio();}
+function relogio(){var t=hhmm(Date.now());document.querySelectorAll('[data-relogio]').forEach(function(e){e.textContent=t;});}
+function ciclo(){
+  relogio();
+  if(st.auto){
+    st.tick++;
+    passoPedidos();
+    if(st.tick%9===4)novaSol();                    // ~a cada 36 s chega solicitação
+    if(st.tick%11===7)novoPed();                   // ~a cada 44 s chega pedido
+    if(st.tick%7===3){var p=st.sol.filter(function(s){return !s.feito&&!s.pegou&&!s.nova;})[0];if(p){p.pegou=ESTOQUE[st.tick%ESTOQUE.length];}}
+    if(st.tick%13===10){var q=st.sol.filter(function(s){return !s.feito&&s.pegou;})[0];if(q)concluirSol(q);}
+  }
+  renderSol();renderPed();
+}
+function mostrar(q){
+  document.getElementById('tSol').classList.toggle('on',q==='sol');document.getElementById('tPed').classList.toggle('on',q==='ped');
+  document.getElementById('bSol').classList.toggle('on',q==='sol');document.getElementById('bPed').classList.toggle('on',q==='ped');
+}
+function alternarAuto(){st.auto=!st.auto;var b=document.getElementById('bAuto');b.classList.toggle('on',st.auto);b.textContent=st.auto?'⏸ Automático':'▶ Automático';}
+function alternarSom(){st.som=!st.som;var b=document.getElementById('bSom');b.classList.toggle('on',st.som);b.textContent=st.som?'🔊 Som':'🔇 Som';
+  document.getElementById('voz').textContent=st.som?'🔊 Som ligado · a voz avisa cada solicitação nova':'🔇 Som desligado';if(!st.som&&window.speechSynthesis)speechSynthesis.cancel();}
+function iniciar(){
+  document.getElementById('inicio').remove();
+  try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();ac.resume();}catch(e){}
+  try{if(window.speechSynthesis){var u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);}}catch(e){}
+  try{var el=document.documentElement;(el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);}catch(e){}
+  setTimeout(novaSol,5000); // a 1ª chega logo, pra mostrar o aviso
+}
+document.addEventListener('keydown',function(e){
+  if(e.key==='1')mostrar('sol');else if(e.key==='2')mostrar('ped');
+  else if(e.key===' '){e.preventDefault();alternarAuto();}
+  else if(e.key==='n'||e.key==='N')novaSol();else if(e.key==='p'||e.key==='P')novoPed();
+});
+document.addEventListener('touchstart',function(){var c=document.getElementById('ctl');c.classList.add('vis');clearTimeout(c._t);c._t=setTimeout(function(){c.classList.remove('vis');},4000);},{passive:true});
+// QR ilustrativo (desenho fixo, não aponta pra lugar nenhum)
+(function(){var s=document.getElementById('qr'),h='',seed=7;function r(){seed=(seed*9301+49297)%233280;return seed/233280;}
+  function bloco(x,y){h+='<rect x="'+x+'" y="'+y+'" width="7" height="7" fill="#000"/><rect x="'+(x+1)+'" y="'+(y+1)+'" width="5" height="5" fill="#fff"/><rect x="'+(x+2)+'" y="'+(y+2)+'" width="3" height="3" fill="#000"/>';}
+  for(var y=0;y<21;y++)for(var x=0;x<21;x++){if((x<8&&y<8)||(x>12&&y<8)||(x<8&&y>12))continue;if(r()>.5)h+='<rect x="'+x+'" y="'+y+'" width="1" height="1" fill="#000"/>';}
+  bloco(0,0);bloco(14,0);bloco(0,14);s.innerHTML=h;})();
+if(window.speechSynthesis)speechSynthesis.getVoices();
+recomecar();
+setInterval(ciclo,4000);
+</script>
+</body>
+</html>

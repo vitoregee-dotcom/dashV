@@ -155,6 +155,10 @@
   TV 2 = pedidos em colunas A separar → Separando → Separado → Faturado (urgente em vermelho). Em aberto: andamento dos pedidos
   vem do ERP ou o estoque marca no celular? Som = bipe ou bipe + voz? URL própria em tela cheia (ex. `?tv=solicitacoes`).
 
+  **Demonstração pra apresentação** (02/10/2026): `demo/estoque-tv.html` — página SEPARADA do sistema (dados fictícios,
+  não lê/grava nada) com as 2 TVs vivas pro iPad: solicitações (tempo ao vivo, 🔔 NOVA + bipe + voz pt-BR, tocar = pegou/feito)
+  e pedidos em colunas que andam sozinhos. Botões no topo (trocar tela, ⏸ automático, 🔊, ↺); teclado 1/2, espaço, N, P.
+
 - **🧾 Itens cotados SEM cadastro — PENDÊNCIA** (pedido do Vitor em 30/set/2026): na cotação, todo item — mesmo sem cadastro
   (código que não existe no estoque/cadastro) — precisa ficar registrado (código, marca/descrição digitada, cliente, vendedor,
   data, qtd). Quando esse item for cadastrado no futuro, o sistema avisa "este item foi cotado N vezes (por X clientes) antes de

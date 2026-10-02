@@ -12,6 +12,10 @@
 - **Coisa nova** (funcionalidade/tela nova): primeiro SUGERIR opções (com prévia quando der) e ele decide; só publicar depois do ok.
   **Correção** de bug pode fazer e publicar direto.
 
+- **Botão de print/arquivo = SEMPRE o padrão** (pedido do Vitor, 02/10/2026): `pfBtnColarPrintHtml(h,onclick)` (📋 Colar print,
+  `.pfBtn pfBtnEscuro`) + `pfBtnCarregarArquivoHtml(h,inputId,accept,onchange)` (⬆ Carregar arquivo, `pfBtnVermelho`), lado a lado,
+  com o Ctrl+V continuando a funcionar. Nada de "clique aqui e cole" em texto/link.
+
 ## Testar antes de publicar
 - Sintaxe: extrair os `<script>` inline e rodar `new Function(bloco)` em cada um.
 - Navegador: Playwright (Chromium em /opt/pw-browsers) com `python3 -m http.server`;
@@ -94,6 +98,8 @@
   desenha em `#atAplicBody`, flag `window._aplicNaAT`). Funções da tela pegam o container por `cadAplicEl()` e
   `cadGoTab('aplicacoes')` redesenha lá; `atAplicAjustar` faz Importar Catálogo/prévia irem pra Cadastros (assistente mora lá).
   Esc: a busca por "← Voltar" ignora espaços e inclui `areaTecnicaBody`.
+  v115.2166: a sync só redesenha os cards da Área Técnica se o menu (`#areaTecnicaGrid`) estiver na tela — antes
+  Aplicações/Guia Perkins (abrem no `areaTecnicaBody` sem trocar o currentView) voltavam sozinhos pros cards.
 
 ## Catálogos de peças em PDF
 - **Guia Perkins** (v115.2114): `PF_GUIA_PERKINS` (grupo inglês x componentes, tabela MD Power pág. 68/69) + linhas extras

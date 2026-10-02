@@ -232,7 +232,7 @@
   NF SAIU do link (`PF_GAR_DANA_FOTOS` nf com `triex:true`): a Triex anexa a nota no RMA — `pfGarNfBoxHtml` (janela do link
   e bloco do RMA) com "📋 Colar print" (`pfGarNfColar`, clipboard; Ctrl+V com a caixa na tela também cola) e "📎 Enviar
   arquivo" → `pfGarNfSalvar` sobe em `cadastro-clientes/interno/rma-<id>/` e grava `r.garantiaNf`; o Excel usa ela no quadro
-  da NF. PDF não entra como imagem na planilha (avisa).
+  da NF. PDF não entra como imagem na planilha (avisa). Fotos ocupam o quadro todo do modelo (~545x410 px, centralizadas).
 - v115.2146: `formulario_links` ganhou política SELECT pra `authenticated` (`pf_eh_da_empresa()`) — antes o logado não lia o
   link e a resposta de garantia virava "📋 Novo cadastro recebido" e era marcada processada sem ir pro RMA. Agora sem achar o
   link/RMA a submissão NÃO é marcada (tenta de novo); pendência com mesmo id não duplica.

@@ -92,7 +92,7 @@
 
 ## Catálogos de peças em PDF
 - **Guia Perkins** (v115.2114): `PF_GUIA_PERKINS` (grupo inglês x componentes, tabela MD Power pág. 68/69) + linhas extras
-  `pfGuiaGruposExtra` (compartilhada); Ferramentas → 📖 Guia Perkins (`ferrGuiaPerkins`) e dica sozinha no campo de código da cotação (`vendasGuiaPerkinsDica`).
+  `pfGuiaGruposExtra` (compartilhada); Área Técnica → 📖 Guia Perkins (`ferrGuiaPerkins`, saiu de Ferramentas na v115.2160) e dica sozinha no campo de código da cotação (`vendasGuiaPerkinsDica`).
 - **Catálogos já lidos** (sem IA): `data/catalogos/<id>.json` (+ o PDF) listados em `PF_CAT_PRONTOS`; Cadastros → Importar Produtos → "📚 Catálogos já lidos" abre a prévia normal (`pfCatProntoAbrir`) e cada peça leva todos os motores em `aplicacoesCatalogo` (qtd por motor). Cummins motores 2019 = 861 peças.
 - No próprio sistema: Ferramentas → **📘 Catálogo PDF → Excel** (`ferrCatalogoPdf`, pdf.js no navegador,
   leitura por coluna, dicionário embutido + traduções salvas em `catpdf_traducoes_v1`).

@@ -1911,7 +1911,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2149</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2150</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2065,7 +2065,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2149</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2150</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -33161,6 +33161,7 @@ function cadRenderProdutosV3(el){
 function cadLoad(key){try{return JSON.parse(pfSafeGetItem(key,'[]'));}catch(e){return[];}}
 function cadSave(key,data){
   pfSafeSetItem(key,JSON.stringify(data));
+  if(key==='cad_produtos_v1')window._vendasProdImpCache=null; // v115.2150 - IPI/ST novo vale na hora na cotação
   // Marca "mudei isso agora" -- usado pelo cadPullSupabase pra não deixar uma
   // sincronização de entrada (que ainda não sabe dessa mudança) sobrescrever ela,
   // trazendo de volta algo que acabou de ser excluído localmente.
@@ -36758,7 +36759,7 @@ function cadMostrarMapeamentoColunas(rows, marcaPad){
   // quantidade do item?"): não existia campo de quantidade aqui -- a coluna
   // "qtd no motor" da planilha do catálogo ficava sem destino e toda peça
   // entrava com ×0. Agora tem "qtd" (reconhece qtd/quant/qty sozinho).
-  var campos=['codigo','descricao','marca','qtd','ncm','grupo','subgrupo','linha','unidade','(ignorar)'];
+  var campos=['codigo','descricao','marca','qtd','ncm','ipi','st','grupo','subgrupo','linha','unidade','(ignorar)']; // v115.2150 - + ipi/st (% do cadastro)
 
   var html='<div class="mSection"><div class="mSectionTitle">📋 Mapear Colunas</div>';
   html+='<p style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0);margin-bottom:16px">Associe cada coluna da planilha ao campo correto. Linhas: '+( rows.length-1)+'</p>';
@@ -36773,6 +36774,8 @@ function cadMostrarMapeamentoColunas(rows, marcaPad){
     else if(hl.includes('desc')||hl.includes('nome'))guess='descricao';
     else if(hl.includes('marca')||hl.includes('brand'))guess='marca';
     else if(hl.includes('ncm'))guess='ncm';
+    else if(hl.includes('ipi'))guess='ipi'; // v115.2150
+    else if(hl==='st'||hl.includes('st %')||hl.includes('st%')||hl.includes('icms st')||hl.includes('icms-st')||hl.includes('subst'))guess='st';
     else if(hl.includes('grupo')&&!hl.includes('sub'))guess='grupo';
     else if(hl.includes('sub'))guess='subgrupo';
     else if(hl.includes('linh'))guess='linha';
@@ -36931,6 +36934,9 @@ function cadConfirmarImport(itens){
       ncm:it.ncm||'',linha:ln.l||'',grupo:it.grupo||'',subgrupo:it.subgrupo||'',
       unidade:it.unidade||'',obs:'',foto:'',desenho:'',conversoes:[],
     };
+    // v115.2150 - IPI/ST só entram quando a coluna veio preenchida (senão não apagam o que já estava no cadastro)
+    if(pfImpostoPct(it.ipi)!=null)prod.ipi=pfImpostoPct(it.ipi);
+    if(pfImpostoPct(it.st)!=null)prod.st=pfImpostoPct(it.st);
     // v115.1845 - BUG DE RAIZ corrigido (Vitor: "preciso ver o motivo
     // dessa duplicação" -- achou 517 linhas repetidas de um código só):
     // essa comparação usava === direto (case-sensitive, sem trim), mas o
@@ -37107,6 +37113,13 @@ cadFormProduto = function(data, idx){
   ['NEW HOLLAND','VOLVO','CASE','CARRARO','CATERPILLAR','MASSEY','RANDON','VALTRA','AGRALE','JOHN DEERE','ALLISON','JCB','DANA/SPICER','TIMKEN','SKF','PARKER','BOSCH','ZF','MULTIMARCA','OUTRAS'].forEach(function(l){html+='<option value="'+l+'" '+(d.linha===l?'selected':'')+'>'+l+'</option>';});
   html += '</select></div>';
   html += cadField('Unidade','prodUnidade',d.unidade||'','pç, kg, m...','text');
+  html += '</div>';
+  // v115.2150 - A pedido do Vitor ("IPI/ST vira do cadastro dos itens"): alíquotas do produto, usadas na cotação
+  // (modo 2 linhas: UNIT. FINAL = preço + IPI + ST). Em % sobre o preço de venda; vazio = não tem.
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:14px">';
+  html += cadField('IPI %','prodIpi',d.ipi!=null&&d.ipi!==''?String(d.ipi).replace('.',','):'','Ex: 3,25','text');
+  html += cadField('ST %','prodSt',d.st!=null&&d.st!==''?String(d.st).replace('.',','):'','Ex: 18,4 (sobre o preço)','text');
+  html += '<div style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0);align-self:end;padding-bottom:6px;line-height:1.4">Entram na cotação: preço + IPI + ST = unitário final.</div>';
   html += '</div>';
 
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">';
@@ -37389,6 +37402,8 @@ function cadSalvarProdutoV2(idx, opts){
     marca:document.getElementById('prodMarca').value||'',
     marcaCotacao:(document.getElementById('prodMarcaCot')?document.getElementById('prodMarcaCot').value:'')||'',
     ncm:document.getElementById('prodNcm').value||'',
+    ipi:pfImpostoPct((document.getElementById('prodIpi')||{}).value), // v115.2150
+    st:pfImpostoPct((document.getElementById('prodSt')||{}).value), // v115.2150
     linha:document.getElementById('prodLinha').value||'',
     unidade:document.getElementById('prodUnidade').value||'',
     grupo:document.getElementById('prodGrupo').value||'',
@@ -48945,6 +48960,7 @@ function vendasItens2LinhasHtml(v){
     var _nRel=_nRelCat+_nMonta+_nSubst;
     var custo=it.custoOverride!=null?it.custoOverride:it.custo;
     var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf,v.margem):0);
+    var _vals=vendasItemValores(it,venda); // v115.2150
     var chk=window._vendasSel&&window._vendasSel[i],chkPV=window._vendasSelPV&&window._vendasSelPV[i];
     var ativo=window._vendasItemAtivo===i,bg=vendas2Fundo(i,isNeg,ativo); // v115.2144 - antes '' e a listra do tema pintava só a 2ª linha
     var codCli=it.codigoOriginal&&String(it.codigoOriginal).trim()&&String(it.codigoOriginal).toUpperCase().trim()!==String(it.codigo||'').toUpperCase().trim()?String(it.codigoOriginal):'';
@@ -48961,7 +48977,8 @@ function vendasItens2LinhasHtml(v){
       '<td style="padding:5px 6px 1px;text-align:center"><input type="number" min="1" value="'+it.qtd+'" oninput="window._venda.itens['+i+'].qtd=parseInt(this.value)||1;vendasAtualizarTotalLinha('+i+')" style="box-sizing:border-box;width:52px;height:30px;text-align:center;padding:0 4px;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:6px;font-family:inherit;font-size:16px;color:var(--pf-fx-textoEscuro,#1a2332)"></td>'+
       '<td style="padding:5px 4px 1px;text-align:center;font-weight:500;white-space:nowrap;color:'+(isNeg?'#C00000':'#1a2332')+'">'+(it.saldo>0&&it.saldo<=5?'<span title="Estoque baixo ('+it.saldo+' pç)" style="color:#B45309;font-weight:800;background:#FEF3C7;border-radius:5px;padding:1px 5px">⚠'+it.saldo+'</span>':(it.saldo!=null?it.saldo:'-'))+'</td>'+
       '<td style="padding:5px 6px 1px;text-align:center;white-space:nowrap"><span style="font-size:12px;padding:4px 9px;border-radius:6px;font-weight:500;background:'+(isNeg?'#FEE2E2':'#DCFCE7')+';color:'+(isNeg?'#991B1B':'#166534')+'">'+(isNeg?'NEGATIVO':'IMEDIATO')+'</span>'+(isNeg&&_nSubst?'<span onclick="event.stopPropagation();vendasAbrirRelacionados('+i+')" title="Tem substituto cadastrado — clique pra ver" style="cursor:pointer;margin-left:3px;font-size:13px">🔄</span>':'')+'</td>'+
-      '<td style="padding:5px 6px 1px;text-align:right;white-space:nowrap"><span style="display:inline-flex;align-items:center;justify-content:flex-end;height:30px"><span data-badgeslot="'+i+'">'+(typeof pfPrecoUltimoBadge==='function'?pfPrecoUltimoBadge(it.codigo,it.marca,(v.cliente&&v.cliente.razao)||'',venda):'')+'</span><input type="text" inputmode="decimal" data-field="venda" value="'+(venda?vendasFmtBR(venda):'')+'" onchange="var _vv=vendasNumBR(this.value);window._venda.itens['+i+'].vendaOverride=isNaN(_vv)?null:_vv;vendasAtualizarLinha('+i+')" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" style="box-sizing:border-box;width:96px;height:30px;text-align:right;padding:0 6px;border:1px solid var(--pf-fx-marca,#1F4E79);border-radius:6px;font-size:16px;font-family:monospace;color:var(--pf-fx-marca,#1F4E79);font-weight:600" placeholder="—"></span></td>'+
+      // v115.2150 - jeito "Y" aprovado: em cima o UNIT. FINAL (preço + IPI + ST do cadastro); a caixa do preço sem imposto desce
+      '<td style="padding:5px 6px 1px;text-align:right;white-space:nowrap"><span data-final="'+i+'" title="Unitário final = preço + IPI + ST (do cadastro do produto)" style="display:inline-flex;align-items:center;justify-content:flex-end;box-sizing:border-box;min-width:90px;height:30px;padding:0 9px;border-radius:6px;background:var(--pf-fx-marca,#1F4E79);color:#fff;font-size:16px;font-family:monospace;font-weight:700">'+(venda?vendasFmtBR(_vals.final):'—')+'</span></td>'+
       '<td style="padding:5px 6px 1px;text-align:center;white-space:nowrap"><span style="display:inline-flex;align-items:center;box-sizing:border-box;height:30px;border:1px solid var(--pf-fx-verde,#27AE60);border-radius:6px;padding:0 8px;gap:1px"><input type="text" inputmode="decimal" data-field="pct" value="'+(venda&&custo?Math.round((1-(custo/venda))*100):'')+'" onchange="var pct=vendasNumBR(this.value);if(!isNaN(pct)&&pct<100){var c=window._venda.itens['+i+'].custoOverride!=null?window._venda.itens['+i+'].custoOverride:window._venda.itens['+i+'].custo;if(c)window._venda.itens['+i+'].vendaOverride=Math.round((c/(1-pct/100))*100)/100;}vendasAtualizarLinha('+i+')" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" style="box-sizing:border-box;width:32px;height:100%;text-align:right;padding:0;border:none;background:transparent;font-size:16px;color:var(--pf-fx-verde,#27AE60);font-weight:600"><span style="font-size:13px;color:var(--pf-fx-verde,#27AE60);font-weight:600">%</span></span></td>'+
       '<td rowspan="2" style="padding:3px 6px;text-align:center;white-space:nowrap;border-bottom:1px solid #dfe5ec">'+vendasItemAcoesHtml(it,i,isNeg,_nRel,toque)+'</td>'+
       '</tr>'+
@@ -48970,7 +48987,7 @@ function vendasItens2LinhasHtml(v){
       // último preço: sem marca interna diferente, ocupa também o espaço embaixo da MARCA (a descrição fica estreita no iPad)
       '<td data-histslot="'+i+'"'+(mInt?'':' colspan="2"')+' style="padding:0 8px 6px;border-bottom:1px solid #dfe5ec;font-size:11px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+vendasHistCliHtml(it,i)+'</td>'+
       (mInt?'<td style="padding:0 8px 6px;border-bottom:1px solid #dfe5ec;'+pequenoAzul.replace('font-family:monospace;font-size:12px;','font-size:11px;')+'" title="Marca interna">'+pfEscHtml(mInt)+'</td>':'')+
-      '<td colspan="5" style="padding:0 8px 6px;border-bottom:1px solid #dfe5ec;text-align:right;font-size:11.5px;color:#8a9ab0;white-space:nowrap">sem impostos · total <b data-tot="'+i+'" style="color:#1E293B;font-size:12.5px">'+(venda?vendasFmtBR(venda*(it.qtd||1)):'—')+'</b></td>'+
+      '<td colspan="5" style="padding:0 8px 6px;border-bottom:1px solid #dfe5ec;text-align:right;font-size:11.5px;color:#8a9ab0;white-space:nowrap"><span style="display:inline-flex;align-items:center;justify-content:flex-end;gap:5px"><span data-badgeslot="'+i+'">'+(typeof pfPrecoUltimoBadge==='function'?pfPrecoUltimoBadge(it.codigo,it.marca,(v.cliente&&v.cliente.razao)||'',venda):'')+'</span><input type="text" inputmode="decimal" data-field="venda" title="Preço sem imposto (é o que você digita)" value="'+(venda?vendasFmtBR(venda):'')+'" onclick="event.stopPropagation()" onchange="var _vv=vendasNumBR(this.value);window._venda.itens['+i+'].vendaOverride=isNaN(_vv)?null:_vv;vendasAtualizarLinha('+i+')" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" style="box-sizing:border-box;width:84px;height:24px;text-align:right;padding:0 6px;border:1px solid var(--pf-fx-marca,#1F4E79);border-radius:6px;font-size:13px;font-family:monospace;color:var(--pf-fx-marca,#1F4E79);font-weight:700;background:#fff" placeholder="—"><span data-imp="'+i+'">'+vendasImpTextoHtml(it,venda)+'</span><span>· total <b data-tot="'+i+'" style="color:#1E293B;font-size:12.5px">'+(venda?vendasFmtBR(_vals.final*(it.qtd||1)):'—')+'</b></span></span></td>'+
       '</tr>';
   }).join('');
   // v115.2144 - A pedido do Vitor ("quero poder ajustar a largura das colunas"): cada cabeçalho tem a alça na borda
@@ -48987,7 +49004,7 @@ function vendasItens2LinhasHtml(v){
     th(4,'','DESCRIÇÃO <label onclick="event.stopPropagation()" title="Cor do texto do último preço (embaixo da descrição)" style="cursor:pointer;margin-left:6px;font-size:11px;position:relative">🎨<input type="color" value="'+(cor||'#475569')+'" onchange="vendasHistCorSet(this.value)" style="position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0"></label>'+(cor?' <span onclick="event.stopPropagation();vendasHistCorSet(\'\')" title="Voltar à cor padrão (cinza apagado)" style="cursor:pointer;font-size:10px;opacity:.8">↺</span>':''),'Embaixo: último preço desse cliente')+
     th(5,'','MARCA','Em cima = a que o cliente vê · azul embaixo = marca interna')+
     th(6,'text-align:center','QTD')+th(7,'text-align:center','SALDO')+th(8,'text-align:center','STATUS')+
-    th(9,'text-align:right','VENDA')+th(10,'text-align:center;color:#7DFFB3','MARGEM')+th(11,'','')+
+    th(9,'text-align:right','UNIT. FINAL','Preço + IPI + ST (do cadastro do produto) · a caixa pra digitar o preço sem imposto fica embaixo')+th(10,'text-align:center;color:#7DFFB3','MARGEM')+th(11,'','')+
     '</tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 var VENDAS_C2_PADRAO=[30,26,26,110,null,92,56,56,88,150,72,44];
@@ -49016,11 +49033,47 @@ function vendasHistCor(){try{return localStorage.getItem('pf_hist_cor')||'';}cat
 function vendasHistCorSet(c){try{if(c)localStorage.setItem('pf_hist_cor',c);else localStorage.removeItem('pf_hist_cor');}catch(e){}vendasRefresh();}
 // fundo da linha do item (as 2 linhas iguais; listra por ITEM, não por linha da tabela)
 function vendas2Fundo(i,isNeg,ativo){return ativo?'#EEF6FF':(isNeg?'#FFF5F5':(i%2?'var(--pf-table-stripe-bg,#FAFBFC)':'var(--pf-card-bg,#fff)'));}
+// v115.2150 - A pedido do Vitor ("IPI/ST vira do cadastro dos itens"): alíquotas em % guardadas na ficha do produto
+// (p.ipi / p.st, campos IPI % e ST % do cadastro e da importação de planilha). Ficha certa = mesmo código + mesma marca
+// (interna ou a do cliente); sem ficha da marca, a 1ª ficha do código que tiver imposto.
+function pfImpostoPct(v){
+  if(v==null)return null;var t=String(v).replace('%','').trim();if(!t)return null;
+  if(t.indexOf(',')>=0)t=t.replace(/\./g,'').replace(',','.');
+  var n=parseFloat(t);return isNaN(n)||n<0?null:Math.round(n*10000)/10000;
+}
+function vendasProdImpIdx(){
+  var c=window._vendasProdImpCache;if(c&&(Date.now()-c.t)<60000)return c.m;
+  var m={};try{(cadLoad(PROD_KEY)||[]).forEach(function(p){
+    if(!p||!(+p.ipi>0||+p.st>0))return;
+    var k=(p.codigo||'').toString().toUpperCase().trim();if(!k)return;
+    var mk=(p.marca||'').toString().toUpperCase().trim();
+    if(!m[k+'|'+mk])m[k+'|'+mk]=p;if(!m[k])m[k]=p;
+  });}catch(e){}
+  window._vendasProdImpCache={t:Date.now(),m:m};return m;
+}
+function vendasItemImpostos(it){
+  var m=vendasProdImpIdx(),k=(it&&it.codigo||'').toString().toUpperCase().trim();if(!k)return {ipi:0,st:0};
+  var p=m[k+'|'+String(it.marcaInterna||'').toUpperCase().trim()]||m[k+'|'+String(it.marca||'').toUpperCase().trim()]||m[k]||null;
+  return {ipi:p?(+p.ipi||0):0,st:p?(+p.st||0):0};
+}
+function vendasItemValores(it,venda){
+  var t=vendasItemImpostos(it),ipiV=venda?Math.round(venda*t.ipi)/100:0,stV=venda?Math.round(venda*t.st)/100:0;
+  return {ipiPct:t.ipi,stPct:t.st,ipiV:ipiV,stV:stV,final:venda?venda+ipiV+stV:0};
+}
+function vendasImpTextoHtml(it,venda){
+  var r=vendasItemValores(it,venda);
+  if(!r.ipiPct&&!r.stPct)return '<span title="Sem IPI/ST no cadastro do produto">sem impostos</span>';
+  return (r.ipiPct?'<span title="IPI '+String(r.ipiPct).replace('.',',')+'% (cadastro do produto)" style="color:#7D3C98">+ IPI '+vendasFmtBR(r.ipiV)+'</span> ':'')+
+    (r.stPct?'<span title="ST '+String(r.stPct).replace('.',',')+'% (cadastro do produto)" style="color:#7D3C98">+ ST '+vendasFmtBR(r.stV)+'</span>':'');
+}
 function vendasAtualizarTotalLinha(i){
   var v=window._venda,it=v&&v.itens&&v.itens[i],el=document.querySelector('[data-tot="'+i+'"]');if(!it||!el)return;
   var custo=it.custoOverride!=null?it.custoOverride:it.custo;
   var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf||'SP',v.margem||30):0);
-  el.textContent=venda?vendasFmtBR(venda*(it.qtd||1)):'—';
+  var r=vendasItemValores(it,venda); // v115.2150 - total com IPI/ST
+  el.textContent=venda?vendasFmtBR(r.final*(it.qtd||1)):'—';
+  var fin=document.querySelector('[data-final="'+i+'"]');if(fin)fin.textContent=venda?vendasFmtBR(r.final):'—';
+  var imp=document.querySelector('[data-imp="'+i+'"]');if(imp)imp.innerHTML=vendasImpTextoHtml(it,venda);
 }
 // v115.2140 - botões da coluna AÇÕES (tabela de 1 linha e modo 2 linhas)
 function vendasItemAcoesHtml(it,i,isNeg,_nRel,toque){
@@ -49043,7 +49096,7 @@ function vendasAtualizarLinha(i){
   var custo=it.custoOverride!=null?it.custoOverride:it.custo;
   var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf||'SP',v.margem||30):0);
   var custoInp=tr.querySelector('[data-field="custo"]');
-  var vendaInp=tr.querySelector('[data-field="venda"]');
+  var vendaInp=tr.querySelector('[data-field="venda"]')||document.querySelector('tr[data-vidx2="'+i+'"] [data-field="venda"]'); // v115.2150 - no modo 2 linhas a caixa do preço fica embaixo
   var pctInp=tr.querySelector('[data-field="pct"]');
   // v115.1790 - Custo virou <span> (só leitura, ver render acima), não
   // <input> mais -- atualiza textContent em vez de .value.
@@ -49055,7 +49108,7 @@ function vendasAtualizarLinha(i){
   // nunca o selo de comparação -- ele ficava "congelado" com a comparação
   // de ANTES da edição, porque o selo só era recalculado num redesenho
   // completo da tabela. Recalcula aqui também.
-  var badgeSlot=tr.querySelector('[data-badgeslot="'+i+'"]');
+  var badgeSlot=tr.querySelector('[data-badgeslot="'+i+'"]')||document.querySelector('tr[data-vidx2="'+i+'"] [data-badgeslot="'+i+'"]');
   if(badgeSlot&&typeof pfPrecoUltimoBadge==='function'){
     badgeSlot.innerHTML=pfPrecoUltimoBadge(it.codigo,it.marca,(v.cliente&&v.cliente.razao)||'',venda);
   }

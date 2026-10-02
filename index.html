@@ -1911,7 +1911,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2151</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2152</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2065,7 +2065,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2151</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2152</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -45169,38 +45169,196 @@ function ferrChegouConfAbrirEmail(itens){
     '</body></html>');
   w.document.close();
 }
+// v115.2152 - A pedido do Vitor ("no RMA eu consultar por cliente, por código de peça, por vendedor, pra no futuro buscar
+// quantos retornos teve o item, relatórios"; prévias A+B em docs/referencias/rma-consulta/): a lista ganhou busca (cliente,
+// código, descrição, nº RMA) + filtros de vendedor/período/status/tipo e números do período (A), e a aba 📊 Relatório
+// agrupa por peça/cliente/vendedor/motivo com nº de RMAs, peças devolvidas, % do que foi vendido (pedidos de venda do
+// período), motivo mais comum e última; clicar numa linha volta pra lista filtrada; ⬇️ Excel (B). O RMA ganhou o campo
+// "Vendedor" (sugerido pelo pedido de venda do cliente + peça, ou pelo vendedor do cadastro do cliente).
+window._rmaF=window._rmaF||{q:'',vend:'',dias:'365',status:'',tipo:'',motivo:'',aba:'lista',agrupar:'peca'};
+function rmaNorm(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().trim();}
+function rmaCodNorm(s){return rmaNorm(s).replace(/[\s\-\.\/]/g,'');}
+function rmaMotivo(r,it){var m=String((it&&it.motivo)||'').trim();if(m)return m.toLowerCase();return (r.garantia||r.garantiaDana)?'garantia DANA':'(sem motivo)';}
+function rmaVendedorDe(r){return String(r.vendedor||'').trim();}
+function rmaListaVendedoresNomes(){
+  var s={};
+  try{pfListaVendedores().forEach(function(n){if(n)s[String(n).trim()]=1;});}catch(e){}
+  try{(cadLoad(FUNC_KEY)||[]).forEach(function(f){if(f&&f.nome)s[String(f.nome).trim()]=1;});}catch(e){}
+  try{rmaLoad().forEach(function(r){if(r.vendedor)s[String(r.vendedor).trim()]=1;});}catch(e){}
+  return Object.keys(s).sort(function(a,b){return a.localeCompare(b,'pt-BR');});
+}
+// vendedor sugerido: pedido de venda mais recente desse cliente com alguma dessas peças; senão o do cadastro do cliente
+function rmaSugerirVendedor(nome,itens){
+  var cli=rmaNorm(nome).replace(/[^A-Z0-9]/g,'');if(!cli)return '';
+  var cods={};(itens||[]).forEach(function(it){var c=rmaCodNorm(it.codigo);if(c)cods[c]=1;});
+  var achado=null,qualquer=null;
+  try{(pvLoad()||[]).forEach(function(p){
+    var pc=rmaNorm(p.clienteRazao).replace(/[^A-Z0-9]/g,'');if(!pc||!(pc===cli||pc.indexOf(cli)===0||cli.indexOf(pc)===0))return;
+    var t=new Date(p.data||0).getTime()||0;
+    if(!qualquer||t>qualquer.t)qualquer={p:p,t:t};
+    if((p.itens||[]).some(function(x){return cods[rmaCodNorm(x.codigo)]||cods[rmaCodNorm(x.codigoOriginal)];})&&(!achado||t>achado.t))achado={p:p,t:t};
+  });}catch(e){}
+  var o=achado||qualquer;
+  if(o){try{var n=pvVendedorNome(o.p);if(n)return n;}catch(e){}}
+  try{var c=(cadLoad(CLIE_KEY)||[]).find(function(x){return rmaNorm(x.razao)===rmaNorm(nome);});if(c&&c.vendedorEmail)return pcNomeVendedor(String(c.vendedorEmail).toLowerCase());}catch(e){}
+  return '';
+}
+function rmaFiltradas(semVend){
+  var f=window._rmaF,q=rmaNorm(f.q),qc=rmaCodNorm(f.q),lim=f.dias?Date.now()-(+f.dias)*86400000:0;
+  return rmaLoad().filter(function(r){
+    if(lim&&new Date(r.data||0).getTime()<lim)return false;
+    if(f.status&&r.status!==f.status)return false;
+    if(f.tipo&&r.tipo!==f.tipo)return false;
+    if(!semVend&&f.vend&&rmaNorm(rmaVendedorDe(r)||'(sem vendedor)')!==rmaNorm(f.vend))return false;
+    if(f.motivo&&!(r.itens||[]).some(function(it){return rmaMotivo(r,it)===f.motivo;}))return false;
+    if(q){
+      var txt=rmaNorm([r.numero,r.nome,r.refPedido,r.vendedor].join(' '));
+      var ok=txt.indexOf(q)>=0||(r.itens||[]).some(function(it){return (qc&&rmaCodNorm(it.codigo).indexOf(qc)>=0)||rmaNorm(it.desc).indexOf(q)>=0;});
+      if(!ok)return false;
+    }
+    return true;
+  }).sort(function(a,b){return new Date(b.data||0)-new Date(a.data||0);});
+}
 function ferrRMA(){
   var el=document.getElementById('ferrBody');if(!el)return;
   window._pfNavegouExplicitamente=true;
-  var lista=rmaLoad().slice().sort(function(a,b){return (b.ts||0)-(a.ts||0);});
+  var f=window._rmaF;
+  var sel='border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:8px;padding:7px 9px;font-size:12.5px;background:#fff;color:var(--pf-fx-textoEscuro,#1a2332)';
+  var opt=function(v,t,cur){return '<option value="'+pfEscHtml(v)+'"'+(String(cur)===String(v)?' selected':'')+'>'+pfEscHtml(t)+'</option>';};
+  var vends=rmaListaVendedoresNomes();
   var html='<div style="padding:20px">'
     +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:10px">'
     +'<div><button onclick="ferrRender()" style="background:none;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);color:var(--pf-fx-textoSec,#607080);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;margin-bottom:8px">← Voltar</button>'
     +'<h2 style="margin:0;color:#C0392B">🔄 RMA — Devolução</h2></div>'
     +'<button onclick="rmaNovaAbrir()" style="background:#C0392B;color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer">+ Nova RMA</button>'
     +'</div>'
-    +'<div style="font-size:12px;color:var(--pf-fx-textoSuave,#8a9ab0);margin-bottom:18px">Devolução de cliente (venda) ou de fornecedor (compra) — acompanha o status até concluir, que já avisa o ajuste de estoque.</div>'
-    +'<div id="rmaGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">';
-  if(!lista.length){
-    html+='<div style="grid-column:1/-1;color:var(--pf-text-muted);font-size:13px;padding:30px;text-align:center;background:var(--pf-card-bg);border-radius:10px">Nenhuma RMA registrada ainda.</div>';
-  }else{
-    lista.forEach(function(r){
-      var st=rmaStatusInfo(r.status);
-      var qtdItens=(r.itens||[]).length;
+    +'<div style="font-size:12px;color:var(--pf-fx-textoSuave,#8a9ab0);margin-bottom:12px">Devolução de cliente (venda) ou de fornecedor (compra) — acompanha o status até concluir, que já avisa o ajuste de estoque.</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">'
+      +'<span style="display:inline-flex;border:1.5px solid var(--pf-fx-marca,#1F4E79);border-radius:8px;overflow:hidden">'
+        +['lista','relatorio'].map(function(a){var on=f.aba===a;return '<span onclick="rmaFSet(\'aba\',\''+a+'\')" style="cursor:pointer;padding:6px 12px;font-size:12px;font-weight:700;background:'+(on?'var(--pf-fx-marca,#1F4E79)':'#fff')+';color:'+(on?'#fff':'var(--pf-fx-marca,#1F4E79)')+'">'+(a==='lista'?'📋 Lista':'📊 Relatório')+'</span>';}).join('')
+      +'</span>'
+      +'<input id="rmaFq" value="'+pfEscHtml(f.q)+'" oninput="window._rmaF.q=this.value;rmaRenderRes()" placeholder="🔍 Cliente, código da peça, descrição ou nº RMA…" style="'+sel+';flex:1;min-width:220px">'
+      +'<select onchange="rmaFSet(\'vend\',this.value)" style="'+sel+'">'+opt('','👤 Vendedor: todos',f.vend)+vends.map(function(v){return opt(v,v,f.vend);}).join('')+opt('(sem vendedor)','(sem vendedor)',f.vend)+'</select>'
+      +'<select onchange="rmaFSet(\'dias\',this.value)" style="'+sel+'">'+opt('30','📅 Últimos 30 dias',f.dias)+opt('90','📅 Últimos 90 dias',f.dias)+opt('365','📅 Últimos 12 meses',f.dias)+opt('','📅 Tudo',f.dias)+'</select>'
+      +'<select onchange="rmaFSet(\'status\',this.value)" style="'+sel+'">'+opt('','Status: todos',f.status)+RMA_STATUS.map(function(s){return opt(s.k,s.label,f.status);}).join('')+'</select>'
+      +'<select onchange="rmaFSet(\'tipo\',this.value)" style="'+sel+'">'+opt('','Tipo: todos',f.tipo)+opt('cliente','👤 Cliente',f.tipo)+opt('fornecedor','🏭 Fornecedor',f.tipo)+'</select>'
+    +'</div>'
+    +'<div id="rmaRes"></div></div>';
+  el.innerHTML=html;
+  rmaRenderRes();
+}
+function rmaFSet(k,v){window._rmaF[k]=v;ferrRMA();}
+function rmaFLimpar(){var a=window._rmaF.aba,g=window._rmaF.agrupar;window._rmaF={q:'',vend:'',dias:'365',status:'',tipo:'',motivo:'',aba:a,agrupar:g};ferrRMA();}
+// peças vendidas por código (pedidos de venda) a partir de uma data -- base do "% do vendido"
+function rmaVendidoPorCodigo(desde){
+  var m={};
+  try{(pvLoad()||[]).forEach(function(p){if(desde&&new Date(p.data||0).getTime()<desde)return;(p.itens||[]).forEach(function(x){var c=rmaCodNorm(x.codigo);if(c)m[c]=(m[c]||0)+(+x.qtd||0);});});}catch(e){}
+  return m;
+}
+function rmaKpisHtml(lista){
+  var abertos=0,pecas=0,gar=0,porItem={};
+  lista.forEach(function(r){if(r.status!=='concluido'&&r.status!=='cancelado')abertos++;if(r.garantia||r.garantiaDana)gar++;
+    (r.itens||[]).forEach(function(it){pecas+=(+it.qtd||0);var c=String(it.codigo||'').trim();if(c){porItem[c]=porItem[c]||{n:0};porItem[c].n++;}});});
+  var top=Object.keys(porItem).sort(function(a,b){return porItem[b].n-porItem[a].n;})[0];
+  var k=function(v,t,cor){return '<div style="flex:1;min-width:120px;background:var(--pf-fx-fundoSuave,#F5F8FC);border:1px solid #e3eaf3;border-radius:9px;padding:8px 10px"><b style="display:block;font-size:19px;color:'+(cor||'var(--pf-fx-marca,#1F4E79)')+'">'+v+'</b><span style="font-size:11px;color:#607080">'+t+'</span></div>';};
+  return '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+k(lista.length,'RMAs no período')+k(abertos,'em aberto',abertos?'#C0392B':'')+k(pecas,'peças devolvidas')+k(gar,'garantia DANA')+
+    (top&&porItem[top].n>1?'<div onclick="window._rmaF.q=\''+pfEscHtml(pfEscJs(top))+'\';window._rmaF.aba=\'lista\';ferrRMA()" title="Ver os RMAs desse item" style="cursor:pointer;flex:1;min-width:120px;background:var(--pf-fx-fundoSuave,#F5F8FC);border:1px solid #e3eaf3;border-radius:9px;padding:8px 10px"><b style="display:block;font-size:19px;color:#C0392B;font-family:monospace">'+pfEscHtml(top)+'</b><span style="font-size:11px;color:#607080">item que mais voltou ('+porItem[top].n+'×)</span></div>':'')+'</div>';
+}
+function rmaRenderRes(){
+  var box=document.getElementById('rmaRes');if(!box)return;
+  var f=window._rmaF,lista=rmaFiltradas();
+  var filtrosAtivos=f.q||f.vend||f.status||f.tipo||f.motivo||f.dias!=='365';
+  var html=rmaKpisHtml(lista)+
+    (f.motivo?'<div style="margin-bottom:8px;font-size:12px">Motivo: <b>'+pfEscHtml(f.motivo)+'</b> <span onclick="rmaFSet(\'motivo\',\'\')" style="cursor:pointer;color:#C0392B">✕</span></div>':'')+
+    (filtrosAtivos?'<div style="margin:-4px 0 10px;font-size:11.5px"><span onclick="rmaFLimpar()" style="cursor:pointer;color:var(--pf-fx-marca,#1F4E79);text-decoration:underline">↺ limpar filtros</span></div>':'');
+  if(f.aba==='relatorio')html+=rmaRelatorioHtml(lista);
+  else{
+    html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">';
+    if(!lista.length){
+      html+='<div style="grid-column:1/-1;color:var(--pf-text-muted);font-size:13px;padding:30px;text-align:center;background:var(--pf-card-bg);border-radius:10px">'+(rmaLoad().length?'Nenhuma RMA com esses filtros.':'Nenhuma RMA registrada ainda.')+'</div>';
+    }else lista.forEach(function(r){
+      var st=rmaStatusInfo(r.status),its=r.itens||[],it0=its[0]||{};
       html+='<div onclick="rmaVerDetalhe(\''+r.id+'\')" style="background:var(--pf-card-bg);border:1px solid var(--pf-border);border-radius:10px;padding:14px;cursor:pointer">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
         +'<b style="color:var(--pf-fx-marca,#1F4E79);font-size:13px">'+pfEscHtml(r.numero||'')+'</b>'
         +'<span style="background:'+st.cor+';color:#fff;border-radius:5px;padding:2px 8px;font-size:10px;font-weight:700">'+st.label+'</span></div>'
         +'<div style="font-size:12px;color:var(--pf-text);font-weight:700">'+(r.tipo==='cliente'?'👤 Cliente':'🏭 Fornecedor')+' — '+pfEscHtml(r.nome||'—')+'</div>'
-        // v115.2135 - etiqueta da garantia DANA no card da lista (antes não dava pra saber sem abrir)
+        // v115.2135 - etiqueta da garantia DANA no card da lista
         +((r.garantia||r.garantiaDana)?'<div style="margin-top:5px;font-size:11px;font-weight:700;color:#1F4E79">🛠️ Garantia DANA · '+(r.garantia&&r.garantia.geradoEm?'📄 formulário gerado':r.garantia&&r.garantia.resposta?'📥 cliente respondeu':r.garantia&&r.garantia.linkCodigo?'⏳ aguardando o cliente':'falta mandar o link')+'</div>':'')
-        +'<div style="font-size:12px;color:var(--pf-text-muted);margin-top:3px">'+qtdItens+' ite'+(qtdItens===1?'m':'ns')+(r.refPedido?' · Ref: '+pfEscHtml(r.refPedido):'')+'</div>'
-        +'<div style="font-size:11px;color:var(--pf-text-muted);margin-top:4px">'+new Date(r.data).toLocaleDateString('pt-BR')+'</div>'
+        +'<div style="font-size:12px;color:var(--pf-text);margin-top:4px"><b style="font-family:monospace">'+pfEscHtml(it0.codigo||'')+'</b> '+pfEscHtml(it0.desc||'')+(it0.qtd?' · '+it0.qtd+' pç':'')+(its.length>1?' <span style="color:var(--pf-text-muted)">+'+(its.length-1)+' ite'+(its.length===2?'m':'ns')+'</span>':'')+'</div>'
+        +'<div style="font-size:11px;color:var(--pf-text-muted);margin-top:4px">'+(rmaVendedorDe(r)?'Vendedor: '+pfEscHtml(rmaVendedorDe(r))+' · ':'')+new Date(r.data).toLocaleDateString('pt-BR')+' · '+pfEscHtml(rmaMotivo(r,it0))+(r.refPedido?' · Ref: '+pfEscHtml(r.refPedido):'')+'</div>'
         +'</div>';
     });
+    html+='</div>';
   }
-  html+='</div></div>';
-  el.innerHTML=html;
+  box.innerHTML=html;
+}
+function rmaRelatorioDados(lista,agrupar){
+  var f=window._rmaF,desde=f.dias?Date.now()-(+f.dias)*86400000:0,vend=agrupar==='peca'?rmaVendidoPorCodigo(desde):null;
+  var g={};
+  lista.forEach(function(r){
+    (r.itens||[]).forEach(function(it){
+      var k,rot,sub='';
+      if(agrupar==='peca'){k=rmaCodNorm(it.codigo)||rmaNorm(it.desc);rot=String(it.codigo||'').trim()||'(sem código)';sub=it.desc||'';}
+      else if(agrupar==='cliente'){k=rmaNorm(r.nome);rot=r.nome||'—';}
+      else if(agrupar==='vendedor'){rot=rmaVendedorDe(r)||'(sem vendedor)';k=rmaNorm(rot);}
+      else{rot=rmaMotivo(r,it);k=rot;}
+      if(!k)return;
+      var o=g[k]=g[k]||{k:k,rot:rot,sub:sub,marca:{},rmas:{},pecas:0,clientes:{},itens:{},motivos:{},ultima:0,codFiltro:rot};
+      if(!o.sub&&sub)o.sub=sub;
+      if(it.marca)o.marca[String(it.marca).toUpperCase().trim()]=1;
+      o.rmas[r.id]=1;o.pecas+=(+it.qtd||0);o.clientes[rmaNorm(r.nome)]=1;if(it.codigo)o.itens[rmaCodNorm(it.codigo)]=1;
+      var mo=rmaMotivo(r,it);o.motivos[mo]=(o.motivos[mo]||0)+1;
+      var t=new Date(r.data||0).getTime();if(t>o.ultima)o.ultima=t;
+    });
+  });
+  return Object.keys(g).map(function(k){var o=g[k];
+    var mot=Object.keys(o.motivos).sort(function(a,b){return o.motivos[b]-o.motivos[a];});
+    var vendido=vend?(vend[k]||0):null;
+    return {k:k,rot:o.rot,sub:o.sub,marca:Object.keys(o.marca).join(', '),nRmas:Object.keys(o.rmas).length,pecas:o.pecas,nClientes:Object.keys(o.clientes).length,nItens:Object.keys(o.itens).length,
+      motivo:mot[0]?mot[0]+(o.motivos[mot[0]]>1?' ('+o.motivos[mot[0]]+')':''):'',ultima:o.ultima,vendido:vendido,pct:vendido?o.pecas/vendido*100:null};
+  }).sort(function(a,b){return b.nRmas-a.nRmas||b.pecas-a.pecas;});
+}
+function rmaRelatorioHtml(lista){
+  var f=window._rmaF,ag=f.agrupar,d=rmaRelatorioDados(lista,ag);
+  var nomes={peca:'Peça',cliente:'Cliente',vendedor:'Vendedor',motivo:'Motivo'};
+  var seg='<span style="display:inline-flex;border:1.5px solid var(--pf-fx-marca,#1F4E79);border-radius:8px;overflow:hidden">'+Object.keys(nomes).map(function(a){var on=ag===a;return '<span onclick="rmaFSet(\'agrupar\',\''+a+'\')" style="cursor:pointer;padding:6px 12px;font-size:12px;font-weight:700;background:'+(on?'var(--pf-fx-marca,#1F4E79)':'#fff')+';color:'+(on?'#fff':'var(--pf-fx-marca,#1F4E79)')+'">'+nomes[a]+'</span>';}).join('')+'</span>';
+  var h='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px"><span style="font-size:12.5px;color:#607080">Agrupar por:</span>'+seg+
+    '<button class="pfBtn pfBtnClaro" style="height:32px;font-size:12px;margin-left:auto" onclick="rmaRelatorioExcel()">⬇️ Excel</button></div>';
+  if(!d.length)return h+'<div style="color:var(--pf-text-muted);font-size:13px;padding:30px;text-align:center;background:var(--pf-card-bg);border-radius:10px">Nada pra mostrar com esses filtros.</div>';
+  var th='padding:7px 8px;font-size:11px;text-align:left;color:#fff;background:var(--pf-fx-marca,#1F4E79);white-space:nowrap',td='padding:7px 8px;border-bottom:1px solid var(--pf-border,#eef2f7);font-size:12.5px';
+  var maxPct=Math.max.apply(null,d.map(function(x){return x.pct||0;}).concat([1]));
+  h+='<div style="overflow:auto;border:1px solid var(--pf-border,#e3eaf3);border-radius:8px"><table style="width:100%;border-collapse:collapse"><tr>'+
+    '<th style="'+th+'">'+nomes[ag].toUpperCase()+'</th>'+(ag==='peca'?'<th style="'+th+'">MARCA</th>':'')+'<th style="'+th+';text-align:center">RMAs</th><th style="'+th+';text-align:center">PÇS DEVOLVIDAS</th>'+
+    (ag==='peca'?'<th style="'+th+'" title="Peças devolvidas ÷ peças vendidas (pedidos de venda do mesmo período)">% DO VENDIDO</th><th style="'+th+';text-align:center">CLIENTES</th>':'<th style="'+th+';text-align:center">'+(ag==='cliente'?'PEÇAS DIFERENTES':'CLIENTES')+'</th>')+
+    (ag!=='motivo'?'<th style="'+th+'">MOTIVO MAIS COMUM</th>':'')+'<th style="'+th+'">ÚLTIMA</th></tr>';
+  d.forEach(function(x){
+    var clique=ag==='peca'?"window._rmaF.q='"+pfEscJs(x.rot)+"'":ag==='cliente'?"window._rmaF.q='"+pfEscJs(x.rot)+"'":ag==='vendedor'?"window._rmaF.vend='"+pfEscJs(x.rot)+"'":"window._rmaF.motivo='"+pfEscJs(x.rot)+"'";
+    h+='<tr onclick="'+pfEscHtml(clique)+';window._rmaF.aba=\'lista\';ferrRMA()" title="Ver os RMAs" style="cursor:pointer" onmouseover="this.style.background=\'var(--pf-fx-fundoSuave,#F5F8FC)\'" onmouseout="this.style.background=\'\'">'+
+      '<td style="'+td+'">'+(ag==='peca'?'<b style="font-family:monospace">'+pfEscHtml(x.rot)+'</b> '+pfEscHtml(x.sub||''):'<b>'+pfEscHtml(x.rot)+'</b>')+'</td>'+
+      (ag==='peca'?'<td style="'+td+'">'+pfEscHtml(x.marca||'—')+'</td>':'')+
+      '<td style="'+td+';text-align:center;font-weight:800;color:'+(x.nRmas>1?'#C0392B':'inherit')+'">'+x.nRmas+'</td><td style="'+td+';text-align:center">'+x.pecas+'</td>'+
+      (ag==='peca'?'<td style="'+td+';white-space:nowrap">'+(x.pct!=null?'<span style="display:inline-block;vertical-align:middle;width:70px;height:7px;background:#E3EAF3;border-radius:4px;overflow:hidden;margin-right:6px"><i style="display:block;height:100%;width:'+Math.min(100,x.pct/maxPct*100)+'%;background:#C0392B"></i></span>'+x.pct.toFixed(1).replace('.',',')+'% <span style="color:#8a9ab0;font-size:11px">('+x.pecas+' de '+x.vendido+')</span>':'<span style="color:#8a9ab0;font-size:11px">sem venda no período</span>')+'</td><td style="'+td+';text-align:center">'+x.nClientes+'</td>':
+        '<td style="'+td+';text-align:center">'+(ag==='cliente'?x.nItens:x.nClientes)+'</td>')+
+      (ag!=='motivo'?'<td style="'+td+'">'+pfEscHtml(x.motivo)+'</td>':'')+
+      '<td style="'+td+';white-space:nowrap">'+(x.ultima?new Date(x.ultima).toLocaleDateString('pt-BR'):'')+'</td></tr>';
+  });
+  return h+'</table></div><div style="font-size:11px;color:#8a9ab0;margin-top:6px">Clique numa linha pra ver os RMAs dela na lista.'+(ag==='peca'?' "% do vendido" compara com os pedidos de venda do PartsFlow no mesmo período.':'')+'</div>';
+}
+function rmaRelatorioExcel(){
+  var f=window._rmaF,d=rmaRelatorioDados(rmaFiltradas(),f.agrupar),nomes={peca:'Peça',cliente:'Cliente',vendedor:'Vendedor',motivo:'Motivo'};
+  var linhas=d.map(function(x){var o={};o[nomes[f.agrupar]]=x.rot;if(f.agrupar==='peca'){o['Descrição']=x.sub||'';o['Marca']=x.marca;}
+    o['RMAs']=x.nRmas;o['Peças devolvidas']=x.pecas;if(f.agrupar==='peca'){o['Peças vendidas']=x.vendido||0;o['% do vendido']=x.pct!=null?Math.round(x.pct*10)/10:'';}
+    o['Clientes']=x.nClientes;if(f.agrupar!=='motivo')o['Motivo mais comum']=x.motivo;o['Última']=x.ultima?new Date(x.ultima).toLocaleDateString('pt-BR'):'';return o;});
+  if(!linhas.length){pfAlert('Nada pra exportar com esses filtros.');return;}
+  if(typeof XLSX==='undefined'){pfAlert('A biblioteca de Excel ainda não carregou — tente de novo em alguns segundos.');return;}
+  var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(linhas),'RMA por '+nomes[f.agrupar]);
+  XLSX.writeFile(wb,'RMA_por_'+f.agrupar+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+// RMAs de um código (botão direito na cotação)
+function rmaDoCodigo(cod){
+  var c=rmaCodNorm(cod);if(!c)return [];
+  return rmaLoad().filter(function(r){return (r.itens||[]).some(function(it){return rmaCodNorm(it.codigo)===c;});}).sort(function(a,b){return new Date(b.data||0)-new Date(a.data||0);});
 }
 
 var _rmaItensForm=[];
@@ -45229,9 +45387,13 @@ function rmaFormHtml(){
     +'<input type="checkbox" id="rmaGarDanaIn" style="width:18px;height:18px;flex-shrink:0">'
     +'<span style="font-size:12.5px"><b>🛠️ É garantia DANA</b><br><span style="color:#607080">Ao salvar, já abre o envio do link pro cliente preencher e mandar as fotos. Depois o sistema monta o formulário da Dana.</span></span></label>';
   html+='<label style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSec,#607080);text-transform:uppercase">Nome do cliente/fornecedor</label>';
-  html+='<input type="text" id="rmaNomeIn" placeholder="Nome" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:8px;font-size:13px;margin:6px 0 14px">';
+  html+='<input type="text" id="rmaNomeIn" placeholder="Nome" onchange="rmaVendSugerirForm()" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:8px;font-size:13px;margin:6px 0 14px">';
   html+='<label style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSec,#607080);text-transform:uppercase">Referência (Nº pedido / NF, opcional)</label>';
   html+='<input type="text" id="rmaRefIn" placeholder="Ex: NF 12345" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:8px;font-size:13px;margin:6px 0 14px">';
+  // v115.2152 - vendedor (pra consultar/relatório por vendedor); sugerido pelo pedido de venda do cliente + peça
+  html+='<label style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSec,#607080);text-transform:uppercase">Vendedor <span style="text-transform:none;font-weight:500">(sugerido pelo pedido de venda — confira)</span></label>';
+  html+='<input type="text" id="rmaVendIn" list="rmaVendLista" placeholder="Quem vendeu" oninput="this.dataset.manual=\'1\'" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:8px;font-size:13px;margin:6px 0 14px">';
+  html+='<datalist id="rmaVendLista">'+rmaListaVendedoresNomes().map(function(v){return '<option value="'+pfEscHtml(v)+'">';}).join('')+'</datalist>';
   html+='<label style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSec,#607080);text-transform:uppercase">Itens</label>';
   html+='<div id="rmaItensArea" style="margin:8px 0"></div>';
   html+='<button onclick="rmaAdicionarLinhaItem()" style="display:block;background:var(--pf-fx-fundoSuave,#F0F4F8);color:var(--pf-fx-marca,#1F4E79);border:none;border-radius:6px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:14px">+ Adicionar item</button>';
@@ -45256,7 +45418,7 @@ function rmaRenderItensArea(){
   var area=document.getElementById('rmaItensArea');if(!area)return;
   area.innerHTML=_rmaItensForm.map(function(it,i){
     return '<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">'
-      +'<input placeholder="Código" value="'+pfEscHtml(it.codigo)+'" oninput="_rmaItensForm['+i+'].codigo=this.value" style="width:100px;padding:7px 8px;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:6px;font-size:12px">'
+      +'<input placeholder="Código" value="'+pfEscHtml(it.codigo)+'" oninput="_rmaItensForm['+i+'].codigo=this.value" onchange="rmaVendSugerirForm()" style="width:100px;padding:7px 8px;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:6px;font-size:12px">'
       +'<input placeholder="Marca" value="'+pfEscHtml(it.marca)+'" oninput="_rmaItensForm['+i+'].marca=this.value" style="width:80px;padding:7px 8px;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:6px;font-size:12px">'
       +'<input placeholder="Descrição" value="'+pfEscHtml(it.desc)+'" oninput="_rmaItensForm['+i+'].desc=this.value" style="flex:1;min-width:100px;padding:7px 8px;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:6px;font-size:12px">'
       +'<input type="number" placeholder="Qtd" value="'+it.qtd+'" oninput="_rmaItensForm['+i+'].qtd=Math.round(parseFloat(this.value)||0)" style="width:60px;padding:7px 8px;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:6px;font-size:12px">'
@@ -45264,6 +45426,11 @@ function rmaRenderItensArea(){
       +(_rmaItensForm.length>1?'<span onclick="rmaRemoverLinhaItem('+i+')" style="cursor:pointer;padding:0 4px;display:inline-block;vertical-align:middle">'+pfXGlossyHtml(22)+'</span>':'<span style="width:24px;display:inline-block"></span>')
       +'</div>';
   }).join('');
+}
+function rmaVendSugerirForm(){
+  var v=document.getElementById('rmaVendIn'),n=document.getElementById('rmaNomeIn');if(!v||!n||v.dataset.manual)return;
+  if(document.getElementById('rmaTipoIn').value!=='cliente')return;
+  var s=rmaSugerirVendedor(n.value,_rmaItensForm);if(s)v.value=s;
 }
 function rmaAdicionarLinhaItem(){_rmaItensForm.push({codigo:'',marca:'',desc:'',qtd:1,motivo:''});rmaRenderItensArea();}
 function rmaRemoverLinhaItem(i){_rmaItensForm.splice(i,1);rmaRenderItensArea();}
@@ -45274,6 +45441,8 @@ function rmaSalvarNova(){
   var refPedido=(document.getElementById('rmaRefIn').value||'').trim();
   var obs=(document.getElementById('rmaObsIn').value||'').trim();
   var itens=_rmaItensForm.filter(function(it){return it.codigo||it.desc;});
+  var vendedor=((document.getElementById('rmaVendIn')||{}).value||'').trim(); // v115.2152
+  if(!vendedor&&tipo==='cliente')vendedor=rmaSugerirVendedor(nome,itens);
   if(!nome){pfAlert('Preenche o nome do cliente/fornecedor.');return;}
   if(!itens.length){pfAlert('Adiciona pelo menos 1 item (código ou descrição).');return;}
   var lista=rmaLoad();
@@ -45287,6 +45456,7 @@ function rmaSalvarNova(){
     tipo:tipo,
     nome:nome,
     refPedido:refPedido,
+    vendedor:vendedor||'',
     observacao:obs,
     itens:itens,
     status:'aberto',
@@ -45704,7 +45874,11 @@ function rmaVerDetalhe(id){
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
     +'<b style="font-size:16px;color:var(--pf-fx-marca,#1F4E79)">'+pfEscHtml(r.numero)+'</b>'
     +'<span onclick="document.getElementById(\'rmaDetalheOverlay\').remove()" title="Fechar" style="cursor:pointer;line-height:1">'+pfXGlossyHtml(20)+'</span></div>'
-    +'<div style="font-size:12px;color:var(--pf-fx-textoSuave,#8a9ab0);margin-bottom:14px">'+(r.tipo==='cliente'?'👤 Cliente':'🏭 Fornecedor')+' — '+pfEscHtml(r.nome)+(r.refPedido?' · Ref: '+pfEscHtml(r.refPedido):'')+'</div>'
+    +'<div style="font-size:12px;color:var(--pf-fx-textoSuave,#8a9ab0);margin-bottom:8px">'+(r.tipo==='cliente'?'👤 Cliente':'🏭 Fornecedor')+' — '+pfEscHtml(r.nome)+(r.refPedido?' · Ref: '+pfEscHtml(r.refPedido):'')+' · '+new Date(r.data).toLocaleDateString('pt-BR')+'</div>'
+    // v115.2152 - vendedor editável (RMAs antigos não tinham)
+    +(r.tipo==='cliente'?'<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:12px"><span style="color:var(--pf-fx-textoSec,#607080);font-weight:700">👤 Vendedor:</span><input list="rmaVendListaDet" value="'+pfEscHtml(r.vendedor||'')+'" placeholder="'+pfEscHtml(r.vendedor?'':(rmaSugerirVendedor(r.nome,r.itens)||'quem vendeu'))+'" onchange="rmaVendedorSalvar(\''+r.id+'\',this.value)" style="flex:1;max-width:240px;padding:5px 8px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:6px;font-size:12px">'+
+      (!r.vendedor&&rmaSugerirVendedor(r.nome,r.itens)?'<button onclick="rmaVendedorSalvar(\''+r.id+'\',\''+pfEscHtml(pfEscJs(rmaSugerirVendedor(r.nome,r.itens)))+'\');rmaVerDetalhe(\''+r.id+'\')" style="border:1px solid #cfd8e3;background:#fff;border-radius:6px;padding:4px 9px;font-size:11px;cursor:pointer">usar '+pfEscHtml(rmaSugerirVendedor(r.nome,r.itens))+'</button>':'')+
+      '<datalist id="rmaVendListaDet">'+rmaListaVendedoresNomes().map(function(v){return '<option value="'+pfEscHtml(v)+'">';}).join('')+'</datalist></div>':'<div style="margin-bottom:6px"></div>')
     +'<div style="margin-bottom:14px">'+itensHtml+'</div>'
     +(r.observacao?'<div style="font-size:12px;color:var(--pf-fx-textoSec,#607080);background:#FFF3CD;border-radius:8px;padding:8px 10px;margin-bottom:14px">'+pfEscHtml(r.observacao)+'</div>':'')
     +pfGarBlocoHtml(r) // v115.2132 - garantia DANA
@@ -45716,6 +45890,7 @@ function rmaVerDetalhe(id){
   pfOverlayFecharAoClicarFora(overlay,function(){overlay.remove();});
 }
 
+function rmaVendedorSalvar(id,v){var l=rmaLoad(),r=l.find(function(x){return x.id===id;});if(!r)return;r.vendedor=String(v||'').trim();r.ts=Date.now();rmaSave(l);if(document.getElementById('rmaRes'))rmaRenderRes();}
 function rmaMudarStatus(id,novoStatus){
   var lista=rmaLoad();
   var r=lista.find(function(x){return x.id===id;});
@@ -51304,6 +51479,44 @@ function vendasAdicionarPorAplicacao(codigo){
 // preço (pfBuscarHistoricoPreco/item_historico_precos), só que mostrando a
 // lista inteira em vez de só o último valor: data, preço, nº da cotação e
 // cliente, separado em "deste cliente" e "outros clientes".
+// v115.2152 - A pedido do Vitor ("na cotação, com o botão direito do mouse, consultar RMAs do item e me dar um relatório
+// se teve ou tem RMAs"): números do item (12 meses / em aberto / peças devolvidas / % do vendido), aviso se o CLIENTE da
+// cotação já devolveu essa peça, e a lista dos RMAs (clique abre o RMA).
+function vendasRmasItem(i){
+  var it=(window._venda&&window._venda.itens||[])[i];if(!it)return;
+  var old=document.getElementById('vendasRmaPop');if(old)old.remove();
+  var lista=rmaDoCodigo(it.codigo),c=rmaCodNorm(it.codigo),ano=Date.now()-365*86400000;
+  var doIt=function(r){return (r.itens||[]).filter(function(x){return rmaCodNorm(x.codigo)===c;});};
+  var n12=0,abertos=0,pecas12=0;
+  lista.forEach(function(r){var t=new Date(r.data||0).getTime();if(r.status!=='concluido'&&r.status!=='cancelado')abertos++;
+    if(t>=ano){n12++;doIt(r).forEach(function(x){pecas12+=(+x.qtd||0);});}});
+  var vend12=(rmaVendidoPorCodigo(ano)[c]||0);
+  var cli=(window._venda&&window._venda.cliente&&window._venda.cliente.razao)||'',cliN=rmaNorm(cli);
+  var doCli=cli?lista.filter(function(r){return rmaNorm(r.nome)===cliN;}):[];
+  var k=function(v,t,cor){return '<div style="flex:1;background:#F5F8FC;border:1px solid #e3eaf3;border-radius:9px;padding:7px 9px"><b style="display:block;font-size:18px;color:'+(cor||'#1F4E79')+'">'+v+'</b><span style="font-size:11px;color:#607080">'+t+'</span></div>';};
+  var corpo;
+  if(!lista.length)corpo='<div style="padding:26px 16px;text-align:center;font-size:14px;color:#1E8449;font-weight:700">✅ Esse item nunca teve RMA.</div>';
+  else{
+    var motCli={};doCli.forEach(function(r){doIt(r).forEach(function(x){var m=rmaMotivo(r,x);motCli[m]=(motCli[m]||0)+1;});});
+    corpo='<div style="display:flex;gap:8px;padding:12px 14px 4px">'+k(n12,'RMAs (12 meses)')+k(abertos,'em aberto',abertos?'#C0392B':'')+k(pecas12,'peças devolvidas (12m)')+
+      k(vend12?(pecas12/vend12*100).toFixed(1).replace('.',',')+'%':'—',vend12?'do vendido ('+pecas12+' de '+vend12+')':'sem venda em 12m')+'</div>'+
+      (doCli.length?'<div style="margin:8px 14px;background:#FFF3CD;color:#8a5a00;border-radius:8px;padding:8px 10px;font-size:12px">⚠️ <b>Este cliente ('+pfEscHtml(cli)+') já devolveu esse item '+(doCli.length>1?doCli.length+' vezes':'1 vez')+'</b> — motivo: '+pfEscHtml(Object.keys(motCli).join(', '))+'. Vale conferir a aplicação antes de vender.</div>':'')+
+      '<div style="max-height:46vh;overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><tr style="color:#8a9ab0;font-size:10.5px;text-align:left"><th style="padding:6px 14px">RMA</th><th style="padding:6px 8px">CLIENTE / FORNECEDOR</th><th style="padding:6px 8px">VENDEDOR</th><th style="padding:6px 8px">DATA</th><th style="padding:6px 8px">QTD</th><th style="padding:6px 8px">MOTIVO</th><th style="padding:6px 14px 6px 8px">STATUS</th></tr>'+
+      lista.map(function(r){var st=rmaStatusInfo(r.status),xs=doIt(r),q=xs.reduce(function(a,x){return a+(+x.qtd||0);},0);
+        return '<tr onclick="var p=document.getElementById(\'vendasRmaPop\');if(p)p.remove();rmaVerDetalhe(\''+r.id+'\')" style="cursor:pointer;border-top:1px solid #eef2f7'+(cli&&rmaNorm(r.nome)===cliN?';background:#FFFBEB':'')+'" onmouseover="this.style.background=\'#F5F8FC\'" onmouseout="this.style.background=\''+(cli&&rmaNorm(r.nome)===cliN?'#FFFBEB':'')+'\'">'+
+          '<td style="padding:6px 14px;font-weight:800;white-space:nowrap">'+pfEscHtml(r.numero||'')+'</td><td style="padding:6px 8px">'+(r.tipo==='cliente'?'':'🏭 ')+pfEscHtml(r.nome||'')+'</td><td style="padding:6px 8px">'+pfEscHtml(r.vendedor||'—')+'</td>'+
+          '<td style="padding:6px 8px;white-space:nowrap">'+new Date(r.data).toLocaleDateString('pt-BR')+'</td><td style="padding:6px 8px;text-align:center">'+q+'</td><td style="padding:6px 8px">'+pfEscHtml(xs.map(function(x){return rmaMotivo(r,x);}).filter(function(m,ix,a){return a.indexOf(m)===ix;}).join(', '))+((r.garantia||r.garantiaDana)&&xs.every(function(x){return rmaMotivo(r,x)!=='garantia DANA';})?' · 🛠️ DANA':'')+'</td>'+
+          '<td style="padding:6px 14px 6px 8px"><span style="background:'+st.cor+';color:#fff;border-radius:5px;padding:1px 7px;font-size:10px;font-weight:700;white-space:nowrap">'+st.label+'</span></td></tr>';}).join('')+
+      '</table></div><div style="padding:8px 14px 12px;font-size:11.5px;color:#607080">Clique numa RMA pra abrir.</div>';
+  }
+  var ov=document.createElement('div');ov.id='vendasRmaPop';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div onclick="event.stopPropagation()" style="background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.25);width:760px;max-width:100%;overflow:hidden">'+
+    '<div style="background:var(--pf-painel-bg,#1c2940);color:#fff;padding:11px 14px;font-weight:800;display:flex;align-items:center;gap:8px"><span style="flex:1">🔄 RMAs do item '+pfEscHtml(it.codigo||'')+(it.desc?' — '+pfEscHtml(it.desc):'')+(it.marca?' ('+pfEscHtml(it.marca)+')':'')+'</span><span onclick="document.getElementById(\'vendasRmaPop\').remove()" style="cursor:pointer;font-size:18px">✕</span></div>'+
+    corpo+'</div>';
+  pfOverlayFecharAoClicarFora(ov,function(){ov.remove();});
+  document.body.appendChild(ov);
+}
 function vendasAbrirMenuLinha(e,i){
   e.preventDefault();
   var old=document.getElementById('vendasMenuLinha');
@@ -51319,6 +51532,7 @@ function vendasAbrirMenuLinha(e,i){
   var _topoM='<div style="padding:7px 14px;font-size:11.5px;font-weight:700;color:#8a9ab0;background:#F7F9FC">'+pfEscHtml(_itM.codigo||'')+' · '+pfEscHtml(_itM.marca||'')+'</div>'+
     _opM('vendasVerCadastroItem(\''+pfEscHtml(pfEscJs(_itM.codigo||''))+'\',\''+pfEscHtml(pfEscJs(_itM.desc||''))+'\')','📋 Ficha do item')+
     _opM('vendasAbrirRelacionados('+i+')','🔗 Relacionados'+(_nRelM?' <b style="color:#E67E22">('+_nRelM+')</b>':''))+
+    (function(){var n=0;try{n=rmaDoCodigo(_itM.codigo).length;}catch(eR){}return _opM('vendasRmasItem('+i+')','🔄 RMAs deste item'+(n?' <b style="color:#C0392B">('+n+')</b>':' <span style="color:#8a9ab0;font-size:11px">(nenhum)</span>'));})()+ // v115.2152
     (_negM?_opM('vendasEnviarMapa('+i+')','📍 Enviar ao Mapa de Compras','#C00000'):'')+
     _opM('vendasEnviarAviseMe('+i+')','🔔 Enviar para o Avise-me','#B7791F')+ // v115.2108
     _opM('vendasCopiarNcm('+i+')','🧾 Copiar NCM'); // v115.2113

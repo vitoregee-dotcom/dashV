@@ -1911,7 +1911,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2163</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2164</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2065,7 +2065,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2163</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2164</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -57096,7 +57096,7 @@ function pfOrbMotivos(lista,K,agora){
   if(K.mostrar.valor)lista.filter(function(x){return x.top;}).forEach(function(x){add(x,'valor',x.posValor,K.topValor,x.posValor+'º · '+pcFmtR(x.valor12m));});
   if(K.mostrar.freq)lista.filter(function(x){return x.nPed12>=2;}).sort(function(a,b){return b.nPed12-a.nPed12||b.valor12m-a.valor12m;}).slice(0,K.topFreq).forEach(function(x,i){x.posFreq=i+1;add(x,'freq',i+1,K.topFreq,(i+1)+'º · '+x.nPed12+' compras');});
   if(K.mostrar.ticket)lista.filter(function(x){return x.nPed12>=K.minPedTicket;}).sort(function(a,b){return b.ticket-a.ticket;}).slice(0,K.topTicket).forEach(function(x,i){add(x,'ticket',i+1,K.topTicket,(i+1)+'º · '+pcFmtR(x.ticket)+'/pedido');});
-  if(K.mostrar.pot)lista.filter(function(x){return x.pot;}).forEach(function(x){add(x,'pot',x.posPot,K.topPot,'cota e não fecha / novo');});
+  if(K.mostrar.pot)lista.filter(function(x){return x.pot;}).forEach(function(x){add(x,'pot',x.posPot,K.topPot,x.cresce?'📈 crescendo: '+pcFmtR(x.cresce.v90)+' em 90 dias'+(x.cresce.x?' ('+(Math.round(x.cresce.x*10)/10).toString().replace('.',',')+'× a média)':' (antes quase não comprava)'):'cota e não fecha / novo');});
   var tks=lista.filter(function(x){return x.nPed12>0;}).map(function(x){return x.ticket;}).sort(function(a,b){return a-b;});
   var corte=tks.length?tks[Math.max(0,Math.floor(tks.length*K.formPct/100)-1)]:0;
   lista.forEach(function(x){
@@ -57207,8 +57207,13 @@ function pfOrbDados(){
     var ultCot=c.cots.reduce(function(m,q){var t=new Date(q.data).getTime();return t>m?t:m;},0);
     var dias=c.ultima?Math.floor((agora-c.ultima)/86400000):null;
     var novo=c.primeira&&c.primeira>=agora-60*86400000;
-    var pot=(cots90.length>=3&&fech90/cots90.length<0.3)||novo||(dias==null&&ultCot>=a90);
-    return {c:c,k:c.k,nome:c.nome,dias:dias,valor12m:c.valorP,compraACada:pcIntervaloDias(c.peds.map(function(p){return p.data;})),vend:pcVendedorTxt(c),grupo:pfGrupoDe(c.cad),tipoCli:pfTipoCli(c.cad),rev:pfRevInfo(c.cad),potBruto:!!pot,hist:pfOrbHistorico(c,agora),potScore:(cots90.length-fech90)*3+(novo?5:0)+(dias==null?cots90.length*2:0),ultCot:ultCot,nCot:c.cotsP.length,valorAno:c.valorTotal/Math.max(1,(Date.now()-(c.primeira||Date.now()))/(365*86400000))};
+    // v115.2164 - A pedido do Vitor ("se um cliente está comprando bastante, acho que já deve ser classificado como
+    // potencial"; escolheu "crescendo agora"): nos últimos 90 dias comprou 1,5× ou mais a média trimestral dos 9 meses
+    // anteriores (mín. R$ 2 mil no trimestre) = está aquecendo -> também é 🔵 potencial.
+    var v90=(c.pedsP||[]).filter(function(p){return new Date(p.data).getTime()>=a90;}).reduce(function(s,p){return s+pcTotalPedido(p);},0);
+    var mediaTri=Math.max(0,(c.valorP||0)-v90)/3,cresce=!novo&&v90>=2000&&v90>=1.5*mediaTri;
+    var pot=(cots90.length>=3&&fech90/cots90.length<0.3)||novo||(dias==null&&ultCot>=a90)||cresce;
+    return {c:c,k:c.k,nome:c.nome,dias:dias,valor12m:c.valorP,compraACada:pcIntervaloDias(c.peds.map(function(p){return p.data;})),vend:pcVendedorTxt(c),grupo:pfGrupoDe(c.cad),tipoCli:pfTipoCli(c.cad),rev:pfRevInfo(c.cad),potBruto:!!pot,cresce:cresce?{v90:v90,x:mediaTri>0?v90/mediaTri:null}:null,hist:pfOrbHistorico(c,agora),potScore:(cots90.length-fech90)*3+(novo?5:0)+(dias==null?cots90.length*2:0),ultCot:ultCot,nCot:c.cotsP.length,valorAno:c.valorTotal/Math.max(1,(Date.now()-(c.primeira||Date.now()))/(365*86400000))};
   }).filter(function(x){
     // fora da órbita: quem não compra há mais de 1 ano e nem cotou nos últimos 6 meses
     if(x.dias!=null&&x.dias<=365)return true;
@@ -57223,7 +57228,8 @@ function pfOrbDados(){
   //   anual do histórico entre os com +60 dias sem comprar; anel azul = potencial: no máximo os 15 mais fortes.
   lista.forEach(function(x){x.sit=pfOrbSituacao(x.dias);x.alerta=false;x.pot=false;});
   lista.filter(function(x){return x.dias!=null&&x.dias>60&&x.valorAno>0;}).sort(function(a,b){return b.valorAno-a.valorAno;}).slice(0,10).forEach(function(x){x.alerta=true;});
-  lista.filter(function(x){return x.potBruto;}).sort(function(a,b){return b.potScore-a.potScore;}).slice(0,CFG.topPot).forEach(function(x,i){x.pot=true;x.posPot=i+1;});
+  lista.filter(function(x){return x.potBruto&&!x.cresce;}).sort(function(a,b){return b.potScore-a.potScore;}).slice(0,CFG.topPot).forEach(function(x,i){x.pot=true;x.posPot=i+1;});
+  lista.filter(function(x){return x.cresce;}).sort(function(a,b){return (b.cresce.x||99)-(a.cresce.x||99)||b.cresce.v90-a.cresce.v90;}).slice(0,CFG.topPot).forEach(function(x,i){x.pot=true;x.posPot=i+1;}); // v115.2164 - crescendo agora
   pfOrbMotivos(lista,CFG,agora); // v115.2149 - anéis por motivo + ❤️ / 💎 / 🐜
   // rastro só quando é notícia: VOLTOU (comprou no período depois de estar com +60 dias) ou PIOROU de faixa sendo
   // cliente relevante (compra/comprava bem ou valor anual acima da mediana)
@@ -57310,7 +57316,7 @@ function pfOrbLegendaHtml(){
        if(K.mostrar.valor)r.push(['◯ dourado','<b>valor alto</b> — os '+K.topValor+' que mais compraram em R$ (12 meses)',PF_ORB_MOT.valor.cor]);
        if(K.mostrar.freq)r.push(['◯ verde','<b>frequência</b> — os '+K.topFreq+' com mais compras (12 meses)',PF_ORB_MOT.freq.cor]);
        if(K.mostrar.ticket)r.push(['◯ roxo','<b>ticket médio</b> — os '+K.topTicket+' com maior R$ por pedido (mín. '+K.minPedTicket+' pedidos)',PF_ORB_MOT.ticket.corTxt]);
-       if(K.mostrar.pot)r.push(['◯ azul','<b>potencial</b> — cota muito e compra pouco, cliente novo ou só cota (até '+K.topPot+')',PF_ORB_MOT.pot.cor]);
+       if(K.mostrar.pot)r.push(['◯ azul','<b>potencial</b> — 📈 comprando acima do normal nos últimos 90 dias, ou cota muito e compra pouco, cliente novo ou só cota',PF_ORB_MOT.pot.cor]);
        r.push(['◐ 2 cores','tem <b>2 motivos</b> (os 2 mais fortes)']);
        r.push(['○ cinza fino','<b>🐜 formiguinha</b> — cota muito ('+K.formCot+'+ em 90 dias) e compra pouco (até '+pcFmtR(K.formTri)+' no trimestre ou ticket nos '+K.formPct+'% menores), sem motivo acima','#8a9ab0']);
        r.push(['◉ halo vermelho','<b>compravam bem e pararam</b> (+60 dias) — <b>vale ligar</b>',C.r]);

@@ -148,6 +148,8 @@
   v115.2156 (3D): enquanto ninguém gira, a câmera olha mais de cima quanto mais alto o quadro (`pfOrb3DPhAuto`, `cam.mexeu`;
   ↺ volta pro automático) — na tela ampliada o disco usa a altura. Dá pra testar o 3D aqui: servir `three@0.128.0` do npm no
   lugar do cdnjs e lançar o Chromium com `--use-angle=swiftshader --enable-unsafe-swiftshader`.
+- v115.2164: 🔵 potencial também = "📈 crescendo agora" (`x.cresce`: últimos 90 dias ≥ 1,5× a média trimestral dos 9 meses
+  anteriores e ≥ R$ 2 mil; não vale pra cliente novo); entra numa lista própria de até `topPot`, texto do motivo mostra R$ e ×.
 - v115.2148: balão do cliente dá pra alcançar com o mouse (`pfOrbTipEsconder` some só ~0,35 s depois; `pfOrbTipDentro` segura;
   clique = ficha `pfOrbTipClique`; `pfOrbTipPosicionar` mantém dentro do quadro). No 3D, mouse no balão = ele para de seguir o planeta.
 

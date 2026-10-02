@@ -240,6 +240,16 @@
   iconePorEtapa): log compartilhado `pfRmaEventos` (`pfRmaEventoAdd`, entra no merge de logs do sync), hoje gerado quando o
   cliente responde a garantia pelo link; painel lista e abre `rmaVerDetalhe`. Outros eventos de RMA: usar `pfRmaEventoAdd`.
 
+## RMA — consulta, relatório e RMAs do item (v115.2152)
+- `ferrRMA` = busca (cliente/código/descrição/nº) + filtros vendedor/período/status/tipo/motivo em `window._rmaF`
+  (`rmaFiltradas`, resultado em `#rmaRes` via `rmaRenderRes`, sem perder o foco da busca) + números (`rmaKpisHtml`).
+  Aba 📊 Relatório (`rmaRelatorioDados`/`rmaRelatorioHtml`): agrupa por peça/cliente/vendedor/motivo; "% do vendido" =
+  peças devolvidas ÷ peças dos pedidos de venda do período (`rmaVendidoPorCodigo`); ⬇️ Excel (`rmaRelatorioExcel`, SheetJS).
+- RMA ganhou `vendedor` (Nova RMA com sugestão `rmaSugerirVendedor`: PV do cliente com a peça > PV do cliente > vendedor do
+  cadastro; editável no detalhe, `rmaVendedorSalvar`). Motivo vazio = "garantia DANA"/"(sem motivo)" (`rmaMotivo`).
+- Cotação: botão direito → "🔄 RMAs deste item (N)" → `vendasRmasItem(i)` (números 12m, aviso se o cliente da cotação já
+  devolveu, lista clicável). `rmaDoCodigo(cod)` compara código normalizado. Prévias em `docs/referencias/rma-consulta/`.
+
 ## Ofertas complementares na cotação (v115.2130)
 - Faixa "💡 Ofereça também" (`#vendasOfertaBox`, `pfOfertaRender`, chamada no render da cotação e no `vendasRefresh`).
   Regras compartilhadas `pfVendasOfertas` (`PF_OFERTAS_PADRAO`: eixo→óleo 85W140/80W90, motor de REFORMA→aditivo/silicone/

@@ -150,6 +150,11 @@
   lugar do cdnjs e lançar o Chromium com `--use-angle=swiftshader --enable-unsafe-swiftshader`.
 - v115.2164: 🔵 potencial também = "📈 crescendo agora" (`x.cresce`: últimos 90 dias ≥ 1,5× a média trimestral dos 9 meses
   anteriores e ≥ R$ 2 mil; não vale pra cliente novo); entra numa lista própria de até `topPot`, texto do motivo mostra R$ e ×.
+- v115.2165 **📊 Resumo da carteira** (`pfOrbResumoCalc(lista)`, respeita os filtros de cima): faixa de 1 linha embaixo do
+  cabeçalho (`pfOrbResumoFaixaHtml`; clique filtra via `pfOrbResumoClique` → `_pfOrbTipo`/`_pfOrbRev`/`_pfOrbDest`) + botão
+  "📊 Resumo" (`window._pfOrbResumo`) abre `pfOrbResumoPainelHtml` (Carteira/Perfis/Dinheiro/Comportamento + Por vendedor).
+  Vendedor (`pfOrbResumoVendNome`: filtro de vendedor, ou o próprio quando não é gestor). 🖨️ `pfOrbResumoImprimir` / 📄
+  `pfOrbResumoPdf` (html2pdf) usam `pfOrbResumoDocHtml` (quadros + por vendedor + maiores, pararam, potencial).
 - v115.2148: balão do cliente dá pra alcançar com o mouse (`pfOrbTipEsconder` some só ~0,35 s depois; `pfOrbTipDentro` segura;
   clique = ficha `pfOrbTipClique`; `pfOrbTipPosicionar` mantém dentro do quadro). No 3D, mouse no balão = ele para de seguir o planeta.
 

@@ -126,6 +126,7 @@
   compartilhada `pfOrbMarcas` {por:{k:{pref,naoNeg,form}}}). Tamanho do planeta = `pfOrbTamValor` (12 meses, diferença mais forte).
 - v115.2154: com muitos clientes na mesma faixa, eles se dividem em "pistas" de raio (`pfOrbPistas`/`pfOrbPistaDesl`, a de 30
   dias empurrada pra fora) e no 3D a órbita fica mais grossa (y3); o quadro cresce com a quantidade (`window._pfOrbN`, até +220 px).
+  v115.2155: com 12+ na faixa, espalha pela largura toda da faixa em ordem embaralhada fixa (`pfOrbRaioGrupo`, `PF_ORB_FAIXAS`).
 - v115.2148: balão do cliente dá pra alcançar com o mouse (`pfOrbTipEsconder` some só ~0,35 s depois; `pfOrbTipDentro` segura;
   clique = ficha `pfOrbTipClique`; `pfOrbTipPosicionar` mantém dentro do quadro). No 3D, mouse no balão = ele para de seguir o planeta.
 

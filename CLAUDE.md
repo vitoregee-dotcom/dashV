@@ -228,6 +228,11 @@
   preenche o modelo oficial `data/modelos/garantia-dana.xlsx` com ExcelJS 4.4.0 (jsdelivr/cdnjs, `pfGarExcelJS`) — mantém
   logo/formatação — e encaixa as fotos nos quadros da aba FOTOS (`PF_GAR_DANA_BLOCOS`). Dados fixos da Triex em `PF_GAR_TRIEX`
   (CNPJ 00.609.213/0001-15, São Paulo/SP, (11) 2632-5622). Só Dana (cada fábrica tem formulário próprio).
+- v115.2151: no link, cada foto tem "📷 Tirar foto" (capture) e "📁 Escolher arquivo" (galeria/arquivos, aceita PDF). A foto da
+  NF SAIU do link (`PF_GAR_DANA_FOTOS` nf com `triex:true`): a Triex anexa a nota no RMA — `pfGarNfBoxHtml` (janela do link
+  e bloco do RMA) com "📋 Colar print" (`pfGarNfColar`, clipboard; Ctrl+V com a caixa na tela também cola) e "📎 Enviar
+  arquivo" → `pfGarNfSalvar` sobe em `cadastro-clientes/interno/rma-<id>/` e grava `r.garantiaNf`; o Excel usa ela no quadro
+  da NF. PDF não entra como imagem na planilha (avisa).
 - v115.2146: `formulario_links` ganhou política SELECT pra `authenticated` (`pf_eh_da_empresa()`) — antes o logado não lia o
   link e a resposta de garantia virava "📋 Novo cadastro recebido" e era marcada processada sem ir pro RMA. Agora sem achar o
   link/RMA a submissão NÃO é marcada (tenta de novo); pendência com mesmo id não duplica.

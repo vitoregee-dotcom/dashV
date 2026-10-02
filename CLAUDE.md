@@ -125,6 +125,8 @@
   v115.2170: upload do desenho por `pfStorageSubir` (Storage dá 400 com login expirado/regra: renova o login, tenta de novo e
   cai pra `pendencias/…`); se falhar, as aplicações JÁ ficam gravadas, a tabela limpa e aparece "🔄 Tentar subir o desenho de
   novo" (mantém o print). NLA com Latest ≠ Parts No. NÃO é fora de linha (o NLA é do código antigo).
+  v115.2171: `pfAplicJuntarSemModelo` (ao abrir Aplicações e ao gravar): aplicação SEM modelo de série que tem 1 só modelo
+  (mesma marca) ganha esse modelo → 1 card por série; selo "🖼 N desenho(s)" no card (`pfAplicDesenhosDaSerie`).
 - **Catálogos já lidos** (sem IA): `data/catalogos/<id>.json` (+ o PDF) listados em `PF_CAT_PRONTOS`; Cadastros → Importar Produtos → "📚 Catálogos já lidos" abre a prévia normal (`pfCatProntoAbrir`) e cada peça leva todos os motores em `aplicacoesCatalogo` (qtd por motor). Cummins motores 2019 = 861 peças.
 - No próprio sistema: Ferramentas → **📘 Catálogo PDF → Excel** (`ferrCatalogoPdf`, pdf.js no navegador,
   leitura por coluna, dicionário embutido + traduções salvas em `catpdf_traducoes_v1`).

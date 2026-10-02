@@ -103,6 +103,8 @@
   v115.2167: **Esc volta SEMPRE** (pedido do Vitor): menu da Área Técnica ganhou "← Voltar" (tela inicial); no handler global
   do Esc, o passo 1 (fechar janela fixa z≥9990) ignora `#pfAiBotaoWrap` (botão do assistente de IA — o Esc APAGAVA ele e não
   voltava, ex.: Rolamentos) e `data-pf-esc-ignora`; fallback: `area_tecnica*` → `ftVoltarCards`, menu → `pfIrParaHome`.
+  v115.2168: Esc nos menus de cards — Dashboard/Mapa/Solicitações/Pedido de Compra → cards de Compras; Compras/Ferramentas/
+  Cadastros/Logística → tela inicial (`pfIrParaHome`); campo com texto em foco: o 1º Esc só tira o foco.
 
 ## Catálogos de peças em PDF
 - **Guia Perkins** (v115.2114): `PF_GUIA_PERKINS` (grupo inglês x componentes, tabela MD Power pág. 68/69) + linhas extras

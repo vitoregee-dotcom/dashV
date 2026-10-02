@@ -1,4 +1,4 @@
-# PartsFlow — continuar daqui (atualizado em 02/10/2026, versão **v115.2149**)
+# PartsFlow — continuar daqui (atualizado em 02/10/2026, versão **v115.2150**)
 
 > Documento pra retomar o trabalho em outra conta/sessão do Claude. Leia junto com o `CLAUDE.md` da raiz
 > (ele tem o detalhe técnico de cada parte — nomes de funções, chaves, regras). Aqui fica o **resumo do
@@ -13,7 +13,7 @@
   (também em `vitoregee-dotcom.github.io/dashV`).
 - Fluxo: trabalhar numa branch → abrir PR → **merge squash na `main` sem perguntar** (o Vitor autorizou).
 - **Toda mudança sobe a versão** `v115.NNNN` — aparece em **2 lugares** no `index.html` (selo do login e do logo:
-  procurar `>v115.2149<`). Sempre avisar: **"a versão mudou de X para Y"**. Próxima: **v115.2150**.
+  procurar `>v115.2150<`). Sempre avisar: **"a versão mudou de X para Y"**. Próxima: **v115.2151**.
 - Comentário no código: `// v115.NNNN - A pedido do Vitor: ...` explicando o porquê.
 - **Coisa nova** (tela/função nova): primeiro **sugerir opções com prévia** (imagem) e esperar o ok.
   **Correção de bug**: pode fazer e publicar direto.
@@ -68,9 +68,8 @@ Prévias aprovadas/mostradas ficam em `docs/referencias/` (cotação 2 linhas, �
 
 ## 4. Pendências — esperando decisão do Vitor
 
-1. **IPI / ST na cotação** (modo 2 linhas, jeito "Y" aprovado: UNIT. FINAL em cima, preço sem imposto + IPI + ST embaixo).
-   Falta ele dizer **de onde vêm**: digitado na cotação / do cadastro do produto / do cadastro com o vendedor podendo mudar.
-   Hoje aparece "sem impostos". Também perguntar se a versão de 1 linha mostra o preço final.
+1. **IPI / ST na cotação** — FEITO na v115.2150 (vem do cadastro do produto, % sobre o preço). Falta ver com o Vitor:
+   se a tabela de 1 linha, o resumo e o PDF da cotação também devem mostrar com imposto; se ST vale pra todo cliente.
 2. **Órbita v115.2149 — conferir com dados reais**: se a 🐜 formiguinha aparece (na demonstração ninguém bateu a regra),
    anéis de 2 cores no **3D**, e se o estilo "Conc.: anel" (anel azul-marinho da concessionária) não confunde com os anéis novos
    (sugestão: usar "sigla" ou "selo").

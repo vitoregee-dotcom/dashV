@@ -138,8 +138,12 @@
 - v115.2144: largura das colunas ajustável (alça na borda do cabeçalho, `vendas2ColRes`; 2 cliques/"↺ larguras" volta,
   `vendas2ColPadrao`; localStorage `vendas_item2_cols`, padrão `VENDAS_C2_PADRAO`); 🎨 no cabeçalho DESCRIÇÃO = cor do último
   preço (`vendasHistCor`, localStorage `pf_hist_cor`, com cor = sem transparência); listra do tema por ITEM (`vendas2Fundo`).
-- PENDENTE: IPI/ST da venda (prévia aprovada "Y" = UNIT. FINAL em cima, preço sem imposto + IPI + ST embaixo) — falta o
-  Vitor dizer de onde vêm (digitado / cadastro do produto / cadastro editável). Hoje mostra "sem impostos".
+- v115.2150 IPI/ST (jeito "Y"): vêm do CADASTRO DO PRODUTO — campos `ipi`/`st` em % (form do produto `prodIpi`/`prodSt`,
+  importação de planilha mapeia colunas ipi/st; `pfImpostoPct` lê "3,25"/"3.25%"). Ficha = código + marca interna/cliente,
+  senão a 1ª do código com imposto (`vendasProdImpIdx`, cache 60 s, zerado no `cadSave` de produtos). Modo 2 linhas: em cima
+  UNIT. FINAL (`data-final`) = preço + IPI + ST (ambos % sobre o preço, `vendasItemValores`); embaixo a caixa do preço sem
+  imposto (`data-field=venda` na `tr[data-vidx2]`) + "+ IPI x + ST y" (`data-imp`) + total com impostos. Tabela de 1 linha,
+  resumo e PDF da cotação NÃO mudaram (ainda sem imposto).
   Prévias em `docs/referencias/previa-cotacao-2-linhas*.png`.
 
 ## Ideias guardadas pra testar depois (não implementadas)

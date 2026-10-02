@@ -1911,7 +1911,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2154</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2155</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2065,7 +2065,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2154</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2155</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -57353,9 +57353,17 @@ function pfOrbitaRender(){
 // com 150 clientes de demonstração quase todos caíam na faixa de 30 dias, um em cima do outro): com muitos clientes na
 // mesma faixa, eles se dividem em "pistas" (raio um pouco pra dentro/fora, até ±0,08) e, no 3D, a órbita fica mais
 // "grossa" na vertical; o quadro também cresce com a quantidade (pfOrbAjustarAltura, até +220 px).
-function pfOrbPistas(n){return Math.max(1,Math.min(5,Math.ceil(n/20)));}
+function pfOrbPistas(n){return Math.max(1,Math.min(5,Math.ceil(n/12)));} // v115.2155 - espalha já a partir de ~12 por faixa (a carteira real do Vitor, 59 clientes, ainda embolava)
 function pfOrbPistaDesl(i,n,sit){var p=pfOrbPistas(n);if(p<2)return ((i%3)-1)*0.015;var passo=Math.min(0.05,0.22/(p-1));
   return ((i%p)-(p-1)/2)*passo+(sit==='v'?passo*(p-1)*0.35:0);} // a faixa de 30 dias é a mais perto do centro (menor volta): empurra um pouco pra fora
+// v115.2155 - com 12+ clientes na faixa, espalha pela LARGURA TODA da faixa (30 dias: 0,26–0,44; 60: 0,44–0,60; 90: 0,60–0,75;
+// mais: 0,75–0,92) numa ordem embaralhada fixa -- antes quase todos tinham comprado há poucos dias e grudavam na borda de dentro.
+var PF_ORB_FAIXAS={v:[0.26,0.44],a:[0.44,0.60],l:[0.60,0.75],r:[0.75,0.92]};
+function pfOrbRaioGrupo(x,i,n,g){
+  var fx=PF_ORB_FAIXAS[g];if(!fx||n<12)return pfOrbRaio(x.dias)+pfOrbPistaDesl(i,n,g);
+  var gcd=function(a,b){return b?gcd(b,a%b):a;},k=[7,11,13,17,19,23].find(function(c){return gcd(c,n)===1;})||1;
+  return fx[0]+0.015+((i*k)%n)/(n-1)*(fx[1]-fx[0]-0.03);
+}
 function pfOrbFiltrar(k){window._pfOrbFiltro=window._pfOrbFiltro===k?'':k;pfOrbitaRender();}
 // Posições iniciais: por anel de situação, ângulos igualmente espaçados (+ defasagem por anel) pra não empilhar
 function pfOrbIniciar(lista){
@@ -57369,7 +57377,7 @@ function pfOrbIniciar(lista){
     var arr=grupos[g].sort(function(a,b){return (a.dias||0)-(b.dias||0);});
     arr.forEach(function(x,i){
       x.ang=defas[g]+i*(2*Math.PI/arr.length)+(i%2?0.12:-0.12);
-      x.rr=pfOrbRaio(x.dias)+pfOrbPistaDesl(i,arr.length,g); // leve variação pra não formar fila (v115.2154: pistas com muitos clientes)
+      x.rr=pfOrbRaioGrupo(x,i,arr.length,g); // leve variação pra não formar fila (v115.2154: pistas com muitos clientes)
       x.tam=x.sit==='cota'?5+Math.sqrt((x.nCot||0)/cmax)*9:pfOrbTamValor(x.valor12m,vmax); // v115.2088 - só cota: tamanho pelo nº de cotações
       if(x.sit==='cota')x.rr=0.965+((i%3)-1)*0.012;
       x.alfa=1;
@@ -57814,7 +57822,7 @@ function pfOrb3DMontar(lista,div){
   var kEsc=Math.max(0.32,Math.min(1,Math.sqrt(40/Math.max(40,lista.length)))),grupos={},defas={v:0,a:0.7,l:1.4,r:2.1,cota:2.8};
   lista.forEach(function(x){(grupos[x.sit]=grupos[x.sit]||[]).push(x);});
   Object.keys(grupos).forEach(function(gk){var arr=grupos[gk].sort(function(a,b){return (a.dias||0)-(b.dias||0);});
-    arr.forEach(function(x,i){x.ang=defas[gk]+i*(2*Math.PI/arr.length)+(i%2?0.12:-0.12);x.rr=x.sit==='cota'?0.965+((i%3)-1)*0.012:pfOrbRaio(x.dias)+pfOrbPistaDesl(i,arr.length,gk);x.y3=((i%5)-2)*0.9*Math.min(3,1+arr.length/60); // v115.2154
+    arr.forEach(function(x,i){x.ang=defas[gk]+i*(2*Math.PI/arr.length)+(i%2?0.12:-0.12);x.rr=x.sit==='cota'?0.965+((i%3)-1)*0.012:pfOrbRaioGrupo(x,i,arr.length,gk);x.y3=((i%5)-2)*0.9*Math.min(3,1+arr.length/30); // v115.2154 (v115.2155: mais grossa já com ~30)
       var tam=x.sit==='cota'?5+Math.sqrt((x.nCot||0)/cmax)*9:pfOrbTamValor(x.valor12m,vmax);x.r3=Math.max(1.1,tam*kEsc*0.32);
       x.imp=x.valor12m*(x.dias!=null&&x.dias>60?2:1)+(x.sit==='cota'?(x.nCot||0)*500:0);});});
   lista.filter(function(x){return x.top||x.alerta||x.destCota;}).sort(function(a,b){return b.imp-a.imp;}).forEach(function(x,i){x.rotulo=i<14;});

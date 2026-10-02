@@ -127,6 +127,8 @@
   novo" (mantém o print). NLA com Latest ≠ Parts No. NÃO é fora de linha (o NLA é do código antigo).
   v115.2171: `pfAplicJuntarSemModelo` (ao abrir Aplicações e ao gravar): aplicação SEM modelo de série que tem 1 só modelo
   (mesma marca) ganha esse modelo → 1 card por série; selo "🖼 N desenho(s)" no card (`pfAplicDesenhosDaSerie`).
+  v115.2172 **série = 1 motor só** (Vitor): `pfAplicJuntarSemModelo(fixo)` passa TODA a série pro modelo mais usado (ou pro
+  `fixo` = modelo digitado agora no Alimentar); `pfAplicModeloDaSerie` preenche o modelo no Alimentar ao digitar/abrir a série.
 - **Catálogos já lidos** (sem IA): `data/catalogos/<id>.json` (+ o PDF) listados em `PF_CAT_PRONTOS`; Cadastros → Importar Produtos → "📚 Catálogos já lidos" abre a prévia normal (`pfCatProntoAbrir`) e cada peça leva todos os motores em `aplicacoesCatalogo` (qtd por motor). Cummins motores 2019 = 861 peças.
 - No próprio sistema: Ferramentas → **📘 Catálogo PDF → Excel** (`ferrCatalogoPdf`, pdf.js no navegador,
   leitura por coluna, dicionário embutido + traduções salvas em `catpdf_traducoes_v1`).

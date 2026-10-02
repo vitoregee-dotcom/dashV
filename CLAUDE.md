@@ -105,6 +105,8 @@
   voltava, ex.: Rolamentos) e `data-pf-esc-ignora`; fallback: `area_tecnica*` → `ftVoltarCards`, menu → `pfIrParaHome`.
   v115.2168: Esc nos menus de cards — Dashboard/Mapa/Solicitações/Pedido de Compra → cards de Compras; Compras/Ferramentas/
   Cadastros/Logística → tela inicial (`pfIrParaHome`); campo com texto em foco: o 1º Esc só tira o foco.
+  v115.2169: "← Voltar" (`pfVoltarHomeBtnHtml`) nos menus de Compras/Ferramentas/Cadastros/Logística/Área Técnica; Esc passo 2
+  só clica em Voltar VISÍVEL; Cadastros com grupo aberto → `cadVoltarGrupos`.
 
 ## Catálogos de peças em PDF
 - **Guia Perkins** (v115.2114): `PF_GUIA_PERKINS` (grupo inglês x componentes, tabela MD Power pág. 68/69) + linhas extras

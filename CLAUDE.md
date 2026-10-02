@@ -127,6 +127,8 @@
 - v115.2154: com muitos clientes na mesma faixa, eles se dividem em "pistas" de raio (`pfOrbPistas`/`pfOrbPistaDesl`, a de 30
   dias empurrada pra fora) e no 3D a órbita fica mais grossa (y3); o quadro cresce com a quantidade (`window._pfOrbN`, até +220 px).
   v115.2155: com 12+ na faixa, espalha pela largura toda da faixa em ordem embaralhada fixa (`pfOrbRaioGrupo`, `PF_ORB_FAIXAS`).
+  v115.2157: todos giram JUNTOS (`PF_ORB_VEL`, antes Kepler: os de dentro alcançavam e encostavam) e `pfOrbAfastar` separa
+  os que se encostam antes de começar (tamanho do planeta + anel, cada um preso na faixa `pfOrbFaixaLim`), 2D e 3D.
   v115.2156 (3D): enquanto ninguém gira, a câmera olha mais de cima quanto mais alto o quadro (`pfOrb3DPhAuto`, `cam.mexeu`;
   ↺ volta pro automático) — na tela ampliada o disco usa a altura. Dá pra testar o 3D aqui: servir `three@0.128.0` do npm no
   lugar do cdnjs e lançar o Chromium com `--use-angle=swiftshader --enable-unsafe-swiftshader`.

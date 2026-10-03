@@ -16,10 +16,10 @@
   `.pfBtn pfBtnEscuro`) + `pfBtnCarregarArquivoHtml(h,inputId,accept,onchange)` (⬆ Carregar arquivo, `pfBtnVermelho`), lado a lado,
   com o Ctrl+V continuando a funcionar. Nada de "clique aqui e cole" em texto/link.
 
-- **🖥️ Modo monitor do trabalho** (v115.2177, refeito): botão 🖥️ na barra (`pfBtnMonitor`) / Ctrl+Alt+M → `pfMonitorToggle` vai pra
+- **🖥️ Modo monitor do trabalho** (v115.2177, refeito): botão 🖥️ na barra (`pfBtnMonitor`) / **Option+T (Alt+T)** (v115.2178; Alt+M = Mapa de Compras) → `pfMonitorToggle` vai pra
   `?pfmonitor=1`; um `<script>` no COMEÇO do `<head>` troca a página por uma moldura com o app num `<iframe>` 1920×1080 de verdade
   (`?pfmonframe=1`, `window._pfEmMonitor`) encolhido com `transform: scale` (media queries e vw/vh certos — o zoom no `<html>` da
-  v115.2176 deixava o layout de "tela pequena" no Mac). O app só roda dentro do iframe; "✕ Sair" no topo / Ctrl+Alt+M voltam pra URL normal.
+  v115.2176 deixava o layout de "tela pequena" no Mac). O app só roda dentro do iframe; "✕ Sair" no topo / Option+T voltam pra URL normal.
 
 ## Testar antes de publicar
 - Sintaxe: extrair os `<script>` inline e rodar `new Function(bloco)` em cada um.

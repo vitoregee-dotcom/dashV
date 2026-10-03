@@ -194,6 +194,11 @@
   meses (`window._pfOrbFora`, montado no `pfOrbDados`). "📋 Ver inativos e perfis" (`pfOrbInatAbrir`/`pfOrbInatRender`, perfil por
   `pfOrbPerfilK`) e tabela no relatório. "❓ Explicar" (`window._pfOrbExplicar`, desligado por padrão) mostra "pra que serve" e uma
   frase por número. 💎 Não negocia = parceiro/cliente que NÃO faz negócio com a gente (não é "não pechincha").
+- v115.2179 **cabeçalho enxuto** (prévia A, `docs/referencias/orbita-cabecalho/`): título "🪐 Órbita" + contadores só com ícone
+  (🔴 inativos, ↳ cotando) + botões ícone 🔍 📊 ⛶ 3D ?. Os seletores (rastro, grupo, tipo, revenda, conc., cor, vendedor, estilo 3D,
+  destacar, ⚙️) moram no popover "🔍 Filtros" (`window._pfOrbFiltrosAberto`, `pfOrbFiltrosAlternar`/`pfOrbFiltrosLimpar`, `_fHtml`
+  montado no `pfOrbitaRender`; número = filtros ligados `_fN`; clique fora fecha). Faixa do resumo curta (sem perfis → 📊 Resumo),
+  com "⚠️ R$/ano em risco" (saiu do cabeçalho).
 - v115.2148: balão do cliente dá pra alcançar com o mouse (`pfOrbTipEsconder` some só ~0,35 s depois; `pfOrbTipDentro` segura;
   clique = ficha `pfOrbTipClique`; `pfOrbTipPosicionar` mantém dentro do quadro). No 3D, mouse no balão = ele para de seguir o planeta.
 

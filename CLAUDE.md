@@ -16,6 +16,11 @@
   `.pfBtn pfBtnEscuro`) + `pfBtnCarregarArquivoHtml(h,inputId,accept,onchange)` (⬆ Carregar arquivo, `pfBtnVermelho`), lado a lado,
   com o Ctrl+V continuando a funcionar. Nada de "clique aqui e cole" em texto/link.
 
+- **🖥️ Modo monitor do trabalho** (v115.2175): botão 🖥️ na barra (`pfBtnMonitor`) / Ctrl+Alt+M → `pfMonitorToggle` (localStorage
+  `pf_monitor_sim`). `pfMonitorAplicar`: zoom no `<html>` = min(tela/1920, tela/1080), `<body>` 1920×1080 com `transform` (vira a
+  referência dos `position:fixed` → dock no fim dos 1080), resto escuro, faixa "✕ Sair" (`#pfMonitorPill`). Quem mede a tela usa
+  `pfMonitorFundo()`/`pfMonitorZ()` (já em `pfAiDockClearance` e `pfOrbAjustarAltura`). O app não rola o documento (só containers).
+
 ## Testar antes de publicar
 - Sintaxe: extrair os `<script>` inline e rodar `new Function(bloco)` em cada um.
 - Navegador: Playwright (Chromium em /opt/pw-browsers) com `python3 -m http.server`;

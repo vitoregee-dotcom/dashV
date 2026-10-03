@@ -183,6 +183,12 @@
   "📊 Resumo" (`window._pfOrbResumo`) abre `pfOrbResumoPainelHtml` (Carteira/Perfis/Dinheiro/Comportamento + Por vendedor).
   Vendedor (`pfOrbResumoVendNome`: filtro de vendedor, ou o próprio quando não é gestor). 🖨️ `pfOrbResumoImprimir` / 📄
   `pfOrbResumoPdf` (html2pdf) usam `pfOrbResumoDocHtml` (quadros + por vendedor + maiores, pararam, potencial).
+- v115.2175 Resumo: "Parados" virou **Inativos (+90 dias)** + "↳ ainda cotando" (`x.cotando` = sit 'r' e cotação nos últimos 90 dias;
+  filtro `_pfOrbFiltro='cotando'`; na órbita = pontinho âmbar discreto no canto do planeta, 2D e 3D `pfOrb3DTexCotando` — o Vitor
+  pediu pra NÃO usar 🔥, guardar o ícone pra outra coisa). "⚪ Fora da órbita" = já compraram, +1 ano sem comprar e sem cotar há 6
+  meses (`window._pfOrbFora`, montado no `pfOrbDados`). "📋 Ver inativos e perfis" (`pfOrbInatAbrir`/`pfOrbInatRender`, perfil por
+  `pfOrbPerfilK`) e tabela no relatório. "❓ Explicar" (`window._pfOrbExplicar`, desligado por padrão) mostra "pra que serve" e uma
+  frase por número. 💎 Não negocia = parceiro/cliente que NÃO faz negócio com a gente (não é "não pechincha").
 - v115.2148: balão do cliente dá pra alcançar com o mouse (`pfOrbTipEsconder` some só ~0,35 s depois; `pfOrbTipDentro` segura;
   clique = ficha `pfOrbTipClique`; `pfOrbTipPosicionar` mantém dentro do quadro). No 3D, mouse no balão = ele para de seguir o planeta.
 

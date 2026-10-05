@@ -288,6 +288,15 @@
   do centro de cada nº → `nums` com `ia:1` (tracejado no modo marcar) e já abre o modo marcar pro Vitor conferir. Grava em
   `g.nums` igual aos lidos do texto; link JÁ mandado não muda (prefill fixo) → mandar de novo. Qualidade: o desenho da
   transmissão é imagem de 760 px dentro do PDF — o PNG salvo fica igual ao PDF (não tem mais resolução pra tirar).
+- v115.2192 **catálogo ESCANEADO** (opção A do Vitor; ex.: Dana/Clark 13.5HR28410-4 de 1977, 28 páginas = fotos, sem texto):
+  `pfCatEnvImportar` sem tabela e quase sem texto → `pfCatEnvEscaneado` (precisa da chave da Anthropic): `pfCatEnvEscLerPag` renderiza
+  cada página (lado maior 1568 px, JPEG) e a IA (`pfCatEnvEscPedido`, 3 em paralelo, 2 tentativas) devolve tipo desenho/lista/misto/
+  outro, marca/modelo/ref, título (+Pt), retângulo do desenho, posição dos nº e itens {n,qtd,codigo,impresso,manuscrito,desc,descPt,
+  inclui,sub,subPt,obs}. **Código riscado + escrito à mão = vale o manuscrito** e fica "⚠️ conferir" (tabela na prévia: corrigir/✓ ok;
+  salvo como `conferir`/`codImpresso`/`obs` → ⚠️ ao lado do código na tela interna). "Inc. items 45 and 46" = kit (`kitInclui`/`kitPai`).
+  `pfCatEnvEscAgrupar`: lista entra no desenho ANTERIOR (ou o escolhido em "Páginas", `N.dono`; tipo trocável `N.tipoMao`); lista com
+  sub-tabelas que repetem nº (embreagens LOW/REVERSE/FORWARD) = 1 grupo por sub com o mesmo desenho (sobe 1x, `jaSubiu`). Marca
+  CLARK/DANA/SPICER → "DANA". Salvar = `pfCatEnvSalvarNovo` (escala 3, recorte `g.rec` com folga 1%, nº da IA com `ia:1` → conferir no 📍).
 - Endereço do link: `pfCatEnvBaseUrl` (padrão = o do sistema; "Endereço do link" no modal grava `base` — pra domínio neutro
   na Vercel). Prévias em `docs/referencias/catalogo-sem-codigo/`.
 - **Portal do cliente — IDEIA (não feita)**: cliente com login cota sozinho DIGITANDO SÓ CÓDIGO E QUANTIDADE (decisão do Vitor

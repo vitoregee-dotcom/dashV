@@ -163,6 +163,10 @@
   Back End Group, Starter motor, Exhaust Manifold, Alternator, Engine Lifting, Auxiliary Drive, Instrumentation (pack A6AH, B6AH…).
   `PF_PK_SPI2` = seção do livro → grupo SPI² ([grupo, certo]; false = dedução → "❔ provável"), `PF_PK_SPI2_PT` tradução,
   `pfPkSpi2Html` mostra o grupo SPI² em destaque (📋) + "dentro: <seções do livro>". Print novo do SPI² → corrigir `PF_PK_SPI2`.
+  v115.2198 (prints do Block e Fan): Block = Connecting Rods / Crankshaft & Bearings / Cylinder Block / Pistons & Rings; Fan = só Fan
+  Drive. `PF_PK_SPI2` virou [grupo, plate, certo] (grupo null = "ainda não confirmado", hoje: Timing Case, Camshaft & Gears, Rear End Oil
+  Seal, Front End Drive Input, Miscellaneous, Air Filter, Feed Pipes — NÃO são Block); `pfPkSpi2Sub(seção, inglês)` escolhe a plate do
+  Block pela peça; mostra "Block › Pistons & Rings".
 - **📥 Alimentar aplicações pelo catálogo** (v115.2161, `pfAlimAbrir`; Área Técnica + botão no Guia Perkins): marca/série
   (modelo opcional) guardadas em `pfAlimAplicCtx` enquanto navega; cola a TABELA (texto, formato Perkins Symbol|Item|Parts No.|
   Qty.|Latest Part No.|Description — `pfAlimLerTexto`, sem IA, tradução por `PF_CATPDF_DIC`/traduções salvas; NLA desmarcado;

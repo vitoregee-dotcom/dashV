@@ -97,6 +97,12 @@
   faixa "📖 Lendo o código" `pfSpicerDicaHtml` nos resultados): decifrador, regras, conferência ao vivo com o cadastro
   (`pfSpicerConferir`), outras peças da mesma série e anotações compartilhadas (`pfSpicerCodNotas`, só admin edita).
   Regra nova descoberta → acrescentar nas tabelas E no texto da tela.
+- **Nomes das medidas por fabricante** (v115.2184, `CC_MED_SIN`): a mesma peça vem com nome de medida diferente em cada
+  catálogo — a tabela diz qual campo é qual (Flange de acoplamento: A = Ø retentor [Sorocard "Ø Retentor" / REI "Ø A"],
+  B = comprimento [REI "C (mm)"], D = furos "4 x 15,5" [REI "Qtd. Furos" + "Ø Furo"], E = furação [Sorocard "Ø Entre Furo"],
+  F = Ø disco [Sorocard "Ø Disco" / REI "Ø B"], NOVOS G = Ø estria e H = nº de dentes ["22-E" = 22 + piloto ESTRIADA]).
+  Vai no pedido à IA do "➕ Cadastrar item" (`ccMedSinTexto`) e, depois da IA, `ccMedidasDasEspecs(fam, especificacoes)` coloca
+  cada valor no campo pelo NOME da especificação (manda sobre a IA). Família nova / fabricante novo → acrescentar em `CC_MED_SIN`.
 - Cotação: busca Série/Modelo também acha componentes cardan pelo veículo (`vendasCcBuscarPorVeiculo`) + Monta com.
 
 - **Aplicações — Modelos & Séries** (v115.2162) saiu de Cadastros (aba escondida) e abre pela Área Técnica (`atAplicAbrir`,

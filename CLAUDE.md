@@ -210,6 +210,35 @@
   só as suas): cotações, por dia, tempo médio/mediana, tempo em cotação/dia (% de 8 h). Base pro argumento da apresentação
   ("mais da metade do dia não é cotação").
 
+## 📖 Catálogo sem código / link pro cliente (v115.2181)
+- Área Técnica → 📖 Catálogos de peças (`pfCatEnvAbrir`; abas 📚 Catálogos / 📥 Recebidos). Carrega o PDF (pdf.js, SEM IA) e
+  `pfCatEnvLerPagina` lê cada página no formato Carraro (desenho em cima, tabela "Pos. Ref. Q.ty Descrizione Description Kit
+  Note", rodapé "TAB."): coluna pelo CENTRO do texto (títulos centralizados), qtd grudada no italiano separada, números do
+  desenho com posição (fração cx/cy — clicáveis sem marcar à mão), aviso se tiver número com cara de código no desenho.
+  Cabeçalho "20.22 ref 139721" vem em pedaços fora de ordem (junta pela posição). Tradução `pfCatEnvTraduz`
+  (`PF_CATENV_DIC` eixo/transmissão + francês, depois `PF_CATPDF_DIC`, termo + resto "BOLT M12X45"→"PARAFUSO M12X45";
+  ✏️ salva em `catpdf_traducoes_v1`). Kits (`pfCatEnvKits`): coluna Kit = código do kit → `kitPai`/`kitInclui`
+  (aceita o erro 667693 = 66769); `pfCatEnvKitSelo` lista o que vem dentro; clicar no kit acende as peças dele.
+- Guardado em `pfCatEnv_v1` {por:{id:{titulo,marca,modelo,ref,grupos[{id,nome,img,ar,nums,itens}],links,pdfPath}},base}
+  (compartilhada); desenho PNG público em `ferramentas-arquivos/c/<id>/<g>.png` (caminho neutro), PDF original privado em
+  `cadastro-clientes/interno/catalogos/<id>.pdf` (📄 PDF original = URL assinada). Tela interna: código, kit, saldo
+  (`pfCatEnvSaldo`, tenta sem zero à esquerda), ➕ Cotação com as marcadas.
+- Cotação: etiqueta 📖 grupo nº (`pfCatEnvEtqHtml` em `vendasEtiquetasHtml`, índice `pfCatEnvIdx`) abre o desenho POR CIMA
+  (`pfCatEnvPopup`, "➕ Adicionar na cotação" entra na cotação aberta); peça de kit = "🧰 kit X · saldo" (laranja forte =
+  sem saldo avulso e o kit tem); item que É kit = "🧰 kit com N peças" (lista no title).
+- **Link SEM NOME** (o cliente pode repassar pro cliente dele): página separada `c.html?k=` (título "Catálogo de peças",
+  nada de Triex/PartsFlow, leve). `formulario_links` tipo `catalogo`, cliente_ref = id do catálogo, prefill SÓ com desenho,
+  nº, descrição, qtd e nº do kit (NUNCA código). Antes de ver: marca/modelo/ano da máquina + FOTO (sobe em
+  `cadastro-clientes/<link>/`) → submissão `dados.tipo='acesso'`; pedido → `dados.tipo='pedido'`, itens {g,i,q}. No celular
+  abre ampliado (números muito juntos no diferencial). Peça de kit → escolhe "só a peça" ou "o kit completo".
+- Chegada: `pfFormClienteChecarSubmissoes` → `pfCatEnvReceber` → `pfCatPedidos_v1` + pendência; 📥 Recebidos mostra foto,
+  máquina, itens com código/saldo, "➜ Abrir como cotação" (`pfCatEnvPedidoCotacao`) e "✅ Conferi — gravar como aplicação"
+  (`pfCatEnvGravarAplic`: máquina = veiculo/marcaVeiculo, eixo = marca/modelo/série, grupo = equip, em todas as peças).
+- Endereço do link: `pfCatEnvBaseUrl` (padrão = o do sistema; "Endereço do link" no modal grava `base` — pra domínio neutro
+  na Vercel). Prévias em `docs/referencias/catalogo-sem-codigo/`.
+- **Portal do cliente — IDEIA (não feita)**: cliente com login cota sozinho DIGITANDO SÓ CÓDIGO E QUANTIDADE (decisão do Vitor
+  05/10/2026); vendedor vira gestor de carteira; fila de oportunidades por nota. Prévia `docs/referencias/portal-cliente-previa.png`.
+
 ## Cotação em 2 linhas (v115.2140)
 - Botão "▦ Tabela | ▤ 2 linhas | ☰ Compacta" (`vendasViewModo()`/`vendasViewModoSet`, localStorage `pf_vendas_view_modo`);
   a tabela de 1 linha NÃO mudou. `vendasItens2LinhasHtml(v)` (tabela `#vendasItensTable2`, sem arrastar/redimensionar coluna):

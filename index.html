@@ -1934,7 +1934,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2187</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2188</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2088,7 +2088,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2187</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2188</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -69599,6 +69599,7 @@ function ccExecutarBusca(){
           (aplicacaoHtml?'<span onclick="ccToggleAplicacaoItem(\''+aplicId+'\',this)" style="font-size:11px;color:#1F4E79;cursor:pointer;white-space:nowrap">'+(_ccAplicacaoTodasVisiveis?'▴ ocultar aplicação':'▾ Ver aplicação')+'</span>':'')+
           '<span onclick="ccColarPrintAplicacao(\''+_ccFamiliaAtual+'\',\''+codJs+'\',\''+linhaJs+'\')" title="Cole o print do catálogo (Spicer, fabricante...) e o sistema junta as aplicações que faltam" style="font-size:11px;color:#7B2D8B;font-weight:700;cursor:pointer;white-space:nowrap;text-transform:none">📋 Colar print de aplicação</span>'+
           '<span onclick="'+(pfDesenhoDe(rec)?'ccDesenhoVer':'ccColarDesenho')+'(\''+_ccFamiliaAtual+'\',\''+codJs+'\',\''+linhaJs+'\')" title="Desenho técnico da peça (print do catálogo) -- o sistema tira o fundo" style="font-size:11px;color:#1F4E79;font-weight:700;cursor:pointer;white-space:nowrap;text-transform:none">📐 '+(pfDesenhoDe(rec)?'Ver desenho técnico':'Colar desenho técnico')+'</span>'+ // v115.2112
+          '<span onclick="ccMesmaPecaAbrir(\''+_ccFamiliaAtual+'\',\''+codJs+'\',\''+linhaJs+'\')" title="Achou outro cadastro que é a mesma peça (outro catálogo)? Junta os dois no mesmo card" style="font-size:11px;color:#0D7377;font-weight:700;cursor:pointer;white-space:nowrap;text-transform:none">🔗 É a mesma peça</span>'+ // v115.2188
           (rec.modelo3d&&ccPeca3DMedidas(_ccFamiliaAtual,rec)?'<span onclick="ccPeca3DAbrir(\''+_ccFamiliaAtual+'\',\''+codJs+'\',\''+linhaJs+'\')" title="A peça montada em 3D com as medidas do cadastro" style="font-size:11px;color:#0D7377;font-weight:700;cursor:pointer;white-space:nowrap;text-transform:none">🧊 Ver em 3D</span>':'')+ // v115.2116
         '</div>'+
         (aplicacaoHtml?'<div id="'+aplicId+'" style="display:'+(_ccAplicacaoTodasVisiveis?'block':'none')+';margin-top:8px">'+aplicacaoHtml+'</div>':'')+
@@ -69896,6 +69897,85 @@ function ccAplCorrigirMontadora(a){
 function ccPareceSpicerCod(c){c=String(c||'').trim();return !!c&&!/\./.test(c)&&!/^\d+$/.test(c)&&!/\s/.test(c);}
 // Troca a chave (código principal) de todo o grupo pelo código Spicer; a chave antiga vai pros equivalentes
 // (ORIGINAL se for número de montadora). Não mexe no registro Spicer.
+// v115.2188 - A pedido do Vitor ("percebi que essas 2 são iguais [Sorocard SA-27 e LNG 35-406]; quando eu ver isso, como junto
+// as 2?"): "🔗 É a mesma peça" no card -> digita o código da outra -> as duas passam a ter a MESMA chave de grupo (similar),
+// então caem no mesmo card. Se um dos grupos tem Spicer, a chave final é a do Spicer (Spicer é a principal). Dois Spicer
+// diferentes = não junta (provavelmente não é a mesma peça). Guarda o antes em o.juntado -> "↩ Separar" desfaz.
+function ccMesmaPecaAcharOutro(arr,txt){
+  var n=ccNormCod(txt);if(!n)return null;
+  return arr.find(function(o){return o&&ccNormCod(o.codigo)===n;})||
+    arr.find(function(o){return o&&(o.equivalentesExtra||[]).some(function(e){return e&&ccNormCod(e.codigo)===n;});})||
+    arr.find(function(o){return o&&ccMesmoGrupoCC(o,txt);})||null;
+}
+function ccMesmaPecaAbrir(fam,cod,linha){
+  var ach=ccAcharItemIdx(fam,cod,linha);if(ach.idx<0)return;var a=ach.arr[ach.idx],gA=ccChaveGrupoCC(a);
+  var old=document.getElementById('ccMesmaModal');if(old)old.remove();
+  var juntados=ach.arr.filter(function(o){return o&&o.juntado&&ccNormCod(ccChaveGrupoCC(o))===ccNormCod(gA);});
+  var ov=document.createElement('div');ov.id='ccMesmaModal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10020;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML='<div onclick="event.stopPropagation()" style="background:#fff;border-radius:12px;width:480px;max-width:100%;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3)">'+
+    '<div style="background:var(--pf-painel-bg,#1c2940);color:#fff;padding:12px 16px;font-weight:800">🔗 '+pfEscHtml(a.codigo)+' ('+pfEscHtml(a.linha||'')+') é a mesma peça que…</div>'+
+    '<div style="padding:14px 16px;font-size:13px">'+
+      '<input id="ccMesmaCod" list="ccMesmaDL" placeholder="código da outra (ex.: 35-406)" autocomplete="off" style="width:100%;box-sizing:border-box;border:1.5px solid #dfe5ec;border-radius:8px;padding:9px 11px;font-size:14px;text-transform:uppercase">'+
+      '<datalist id="ccMesmaDL">'+ach.arr.filter(function(o){return o&&ccNormCod(ccChaveGrupoCC(o))!==ccNormCod(gA);}).slice(0,3000).map(function(o){return '<option value="'+pfEscHtml(o.codigo)+'">'+pfEscHtml((o.linha||'')+' '+(o.descricao||''))+'</option>';}).join('')+'</datalist>'+
+      '<div id="ccMesmaPrev" style="margin-top:10px;font-size:12.5px;color:#607080;min-height:18px"></div>'+
+      '<div style="display:flex;gap:8px;margin-top:12px"><button id="ccMesmaOk" class="pfBtn pfBtnVerde" style="flex:1;height:36px" disabled onclick="ccMesmaPecaJuntar(\''+pfEscJs(fam)+'\',\''+pfEscJs(a.codigo)+'\',\''+pfEscJs(a.linha||'')+'\')">🔗 Juntar no mesmo card</button>'+
+      '<button class="pfBtn pfBtnClaro" style="height:36px" onclick="document.getElementById(\'ccMesmaModal\').remove()">Cancelar</button></div>'+
+      (juntados.length?'<div style="border-top:1px solid #eef1f5;margin-top:14px;padding-top:10px"><div style="font-size:11px;font-weight:800;color:#607080;margin-bottom:6px">JUNTADAS NESTE CARD</div>'+juntados.map(function(o){
+        return '<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0"><b style="flex:1">'+pfEscHtml(o.codigo)+' <span style="font-weight:400;color:#8a96a6">'+pfEscHtml(o.linha||'')+' · '+new Date(o.juntado.em).toLocaleDateString('pt-BR')+'</span></b>'+
+          '<button class="pfBtn pfBtnClaro" style="height:28px;font-size:11.5px" onclick="ccMesmaPecaSeparar(\''+pfEscJs(fam)+'\',\''+pfEscJs(o.codigo)+'\',\''+pfEscJs(o.linha||'')+'\')">↩ Separar</button></div>';}).join('')+'</div>':'')+
+    '</div></div>';
+  pfOverlayFecharAoClicarFora(ov,function(){ov.remove();});
+  document.body.appendChild(ov);
+  var inp=document.getElementById('ccMesmaCod');
+  inp.addEventListener('input',function(){
+    var arr=ccLoad()[fam]||[],b=ccMesmaPecaAcharOutro(arr,inp.value),pv=document.getElementById('ccMesmaPrev'),ok=document.getElementById('ccMesmaOk');
+    var plan=b?ccMesmaPecaPlano(arr,a,b):null;
+    ok.disabled=!(plan&&!plan.erro);
+    if(!inp.value.trim()){pv.innerHTML='';return;}
+    if(!b){pv.innerHTML='<span style="color:#C0392B">Não achei esse código em '+pfEscHtml(CC_NOME_SINGULAR[fam]||fam)+'.</span>';return;}
+    if(plan.erro){pv.innerHTML='<span style="color:#C0392B">'+pfEscHtml(plan.erro)+'</span>';return;}
+    pv.innerHTML='Achei <b>'+pfEscHtml(b.codigo)+'</b> '+pfEscHtml(b.linha||'')+' — '+pfEscHtml(b.descricao||'')+'.<br>O card vai ficar com <b>'+pfEscHtml(plan.final)+'</b>'+(plan.spicer?' (Spicer)':'')+' e <b>'+plan.mover.length+'</b> cadastro(s) entram nele: '+pfEscHtml(plan.mover.map(function(o){return o.codigo+' '+(o.linha||'');}).join(', '))+'.';
+  });
+  setTimeout(function(){inp.focus();},30);
+}
+function ccMesmaPecaPlano(arr,a,b){
+  var gA=ccChaveGrupoCC(a),gB=ccChaveGrupoCC(b);
+  if(ccNormCod(gA)===ccNormCod(gB))return {erro:'As duas já estão no mesmo card.'};
+  // grupo "tem Spicer" = tem cadastro Spicer OU alguma peça do grupo cita a chave como SPICER (o ccPareceSpicerCod é solto demais: SA-27 passaria)
+  var temSp=function(g){var ng=ccNormCod(g);return arr.some(function(o){return o&&ccMesmoGrupoCC(o,g)&&(ccEhLinhaSpicer(o.linha)||(o.equivalentesExtra||[]).some(function(e){return e&&ccEhLinhaSpicer(e.marca)&&ccNormCod(e.codigo)===ng;}));});};
+  var spA=temSp(gA),spB=temSp(gB);
+  if(spA&&spB)return {erro:'As duas já estão ligadas a códigos Spicer diferentes ('+gA+' e '+gB+') — provavelmente não são a mesma peça. Confira antes.'};
+  var final=spB&&!spA?gB:gA,velha=final===gA?gB:gA;
+  var mover=arr.filter(function(o){return o&&ccNormCod(ccChaveGrupoCC(o))===ccNormCod(velha)&&!ccEhLinhaSpicer(o.linha);});
+  return {final:final,velha:velha,mover:mover,spicer:spA||spB};
+}
+function ccMesmaPecaJuntar(fam,cod,linha){
+  var data=ccLoad(),arr=data[fam]||[],ach=ccAcharItemIdx(fam,cod,linha);if(ach.idx<0)return;
+  var a=arr.find(function(o){return o&&o.codigo===cod&&(o.linha||'')===linha;})||ach.arr[ach.idx];
+  var b=ccMesmaPecaAcharOutro(arr,(document.getElementById('ccMesmaCod')||{}).value);if(!b)return;
+  var plan=ccMesmaPecaPlano(arr,a,b);if(plan.erro){pfAlert(plan.erro);return;}
+  var agora=Date.now();
+  plan.mover.forEach(function(o){
+    if(!o.juntado)o.juntado={similar:o.similar||'',substitui:o.substitui||'',em:agora};
+    o.juntado.com=plan.final;o.juntado.em=agora;
+    if(o.substitui)o.substitui=plan.final;else o.similar=plan.final;
+    o.ts=agora;
+  });
+  ccSave(data);
+  var m=document.getElementById('ccMesmaModal');if(m)m.remove();
+  _ccFiltro.texto=plan.final;ccRender();
+  pfAlert('✅ Juntei: '+plan.mover.map(function(o){return o.codigo;}).join(', ')+' agora fica(m) no card '+plan.final+'.');
+}
+function ccMesmaPecaSeparar(fam,cod,linha){
+  var data=ccLoad(),arr=data[fam]||[],o=arr.find(function(x){return x&&x.codigo===cod&&(x.linha||'')===linha&&x.juntado;});if(!o)return;
+  if(o.juntado.substitui)o.substitui=o.juntado.substitui;else delete o.substitui;
+  if(o.juntado.similar)o.similar=o.juntado.similar;else delete o.similar;
+  delete o.juntado;o.ts=Date.now();ccSave(data);
+  var m=document.getElementById('ccMesmaModal');if(m)m.remove();
+  _ccFiltro.texto=o.codigo;ccRender();
+  pfAlert('↩ '+o.codigo+' voltou a ser um card separado.');
+}
 function ccRechavearGrupoSpicer(arr,chaveAntiga,codSpicer){
   var n=0,toks=String(chaveAntiga||'').split(/\s*[\/,]\s*| OU /).map(function(t){return t.trim();}).filter(Boolean);
   arr.forEach(function(o){

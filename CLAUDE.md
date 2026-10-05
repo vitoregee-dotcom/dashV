@@ -154,6 +154,10 @@
   (palavras em pt/en/seção ou código com 4+ dígitos) → tabela "Peças no catálogo 404D-22" no `ferrGuiaPerkinsLista`; ref "F X" = só no
   kit X, "E" = tem alternativa; 📄 `pfPk404Abrir(p)` abre o PDF `#page=` (desenho = pág. da lista − 1). Catálogo de outro motor Perkins:
   extrair igual e generalizar (hoje é 1 motor só).
+  v115.2196 (Vitor: "o guia NÃO é de um motor — é pra saber em que GRUPO acho a peça no catálogo ELETRÔNICO da Perkins, que é em
+  inglês"): tela sem página/código/PDF. O json do 404D-22 só serve de fonte "peça → grupo": `pfPk404DoGrupo` = nomes dos grupos do
+  catálogo eletrônico (inglês + pt, 📋 copiar) em cada linha do guia; `pfPk404Buscar` junta por nome em inglês → tabela Peça (pt) |
+  Em inglês 📋 | Grupo onde fica 📋. Busca só pt/en (sem código).
 - **📥 Alimentar aplicações pelo catálogo** (v115.2161, `pfAlimAbrir`; Área Técnica + botão no Guia Perkins): marca/série
   (modelo opcional) guardadas em `pfAlimAplicCtx` enquanto navega; cola a TABELA (texto, formato Perkins Symbol|Item|Parts No.|
   Qty.|Latest Part No.|Description — `pfAlimLerTexto`, sem IA, tradução por `PF_CATPDF_DIC`/traduções salvas; NLA desmarcado;

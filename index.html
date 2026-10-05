@@ -1934,7 +1934,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2192</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2193</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2088,7 +2088,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2192</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2193</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -78055,6 +78055,7 @@ function pfCatEnvListaRender(){
       '<div style="padding:10px 12px"><b style="color:#1F4E79">'+pfEscHtml(c.titulo||'Catálogo')+'</b><div style="font-size:11.5px;color:#607080;margin-top:2px">'+(c.grupos||[]).length+' grupos · '+nIt+' peças'+(nLk?' · 🔗 '+nLk+' link(s)':'')+'</div></div></div>';
   }).join('')+'</div>';
   box.innerHTML=h;
+  if(pfCatEnvPode())pfCatEnvEscRascFaixa(box); // v115.2193 leitura escaneada não terminada
 }
 // v115.2192 - A pedido do Vitor (opção "A"): catálogo ESCANEADO (foto do papel, sem texto — ex.: Dana/Clark 13.5HR28410-4 de 1977).
 // O pdf.js não acha texto → a IA lê página por página (tipo desenho/lista/misto, título, modelo, itens ITEM|QTY|PART NO|DESCRIPTION,
@@ -78109,28 +78110,84 @@ async function pfCatEnvEscLerPag(pdf,p,apiKey){
   }
   r.erro=erro;return r;
 }
-async function pfCatEnvEscaneado(pdf,file,buf){
-  var box=document.getElementById('pfCatEnvBody');if(!box)return;
+// v115.2193 - A pedido do Vitor ("se eu não terminar tudo, se der algum erro"): a leitura da IA fica guardada NESTE computador
+// (IndexedDB, chave pfCatEnvRascunho_v1: PDF + páginas já lidas + o que ele corrigiu) a cada página lida e a cada mudança na conferência.
+// Fechou a aba / caiu a internet / deu erro → na lista aparece "♻️ Continuar" e só as páginas que faltam (ou deram erro) vão pra IA.
+// Apaga sozinho quando salva o catálogo ou quando ele escolhe "Descartar".
+var PF_CATESC_RASC='pfCatEnvRascunho_v1';
+function pfCatEnvEscRascSalvar(N){
+  N=N||window._pfCatEnvNovo;if(!N||!N.esc||typeof pfIdbSet!=='function')return;
+  clearTimeout(N._rascT);N._rascT=setTimeout(function(){
+    var v=function(id,d){var e=document.getElementById(id);return e&&window._pfCatEnvNovo===N?e.value:d;};
+    N.marca=v('pfCatEnvMarca',N.marca);N.modelo=v('pfCatEnvModelo',N.modelo);N.ref=v('pfCatEnvRef',N.ref);N.tit=v('pfCatEnvTit',N.tit);
+    pfIdbSet(PF_CATESC_RASC,{arquivo:N.file.name,tam:N.buf.length,buf:N.buf,tot:N.tot,pags:N.pags,nomes:N.nomes,dono:N.dono,tipoMao:N.tipoMao,
+      marca:N.marca,modelo:N.modelo,ref:N.ref,tit:N.tit,ehTransm:N.ehTransm,lido:!!N.lido,ts:Date.now()});
+  },300);
+}
+function pfCatEnvEscRascApagar(){if(typeof pfIdbDelete==='function')pfIdbDelete(PF_CATESC_RASC);}
+async function pfCatEnvEscRascFaixa(box){
+  if(typeof pfIdbGet!=='function'||!box)return;
+  var R=await pfIdbGet(PF_CATESC_RASC);if(!R||!R.pags||!document.body.contains(box)||box.querySelector('[data-catesc-rasc]'))return;
+  var lidas=R.pags.filter(function(r){return r&&!r.erro;}).length,rod=window._pfCatEscRodando;
+  var d=document.createElement('div');d.setAttribute('data-catesc-rasc','1');
+  d.style.cssText='display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#EAF4FB;border:1.5px solid #2E7DC1;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:13px;color:#1a2332';
+  d.innerHTML='<span>♻️ <b>Catálogo escaneado '+(rod?'sendo lido agora':'não terminado')+':</b> '+pfEscHtml(R.arquivo)+' — '+lidas+' de '+(R.tot||R.pags.length)+' páginas lidas'+(rod?'':' · '+new Date(R.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))+'</span><span style="flex:1"></span>'+
+    '<button class="pfBtn pfBtnAzul" style="height:32px;font-size:12px" onclick="pfCatEnvEscRetomar(this)">▶ Continuar</button>'+
+    '<button class="pfBtn pfBtnClaro" style="height:32px;font-size:12px" onclick="pfCatEnvEscDescartar()">🗑 Descartar</button>';
+  box.insertBefore(d,box.firstChild);
+}
+async function pfCatEnvEscRetomar(btn){
+  var rod=window._pfCatEscRodando;
+  if(rod&&!rod.parar){window._pfCatEnvNovo=rod;if(rod.mostra)rod.mostra();return;}
+  if(btn){btn.disabled=true;btn.textContent='⏳ Abrindo…';}
+  var R=await pfIdbGet(PF_CATESC_RASC);if(!R){pfCatEnvListaRender();return;}
+  try{await pfCarregarPdfJs();var pdf=await pdfjsLib.getDocument({data:R.buf.slice()}).promise;await pfCatEnvEscaneado(pdf,{name:R.arquivo},R.buf,R);}
+  catch(e){pfAlert('Não consegui abrir a leitura guardada: '+e.message);if(btn){btn.disabled=false;btn.textContent='▶ Continuar';}}
+}
+function pfCatEnvEscDescartar(){
+  pfConfirm('Descartar a leitura do catálogo escaneado? O que a IA já leu e o que você corrigiu se perde (pra ler de novo, a IA cobra de novo).',function(){
+    var N=window._pfCatEscRodando;if(N)N.parar=true;window._pfCatEscRodando=null;
+    if(window._pfCatEnvNovo&&window._pfCatEnvNovo.esc)window._pfCatEnvNovo=null;pfCatEnvEscRascApagar();setTimeout(pfCatEnvListaRender,50);});
+}
+async function pfCatEnvEscaneado(pdf,file,buf,R){
+  var box0=document.getElementById('pfCatEnvBody');if(!box0)return;
   var apiKey=localStorage.getItem('anthropic_key')||'';
   if(!apiKey){apiKey=window.prompt('Este PDF é ESCANEADO (foto do papel) — precisa da IA pra ler. Cole sua Anthropic API Key:');if(apiKey)pfAnthropicKeySet(apiKey);}
-  if(!apiKey){box.innerHTML='<div style="padding:16px;color:#C0392B">Este PDF é escaneado (foto, sem texto) e só dá pra ler com a IA — falta a chave da Anthropic.</div>';return;}
-  var N={file:file,buf:buf,esc:true,pags:[],nomes:{},dono:{},tipoMao:{},apiKey:apiKey};window._pfCatEnvNovo=N;
-  var tot=pdf.numPages,feitas=0,prox=1;
-  var mostra=function(){if(window._pfCatEnvNovo!==N)return;box.innerHTML='<div style="background:#fff;border:1px solid #e3e8ef;border-radius:12px;padding:16px;max-width:900px">'+
+  if(!apiKey){box0.innerHTML='<div style="padding:16px;color:#C0392B">Este PDF é escaneado (foto, sem texto) e só dá pra ler com a IA — falta a chave da Anthropic.</div>';return;}
+  // mesmo PDF já começado (mesmo nome e tamanho) = continua de onde parou
+  if(!R&&typeof pfIdbGet==='function'){var R0=await pfIdbGet(PF_CATESC_RASC);if(R0&&R0.arquivo===file.name&&R0.tam===buf.length&&R0.pags)R=R0;}
+  var ant=window._pfCatEscRodando;if(ant)ant.parar=true;
+  var tot=pdf.numPages;
+  var N={file:file,buf:buf,esc:true,tot:tot,pags:(R&&R.pags)||[],nomes:(R&&R.nomes)||{},dono:(R&&R.dono)||{},tipoMao:(R&&R.tipoMao)||{},apiKey:apiKey,pdf:pdf};
+  if(R){['marca','modelo','ref','tit','ehTransm','lido'].forEach(function(k){if(R[k]!=null)N[k]=R[k];});}
+  window._pfCatEnvNovo=N;window._pfCatEscRodando=N;
+  var falta=[];for(var p=1;p<=tot;p++){var r0=N.pags[p-1];if(!r0||r0.erro)falta.push(p);}
+  var feitas=tot-falta.length;
+  N.mostra=function(){var box=document.getElementById('pfCatEnvBody');if(window._pfCatEnvNovo!==N||!box)return;box.innerHTML='<div style="background:#fff;border:1px solid #e3e8ef;border-radius:12px;padding:16px;max-width:900px">'+
     '<b style="color:#1F4E79">📷 PDF escaneado (foto do papel) — a IA está lendo as páginas</b><div style="font-size:12.5px;color:#607080;margin-top:4px">⏳ '+feitas+' de '+tot+' páginas · leva uns segundos por página. Depois você confere tudo antes de salvar.</div>'+
     '<div style="height:8px;background:#eef1f5;border-radius:4px;margin-top:10px;overflow:hidden"><div style="height:100%;width:'+Math.round(feitas/tot*100)+'%;background:#2E7DC1"></div></div>'+
-    '<button class="pfBtn pfBtnClaro" style="height:32px;margin-top:12px" onclick="window._pfCatEnvNovo=null;pfCatEnvListaRender()">Cancelar</button></div>';};
-  mostra();
-  var trab=async function(){while(prox<=tot){var p=prox++;var r=await pfCatEnvEscLerPag(pdf,p,apiKey);if(window._pfCatEnvNovo!==N)return;N.pags[p-1]=r;feitas++;mostra();}};
-  await Promise.all([trab(),trab(),trab()]);
-  if(window._pfCatEnvNovo!==N)return;
-  N.pdf=pdf;
-  var cab=N.pags.find(function(r){return r&&r.modelo;})||{},cabR=N.pags.find(function(r){return r&&r.ref;})||{},cabM=N.pags.find(function(r){return r&&r.marca;})||{};
-  N.marca=/CLARK|DANA|SPICER/i.test(cabM.marca||'')?'DANA':String(cabM.marca||'').toUpperCase();
-  N.modelo=cab.modelo||'';N.ref=cabR.ref||'';
-  N.ehTransm=/transmiss|gearbox|converter|clutch|powershift/i.test(N.pags.map(function(r){return r?(r.titulo||'')+' '+(r.itens||[]).map(function(x){return x.descOrig;}).join(' '):'';}).join(' '));
-  pfCatEnvEscPrevia();
+    '<div style="font-size:12px;color:#1E8449;margin-top:8px">💾 Cada página lida já fica guardada neste computador — se fechar ou der erro, é só voltar aqui e clicar em ▶ Continuar.</div>'+
+    '<button class="pfBtn pfBtnClaro" style="height:32px;margin-top:12px" onclick="pfCatEnvEscPausar()">⏸ Parar e continuar depois</button></div>';};
+  if(falta.length){
+    N.mostra();var k=0;
+    var trab=async function(){while(k<falta.length&&!N.parar){var pg=falta[k++];var r=await pfCatEnvEscLerPag(pdf,pg,apiKey);
+      // parou no meio: a página que já estava na IA também fica guardada (não paga 2x)
+      if(N.parar){if(!r.erro)window._pfCatEscFila=(window._pfCatEscFila||Promise.resolve()).then(function(){return new Promise(function(ok){setTimeout(ok,400);});}).then(function(){return pfIdbGet(PF_CATESC_RASC);}).then(function(R2){if(R2&&R2.arquivo===N.file.name&&R2.pags&&(!R2.pags[pg-1]||R2.pags[pg-1].erro)){R2.pags[pg-1]=r;return pfIdbSet(PF_CATESC_RASC,R2);}});return;}N.pags[pg-1]=r;feitas++;N.mostra();pfCatEnvEscRascSalvar(N);}};
+    await Promise.all([trab(),trab(),trab()]);
+    if(N.parar)return;
+  }
+  if(window._pfCatEscRodando===N)window._pfCatEscRodando=null;
+  if(!N.lido){
+    var cab=N.pags.find(function(r){return r&&r.modelo;})||{},cabR=N.pags.find(function(r){return r&&r.ref;})||{},cabM=N.pags.find(function(r){return r&&r.marca;})||{};
+    N.marca=/CLARK|DANA|SPICER/i.test(cabM.marca||'')?'DANA':String(cabM.marca||'').toUpperCase();
+    N.modelo=cab.modelo||'';N.ref=cabR.ref||'';
+    N.ehTransm=/transmiss|gearbox|converter|clutch|powershift/i.test(N.pags.map(function(r){return r?(r.titulo||'')+' '+(r.itens||[]).map(function(x){return x.descOrig;}).join(' '):'';}).join(' '));
+    N.tit=((N.ehTransm?'Transmissão ':'')+N.modelo).trim();N.lido=true;
+  }
+  pfCatEnvEscRascSalvar(N);
+  if(window._pfCatEnvNovo===N)pfCatEnvEscPrevia();
 }
+function pfCatEnvEscPausar(){var N=window._pfCatEscRodando;if(N){N.parar=true;pfCatEnvEscRascSalvar(N);}window._pfCatEscRodando=null;window._pfCatEnvNovo=null;setTimeout(pfCatEnvListaRender,350);}
 function pfCatEnvEscAgrupar(N){
   var pags=N.pags.filter(Boolean),tipo=function(r){return N.tipoMao[r.p]||r.tipo;};
   var des=pags.filter(function(r){var t=tipo(r);return t==='desenho'||t==='misto';});
@@ -78168,7 +78225,7 @@ function pfCatEnvEscAgrupar(N){
 function pfCatEnvEscPrevia(){
   var N=window._pfCatEnvNovo,box=document.getElementById('pfCatEnvBody');if(!N||!N.esc||!box)return;
   var val=function(id,d){var e=document.getElementById(id);return e?e.value:d;};
-  var marca=val('pfCatEnvMarca',N.marca),modelo=val('pfCatEnvModelo',N.modelo),ref=val('pfCatEnvRef',N.ref),tit=val('pfCatEnvTit',((N.ehTransm?'Transmissão ':'')+N.modelo).trim());
+  var marca=val('pfCatEnvMarca',N.marca),modelo=val('pfCatEnvModelo',N.modelo),ref=val('pfCatEnvRef',N.ref),tit=val('pfCatEnvTit',N.tit!=null?N.tit:((N.ehTransm?'Transmissão ':'')+N.modelo).trim());
   var grupos=pfCatEnvEscAgrupar(N),pags=N.pags.filter(Boolean),tipo=function(r){return N.tipoMao[r.p]||r.tipo;};
   var des=pags.filter(function(r){var t=tipo(r);return t==='desenho'||t==='misto';});
   var nIt=grupos.reduce(function(s,g){return s+g.itens.length;},0),conf=[];
@@ -78179,10 +78236,10 @@ function pfCatEnvEscPrevia(){
     '<div style="font-size:12.5px;color:#607080;margin-top:3px">Confira os grupos, as peças com ⚠️ (código escrito à mão) e se cada lista caiu no desenho certo. Depois salve.</div>'+
     (nErr?'<div style="margin-top:8px;background:#FDECEA;color:#922;border-radius:8px;padding:8px 10px;font-size:12.5px">⚠️ '+nErr+' página(s) não foram lidas — use 🔄 na tabela de páginas.</div>':'')+
     '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:flex-end">'+
-      '<div><div style="font-size:10.5px;font-weight:800;color:#607080">MARCA</div><input id="pfCatEnvMarca" value="'+pfEscHtml(marca)+'" style="'+inp+';width:130px;font-weight:700"></div>'+
-      '<div><div style="font-size:10.5px;font-weight:800;color:#607080">MODELO (EIXO / TRANSMISSÃO)</div><input id="pfCatEnvModelo" value="'+pfEscHtml(modelo)+'" style="'+inp+';width:170px"></div>'+
-      '<div><div style="font-size:10.5px;font-weight:800;color:#607080">REF. / SÉRIE</div><input id="pfCatEnvRef" value="'+pfEscHtml(ref)+'" style="'+inp+';width:120px"></div>'+
-      '<div style="flex:1;min-width:200px"><div style="font-size:10.5px;font-weight:800;color:#607080">NOME QUE O CLIENTE VÊ (sem a sua empresa)</div><input id="pfCatEnvTit" value="'+pfEscHtml(tit)+'" style="'+inp+';width:100%"></div></div>';
+      '<div><div style="font-size:10.5px;font-weight:800;color:#607080">MARCA</div><input id="pfCatEnvMarca" onchange="pfCatEnvEscRascSalvar()" value="'+pfEscHtml(marca)+'" style="'+inp+';width:130px;font-weight:700"></div>'+
+      '<div><div style="font-size:10.5px;font-weight:800;color:#607080">MODELO (EIXO / TRANSMISSÃO)</div><input id="pfCatEnvModelo" onchange="pfCatEnvEscRascSalvar()" value="'+pfEscHtml(modelo)+'" style="'+inp+';width:170px"></div>'+
+      '<div><div style="font-size:10.5px;font-weight:800;color:#607080">REF. / SÉRIE</div><input id="pfCatEnvRef" onchange="pfCatEnvEscRascSalvar()" value="'+pfEscHtml(ref)+'" style="'+inp+';width:120px"></div>'+
+      '<div style="flex:1;min-width:200px"><div style="font-size:10.5px;font-weight:800;color:#607080">NOME QUE O CLIENTE VÊ (sem a sua empresa)</div><input id="pfCatEnvTit" onchange="pfCatEnvEscRascSalvar()" value="'+pfEscHtml(tit)+'" style="'+inp+';width:100%"></div></div>';
   // grupos
   h+='<div style="font-size:11px;font-weight:800;color:#607080;margin:16px 0 6px;text-transform:uppercase">Grupos (1 por desenho)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px">'+
     grupos.map(function(g){var r=N.pags[g.pag-1],rc=g.rec,nC=g.itens.filter(function(x){return x.manuscrito;}).length;
@@ -78212,12 +78269,13 @@ function pfCatEnvEscPrevia(){
         (t==='lista'&&des.length?'<select onchange="window._pfCatEnvNovo.dono['+r.p+']=+this.value;pfCatEnvEscPrevia()" style="width:100%;margin-top:3px;font-size:11.5px">'+des.map(function(d){var cur=N.dono[r.p]||(des.filter(function(x){return x.p<r.p;}).pop()||des[0]).p;return '<option value="'+d.p+'"'+(d.p===cur?' selected':'')+'>→ desenho pág. '+d.p+'</option>';}).join('')+'</select>':'')+
         '</div></div>';}).join('')+'</div></details>';
   h+='<div style="display:flex;gap:8px;margin-top:14px"><button id="pfCatEnvSalvarBtn" class="pfBtn pfBtnVerde" style="height:36px" onclick="pfCatEnvSalvarNovo()"'+(grupos.length?'':' disabled')+'>💾 Salvar catálogo</button>'+
-    '<button class="pfBtn pfBtnClaro" style="height:36px" onclick="window._pfCatEnvNovo=null;pfCatEnvListaRender()">Cancelar</button><span id="pfCatEnvMsg" style="font-size:12px;color:#607080;align-self:center"></span></div></div>';
-  box.innerHTML=h;
+    '<button class="pfBtn pfBtnClaro" style="height:36px" title="A leitura fica guardada — volte em Catálogos de peças e clique em ▶ Continuar" onclick="pfCatEnvEscRascSalvar();window._pfCatEnvNovo=null;setTimeout(pfCatEnvListaRender,350)">⏸ Terminar depois</button>'+
+    '<button class="pfBtn pfBtnClaro" style="height:36px" onclick="pfCatEnvEscDescartar()">🗑 Descartar</button><span id="pfCatEnvMsg" style="font-size:12px;color:#607080;align-self:center">💾 Leitura guardada neste computador</span></div></div>';
+  box.innerHTML=h;pfCatEnvEscRascSalvar(N);
 }
 function pfCatEnvEscConf(i,cod,ok){
   var N=window._pfCatEnvNovo;if(!N||!N.grupos)return;var l=[];N.grupos.forEach(function(g){g.itens.forEach(function(x){if(x.manuscrito)l.push(x);});});
-  var x=l[i];if(!x)return;if(cod!=null){x.codigo=String(cod).trim().toUpperCase();x.ok=true;var ck=document.querySelectorAll('[data-esc-conf]')[i];if(ck){var tr=ck.closest('tr'),cb=tr&&tr.querySelector('input[type=checkbox]');if(cb)cb.checked=true;}}if(ok!=null)x.ok=ok;
+  var x=l[i];if(!x)return;if(cod!=null){x.codigo=String(cod).trim().toUpperCase();x.ok=true;var ck=document.querySelectorAll('[data-esc-conf]')[i];if(ck){var tr=ck.closest('tr'),cb=tr&&tr.querySelector('input[type=checkbox]');if(cb)cb.checked=true;}}if(ok!=null)x.ok=ok;pfCatEnvEscRascSalvar(N);
 }
 function pfCatEnvEscTipo(p,t){var N=window._pfCatEnvNovo;if(!N)return;N.tipoMao[p]=t;pfCatEnvEscPrevia();}
 function pfCatEnvEscVerPag(p){var N=window._pfCatEnvNovo,r=N&&N.pags[p-1];if(!r)return;
@@ -78310,7 +78368,7 @@ async function pfCatEnvSalvarNovo(){
     if(msg)msg.textContent='⏳ Guardando o PDF original…';
     var upP=await pfStorageSubir('cadastro-clientes','interno/catalogos/'+id+'.pdf',new Blob([N.buf],{type:'application/pdf'}),'application/pdf');
     if(upP.ok)cat.pdfPath=upP.path;
-    var o=pfCatEnvLoad();o.por[id]=cat;pfCatEnvSalvar(o);window._pfCatEnvNovo=null;
+    var o=pfCatEnvLoad();o.por[id]=cat;pfCatEnvSalvar(o);window._pfCatEnvNovo=null;if(N.esc)pfCatEnvEscRascApagar(); // v115.2193
     if(msg)msg.textContent='⏳ Mandando pras Aplicações…';
     var ra={};try{ra=pfCatEnvMandarAplic(cat)||{};}catch(eA){ra={erro:eA.message};} // v115.2182
     pfCatEnvVer(id);

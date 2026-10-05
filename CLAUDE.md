@@ -106,10 +106,19 @@
   v115.2185: selo no card de cada família (`ccMedSinSeloHtml`): ✅ fabricantes mapeados (`CC_MED_SIN_FABS`, ao mapear
   família/fabricante novo ATUALIZAR essa lista também) ou ⚪ "falta mapear" — o Vitor usa pra saber o que mandar.
   v115.2186: no ➕ Cadastrar item o nome de cada medida fica EM CIMA do campo (`ccNovoMedidasHtml`); flange: "4 furos (M14)" escrito
-  na observação/aplicação vira D = "4 x M14"; catálogo Sorocard: "SIMILAR 41-594" (código NN-NNN) = SPICER, não Sorocard.
-  v115.2187: essa regra virou `ccEqSorocardSpicer(lista, marcaCatalogo)` (`CC_COD_SPICER_RE`) e vale na prévia, na GRAVAÇÃO
-  (`ccNovoSalvar`), no Colar print de aplicação e nas peças já gravadas (`ccCorrigirSimilarSorocard`, 1x por sessão ao abrir
-  os Componentes: equivalente vira SPICER/SIMILAR e `similar` = grupo Spicer procurado nas OUTRAS peças).
+  na observação/aplicação vira D = "4 x M14".
+- **LNG × SPICER — NÃO CONFUNDIR** (v115.2189; a regra da v115.2186/2187 "SIMILAR NN-NNN da Sorocard = Spicer" estava ERRADA —
+  41-594 e 35-406 são LNG, estão em `data/lng-cardan-2015.json`). Padrão tirado das 1.211 peças LNG + códigos Dana citados nelas:
+  LNG = 2 partes com prefixo 41/35/28/46/90 (41-594) — LNG NUNCA tem 3 partes; 6 dígitos 1/2/3/5/8xxxxx costuma ser LNG.
+  SPICER/DANA = 3+ partes (6.5-40-191, 2-70-59, 90-70-394), 0[1-4]-xxx, 5-153X, 40-/53-/54-/82-/48-/95-.
+  AMBÍGUOS (nos dois): 26-, 55-, 94-, 98- e 6 dígitos → só o cadastro decide. O "SIMILAR" da Sorocard e o "Substitui nº 41594"
+  da REI costumam ser LNG. `ccMarcaPeloCodigo(cod)` (cadastro primeiro — `ccCodIdxMarcas`, sem traço: 41594 = 41-594 —, depois
+  o formato) → `ccEqMarcaPeloCodigo(lista)` na prévia/gravação do Cadastrar item e no Colar print de aplicação; peça com
+  equivalente LNG que já tem cadastro entra no card da LNG (`rec.similar`); `ccCorrigirMarcaLng` (1x por sessão) desfaz o
+  "SPICER" errado das peças gravadas. Tela 📖 Códigos Spicer: código LNG = aviso vermelho "NÃO é Spicer" + quadro "Não
+  confundir com LNG". Pedido à IA também explica a diferença.
+- v115.2189 BUG: o filtro DENTRO da família (texto) agora também procura nos equivalentes/conversões e sem traço (S622 = S-622),
+  igual à busca geral — antes clicar num resultado da busca geral achado por equivalente abria a família "sem nenhum item".
 - **🔗 É a mesma peça** (v115.2188, link no rodapé do card, `ccMesmaPecaAbrir`): o Vitor acha 2 cadastros que são a mesma peça
   (ex.: Sorocard SA-27 = LNG 35-406) e junta: `ccMesmaPecaPlano` escolhe a chave final (a do grupo que TEM Spicer = cadastro
   Spicer ou peça que cita a chave como SPICER; `ccPareceSpicerCod` é solto demais, não usar) e passa o `similar`/`substitui` de

@@ -92,6 +92,7 @@
   v115.2203 ("pode colocar na descrição mesmo"): `ccPontDescAplicar` (1x por sessão no `ccRender` e ao marcar à mão) ESCREVE o tipo na
   descrição — "PONTEIRA FIXA …"/"PONTEIRA DESLIZANTE …" (`ccPontDescCom`; sem "ponteira" = prefixo "PONTEIRA FIXA - "); só tipo certo
   (manual/descrição/G/código Spicer — a dedução Stahl p=0 NÃO); marcado à mão troca a palavra oposta; original em `descSemTipo`.
+  v115.2204 (Vitor: "só assim"): a descrição vira EXATAMENTE "PONTEIRA FIXA" ou "PONTEIRA DESLIZANTE" (nada mais; antiga em `descSemTipo`).
 - **Códigos Spicer** (v115.2139, pedido do Vitor "deixe guardado no PF essas regras"): `pfSpicerDecifrar(cod)` —
   formato 1 SÉRIE-TIPO-NÚMERO (`PF_SPICER_SERIES` 2/3/4/6/6.5/8/90/140/170/250; tipo do meio `PF_SPICER_TIPO_MEIO`:
   1 flange companheiro, 2 flange de orelha, 3 luva, 4 terminal, 26/28 garfo, 40 ponteira deslizante, 53 ponteira fixa,

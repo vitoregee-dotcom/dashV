@@ -297,6 +297,12 @@
   `pfCatEnvEscAgrupar`: lista entra no desenho ANTERIOR (ou o escolhido em "Páginas", `N.dono`; tipo trocável `N.tipoMao`); lista com
   sub-tabelas que repetem nº (embreagens LOW/REVERSE/FORWARD) = 1 grupo por sub com o mesmo desenho (sobe 1x, `jaSubiu`). Marca
   CLARK/DANA/SPICER → "DANA". Salvar = `pfCatEnvSalvarNovo` (escala 3, recorte `g.rec` com folga 1%, nº da IA com `ia:1` → conferir no 📍).
+- v115.2193 **leitura escaneada não se perde** ("se eu não terminar, se der erro"): rascunho no IndexedDB DESTE computador
+  (`PF_CATESC_RASC` = `pfCatEnvRascunho_v1`: PDF + `pags` lidas + nomes/dono/tipoMao/códigos corrigidos), salvo a cada página lida e a
+  cada mudança na conferência (`pfCatEnvEscRascSalvar`, 300 ms). Faixa "♻️ … não terminado — ▶ Continuar / 🗑 Descartar" na lista
+  (`pfCatEnvEscRascFaixa`); `pfCatEnvEscRetomar` manda pra IA só as páginas que FALTAM ou deram erro; carregar o mesmo PDF (nome+tamanho)
+  também continua. "⏸ Parar e continuar depois" (`pfCatEnvEscPausar`; página que já estava na IA é guardada pela fila `_pfCatEscFila`),
+  "⏸ Terminar depois" na prévia. Some ao salvar o catálogo ou no Descartar (`pfCatEnvEscDescartar`).
 - Endereço do link: `pfCatEnvBaseUrl` (padrão = o do sistema; "Endereço do link" no modal grava `base` — pra domínio neutro
   na Vercel). Prévias em `docs/referencias/catalogo-sem-codigo/`.
 - **Portal do cliente — IDEIA (não feita)**: cliente com login cota sozinho DIGITANDO SÓ CÓDIGO E QUANTIDADE (decisão do Vitor

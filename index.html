@@ -1934,7 +1934,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2186</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2187</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2088,7 +2088,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2186</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2187</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -68459,6 +68459,7 @@ function ccRender(){
   var el=document.getElementById('areaTecnicaBody');
   if(!el) return;
   ccGarantirTelaAreaTecnica(); // v115.2054
+  ccCorrigirSimilarSorocard(); // v115.2187
   if(!_ccFamiliaAtual){
     var cardsHtml=CC_FAMILIAS.map(function(f){
       var _lf=(ccLoad()[f.key]||[]),count=_lf.length,_pk={};_lf.forEach(function(it){if(it)_pk[it.substitui||it.similar||it.codigo]=1;});var pecas=Object.keys(_pk).length; // v115.2032
@@ -69803,6 +69804,27 @@ function ccTemFotoPropria(r){return !!((r.fotos&&r.fotos.length)||r.foto);}
 // some -- vai pra descricaoCatalogo + especificação "Descrição do catálogo (MARCA)". Marcas: fotoSpicer/descSpicer.
 function ccEhLinhaSpicer(x){return /^(SPICER|DANA)$/.test(String(x||'').toUpperCase().trim());}
 // v115.2045 - nome curto da marca ("REI AUTO PARTS" -> REI, "DANA SPICER" -> SPICER), pra casar com as pills/linhas do sistema
+// v115.2187 - A pedido do Vitor ("41-594 estava como Spicer na prévia e não entrou assim, subiu como Sorocard"): no catálogo
+// SOROCARD o "SIMILAR 41-594" é código SPICER (formato NN-NNN / 6.5-40-191). Mesma regra na prévia do Cadastrar item, na
+// gravação, no Colar print de aplicação e (1x por sessão) nas peças Sorocard já gravadas assim.
+var CC_COD_SPICER_RE=/^\d{1,3}(\.\d)?-\d{2,4}(-\d{1,4})?[A-Z]{0,3}$/;
+function ccEqSorocardSpicer(lista,marcaCat){
+  if(ccNormMarcaCC(marcaCat)!=='SOROCARD')return 0;var n=0;
+  (lista||[]).forEach(function(e){if(e&&CC_COD_SPICER_RE.test(String(e.codigo||'').trim().toUpperCase())&&(!e.marca||ccNormMarcaCC(e.marca)==='SOROCARD')){e.marca='SPICER';if(!e.tipo||/CONVERS|EQUIVAL/i.test(e.tipo))e.tipo='SIMILAR';n++;}});
+  return n;
+}
+function ccCorrigirSimilarSorocard(){
+  if(window._ccFixSoro)return;window._ccFixSoro=1;
+  try{var data=ccLoad(),n=0;
+    Object.keys(data||{}).forEach(function(fam){var arr=data[fam];if(!Array.isArray(arr))return;
+      arr.forEach(function(it){if(!it||ccNormMarcaCC(it.linha)!=='SOROCARD'||!ccEqSorocardSpicer(it.equivalentesExtra,'SOROCARD'))return;n++;
+        if(!it.similar&&!it.substitui){var e=(it.equivalentesExtra||[]).find(function(x){return x.marca==='SPICER'&&x.tipo!=='ORIGINAL';});
+          // procura o grupo Spicer nas OUTRAS peças (a própria já cita o código e devolveria ela mesma)
+          if(e){var cS=String(e.codigo).toUpperCase().trim(),k=(typeof ccChaveSpicerExistente==='function'?ccChaveSpicerExistente(arr.filter(function(o){return o!==it;}),cS):'')||cS;if(ccNormCod(k)===ccNormCod(it.codigo))k=cS;it.similar=k;}}
+        it.ts=Date.now();});});
+    if(n){ccSave(data);console.log('ccCorrigirSimilarSorocard: '+n+' peça(s) Sorocard com SIMILAR = Spicer corrigidas');}
+  }catch(e){console.warn('ccCorrigirSimilarSorocard',e);}
+}
 function ccNormMarcaCC(m){
   var u=String(m||'').toUpperCase().trim();if(!u)return '';
   if(/SPICER|DANA/.test(u))return 'SPICER';
@@ -70055,7 +70077,7 @@ function ccNovoPreencher(j,foto){
   var dCat=String(j.descricao_catalogo||'').toUpperCase().trim();
   if(dCat&&dCat!==String(j.descricao||'').toUpperCase().trim())set('ccNovoDescCat',dCat);
   // v115.2186 - Sorocard: a coluna "Cód. / Nº Conversão — SIMILAR 41-594" traz o código da SPICER (vinha "SOROCARD: 41-594")
-  if(marcaCat==='SOROCARD')(j.equivalentes||[]).forEach(function(e){if(e&&/^\d{1,3}(\.\d)?-\d{2,4}(-\d{1,4})?[A-Z]{0,3}$/.test(String(e.codigo||'').trim())&&(!e.marca||ccNormMarcaCC(e.marca)==='SOROCARD')){e.marca='SPICER';if(!e.tipo||/CONVERS/i.test(e.tipo))e.tipo='SIMILAR';}});
+  ccEqSorocardSpicer(j.equivalentes,marcaCat);
   (j.equivalentes||[]).forEach(function(e){if(e){if(ccEhMontadoraVeic(e.marca)&&String(e.tipo||'EQUIVALENTE').toUpperCase()==='EQUIVALENTE')e.tipo='ORIGINAL';e.marca=ccNormMarcaCC(e.marca)||(String(e.tipo||'').toUpperCase()==='ORIGINAL'?'ORIGINAL':marcaCat);}}); // v115.2047 - montadora = original
   if(j.familia&&ccFamiliaConfig(j.familia)){var f=document.getElementById('ccNovoFam');if(f)f.value=j.familia;}
   // v115.2184 - o nome da especificação no print decide o campo (CC_MED_SIN); a IA só completa o que a tabela não pegou
@@ -70110,6 +70132,7 @@ function ccNovoSalvar(){
     var p=l.indexOf(':');var marca=ccNormMarcaCC(p>0?l.slice(0,p).trim():'')||(tipo==='ORIGINAL'?'ORIGINAL':rec.linha);var c=(p>=0?l.slice(p+1):l).trim().toUpperCase();
     return c?{marca:marca,codigo:c,tipo:tipo}:null;
   }).filter(Boolean);
+  ccEqSorocardSpicer(eqs,rec.linha); // v115.2187 - mesmo que a linha tenha sido editada à mão
   if(eqs.length)rec.equivalentesExtra=eqs;
   var cbF=document.getElementById('ccNovoUsarFoto');
   if(window._ccNovoFoto&&cbF&&cbF.checked)rec.fotos=[window._ccNovoFoto];
@@ -70169,6 +70192,7 @@ function ccPrintAplPrevia(j){
   var eqExist={};
   [rec.codigo,rec.substitui,rec.similar].concat((rec.conversoes||[]).map(function(c){return c.codigo;})).concat((rec.equivalentesExtra||[]).map(function(e){return e.codigo;})).forEach(function(c){if(c)eqExist[ccNormAplic(c)]=1;});
   var apl=(j.aplicacoes||[]).map(function(a){var cm=ccAplCorrigirMontadora(a);var t=ccPrintAplFormatar(cm.a);return {txt:t,ja:jaTem(t),aviso:cm.aviso};}).filter(function(x){return x.txt;});
+  ccEqSorocardSpicer(j.equivalentes,j.marca_catalogo||rec.linha); // v115.2187
   var eqs=(j.equivalentes||[]).filter(function(e){return e&&e.codigo;}).map(function(e){var mc=String(e.marca||'').toUpperCase().trim(),tp=String(e.tipo||'EQUIVALENTE').toUpperCase().trim();if(ccEhMontadoraVeic(mc)&&tp==='EQUIVALENTE')tp='ORIGINAL'; /* v115.2047 - código de montadora é original */ return {marca:ccEhMarcaPeca(mc)?ccNormMarcaCC(mc):mc,codigo:String(e.codigo).toUpperCase().trim(),tipo:tp,ja:!!eqExist[ccNormAplic(e.codigo)]};});
   var ehSp=ccEhLinhaSpicer(j.marca_catalogo);var descSp=ehSp?String(j.descricao||'').toUpperCase().trim():'';
   var codSp=ehSp?String(j.codigo||'').toUpperCase().trim():'';if(codSp&&ccMesmoGrupoCC(rec,codSp))codSp=''; // v115.2046 - já é o principal

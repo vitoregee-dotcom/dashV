@@ -107,6 +107,9 @@
   família/fabricante novo ATUALIZAR essa lista também) ou ⚪ "falta mapear" — o Vitor usa pra saber o que mandar.
   v115.2186: no ➕ Cadastrar item o nome de cada medida fica EM CIMA do campo (`ccNovoMedidasHtml`); flange: "4 furos (M14)" escrito
   na observação/aplicação vira D = "4 x M14"; catálogo Sorocard: "SIMILAR 41-594" (código NN-NNN) = SPICER, não Sorocard.
+  v115.2187: essa regra virou `ccEqSorocardSpicer(lista, marcaCatalogo)` (`CC_COD_SPICER_RE`) e vale na prévia, na GRAVAÇÃO
+  (`ccNovoSalvar`), no Colar print de aplicação e nas peças já gravadas (`ccCorrigirSimilarSorocard`, 1x por sessão ao abrir
+  os Componentes: equivalente vira SPICER/SIMILAR e `similar` = grupo Spicer procurado nas OUTRAS peças).
 - Cotação: busca Série/Modelo também acha componentes cardan pelo veículo (`vendasCcBuscarPorVeiculo`) + Monta com.
 
 - **Aplicações — Modelos & Séries** (v115.2162) saiu de Cadastros (aba escondida) e abre pela Área Técnica (`atAplicAbrir`,

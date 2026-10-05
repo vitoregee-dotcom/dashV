@@ -1934,7 +1934,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2182</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2183</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2088,7 +2088,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2182</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2183</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -77739,6 +77739,44 @@ function pfCatEnvKits(itens){
   });
   return itens;
 }
+// v115.2183 - A pedido do Vitor ("eixo, consegue identificar se é dianteiro ou traseiro? deixa automático, já informando na
+// descrição"): o catálogo Carraro não escreve "front/rear" -- quem entrega são as PEÇAS: eixo com direção (cilindro/barra de
+// direção, manga, pino mestre, junta dupla na ponta) é o DIANTEIRO (direcional); sem nada disso, TRASEIRO. Se o texto do PDF
+// disser front/anteriore/rear/posteriore, vale o texto. Só pra catálogo de EIXO (carcaça/diferencial/cubo); o campo Posição
+// fica editável antes de salvar.
+function pfCatEnvEhEixo(grupos){return (grupos||[]).some(function(g){return /AXLE|DIFFERENTIAL|DIFERENCIAL|WHEEL HUB|CUBO DE RODA|CARCAÇA DO EIXO/i.test((g.nomeOrig||'')+' '+(g.nome||''));});}
+function pfCatEnvDetectarPosicao(grupos,texto){
+  if(!pfCatEnvEhEixo(grupos))return '';
+  var t=String(texto||'');
+  if(/\b(front axle|anteriore|eixo dianteiro)\b/i.test(t))return 'dianteiro';
+  if(/\b(rear axle|posteriore|eixo traseiro)\b/i.test(t))return 'traseiro';
+  var direcao=(grupos||[]).some(function(g){return /STEER|STERZO|SWIVEL|DIREÇÃO/i.test(g.nomeOrig||'')||(g.itens||[]).some(function(x){return /STEERING|KING PIN|SWIVEL|TIE ROD|DOUBLE (U-)?JOINT/i.test(x.descOrig||'');});});
+  return direcao?'dianteiro':'traseiro';
+}
+function pfCatEnvPosTxt(cat){return cat&&cat.posicao?'EIXO '+String(cat.posicao).toUpperCase():'';}
+// descrição completa (fichas novas, aplicações e itens que vão pra cotação): "RETENTOR - EIXO DIANTEIRO"
+function pfCatEnvDescCompleta(cat,x){var d=String((x&&x.desc)||'').trim(),p=pfCatEnvPosTxt(cat);return p&&d.indexOf(p)<0?d+' - '+p:d;}
+// v115.2183 - A pedido do Vitor ("sempre identificar de maneira fácil o reparo do cilindro, pra quando eu procurar já
+// encontrar rápido"): kit de vedação que pertence a um CILINDRO (coluna Kit = código do cilindro, ex. 49220 → 132735
+// "Steering cylinder") vira "KIT REPARO DO CILINDRO DE DIREÇÃO" (ou "...DO CILINDRO" se não for de direção) e ganha
+// x.reparo -- atalho "🔧 Reparo do cilindro" no topo do catálogo e etiqueta na cotação.
+function pfCatEnvMarcarReparo(itens){
+  (itens||[]).forEach(function(x){
+    if(!/SEAL KIT|GUARNIZ|VEDA[CÇ][AÃ]O|JOINT KIT|REPAIR KIT/i.test((x.descOrig||'')+' '+(x.descIt||'')+' '+(x.desc||'')))return;
+    var pai=x.kitPai?itens.find(function(y){return y.n===x.kitPai&&y.kitInclui;}):null;
+    if(!pai||!/CYLINDER|MARTINETTO|CILINDRO/i.test((pai.descOrig||'')+' '+(pai.descIt||'')+' '+(pai.desc||'')))return;
+    x.reparo=true;x.desc=/STEER|DIRE[CÇ]/i.test((pai.descOrig||'')+' '+(pai.desc||''))?'KIT REPARO DO CILINDRO DE DIREÇÃO':'KIT REPARO DO CILINDRO';
+  });
+  return itens;
+}
+// catálogo salvo antes da v115.2183: detecta a posição pelas peças e marca o reparo (1x)
+function pfCatEnvAtualizarCat(id){
+  var o=pfCatEnvLoad(),c=o.por[id];if(!c||c.v2183)return;
+  (c.grupos||[]).forEach(function(g){pfCatEnvMarcarReparo(g.itens||[]);});
+  if(c.posicao==null){c.posicao=pfCatEnvDetectarPosicao(c.grupos,'');
+    if(c.posicao&&/^Eixo\s+/i.test(c.titulo||'')&&!/dianteiro|traseiro/i.test(c.titulo))c.titulo=String(c.titulo).replace(/^Eixo\s+/i,'Eixo '+c.posicao+' ');}
+  c.v2183=1;pfCatEnvSalvar(o);
+}
 function pfCatEnvTitCase(s){return String(s||'').toLowerCase().replace(/(^|\s|\()(\S+)/g,function(a,b,c,i){return b+(i>0&&/^(de|do|da|dos|das|e|com)$/.test(c)?c:c.replace(/^(\(?)(.)/,function(x,p,l){return p+l.toUpperCase();}));});}
 
 // ---------- tela ----------
@@ -77778,18 +77816,20 @@ async function pfCatEnvImportar(file){
   try{
     await pfCarregarPdfJs();
     var buf=new Uint8Array(await file.arrayBuffer());
-    var pdf=await pdfjsLib.getDocument({data:buf.slice()}).promise,grupos=[],cabEsq='',temCarraro=false;
+    var pdf=await pdfjsLib.getDocument({data:buf.slice()}).promise,grupos=[],cabEsq='',temCarraro=false,textoTodo='';
     for(var p=1;p<=pdf.numPages;p++){
       var pg=await pdf.getPage(p),vp=pg.getViewport({scale:1}),tc=await pg.getTextContent();
       if(tc.items.some(function(t){return /carraro/i.test(t.str||'');}))temCarraro=true;
+      textoTodo+=' '+tc.items.map(function(t){return t.str||'';}).join(' ');
       var r=pfCatEnvLerPagina(tc.items,vp.width,vp.height);if(!r||!r.itens.length)continue;
       if(!cabEsq)cabEsq=r.cabEsq;
       var en=r.titulo[1]||r.titulo[0]||('Página '+p);
       grupos.push({id:'g'+p,pag:p,tab:r.tab,nomeOrig:r.titulo.join(' / '),nome:pfCatEnvTitCase(pfCatEnvTraduz(en)),y0:r.y0,y1:r.y1,W:vp.width,H:vp.height,nums:r.nums,
-        itens:pfCatEnvKits(r.itens.map(function(x){return Object.assign({},x,{desc:pfCatEnvDesc(x)});})),suspeitos:r.suspeitos});
+        itens:pfCatEnvMarcarReparo(pfCatEnvKits(r.itens.map(function(x){return Object.assign({},x,{desc:pfCatEnvDesc(x)});}))),suspeitos:r.suspeitos});
     }
     if(!grupos.length){box.innerHTML='<div style="padding:16px;color:#C0392B">Não achei nenhuma página com a tabela "Pos. / Ref. / Q.ty" nesse PDF. Por enquanto só o formato Carraro é lido sozinho — me mande o PDF que eu ajusto pro formato dele.</div>';return;}
     var mRef=/([\d.]+)ref\.?(\w+)/i.exec(String(cabEsq||'').replace(/\s+/g,'')),modelo=mRef?mRef[1]:'',ref=mRef?mRef[2]:'';
+    var posicao=pfCatEnvDetectarPosicao(grupos,textoTodo),ehEixo=pfCatEnvEhEixo(grupos);
     window._pfCatEnvNovo={file:file,buf:buf,grupos:grupos};
     var nIt=grupos.reduce(function(s,g){return s+g.itens.length;},0),nNum=grupos.reduce(function(s,g){return s+g.nums.length;},0),susp=[].concat.apply([],grupos.map(function(g){return g.suspeitos;}));
     var inp='border:1.5px solid #dfe5ec;border-radius:8px;padding:7px 10px;font-size:13px;box-sizing:border-box';
@@ -77800,7 +77840,8 @@ async function pfCatEnvImportar(file){
         '<div><div style="font-size:10.5px;font-weight:800;color:#607080">MARCA</div><input id="pfCatEnvMarca" value="'+(temCarraro?'CARRARO':'')+'" style="'+inp+';width:130px;font-weight:700"></div>'+
         '<div><div style="font-size:10.5px;font-weight:800;color:#607080">MODELO (EIXO / TRANSMISSÃO)</div><input id="pfCatEnvModelo" value="'+pfEscHtml(modelo)+'" style="'+inp+';width:150px"></div>'+
         '<div><div style="font-size:10.5px;font-weight:800;color:#607080">REF. / SÉRIE</div><input id="pfCatEnvRef" value="'+pfEscHtml(ref)+'" style="'+inp+';width:120px"></div>'+
-        '<div style="flex:1;min-width:200px"><div style="font-size:10.5px;font-weight:800;color:#607080">NOME QUE O CLIENTE VÊ (sem a sua empresa)</div><input id="pfCatEnvTit" value="'+pfEscHtml(('Eixo '+modelo).trim())+'" style="'+inp+';width:100%"></div>'+
+        (ehEixo?'<div><div style="font-size:10.5px;font-weight:800;color:#607080">POSIÇÃO <span title="Detectado pelas peças: com direção (cilindro, manga, pino mestre) = dianteiro" style="cursor:help">ⓘ</span></div><select id="pfCatEnvPos" onchange="var t=document.getElementById(\'pfCatEnvTit\');if(t)t.value=t.value.replace(/^Eixo( dianteiro| traseiro)?\\s*/i,\'Eixo \'+(this.value?this.value+\' \':\'\'))" style="'+inp+';width:130px;font-weight:700"><option value="dianteiro"'+(posicao==='dianteiro'?' selected':'')+'>Dianteiro</option><option value="traseiro"'+(posicao==='traseiro'?' selected':'')+'>Traseiro</option><option value="">(não informar)</option></select></div>':'')+
+        '<div style="flex:1;min-width:200px"><div style="font-size:10.5px;font-weight:800;color:#607080">NOME QUE O CLIENTE VÊ (sem a sua empresa)</div><input id="pfCatEnvTit" value="'+pfEscHtml(((ehEixo?'Eixo '+(posicao?posicao+' ':''):'')+modelo).trim())+'" style="'+inp+';width:100%"></div>'+
       '</div>'+
       '<div style="font-size:12px;color:#607080;margin-top:10px">'+grupos.map(function(g){return '<span style="display:inline-block;background:#eef3f9;border-radius:12px;padding:3px 9px;margin:0 4px 4px 0">'+pfEscHtml(g.nome)+' · '+g.itens.length+'</span>';}).join('')+'</div>'+
       '<div style="display:flex;gap:8px;margin-top:12px"><button id="pfCatEnvSalvarBtn" class="pfBtn pfBtnVerde" style="height:36px" onclick="pfCatEnvSalvarNovo()">💾 Salvar catálogo</button>'+
@@ -77813,7 +77854,7 @@ async function pfCatEnvSalvarNovo(){
   var val=function(id){return String((document.getElementById(id)||{}).value||'').trim();};
   var id='cat_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   if(!val('pfCatEnvMarca')){pfAlert('Preencha a MARCA (ex.: CARRARO) — ela vai nas aplicações.');if(btn)btn.disabled=false;return;}
-  var cat={id:id,titulo:val('pfCatEnvTit')||'Catálogo de peças',marca:val('pfCatEnvMarca').toUpperCase(),modelo:val('pfCatEnvModelo'),ref:val('pfCatEnvRef'),em:Date.now(),
+  var cat={id:id,titulo:val('pfCatEnvTit')||'Catálogo de peças',marca:val('pfCatEnvMarca').toUpperCase(),modelo:val('pfCatEnvModelo'),ref:val('pfCatEnvRef'),posicao:val('pfCatEnvPos'),v2183:1,em:Date.now(),
     por:(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||'',arquivo:N.file.name,grupos:[],links:[]};
   try{
     var pdf=await pdfjsLib.getDocument({data:N.buf.slice()}).promise,S=2.5;
@@ -77828,7 +77869,7 @@ async function pfCatEnvSalvarNovo(){
       var up=await pfStorageSubir('ferramentas-arquivos','c/'+id+'/'+g.id+'.png',blob,'image/png');
       if(!up.ok)throw new Error('o desenho '+(i+1)+' não subiu (status '+up.status+(up.msg?' — '+up.msg:'')+')');
       cat.grupos.push({id:g.id,pag:g.pag,tab:g.tab,nome:g.nome,nomeOrig:g.nomeOrig,img:SB_URL+'/storage/v1/object/public/ferramentas-arquivos/'+up.path,ar:hh/cv.width,
-        nums:g.nums.map(function(n){return {n:n.n,cx:+n.cx.toFixed(4),cy:+n.cy.toFixed(4)};}),itens:g.itens.map(function(x){var o={n:x.n,codigo:x.codigo,qtd:x.qtd,desc:x.desc,descOrig:x.descOrig,descIt:x.descIt,kit:x.kit};if(x.kitPai)o.kitPai=x.kitPai;if(x.kitInclui)o.kitInclui=x.kitInclui;return o;})});
+        nums:g.nums.map(function(n){return {n:n.n,cx:+n.cx.toFixed(4),cy:+n.cy.toFixed(4)};}),itens:g.itens.map(function(x){var o={n:x.n,codigo:x.codigo,qtd:x.qtd,desc:x.desc,descOrig:x.descOrig,descIt:x.descIt,kit:x.kit};if(x.reparo)o.reparo=true;if(x.kitPai)o.kitPai=x.kitPai;if(x.kitInclui)o.kitInclui=x.kitInclui;return o;})});
     }
     if(msg)msg.textContent='⏳ Guardando o PDF original…';
     var upP=await pfStorageSubir('cadastro-clientes','interno/catalogos/'+id+'.pdf',new Blob([N.buf],{type:'application/pdf'}),'application/pdf');
@@ -77865,10 +77906,12 @@ function pfCatEnvMandarAplic(cat){
       var ap={equip:G,marca:marca,modelo:modelo,serie:serie,veiculo:'',marcaVeiculo:'',qtd:qtd};
       var fichas=idx[k]||[];
       if(!fichas.length){
-        var nf={id:'p_'+agora+'_'+Math.random().toString(36).slice(2,8),ts:agora,codigo:x.codigo,descricao:x.desc||x.descOrig||'',descricaoCompleta:[x.descIt,x.descOrig].filter(Boolean).join(' / '),marca:marca,
+        var nf={id:'p_'+agora+'_'+Math.random().toString(36).slice(2,8),ts:agora,codigo:x.codigo,descricao:pfCatEnvDescCompleta(cat,x)||x.descOrig||'',descricaoCompleta:[x.descIt,x.descOrig].filter(Boolean).join(' / '),marca:marca,
           ncm:'',linha:'',grupo:'',subgrupo:'',unidade:'',obs:'',fotos:[],foto:'',desenho:'',conversoes:[],aplicacoes:[],doCatalogo:{serie:serie,grupo:G,em:agora,por:por,catEnv:cat.id}};
         plist.push(nf);fichas=idx[k]=[nf];novas++;
       }
+      // ficha que o PRÓPRIO catálogo criou acompanha a descrição (posição/reparo); as fichas da empresa não são mexidas
+      fichas.forEach(function(f){if(f.doCatalogo&&f.doCatalogo.catEnv===cat.id){var dn=pfCatEnvDescCompleta(cat,x);if(dn&&f.descricao!==dn){f.descricao=dn;f.ts=agora;}}});
       fichas.forEach(function(f){f.aplicacoes=f.aplicacoes||[];
         var ex=f.aplicacoes.find(function(a){return U(a.serie)===serie&&U(a.marca)===marca&&U(a.equip)===G&&!U(a.veiculo);});
         if(ex){if(qtd!=null)ex.qtd=qtd;if(modelo&&!ex.modelo)ex.modelo=modelo;}else{f.aplicacoes.push(Object.assign({},ap));f.ts=agora;}});
@@ -77904,6 +77947,7 @@ function pfCatEnvSaldo(cod){
 function pfCatEnvVer(id,gid,bid){
   bid=bid||'pfCatEnvBody';var pop=bid!=='pfCatEnvBody';
   var box=document.getElementById(bid);if(!box&&!pop){pfCatEnvAbrir('cat');box=document.getElementById(bid);}if(!box)return;
+  pfCatEnvAtualizarCat(id); // v115.2183
   var c=pfCatEnvLoad().por[id];if(!c){pfCatEnvListaRender();return;}
   var g=(c.grupos||[]).find(function(x){return x.id===gid;})||c.grupos[0];if(!g)return;
   window._pfCatEnvVer={id:id,gid:g.id,box:bid,pop:pop,sel:(window._pfCatEnvVer&&window._pfCatEnvVer.id===id&&window._pfCatEnvVer.box===bid&&window._pfCatEnvVer.sel)||{}};
@@ -77928,6 +77972,7 @@ function pfCatEnvVer(id,gid,bid){
       '<button data-cotbtn class="pfBtn pfBtnAzul" style="height:32px;font-size:12px" onclick="pfCatEnvCotarMarcados()"'+(nSel?'':' disabled')+'>'+pfCatEnvCotTxt(nSel)+'</button>'+
       (pop?'<span onclick="pfCatEnvPopFechar()" title="Fechar (Esc)" style="cursor:pointer;line-height:1;margin-left:4px">'+pfXGlossyHtml(24)+'</span>':'<button class="pfBtn pfBtnVermelho" style="height:32px;font-size:12px" onclick="pfCatEnvMandar(\''+id+'\')">🔗 Mandar pro cliente</button>')+
       (!pop&&pfCatEnvPode()?'<button title="Apagar catálogo" onclick="pfCatEnvExcluir(\''+id+'\')" style="border:none;background:none;cursor:pointer;font-size:16px">🗑</button>':'')+'</div>'+
+    pfCatEnvReparosHtml(c,bid)+
     '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+chips+'</div>'+
     '<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">'+
       '<div style="flex:1 1 520px;max-width:760px"><div style="position:relative;border:1px solid #e3e8ef;border-radius:10px;overflow:hidden;background:#fff"><img src="'+pfEscHtml(g.img)+'" style="width:100%;display:block" draggable="false">'+hs+'</div>'+
@@ -77937,6 +77982,12 @@ function pfCatEnvVer(id,gid,bid){
         '<th style="padding:6px"></th><th style="padding:6px">Nº</th><th style="padding:6px">Código</th><th style="padding:6px">Descrição</th><th style="padding:6px">Qtd</th><th style="padding:6px">Kit</th><th style="padding:6px;text-align:right">Saldo</th></tr></thead><tbody>'+linhas+'</tbody></table></div></div>';
 }
 // v115.2181 - A pedido do Vitor ("exibir o que é composto no kit"): o kit lista as peças que vêm dentro (nº, código, descrição)
+function pfCatEnvReparosHtml(c,bid){
+  var l=[];(c.grupos||[]).forEach(function(g){(g.itens||[]).forEach(function(x){if(x.reparo)l.push({g:g,x:x});});});
+  if(!l.length)return '';
+  return '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+l.map(function(r){var sd=pfCatEnvSaldo(r.x.codigo);
+    return '<span onclick="pfCatEnvVer(\''+c.id+'\',\''+r.g.id+'\',\''+bid+'\');setTimeout(function(){pfCatEnvNum(\''+pfEscJs(r.x.n)+'\')},30)" title="'+pfEscHtml(r.g.nome)+' nº '+pfEscHtml(r.x.n)+'" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;background:#EAF7EE;border:1.5px solid #1E8449;color:#145A32;border-radius:10px;padding:5px 10px;font-size:12.5px;font-weight:700">🔧 '+pfEscHtml(r.x.desc)+' · <span style="font-family:Consolas,monospace">'+pfEscHtml(r.x.codigo)+'</span>'+(sd!=null?' · saldo '+sd:'')+'</span>';}).join('')+'</div>';
+}
 function pfCatEnvKitComp(x,g){return (x.kitInclui||[]).map(function(n){return ((g&&g.itens)||[]).find(function(y){return y.n===n&&y.kitPai===x.n;});}).filter(Boolean);}
 function pfCatEnvKitSelo(x,g){
   if(x.kitInclui&&x.kitInclui.length)return ' <span style="font-size:10.5px;font-weight:800;background:#FFF3CD;color:#8a5a00;border-radius:8px;padding:1px 6px;white-space:nowrap">🧰 KIT · '+x.kitInclui.length+' peças</span>'+
@@ -77976,12 +78027,12 @@ function pfCatEnvItensCotacao(lista,marca){
   return lista.map(function(x){
     var cod=String(x.codigo||'').trim(),r={ficha:null};
     try{r=vendasEscolherFichaResumo(cod,marca);if(!r.ficha&&/^0+\d/.test(cod)){var r2=vendasEscolherFichaResumo(cod.replace(/^0+/,''),marca);if(r2.ficha){r=r2;cod=cod.replace(/^0+/,'');}}}catch(e){}
-    var it=vendasItemDaFicha(cod,r.ficha,x.desc,marca);it.qtd=Math.max(1,parseFloat(String(x.qtd).replace(',','.'))||1);return it;
+    var it=vendasItemDaFicha(cod,r.ficha,x.desc,marca);if(!r.ficha&&x.descCompleta)it.desc=x.descCompleta;it.qtd=Math.max(1,parseFloat(String(x.qtd).replace(',','.'))||1);return it;
   });
 }
 function pfCatEnvCotarMarcados(){
   var V=window._pfCatEnvVer;if(!V)return;var c=pfCatEnvLoad().por[V.id];if(!c)return;
-  var lista=Object.keys(V.sel).map(function(k){var p=k.split(':'),g=c.grupos.find(function(x){return x.id===p[0];}),x=g&&g.itens[+p[1]];return x?{codigo:x.codigo,desc:x.desc,qtd:1}:null;}).filter(Boolean);
+  var lista=Object.keys(V.sel).map(function(k){var p=k.split(':'),g=c.grupos.find(function(x){return x.id===p[0];}),x=g&&g.itens[+p[1]];return x?{codigo:x.codigo,desc:x.desc,descCompleta:pfCatEnvDescCompleta(c,x),qtd:1}:null;}).filter(Boolean);
   if(!lista.length)return;
   // aberto por cima da cotação: as peças entram NESTA cotação
   if(V.pop&&window._venda){window._venda.itens=window._venda.itens||[];[].push.apply(window._venda.itens,pfCatEnvItensCotacao(lista,c.marca));V.sel={};pfCatEnvPopFechar();if(typeof vendasRefresh==='function')vendasRefresh();return;}
@@ -78004,7 +78055,8 @@ function pfCatEnvEtqHtml(it){
   var idx=pfCatEnvIdx(),ach=null;
   [it.codigo,it.codigoOriginal].some(function(c){var k=pfAlimNorm(c).replace(/^0+(?=\d)/,'');if(k&&idx[k]){ach=idx[k][0];return true;}return false;});
   if(!ach)return '';
-  var h='<span onclick="event.stopPropagation();pfCatEnvPopup(\''+ach.cat.id+'\',\''+ach.g.id+'\',\''+pfEscJs(ach.x.n)+'\')" title="Ver no catálogo '+pfEscHtml(ach.cat.titulo)+' — '+pfEscHtml(ach.g.nome)+', nº '+pfEscHtml(ach.x.n)+'" style="display:inline-flex;align-items:center;gap:2px;font-size:10.5px;font-weight:700;color:#1F4E79;background:#EAF2FB;border:1px solid #c9dcf0;border-radius:8px;padding:0 5px;margin-left:3px;cursor:pointer;white-space:nowrap">📖 '+pfEscHtml(ach.g.nome)+' nº '+pfEscHtml(ach.x.n)+'</span>';
+  var h='<span onclick="event.stopPropagation();pfCatEnvPopup(\''+ach.cat.id+'\',\''+ach.g.id+'\',\''+pfEscJs(ach.x.n)+'\')" title="Ver no catálogo '+pfEscHtml(ach.cat.titulo)+' — '+pfEscHtml(ach.g.nome)+', nº '+pfEscHtml(ach.x.n)+'" style="display:inline-flex;align-items:center;gap:2px;font-size:10.5px;font-weight:700;color:#1F4E79;background:#EAF2FB;border:1px solid #c9dcf0;border-radius:8px;padding:0 5px;margin-left:3px;cursor:pointer;white-space:nowrap">📖 '+(ach.cat.posicao?(ach.cat.posicao==='dianteiro'?'Diant. · ':'Tras. · '):'')+pfEscHtml(ach.g.nome)+' nº '+pfEscHtml(ach.x.n)+'</span>';
+  if(ach.x.reparo)h+='<span title="Kit reparo do cilindro ('+pfEscHtml(ach.cat.titulo)+')" style="display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;color:#145A32;background:#EAF7EE;border:1px solid #9fd3b0;border-radius:8px;padding:0 5px;margin-left:3px;white-space:nowrap">🔧 reparo do cilindro</span>';
   if(ach.x.kitInclui&&ach.x.kitInclui.length){var comp=pfCatEnvKitComp(ach.x,ach.g);
     h+='<span onclick="event.stopPropagation();pfCatEnvPopup(\''+ach.cat.id+'\',\''+ach.g.id+'\',\''+pfEscJs(ach.x.n)+'\')" title="Kit — vem dentro: '+pfEscHtml(comp.map(function(y){return y.codigo+' '+y.desc+(y.qtd&&y.qtd!=='-'?' ×'+y.qtd:'');}).join(' | '))+'" style="display:inline-flex;align-items:center;gap:2px;font-size:10.5px;font-weight:700;background:#FFF3CD;color:#8a5a00;border:1px solid #f0d68a;border-radius:8px;padding:0 5px;margin-left:3px;cursor:pointer;white-space:nowrap">🧰 kit com '+comp.length+' peças</span>';}
   if(ach.x.kitPai){

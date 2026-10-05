@@ -239,6 +239,14 @@
   série em Aplicações — Modelos & Séries), desenho de cada grupo em `pfAplicDesenhos_v1` (marca|série|grupo, `catEnv`) e peça sem
   ficha = ficha nova com `doCatalogo` (⚠️ conferir). Não duplica (roda de novo = só atualiza qtd). Botão "🔁 Mandar pras
   Aplicações"/"✅ Em Aplicações" na tela do catálogo (`pfCatEnvMandarAplicBtn`, `cat.aplicEm`).
+- v115.2183 **eixo dianteiro/traseiro automático** (`pfCatEnvDetectarPosicao`): só pra catálogo de EIXO (`pfCatEnvEhEixo`); texto
+  front/anteriore/rear/posteriore manda; senão PEÇAS de direção (steering/king pin/swivel/tie rod/double joint) = dianteiro, sem
+  = traseiro. Campo POSIÇÃO no import (troca o título "Eixo dianteiro 20.22"), `cat.posicao`; descrição das fichas criadas pelo
+  catálogo, aplicações e itens da cotação = `pfCatEnvDescCompleta` ("RETENTOR - EIXO DIANTEIRO"; fichas da empresa NÃO são
+  mexidas). **Reparo do cilindro** (`pfCatEnvMarcarReparo`): kit de vedação cujo kitPai é cilindro → "KIT REPARO DO CILINDRO
+  DE DIREÇÃO" + `x.reparo` → atalho 🔧 no topo do catálogo (`pfCatEnvReparosHtml`) e etiqueta "🔧 reparo do cilindro" na
+  cotação. Catálogo antigo é atualizado ao abrir (`pfCatEnvAtualizarCat`, `v2183`); "🔁 Mandar pras Aplicações" atualiza as
+  descrições das fichas que ele criou.
 - Endereço do link: `pfCatEnvBaseUrl` (padrão = o do sistema; "Endereço do link" no modal grava `base` — pra domínio neutro
   na Vercel). Prévias em `docs/referencias/catalogo-sem-codigo/`.
 - **Portal do cliente — IDEIA (não feita)**: cliente com login cota sozinho DIGITANDO SÓ CÓDIGO E QUANTIDADE (decisão do Vitor

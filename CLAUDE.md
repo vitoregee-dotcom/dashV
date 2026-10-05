@@ -169,6 +169,7 @@
   Block pela peça; mostra "Block › Pistons & Rings".
   v115.2199: Lubrication = Oil Filter / Oil Leak-Off Pipes / Rotor / Sump (bomba de óleo → Rotor provável; bocal e radiador de óleo fora).
   v115.2200: Cylinder Head = Cylinder Head Assembly / Rocker Shaft Assembly (tampa de válvulas e bocal fora → não confirmados); Low Pressure Fuel tem Lift Pump. Back End Group confere (carcaça, backplate, volante).
+  v115.2201: Engine Control = Camshaft & Gears / Stop Solenoid Control / Timing Case (distribuição e comando confirmados aqui). Obs.: os prints do SPI² são do HP66975N, o PDF é do GN65674N (404D-22) — nomes das plates batem com as seções do livro, mas a pasta de cima só o SPI² mostra.
 - **📥 Alimentar aplicações pelo catálogo** (v115.2161, `pfAlimAbrir`; Área Técnica + botão no Guia Perkins): marca/série
   (modelo opcional) guardadas em `pfAlimAplicCtx` enquanto navega; cola a TABELA (texto, formato Perkins Symbol|Item|Parts No.|
   Qty.|Latest Part No.|Description — `pfAlimLerTexto`, sem IA, tradução por `PF_CATPDF_DIC`/traduções salvas; NLA desmarcado;

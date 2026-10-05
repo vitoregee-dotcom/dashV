@@ -129,6 +129,8 @@
   Spicer ou peça que cita a chave como SPICER; `ccPareceSpicerCod` é solto demais, não usar) e passa o `similar`/`substitui` de
   todo o outro grupo pra ela; 2 Spicer diferentes = não junta. Antes fica em `o.juntado` → "↩ Separar" (`ccMesmaPecaSeparar`).
 - Cotação: busca Série/Modelo também acha componentes cardan pelo veículo (`vendasCcBuscarPorVeiculo`) + Monta com.
+- v115.2205 BUG busca geral: buscando um CÓDIGO (1 palavra com número e traço/ponto/letra+número, ex.: 5-263X), aplicação que só CITA o
+  código ("AGRALE APLIC. CRUZETA 5-263X/…" — LNG) saía em "🚚 Veículo"; agora vai pro "🔗 Monta com" (`apl2mc` no `ccBuscaGeralExecutar`).
 
 - **Aplicações — Modelos & Séries** (v115.2162) saiu de Cadastros (aba escondida) e abre pela Área Técnica (`atAplicAbrir`,
   desenha em `#atAplicBody`, flag `window._aplicNaAT`). Funções da tela pegam o container por `cadAplicEl()` e

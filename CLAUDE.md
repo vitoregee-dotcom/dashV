@@ -147,6 +147,13 @@
 ## Catálogos de peças em PDF
 - **Guia Perkins** (v115.2114): `PF_GUIA_PERKINS` (grupo inglês x componentes, tabela MD Power pág. 68/69) + linhas extras
   `pfGuiaGruposExtra` (compartilhada); Área Técnica → 📖 Guia Perkins (`ferrGuiaPerkins`, saiu de Ferramentas na v115.2160) e dica sozinha no campo de código da cotação (`vendasGuiaPerkinsDica`).
+- v115.2195 **Guia Perkins + catálogo 404D-22** ("incrementar o guia, com tradução e o grupo onde encontro a peça"; sem tela nova):
+  `GN65674N_404D_22.pdf` (raiz do site) → `data/catalogos/perkins-404d-22.json` (85 seções/706 peças: [item, Part No., ref, qtd, inglês,
+  português]; extraído com pymupdf pelas colunas x; traduções do `pfCatEnvTraduz` + correções à mão). `pfPk404Carregar` (fetch 1x),
+  `PF_GUIA_404D_LIGA` (grupo do guia → seções), `pfPk404DoGrupo` (linha "📘 404D-22: … 📄 pág." em cada grupo), `pfPk404Buscar`
+  (palavras em pt/en/seção ou código com 4+ dígitos) → tabela "Peças no catálogo 404D-22" no `ferrGuiaPerkinsLista`; ref "F X" = só no
+  kit X, "E" = tem alternativa; 📄 `pfPk404Abrir(p)` abre o PDF `#page=` (desenho = pág. da lista − 1). Catálogo de outro motor Perkins:
+  extrair igual e generalizar (hoje é 1 motor só).
 - **📥 Alimentar aplicações pelo catálogo** (v115.2161, `pfAlimAbrir`; Área Técnica + botão no Guia Perkins): marca/série
   (modelo opcional) guardadas em `pfAlimAplicCtx` enquanto navega; cola a TABELA (texto, formato Perkins Symbol|Item|Parts No.|
   Qty.|Latest Part No.|Description — `pfAlimLerTexto`, sem IA, tradução por `PF_CATPDF_DIC`/traduções salvas; NLA desmarcado;

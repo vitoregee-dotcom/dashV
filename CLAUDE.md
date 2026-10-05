@@ -110,6 +110,10 @@
   v115.2187: essa regra virou `ccEqSorocardSpicer(lista, marcaCatalogo)` (`CC_COD_SPICER_RE`) e vale na prévia, na GRAVAÇÃO
   (`ccNovoSalvar`), no Colar print de aplicação e nas peças já gravadas (`ccCorrigirSimilarSorocard`, 1x por sessão ao abrir
   os Componentes: equivalente vira SPICER/SIMILAR e `similar` = grupo Spicer procurado nas OUTRAS peças).
+- **🔗 É a mesma peça** (v115.2188, link no rodapé do card, `ccMesmaPecaAbrir`): o Vitor acha 2 cadastros que são a mesma peça
+  (ex.: Sorocard SA-27 = LNG 35-406) e junta: `ccMesmaPecaPlano` escolhe a chave final (a do grupo que TEM Spicer = cadastro
+  Spicer ou peça que cita a chave como SPICER; `ccPareceSpicerCod` é solto demais, não usar) e passa o `similar`/`substitui` de
+  todo o outro grupo pra ela; 2 Spicer diferentes = não junta. Antes fica em `o.juntado` → "↩ Separar" (`ccMesmaPecaSeparar`).
 - Cotação: busca Série/Modelo também acha componentes cardan pelo veículo (`vendasCcBuscarPorVeiculo`) + Monta com.
 
 - **Aplicações — Modelos & Séries** (v115.2162) saiu de Cadastros (aba escondida) e abre pela Área Técnica (`atAplicAbrir`,

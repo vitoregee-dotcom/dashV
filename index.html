@@ -1934,7 +1934,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2194</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2195</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2088,7 +2088,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2194</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2195</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -77796,6 +77796,52 @@ async function pfAlimGravar(){
   }catch(e){if(m)m.innerHTML='<span style="color:#C0392B">Erro ao gravar: '+pfEscHtml(e.message)+'</span>';}
   if(btn){btn.disabled=false;btn.textContent='✅ Gravar';pfAlimRender();} // v115.2173 - sem linhas o render não troca o texto ("⏳ Subindo…" ficava)
 }
+// v115.2195 - A pedido do Vitor ("com aquele catálogo da Perkins PDF, consegue incrementar o guia? colocando tradução e o grupo
+// onde encontro a peça"): o catálogo 404D-22 (GN65674N_404D_22.pdf, na raiz do site) virou data/catalogos/perkins-404d-22.json
+// (85 grupos, 706 peças: item, Part No., referência, qtd, inglês, português — lido do texto do PDF, traduções conferidas à mão).
+// A MESMA busca do guia agora também mostra: em cada grupo do guia, onde ele fica no 404D-22 (pág.); e embaixo as PEÇAS que
+// batem (português, inglês ou código) com código, grupo, página e item; 📄 abre o PDF na página do desenho.
+var PF_PK404_URL='data/catalogos/perkins-404d-22.json';
+// grupo do guia (inglês) → seções do 404D-22
+var PF_GUIA_404D_LIGA={
+  'Core Unit':['Cylinder Block','Crankshaft, Pistons & Connecting Rods','Cylinder Head','Rocker Shaft Assembly','Rear End Oil Seal','Camshaft & Gears'],
+  'Fuel Injection Equipment':['Fuel Injection Pump','High Pressure Fuel Pipes','Atomisers','Fuel Leak-Off Pipe'],
+  'Flywheel Housing':['Flywheel Housing'],'Flywheel & Ring':['Flywheel & Starter Ring'],'Starter Motor':['Starter Motor','Starter Motor Breakdown'],
+  'Fan Drive':['Pulleys','Drive Belt & Tensioner'],'Lubricating Oil Sump':['Sump','Dipstick & Filler Tube'],'Lubricating Oil Filler & Breather':['Filler','Cylinder Head Cover'],
+  'Lubricating Oil Filter & Integral Oil Cooler':['Oil Filter','Oil Cooler'],'Front End Drive Input':['Front End Drive Input'],'Water Pump':['Water Pump'],
+  'Water Outlet / Inlet':['Water Outlet & Inlet','Thermostat & Housing'],'Fan & Extension':['Fan'],'Alternator & Generator':['Alternator'],
+  'Timing Case & Gear':['Timing Case','Camshaft & Gears'],'Lubricating Oil Pump & Delivery Housing':['Oil Pump','Relief Valve','Pipes'],
+  'Joints & Gaskets - Top Service Kit':['Engine Overhaul Kit','Kit'],'Joints & Gaskets - Bottom Service Kit':['Engine Overhaul Kit','Kit'],
+  'Induction Manifold & Air Charge Cooler':['Air Filter Assembly'],'Exhaust Manifold':['Exhaust Manifold'],'Exhaust Outlet Flange':['Exhaust Connection'],
+  'Low Pressure Fuel System':['Lift Pump','Fuel Filter','Pipework & Connections'],'Cold Start System':['Cold Start System'],'Engine Lifting Eyes':['Engine Lifting Eyes'],
+  'Moutings':['Radiator & Cowling'],'Lubricating Oil Pressure Switch / Gauge':['Instrumentation'],'Temperature Gauge & Sender':['Instrumentation'],
+  'Radiator & Cowling':['Radiator & Cowling','Fan']
+};
+function pfPk404Carregar(){
+  if(window._pfPk404)return Promise.resolve(window._pfPk404);
+  if(window._pfPk404P)return window._pfPk404P;
+  window._pfPk404P=fetch(PF_PK404_URL).then(function(r){return r.json();}).then(function(j){
+    (j.secoes||[]).forEach(function(s){s.norm=pfGuiaNorm(s.n+' '+s.pt);(s.it||[]).forEach(function(x){x.norm=pfGuiaNorm(x[4]+' '+x[5]+' '+s.n+' '+s.pt);x.codN=String(x[1]||'').replace(/[^0-9A-Za-z]/g,'').toUpperCase();});});
+    window._pfPk404=j;return j;}).catch(function(){window._pfPk404P=null;return null;});
+  return window._pfPk404P;
+}
+// seções do 404D-22 de um grupo do guia (juntando plates A/B/C da mesma seção numa linha só)
+function pfPk404DoGrupo(grupo){
+  var j=window._pfPk404;if(!j)return [];var nomes=PF_GUIA_404D_LIGA[grupo]||[],porNome={};
+  j.secoes.forEach(function(s){if(nomes.indexOf(s.n)<0)return;var k=s.n+'|'+s.g;(porNome[k]=porNome[k]||{n:s.n,pt:s.pt,g:s.g,pags:[]}).pags.push(s.p);});
+  return Object.keys(porNome).map(function(k){return porNome[k];});
+}
+function pfPk404PagTxt(pags){var a=Math.min.apply(null,pags)-1,b=Math.max.apply(null,pags);return 'pág. '+a+(b>a?'–'+b:'');}
+function pfPk404Abrir(p){var j=window._pfPk404;window.open(((j&&j.pdf)||'GN65674N_404D_22.pdf')+'#page='+p,'pfPk404');}
+function pfPk404Buscar(q){
+  var j=window._pfPk404;if(!j)return [];
+  var cod=String(q||'').replace(/[^0-9A-Za-z]/g,'').toUpperCase(),ws=pfGuiaPalavras(q),out=[];
+  j.secoes.forEach(function(s){(s.it||[]).forEach(function(x){
+    if(!x[4]&&!x[1])return;
+    var ok=(/\d{4,}/.test(cod)&&x.codN&&x.codN.indexOf(cod)>=0)||(ws.length&&ws.every(function(w){return x.norm.indexOf(w)>=0;}));
+    if(ok)out.push({s:s,x:x});});});
+  return out;
+}
 function ferrGuiaPerkins(){
   // v115.2160 - agora mora na Área Técnica (desenha no areaTecnicaBody e o Voltar volta pra ela); de Ferramentas continua funcionando
   var naAT=typeof currentView!=='undefined'&&currentView==='area_tecnica'&&document.getElementById('areaTecnicaBody');
@@ -77807,7 +77853,7 @@ function ferrGuiaPerkins(){
       '<button class="pfBtn pfBtnAzul" style="margin-left:auto;height:32px;font-size:12px" onclick="pfAlimAbrir()">📥 Alimentar aplicações</button>'+ // v115.2161
     '</div>'+
     '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:16px 20px">'+
-      '<div style="font-size:12px;color:#607080;margin-bottom:10px">Procure a peça em português e veja em qual <b>grupo do catálogo Perkins</b> (inglês) ela fica. "📋 copiar" copia o grupo pra colar no Ctrl+F do PDF.</div>'+
+      '<div style="font-size:12px;color:#607080;margin-bottom:10px">Procure a peça em português (ou inglês, ou o código) e veja em qual <b>grupo do catálogo Perkins</b> ela fica. "📋 copiar" copia o grupo pra colar no Ctrl+F do PDF. Embaixo aparecem as <b>peças do catálogo 404D-22</b> com código, página e item — 📄 abre o PDF na página.</div>'+
       '<input id="guiaPkBusca" placeholder="🔎 Ex: bomba de óleo, volante, junta, sensor..." value="'+pfEscHtml(window._guiaPkQ||'')+'" oninput="window._guiaPkQ=this.value;ferrGuiaPerkinsLista()" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid #1F4E79;border-radius:8px;font-size:14px">'+
       '<div id="guiaPkLista" style="margin-top:10px"></div>'+
       '<div style="border-top:1px solid #eef1f5;margin-top:14px;padding-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
@@ -77818,17 +77864,36 @@ function ferrGuiaPerkins(){
       '</div>'+
     '</div></div>';
   ferrGuiaPerkinsLista();
+  pfPk404Carregar().then(function(){ferrGuiaPerkinsLista();}); // v115.2195
   setTimeout(function(){var b=document.getElementById('guiaPkBusca');if(b){b.focus();var v=b.value;b.value='';b.value=v;}},30);
 }
 function ferrGuiaPerkinsLista(){
   var el=document.getElementById('guiaPkLista');if(!el)return;
   var q=window._guiaPkQ||'',lista=q.trim()?pfGuiaBuscar(q):pfGuiaLinhas();
-  if(!lista.length){el.innerHTML='<div style="padding:18px;text-align:center;color:#8a9ab0;font-size:13px">Nada encontrado pra "'+pfEscHtml(q)+'". Tente outra palavra (ex: só "bomba").</div>';return;}
-  el.innerHTML='<div style="font-size:12px;color:#8a9ab0;margin-bottom:4px">'+lista.length+' grupo'+(lista.length===1?'':'s')+'</div>'+
+  // v115.2195 - peças do 404D-22 que batem com a busca (português, inglês ou código)
+  var pecas=q.trim()?pfPk404Buscar(q):[],j=window._pfPk404;
+  if(!lista.length&&!pecas.length){el.innerHTML='<div style="padding:18px;text-align:center;color:#8a9ab0;font-size:13px">Nada encontrado pra "'+pfEscHtml(q)+'". Tente outra palavra (ex: só "bomba").</div>';return;}
+  var secHtml=function(r){var ss=pfPk404DoGrupo(r.grupo);if(!ss.length)return '';
+    return '<div style="margin-top:4px;font-size:11.5px;color:#5D4037">📘 404D-22: '+ss.map(function(x){return '<span style="white-space:nowrap">'+pfEscHtml(x.pt)+' <span style="color:#9aa5b4">('+pfEscHtml(x.n)+' · '+pfEscHtml(x.g)+')</span> <span onclick="event.stopPropagation();pfPk404Abrir('+(Math.min.apply(null,x.pags)-1)+')" title="Abrir o PDF nesta página" style="cursor:pointer;color:#E2622A;font-weight:700">📄 '+pfPk404PagTxt(x.pags)+'</span></span>';}).join(' · ')+'</div>';};
+  var h='';
+  if(lista.length)h+='<div style="font-size:12px;color:#8a9ab0;margin-bottom:4px">'+lista.length+' grupo'+(lista.length===1?'':'s')+'</div>'+
     '<table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="color:#607080;font-size:11px;text-align:left"><th style="padding:6px 8px">GRUPO NO CATÁLOGO (inglês)</th><th style="padding:6px 8px">COMPONENTES</th><th></th></tr>'+
     lista.map(function(r){return '<tr style="border-top:1px solid #eef1f5"><td style="padding:7px 8px;font-weight:700;color:#1F4E79;vertical-align:top">'+pfGuiaDestacar(r.grupo,q)+'</td>'+
-      '<td style="padding:7px 8px;color:#1a2332">'+pfGuiaDestacar(r.comp,q)+'</td>'+
+      '<td style="padding:7px 8px;color:#1a2332">'+pfGuiaDestacar(r.comp,q)+secHtml(r)+'</td>'+
       '<td style="padding:7px 8px;text-align:right;white-space:nowrap;vertical-align:top">'+pfGuiaCopiarBtn(r.grupo)+(r.extra?' <span onclick="ferrGuiaPerkinsDel('+r.i+')" title="Remover esta linha" style="cursor:pointer;color:#C00000;margin-left:8px">✕</span>':'')+'</td></tr>';}).join('')+'</table>';
+  if(pecas.length){
+    var refTxt=function(r){r=String(r||'');var m=/F\s+(\S+)/.exec(r);return (m?'<div style="font-size:10.5px;color:#b9770e;font-weight:700;font-family:Segoe UI,Arial">só no kit '+pfEscHtml(m[1])+'</div>':'')+(/(^|\s)E(\s|$)/.test(r)?'<div style="font-size:10.5px;color:#8a9ab0;font-family:Segoe UI,Arial">tem alternativa</div>':'');};
+    h+='<div style="font-size:11px;font-weight:800;color:#607080;margin:16px 0 4px;text-transform:uppercase">Peças no catálogo '+pfEscHtml((j&&j.motor)||'404D-22')+' ('+pecas.length+')</div>'+
+      '<div style="max-height:60vh;overflow:auto;border:1px solid #eef1f5;border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr style="position:sticky;top:0;background:#F4F7FB;color:#607080;font-size:10.5px;text-align:left;text-transform:uppercase"><th style="padding:6px 8px">Peça</th><th style="padding:6px 8px">Código (Part No.)</th><th style="padding:6px 8px">Qtd</th><th style="padding:6px 8px">Grupo</th><th style="padding:6px 8px">Onde</th></tr>'+
+      pecas.slice(0,150).map(function(o){var x=o.x,s2=o.s;
+        return '<tr style="border-top:1px solid #eef1f5"><td style="padding:6px 8px"><b>'+pfGuiaDestacar(x[5]||x[4],q)+'</b><div style="font-size:10.5px;color:#9aa5b4">'+pfGuiaDestacar(x[4],q)+'</div></td>'+
+          '<td style="padding:6px 8px;font-family:Consolas,monospace;font-weight:700;color:#1F4E79;white-space:nowrap">'+(x[1]?pfEscHtml(x[1])+' <span onclick="pfGuiaCopiar(\''+pfEscJs(x[1])+'\')" title="Copiar o código" style="cursor:pointer;font-family:Segoe UI,Arial;font-size:11px">📋</span>':'—')+refTxt(x[2])+'</td>'+
+          '<td style="padding:6px 8px;text-align:center">'+pfEscHtml(x[3])+'</td>'+
+          '<td style="padding:6px 8px">'+pfEscHtml(s2.pt)+'<div style="font-size:10.5px;color:#9aa5b4">'+pfEscHtml(s2.n)+' · '+pfEscHtml(s2.g)+(s2.pl?' · '+pfEscHtml(s2.pl):'')+'</div></td>'+
+          '<td style="padding:6px 8px;white-space:nowrap"><span onclick="pfPk404Abrir('+(s2.p-1)+')" title="Abrir o PDF no desenho deste grupo" style="cursor:pointer;color:#E2622A;font-weight:700">📄 pág. '+(s2.p-1)+'–'+s2.p+'</span><div style="font-size:10.5px;color:#8a9ab0">item '+pfEscHtml(x[0])+'</div></td></tr>';}).join('')+'</table></div>'+
+      (pecas.length>150?'<div style="font-size:11.5px;color:#8a9ab0;margin-top:4px">Mostrando 150 de '+pecas.length+' — escreva mais uma palavra.</div>':'');
+  }
+  el.innerHTML=h;
 }
 function ferrGuiaPerkinsAdd(){
   var g=(document.getElementById('guiaPkNovoG')||{}).value||'',c=(document.getElementById('guiaPkNovoC')||{}).value||'';

@@ -103,6 +103,8 @@
   F = Ø disco [Sorocard "Ø Disco" / REI "Ø B"], NOVOS G = Ø estria e H = nº de dentes ["22-E" = 22 + piloto ESTRIADA]).
   Vai no pedido à IA do "➕ Cadastrar item" (`ccMedSinTexto`) e, depois da IA, `ccMedidasDasEspecs(fam, especificacoes)` coloca
   cada valor no campo pelo NOME da especificação (manda sobre a IA). Família nova / fabricante novo → acrescentar em `CC_MED_SIN`.
+  v115.2185: selo no card de cada família (`ccMedSinSeloHtml`): ✅ fabricantes mapeados (`CC_MED_SIN_FABS`, ao mapear
+  família/fabricante novo ATUALIZAR essa lista também) ou ⚪ "falta mapear" — o Vitor usa pra saber o que mandar.
 - Cotação: busca Série/Modelo também acha componentes cardan pelo veículo (`vendasCcBuscarPorVeiculo`) + Monta com.
 
 - **Aplicações — Modelos & Séries** (v115.2162) saiu de Cadastros (aba escondida) e abre pela Área Técnica (`atAplicAbrir`,

@@ -88,6 +88,7 @@
   `_ccFiltro.tipoPont` fixa/deslizante/sem) e etiqueta no card (`ccPontBadgeHtml`); admin clica e marca (`ccPontDefinir`
   grava em todo o grupo). Desde v115.2139 o código Spicer do grupo também decide (entre a G e a dedução Stahl):
   "-53-" = fixa, "-40-" = deslizante (etiqueta "pelo código Spicer -53-").
+  v115.2202: etiqueta pequena 🔩 Fixa / ↔️ Deslizante / ❔ também nas linhas da BUSCA GERAL (código, veículo, monta com) — `ccPontMiniHtml(fam,rec)`.
 - **Códigos Spicer** (v115.2139, pedido do Vitor "deixe guardado no PF essas regras"): `pfSpicerDecifrar(cod)` —
   formato 1 SÉRIE-TIPO-NÚMERO (`PF_SPICER_SERIES` 2/3/4/6/6.5/8/90/140/170/250; tipo do meio `PF_SPICER_TIPO_MEIO`:
   1 flange companheiro, 2 flange de orelha, 3 luva, 4 terminal, 26/28 garfo, 40 ponteira deslizante, 53 ponteira fixa,

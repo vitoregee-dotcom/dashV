@@ -1934,7 +1934,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2181</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2182</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2088,7 +2088,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2181</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2182</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -77834,9 +77834,65 @@ async function pfCatEnvSalvarNovo(){
     var upP=await pfStorageSubir('cadastro-clientes','interno/catalogos/'+id+'.pdf',new Blob([N.buf],{type:'application/pdf'}),'application/pdf');
     if(upP.ok)cat.pdfPath=upP.path;
     var o=pfCatEnvLoad();o.por[id]=cat;pfCatEnvSalvar(o);window._pfCatEnvNovo=null;
+    if(msg)msg.textContent='⏳ Mandando pras Aplicações…';
+    var ra={};try{ra=pfCatEnvMandarAplic(cat)||{};}catch(eA){ra={erro:eA.message};} // v115.2182
     pfCatEnvVer(id);
+    if(ra.erro)pfAlert('Catálogo salvo, mas não foi pras Aplicações ('+ra.erro+'). Use "🔁 Mandar pras Aplicações".');
+    else pfAlert('✅ Catálogo salvo e já está em Aplicações — Modelos & Séries (série '+ra.serie+', '+cat.grupos.length+' grupos com desenho)'+(ra.novas?'. '+ra.novas+' peça(s) não tinham ficha: criei marcadas "⚠️ conferir" (falta NCM).':'.'));
     if(!upP.ok)pfAlert('Catálogo salvo, mas o PDF original não subiu (status '+upP.status+'). Os desenhos e as tabelas estão ok.');
   }catch(e){if(btn)btn.disabled=false;if(msg)msg.innerHTML='<span style="color:#C0392B">'+pfEscHtml(e.message)+'</span>';}
+}
+// v115.2182 - A pedido do Vitor ("quando eu carregar um catálogo ele já vai servir pra tudo no sistema? já vai ficar lá no
+// Aplicações — Modelos & Séries?" → opção A): o catálogo faz o MESMO que o 📥 Alimentar, de uma vez, pra todos os grupos:
+//   * aplicação {marca, modelo, série = ref., equip = grupo, qtd} na lista APLIC_KEY e nas fichas → card da série em Aplicações;
+//   * desenho de cada grupo em pfAplicDesenhos_v1 (marca|série|grupo) → 🖼 na aplicação da ficha e "🖼 x/y" no card;
+//   * peça sem ficha = FICHA NOVA com doCatalogo (⚠️ conferir na cotação até ter NCM), igual ao Alimentar.
+// Roda ao salvar o catálogo e pelo botão "🔁 Mandar pras Aplicações" (catálogo já carregado / depois de corrigir tradução).
+function pfCatEnvMandarAplic(cat){
+  var agora=Date.now(),plist=cadLoad(PROD_KEY)||[],flat=(typeof aplicLoad==='function'?aplicLoad():[])||[],idx={},nApl=0,novas=0,nDes=0;
+  var U=function(x){return String(x||'').trim().toUpperCase();},marca=U(cat.marca),serie=U(cat.ref||cat.modelo),modelo=String(cat.modelo||'').trim();
+  if(!marca||!serie)return {erro:'falta marca ou ref./série no catálogo'};
+  var semZero=function(k){return k.replace(/^0+(?=\d)/,'');};
+  plist.forEach(function(x){var k=semZero(pfAlimNorm(x.codigo));if(k)(idx[k]=idx[k]||[]).push(x);});
+  var flatIdx={};flat.forEach(function(a){flatIdx[[semZero(pfAlimNorm(a.codigo)),U(a.serie),U(a.marca),U(a.equip),U(a.veiculo)].join('|')]=a;});
+  var des=pfAplicDesLoad(),por=(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||'';
+  (cat.grupos||[]).forEach(function(g){
+    var G=U(g.nome);
+    if(g.img){var dk=pfAplicDesChave(marca,serie,G);if(!des.por[dk]||des.por[dk].catEnv===cat.id){des.por[dk]={url:g.img,marca:marca,serie:serie,grupo:G,em:agora,catEnv:cat.id};nDes++;}}
+    (g.itens||[]).forEach(function(x){
+      var k=semZero(pfAlimNorm(x.codigo));if(!k)return;
+      var q=parseFloat(String(x.qtd).replace(',','.')),qtd=isNaN(q)?null:q;
+      var ap={equip:G,marca:marca,modelo:modelo,serie:serie,veiculo:'',marcaVeiculo:'',qtd:qtd};
+      var fichas=idx[k]||[];
+      if(!fichas.length){
+        var nf={id:'p_'+agora+'_'+Math.random().toString(36).slice(2,8),ts:agora,codigo:x.codigo,descricao:x.desc||x.descOrig||'',descricaoCompleta:[x.descIt,x.descOrig].filter(Boolean).join(' / '),marca:marca,
+          ncm:'',linha:'',grupo:'',subgrupo:'',unidade:'',obs:'',fotos:[],foto:'',desenho:'',conversoes:[],aplicacoes:[],doCatalogo:{serie:serie,grupo:G,em:agora,por:por,catEnv:cat.id}};
+        plist.push(nf);fichas=idx[k]=[nf];novas++;
+      }
+      fichas.forEach(function(f){f.aplicacoes=f.aplicacoes||[];
+        var ex=f.aplicacoes.find(function(a){return U(a.serie)===serie&&U(a.marca)===marca&&U(a.equip)===G&&!U(a.veiculo);});
+        if(ex){if(qtd!=null)ex.qtd=qtd;if(modelo&&!ex.modelo)ex.modelo=modelo;}else{f.aplicacoes.push(Object.assign({},ap));f.ts=agora;}});
+      var fk=[k,serie,marca,G,''].join('|'),exF=flatIdx[fk];
+      if(exF){if(qtd!=null)exF.qtd=qtd;if(modelo&&!exF.modelo)exF.modelo=modelo;}
+      else{exF={id:'apl_'+agora+'_'+Math.random().toString(36).slice(2),modelo:modelo,serie:serie,codigo:x.codigo,desc:fichas[0].descricao||x.desc,marca:marca,equip:G,veiculo:'',marcaVeiculo:'',qtd:qtd};flat.push(exF);flatIdx[fk]=exF;nApl++;}
+    });
+  });
+  cadSave(PROD_KEY,plist);if(typeof aplicSave==='function')aplicSave(flat);pfAplicDesSalvar(des);
+  if(typeof pfSyncPush==='function')try{pfSyncPush([PROD_KEY,APLIC_KEY]);}catch(e){}
+  try{pfAplicJuntarSemModelo(modelo?{marca:marca,serie:serie,modelo:modelo}:null);}catch(e){}
+  window._vendasProdIdxCache=null;
+  var o=pfCatEnvLoad();if(o.por[cat.id]){o.por[cat.id].aplicEm=agora;pfCatEnvSalvar(o);}
+  return {nApl:nApl,novas:novas,nDes:nDes,serie:serie};
+}
+function pfCatEnvMandarAplicBtn(id,btn){
+  var c=pfCatEnvLoad().por[id];if(!c)return;
+  if(btn){btn.disabled=true;btn.textContent='⏳ Gravando…';}
+  setTimeout(function(){
+    var r=pfCatEnvMandarAplic(c);
+    if(r.erro){pfAlert('Não deu: '+r.erro+'.');if(btn){btn.disabled=false;btn.textContent='🔁 Mandar pras Aplicações';}return;}
+    pfCatEnvVer(id,window._pfCatEnvVer&&window._pfCatEnvVer.gid);
+    pfAlert('✅ Aplicações — Modelos & Séries: série '+r.serie+' com '+(c.grupos||[]).length+' grupos'+(r.nApl?' ('+r.nApl+' aplicação(ões) nova(s))':' (já estava tudo lá — quantidades atualizadas)')+(r.novas?', '+r.novas+' ficha(s) nova(s) marcadas pra conferir NCM':'')+(r.nDes?', '+r.nDes+' desenho(s)':'')+'.');
+  },30);
 }
 function pfCatEnvSaldo(cod){
   if(typeof vendasBuscarItem!=='function')return null;
@@ -77868,6 +77924,7 @@ function pfCatEnvVer(id,gid,bid){
       '<b style="font-size:15px;color:#1F4E79">'+pfEscHtml(c.titulo)+'</b><span style="font-size:12px;color:#607080">'+pfEscHtml([c.marca,c.modelo,c.ref?'ref. '+c.ref:''].filter(Boolean).join(' · '))+'</span>'+
       '<span style="flex:1"></span>'+
       (c.pdfPath?'<button class="pfBtn pfBtnClaro" style="height:32px;font-size:12px" onclick="pfCatEnvPdfOriginal(\''+id+'\',this)">📄 PDF original</button>':'')+
+      (!pop&&pfCatEnvPode()?'<button class="pfBtn pfBtnClaro" style="height:32px;font-size:12px" title="'+(c.aplicEm?'Já está em Aplicações desde '+new Date(c.aplicEm).toLocaleDateString('pt-BR')+' — clique pra atualizar':'Ainda não está em Aplicações — Modelos & Séries')+'" onclick="pfCatEnvMandarAplicBtn(\''+id+'\',this)">'+(c.aplicEm?'✅ Em Aplicações':'🔁 Mandar pras Aplicações')+'</button>':'')+
       '<button data-cotbtn class="pfBtn pfBtnAzul" style="height:32px;font-size:12px" onclick="pfCatEnvCotarMarcados()"'+(nSel?'':' disabled')+'>'+pfCatEnvCotTxt(nSel)+'</button>'+
       (pop?'<span onclick="pfCatEnvPopFechar()" title="Fechar (Esc)" style="cursor:pointer;line-height:1;margin-left:4px">'+pfXGlossyHtml(24)+'</span>':'<button class="pfBtn pfBtnVermelho" style="height:32px;font-size:12px" onclick="pfCatEnvMandar(\''+id+'\')">🔗 Mandar pro cliente</button>')+
       (!pop&&pfCatEnvPode()?'<button title="Apagar catálogo" onclick="pfCatEnvExcluir(\''+id+'\')" style="border:none;background:none;cursor:pointer;font-size:16px">🗑</button>':'')+'</div>'+

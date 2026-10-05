@@ -234,6 +234,11 @@
 - Chegada: `pfFormClienteChecarSubmissoes` → `pfCatEnvReceber` → `pfCatPedidos_v1` + pendência; 📥 Recebidos mostra foto,
   máquina, itens com código/saldo, "➜ Abrir como cotação" (`pfCatEnvPedidoCotacao`) e "✅ Conferi — gravar como aplicação"
   (`pfCatEnvGravarAplic`: máquina = veiculo/marcaVeiculo, eixo = marca/modelo/série, grupo = equip, em todas as peças).
+- v115.2182 **catálogo vale pro sistema todo** (Vitor escolheu a opção A): ao salvar, `pfCatEnvMandarAplic(cat)` faz o mesmo que o
+  📥 Alimentar pra todos os grupos — aplicação {marca, modelo, série = ref., equip = grupo, qtd} em `APLIC_KEY` + fichas (card da
+  série em Aplicações — Modelos & Séries), desenho de cada grupo em `pfAplicDesenhos_v1` (marca|série|grupo, `catEnv`) e peça sem
+  ficha = ficha nova com `doCatalogo` (⚠️ conferir). Não duplica (roda de novo = só atualiza qtd). Botão "🔁 Mandar pras
+  Aplicações"/"✅ Em Aplicações" na tela do catálogo (`pfCatEnvMandarAplicBtn`, `cat.aplicEm`).
 - Endereço do link: `pfCatEnvBaseUrl` (padrão = o do sistema; "Endereço do link" no modal grava `base` — pra domínio neutro
   na Vercel). Prévias em `docs/referencias/catalogo-sem-codigo/`.
 - **Portal do cliente — IDEIA (não feita)**: cliente com login cota sozinho DIGITANDO SÓ CÓDIGO E QUANTIDADE (decisão do Vitor

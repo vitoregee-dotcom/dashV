@@ -105,6 +105,8 @@
   cada valor no campo pelo NOME da especificação (manda sobre a IA). Família nova / fabricante novo → acrescentar em `CC_MED_SIN`.
   v115.2185: selo no card de cada família (`ccMedSinSeloHtml`): ✅ fabricantes mapeados (`CC_MED_SIN_FABS`, ao mapear
   família/fabricante novo ATUALIZAR essa lista também) ou ⚪ "falta mapear" — o Vitor usa pra saber o que mandar.
+  v115.2186: no ➕ Cadastrar item o nome de cada medida fica EM CIMA do campo (`ccNovoMedidasHtml`); flange: "4 furos (M14)" escrito
+  na observação/aplicação vira D = "4 x M14"; catálogo Sorocard: "SIMILAR 41-594" (código NN-NNN) = SPICER, não Sorocard.
 - Cotação: busca Série/Modelo também acha componentes cardan pelo veículo (`vendasCcBuscarPorVeiculo`) + Monta com.
 
 - **Aplicações — Modelos & Séries** (v115.2162) saiu de Cadastros (aba escondida) e abre pela Área Técnica (`atAplicAbrir`,

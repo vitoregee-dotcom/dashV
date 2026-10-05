@@ -280,6 +280,14 @@
   (4.1/4.2) ganham "(tab)"; dicionário de câmbio/conversor em `PF_CATENV_DIC` + `pfCatEnvPalavras` (OLIO→ÓLEO,
   "2^ V."→"2ª MARCHA", AXE A→EIXO A…); siglas TDP/PTO no título; no LINK a descrição perde números de 5+ dígitos
   (`pfCatEnvDescPublica` — a Carraro põe código dentro da descrição: "KIT EIXO 147454 + RIVETT").
+- v115.2191 **marcar os números do desenho** (pedido do Vitor: "melhor ter as 2 opções"; desenho com nº em IMAGEM): embaixo do
+  desenho (tela interna, só quem `pfCatEnvPode`) "📍 Marcar números" (`pfCatEnvMarcaLigar`, `window._pfCatEnvMarca` {id,gid,n}):
+  escolhe o nº (já vem o próximo sem marca, `pfCatEnvMarcaProx`), clica no desenho (`pfCatEnvMarcaClique`) — mesmo nº pode ser
+  marcado 2x; clicar num círculo apaga (`pfCatEnvMarcaApagar`), ↶ Desfazer, 🗑 Limpar, ✓ Pronto. "🤖 Marcar com IA"
+  (`pfCatEnvMarcarIA(id,gids)`, também "Todos os desenhos sem número"): manda o PNG + a lista de nº que faltam, IA devolve pixel
+  do centro de cada nº → `nums` com `ia:1` (tracejado no modo marcar) e já abre o modo marcar pro Vitor conferir. Grava em
+  `g.nums` igual aos lidos do texto; link JÁ mandado não muda (prefill fixo) → mandar de novo. Qualidade: o desenho da
+  transmissão é imagem de 760 px dentro do PDF — o PNG salvo fica igual ao PDF (não tem mais resolução pra tirar).
 - Endereço do link: `pfCatEnvBaseUrl` (padrão = o do sistema; "Endereço do link" no modal grava `base` — pra domínio neutro
   na Vercel). Prévias em `docs/referencias/catalogo-sem-codigo/`.
 - **Portal do cliente — IDEIA (não feita)**: cliente com login cota sozinho DIGITANDO SÓ CÓDIGO E QUANTIDADE (decisão do Vitor

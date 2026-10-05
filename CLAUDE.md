@@ -303,6 +303,14 @@
   (`pfCatEnvEscRascFaixa`); `pfCatEnvEscRetomar` manda pra IA só as páginas que FALTAM ou deram erro; carregar o mesmo PDF (nome+tamanho)
   também continua. "⏸ Parar e continuar depois" (`pfCatEnvEscPausar`; página que já estava na IA é guardada pela fila `_pfCatEscFila`),
   "⏸ Terminar depois" na prévia. Some ao salvar o catálogo ou no Descartar (`pfCatEnvEscDescartar`).
+- v115.2194 **eixo DANA (Spicer Off-Highway Itália, 212/765)**: lista "DISTINTA PEZZI DI RICAMBIO … LIST OF SPARE PARTS" é TEXTO →
+  `pfCatEnvLerPaginaDana` (sem IA; Pos | Part number | Q.ty | 4 linhas IT/FR/EN/DE; pdf.js junta ou separa "11   002.06.3163" → quebra por
+  espaço duplo; vários códigos na mesma posição = "(OPÇÃO 1/4)", ex.: calços; posição sem código sai); cabeçalho "Drawing 212-01-0002",
+  "Descr." = grupo, "Mod. 212/765"; página 2 dá "N° disegno" (= ref.) e "Macchina:". Desenho = página SEM texto (imagem).
+  **A lista pode vir antes OU depois do desenho** (Vitor) → `pfCatEnvDanaMontar` liga por: 1) nº do desenho lido pela IA no carimbo
+  (`pfCatEnvDanaDesIA`, também área do desenho, posição dos nº e legendas "Position KIT = 9+10+11" → kitInclui/kitPai), 2) título,
+  3) página vizinha (sem chave da IA). Prévia `pfCatEnvDanaPrevia` com miniatura + select do desenho por grupo (`pfCatEnvDanaLigar`);
+  `pfCatEnvDanaSalvar` → `pfCatEnvSalvarNovo` (escala 2, `N.dana`). Termos Dana novos no `PF_CATENV_DIC`.
 - Endereço do link: `pfCatEnvBaseUrl` (padrão = o do sistema; "Endereço do link" no modal grava `base` — pra domínio neutro
   na Vercel). Prévias em `docs/referencias/catalogo-sem-codigo/`.
 - **Portal do cliente — IDEIA (não feita)**: cliente com login cota sozinho DIGITANDO SÓ CÓDIGO E QUANTIDADE (decisão do Vitor

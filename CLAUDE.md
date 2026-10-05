@@ -158,6 +158,11 @@
   inglês"): tela sem página/código/PDF. O json do 404D-22 só serve de fonte "peça → grupo": `pfPk404DoGrupo` = nomes dos grupos do
   catálogo eletrônico (inglês + pt, 📋 copiar) em cada linha do guia; `pfPk404Buscar` junta por nome em inglês → tabela Peça (pt) |
   Em inglês 📋 | Grupo onde fica 📋. Busca só pt/en (sem código).
+  v115.2197: o Vitor usa o catálogo ELETRÔNICO **SPI²** (spi2-new.perkins.com) — grupos de cima: Block, Exchange Long Engine, Long
+  Engine, Engine Kits, Cylinder Head, Engine Control, Fuel Injection Equipment, Cold Start, Fan, Cooling, Lubrication, Low Pressure Fuel,
+  Back End Group, Starter motor, Exhaust Manifold, Alternator, Engine Lifting, Auxiliary Drive, Instrumentation (pack A6AH, B6AH…).
+  `PF_PK_SPI2` = seção do livro → grupo SPI² ([grupo, certo]; false = dedução → "❔ provável"), `PF_PK_SPI2_PT` tradução,
+  `pfPkSpi2Html` mostra o grupo SPI² em destaque (📋) + "dentro: <seções do livro>". Print novo do SPI² → corrigir `PF_PK_SPI2`.
 - **📥 Alimentar aplicações pelo catálogo** (v115.2161, `pfAlimAbrir`; Área Técnica + botão no Guia Perkins): marca/série
   (modelo opcional) guardadas em `pfAlimAplicCtx` enquanto navega; cola a TABELA (texto, formato Perkins Symbol|Item|Parts No.|
   Qty.|Latest Part No.|Description — `pfAlimLerTexto`, sem IA, tradução por `PF_CATPDF_DIC`/traduções salvas; NLA desmarcado;

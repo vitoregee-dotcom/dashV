@@ -273,6 +273,13 @@
   DE DIREÇÃO" + `x.reparo` → atalho 🔧 no topo do catálogo (`pfCatEnvReparosHtml`) e etiqueta "🔧 reparo do cilindro" na
   cotação. Catálogo antigo é atualizado ao abrir (`pfCatEnvAtualizarCat`, `v2183`); "🔁 Mandar pras Aplicações" atualiza as
   descrições das fichas que ele criou.
+- v115.2190 **transmissão Carraro** (TLB1 UP 2WD, ref 371186 — mesmo layout desenho em cima/tabela "Pos Ref Qty Description Kit Note"
+  embaixo, só inglês): cabeçalho "TRANSMISSION … REF: 371186" (`mRef2` → modelo/ref, título "Transmissão …", sem campo posição);
+  **números do desenho são IMAGEM** (o desenho é foto, sem texto) → 0 números clicáveis, aviso no import e o cliente escolhe
+  pela LISTA (c.html "Veja o nº no desenho e escolha na lista"); linha sem nº que repete código com nº sai; títulos repetidos
+  (4.1/4.2) ganham "(tab)"; dicionário de câmbio/conversor em `PF_CATENV_DIC` + `pfCatEnvPalavras` (OLIO→ÓLEO,
+  "2^ V."→"2ª MARCHA", AXE A→EIXO A…); siglas TDP/PTO no título; no LINK a descrição perde números de 5+ dígitos
+  (`pfCatEnvDescPublica` — a Carraro põe código dentro da descrição: "KIT EIXO 147454 + RIVETT").
 - Endereço do link: `pfCatEnvBaseUrl` (padrão = o do sistema; "Endereço do link" no modal grava `base` — pra domínio neutro
   na Vercel). Prévias em `docs/referencias/catalogo-sem-codigo/`.
 - **Portal do cliente — IDEIA (não feita)**: cliente com login cota sozinho DIGITANDO SÓ CÓDIGO E QUANTIDADE (decisão do Vitor

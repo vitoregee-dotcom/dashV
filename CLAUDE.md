@@ -167,6 +167,7 @@
   Drive. `PF_PK_SPI2` virou [grupo, plate, certo] (grupo null = "ainda não confirmado", hoje: Timing Case, Camshaft & Gears, Rear End Oil
   Seal, Front End Drive Input, Miscellaneous, Air Filter, Feed Pipes — NÃO são Block); `pfPkSpi2Sub(seção, inglês)` escolhe a plate do
   Block pela peça; mostra "Block › Pistons & Rings".
+  v115.2199: Lubrication = Oil Filter / Oil Leak-Off Pipes / Rotor / Sump (bomba de óleo → Rotor provável; bocal e radiador de óleo fora).
 - **📥 Alimentar aplicações pelo catálogo** (v115.2161, `pfAlimAbrir`; Área Técnica + botão no Guia Perkins): marca/série
   (modelo opcional) guardadas em `pfAlimAplicCtx` enquanto navega; cola a TABELA (texto, formato Perkins Symbol|Item|Parts No.|
   Qty.|Latest Part No.|Description — `pfAlimLerTexto`, sem IA, tradução por `PF_CATPDF_DIC`/traduções salvas; NLA desmarcado;

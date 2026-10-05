@@ -202,6 +202,14 @@
 - v115.2148: balão do cliente dá pra alcançar com o mouse (`pfOrbTipEsconder` some só ~0,35 s depois; `pfOrbTipDentro` segura;
   clique = ficha `pfOrbTipClique`; `pfOrbTipPosicionar` mantém dentro do quadro). No 3D, mouse no balão = ele para de seguir o planeta.
 
+## ⏱️ Tempo das cotações (v115.2180)
+- Medição automática (`pfCotTempoTick`, a cada 10 s): conta só se a cotação aberta tem item, a tela da cotação está à vista
+  (`#vendasCodInput` visível), a aba está ativa e houve clique/tecla nos últimos 90 s (`_pfCotUltAcao`). Acumula em
+  `window._venda._tempoNovoSeg`; o `vendasSalvarCotacaoReal` (inclusive autosave) SOMA no `cot.tempoAtivoSeg` e zera; `cot.inicioEm`.
+- Relatório: Ferramentas → ⏱️ Tempo das cotações (`ferrCotTempo`, períodos 1/7/30/90 dias, por vendedor; quem não é gestor vê
+  só as suas): cotações, por dia, tempo médio/mediana, tempo em cotação/dia (% de 8 h). Base pro argumento da apresentação
+  ("mais da metade do dia não é cotação").
+
 ## Cotação em 2 linhas (v115.2140)
 - Botão "▦ Tabela | ▤ 2 linhas | ☰ Compacta" (`vendasViewModo()`/`vendasViewModoSet`, localStorage `pf_vendas_view_modo`);
   a tabela de 1 linha NÃO mudou. `vendasItens2LinhasHtml(v)` (tabela `#vendasItensTable2`, sem arrastar/redimensionar coluna):

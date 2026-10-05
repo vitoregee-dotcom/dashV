@@ -1934,7 +1934,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2179</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2180</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2088,7 +2088,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2179</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2180</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -45302,6 +45302,65 @@ function rmaFiltradas(semVend){
     return true;
   }).sort(function(a,b){return new Date(b.data||0)-new Date(a.data||0);});
 }
+// v115.2180 - A pedido do Vitor ("quero fazer um cálculo de tempo de cotação... faço 50 a 60 por dia mas tenho a
+// impressão que uso mais tempo em coisas que não são cotação; preciso mostrar em números" -> opção A): mede sozinho o
+// tempo de TRABALHO em cada cotação, sem o vendedor fazer nada. A cada 10 s, se a cotação aberta tem item, a tela da
+// cotação está à vista e houve clique/tecla nos últimos 90 s, soma 10 s (cotação esquecida aberta não conta). Fica em
+// window._venda._tempoNovoSeg e vai pra cotação salva (tempoAtivoSeg, somando a cada salvamento -- reabrir e mexer
+// continua somando). Relatório em Ferramentas → ⏱️ Tempo das cotações (ferrCotTempo).
+window._pfCotUltAcao=0;
+['pointerdown','keydown','input','wheel'].forEach(function(t){document.addEventListener(t,function(){window._pfCotUltAcao=Date.now();},true);});
+function pfCotTempoTick(){
+  try{
+    var v=window._venda;if(!v||!v.itens||!v.itens.length||v.pvEdit)return;
+    if(document.visibilityState&&document.visibilityState!=='visible')return;
+    var inp=document.getElementById('vendasCodInput');if(!inp||!inp.offsetParent)return; // tela da cotação não está à vista
+    if(Date.now()-(window._pfCotUltAcao||0)>90000)return;
+    v._tempoNovoSeg=(v._tempoNovoSeg||0)+10;if(!v.inicioEm)v.inicioEm=Date.now();
+  }catch(e){}
+}
+setInterval(pfCotTempoTick,10000);
+function pfFmtMin(seg){seg=Math.round(seg||0);if(seg<60)return seg+' s';var m=Math.floor(seg/60),s2=seg%60;if(m<60)return m+' min'+(s2?' '+s2+' s':'');var h=Math.floor(m/60);return h+' h '+(m%60)+' min';}
+function ferrCotTempo(){
+  var el=document.getElementById('ferrBody');if(!el)return;
+  window._pfNavegouExplicitamente=true;
+  var dias=window._cotTempoDias||30,gestor=typeof pfVR2PodeGeral==='function'&&pfVR2PodeGeral(),eu=(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||'';
+  var cots=[];try{cots=JSON.parse(localStorage.getItem('partsflow_cotacoes_v1')||'[]')||[];}catch(e){}
+  var desde=Date.now()-dias*86400000;
+  var doPeriodo=cots.filter(function(c){return c&&!c.demo&&c.data&&new Date(c.data).getTime()>=desde&&(gestor||c.atendenteEmail===eu);});
+  var medidas=doPeriodo.filter(function(c){return (c.tempoAtivoSeg||0)>=20;});
+  var nome=function(c){return c.atendenteNome||c.atendenteEmail||'(sem vendedor)';};
+  var med=function(arr){if(!arr.length)return 0;var a=arr.slice().sort(function(x,y){return x-y;}),m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2;};
+  var grupo={};
+  doPeriodo.forEach(function(c){var k=nome(c),g=grupo[k]=grupo[k]||{n:0,tempos:[],dias:{}};g.n++;g.dias[String(c.data).slice(0,10)]=1;if((c.tempoAtivoSeg||0)>=20)g.tempos.push(c.tempoAtivoSeg);});
+  var linhas=Object.keys(grupo).sort(function(a,b){return grupo[b].n-grupo[a].n;}).map(function(k){var g=grupo[k],nd=Object.keys(g.dias).length||1,tot=g.tempos.reduce(function(s,x){return s+x;},0);
+    var porDia=g.n/nd,medio=g.tempos.length?tot/g.tempos.length:0;
+    return '<tr><td style="padding:7px 8px;font-weight:700">'+pfEscHtml(k)+'</td><td style="padding:7px 8px;text-align:center">'+g.n+'</td><td style="padding:7px 8px;text-align:center">'+porDia.toFixed(1)+'</td>'+
+      '<td style="padding:7px 8px;text-align:center">'+g.tempos.length+'</td><td style="padding:7px 8px;text-align:center;font-weight:800;color:#1F4E79">'+(g.tempos.length?pfFmtMin(medio):'—')+'</td>'+
+      '<td style="padding:7px 8px;text-align:center">'+(g.tempos.length?pfFmtMin(med(g.tempos)):'—')+'</td>'+
+      '<td style="padding:7px 8px;text-align:center">'+(g.tempos.length?pfFmtMin(medio*porDia)+' <span style="color:#8a9ab0;font-size:11px">de ~8 h</span>':'—')+'</td></tr>';}).join('');
+  var tAll=medidas.map(function(c){return c.tempoAtivoSeg;}),mAll=tAll.length?tAll.reduce(function(s,x){return s+x;},0)/tAll.length:0;
+  var nDias=Object.keys(doPeriodo.reduce(function(o,c){o[String(c.data).slice(0,10)]=1;return o;},{})).length||1;
+  var nVend=Object.keys(grupo).length||1,porDiaVend=doPeriodo.length/nDias/nVend,horasCot=mAll*porDiaVend/3600,pct=Math.min(100,Math.round(horasCot/8*100));
+  var kpi=function(t,v,sub){return '<div style="flex:1;min-width:150px;background:#fff;border:1px solid #e0e8f0;border-radius:10px;padding:10px 12px"><div style="font-size:11px;color:#8a9ab0;font-weight:700;text-transform:uppercase">'+t+'</div><div style="font-size:22px;font-weight:800;color:#1F4E79">'+v+'</div><div style="font-size:11.5px;color:#607080">'+sub+'</div></div>';};
+  var per=function(d){return '<button onclick="window._cotTempoDias='+d+';ferrCotTempo()" style="padding:5px 12px;border-radius:14px;cursor:pointer;font-size:12px;font-weight:700;border:1.5px solid #1F4E79;background:'+(dias===d?'#1F4E79':'#fff')+';color:'+(dias===d?'#fff':'#1F4E79')+'">'+d+' dias</button>';};
+  el.innerHTML='<div style="padding:20px;max-width:1000px">'+
+    '<button onclick="ferrRender()" style="background:none;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);color:var(--pf-fx-textoSec,#607080);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;margin-bottom:8px">← Voltar</button>'+
+    '<h2 style="margin:0 0 4px;color:#1F4E79">⏱️ Tempo das cotações</h2>'+
+    '<div style="font-size:12.5px;color:#607080;margin-bottom:12px">Medido sozinho: conta só o tempo em que alguém está mexendo na cotação (cotação esquecida aberta não conta). Começou a medir na versão v115.2180 — cotações anteriores aparecem no total, mas sem tempo.'+(gestor?'':' Você vê só as suas.')+'</div>'+
+    '<div style="display:flex;gap:6px;margin-bottom:12px">'+per(1)+per(7)+per(30)+per(90)+'</div>'+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+
+      kpi('Cotações',doPeriodo.length,medidas.length+' com tempo medido')+
+      kpi('Tempo médio',tAll.length?pfFmtMin(mAll):'—','mediana '+(tAll.length?pfFmtMin(med(tAll)):'—'))+
+      kpi('Por vendedor/dia',porDiaVend.toFixed(1)+' cotações',nDias+' dia(s) com cotação')+
+      kpi('Tempo em cotação',tAll.length?pfFmtMin(horasCot*3600)+'/dia':'—',tAll.length?'≈ '+pct+'% de um dia de 8 h — o resto vai pra outras coisas':'precisa de cotações medidas')+
+    '</div>'+
+    '<table style="width:100%;border-collapse:collapse;font-size:13px;background:#fff;border:1px solid #e0e8f0;border-radius:10px;overflow:hidden">'+
+    '<thead><tr style="background:#1F4E79;color:#fff;font-size:11px;text-transform:uppercase"><th style="padding:7px 8px;text-align:left">Vendedor</th><th style="padding:7px 8px">Cotações</th><th style="padding:7px 8px">Por dia</th><th style="padding:7px 8px">Medidas</th><th style="padding:7px 8px">Tempo médio</th><th style="padding:7px 8px">Mediana</th><th style="padding:7px 8px">Tempo em cotação/dia</th></tr></thead>'+
+    '<tbody>'+(linhas||'<tr><td colspan="7" style="padding:14px;text-align:center;color:#8a9ab0">Nenhuma cotação no período.</td></tr>')+'</tbody></table>'+
+    '<div style="font-size:11.5px;color:#8a9ab0;margin-top:8px">Mediana = o tempo "do meio" (não distorce com uma cotação muito longa). Tempo em cotação/dia = tempo médio × cotações por dia.</div>'+
+  '</div>';
+}
 function ferrRMA(){
   var el=document.getElementById('ferrBody');if(!el)return;
   window._pfNavegouExplicitamente=true;
@@ -62677,6 +62736,9 @@ async function vendasSalvarCotacaoReal(opts){
   // da tela -- dataPedido (gravada ao emitir o pedido), vendedor/transportadora editados direto na lista etc.
   // Agora o que já estava salvo e a tela não tem continua.
   if(idxExistente>=0){var _ant=cots[idxExistente]||{};Object.keys(_ant).forEach(function(k){if(!(k in cot))cot[k]=_ant[k];});}
+  // v115.2180 - tempo de trabalho na cotação (pfCotTempoTick): soma o que foi acumulado desde o último salvamento
+  cot.tempoAtivoSeg=((idxExistente>=0&&cots[idxExistente]&&cots[idxExistente].tempoAtivoSeg)||0)+(v._tempoNovoSeg||0);v._tempoNovoSeg=0;
+  if(!cot.inicioEm&&v.inicioEm)cot.inicioEm=v.inicioEm;
   if(idxExistente>=0)cots[idxExistente]=cot;else cots.unshift(cot);
   pfSafeSetItem(COTS_KEY,JSON.stringify(cots));
   window._relCoCache=null; // v115.2030
@@ -65554,6 +65616,7 @@ function ferrRender(){
   // v115.2160 - A pedido do Vitor ("o guia Perkins coloca em Área Técnica"): o card saiu daqui e foi pra Área Técnica.
   if(_canSee('ferr_solic_fotos')){mkCard('📷','Solicitação de Fotos','Pede foto de um item, sobe pelo cel','#C2410C',function(){ferrSolicitacaoFotos();});setTimeout(function(){if(typeof sfAtualizarBadge==='function')sfAtualizarBadge();if(typeof sfProcessarPendentes==='function')sfProcessarPendentes();},50);}
   if(_canSee('ferr_ajuste_saldo')) mkCard('📦','Ajuste de Saldo','Físico ≠ sistema? Avisa em 1 clique','#0D7377',function(){ferrAjusteSaldo();});
+  mkCard('⏱️','Tempo das cotações','Quanto tempo leva cada cotação — por vendedor e por dia','#1F4E79',function(){ferrCotTempo();}); // v115.2180
   if(_canSee('ferr_rma')) mkCard('🔄','RMA — Devolução','Cliente ou fornecedor, com aviso de ajuste de estoque','#C0392B',function(){ferrRMA();});
   if(_canSee('ferr_chegou_conf')) mkCard('📦','Chegou — Em Conferência','Cola o print da chegada, avisa os vendedores já','#0D7377',function(){ferrChegouConf();});
   if(_canSee('ferr_reconciliar_cod')) mkCard('🔗','Reconciliar Códigos','Cliente e Fornecedor com o mesmo CNPJ, códigos diferentes','#8E44AD',function(){ferrReconciliarCodigos();});

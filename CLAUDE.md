@@ -281,6 +281,11 @@
   destacar, ⚙️) moram no popover "🔍 Filtros" (`window._pfOrbFiltrosAberto`, `pfOrbFiltrosAlternar`/`pfOrbFiltrosLimpar`, `_fHtml`
   montado no `pfOrbitaRender`; número = filtros ligados `_fN`; clique fora fecha). Faixa do resumo curta (sem perfis → 📊 Resumo),
   com "⚠️ R$/ano em risco" (saiu do cabeçalho).
+- v115.2218 **🛰️ satélites com logo — DESLIGADO** (`PF_ORB_SAT_LIGADO=false`; prévia num aparelho: localStorage `pfOrbSatPrevia`='1'):
+  imagens do Vitor em `icons/orbita-marcas/sat-<id>.png` (case, caseih, cat, mf, valtra; `PF_ORB_SAT` {nome, asp}); automático pela
+  concessionária (`pfOrbSatAuto`) ou à mão no botão direito (`pfOrbSatMenuHtml`, `pfOrbMarcas.por[k].sat` = id | 'nenhum'); gira em volta
+  do planeta (`pfOrbSatAng`; 3D sprite com depthTest, 2D drawImage). Vitor achou feio o tamanho grande — prévias A/B/C em
+  `docs/referencias/orbita-satelites/`; esperando ele escolher antes de ligar.
 - v115.2148: balão do cliente dá pra alcançar com o mouse (`pfOrbTipEsconder` some só ~0,35 s depois; `pfOrbTipDentro` segura;
   clique = ficha `pfOrbTipClique`; `pfOrbTipPosicionar` mantém dentro do quadro). No 3D, mouse no balão = ele para de seguir o planeta.
 
@@ -348,6 +353,8 @@
   (o "← Voltar" guarda a aba). Saiu do `PF_SNAPSHOT_VIEWS`; sair da AT e voltar pelo dock reabre a última aba (`_atUltima`).
 - Ferramentas: o `_ferrTabs` de sempre; abrir a mesma ferramenta = volta pra aba dela; `ferrRender` (← Voltar) não desenha
   mais o menu DENTRO da aba.
+- v115.2218 BUG: a aba, o menu ＋ e o seletor Alt+Q mostravam o ícone ORIGINAL do card; agora `pfAbasIcone(título, original)` usa o
+  escolhido pelo Vitor (`pfIconOverrides`, chave `pfAtalhoSlug(título)`), igual ao card/dock; título interno da Ficha Técnica também.
 - **Etapa 2 (a fazer)**: Vendas, Compras, Cadastros, Logística.
 
 ## ⏱️ Tempo das cotações (v115.2180)

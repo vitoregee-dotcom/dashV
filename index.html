@@ -1940,7 +1940,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2220</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2221</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2094,7 +2094,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2220</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2221</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -81887,6 +81887,61 @@ function pfToggleTheme(){
   var app = document.getElementById('pfApp');
   pfApplyTheme(app && app.classList.contains('pf-dark') ? 'light' : 'dark');
 }
+
+// v115.2221 - A pedido do Vitor ("quero poder mover e arrastar todas essas janelas que o sistema abre"): jeito GERAL, sem
+// mexer em cada janela -- segurar e arrastar pela faixa de cima (título, ~44 px) move a janela. "Janela" = o elemento mais de
+// fora (subindo a partir do clique) que é: position fixed (sem cobrir a tela toda), absolute com sombra (menus/popovers, ex.:
+// botão direito da Órbita), ou o cartão dentro de um fundo escuro de tela cheia (os modais). Move com a propriedade CSS
+// `translate` (não estraga o `transform` de centralizar). Só vira arrasto depois de 5 px (clique normal continua clique) e o
+// clique que termina o arrasto é engolido. Fora: dock, barra de cima, botão da IA, campos/botões/links, canvas e
+// [data-pf-no-drag]. Fecha/abre de novo = volta pro lugar original (elemento novo).
+(function(){
+  var FORA='#pfSidebar,#pfTopBar,#pfAiBotaoWrap,#pfDockMaisPop,#pfAbasBar,[data-pf-no-drag]';
+  var INTERATIVO='input,textarea,select,button,a,label,canvas,video,[contenteditable=""],[contenteditable="true"],.pfAbaX,[data-c],[data-m]';
+  var FAIXA=44;
+  function cheia(r){return r.width>=innerWidth*0.9&&r.height>=innerHeight*0.85;}
+  function fundoTelaCheia(el){if(!el||el===document.body||el.nodeType!==1)return false;var cs=getComputedStyle(el);return cs.position==='fixed'&&cheia(el.getBoundingClientRect());}
+  function ehJanela(el){
+    if(!el||el===document.body||el===document.documentElement||el.nodeType!==1)return false;
+    if(el.matches(FORA))return false;
+    var r=el.getBoundingClientRect();if(r.width<120||r.height<40||cheia(r))return false;
+    var cs=getComputedStyle(el);
+    if(cs.position==='fixed')return true;
+    if(cs.position==='absolute'&&cs.boxShadow&&cs.boxShadow!=='none')return true;
+    return fundoTelaCheia(el.parentElement);
+  }
+  function acharJanela(alvo){var achou=null;for(var el=alvo;el&&el!==document.body;el=el.parentElement){if(el.matches&&el.matches(FORA))return null;if(ehJanela(el))achou=el;}return achou;}
+  var arr=null,ultAlvo=null,ultCursor=null;
+  document.addEventListener('pointerdown',function(e){
+    if(e.button!==0||!e.target||!e.target.closest)return;
+    if(e.target.closest(INTERATIVO))return;
+    var j=acharJanela(e.target);if(!j)return;
+    var r=j.getBoundingClientRect();if(e.clientY-r.top>FAIXA)return;
+    var t=(j.style.translate||'').split(' ');
+    arr={j:j,x0:e.clientX,y0:e.clientY,dx:parseFloat(t[0])||0,dy:parseFloat(t[1])||0,r:r,mov:false};
+  },true);
+  document.addEventListener('pointermove',function(e){
+    if(!arr){ // dica: cursor de "mover" na faixa de cima das janelas
+      if(e.buttons||e.target===ultAlvo)return;ultAlvo=e.target;
+      if(ultCursor){ultCursor.style.cursor=ultCursor._pfCurAnt||'';ultCursor=null;}
+      if(!e.target.closest||e.target.closest(INTERATIVO))return;
+      var j=acharJanela(e.target);if(!j)return;var r=j.getBoundingClientRect();
+      if(e.clientY-r.top<=FAIXA&&!e.target.style.cursor){e.target._pfCurAnt='';e.target.style.cursor='move';ultCursor=e.target;}
+      return;}
+    var dx=e.clientX-arr.x0,dy=e.clientY-arr.y0;
+    if(!arr.mov){if(Math.abs(dx)+Math.abs(dy)<5)return;arr.mov=true;document.body.style.userSelect='none';}
+    e.preventDefault();
+    // não deixa a faixa de cima sumir da tela (sempre dá pra pegar de volta)
+    var nx=arr.dx+dx,ny=arr.dy+dy,top=arr.r.top+dy,left=arr.r.left+dx;
+    if(top<0)ny-=top;if(top>innerHeight-40)ny-=top-(innerHeight-40);
+    if(left+arr.r.width<80)nx+=80-(left+arr.r.width);if(left>innerWidth-80)nx-=left-(innerWidth-80);
+    arr.j.style.translate=Math.round(nx)+'px '+Math.round(ny)+'px';
+  },true);
+  function fim(){if(!arr)return;var mov=arr.mov;arr=null;document.body.style.userSelect='';
+    if(mov){var engole=function(ev){ev.stopPropagation();ev.preventDefault();document.removeEventListener('click',engole,true);};
+      document.addEventListener('click',engole,true);setTimeout(function(){document.removeEventListener('click',engole,true);},0);}}
+  document.addEventListener('pointerup',fim,true);document.addEventListener('pointercancel',fim,true);
+})();
 
 // v115.2220 - botão "⋯" do dock: abre/fecha a coluna com os botões do canto (abre pra cima); fecha ao clicar fora, num botão dela ou Esc
 function pfDockMais(ev,abrir){

@@ -269,6 +269,24 @@
   BRANCO do painel escuro (cartão é branco fixo) → nome com `color:#1A2B3C` fixo. Texto novo dentro de cartão de fundo fixo:
   sempre dar cor fixa também.
 
+## 🤝 CRM (v115.2209 — Fase 1; prévia aprovada em `docs/referencias/crm/`)
+- **Ficha do cliente** `pfCrmAbrir(k)` (tela cheia `#pfCrmFicha`, Esc fecha; k = chave do Painel de Clientes `pcMontarDados`:
+  'c:CODIGO' ou 'r:RAZÃO'; `pfCrmChaveDe(razao,obj)`/`pfCrmAbrirPorRazao`). Abre pelo clique na Órbita (`pcAbrirFichaPorChave`),
+  pelo Painel de Clientes (`pcAbrirFicha` desvia; a análise antiga fica no "📊 Análise completa" → `pfCrmAnalise`, flag
+  `_pcFichaAntiga`), pela etiqueta "🤝 Ficha" no cliente da cotação e pela busca do "Meu dia".
+  Esquerda: números 12m (`pfCrmNumeros`), ⏰ próxima ação, contatos do cadastro (`pfCrmContatos`), o que mais compra.
+  Meio: linha do tempo `pfCrmTimeline` = eventos do CRM + `cad.anotacoes` (as da cotação) + cotações (clique abre, `pfCrmAbrirCot`)
+  + pedidos (`pfCrmAbrirPed`) + títulos do Contas a Receber + RMAs + resposta do link de cadastro; filtros `_pfCrmFiltro`.
+  Direita: mandar mensagem (WhatsApp via `pfWhatsAbrir` / e-mail via mailto, com ⚡ respostas prontas `pfCrmProntas`) — fica
+  REGISTRADA; funil de cotações 90 dias.
+- Dados: log compartilhado **`pfCrmEventos`** (logKeys + lista de sync) — SÓ ACRESCENTA (`pfCrmAdd`): tipos nota/ligacao/whats/
+  email/prox{data}/feito{ref}. Próxima ação aberta = "prox" mais novo sem "feito" (`pfCrmProxAtual`). Nunca editar evento.
+- **☀️ Meu dia** = aba em Vendas (`pfCrmMeuDiaRender`): retornos combinados (atrasados/hoje/7 dias), cotações pra cobrar
+  (2–30 dias sem virar pedido, maiores primeiro, 💬 Cobrar `pfCrmCobrar`), clientes pra ligar (sumindo = dias > 1,5× o
+  intervalo e ≥30; inativo que ainda cota; crescendo ≥ +50%; título vencido). Vendedor vê a carteira dele; gestor escolhe.
+- Próximas fases (decidir com o Vitor): WhatsApp API oficial (Meta) com conversa dentro da ficha; caixa de e-mail ligada
+  (Microsoft 365 ou Google); IA resumindo a conversa; pesquisas com o cliente (ver pedido de 06/10).
+
 ## ⏱️ Tempo das cotações (v115.2180)
 - Medição automática (`pfCotTempoTick`, a cada 10 s): conta só se a cotação aberta tem item, a tela da cotação está à vista
   (`#vendasCodInput` visível), a aba está ativa e houve clique/tecla nos últimos 90 s (`_pfCotUltAcao`). Acumula em

@@ -1934,7 +1934,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2211</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2212</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2088,7 +2088,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2211</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2212</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -44322,10 +44322,9 @@ function ferrAbrirTab(icon,title,fn){
   // v115.1952 - sem a barra de abas visível (ver ferrAtualizarTabBar), abrir
   // de novo a mesma ferramenta substitui a aba anterior em vez de acumular
   // cópias escondidas (continuam acessíveis pelo item "Ferramentas" do dock).
-  Object.keys(window._ferrTabs).forEach(function(id){
-    var t=window._ferrTabs[id];
-    if(t&&t.title===title){if(t.el&&t.el.parentNode)t.el.parentNode.removeChild(t.el);delete window._ferrTabs[id];}
-  });
+  // v115.2212 - com a barra de abas do topo, a mesma ferramenta já aberta = volta pra aba dela (não perde o que estava feito)
+  var _jaAb=Object.keys(window._ferrTabs).filter(function(id){var t=window._ferrTabs[id];return t&&t.title===title;})[0];
+  if(_jaAb){ferrRestaurarTab(_jaAb);return;}
   var tabId='ferr_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
   var el=document.createElement('div');
   el.dataset.ferrTabId=tabId;
@@ -44335,6 +44334,7 @@ function ferrAbrirTab(icon,title,fn){
   fn();
   ferrAtualizarTabBar();
   if(typeof pfRenderTaskbar==='function')pfRenderTaskbar();
+  if(typeof pfAbasBarRender==='function')pfAbasBarRender(); // v115.2212
 }
 function ferrRestaurarTab(tabId){
   var t=window._ferrTabs[tabId];
@@ -44345,6 +44345,7 @@ function ferrRestaurarTab(tabId){
   ferrTrocarSlotAtivo(t.el);
   ferrAtualizarTabBar();
   if(typeof pfRenderTaskbar==='function')pfRenderTaskbar();
+  if(typeof pfAbasBarRender==='function')pfAbasBarRender(); // v115.2212
 }
 function ferrFecharTab(tabId,ev){
   if(ev)ev.stopPropagation();
@@ -44357,6 +44358,7 @@ function ferrFecharTab(tabId,ev){
     ferrAtualizarTabBar();
     if(typeof pfRenderTaskbar==='function')pfRenderTaskbar();
   }
+  if(t.el&&t.el.parentNode)t.el.remove(); // v115.2212 - não deixa a tela fechada guardada no pool
 }
 function ferrAtualizarTabBar(){
   var bar=document.getElementById('ferrTabBar');
@@ -44378,6 +44380,179 @@ function ferrAtualizarTabBar(){
   html+='<div onclick="ferrIrParaPicker()" style="padding:6px 10px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;color:var(--pf-text-muted);border:1px dashed var(--pf-border)">+ Nova</div>';
   bar.innerHTML=html;
 }
+// ══════════════════════════════════════════════════════════════
+// v115.2212 - A pedido do Vitor ("se eu estiver em algum card, quero poder abrir outro sem fechar"; prévia aprovada em
+// docs/referencias/area-tecnica-abas/; "dá pra colocar um atalho tipo Alt+Q pra ir mudando de uma pra outra? essas abas
+// podem incluir qualquer card do sistema?" -> etapa 1 = Área Técnica + Ferramentas): barra de ABAS no topo (#pfAbasBar
+// dentro do #pfTopBar, vale no sistema todo). Cada card abre numa aba e a tela fica VIVA escondida (o elemento de verdade
+// vai pro #pfAbasPool, mesmo esquema que as Ferramentas já usavam em _ferrTabs) -- trocar de aba não perde busca, item
+// aberto, rolagem nem formulário. Alt+Q (Option+Q) = próxima aba (segurando o Alt aparece o seletor), Alt+Shift+Q = anterior.
+// Área Técnica: _atTabs/_atAtivo (pfAtAbrir/pfAtIr/pfAtFechar; areaTecnicaRender guarda a aba aberta antes de desenhar
+// o menu); Ferramentas: _ferrTabs de sempre (ferrAbrirTab/ferrRestaurarTab/ferrFecharTab).
+// Etapa 2 (a fazer): Vendas, Compras, Cadastros, Logística.
+// ══════════════════════════════════════════════════════════════
+window._atTabs=window._atTabs||{};window._atAtivo=window._atAtivo||null;
+window._pfAbasCat=window._pfAbasCat||{at:[],ferr:[]};
+var PF_AT_SEM_ABA=/Alimentar aplica|Identifica[çc][ãa]o por Medida/i; // abrem janela/aviso, não tela
+function pfAbasPool(){var p=document.getElementById('pfAbasPool');if(!p){p=document.createElement('div');p.id='pfAbasPool';p.style.display='none';document.body.appendChild(p);}return p;}
+function pfAtTrocarBody(novo){
+  var live=document.getElementById('areaTecnicaBody');if(!live||live===novo)return live;
+  if(!novo.getAttribute('style')&&live.getAttribute('style'))novo.setAttribute('style',live.getAttribute('style'));
+  if(!novo.className&&live.className)novo.className=live.className;
+  live.parentNode.insertBefore(novo,live);live.removeAttribute('id');
+  if(live.dataset.atAba)pfAbasPool().appendChild(live);else live.remove();
+  novo.id='areaTecnicaBody';return live;
+}
+function pfAtGuardarAtual(){
+  var live=document.getElementById('areaTecnicaBody');if(!live||!live.dataset.atAba)return;
+  // currentView 'area_tecnica' aqui = o "← Voltar" já trocou (ftVoltarCards) -- não sobrescreve a sub-tela da aba
+  var t=window._atTabs[live.dataset.atAba];if(t&&typeof currentView!=='undefined'&&currentView!=='area_tecnica')t.cv=currentView;
+  if(t&&t.cv==='area_tecnica_rol'&&typeof pfAiAssistantDetach==='function')try{pfAiAssistantDetach();}catch(e){}
+  pfAtTrocarBody(document.createElement('div'));window._atAtivo=null;
+}
+function pfAtVisivel(){var b=document.getElementById('areaTecnicaBody');return !!(b&&b.offsetParent!==null&&typeof currentView!=='undefined'&&String(currentView).indexOf('area_tecnica')===0);}
+function pfAtAbrir(atalhoId,titulo,icone,fn,tentou){
+  if(PF_AT_SEM_ABA.test(titulo||'')){fn();return;}
+  var ex=Object.keys(window._atTabs).filter(function(id){return window._atTabs[id].atalhoId===atalhoId;})[0];
+  if(ex){pfAtIr(ex);return;}
+  if(!pfAtVisivel()&&!tentou){window._pfAtNavInterno=1;if(typeof pfNavigate==='function')pfNavigate('area_tecnica');window._pfAtNavInterno=0;setTimeout(function(){pfAtAbrir(atalhoId,titulo,icone,fn,true);},90);return;}
+  pfAtGuardarAtual();
+  var id='at_'+atalhoId,el=document.createElement('div');el.dataset.atAba=id;
+  window._atTabs[id]={id:id,atalhoId:atalhoId,titulo:titulo,icone:icone,el:el,cv:'area_tecnica',ts:Date.now()};
+  pfAtTrocarBody(el);window._atAtivo=id;currentView='area_tecnica'; // as telas da AT olham currentView==='area_tecnica' pra saber onde desenhar
+  try{fn();}catch(e){console.warn('pfAtAbrir',e);}
+  window._atTabs[id].cv=(typeof currentView!=='undefined'?currentView:'area_tecnica');
+  pfAbasBarRender();
+}
+function pfAtIr(id){
+  var t=window._atTabs[id];if(!t)return;
+  var fazer=function(){
+    var live=document.getElementById('areaTecnicaBody');
+    if(live!==t.el){pfAtGuardarAtual();pfAtTrocarBody(t.el);}
+    window._atAtivo=id;currentView=t.cv||'area_tecnica';
+    if(currentView==='area_tecnica_rol'&&typeof pfAiAssistantAttach==='function')try{pfAiAssistantAttach({secao:'Rolamentos — Descobridor de Equivalência'});}catch(e){}
+    if(typeof pfAplicarIconOverridesNaTela==='function')try{pfAplicarIconOverridesNaTela();}catch(e){}
+    pfAbasBarRender();
+  };
+  if(pfAtVisivel()){fazer();return;}
+  window._pfAtNavInterno=1;if(typeof pfNavigate==='function')pfNavigate('area_tecnica');window._pfAtNavInterno=0;
+  setTimeout(fazer,90);
+}
+function pfAtFechar(id){
+  var t=window._atTabs[id];if(!t)return;
+  if(document.getElementById('areaTecnicaBody')===t.el){
+    if(pfAtVisivel()&&typeof ftVoltarCards==='function')ftVoltarCards();else pfAtTrocarBody(document.createElement('div'));
+  }
+  delete window._atTabs[id];if(t.el&&t.el.parentNode)t.el.remove();
+  if(window._atAtivo===id)window._atAtivo=null;
+  pfAbasBarRender();
+}
+// ── lista única (Área Técnica + Ferramentas) ──
+function pfAbasLista(){
+  var l=[];
+  Object.keys(window._atTabs).forEach(function(id){var t=window._atTabs[id];l.push({tipo:'at',id:id,titulo:t.titulo,icone:t.icone,ts:t.ts});});
+  Object.keys(window._ferrTabs||{}).forEach(function(id){var t=window._ferrTabs[id];var m=/^ferr_(\d+)/.exec(id);l.push({tipo:'ferr',id:id,titulo:t.title,icone:t.icon,ts:m?+m[1]:0});});
+  return l.sort(function(a,b){return a.ts-b.ts;});
+}
+function pfAbasAtivaId(){
+  var cv=(typeof currentView!=='undefined'?String(currentView):'');
+  if(cv.indexOf('area_tecnica')===0&&window._atAtivo&&document.getElementById('areaTecnicaBody')===(window._atTabs[window._atAtivo]||{}).el)return window._atAtivo;
+  if(cv==='ferramentas'&&window._ferrActiveTabId)return window._ferrActiveTabId;
+  return null;
+}
+function pfAbasIr(tipo,id){if(tipo==='at')pfAtIr(id);else if(typeof ferrRestaurarTab==='function'){ferrRestaurarTab(id);setTimeout(pfAbasBarRender,60);}}
+function pfAbasFechar(tipo,id,ev){if(ev){ev.stopPropagation();ev.preventDefault();}
+  if(tipo==='at')pfAtFechar(id);else if(typeof ferrFecharTab==='function'){ferrFecharTab(id);pfAbasBarRender();}}
+function pfAbasIconeMini(h){return '<span class="pfAbaIc">'+(h||'')+'</span>';}
+function pfAbasBarRender(){
+  var top=document.getElementById('pfTopBar');if(!top)return;
+  if(!document.getElementById('pfAbasCss')){var st=document.createElement('style');st.id='pfAbasCss';
+    st.textContent='#pfAbasBar{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow-x:auto;margin:0 12px;scrollbar-width:thin}'+
+      '#pfAbasBar .pfAba{display:flex;align-items:center;gap:6px;padding:5px 9px;border-radius:8px;background:var(--pf-bg,#eef2f7);border:1px solid var(--pf-border,#dde3ea);font-size:12px;font-weight:700;color:var(--pf-text-muted,#607080);cursor:pointer;white-space:nowrap;max-width:220px}'+
+      '#pfAbasBar .pfAba.on{background:#1c2940;border-color:#1c2940;color:#fff}'+
+      '#pfAbasBar .pfAba b{overflow:hidden;text-overflow:ellipsis;font-weight:700}'+
+      '#pfAbasBar .pfAbaX{opacity:.55;font-size:11px;padding:0 2px}#pfAbasBar .pfAbaX:hover{opacity:1;color:#C0392B}'+
+      '.pfAbaIc{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;overflow:hidden;flex-shrink:0}.pfAbaIc img{height:16px!important;width:auto!important;max-width:18px}.pfAbaIc span,.pfAbaIc{font-size:14px!important;line-height:1}'+
+      '.pfAbasSelIc{display:flex;height:30px;align-items:center;justify-content:center;overflow:hidden}.pfAbasSelIc img{height:28px!important;width:auto!important;max-width:64px}.pfAbasSelIc,.pfAbasSelIc span{font-size:24px!important;line-height:1}'+
+      '#pfAbasMais{padding:3px 10px;border-radius:8px;font-size:16px;font-weight:800;cursor:pointer;color:var(--pf-text-muted,#607080)}#pfAbasMais:hover{background:var(--pf-bg,#eef2f7)}';
+    document.head.appendChild(st);}
+  var bar=document.getElementById('pfAbasBar');
+  if(!bar){bar=document.createElement('div');bar.id='pfAbasBar';var ref=top.firstElementChild;if(ref&&ref.nextSibling)top.insertBefore(bar,ref.nextSibling);else top.appendChild(bar);}
+  var l=pfAbasLista(),at=pfAbasAtivaId();
+  if(!l.length){bar.innerHTML='';bar.style.display='none';return;}
+  bar.style.display='flex';
+  bar.innerHTML=l.map(function(a,i){return '<div class="pfAba'+(a.id===at?' on':'')+'" title="'+pfEscHtml(a.titulo)+(i<9?' · Alt+Q troca de aba':'')+'" onclick="pfAbasIr(\''+a.tipo+'\',\''+pfEscJs(a.id)+'\')">'+pfAbasIconeMini(a.icone)+'<b>'+pfEscHtml(a.titulo)+'</b><span class="pfAbaX" title="Fechar aba" onclick="pfAbasFechar(\''+a.tipo+'\',\''+pfEscJs(a.id)+'\',event)">✕</span></div>';}).join('')+
+    '<span id="pfAbasMais" title="Abrir outro card numa aba nova" onclick="pfAbasMenu(event)">＋</span>';
+}
+// monta a lista de cards de uma área sem mexer na tela (desenha o menu num elemento escondido com o mesmo id)
+function pfAbasCatColher(idBody,fnRender){
+  var vivo=document.getElementById(idBody);if(vivo)vivo.id=idBody+'_pfTmp';
+  var tmp=document.createElement('div');tmp.id=idBody;tmp.style.display='none';document.body.appendChild(tmp);
+  try{fnRender();}catch(e){console.warn('pfAbasCatColher',e);}
+  tmp.remove();if(vivo)vivo.id=idBody;
+}
+function pfAbasMenu(ev){
+  if(ev)ev.stopPropagation();var old=document.getElementById('pfAbasMenuPop');if(old){old.remove();return;}
+  if(!window._pfAbasCat.at.length&&typeof areaTecnicaRender==='function')pfAbasCatColher('areaTecnicaBody',areaTecnicaRender);
+  if(!window._pfAbasCat.ferr.length&&typeof ferrRender==='function')pfAbasCatColher('ferrBody',ferrRender);
+  var abertos={};pfAbasLista().forEach(function(a){abertos[a.tipo+'|'+a.titulo]=a;});
+  var sec=function(nome,area,itens,nav){
+    var h='<div style="font-size:10.5px;font-weight:800;color:#8a9ab0;text-transform:uppercase;padding:8px 10px 4px">'+nome+'</div>';
+    if(!itens.length)return h+'<div onclick="document.getElementById(\'pfAbasMenuPop\').remove();pfNavigate(\''+nav+'\')" style="padding:7px 10px;font-size:12.5px;color:#1F4E79;font-weight:700;cursor:pointer">Abrir '+pfEscHtml(nome)+' →</div>';
+    return h+itens.map(function(c,i){var ab=abertos[area+'|'+c.titulo];
+      return '<div onclick="pfAbasMenuAbrir(\''+area+'\','+i+')" style="display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:8px;cursor:pointer;font-size:12.5px;color:#1a2332" onmouseover="this.style.background=\'#F1F5FA\'" onmouseout="this.style.background=\'\'">'+pfAbasIconeMini(c.icone)+'<span style="flex:1">'+pfEscHtml(c.titulo)+'</span>'+(ab?'<span style="font-size:10.5px;font-weight:700;color:#2E7D32">aberta</span>':'')+'</div>';}).join('');};
+  var pop=document.createElement('div');pop.id='pfAbasMenuPop';
+  var r=(ev&&ev.target&&ev.target.getBoundingClientRect)?ev.target.getBoundingClientRect():{left:200,bottom:60};
+  pop.style.cssText='position:fixed;top:'+(r.bottom+6)+'px;left:'+Math.max(8,Math.min(window.innerWidth-330,r.left-10))+'px;width:320px;max-height:70vh;overflow:auto;background:#fff;border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.3);padding:6px;z-index:100000';
+  pop.innerHTML=sec('Área Técnica','at',window._pfAbasCat.at,'area_tecnica')+sec('Ferramentas','ferr',(window._ferrMargemRole&&!window._userModulos)?window._pfAbasCat.ferr.filter(function(c){return c.titulo==='Margem';}):window._pfAbasCat.ferr,'ferramentas');
+  document.body.appendChild(pop);
+  setTimeout(function(){document.addEventListener('click',function f(e){if(!pop.contains(e.target)){pop.remove();document.removeEventListener('click',f);}});},0);
+}
+function pfAbasMenuAbrir(area,i){
+  var pop=document.getElementById('pfAbasMenuPop');if(pop)pop.remove();
+  var c=(window._pfAbasCat[area]||[])[i];if(!c)return;
+  if(area==='at'){pfAtAbrir(c.atalhoId,c.titulo,c.icone,c.fn);return;}
+  var ex=Object.keys(window._ferrTabs||{}).filter(function(id){return window._ferrTabs[id].title===c.titulo;})[0];
+  if(ex){pfAbasIr('ferr',ex);return;}
+  window._ferrSkipAutoPicker=true;if(typeof currentView==='undefined'||currentView!=='ferramentas')pfNavigate('ferramentas');
+  setTimeout(function(){ferrAbrirTab(c.icone,c.titulo,c.fn);pfAbasBarRender();},70);
+}
+// ── Alt+Q / Option+Q: troca de aba (segurando o Alt aparece o seletor) ──
+function pfAbasSeletorDesenhar(){
+  var s=window._pfAbasSel;if(!s)return;var ov=document.getElementById('pfAbasSeletor');
+  if(!ov){ov=document.createElement('div');ov.id='pfAbasSeletor';ov.style.cssText='position:fixed;inset:0;z-index:100001;display:flex;align-items:center;justify-content:center;background:rgba(10,20,40,.25);pointer-events:none';document.body.appendChild(ov);}
+  ov.innerHTML='<div style="background:#1c2940;border-radius:14px;padding:12px;display:flex;gap:8px;flex-wrap:wrap;max-width:80vw;box-shadow:0 18px 50px rgba(0,0,0,.4);pointer-events:auto">'+
+    s.lista.map(function(a,i){var on=i===s.i;return '<div onclick="window._pfAbasSel.i='+i+';pfAbasSeletorFim()" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;width:128px;padding:12px 8px;border-radius:10px;background:'+(on?'#fff':'rgba(255,255,255,.08)')+';color:'+(on?'#1a2332':'#c9d4e6')+';font-size:12px;font-weight:700;text-align:center">'+
+      '<span class="pfAbasSelIc">'+(a.icone||'')+'</span>'+pfEscHtml(a.titulo)+'</div>';}).join('')+
+    '<div style="width:100%;text-align:center;color:#8ea0bb;font-size:11px;margin-top:2px">Q = próxima · Shift+Q = anterior · solte o Alt pra abrir · Esc cancela</div></div>';
+}
+function pfAbasSeletorFim(cancelar){
+  var s=window._pfAbasSel;window._pfAbasSel=null;var ov=document.getElementById('pfAbasSeletor');if(ov)ov.remove();
+  if(!s||cancelar)return;var a=s.lista[s.i];if(a)pfAbasIr(a.tipo,a.id);
+}
+document.addEventListener('keydown',function(e){
+  if(window._pfAbasSel&&e.key==='Escape'){e.preventDefault();e.stopPropagation();pfAbasSeletorFim(true);return;}
+  if(!e.altKey||e.code!=='KeyQ'||e.ctrlKey||e.metaKey)return;
+  e.preventDefault();e.stopPropagation();
+  var l=pfAbasLista();if(!l.length){if(typeof pfToast==='function')pfToast('Nenhuma aba aberta — abra um card da Área Técnica ou das Ferramentas');return;}
+  if(!window._pfAbasSel){var at=pfAbasAtivaId(),i=l.findIndex(function(a){return a.id===at;});
+    window._pfAbasSel={lista:l,i:i<0?(e.shiftKey?l.length-1:0):((i+(e.shiftKey?-1:1)+l.length)%l.length)};}
+  else{var s=window._pfAbasSel;s.i=(s.i+(e.shiftKey?-1:1)+s.lista.length)%s.lista.length;}
+  pfAbasSeletorDesenhar();
+},true);
+document.addEventListener('keyup',function(e){if(window._pfAbasSel&&(e.key==='Alt'||!e.altKey))pfAbasSeletorFim();},true);
+window.addEventListener('blur',function(){if(window._pfAbasSel)pfAbasSeletorFim();});
+// atualiza o destaque da aba quando navega pelo sistema (dock, menu, Esc...)
+window.addEventListener('load',function(){
+  if(typeof pfNavigate!=='function'||pfNavigate._pfAbas)return;
+  // saiu da Área Técnica com uma aba aberta e voltou pelo dock/menu = volta pra ESSA aba (antes a "foto" do PF_SNAPSHOT_VIEWS fazia isso)
+  var orig=pfNavigate;pfNavigate=function(view){
+    var ant=(typeof currentView!=='undefined'?String(currentView):''),eraAT=ant.indexOf('area_tecnica')===0;
+    if(eraAT&&view!=='area_tecnica'){window._atUltima=pfAbasAtivaId();if(window._atUltima&&!window._atTabs[window._atUltima])window._atUltima=null;}
+    var r=orig.apply(this,arguments);
+    if(view==='area_tecnica'&&!eraAT&&!window._pfAtNavInterno&&window._atUltima&&window._atTabs[window._atUltima]){var u=window._atUltima;setTimeout(function(){if(pfAtVisivel()&&!window._atAtivo)pfAtIr(u);},60);}
+    setTimeout(pfAbasBarRender,150);return r;};pfNavigate._pfAbas=1;
+});
 function pfFerrMostrarBotaoMinimizar(containerId,titulo,voltarFn,viewId){
   // v115.1439 - A pedido do Vitor: removeu o botão flutuante "➖ Minimizar"
   // (o pill preto fixo no canto inferior esquerdo, que aparecia ao abrir um
@@ -66521,6 +66696,9 @@ function ferrAtalhosTexto(){
 function ferrRender(){
   var el=document.getElementById('ferrBody');
   if(!el)return;
+  // v115.2212 - A pedido do Vitor (abas): o "← Voltar" de uma ferramenta desenhava o menu DENTRO da aba dela (perdia a
+  // tela); agora a aba fica guardada viva e o menu vai num elemento novo
+  if(el.dataset.ferrTabId){window._ferrActiveTabId=null;var _nv=document.createElement('div');ferrTrocarSlotAtivo(_nv);el=_nv;setTimeout(function(){if(typeof pfAbasBarRender==='function')pfAbasBarRender();},0);}
   pfFerrEsconderBotaoMinimizar();
   // v115.1723 - A pedido do Vitor ("vamos aproveitar a tela toda, pra que
   // vou rolar se tem bastante espaço na tela?"): grade travada em 3
@@ -66556,6 +66734,7 @@ function ferrRender(){
       '<div class="ferrCardTitle" style="font-size:13px;font-weight:700;color:var(--pf-text);line-height:1.3">'+title+'</div>'+
       (sub?'<div style="font-size:11px;color:var(--pf-text-muted);line-height:1.4">'+sub+'</div>':'');
     c.onclick=function(){ferrAbrirTab(icon,title,fn);};
+    var _catF=window._pfAbasCat.ferr.filter(function(x){return x.titulo!==title;});_catF.push({titulo:title,icone:icon,fn:fn});window._pfAbasCat.ferr=_catF; // v115.2212 - menu ＋ da barra de abas
     c.onmouseover=function(){this.style.borderColor=color;this.style.boxShadow='0 2px 10px rgba(0,0,0,.08)';};
     c.onmouseout=function(){this.style.borderColor='#e8edf4';this.style.boxShadow='none';};
     grid.appendChild(c);
@@ -67874,6 +68053,7 @@ function pedidoEnviarParaMapa(){
 // (Compras, Ferramentas, Cadastros, Logística, Área Técnica) -- o Esc faz o mesmo.
 function pfVoltarHomeBtnHtml(){return '<button onclick="pfIrParaHome()" title="Voltar pra tela inicial (Esc)" style="border:none;background:none;cursor:pointer;font-size:14px;font-weight:700;color:var(--pf-accent);padding:4px 6px">← Voltar</button>';}
 function areaTecnicaRender(){
+  pfAtGuardarAtual(); // v115.2212 - a aba aberta fica guardada viva (barra de abas no topo) antes de desenhar o menu
   var el=document.getElementById('areaTecnicaBody');
   if(!el)return;
   pfFerrEsconderBotaoMinimizar();
@@ -67888,7 +68068,9 @@ function areaTecnicaRender(){
     var c=document.createElement('div');
     c.style.cssText='background:var(--pf-card-bg);border-radius:12px;border:1.5px solid var(--pf-sidebar-border);padding:20px 16px;cursor:pointer;transition:border-color .15s,box-shadow .15s;display:flex;flex-direction:column;gap:6px;position:relative';
     var atalhoId=pfAtalhoSlug(title);
-    pfAtalhoRegistrar(atalhoId,fn);
+    // v115.2212 - A pedido do Vitor (abas): o card abre numa ABA (pfAtAbrir) -- vale também pro atalho fixado no dock
+    pfAtalhoRegistrar(atalhoId,function(){pfAtAbrir(atalhoId,title,icon,fn);});
+    var _cat=window._pfAbasCat.at.filter(function(x){return x.titulo!==title;});_cat.push({titulo:title,icone:icon,atalhoId:atalhoId,fn:fn});window._pfAbasCat.at=_cat;
     c.innerHTML=
       pfAtalhoPinHtml(atalhoId,icon,title,'area_tecnica')+
       '<div style="font-size:28px;height:56px;display:flex;align-items:center">'+icon+'</div>'+
@@ -67901,7 +68083,7 @@ function areaTecnicaRender(){
     // cobre area_tecnica). Trocado pra atributo onclick de verdade,
     // reaproveitando o registry que pfAtalhoRegistrar já preenche (mesmo
     // mecanismo usado pelos atalhos fixados no dock).
-    c.setAttribute('onclick',"window._pfAtalhosRegistry['"+pfEscJs(atalhoId)+"']();pfFerrMostrarBotaoMinimizar('areaTecnicaBody','"+pfEscJs(title)+"',areaTecnicaRender,'area_tecnica')");
+    c.setAttribute('onclick',"window._pfAtalhosRegistry['"+pfEscJs(atalhoId)+"']()"); // v115.2212 - sem o "Minimizar": a aba já guarda a tela
     c.onmouseover=function(){this.style.borderColor=color;this.style.boxShadow='0 2px 10px rgba(0,0,0,.08)';};
     c.onmouseout=function(){this.style.borderColor='var(--pf-sidebar-border)';this.style.boxShadow='none';};
     grid.appendChild(c);
@@ -82047,7 +82229,8 @@ function _pfNavigateOriginal(view){
 // no corpo dela (função já frágil, quebrou antes quando mexida direto).
 var PF_SNAPSHOT_VIEWS={
   'cadastros':'cadBody',
-  'area_tecnica':'areaTecnicaBody',
+  // v115.2212 - 'area_tecnica' saiu: agora tem ABAS (o elemento de verdade fica guardado, ver pfAtAbrir); a foto ia
+  // restaurar por cima da aba certa
   'solicitacoes':'solicitacoesBody',
   'logistica':'logisticaBody',
   'pedido_compra':'pedidoCompraBody'

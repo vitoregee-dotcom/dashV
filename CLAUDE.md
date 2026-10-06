@@ -132,6 +132,12 @@
 - v115.2205 BUG busca geral: buscando um CÓDIGO (1 palavra com número e traço/ponto/letra+número, ex.: 5-263X), aplicação que só CITA o
   código ("AGRALE APLIC. CRUZETA 5-263X/…" — LNG) saía em "🚚 Veículo"; agora vai pro "🔗 Monta com" (`apl2mc` no `ccBuscaGeralExecutar`).
 
+- v115.2210 BUG "➕ Cadastrar item"/"📋 Colar print de aplicação": o pedido à IA não tinha "monta_com" (ela punha "MONTA COM
+  2045005 / C020 / 52MM" DENTRO da aplicação) e as estrias ficavam só nas especificações. Agora: `monta_com` no JSON das duas
+  leituras + `ccMontaComDaIA(j)` (junta e TIRA de dentro das aplicações; `ccMontaComDoTexto` separa por "/" e larga medida
+  solta "52mm"), campo "Monta com" no Cadastrar item (→ `rec.montaCom`) e bloco 🔗 Monta com na prévia do Colar print;
+  `ccEstriasDaIA(fam,j)`/`ccCampoEstrias(fam)` ("Estrias: 26-E", "26 estrias", "Nº de dentes" → numDentes; flanges = H).
+  Conjuntos Montados ganhou o campo `numDentes`. `ccCorrigirMontaComEstrias` (1x por sessão no ccRender) arruma os já gravados.
 - **Aplicações — Modelos & Séries** (v115.2162) saiu de Cadastros (aba escondida) e abre pela Área Técnica (`atAplicAbrir`,
   desenha em `#atAplicBody`, flag `window._aplicNaAT`). Funções da tela pegam o container por `cadAplicEl()` e
   `cadGoTab('aplicacoes')` redesenha lá; `atAplicAjustar` faz Importar Catálogo/prévia irem pra Cadastros (assistente mora lá).

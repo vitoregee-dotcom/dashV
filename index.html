@@ -1934,7 +1934,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2217</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2218</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2088,7 +2088,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2217</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2218</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -56741,6 +56741,16 @@ var PF_CONC_SIGLA={'CATERPILLAR':'CAT','JOHN DEERE':'JD','CASE':'CASE','JCB':'JC
 var PF_REV_PERFIS=[['concessionaria','🏛️ Concessionária'],['independente','🔧 Revenda independente'],['parceiro','🤝 Parceiro (distribui marca nossa)'],['consumo','Consumo / Serviço']];
 var PF_MARGEM_PERFIS_KEY='pfVendasMargemPerfis';
 function pfMarcaNorm(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().trim();}
+// v115.2218 - A pedido do Vitor ("faça como se fossem satélites 3D com os logos, pra eu colocar nos planetas"): concessionária
+// CASE/CAT/MF ganha um satélite com o logo girando em volta do planeta (2D e 3D) no lugar da plaquinha/sigla; TRIEX (sol) não muda.
+// Imagens em icons/orbita-marcas/sat-*.png (marca nova = acrescentar aqui e a imagem).
+var PF_ORB_SAT={'CASE':'case','CAT':'cat','MF':'mf'};
+function pfOrbSatSigla(rev){if(!rev||!rev.conc||!rev.concMarcas||!rev.concMarcas.length)return '';var s=pfConcSigla(rev.concMarcas[0]);return PF_ORB_SAT[s]?s:'';}
+function pfOrbSatImg(sig){var c=window._pfOrbSatImgs=window._pfOrbSatImgs||{};if(!PF_ORB_SAT[sig])return null;
+  if(!c[sig]){var im=new Image();im.src='icons/orbita-marcas/sat-'+PF_ORB_SAT[sig]+'.png';c[sig]=im;}
+  return c[sig].complete&&c[sig].naturalWidth?c[sig]:null;}
+// posição do satélite na órbita em volta do planeta (fase diferente por cliente pra não andarem todos iguais)
+function pfOrbSatAng(k,now){var h=0;k=String(k||'');for(var i=0;i<k.length;i++)h=(h*31+k.charCodeAt(i))%6283;return h/1000+now/1700;}
 function pfConcSigla(m){var k=pfMarcaNorm(m);return PF_CONC_SIGLA[k]||k.replace(/[^A-Z0-9]/g,'').slice(0,4);}
 function pfRevInfo(cad){
   if(!cad)return null;
@@ -57637,9 +57647,13 @@ function pfOrbSelo(ctx,x,y,r,fundo,txt){
   ctx.save();ctx.fillStyle=fundo;ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.stroke();
   ctx.font=Math.round(r*1.15)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,x,y+0.5);ctx.restore();
 }
-function pfOrbDesenharRev(ctx,p,t,rev,est){
+function pfOrbDesenharRev(ctx,p,t,rev,est,k){
   var rs=Math.max(4.5,Math.min(7.5,t*0.5));
-  if(est==='C')pfOrbDesenharAnel(ctx,p,t,false);
+  var sat=est?pfOrbSatSigla(rev):'',satIm=sat?pfOrbSatImg(sat):null; // v115.2218 - satélite com o logo
+  if(satIm){var an=pfOrbSatAng(k,performance.now()),w=Math.max(42,Math.min(84,t*4.6)),h=w*satIm.naturalHeight/satIm.naturalWidth,ro=t+w*0.42;
+    var sx=p.x+Math.cos(an)*ro,sy=p.y+Math.sin(an)*ro*0.38-t*0.25;
+    ctx.save();ctx.globalAlpha=Math.sin(an)<0?0.55:1;ctx.drawImage(satIm,sx-w/2,sy-h/2,w,h);ctx.restore();}
+  else if(est==='C')pfOrbDesenharAnel(ctx,p,t,false);
   else if(est==='B')pfOrbSelo(ctx,p.x-t*0.78,p.y-t*0.78,rs,'#1F4E79','🏛');
   else if(est==='D'){
     ctx.save();ctx.strokeStyle='#1F4E79';ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,t,0,Math.PI*2);ctx.stroke();
@@ -58206,10 +58220,10 @@ function pfOrbDesenhar(st,now){
     var dec=Math.max(2,Math.min(6,t*0.6));if(x.alerta){ctx.fillStyle='rgba(192,57,43,'+(0.15+pulso*0.2)+')';ctx.beginPath();ctx.arc(p.x,p.y,t+dec+pulso*dec*0.6,0,Math.PI*2);ctx.fill();}
     var gp=ctx.createRadialGradient(p.x-t*0.35,p.y-t*0.35,1,p.x,p.y,t);gp.addColorStop(0,'rgba(255,255,255,.55)');gp.addColorStop(0.35,cor);gp.addColorStop(1,cor);
     var concEst=x.rev&&x.rev.conc?pfOrbConcEstilo():''; // v115.2111 - concessionária: anel (C) / selo (B) / sigla (D)
-    if(concEst==='C')pfOrbDesenharAnel(ctx,p,t,true);
+    if(concEst==='C'&&!pfOrbSatImg(pfOrbSatSigla(x.rev)))pfOrbDesenharAnel(ctx,p,t,true);
     ctx.fillStyle=gp;ctx.beginPath();ctx.arc(p.x,p.y,t,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle=escuro?'rgba(0,0,0,.4)':'#fff';ctx.lineWidth=1.5;ctx.stroke();
-    if(x.rev&&(concEst||x.rev.parc))pfOrbDesenharRev(ctx,p,t,x.rev,concEst);
+    if(x.rev&&(concEst||x.rev.parc))pfOrbDesenharRev(ctx,p,t,x.rev,concEst,x.k);
     // v115.2149 - anel = POR QUE é importante (1 ou 2 cores); 🐜 formiguinha = contorno fino cinza; selo só no ✨ Destacar
     if(x.aneis&&x.aneis.length){var cA=x.aneis.map(function(m){return PF_ORB_MOT[m].cor;});ctx.lineWidth=2.6;
       if(cA.length===1){ctx.strokeStyle=cA[0];ctx.beginPath();ctx.arc(p.x,p.y,t+2.8,0,Math.PI*2);ctx.stroke();}
@@ -59408,6 +59422,9 @@ function pfOrb3DMontar(lista,div){
       // v115.2128 - A pedido do Vitor (não gostou do 🏛 solto; escolheu a opção A): plaquinha azul-marinho com a sigla
       // da marca em cima do planeta; parceiro = plaquinha verde 🤝 no mesmo modelo, ao lado.
       var hP=Math.max(5.2,x.r3*1.05),sigla=conc&&x.rev.concMarcas.length?pfConcSigla(x.rev.concMarcas[0]):'';
+      var satS=pfOrbSatSigla(x.rev); // v115.2218 - satélite 3D com o logo (some a plaquinha); depthTest ligado = passa por trás do planeta
+      if(conc&&satS){var tl=window._pfOrbSatTex=window._pfOrbSatTex||{};if(!tl[satS]){tl[satS]=new THREE.TextureLoader().load('icons/orbita-marcas/sat-'+PF_ORB_SAT[satS]+'.png');}
+        var hS2=Math.max(10,x.r3*2),sat3=new THREE.Sprite(new THREE.SpriteMaterial({map:tl[satS],transparent:true,alphaTest:0.1}));sat3.scale.set(hS2*2.14,hS2,1);grp.add(sat3);grp.userData.sat=sat3;grp.userData.satR=x.r3+hS2*1.15;conc=false;}
       if(conc){var tc=pfOrb3DTexPlaca('🏛 '+(sigla||'CONC.'),'#1F4E79'),sc=new THREE.Sprite(new THREE.SpriteMaterial({map:tc,transparent:true,depthTest:false}));sc.scale.set(hP*tc._asp,hP,1);sc.renderOrder=3;grp.add(sc);grp.userData.selC=sc;}
       if(parc){var tp=pfOrb3DTexPlaca('🤝','#1e8449'),sq=new THREE.Sprite(new THREE.SpriteMaterial({map:tp,transparent:true,depthTest:false}));sq.scale.set(hP*tp._asp,hP,1);sq.renderOrder=3;grp.add(sq);grp.userData.selP=sq;}
       grp.userData.hP=hP;}
@@ -59449,6 +59466,7 @@ function pfOrb3DQuadro(st,now){
     if(g.userData.anel)g.userData.anel.quaternion.copy(q);
     if(g.userData.halo)g.userData.halo.material.opacity=0.45+pulso*0.55;
     var uP=g.userData,alt=x.r3*1.02+(uP.hP||0)*0.62; // plaquinhas logo acima do planeta (a 🤝 ao lado da da concessionária)
+    if(uP.sat){var sa=pfOrbSatAng(x.k,now),sr=uP.satR;uP.sat.position.set(Math.cos(sa)*sr,Math.sin(sa)*sr*0.3+x.r3*0.15,Math.sin(sa)*sr);} // v115.2218
     if(uP.selC)uP.selC.position.copy(cima).multiplyScalar(alt).addScaledVector(dir,uP.selP?-uP.hP*0.55:0);
     if(uP.selP)uP.selP.position.copy(cima).multiplyScalar(alt).addScaledVector(dir,uP.selC?uP.selC.scale.x*0.5+uP.hP*0.2:0);
     if(uP.selD)uP.selD.position.copy(cima).multiplyScalar(alt+((uP.selC||uP.selP)?uP.hP*1.05:0)); // v115.2149 - selo do ✨ Destacar

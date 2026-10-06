@@ -364,6 +364,13 @@
   clicar fora, num botão dela ou Esc; com ela aberta o auto-ocultar não esconde a barra — `window._pfDockMaisAberto`). Botão novo
   desse canto: colocar DENTRO do `#pfDockMaisPop`. Capturas em `docs/referencias/dock-mais/`.
 
+## Janelas arrastáveis (v115.2221)
+- Pedido do Vitor: "mover e arrastar todas as janelas". Jeito GERAL (IIFE antes do `pfDockMais`): segurar a faixa de cima (44 px) e
+  arrastar. Janela = o ancestral mais de fora que é fixed (sem cobrir a tela), absolute com sombra (menus/popovers) ou o cartão dentro
+  de um fundo fixo de tela cheia (modais). Move com CSS `translate` (não mexe no `transform`); só arrasta depois de 5 px e engole o
+  clique final; não deixa a faixa sumir da tela. Fora: dock, barra de cima, botão da IA, campos/botões/links/canvas e `[data-pf-no-drag]`
+  (usar esse atributo se alguma janela nova não puder ser arrastada).
+
 ## ⏱️ Tempo das cotações (v115.2180)
 - Medição automática (`pfCotTempoTick`, a cada 10 s): conta só se a cotação aberta tem item, a tela da cotação está à vista
   (`#vendasCodInput` visível), a aba está ativa e houve clique/tecla nos últimos 90 s (`_pfCotUltAcao`). Acumula em

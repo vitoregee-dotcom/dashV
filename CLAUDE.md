@@ -487,6 +487,14 @@
 - Cotação: botão direito → "🔄 RMAs deste item (N)" → `vendasRmasItem(i)` (números 12m, aviso se o cliente da cotação já
   devolveu, lista clicável). `rmaDoCodigo(cod)` compara código normalizado. Prévias em `docs/referencias/rma-consulta/`.
 
+- v115.2208 BUGs do RMA: (1) "🔗 Mandar link" de novo APAGAVA `garantia.resposta`/`validado` → agora mantém; e
+  `pfGarRecuperarResposta(r)` (no `rmaVerDetalhe` e ao abrir o `ferrRMA`, 1x por RMA/sessão) busca a última submissão de
+  QUALQUER link de garantia do RMA (`formulario_links.cliente_ref` = id) e põe de volta (`recuperada:true`) — a conferência
+  (`validado`) não fica no banco. (2) Dashboard aparecia embaixo do RMA (redesenho sem pfNavigate, body com pf-view-dash) →
+  `pfGarantirTelaFerramentas()` no começo do `ferrRMA` (navega pras Ferramentas sem pular pro menu, esconde #dash).
+  (3) E-mail automático "RMA Concluída - Ajuste de Estoque" pro Henrique DESLIGADO (`PF_RMA_AVISO_AJUSTE_LIGADO=false`,
+  pedido do Vitor "não enviar nada pro Henrique por enquanto"); o Ajuste de Saldo manual (`ajEnviarAjuste`) continua.
+
 ## Ofertas complementares na cotação (v115.2130)
 - Faixa "💡 Ofereça também" (`#vendasOfertaBox`, `pfOfertaRender`, chamada no render da cotação e no `vendasRefresh`).
   Regras compartilhadas `pfVendasOfertas` (`PF_OFERTAS_PADRAO`: eixo→óleo 85W140/80W90, motor de REFORMA→aditivo/silicone/

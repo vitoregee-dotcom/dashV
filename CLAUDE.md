@@ -204,6 +204,10 @@
   v115.2173: desenho sobe em **PNG** (o bucket NÃO aceita WEBP; >1,2 MB vai JPEG). Desenho depois: o campo Grupo do Alimentar
   sugere os grupos da série (datalist) e lista os "🖼 Sem desenho" clicáveis; no card de Aplicações o selo vira "🖼 x/y desenho(s)"
   → `pfAplicDesenhosDaSerie` mostra os grupos sem desenho com "➕ Subir desenho" (`pfAlimAbrirCom(marca,serie,grupo,modelo)`).
+- v115.2213 **bronzina sobremedida no Alimentar** (print SPI² "CRANKSHAFT KIT"): item entre parênteses "(3)" = alternativa do item 3;
+  na bronzina muda a MEDIDA — item sem parênteses = STD, os "(N) … - U/S" em ordem = 0,25MM / 0,50MM / 0,75MM (/1,00MM;
+  `PF_ALIM_US_ORDEM`, `pfAlimMedidaUS`; medida escrita na descrição manda) → fim da descrição ("JOGO DE BRONZINA DE MANCAL 0,25MM").
+  `pfAlimTraduz` tira o " - U/S" quando não acha a frase inteira. Pedido à IA do print manda copiar o item COM os parênteses.
 - **Catálogos já lidos** (sem IA): `data/catalogos/<id>.json` (+ o PDF) listados em `PF_CAT_PRONTOS`; Cadastros → Importar Produtos → "📚 Catálogos já lidos" abre a prévia normal (`pfCatProntoAbrir`) e cada peça leva todos os motores em `aplicacoesCatalogo` (qtd por motor). Cummins motores 2019 = 861 peças.
 - No próprio sistema: Ferramentas → **📘 Catálogo PDF → Excel** (`ferrCatalogoPdf`, pdf.js no navegador,
   leitura por coluna, dicionário embutido + traduções salvas em `catpdf_traducoes_v1`).

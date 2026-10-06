@@ -293,6 +293,29 @@
 - Próximas fases (decidir com o Vitor): WhatsApp API oficial (Meta) com conversa dentro da ficha; caixa de e-mail ligada
   (Microsoft 365 ou Google); IA resumindo a conversa; pesquisas com o cliente (ver pedido de 06/10).
 
+## 📋 Pesquisas com clientes (v115.2211; prévias em `docs/referencias/pesquisas/`)
+- Vendas → aba **📋 Pesquisas** (`pfPesqRender`): 📊 Resultados (NPS da pergunta `nps`, média/distribuição de notas e estrelas,
+  barras das escolhas, comentários, ⚠️ insatisfeitos ≤6, 🍀 sorteio `pfPesqSortear` gravado em `pfPesquisas_v1.sorteios`),
+  💬 Enviar (clientes do cadastro filtrados; cada envio = `formulario_links` tipo `pesquisa`, 30 dias, prefill = modelo +
+  cliente + tipo — `pfPesqCriarLink`; WhatsApp `pfWhatsAbrir` com `m.msg` {nome}/{link}/{incentivo}; "👁 Testar como cliente"
+  `pfPesqTestar` sem gravar), 📋 Respostas (+ **importar Excel do Microsoft Forms** `pfPesqImportarForms`: casa colunas pelo
+  `alias`/texto da pergunta — cabeçalho idêntico > começo > trecho —, texto livre de marcas/estado vira opção pelos apelidos
+  `PF_PESQ_APELIDOS`/`PF_PESQ_UF`; cliente por e-mail/telefone/nome `pfPesqAcharCliente`; sem cliente → "ligar ao cadastro",
+  guardado em `pfPesquisas_v1.ligacoes`), ✏️ Modelos e perguntas (editor `pfPesqModelosHtml`, só gestor/admin; prévia ao vivo
+  por tipo de cliente; 📚 listas prontas `PF_PESQ_LISTAS`).
+- Modelos (`pfPesquisas_v1.modelos`, compartilhada): `forms_perfil` = a "Pesquisa de Perfil Comercial" do Forms do Vitor (24
+  perguntas, com `alias` = cabeçalho do Excel) e `apres_conhecer` = "Conhecer você melhor (modelo da apresentação)" montado
+  pelo sistema (blocos por tipo + NPS + estrelas + brinde/sorteio). Pergunta `{id,txt,tipo(uma|varias|lista|nota10|estrelas|
+  curto|texto|numero),opcoes,outra,obrig,tipos[revenda|consumo|servico] (vazio=todos),nps,alias}`; o formulário pergunta "Sua
+  empresa é:" (já marcado pelo `pfTipoCli` do cadastro) e mostra só o bloco daquele tipo.
+- Página pública: `pfFormClienteBootstrap` → `pfPesqFormRender` (mesmo HTML da prévia, `pfPesqFormHtml`); envio grava
+  `formulario_submissoes` dados {tipo:'pesquisa',modeloId,tipoCli,respostas,codigo do brinde}; chegada
+  `pfPesqReceber` (em `pfFormClienteChecarSubmissoes`) → log **`pfPesqRespostas`** (e envios em **`pfPesqEnvios`**), os dois
+  só-acrescenta nos logKeys.
+- CRM: bloco 📋 Pesquisa na ficha (última resposta, nota, escolhas, "Ver todas", "📋 Mandar pesquisa" `pfPesqEnviarDaFicha`),
+  eventos na linha do tempo, e nota ≤6 nos últimos 60 dias entra em "📞 Clientes pra ligar" do Meu dia.
+- v115.2211 Ficha Técnica: a busca procura também em TODOS os campos (motor, transmissão, eixos…), palavra por palavra.
+
 ## ⏱️ Tempo das cotações (v115.2180)
 - Medição automática (`pfCotTempoTick`, a cada 10 s): conta só se a cotação aberta tem item, a tela da cotação está à vista
   (`#vendasCodInput` visível), a aba está ativa e houve clique/tecla nos últimos 90 s (`_pfCotUltAcao`). Acumula em

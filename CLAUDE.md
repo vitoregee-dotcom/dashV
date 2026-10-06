@@ -358,6 +358,12 @@
   escolhido pelo Vitor (`pfIconOverrides`, chave `pfAtalhoSlug(título)`), igual ao card/dock; título interno da Ficha Técnica também.
 - **Etapa 2 (a fazer)**: Vendas, Compras, Cadastros, Logística.
 
+## Dock — botão "⋯" (v115.2220)
+- Os botões do canto direito do dock (🎓 apresentação, 🖥️ monitor, tema, 📌 auto-ocultar, usuários, pendências, avatar, sair) ficam
+  dentro do `#pfDockMaisPop` (coluna que abre PRA CIMA) e aparecem só ao clicar no `#pfDockMaisBtn` (`pfDockMais(ev, abrir)`; fecha ao
+  clicar fora, num botão dela ou Esc; com ela aberta o auto-ocultar não esconde a barra — `window._pfDockMaisAberto`). Botão novo
+  desse canto: colocar DENTRO do `#pfDockMaisPop`. Capturas em `docs/referencias/dock-mais/`.
+
 ## ⏱️ Tempo das cotações (v115.2180)
 - Medição automática (`pfCotTempoTick`, a cada 10 s): conta só se a cotação aberta tem item, a tela da cotação está à vista
   (`#vendasCodInput` visível), a aba está ativa e houve clique/tecla nos últimos 90 s (`_pfCotUltAcao`). Acumula em

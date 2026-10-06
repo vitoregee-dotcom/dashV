@@ -211,6 +211,8 @@
   v115.2214: a medida fica FORA da regra de descrição — `pfAlimDescCom(L)` = `substAplicar(descBase)` (sem medida) + `L.medida`;
   o 💾 grava só o nome ("JOGO DE BRONZINA DE MANCAL" → "JG DE BRONZINA DE MANCAL", vale pra STD/0,25/0,50/0,75 e biela igual);
   `pfAlimRegrasMedidaLimpar` (1x) tira a medida que regra de BRONZINA antiga tinha no "para".
+  v115.2215: o 💾 abre janela própria (`pfAlimSalvarRegra` → `pfAlimRegraGravar`) no lugar do confirm OK/Cancelar: campos
+  Trocar/Por já com SÓ as palavras que mudaram (`pfAlimRegraDiff`: "JOGO" → "JG") e escolha "em qualquer descrição" × "só exata".
 - **Catálogos já lidos** (sem IA): `data/catalogos/<id>.json` (+ o PDF) listados em `PF_CAT_PRONTOS`; Cadastros → Importar Produtos → "📚 Catálogos já lidos" abre a prévia normal (`pfCatProntoAbrir`) e cada peça leva todos os motores em `aplicacoesCatalogo` (qtd por motor). Cummins motores 2019 = 861 peças.
 - No próprio sistema: Ferramentas → **📘 Catálogo PDF → Excel** (`ferrCatalogoPdf`, pdf.js no navegador,
   leitura por coluna, dicionário embutido + traduções salvas em `catpdf_traducoes_v1`).

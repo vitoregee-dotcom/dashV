@@ -56741,14 +56741,21 @@ var PF_CONC_SIGLA={'CATERPILLAR':'CAT','JOHN DEERE':'JD','CASE':'CASE','JCB':'JC
 var PF_REV_PERFIS=[['concessionaria','🏛️ Concessionária'],['independente','🔧 Revenda independente'],['parceiro','🤝 Parceiro (distribui marca nossa)'],['consumo','Consumo / Serviço']];
 var PF_MARGEM_PERFIS_KEY='pfVendasMargemPerfis';
 function pfMarcaNorm(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().trim();}
-// v115.2218 - A pedido do Vitor ("faça como se fossem satélites 3D com os logos, pra eu colocar nos planetas"): concessionária
-// CASE/CAT/MF ganha um satélite com o logo girando em volta do planeta (2D e 3D) no lugar da plaquinha/sigla; TRIEX (sol) não muda.
-// Imagens em icons/orbita-marcas/sat-*.png (marca nova = acrescentar aqui e a imagem).
-var PF_ORB_SAT={'CASE':'case','CAT':'cat','MF':'mf'};
-function pfOrbSatSigla(rev){if(!rev||!rev.conc||!rev.concMarcas||!rev.concMarcas.length)return '';var s=pfConcSigla(rev.concMarcas[0]);return PF_ORB_SAT[s]?s:'';}
-function pfOrbSatImg(sig){var c=window._pfOrbSatImgs=window._pfOrbSatImgs||{};if(!PF_ORB_SAT[sig])return null;
-  if(!c[sig]){var im=new Image();im.src='icons/orbita-marcas/sat-'+PF_ORB_SAT[sig]+'.png';c[sig]=im;}
-  return c[sig].complete&&c[sig].naturalWidth?c[sig]:null;}
+// v115.2218 - A pedido do Vitor ("faça como se fossem satélites 3D com os logos, pra eu colocar nos planetas" + "use esses" —
+// as imagens que ELE mandou): satélite com o logo da marca girando em volta do planeta (2D e 3D). Automático pela concessionária
+// (CASE→CASE Construction, CASE IH→Agriculture, CAT, MF, Valtra) e escolhido à mão no botão direito do cliente (pfOrbMarcas
+// .por[k].sat = id | 'nenhum'). Satélite no lugar da plaquinha/sigla da concessionária; TRIEX (sol) não muda.
+// Imagens em icons/orbita-marcas/sat-<id>.png (marca nova = imagem + linha aqui; asp = largura/altura da imagem).
+var PF_ORB_SAT={case:{nome:'CASE Construction',asp:1.43},caseih:{nome:'CASE IH Agriculture',asp:1.31},cat:{nome:'CAT',asp:1.46},mf:{nome:'Massey Ferguson',asp:0.99},valtra:{nome:'Valtra',asp:1.43}};
+var PF_ORB_SAT_SIGLA={'CASE':'case','CAT':'cat','MF':'mf','VAL':'valtra'};
+function pfOrbSatAuto(rev){if(!rev||!rev.conc||!rev.concMarcas)return '';
+  for(var i=0;i<rev.concMarcas.length;i++){var n=pfMarcaNorm(rev.concMarcas[i]);if(/CASE\s*IH/.test(n))return 'caseih';var id=PF_ORB_SAT_SIGLA[pfConcSigla(n)];if(id)return id;}return '';}
+function pfOrbSatDe(x){if(!x)return '';var c=window._pfOrbSatMk,ag=Date.now();if(!c||ag-c.t>1500){c=window._pfOrbSatMk={t:ag,o:pfOrbMarcasLoad()};} // lido 1x a cada 1,5 s (2D chama a cada quadro)
+  var m=(c.o.por[x.k]||{}).sat;if(m==='nenhum')return '';if(m&&PF_ORB_SAT[m])return m;return pfOrbSatAuto(x.rev);}
+function pfOrbSatUrl(id){return 'icons/orbita-marcas/sat-'+id+'.png';}
+function pfOrbSatImg(id){var c=window._pfOrbSatImgs=window._pfOrbSatImgs||{};if(!PF_ORB_SAT[id])return null;
+  if(!c[id]){var im=new Image();im.src=pfOrbSatUrl(id);c[id]=im;}
+  return c[id].complete&&c[id].naturalWidth?c[id]:null;}
 // posição do satélite na órbita em volta do planeta (fase diferente por cliente pra não andarem todos iguais)
 function pfOrbSatAng(k,now){var h=0;k=String(k||'');for(var i=0;i<k.length;i++)h=(h*31+k.charCodeAt(i))%6283;return h/1000+now/1700;}
 function pfConcSigla(m){var k=pfMarcaNorm(m);return PF_CONC_SIGLA[k]||k.replace(/[^A-Z0-9]/g,'').slice(0,4);}
@@ -57439,7 +57446,7 @@ function pfOrbCfg(){var o={};try{o=JSON.parse(pfSafeGetItem('pfOrbCfg','{}'))||{
 function pfOrbMarcasLoad(){var o={};try{o=JSON.parse(pfSafeGetItem('pfOrbMarcas','{}'))||{};}catch(e){}if(!o.por)o.por={};return o;}
 function pfOrbMarcaDe(k){return pfOrbMarcasLoad().por[k]||{};}
 function pfOrbMarcaSalvar(k,campo,v){var o=pfOrbMarcasLoad(),m=o.por[k]||{};if(v)m[campo]=v;else delete m[campo];o.por[k]=m;
-  pfSafeSetItem('pfOrbMarcas',JSON.stringify(o));if(typeof pfSyncPush==='function')try{pfSyncPush(['pfOrbMarcas']);}catch(e){}}
+  window._pfOrbSatMk=null;pfSafeSetItem('pfOrbMarcas',JSON.stringify(o));if(typeof pfSyncPush==='function')try{pfSyncPush(['pfOrbMarcas']);}catch(e){}}
 function pfOrbTamValor(v,vmax){return 4+Math.pow(Math.max(0,v)/(vmax||1),0.7)*17;} // v115.2149 - quem compra muito fica bem maior
 function pfOrbMotivos(lista,K,agora){
   var a90=agora-90*86400000,marcas=pfOrbMarcasLoad().por;
@@ -57482,7 +57489,7 @@ function pfOrbDestSelectHtml(lista){
 function pfOrbMenuAbrir(cont,W,H,x,px,py){
   var velho=document.getElementById('pfOrb3DMenu');if(velho)velho.remove();if(!x)return;
   var m=document.createElement('div');m.id='pfOrb3DMenu';var at=pfOrbImpDe(x.k),mk=pfOrbMarcaDe(x.k);
-  m.style.cssText='position:absolute;z-index:8;left:'+Math.max(4,Math.min(W-250,px))+'px;top:'+Math.max(4,Math.min(H-260,py))+'px;background:var(--pf-noticias-card-bg,#fff);border:1px solid var(--pf-noticias-border,#e0e8f0);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:6px;min-width:240px;font-size:12.5px;color:var(--pf-noticias-text,#1a2332)';
+  m.style.cssText='position:absolute;z-index:8;left:'+Math.max(4,Math.min(W-250,px))+'px;top:'+Math.max(4,Math.min(H-350,py))+'px;max-width:300px;background:var(--pf-noticias-card-bg,#fff);border:1px solid var(--pf-noticias-border,#e0e8f0);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:6px;min-width:240px;font-size:12.5px;color:var(--pf-noticias-text,#1a2332)';
   var op=function(v,rot){return '<div data-v="'+v+'" style="padding:6px 9px;border-radius:7px;cursor:pointer;'+(at===v?'background:rgba(31,78,121,.1);font-weight:700':'')+'">'+rot+'</div>';};
   var pill=function(campo,v,rot){var on=(mk[campo]||'')===v;return '<span data-c="'+campo+'" data-m="'+v+'" style="cursor:pointer;padding:2px 8px;border-radius:10px;font-size:11px;border:1px solid '+(on?'#1F4E79':'#d5dce5')+';background:'+(on?'#1F4E79':'transparent')+';color:'+(on?'#fff':'inherit')+'">'+rot+'</span>';};
   var linha=function(rot,campo,auto){return '<div style="display:flex;align-items:center;gap:5px;padding:5px 9px"><span style="flex:1">'+rot+'</span>'+(auto?pill(campo,'','auto'):'')+pill(campo,'sim','sim')+pill(campo,auto?'nao':'','não')+'</div>';};
@@ -57490,6 +57497,7 @@ function pfOrbMenuAbrir(cont,W,H,x,px,py){
     op('imp','⭐ Importante (sempre em destaque)')+op('baixo','🌫️ Pouco importante (transparente)')+op('','🔄 Automático (pelo que compra/cota)')+
     '<div style="border-top:1px solid var(--pf-noticias-border,#e0e8f0);margin-top:4px;padding-top:2px">'+
     linha('❤️ Dá preferência','pref',true)+linha('💎 Não negocia','naoNeg',false)+linha('🐜 Formiguinha','form',true)+'</div>'+
+    pfOrbSatMenuHtml(x,mk)+
     '<div data-v="ficha" style="padding:6px 9px;border-radius:7px;cursor:pointer;border-top:1px solid var(--pf-noticias-border,#e0e8f0);margin-top:4px">📋 Abrir a ficha</div>';
   m.onpointerdown=function(e){e.stopPropagation();};
   m.onclick=function(e){
@@ -57501,6 +57509,16 @@ function pfOrbMenuAbrir(cont,W,H,x,px,py){
     if(typeof pfToast==='function')pfToast(v==='imp'?'⭐ '+x.nome+' marcado como importante':v==='baixo'?'🌫️ '+x.nome+' ficou transparente':'🔄 '+x.nome+' voltou pro automático');};
   cont.appendChild(m);
   setTimeout(function(){var fora=function(e){if(!m.contains(e.target)){m.remove();document.removeEventListener('pointerdown',fora,true);}};document.addEventListener('pointerdown',fora,true);},0);
+}
+// v115.2218 - 🛰️ escolher o satélite do cliente (miniaturas; usa o mesmo clique data-c/data-m das marcas ❤️💎🐜)
+function pfOrbSatMenuHtml(x,mk){
+  var at=mk.sat||'',auto=pfOrbSatAuto(x.rev);
+  var cx=function(v,inner,tit){var on=at===v;return '<span data-c="sat" data-m="'+v+'" title="'+pfEscHtml(tit)+'" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:46px;height:36px;border-radius:7px;border:2px solid '+(on?'#1F4E79':'#d5dce5')+';background:'+(on?'rgba(31,78,121,.1)':'transparent')+';font-size:10px;font-weight:700;text-align:center;line-height:1.1">'+inner+'</span>';};
+  var h='<div style="border-top:1px solid var(--pf-noticias-border,#e0e8f0);margin-top:4px;padding:5px 9px 2px"><div style="margin-bottom:4px">🛰️ Satélite (logo da marca)</div><div style="display:flex;flex-wrap:wrap;gap:4px">';
+  h+=cx('',auto?'<img src="'+pfOrbSatUrl(auto)+'" style="max-width:26px;max-height:20px;opacity:.6"><br>auto':'auto','Automático'+(auto?' (concessionária '+PF_ORB_SAT[auto].nome+')':' (pela concessionária — hoje nenhum)'));
+  Object.keys(PF_ORB_SAT).forEach(function(id){h+=cx(id,'<img src="'+pfOrbSatUrl(id)+'" style="max-width:40px;max-height:30px">',PF_ORB_SAT[id].nome);});
+  h+=cx('nenhum','🚫','Sem satélite');
+  return h+'</div></div>';
 }
 // ⚙️ regras (gestor)
 function pfOrbCfgAbrir(){
@@ -57647,13 +57665,9 @@ function pfOrbSelo(ctx,x,y,r,fundo,txt){
   ctx.save();ctx.fillStyle=fundo;ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.stroke();
   ctx.font=Math.round(r*1.15)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(txt,x,y+0.5);ctx.restore();
 }
-function pfOrbDesenharRev(ctx,p,t,rev,est,k){
+function pfOrbDesenharRev(ctx,p,t,rev,est){
   var rs=Math.max(4.5,Math.min(7.5,t*0.5));
-  var sat=est?pfOrbSatSigla(rev):'',satIm=sat?pfOrbSatImg(sat):null; // v115.2218 - satélite com o logo
-  if(satIm){var an=pfOrbSatAng(k,performance.now()),w=Math.max(42,Math.min(84,t*4.6)),h=w*satIm.naturalHeight/satIm.naturalWidth,ro=t+w*0.42;
-    var sx=p.x+Math.cos(an)*ro,sy=p.y+Math.sin(an)*ro*0.38-t*0.25;
-    ctx.save();ctx.globalAlpha=Math.sin(an)<0?0.55:1;ctx.drawImage(satIm,sx-w/2,sy-h/2,w,h);ctx.restore();}
-  else if(est==='C')pfOrbDesenharAnel(ctx,p,t,false);
+  if(est==='C')pfOrbDesenharAnel(ctx,p,t,false);
   else if(est==='B')pfOrbSelo(ctx,p.x-t*0.78,p.y-t*0.78,rs,'#1F4E79','🏛');
   else if(est==='D'){
     ctx.save();ctx.strokeStyle='#1F4E79';ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,t,0,Math.PI*2);ctx.stroke();
@@ -58220,10 +58234,13 @@ function pfOrbDesenhar(st,now){
     var dec=Math.max(2,Math.min(6,t*0.6));if(x.alerta){ctx.fillStyle='rgba(192,57,43,'+(0.15+pulso*0.2)+')';ctx.beginPath();ctx.arc(p.x,p.y,t+dec+pulso*dec*0.6,0,Math.PI*2);ctx.fill();}
     var gp=ctx.createRadialGradient(p.x-t*0.35,p.y-t*0.35,1,p.x,p.y,t);gp.addColorStop(0,'rgba(255,255,255,.55)');gp.addColorStop(0.35,cor);gp.addColorStop(1,cor);
     var concEst=x.rev&&x.rev.conc?pfOrbConcEstilo():''; // v115.2111 - concessionária: anel (C) / selo (B) / sigla (D)
-    if(concEst==='C'&&!pfOrbSatImg(pfOrbSatSigla(x.rev)))pfOrbDesenharAnel(ctx,p,t,true);
+    var satId=pfOrbSatDe(x),satIm=satId?pfOrbSatImg(satId):null;if(satIm)concEst=''; // v115.2218 - satélite no lugar da marca da concessionária
+    if(concEst==='C')pfOrbDesenharAnel(ctx,p,t,true);
     ctx.fillStyle=gp;ctx.beginPath();ctx.arc(p.x,p.y,t,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle=escuro?'rgba(0,0,0,.4)':'#fff';ctx.lineWidth=1.5;ctx.stroke();
-    if(x.rev&&(concEst||x.rev.parc))pfOrbDesenharRev(ctx,p,t,x.rev,concEst,x.k);
+    if(x.rev&&(concEst||x.rev.parc))pfOrbDesenharRev(ctx,p,t,x.rev,concEst);
+    if(satIm){var san=pfOrbSatAng(x.k,performance.now()),sh=Math.max(28,Math.min(56,t*3)),sw=sh*PF_ORB_SAT[satId].asp,sro=t+sw*0.45; // v115.2218 - satélite (atrás do planeta = mais apagado)
+      ctx.save();ctx.globalAlpha=Math.sin(san)<0?0.5:1;ctx.drawImage(satIm,p.x+Math.cos(san)*sro-sw/2,p.y+Math.sin(san)*sro*0.38-t*0.3-sh/2,sw,sh);ctx.restore();}
     // v115.2149 - anel = POR QUE é importante (1 ou 2 cores); 🐜 formiguinha = contorno fino cinza; selo só no ✨ Destacar
     if(x.aneis&&x.aneis.length){var cA=x.aneis.map(function(m){return PF_ORB_MOT[m].cor;});ctx.lineWidth=2.6;
       if(cA.length===1){ctx.strokeStyle=cA[0];ctx.beginPath();ctx.arc(p.x,p.y,t+2.8,0,Math.PI*2);ctx.stroke();}
@@ -59418,13 +59435,14 @@ function pfOrb3DMontar(lista,div){
     if(ok&&x.cotando){var cq=new THREE.Sprite(new THREE.SpriteMaterial({map:pfOrb3DTexCotando(),transparent:true,depthWrite:false}));cq.scale.set(x.r3*2.7,x.r3*2.7,1);grp.add(cq);} // v115.2175
     var dst3=window._pfOrbDest||'';if(ok&&dst3&&PF_ORB_SELO[dst3]){var ts=pfOrb3DTexPlaca(PF_ORB_SELO[dst3],'#ffffff'),hS=Math.max(5.2,x.r3*1.05),ss=new THREE.Sprite(new THREE.SpriteMaterial({map:ts,transparent:true,depthTest:false}));ss.scale.set(hS*ts._asp,hS,1);ss.renderOrder=3;grp.add(ss);grp.userData.selD=ss;grp.userData.hP=grp.userData.hP||hS;}
     if(ok&&x.alerta){var ha=new THREE.Sprite(new THREE.SpriteMaterial({map:pfOrb3DTexHalo(),transparent:true,depthWrite:false}));ha.scale.set(x.r3*4.4,x.r3*4.4,1);grp.add(ha);grp.userData.halo=ha;}
+    var satS=ok?pfOrbSatDe(x):''; // v115.2218 - satélite 3D com o logo; depthTest ligado = passa por trás do planeta
+    if(satS){var tl=window._pfOrbSatTex=window._pfOrbSatTex||{};if(!tl[satS])tl[satS]=new THREE.TextureLoader().load(pfOrbSatUrl(satS));
+      var hS2=Math.max(12,x.r3*2.4),sat3=new THREE.Sprite(new THREE.SpriteMaterial({map:tl[satS],transparent:true,alphaTest:0.1}));sat3.scale.set(hS2*PF_ORB_SAT[satS].asp,hS2,1);grp.add(sat3);grp.userData.sat=sat3;grp.userData.satR=x.r3+hS2*0.95;}
     if(ok&&x.rev){var conc=x.rev.conc,parc=x.rev.parc;
       // v115.2128 - A pedido do Vitor (não gostou do 🏛 solto; escolheu a opção A): plaquinha azul-marinho com a sigla
       // da marca em cima do planeta; parceiro = plaquinha verde 🤝 no mesmo modelo, ao lado.
       var hP=Math.max(5.2,x.r3*1.05),sigla=conc&&x.rev.concMarcas.length?pfConcSigla(x.rev.concMarcas[0]):'';
-      var satS=pfOrbSatSigla(x.rev); // v115.2218 - satélite 3D com o logo (some a plaquinha); depthTest ligado = passa por trás do planeta
-      if(conc&&satS){var tl=window._pfOrbSatTex=window._pfOrbSatTex||{};if(!tl[satS]){tl[satS]=new THREE.TextureLoader().load('icons/orbita-marcas/sat-'+PF_ORB_SAT[satS]+'.png');}
-        var hS2=Math.max(10,x.r3*2),sat3=new THREE.Sprite(new THREE.SpriteMaterial({map:tl[satS],transparent:true,alphaTest:0.1}));sat3.scale.set(hS2*2.14,hS2,1);grp.add(sat3);grp.userData.sat=sat3;grp.userData.satR=x.r3+hS2*1.15;conc=false;}
+      if(grp.userData.sat)conc=false; // v115.2218 - tem satélite: some a plaquinha da concessionária
       if(conc){var tc=pfOrb3DTexPlaca('🏛 '+(sigla||'CONC.'),'#1F4E79'),sc=new THREE.Sprite(new THREE.SpriteMaterial({map:tc,transparent:true,depthTest:false}));sc.scale.set(hP*tc._asp,hP,1);sc.renderOrder=3;grp.add(sc);grp.userData.selC=sc;}
       if(parc){var tp=pfOrb3DTexPlaca('🤝','#1e8449'),sq=new THREE.Sprite(new THREE.SpriteMaterial({map:tp,transparent:true,depthTest:false}));sq.scale.set(hP*tp._asp,hP,1);sq.renderOrder=3;grp.add(sq);grp.userData.selP=sq;}
       grp.userData.hP=hP;}

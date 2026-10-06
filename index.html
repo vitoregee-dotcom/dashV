@@ -1934,7 +1934,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2207</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2208</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2088,7 +2088,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2207</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2208</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -45363,8 +45363,26 @@ function ferrCotTempo(){
     '<div style="font-size:11.5px;color:#8a9ab0;margin-top:8px">Mediana = o tempo "do meio" (não distorce com uma cotação muito longa). Tempo em cotação/dia = tempo médio × cotações por dia.</div>'+
   '</div>';
 }
+// v115.2208 - A pedido do Vitor (print: painel de Estoque do Dashboard aparecendo embaixo do RMA): mesma causa da
+// v115.2054 (Componentes Cardan) -- o RMA é redesenhado por caminhos que não passam pelo pfNavigate (concluir/cancelar
+// pelo detalhe aberto da barra de avisos, recuperar resposta...), o body continuava com pf-view-dash e a regra CSS
+// "body.has-data.pf-view-dash #dash{display:block!important}" mostrava o Dashboard junto. Acerta o estado da tela.
+function pfGarantirTelaFerramentas(){
+  try{
+    var fv=document.getElementById('ferramentasView');
+    var naFerr=(typeof currentView!=='undefined'&&currentView==='ferramentas');
+    if(!naFerr&&typeof pfNavigate==='function'&&!(fv&&fv.style.display!=='none'&&fv.offsetParent!==null)){window._ferrSkipAutoPicker=true;pfNavigate('ferramentas');} // sem pular pro menu de Ferramentas por cima do RMA
+    document.body.classList.remove('pf-view-dash');document.body.classList.add('pf-outra-view');
+    if(typeof _pfCurrentView!=='undefined'&&_pfCurrentView==='dash')_pfCurrentView='ferramentas';
+    if(typeof currentView!=='undefined'&&currentView==='dash')currentView='ferramentas';
+    ['dash','upSec'].forEach(function(id){var d=document.getElementById(id);if(d)d.style.setProperty('display','none','important');});
+    if(fv){fv.style.display='block';fv.style.visibility='visible';}
+  }catch(e){}
+}
 function ferrRMA(){
   var el=document.getElementById('ferrBody');if(!el)return;
+  pfGarantirTelaFerramentas(); // v115.2208
+  try{rmaLoad().forEach(function(x){if(x&&x.garantia&&!x.garantia.resposta)pfGarRecuperarResposta(x);});}catch(e){} // v115.2208
   window._pfNavegouExplicitamente=true;
   var f=window._rmaF;
   var sel='border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:8px;padding:7px 9px;font-size:12.5px;background:#fff;color:var(--pf-fx-textoEscuro,#1a2332)';
@@ -45747,6 +45765,25 @@ async function pfGarFormEnviar(payload){
 // ---------- dentro do sistema (RMA) ----------
 function pfGarRma(id){return rmaLoad().find(function(x){return x.id===id;})||null;}
 function pfGarRmaSalvar(r){var l=rmaLoad(),i=l.findIndex(function(x){return x.id===r.id;});r.ts=Date.now();if(i>=0)l[i]=r;else l.push(r);rmaSave(l);}
+// v115.2208 - A pedido do Vitor (perdeu a resposta da Cardans NSA ao reenviar o link): RMA de garantia SEM resposta busca no
+// banco a última resposta de QUALQUER link de garantia dele (formulario_links.cliente_ref = id do RMA) e coloca de volta.
+// A conferência (validado) não fica no banco -- essa precisa ser refeita. 1x por RMA por sessão.
+async function pfGarRecuperarResposta(r){
+  try{
+    if(!r||r.tipo!=='cliente'||!r.garantia||r.garantia.resposta||typeof sbFetch!=='function')return;
+    window._pfGarRecTentado=window._pfGarRecTentado||{};if(window._pfGarRecTentado[r.id])return;window._pfGarRecTentado[r.id]=1;
+    var rl=await sbFetch('/rest/v1/formulario_links?cliente_ref=eq.'+encodeURIComponent(r.id)+'&tipo=eq.garantia_dana&select=codigo');
+    var ls=rl.ok?await rl.json():[];if(!ls||!ls.length)return;
+    var cods=ls.map(function(x){return '"'+x.codigo+'"';}).join(',');
+    var rs=await sbFetch('/rest/v1/formulario_submissoes?link_codigo=in.('+encodeURIComponent(cods)+')&select=id,dados,arquivos,criado_em,link_codigo&order=criado_em.desc&limit=1');
+    var ss=rs.ok?await rs.json():[];if(!ss||!ss.length)return;var s=ss[0];
+    var r2=pfGarRma(r.id);if(!r2||!r2.garantia||r2.garantia.resposta)return;
+    r2.garantia.resposta={subId:s.id,dados:s.dados||{},arquivos:s.arquivos||[],recebidoEm:new Date(s.criado_em||Date.now()).getTime(),linkCodigo:s.link_codigo,recuperada:true};
+    pfGarRmaSalvar(r2);
+    if(document.getElementById('rmaDetalheOverlay'))rmaVerDetalhe(r2.id);
+    else if(document.getElementById('rmaRes')&&typeof rmaRenderRes==='function')try{rmaRenderRes();}catch(e){}
+  }catch(e){console.warn('pfGarRecuperarResposta',e);}
+}
 function pfGarBlocoHtml(r){
   if(r.tipo!=='cliente')return '';
   var g=r.garantia;
@@ -45927,7 +45964,9 @@ async function pfGarLinkEnviar(id,como,reusar){
         cliente_ref:r.id,cliente_nome:r.nome||'',prefill:{cliente:r.nome||'',rma:r.numero,peca:g.peca,pecaDesc:g.pecaDesc,nf:g.nf,nfData:g.nfData},tipo:'garantia_dana',
         expira_em:new Date(Date.now()+15*86400000).toISOString(),aceita_arquivos:true})});
       if(!resp.ok)throw new Error('status '+resp.status);
-      g.linkCodigo=codigo;g.linkEm=Date.now();delete g.resposta;delete g.validado;delete g.geradoEm;
+      // v115.2208 - BUG (Vitor: "coloquei para reenviar o link e perdi o que tava pronto"): link novo APAGAVA a resposta do
+      // cliente e a conferência (validado). Agora mantém as duas; se o cliente responder o link novo, a resposta nova entra por cima.
+      g.linkCodigo=codigo;g.linkEm=Date.now();
       r.garantia=g;pfGarRmaSalvar(r);
     }
     var url=location.origin+location.pathname+'?f='+r.garantia.linkCodigo,msg=pfGarMsg(r,url);
@@ -46001,6 +46040,7 @@ async function pfGarGerarExcel(id,btn){
 function rmaVerDetalhe(id){
   var r=rmaLoad().find(function(x){return x.id===id;});
   if(!r)return;
+  pfGarRecuperarResposta(r); // v115.2208
   var existente=document.getElementById('rmaDetalheOverlay');if(existente)existente.remove();
   var overlay=document.createElement('div');
   overlay.id='rmaDetalheOverlay';
@@ -46055,7 +46095,11 @@ function rmaMudarStatus(id,novoStatus){
     rmaEnviarAvisoAjuste(r);
   }
 }
+// v115.2208 - A pedido do Vitor ("não coloca para enviar nada para o Henrique por enquanto" -- ele recebeu o e-mail de
+// ajuste ao concluir o RMA-0002): aviso automático DESLIGADO. Pra religar, trocar pra true.
+var PF_RMA_AVISO_AJUSTE_LIGADO=false;
 async function rmaEnviarAvisoAjuste(r){
+  if(!PF_RMA_AVISO_AJUSTE_LIGADO){pfAlert('RMA concluída. (O e-mail de ajuste de estoque pro Henrique está desligado por enquanto.)');return;}
   var sinal=(r.tipo==='cliente')?'+':'-';
   var linhas=(r.itens||[]).map(function(it){
     return '• '+(it.codigo||'—')+' ('+(it.marca||'—')+') — '+pfEscHtml(it.desc||'')+' : '+sinal+it.qtd;

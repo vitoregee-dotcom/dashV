@@ -216,6 +216,14 @@
   v115.2216: a alternativa (N) com a MESMA descrição também é medida quando a peça é bronzina ou JUNTA DO CABEÇOTE
   (`PF_ALIM_MED_PECAS`; print "Cylinder Head Assembly": 22 3681E051 = STD, (22) T409652 = 0,25MM). Arruela de encosto (5)/(6)
   ainda NÃO (esperando o Vitor confirmar).
+- v115.2217 **lista de KIT no Alimentar** (pedido do Vitor: jogo de juntas superior/inferior; prévia em `docs/referencias/kit-juntas/`):
+  faixa "📦 Esta lista é um KIT" (`pfAlimKitFaixaHtml`, estado `window._pfAlim.kit`, `pfAlimKitSync`/`pfAlimKitCampo`) com código e
+  descrição do kit — vêm do Grupo "KIT DE JUNTAS - SUPERIOR (T403222)" (`pfAlimKitDoGrupo`: código entre parênteses; JUNTA/GASKET +
+  SUPERIOR/TOP ou INFERIOR/BOTTOM → "JOGO DE JUNTAS SUPERIOR/INFERIOR" passado pelo `substAplicar`); a lista do catálogo NÃO tem o
+  código do kit → o Vitor digita quando o grupo não tiver. Gravar (`pfAlimKitGravar`): ficha do kit `ehKit` + `composicaoKit`
+  (mesmos campos do cadastro de produto; descrição da peça = a da ficha) + aplicação da série; cada peça ganha `kitsQueContem`
+  [{codigo,desc,qtd}]. Cotação (`vendasEtiquetasHtml` → `pfAlimKitEtqHtml`): "🧰 vem no JG … · saldo" (laranja forte = sem avulso e
+  kit com saldo) e "📦 kit com N peças" → `pfAlimKitVer(cod)` (lista com qtd no kit e saldo avulso).
 - **Catálogos já lidos** (sem IA): `data/catalogos/<id>.json` (+ o PDF) listados em `PF_CAT_PRONTOS`; Cadastros → Importar Produtos → "📚 Catálogos já lidos" abre a prévia normal (`pfCatProntoAbrir`) e cada peça leva todos os motores em `aplicacoesCatalogo` (qtd por motor). Cummins motores 2019 = 861 peças.
 - No próprio sistema: Ferramentas → **📘 Catálogo PDF → Excel** (`ferrCatalogoPdf`, pdf.js no navegador,
   leitura por coluna, dicionário embutido + traduções salvas em `catpdf_traducoes_v1`).

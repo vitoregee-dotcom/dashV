@@ -316,6 +316,20 @@
   eventos na linha do tempo, e nota ≤6 nos últimos 60 dias entra em "📞 Clientes pra ligar" do Meu dia.
 - v115.2211 Ficha Técnica: a busca procura também em TODOS os campos (motor, transmissão, eixos…), palavra por palavra.
 
+## 🗂️ Abas no topo (v115.2212 — etapa 1; prévia em `docs/referencias/area-tecnica-abas/`)
+- Barra `#pfAbasBar` dentro do `#pfTopBar` (`pfAbasBarRender`, chamada também depois de todo `pfNavigate`): cada card da
+  **Área Técnica** e das **Ferramentas** abre numa aba e a tela fica VIVA (o elemento de verdade vai pro `#pfAbasPool` /
+  `#ferrTabsPool`) — trocar de aba não perde busca, item aberto, rolagem nem formulário. ✕ fecha; ＋ (`pfAbasMenu`) lista os
+  cards das duas áreas (`window._pfAbasCat` {at,ferr}, preenchido pelos `mkCard`; `pfAbasCatColher` desenha o menu escondido
+  se ainda não foi aberto). Abas não sobrevivem ao F5.
+- **Alt+Q / Option+Q** = próxima aba (segurando o Alt aparece o seletor; Shift+Q volta; soltar o Alt abre; Esc cancela).
+- Área Técnica: `window._atTabs`/`_atAtivo`, `pfAtAbrir(atalhoId,titulo,icone,fn)` (o card e o atalho 📌 do dock passam por
+  ela; `PF_AT_SEM_ABA` = cards que só abrem janela), `pfAtIr`, `pfAtFechar`; `areaTecnicaRender` começa com `pfAtGuardarAtual()`
+  (o "← Voltar" guarda a aba). Saiu do `PF_SNAPSHOT_VIEWS`; sair da AT e voltar pelo dock reabre a última aba (`_atUltima`).
+- Ferramentas: o `_ferrTabs` de sempre; abrir a mesma ferramenta = volta pra aba dela; `ferrRender` (← Voltar) não desenha
+  mais o menu DENTRO da aba.
+- **Etapa 2 (a fazer)**: Vendas, Compras, Cadastros, Logística.
+
 ## ⏱️ Tempo das cotações (v115.2180)
 - Medição automática (`pfCotTempoTick`, a cada 10 s): conta só se a cotação aberta tem item, a tela da cotação está à vista
   (`#vendasCodInput` visível), a aba está ativa e houve clique/tecla nos últimos 90 s (`_pfCotUltAcao`). Acumula em

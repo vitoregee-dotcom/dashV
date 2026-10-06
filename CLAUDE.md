@@ -258,6 +258,12 @@
 - v115.2148: balão do cliente dá pra alcançar com o mouse (`pfOrbTipEsconder` some só ~0,35 s depois; `pfOrbTipDentro` segura;
   clique = ficha `pfOrbTipClique`; `pfOrbTipPosicionar` mantém dentro do quadro). No 3D, mouse no balão = ele para de seguir o planeta.
 
+## 🚚 Cotação de frete (atalho de texto com formulário)
+- `pfFreteModalAbrir`/`pfFreteModalRender` — v115.2206 ("ta zuada essa janela"): janela de 760px com cabeçalho (✕) e rodapé
+  presos e só o meio rolando (`#pfFreteModalCorpo`, guarda a rolagem ao re-renderizar), campos em grade de 6 colunas (2 no
+  celular, `_estr` < 600px), volume numa linha só (Compr × Larg × Alt + Peso), botões padrão 📋 Colar print / ⬆ Carregar arquivo,
+  fundo só fecha se o clique começou nele, termina acima do dock (`pfAiDockClearance`).
+
 ## ⏱️ Tempo das cotações (v115.2180)
 - Medição automática (`pfCotTempoTick`, a cada 10 s): conta só se a cotação aberta tem item, a tela da cotação está à vista
   (`#vendasCodInput` visível), a aba está ativa e houve clique/tecla nos últimos 90 s (`_pfCotUltAcao`). Acumula em

@@ -281,11 +281,12 @@
   destacar, ⚙️) moram no popover "🔍 Filtros" (`window._pfOrbFiltrosAberto`, `pfOrbFiltrosAlternar`/`pfOrbFiltrosLimpar`, `_fHtml`
   montado no `pfOrbitaRender`; número = filtros ligados `_fN`; clique fora fecha). Faixa do resumo curta (sem perfis → 📊 Resumo),
   com "⚠️ R$/ano em risco" (saiu do cabeçalho).
-- v115.2218 **🛰️ satélites com logo — DESLIGADO** (`PF_ORB_SAT_LIGADO=false`; prévia num aparelho: localStorage `pfOrbSatPrevia`='1'):
-  imagens do Vitor em `icons/orbita-marcas/sat-<id>.png` (case, caseih, cat, mf, valtra; `PF_ORB_SAT` {nome, asp}); automático pela
-  concessionária (`pfOrbSatAuto`) ou à mão no botão direito (`pfOrbSatMenuHtml`, `pfOrbMarcas.por[k].sat` = id | 'nenhum'); gira em volta
-  do planeta (`pfOrbSatAng`; 3D sprite com depthTest, 2D drawImage). Vitor achou feio o tamanho grande — prévias A/B/C em
-  `docs/referencias/orbita-satelites/`; esperando ele escolher antes de ligar.
+- v115.2219 **🏷️ placa da marca em cima do planeta** (Vitor: "coloque esses vai. e o tamanho, de acordo com a proporção que o planeta
+  tiver"; antes, v115.2218, eram satélites girando — ele achou feio): imagens dele em `icons/orbita-marcas/placa-<id>.png` (caseih, cat,
+  mf, valtra, case, perkins; `PF_ORB_SAT` {nome, asp}); largura = diâmetro do planeta (3D sprite no lugar da plaquinha 🏛, `selC`; 2D
+  drawImage acima). Automático pela concessionária (`pfOrbSatAuto`: CASE→case, CASE IH, CAT, MF, VAL, PERKINS) ou à mão no botão direito
+  (`pfOrbSatMenuHtml`, `pfOrbMarcas.por[k].sat` = id | 'nenhum'). `PF_ORB_SAT_LIGADO` desliga tudo. Marca nova = imagem + linha no PF_ORB_SAT.
+  Prévias em `docs/referencias/orbita-satelites/`.
 - v115.2148: balão do cliente dá pra alcançar com o mouse (`pfOrbTipEsconder` some só ~0,35 s depois; `pfOrbTipDentro` segura;
   clique = ficha `pfOrbTipClique`; `pfOrbTipPosicionar` mantém dentro do quadro). No 3D, mouse no balão = ele para de seguir o planeta.
 

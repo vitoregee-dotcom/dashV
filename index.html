@@ -1934,7 +1934,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2213</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2214</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2088,7 +2088,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2213</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2214</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -78787,7 +78787,22 @@ function pfAlimMedidaUS(arr){
   });
   return med;
 }
+var PF_ALIM_MED_FIM=/\s+(STD|\d+,\d+\s*MM)$/i;
+function pfAlimDescCom(L){
+  var b=String(L.descBase||''),d=(typeof substAplicar==='function'?substAplicar(b):b);
+  if(!L.medida)return d;
+  d=String(d).replace(PF_ALIM_MED_FIM,'').trim(); // regra antiga que já tinha medida no fim (ex.: "JG DE BRONZINA DE MANCAL 0,25MM")
+  return d+' '+L.medida;
+}
+// v115.2214 - conserta a regra que o 💾 gravou COM a medida (ex.: "JOGO DE BRONZINA DE MANCAL" → "JG DE BRONZINA DE MANCAL 0,25MM")
+function pfAlimRegrasMedidaLimpar(){
+  if(window._pfAlimRegrasLimpas||typeof substCarregar!=='function')return;window._pfAlimRegrasLimpas=1;
+  var l=substCarregar(),mud=0;
+  l.forEach(function(x){if(/BRONZINA/i.test(x.de)&&PF_ALIM_MED_FIM.test(x.para||'')&&!PF_ALIM_MED_FIM.test(x.de)){x.para=String(x.para).replace(PF_ALIM_MED_FIM,'').trim();mud++;}});
+  if(mud)substSalvar(l);
+}
 function pfAlimPrepararLinhas(arr){
+  try{pfAlimRegrasMedidaLimpar();}catch(e){}
   var _medUS=pfAlimMedidaUS(arr); // v115.2213
   var plist=cadLoad(PROD_KEY)||[],idx={};plist.forEach(function(p){var k=pfAlimNorm(p.codigo);if(k)(idx[k]=idx[k]||[]).push(p);});
   var c=pfAlimCtxSalvar(),flat=(typeof aplicLoad==='function'?aplicLoad():[])||[];
@@ -78799,8 +78814,11 @@ function pfAlimPrepararLinhas(arr){
     // v115.2163 - A pedido do Vitor ("vão entrar nos nossos padrões de descrição? consigo mudar igual quando subo o catálogo
     // inteiro?"): depois da tradução passa pelas mesmas "Substituições de Descrição" da importação (substAplicar).
     var base=pfAlimTraduz(r.descOrig);
-    if(_medUS[_i]&&base.replace(/\s/g,'').indexOf(_medUS[_i])<0)base=base+' '+_medUS[_i]; // v115.2213 - STD / 0,25MM / 0,50MM...
-    return Object.assign({},r,{descBase:base,desc:(typeof substAplicar==='function'?substAplicar(base):base),marcado:!nla,nla:nla,hist:/HISTORIC/i.test(r.sim||''),temFicha:fichas.length>0,jaTem:ja,
+    // v115.2214 - a medida (STD / 0,25MM...) NÃO passa pela regra de descrição: a regra vale só pro nome e a medida entra
+    // depois (pfAlimDescCom) -- antes o 💾 gravava "…MANCAL 0,25MM" e todas as bronzinas viravam 0,25
+    var _med=_medUS[_i]&&base.replace(/\s/g,'').indexOf(_medUS[_i])<0?_medUS[_i]:'';
+    var _L={descBase:base,medida:_med};
+    return Object.assign({},r,{descBase:base,medida:_med,desc:pfAlimDescCom(_L),marcado:!nla,nla:nla,hist:/HISTORIC/i.test(r.sim||''),temFicha:fichas.length>0,jaTem:ja,
       subst:r.codigoCatalogo&&pfAlimNorm(r.codigoCatalogo)!==k?r.codigoCatalogo:''});
   });
 }
@@ -78976,11 +78994,13 @@ function pfAlimRender(){
 function pfAlimSalvarRegra(i,btn){
   var r=(window._pfAlim.linhas||[])[i];if(!r)return;
   var de=String(r.descBase||'').toUpperCase(),para=String(r.desc||'').toUpperCase();
+  // v115.2214 - medida fora da regra: "JOGO DE BRONZINA DE MANCAL" → "JG DE BRONZINA DE MANCAL" (vale pra STD/0,25/0,50/0,75)
+  if(r.medida){para=para.replace(PF_ALIM_MED_FIM,'').trim();de=de.replace(PF_ALIM_MED_FIM,'').trim();}
   if(!de||!para||de===para){pfAlert('Mude a descrição na caixa primeiro; depois clique no 💾 pra virar regra.');return;}
   var exato=_safeConfirm('Substituição exata?\n\nSIM = só quando a descrição for exatamente "'+de+'"\nNÃO = qualquer descrição que contenha "'+de+'"');
   substAdicionarOuAtualizar(de,para,exato);
-  window._pfAlim.linhas.forEach(function(L,j){if(j!==i&&!L.editado)L.desc=substAplicar(L.descBase||'');});
-  r.editado=true;pfAlimRender();
+  window._pfAlim.linhas.forEach(function(L,j){if(j!==i&&!L.editado)L.desc=pfAlimDescCom(L);});
+  r.editado=true;if(r.medida)r.desc=para+' '+r.medida;pfAlimRender();
   var m=document.getElementById('pfAlimMsg');if(m)m.innerHTML='💾 Regra salva: <b>'+pfEscHtml(de)+'</b> → <b>'+pfEscHtml(para)+'</b> (vale também na importação de catálogo).';
 }
 function pfAlimLimpar(){window._pfAlim={linhas:[],img:null,rect:null};var g=document.getElementById('pfAlimGrupo');if(g)g.value='';pfAlimCtxSalvar();

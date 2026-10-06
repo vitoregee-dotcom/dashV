@@ -208,6 +208,9 @@
   na bronzina muda a MEDIDA — item sem parênteses = STD, os "(N) … - U/S" em ordem = 0,25MM / 0,50MM / 0,75MM (/1,00MM;
   `PF_ALIM_US_ORDEM`, `pfAlimMedidaUS`; medida escrita na descrição manda) → fim da descrição ("JOGO DE BRONZINA DE MANCAL 0,25MM").
   `pfAlimTraduz` tira o " - U/S" quando não acha a frase inteira. Pedido à IA do print manda copiar o item COM os parênteses.
+  v115.2214: a medida fica FORA da regra de descrição — `pfAlimDescCom(L)` = `substAplicar(descBase)` (sem medida) + `L.medida`;
+  o 💾 grava só o nome ("JOGO DE BRONZINA DE MANCAL" → "JG DE BRONZINA DE MANCAL", vale pra STD/0,25/0,50/0,75 e biela igual);
+  `pfAlimRegrasMedidaLimpar` (1x) tira a medida que regra de BRONZINA antiga tinha no "para".
 - **Catálogos já lidos** (sem IA): `data/catalogos/<id>.json` (+ o PDF) listados em `PF_CAT_PRONTOS`; Cadastros → Importar Produtos → "📚 Catálogos já lidos" abre a prévia normal (`pfCatProntoAbrir`) e cada peça leva todos os motores em `aplicacoesCatalogo` (qtd por motor). Cummins motores 2019 = 861 peças.
 - No próprio sistema: Ferramentas → **📘 Catálogo PDF → Excel** (`ferrCatalogoPdf`, pdf.js no navegador,
   leitura por coluna, dicionário embutido + traduções salvas em `catpdf_traducoes_v1`).

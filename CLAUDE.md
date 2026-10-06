@@ -264,6 +264,11 @@
   celular, `_estr` < 600px), volume numa linha só (Compr × Larg × Alt + Peso), botões padrão 📋 Colar print / ⬆ Carregar arquivo,
   fundo só fecha se o clique começou nele, termina acima do dock (`pfAiDockClearance`).
 
+## Mapa de Compras — fornecedores do item
+- v115.2207 BUG: nos cartões de fornecedor de cada item (`.mFornCard`, passo 1 do mapa) o nome não tinha cor e herdava o
+  BRANCO do painel escuro (cartão é branco fixo) → nome com `color:#1A2B3C` fixo. Texto novo dentro de cartão de fundo fixo:
+  sempre dar cor fixa também.
+
 ## ⏱️ Tempo das cotações (v115.2180)
 - Medição automática (`pfCotTempoTick`, a cada 10 s): conta só se a cotação aberta tem item, a tela da cotação está à vista
   (`#vendasCodInput` visível), a aba está ativa e houve clique/tecla nos últimos 90 s (`_pfCotUltAcao`). Acumula em

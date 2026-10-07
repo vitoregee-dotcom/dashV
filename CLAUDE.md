@@ -207,6 +207,18 @@
   alteração pede confirmação (`ftCancelarForm`); Esc com o formulário aberto fecha SÓ o formulário. Janela termina acima do dock
   (padding = `pfAiDockClearance`) com Cancelar/Salvar presos no rodapé. Lista mostra Ano/Série embaixo do modelo (busca acha).
 
+## 🛢️ Lubrificantes (v115.2234; tabela Carraro traduzida em `data/lubrificantes-carraro.json` + `docs/referencias/lubrificantes-carraro/`)
+- Área Técnica → card 🛢️ Lubrificantes (`ferrLubrificantes(aba)`): **🔎 Qual óleo usar** (Vitor: "coloque o modelo e o sistema diga qual óleo")
+  + **📋 Tabela Carraro** (`pfLubTabelaHtml`). Óleos em `PF_LUB_CARRARO` (ids u80w/80w90/85w140/c220s/c220m/10w40/15w40t/15w40, cods 5/20/200 L).
+- Busca (`pfLubLista`): Ficha Técnica (modelo/linha/transmissão/eixos/motor) + Catálogos de peças (`pfLubCatAchar`: título/marca/modelo/ref.).
+  `pfLubSugerir(ficha)` por compartimento (motor/trans/eixoD/eixoT/final): regra pela categoria (❔ provável) — retro: dianteiro 80W-90,
+  traseiro Universal 80W; carregadeira: eixos Universal; trator: cárter comum UTTO; hidrostática = ⚠️ fora da tabela; Caterpillar = aviso TO-4;
+  escavadeira = comando final 80W-90 — < catálogo da peça (`pfLubCatAnalisar`: disco de freio/embreagem/conversor = banho de óleo →
+  Universal 80W, 🔎 pelo catálogo) < marcado à mão pelo gestor (`pfLubDefinir`, compartilhada `pfLubModelos_v1` {por:{fichaId:{k:{oleo}}}}, ✅).
+  Regra de ouro: freio/embreagem em banho de óleo → Universal 80W; sem → 80W-90; motor → 15W-40 TurboLub. Desenho das embalagens: o Vitor NÃO quis.
+- "💡 Ofereça também": `pfLubOfertaProds(regra, cotação)` põe o óleo Carraro na frente (eixo com freio/fricção na cotação → Universal, senão
+  80W-90/85W-140; transmissão → Universal; reforma de motor → 15W-40 TurboLub; só se o código estiver no cadastro). Alt+B: `pfLubCardHtml`.
+
 ## Catálogos de peças em PDF
 - **Guia Perkins** (v115.2114): `PF_GUIA_PERKINS` (grupo inglês x componentes, tabela MD Power pág. 68/69) + linhas extras
   `pfGuiaGruposExtra` (compartilhada); Área Técnica → 📖 Guia Perkins (`ferrGuiaPerkins`, saiu de Ferramentas na v115.2160) e dica sozinha no campo de código da cotação (`vendasGuiaPerkinsDica`).

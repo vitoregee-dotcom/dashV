@@ -138,6 +138,10 @@
   solta "52mm"), campo "Monta com" no Cadastrar item (→ `rec.montaCom`) e bloco 🔗 Monta com na prévia do Colar print;
   `ccEstriasDaIA(fam,j)`/`ccCampoEstrias(fam)` ("Estrias: 26-E", "26 estrias", "Nº de dentes" → numDentes; flanges = H).
   Conjuntos Montados ganhou o campo `numDentes`. `ccCorrigirMontaComEstrias` (1x por sessão no ccRender) arruma os já gravados.
+- v115.2222 BUG: o catálogo LNG 2015 pôs a página "DIVERSAS" (pág. 33) inteira em Acessórios, inclusive 39 TERMINAIS ("TERMINAL BOMBA"
+  501036–501040/41-636 e "TERMINAL JUNTA BASCULANTE" 28-0xx). `ccCorrigirTerminaisAcessorios` (1x por sessão no ccRender) passa item de
+  Acessórios com descrição "TERMINAL…" pra Terminais; `data/lng-cardan-2015.json` corrigido. Ainda em Acessórios e talvez não sejam:
+  7 "FLANGE (CONICA) JUNTA UNIVERSAL" 28-095…28-181 (perguntar ao Vitor).
 - **Aplicações — Modelos & Séries** (v115.2162) saiu de Cadastros (aba escondida) e abre pela Área Técnica (`atAplicAbrir`,
   desenha em `#atAplicBody`, flag `window._aplicNaAT`). Funções da tela pegam o container por `cadAplicEl()` e
   `cadGoTab('aplicacoes')` redesenha lá; `atAplicAjustar` faz Importar Catálogo/prévia irem pra Cadastros (assistente mora lá).

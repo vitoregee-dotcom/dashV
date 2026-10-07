@@ -1,4 +1,4 @@
-# PartsFlow — apresentação curta (8 slides)
+# PartsFlow — apresentação curta (10 slides)
 
 Arquivo: `PartsFlow-apresentacao-curta.pptx` (com anotações de fala em cada slide). Imagem da tela explicada: `tela-cotacao-explicada.png`.
 
@@ -11,8 +11,10 @@ Arquivo: `PartsFlow-apresentacao-curta.pptx` (com anotações de fala em cada sl
 4. **Lista pelo print + Assistente de Vendas** com as regras do cliente (não cotar marca, só se faltar, preferir, mais barata, margem, regra livre).
 5. **Órbita da carteira** — quem parou, quanto está em risco, quem cresce.
 6. **O cliente pede pelo link, sem saber o código** — pronto hoje (catálogo com desenho no celular → vira cotação).
-7. **Hoje ao lado do JBoss, amanhã integrado** — JBoss/ERP, site de vendas, Vendas On e marketplaces, WhatsApp oficial; portal do cliente como próximo passo.
-8. **Proposta** — piloto de 30 dias, [2] vendedores, sem mexer no ERP; medir tempo de cotação de motor, cotações por dia e quantas viram pedido.
+7. **Próximo passo (PRÉVIA): o cliente cota sozinho, só com código e quantidade** — portal com login; código de qualquer marca; preço da tabela dele; o que não sai sozinho vai pro vendedor (`docs/referencias/portal-cliente/previa-codigo.png`).
+8. **Hoje ao lado do JBoss, amanhã integrado** — JBoss/ERP, site de vendas, Vendas On e marketplaces, WhatsApp oficial; portal do cliente como próximo passo.
+9. **Vendas online** — um cadastro só (descrição, fotos, aplicação, conversões, saldo e preço) → integrador (hub de marketplace ou API direta) → nosso site, Mercado Livre, Shopee e outros; pedidos e perguntas voltam pro PartsFlow e seguem pro ERP.
+10. **Proposta** — piloto de 30 dias, [2] vendedores, sem mexer no ERP; medir tempo de cotação de motor, cotações por dia e quantas viram pedido.
 
 ## Roteiro ao vivo (slide 3)
 1. Colar o print da lista de um cliente.
@@ -24,9 +26,9 @@ Arquivo: `PartsFlow-apresentacao-curta.pptx` (com anotações de fala em cada sl
 7. **Cronometrar** a cotação de motor inteira.
 
 ## Preencher antes
-- Slide 1: nome e data. Slide 8: quantos vendedores e quais.
+- Slide 1: nome e data. Slide 10: quantos vendedores e quais.
 - Slide 5: falar o número REAL de clientes parados e R$/ano em risco (Órbita → 📊 Resumo).
 
 ## O que já está pronto × o que é futuro
-- Pronto: tudo dos slides 2 a 6 (inclusive o link do catálogo pro cliente).
+- Pronto: tudo dos slides 2 a 6 (o 7 é PRÉVIA) (inclusive o link do catálogo pro cliente).
 - Futuro (sem data): integração com JBoss/ERP, site, Vendas On/marketplaces, WhatsApp oficial e o portal do cliente com login (cotar digitando código e quantidade).

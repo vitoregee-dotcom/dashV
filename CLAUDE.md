@@ -515,6 +515,9 @@
   na Vercel). Prévias em `docs/referencias/catalogo-sem-codigo/`.
 - **Portal do cliente — IDEIA (não feita)**: cliente com login cota sozinho DIGITANDO SÓ CÓDIGO E QUANTIDADE (decisão do Vitor
   05/10/2026); vendedor vira gestor de carteira; fila de oportunidades por nota. Prévia `docs/referencias/portal-cliente-previa.png`.
+  Prévia nova (07/10, pra apresentação): `docs/referencias/portal-cliente/previa-codigo.html/.png` — cotação rápida código + qtd (ou colar lista),
+  código de qualquer marca convertido ("CZ-180 = SPICER 5-280X"), disponibilidade + preço da tabela do cliente, código não achado → vendedor;
+  lado do vendedor: "Cotações do portal" com nota + regras do gestor (sai sozinho até R$ X com saldo). Precisa decidir: login, preço visível, limite, segurança.
 
 ## Cotação em 2 linhas (v115.2140)
 - Botão "▦ Tabela | ▤ 2 linhas | ☰ Compacta" (`vendasViewModo()`/`vendasViewModoSet`, localStorage `pf_vendas_view_modo`);

@@ -465,6 +465,9 @@
   nº, descrição, qtd e nº do kit (NUNCA código). Antes de ver: marca/modelo/ano da máquina + FOTO (sobe em
   `cadastro-clientes/<link>/`) → submissão `dados.tipo='acesso'`; pedido → `dados.tipo='pedido'`, itens {g,i,q}. No celular
   abre ampliado (números muito juntos no diferencial). Peça de kit → escolhe "só a peça" ou "o kit completo".
+- v115.2232 BUG "➜ Abrir como cotação" (`pfCatEnvPedidoCotacao`): o cliente do link entrava só com o nome (UF vazia → seletor mostrava SP
+  mas o cálculo usava ICMS 12%; margem geral). Agora passa por `vendasSelecionarCliente` (UF + margem do cliente); link sem cliente
+  abre em SP e pede pra escolher o cliente. `vendasAbrirModal` sem uf = UF do cliente ou 'SP'.
 - v115.2231: o que chega pelo link também vai pra **barra de notificações** (📖 Pedido pelo catálogo; log `pfCatPedEventos`,
   `pfCatPedEventoAdd`; painel abre a aba 📥 Recebidos) e o `c.html` NÃO pede mais nome/telefone (o link é repassado pro cliente do
   cliente — o Vitor não pode "atravessar"); só observação.

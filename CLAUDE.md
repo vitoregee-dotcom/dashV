@@ -652,6 +652,9 @@
   apaga as antigas quando volta vazio (nova substitui só a da mesma marca, até 7) e aceita notícia sem imagem; lateral completa
   com as marcas da semente se tiver < 2; card sem foto/foto bloqueada = degradê AZUL (v115.2137, era laranja) com o NOME DA MARCA grande (foto por cima); banners trocam a cada 10 s, marcas a cada 25 s;
   "🔄 Atualizar agora" do dono busca marcas na hora.
+- v115.2240 (Vitor vai apresentar: "arruma as notícias sem foto"): na lista de notícias da home (`pfCategoriasRender`) notícia sem foto
+  (as de MARCA nunca têm) = quadrinho com o nome da marca na cor dela (`pfNoticiaMarcaTile`, cores em `PF_NOT_MARCA_COR`); o `pfNoticiasLoad`
+  tira notícia de marca que só tem o NOME igual (prefeito/candidato/eleição/futebol… — "Jackson Carraro pré-candidato").
 
 ## Campos de número / link do cliente (v115.2136)
 - Clicar num campo de NÚMERO seleciona o valor inteiro (é só digitar): listener global `focusin`+1º `mouseup` (perto de

@@ -142,6 +142,22 @@
   501036–501040/41-636 e "TERMINAL JUNTA BASCULANTE" 28-0xx). `ccCorrigirTerminaisAcessorios` (1x por sessão no ccRender) passa item de
   Acessórios com descrição "TERMINAL…" pra Terminais; `data/lng-cardan-2015.json` corrigido. Ainda em Acessórios e talvez não sejam:
   7 "FLANGE (CONICA) JUNTA UNIVERSAL" 28-095…28-181 (perguntar ao Vitor).
+- v115.2225 **📥 Atualização Spicer** (Vitor: "é uma atualização que a Spicer manda no catálogo dela às vezes. deixe algo pra
+  atualizar o PF também... criar outros grupos. Mancais e coifas"): família nova **`coifas`** (Coifas, extraFiltro série cardan).
+  Faixa vermelha no menu dos Componentes Cardan (só admin, `ccSpicerAtuBotaoHtml`) → `ccSpicerAtuAbrir`: folhetos JÁ LIDOS em
+  `PF_CC_SPICER_ATU` (`data/spicer-atualizacoes/<id>.json` + PDF; gravado = `importacoes['spicer_'+id]`) ou folheto novo por
+  📋 Colar print / ⬆ Carregar arquivo (PDF → pdf.js 1568 px por página) → IA `ccSpicerAtuIA` (tabela COD. SPICER | DESCRIÇÃO |
+  APLICAÇÕES | SÉRIE CARDAN | MEDIDA INTERNA ROLAM. | COD. OEM | COD. REI). `ccSpicerAtuNorm` → família `ccSpicerAtuFamilia`
+  (MANCAL/COIFA/CRUZETA pela descrição > `pfSpicerDecifrar` > IA; trocável na prévia). Prévia `ccSpicerAtuRender` (🆕 novo /
+  ♻️ atualiza: o que entra, `ccSpicerAtuDiff` / ✔ já igual). Gravar `ccSpicerAtuGravar`: existente (`ccSpicerAtuAchar`, Spicer
+  primeiro) ganha só o que falta (aplicações, OEM = ORIGINAL, REI = EQUIVALENTE, modelos de cardan → Monta com, "Série cardan",
+  "Medida interna do rolamento", D/serie vazios); novo = linha SPICER, D = medida (mancais), serie; REI citada com card próprio
+  → a Spicer vira a principal (`ccRechavearGrupoSpicer`), mas se o card da REI já tem Spicer (R-1090 = 10001864 e 10004428) a nova
+  fica ao lado. Folheto de out/2026: 10 mancais + 2 coifas (`2026-10-mancais-coifas`). Folheto novo lido pela IA dá pra virar
+  arquivo pronto (json no mesmo formato + linha no `PF_CC_SPICER_ATU`).
+- v115.2225 **kit no Alt+B** (Vitor: "onde vejo o que tem dentro de um kit... fora da cotação? com Alt+B?"): `pfItemCardKitHtml`
+  põe no card do Alt+B as mesmas etiquetas da cotação (📦 kit com N peças / 🧰 vem no JG …) → `pfAlimKitVer` (agora z 100005,
+  por cima do card).
 - **Aplicações — Modelos & Séries** (v115.2162) saiu de Cadastros (aba escondida) e abre pela Área Técnica (`atAplicAbrir`,
   desenha em `#atAplicBody`, flag `window._aplicNaAT`). Funções da tela pegam o container por `cadAplicEl()` e
   `cadGoTab('aplicacoes')` redesenha lá; `atAplicAjustar` faz Importar Catálogo/prévia irem pra Cadastros (assistente mora lá).

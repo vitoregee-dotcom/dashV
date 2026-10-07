@@ -30,6 +30,9 @@
   - **z-index**: janela aberta por cima de outra precisa ser MAIOR que a de baixo (card do Alt+B = 99999).
   - Telas com menu de cards: "← Voltar" (`pfVoltarHomeBtnHtml`) e Esc voltando. Janelas já ficam arrastáveis sozinhas (v115.2221).
   - Etiqueta/dado novo de uma peça: mostrar também no card do Alt+B (`pfItemCardAbrir`) quando fizer sentido.
+  - **Tudo que avisa/notifica vai pra BARRA DE NOTIFICAÇÕES** (pedido do Vitor, 07/10/2026: "é pra isso que ela serve"): log
+    compartilhado só-acrescenta (`pfXxxEventos` com id/data, entra no sync e nos logKeys) + chave em `PF_AVISOS_LOG_KEYS`,
+    `PF_AVISOS_CONFIG_DEFAULT`, labels, `iconePorEtapa`, `pfIconeComBadge` no rail e painel em `pfAvisosAbrirPainel` (modelo: `rma`, `catalogo`).
 - **🖥️ Modo monitor do trabalho** (v115.2177, refeito): botão 🖥️ na barra (`pfBtnMonitor`) / **Option+T (Alt+T)** (v115.2178; Alt+M = Mapa de Compras) → `pfMonitorToggle` vai pra
   `?pfmonitor=1`; um `<script>` no COMEÇO do `<head>` troca a página por uma moldura com o app num `<iframe>` 1920×1080 de verdade
   (`?pfmonframe=1`, `window._pfEmMonitor`) encolhido com `transform: scale` (media queries e vw/vh certos — o zoom no `<html>` da
@@ -462,6 +465,9 @@
   nº, descrição, qtd e nº do kit (NUNCA código). Antes de ver: marca/modelo/ano da máquina + FOTO (sobe em
   `cadastro-clientes/<link>/`) → submissão `dados.tipo='acesso'`; pedido → `dados.tipo='pedido'`, itens {g,i,q}. No celular
   abre ampliado (números muito juntos no diferencial). Peça de kit → escolhe "só a peça" ou "o kit completo".
+- v115.2231: o que chega pelo link também vai pra **barra de notificações** (📖 Pedido pelo catálogo; log `pfCatPedEventos`,
+  `pfCatPedEventoAdd`; painel abre a aba 📥 Recebidos) e o `c.html` NÃO pede mais nome/telefone (o link é repassado pro cliente do
+  cliente — o Vitor não pode "atravessar"); só observação.
 - Chegada: `pfFormClienteChecarSubmissoes` → `pfCatEnvReceber` → `pfCatPedidos_v1` + pendência; 📥 Recebidos mostra foto,
   máquina, itens com código/saldo, "➜ Abrir como cotação" (`pfCatEnvPedidoCotacao`) e "✅ Conferi — gravar como aplicação"
   (`pfCatEnvGravarAplic`: máquina = veiculo/marcaVeiculo, eixo = marca/modelo/série, grupo = equip, em todas as peças).

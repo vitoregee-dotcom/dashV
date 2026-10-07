@@ -16,6 +16,20 @@
   `.pfBtn pfBtnEscuro`) + `pfBtnCarregarArquivoHtml(h,inputId,accept,onchange)` (⬆ Carregar arquivo, `pfBtnVermelho`), lado a lado,
   com o Ctrl+V continuando a funcionar. Nada de "clique aqui e cole" em texto/link.
 
+- **✅ PADRÃO DO SISTEMA — conferir ANTES de criar qualquer tela/janela/botão** (pedido do Vitor, 07/10/2026: "tudo que for
+  criado ser padrão com o sistema"). Copiar de uma janela que já existe (ex.: `ccNovoItem`, `pfFreteModalRender`) e conferir:
+  - **Fechar**: ✕ = `pfXGlossyHtml(22..24)` (quadrado vermelho) num `<button>` sem fundo — nunca "✕"/"×" em texto.
+  - **Esc fecha** a janela (só a de cima; se tiver outra embaixo, ela fica) — listener `keydown` em captura com
+    `stopImmediatePropagation`, removido ao fechar. Formulário com coisa digitada: confirmar antes de perder.
+  - **Fundo** fecha só se o clique COMEÇOU no fundo (`onmousedown` guarda, `onclick` confere) — arrastar seleção não fecha.
+  - **Cabeçalho escuro** (`pfCorpHead`/`pfCorpTitulo`/`pfCorpSub` ou `var(--pf-painel-bg,#1c2940)` + texto branco), rodapé com os
+    botões preso embaixo e só o meio rolando; altura máxima termina ACIMA do dock (`pfAiDockClearance`).
+  - **Botões** = `.pfBtn` + `pfBtnVerde` (confirmar/gravar), `pfBtnClaro` (cancelar/fechar), `pfBtnAzul`, `pfBtnVermelho`, `pfBtnEscuro`.
+  - **Print/arquivo** = `pfBtnColarPrintHtml` + `pfBtnCarregarArquivoHtml` lado a lado + Ctrl+V (ver abaixo).
+  - **WhatsApp** = `pfWhatsAbrir`. **Cor fixa** em texto dentro de cartão de fundo fixo (o painel escuro herda branco).
+  - **z-index**: janela aberta por cima de outra precisa ser MAIOR que a de baixo (card do Alt+B = 99999).
+  - Telas com menu de cards: "← Voltar" (`pfVoltarHomeBtnHtml`) e Esc voltando. Janelas já ficam arrastáveis sozinhas (v115.2221).
+  - Etiqueta/dado novo de uma peça: mostrar também no card do Alt+B (`pfItemCardAbrir`) quando fizer sentido.
 - **🖥️ Modo monitor do trabalho** (v115.2177, refeito): botão 🖥️ na barra (`pfBtnMonitor`) / **Option+T (Alt+T)** (v115.2178; Alt+M = Mapa de Compras) → `pfMonitorToggle` vai pra
   `?pfmonitor=1`; um `<script>` no COMEÇO do `<head>` troca a página por uma moldura com o app num `<iframe>` 1920×1080 de verdade
   (`?pfmonframe=1`, `window._pfEmMonitor`) encolhido com `transform: scale` (media queries e vw/vh certos — o zoom no `<html>` da
@@ -158,6 +172,7 @@
 - v115.2225 **kit no Alt+B** (Vitor: "onde vejo o que tem dentro de um kit... fora da cotação? com Alt+B?"): `pfItemCardKitHtml`
   põe no card do Alt+B as mesmas etiquetas da cotação (📦 kit com N peças / 🧰 vem no JG …) → `pfAlimKitVer` (agora z 100005,
   por cima do card).
+  v115.2226: a lista do kit fecha no Esc (só ela; o card do Alt+B fica) e tem o ✕ padrão (`pfXGlossyHtml`).
 - **Aplicações — Modelos & Séries** (v115.2162) saiu de Cadastros (aba escondida) e abre pela Área Técnica (`atAplicAbrir`,
   desenha em `#atAplicBody`, flag `window._aplicNaAT`). Funções da tela pegam o container por `cadAplicEl()` e
   `cadGoTab('aplicacoes')` redesenha lá; `atAplicAjustar` faz Importar Catálogo/prévia irem pra Cadastros (assistente mora lá).

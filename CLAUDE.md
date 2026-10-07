@@ -451,6 +451,7 @@
   mais o menu DENTRO da aba.
 - v115.2218 BUG: a aba, o menu ＋ e o seletor Alt+Q mostravam o ícone ORIGINAL do card; agora `pfAbasIcone(título, original)` usa o
   escolhido pelo Vitor (`pfIconOverrides`, chave `pfAtalhoSlug(título)`), igual ao card/dock; título interno da Ficha Técnica também.
+- v115.2241: o fechar de cada aba é o ✕ padrão (`pfXGlossyHtml(16)` no `.pfAbaX`).
 - **Etapa 2 (a fazer)**: Vendas, Compras, Cadastros, Logística.
 
 ## Dock — botão "⋯" (v115.2220)

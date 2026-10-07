@@ -1940,7 +1940,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2223</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2224</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2094,7 +2094,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2223</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2224</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -58773,13 +58773,32 @@ function pfChegouChegadas(dias){
   return l.filter(function(c){if(!c||!c.ref)return false;var t=new Date(c.data).getTime();if(!(t>=lim))return false;
     var k=pfChegouNorm(c.ref)+'|'+pfMarcaNorm(c.marca);if(vis[k])return false;vis[k]=1;return true;});
 }
+// v115.2224 - A pedido do Vitor ("nos itens que tiver conversão, preciso escolher qual linha de conversão eu envio pro cliente;
+// cada cliente eu preciso enviar com o código da linha que ele trabalha"): conversões do cadastro do produto (p.conversoes
+// {ref,desc,linha}) das peças que chegaram -- só lê as fichas desses códigos (cache 60 s).
+function pfChegouConvIdx(refs){
+  var key=refs.map(pfChegouNorm).sort().join(','),c=window._pfChegouConvCache;
+  if(c&&c.key===key&&Date.now()-c.t<60000)return c.m;
+  var want={},m={};refs.forEach(function(r){want[pfChegouNorm(r)]=1;});
+  try{(cadLoad(PROD_KEY)||[]).forEach(function(p){if(!p)return;var k=pfChegouNorm(p.codigo);if(!want[k])return;
+    (p.conversoes||[]).forEach(function(cv){if(cv&&cv.ref)(m[k]=m[k]||[]).push(cv);});});}catch(e){}
+  window._pfChegouConvCache={key:key,t:Date.now(),m:m};return m;
+}
+function pfChegouLinha(cod){try{var l=idLinha(cod);return l&&l.l||'';}catch(e){return '';}}
 function pfChegouCalc(dias,fv){
   var ch=pfChegouChegadas(dias);if(!ch.length)return {ch:ch,clis:[]};
-  var porCod={},porMarca={};
-  ch.forEach(function(c,i){c._i=i;var k=pfChegouNorm(c.ref);(porCod[k]=porCod[k]||[]).push(c);var m=pfMarcaNorm(c.marca);if(m)(porMarca[m]=porMarca[m]||[]).push(c);});
+  var porCod={},porMarca={},cvIdx=pfChegouConvIdx(ch.map(function(c){return c.ref;}));
+  ch.forEach(function(c,i){c._i=i;var k=pfChegouNorm(c.ref);(porCod[k]=porCod[k]||[]).push(c);var m=pfMarcaNorm(c.marca);if(m)(porMarca[m]=porMarca[m]||[]).push(c);
+    // opções de código pra mandar: o nosso + as conversões (sem repetir)
+    var vis={};vis[k]=1;c.opts=[{cod:c.ref,linha:c.marca||pfChegouLinha(c.ref),nosso:1}];
+    (cvIdx[k]||[]).forEach(function(cv){var kk=pfChegouNorm(cv.ref);if(!kk||vis[kk])return;vis[kk]=1;
+      c.opts.push({cod:String(cv.ref).trim(),linha:cv.linha||pfChegouLinha(cv.ref)});(porCod[kk]=porCod[kk]||[]).push(c);});});
   var todos=pcMontarDados(),agora=Date.now(),res={},porK={};todos.forEach(function(c){porK[c.k]=c;});
-  var add=function(cli,c,pri,mot){var r=res[cli.k]=res[cli.k]||{c:cli,itens:{},pri:9};var cur=r.itens[c._i];
-    if(!cur||pri<cur.pri)r.itens[c._i]={ch:c,pri:pri,mot:mot};if(pri<r.pri)r.pri=pri;};
+  var add=function(cli,c,pri,mot,codCli){var r=res[cli.k]=res[cli.k]||{c:cli,itens:{},pri:9};var cur=r.itens[c._i];
+    if(!cur||pri<cur.pri)r.itens[c._i]={ch:c,pri:pri,mot:mot,codCli:(cur&&cur.codCli)||codCli||''};else if(codCli&&!cur.codCli)cur.codCli=codCli;if(pri<r.pri)r.pri=pri;};
+  // código que o cliente usou pra essa peça: o que ele passou (codigoOriginal) ou o código da conversão que casou
+  var codDoCli=function(it,c){var co=it.codigoOriginal&&pfChegouNorm(it.codigoOriginal)!==pfChegouNorm(it.codigo)?it.codigoOriginal:'';
+    if(co)return co;return pfChegouNorm(it.codigo)!==pfChegouNorm(c.ref)?it.codigo:'';};
   var ma=[];try{ma=JSON.parse(localStorage.getItem('meAvise_lista')||'[]')||[];}catch(e){}
   ma.forEach(function(a){if(!a||!a.nome_cliente)return;var cs=porCod[pfChegouNorm(a.ref)];if(!cs)return;
     var k=pfCrmChaveDe(a.nome_cliente,a.cod_cliente?{codigo:a.cod_cliente}:null);if(!k)return;
@@ -58789,10 +58808,10 @@ function pfChegouCalc(dias,fv){
   todos.forEach(function(cli){
     (cli.cots||[]).forEach(function(q){if(q._pcFech)return;var t=new Date(q.data).getTime();if(!(t>=agora-90*86400000))return;
       var d=Math.max(0,Math.floor((agora-t)/86400000));
-      (q.itens||[]).forEach(function(it){var cs=porCod[pfChegouNorm(it.codigo)];if(cs)cs.forEach(function(c){add(cli,c,2,'cotou há '+d+' dia'+(d===1?'':'s')+' e não levou'+(q.num!=null?' (#'+q.num+')':''));});});});
+      (q.itens||[]).forEach(function(it){var cs=porCod[pfChegouNorm(it.codigo)]||(it.codigoOriginal&&porCod[pfChegouNorm(it.codigoOriginal)]);if(cs)cs.forEach(function(c){add(cli,c,2,'cotou há '+d+' dia'+(d===1?'':'s')+' e não levou'+(q.num!=null?' (#'+q.num+')':''),codDoCli(it,c));});});});
     var marcas={};
     (cli.peds||[]).forEach(function(p){var t=new Date(p.data).getTime();if(!(t>=agora-365*86400000))return;
-      (p.itens||[]).forEach(function(it){var cs=porCod[pfChegouNorm(it.codigo)];if(cs)cs.forEach(function(c){add(cli,c,3,'já comprou este código');});
+      (p.itens||[]).forEach(function(it){var cs=porCod[pfChegouNorm(it.codigo)]||(it.codigoOriginal&&porCod[pfChegouNorm(it.codigoOriginal)]);if(cs)cs.forEach(function(c){add(cli,c,3,'já comprou este código',codDoCli(it,c));});
         var m=pfMarcaNorm(it.marca);if(m)marcas[m]=(marcas[m]||0)+1;});});
     Object.keys(marcas).forEach(function(m){if(marcas[m]<2||!porMarca[m])return;porMarca[m].forEach(function(c){add(cli,c,4,'compra '+(c.marca||m));});});
   });
@@ -58809,13 +58828,33 @@ function pfChegouContato(cli){
   var nome='';cs.some(function(x){if(x.nome)nome=x.nome;return !!nome;});
   return {tel:tel,email:email,nome:nome};
 }
+// linhas que o cliente mais usa (pelos códigos que ele passa nas cotações e compra nos pedidos, 12 meses) -- GENÉRICO não conta
+function pfChegouLinhasCli(cli){
+  if(cli._lin)return cli._lin;var cnt={},lim=Date.now()-365*86400000;
+  var conta=function(it){var cod=it.codigoOriginal||it.codigo;if(!cod)return;var l=pfChegouLinha(cod);if(!l||l==='GENÉRICO')return;cnt[l]=(cnt[l]||0)+1;};
+  (cli.cots||[]).forEach(function(q){if(new Date(q.data).getTime()>=lim)(q.itens||[]).forEach(conta);});
+  (cli.peds||[]).forEach(function(p){if(new Date(p.data).getTime()>=lim)(p.itens||[]).forEach(conta);});
+  return cli._lin=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a];});
+}
+// código que vai na mensagem pra esse cliente: escolhido à mão > o que ele usou nessa peça > a linha que ele mais usa > o nosso
+function pfChegouCodPara(r,x){
+  var opts=x.ch.opts||[{cod:x.ch.ref,linha:x.ch.marca,nosso:1}],st=window._pfChegou||{},esc=st.conv&&st.conv[r.c.k+'|'+x.ch._i];
+  var acha=function(cod){var n=pfChegouNorm(cod);return opts.find(function(o){return pfChegouNorm(o.cod)===n;});};
+  if(esc){var o0=acha(esc);if(o0)return {o:o0,por:'mao'};}
+  if(opts.length<2)return {o:opts[0],por:''};
+  if(x.codCli){var o1=acha(x.codCli);if(o1)return {o:o1,por:'usou'};}
+  var lins=pfChegouLinhasCli(r.c);
+  for(var i=0;i<lins.length;i++){var o2=opts.find(function(o){return o.linha&&pfMarcaNorm(o.linha)===pfMarcaNorm(lins[i]);});if(o2)return {o:o2,por:'linha'};}
+  return {o:opts[0],por:''};
+}
+function pfChegouConvSet(k,i,cod){var st=window._pfChegou;if(!st)return;st.conv=st.conv||{};st.conv[k+'|'+i]=cod;delete st.txt[k];pfChegouRender();}
 function pfChegouMsg(r){
   var ct=pfChegouContato(r.c),nome=String(ct.nome||'').trim().split(/\s+/)[0]||'';
   if(nome)nome=nome.charAt(0).toUpperCase()+nome.slice(1).toLowerCase();
   var sel=r.lista.filter(function(x){return r.desm?!r.desm[x.ch._i]:true;});if(!sel.length)sel=r.lista;
   var ag=sel.filter(function(x){return x.pri===1;}).length;
   var intro=ag===sel.length?'chegaram as peças que você estava esperando':(ag?'chegou o que você estava esperando e mais algumas peças da sua linha':'chegaram no nosso estoque peças que podem te interessar');
-  return 'Olá'+(nome?', '+nome:'')+'! Boa notícia: '+intro+':\n'+sel.map(function(x){return '• '+String(x.ch.desc||'').trim()+(x.ch.desc?' — ':'')+x.ch.ref+(x.ch.marca?' ('+x.ch.marca+')':'');}).join('\n')+'\n\nQuer que eu já separe? 🙂';
+  return 'Olá'+(nome?', '+nome:'')+'! Boa notícia: '+intro+':\n'+sel.map(function(x){var o=pfChegouCodPara(r,x).o;return '• '+String(x.ch.desc||'').trim()+(x.ch.desc?' — ':'')+o.cod+(o.linha?' ('+o.linha+')':'');}).join('\n')+'\n\nQuer que eu já separe? 🙂';
 }
 function pfChegouFvPadrao(){var pg=(typeof pfVR2PodeGeral==='function')&&pfVR2PodeGeral(),eu=(typeof pfVR2MeuEmail==='function'&&pfVR2MeuEmail())||'';return pg?'':eu;}
 function pfChegouAbrir(dias,fv){
@@ -58850,7 +58889,14 @@ function pfChegouRender(){
       '<b onclick="pfCrmAbrir(\''+kj+'\')" title="Abrir a ficha do cliente" style="font-size:14px;flex:1;cursor:pointer;color:#1a2332">'+pfEscHtml(r.c.nome||'')+'</b>'+envTxt+mot(r.pri)+'</div>'+
       r.lista.map(function(x){var off=r.desm&&r.desm[x.ch._i];return '<div style="font-size:12.5px;padding:3px 0 3px 24px;color:'+(off?'#9aa7b6':'#33445a')+';display:flex;gap:6px;align-items:baseline">'+
         (on?'<input type="checkbox" '+(off?'':'checked')+' title="Incluir esta peça na mensagem" onchange="pfChegouItem(\''+kj+'\','+x.ch._i+',this.checked)" style="width:13px;height:13px;margin:0">':'✔')+
-        '<span style="'+(off?'text-decoration:line-through':'')+'"><b>'+pfEscHtml(x.ch.ref)+'</b> '+pfEscHtml(x.ch.desc||'')+(x.ch.marca?' ('+pfEscHtml(x.ch.marca)+')':'')+' — <i>'+pfEscHtml(x.mot)+'</i></span></div>';}).join('')+
+        '<span style="'+(off?'text-decoration:line-through':'')+'"><b>'+pfEscHtml(x.ch.ref)+'</b> '+pfEscHtml(x.ch.desc||'')+(x.ch.marca?' ('+pfEscHtml(x.ch.marca)+')':'')+' — <i>'+pfEscHtml(x.mot)+'</i></span>'+
+        // v115.2224 - peça com conversão: escolhe o código (linha) que vai pro cliente
+        (on&&!off&&(x.ch.opts||[]).length>1?(function(){var cp=pfChegouCodPara(r,x);
+          return '<span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;white-space:nowrap">'+
+            (cp.por==='usou'?'<span title="É o código que esse cliente usou nessa peça" style="font-size:10.5px;color:#1e6b3a;font-weight:700">o que ele usa</span>':cp.por==='linha'?'<span title="Linha que esse cliente mais usa nas cotações e pedidos" style="font-size:10.5px;color:#1F4E79;font-weight:700">linha dele</span>':'')+
+            '<select title="Código que vai na mensagem pra esse cliente" onchange="pfChegouConvSet(\''+kj+'\','+x.ch._i+',this.value)" style="font-size:11.5px;padding:2px 4px;border:1px solid #c9d6e8;border-radius:6px;max-width:220px">'+
+            x.ch.opts.map(function(o){return '<option value="'+pfEscHtml(o.cod)+'"'+(o===cp.o?' selected':'')+'>'+pfEscHtml(o.cod)+(o.linha?' · '+pfEscHtml(o.linha):'')+(o.nosso?' (nosso)':'')+'</option>';}).join('')+'</select></span>';})():'')+
+        '</div>';}).join('')+
       (on?'<textarea data-pf-no-drag oninput="window._pfChegou.txt[\''+kj+'\']=this.value" style="width:100%;box-sizing:border-box;margin-top:8px;min-height:'+(70+16*Math.min(8,r.lista.length))+'px;background:#E6F7EC;border:1px solid #bfe6cc;border-radius:10px;padding:9px 11px;font-family:inherit;font-size:12.5px;line-height:1.45;color:#1d3b2a;resize:vertical">'+pfEscHtml(txt)+'</textarea>'+
         '<div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;margin-top:8px;flex-wrap:wrap"><span style="font-size:11px;color:#8a9ab0;margin-right:auto">'+(ct.tel?'📱 '+pfEscHtml(ct.tel):'sem telefone no cadastro')+(ct.email?' · ✉️ '+pfEscHtml(ct.email):'')+'</span>'+
         btn('📋 Copiar','#5b6b80','pfChegouEnviar(\''+kj+'\',\'copiar\')')+(ct.email?btn('✉️ E-mail','#1F4E79','pfChegouEnviar(\''+kj+'\',\'email\')'):'')+btn('💬 WhatsApp','#1fa855','pfChegouEnviar(\''+kj+'\',\'whats\')',ct.tel?'':'Sem telefone no cadastro: o WhatsApp abre pra você escolher o contato')+'</div>':'')+
@@ -58874,7 +58920,7 @@ function pfChegouEnviar(k,canal){
   var st=window._pfChegou;if(!st||!st._R)return;var r=st._R.clis.find(function(x){return x.c.k===k;});if(!r)return;
   r.desm=st.desm[k]||null;
   var txt=st.txt[k]!=null?st.txt[k]:pfChegouMsg(r),ct=pfChegouContato(r.c);
-  var refs=r.lista.filter(function(x){return !(r.desm&&r.desm[x.ch._i]);}).map(function(x){return x.ch.ref;});
+  var refs=r.lista.filter(function(x){return !(r.desm&&r.desm[x.ch._i]);}).map(function(x){var o=pfChegouCodPara(r,x).o;return o.nosso?x.ch.ref:x.ch.ref+'→'+o.cod;});
   if(canal==='copiar'){try{navigator.clipboard.writeText(txt);}catch(e){}if(typeof pfToast==='function')pfToast('📋 Mensagem copiada');return;}
   if(canal==='email')window.location.href='mailto:'+encodeURIComponent(ct.email||'')+'?subject='+encodeURIComponent('Chegou no estoque')+'&body='+encodeURIComponent(txt);
   else pfWhatsAbrir(ct.tel,txt);

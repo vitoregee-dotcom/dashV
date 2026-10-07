@@ -362,6 +362,9 @@
   drawImage acima). Automático pela concessionária (`pfOrbSatAuto`: CASE→case, CASE IH, CAT, MF, VAL, PERKINS) ou à mão no botão direito
   (`pfOrbSatMenuHtml`, `pfOrbMarcas.por[k].sat` = id | 'nenhum'). `PF_ORB_SAT_LIGADO` desliga tudo. Marca nova = imagem + linha no PF_ORB_SAT.
   Prévias em `docs/referencias/orbita-satelites/`.
+- v115.2237 ("tá lento no MacBook"): os loops da órbita (2D `pfOrbDesenhar` e 3D `pfOrb3DQuadro`) desenhavam em todo quadro (120/s em tela
+  ProMotion, Retina) — agora no máximo ~30/s (`st.ultDes`) e param quando a órbita sai da tela rolando (`st.foraTela`, conferido a cada 0,5 s).
+  Obs.: no modo monitor 🖥️ (iframe 1920×1080 com `transform: scale`) o Mac pesa mais — tudo é redesenhado encolhido.
 - v115.2148: balão do cliente dá pra alcançar com o mouse (`pfOrbTipEsconder` some só ~0,35 s depois; `pfOrbTipDentro` segura;
   clique = ficha `pfOrbTipClique`; `pfOrbTipPosicionar` mantém dentro do quadro). No 3D, mouse no balão = ele para de seguir o planeta.
 

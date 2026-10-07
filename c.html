@@ -179,15 +179,15 @@ function tocar(n){
 function mais(k,d){SEL[k]=Math.max(0,(SEL[k]||0)+d);if(!SEL[k])delete SEL[k];salvaSel();if(document.getElementById('pedOv'))pedido();else catalogo();}
 function itemDe(k){var p=k.split(':'),g=C.grupos.find(function(x){return x.id===p[0];}),it=g&&(g.itens||[]).find(function(x){return String(x[0])===p[1];});return g&&it?{g:g,it:it}:null;}
 function pedido(){
-  var old=document.getElementById('pedOv');var c=lsGet('pfc_contato')||{};
+  var old=document.getElementById('pedOv');
   var ks=Object.keys(SEL);
   if(!ks.length){if(old)old.remove();catalogo();return;}
   var linhas=ks.map(function(k){var x=itemDe(k);if(!x)return '';return '<div class="lin"><span class="d">'+esc(x.it[2])+'<small>'+esc(x.g.nome)+' · nº '+esc(x.it[1])+'</small></span>'+
     '<span class="qt"><button onclick="mais(\''+k+'\',-1)">−</button><span>'+SEL[k]+'</span><button onclick="mais(\''+k+'\',1)">+</button></span></div>';}).join('');
   var h='<div class="sheet"><div style="display:flex;align-items:center"><b style="flex:1;font-size:16px">🧾 Seu pedido de cotação</b><button class="chip" onclick="document.getElementById(\'pedOv\').remove();catalogo()">✕</button></div>'+
     '<div class="sub" style="margin-top:2px">🚜 '+esc([MAQ.marca,MAQ.modelo,MAQ.ano].join(' '))+'</div>'+linhas+
-    '<label class="l">Seu nome / empresa</label><input class="i" id="pNome" value="'+esc(c.nome||'')+'" autocomplete="name">'+
-    '<label class="l">Telefone / WhatsApp</label><input class="i" id="pTel" value="'+esc(c.tel||'')+'" inputmode="tel" autocomplete="tel">'+
+    // v115.2231 - A pedido do Vitor: SEM nome e telefone -- o link pode ser repassado pro cliente do cliente, e o pedido chega
+    // pelo cliente que mandou o link (não dá pra "atravessar" falando direto com quem está na ponta).
     '<label class="l">Observação (opcional)</label><textarea class="i" id="pObs" rows="2" placeholder="nº de série, urgência…"></textarea>'+
     '<button class="btn b2" id="pBtn" style="width:100%;margin-top:14px" onclick="pedidoEnviar()">Pedir cotação</button><div class="msg" id="pMsg"></div></div>';
   if(old){old.innerHTML=h;return;}
@@ -195,17 +195,15 @@ function pedido(){
 }
 async function pedidoEnviar(){
   var btn=document.getElementById('pBtn'),msg=document.getElementById('pMsg');
-  var nome=document.getElementById('pNome').value.trim(),tel=document.getElementById('pTel').value.trim(),obs=document.getElementById('pObs').value.trim();
-  if(!nome&&!tel){msg.style.color='#b45309';msg.textContent='Informe seu nome ou telefone pra gente te mandar a cotação.';return;}
-  lsSet('pfc_contato',{nome:nome,tel:tel});
+  var obs=document.getElementById('pObs').value.trim();
   var itens=Object.keys(SEL).map(function(k){var x=itemDe(k);return x?{g:x.g.id,i:x.it[0],q:SEL[k],n:x.it[1],d:x.it[2],gn:x.g.nome}:null;}).filter(Boolean);
   btn.disabled=true;btn.textContent='Enviando…';
   try{
-    await enviar({tipo:'pedido',maqMarca:MAQ.marca,maqModelo:MAQ.modelo,maqAno:MAQ.ano,contato:[nome,tel].filter(Boolean).join(' · '),obs:obs,itens:itens});
+    await enviar({tipo:'pedido',maqMarca:MAQ.marca,maqModelo:MAQ.modelo,maqAno:MAQ.ano,contato:'',obs:obs,itens:itens});
     SEL={};salvaSel();var b=document.getElementById('bar');if(b)b.remove();
     document.getElementById('pedOv').remove();
     document.getElementById('app').innerHTML='<div class="card" style="text-align:center;margin-top:50px"><div style="font-size:42px">✅</div><b style="font-size:17px">Pedido enviado!</b>'+
-      '<div class="sub" style="margin-top:6px">Em breve você recebe a cotação.</div><button class="btn b3" style="margin-top:18px" onclick="catalogo()">Ver o catálogo de novo</button></div>';
+      '<div class="sub" style="margin-top:6px">Em breve a cotação chega pra quem te mandou este catálogo.</div><button class="btn b3" style="margin-top:18px" onclick="catalogo()">Ver o catálogo de novo</button></div>';
   }catch(e){btn.disabled=false;btn.textContent='Pedir cotação';msg.style.color='#b91c1c';msg.textContent='Não consegui enviar ('+e.message+'). Confira a internet e tente de novo.';}
 }
 iniciar();

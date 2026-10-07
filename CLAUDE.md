@@ -173,6 +173,7 @@
   põe no card do Alt+B as mesmas etiquetas da cotação (📦 kit com N peças / 🧰 vem no JG …) → `pfAlimKitVer` (agora z 100005,
   por cima do card).
   v115.2226: a lista do kit fecha no Esc (só ela; o card do Alt+B fica) e tem o ✕ padrão (`pfXGlossyHtml`).
+  v115.2227: a caixinha de busca do Alt+B (`pfItemCardBuscaAbrir`) ficou maior (400 px) com letra maior (campo 17 px, ajuda 13,5 px).
 - **Aplicações — Modelos & Séries** (v115.2162) saiu de Cadastros (aba escondida) e abre pela Área Técnica (`atAplicAbrir`,
   desenha em `#atAplicBody`, flag `window._aplicNaAT`). Funções da tela pegam o container por `cadAplicEl()` e
   `cadGoTab('aplicacoes')` redesenha lá; `atAplicAjustar` faz Importar Catálogo/prévia irem pra Cadastros (assistente mora lá).

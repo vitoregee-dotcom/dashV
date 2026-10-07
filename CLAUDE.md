@@ -79,6 +79,10 @@
   arquivos que faltam; `pfInatCopiarFalta`). **Todo envio por WhatsApp passa por `pfWhatsAbrir(tel,texto)`**: computador =
   WhatsApp Web numa aba nomeada `pfWhatsWeb` (reaproveitada, não abre guia nova) ou `whatsapp://` (app instalado), escolha
   `pf_whats_modo` (`pfWhatsModoSelectHtml`); celular/iPad = wa.me. Envio novo pelo WhatsApp: usar esse helper.
+- v115.2230 BUG "🧾 Preencher atalho com ficha do cliente" (`ferrAtalhosTextoAbrirPreencher`): Ctrl+V de IMAGEM na janela sempre lia
+  como FICHA NOVA e apagava o preenchimento. Agora, com resultado na tela, imagem colada = resposta do cliente
+  (`ferrAtalhosTextoPreencherRespostaArquivo`: IA completa só o que falta; botões padrão Colar print/Carregar arquivo na caixa
+  de resposta); ficha nova por cima pede confirmação; `ferrPreencherMostrarResultado` mantém os dados do pedido de crédito.
 
 ## Área Técnica (Componentes Cardan, `componentes_cardan_v1`)
 - Famílias em `CC_FAMILIAS` (+ `CC_NOME_SINGULAR`); item = `{codigo, linha, descricao, veiculos[], montaCom[], conversoes[],

@@ -92,6 +92,7 @@
   `ccColarDesenho` (limpeza `pfDesenhoLimparCanvas`: tira cinza claro GROSSO = marca d'água, mantém linha fina = cota; borracha),
   miniatura no card `ccDesenhoMiniHtml`, ampliar com zoom `ccDesenhoVer`, "🤖 Ler medidas com IA" opcional `ccDesenhoLerMedidasIA`
   (preenche os campos da família, que entram na busca por medidas). Irmãos (substitui/similar) compartilham via `pfDesenhoDe`.
+  v115.2229 BUG: o logo PartsFlow clarinho atrás do desenho (`PF_DES_LOGO_BG`) cortava o "w" → viewBox 350 + `textLength` fixo.
 - 3D montado pelas medidas (v115.2116, sem IA): `ccPeca3DMedidas`/`ccPeca3DAbrir` (three.js r128 via `pfMapaComercial3DGarantirLib`),
   por enquanto só `ponteiras` (E,C,F,B,A,D,numDentes; o que faltar vira proporção e avisa); cotas em canvas por cima, 📷 baixa PNG.
   **Só aparece no card com `item.modelo3d`** (v115.2118): o Vitor marca pelo "🧊 Montar 3D" no desenho ampliado (`ccPeca3DMarcar`); logo PF no canto.

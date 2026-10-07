@@ -146,6 +146,12 @@
 - v115.2205 BUG busca geral: buscando um CÓDIGO (1 palavra com número e traço/ponto/letra+número, ex.: 5-263X), aplicação que só CITA o
   código ("AGRALE APLIC. CRUZETA 5-263X/…" — LNG) saía em "🚚 Veículo"; agora vai pro "🔗 Monta com" (`apl2mc` no `ccBuscaGeralExecutar`).
 
+- v115.2228 **detalhes na busca geral** (Vitor: "opção de exibir detalhes, ex. número de estrias/dentes"; escolheu B + C da prévia
+  `docs/referencias/busca-detalhes/`, "mostrando monta com" e "eu escolher o que quero ver"): selo amarelo "⚙ N dentes" sempre nas linhas
+  (`ccBgSeloDentesHtml`) + botão "📐 Detalhes" (`ccBgDetAlternar`, localStorage `pf_cc_bg_det`) que vira TABELA (`ccBgDetTabela`) com
+  caixinhas "MOSTRAR" (`ccBgDetCaixasHtml`, `pf_cc_bg_cols`; padrão foto, descrição, monta com, dentes): Foto/Descrição/Monta com/
+  Aplicação (`CC_BG_EXTRAS`) + medidas das famílias que apareceram (`ccBgColsDisp`, coluna = NOME da medida sem a letra; "Dentes /
+  estrias" junta via `ccCampoEstrias`). Valor = 1º preenchido do grupo, Spicer primeiro (`ccBgValor`; "·" = a família não tem a medida).
 - v115.2210 BUG "➕ Cadastrar item"/"📋 Colar print de aplicação": o pedido à IA não tinha "monta_com" (ela punha "MONTA COM
   2045005 / C020 / 52MM" DENTRO da aplicação) e as estrias ficavam só nas especificações. Agora: `monta_com` no JSON das duas
   leituras + `ccMontaComDaIA(j)` (junta e TIRA de dentro das aplicações; `ccMontaComDoTexto` separa por "/" e larga medida

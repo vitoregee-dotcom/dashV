@@ -57,6 +57,8 @@
   passar "direto" sem chave).
 - Chaves do IndexedDB (`PF_IDB_KEYS`) não são comprimidas (a compressão LZString na thread principal travava 20s).
 - Diagnóstico de lentidão real: tabela `user_sync`, chave `perf_diagnostico_v1` (Supabase).
+  v115.2238: além de longtask/gap, grava `quadro_lento` (API long-animation-frame, quadros ≥120 ms, máx 1/2 s): `scripts[]` com
+  fn (função), inv (quem chamou: clique/timer/observer), pos (posição no index.html daquela versão) e layout (ms de layout forçado).
 
 ## Cor dos ícones da barra (v115.2120)
 - `pfIconeCor` {geral, por{atalhoId}} (compartilhada); Tema → 🎨 Cor dos ícones da barra e ⋮ → 🎨 Cor deste ícone.

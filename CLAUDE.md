@@ -221,6 +221,10 @@
 - v115.2235 ("salva aquele PDF... mandar direto pro cliente, direto do PF"): `data/lubrificantes-carraro.pdf` (gerado do `tabela.html`, sem nada
   interno, com a regra prática) + botões 📄 PDF da tabela / 📋 Copiar link / 💬 Mandar pro cliente (`pfLubMandar(fichaId?)` → `pfWhatsAbrir` com os
   óleos da máquina por parte + link do PDF). Mudou a tabela → regerar o PDF (Playwright `page.pdf` do tabela.html).
+- v115.2236 BUG ("TLB1 4WD" não achava nada — não está na Ficha Técnica nem tinha catálogo carregado): `PF_LUB_CONHECIDOS` = componentes pelo
+  NOME (Carraro TLB/refs 426045 e 371186, ZF WG/Ergopower, Dana/Clark HR/TE/R32000, power shuttle/powershift/conversor → Universal 80W;
+  hidrostática → fora; eixo Carraro NN.NN / ZF MT-L / Dana 16D/19D/21D → Universal com freio, 80W-90 sem) — `pfLubConhecido`, entra quando
+  nenhum catálogo bate. Obs.: `pfLubN` troca pontuação por espaço (20.22 = "20 22") — regex precisa aceitar espaço.
 
 ## Catálogos de peças em PDF
 - **Guia Perkins** (v115.2114): `PF_GUIA_PERKINS` (grupo inglês x componentes, tabela MD Power pág. 68/69) + linhas extras

@@ -218,6 +218,9 @@
   Regra de ouro: freio/embreagem em banho de óleo → Universal 80W; sem → 80W-90; motor → 15W-40 TurboLub. Desenho das embalagens: o Vitor NÃO quis.
 - "💡 Ofereça também": `pfLubOfertaProds(regra, cotação)` põe o óleo Carraro na frente (eixo com freio/fricção na cotação → Universal, senão
   80W-90/85W-140; transmissão → Universal; reforma de motor → 15W-40 TurboLub; só se o código estiver no cadastro). Alt+B: `pfLubCardHtml`.
+- v115.2235 ("salva aquele PDF... mandar direto pro cliente, direto do PF"): `data/lubrificantes-carraro.pdf` (gerado do `tabela.html`, sem nada
+  interno, com a regra prática) + botões 📄 PDF da tabela / 📋 Copiar link / 💬 Mandar pro cliente (`pfLubMandar(fichaId?)` → `pfWhatsAbrir` com os
+  óleos da máquina por parte + link do PDF). Mudou a tabela → regerar o PDF (Playwright `page.pdf` do tabela.html).
 
 ## Catálogos de peças em PDF
 - **Guia Perkins** (v115.2114): `PF_GUIA_PERKINS` (grupo inglês x componentes, tabela MD Power pág. 68/69) + linhas extras

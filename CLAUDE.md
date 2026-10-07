@@ -285,6 +285,12 @@
   (marcas da Triex que ele também distribui = **parceiro 🤝**, usado na 🚨 emergência da cotação), `margemPropria`, `estrategia`.
   Helpers `pfRevInfo`, `pfRevMargemDoCliente`, `pfRevFaixaCotacaoHtml`, bloco do cadastro `cadRevBlocoHtml`/`cadRevColetar`.
 - Margem por perfil: `pfVendasMargemPerfis` (compartilhada; Assistente de Vendas → Geral). Ordem: regra do Assistente > margem própria > perfil > geral.
+- v115.2233 **preço da cotação = conta da Calculadora de Margem** (Vitor: "a margem tem que ser de acordo com o custo do item... o
+  cálculo do card de margem... manda bala"): `vendasCalcVenda` chama `calcMargemLiq` (crédito ICMS da compra pelo fornecedor
+  `PF_VENDAS_FORN_UF`='SP' 18%, PIS/COFINS sobre o valor cheio, ICMS de venda pela UF do cliente, DIFAL se o cadastro é consumo);
+  margem padrão 21% (30% gravado vira 21% 1x, flag `pfMargemPadrao21`). Conta antiga em `vendasCalcVendaAntiga` (sem uso).
+  Custo 100, SP, 21% = R$ 140,58 (igual ao card). PENDENTE: o Vitor quer margem POR PRODUTO / faixa de custo + margem fixa só em
+  alguns clientes — esperando ele mandar a lista de faixas.
 - Órbita: filtro `window._pfOrbRev` e marcação da concessionária escolhível (`pfOrbConcEstilo`: C anel / B selo / D sigla).
 
 ## Órbita 3D (v115.2127)
@@ -608,6 +614,10 @@
 - Pendências (doc "PartsFlow — Segurança e manutenção"): trocar a chave da Anthropic; desligar signup público e ligar
   proteção de senha vazada no painel; rever login externo (Encopel, role `ferr_margem`); `cached_credentials` guarda
   `btoa(senha)` no navegador (login offline) — trocar; levar a chave da IA pra Edge Function.
+
+## Liberar Espaço (Ferramentas, só dono)
+- v115.2233: "Selecionar todos" (`ferrLiberarMarcarTodos`) + soma do marcado (`ferrLiberarSoma`); a chave do LOGIN (`sb-…-auth-token`,
+  selo 🔒 LOGIN) fica fora do "todos" e o confirmar avisa se ela estiver marcada.
 
 ## Notícias do setor / banners de marca (v115.2133)
 - Robô `noticias-scraper` (Edge Function, v5): lê a home da Revista M&T CARD POR CARD (bloco de um `DataNota` até o próximo);

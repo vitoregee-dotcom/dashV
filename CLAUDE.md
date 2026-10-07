@@ -323,6 +323,16 @@
 - Próximas fases (decidir com o Vitor): WhatsApp API oficial (Meta) com conversa dentro da ficha; caixa de e-mail ligada
   (Microsoft 365 ou Google); IA resumindo a conversa; pesquisas com o cliente (ver pedido de 06/10).
 
+## 📣 Chegou — oferecer pros clientes (v115.2223; opção B da prévia `docs/referencias/chegou-oferecer/`)
+- `pfChegouAbrir(dias,fv)` / `pfChegouRender`: janela (z 99990) com UMA mensagem por cliente com tudo o que chegou da linha dele.
+  `pfChegouCalc(dias,fv)` cruza `pfChegadasEventos` (3/7/15 dias, sem repetir código+marca) com `pcMontarDados`: prioridade 1 ⏳
+  aguardando (`meAvise_lista` com `nome_cliente` → `pfCrmChaveDe`), 2 📄 cotou e não levou (90 dias, `_pcFech` falso), 3 🔁 já comprou o
+  código (pedidos 12 meses), 4 🏷️ compra a marca (2+ itens da marca em 12 meses; vem DESMARCADO). Contato `pfChegouContato` (wa do
+  Avise-me > contatos do cadastro); texto `pfChegouMsg` (editável; dá pra tirar peça da mensagem, `pfChegouItem`).
+- Envio `pfChegouEnviar(k, whats|email|copiar)` → `pfWhatsAbrir`/mailto + `pfCrmAdd({origem:'chegou', refs})` (mostra "✔ enviado");
+  rodapé "💬 Próximo: cliente (n de N)" manda um por um. Filtro Minha carteira / Todos (gestor). Entradas: botão no painel do sino
+  "Chegaram recentemente" e faixa verde no ☀️ Meu dia (`pfChegouFaixaHtml(fv)`, últimos 3 dias).
+
 ## 📋 Pesquisas com clientes (v115.2211; prévias em `docs/referencias/pesquisas/`)
 - Vendas → aba **📋 Pesquisas** (`pfPesqRender`): 📊 Resultados (NPS da pergunta `nps`, média/distribuição de notas e estrelas,
   barras das escolhas, comentários, ⚠️ insatisfeitos ≤6, 🍀 sorteio `pfPesqSortear` gravado em `pfPesquisas_v1.sorteios`),

@@ -1940,7 +1940,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2229</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2230</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2094,7 +2094,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2229</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2230</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -65968,7 +65968,12 @@ window.ferrAtalhosTextoAbrirPreencher=function(id){
     for(var i=0;i<items.length;i++){
       if(items[i].type&&items[i].type.startsWith('image/')){
         var blob=items[i].getAsFile();
-        if(blob)ferrAtalhosTextoPreencherAnalisar(id,new File([blob],'print.png',{type:blob.type}));
+        // v115.2230 - A pedido do Vitor ("colei a resposta do cliente aqui, um print, mas atropelou o que eu tinha mandado
+        // antes"): com o preenchimento já feito, o print colado é a RESPOSTA do cliente (completa o que falta) -- antes
+        // qualquer imagem colada na janela era lida como ficha NOVA e apagava tudo.
+        e.preventDefault();
+        if(blob){var f=new File([blob],'print.png',{type:blob.type});
+          if(document.getElementById('ferrPreencherTexto'))ferrAtalhosTextoPreencherRespostaArquivo(f);else ferrAtalhosTextoPreencherAnalisar(id,f);}
         return;
       }
     }
@@ -65990,8 +65995,12 @@ window.ferrAtalhosTextoPreencherColarPrint=function(id){
     pfAlert('Não consegui acessar a área de transferência. Tenta usar "Escolher arquivo" em vez disso, ou dá Ctrl+V direto nessa janela.');
   });
 };
-window.ferrAtalhosTextoPreencherAnalisar=async function(id,file){
+window.ferrAtalhosTextoPreencherAnalisar=async function(id,file,jaConfirmou){
   if(!file)return;
+  if(!jaConfirmou&&document.getElementById('ferrPreencherTexto')){ // v115.2230 - não apagar o preenchimento sem perguntar
+    pfConfirm('Ler uma ficha NOVA apaga o que já está preenchido. Se é a resposta do cliente, use o campo "Colar resposta do cliente". Ler como ficha nova mesmo assim?',function(){ferrAtalhosTextoPreencherAnalisar(id,file,true);},'Ler ficha nova');
+    return;
+  }
   var lista=pfAtalhosTextoLoad();
   var at=lista.find(function(a){return a.id===id;});
   if(!at)return;
@@ -66057,9 +66066,65 @@ function ferrPreencherRespostaHtml(){
   return '<div style="margin-top:14px;padding:10px 12px;background:#EEF6FF;border-radius:8px;border:1px solid #cfe2f7">'+
     '<div style="font-size:12px;font-weight:700;color:#1F4E79;margin-bottom:6px">📩 Colar resposta do cliente aqui:</div>'+
     '<textarea id="ferrPreencherResposta" placeholder="Cola aqui o que o cliente respondeu (WhatsApp, e-mail, etc)" style="width:100%;min-height:80px;padding:8px;border:1px solid #cfe2f7;border-radius:6px;font-family:inherit;font-size:12px;box-sizing:border-box"></textarea>'+
+    // v115.2230 - resposta em print/foto/PDF também (botões padrão; Ctrl+V de imagem na janela cai aqui)
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px"><span style="font-size:11.5px;color:#607080">Resposta veio em print ou arquivo?</span>'+
+      pfBtnColarPrintHtml(32,"ferrAtalhosTextoPreencherRespostaColar()")+pfBtnCarregarArquivoHtml(32,'ferrPreencherRespArq','image/*,.pdf','if(this.files[0])ferrAtalhosTextoPreencherRespostaArquivo(this.files[0])')+'</div>'+
     '<button onclick="ferrAtalhosTextoPreencherComResposta()" style="margin-top:6px;padding:7px 14px;border-radius:6px;background:#1F4E79;color:#fff;border:none;cursor:pointer;font-weight:700;font-size:12px">🔄 Preencher com essa resposta</button>'+
     '<div id="ferrPreencherRespostaStatus" style="font-size:11px;color:#607080;margin-top:4px"></div>'+
   '</div>';
+}
+// v115.2230 - resposta do cliente em imagem/PDF: mesmo merge do texto (mantém o que já estava preenchido)
+window.ferrAtalhosTextoPreencherRespostaColar=function(){
+  navigator.clipboard.read().then(function(itens){
+    for(var i=0;i<itens.length;i++){var tipo=itens[i].types.find(function(t){return t.startsWith('image/');});
+      if(tipo){itens[i].getType(tipo).then(function(blob){ferrAtalhosTextoPreencherRespostaArquivo(new File([blob],'print.png',{type:blob.type}));});return;}}
+    pfAlert('Sem imagem na área de transferência. Copie o print da resposta e tente de novo (ou Ctrl+V na janela).');
+  }).catch(function(){pfAlert('Não consegui acessar a área de transferência. Dê Ctrl+V direto na janela ou use "Carregar arquivo".');});
+};
+window.ferrAtalhosTextoPreencherRespostaArquivo=async function(file){
+  if(!file)return;
+  var taAtual=document.getElementById('ferrPreencherTexto');
+  if(!taAtual){pfAlert('Primeiro leia a ficha do cliente (o print de cima); depois cole a resposta aqui.');return;}
+  var statusResp=document.getElementById('ferrPreencherRespostaStatus');
+  if(statusResp)statusResp.textContent='🤖 Lendo a resposta do cliente (imagem) e completando...';
+  try{
+    var prompt='O texto abaixo é um script/modelo já parcialmente preenchido, com alguns campos ainda em branco (rótulo seguido de dois-pontos sem informação depois, ou opções entre parênteses sem X marcado). '+
+      'A IMAGEM/DOCUMENTO ANEXO é a resposta que o cliente mandou com as informações que faltavam (print de WhatsApp, e-mail, foto etc.). '+
+      'Preencha SÓ os campos que ainda estavam em branco usando a informação da resposta, mantendo tudo que já estava preenchido exatamente como está, e mantendo a mesma formatação/pontuação/emojis/quebras de linha do script. '+
+      'Todo campo de telefone/celular/whatsapp/fixo sempre como DDD-número, só dígitos, sem parênteses/espaço/traço. Nunca invente dado. '+
+      'Se ainda faltar alguma informação, deixe em branco e liste em "faltando". '+
+      'SCRIPT ATUAL (parcialmente preenchido):\n\n'+taAtual.value+
+      '\n\nRetorne SOMENTE um JSON, sem markdown, sem texto antes ou depois, no formato exato: {"preenchido":"<script inteiro atualizado>","faltando":["<campo que ainda falta, se houver>"]}';
+    var txt=await _anthropicReadDoc(file,prompt,'Preencher atalho com resposta do cliente (imagem)');
+    var obj=JSON.parse(txt.replace(/^```json\s*|```\s*$/g,'').trim());
+    ferrPreencherMostrarResultado(obj);
+  }catch(e){if(statusResp)statusResp.innerHTML='<span style="color:#C00000">Erro: '+pfEscHtml(e.message)+'</span>';}
+};
+function ferrPreencherMostrarResultado(obj){
+  var resp=document.getElementById('ferrPreencherResposta'),respAntes=resp?resp.value:'';
+  window._ferrPreencherFaltando=obj.faltando||[];
+  var faltandoHtml2=(obj.faltando&&obj.faltando.length)?
+    '<div style="margin-top:12px;padding:10px 12px;background:#FFF4E5;border-radius:8px;border:1px solid #ffe0b2">'+
+      '<div style="font-size:12px;font-weight:700;color:#8a5a00;margin-bottom:4px">⚠️ Peça essas informações pro cliente:</div>'+
+      '<ul style="margin:0;padding-left:18px;font-size:12px;color:#8a5a00">'+obj.faltando.map(function(f){return '<li>'+pfEscHtml(f)+'</li>';}).join('')+'</ul>'+
+      '<button onclick="ferrAtalhosTextoPreencherCopiarFaltando(this)" style="margin-top:8px;padding:6px 12px;border-radius:6px;background:#8a5a00;color:#fff;border:none;cursor:pointer;font-weight:700;font-size:11px">📋 Copiar mensagem pro cliente</button>'+
+    '</div>'
+    : '<div style="margin-top:12px;font-size:12px;color:#2e7d32">✅ Nenhum campo faltando.</div>';
+  var cred=window._ferrCred||{},g=function(i){var e=document.getElementById(i);return e?e.value:'';};
+  cred.cot=g('ferrCredCot')||cred.cot;cred.valor=g('ferrCredValor')||cred.valor;cred.cond=g('ferrCredCond')||cred.cond;window._ferrCred=cred;
+  var resultado2=document.getElementById('ferrPreencherResultado');
+  if(resultado2)resultado2.innerHTML=
+    '<textarea id="ferrPreencherTexto" readonly style="width:100%;min-height:220px;padding:10px;border:1px solid #e0e8f0;border-radius:8px;font-family:inherit;font-size:12px;box-sizing:border-box;margin-top:12px">'+pfEscHtml(obj.preenchido||'')+'</textarea>'+
+    ferrPreencherCreditoHtml()+
+    '<button onclick="ferrAtalhosTextoPreencherCopiar(this)" style="margin-top:8px;padding:8px 16px;border-radius:6px;background:#1F4E79;color:#fff;border:none;cursor:pointer;font-weight:700;font-size:12px">📋 Copiar texto preenchido</button>'+
+    faltandoHtml2+
+    ferrPreencherRespostaHtml();
+  // os dados do pedido de crédito (nº cotação, valor, condição) voltam pros campos
+  var e1=document.getElementById('ferrCredCot'),e2=document.getElementById('ferrCredValor'),e3=document.getElementById('ferrCredCond');
+  if(e1&&cred.cot)e1.value=cred.cot;if(e2&&cred.valor)e2.value=cred.valor;if(e3&&cred.cond)e3.value=cred.cond;
+  var r2=document.getElementById('ferrPreencherResposta');if(r2&&respAntes)r2.value=respAntes;
+  var st=document.getElementById('ferrPreencherRespostaStatus');if(st)st.innerHTML='<span style="color:#2e7d32">✅ Atualizado com a resposta do cliente.</span>';
+  var status=document.getElementById('ferrPreencherStatus');if(status)status.innerHTML='';
 }
 window.ferrAtalhosTextoPreencherComResposta=async function(){
   var respostaEl=document.getElementById('ferrPreencherResposta');

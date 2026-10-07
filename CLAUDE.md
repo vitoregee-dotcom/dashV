@@ -332,6 +332,11 @@
 - Envio `pfChegouEnviar(k, whats|email|copiar)` → `pfWhatsAbrir`/mailto + `pfCrmAdd({origem:'chegou', refs})` (mostra "✔ enviado");
   rodapé "💬 Próximo: cliente (n de N)" manda um por um. Filtro Minha carteira / Todos (gestor). Entradas: botão no painel do sino
   "Chegaram recentemente" e faixa verde no ☀️ Meu dia (`pfChegouFaixaHtml(fv)`, últimos 3 dias).
+- v115.2224 **conversão por cliente** ("cada cliente eu preciso enviar com o código da linha que ele trabalha"): `pfChegouConvIdx` lê as
+  `conversoes` {ref,linha} das fichas das peças que chegaram (cache 60 s) → `c.opts` (nosso + conversões; conversão também casa histórico).
+  `pfChegouCodPara(r,x)`: escolhido à mão (`st.conv[k|i]`, select na linha da peça, `pfChegouConvSet`) > o código que ESSE cliente usou
+  nessa peça (`codigoOriginal` da cotação/pedido ou a conversão que casou — "o que ele usa") > a linha que ele mais usa
+  (`pfChegouLinhasCli`: `idLinha` dos códigos dele em 12 meses, sem GENÉRICO — "linha dele") > o nosso. A mensagem e o CRM usam o escolhido.
 
 ## 📋 Pesquisas com clientes (v115.2211; prévias em `docs/referencias/pesquisas/`)
 - Vendas → aba **📋 Pesquisas** (`pfPesqRender`): 📊 Resultados (NPS da pergunta `nps`, média/distribuição de notas e estrelas,

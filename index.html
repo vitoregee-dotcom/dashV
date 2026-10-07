@@ -1940,7 +1940,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2231</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2232</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2094,7 +2094,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2231</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2232</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -62759,7 +62759,7 @@ function vendasAbrirModal(cx){
   // Use cotação num as tab ID, or 'nova' for new
   var tabId=cx._tabId||(cx.num?String(cx.num):'nova_'+Date.now()); // v115.2060 - _tabId: aba já montada (pedido em edição)
   if(!window._vendasTabs[tabId]){
-    var venda={num:cx.num||null,nr:cx.id||cx.nr,cliente:cx.clienteObj,uf:cx.uf,margem:cx.margem||(typeof pfVendasMargemPadraoLoad==='function'?pfVendasMargemPadraoLoad():30),condicao:cx.condicao,comprador:cx.comprador,itens:(cx.itens||[]).map(function(i){return Object.assign({},i);})};
+    var venda={num:cx.num||null,nr:cx.id||cx.nr,cliente:cx.clienteObj,uf:cx.uf||(cx.clienteObj&&cx.clienteObj.estado)||'SP',margem:cx.margem||(typeof pfVendasMargemPadraoLoad==='function'?pfVendasMargemPadraoLoad():30),condicao:cx.condicao,comprador:cx.comprador,itens:(cx.itens||[]).map(function(i){return Object.assign({},i);})};
     var label=(cx.clienteObj&&(cx.clienteObj.fantasia||cx.clienteObj.razao))||cx.cliente||'Nova';
     if(label.length>18)label=label.substring(0,18)+'…';
     window._vendasTabs[tabId]={venda:venda,label:label,num:cx.num||'Nova'};
@@ -81198,9 +81198,18 @@ function pfCatEnvPedidoCotacao(pid){
   var p=pfCatPedLoad().lista.find(function(x){return x.id===pid;});if(!p)return;var c=pfCatEnvLoad().por[p.catId]||{};
   var its=pfCatEnvItensCotacao(p.itens.filter(function(x){return x.codigo;}),c.marca||'');
   var cx={itens:its,margem:(typeof pfVendasMargemPadraoLoad==='function'?pfVendasMargemPadraoLoad():30)};
-  // cliente do link -> já entra na cotação se achar no cadastro
-  try{var cl=(cadLoad(CLIE_KEY)||[]).find(function(x){return x&&p.cliente&&(x.razao===p.cliente||x.fantasia===p.cliente);});if(cl){cx.clienteObj=cl;cx.cliente=cl.razao;}}catch(e){}
+  // v115.2232 - A pedido do Vitor ("abre em nome de quem? pra qual estado os preços?"): o cliente do link entra pelo MESMO caminho da
+  // busca de cliente da cotação (vendasSelecionarCliente) -> estado (ICMS) e margem do cliente (regra do Assistente / própria / perfil).
+  // Antes entrava só o nome: a UF ficava vazia (o seletor mostrava SP mas o cálculo usava 12%) e a margem era a geral.
+  // Link sem cliente: abre e pede pra escolher o cliente (até lá, SP + margem padrão).
+  var cl=null;try{cl=(cadLoad(CLIE_KEY)||[]).find(function(x){return x&&p.cliente&&(x.razao===p.cliente||x.fantasia===p.cliente);})||null;}catch(e){}
+  cx.uf='SP';
   vendasAbrirModal(cx);
+  setTimeout(function(){
+    if(cl&&typeof vendasSelecionarCliente==='function'){window._vendasClienteMatches=[cl];vendasSelecionarCliente(0);return;}
+    var inp=document.getElementById('vendasClienteInput');if(inp){inp.focus();inp.select();}
+    pfAlert((p.cliente?'O cliente do link ("'+p.cliente+'") não foi achado no cadastro.':'Esse link foi criado sem cliente.')+' Escolha o cliente da cotação: o estado (preço com ICMS) e a margem saem dele. Até lá os preços estão em SP com a margem padrão.');
+  },150);
 }
 // a máquina que o cliente informou vira aplicação de TODAS as peças do catálogo (marca/modelo da máquina = veículo;
 // marca/modelo/ref do eixo = marca/modelo/série; grupo = equip) -- mesmo lugar onde o 📥 Alimentar grava.

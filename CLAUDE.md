@@ -482,9 +482,18 @@
   vitoregee@gmail.com (`pfEhVitorGmail`; a conta da Triex dele NÃO — pedido dele). `pfCardOlhoToggle(id, 'constr'?)` grava
   `pfCardsOcultosTodos` {ids, constr, ts} (compartilhada, ts mais novo vence). Oculto: some pros outros (marcador `.pfCardOcultoOutros`
   + CSS `:has`) e sai da barra de baixo; em construção: todos veem com a faixa "Em construção" (contorno âmbar), continua abrindo.
-- **Alt+Espaço / Option+Espaço** = busca de funções (`pfBuscaFAbrir`, estilo Spotlight): telas (`PF_BUSCAF_TELAS`), abas de Vendas,
+- **Alt+S / Option+S** (v115.2252 — no Windows o Alt+Espaço é do próprio Windows; Option+Espaço e Ctrl/⌘+K também abrem) = busca de funções (`pfBuscaFAbrir`, estilo Spotlight): telas (`PF_BUSCAF_TELAS`), abas de Vendas,
   2 cards de Cadastros e todo card do `_pfAjudaMeta` (desenha AT/Ferramentas/Compras escondido na 1ª vez). Card oculto não aparece pros
   outros. Funcionalidade nova com card → já entra sozinha se usar `pfAtalhoPinHtml`; tela nova → acrescentar no `PF_BUSCAF_TELAS`.
+
+## Botões duplos / PDF (v115.2252)
+- "Botão duplo" (setinha ▾ colada) do Leitor de Peças e da Cotação SAIU: os 2 botões padrão (📋 Colar print + ⬆ Carregar arquivo) e o
+  Carregar arquivo aceita planilha também (`pfEhPlanilha` → `lpLerArquivoAuto` / listener do `#vendasFileInput` → `vendasLerExcel`).
+  Os de PDF com menu (Ranking, Avisos, PDF pro cliente, Cálculo NF) ficaram, com a setinha na MESMA cor do botão.
+- Páginas de relatório em aba nova (Ranking, Solicitação de Compra) ganharam "⬇ Baixar PDF" direto em Downloads
+  (`pfPdfBaixarScriptHtml(nome, sel)`, html2pdf na própria aba) além do 🖨 Imprimir. PDF do cliente baixa com o nome `cotacao-<nº>.pdf`.
+- Órbita: "↺ Ver tudo" no cabeçalho quando tem filtro e "↺ Zerar filtros" sempre no popover (`pfOrbFiltrosLimpar` zera também o
+  filtro do resumo, rastro 30 dias e zoom). Carlos Candis = role `gestor` em `profiles` (vê a carteira toda; pfVR2PodeGeral).
 
 ## Dock — botão "⋯" (v115.2220)
 - Os botões do canto direito do dock (🎓 apresentação, 🖥️ monitor, tema, 📌 auto-ocultar, usuários, pendências, avatar, sair) ficam

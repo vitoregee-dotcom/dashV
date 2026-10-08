@@ -1957,7 +1957,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2248</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2249</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2111,7 +2111,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2248</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2249</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -16853,7 +16853,12 @@ var PF_IDB_KEYS = ['cad_produtos_v1','prod_aplicacoes_v1','cad_relacionados_v1',
   // (sem o limite de ~5MB). Todo acesso direto a elas passou a usar
   // pfSafeGetItem/pfSafeSetItem (que sabem buscar no IndexedDB); a
   // migração do que já existe é automática no pfIdbInit.
-  'lp_regras_v1_deletados','promoTemplates_v1','pfComprasAtivos','lp_exemplos_v1'];
+  'lp_regras_v1_deletados','promoTemplates_v1','pfComprasAtivos','lp_exemplos_v1',
+  // v115.2249 - A pedido do Vitor ("ontem já excluí e de novo está aparecendo essa merda" -- armazenamento cheio com
+  // partsflow_cotacoes_v1 1,6MB, partsflow_pedidos_venda_v1 1MB, pfContasReceber_v1 732KB): cotações, pedidos de venda,
+  // contas a receber e a prévia de importação também vão pro IndexedDB (sem o teto de ~5MB). Leituras/gravações delas
+  // passam por pfSafeGetItem/pfSafeSetItem/pfSafeRemoveItem; o que já estava no localStorage migra sozinho no pfIdbInit.
+  'partsflow_cotacoes_v1','partsflow_pedidos_venda_v1','pfContasReceber_v1','imp_preview_cache_v1'];
 var _pfMemCache = {};
 var _pfIdbReady = false;
 var _pfIdbDb = null;
@@ -17014,6 +17019,13 @@ function pfRawSetItem(key, value){
 // save/sync muda a string comprimida, o cache erra de propósito, e
 // descomprime normalmente.
 var _pfDecompressCache = {};
+// v115.2249 - remover respeitando onde a chave mora (IndexedDB ou localStorage)
+function pfSafeRemoveItem(key){
+  try{
+    if(PF_IDB_KEYS.indexOf(key)>=0){delete _pfMemCache[key];delete _pfDecompressCache[key];clearTimeout(_pfIdbWriteTimers[key]);try{pfIdbDelete(key);}catch(e){}}
+    localStorage.removeItem(key);
+  }catch(e){}
+}
 function pfSafeGetItem(key, fallback){
   try{
     var raw = pfRawGetItem(key);
@@ -32514,7 +32526,7 @@ function cadRestaurarPreviewImport(){
 }
 function cadDescartarPreviewImport(){
   pfConfirm('Descartar essa prévia de importação? Os itens lidos do catálogo se perdem (o arquivo original não é afetado).',function(){
-    localStorage.removeItem(IMP_PREVIEW_KEY);
+    pfSafeRemoveItem(IMP_PREVIEW_KEY);
     // v115.1323 - Mesma correção do fim da importação confirmada (ver
     // comentário lá) -- sem isso, o "Descartar" só limpava esse
     // aparelho; em outro aparelho/login o banner "prévia não finalizada"
@@ -32588,7 +32600,7 @@ function cadRenderAplicacoes(el){
   // reaproveitada. Agora, ao entrar em Aplicações, verifica se tem uma
   // prévia pendente (até 24h) e oferece continuar de onde parou.
   try{
-    var _pendCache=localStorage.getItem(IMP_PREVIEW_KEY);
+    var _pendCache=pfSafeGetItem(IMP_PREVIEW_KEY);
     if(_pendCache){
       var _pend=JSON.parse(_pendCache);
       if(_pend&&_pend.itens&&_pend.itens.length&&(Date.now()-(_pend.ts||0))<24*3600*1000){
@@ -40495,7 +40507,7 @@ function substAplicarLote(itens){
 // substituição em cima de substituição se rodar mais de uma vez.
 function substReaplicarNaPreview(){
   try{
-    var cacheRaw=localStorage.getItem(IMP_PREVIEW_KEY);
+    var cacheRaw=pfSafeGetItem(IMP_PREVIEW_KEY);
     if(!cacheRaw)return;
     var cache=JSON.parse(cacheRaw);
     if(!cache||!cache.itens||!cache.itens.length)return;
@@ -41443,7 +41455,7 @@ cadConfirmarImport=function(itens){
   // sincronizado entre aparelhos) que é exatamente o que alimenta esse
   // banner -- ficava preso pra sempre depois de qualquer importação
   // confirmada com sucesso.
-  localStorage.removeItem('imp_preview_cache_v1');
+  pfSafeRemoveItem('imp_preview_cache_v1');
   if(typeof pfSafeSetItem==='function')pfSafeSetItem('imp_preview_cache_v1','null');
   if(typeof pfSyncPush==='function')pfSyncPush(['imp_preview_cache_v1']);
   var msgPartes=[];
@@ -42632,7 +42644,7 @@ cadImportarProdutos = function(){
   // principal também checa e oferece retomar.
   setTimeout(function(){
     var saved=null;
-    try{ saved=JSON.parse(localStorage.getItem('imp_preview_cache_v1')||'null'); }catch(e){}
+    try{ saved=JSON.parse(pfSafeGetItem('imp_preview_cache_v1')||'null'); }catch(e){}
     if(saved&&saved.itens&&saved.itens.length&&!document.getElementById('impRetomarBanner')){
       var header=document.querySelector('#cadBody > div > div');
       if(header){
@@ -42641,8 +42653,8 @@ cadImportarProdutos = function(){
         banner.id='impRetomarBanner';
         banner.style.cssText='background:#EEF6FF;border:1.5px solid var(--pf-fx-marca,#1F4E79);border-radius:8px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--pf-fx-marca,#1F4E79)';
         banner.innerHTML='<span>📋 <b>Leitura salva:</b> '+saved.itens.length+' itens ('+dt+') -- ainda não confirmados</span>'+
-          '<button onclick="var _c=JSON.parse(localStorage.getItem(&#39;imp_preview_cache_v1&#39;));window._impRestaurando=true;window._impAplicCache=_c.aplic||null;window._impMarcaCache=_c.marca||&#39;&#39;;cadMostrarPreviewImport(_c.itens,_c.marca)" style="margin-left:auto;background:var(--pf-fx-marca,#1F4E79);color:#fff;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:12px;font-weight:700">← Voltar à prévia (sem reler o arquivo)</button>'+
-          '<button onclick="localStorage.removeItem(\'imp_preview_cache_v1\');pfSafeSetItem(\'imp_preview_cache_v1\',\'null\');if(typeof pfSyncPush===\'function\')pfSyncPush([\'imp_preview_cache_v1\']);document.getElementById(\'impRetomarBanner\').remove()" style="background:none;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);color:var(--pf-fx-textoSec,#607080);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">Descartar</button>';
+          '<button onclick="var _c=JSON.parse(pfSafeGetItem(&#39;imp_preview_cache_v1&#39;));window._impRestaurando=true;window._impAplicCache=_c.aplic||null;window._impMarcaCache=_c.marca||&#39;&#39;;cadMostrarPreviewImport(_c.itens,_c.marca)" style="margin-left:auto;background:var(--pf-fx-marca,#1F4E79);color:#fff;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:12px;font-weight:700">← Voltar à prévia (sem reler o arquivo)</button>'+
+          '<button onclick="pfSafeRemoveItem(\'imp_preview_cache_v1\');pfSafeSetItem(\'imp_preview_cache_v1\',\'null\');if(typeof pfSyncPush===\'function\')pfSyncPush([\'imp_preview_cache_v1\']);document.getElementById(\'impRetomarBanner\').remove()" style="background:none;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);color:var(--pf-fx-textoSec,#607080);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">Descartar</button>';
         header.parentNode.insertBefore(banner, header.nextSibling);
       }
     }
@@ -42870,7 +42882,7 @@ cadGerenciarSubst = function(){
 
   // Check for saved preview
   var saved = null;
-  try{ saved = JSON.parse(localStorage.getItem('imp_preview_cache_v1')||'null'); }catch(e){}
+  try{ saved = JSON.parse(pfSafeGetItem('imp_preview_cache_v1')||'null'); }catch(e){}
   var hasPreview = saved && saved.itens && saved.itens.length > 0;
 
   var html = '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:24px;max-width:820px">';
@@ -43015,7 +43027,7 @@ mapaSalvarNaLista = function(estado){
 // ── Restore preview helpers (clean function calls) ───────────────
 function cadRestaurarPreview(){
   var d = null;
-  try{ d = JSON.parse(localStorage.getItem('imp_preview_cache_v1')||'null'); }catch(e){}
+  try{ d = JSON.parse(pfSafeGetItem('imp_preview_cache_v1')||'null'); }catch(e){}
   if(!d || !d.itens || !d.itens.length){
     pfAlert('Preview não encontrado. Por favor, carregue o catálogo novamente.');
     return;
@@ -43039,7 +43051,7 @@ function cadRestaurarPreview(){
 
 function cadLimparPreview(){
   pfConfirm('Limpar o preview salvo?', function(){
-    localStorage.removeItem('imp_preview_cache_v1');
+    pfSafeRemoveItem('imp_preview_cache_v1');
     window._impItensCache = null;
     window._impAplicCache = null;
     cadGerenciarSubst();
@@ -45573,7 +45585,7 @@ function ferrCotTempo(){
   var el=document.getElementById('ferrBody');if(!el)return;
   window._pfNavegouExplicitamente=true;
   var dias=window._cotTempoDias||30,gestor=typeof pfVR2PodeGeral==='function'&&pfVR2PodeGeral(),eu=(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||'';
-  var cots=[];try{cots=JSON.parse(localStorage.getItem('partsflow_cotacoes_v1')||'[]')||[];}catch(e){}
+  var cots=[];try{cots=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]')||[];}catch(e){}
   var desde=Date.now()-dias*86400000;
   var doPeriodo=cots.filter(function(c){return c&&!c.demo&&c.data&&new Date(c.data).getTime()>=desde&&(gestor||c.atendenteEmail===eu);});
   var medidas=doPeriodo.filter(function(c){return (c.tempoAtivoSeg||0)>=20;});
@@ -50263,7 +50275,7 @@ function vendasPainelHtml(){
   var content='';
   var row=function(label,val){return '<div style="display:flex;justify-content:space-between;padding:6px 10px;border-bottom:0.5px solid var(--pf-fx-fundoSuave,#f0f4f8);font-size:12px"><span style="color:var(--pf-fx-textoSuave,#8a9ab0)">'+label+'</span><span style="font-weight:600;color:var(--pf-fx-textoEscuro,#1a2332)">'+val+'</span></div>';};
   if(tab==='cliente'){
-    var cots=[];try{cots=JSON.parse(localStorage.getItem('partsflow_cotacoes_v1')||'[]');}catch(e){}
+    var cots=[];try{cots=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]');}catch(e){}
     var razao=((v.cliente&&v.cliente.razao)||'').toUpperCase();
     var doCliente=razao?cots.filter(function(c){return c.num!==v.num&&(c.cliente||'').toUpperCase()===razao;}):[];
     var ultima=doCliente.length?doCliente.map(function(c){return c.data;}).filter(Boolean).sort().reverse()[0]:null;
@@ -52457,7 +52469,7 @@ function vendasAbrirMoverParaCotacao(){
   var sel=window._vendasSel||{};
   var idxs=Object.keys(sel).filter(function(i){return sel[i];}).map(Number);
   if(!idxs.length)return;
-  var cots=(JSON.parse(localStorage.getItem('partsflow_cotacoes_v1')||'[]')).filter(function(c){return c.num!==window._venda.num;});
+  var cots=(JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]')).filter(function(c){return c.num!==window._venda.num;});
   var old=document.getElementById('moverCotModal');if(old)old.remove();
   var overlay=document.createElement('div');
   overlay.id='moverCotModal';
@@ -52491,7 +52503,7 @@ function vendasMoverParaCotacao(numDestino){
     // Nova cotação: abre uma nova aba já com os itens copiados
     vendasAbrirModal({itens:itensMovidos,margem:window._venda.margem||30});
   } else {
-    var cots=JSON.parse(localStorage.getItem('partsflow_cotacoes_v1')||'[]');
+    var cots=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]');
     var destino=cots.find(function(c){return c.num===numDestino;});
     if(!destino){pfAlert('Cotação não encontrada.');return;}
     destino.itens=(destino.itens||[]).concat(itensMovidos);
@@ -52517,7 +52529,7 @@ function pvProximoNumero(list){
   return 'PV-'+(maior+1);
 }
 function pvLoad(){
-  var list;try{list=JSON.parse(localStorage.getItem(PV_KEY)||'[]');}catch(e){return [];}
+  var list;try{list=JSON.parse(pfSafeGetItem(PV_KEY)||'[]');}catch(e){return [];}
   if(Array.isArray(list)&&list.some(function(p){return p&&PV_RENUM[p.numero];})){
     list.forEach(function(p){if(p&&PV_RENUM[p.numero])p.numero=PV_RENUM[p.numero];});
     try{pvSave(list);}catch(e){}
@@ -52686,7 +52698,7 @@ function pfDemoClientesLista(n){
 function pfDemoContagem(){
   var c=((typeof cadLoad==='function'?cadLoad(CLIE_KEY):[])||[]).filter(function(x){return x&&x.demo;}).length;
   var p=pvLoad().filter(function(x){return x&&x.demo;}).length,t=crLoad().filter(function(x){return x&&x.demo;}).length;
-  var q=0;try{q=(JSON.parse(localStorage.getItem('partsflow_cotacoes_v1')||'[]')||[]).filter(function(x){return x&&x.demo&&pfDemoLotesApagados().indexOf(x.demoLote)<0;}).length;}catch(e){}
+  var q=0;try{q=(JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]')||[]).filter(function(x){return x&&x.demo&&pfDemoLotesApagados().indexOf(x.demoLote)<0;}).length;}catch(e){}
   return {c:c,p:p,t:t,q:q};
 }
 // v115.2124 - vendedores da demonstração (os de verdade, a pedido do Vitor: "Mineiro, Carlos Candis e eu")
@@ -52695,9 +52707,9 @@ function pfDemoNomeVend(email){var v=PF_DEMO_VENDEDORES.find(function(x){return 
 // cotações são lidas direto do localStorage em vários pontos: aqui tira as de lote apagado (inclusive se outro
 // aparelho devolver pela sincronização) -- roda ao apagar e ao abrir o sistema.
 function pfDemoLimparCotacoes(){
-  try{var ap=pfDemoLotesApagados(),raw=localStorage.getItem('partsflow_cotacoes_v1');if(!raw||raw.indexOf('"demo":true')<0)return;
+  try{var ap=pfDemoLotesApagados(),raw=pfSafeGetItem('partsflow_cotacoes_v1');if(!raw||raw.indexOf('"demo":true')<0)return;
     var l=JSON.parse(raw)||[],f=l.filter(function(c){return !(c&&c.demo&&(ap.indexOf(c.demoLote)>=0||!c.demoLote));});
-    if(f.length!==l.length){localStorage.setItem('partsflow_cotacoes_v1',JSON.stringify(f));if(typeof pfSyncPush==='function')pfSyncPush(['partsflow_cotacoes_v1']);}
+    if(f.length!==l.length){pfSafeSetItem('partsflow_cotacoes_v1',JSON.stringify(f));if(typeof pfSyncPush==='function')pfSyncPush(['partsflow_cotacoes_v1']);}
   }catch(e){}
 }
 setTimeout(function(){try{if(pfDemoLotesApagados().length)pfDemoLimparCotacoes();}catch(e){}},9000);
@@ -52785,7 +52797,7 @@ function pfDemoGerar(){
     });
   }
   // v115.2124 - cotações de demonstração: a de cada pedido (fechada) + as que não viraram pedido
-  var cots=[];try{cots=JSON.parse(localStorage.getItem('partsflow_cotacoes_v1')||'[]')||[];}catch(e){}
+  var cots=[];try{cots=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]')||[];}catch(e){}
   var numC=Math.max.apply(null,[900000].concat(cots.filter(function(c){return c&&c.demo;}).map(function(c){return c.num||0;})));
   var mkCot=function(cli,data,itens,fechou,pvNum){numC++;var vEmail=cli.vendedorEmail||'';
     return {num:numC,id:'cot_'+lote+'_'+numC,data:new Date(data).toISOString(),atendenteEmail:vEmail,atendenteNome:pfDemoNomeVend(vEmail),cliente:cli.razao,
@@ -52824,7 +52836,7 @@ function pfDemoGerar(){
   var _novas=cots.filter(function(c){return c&&c.demo&&c.demoLote===lote;}).sort(function(a,b){return new Date(a.data)-new Date(b.data);});
   var _n0=Math.min.apply(null,_novas.map(function(c){return c.num;}))-1;
   _novas.forEach(function(c,i){c.num=_n0+i+1;c.id='cot_'+lote+'_'+c.num;});
-  localStorage.setItem('partsflow_cotacoes_v1',JSON.stringify(cots));if(typeof pfSyncPush==='function')pfSyncPush(['partsflow_cotacoes_v1']);
+  pfSafeSetItem('partsflow_cotacoes_v1',JSON.stringify(cots));if(typeof pfSyncPush==='function')pfSyncPush(['partsflow_cotacoes_v1']);
   pvSave(pvs);crSave(titulos);
   try{pfDemoNotificacoes(lote,pecas,fictTodos);}catch(eN){console.warn('demo notificações',eN);} // v115.2246
   var st=document.getElementById('demoStatus');
@@ -52860,7 +52872,7 @@ function pfDemoHistorico(ref){
   if(!C||Date.now()-C.t>30000){var m={};
     var put=function(it,cli,num,data){if(!it||!it.codigo)return;var k=String(it.codigo).trim().toUpperCase();(m[k]=m[k]||[]).push({item_ref:k,marca:String(it.marca||'').toUpperCase(),descricao:it.desc||'',tipo:'venda',cliente:cli,preco:Number(it.vendaOverride!=null?it.vendaOverride:it.venda)||0,custo:Number(it.custo)||0,qtd:Number(it.qtd)||1,cotacao_num:num,created_at:data,autor:'demonstração'});};
     try{(typeof pvLoad==='function'?pvLoad():[]).forEach(function(p){if(p&&p.demo)(p.itens||[]).forEach(function(it){put(it,p.clienteRazao,'PV-'+p.numero,p.data);});});}catch(e){}
-    try{(JSON.parse(localStorage.getItem('partsflow_cotacoes_v1')||'[]')||[]).forEach(function(c){if(c&&c.demo)(c.itens||[]).forEach(function(it){put(it,c.cliente,'V-'+c.num,c.data);});});}catch(e){}
+    try{(JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]')||[]).forEach(function(c){if(c&&c.demo)(c.itens||[]).forEach(function(it){put(it,c.cliente,'V-'+c.num,c.data);});});}catch(e){}
     Object.keys(m).forEach(function(k){m[k].sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);});});
     C=window._pfDemoHist={t:Date.now(),m:m};}
   return C.m[String(ref||'').trim().toUpperCase()]||[];
@@ -52870,7 +52882,7 @@ function pfDemoApagar(){
   if(!confirm('Apagar os dados de demonstração?\n\n'+k.c+' clientes, '+k.p+' pedidos, '+k.q+' cotações e '+k.t+' títulos marcados como 🎭 demonstração.\nNada real é apagado.'))return;
   // registra os lotes (pedidos/títulos somem em qualquer aparelho) e os clientes na lista de excluídos que já existe
   var lotes={};
-  var cotsAll=[];try{cotsAll=JSON.parse(localStorage.getItem('partsflow_cotacoes_v1')||'[]')||[];}catch(e){}
+  var cotsAll=[];try{cotsAll=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]')||[];}catch(e){}
   [pvLoad(),crLoad(),cadLoad(CLIE_KEY)||[],cotsAll].forEach(function(l){l.forEach(function(x){if(x&&x.demo&&x.demoLote)lotes[x.demoLote]=1;});});
   var ap=pfDemoLotesApagados();Object.keys(lotes).forEach(function(k){if(ap.indexOf(k)<0)ap.push(k);});
   pfSafeSetItem(PF_DEMO_APAGADOS_KEY,JSON.stringify(ap));if(typeof pfSyncPush==='function')pfSyncPush([PF_DEMO_APAGADOS_KEY]);
@@ -56884,7 +56896,7 @@ function pcNomeVendedor(email){
 }
 // Junta cotações + pedidos por cliente. Chave = código do cadastro (ou razão, se não achar no cadastro).
 function pcMontarDados(){
-  var cots=[];try{cots=JSON.parse(localStorage.getItem('partsflow_cotacoes_v1')||'[]');}catch(e){}
+  var cots=[];try{cots=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]');}catch(e){}
   var peds=(typeof pvLoad==='function')?pvLoad():[];
   var cad=[];try{cad=cadLoad(CLIE_KEY)||[];}catch(e){}
   var porRazao={},porCod={},porCnpj={};
@@ -58690,7 +58702,7 @@ function pfCrmTimeline(c){
   return ev.filter(function(e){return e.ts&&!isNaN(e.ts);}).sort(function(a,b){return b.ts-a.ts;});
 }
 function pfCrmAbrirCot(num){
-  var cs=[];try{cs=JSON.parse(localStorage.getItem('partsflow_cotacoes_v1')||'[]');}catch(e){}
+  var cs=[];try{cs=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]');}catch(e){}
   var cx=cs.find(function(x){return x.num===num;});if(!cx){pfAlert('Cotação não encontrada neste aparelho.');return;}
   pfCrmFechar();vendasAbrirModal(cx);
 }
@@ -61603,7 +61615,7 @@ function pvAbrirEdicao(id){
 }
 function pvEdicaoItensDaCotacao(v){
   var pe=v.pvEdit;if(!pe||!pe.cotacaoNum)return [];
-  var cot=null;try{cot=JSON.parse(localStorage.getItem('partsflow_cotacoes_v1')||'[]').find(function(c){return c.num===pe.cotacaoNum;});}catch(e){}
+  var cot=null;try{cot=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]').find(function(c){return c.num===pe.cotacaoNum;});}catch(e){}
   if(!cot)return [];
   var tem={};(v.itens||[]).forEach(function(it){tem[(it.codigo||'').toUpperCase()+'|'+(it.marcaInterna||it.marca||'').toUpperCase()]=1;});
   return (cot.itens||[]).filter(function(it){return !tem[(it.codigo||'').toUpperCase()+'|'+(it.marcaInterna||it.marca||'').toUpperCase()];});
@@ -62029,7 +62041,7 @@ function pvConfirmarCriarPedido(){
   if(v.num){
     try{
       var cotKey='partsflow_cotacoes_v1';
-      var cots=JSON.parse(localStorage.getItem(cotKey)||'[]');
+      var cots=JSON.parse(pfSafeGetItem(cotKey)||'[]');
       var cx=cots.find(function(c){return c.num===v.num;});
       if(cx){
         cx.dataPedido=pedido.data;
@@ -63733,13 +63745,13 @@ function vendasEditarCampoLista(num,campo,td,valorAtual){
   function salvar(){
     var novo=inp.value.trim();
     var COTS_KEY='partsflow_cotacoes_v1';
-    var cots=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');
+    var cots=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');
     var c=cots.find(function(x){return x.num===num;});
     if(c){
       if(campo==='vendedor'){c.vendedorInterno=novo;if(novo)pfAdicionarVendedorCustom(novo);}
       else if(campo==='contato'){c.comprador=novo;}
       else{c.transportadora=novo;}
-      localStorage.setItem(COTS_KEY,JSON.stringify(cots));
+      pfSafeSetItem(COTS_KEY,JSON.stringify(cots));
       if(typeof pfSyncPush==='function')pfSyncPush([COTS_KEY]);
     }
     vendasAtualizarLista();
@@ -63780,7 +63792,7 @@ function vendasZebraCores(){
 }
 function vendasAtualizarLista(){
   var COTS_KEY='partsflow_cotacoes_v1';
-  var cots=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');
+  var cots=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');
   // v115.2082 - cotação -> pedidos de venda que saíram dela (sinaliza mesmo se a cotação perdeu a dataPedido)
   var _pvPorCot={};
   try{(typeof pvLoad==='function'?pvLoad():[]).forEach(function(p){if(p&&p.cotacaoNum!=null){var k=p.cotacaoNum;var e=_pvPorCot[k]||(_pvPorCot[k]={data:p.data,nums:[]});if(p.data&&(!e.data||p.data<e.data))e.data=p.data;e.nums.push(p.numero);}});}catch(e){}
@@ -63983,13 +63995,13 @@ function vendasAtualizarLista(){
     actWrap.appendChild(bv);actWrap.appendChild(bd);
     tdAct.appendChild(actWrap);
     (function(nn){
-      bv.onclick=function(e){e.stopPropagation();var cs=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');var cx=cs.find(function(x){return x.num===nn;});if(cx)vendasAbrirModal(cx);};
-      bd.onclick=function(e){e.stopPropagation();pfConfirm('Excluir a cotação #'+nn+'?',function(){var cs=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');cs=cs.filter(function(x){return x.num!==nn;});pfSafeSetItem(COTS_KEY,JSON.stringify(cs));if(window._vendasSelected===nn){window._vendasSelected=null;}vendasAtualizarLista();},'Excluir');};
+      bv.onclick=function(e){e.stopPropagation();var cs=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');var cx=cs.find(function(x){return x.num===nn;});if(cx)vendasAbrirModal(cx);};
+      bd.onclick=function(e){e.stopPropagation();pfConfirm('Excluir a cotação #'+nn+'?',function(){var cs=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');cs=cs.filter(function(x){return x.num!==nn;});pfSafeSetItem(COTS_KEY,JSON.stringify(cs));if(window._vendasSelected===nn){window._vendasSelected=null;}vendasAtualizarLista();},'Excluir');};
       tr.onclick=function(){
         var now=Date.now();
         if(window._vendasLastTapNum===nn && (now-(window._vendasLastTapTime||0))<450){
           window._vendasLastTapNum=null;
-          var csD=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');
+          var csD=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');
           var cxD=csD.find(function(x){return x.num===nn;});
           if(cxD)vendasAbrirModal(cxD);
           return;
@@ -64350,7 +64362,7 @@ async function vendasSalvarCotacaoReal(opts){
   if(!v||!v.itens||!v.itens.length)return null;
   if(v.pvEdit)return null; // v115.2060 - pedido em edição não grava como cotação
   var COTS_KEY='partsflow_cotacoes_v1';
-  var cots=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');
+  var cots=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');
   var idxExistente=v.num?cots.findIndex(function(c){return c.num===v.num;}):-1;
   var num=idxExistente>=0?v.num:(cots.length>0?Math.max.apply(null,cots.map(function(c){return c.demo?0:(c.num||0);}))+1:1); // v115.2124 - cotação de demonstração (900001+) não mexe na numeração real
   var cot={num:num,id:v.nr,data:new Date().toISOString(),atendenteEmail:(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||'',atendenteNome:(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)||'',/* v115.2087 - quem atendeu (Painel/Órbita do gestor) */cliente:v.cliente?v.cliente.razao:'',clienteObj:v.cliente||null,uf:v.uf||'SP',margem:v.margem||30,condicao:v.condicao||'',comprador:v.comprador||'',itens:(v.itens||[]).slice(),total:(v.itens||[]).reduce(function(s,it){
@@ -64450,7 +64462,7 @@ async function vendasPullCotacoes(){
       }
     }
     // Merge with localStorage
-    var local=JSON.parse(localStorage.getItem('partsflow_cotacoes_v1')||'[]');
+    var local=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]');
     var merged=[...remoteCots];
     local.forEach(function(lc){
       if(!merged.find(function(rc){return rc.num===lc.num;}))merged.push(lc);
@@ -85055,7 +85067,7 @@ function pfCotRapidaFechar(){
 function pfCotRapidaAcharCotacaoHoje(codigoCliente){
   try{
     var COTS_KEY='partsflow_cotacoes_v1';
-    var cots=JSON.parse(localStorage.getItem(COTS_KEY)||'[]');
+    var cots=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');
     var hojeStr=new Date().toDateString();
     return cots.find(function(c){
       return c.clienteObj&&(c.clienteObj.codigo||'').toUpperCase()===(codigoCliente||'').toUpperCase()&&new Date(c.data).toDateString()===hojeStr;

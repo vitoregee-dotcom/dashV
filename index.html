@@ -1957,7 +1957,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2246</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2247</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2111,7 +2111,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2246</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2247</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -51542,6 +51542,15 @@ function vendasCcFichaEhCardan(x){
   return VENDAS_CC_MARCAS_CARDAN.some(function(b){return m.indexOf(b)>=0;});
 }
 function vendasCcCodigoCotacao(it,lista){
+  // v115.2247 - A pedido do Vitor ("série/modelo travou"): guarda o resultado por 20 s (a janela chamava 2x por peça
+  // a cada tecla/clique) e a busca no estoque é só código + variantes, sem equivalência de rolamento.
+  var _ck=String(it&&it.codigo||'')+'|'+(it&&it.substitui||'')+'|'+(it&&it.similar||'');
+  var _cc=window._vendasCcCodCache;
+  if(!_cc||Date.now()-_cc.t>20000)_cc=window._vendasCcCodCache={t:Date.now(),m:{}};
+  if(_cc.m[_ck])return _cc.m[_ck];
+  return (_cc.m[_ck]=vendasCcCodigoCotacaoCalc(it,lista));
+}
+function vendasCcCodigoCotacaoCalc(it,lista){
   // Escolhe o código que vai pra cotação: o primeiro que existir no estoque
   // (próprio, Spicer, irmãos de outro catálogo, conversões, equivalentes);
   // se nenhum existir, vai o código próprio da peça.
@@ -51553,7 +51562,7 @@ function vendasCcCodigoCotacao(it,lista){
   var vistos={};
   for(var i=0;i<cands.length;i++){
     var c=String(cands[i]||'').trim();if(!c||vistos[c])continue;vistos[c]=1;
-    var f=null;try{f=vendasBuscarItem(c);}catch(e){}
+    var f=null;try{f=vendasBuscarItem(c,{semEquiv:true,silencioso:true});}catch(e){}
     // v115.2077 - A pedido do Vitor ("S-716 (CUMMINS)? isso não é Cummins, confere nos catálogos de componentes"): o
     // código de um catálogo (ex: S-716 da REI) às vezes é igual ao de outra peça no estoque (uma peça Cummins de motor)
     // -- só vale ficha de estoque da família de cardan ou de marca de cardan; o resto é coincidência de número.
@@ -52208,7 +52217,7 @@ function vendasBuscaIndiceGet(rows){
   window._pfVendasBuscaIndex=idx;
   return idx;
 }
-function vendasBuscarItem(cod){
+function vendasBuscarItem(cod,opc){
   // Busca em TODAS as familias (abas) juntas — antes só olhava a aba ativa do
   // Dashboard (allItems) ou, no máximo, a primeira aba com dados, então um item
   // de outra família "desaparecia" dependendo de qual aba estava aberta.
@@ -52254,7 +52263,10 @@ function vendasBuscarItem(cod){
   // empurrar um item sem estoque pra cotação) -- as alternativas com
   // saldo entram como linhas extras, junto com a original.
   var saldoTotalLiteral=matches.reduce(function(s,r){return s+(parseFloat(r.saldo||r.Saldo||r.SALDO||0)||0);},0);
-  var precisaEquivalencia = !matches.length || saldoTotalLiteral<=0;
+  // v115.2247 - A pedido do Vitor ("série/modelo da cotação não está funcionando, passei vergonha" -- travou 14 s no Mac):
+  // a janela de Aplicações procurava a ficha de CADA código das peças cardan (com irmãos/conversões) e cada código que
+  // não existe no estoque caía nas equivalências de ROLAMENTOS (varre a planilha inteira). opc.semEquiv pula isso.
+  var precisaEquivalencia = !(opc&&opc.semEquiv) && (!matches.length || saldoTotalLiteral<=0);
   if(precisaEquivalencia){
     var equivalentesEncontrados=[];
     // v115.1116 - A pedido do Vitor: igual já acontece em Componentes
@@ -52300,6 +52312,7 @@ function vendasBuscarItem(cod){
     }
   }
   if(!matches.length){
+    if(opc&&opc.silencioso)return null; // v115.2247
     var sample=rows.slice(0,3).map(function(r){return r.ref||r.REF||r.Referencia||'?';});
     console.warn('vendasBuscarItem: "'+cod+'" não encontrado. Exemplos:',sample);
     return null;
@@ -59661,11 +59674,12 @@ function pfOrbMostrarErro(e){
 function pfOrbPrefs(){try{return JSON.parse(localStorage.getItem('pfOrbPrefs_v1')||'{}')||{};}catch(e){return {};}}
 function pfOrbPrefsSet(campo,v){var o=pfOrbPrefs();o[campo]=v;o.ts=Date.now();try{localStorage.setItem('pfOrbPrefs_v1',JSON.stringify(o));}catch(e){}
   if(typeof pfSyncPush==='function')try{pfSyncPush(['pfOrbPrefs_v1']);}catch(e){}}
-function pfOrb3DLigado(){var p=pfOrbPrefs();if(p.d3!=null)return p.d3==='1';try{return localStorage.getItem('pfOrb3D')==='1';}catch(e){return false;}}
+// v115.2247 - A pedido do Vitor ("a órbita deixe sempre como padrão o 2D"): abre SEMPRE em 2D; o 3D vale só até recarregar a página.
+function pfOrb3DLigado(){return window._pfOrb3DSessao===true;}
 // v115.2127 - A pedido do Vitor ("coloca os 3 para eu escolher"): A = planeta desenho + anel realista, B = tudo desenho, C = tudo realista
 function pfOrb3DEstilo(){var p=pfOrbPrefs(),e=p.estilo;if(!e){try{e=localStorage.getItem('pfOrb3DEstilo');}catch(er){}}return e==='B'||e==='C'?e:'A';}
 function pfOrb3DEstiloSet(e){try{localStorage.setItem('pfOrb3DEstilo',e);}catch(er){}pfOrbPrefsSet('estilo',e);pfOrbitaRender();}
-function pfOrb3DAlternar(){var nv=pfOrb3DLigado()?'0':'1';try{localStorage.setItem('pfOrb3D',nv);}catch(e){}pfOrbPrefsSet('d3',nv);pfOrbitaRender();}
+function pfOrb3DAlternar(){window._pfOrb3DSessao=!pfOrb3DLigado();pfOrbitaRender();}
 function pfOrb3DParar(){
   var st=window._pfOrb3DSt;if(!st)return;window._pfOrb3DSt=null;st.parado=true;
   if(st.raf)cancelAnimationFrame(st.raf);

@@ -160,6 +160,9 @@
   Spicer ou peça que cita a chave como SPICER; `ccPareceSpicerCod` é solto demais, não usar) e passa o `similar`/`substitui` de
   todo o outro grupo pra ela; 2 Spicer diferentes = não junta. Antes fica em `o.juntado` → "↩ Separar" (`ccMesmaPecaSeparar`).
 - Cotação: busca Série/Modelo também acha componentes cardan pelo veículo (`vendasCcBuscarPorVeiculo`) + Monta com.
+  v115.2247 BUG (travou 14 s no Mac na frente de cliente): `vendasCcCodigoCotacao` procurava cada código cardan (irmãos/conversões) com
+  `vendasBuscarItem` e cada código que não existe caía nas equivalências de ROLAMENTO (varrem a planilha toda, ~80 ms cada × ~180 por tecla).
+  Agora `vendasBuscarItem(cod,{semEquiv,silencioso})` + cache de 20 s por peça. Não usar vendasBuscarItem completo dentro de loop de lista.
 - v115.2205 BUG busca geral: buscando um CÓDIGO (1 palavra com número e traço/ponto/letra+número, ex.: 5-263X), aplicação que só CITA o
   código ("AGRALE APLIC. CRUZETA 5-263X/…" — LNG) saía em "🚚 Veículo"; agora vai pro "🔗 Monta com" (`apl2mc` no `ccBuscaGeralExecutar`).
 
@@ -374,6 +377,8 @@
 - v115.2237 ("tá lento no MacBook"): os loops da órbita (2D `pfOrbDesenhar` e 3D `pfOrb3DQuadro`) desenhavam em todo quadro (120/s em tela
   ProMotion, Retina) — agora no máximo ~30/s (`st.ultDes`) e param quando a órbita sai da tela rolando (`st.foraTela`, conferido a cada 0,5 s).
   Obs.: no modo monitor 🖥️ (iframe 1920×1080 com `transform: scale`) o Mac pesa mais — tudo é redesenhado encolhido.
+- v115.2247 ("deixe sempre como padrão o 2D"): a órbita abre SEMPRE em 2D (`pfOrb3DLigado` = `window._pfOrb3DSessao`; o 3D vale até recarregar);
+  o `d3` do `pfOrbPrefs_v1` não é mais lido (só o estilo).
 - v115.2244 ("a órbita precisa ficar gravada na visual que deixei"): 2D/3D e estilo em `pfOrbPrefs_v1` {d3,estilo,ts} (`pfOrbPrefs`/`pfOrbPrefsSet`),
   POR USUÁRIO no PF_SYNC_KEYS com merge próprio (ts mais novo vence) — volta depois do Liberar Espaço e vale em todo aparelho.
 - v115.2148: balão do cliente dá pra alcançar com o mouse (`pfOrbTipEsconder` some só ~0,35 s depois; `pfOrbTipDentro` segura;

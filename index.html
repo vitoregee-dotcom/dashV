@@ -1957,7 +1957,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2243</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2244</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2111,7 +2111,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2243</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2244</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -38638,7 +38638,7 @@ var mapaEstadoId = null;
 
 // ── SYNC GENÉRICO (user_sync) ─────────────────────────────────────────
 // Chaves sincronizadas entre dispositivos (excluindo dados de sessão/device)
-var PF_SYNC_KEYS = [
+var PF_SYNC_KEYS = ['pfOrbPrefs_v1', 
   // v115.1525 - A pedido do Vitor: chave da Anthropic passa a sincronizar
   // DIRETO entre aparelhos, sem senha nem criptografia (antes só existia
   // criptografada em "Minhas Chaves"/pfChavesDevEnc, e só ia pro
@@ -40129,6 +40129,11 @@ async function pfSyncPull(){
         if(row.chave==='anthropic_key'||row.chave==='anthropic_workspace_id'){
           var remotoChave=(val||'').trim();
           if(remotoChave && remotoChave!==(localStorage.getItem(row.chave)||''))localStorage.setItem(row.chave,remotoChave);
+          return;
+        }
+        if(row.chave==='pfOrbPrefs_v1'){ // v115.2244 - preferência da órbita: o mais novo vence
+          try{var rp=JSON.parse(val||'{}')||{},lp=JSON.parse(localStorage.getItem('pfOrbPrefs_v1')||'{}')||{};
+            if((rp.ts||0)>(lp.ts||0)){localStorage.setItem('pfOrbPrefs_v1',JSON.stringify(rp));if(typeof pfOrbitaRender==='function'&&document.getElementById('pfOrbitaWrap'))setTimeout(pfOrbitaRender,0);}}catch(e){}
           return;
         }
         if(row.chave==='pfIconOverrides'){
@@ -59594,11 +59599,16 @@ function pfOrbMostrarErro(e){
 // dourado = top 10 compradores, azul = potencial. Halo vermelho = comprava bem e parou. 🏛/🤝 = concessionária/parceiro.
 // Arrastar gira, roda do mouse/pinça/＋− aproxima, 2 cliques volta; clique no planeta abre a ficha (no iPad: toque
 // mostra, toque de novo abre). Botão "🪐 3D"/"◐ 2D" no cabeçalho (fica guardado neste aparelho).
-function pfOrb3DLigado(){try{return localStorage.getItem('pfOrb3D')==='1';}catch(e){return false;}}
+// v115.2244 - A pedido do Vitor ("a órbita precisa ficar gravada na visual que deixei, estava 2D"): 2D/3D e o estilo ficavam só no
+// navegador (o Liberar Espaço apagava). Agora vão também pra pfOrbPrefs_v1 {d3,estilo,ts}, sincronizada por usuário (mais novo vence).
+function pfOrbPrefs(){try{return JSON.parse(localStorage.getItem('pfOrbPrefs_v1')||'{}')||{};}catch(e){return {};}}
+function pfOrbPrefsSet(campo,v){var o=pfOrbPrefs();o[campo]=v;o.ts=Date.now();try{localStorage.setItem('pfOrbPrefs_v1',JSON.stringify(o));}catch(e){}
+  if(typeof pfSyncPush==='function')try{pfSyncPush(['pfOrbPrefs_v1']);}catch(e){}}
+function pfOrb3DLigado(){var p=pfOrbPrefs();if(p.d3!=null)return p.d3==='1';try{return localStorage.getItem('pfOrb3D')==='1';}catch(e){return false;}}
 // v115.2127 - A pedido do Vitor ("coloca os 3 para eu escolher"): A = planeta desenho + anel realista, B = tudo desenho, C = tudo realista
-function pfOrb3DEstilo(){try{var e=localStorage.getItem('pfOrb3DEstilo');return e==='B'||e==='C'?e:'A';}catch(er){return 'A';}}
-function pfOrb3DEstiloSet(e){try{localStorage.setItem('pfOrb3DEstilo',e);}catch(er){}pfOrbitaRender();}
-function pfOrb3DAlternar(){try{localStorage.setItem('pfOrb3D',pfOrb3DLigado()?'0':'1');}catch(e){}pfOrbitaRender();}
+function pfOrb3DEstilo(){var p=pfOrbPrefs(),e=p.estilo;if(!e){try{e=localStorage.getItem('pfOrb3DEstilo');}catch(er){}}return e==='B'||e==='C'?e:'A';}
+function pfOrb3DEstiloSet(e){try{localStorage.setItem('pfOrb3DEstilo',e);}catch(er){}pfOrbPrefsSet('estilo',e);pfOrbitaRender();}
+function pfOrb3DAlternar(){var nv=pfOrb3DLigado()?'0':'1';try{localStorage.setItem('pfOrb3D',nv);}catch(e){}pfOrbPrefsSet('d3',nv);pfOrbitaRender();}
 function pfOrb3DParar(){
   var st=window._pfOrb3DSt;if(!st)return;window._pfOrb3DSt=null;st.parado=true;
   if(st.raf)cancelAnimationFrame(st.raf);
@@ -63603,6 +63613,20 @@ function vendasResolverTransportadora(c){
 // coluna CONTATO da lista devia ler c.comprador desde o início. Mantém o
 // fallback pro contato cadastrado no cliente só pra cotações antigas sem
 // comprador preenchido.
+// v115.2244 - A pedido do Vitor ("no contato colocar o nome da pessoa e o cargo embaixo, menor e mais discreto"): cargo vem da
+// lista de Contatos do cadastro (mesmo nome), senão "Compras" quando é o contato de compras.
+function vendasContatoCargo(c,nome){
+  nome=String(nome||'').trim().toUpperCase();if(!nome)return '';
+  try{var clientes=cadLoad(CLIE_KEY)||[];
+    var cli=clientes.find(function(x){return (x.razao||x.fantasia||'').toUpperCase()===(c.cliente||'').toUpperCase();});
+    if(!cli)return '';
+    var ct=(cli.contatos||[]).find(function(x){return String(x.nome||'').trim().toUpperCase()===nome;});
+    if(ct&&ct.cargo)return ct.cargo;
+    if(cli.contatoCompras&&String(cli.contatoCompras.nome||'').trim().toUpperCase()===nome)return 'Compras';
+    if(cli.contatoFinanceiro&&String(cli.contatoFinanceiro.nome||'').trim().toUpperCase()===nome)return 'Financeiro';
+  }catch(e){}
+  return '';
+}
 function vendasResolverContato(c){
   if(c.comprador)return c.comprador;
   try{
@@ -63784,12 +63808,14 @@ function vendasAtualizarLista(){
       else if(col==='cidade'){td.style.cssText='padding:0px 8px;color:var(--pf-table-text);font-size:12px';td.textContent=(c.cidade||c.clienteObj&&c.clienteObj.cidade||'—').toUpperCase();}
       else if(col==='uf'){td.style.cssText='padding:0px 8px;color:var(--pf-table-text);font-size:12px;text-align:center';td.textContent=(c.uf||'—');}
       else if(col==='contato'){
-        td.style.cssText='padding:0px 8px;color:var(--pf-table-text);font-size:12px;cursor:pointer';
+        td.style.cssText='padding:2px 8px;color:var(--pf-table-text);font-size:12px;cursor:pointer;line-height:1.2';
         var _contatoValor=vendasResolverContato(c);
         var _contatoHerdado=!c.comprador&&_contatoValor;
         // v115.2241 - A pedido do Vitor ("pq essa fonte está diferente?"): o que vem do cadastro do cliente era em ITÁLICO + "(cliente)"
         td.textContent=(_contatoValor||'—').toUpperCase();
-        if(_contatoHerdado){td.title='Veio do cadastro do cliente (não foi digitado na cotação)';var _tg=document.createElement('span');_tg.textContent=' · cad.';_tg.style.cssText='font-size:10px;color:var(--pf-text-muted,#8a9ab0);font-weight:400';td.appendChild(_tg);}
+        var _cargo=_contatoValor?vendasContatoCargo(c,_contatoValor):'';
+        if(_cargo||_contatoHerdado){if(_contatoHerdado)td.title='Veio do cadastro do cliente (não foi digitado na cotação)';
+          var _tg=document.createElement('div');_tg.textContent=_cargo||'do cadastro';_tg.style.cssText='font-size:10px;line-height:1.15;color:var(--pf-text-muted,#8a9ab0);font-weight:400;text-transform:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';td.appendChild(_tg);}
         td.onclick=function(e){e.stopPropagation();vendasEditarCampoLista(c.num,'contato',td,_contatoValor);};
       }
       else if(col==='transp'){

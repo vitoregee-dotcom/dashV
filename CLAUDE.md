@@ -56,6 +56,9 @@
   sem código dobrava a cada sync e chegou a 1,2 milhão; qualquer merge novo precisa colapsar TUDO, nada pode
   passar "direto" sem chave).
 - Chaves do IndexedDB (`PF_IDB_KEYS`) não são comprimidas (a compressão LZString na thread principal travava 20s).
+  v115.2249 (aviso "armazenamento cheio" voltando): cotações (`partsflow_cotacoes_v1`), pedidos de venda, `pfContasReceber_v1` e
+  `imp_preview_cache_v1` também moram no IndexedDB. Ler/gravar/apagar SÓ por `pfSafeGetItem`/`pfSafeSetItem`/`pfSafeRemoveItem` (nunca
+  `localStorage.getItem` direto nessas chaves — volta vazio).
 - Diagnóstico de lentidão real: tabela `user_sync`, chave `perf_diagnostico_v1` (Supabase).
   v115.2238: além de longtask/gap, grava `quadro_lento` (API long-animation-frame, quadros ≥120 ms, máx 1/2 s): `scripts[]` com
   fn (função), inv (quem chamou: clique/timer/observer), pos (posição no index.html daquela versão) e layout (ms de layout forçado).

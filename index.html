@@ -1957,7 +1957,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2256</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2257</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2111,7 +2111,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2256</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2257</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -38694,7 +38694,7 @@ var mapaEstadoId = null;
 
 // ── SYNC GENÉRICO (user_sync) ─────────────────────────────────────────
 // Chaves sincronizadas entre dispositivos (excluindo dados de sessão/device)
-var PF_SYNC_KEYS = ['pfOrbPrefs_v1', 
+var PF_SYNC_KEYS = ['pfOrbPrefs_v1', 'pfModoApresPrefs_v1', 
   // v115.1525 - A pedido do Vitor: chave da Anthropic passa a sincronizar
   // DIRETO entre aparelhos, sem senha nem criptografia (antes só existia
   // criptografada em "Minhas Chaves"/pfChavesDevEnc, e só ia pro
@@ -40189,6 +40189,11 @@ async function pfSyncPull(){
         if(row.chave==='anthropic_key'||row.chave==='anthropic_workspace_id'){
           var remotoChave=(val||'').trim();
           if(remotoChave && remotoChave!==(localStorage.getItem(row.chave)||''))localStorage.setItem(row.chave,remotoChave);
+          return;
+        }
+        if(row.chave==='pfModoApresPrefs_v1'){ // v115.2257 - Modo Apresentação 🎓 salvo por conta: o mais novo vence
+          try{var ra=JSON.parse(val||'{}')||{},la=JSON.parse(localStorage.getItem('pfModoApresPrefs_v1')||'{}')||{};
+            if((ra.ts||0)>(la.ts||0)){localStorage.setItem('pfModoApresPrefs_v1',JSON.stringify(ra));if(typeof pfAjudaAplicarModo==='function')setTimeout(pfAjudaAplicarModo,0);}}catch(e){}
           return;
         }
         if(row.chave==='pfOrbPrefs_v1'){ // v115.2244 - preferência da órbita: o mais novo vence
@@ -65577,8 +65582,15 @@ function pfAjudaChave(){
   var em=(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)?String(sbUser.email).toLowerCase():'';
   return 'pfModoApresentacao'+(em?'_'+em:'');
 }
+// v115.2257 - A pedido do Vitor ("se eu deixar nesse modo apresentação, deixa
+// salvo, mesmo que eu deslogue"): o Sair faz localStorage.clear(), então a
+// escolha só por navegador sumia. Agora também vai pra pfModoApresPrefs_v1
+// {on,ts}, sincronizada POR USUÁRIO (linha própria no user_sync, mais novo
+// vence) -- volta sozinha no próximo login, em qualquer aparelho.
 function pfAjudaModoLigado(){
   try{
+    var sp=JSON.parse(localStorage.getItem('pfModoApresPrefs_v1')||'{}')||{};
+    if(sp.ts&&typeof sp.on==='boolean')return sp.on;
     var v=localStorage.getItem(pfAjudaChave());
     if(v==='1'||v==='0')return v==='1';
     return typeof sbUser!=='undefined'&&!!sbUser&&PF_AJUDA_PADRAO_LIGADO.indexOf(String(sbUser.email||'').toLowerCase())>=0;
@@ -65614,7 +65626,10 @@ function pfAjudaAplicarModo(){
   });
 }
 function pfAjudaToggleModo(){
-  try{localStorage.setItem(pfAjudaChave(),pfAjudaModoLigado()?'0':'1');}catch(e){}
+  var novo=!pfAjudaModoLigado();
+  try{localStorage.setItem(pfAjudaChave(),novo?'1':'0');}catch(e){}
+  try{localStorage.setItem('pfModoApresPrefs_v1',JSON.stringify({on:novo,ts:Date.now()}));}catch(e){}
+  if(typeof pfSyncPush==='function')try{pfSyncPush(['pfModoApresPrefs_v1']);}catch(e){}
   pfAjudaAplicarModo();
 }
 function pfAjudaBtnHtml(atalhoId){

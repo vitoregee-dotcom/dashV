@@ -1957,7 +1957,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2253</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2254</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2111,7 +2111,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2253</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2254</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -16989,9 +16989,43 @@ function pfDecompress(str){
 // pelos 2 pontos do sync (pfSyncPush/pfSyncPull) que precisam do valor
 // CRU (comprimido) pra mandar/comparar com o Supabase.
 function pfRawGetItem(key){
-  if(PF_IDB_KEYS.indexOf(key)>=0)return _pfMemCache.hasOwnProperty(key)?_pfMemCache[key]:null;
+  if(PF_IDB_KEYS.indexOf(key)>=0){var _v=_pfMemCache.hasOwnProperty(key)?_pfMemCache[key]:null;return PF_MODO_DEMO_TODAS[key]?pfModoDemoFiltrarRaw(key,_v):_v;}
   return localStorage.getItem(key);
 }
+// ════════════════════════════════════════════════════════════════
+// v115.2254 - A pedido do Vitor ("coloca pra aparecer o modo demonstração pra todos, e somente com os dados fictícios. Só o meu
+// deixa como está... compras, solicitações reais que eu fiz... vou mostrar pra algumas pessoas, não quero dados reais"; escolheu
+// "todos menos eu" + "esconder", não apagar). Com pfModoDemo.ligado, quem NÃO é vitoregee@gmail.com lê:
+//   PF_MODO_DEMO_SO   -> só os itens com demo:true (cotações, pedidos, títulos, clientes, avisos, CRM)
+//   PF_MODO_DEMO_NADA -> lista vazia (solicitações, compras, RMA, Avise-me, pendências, mapas... o "salvo em Ferramentas")
+// O filtro fica na LEITURA (localStorage.getItem e pfRawGetItem), então vale pra todas as telas; os dados reais continuam
+// gravados e o pfSyncPush dessas chaves fica parado enquanto o modo estiver ligado (nada filtrado sobe por cima do real).
+// Ao desligar, a sync puxa tudo de novo e a página recarrega.
+var PF_MODO_DEMO_KEY='pfModoDemo';
+var PF_MODO_DEMO_SO=['partsflow_cotacoes_v1','partsflow_pedidos_venda_v1','pfContasReceber_v1','cad_clientes_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfCatPedEventos','pfCrmEventos'];
+var PF_MODO_DEMO_NADA=['meAvise_lista','aviseItems','solicitacoes','cad_solicitacoes_compras_v1','pfPendenciasAdmin','rma_lista_v1','pfPesqEnvios','pfPesqRespostas','transitItems','pfComprasAtivos','pfApostasVendaEventos','pfApostasNovoEventos','pfPedidoVendaEventos','pfRmaEventos','pfCatPedidos_v1','venda_rascunho_v1','opTrack','op_notif_log_v1','mapas_lista_v1','pfLembretes','ia_uso_log_v1','pf_login_log_v1','pfMapaConcorrentes'];
+var PF_MODO_DEMO_TODAS={};PF_MODO_DEMO_SO.forEach(function(k){PF_MODO_DEMO_TODAS[k]='so';});PF_MODO_DEMO_NADA.forEach(function(k){PF_MODO_DEMO_TODAS[k]='nada';});
+var _pfLsGetOrig=Storage.prototype.getItem;
+function pfModoDemoLigado(){try{var o=JSON.parse(_pfLsGetOrig.call(localStorage,PF_MODO_DEMO_KEY)||'{}');return !!(o&&o.ligado);}catch(e){return false;}}
+function pfModoDemoAtivo(){
+  if(typeof sbUser==='undefined'||!sbUser||!sbUser.id)return false; // antes do login não filtra
+  if(typeof pfEhVitorGmail==='function'&&pfEhVitorGmail())return false; // o Vitor vê tudo
+  return pfModoDemoLigado();
+}
+var _pfModoDemoMemo={};
+function pfModoDemoFiltrarRaw(key,raw){
+  if(raw==null||!PF_MODO_DEMO_TODAS[key]||!pfModoDemoAtivo())return raw;
+  var m=_pfModoDemoMemo[key];if(m&&m.raw===raw)return m.out;
+  var out=raw;
+  try{
+    var txt=(typeof pfDecompress==='function')?pfDecompress(raw):raw,v=JSON.parse(txt);
+    if(PF_MODO_DEMO_TODAS[key]==='nada')out=Array.isArray(v)?'[]':(v&&typeof v==='object'?'{}':raw);
+    else if(Array.isArray(v))out=JSON.stringify(v.filter(function(x){return x&&x.demo;}));
+    else out=Array.isArray(v)?'[]':'{}';
+  }catch(e){out=raw;}
+  _pfModoDemoMemo[key]={raw:raw,out:out};return out;
+}
+Storage.prototype.getItem=function(k){var v=_pfLsGetOrig.call(this,k);return (this===window.localStorage&&PF_MODO_DEMO_TODAS[k])?pfModoDemoFiltrarRaw(k,v):v;};
 function pfRawSetItem(key, value){
   if(PF_IDB_KEYS.indexOf(key)>=0){
     _pfMemCache[key]=value;
@@ -38706,7 +38740,7 @@ var PF_SYNC_KEYS = ['pfOrbPrefs_v1',
   'cc_desenhos_v1', // v115.2021 - desenho de cada família (Área Técnica), trocado pelo admin
   'rel_decisoes_v1', // v115.2030 - respostas às sugestões de relacionamento (cotados juntos)
   'rel_regras_v1', // v115.2030 - regras que filtram as ligações vindas de catálogo
-  'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', // v115.2111 - margem por perfil // v115.2058 - regras geral/cliente do Assistente de Vendas (+ v115.2062 etiquetas da cotação)
+  'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', // v115.2111 - margem por perfil // v115.2058 - regras geral/cliente do Assistente de Vendas (+ v115.2062 etiquetas da cotação)
   'partsflow_pedidos_venda_v1',
   'venda_rascunho_v1',
   'imp_preview_cache_v1',
@@ -38878,6 +38912,7 @@ async function pfSyncPush(keys){
     return;
   }
   keys = keys || PF_SYNC_KEYS;
+  if(typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo())keys=keys.filter(function(k){return !PF_MODO_DEMO_TODAS[k];}); // v115.2254 - modo demonstração: não sobe lista filtrada
   var syncCount = 0;
   var erros = [];
   
@@ -39558,7 +39593,7 @@ async function pfSafeSetItemAsync(key,value){
 // de dado único da empresa (tudo, exceto os 2 logs de atividade por
 // usuário -- esses fazem sentido continuar por conta) passam a usar o
 // mesmo ID fixo. Isso fecha a causa raiz de uma vez.
-var PF_CATALOGO_UNICO_KEYS = ['componentes_cardan_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'retentores_v1', 'mapas_lista_v1', 'cc_vinculos_estoque_v1',
+var PF_CATALOGO_UNICO_KEYS = ['componentes_cardan_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'retentores_v1', 'mapas_lista_v1', 'cc_vinculos_estoque_v1',
   // v115.1987 - A pedido do Vitor ("cotação deve ser compartilhada com
   // todos"): cotações deixam de ser por conta -- todo mundo lê e grava a
   // mesma lista (linha do MY_USER_ID, que já tinha todas as cotações).
@@ -39612,7 +39647,7 @@ async function pfSyncPull(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   try{
     // Chaves compartilhadas entre usuários — puxar de TODOS os usuários
-    var sharedKeys = ['partsflow_cotacoes_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'lp_regras_v1_deletados', 'lp_exemplos_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'cc_vinculos_estoque_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'pfNoticiasMarcasAtualizadoEm', 'pfNoticiasMarcasHistorico', 'timken_interchange_v1', 'pfComprasAtivos', 'pfAtalhosFerramentas', 'pfIconOverrides', 'pfTemaCores', 'pfCotacoesNaoLidas', 'pfMapaComercialSede', 'pfMapaPinsCores', 'pf_transp_mapa_v1', 'pfChegadasConf'];
+    var sharedKeys = ['partsflow_cotacoes_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'lp_regras_v1_deletados', 'lp_exemplos_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'cc_vinculos_estoque_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'pfNoticiasMarcasAtualizadoEm', 'pfNoticiasMarcasHistorico', 'timken_interchange_v1', 'pfComprasAtivos', 'pfAtalhosFerramentas', 'pfIconOverrides', 'pfTemaCores', 'pfCotacoesNaoLidas', 'pfMapaComercialSede', 'pfMapaPinsCores', 'pf_transp_mapa_v1', 'pfChegadasConf'];
     // v115.1219 - BUG corrigido (a pedido do Vitor, e-mails duplicados do
     // mesmo item em horários próximos): pfComprasEventos/pfFaturadosEventos/
     // pfChegadasEventos/pfSolicitadosEventos são LOGS (uma entrada por
@@ -39699,6 +39734,9 @@ async function pfSyncPull(){
           // v115.1987 - cotação agora é da empresa: a cópia antiga por conta
           // (de antes do compartilhamento) não pode esconder a lista única.
           if(r.chave==='partsflow_cotacoes_v1'&&sbUser.id!==MY_USER_ID){if(window._pfChavesProprias)delete window._pfChavesProprias[r.chave];return;}
+          // v115.2254 - A pedido do Vitor ("pro Carlos Candis está aparecendo notícia antiga"): ele tinha uma cópia PRÓPRIA das notícias de
+          // 10/09 no banco que passava na frente da da empresa. Notícias = sempre a da empresa.
+          if(/^pfNoticias(Setor|SetorAtualizadoEm|MarcasAtualizadoEm|MarcasHistorico)$/.test(r.chave)&&sbUser.id!==MY_USER_ID){if(window._pfChavesProprias)delete window._pfChavesProprias[r.chave];return;}
           // Incluir dados do próprio usuário (compartilhados ou não)
           rows.push(r);
         });
@@ -52796,6 +52834,54 @@ function pfDemoLimparCotacoes(){
 }
 setTimeout(function(){try{if(pfDemoLotesApagados().length)pfDemoLimparCotacoes();}catch(e){}},9000);
 setInterval(function(){try{if(pfDemoLotesApagados().length)pfDemoLimparCotacoes();}catch(e){}},5*60*1000);
+// v115.2254 - 🎭 Modo demonstração pros outros (só o Vitor liga/desliga; ver PF_MODO_DEMO_* lá em cima)
+function pfModoDemoBlocoHtml(){
+  if(typeof pfEhVitorGmail!=='function'||!pfEhVitorGmail())return '';
+  var on=pfModoDemoLigado();
+  return '<div style="margin:4px 0 16px;padding:14px 16px;border-radius:10px;border:2px solid '+(on?'#C0392B':'#1F4E79')+';background:'+(on?'#FDECEC':'#F5F9FE')+'">'+
+    '<div style="font-size:15px;font-weight:800;color:'+(on?'#C0392B':'#1F4E79')+'">'+(on?'🎭 MODO DEMONSTRAÇÃO LIGADO pros outros usuários':'🎭 Modo demonstração pros outros usuários')+'</div>'+
+    '<div style="margin:6px 0 10px;color:#1a2332">Ligado: todo mundo que <b>não é você</b> vê <b>só os dados fictícios</b> (cotações, pedidos, clientes, títulos, avisos e CRM de demonstração) '+
+    'e as listas reais ficam <b>escondidas</b> (solicitações, compras, RMA, Avise-me, pendências, mapas…). Nada real é apagado — ao desligar tudo volta. '+
+    'Enquanto estiver ligado, o que os outros fizerem nessas telas <b>não sobe</b> pro sistema. Você continua vendo tudo, como sempre.</div>'+
+    (on?'<button class="pfBtn pfBtnVermelho" onclick="pfModoDemoSet(false)">⏹ Desligar o modo demonstração</button> <button class="pfBtn pfBtnClaro" onclick="pfModoDemoSet(true,true)">🔄 Refazer os dados fictícios</button>'
+       :'<button class="pfBtn pfBtnVerde" onclick="pfModoDemoSet(true)">▶ Ligar o modo demonstração</button> <span style="color:#607080;font-size:12px">(apaga as demonstrações antigas e gera uma nova completa, sem clientes reais)</span>')+
+  '</div>';
+}
+function pfModoDemoSet(on,soRefazer){
+  if(!pfEhVitorGmail())return;
+  if(on){
+    if(!confirm((soRefazer?'Refazer os dados fictícios?':'Ligar o modo demonstração pros outros usuários?')+'\n\nApaga as demonstrações antigas e gera uma nova (150 clientes fictícios, 600 pedidos, cotações abertas grandes, avisos não lidos). Leva alguns segundos.'))return;
+    try{pfDemoApagar(true);}catch(e){console.warn('modo demo apagar',e);}
+    try{pfDemoGerar({auto:true});}catch(e){console.warn('modo demo gerar',e);pfAlert('Não consegui gerar os dados fictícios: '+e.message);return;}
+  }else if(!confirm('Desligar o modo demonstração? Os outros voltam a ver os dados reais (a página deles recarrega sozinha).'))return;
+  localStorage.setItem(PF_MODO_DEMO_KEY,JSON.stringify({ligado:!!on,ts:Date.now(),por:'vitoregee@gmail.com'}));
+  if(typeof pfSyncPush==='function')try{pfSyncPush([PF_MODO_DEMO_KEY,'partsflow_cotacoes_v1','partsflow_pedidos_venda_v1','pfContasReceber_v1','cad_clientes_v1']);}catch(e){}
+  pfModoDemoVigiar();
+  if(document.getElementById('ferrBody'))try{ferrDadosDemo();}catch(e){}
+  pfAlert(on?'✅ Modo demonstração LIGADO. Os outros usuários passam a ver só os dados fictícios (em até 1 minuto, a página deles recarrega sozinha).':'✅ Modo demonstração desligado.');
+}
+// vigia: troca de estado recarrega a página de quem não é o Vitor (caches/telas montadas com o dado antigo); pro Vitor, selo no canto
+function pfModoDemoVigiar(){
+  try{
+    var vitor=typeof pfEhVitorGmail==='function'&&pfEhVitorGmail(),lig=pfModoDemoLigado();
+    var selo=document.getElementById('pfModoDemoSelo');
+    if(vitor&&lig&&!selo){selo=document.createElement('div');selo.id='pfModoDemoSelo';selo.setAttribute('data-pf-no-drag','1');
+      selo.style.cssText='position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:99998;background:#C0392B;color:#fff;font:800 12px Inter,sans-serif;padding:5px 12px;border-radius:14px;box-shadow:0 3px 10px rgba(0,0,0,.25);cursor:pointer';
+      selo.textContent='🎭 Demonstração LIGADA pros outros';selo.title='Clique pra abrir Dados de demonstração (desligar)';
+      selo.onclick=function(){pfNavigate('ferramentas');setTimeout(function(){if(typeof ferrAbrirTab==='function')ferrAbrirTab('🎭','Dados de demonstração',ferrDadosDemo);},80);};document.body.appendChild(selo);}
+    else if(selo&&!(vitor&&lig))selo.remove();
+    if(typeof sbUser==='undefined'||!sbUser||!sbUser.id)return;
+    var at=pfModoDemoAtivo();
+    if(window._pfModoDemoUlt===undefined){window._pfModoDemoUlt=at;return;}
+    if(at!==window._pfModoDemoUlt){
+      window._pfModoDemoUlt=at;
+      if(!at){window._pfSyncMarca=null;window._pfUltimoPullCompleto=0;} // desligou: puxa tudo de novo
+      if(typeof pfToast==='function')pfToast(at?'🎭 Modo demonstração — recarregando…':'Voltando aos dados reais — recarregando…');
+      setTimeout(function(){var go=function(){location.reload();};if(!at&&typeof pfSyncPull==='function'){try{Promise.resolve(pfSyncPull()).then(go,go);}catch(e){go();}}else go();},1500);
+    }
+  }catch(e){}
+}
+setInterval(pfModoDemoVigiar,10000);setTimeout(pfModoDemoVigiar,4000);
 function ferrDadosDemo(){
   var el=document.getElementById('ferrBody');if(!el)return;
   var k=pfDemoContagem();
@@ -52809,9 +52895,10 @@ function ferrDadosDemo(){
       '<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin:14px 0">'+
         '<label>Clientes fictícios<br><input id="demoNCli" type="number" value="150" min="10" max="400" style="width:90px;padding:7px 9px;border:1.5px solid #e0e8f0;border-radius:8px"></label>'+ // v115.2153
         '<label>Pedidos<br><input id="demoNPed" type="number" value="600" min="10" max="2000" style="width:90px;padding:7px 9px;border:1.5px solid #e0e8f0;border-radius:8px"></label>'+
-        '<label>Clientes reais sorteados<br><input id="demoNReais" type="number" value="15" min="0" max="80" style="width:90px;padding:7px 9px;border:1.5px solid #e0e8f0;border-radius:8px"></label>'+
+        '<label>Clientes reais sorteados<br><input id="demoNReais" type="number" value="0" min="0" max="80" style="width:90px;padding:7px 9px;border:1.5px solid #e0e8f0;border-radius:8px"></label>'+
         '<label>% dos títulos vencidos<br><input id="demoPctVenc" type="number" value="20" min="0" max="80" style="width:90px;padding:7px 9px;border:1.5px solid #e0e8f0;border-radius:8px"></label>'+
       '</div>'+
+      pfModoDemoBlocoHtml()+ // v115.2254
       '<div style="display:flex;gap:10px;flex-wrap:wrap"><button class="pfBtn pfBtnVerde" onclick="pfDemoGerar()">🎭 Gerar dados de demonstração</button>'+
       '<button class="pfBtn pfBtnVermelho" onclick="pfDemoApagar()"'+(k.c+k.p+k.t+k.q?'':' disabled')+'>🗑 Apagar dados de demonstração</button></div>'+
       // v115.2153 - A pedido do Vitor ("onde vai ficar as telas do estoque pra eu ver no iPad"): atalho pra demonstração das TVs
@@ -52820,15 +52907,16 @@ function ferrDadosDemo(){
       '<div id="demoStatus" style="margin-top:12px;color:#607080">No sistema agora: <b>'+k.c+'</b> clientes, <b>'+k.p+'</b> pedidos, <b>'+k.q+'</b> cotações e <b>'+k.t+'</b> títulos de demonstração.</div>'+
     '</div></div>';
 }
-function pfDemoGerar(){
+function pfDemoGerar(opc){
+  opc=opc||{}; // v115.2254 - {auto:true} = sem perguntar, sem clientes reais (modo demonstração)
   if(typeof pfUsoIAEhDono==='function'&&!pfUsoIAEhDono()){pfAlert('Só o dono pode gerar dados de demonstração.');return;}
   var nPed=Math.max(10,Math.min(2000,parseInt((document.getElementById('demoNPed')||{}).value,10)||600)); // v115.2153 - até 2000 (150 clientes pedem mais pedidos)
   var nCli=Math.max(10,Math.min(400,parseInt((document.getElementById('demoNCli')||{}).value,10)||150));
-  var nReais=Math.max(0,Math.min(80,parseInt((document.getElementById('demoNReais')||{}).value,10)||0));
+  var nReais=opc.auto?0:Math.max(0,Math.min(80,parseInt((document.getElementById('demoNReais')||{}).value,10)||0));
   var pctV=Math.max(0,Math.min(80,parseInt((document.getElementById('demoPctVenc')||{}).value,10)||20))/100;
   var k=pfDemoContagem();
-  if(k.p&&!confirm('Já existem '+k.p+' pedidos de demonstração. Gerar mais em cima?'))return;
-  if(!confirm('Vai gravar no sistema (pra todos) '+nPed+' pedidos, clientes fictícios e títulos a receber, todos marcados como demonstração. Continuar?'))return;
+  if(!opc.auto&&k.p&&!confirm('Já existem '+k.p+' pedidos de demonstração. Gerar mais em cima?'))return;
+  if(!opc.auto&&!confirm('Vai gravar no sistema (pra todos) '+nPed+' pedidos, clientes fictícios e títulos a receber, todos marcados como demonstração. Continuar?'))return;
   var R=Math.random,pick=function(a){return a[Math.floor(R()*a.length)];},dia=86400000,agora=Date.now();
   // clientes fictícios (não duplica se já existirem)
   var lote='demo_'+agora;
@@ -52882,7 +52970,7 @@ function pfDemoGerar(){
   var cots=[];try{cots=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]')||[];}catch(e){}
   var numC=Math.max.apply(null,[900000].concat(cots.filter(function(c){return c&&c.demo;}).map(function(c){return c.num||0;})));
   var mkCot=function(cli,data,itens,fechou,pvNum){numC++;var vEmail=cli.vendedorEmail||'';
-    return {num:numC,id:'cot_'+lote+'_'+numC,data:new Date(data).toISOString(),atendenteEmail:vEmail,atendenteNome:pfDemoNomeVend(vEmail),cliente:cli.razao,
+    return {num:numC,id:'cot_'+lote+'_'+numC,data:new Date(data).toISOString(),atendenteEmail:vEmail,atendenteNome:pfDemoNomeVend(vEmail),vendedorInterno:pfDemoNomeVend(vEmail),transportadora:pick(['BRASPRESS','RODONAVES','JAMEF','TNT MERCÚRIO','RETIRA']),cliente:cli.razao,
       clienteObj:{razao:cli.razao,fantasia:cli.fantasia||'',codigo:cli.codigo||'',cidade:cli.cidade||'',estado:cli.estado||''},uf:cli.estado||'SP',margem:30,condicao:pick(conds),comprador:'',
       itens:itens.map(function(it){return {codigo:it.codigo,marca:it.marca,desc:it.desc,qtd:it.qtd,custo:it.custo,vendaOverride:it.venda,saldo:it.saldo};}),
       total:itens.reduce(function(s2,it){return s2+it.venda*it.qtd;},0),dataPedido:fechou?new Date(data+3600000).toISOString():undefined,demo:true,demoLote:lote,ts:agora};};
@@ -52959,9 +53047,9 @@ function pfDemoHistorico(ref){
     C=window._pfDemoHist={t:Date.now(),m:m};}
   return C.m[String(ref||'').trim().toUpperCase()]||[];
 }
-function pfDemoApagar(){
+function pfDemoApagar(auto){
   var k=pfDemoContagem();
-  if(!confirm('Apagar os dados de demonstração?\n\n'+k.c+' clientes, '+k.p+' pedidos, '+k.q+' cotações e '+k.t+' títulos marcados como 🎭 demonstração.\nNada real é apagado.'))return;
+  if(!auto&&!confirm('Apagar os dados de demonstração?\n\n'+k.c+' clientes, '+k.p+' pedidos, '+k.q+' cotações e '+k.t+' títulos marcados como 🎭 demonstração.\nNada real é apagado.'))return;
   // registra os lotes (pedidos/títulos somem em qualquer aparelho) e os clientes na lista de excluídos que já existe
   var lotes={};
   var cotsAll=[];try{cotsAll=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]')||[];}catch(e){}
@@ -52976,7 +53064,7 @@ function pfDemoApagar(){
   crSave(crLoad().filter(function(t){return !(t&&t.demo);}));
   pfDemoLimparCotacoes();
   pfDemoLimparLogs(true);window._pfDemoHist=null; // v115.2246
-  ferrDadosDemo();
+  if(!auto)ferrDadosDemo();
   if(typeof pfOrbitaRender==='function')try{pfOrbitaRender();}catch(e){}
 }
 

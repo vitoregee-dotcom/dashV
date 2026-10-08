@@ -85,6 +85,17 @@
   `docs/referencias/demo-cotacao-cheia.png`.
   v115.2248: as cotações do lote são NUMERADAS PELA DATA (as abertas recentes ficam no topo) e as "extras" também têm 2–10 itens com ~30% sem saldo.
 
+## 🎭 Modo demonstração pros outros (v115.2254 — "todos menos eu" + "esconder", escolhas do Vitor)
+- Flag compartilhada `pfModoDemo` {ligado,ts}; liga/desliga SÓ o vitoregee@gmail.com em Ferramentas → 🎭 Dados de demonstração
+  (`pfModoDemoBlocoHtml`/`pfModoDemoSet`: ao ligar apaga TODOS os lotes antigos e gera um novo com `pfDemoGerar({auto:true})`, sem
+  clientes reais). Selo vermelho "🎭 Demonstração LIGADA pros outros" no topo da tela do Vitor (`pfModoDemoVigiar`, 10 s).
+- Filtro na LEITURA: `Storage.prototype.getItem` e `pfRawGetItem` passam por `pfModoDemoFiltrarRaw` quando `pfModoDemoAtivo()` (logado,
+  não é o Vitor, flag ligada): `PF_MODO_DEMO_SO` = só itens `demo:true` (cotações, pedidos, títulos, clientes, avisos, CRM);
+  `PF_MODO_DEMO_NADA` = vazio (solicitações, compras, RMA, Avise-me, pendências, mapas, rascunho...). Dados reais ficam gravados;
+  `pfSyncPush` não sobe essas chaves com o modo ligado. Troca de estado recarrega a página dos outros (desligar = pull completo).
+  Chave nova com dado real/sensível → acrescentar numa das duas listas. Estoque/planilha (Dashboard) continua real.
+- Notícias: cópia PRÓPRIA de usuário de `pfNoticias*` é ignorada no pull (Carlos tinha uma de 10/09 que passava na frente).
+
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)
 - Cotação: 90+ dias sem comprar = "⛔ inativo" (`PF_INATIVO_DIAS`), sem histórico = "🆕 primeira compra"; clique → `pfInatAbrir(modo)`
   (reanalise / novo_prazo / novo_vista), lista montada do PRÓPRIO atalho de texto (`pfCadCampoDoRotulo` mapeia rótulo→campo do cadastro).

@@ -1957,7 +1957,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2258</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2259</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2111,7 +2111,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2258</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2259</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -16988,8 +16988,28 @@ function pfDecompress(str){
 // comportamento idêntico a antes (localStorage direto). Usado também
 // pelos 2 pontos do sync (pfSyncPush/pfSyncPull) que precisam do valor
 // CRU (comprimido) pra mandar/comparar com o Supabase.
+// v115.2259 - A pedido do Vitor (print do Carlos Candis: lista de cotações cheia de #9019xx de demonstração JÁ APAGADA): o
+// pfDemoLimparCotacoes tirava do navegador, mas o push junta com o servidor (união por id) e a sync trazia tudo de volta --
+// o padrão "item apagado que volta sozinho". Pedidos/títulos já filtram na leitura (pfDemoFiltrar); cotações não. Agora a
+// LEITURA das cotações esconde as de lote apagado (e demo sem lote), seja qual for a cópia que a sync trouxer.
+var _pfDemoCotMemo={raw:null,ap:'',out:null};
+function pfDemoCotSemApagados(raw){
+  try{
+    if(raw==null||raw.indexOf('"demo":true')<0)return raw;
+    var ap=(typeof pfDemoLotesApagados==='function')?pfDemoLotesApagados():[],apS=ap.join(',');
+    if(_pfDemoCotMemo.raw===raw&&_pfDemoCotMemo.ap===apS)return _pfDemoCotMemo.out;
+    var out=raw;
+    if(ap.length){
+      var txt=(typeof pfDecompress==='function')?pfDecompress(raw):raw,l=JSON.parse(txt);
+      if(Array.isArray(l)){var f=l.filter(function(c){return !(c&&c.demo&&(!c.demoLote||ap.indexOf(c.demoLote)>=0));});if(f.length!==l.length)out=JSON.stringify(f);}
+    }
+    _pfDemoCotMemo={raw:raw,ap:apS,out:out};return out;
+  }catch(e){return raw;}
+}
 function pfRawGetItem(key){
-  if(PF_IDB_KEYS.indexOf(key)>=0){var _v=_pfMemCache.hasOwnProperty(key)?_pfMemCache[key]:null;return PF_MODO_DEMO_TODAS[key]?pfModoDemoFiltrarRaw(key,_v):_v;}
+  if(PF_IDB_KEYS.indexOf(key)>=0){var _v=_pfMemCache.hasOwnProperty(key)?_pfMemCache[key]:null;
+    if(key==='partsflow_cotacoes_v1')_v=pfDemoCotSemApagados(_v); // v115.2259
+    return PF_MODO_DEMO_TODAS[key]?pfModoDemoFiltrarRaw(key,_v):_v;}
   return localStorage.getItem(key);
 }
 // ════════════════════════════════════════════════════════════════

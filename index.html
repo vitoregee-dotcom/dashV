@@ -44598,6 +44598,96 @@ function pfAbasMenuAbrir(area,i){
   window._ferrSkipAutoPicker=true;if(typeof currentView==='undefined'||currentView!=='ferramentas')pfNavigate('ferramentas');
   setTimeout(function(){ferrAbrirTab(c.icone,c.titulo,c.fn);pfAbasBarRender();},70);
 }
+// ── v115.2250 - Alt+Espaço / Option+Espaço: busca de QUALQUER função do sistema (igual à busca do iOS) ──
+// A pedido do Vitor ("coloque alt+espaço para abrir uma busca de qualquer função do sistema, igual a do iOS"). Índice = telas
+// principais + abas de Vendas + 2 cards de Cadastros + TODO card que passa pelo pfAtalhoPinHtml (window._pfAjudaMeta: Ferramentas,
+// Compras, Área Técnica, famílias dos Componentes Cardan); na 1ª vez desenha Área Técnica/Ferramentas/Compras escondido pra
+// conhecer os cards (pfAbasCatColher). Card oculto pros outros (👁) não aparece pra eles. ↑↓ escolhe, Enter abre, Esc fecha.
+var PF_BUSCAF_TELAS=[['home','🏠','Tela inicial','Início'],['vendas','🛒','Vendas','Cotações, pedidos, clientes'],['compras','🛍️','Compras','Mapa, solicitações, pedido de compra'],
+  ['ferramentas','🧰','Ferramentas','Todas as ferramentas'],['area_tecnica','🔧','Área Técnica','Catálogos, cardan, guias'],['cadastros','🗂️','Cadastros','Produtos, clientes, fornecedores'],
+  ['logistica','🚚','Logística','Transportadoras, fretes'],['dash','📊','Dashboard','Estoque e compras'],['mapa','🗺️','Mapa de Compras','Itens pra comprar'],['mapa_comercial','📍','Mapa Comercial','Clientes no mapa']];
+var PF_BUSCAF_VENDAS=[['cotacoes','📋','Cotações'],['pedidos','📦','Pedido de Venda'],['kpis','📊','Painel de Clientes'],['receber','💰','Contas a Receber'],['meudia','☀️','Meu dia'],['pesquisas','📋','Pesquisas']];
+var PF_BUSCAF_HUB={vendas:'Vendas',ferramentas:'Ferramentas',compras:'Compras',area_tecnica:'Área Técnica',cadastros:'Cadastros'};
+function pfBuscaFNorm(t){return String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
+function pfBuscaFIndice(){
+  var m=window._pfAjudaMeta||{};
+  var precisa=function(hub){for(var k in m)if(m[k]&&m[k].hub===hub)return false;return true;};
+  try{if(precisa('area_tecnica')&&typeof areaTecnicaRender==='function')pfAbasCatColher('areaTecnicaBody',areaTecnicaRender);}catch(e){}
+  try{if(precisa('ferramentas')&&typeof ferrRender==='function')pfAbasCatColher('ferrBody',ferrRender);}catch(e){}
+  try{if(precisa('compras')&&typeof comprasRender==='function')pfAbasCatColher('comprasBody',comprasRender);}catch(e){}
+  m=window._pfAjudaMeta||{};
+  var out=[],vistos={};
+  var add=function(o){var k=o.titulo+'|'+o.secao;if(vistos[k])return;vistos[k]=1;o.n=pfBuscaFNorm(o.titulo+' '+(o.sub||'')+' '+o.secao);out.push(o);};
+  PF_BUSCAF_TELAS.forEach(function(t){add({icone:t[1],titulo:t[2],sub:t[3],secao:'Tela',run:function(){if(t[0]==='home'&&typeof pfIrParaHome==='function')pfIrParaHome();else pfNavigate(t[0]);}});});
+  PF_BUSCAF_VENDAS.forEach(function(t){add({icone:t[1],titulo:t[2],secao:'Vendas',id:pfAtalhoSlug(t[0]==='kpis'?'KPIs':t[2]),run:function(){pfNavigate('vendas');window._vendasMainTab=t[0];if(typeof vendasRender==='function')vendasRender();}});});
+  add({icone:'🏢',titulo:'Empresas e entidades',sub:'Clientes, fornecedores, transportadoras',secao:'Cadastros',id:'empresas-entidades',run:function(){pfNavigate('cadastros');setTimeout(function(){cadSelecionarGrupo('empresas');},60);}});
+  add({icone:'📦',titulo:'Produtos',sub:'Fichas, importar produtos e catálogos',secao:'Cadastros',id:'produtos',run:function(){pfNavigate('cadastros');setTimeout(function(){cadSelecionarGrupo('produtos');},60);}});
+  Object.keys(m).forEach(function(id){var x=m[id];if(!x||!x.title)return;
+    add({icone:x.icon,titulo:String(x.title).replace(/<[^>]+>/g,''),secao:PF_BUSCAF_HUB[x.hub]||x.hub,id:id,run:function(){
+      if(x.hub==='ferramentas'){pfNavigate('ferramentas');setTimeout(function(){var fn=(window._pfAtalhosRegistry||{})[id];if(typeof fn==='function'){if(typeof ferrAbrirTab==='function')ferrAbrirTab(x.icon,x.title,fn);else fn();}},60);}
+      else pfAtalhoAbrir(id,x.hub);}});});
+  if(!pfEhVitorGmail())out=out.filter(function(o){return !o.id||!pfCardOcultoTodos(o.id);});
+  return out;
+}
+function pfBuscaFFiltrar(q){
+  var l=window._pfBuscaF.lista,qn=pfBuscaFNorm(q);if(!qn)return l.filter(function(o){return o.secao==='Tela';});
+  var toks=qn.split(' ');
+  return l.map(function(o){
+    if(!toks.every(function(t){return o.n.indexOf(t)>=0;}))return null;
+    var tn=pfBuscaFNorm(o.titulo),sc=0;
+    if(tn===qn)sc+=100;if(tn.indexOf(qn)===0)sc+=50;if((' '+tn).indexOf(' '+toks[0])>=0)sc+=20;if(tn.indexOf(qn)>=0)sc+=10;if(o.secao==='Tela')sc+=3;
+    return {o:o,sc:sc};
+  }).filter(Boolean).sort(function(a,b){return b.sc-a.sc||a.o.titulo.localeCompare(b.o.titulo);}).slice(0,40).map(function(x){return x.o;});
+}
+function pfBuscaFDesenhar(){
+  var st=window._pfBuscaF;if(!st)return;var box=document.getElementById('pfBuscaFRes');if(!box)return;
+  var r=st.res=pfBuscaFFiltrar(st.q);if(st.i>=r.length)st.i=Math.max(0,r.length-1);
+  box.innerHTML=r.length?r.map(function(o,i){var on=i===st.i,ic='';try{ic=pfAbasIcone(o.titulo,o.icone);}catch(e){ic=o.icone||'';}
+    return '<div class="pfBuscaFItem'+(on?' on':'')+'" onmousemove="if(window._pfBuscaF.i!=='+i+'){window._pfBuscaF.i='+i+';pfBuscaFDesenhar();}" onclick="pfBuscaFAbrirItem('+i+')">'+
+      '<span class="pfBuscaFIc">'+ic+'</span><span style="flex:1;min-width:0"><b>'+pfEscHtml(o.titulo)+'</b>'+(o.sub?'<span class="pfBuscaFSub">'+pfEscHtml(o.sub)+'</span>':'')+'</span>'+
+      '<span class="pfBuscaFSec">'+pfEscHtml(o.secao)+'</span></div>';}).join('')
+    :'<div style="padding:18px;text-align:center;color:#8a9ab0;font-size:14px">Nada com "'+pfEscHtml(st.q)+'"</div>';
+  var on=box.querySelector('.on');if(on&&on.scrollIntoView)on.scrollIntoView({block:'nearest'});
+}
+function pfBuscaFFechar(){var ov=document.getElementById('pfBuscaF');if(ov)ov.remove();window._pfBuscaF=null;}
+function pfBuscaFAbrirItem(i){var st=window._pfBuscaF;if(!st)return;var o=st.res[i];pfBuscaFFechar();if(o)try{o.run();}catch(e){console.warn('busca de funções',e);}}
+function pfBuscaFAbrir(){
+  if(document.getElementById('pfBuscaF')){document.getElementById('pfBuscaFInp').focus();return;}
+  window._pfBuscaF={lista:pfBuscaFIndice(),q:'',i:0,res:[]};
+  if(!document.getElementById('pfBuscaFCss')){var c=document.createElement('style');c.id='pfBuscaFCss';c.textContent=
+    '#pfBuscaF{position:fixed;inset:0;z-index:100002;background:rgba(10,20,40,.35);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:flex;justify-content:center;align-items:flex-start;padding:14vh 16px 0}'+
+    '#pfBuscaF .pfBuscaFCx{width:620px;max-width:100%;background:rgba(255,255,255,.97);border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.35);overflow:hidden;font-family:Inter,sans-serif}'+
+    '#pfBuscaFInp{width:100%;box-sizing:border-box;border:none;outline:none;text-transform:none !important;padding:18px 20px 18px 54px;font-size:21px;color:#1a2332;background:transparent}'+
+    '.pfBuscaFLupa{position:absolute;left:20px;top:17px;font-size:21px;opacity:.55}'+
+    '#pfBuscaFRes{max-height:52vh;overflow:auto;border-top:1px solid #e6ebf2;padding:6px}'+
+    '.pfBuscaFItem{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:10px;cursor:pointer;color:#1a2332;font-size:14px}'+
+    '.pfBuscaFItem.on{background:#1F4E79;color:#fff}.pfBuscaFItem.on .pfBuscaFSub,.pfBuscaFItem.on .pfBuscaFSec{color:#d6e4f5}'+
+    '.pfBuscaFIc{width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}.pfBuscaFIc img{max-width:30px;max-height:30px;object-fit:contain}'+
+    '.pfBuscaFSub{display:block;font-size:11.5px;color:#7a8aa0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'+
+    '.pfBuscaFSec{font-size:11px;font-weight:700;color:#8a9ab0;white-space:nowrap}'+
+    '.pfBuscaFDica{padding:7px 14px;font-size:11px;color:#8a9ab0;border-top:1px solid #e6ebf2;background:#f7f9fc}';
+    document.head.appendChild(c);}
+  var ov=document.createElement('div');ov.id='pfBuscaF';ov.setAttribute('data-pf-no-drag','1');
+  ov.innerHTML='<div class="pfBuscaFCx" data-pf-no-drag="1"><div style="position:relative"><span class="pfBuscaFLupa">🔍</span>'+
+    '<input id="pfBuscaFInp" type="text" placeholder="Buscar função do sistema…" autocomplete="off" spellcheck="false"></div>'+
+    '<div id="pfBuscaFRes"></div><div class="pfBuscaFDica">↑ ↓ escolhe · Enter abre · Esc fecha · Option/Alt + Espaço abre de qualquer tela</div></div>';
+  var baixo=false;ov.onmousedown=function(e){baixo=(e.target===ov);};ov.onclick=function(e){if(baixo&&e.target===ov)pfBuscaFFechar();};
+  document.body.appendChild(ov);
+  var inp=document.getElementById('pfBuscaFInp');
+  inp.oninput=function(){window._pfBuscaF.q=inp.value;window._pfBuscaF.i=0;pfBuscaFDesenhar();};
+  inp.onkeydown=function(e){var st=window._pfBuscaF;if(!st)return;
+    if(e.key==='ArrowDown'){e.preventDefault();st.i=Math.min(st.res.length-1,st.i+1);pfBuscaFDesenhar();}
+    else if(e.key==='ArrowUp'){e.preventDefault();st.i=Math.max(0,st.i-1);pfBuscaFDesenhar();}
+    else if(e.key==='Enter'){e.preventDefault();pfBuscaFAbrirItem(st.i);}};
+  pfBuscaFDesenhar();setTimeout(function(){inp.focus();},0);
+}
+window.addEventListener('keydown',function(e){ // na janela (antes do Esc global do document, que voltaria de tela)
+  if(document.getElementById('pfBuscaF')&&e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();pfBuscaFFechar();return;}
+  if(!e.altKey||e.code!=='Space'||e.ctrlKey||e.metaKey)return;
+  if(typeof sbUser==='undefined'||!sbUser)return; // só logado
+  e.preventDefault();e.stopImmediatePropagation();
+  if(document.getElementById('pfBuscaF'))pfBuscaFFechar();else pfBuscaFAbrir();
+},true);
 // ── Alt+Q / Option+Q: troca de aba (segurando o Alt aparece o seletor) ──
 function pfAbasSeletorDesenhar(){
   var s=window._pfAbasSel;if(!s)return;var ov=document.getElementById('pfAbasSeletor');
@@ -64696,26 +64786,37 @@ function pfAtalhoPinHtml(atalhoId,icon,title,hub){
 // no pai do marcador) e sai da barra de baixo deles; pro Vitor fica apagado com contorno tracejado e "🙈 oculto pros outros".
 // Lista compartilhada pfCardsOcultosTodos {ids:{atalhoId:1}, ts} (só o Vitor grava; o ts mais novo vence no sync).
 var PF_CARDS_OCULTOS_KEY='pfCardsOcultosTodos';
-function pfEhVitorGmail(){return typeof sbUser!=='undefined'&&!!sbUser&&(String(sbUser.email||'').toLowerCase()==='vitoregee@gmail.com'||sbUser.id==='e526fea4-d04f-4d2f-a700-145ac17b137c');}
+function pfEhVitorGmail(){return typeof sbUser!=='undefined'&&!!sbUser&&(String(sbUser.email||'').toLowerCase()==='vitoregee@gmail.com'||sbUser.id==='e526fea4-d04f-4d2f-a700-145ac17b137c');} // a conta da Triex do Vitor NÃO (pedido dele)
 function pfCardsOcultos(){try{var o=JSON.parse(localStorage.getItem(PF_CARDS_OCULTOS_KEY)||'{}')||{};o.ids=o.ids||{};return o;}catch(e){return {ids:{}};}}
 function pfCardOcultoTodos(id){return !!pfCardsOcultos().ids[id];}
+function pfCardEmConstrucao(id){return !!(pfCardsOcultos().constr||{})[id];}
+// v115.2250 - A pedido do Vitor ("coloque um que quando eu clicar, até exibe para os outros, mas exibe como em construção; pegue o
+// ícone dos que eu mandei"): 2º botão 🚧 (ícone 036 do pack dele, a barreira com cones) — card continua aparecendo pra todos, com a
+// faixa "Em construção". Oculto e em construção não andam juntos (marcar um desmarca o outro).
+var PF_CARD_CONSTR_IC='icons/pack/pf-icon-036.png';
+function pfCardConstrSeloHtml(dono){return '<div class="pfCardConstrSelo"><img src="'+PF_CARD_CONSTR_IC+'" alt="">'+(dono?'em construção (todos veem)':'Em construção')+'</div>';}
 function pfCardOlhoHtml(id){
-  var oc=pfCardOcultoTodos(id);
-  if(!pfEhVitorGmail())return oc?'<i class="pfCardOcultoOutros" hidden></i>':'';
+  var oc=pfCardOcultoTodos(id),cs=!oc&&pfCardEmConstrucao(id);
+  if(!pfEhVitorGmail())return oc?'<i class="pfCardOcultoOutros" hidden></i>':(cs?'<i class="pfCardConstrMarca" hidden></i>'+pfCardConstrSeloHtml(false):'');
   return '<div class="pfCardOlho'+(oc?' pfCardOlhoOff':'')+'" data-pf-olho-id="'+pfEscHtml(id)+'" onclick="event.stopPropagation();pfCardOlhoToggle(\''+pfEscJs(id)+'\')" title="'+(oc?'Oculto pros outros usuários — clique pra MOSTRAR pra todos':'Visível pra todos — clique pra OCULTAR dos outros usuários')+'">'+(oc?'🙈':'👁')+'</div>'+
-    (oc?'<i class="pfCardOcultoDono" hidden></i><div class="pfCardOcultoSelo">🙈 oculto pros outros</div>':'');
+    '<div class="pfCardObra'+(cs?' pfCardObraOn':'')+'" data-pf-olho-id="'+pfEscHtml(id)+'" onclick="event.stopPropagation();pfCardOlhoToggle(\''+pfEscJs(id)+'\',\'constr\')" title="'+(cs?'Em construção (todos veem com a faixa) — clique pra tirar':'Marcar como EM CONSTRUÇÃO: os outros veem o card com a faixa')+'"><img src="'+PF_CARD_CONSTR_IC+'" alt="🚧"></div>'+
+    (oc?'<i class="pfCardOcultoDono" hidden></i><div class="pfCardOcultoSelo">🙈 oculto pros outros</div>':'')+
+    (cs?'<i class="pfCardConstrMarca" hidden></i>'+pfCardConstrSeloHtml(true):'');
 }
-function pfCardOlhoToggle(id){
+function pfCardOlhoToggle(id,modo){
   if(!pfEhVitorGmail())return;
-  var o=pfCardsOcultos();
-  if(o.ids[id])delete o.ids[id];else o.ids[id]=1;
+  var o=pfCardsOcultos();o.constr=o.constr||{};
+  if(modo==='constr'){if(o.constr[id])delete o.constr[id];else{o.constr[id]=1;delete o.ids[id];}}
+  else{if(o.ids[id])delete o.ids[id];else{o.ids[id]=1;delete o.constr[id];}}
   o.ts=Date.now();
   try{localStorage.setItem(PF_CARDS_OCULTOS_KEY,JSON.stringify(o));}catch(e){}
   if(typeof pfSyncPush==='function')try{pfSyncPush([PF_CARDS_OCULTOS_KEY]);}catch(e){}
   // troca na hora em todo card com esse id (sem redesenhar a tela)
-  document.querySelectorAll('[data-pf-olho-id="'+id.replace(/"/g,'\\"')+'"]').forEach(function(el){
-    var card=el.parentNode;if(!card)return;
-    card.querySelectorAll(':scope > .pfCardOcultoDono, :scope > .pfCardOcultoSelo').forEach(function(x){x.remove();});
+  var feitos=[];
+  document.querySelectorAll('.pfCardOlho[data-pf-olho-id]').forEach(function(el){
+    if(el.getAttribute('data-pf-olho-id')!==id)return;
+    var card=el.parentNode;if(!card||feitos.indexOf(card)>=0)return;feitos.push(card);
+    card.querySelectorAll(':scope > .pfCardOcultoDono, :scope > .pfCardOcultoSelo, :scope > .pfCardConstrMarca, :scope > .pfCardConstrSelo, :scope > .pfCardObra').forEach(function(x){x.remove();});
     var tmp=document.createElement('div');tmp.innerHTML=pfCardOlhoHtml(id);
     el.replaceWith.apply(el,Array.prototype.slice.call(tmp.childNodes));
   });
@@ -64723,11 +64824,15 @@ function pfCardOlhoToggle(id){
 (function(){
   try{
     var st=document.createElement('style');st.id='pfCardOlhoCss';
-    st.textContent='.pfCardOlho{position:absolute;top:6px;right:50px;width:18px;height:18px;border-radius:50%;background:var(--pf-card-bg);border:1px solid var(--pf-sidebar-border);font-size:11px;line-height:16px;text-align:center;cursor:pointer;z-index:2;opacity:.6;transition:opacity .12s}'+
-      '.pfCardOlho:hover{opacity:1;border-color:#C00000}.pfCardOlhoOff{opacity:1;background:#FDECEC;border-color:#C00000}'+
+    st.textContent='.pfCardOlho,.pfCardObra{position:absolute;top:6px;right:50px;width:18px;height:18px;border-radius:50%;background:var(--pf-card-bg);border:1px solid var(--pf-sidebar-border);font-size:11px;line-height:16px;text-align:center;cursor:pointer;z-index:2;opacity:.6;transition:opacity .12s;box-sizing:border-box}'+
+      '.pfCardObra{right:72px;padding:1px}.pfCardObra img{width:14px;height:14px;object-fit:contain;filter:grayscale(1)}.pfCardObraOn{opacity:1;background:#FFF4D6;border-color:#E0A100}.pfCardObraOn img{filter:none}'+
+      '.pfCardOlho:hover,.pfCardObra:hover{opacity:1;border-color:#C00000}.pfCardOlhoOff{opacity:1;background:#FDECEC;border-color:#C00000}'+
       '*:has(> .pfCardOcultoOutros){display:none !important}'+
       '*:has(> .pfCardOcultoDono){opacity:.5;outline:2px dashed #C00000;outline-offset:-2px}'+
-      '.pfCardOcultoSelo{position:absolute;left:8px;bottom:6px;font-size:10px;font-weight:800;color:#C00000;background:#FDECEC;border-radius:6px;padding:1px 6px;pointer-events:none}';
+      '*:has(> .pfCardConstrMarca){outline:2px dashed #E0A100;outline-offset:-2px}'+
+      '.pfCardOcultoSelo{position:absolute;left:8px;bottom:6px;font-size:10px;font-weight:800;color:#C00000;background:#FDECEC;border-radius:6px;padding:1px 6px;pointer-events:none}'+
+      '.pfCardConstrSelo{position:absolute;left:8px;bottom:6px;display:flex;align-items:center;gap:4px;font-size:10px;font-weight:800;color:#7A5200;background:#FFF4D6;border:1px solid #F0C36D;border-radius:6px;padding:1px 6px 1px 2px;pointer-events:none;white-space:nowrap}'+
+      '.pfCardConstrSelo img{width:16px;height:16px;object-fit:contain}';
     (document.head||document.documentElement).appendChild(st);
   }catch(e){}
 })();

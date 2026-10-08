@@ -388,6 +388,8 @@
   Obs.: no modo monitor 🖥️ (iframe 1920×1080 com `transform: scale`) o Mac pesa mais — tudo é redesenhado encolhido.
 - v115.2247 ("deixe sempre como padrão o 2D"): a órbita abre SEMPRE em 2D (`pfOrb3DLigado` = `window._pfOrb3DSessao`; o 3D vale até recarregar);
   o `d3` do `pfOrbPrefs_v1` não é mais lido (só o estilo).
+- v115.2253 (print da 3D: "essa que eu quero"): o padrão pra TODOS é a **3D** (`pfOrb3DLigado` = `_pfOrb3DSessao!==false`; sem three.js/WebGL
+  cai sozinha pra 2D). Botão virou seletor "2D | 3D" com o ligado aceso (`pfOrb3DAlternar(v)`) — o antigo "◐ 2D" na 3D parecia o modo atual.
 - v115.2244 ("a órbita precisa ficar gravada na visual que deixei"): 2D/3D e estilo em `pfOrbPrefs_v1` {d3,estilo,ts} (`pfOrbPrefs`/`pfOrbPrefsSet`),
   POR USUÁRIO no PF_SYNC_KEYS com merge próprio (ts mais novo vence) — volta depois do Liberar Espaço e vale em todo aparelho.
 - v115.2148: balão do cliente dá pra alcançar com o mouse (`pfOrbTipEsconder` some só ~0,35 s depois; `pfOrbTipDentro` segura;

@@ -472,6 +472,11 @@
 - v115.2241: o fechar de cada aba é o ✕ padrão (`pfXGlossyHtml(16)` no `.pfAbaX`).
 - **Etapa 2 (a fazer)**: Vendas, Compras, Cadastros, Logística.
 
+## 👁 Ocultar card pra todos (v115.2250 — PRÉVIA, aguardando ok do Vitor; `docs/referencias/cards-ocultar/`)
+- Todo card passa pelo `pfAtalhoPinHtml` → `pfCardOlhoHtml(id)`: o 👁 só aparece pra vitoregee@gmail.com (`pfEhVitorGmail`); clique
+  `pfCardOlhoToggle` grava `pfCardsOcultosTodos` {ids,ts} (compartilhada). Pros outros o card some (marcador `.pfCardOcultoOutros` + CSS
+  `:has`) e sai da barra de baixo (`pfAtalhosBarraRender`); pro Vitor fica apagado/tracejado com "🙈 oculto pros outros".
+
 ## Dock — botão "⋯" (v115.2220)
 - Os botões do canto direito do dock (🎓 apresentação, 🖥️ monitor, tema, 📌 auto-ocultar, usuários, pendências, avatar, sair) ficam
   dentro do `#pfDockMaisPop` (coluna que abre PRA CIMA) e aparecem só ao clicar no `#pfDockMaisBtn` (`pfDockMais(ev, abrir)`; fecha ao

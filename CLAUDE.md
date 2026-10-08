@@ -80,6 +80,7 @@
   junta. Notificações não lidas: `pfDemoNotificacoes` (Solicitados 5, Comprados 6, Faturados 6, Chegaram 8, Catálogo 3, data dos
   últimos 10 min, `demo`/`demoLote`); `pfDemoLimparLogs` (no `pfAvisosAtualizar` e no Apagar) tira as de lote apagado. Captura em
   `docs/referencias/demo-cotacao-cheia.png`.
+  v115.2248: as cotações do lote são NUMERADAS PELA DATA (as abertas recentes ficam no topo) e as "extras" também têm 2–10 itens com ~30% sem saldo.
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)
 - Cotação: 90+ dias sem comprar = "⛔ inativo" (`PF_INATIVO_DIAS`), sem histórico = "🆕 primeira compra"; clique → `pfInatAbrir(modo)`

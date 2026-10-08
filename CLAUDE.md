@@ -223,6 +223,11 @@
   alteração pede confirmação (`ftCancelarForm`); Esc com o formulário aberto fecha SÓ o formulário. Janela termina acima do dock
   (padding = `pfAiDockClearance`) com Cancelar/Salvar presos no rodapé. Lista mostra Ano/Série embaixo do modelo (busca acha).
 
+## Rolamentos — Descobridor de Equivalência
+- Medidas por série+furo em `PF_ROL_DIM_TABLE` (`rolDetectarSerieBore` → `rolBuscarDimensoes`; Spicer por código exato `PF_ROL_DIM_SPICER`).
+  v115.2251 BUG ("não era pra ter detalhes esse rolamento?" — 32308 sem medida): faltavam as séries cônicas **323** e **320** (32008X);
+  acrescentadas na tabela, no detector e nas listas de série cônica (diagrama CL7C/DF; X/B não é gaiola). Série nova = tabela + regex + listas.
+
 ## 🛢️ Lubrificantes (v115.2234; tabela Carraro traduzida em `data/lubrificantes-carraro.json` + `docs/referencias/lubrificantes-carraro/`)
 - Área Técnica → card 🛢️ Lubrificantes (`ferrLubrificantes(aba)`): **🔎 Qual óleo usar** (Vitor: "coloque o modelo e o sistema diga qual óleo")
   + **📋 Tabela Carraro** (`pfLubTabelaHtml`). Óleos em `PF_LUB_CARRARO` (ids u80w/80w90/85w140/c220s/c220m/10w40/15w40t/15w40, cods 5/20/200 L).

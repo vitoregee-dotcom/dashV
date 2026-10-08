@@ -802,3 +802,20 @@
   Os códigos reais dos químicos ainda não foram passados pelo Vitor — as regras padrão buscam por descrição.
 - "❓ Como funciona" (v115.2131, `pfOfertasComoFuncionaHtml`) no topo da tela de regras + "?" na faixa da cotação (pra todos)
   abre direto nele. Se mudar a pontuação da reforma ou a busca, ATUALIZAR esse texto junto.
+
+## Sessão 08/10/2026 (v115.2257 → v115.2266) — resumo em `docs/CONTINUAR-AQUI.md`
+- 🎓 Modo Apresentação salvo por usuário (`pfModoApresPrefs_v1` {on,ts}, merge próprio no pull, mais novo vence) — sobrevive ao Sair.
+- 👁/🚧 compactos em cards baixos/abas (`pfCardOlhoMarcarCompactos`, classe `.pfOlhoCompacto`, < 56 px).
+- Cotações demo de lote apagado: filtradas na LEITURA (`pfDemoCotSemApagados` no `pfRawGetItem`).
+- Notícias: `pfNoticiasPuxarRapido()` no começo do `pfSyncPull` (3 linhas da empresa, ts mais novo vence, redesenha).
+- 📺 card TVs do estoque (`ferrTvsEstoque`, só dono).
+- 🧾 **Solicitação de NF ao Fiscal** (`ferrSolicNF`, `pfSnf*`, `_canSee('ferr_solic_nf')` + toggle): modelo `data/modelos/solicitacao-nf.xlsx`
+  (aba "H. MATIAS"; linha 46 estava escondida no modelo original), ExcelJS (`pfGarExcelJS`), histórico `pfSolicNF_v1` (lista por id, `__cfg` =
+  e-mail, padrão `PF_SNF_PARA_PADRAO`), valor = CUSTO das fichas do estoque (`pfSnfFichas`). Falta: código numérico da marca (Vitor manda a lista).
+- Solicitação de Fotos: ícones `PF_SF_IC_WHATS` (pack 384) / `PF_SF_IC_CAM` (095). Foto recebida = aviso na barra (`foto`, log `pfFotosEventos`,
+  `pfFotosEventoAdd`, `pfFotoEvMeu` — só quem pediu, admin vê todas); o popup `sfMostrarPopupFoto` não é mais chamado.
+- Assistente de Vendas: `pfVendasRegrasIAAbrirPainel(opc)` — `{cliente:true}` abre em "De um cliente" com o cliente da cotação, `{lista:true}`
+  sem cliente; chip "🤖 Regras do cliente" no cabeçalho da cotação; busca de cliente sem acento. `pfAtalhoIdSemAlfinete` tira `vendas_ia*`,
+  `<button>` e `.pfBtn` das 3 rotinas de opacity do alfinete.
+- Carta de Correção: `CCC_PARA_EXTRA_EMAILS` (faturamento@encopelrolamentos.com.br no "Para").
+- Testes: Playwright **1.56.1** (casa com /opt/pw-browsers/chromium-1194); servidor http no MESMO comando do teste.

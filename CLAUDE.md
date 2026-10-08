@@ -564,6 +564,14 @@
   código de qualquer marca convertido ("CZ-180 = SPICER 5-280X"), disponibilidade + preço da tabela do cliente, código não achado → vendedor;
   lado do vendedor: "Cotações do portal" com nota + regras do gestor (sai sozinho até R$ X com saldo). Precisa decidir: login, preço visível, limite, segurança.
 
+## 📊 Painel de Clientes (Vendas → aba Painel de Clientes, `pvRenderKpis`)
+- v115.2242 (Vitor: "trabalhamos com fechamentos trimestrais, bom pra comparativo"; "% de cotações que os clientes fecham"; "rankings
+  maiores"): período **Trimestre** (`window._pcPeriodo='tri'`, `_pcTri` = 0 atual / 1 anterior…, `pcTriInicio`/`pcTriNome`/`pcSetTri`;
+  `pcCalc(c,ini,fim)`) com select dos últimos 8 trimestres; os 5 números do topo mostram ▲/▼ contra o trimestre anterior
+  (`pcResumoJanela`, `pcDeltaHtml`; o trimestre ATUAL compara com os mesmos N dias do anterior) + linha "📅 … comparado com …".
+  "Clientes que mais cotam" mostra "N% fecha" (verde ≥50, âmbar ≥30, vermelho). "Ranking: Top 10/20/50/Todos" (`pcTopN`,
+  localStorage `pf_pc_topn`) vale pra todos os rankings; acima de 10 a lista rola dentro do card (máx 560 px).
+
 ## Cotação em 2 linhas (v115.2140)
 - Botão "▦ Tabela | ▤ 2 linhas | ☰ Compacta" (`vendasViewModo()`/`vendasViewModoSet`, localStorage `pf_vendas_view_modo`);
   a tabela de 1 linha NÃO mudou. `vendasItens2LinhasHtml(v)` (tabela `#vendasItensTable2`, sem arrastar/redimensionar coluna):

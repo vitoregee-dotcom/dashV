@@ -94,6 +94,9 @@
   `PF_MODO_DEMO_NADA` = vazio (solicitações, compras, RMA, Avise-me, pendências, mapas, rascunho...). Dados reais ficam gravados;
   `pfSyncPush` não sobe essas chaves com o modo ligado. Troca de estado recarrega a página dos outros (desligar = pull completo).
   Chave nova com dado real/sensível → acrescentar numa das duas listas. Estoque/planilha (Dashboard) continua real.
+- v115.2256 BUG GRAVE da 2254 (tela vazia, Sair não funcionava): o override do getItem rodava ANTES do `let sbUser` (mesmo <script>,
+  linha ~25898) → ReferenceError da zona morta do let → o resto do bloco morria. `pfModoDemoAtivo` agora só olha o sbUser depois de
+  `window._pfSbUserPronto` (setado logo após o let) e tudo em try/catch. **Código que roda cedo NUNCA pode encostar em `sbUser` sem isso.**
 - Notícias: cópia PRÓPRIA de usuário de `pfNoticias*` é ignorada no pull (Carlos tinha uma de 10/09 que passava na frente).
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)

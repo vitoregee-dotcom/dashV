@@ -499,6 +499,11 @@
   2 cards de Cadastros e todo card do `_pfAjudaMeta` (desenha AT/Ferramentas/Compras escondido na 1ª vez). Card oculto não aparece pros
   outros. Funcionalidade nova com card → já entra sozinha se usar `pfAtalhoPinHtml`; tela nova → acrescentar no `PF_BUSCAF_TELAS`.
 
+## Leitor de Peças — formato do JBoss (v115.2255)
+- `PF_LP_JBOSS_NOVO=false` (Vitor: "deixa como era antes, o modo antigo vai voltar; essa não deu certo"): sem coluna MARCA (JBOSS) e
+  sem "Marcar todas as marcas"; Copiar = CODIGO/QUANTIDADE/DESCRICAO (tab); Baixar = `lista_pecas_<data>.xls` só código + qtd, sem
+  cabeçalho. O modo da v115.2048 (LP_JBOSS_COLS, 1 linha por marca) continua no código — `true` liga de novo.
+
 ## Botões duplos / PDF (v115.2252)
 - "Botão duplo" (setinha ▾ colada) do Leitor de Peças e da Cotação SAIU: os 2 botões padrão (📋 Colar print + ⬆ Carregar arquivo) e o
   Carregar arquivo aceita planilha também (`pfEhPlanilha` → `lpLerArquivoAuto` / listener do `#vendasFileInput` → `vendasLerExcel`).

@@ -1957,7 +1957,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2244</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2245</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2111,7 +2111,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2244</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2245</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -63597,11 +63597,18 @@ function vendasCalcularTotalCotacao(c){
   });
   return totCalc;
 }
+// v115.2245 - A pedido do Vitor ("tá lento ainda, tem algo errado"; diagnóstico: clicar em Vendas travava 9,5 s): a lista de
+// cotações lia o cadastro INTEIRO de clientes (cadLoad + find) 3 vezes POR LINHA (contato, transportadora, cargo). Agora um índice
+// razão/fantasia → cliente, montado 1x e guardado por 5 s.
+function vendasCliPorNome(nome){
+  var agora=Date.now(),C=window._vendasCliIdx;
+  if(!C||agora-C.t>5000){var m={};try{(cadLoad(CLIE_KEY)||[]).forEach(function(x){if(!x)return;[x.razao,x.fantasia].forEach(function(n){var k=String(n||'').trim().toUpperCase();if(k&&!m[k])m[k]=x;});});}catch(e){}C=window._vendasCliIdx={t:agora,m:m};}
+  return C.m[String(nome||'').trim().toUpperCase()]||null;
+}
 function vendasResolverTransportadora(c){
   if(c.transportadora)return c.transportadora;
   try{
-    var clientes=cadLoad(CLIE_KEY);
-    var cli=clientes.find(function(x){return (x.razao||x.fantasia||'').toUpperCase()===(c.cliente||'').toUpperCase();});
+    var cli=vendasCliPorNome(c.cliente);
     if(cli&&cli.transportadoras&&cli.transportadoras[0]&&cli.transportadoras[0].nome)return cli.transportadoras[0].nome;
   }catch(e){}
   return '';
@@ -63617,8 +63624,7 @@ function vendasResolverTransportadora(c){
 // lista de Contatos do cadastro (mesmo nome), senão "Compras" quando é o contato de compras.
 function vendasContatoCargo(c,nome){
   nome=String(nome||'').trim().toUpperCase();if(!nome)return '';
-  try{var clientes=cadLoad(CLIE_KEY)||[];
-    var cli=clientes.find(function(x){return (x.razao||x.fantasia||'').toUpperCase()===(c.cliente||'').toUpperCase();});
+  try{var cli=vendasCliPorNome(c.cliente);
     if(!cli)return '';
     var ct=(cli.contatos||[]).find(function(x){return String(x.nome||'').trim().toUpperCase()===nome;});
     if(ct&&ct.cargo)return ct.cargo;
@@ -63630,8 +63636,7 @@ function vendasContatoCargo(c,nome){
 function vendasResolverContato(c){
   if(c.comprador)return c.comprador;
   try{
-    var clientes=cadLoad(CLIE_KEY);
-    var cli=clientes.find(function(x){return (x.razao||x.fantasia||'').toUpperCase()===(c.cliente||'').toUpperCase();});
+    var cli=vendasCliPorNome(c.cliente);
     if(cli&&cli.contato)return cli.contato;
   }catch(e){}
   return '';
@@ -63773,6 +63778,15 @@ function vendasAtualizarLista(){
   // v115.1967 - cor da fonte das linhas escolhida no 🎨 (as células usam --pf-table-text)
   var _fonteLinhas=vendasCoresAberta().f;
   if(_fonteLinhas)tbody.style.setProperty('--pf-table-text',_fonteLinhas);else tbody.style.removeProperty('--pf-table-text');
+  // v115.2245 - desenha 150 cotações por vez (eram TODAS: milhares de linhas = segundos de travada a cada clique); "Mostrar mais" no fim.
+  var _vLim=window._vendasLimite||150,_vTot=lista.length,_vSelFora=null;
+  if(_vTot>_vLim){if(window._vendasSelected!=null){var _ix=lista.findIndex(function(x){return x.num===window._vendasSelected;});if(_ix>=_vLim)_vSelFora=lista[_ix];}
+    lista=lista.slice(0,_vLim);if(_vSelFora)lista.push(_vSelFora);}
+  var _vTok=window._vendasRenderTok=(window._vendasRenderTok||0)+1;
+  setTimeout(function(){if(_vTot<=_vLim||_vTok!==window._vendasRenderTok)return;var trM=document.createElement('tr');
+    trM.innerHTML='<td colspan="'+(COLS.length+2)+'" style="text-align:center;padding:10px"><button class="pfBtn pfBtnClaro" style="height:32px;font-size:12.5px" onclick="event.stopPropagation();window._vendasLimite=(window._vendasLimite||150)+300;vendasAtualizarLista()">⬇ Mostrar mais ('+(_vTot-_vLim)+' cotações)</button>'+
+      ' <button class="pfBtn pfBtnClaro" style="height:32px;font-size:12.5px" onclick="event.stopPropagation();window._vendasLimite=100000;vendasAtualizarLista()">Mostrar todas</button></td>';
+    tbody.appendChild(trM);},0);
   lista.forEach(function(c,iLinha){
     var isSel=window._vendasSelected===c.num;
     // v115.2082 - também reconhece a cotação pelo próprio Pedido de Venda (cotacaoNum) -- cobre as que perderam

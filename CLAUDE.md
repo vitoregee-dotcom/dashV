@@ -577,6 +577,11 @@
 - v115.2244 lista de cotações: coluna Contato = nome + cargo embaixo, pequeno e cinza (`vendasContatoCargo`: cargo da lista de Contatos do
   cadastro com o mesmo nome, senão Compras/Financeiro; sem cargo e vindo do cadastro = "do cadastro").
 
+- v115.2245 LENTIDÃO (diagnóstico `quadro_lento`: clicar em Vendas = 9,5 s, clicar numa linha = 1,7 s): `vendasAtualizarLista` lia o cadastro
+  de clientes inteiro 3x POR LINHA (`cadLoad`+find em contato/transportadora/cargo) e desenhava TODAS as cotações. Agora índice
+  `vendasCliPorNome` (5 s) e 150 linhas por vez (`window._vendasLimite`, "⬇ Mostrar mais" +300 / "Mostrar todas"; a selecionada sempre
+  aparece). Teste com 3.000 cotações: 7,7 s → 0,2 s; clique na linha 0,26 s. Não voltar a chamar cadLoad dentro de loop de linhas.
+
 ## Cotação em 2 linhas (v115.2140)
 - Botão "▦ Tabela | ▤ 2 linhas | ☰ Compacta" (`vendasViewModo()`/`vendasViewModoSet`, localStorage `pf_vendas_view_modo`);
   a tabela de 1 linha NÃO mudou. `vendasItens2LinhasHtml(v)` (tabela `#vendasItensTable2`, sem arrastar/redimensionar coluna):

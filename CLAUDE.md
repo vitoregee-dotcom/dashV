@@ -73,6 +73,13 @@
   v115.2153: "Clientes fictícios" (padrão 150, `pfDemoClientesLista(n)`: os 30 fixos + ramo×nome×cidade de `PF_DEMO_RAMOS`/
   `PF_DEMO_NOMES`/`PF_DEMO_CIDADES`, permutação sem repetir) e pedidos padrão 600 (até 2000); atalho "📺 Abrir as TVs do estoque" (demo/estoque-tv.html);
   apagar registra o lote em `pfDemoLotesApagados` (pvLoad/crLoad filtram — a sync só junta listas) e clientes em `cad_clientes_deletados`.
+- v115.2246 (Vitor: "encha de cotações que mostrem todas as funções… não atendidas 100%, com mais de 5 itens, preços anteriores cotados
+  e vendidos; encha de notificações não visualizadas"): pedidos com 2–5 itens (30% com 6–10); preço-base fixo por peça (`custoDe`);
+  cada cliente que comprou ganha 1–3 cotações ABERTAS recentes com 6–12 itens (metade peças que já comprou, preço ±, ~35% saldo 0).
+  Histórico de preço da demo SEM gravar no banco: `pfDemoHistorico(ref)` monta das cotações/pedidos demo e o `pfBuscarHistoricoPreco`
+  junta. Notificações não lidas: `pfDemoNotificacoes` (Solicitados 5, Comprados 6, Faturados 6, Chegaram 8, Catálogo 3, data dos
+  últimos 10 min, `demo`/`demoLote`); `pfDemoLimparLogs` (no `pfAvisosAtualizar` e no Apagar) tira as de lote apagado. Captura em
+  `docs/referencias/demo-cotacao-cheia.png`.
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)
 - Cotação: 90+ dias sem comprar = "⛔ inativo" (`PF_INATIVO_DIAS`), sem histórico = "🆕 primeira compra"; clique → `pfInatAbrir(modo)`

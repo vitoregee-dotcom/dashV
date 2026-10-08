@@ -651,6 +651,8 @@
 ## Liberar Espaço (Ferramentas, só dono)
 - v115.2233: "Selecionar todos" (`ferrLiberarMarcarTodos`) + soma do marcado (`ferrLiberarSoma`); a chave do LOGIN (`sb-…-auth-token`,
   selo 🔒 LOGIN) fica fora do "todos" e o confirmar avisa se ela estiver marcada.
+- v115.2243 BUG ("cadê os ícones? sumiram depois que limpei"): a sync é incremental (só busca o que mudou) e o apagado só voltava no F5;
+  agora o Apagar zera a marca d'água (`_pfSyncMarca`/`_pfUltimoPullCompleto`), chama `pfSyncPull` e reaplica os ícones (`pfAplicarIconOverridesNaTela`).
 
 ## Notícias do setor / banners de marca (v115.2133)
 - Robô `noticias-scraper` (Edge Function, v5): lê a home da Revista M&T CARD POR CARD (bloco de um `DataNota` até o próximo);

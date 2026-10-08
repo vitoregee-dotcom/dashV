@@ -472,6 +472,15 @@
 - v115.2241: o fechar de cada aba é o ✕ padrão (`pfXGlossyHtml(16)` no `.pfAbaX`).
 - **Etapa 2 (a fazer)**: Vendas, Compras, Cadastros, Logística.
 
+## 👁 Ocultar card / 🚧 em construção (v115.2250; capturas em `docs/referencias/cards-ocultar/`)
+- Todo card passa pelo `pfAtalhoPinHtml` → `pfCardOlhoHtml(id)`: 👁 e 🚧 (ícone `icons/pack/pf-icon-036.png`) só aparecem pra
+  vitoregee@gmail.com (`pfEhVitorGmail`; a conta da Triex dele NÃO — pedido dele). `pfCardOlhoToggle(id, 'constr'?)` grava
+  `pfCardsOcultosTodos` {ids, constr, ts} (compartilhada, ts mais novo vence). Oculto: some pros outros (marcador `.pfCardOcultoOutros`
+  + CSS `:has`) e sai da barra de baixo; em construção: todos veem com a faixa "Em construção" (contorno âmbar), continua abrindo.
+- **Alt+Espaço / Option+Espaço** = busca de funções (`pfBuscaFAbrir`, estilo Spotlight): telas (`PF_BUSCAF_TELAS`), abas de Vendas,
+  2 cards de Cadastros e todo card do `_pfAjudaMeta` (desenha AT/Ferramentas/Compras escondido na 1ª vez). Card oculto não aparece pros
+  outros. Funcionalidade nova com card → já entra sozinha se usar `pfAtalhoPinHtml`; tela nova → acrescentar no `PF_BUSCAF_TELAS`.
+
 ## Dock — botão "⋯" (v115.2220)
 - Os botões do canto direito do dock (🎓 apresentação, 🖥️ monitor, tema, 📌 auto-ocultar, usuários, pendências, avatar, sair) ficam
   dentro do `#pfDockMaisPop` (coluna que abre PRA CIMA) e aparecem só ao clicar no `#pfDockMaisBtn` (`pfDockMais(ev, abrir)`; fecha ao

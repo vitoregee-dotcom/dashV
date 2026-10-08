@@ -367,6 +367,8 @@
 - v115.2237 ("tá lento no MacBook"): os loops da órbita (2D `pfOrbDesenhar` e 3D `pfOrb3DQuadro`) desenhavam em todo quadro (120/s em tela
   ProMotion, Retina) — agora no máximo ~30/s (`st.ultDes`) e param quando a órbita sai da tela rolando (`st.foraTela`, conferido a cada 0,5 s).
   Obs.: no modo monitor 🖥️ (iframe 1920×1080 com `transform: scale`) o Mac pesa mais — tudo é redesenhado encolhido.
+- v115.2244 ("a órbita precisa ficar gravada na visual que deixei"): 2D/3D e estilo em `pfOrbPrefs_v1` {d3,estilo,ts} (`pfOrbPrefs`/`pfOrbPrefsSet`),
+  POR USUÁRIO no PF_SYNC_KEYS com merge próprio (ts mais novo vence) — volta depois do Liberar Espaço e vale em todo aparelho.
 - v115.2148: balão do cliente dá pra alcançar com o mouse (`pfOrbTipEsconder` some só ~0,35 s depois; `pfOrbTipDentro` segura;
   clique = ficha `pfOrbTipClique`; `pfOrbTipPosicionar` mantém dentro do quadro). No 3D, mouse no balão = ele para de seguir o planeta.
 
@@ -571,6 +573,9 @@
   (`pcResumoJanela`, `pcDeltaHtml`; o trimestre ATUAL compara com os mesmos N dias do anterior) + linha "📅 … comparado com …".
   "Clientes que mais cotam" mostra "N% fecha" (verde ≥50, âmbar ≥30, vermelho). "Ranking: Top 10/20/50/Todos" (`pcTopN`,
   localStorage `pf_pc_topn`) vale pra todos os rankings; acima de 10 a lista rola dentro do card (máx 560 px).
+
+- v115.2244 lista de cotações: coluna Contato = nome + cargo embaixo, pequeno e cinza (`vendasContatoCargo`: cargo da lista de Contatos do
+  cadastro com o mesmo nome, senão Compras/Financeiro; sem cargo e vindo do cadastro = "do cadastro").
 
 ## Cotação em 2 linhas (v115.2140)
 - Botão "▦ Tabela | ▤ 2 linhas | ☰ Compacta" (`vendasViewModo()`/`vendasViewModoSet`, localStorage `pf_vendas_view_modo`);

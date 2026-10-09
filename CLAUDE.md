@@ -246,6 +246,7 @@
 - v115.2275 (print "W20E": "tem que ser separado: transmissão, eixo dianteiro, eixo traseiro, componentes cardan e diversos"): a lista da
   busca Série/Modelo agrupa pelo COMPONENTE (`vendasSerieGrupoAplic`: equip + modelo → TRANSMISSÃO / EIXO DIANTEIRO / EIXO TRASEIRO / EIXO /
   MOTOR / COMPONENTES CARDAN / DIVERSOS, ordem fixa `VENDAS_SERIE_GRUPOS_ORDEM`), com os mesmos botões de filtro em cima.
+  v115.2276: grupo FILTROS (descrição começando com FILTRO/ELEMENTO/REFIL/CARTUCHO, venha de qualquer componente).
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

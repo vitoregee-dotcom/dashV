@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2280</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2281</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2280</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2281</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -17059,6 +17059,38 @@ var _pfModoDemoMemo={};
 var PF_MODO_DEMO_SOMBRA='pfDemoSombra__';
 var _pfLsSetOrig=Storage.prototype.setItem;
 function pfModoDemoSombraLer(key){try{return _pfLsGetOrig.call(localStorage,PF_MODO_DEMO_SOMBRA+key);}catch(e){return null;}}
+// v115.2281 - A pedido do Vitor ("quero a tela do Carlos com todos os cards com conteúdo"; escolheu "fictícios em tudo"): as
+// chaves "nada" passam a mostrar uma BASE fictícia compartilhada -- pfDemoDados_v1 {lote,ts,por:{chave:[itens]}} gerada pelo
+// 🎭 Dados de demonstração (pfDemoGerarListas) e sincronizada (o mais novo vence). Ela NÃO entra nas listas reais. Por cima da
+// base vale a sombra deste navegador {lote,add,del}: o que a pessoa criou/mudou/apagou durante a demonstração.
+var PF_DEMO_DADOS_KEY='pfDemoDados_v1';
+function pfDemoDadosLer(){
+  try{var r=_pfLsGetOrig.call(localStorage,PF_DEMO_DADOS_KEY);if(!r)return null;if(typeof pfDecompress==='function')r=pfDecompress(r);var o=JSON.parse(r);
+    if(!o||!o.por)return null;if(o.lote&&typeof pfDemoLotesApagados==='function'&&pfDemoLotesApagados().indexOf(o.lote)>=0)return null;return o;}catch(e){return null;}
+}
+function pfDemoBase(key){var o=pfDemoDadosLer();return o&&Array.isArray(o.por[key])?o.por[key]:null;}
+function pfModoDemoCh(x){return x&&typeof x==='object'&&x.id!=null?'id:'+x.id:JSON.stringify(x);}
+function pfModoDemoSombraObj(key){
+  var r=pfModoDemoSombraLer(key);if(r==null)return null;var o;try{o=JSON.parse(r);}catch(e){return null;}
+  if(Array.isArray(o))o={add:o,del:[]};
+  var d=pfDemoDadosLer();if(o.lote&&d&&d.lote&&o.lote!==d.lote)return null; // demonstração nova: sombra antiga não vale
+  return {lote:o.lote||'',add:o.add||[],del:o.del||[]};
+}
+var _pfDemoVisaoMemo={};
+function pfModoDemoVisao(key){
+  var sbRaw=pfModoDemoSombraLer(key),dRaw=_pfLsGetOrig.call(localStorage,PF_DEMO_DADOS_KEY),m=_pfDemoVisaoMemo[key];
+  if(m&&m.sb===sbRaw&&m.d===dRaw)return m.out;
+  var base=pfDemoBase(key),sb=pfModoDemoSombraObj(key),out=null;
+  var _o=pfDemoDadosLer(),_bo=_o&&_o.por[key];
+  if(_bo&&typeof _bo==='object'&&!Array.isArray(_bo)){_pfDemoVisaoMemo[key]={sb:sbRaw,d:dRaw,out:JSON.stringify(_bo)};return _pfDemoVisaoMemo[key].out;} // objeto (ex.: pfCatPedidos_v1 {lista}) = a base, sem sombra
+  if(base||sb){
+    var del={},add={},lista=[];(sb?sb.del:[]).forEach(function(k){del[k]=1;});(sb?sb.add:[]).forEach(function(x){add[pfModoDemoCh(x)]=x;});
+    (base||[]).forEach(function(x){var k=pfModoDemoCh(x);if(del[k])return;if(add[k]){lista.push(add[k]);delete add[k];}else lista.push(x);});
+    Object.keys(add).forEach(function(k){lista.push(add[k]);});
+    out=JSON.stringify(lista);
+  }
+  _pfDemoVisaoMemo[key]={sb:sbRaw,d:dRaw,out:out};return out;
+}
 function pfModoDemoSombraGravar(key,value){
   try{
     var des=function(r){return (typeof pfDecompress==='function'&&r)?pfDecompress(r):r;};
@@ -17066,19 +17098,27 @@ function pfModoDemoSombraGravar(key,value){
     if(!Array.isArray(v))return true; // objeto: não grava (o real fica como está)
     var realRaw=(PF_IDB_KEYS.indexOf(key)>=0)?(_pfMemCache.hasOwnProperty(key)?_pfMemCache[key]:null):_pfLsGetOrig.call(localStorage,key);
     var real=[];try{real=JSON.parse(des(realRaw)||'[]');}catch(e){}
-    var ch=function(x){return x&&typeof x==='object'&&x.id!=null?'id:'+x.id:JSON.stringify(x);},ja={};
-    (Array.isArray(real)?real:[]).forEach(function(x){ja[ch(x)]=1;});
-    _pfLsSetOrig.call(localStorage,PF_MODO_DEMO_SOMBRA+key,JSON.stringify(v.filter(function(x){return !ja[ch(x)];})));
+    var ja={},base={},vk={};(Array.isArray(real)?real:[]).forEach(function(x){ja[pfModoDemoCh(x)]=1;});
+    (pfDemoBase(key)||[]).forEach(function(x){base[pfModoDemoCh(x)]=JSON.stringify(x);});
+    var add=v.filter(function(x){var k=pfModoDemoCh(x);vk[k]=1;return !ja[k]&&base[k]!==JSON.stringify(x);}); // o que a sync escreve (real) não entra
+    var del=Object.keys(base).filter(function(k){return !vk[k];});
+    var d=pfDemoDadosLer();
+    _pfLsSetOrig.call(localStorage,PF_MODO_DEMO_SOMBRA+key,JSON.stringify({lote:(d&&d.lote)||'',add:add,del:del}));
   }catch(e){}
   return true;
 }
 function pfModoDemoSombrasLimpar(){
-  try{for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(k&&k.indexOf(PF_MODO_DEMO_SOMBRA)===0)localStorage.removeItem(k);}}catch(e){}
+  try{for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(k&&(k.indexOf(PF_MODO_DEMO_SOMBRA)===0||k.indexOf('mapa_estado_mapa_demo_')===0))localStorage.removeItem(k);}}catch(e){}
+}
+// v115.2281 - mapas fictícios: o "abrir" da lista precisa do mapa_estado_<id> neste navegador
+function pfDemoMapasEstados(){
+  try{var o=pfDemoDadosLer(),est=o&&o.mapasEstado;if(!est)return;
+    Object.keys(est).forEach(function(id){var k='mapa_estado_'+id;if(_pfLsGetOrig.call(localStorage,k)==null)_pfLsSetOrig.call(localStorage,k,JSON.stringify(est[id]));});}catch(e){}
 }
 try{if(!pfModoDemoLigado())pfModoDemoSombrasLimpar();}catch(e){}
 function pfModoDemoFiltrarRaw(key,raw){
   if(!PF_MODO_DEMO_TODAS[key]||!pfModoDemoAtivo())return raw;
-  if(PF_MODO_DEMO_TODAS[key]==='nada'){var sb=pfModoDemoSombraLer(key);if(sb!=null)return sb;}
+  if(PF_MODO_DEMO_TODAS[key]==='nada'){if(key==='mapas_lista_v1')pfDemoMapasEstados();var vis=pfModoDemoVisao(key);if(vis!=null)return vis;}
   if(raw==null)return raw;
   var m=_pfModoDemoMemo[key];if(m&&m.raw===raw)return m.out;
   var out=raw;
@@ -18486,6 +18526,7 @@ async function maEnviarNotificacaoLote(tipo,grupo){
   });
 }
 function maVerificarMudancasAutomaticas(){
+  if(typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo())return; // v115.2281 - modo demonstração: nada de e-mail por item fictício
   // v115.679 - Agora acompanha as 3 etapas do ciclo de vida do item, não só
   // a chegada: 1) COMPRADO -- pedido de compra saiu de zero/vazio pra um
   // valor positivo (pedido novo de verdade, não só um ajuste de quantidade).
@@ -38906,7 +38947,7 @@ var PF_SYNC_KEYS = ['pfOrbPrefs_v1', 'pfModoApresPrefs_v1', 'pfSolicNF_v1',
   'cc_desenhos_v1', // v115.2021 - desenho de cada família (Área Técnica), trocado pelo admin
   'rel_decisoes_v1', // v115.2030 - respostas às sugestões de relacionamento (cotados juntos)
   'rel_regras_v1', // v115.2030 - regras que filtram as ligações vindas de catálogo
-  'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', // v115.2111 - margem por perfil // v115.2058 - regras geral/cliente do Assistente de Vendas (+ v115.2062 etiquetas da cotação)
+  'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfDemoDados_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', // v115.2111 - margem por perfil // v115.2058 - regras geral/cliente do Assistente de Vendas (+ v115.2062 etiquetas da cotação)
   'partsflow_pedidos_venda_v1',
   'venda_rascunho_v1',
   'imp_preview_cache_v1',
@@ -39759,7 +39800,7 @@ async function pfSafeSetItemAsync(key,value){
 // de dado único da empresa (tudo, exceto os 2 logs de atividade por
 // usuário -- esses fazem sentido continuar por conta) passam a usar o
 // mesmo ID fixo. Isso fecha a causa raiz de uma vez.
-var PF_CATALOGO_UNICO_KEYS = ['componentes_cardan_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'retentores_v1', 'mapas_lista_v1', 'cc_vinculos_estoque_v1',
+var PF_CATALOGO_UNICO_KEYS = ['componentes_cardan_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfDemoDados_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'retentores_v1', 'mapas_lista_v1', 'cc_vinculos_estoque_v1',
   // v115.1987 - A pedido do Vitor ("cotação deve ser compartilhada com
   // todos"): cotações deixam de ser por conta -- todo mundo lê e grava a
   // mesma lista (linha do MY_USER_ID, que já tinha todas as cotações).
@@ -39839,7 +39880,7 @@ async function pfSyncPull(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   try{
     // Chaves compartilhadas entre usuários — puxar de TODOS os usuários
-    var sharedKeys = ['partsflow_cotacoes_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'lp_regras_v1_deletados', 'lp_exemplos_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'cc_vinculos_estoque_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'pfNoticiasMarcasAtualizadoEm', 'pfNoticiasMarcasHistorico', 'timken_interchange_v1', 'pfComprasAtivos', 'pfAtalhosFerramentas', 'pfIconOverrides', 'pfTemaCores', 'pfCotacoesNaoLidas', 'pfMapaComercialSede', 'pfMapaPinsCores', 'pf_transp_mapa_v1', 'pfChegadasConf'];
+    var sharedKeys = ['partsflow_cotacoes_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfDemoDados_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'lp_regras_v1_deletados', 'lp_exemplos_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'cc_vinculos_estoque_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'pfNoticiasMarcasAtualizadoEm', 'pfNoticiasMarcasHistorico', 'timken_interchange_v1', 'pfComprasAtivos', 'pfAtalhosFerramentas', 'pfIconOverrides', 'pfTemaCores', 'pfCotacoesNaoLidas', 'pfMapaComercialSede', 'pfMapaPinsCores', 'pf_transp_mapa_v1', 'pfChegadasConf'];
     // v115.1219 - BUG corrigido (a pedido do Vitor, e-mails duplicados do
     // mesmo item em horários próximos): pfComprasEventos/pfFaturadosEventos/
     // pfChegadasEventos/pfSolicitadosEventos são LOGS (uma entrada por
@@ -53247,7 +53288,7 @@ function pfModoDemoSet(on,soRefazer){
     try{pfDemoGerar({auto:true});}catch(e){console.warn('modo demo gerar',e);pfAlert('Não consegui gerar os dados fictícios: '+e.message);return;}
   }else if(!confirm('Desligar o modo demonstração? Os outros voltam a ver os dados reais (a página deles recarrega sozinha).'))return;
   localStorage.setItem(PF_MODO_DEMO_KEY,JSON.stringify({ligado:!!on,ts:Date.now(),por:'vitoregee@gmail.com'}));
-  if(typeof pfSyncPush==='function')try{pfSyncPush([PF_MODO_DEMO_KEY,'partsflow_cotacoes_v1','partsflow_pedidos_venda_v1','pfContasReceber_v1','cad_clientes_v1']);}catch(e){}
+  if(typeof pfSyncPush==='function')try{pfSyncPush([PF_MODO_DEMO_KEY,PF_DEMO_DADOS_KEY,'partsflow_cotacoes_v1','partsflow_pedidos_venda_v1','pfContasReceber_v1','cad_clientes_v1']);}catch(e){}
   pfModoDemoVigiar();
   if(document.getElementById('ferrBody'))try{ferrDadosDemo();}catch(e){}
   pfAlert(on?'✅ Modo demonstração LIGADO. Os outros usuários passam a ver só os dados fictícios (em até 1 minuto, a página deles recarrega sozinha).':'✅ Modo demonstração desligado.');
@@ -53416,6 +53457,7 @@ function pfDemoGerar(opc){
   pfSafeSetItem('partsflow_cotacoes_v1',JSON.stringify(cots));if(typeof pfSyncPush==='function')pfSyncPush(['partsflow_cotacoes_v1']);
   pvSave(pvs);crSave(titulos);
   try{pfDemoNotificacoes(lote,pecas,fictTodos);}catch(eN){console.warn('demo notificações',eN);} // v115.2246
+  try{pfDemoGerarListas(lote,pecas,fictTodos);}catch(eL){console.warn('demo listas',eL);} // v115.2281
   var st=document.getElementById('demoStatus');
   if(st){var k2=pfDemoContagem();st.innerHTML='✅ Pronto! Agora: <b>'+k2.c+'</b> clientes, <b>'+k2.p+'</b> pedidos, <b>'+k2.q+'</b> cotações e <b>'+k2.t+'</b> títulos de demonstração. Veja em Vendas → 💰 Contas a Receber, Painel de Clientes e na Órbita.';}
   if(typeof pfOrbitaRender==='function')try{pfOrbitaRender();}catch(e){}
@@ -53435,6 +53477,93 @@ function pfDemoNotificacoes(lote,pecas,clis){
   add('pfChegadasEventos',L(8,function(){return ev({qtd:2+Math.floor(R()*20)});}),true);
   add('pfCatPedEventos',L(3,function(i){return {id:'demo_cat_'+lote+'_'+i,data:quando(),cliente:cli(),maq:pick(['CASE 580N','JCB 3CX','CAT 416F','NEW HOLLAND B95B']),nFotos:1,resumo:(2+Math.floor(R()*6))+' peça(s) pelo catálogo',titulo:'Pedido pelo catálogo (demonstração)',demo:true,demoLote:lote};}),false);
   if(typeof pfAvisosAtualizar==='function')try{pfAvisosAtualizar();}catch(e){}
+}
+
+// v115.2281 - A pedido do Vitor ("quero a tela do Carlos com todos os cards com conteúdo"; escolheu "fictícios em tudo"): as
+// listas que o modo demonstração esconde ganham conteúdo FICTÍCIO numa chave à parte (pfDemoDados_v1, ver pfModoDemoVisao) --
+// nada entra nas listas reais. Avise-me, Solicitações de compra, RMA, Lembretes, Pendências, Mapas de compra, Concorrentes,
+// Pesquisas (envios + respostas), Pedidos pelo catálogo e Solicitação de NF. Fora: Solicitação de Fotos (tabela do banco,
+// apareceria pra todos) e as marcas "solicitado"/trânsito do Dashboard (vêm do banco). Lembrete fictício não toca e o Avise-me
+// não manda e-mail no modo demonstração (pfModoDemoAtivo nos dois verificadores).
+function pfDemoGerarListas(lote,pecas,clis){
+  var R=Math.random,pick=function(a){return a[Math.floor(R()*a.length)];},agora=Date.now(),dia=86400000,iso=function(t){return new Date(t).toISOString();};
+  var L=function(n,f){var a=[];for(var i=0;i<n;i++)a.push(f(i));return a;};
+  clis=(clis||[]).filter(function(c){return c&&c.razao;});if(!clis.length)clis=[{razao:'CLIENTE DEMONSTRAÇÃO',codigo:'DEMO01',estado:'SP',cidade:'São Paulo'}];
+  var vend=PF_DEMO_VENDEDORES.map(function(v){return v[1];}),vNome=function(){return pick(vend);};
+  var forn=['SPICER DO BRASIL','DANA INDUSTRIAS','SKF DO BRASIL','CARRARO','ROLAMENTOS PAULISTA','VEDABRAS','ZF DO BRASIL','PERKINS'];
+  var tel=function(){return '55119'+String(10000000+Math.floor(R()*89999999));};
+  var por={};
+  // 🔔 Avise-me (sem "SOL-" e sem origem solicitação: o filtro padrão esconde)
+  var sts=['','','','','comprado','comprado','comprado','faturado','faturado','chegou','chegou','chegou'];
+  por.meAvise_lista=sts.map(function(st,i){var p=pick(pecas),c=clis[i%clis.length];
+    var a={ref:String(p.codigo).toUpperCase(),marca:p.marca||'',cod_cliente:c.codigo||'',nome_cliente:c.razao,obs:'Da cotação #'+(900100+i),wa_cliente:tel(),email_extra:'',
+      ts:agora-R()*20*dia,saldo_ao_marcar:0,pedido_ao_marcar:st?4:0,transito_ao_marcar:st==='faturado'||st==='chegou'?4:0,consumo_ao_marcar:2,
+      comprado_avisado:!!st,faturado_avisado:st==='faturado'||st==='chegou',chegou_avisado:st==='chegou',origem:'cotacao',numeroSolic:'',numeroPedido:'',demo:true,demoLote:lote};
+    if(st)a.status=st;a.id=(typeof maChaveEstavel==='function')?maChaveEstavel(a):(a.ref+'||'+a.marca+'||'+a.nome_cliente);return a;});
+  // 🛒 Solicitações de compra
+  por.cad_solicitacoes_compras_v1=L(9,function(i){var c=pick(clis),its=L(1+Math.floor(R()*4),function(){var p=pick(pecas),pu=Math.round((40+R()*900)*100)/100;
+      return {codigo:p.codigo,desc:p.desc||'',marca:p.marca||'',qtd:1+Math.floor(R()*10),prazo:pick(['IMEDIATO','5 DIAS','10 DIAS','15 DIAS']),sel:true,custo:{precoUnit:pu,ipi:Math.round(pu*0.05*100)/100,st:0}};});
+    return {id:'sol_demo_'+lote+'_'+i,numero:'SOL-'+String(901+i).padStart(4,'0'),data:agora-(i*1.7+R())*dia,fornecedor:pick(forn),cliente:c.razao,itens:its,origem:'upload',
+      numeroPedido:'PV-'+(55800+i),numeroOC:'',status:i<4?'pendente':'enviado',vendedor:vNome(),nrCotacaoFornecedor:'CF-'+(7700+i),observacao:'',usuarioCriacaco:vNome(),demo:true,demoLote:lote};});
+  // 🔄 RMA (garantiaDana sem o objeto garantia: não busca nada no banco)
+  var rmaSt=['aberto','aberto','aguardando','aguardando','recebido','concluido','concluido','cancelado'];
+  var motivos=['defeito de fabricação','peça errada','avaria no transporte','cliente desistiu','ruído / vibração',''];
+  por.rma_lista_v1=rmaSt.map(function(st,i){var forn_=i===3||i===6,its=L(1+Math.floor(R()*2),function(){var p=pick(pecas);return {codigo:p.codigo,marca:p.marca||'',desc:p.desc||'',qtd:1+Math.floor(R()*3),motivo:pick(motivos)};});
+    var o={id:'rma_demo_'+lote+'_'+i,numero:'RMA-'+String(901+i).padStart(4,'0'),tipo:forn_?'fornecedor':'cliente',nome:forn_?pick(forn):pick(clis).razao,refPedido:'NF '+(48100+i),vendedor:vNome(),
+      observacao:pick(['Cliente relata ruído após 200h.','Veio a medida errada.','Embalagem chegou amassada.','Trocar por outra marca.']),itens:its,status:st,data:iso(agora-(i*6+R()*4)*dia),ts:agora,demo:true,demoLote:lote};
+    if(i===1||i===5){o.garantiaDana=true;o.itens.forEach(function(x){x.motivo='';});}return o;});
+  // ⏰ Lembretes (intervalo com próximo disparo bem longe: nunca tocam)
+  por.pfLembretes=[['08:30','Conferir cotações abertas da semana'],['10:00','Ligar pra Retífica Motores Paraná — retorno da cotação'],['14:00','Mandar pesquisa de satisfação pros clientes novos'],['17:30','Revisar pedidos a faturar amanhã']]
+    .map(function(x,i){return {id:'lb_demo_'+lote+'_'+i,texto:x[1],hora:x[0],repeticao:'intervalo',dias:[],link:'',som:false,ultimoDisparo:null,ts:agora,intervaloDias:7,proximoDisparo:'2099-12-31',demo:true,demoLote:lote};});
+  // 📌 Pendências
+  por.pfPendenciasAdmin=[['Atualizar tabela de preços Spicer','A Spicer mandou a tabela nova — conferir as 40 peças que mais vendem antes de subir.'],
+    ['Cadastrar fotos das cruzetas novas','Chegaram 12 códigos novos de cruzeta sem foto no cadastro.'],['Revisar margem dos clientes revenda','Conferir os clientes com margem própria abaixo de 18%.'],
+    ['Treinar equipe no Avise-me','Mostrar pra equipe como mandar item da cotação pro Avise-me.']]
+    .map(function(x,i){return {id:'pend_demo_'+lote+'_'+i,titulo:x[0],imagem:null,descricao:x[1],anexos:[],data:iso(agora-(i*2+1)*dia),ts:agora,demo:true,demoLote:lote};});
+  // 🗺️ Mapas de compra (resumo + estado pra abrir)
+  var est={};
+  por.mapas_lista_v1=L(5,function(i){var id='mapa_demo_'+lote+'_'+i,c=pick(clis),its=L(3+Math.floor(R()*5),function(){var p=pick(pecas);return {ref:p.codigo,desc:p.desc||'',marca:p.marca||'',qtd:1+Math.floor(R()*12),prazo:'',ln:'',sel:true,origem:'mapa'};});
+    var stp=[1,2,2,3,4][i],cp={nome:vNome(),email:''};
+    est[id]={id:id,criadoTs:agora-(i+1)*dia,ts:agora-i*dia,step:stp,itens:its,fornSel:{},precos:{},decisoes:{},qtdDecidida:{},precoDecidido:{},criadoPor:cp,estoqueOrigem:i===4?true:null,titulo:pick(['Reposição cardan linha Case','Rolamentos de roda','Kit de juntas Perkins','Retentores eixo Carraro','Estoque mínimo cruzetas']),numero:String(901+i).padStart(4,'0'),cliente:i===4?'':c.razao};
+    return {id:id,ts:est[id].ts,criadoTs:est[id].criadoTs,nItens:its.length,nSel:its.length,step:stp,titulo:est[id].titulo,numero:est[id].numero,cliente:est[id].cliente,clienteRazao:est[id].cliente,criadoPor:cp,decididoTs:null,vendaOrigem:i<3?String(900100+i):null,estoqueOrigem:est[id].estoqueOrigem,demo:true,demoLote:lote};});
+  // 🎯 Concorrentes (mapa comercial)
+  por.pfMapaConcorrentes=[['Rolamaq Peças','Campinas','SP',-22.9099,-47.0626,false,'Cardan'],['Cardan Forte','Ribeirão Preto','SP',-21.1775,-47.8103,false,'Cardan'],['Agro Diesel Sul','Cascavel','PR',-24.9555,-53.4552,false,'Agrícola'],
+    ['Tratorama Peças','Rio Verde','GO',-17.7923,-50.9192,false,'Agrícola'],['Brasif Case','Sorocaba','SP',-23.5015,-47.4526,true,'Case'],['Sotreq Filial','Belo Horizonte','MG',-19.9167,-43.9345,true,'Caterpillar'],
+    ['Eixos & Cia','Curitiba','PR',-25.4284,-49.2733,false,'Eixo / diferencial'],['Rolemix Distribuidora','Goiânia','GO',-16.6869,-49.2648,false,'Rolamentos'],['Pesados BR Peças','Uberlândia','MG',-18.9186,-48.2772,false,'Rodoviário'],['Valtra Center','Londrina','PR',-23.3045,-51.1696,true,'Valtra']]
+    .map(function(x,i){return {id:'conc_demo_'+lote+'_'+i,nome:x[0],cidade:x[1],estado:x[2],lat:x[3],lng:x[4],ts:agora,concessionaria:x[5],linha:x[6],observacao:pick(['Preço agressivo em cruzetas.','Forte em transmissão.','Entrega rápida na região.','Atende só balcão.']),demo:true,demoLote:lote};});
+  // 📋 Pesquisas (envios + respostas, nos 2 modelos)
+  var kDe=function(c){return 'c:'+String(c.codigo||c.razao).toUpperCase();},tipoDe=function(c){return typeof pfTipoCli==='function'?pfTipoCli(c):'';};
+  var envs=[],resps=[],cs=clis.slice().sort(function(){return R()-.5;}).slice(0,40);
+  cs.forEach(function(c,i){var mid=i%3===0?'forms_perfil':'apres_conhecer',cod='dm'+lote.slice(-5)+i,t0=agora-(2+R()*40)*dia;
+    envs.push({id:'pe_'+cod,codigo:cod,modeloId:mid,k:kDe(c),cliente:c.razao,ts:t0,por:vNome(),porEmail:'',demo:true,demoLote:lote});
+    if(i>=30)return; // 10 sem resposta
+    var nps=R()<0.6?9+Math.floor(R()*2):R()<0.6?7+Math.floor(R()*2):3+Math.floor(R()*4),est5=function(){return R()<0.7?4+Math.floor(R()*2):2+Math.floor(R()*2);},tp=tipoDe(c);
+    var rs=mid==='forms_perfil'?{nota_atend:nps,nota_veloc:Math.max(3,nps-Math.floor(R()*3)),sugestao:pick(['Ter mais peças a pronta entrega.','Frete pro interior é caro.','Atendimento excelente!',''])}
+      :{nome:pick(['Rafael','Marcos','Ana','Juliana','Roberto','Fernanda']),cargo:pick(['Comprador','Dono / sócio','Gerente','Mecânico / técnico']),setor:[pick(['Agrícola','Construção','Rodoviário','Mineração'])],
+        nps:nps,e_rapidez:est5(),e_preco:est5(),e_prazo:est5(),e_tecnico:est5(),e_vendedor:est5(),perde:[pick(['Preço','Prazo de entrega','Não tinha o item','Condição de pagamento'])],canal:[pick(['WhatsApp','Ligação','E-mail'])],
+        comentario:pick(['Atendimento rápido, só o frete que pesa.','Gostaria de catálogo atualizado.','Sempre resolvem minha urgência.',''])};
+    if(mid==='apres_conhecer'){if(tp==='revenda'){rs.r_perfil=pick(['Concessionária','Revenda independente']);rs.r_marcas=['Spicer','Carraro','SKF'].slice(0,1+Math.floor(R()*3));rs.r_volume=pick(['Até R$ 10 mil','R$ 10 a 50 mil','R$ 50 a 150 mil']);}
+      else if(tp==='servico'){rs.s_serv=['Motor','Eixo / diferencial','Cardan'].slice(0,1+Math.floor(R()*3));rs.s_mec=pick(['1 a 3','4 a 10']);rs.s_quem=pick(['Nós compramos','Os dois']);}
+      else{rs.c_frota=pick(['1 a 5','6 a 20','21 a 50']);rs.c_manut=pick(['Própria','Terceirizada','As duas']);rs.c_parada=pick(['Nem um dia (urgente)','Até 1 dia','Até 3 dias']);}}
+    resps.push({id:'pr_'+cod,subId:cod,modeloId:mid,k:kDe(c),cliente:c.razao,tipoCli:tp,ts:t0+(0.2+R()*3)*dia,respostas:rs,codigo:R()<0.5?cod:'',origem:'link',demo:true,demoLote:lote});});
+  por.pfPesqEnvios=envs;por.pfPesqRespostas=resps;
+  // 📖 Pedidos pelo catálogo (link do cliente)
+  por.pfCatPedidos_v1={ts:agora,lista:L(4,function(i){var c=pick(clis),its=L(2+Math.floor(R()*4),function(j){var p=pick(pecas);return {grupo:pick(['Cubo de roda','Diferencial','Eixo dianteiro','Freio']),n:String(3+j*4),codigo:p.codigo,desc:p.desc||'',qtd:1+Math.floor(R()*4)};});
+    return {id:'cp_demo_'+lote+'_'+i,subId:'demo_'+i,tipo:i===3?'acesso':'pedido',catId:'demo',catTitulo:pick(['Eixo dianteiro Carraro 26.31','Transmissão Carraro TLB1','Eixo traseiro Dana 212']),linkCodigo:'demo'+i,cliente:c.razao,
+      em:agora-(i*0.6+R()*0.3)*dia,maq:{marca:pick(['JCB','CASE','CAT','NEW HOLLAND']),modelo:pick(['3CX','580N','416F','B95B']),ano:String(2012+Math.floor(R()*10))},fotos:[],contato:'',obs:pick(['Máquina parada, urgente','Cotar com entrega pra semana que vem','']),itens:i===3?[]:its,demo:true,demoLote:lote};})};
+  // 🧾 Solicitação de NF ao Fiscal
+  por.pfSolicNF_v1=L(5,function(i){var c=pick(clis),p=pick(pecas);
+    return {id:'snf_demo_'+lote+'_'+i,tipo:pick(['faltante','garantia','conserto']),origem:'triex',filial:'1 - MATRIZ (SP)',destCod:c.codigo||'',destNome:c.razao,transpCod:'',transpNome:pick(['BRASPRESS','RODONAVES','JAMEF']),frete:'emitente',volume:'1',peso:'1KG',
+      natureza:pick(['SIMPLES REMESSA','REMESSA EM GARANTIA','REMESSA PARA CONSERTO']),retorno:'nao',obs:'Demonstração',obsAuto:false,falt:{nfVenda:String(48200+i),kit:'',forn:'',nfForn:''},
+      itens:[{cod:p.codigo,marca:p.marca||'',desc:p.desc||'',qtd:1+Math.floor(R()*3),valor:'120,00'}],solicitante:vNome(),gestor:'CARLOS CANDIS',pedidoId:'',status:i<3?'enviada':'emitida',enviadoEm:agora-(i+0.5)*dia,nfEmitida:i<3?'':String(91500+i),ts:agora,demo:true,demoLote:lote};});
+  var o={lote:lote,ts:agora,por:por,mapasEstado:est};
+  localStorage.setItem(PF_DEMO_DADOS_KEY,JSON.stringify(o));
+  if(typeof pfSyncPush==='function')try{pfSyncPush([PF_DEMO_DADOS_KEY]);}catch(e){}
+  return o;
+}
+function pfDemoApagarListas(){
+  localStorage.setItem(PF_DEMO_DADOS_KEY,JSON.stringify({lote:'',ts:Date.now(),por:{}}));
+  if(typeof pfSyncPush==='function')try{pfSyncPush([PF_DEMO_DADOS_KEY]);}catch(e){}
 }
 function pfDemoLimparLogs(forcarTodos){
   var ap=pfDemoLotesApagados();if(!ap.length&&!forcarTodos)return;
@@ -53471,6 +53600,7 @@ function pfDemoApagar(auto){
   crSave(crLoad().filter(function(t){return !(t&&t.demo);}));
   pfDemoLimparCotacoes();
   pfDemoLimparLogs(true);window._pfDemoHist=null; // v115.2246
+  try{pfDemoApagarListas();}catch(e){} // v115.2281
   if(!auto)ferrDadosDemo();
   if(typeof pfOrbitaRender==='function')try{pfOrbitaRender();}catch(e){}
 }
@@ -56883,6 +57013,7 @@ function pfLembreteNotificar(titulo,corpo,link,som){
   }catch(e){console.warn('pfLembreteNotificar erro:',e);}
 }
 function pfLembretesVerificarDisparo(){
+  if(typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo())return; // v115.2281 - lembretes fictícios não tocam
   var lista=pfLembretesLoad();
   if(!lista.length)return;
   var agora=new Date();

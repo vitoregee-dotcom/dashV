@@ -101,6 +101,13 @@
   gravação por cima deixava a cópia LOCAL do real só com o item novo. Agora, com o modo ativo, gravar numa chave "nada" (localStorage.setItem
   e `pfRawSetItem`) vai pra **sombra** `pfDemoSombra__<chave>` (`pfModoDemoSombraGravar`: só os itens que não existem no real — o que a sync
   escreve não entra) e a leitura mostra a sombra. Real intocado; `pfModoDemoSombrasLimpar` ao carregar com o modo desligado.
+- v115.2281 ("quero a tela do Carlos com todos os cards com conteúdo" → "fictícios em tudo"): as chaves "nada" mostram uma BASE
+  fictícia compartilhada `pfDemoDados_v1` {lote,ts,por:{chave:[...]},mapasEstado} (sync, mais novo vence; NUNCA entra nas listas reais),
+  gerada por `pfDemoGerarListas` dentro do `pfDemoGerar` (Avise-me, Solicitações de compra, RMA, Lembretes, Pendências, Mapas + `mapa_estado_*`,
+  Concorrentes, Pesquisas envios/respostas, Pedidos pelo catálogo {lista}, Solicitação de NF); `pfDemoApagarListas` no Apagar. Leitura
+  `pfModoDemoVisao` = base − sombra.del + sombra.add (sombra {lote,add,del} deste navegador; lote novo zera a sombra). No modo ativo NÃO rodam
+  `maVerificarMudancasAutomaticas` (e-mail do Avise-me) nem `pfLembretesVerificarDisparo`. Fora: Solicitação de Fotos (tabela do banco) e
+  marcas solicitado/trânsito do Dashboard (vêm do banco). Chave nova escondida no modo → gerar fictício em `pfDemoGerarListas`.
 - Notícias: cópia PRÓPRIA de usuário de `pfNoticias*` é ignorada no pull (Carlos tinha uma de 10/09 que passava na frente).
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)

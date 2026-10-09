@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2293</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2294</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2293</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2294</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -63714,8 +63714,22 @@ var PF_VR2_TIPOS={
   menor_preco:{icone:'💲',nome:'Mais barata'},
   marca_unica:{icone:'🎯',nome:'Marca fixa p/ item'},
   margem:{icone:'％',nome:'Margem'},
+  so_com_saldo:{icone:'📦',nome:'Só com saldo'}, // v115.2294
   livre:{icone:'📝',nome:'Regra livre'}
 };
+// v115.2294 - BUG (Vitor: "pedi pro assistente não cotar sem saldo, e cotou"): "NÃO COTAR SEM SALDO" virava regra LIVRE (só
+// anotação — não filtra nada). Tipo novo so_com_saldo (tira as fichas com saldo ≤ 0) e o texto é reconhecido aqui, antes da IA;
+// regra livre antiga com esse texto também passa a valer (pfVR2Aplicar).
+// v115.2294 - (Vitor: "já vê também cotar sempre mais barato") "cotar sempre o mais barato" = menor_preco entre todas as marcas.
+function pfVR2PareceMaisBarato(t){
+  t=String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  return /(mais barat|menor (preco|custo|valor)|preco mais baixo|custo mais baixo)/.test(t)&&!/\b(nao|nunca)\b.{0,15}(mais barat|menor)/.test(t);
+}
+function pfVR2PareceSoComSaldo(t){
+  t=String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(/\b(cotar|incluir|subir|mandar|colocar|oferecer)\b.{0,30}\b(sem saldo|sem estoque|zerad|saldo (zero|zerado|negativo))/.test(t))return /\b(nao|nunca|sem)\b/.test(t.replace(/sem saldo|sem estoque/g,''));
+  return /^(nao|nunca)\b.{0,20}(sem saldo|sem estoque|zerad)/.test(t)||/\bso (cotar|subir|incluir)?\s*(itens?|pecas?|o que tem)?\s*com saldo\b/.test(t)||/\bapenas (itens?|pecas?)? ?com saldo\b/.test(t);
+}
 function pfVR2Load(){
   try{var a=JSON.parse(pfSafeGetItem(PF_VENDAS_REGRAS2_KEY,'[]'));return Array.isArray(a)?a:[];}catch(e){return [];}
 }
@@ -63823,6 +63837,7 @@ function pfVR2Descricao(r){
   else if(r.tipo==='menor_preco')d='Cotar só a mais barata'+((r.marcas||[]).length?' entre '+ms:' (entre as que têm saldo)')+noItem;
   else if(r.tipo==='marca_unica')d='Item '+b(r.item||'')+': subir só '+b(r.marca||'');
   else if(r.tipo==='margem')d='Margem de '+b((r.valor!=null?r.valor:'')+'%')+' nas cotações';
+  else if(r.tipo==='so_com_saldo')d='Não cotar peça sem saldo (zerada ou negativa)'+noItem;
   else if(r.tipo==='livre')d=pfEscHtml(r.texto||'');
   else d=pfEscHtml(r.textoOriginal||'Regra');
   return t.icone+' '+d;
@@ -63833,7 +63848,11 @@ function pfVR2Descricao(r){
 function pfVR2Aplicar(codDigitado,items,cliente){
   var out={items:items||[],removidos:[]};
   if(!items||!items.length)return out;
-  var todas=pfVR2Ativas().filter(function(r){return r.ativo!==false;});
+  var todas=pfVR2Ativas().filter(function(r){return r.ativo!==false;}).map(function(r){ // v115.2294 - livre com texto reconhecido vale como regra
+    if(r.tipo!=='livre')return r;var tx=r.texto||r.textoOriginal||'';
+    if(pfVR2PareceSoComSaldo(tx))return Object.assign({},r,{tipo:'so_com_saldo'});
+    if(pfVR2PareceMaisBarato(tx))return Object.assign({},r,{tipo:'menor_preco',marcas:[]});
+    return r;});
   var doCli=todas.filter(function(r){return pfVR2RegraDoCliente(r,cliente);});
   var marcasCli={};doCli.forEach(function(r){pfVR2MarcasDaRegra(r).forEach(function(m){marcasCli[m]=1;});});
   var cliMenorGeral=doCli.some(function(r){return r.tipo==='menor_preco'&&!(r.marcas||[]).length&&!r.item;});
@@ -63877,6 +63896,8 @@ function pfVR2Aplicar(codDigitado,items,cliente){
       var base=comS.length?comS:cand;
       var venc=base.slice().sort(function(a,b){return pfVR2Custo(a)-pfVR2Custo(b);})[0];
       tirar(cand.filter(function(it){return it!==venc;}),r,motivo);
+    }else if(r.tipo==='so_com_saldo'){
+      tirar(res.filter(function(it){return pfVR2Saldo(it)<=0;}),r,motivo);
     }else if(r.tipo==='marca_unica'){
       var fixa=res.filter(function(it){return pfVR2MarcaBate(it.marca,[r.marca]);});
       if(fixa.length)tirar(res.filter(function(it){return fixa.indexOf(it)<0;}),r,motivo);
@@ -64202,6 +64223,8 @@ async function pfVendasIAEnviar(){
   inp.value='';
   pfVendasIAChatBolha(texto,true);
   var pensando=pfVendasIAChatBolha('<span style="color:#5a6b80">Pensando...</span>',false);
+  if(pfVR2PareceMaisBarato(texto)&&!/\b[A-Z0-9]{2,}\b/.test(texto.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\b(MAIS|BARAT[OA]S?|COTAR|SEMPRE|MENOR|PRECO|CUSTO|VALOR|SUBIR|SO|APENAS|O|A|OS|AS|DE|DA|DO|NA|NO|ITEM|ITENS|PECA|PECAS|MARCA|ENTRE|TODAS|QUE|TIVER|COM|SALDO)\b/g,''))){pfVR2BolhaConfirmar(pensando,{tipo:'menor_preco',marcas:[],textoOriginal:texto},'Entendi assim:');return;} // v115.2294 - sem marca citada; com marca a IA monta
+  if(pfVR2PareceSoComSaldo(texto)){var mi=texto.match(/\b([A-Z0-9]*\d[A-Z0-9\-\.\/]{2,})\b/);pfVR2BolhaConfirmar(pensando,{tipo:'so_com_saldo',item:mi?mi[1].toUpperCase():undefined,textoOriginal:texto},'Entendi assim:');return;} // v115.2294
   var apiKey=localStorage.getItem('anthropic_key')||'';
   // Sem chave da IA: não trava -- oferece salvar como anotação livre.
   if(!apiKey){pfVR2BolhaConfirmar(pensando,{tipo:'livre',texto:texto,textoOriginal:texto},'Sem chave da IA aqui (Ferramentas → Minhas Chaves), então vai como anotação:');return;}
@@ -64214,9 +64237,10 @@ async function pfVendasIAEnviar(){
       '{"tipo":"liberar_marca","marcas":["X"]} -- pode cotar X (exceção a um bloqueio geral).\n'+
       '{"tipo":"so_se_faltar","marca":"X","seFaltar":["Y"],"item":"COD"} -- só subir X se não tiver Y (com saldo).\n'+
       '{"tipo":"preferir_marca","marcas":["X","Y"],"item":"COD"} -- se tiver saldo de X sobe só X (senão Y...).\n'+
-      '{"tipo":"menor_preco","marcas":[],"item":"COD"} -- cotar só a mais barata (marcas vazio = entre todas; ou entre as marcas citadas).\n'+
+      '{"tipo":"menor_preco","marcas":[],"item":"COD"} -- cotar só a mais barata / "sempre o mais barato" (marcas vazio = entre todas; ou entre as marcas citadas).\n'+
       '{"tipo":"marca_unica","item":"COD","marca":"X"} -- para o código COD, subir só a marca X.\n'+
       '{"tipo":"margem","valor":NUMERO} -- margem (%) a usar nas cotações.\n'+
+      '{"tipo":"so_com_saldo","item":"COD"} -- não cotar / não subir peça SEM SALDO (zerada ou negativa); só o que tem estoque.\n'+
       '{"tipo":"livre","texto":"..."} -- QUALQUER outra coisa (peculiaridade do cliente, condição, prazo, observação): resuma o pedido numa frase curta e clara.\n'+
       'Nunca responda erro: se não encaixar nos tipos de marca/margem, use "livre".\n\n'+
       'Pedido do vendedor: "'+texto+'"';

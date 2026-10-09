@@ -665,6 +665,9 @@
   (painel) + Ficha (CRM); embaixo FANTASIA / CNPJ / ENDEREÇO (bairro, cidade — UF) / PERFIL em campos cinza só-leitura + UF / CONDIÇÃO /
   COMPRADOR. Sem etiquetas coloridas: avisos numa caixa só (X2) `vendasAvisosCliente`/`vendasAvisosHtml`, recolhível `vendasAvisosAlternar`.
   `pfRevFaixaCotacaoHtml(v,true)` = só o 🚨 emergência. Versão anterior em `vendasCabecalhoCompactoHtmlAntigo`.
+- v115.2273 ("pra que serve rascunho? por que salvar bem aí no meio?"): Rascunho SAIU (a cotação já se salva sozinha, "✓ salvo") e o
+  "✔ Salvar" verde foi pra barra azul (`vendasSalvarPos()`='barra'; 'rodape' = embaixo dos itens, `vendasSalvarBtnHtml`). Campos do
+  cabeçalho com a mesma altura (36px, CSS `#vendasCabCompacto`; a UF sem a aparência nativa do Mac).
 - Barra dos itens: Código + Qtd + Adicionar numa caixa só; Série / modelo visível; Marcar aplicação / Colar print / Carregar arquivo BRANCOS
   (exceção ao padrão de cor do print/arquivo, pedido do Vitor "menos colorido"); CSS v115.2271 tira o 3D dos botões da cotação.
 

@@ -114,6 +114,11 @@
   AUTOPREENCHIMENTO DO NAVEGADOR (Chrome lembra o que foi digitado, com nomes reais) — a busca do PF já filtrava. Agora todo campo de texto
   sem `autocomplete` ganha `autocomplete="off"` ao clicar/entrar (listener global antes do v115.2136; e-mail/senha do login ficam) e, no modo
   ativo, clicar no campo vazio lista os clientes FICTÍCIOS (`vendasBuscarCliente('')` no onfocus).
+- v115.2291 ("não aparecer nome de marcas como BG Vedações e Vedamotors… dashboard… produtos… coloca ORIGINAL IMPORTADO em ambos"): pra quem
+  está no modo, `pfModoDemoMarcasLigar` (MutationObserver no body + passada nos campos a cada 2 s) troca NA TELA o nome da marca (texto, value,
+  title, placeholder; acento/singular/traço tolerados, `pfModoDemoMarcasRegex`) por "ORIGINAL IMPORTADO". Dados reais intactos. Lista em
+  `pfModoDemo.marcas` [[real,troca]] (padrão `PF_MODO_DEMO_MARCAS_PADRAO`), editável pelo Vitor no bloco do modo demonstração (`pfModoDemoMarcasSalvar`).
+  Não pega: gráfico em canvas e Excel exportado.
 - Notícias: cópia PRÓPRIA de usuário de `pfNoticias*` é ignorada no pull (Carlos tinha uma de 10/09 que passava na frente).
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)

@@ -237,6 +237,10 @@
   QUALQUER marca — o eixo traseiro DANA 176/414 (W20) e o dianteiro 176/413 (W20E) têm a mesma série 260009 e viraram um só. Agora só
   junta marca de motor (`PF_APLIC_MARCA_MOTOR`); `pfAplicSepararDana260009` (1x por navegador) devolveu o 176/414 (fonte: tabela
   `backup_aplicacoes_20260924` do Supabase). `pfAplicMarcarW20Trans501`: transmissão DANA 28.000 13.HR28443-501 = CASE W20 (pedido dele).
+- v115.2270 ("e se eu quiser colocar que essa mesma série também vai em outra máquina, ou alterar W20 pra W20E"): o ✏️ Editar grupo
+  (`cadEditarGrupoAplicacao`) ganhou "🚜 Máquinas onde vai" (`pfAplicMaquinasDoGrupo` monta "CASE W20, CASE W20E"; `pfAplicMaquinasParse`
+  → marcaVeiculo + veiculo, mesma marca em todas = marcaVeiculo comum). BUG junto: o componente juntado ("TRANSMISSÃO, TRASNMISSÃO…")
+  era gravado em todos os itens ao salvar — agora só muda se foi editado; salvar põe `ts` novo e chama `pfSyncPush`.
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

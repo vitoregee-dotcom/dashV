@@ -729,6 +729,8 @@
 - v115.2289 BUG ("está com a regra do Assistente e mesmo assim cotou" — Não cotar BG VEDAÇÕES, 230857A passou): `pfVR2MarcaBate` comparava
   o nome EXATO; agora `pfVR2MarcaIgual` (tokens sem acento, plural→singular, nome cortado "BG VEDA", sufixo de empresa `PF_VR2_MARCA_SUFIXO`).
   Palavra a mais que não é sufixo de empresa = marca diferente (SPICER × SPICER-R, DANA × DANA-R, TX × TX COMPONENTES).
+  v115.2293: regra escrita com o nome TROCADO da demonstração ("ORIGINAL IMPORTADO") também vale — `pfVR2MarcaBate` compara o
+  nome visto (`pfModoDemoMarcasTrocar`). Como as duas marcas viram o mesmo nome, essa regra bloqueia BG VEDACOES E VEDAMOTORS.
 - v115.2284 BUG modo demonstração: gravar numa chave "só demo" (cotações etc.) vindo da TELA marca o novo como `demo:true` do lote e mantém os
   reais deste navegador (`pfModoDemoSoGravar`, no setItem e no pfRawSetItem); antes a cotação nova sumia da lista e a cópia local real era apagada.
 

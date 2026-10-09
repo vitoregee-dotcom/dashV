@@ -281,6 +281,13 @@
   busca" (série · componente modelo (peças); clicar = só ela, `window._vendasSerieSerieFiltro`), etiqueta "N séries" no cabeçalho do componente e
   "🔁 Peças iguais entre as séries" (`vendasSerieSemelhancaHtml`: pares do MESMO componente, % = códigos em comum ÷ códigos diferentes das duas;
   verde ≥70, laranja ≥40, vermelho).
+- v115.2299 **🔁 em quantos modelos a peça vai** (Vitor: "saber em quantos modelos de componentes aquela peça vai... o quanto ela é
+  intercambiável"; escolheu A + B da prévia `docs/referencias/intercambio/`): `pfIntercIdx` (cache 30 s) junta a lista de Aplicações + as
+  `aplicacoes` das fichas (mesmo código em marcas diferentes, sem traço = `pfAlimNorm`); modelo = marca|modelo|série (sem modelo e sem série
+  não conta), grupo pelo `vendasSerieGrupoAplic`, máquinas = veiculo (+marcaVeiculo). Nível `pfIntercNivel`: verde 5+, laranja 2–4, cinza 1.
+  A = `pfIntercBlocoHtml(cod)` na ficha do produto (em cima das aplicações) e no card do Alt+B (`compacto`); modelo clicável →
+  `pfIntercAbrirSerie` (Aplicações filtrada). B = botão "🔁 Peças mais intercambiáveis" em Aplicações → `pfIntercRankingAbrir` (filtros
+  componente/🛡 vedação/saldo/marca/busca em `window._pfIntercF`, ⬇️ Excel `pfIntercExcel`). "JUNTA DUPLA" saiu da vedação.
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

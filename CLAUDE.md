@@ -670,6 +670,10 @@
   Prévia nova (07/10, pra apresentação): `docs/referencias/portal-cliente/previa-codigo.html/.png` — cotação rápida código + qtd (ou colar lista),
   código de qualquer marca convertido ("CZ-180 = SPICER 5-280X"), disponibilidade + preço da tabela do cliente, código não achado → vendedor;
   lado do vendedor: "Cotações do portal" com nota + regras do gestor (sai sozinho até R$ X com saldo). Precisa decidir: login, preço visível, limite, segurança.
+  **Decisões do Vitor (09/10/2026):** 1) login = usuário e senha ENVIADOS PELO VENDEDOR; 2) o cliente vê o preço NA HORA, pela margem da
+  peça ou a do cliente (se ele tiver); 3) sai sozinho até X reais OU até X itens; 4) o cliente vê SOMENTE o preço (nada de custo, saldo
+  exato, fornecedor ou outros clientes). Quando montar: já entra VISÍVEL PRA TODOS (sem 👁 oculto / 🚧 em construção). Próximo passo:
+  prévia das telas (cliente + vendedor) antes de fazer.
 
 ## 📊 Painel de Clientes (Vendas → aba Painel de Clientes, `pvRenderKpis`)
 - v115.2242 (Vitor: "trabalhamos com fechamentos trimestrais, bom pra comparativo"; "% de cotações que os clientes fecham"; "rankings

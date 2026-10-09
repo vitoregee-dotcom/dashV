@@ -717,6 +717,9 @@
 
 - v115.2283/2285: a caixa de avisos do cliente na cotação (`vendasAvisosCliente`) mostra o TEXTO das 3 anotações mais novas e as regras
   do Assistente DESTE cliente (🤖, `pfVR2DescricaoTexto`); as regras livres do cliente saíram da faixa amarela (`pfVR2FaixaCotacaoHtml`).
+- v115.2289 BUG ("está com a regra do Assistente e mesmo assim cotou" — Não cotar BG VEDAÇÕES, 230857A passou): `pfVR2MarcaBate` comparava
+  o nome EXATO; agora `pfVR2MarcaIgual` (tokens sem acento, plural→singular, nome cortado "BG VEDA", sufixo de empresa `PF_VR2_MARCA_SUFIXO`).
+  Palavra a mais que não é sufixo de empresa = marca diferente (SPICER × SPICER-R, DANA × DANA-R, TX × TX COMPONENTES).
 - v115.2284 BUG modo demonstração: gravar numa chave "só demo" (cotações etc.) vindo da TELA marca o novo como `demo:true` do lote e mantém os
   reais deste navegador (`pfModoDemoSoGravar`, no setItem e no pfRawSetItem); antes a cotação nova sumia da lista e a cópia local real era apagada.
 

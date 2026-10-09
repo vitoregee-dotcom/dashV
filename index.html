@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2288</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2289</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2288</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2289</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -63645,9 +63645,30 @@ function pfVR2EnxutaSet(on){
 // Marca: compara sem acento/espaço/pontuação ("SPICER-R" = "SPICER R"),
 // mas inteira -- "SPICER" não pega "SPICER-R" (são marcas diferentes).
 function pfVR2NormMarca(s){return String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');}
+// v115.2289 - BUG (Vitor: "está com a regra do Assistente e mesmo assim cotou" — "Não cotar BG VEDAÇÕES" tirou a ficha "BG VEDACOES"
+// do 230857 e deixou passar a do 230857A, que na planilha vem com o nome escrito diferente "BG VEDA…"): comparava o nome EXATO.
+// Agora também bate singular/plural (VEDAÇÃO × VEDAÇÕES), nome abreviado/cortado na planilha (BG VEDA, BG VEDACOE) e sufixo de
+// empresa no fim (LTDA, IND, COMERCIO…). Marca "-R"/outra palavra no fim continua DIFERENTE (SPICER × SPICER-R, DANA × DANA-R).
+var PF_VR2_MARCA_SUFIXO={LTDA:1,LTD:1,IND:1,INDUSTRIA:1,COM:1,COMERCIO:1,SA:1,ME:1,EPP:1,EIRELI:1,BRASIL:1,BR:1,DO:1,DA:1,E:1,CIA:1};
+function pfVR2MarcaTokens(s){
+  return String(s||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').split(/[^A-Z0-9]+/).filter(Boolean)
+    .map(function(t){return t.length>3?t.replace(/(OES|AES)$/,'AO').replace(/S$/,''):t;});
+}
+function pfVR2MarcaIgual(a,b){
+  if(pfVR2NormMarca(a)===pfVR2NormMarca(b))return true;
+  var ta=pfVR2MarcaTokens(a),tb=pfVR2MarcaTokens(b);if(!ta.length||!tb.length)return false;
+  if(ta.join(' ')===tb.join(' '))return true;
+  // o mais curto é o começo do mais longo: ou o resto é só sufixo de empresa, ou o curto foi CORTADO no meio da última palavra
+  var cu=ta.length<=tb.length?ta:tb,lo=cu===ta?tb:ta;
+  for(var i=0;i<cu.length-1;i++)if(cu[i]!==lo[i])return false;
+  var ult=cu[cu.length-1],par=lo[cu.length-1];
+  if(ult===par)return lo.slice(cu.length).every(function(t){return PF_VR2_MARCA_SUFIXO[t];});
+  // cortado: última palavra do curto é começo da do longo (≥3 letras), nada depois, e o nome todo tem ≥5 letras
+  return ult.length>=3&&par.indexOf(ult)===0&&cu.length===lo.length&&cu.join('').length>=5;
+}
 function pfVR2MarcaBate(marca,lista){
   var m=pfVR2NormMarca(marca);if(!m)return false;
-  return (lista||[]).some(function(x){return pfVR2NormMarca(x)===m;});
+  return (lista||[]).some(function(x){return pfVR2MarcaIgual(marca,x);});
 }
 function pfVR2MarcasDaRegra(r){
   var l=[].concat(r.marcas||[],r.marca?[r.marca]:[],r.seFaltar||[]);

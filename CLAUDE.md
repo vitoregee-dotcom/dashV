@@ -272,6 +272,11 @@
   v115.2276: grupo FILTROS (descrição começando com FILTRO/ELEMENTO/REFIL/CARTUCHO, venha de qualquer componente).
   v115.2277 BUG ("cadê eixo dianteiro e traseiro?"): a lista era cortada nas 300 primeiras ANTES de agrupar (transmissão da W20 tem 300+);
   agora agrupa tudo e o limite é POR GRUPO (120 + "▾ Mostrar as outras N", `_vendasSerieGrupoTodos`); linha montada só se aparece.
+- v115.2297 ("cada componente, vamos separar o que for de vedação"; escolheu A + C): na busca Série/Modelo, dentro de cada componente a VEDAÇÃO
+  vem primeiro (sub-blocos 🛡 Vedação / ⚙️ Demais peças, cada um com "selecionar" → `vendasSerieSelGrupo(fam,marcar,'ved'|'outras')`) e o chip
+  "🛡 Só vedação" (`window._vendasSerieSoVed`) deixa só elas. Vedação = `vendasSerieEhVedacao(desc)` / `VENDAS_VEDACAO_RE` (retentor, o-ring, anel de
+  vedação/vedador/segmento/borracha, junta, gaxeta, vedador/vedante, selo, kit vedação/reparo, arruela de cobre/vedação, bucha de vedação; fora:
+  anel trava/elástico, arruela comum, coifa, junta universal/homocinética). Palavra nova → acrescentar no regex.
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

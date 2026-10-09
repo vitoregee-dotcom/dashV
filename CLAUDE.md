@@ -571,6 +571,11 @@
   (`pfAvisosRailDireita()`, conta o ícone mais largo); um ResizeObserver no `#pfAvisosRail` (criado em `pfAvisosMonta`) redesenha o
   painel sempre que a coluna aparece/alarga — antes calculava 1x e ficava por baixo dela.
 
+## Dashboard por baixo da tela inicial (v115.2295)
+- BUG (iPad: "o dash tá aparecendo por baixo"): o `initUserUI` (depois do login) fazia `pfSetActive('dash')` com a tela inicial aberta →
+  `pf-view-dash` no body e a regra `body.has-data.pf-view-dash #dash{display:block!important}` ligava o Dashboard embaixo da home (página
+  640 → 2.100 px, rola no iPad). Agora com `#pfHomeSplash` visível / sem tela escolhida = `pfSetActive('home')`; senão mantém a tela atual.
+
 ## Dock — botão "⋯" (v115.2220)
 - Os botões do canto direito do dock (🎓 apresentação, 🖥️ monitor, tema, 📌 auto-ocultar, usuários, pendências, avatar, sair) ficam
   dentro do `#pfDockMaisPop` (coluna que abre PRA CIMA) e aparecem só ao clicar no `#pfDockMaisBtn` (`pfDockMais(ev, abrir)`; fecha ao

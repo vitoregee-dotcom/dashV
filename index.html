@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2279</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2280</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2279</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2280</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -17051,8 +17051,35 @@ function pfModoDemoAtivo(){
   }catch(e){return false;}
 }
 var _pfModoDemoMemo={};
+// v115.2280 - BUG (Vitor: "mandei um item pela cotação para o Avise-me e não foi pra lá" — print do Carlos com o modo
+// demonstração ligado): as chaves "nada" liam SEMPRE vazio, então o que a pessoa criava na demonstração (Avise-me,
+// lembrete, RMA…) sumia — e pior, a gravação por cima do "vazio" deixava a cópia LOCAL do real só com o item novo. Agora,
+// com o modo ligado, o que é gravado nessas chaves vai pra uma SOMBRA (pfDemoSombra__<chave>, só deste navegador, não sobe)
+// com só os itens que não existem no real; a leitura mostra a sombra. O real fica intocado; a sombra some quando desliga.
+var PF_MODO_DEMO_SOMBRA='pfDemoSombra__';
+var _pfLsSetOrig=Storage.prototype.setItem;
+function pfModoDemoSombraLer(key){try{return _pfLsGetOrig.call(localStorage,PF_MODO_DEMO_SOMBRA+key);}catch(e){return null;}}
+function pfModoDemoSombraGravar(key,value){
+  try{
+    var des=function(r){return (typeof pfDecompress==='function'&&r)?pfDecompress(r):r;};
+    var v=JSON.parse(des(value));
+    if(!Array.isArray(v))return true; // objeto: não grava (o real fica como está)
+    var realRaw=(PF_IDB_KEYS.indexOf(key)>=0)?(_pfMemCache.hasOwnProperty(key)?_pfMemCache[key]:null):_pfLsGetOrig.call(localStorage,key);
+    var real=[];try{real=JSON.parse(des(realRaw)||'[]');}catch(e){}
+    var ch=function(x){return x&&typeof x==='object'&&x.id!=null?'id:'+x.id:JSON.stringify(x);},ja={};
+    (Array.isArray(real)?real:[]).forEach(function(x){ja[ch(x)]=1;});
+    _pfLsSetOrig.call(localStorage,PF_MODO_DEMO_SOMBRA+key,JSON.stringify(v.filter(function(x){return !ja[ch(x)];})));
+  }catch(e){}
+  return true;
+}
+function pfModoDemoSombrasLimpar(){
+  try{for(var i=localStorage.length-1;i>=0;i--){var k=localStorage.key(i);if(k&&k.indexOf(PF_MODO_DEMO_SOMBRA)===0)localStorage.removeItem(k);}}catch(e){}
+}
+try{if(!pfModoDemoLigado())pfModoDemoSombrasLimpar();}catch(e){}
 function pfModoDemoFiltrarRaw(key,raw){
-  if(raw==null||!PF_MODO_DEMO_TODAS[key]||!pfModoDemoAtivo())return raw;
+  if(!PF_MODO_DEMO_TODAS[key]||!pfModoDemoAtivo())return raw;
+  if(PF_MODO_DEMO_TODAS[key]==='nada'){var sb=pfModoDemoSombraLer(key);if(sb!=null)return sb;}
+  if(raw==null)return raw;
   var m=_pfModoDemoMemo[key];if(m&&m.raw===raw)return m.out;
   var out=raw;
   try{
@@ -17063,8 +17090,10 @@ function pfModoDemoFiltrarRaw(key,raw){
   }catch(e){out=raw;}
   _pfModoDemoMemo[key]={raw:raw,out:out};return out;
 }
+Storage.prototype.setItem=function(k,v){if(this===window.localStorage&&PF_MODO_DEMO_TODAS[k]==='nada'&&pfModoDemoAtivo()){pfModoDemoSombraGravar(k,String(v));return;}return _pfLsSetOrig.call(this,k,v);};
 Storage.prototype.getItem=function(k){var v=_pfLsGetOrig.call(this,k);return (this===window.localStorage&&PF_MODO_DEMO_TODAS[k])?pfModoDemoFiltrarRaw(k,v):v;};
 function pfRawSetItem(key, value){
+  if(PF_MODO_DEMO_TODAS[key]==='nada'&&pfModoDemoAtivo()){pfModoDemoSombraGravar(key,value);return true;} // v115.2280
   if(PF_IDB_KEYS.indexOf(key)>=0){
     _pfMemCache[key]=value;
     clearTimeout(_pfIdbWriteTimers[key]);

@@ -97,6 +97,10 @@
 - v115.2256 BUG GRAVE da 2254 (tela vazia, Sair não funcionava): o override do getItem rodava ANTES do `let sbUser` (mesmo <script>,
   linha ~25898) → ReferenceError da zona morta do let → o resto do bloco morria. `pfModoDemoAtivo` agora só olha o sbUser depois de
   `window._pfSbUserPronto` (setado logo após o let) e tudo em try/catch. **Código que roda cedo NUNCA pode encostar em `sbUser` sem isso.**
+- v115.2280 BUG ("mandei um item pela cotação pro Avise-me e não foi" — Carlos com o modo ligado): chave "nada" lia sempre vazio e a
+  gravação por cima deixava a cópia LOCAL do real só com o item novo. Agora, com o modo ativo, gravar numa chave "nada" (localStorage.setItem
+  e `pfRawSetItem`) vai pra **sombra** `pfDemoSombra__<chave>` (`pfModoDemoSombraGravar`: só os itens que não existem no real — o que a sync
+  escreve não entra) e a leitura mostra a sombra. Real intocado; `pfModoDemoSombrasLimpar` ao carregar com o modo desligado.
 - Notícias: cópia PRÓPRIA de usuário de `pfNoticias*` é ignorada no pull (Carlos tinha uma de 10/09 que passava na frente).
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)

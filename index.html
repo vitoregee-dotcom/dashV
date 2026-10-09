@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2296</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2297</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2296</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2297</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -52437,6 +52437,12 @@ function vendasSerieGrupoAplic(a){
   if(/MOTOR|ENGINE|CABECOTE|CYLINDER|BLOCK|CRANK|PISTON|LUBRICATION|FUEL/.test(t)||(typeof PF_APLIC_MARCA_MOTOR!=='undefined'&&PF_APLIC_MARCA_MOTOR.test&&PF_APLIC_MARCA_MOTOR.test(mk)))return 'MOTOR';
   return 'DIVERSOS';
 }
+// v115.2297 - A pedido do Vitor ("cada componente, vamos separar o que for de vedação"; escolheu A + C): dentro de cada componente a
+// VEDAÇÃO vem separada e primeiro (🛡 Vedação / ⚙️ Demais peças, cada bloco com "selecionar") e o chip "🛡 Só vedação" esconde o resto.
+// Vedação = pela descrição (sem acento): retentor, o-ring, anel de vedação/vedador/segmento/borracha, junta, gaxeta, vedador/vedação/
+// vedante, selo, kit vedação/reparo, arruela de vedação/cobre, bucha de vedação. Anel trava/elástico, arruela comum e coifa NÃO.
+var VENDAS_VEDACAO_RE=/\b(RETENTOR|RETENTORES|O[\s\-']?RINGS?|ANEL\s+O\b|ANEIS\s+O\b|JUNTAS?|GAXETAS?|VEDADOR(ES)?|VEDACAO|VEDACOES|VEDANTES?|SELOS?|SEAL|SEALS|GASKETS?)\b|\bANE(L|IS)\s+(DE\s+)?(VEDA|SEGMENTO|BORRACHA)|\bKIT\s+(DE\s+)?(VEDA|REPARO)|\bARRUELAS?\s+(DE\s+)?(VEDA|COBRE)|\bBUCHAS?\s+(DE\s+)?VEDA/;
+function vendasSerieEhVedacao(desc){var d=String(desc||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');if(/\bANE(L|IS)\s+(DE\s+)?(TRAVA|ELASTICO)/.test(d)&&!/VEDA|RETENTOR|O[\s\-']?RING/.test(d))return false;if(/\bJUNTAS?\s+(UNIVERSA|HOMOCINET|ARTICULA|CARDAN|DESLIZ)/.test(d)&&!/VEDA/.test(d))return false;return VENDAS_VEDACAO_RE.test(d);}
 function vendasSerieAgruparHtml(aplics,ccRes,linhaAplic){
   var grupos={},ordem=[],dados=null;try{dados=ccLoad();}catch(e){}
   function add(fam,ent){fam=fam||'SEM FAMÍLIA';if(!grupos[fam]){grupos[fam]=[];ordem.push(fam);}grupos[fam].push(ent);}
@@ -52453,13 +52459,20 @@ function vendasSerieAgruparHtml(aplics,ccRes,linhaAplic){
   });
   if(!ordem.length)return '';
   ordem.sort(function(a,b){var ia=VENDAS_SERIE_GRUPOS_ORDEM.indexOf(a),ib=VENDAS_SERIE_GRUPOS_ORDEM.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);}); // v115.2275 - ordem fixa
+  // v115.2297 - vedação primeiro dentro de cada componente; "Só vedação" deixa só ela
+  var soVed=!!window._vendasSerieSoVed,nVedTot=0;
+  ordem.forEach(function(f){grupos[f].forEach(function(e){e.ved=vendasSerieEhVedacao(e.sel.desc);if(e.ved)nVedTot++;});
+    grupos[f]=grupos[f].filter(function(e){return e.ved;}).concat(grupos[f].filter(function(e){return !e.ved;}));});
+  if(soVed){ordem.forEach(function(f){grupos[f]=grupos[f].filter(function(e){return e.ved;});});ordem=ordem.filter(function(f){return grupos[f].length;});
+    if(!ordem.length)return '<div style="padding:16px 12px;font-size:12.5px;color:#607080">Nenhuma peça de vedação nessa busca. <span onclick="window._vendasSerieSoVed=false;vendasBuscarPorSerieInput()" style="color:#7B2D8B;font-weight:700;cursor:pointer">Mostrar tudo</span></div>';}
   window._vendasSerieGrupos=grupos;
   var filtro=window._vendasSerieFamFiltro||'';if(filtro&&!grupos[filtro])filtro='';
   var fechado=window._vendasSerieFamFechado||{};
   var sel=window._vendasAplicSel||{};
   var total=ordem.reduce(function(s,f){return s+grupos[f].length;},0);
   var chip=function(label,val,n){var at=filtro===val;return '<span onclick="window._vendasSerieFamFiltro=\''+pfEscJs(val)+'\';vendasBuscarPorSerieInput()" style="cursor:pointer;white-space:nowrap;font-size:11px;font-weight:700;padding:4px 10px;border-radius:14px;border:1.5px solid '+(at?'#7B2D8B':'#E0D4F5')+';background:'+(at?'#7B2D8B':'#fff')+';color:'+(at?'#fff':'#5B2D8E')+'">'+pfEscHtml(label)+' <span style="opacity:.75">'+n+'</span></span>';};
-  var h=ordem.length>1?'<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border-bottom:1px solid var(--pf-fx-fundoSuave,#f0f4f8);background:#FCFAFE;position:sticky;top:0;z-index:2">'+chip('Todas','',total)+ordem.map(function(f){return chip(f,f,grupos[f].length);}).join('')+'</div>':'';
+  var chipVed=nVedTot?'<span onclick="window._vendasSerieSoVed='+(soVed?'false':'true')+';vendasBuscarPorSerieInput()" title="Mostrar só as peças de vedação de cada componente" style="cursor:pointer;white-space:nowrap;font-size:11px;font-weight:800;padding:4px 10px;border-radius:14px;border:1.5px solid '+(soVed?'#0D7377':'#BFE3E4')+';background:'+(soVed?'#0D7377':'#F1FAFA')+';color:'+(soVed?'#fff':'#0D7377')+';margin-left:auto">🛡 Só vedação <span style="opacity:.75">'+nVedTot+'</span>'+(soVed?' ✕':'')+'</span>':'';
+  var h=(ordem.length>1||chipVed)?'<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border-bottom:1px solid var(--pf-fx-fundoSuave,#f0f4f8);background:#FCFAFE;position:sticky;top:0;z-index:2">'+(ordem.length>1?chip('Todas','',total)+ordem.map(function(f){return chip(f,f,grupos[f].length);}).join(''):'')+chipVed+'</div>':'';
   ordem.forEach(function(f){
     if(filtro&&f!==filtro)return;
     var ents=grupos[f],aberto=!fechado[f];
@@ -52471,14 +52484,25 @@ function vendasSerieAgruparHtml(aplics,ccRes,linhaAplic){
     // a transmissão da W20 tem 300+ peças e os eixos sumiam. Agora todos os grupos aparecem e o limite é POR GRUPO (120), com "mostrar todas".
     if(aberto){
       var mais=(window._vendasSerieGrupoTodos||{})[f],lim=mais?ents.length:120;
-      h+=ents.slice(0,lim).map(function(e){return e.html||linhaAplic(e.a);}).join('');
+      // v115.2297 - sub-blocos 🛡 Vedação / ⚙️ Demais peças (só quando o componente tem os dois)
+      var nV=ents.filter(function(e){return e.ved;}).length,dividir=nV>0&&nV<ents.length;
+      var sub=function(tipo,n){var es=ents.filter(function(e){return tipo==='ved'?e.ved:!e.ved;}),tSel=es.every(function(e){return !!sel[e.sel.key];});
+        return '<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px 30px;background:'+(tipo==='ved'?'#EAF6F6':'#F7F5FA')+';border-bottom:1px solid '+(tipo==='ved'?'#CFE9EA':'#EEE8F3')+';font-size:11px;font-weight:800;color:'+(tipo==='ved'?'#0D6366':'#6B5A80')+'">'+
+          '<span style="flex:1">'+(tipo==='ved'?'🛡 Vedação':'⚙️ Demais peças')+' <span style="font-weight:600;opacity:.75">('+n+')</span></span>'+
+          '<label style="display:flex;align-items:center;gap:5px;font-weight:600;cursor:pointer"><input type="checkbox" '+(tSel?'checked':'')+' onchange="vendasSerieSelGrupo(\''+pfEscJs(f)+'\',this.checked,\''+tipo+'\')" style="width:13px;height:13px;cursor:pointer">selecionar</label></div>';};
+      ents.slice(0,lim).forEach(function(e,ix){
+        if(dividir&&ix===0)h+=sub('ved',nV);
+        if(dividir&&ix===nV)h+=sub('outras',ents.length-nV);
+        h+=e.html||linhaAplic(e.a);
+      });
       if(ents.length>lim)h+='<div onclick="window._vendasSerieGrupoTodos=window._vendasSerieGrupoTodos||{};window._vendasSerieGrupoTodos[\''+pfEscJs(f)+'\']=true;vendasBuscarPorSerieInput()" style="padding:9px 12px;font-size:12px;font-weight:700;color:#7B2D8B;cursor:pointer;border-bottom:1px solid #F0E6F7">▾ Mostrar as outras '+(ents.length-lim)+' de '+pfEscHtml(f)+' <span style="font-weight:400;color:#8a9ab0">(ou use o filtro de descrição)</span></div>';
     }
   });
   return h;
 }
-function vendasSerieSelGrupo(fam,marcar){
+function vendasSerieSelGrupo(fam,marcar,sub){
   var ents=(window._vendasSerieGrupos||{})[fam]||[];
+  if(sub)ents=ents.filter(function(e){return sub==='ved'?e.ved:!e.ved;}); // v115.2297 - só o bloco (vedação / demais)
   window._vendasAplicSel=window._vendasAplicSel||{};
   ents.forEach(function(e){
     var k=e.sel.key;

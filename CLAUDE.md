@@ -387,6 +387,8 @@
   descrição + medida nas aplicações da série GN65674N e nas fichas `doCatalogo` (ficha da empresa não muda) e monta `PF_PK404_KITS`
   (T432205 jogo de juntas completo, 31 peças) via `pfAlimKitGravar`. Kits de retífica T402612/T402806/U5MK0854 ainda NÃO (Vitor decide).
   Alimentar: a IA devolve `nota` (coluna Notes) e `pfAlimMedidaUS` usa a nota + entende nº repetido como alternativa.
+- **Eixos Carraro 20.43 guardados pra testar** (09/10/2026): `data/catalogos/eixos/` — refs 145243, 141791, 374986 (20.43UP), 572216 (20.43UP),
+  formato Carraro com texto; ver `LEIAME.md` da pasta. Ainda NÃO importados no sistema.
 - **Catálogos já lidos** (sem IA): `data/catalogos/<id>.json` (+ o PDF) listados em `PF_CAT_PRONTOS`; Cadastros → Importar Produtos → "📚 Catálogos já lidos" abre a prévia normal (`pfCatProntoAbrir`) e cada peça leva todos os motores em `aplicacoesCatalogo` (qtd por motor). Cummins motores 2019 = 861 peças.
 - No próprio sistema: Ferramentas → **📘 Catálogo PDF → Excel** (`ferrCatalogoPdf`, pdf.js no navegador,
   leitura por coluna, dicionário embutido + traduções salvas em `catpdf_traducoes_v1`).

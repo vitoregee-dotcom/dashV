@@ -583,6 +583,9 @@
   de um fundo fixo de tela cheia (modais). Move com CSS `translate` (não mexe no `transform`); só arrasta depois de 5 px e engole o
   clique final; não deixa a faixa sumir da tela. Fora: dock, barra de cima, botão da IA, campos/botões/links/canvas e `[data-pf-no-drag]`
   (usar esse atributo se alguma janela nova não puder ser arrastada).
+- v115.2295 BUG ("quando vou no X pra fechar fica uma seta pra cima/baixo/direita/esquerda"): o ✕ padrão (img dentro de span onclick) ganhava o
+  cursor de MOVER. Agora `[onclick]`, img/svg e o que tem cursor pointer (`maozinha`) ficam fora do arrasto; o img do `pfXGlossyHtml` tem cursor pointer.
+  Obs.: existem DOIS arrastadores (v115.2070 perto do `vendasAtualizarResumo` e v115.2221) — mexer nos dois se precisar.
 
 ## ⏱️ Tempo das cotações (v115.2180)
 - Medição automática (`pfCotTempoTick`, a cada 10 s): conta só se a cotação aberta tem item, a tela da cotação está à vista
@@ -707,6 +710,9 @@
   v115.2290 ("só essa imagem? não tem aquela que a gente configura?"): no MODO DEMONSTRAÇÃO a aba mostra a tela de verdade (Cotações /
   🔑 Acessos / ⚙️ Regras — Regras pra todos) com dados FICTÍCIOS (`pfPortalDemoDados`, dos clientes demo + `PF_DEMO_PECAS`, memória só);
   `pfPortalRpc` → `pfPortalDemoRpc` e os PATCH de regras/abrir cotação não vão pro banco (`pfPortalDemo()`).
+  v115.2295: "?" na barra azul da COTAÇÃO → `pfCotacaoAjudaAbrir` (imagem `assets-visuais/guia-vendas/cotacao-explicada.jpg` com 19 partes numeradas,
+  tirada com o pfDemoGerar + marcas por cima no Playwright; lista `PF_COT_AJUDA` + `PF_COT_AJUDA_MAIS`). Mudou a cotação → refazer imagem e lista.
+  QR do Ajuste de Saldo pra imprimir: `docs/impressos/qr-ajuste-de-saldo.pdf` (→ ajuste.html).
 
 ## 📊 Painel de Clientes (Vendas → aba Painel de Clientes, `pvRenderKpis`)
 - v115.2242 (Vitor: "trabalhamos com fechamentos trimestrais, bom pra comparativo"; "% de cotações que os clientes fecham"; "rankings

@@ -233,6 +233,8 @@
   Cadastros/Logística → tela inicial (`pfIrParaHome`); campo com texto em foco: o 1º Esc só tira o foco.
   v115.2169: "← Voltar" (`pfVoltarHomeBtnHtml`) nos menus de Compras/Ferramentas/Cadastros/Logística/Área Técnica; Esc passo 2
   só clica em Voltar VISÍVEL; Cadastros com grupo aberto → `cadVoltarGrupos`.
+- v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
+  (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo
   (arrastar seleção e soltar fora fechava e perdia tudo); **rascunho** `pfFtRascunho_v1` (`ftRascunhoSalvar/Ler/Ligar/Apagar`, por id ou
   'novo', inclui fotos de plaqueta se couber) volta sozinho ao reabrir + faixa "♻️ Continuar preenchendo" na lista; Cancelar com

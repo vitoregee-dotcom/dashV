@@ -691,6 +691,9 @@
   (`pfPortalAjudaAbrir`) = completo só pro `pfPortalEuVitor()` (vitoregee@gmail.com), resumo curto pros outros e no modo demonstração (a aba
   mostra o resumo). Bastidores (SQL, publicação dos preços, margem/UF do cálculo) só aparecem pra ele. **Regra geral: ajuda/"como funciona"
   novo = completo pro Vitor, resumo curto sem bastidores pros outros.**
+  v115.2287: pros outros/demonstração a aba mostra IMAGEM de exemplo do portal + resumo (`pfPortalExemploHtml`). **Guia de Vendas** = "?" na barra
+  de abas de Vendas → `pfVendasGuiaAbrir(sec)` (`PF_VENDAS_GUIA`: 10 partes com imagem em `assets-visuais/guia-vendas/<id>.jpg`, tiradas com os
+  dados de demonstração, + bullets + "➜ Ir pra lá"; setas/Esc; `pfVendasGuiaZoom`). Parte nova em Vendas → linha + imagem aqui.
 
 ## 📊 Painel de Clientes (Vendas → aba Painel de Clientes, `pvRenderKpis`)
 - v115.2242 (Vitor: "trabalhamos com fechamentos trimestrais, bom pra comparativo"; "% de cotações que os clientes fecham"; "rankings

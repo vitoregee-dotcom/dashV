@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2274</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2275</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2274</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2275</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -52295,22 +52295,37 @@ function vendasSerieFamiliaDe(codigo,marca){
   }catch(e){}
   return '';
 }
+// v115.2275 - A pedido do Vitor (print "W20E": tudo caía em "TRANSMISSÃO E EIXO" e "OUTROS"): na busca Série/Modelo os grupos são
+// pelo COMPONENTE da aplicação -- Transmissão, Eixo dianteiro, Eixo traseiro, Motor, Componentes cardan e Diversos -- olhando o
+// componente (equip) e o modelo ("EIXO TRASEIRO 176/414"). Antes era a família do estoque (vendasSerieFamiliaDe).
+var VENDAS_SERIE_GRUPOS_ORDEM=['TRANSMISSÃO','EIXO DIANTEIRO','EIXO TRASEIRO','EIXO','MOTOR','COMPONENTES CARDAN','DIVERSOS'];
+function vendasSerieGrupoAplic(a){
+  var t=String((a.equip||'')+' | '+(a.modelo||'')).toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(/TRANSMISS|TRASNMISS|CAMBIO|CONVERSOR|POWER ?SHUTTLE|POWERSHIFT/.test(t))return 'TRANSMISSÃO';
+  if(/DIANT|FRONT|ANTERIOR/.test(t)&&/EIXO|AXLE|DIFERENC/.test(t))return 'EIXO DIANTEIRO';
+  if(/TRASEIR|REAR|POSTERIOR/.test(t)&&/EIXO|AXLE|DIFERENC/.test(t))return 'EIXO TRASEIRO';
+  if(/\bEIXO\b|AXLE|DIFERENCIAL/.test(t))return 'EIXO';
+  if(/CARDAN|CRUZETA|PONTEIRA|PONTUVA|MANCAL CENTRAL/.test(t))return 'COMPONENTES CARDAN';
+  var mk=String(a.marca||'').toUpperCase();
+  if(/MOTOR|ENGINE|CABECOTE|CYLINDER|BLOCK|CRANK|PISTON|LUBRICATION|FUEL/.test(t)||(typeof PF_APLIC_MARCA_MOTOR!=='undefined'&&PF_APLIC_MARCA_MOTOR.test&&PF_APLIC_MARCA_MOTOR.test(mk)))return 'MOTOR';
+  return 'DIVERSOS';
+}
 function vendasSerieAgruparHtml(aplics,ccRes,linhaAplic){
   var grupos={},ordem=[],dados=null;try{dados=ccLoad();}catch(e){}
   function add(fam,ent){fam=fam||'SEM FAMÍLIA';if(!grupos[fam]){grupos[fam]=[];ordem.push(fam);}grupos[fam].push(ent);}
   aplics.forEach(function(a){
     var key=(a.codigo||'').toUpperCase()+'|'+(a.marca||'').toUpperCase();
-    add(vendasSerieFamiliaDe(a.codigo,a.marca),{html:linhaAplic(a),sel:{key:key,codigo:a.codigo,marca:a.marca||'',desc:a.desc||'',qtd:a.qtd}});
+    add(vendasSerieGrupoAplic(a),{html:linhaAplic(a),sel:{key:key,codigo:a.codigo,marca:a.marca||'',desc:a.desc||'',qtd:a.qtd}}); // v115.2275
   });
   var ordemCc=Object.keys(CC_NOME_SINGULAR);
   (ccRes||[]).slice().sort(function(x,y){return ordemCc.indexOf(x.fam)-ordemCc.indexOf(y.fam);}).forEach(function(r){
     var cc=vendasCcCodigoCotacao(r.it,r.lista);
     var fam=cc.temEstoque?vendasSerieFamiliaDe(cc.codigo,cc.marca):'';
     var key=(cc.codigo||'').toUpperCase()+'|'+(cc.marca||'').toUpperCase();
-    add(fam||'COMPONENTES DE CARDAN',{html:vendasCcLinhaHtml(r,false,dados),sel:{key:key,codigo:cc.codigo,marca:cc.marca||'',desc:String(r.it.descricao||r.famNome||'').toUpperCase(),qtd:null}});
+    add('COMPONENTES CARDAN',{html:vendasCcLinhaHtml(r,false,dados),sel:{key:key,codigo:cc.codigo,marca:cc.marca||'',desc:String(r.it.descricao||r.famNome||'').toUpperCase(),qtd:null}});
   });
   if(!ordem.length)return '';
-  ordem.sort(function(a,b){if(a==='SEM FAMÍLIA')return 1;if(b==='SEM FAMÍLIA')return -1;return grupos[b].length-grupos[a].length;});
+  ordem.sort(function(a,b){var ia=VENDAS_SERIE_GRUPOS_ORDEM.indexOf(a),ib=VENDAS_SERIE_GRUPOS_ORDEM.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);}); // v115.2275 - ordem fixa
   window._vendasSerieGrupos=grupos;
   var filtro=window._vendasSerieFamFiltro||'';if(filtro&&!grupos[filtro])filtro='';
   var fechado=window._vendasSerieFamFechado||{};

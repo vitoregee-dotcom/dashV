@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2289</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2290</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2289</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2290</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -60252,6 +60252,7 @@ var PF_PORTAL_EVENTOS='pfPortalEventos';
 function pfPortalUrl(){try{return new URL('portal/',location.href.split('?')[0].split('#')[0].replace(/[^\/]*$/,'')).href;}catch(e){return location.origin+'/portal/';}}
 function pfPortalNorm(s){return String(s||'').toUpperCase().replace(/[\s\-\.\/]/g,'');}
 async function pfPortalRpc(nome,args){
+  if(pfPortalDemo())return pfPortalDemoRpc(nome,args); // v115.2290 - demonstração: nada vai pro banco
   var r=await sbFetch('/rest/v1/rpc/'+nome,{method:'POST',body:JSON.stringify(args||{})});
   if(r.status===404){var e=new Error('portal não ativado no banco');e.semBanco=true;throw e;}
   var t=await r.text();if(!r.ok)throw new Error((t||'').slice(0,200)||('status '+r.status));
@@ -60263,7 +60264,56 @@ async function pfPortalGet(path){
   if(!r.ok)throw new Error('status '+r.status);return r.json();
 }
 var PF_PORTAL_ACESSO_COLS='id,usuario,cliente_ref,cliente_codigo,cliente_nome,contato,contato_tel,vendedor,vendedor_email,uf,condicao,preco_a,preco_b,margem,bloqueado,criado_em,criado_por,senha_trocada_em,ultimo_acesso';
+// v115.2290 - A pedido do Vitor (print da aba no modo demonstração: "mas só essa imagem aqui? não tem aquela que a gente
+// configura?"): no modo demonstração a aba mostra a tela DE VERDADE (Cotações do portal / 🔑 Acessos / ⚙️ Regras) com dados
+// FICTÍCIOS montados dos clientes demo — nada vai pro banco real (pfPortalRpc e os PATCH só mexem na cópia da memória).
+function pfPortalDemo(){return typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo();}
+function pfPortalDemoDados(){
+  if(window._pfPortalDemoP)return window._pfPortalDemoP;
+  var cl=[];try{cl=(cadLoad(CLIE_KEY)||[]).filter(function(c){return c&&c.demo&&c.razao;});}catch(e){}
+  if(!cl.length)cl=[{codigo:'DEMO01',razao:'AUTO PEÇAS HORIZONTE',fantasia:'Auto Peças Horizonte',estado:'MG'},{codigo:'DEMO02',razao:'TRATORES DO VALE',fantasia:'Tratores do Vale',estado:'SP'},
+    {codigo:'DEMO03',razao:'RETÍFICA MOTORES PARANÁ',fantasia:'Retífica Motores Paraná',estado:'PR'},{codigo:'DEMO04',razao:'MÁQUINAS CENTRO-OESTE',fantasia:'Máquinas Centro-Oeste',estado:'GO'}];
+  var pec=(typeof PF_DEMO_PECAS!=='undefined'?PF_DEMO_PECAS:[['5-281X','SPICER','CRUZETA'],['32210','TIMKEN','ROLAMENTO CÔNICO'],['2045005','DANA','RETENTOR CUBO RODA']]);
+  var seed=7,R=function(){seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};
+  var nomes=['Marcos — compras','Juliana — compras','Roberto — oficina','Ana — estoque','Paulo — gerente','Fernanda — compras'];
+  var conds=['30/60 DDL','28 DDL','À vista','30/60/90 DDL'],vend=(typeof PF_DEMO_VENDEDORES!=='undefined'?PF_DEMO_VENDEDORES:[['','Carlos Candis']]);
+  var agora=Date.now(),H=3600000,acessos=[],cots=[];
+  cl.slice(0,8).forEach(function(c,i){
+    var nm=c.fantasia||c.razao,us=String(nm).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'.').replace(/^\.|\.$/g,'').slice(0,18).replace(/\.$/,'');
+    var v=vend[i%vend.length];
+    acessos.push({id:'demo_ac_'+i,cliente_nome:nm,cliente_ref:'c:'+String(c.codigo||c.razao).toUpperCase(),cliente_codigo:c.codigo||'',usuario:us,contato:nomes[i%nomes.length],
+      contato_tel:'(11) 9'+(8000+i*137)+'-'+(1000+i*311),vendedor:v[1],vendedor_email:'',uf:String(c.estado||'SP').toUpperCase(),margem:0.21,preco_a:0.7735,preco_b:0.7875,condicao:conds[i%conds.length],
+      ultimo_acesso:i===5?null:new Date(agora-(i*7+2)*H).toISOString(),bloqueado:i===6,criado_em:new Date(agora-(20+i)*24*H).toISOString()});
+  });
+  var tipos=['auto','conferir','aberta','auto','conferir','auto','aberta'];
+  tipos.forEach(function(t,j){
+    var ac=acessos[j%acessos.length];if(!ac)return;
+    var n=t==='conferir'&&j===1?12:(2+Math.floor(R()*6)),its=[],tot=0;
+    for(var k=0;k<n;k++){var pc=pec[Math.floor(R()*pec.length)],q=1+Math.floor(R()*6),pu=Math.round((40+R()*420)*100)/100;
+      its.push({cod:pc[0],qtd:q,codigo:pc[0],achou:true,descricao:pc[2],marca:pc[1],preco:pu,total:Math.round(pu*q*100)/100});tot+=pu*q;}
+    var semPreco=j===4?1:0;if(semPreco)its.push({cod:'ABC-9981',qtd:1,achou:false});
+    if(t==='conferir'&&j===4)tot=Math.max(tot,5600+R()*2000);
+    cots.push({id:'demo_cot_'+j,acesso_id:ac.id,cliente_nome:ac.cliente_nome,cliente_ref:ac.cliente_ref,contato:ac.contato,criado_em:new Date(agora-(j*5+1)*H-Math.floor(R()*H)).toISOString(),
+      itens:its,n_itens:its.length,n_sem_preco:semPreco,total:Math.round(tot*100)/100,vendedor_email:'',
+      situacao:t==='conferir'?'conferir':'auto',motivo:t==='conferir'?(n>10?'mais de 10 itens':'acima de R$ 5.000'):'',status:t==='aberta'?'aberta':'nova',cotacao_num:t==='aberta'?'V-2026-'+(9100+j):''});
+  });
+  window._pfPortalDemoP={cfg:{id:1,lim_valor:5000,lim_itens:10,validade_dias:3,publicado_em:new Date(agora-2*H).toISOString(),n_itens:18432},acessos:acessos,cots:cots,semBanco:false,erro:'',ts:agora};
+  return window._pfPortalDemoP;
+}
+function pfPortalDemoRpc(nome,args){
+  var D=pfPortalDemoDados(),p=(args&&args.p)||{};
+  if(nome==='pf_portal_acesso_salvar'){
+    var a=p.id&&D.acessos.find(function(x){return x.id===p.id;});
+    if(!a){if(D.acessos.some(function(x){return x.usuario===p.usuario;}))return {erro:'usuario_existe'};a={id:'demo_ac_'+Date.now(),criado_em:new Date().toISOString(),ultimo_acesso:null,bloqueado:false};D.acessos.push(a);}
+    Object.keys(p).forEach(function(k){if(k!=='senha')a[k]=p[k];});return {id:a.id};
+  }
+  if(nome==='pf_portal_acesso_apagar'){D.acessos=D.acessos.filter(function(x){return x.id!==args.p_id;});return {ok:true};}
+  if(nome==='pf_portal_publicar_inicio')return {lote:'demo'};
+  if(nome==='pf_portal_publicar_fim'){D.cfg.publicado_em=new Date().toISOString();return {ok:true};}
+  return {ok:true};
+}
 async function pfPortalCarregar(){
+  if(pfPortalDemo()){var Dm=pfPortalDemoDados();Dm.ts=Date.now();window._pfPortal=Dm;window._pfPortalSemBanco=false;return Dm;}
   var P=window._pfPortal=window._pfPortal||{};
   try{
     var res=await Promise.all([pfPortalGet('portal_config?id=eq.1&select=*'),pfPortalGet('portal_acessos?select='+PF_PORTAL_ACESSO_COLS+'&order=cliente_nome'),
@@ -60532,9 +60582,8 @@ function pfPortalRedesenhar(soSeVisivel){var el=window._pfPortalEl;if(el&&docume
 function pfPortalRender(el,semRecarregar){
   if(!el)return;window._pfPortalEl=el;window._pfPortalAba=window._pfPortalAba||'cotacoes';
   var P=window._pfPortal||{};
-  if(typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo()){el.innerHTML=pfPortalExemploHtml();return;} // v115.2286/2287 - exemplo + resumo curto na demonstração
   if(!semRecarregar||!P.ts){el.innerHTML='<div style="padding:30px;text-align:center;color:#8a9ab0">Carregando o portal…</div>';pfPortalCarregar().then(function(){if(document.body.contains(el))pfPortalRender(el,true);});return;}
-  var gestor=typeof pfVR2PodeGeral==='function'&&pfVR2PodeGeral();
+  var gestor=(typeof pfVR2PodeGeral==='function'&&pfVR2PodeGeral())||pfPortalDemo(); // v115.2290 - na demonstração todos veem as Regras
   var abas=[['cotacoes','🌐 Cotações do portal'],['acessos','🔑 Acessos'+(P.acessos&&P.acessos.length?' ('+P.acessos.length+')':'')]];if(gestor)abas.push(['regras','⚙️ Regras do portal']);
   var h='<div style="padding:12px 0 24px;color:#1a2332">';
   if(P.semBanco&&!pfPortalEuVitor()){el.innerHTML=pfPortalExemploHtml('Em breve — o portal ainda não está ligado.');return;} // v115.2286/2287
@@ -60607,6 +60656,7 @@ function pfPortalRegrasHtml(P){
 async function pfPortalRegrasGravar(btn){
   var v=parseFloat(document.getElementById('pfPortalLimV').value),i=parseInt(document.getElementById('pfPortalLimI').value,10),d=parseInt(document.getElementById('pfPortalVal').value,10);
   if(isNaN(v)||v<0||isNaN(i)||i<1||isNaN(d)||d<1){pfAlert('Confira os números.');return;}
+  if(pfPortalDemo()){var Dc=pfPortalDemoDados().cfg;Dc.lim_valor=v;Dc.lim_itens=i;Dc.validade_dias=d;pfPortalRedesenhar();pfAlert('✅ Regras do portal gravadas.');return;} // v115.2290
   btn.disabled=true;
   try{var r=await sbFetch('/rest/v1/portal_config?id=eq.1',{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({lim_valor:v,lim_itens:i,validade_dias:d,atualizado_em:new Date().toISOString()})});
     if(!r.ok)throw new Error('status '+r.status);await pfPortalCarregar();pfPortalRedesenhar();pfAlert('✅ Regras do portal gravadas.');}
@@ -60627,6 +60677,7 @@ async function pfPortalAbrirCotacao(id){
     else pfAlert('O cliente "'+(c.cliente_nome||'')+'" não foi achado no cadastro deste aparelho — escolha o cliente da cotação (o estado e a margem saem dele).');
     if(window._venda&&!window._venda.condicao&&ac.condicao)window._venda.condicao=ac.condicao;
   },150);
+  if(c.status==='nova'&&pfPortalDemo()){c.status='aberta';setTimeout(pfPortalRedesenhar,300);return;} // v115.2290
   if(c.status==='nova'){
     try{await sbFetch('/rest/v1/portal_cotacoes?id=eq.'+encodeURIComponent(c.id),{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({status:'aberta',aberta_em:new Date().toISOString(),aberta_por:(sbUser&&sbUser.email)||''})});c.status='aberta';}catch(e){}
   }

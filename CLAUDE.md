@@ -277,6 +277,10 @@
   "🛡 Só vedação" (`window._vendasSerieSoVed`) deixa só elas. Vedação = `vendasSerieEhVedacao(desc)` / `VENDAS_VEDACAO_RE` (retentor, o-ring, anel de
   vedação/vedador/segmento/borracha, junta, gaxeta, vedador/vedante, selo, kit vedação/reparo, arruela de cobre/vedação, bucha de vedação; fora:
   anel trava/elástico, arruela comum, coifa, junta universal/homocinética). Palavra nova → acrescentar no regex.
+- v115.2298 ("quando tiver mais de uma série, diga quantas e mostre quais" + "um percentual do tanto que são iguais"): faixa "📋 N séries nessa
+  busca" (série · componente modelo (peças); clicar = só ela, `window._vendasSerieSerieFiltro`), etiqueta "N séries" no cabeçalho do componente e
+  "🔁 Peças iguais entre as séries" (`vendasSerieSemelhancaHtml`: pares do MESMO componente, % = códigos em comum ÷ códigos diferentes das duas;
+  verde ≥70, laranja ≥40, vermelho).
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

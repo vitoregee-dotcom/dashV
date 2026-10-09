@@ -348,6 +348,13 @@
   (mesmos campos do cadastro de produto; descrição da peça = a da ficha) + aplicação da série; cada peça ganha `kitsQueContem`
   [{codigo,desc,qtd}]. Cotação (`vendasEtiquetasHtml` → `pfAlimKitEtqHtml`): "🧰 vem no JG … · saldo" (laranja forte = sem avulso e
   kit com saldo) e "📦 kit com N peças" → `pfAlimKitVer(cod)` (lista com qtd no kit e saldo avulso).
+- v115.2279 **medidas e kit do LIVRO em PDF (404D-22)** (Vitor: "aplicar a regra do Alimentar nesse catálogo… bronzinas, junta do
+  cabeçote e jg de juntas" → "JUNTA DO CABEÇOTE 1,3MM"): no livro a alternativa REPETE o nº do item (sem parênteses) e a medida vem na
+  coluna Notes (json `x[2]`: "J (-) 0.25MM", "U/S 0.25", "J 1.3MM" = espessura da junta, "+0.25MM" pistão/anéis O/S; notas de biela/pistão
+  acrescentadas no json). `pfPk404Medidas` (bronzina sem nota com irmã medida = STD) → `pfPk404Arrumar` (ao abrir Aplicações, idempotente):
+  descrição + medida nas aplicações da série GN65674N e nas fichas `doCatalogo` (ficha da empresa não muda) e monta `PF_PK404_KITS`
+  (T432205 jogo de juntas completo, 31 peças) via `pfAlimKitGravar`. Kits de retífica T402612/T402806/U5MK0854 ainda NÃO (Vitor decide).
+  Alimentar: a IA devolve `nota` (coluna Notes) e `pfAlimMedidaUS` usa a nota + entende nº repetido como alternativa.
 - **Catálogos já lidos** (sem IA): `data/catalogos/<id>.json` (+ o PDF) listados em `PF_CAT_PRONTOS`; Cadastros → Importar Produtos → "📚 Catálogos já lidos" abre a prévia normal (`pfCatProntoAbrir`) e cada peça leva todos os motores em `aplicacoesCatalogo` (qtd por motor). Cummins motores 2019 = 861 peças.
 - No próprio sistema: Ferramentas → **📘 Catálogo PDF → Excel** (`ferrCatalogoPdf`, pdf.js no navegador,
   leitura por coluna, dicionário embutido + traduções salvas em `catpdf_traducoes_v1`).

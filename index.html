@@ -17059,6 +17059,36 @@ var _pfModoDemoMemo={};
 var PF_MODO_DEMO_SOMBRA='pfDemoSombra__';
 var _pfLsSetOrig=Storage.prototype.setItem;
 function pfModoDemoSombraLer(key){try{return _pfLsGetOrig.call(localStorage,PF_MODO_DEMO_SOMBRA+key);}catch(e){return null;}}
+// v115.2281 - A pedido do Vitor ("quero a tela do Carlos com todos os cards com conteúdo"; escolheu "fictícios em tudo"): as
+// chaves "nada" passam a mostrar uma BASE fictícia compartilhada -- pfDemoDados_v1 {lote,ts,por:{chave:[itens]}} gerada pelo
+// 🎭 Dados de demonstração (pfDemoGerarListas) e sincronizada (o mais novo vence). Ela NÃO entra nas listas reais. Por cima da
+// base vale a sombra deste navegador {lote,add,del}: o que a pessoa criou/mudou/apagou durante a demonstração.
+var PF_DEMO_DADOS_KEY='pfDemoDados_v1';
+function pfDemoDadosLer(){
+  try{var r=_pfLsGetOrig.call(localStorage,PF_DEMO_DADOS_KEY);if(!r)return null;if(typeof pfDecompress==='function')r=pfDecompress(r);var o=JSON.parse(r);
+    if(!o||!o.por)return null;if(o.lote&&typeof pfDemoLotesApagados==='function'&&pfDemoLotesApagados().indexOf(o.lote)>=0)return null;return o;}catch(e){return null;}
+}
+function pfDemoBase(key){var o=pfDemoDadosLer();return o&&Array.isArray(o.por[key])?o.por[key]:null;}
+function pfModoDemoCh(x){return x&&typeof x==='object'&&x.id!=null?'id:'+x.id:JSON.stringify(x);}
+function pfModoDemoSombraObj(key){
+  var r=pfModoDemoSombraLer(key);if(r==null)return null;var o;try{o=JSON.parse(r);}catch(e){return null;}
+  if(Array.isArray(o))o={add:o,del:[]};
+  var d=pfDemoDadosLer();if(o.lote&&d&&d.lote&&o.lote!==d.lote)return null; // demonstração nova: sombra antiga não vale
+  return {lote:o.lote||'',add:o.add||[],del:o.del||[]};
+}
+var _pfDemoVisaoMemo={};
+function pfModoDemoVisao(key){
+  var sbRaw=pfModoDemoSombraLer(key),dRaw=_pfLsGetOrig.call(localStorage,PF_DEMO_DADOS_KEY),m=_pfDemoVisaoMemo[key];
+  if(m&&m.sb===sbRaw&&m.d===dRaw)return m.out;
+  var base=pfDemoBase(key),sb=pfModoDemoSombraObj(key),out=null;
+  if(base||sb){
+    var del={},add={},lista=[];(sb?sb.del:[]).forEach(function(k){del[k]=1;});(sb?sb.add:[]).forEach(function(x){add[pfModoDemoCh(x)]=x;});
+    (base||[]).forEach(function(x){var k=pfModoDemoCh(x);if(del[k])return;if(add[k]){lista.push(add[k]);delete add[k];}else lista.push(x);});
+    Object.keys(add).forEach(function(k){lista.push(add[k]);});
+    out=JSON.stringify(lista);
+  }
+  _pfDemoVisaoMemo[key]={sb:sbRaw,d:dRaw,out:out};return out;
+}
 function pfModoDemoSombraGravar(key,value){
   try{
     var des=function(r){return (typeof pfDecompress==='function'&&r)?pfDecompress(r):r;};
@@ -17066,9 +17096,12 @@ function pfModoDemoSombraGravar(key,value){
     if(!Array.isArray(v))return true; // objeto: não grava (o real fica como está)
     var realRaw=(PF_IDB_KEYS.indexOf(key)>=0)?(_pfMemCache.hasOwnProperty(key)?_pfMemCache[key]:null):_pfLsGetOrig.call(localStorage,key);
     var real=[];try{real=JSON.parse(des(realRaw)||'[]');}catch(e){}
-    var ch=function(x){return x&&typeof x==='object'&&x.id!=null?'id:'+x.id:JSON.stringify(x);},ja={};
-    (Array.isArray(real)?real:[]).forEach(function(x){ja[ch(x)]=1;});
-    _pfLsSetOrig.call(localStorage,PF_MODO_DEMO_SOMBRA+key,JSON.stringify(v.filter(function(x){return !ja[ch(x)];})));
+    var ja={},base={},vk={};(Array.isArray(real)?real:[]).forEach(function(x){ja[pfModoDemoCh(x)]=1;});
+    (pfDemoBase(key)||[]).forEach(function(x){base[pfModoDemoCh(x)]=JSON.stringify(x);});
+    var add=v.filter(function(x){var k=pfModoDemoCh(x);vk[k]=1;return !ja[k]&&base[k]!==JSON.stringify(x);}); // o que a sync escreve (real) não entra
+    var del=Object.keys(base).filter(function(k){return !vk[k];});
+    var d=pfDemoDadosLer();
+    _pfLsSetOrig.call(localStorage,PF_MODO_DEMO_SOMBRA+key,JSON.stringify({lote:(d&&d.lote)||'',add:add,del:del}));
   }catch(e){}
   return true;
 }
@@ -17078,7 +17111,7 @@ function pfModoDemoSombrasLimpar(){
 try{if(!pfModoDemoLigado())pfModoDemoSombrasLimpar();}catch(e){}
 function pfModoDemoFiltrarRaw(key,raw){
   if(!PF_MODO_DEMO_TODAS[key]||!pfModoDemoAtivo())return raw;
-  if(PF_MODO_DEMO_TODAS[key]==='nada'){var sb=pfModoDemoSombraLer(key);if(sb!=null)return sb;}
+  if(PF_MODO_DEMO_TODAS[key]==='nada'){var vis=pfModoDemoVisao(key);if(vis!=null)return vis;}
   if(raw==null)return raw;
   var m=_pfModoDemoMemo[key];if(m&&m.raw===raw)return m.out;
   var out=raw;
@@ -38906,7 +38939,7 @@ var PF_SYNC_KEYS = ['pfOrbPrefs_v1', 'pfModoApresPrefs_v1', 'pfSolicNF_v1',
   'cc_desenhos_v1', // v115.2021 - desenho de cada família (Área Técnica), trocado pelo admin
   'rel_decisoes_v1', // v115.2030 - respostas às sugestões de relacionamento (cotados juntos)
   'rel_regras_v1', // v115.2030 - regras que filtram as ligações vindas de catálogo
-  'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', // v115.2111 - margem por perfil // v115.2058 - regras geral/cliente do Assistente de Vendas (+ v115.2062 etiquetas da cotação)
+  'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfDemoDados_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', // v115.2111 - margem por perfil // v115.2058 - regras geral/cliente do Assistente de Vendas (+ v115.2062 etiquetas da cotação)
   'partsflow_pedidos_venda_v1',
   'venda_rascunho_v1',
   'imp_preview_cache_v1',
@@ -39759,7 +39792,7 @@ async function pfSafeSetItemAsync(key,value){
 // de dado único da empresa (tudo, exceto os 2 logs de atividade por
 // usuário -- esses fazem sentido continuar por conta) passam a usar o
 // mesmo ID fixo. Isso fecha a causa raiz de uma vez.
-var PF_CATALOGO_UNICO_KEYS = ['componentes_cardan_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'retentores_v1', 'mapas_lista_v1', 'cc_vinculos_estoque_v1',
+var PF_CATALOGO_UNICO_KEYS = ['componentes_cardan_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfDemoDados_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'retentores_v1', 'mapas_lista_v1', 'cc_vinculos_estoque_v1',
   // v115.1987 - A pedido do Vitor ("cotação deve ser compartilhada com
   // todos"): cotações deixam de ser por conta -- todo mundo lê e grava a
   // mesma lista (linha do MY_USER_ID, que já tinha todas as cotações).
@@ -39839,7 +39872,7 @@ async function pfSyncPull(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   try{
     // Chaves compartilhadas entre usuários — puxar de TODOS os usuários
-    var sharedKeys = ['partsflow_cotacoes_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'lp_regras_v1_deletados', 'lp_exemplos_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'cc_vinculos_estoque_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'pfNoticiasMarcasAtualizadoEm', 'pfNoticiasMarcasHistorico', 'timken_interchange_v1', 'pfComprasAtivos', 'pfAtalhosFerramentas', 'pfIconOverrides', 'pfTemaCores', 'pfCotacoesNaoLidas', 'pfMapaComercialSede', 'pfMapaPinsCores', 'pf_transp_mapa_v1', 'pfChegadasConf'];
+    var sharedKeys = ['partsflow_cotacoes_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfDemoDados_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'lp_regras_v1_deletados', 'lp_exemplos_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'cc_vinculos_estoque_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'pfNoticiasMarcasAtualizadoEm', 'pfNoticiasMarcasHistorico', 'timken_interchange_v1', 'pfComprasAtivos', 'pfAtalhosFerramentas', 'pfIconOverrides', 'pfTemaCores', 'pfCotacoesNaoLidas', 'pfMapaComercialSede', 'pfMapaPinsCores', 'pf_transp_mapa_v1', 'pfChegadasConf'];
     // v115.1219 - BUG corrigido (a pedido do Vitor, e-mails duplicados do
     // mesmo item em horários próximos): pfComprasEventos/pfFaturadosEventos/
     // pfChegadasEventos/pfSolicitadosEventos são LOGS (uma entrada por

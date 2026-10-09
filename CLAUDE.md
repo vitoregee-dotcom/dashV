@@ -110,6 +110,10 @@
   marcas solicitado/trânsito do Dashboard (vêm do banco). Chave nova escondida no modo → gerar fictício em `pfDemoGerarListas`.
 - v115.2282 ("vou testar foto lá, precisa funcionar"): Solicitação de Fotos é REAL no modo demonstração — `sfListar` mostra só os pedidos de
   quem está logado e a base de `pfFotosEventos` (`pfDemoBase`) = eventos reais com `solicitanteEmail` = o usuário (aviso "📷 foto recebida").
+- v115.2288 BUG ("não deve aparecer os clientes reais aqui na demonstração"): a lista embaixo do "Buscar cliente..." da cotação era o
+  AUTOPREENCHIMENTO DO NAVEGADOR (Chrome lembra o que foi digitado, com nomes reais) — a busca do PF já filtrava. Agora todo campo de texto
+  sem `autocomplete` ganha `autocomplete="off"` ao clicar/entrar (listener global antes do v115.2136; e-mail/senha do login ficam) e, no modo
+  ativo, clicar no campo vazio lista os clientes FICTÍCIOS (`vendasBuscarCliente('')` no onfocus).
 - Notícias: cópia PRÓPRIA de usuário de `pfNoticias*` é ignorada no pull (Carlos tinha uma de 10/09 que passava na frente).
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)

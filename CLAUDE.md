@@ -698,6 +698,9 @@
   v115.2287: pros outros/demonstração a aba mostra IMAGEM de exemplo do portal + resumo (`pfPortalExemploHtml`). **Guia de Vendas** = "?" na barra
   de abas de Vendas → `pfVendasGuiaAbrir(sec)` (`PF_VENDAS_GUIA`: 10 partes com imagem em `assets-visuais/guia-vendas/<id>.jpg`, tiradas com os
   dados de demonstração, + bullets + "➜ Ir pra lá"; setas/Esc; `pfVendasGuiaZoom`). Parte nova em Vendas → linha + imagem aqui.
+  v115.2290 ("só essa imagem? não tem aquela que a gente configura?"): no MODO DEMONSTRAÇÃO a aba mostra a tela de verdade (Cotações /
+  🔑 Acessos / ⚙️ Regras — Regras pra todos) com dados FICTÍCIOS (`pfPortalDemoDados`, dos clientes demo + `PF_DEMO_PECAS`, memória só);
+  `pfPortalRpc` → `pfPortalDemoRpc` e os PATCH de regras/abrir cotação não vão pro banco (`pfPortalDemo()`).
 
 ## 📊 Painel de Clientes (Vendas → aba Painel de Clientes, `pvRenderKpis`)
 - v115.2242 (Vitor: "trabalhamos com fechamentos trimestrais, bom pra comparativo"; "% de cotações que os clientes fecham"; "rankings

@@ -654,6 +654,18 @@
   `vendasCliPorNome` (5 s) e 150 linhas por vez (`window._vendasLimite`, "⬇ Mostrar mais" +300 / "Mostrar todas"; a selecionada sempre
   aparece). Teste com 3.000 cotações: 7,7 s → 0,2 s; clique na linha 0,26 s. Não voltar a chamar cadLoad dentro de loop de linhas.
 
+## Cotação reorganizada (v115.2271; prévias em `docs/referencias/cotacao-reorganizar/`)
+- Vitor: "tá muito poluído". Barra azul: "🤖 Assistente" (ícone escolhido por ele, `vendas_ia_regras`) + **📄 PDF com setinha**
+  (clique = baixa em Downloads `vendasPdfRapido('baixar')`; ▾ `vendasPdfMenu`: Visualizar / Enviar por e-mail `vendasPdfEmail` (baixa + mailto,
+  e-mail do cadastro `vendasPdfEmailDoCliente`) / Copiar texto pro WhatsApp / Escolher itens = `pfVendasPdfClienteAbrir`; sem escolha feita,
+  vão os itens com saldo `vendasPdfSelecaoPadrao`) + minimizar/maximizar amarelo/verde `pfJanelaBtnHtml(tipo,px)` ao lado do ✕. O "— Minimizar" de dentro saiu.
+- Cabeçalho (`vendasCabecalhoCompactoHtml`, prévia C2, nomes dos campos em MAIÚSCULA): CÓDIGO | RAZÃO SOCIAL + 🔍 + "Detalhes do cliente ›"
+  (painel) + Ficha (CRM); embaixo FANTASIA / CNPJ / ENDEREÇO (bairro, cidade — UF) / PERFIL em campos cinza só-leitura + UF / CONDIÇÃO /
+  COMPRADOR. Sem etiquetas coloridas: avisos numa caixa só (X2) `vendasAvisosCliente`/`vendasAvisosHtml`, recolhível `vendasAvisosAlternar`.
+  `pfRevFaixaCotacaoHtml(v,true)` = só o 🚨 emergência. Versão anterior em `vendasCabecalhoCompactoHtmlAntigo`.
+- Barra dos itens: Código + Qtd + Adicionar numa caixa só; Série / modelo visível; Marcar aplicação / Colar print / Carregar arquivo BRANCOS
+  (exceção ao padrão de cor do print/arquivo, pedido do Vitor "menos colorido"); CSS v115.2271 tira o 3D dos botões da cotação.
+
 ## Cotação em 2 linhas (v115.2140)
 - Botão "▦ Tabela | ▤ 2 linhas | ☰ Compacta" (`vendasViewModo()`/`vendasViewModoSet`, localStorage `pf_vendas_view_modo`);
   a tabela de 1 linha NÃO mudou. `vendasItens2LinhasHtml(v)` (tabela `#vendasItensTable2`, sem arrastar/redimensionar coluna):

@@ -52443,6 +52443,25 @@ function vendasSerieGrupoAplic(a){
 // vedante, selo, kit vedação/reparo, arruela de vedação/cobre, bucha de vedação. Anel trava/elástico, arruela comum e coifa NÃO.
 var VENDAS_VEDACAO_RE=/\b(RETENTOR|RETENTORES|O[\s\-']?RINGS?|ANEL\s+O\b|ANEIS\s+O\b|JUNTAS?|GAXETAS?|VEDADOR(ES)?|VEDACAO|VEDACOES|VEDANTES?|SELOS?|SEAL|SEALS|GASKETS?)\b|\bANE(L|IS)\s+(DE\s+)?(VEDA|SEGMENTO|BORRACHA)|\bKIT\s+(DE\s+)?(VEDA|REPARO)|\bARRUELAS?\s+(DE\s+)?(VEDA|COBRE)|\bBUCHAS?\s+(DE\s+)?VEDA/;
 function vendasSerieEhVedacao(desc){var d=String(desc||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');if(/\bANE(L|IS)\s+(DE\s+)?(TRAVA|ELASTICO)/.test(d)&&!/VEDA|RETENTOR|O[\s\-']?RING/.test(d))return false;if(/\bJUNTAS?\s+(UNIVERSA|HOMOCINET|ARTICULA|CARDAN|DESLIZ)/.test(d)&&!/VEDA/.test(d))return false;return VENDAS_VEDACAO_RE.test(d);}
+// v115.2298 - A pedido do Vitor ("vamos colocar um percentual do tanto que são iguais em comparação com a outra série"): pra cada par de
+// séries do MESMO componente, % de peças iguais = códigos em comum ÷ códigos diferentes das duas juntas (+ "N em comum").
+function vendasSerieSemelhancaHtml(info,ord){
+  var pares=[];
+  for(var i=0;i<ord.length;i++)for(var j=i+1;j<ord.length;j++){
+    var A=info[ord[i]],B=info[ord[j]];if(!Object.keys(A.comp).some(function(c){return B.comp[c];}))continue;
+    var ka=Object.keys(A.cods||{}),kb=B.cods||{},com=ka.filter(function(k){return kb[k];}).length,uni=ka.length+Object.keys(kb).length-com;
+    if(!uni)continue;pares.push({a:ord[i],b:ord[j],com:com,uni:uni,pct:Math.round(com/uni*100)});
+  }
+  if(!pares.length)return '';
+  pares.sort(function(x,y){return y.pct-x.pct;});
+  var cor=function(p){return p>=70?'#1E8449':p>=40?'#B45309':'#C0392B';};
+  return '<div style="margin-top:7px;padding-top:6px;border-top:1px dashed #F0D9A8"><b style="color:#8a5a00">🔁 Peças iguais entre as séries:</b>'+
+    '<div style="display:flex;flex-direction:column;gap:3px;margin-top:4px">'+pares.slice(0,8).map(function(x){
+      return '<div style="display:flex;align-items:center;gap:8px"><span style="font-family:Consolas,monospace;font-weight:700;color:#4a3a10;white-space:nowrap">'+pfEscHtml(x.a)+' × '+pfEscHtml(x.b)+'</span>'+
+        '<span style="flex:1;min-width:60px;max-width:160px;height:7px;background:#F1E7D0;border-radius:4px;overflow:hidden"><span style="display:block;height:100%;width:'+x.pct+'%;background:'+cor(x.pct)+'"></span></span>'+
+        '<b style="color:'+cor(x.pct)+';white-space:nowrap">'+x.pct+'% iguais</b><span style="color:#8a7a50;white-space:nowrap">('+x.com+' em comum de '+x.uni+')</span></div>';}).join('')+
+    (pares.length>8?'<div style="color:#8a7a50">… e mais '+(pares.length-8)+' comparações</div>':'')+'</div></div>';
+}
 function vendasSerieAgruparHtml(aplics,ccRes,linhaAplic){
   var grupos={},ordem=[],dados=null;try{dados=ccLoad();}catch(e){}
   function add(fam,ent){fam=fam||'SEM FAMÍLIA';if(!grupos[fam]){grupos[fam]=[];ordem.push(fam);}grupos[fam].push(ent);}
@@ -52463,7 +52482,7 @@ function vendasSerieAgruparHtml(aplics,ccRes,linhaAplic){
   // da busca (com o componente e quantas peças) numa faixa em cima; clicar numa série mostra só ela (window._vendasSerieSerieFiltro).
   var seriesInfo={},seriesOrd=[];
   ordem.forEach(function(f){grupos[f].forEach(function(e){var sr=e.a&&String(e.a.serie||'').trim().toUpperCase();if(!sr)return;
-    if(!seriesInfo[sr]){seriesInfo[sr]={n:0,comp:{},modelo:String(e.a.modelo||'').trim(),marca:String(e.a.marca||'').trim()};seriesOrd.push(sr);}seriesInfo[sr].n++;var md=String(e.a.modelo||'').trim();seriesInfo[sr].comp[f]=seriesInfo[sr].comp[f]||{};if(md)seriesInfo[sr].comp[f][md]=1;});});
+    if(!seriesInfo[sr]){seriesInfo[sr]={n:0,comp:{},modelo:String(e.a.modelo||'').trim(),marca:String(e.a.marca||'').trim()};seriesOrd.push(sr);}seriesInfo[sr].cods=seriesInfo[sr].cods||{};var cdN=String(e.a.codigo||'').toUpperCase().replace(/[\s\-\.]/g,'');if(cdN)seriesInfo[sr].cods[cdN]=1;seriesInfo[sr].n++;var md=String(e.a.modelo||'').trim();seriesInfo[sr].comp[f]=seriesInfo[sr].comp[f]||{};if(md)seriesInfo[sr].comp[f][md]=1;});});
   var serieF=window._vendasSerieSerieFiltro||'';if(serieF&&!seriesInfo[serieF])serieF='';
   if(serieF){ordem.forEach(function(f){grupos[f]=grupos[f].filter(function(e){return e.a&&String(e.a.serie||'').trim().toUpperCase()===serieF;});});ordem=ordem.filter(function(f){return grupos[f].length;});}
   var seriesHtml='';
@@ -52473,7 +52492,7 @@ function vendasSerieAgruparHtml(aplics,ccRes,linhaAplic){
       '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:5px">'+seriesOrd.map(function(sr){var x=seriesInfo[sr],at=serieF===sr;
         var comps=Object.keys(x.comp).map(function(c){var mds=Object.keys(x.comp[c]);return c.charAt(0)+c.slice(1).toLowerCase()+(mds.length?' '+mds.join('/'):'');}).join(' + ');
         return '<span onclick="window._vendasSerieSerieFiltro=\''+(at?'':pfEscJs(sr))+'\';vendasBuscarPorSerieInput()" title="'+pfEscHtml((x.marca?x.marca+' ':'')+(x.modelo||'')+' — clique pra ver só essa série')+'" style="cursor:pointer;white-space:nowrap;padding:3px 9px;border-radius:12px;border:1.5px solid '+(at?'#B45309':'#F0D9A8')+';background:'+(at?'#B45309':'#fff')+';color:'+(at?'#fff':'#6b4e00')+'">'+
-          '<b style="font-family:Consolas,monospace">'+pfEscHtml(sr)+'</b> <span style="opacity:.8">· '+pfEscHtml(comps)+' ('+x.n+')</span>'+(at?' ✕':'')+'</span>';}).join('')+'</div></div>';
+          '<b style="font-family:Consolas,monospace">'+pfEscHtml(sr)+'</b> <span style="opacity:.8">· '+pfEscHtml(comps)+' ('+x.n+')</span>'+(at?' ✕':'')+'</span>';}).join('')+'</div>'+vendasSerieSemelhancaHtml(seriesInfo,seriesOrd)+'</div>';
   }
   // v115.2297 - vedação primeiro dentro de cada componente; "Só vedação" deixa só ela
   var soVed=!!window._vendasSerieSoVed,nVedTot=0;

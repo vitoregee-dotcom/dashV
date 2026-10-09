@@ -731,6 +731,10 @@
   Palavra a mais que não é sufixo de empresa = marca diferente (SPICER × SPICER-R, DANA × DANA-R, TX × TX COMPONENTES).
   v115.2293: regra escrita com o nome TROCADO da demonstração ("ORIGINAL IMPORTADO") também vale — `pfVR2MarcaBate` compara o
   nome visto (`pfModoDemoMarcasTrocar`). Como as duas marcas viram o mesmo nome, essa regra bloqueia BG VEDACOES E VEDAMOTORS.
+- v115.2294 BUG ("pedi pro assistente não cotar sem saldo e cotou" + "cotar sempre mais barato"): "NÃO COTAR SEM SALDO" virava regra LIVRE
+  (só anotação). Tipo novo `so_com_saldo` (tira fichas com saldo ≤ 0) em `PF_VR2_TIPOS`/`pfVR2Descricao`/`pfVR2Aplicar`; o chat reconhece o
+  texto ANTES da IA (`pfVR2PareceSoComSaldo`, `pfVR2PareceMaisBarato` → menor_preco sem marcas quando não cita marca) e o prompt da IA
+  ganhou o tipo. Regra LIVRE antiga com esses textos passa a valer (convertida no começo do `pfVR2Aplicar`).
 - v115.2284 BUG modo demonstração: gravar numa chave "só demo" (cotações etc.) vindo da TELA marca o novo como `demo:true` do lote e mantém os
   reais deste navegador (`pfModoDemoSoGravar`, no setItem e no pfRawSetItem); antes a cotação nova sumia da lista e a cópia local real era apagada.
 

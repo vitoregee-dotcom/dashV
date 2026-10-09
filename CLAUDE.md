@@ -677,6 +677,16 @@
   do cliente · fila "🌐 Cotações do portal" · ⚙️ regras do gestor). Ajustes do Vitor: ACIMA DO LIMITE o preço fica ESCONDIDO (o vendedor
   confere e responde); validade 3 dias + condição de pagamento do cadastro OK; portal em endereço separado (`/portal`), sem nada do sistema.
   Precisa: banco (tabelas com RLS + usuários do portal + Edge Function que calcula o preço sem mandar custo pro navegador).
+  **FEITO (v115.2285):** página `portal/index.html` (`/portal`, nada do sistema) + banco em `supabase/portal-cliente.sql` (rodar 1x no SQL Editor
+  do Supabase — sem isso a aba avisa "falta ativar"). Tabelas `portal_config/acessos/sessoes/itens/conversoes/cotacoes` com RLS (custo trancado;
+  cliente só pelas funções `pf_portal_login/eu/cotar/enviar/minhas/sair`, senha bcrypt, trava 15 min após 8 erros). Preço calculado NO BANCO:
+  custo × a ÷ (b − margem) — a/b/margem gravados no acesso por `pfPortalFatores(cad)` (mesma conta do `vendasCalcVenda`; refeitos a cada publicação).
+  Lista publicada = só peças COM SALDO (+ conversões do cadastro de produtos) por `pfPortalPublicar` (lote novo e troca de uma vez; sozinho a cada 6 h
+  por gestor/admin com a planilha carregada, ou "↻ Atualizar preços"). Acima de R$ X ou N itens (`portal_config`) o preço volta escondido.
+  PartsFlow: Vendas → aba 🌐 Portal do cliente (`pfPortalRender`: Cotações / 🔑 Acessos / ⚙️ Regras), botão 🔑 Portal na ficha do CRM
+  (`pfPortalAcessoAbrir(k)`: usuário, senha gerada, quem recebe, condição, 💬/📋 mandar, bloquear/apagar), "➜ Abrir como cotação"
+  (`pfPortalAbrirCotacao`, cliente pelo `vendasSelecionarCliente`), aviso 🌐 na barra (log `pfPortalEventos`, `pfPortalChecar` a cada 2 min).
+  Falta: margem POR PEÇA (coluna `portal_itens.margem` já existe, vai null).
 
 ## 📊 Painel de Clientes (Vendas → aba Painel de Clientes, `pvRenderKpis`)
 - v115.2242 (Vitor: "trabalhamos com fechamentos trimestrais, bom pra comparativo"; "% de cotações que os clientes fecham"; "rankings
@@ -693,6 +703,11 @@
   de clientes inteiro 3x POR LINHA (`cadLoad`+find em contato/transportadora/cargo) e desenhava TODAS as cotações. Agora índice
   `vendasCliPorNome` (5 s) e 150 linhas por vez (`window._vendasLimite`, "⬇ Mostrar mais" +300 / "Mostrar todas"; a selecionada sempre
   aparece). Teste com 3.000 cotações: 7,7 s → 0,2 s; clique na linha 0,26 s. Não voltar a chamar cadLoad dentro de loop de linhas.
+
+- v115.2283/2285: a caixa de avisos do cliente na cotação (`vendasAvisosCliente`) mostra o TEXTO das 3 anotações mais novas e as regras
+  do Assistente DESTE cliente (🤖, `pfVR2DescricaoTexto`); as regras livres do cliente saíram da faixa amarela (`pfVR2FaixaCotacaoHtml`).
+- v115.2284 BUG modo demonstração: gravar numa chave "só demo" (cotações etc.) vindo da TELA marca o novo como `demo:true` do lote e mantém os
+  reais deste navegador (`pfModoDemoSoGravar`, no setItem e no pfRawSetItem); antes a cotação nova sumia da lista e a cópia local real era apagada.
 
 ## Cotação reorganizada (v115.2271; prévias em `docs/referencias/cotacao-reorganizar/`)
 - Vitor: "tá muito poluído". Barra azul: "🤖 Assistente" (ícone escolhido por ele, `vendas_ia_regras`) + **📄 PDF com setinha**

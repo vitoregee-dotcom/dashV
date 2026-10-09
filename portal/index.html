@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Portal de peças</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔧</text></svg>">
+<!--
+  v115.2285 - A pedido do Vitor (09/10/2026, prévia aprovada em docs/referencias/portal-cliente/previa-portal.png): PORTAL DO CLIENTE.
+  Página separada, sem nada do sistema. O cliente entra com o usuário e a senha que o vendedor mandou, digita código (de qualquer
+  marca) + quantidade e vê SÓ O PREÇO -- calculado no banco (funções pf_portal_* em supabase/portal-cliente.sql); custo, saldo,
+  fornecedor e outros clientes nunca chegam aqui. Acima do limite (R$ ou nº de itens) o preço fica escondido e o vendedor responde.
+-->
+<style>
+:root{--azul:#1F4E79;--escuro:#1c2940;--verde:#1E8449;--laranja:#E2622A;--txt:#1a2332;--sua:#607080;--borda:#c9d6e8;--fundo:#E9EEF5}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--fundo);font-family:Inter,"Segoe UI",Arial,sans-serif;color:var(--txt);-webkit-text-size-adjust:100%}
+button{font-family:inherit}
+.btn{border:none;border-radius:9px;padding:11px 16px;font-size:14.5px;font-weight:800;color:#fff;cursor:pointer;box-shadow:inset 0 -3px 0 rgba(0,0,0,.2);white-space:nowrap}
+.btn:disabled{opacity:.55;cursor:default}
+.verde{background:var(--verde)}.az{background:var(--azul)}.lar{background:var(--laranja)}.cl{background:#eef2f7;color:var(--azul);box-shadow:inset 0 -2px 0 rgba(0,0,0,.08)}
+.lab{font-size:10.5px;font-weight:800;color:var(--sua);letter-spacing:.6px;margin:0 0 5px;text-transform:uppercase}
+.inp{width:100%;border:1.5px solid var(--borda);border-radius:9px;padding:11px 13px;font-size:16px;color:var(--txt);background:#fff;outline:none}
+.inp:focus{border-color:var(--azul)}
+.mono{font-family:Consolas,Menlo,monospace;font-weight:700}
+.login{max-width:400px;margin:8vh auto 0;background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 14px 34px rgba(0,0,0,.14)}
+.login .top{background:var(--escuro);color:#fff;text-align:center;padding:30px 20px 24px}
+.login .top .ic{font-size:40px}.login .top b{display:block;font-size:22px;margin-top:6px}.login .top span{font-size:13.5px;color:#aebdd3}
+.login form{padding:22px 22px 18px}
+.msg{font-size:13px;margin-top:10px;text-align:center;min-height:18px}
+.hd{background:var(--escuro);color:#fff;padding:13px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+.hd b{font-size:17px}.hd .s{font-size:13px;color:#aebdd3}.hd .r{margin-left:auto;font-size:13px;color:#cfd8e6;display:flex;gap:12px;align-items:center}
+.hd a{color:#cfd8e6;text-decoration:none;cursor:pointer}.hd a:hover{color:#fff}
+.wrap{max-width:1100px;margin:18px auto;padding:0 14px}
+.card{background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.08);padding:18px 20px}
+.add{display:grid;grid-template-columns:1fr 110px auto auto;gap:10px;align-items:end}
+table{width:100%;border-collapse:collapse;margin-top:14px}
+th{font-size:11px;color:#8a9ab0;text-align:left;padding:8px;border-bottom:1px solid #e3e8ef;letter-spacing:.5px;text-transform:uppercase}
+td{padding:10px 8px;border-bottom:1px solid #f0f4f8;font-size:14.5px;vertical-align:middle}
+.cod{font-family:Consolas,Menlo,monospace;font-weight:800;color:var(--azul);font-size:15px}
+.cv{font-size:11.5px;color:#7B2D8B;font-weight:700}
+.v{text-align:right;font-weight:800;white-space:nowrap}
+.pill{border-radius:10px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap;display:inline-block}
+.nc{background:#EEF1F5;color:#607080}.esp{background:#FFF4D6;color:#8a6200}.ok{background:#E3F2E8;color:#1e6b3a}
+.qtd{width:70px;border:1.5px solid #dfe6ef;border-radius:7px;padding:6px 8px;font-size:15px;text-align:center}
+.del{background:none;border:none;color:#b0b8c4;font-size:18px;cursor:pointer;padding:2px 6px}.del:hover{color:#C0392B}
+.tot{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:#F5F8FC;border-radius:12px;padding:14px 16px;margin-top:14px}
+.tot .n{font-size:26px;font-weight:900;color:var(--azul)}
+.faixa{border-radius:10px;padding:11px 14px;font-size:13.5px;margin-top:12px}
+.vazio{padding:34px 10px;text-align:center;color:#8a9ab0;font-size:14px}
+.ov{position:fixed;inset:0;background:rgba(15,25,40,.55);display:flex;align-items:center;justify-content:center;z-index:20;padding:14px}
+.ov .box{background:#fff;border-radius:14px;max-width:560px;width:100%;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.ov .box .t{background:var(--escuro);color:#fff;padding:13px 18px;font-weight:800;display:flex;align-items:center}
+.ov .box .t span{margin-left:auto;cursor:pointer;width:24px;height:24px;border-radius:6px;background:linear-gradient(#ff5a5a,#d42020);display:flex;align-items:center;justify-content:center;font-size:13px}
+.ov .box .c{padding:16px 18px;max-height:70vh;overflow:auto}
+.hist{border:1px solid #e3e8ef;border-radius:10px;padding:10px 12px;margin-bottom:9px;font-size:13.5px}
+@media (max-width:700px){
+  .add{grid-template-columns:2fr 1fr}
+  .esconderCel{display:none}
+  .pill{white-space:normal;text-align:center}
+  html,body{overflow-x:hidden}
+  .hd .r{margin-left:0;width:100%;justify-content:flex-end}
+  .tdDesc{display:none}.thDesc{display:none}.tdUn{display:none}.unM{display:block!important}
+  .qtd{width:54px;padding:6px 4px}
+  table{table-layout:fixed}td:first-child{word-break:break-all}
+  td,th{padding:8px 5px}
+  .card{padding:14px 12px}
+  .tot .btn{width:100%}
+}
+</style>
+</head>
+<body>
+<div id="app"><div class="vazio" style="margin-top:20vh">Carregando…</div></div>
+<script>
+var SB_URL="https://bqbdypizmeirezedvefo.supabase.co";
+var SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxYmR5cGl6bWVpcmV6ZWR2ZWZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMDYzODQsImV4cCI6MjA5Mzc4MjM4NH0.U1Mp34FxsHobn8LGxSCkbSQtHiU4O8TyaARDuNn1IU8";
+var S=null,ITENS=[],RES=null,CALC_T=null,CALC_N=0;
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function brl(v){return v==null||isNaN(v)?'—':'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function brl0(v){return 'R$ '+Number(v||0).toLocaleString('pt-BR',{maximumFractionDigits:0});}
+function lsGet(k){try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;}}
+function lsSet(k,v){try{if(v==null)localStorage.removeItem(k);else localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+async function rpc(nome,args){
+  var r=await fetch(SB_URL+'/rest/v1/rpc/'+nome,{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},body:JSON.stringify(args||{})});
+  if(r.status===404){var e=new Error('portal não ativado');e.semBanco=true;throw e;}
+  if(!r.ok)throw new Error('status '+r.status);
+  var t=await r.text();return t?JSON.parse(t):null;
+}
+function sessaoCaiu(){lsSet('pfp_sessao',null);S=null;telaLogin('Sua sessão terminou. Entre de novo.');}
+function semBanco(){$('app').innerHTML='<div class="login"><div class="top"><div class="ic">🔧</div><b>Portal de peças</b><span>Em preparação</span></div><form><div class="msg" style="color:#607080">O portal ainda está sendo ativado. Fale com o seu vendedor.</div></form></div>';}
+
+// ---------- login ----------
+function telaLogin(msg){
+  $('app').innerHTML='<div class="login"><div class="top"><div class="ic">🔧</div><b>Portal de peças</b><span>Cote na hora, só com o código e a quantidade</span></div>'+
+    '<form id="fLogin" autocomplete="on"><div class="lab">Usuário</div><input class="inp mono" name="u" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username" required>'+
+    '<div class="lab" style="margin-top:12px">Senha</div><input class="inp" name="p" type="password" autocomplete="current-password" required>'+
+    '<button class="btn az" type="submit" style="width:100%;margin-top:16px;padding:13px">Entrar</button>'+
+    '<div class="msg" id="lMsg" style="color:#b45309">'+esc(msg||'')+'</div>'+
+    '<div style="font-size:13px;color:#607080;text-align:center;margin-top:6px">Esqueceu a senha? Fale com o seu vendedor.</div></form></div>';
+  $('fLogin').addEventListener('submit',function(e){e.preventDefault();entrar(this);});
+  setTimeout(function(){var i=document.querySelector('#fLogin input');if(i)i.focus();},50);
+}
+async function entrar(f){
+  var b=f.querySelector('button'),m=$('lMsg');b.disabled=true;b.textContent='Entrando…';m.textContent='';
+  try{
+    var r=await rpc('pf_portal_login',{p_usuario:f.u.value.trim(),p_senha:f.p.value});
+    if(!r||r.erro){
+      m.textContent=r&&r.erro==='bloqueado'?'Este acesso está bloqueado. Fale com o seu vendedor.':r&&r.erro==='travado'?'Muitas tentativas erradas. Espere 15 minutos ou fale com o seu vendedor.':'Usuário ou senha não conferem.';
+      b.disabled=false;b.textContent='Entrar';return;
+    }
+    S=r;lsSet('pfp_sessao',S);telaCotar();
+  }catch(e){if(e.semBanco){semBanco();return;}m.textContent='Sem conexão. Confira a internet e tente de novo.';b.disabled=false;b.textContent='Entrar';}
+}
+async function sair(){try{if(S)await rpc('pf_portal_sair',{p_token:S.token});}catch(e){}lsSet('pfp_sessao',null);lsSet('pfp_lista',null);S=null;ITENS=[];RES=null;telaLogin();}
+
+// ---------- cotação ----------
+function cabecalho(){
+  return '<div class="hd"><b>🔧 Portal de peças</b><span class="s">— '+esc(S.cliente||'')+'</span>'+
+    '<div class="r">'+(S.contato?'<span>Olá, '+esc(String(S.contato).split(/\s+/)[0])+'</span>':'')+'<a onclick="minhas()">🕓 Minhas cotações</a><a onclick="sair()">Sair</a></div></div>';
+}
+function telaCotar(){
+  ITENS=(lsGet('pfp_lista')||{})[S.token]||[];
+  $('app').innerHTML=cabecalho()+'<div class="wrap"><div class="card">'+
+    '<div class="add"><div><div class="lab">Código (qualquer marca)</div><input class="inp mono" id="iCod" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="ex.: 5-280X" autocomplete="off"></div>'+
+    '<div><div class="lab">Qtd</div><input class="inp" id="iQtd" inputmode="numeric" value="1"></div>'+
+    '<button class="btn lar bAdd" onclick="adicionar()">+ Adicionar</button><button class="btn cl bLista" onclick="colarLista()">📋 <span class="esconderCel">Colar uma </span>Lista</button></div>'+
+    '<div id="lista"></div></div></div>';
+  var c=$('iCod'),q=$('iQtd');
+  c.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();if(c.value.trim())q.focus(),q.select();}});
+  q.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();adicionar();}});
+  c.addEventListener('paste',function(e){var t=(e.clipboardData||window.clipboardData).getData('text')||'';if(/\n/.test(t.trim())){e.preventDefault();juntarLista(t);}});
+  desenhar();if(ITENS.length)calcular();
+  setTimeout(function(){c.focus();},50);
+}
+function guardar(){var o=lsGet('pfp_lista')||{};o={};o[S.token]=ITENS;lsSet('pfp_lista',o);}
+function qtdNum(v){var n=parseFloat(String(v||'').replace(',','.'));return isNaN(n)||n<=0?1:Math.round(n*1000)/1000;}
+function adicionar(){
+  var c=$('iCod'),q=$('iQtd'),cod=c.value.trim().toUpperCase();if(!cod){c.focus();return;}
+  var n=qtdNum(q.value),k=cod.replace(/[\s\-\.\/]/g,''),ja=ITENS.find(function(x){return x.cod.replace(/[\s\-\.\/]/g,'')===k;});
+  if(ja)ja.qtd=Math.round((ja.qtd+n)*1000)/1000;else ITENS.push({cod:cod,qtd:n});
+  c.value='';q.value='1';c.focus();guardar();desenhar();calcular();
+}
+function juntarLista(t){
+  var n=0;String(t||'').split(/\r?\n/).forEach(function(l){
+    l=l.trim();if(!l)return;
+    var p=l.split(/\t|;|\s{2,}|\s+[xX×]\s*|\s+/).filter(Boolean);if(!p.length)return;
+    var cod=p[0].toUpperCase(),q=1;
+    for(var i=p.length-1;i>0;i--){if(/^\d+([.,]\d+)?$/.test(p[i])){q=qtdNum(p[i]);break;}}
+    if(!/[0-9]/.test(cod)&&p.length>1&&/^\d/.test(p[1])&&!/^\d+([.,]\d+)?$/.test(p[1]))cod=p[1].toUpperCase();
+    var k=cod.replace(/[\s\-\.\/]/g,''),ja=ITENS.find(function(x){return x.cod.replace(/[\s\-\.\/]/g,'')===k;});
+    if(ja)ja.qtd+=q;else ITENS.push({cod:cod,qtd:q});n++;
+  });
+  if(ITENS.length>300)ITENS=ITENS.slice(0,300);
+  guardar();desenhar();calcular();return n;
+}
+function colarLista(){
+  var ov=document.createElement('div');ov.className='ov';ov.id='ovLista';
+  ov.innerHTML='<div class="box"><div class="t">📋 Colar uma lista<span onclick="fecharOv()">✕</span></div><div class="c">'+
+    '<div style="font-size:13.5px;color:#607080;margin-bottom:8px">Uma peça por linha: <b>código</b> e <b>quantidade</b> (pode copiar do Excel ou do seu sistema).</div>'+
+    '<textarea id="taLista" class="inp mono" style="height:200px;font-size:14px" placeholder="5-280X   4&#10;32210   2&#10;T432205  1"></textarea>'+
+    '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px"><button class="btn cl" onclick="fecharOv()">Cancelar</button><button class="btn verde" onclick="var n=juntarLista($(\'taLista\').value);fecharOv();">✔ Colocar na cotação</button></div></div></div>';
+  ov.addEventListener('mousedown',function(e){ov._ini=e.target===ov;});ov.addEventListener('click',function(e){if(e.target===ov&&ov._ini)fecharOv();});
+  document.body.appendChild(ov);setTimeout(function(){$('taLista').focus();},30);
+}
+function fecharOv(){var o=document.querySelector('.ov');if(o)o.remove();}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.querySelector('.ov')){e.preventDefault();fecharOv();}});
+function tirar(i){ITENS.splice(i,1);guardar();desenhar();calcular();}
+function mudarQtd(i,v){ITENS[i].qtd=qtdNum(v);guardar();calcular();}
+function calcular(){
+  clearTimeout(CALC_T);
+  if(!ITENS.length){RES=null;desenhar();return;}
+  CALC_T=setTimeout(async function(){
+    var meu=++CALC_N;
+    try{
+      var r=await rpc('pf_portal_cotar',{p_token:S.token,p_itens:ITENS.map(function(x){return {cod:x.cod,qtd:x.qtd};})});
+      if(meu!==CALC_N)return;
+      if(r&&r.erro==='sessao'){sessaoCaiu();return;}
+      RES=r;desenhar();
+    }catch(e){if(e.semBanco){semBanco();return;}}
+  },250);
+}
+function resDe(i){return RES&&RES.itens&&RES.itens[i]&&RES.itens[i].cod===ITENS[i].cod?RES.itens[i]:null;}
+function desenhar(){
+  var el=$('lista');if(!el)return;
+  if(!ITENS.length){el.innerHTML='<div class="vazio">Digite o código da peça (de qualquer marca) e a quantidade.<br>O preço aparece na hora.</div>'+regraHtml();return;}
+  var acima=RES&&RES.acima,cel=window.innerWidth<=700;
+  if(cel){el.innerHTML=desenharCel(acima);return;}
+  var h='<table><thead><tr><th>Código</th><th class="thDesc">Descrição</th><th style="text-align:center">Qtd</th><th class="tdUn" style="text-align:right">Unitário</th><th style="text-align:right">Total</th><th style="width:30px"></th></tr></thead><tbody>';
+  ITENS.forEach(function(x,i){
+    var r=resDe(i),cv='',desc='',un='',tot='';
+    if(!r){desc='<span style="color:#b0b8c4">…</span>';un=tot='<span style="color:#b0b8c4">…</span>';}
+    else if(!r.achou){desc='<span class="pill nc">não encontramos — o vendedor te responde</span>';un=tot='—';}
+    else{
+      var k=function(s){return String(s||'').replace(/[\s\-\.\/]/g,'').toUpperCase();};
+      if(r.codigo&&k(r.codigo)!==k(x.cod))cv='<div class="cv">= '+esc([r.marca,r.codigo].filter(Boolean).join(' '))+'</div>';
+      else if(r.marca)cv='<div class="cv" style="color:#8a9ab0">'+esc(r.marca)+'</div>';
+      desc=esc(r.descricao||'');
+      if(r.preco==null){un='<span class="pill esp">o vendedor confirma</span>';tot=window.innerWidth<=700?un:'—';}else{un=brl(r.preco);tot=brl(r.preco*x.qtd);}
+    }
+    h+='<tr><td><div class="cod">'+esc(x.cod)+'</div>'+cv+'<div class="tdM" style="font-size:12.5px;color:#405060"></div></td><td class="tdDesc">'+desc+'</td>'+
+      '<td style="text-align:center"><input class="qtd" inputmode="decimal" value="'+esc(String(x.qtd).replace('.',','))+'" onchange="mudarQtd('+i+',this.value)"></td>'+
+      '<td class="v tdUn">'+un+'</td><td class="v">'+tot+(r&&r.achou&&r.preco!=null?'<div class="unM" style="display:none;font-size:11.5px;color:#607080;font-weight:600">'+brl(r.preco)+' un.</div>':'')+'</td><td style="width:30px"><button class="del" title="Tirar" onclick="tirar('+i+')">✕</button></td></tr>';
+  });
+  h+='</tbody></table>';
+  var nP=RES?RES.itens.filter(function(r){return r.achou;}).length:0;
+  h+='<div class="tot"><div><div style="font-size:12.5px;color:#607080">'+(acima?'Total':'Total ('+nP+' ite'+(nP===1?'m':'ns')+' com preço)')+'</div><div class="n">'+(acima?'<span style="font-size:17px;color:#8a6200">o vendedor confere</span>':brl(RES&&RES.total))+'</div></div>'+
+    '<div style="flex:1;min-width:200px;font-size:12.5px;color:#607080">Preços válidos por '+((RES&&RES.validade_dias)||S.validade_dias||3)+' dias · condição de pagamento '+(S.condicao?'<b>'+esc(S.condicao)+'</b>':'do seu cadastro')+'</div>'+
+    '<button class="btn verde" id="bEnviar" onclick="enviar()" style="padding:13px 20px;font-size:15.5px">✔ Enviar cotação</button></div>';
+  if(window.innerWidth<=700){ // celular: descrição embaixo do código
+    setTimeout(function(){document.querySelectorAll('#lista tbody tr').forEach(function(tr,i){var d=tr.querySelector('.tdDesc'),m=tr.querySelector('.tdM');if(d&&m)m.innerHTML=d.innerHTML;});},0);
+  }
+  el.innerHTML=h+regraHtml(acima,RES&&RES.motivo);
+}
+function linhaInfo(x,r){
+  var k=function(s){return String(s||'').replace(/[\s\-\.\/]/g,'').toUpperCase();},o={cv:'',desc:'',un:null,tot:null,pend:''};
+  if(!r){o.pend='<span style="color:#b0b8c4">…</span>';return o;}
+  if(!r.achou){o.pend='<span class="pill nc">não encontramos — o vendedor te responde</span>';return o;}
+  if(r.codigo&&k(r.codigo)!==k(x.cod))o.cv='<div class="cv">= '+esc([r.marca,r.codigo].filter(Boolean).join(' '))+'</div>';
+  else if(r.marca)o.cv='<div class="cv" style="color:#8a9ab0">'+esc(r.marca)+'</div>';
+  o.desc=esc(r.descricao||'');
+  if(r.preco==null)o.pend='<span class="pill esp">o vendedor confirma</span>';else{o.un=r.preco;o.tot=r.preco*x.qtd;}
+  return o;
+}
+function totalHtml(acima){
+  var nP=RES?RES.itens.filter(function(r){return r.achou;}).length:0;
+  return '<div class="tot"><div><div style="font-size:12.5px;color:#607080">'+(acima?'Total':'Total ('+nP+' ite'+(nP===1?'m':'ns')+' com preço)')+'</div><div class="n">'+(acima?'<span style="font-size:17px;color:#8a6200">o vendedor confere</span>':brl(RES&&RES.total))+'</div></div>'+
+    '<div style="flex:1;min-width:200px;font-size:12.5px;color:#607080">Preços válidos por '+((RES&&RES.validade_dias)||S.validade_dias||3)+' dias · condição de pagamento '+(S.condicao?'<b>'+esc(S.condicao)+'</b>':'do seu cadastro')+'</div>'+
+    '<button class="btn verde" id="bEnviar" onclick="enviar()" style="padding:13px 20px;font-size:15.5px">✔ Enviar cotação</button></div>';
+}
+function desenharCel(acima){
+  var h='<div style="margin-top:12px">';
+  ITENS.forEach(function(x,i){
+    var o=linhaInfo(x,resDe(i));
+    h+='<div style="border-bottom:1px solid #eef2f7;padding:10px 2px">'+
+      '<div style="display:flex;align-items:flex-start;gap:8px"><div style="flex:1;min-width:0"><div class="cod" style="word-break:break-all">'+esc(x.cod)+'</div>'+o.cv+(o.desc?'<div style="font-size:13.5px;margin-top:2px">'+o.desc+'</div>':'')+'</div>'+
+      '<button class="del" title="Tirar" onclick="tirar('+i+')">✕</button></div>'+
+      '<div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="font-size:12px;color:#607080">Qtd</span><input class="qtd" style="width:64px" inputmode="decimal" value="'+esc(String(x.qtd).replace('.',','))+'" onchange="mudarQtd('+i+',this.value)">'+
+      '<div style="margin-left:auto;text-align:right">'+(o.tot!=null?'<div class="v" style="font-size:15.5px">'+brl(o.tot)+'</div><div style="font-size:11.5px;color:#607080">'+brl(o.un)+' un.</div>':o.pend)+'</div></div></div>';
+  });
+  return h+'</div>'+totalHtml(acima)+regraHtml(acima,RES&&RES.motivo);
+}
+window.addEventListener('resize',function(){clearTimeout(window._rz);window._rz=setTimeout(function(){if($('lista'))desenhar();},200);});
+function regraHtml(acima,motivo){
+  var lv=(RES&&RES.lim_valor)||S.lim_valor||5000,li=(RES&&RES.lim_itens)||S.lim_itens||10;
+  if(acima)return '<div class="faixa" style="background:#FFF4D6;color:#6b4e00">⏳ Esta cotação está '+esc(motivo||'acima do limite')+'. Envie assim mesmo: o seu vendedor confere os preços e te responde.</div>';
+  return '<div class="faixa" style="background:#E3F2E8;color:#1e5a33">✅ Até <b>'+brl0(lv)+'</b> ou <b>'+li+' itens</b> a cotação é confirmada na hora. Acima disso, o seu vendedor confere e responde.</div>';
+}
+async function enviar(){
+  if(!ITENS.length)return;var b=$('bEnviar');if(b){b.disabled=true;b.textContent='Enviando…';}
+  try{
+    var r=await rpc('pf_portal_enviar',{p_token:S.token,p_itens:ITENS.map(function(x){return {cod:x.cod,qtd:x.qtd};}),p_obs:null});
+    if(r&&r.erro==='sessao'){sessaoCaiu();return;}
+    if(!r||r.erro){alert(r&&r.erro==='muitas'?'Muitas cotações nesta hora. Fale com o seu vendedor.':'Não consegui enviar. Tente de novo.');if(b){b.disabled=false;b.textContent='✔ Enviar cotação';}return;}
+    ITENS=[];RES=null;guardar();
+    var sem=(r.itens||[]).filter(function(x){return !x.achou;}).length;
+    $('app').innerHTML=cabecalho()+'<div class="wrap"><div class="card" style="text-align:center;padding:34px 20px">'+
+      '<div style="font-size:44px">'+(r.situacao==='auto'?'✅':'⏳')+'</div>'+
+      '<div style="font-size:21px;font-weight:900;margin-top:6px">'+(r.situacao==='auto'?'Cotação confirmada':'Cotação enviada ao seu vendedor')+'</div>'+
+      '<div style="font-size:14.5px;color:#405060;margin-top:8px;line-height:1.5">'+(r.situacao==='auto'?'Total <b>'+brl(r.total)+'</b> · preços válidos por '+(S.validade_dias||3)+' dias.<br>':'Ela está '+esc(r.motivo||'acima do limite')+': o vendedor confere os preços e te responde.<br>')+
+      (sem?sem+' código(s) não encontrado(s) — o vendedor te responde sobre eles.<br>':'')+'Número: <span class="mono">'+esc(String(r.id).slice(0,8).toUpperCase())+'</span></div>'+
+      '<div style="display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap"><button class="btn lar" onclick="telaCotar()">+ Nova cotação</button><button class="btn cl" onclick="minhas()">🕓 Minhas cotações</button></div></div></div>';
+  }catch(e){if(e.semBanco){semBanco();return;}alert('Sem conexão. Tente de novo.');if(b){b.disabled=false;b.textContent='✔ Enviar cotação';}}
+}
+async function minhas(){
+  var ov=document.createElement('div');ov.className='ov';
+  ov.innerHTML='<div class="box"><div class="t">🕓 Minhas cotações<span onclick="fecharOv()">✕</span></div><div class="c" id="cMinhas"><div class="vazio">Carregando…</div></div></div>';
+  ov.addEventListener('mousedown',function(e){ov._ini=e.target===ov;});ov.addEventListener('click',function(e){if(e.target===ov&&ov._ini)fecharOv();});
+  document.body.appendChild(ov);
+  try{
+    var l=await rpc('pf_portal_minhas',{p_token:S.token});
+    if(l&&l.erro==='sessao'){fecharOv();sessaoCaiu();return;}
+    var c=$('cMinhas');if(!c)return;
+    if(!l||!l.length){c.innerHTML='<div class="vazio">Você ainda não enviou cotação.</div>';return;}
+    c.innerHTML=l.map(function(x){
+      var st=x.situacao==='auto'?'<span class="pill ok">✅ confirmada</span>':x.status==='nova'?'<span class="pill esp">⏳ com o vendedor</span>':'<span class="pill ok">✔ vendedor respondeu</span>';
+      return '<div class="hist"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>'+new Date(x.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})+'</b>'+st+
+        '<span style="margin-left:auto;font-weight:800">'+(x.total!=null?brl(x.total):'')+'</span></div>'+
+        '<div style="color:#607080;margin-top:4px">'+(x.itens||[]).map(function(i){return esc(i.cod)+' × '+String(i.qtd).replace('.',',');}).join(' · ')+'</div>'+
+        '<div style="margin-top:6px"><a style="color:#1F4E79;font-weight:700;cursor:pointer" onclick=\'repetir('+JSON.stringify((x.itens||[]).map(function(i){return {cod:i.cod,qtd:i.qtd};})).replace(/'/g,'&#39;')+')\'>↻ Cotar de novo</a></div></div>';
+    }).join('');
+  }catch(e){var c2=$('cMinhas');if(c2)c2.innerHTML='<div class="vazio">Sem conexão.</div>';}
+}
+function repetir(l){fecharOv();if(!$('lista'))telaCotar();l.forEach(function(x){var k=x.cod.replace(/[\s\-\.\/]/g,''),ja=ITENS.find(function(y){return y.cod.replace(/[\s\-\.\/]/g,'')===k;});if(ja)ja.qtd=x.qtd;else ITENS.push({cod:x.cod,qtd:x.qtd});});guardar();desenhar();calcular();}
+
+// ---------- início ----------
+(async function(){
+  S=lsGet('pfp_sessao');
+  if(!S||!S.token){telaLogin();return;}
+  try{
+    var r=await rpc('pf_portal_eu',{p_token:S.token});
+    if(!r||r.erro){lsSet('pfp_sessao',null);S=null;telaLogin();return;}
+    Object.assign(S,r);lsSet('pfp_sessao',S);telaCotar();
+  }catch(e){if(e.semBanco){semBanco();return;}telaLogin('Sem conexão. Confira a internet.');}
+})();
+</script>
+</body>
+</html>

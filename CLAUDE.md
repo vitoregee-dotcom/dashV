@@ -668,6 +668,11 @@
 - v115.2273 ("pra que serve rascunho? por que salvar bem aí no meio?"): Rascunho SAIU (a cotação já se salva sozinha, "✓ salvo") e o
   "✔ Salvar" verde foi pra barra azul (`vendasSalvarPos()`='barra'; 'rodape' = embaixo dos itens, `vendasSalvarBtnHtml`). Campos do
   cabeçalho com a mesma altura (36px, CSS `#vendasCabCompacto`; a UF sem a aparência nativa do Mac).
+- v115.2274 ("botão de desfazer" -> "faz os 2"; "se já salva automático nem precisa de botão"): ↶ Desfazer / ↷ Refazer na barra azul +
+  Ctrl/⌘+Z, Ctrl/⌘+Shift+Z ou Ctrl+Y (fora de campo de texto). `vendasUndoMarcar` (chamado no `vendasAutoSalvarDebounced`, 500 ms = 1 passo)
+  guarda a foto anterior numa pilha por cotação (WeakMap `_vendasUndoMap`, até 30, não vai pro banco); `vendasDesfazer`/`vendasRefazer`.
+  Botão Salvar SAIU (`vendasSalvarPos()`='nenhum'): ao fechar a aba (×/Esc → `vendasFecharTabUI`) ou tudo (✕ → `vendasFecharTudoUI`) grava COM
+  histórico de preços (`vendasGravarAoFechar`); cotação com itens e SEM cliente pergunta antes de fechar (não se salva sozinha).
 - Barra dos itens: Código + Qtd + Adicionar numa caixa só; Série / modelo visível; Marcar aplicação / Colar print / Carregar arquivo BRANCOS
   (exceção ao padrão de cor do print/arquivo, pedido do Vitor "menos colorido"); CSS v115.2271 tira o 3D dos botões da cotação.
 

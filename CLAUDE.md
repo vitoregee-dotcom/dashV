@@ -687,6 +687,10 @@
   (`pfPortalAcessoAbrir(k)`: usuário, senha gerada, quem recebe, condição, 💬/📋 mandar, bloquear/apagar), "➜ Abrir como cotação"
   (`pfPortalAbrirCotacao`, cliente pelo `vendasSelecionarCliente`), aviso 🌐 na barra (log `pfPortalEventos`, `pfPortalChecar` a cada 2 min).
   Falta: margem POR PEÇA (coluna `portal_itens.margem` já existe, vai null).
+  v115.2286 (Vitor: "'?' completa só pra mim; pros outros ou demonstração um resumo curto, ninguém precisa saber os bastidores"): "?" da aba
+  (`pfPortalAjudaAbrir`) = completo só pro `pfPortalEuVitor()` (vitoregee@gmail.com), resumo curto pros outros e no modo demonstração (a aba
+  mostra o resumo). Bastidores (SQL, publicação dos preços, margem/UF do cálculo) só aparecem pra ele. **Regra geral: ajuda/"como funciona"
+  novo = completo pro Vitor, resumo curto sem bastidores pros outros.**
 
 ## 📊 Painel de Clientes (Vendas → aba Painel de Clientes, `pvRenderKpis`)
 - v115.2242 (Vitor: "trabalhamos com fechamentos trimestrais, bom pra comparativo"; "% de cotações que os clientes fecham"; "rankings

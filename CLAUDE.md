@@ -177,6 +177,8 @@
   (ex.: Sorocard SA-27 = LNG 35-406) e junta: `ccMesmaPecaPlano` escolhe a chave final (a do grupo que TEM Spicer = cadastro
   Spicer ou peça que cita a chave como SPICER; `ccPareceSpicerCod` é solto demais, não usar) e passa o `similar`/`substitui` de
   todo o outro grupo pra ela; 2 Spicer diferentes = não junta. Antes fica em `o.juntado` → "↩ Separar" (`ccMesmaPecaSeparar`).
+- v115.2267: janela 🚜 Aplicações da cotação (busca Série/Modelo) tem "🚜 Conferir no Aplicações" (`vendasSerieConferirAplic`): minimiza a
+  cotação e abre a aba Aplicações — Modelos & Séries filtrada pelo texto digitado (`_cadAplicTermo`).
 - Cotação: busca Série/Modelo também acha componentes cardan pelo veículo (`vendasCcBuscarPorVeiculo`) + Monta com.
   v115.2247 BUG (travou 14 s no Mac na frente de cliente): `vendasCcCodigoCotacao` procurava cada código cardan (irmãos/conversões) com
   `vendasBuscarItem` e cada código que não existe caía nas equivalências de ROLAMENTO (varrem a planilha toda, ~80 ms cada × ~180 por tecla).

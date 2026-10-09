@@ -233,6 +233,10 @@
   Cadastros/Logística → tela inicial (`pfIrParaHome`); campo com texto em foco: o 1º Esc só tira o foco.
   v115.2169: "← Voltar" (`pfVoltarHomeBtnHtml`) nos menus de Compras/Ferramentas/Cadastros/Logística/Área Técnica; Esc passo 2
   só clica em Voltar VISÍVEL; Cadastros com grupo aberto → `cadVoltarGrupos`.
+- v115.2269 BUG ("eu tinha colocado os 2 eixos W20 e a transmissão"): a regra "série = 1 motor só" (`pfAplicJuntarSemModelo`) juntava
+  QUALQUER marca — o eixo traseiro DANA 176/414 (W20) e o dianteiro 176/413 (W20E) têm a mesma série 260009 e viraram um só. Agora só
+  junta marca de motor (`PF_APLIC_MARCA_MOTOR`); `pfAplicSepararDana260009` (1x por navegador) devolveu o 176/414 (fonte: tabela
+  `backup_aplicacoes_20260924` do Supabase). `pfAplicMarcarW20Trans501`: transmissão DANA 28.000 13.HR28443-501 = CASE W20 (pedido dele).
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

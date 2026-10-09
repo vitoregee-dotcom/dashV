@@ -119,6 +119,7 @@
   title, placeholder; acento/singular/traço tolerados, `pfModoDemoMarcasRegex`) por "ORIGINAL IMPORTADO". Dados reais intactos. Lista em
   `pfModoDemo.marcas` [[real,troca]] (padrão `PF_MODO_DEMO_MARCAS_PADRAO`), editável pelo Vitor no bloco do modo demonstração (`pfModoDemoMarcasSalvar`).
   Não pega: gráfico em canvas e Excel exportado.
+  v115.2292 BUG (Alt+B mostrava "VEDAMOTOR´S"): o regex aceita ´ ' ’ ` entre as letras e S final opcional (VEDAMOTOR).
 - Notícias: cópia PRÓPRIA de usuário de `pfNoticias*` é ignorada no pull (Carlos tinha uma de 10/09 que passava na frente).
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)

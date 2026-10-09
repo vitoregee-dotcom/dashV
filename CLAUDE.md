@@ -536,6 +536,11 @@
 - Órbita: "↺ Ver tudo" no cabeçalho quando tem filtro e "↺ Zerar filtros" sempre no popover (`pfOrbFiltrosLimpar` zera também o
   filtro do resumo, rastro 30 dias e zoom). Carlos Candis = role `gestor` em `profiles` (vê a carteira toda; pfVR2PodeGeral).
 
+## Painel de Tarefas da home (Timer/Pendências/Lembretes)
+- v115.2278 BUG ("está atrás dos ícones"): o painel (`pfPainelTarefasRender`) se posiciona pela borda da coluna de avisos
+  (`pfAvisosRailDireita()`, conta o ícone mais largo); um ResizeObserver no `#pfAvisosRail` (criado em `pfAvisosMonta`) redesenha o
+  painel sempre que a coluna aparece/alarga — antes calculava 1x e ficava por baixo dela.
+
 ## Dock — botão "⋯" (v115.2220)
 - Os botões do canto direito do dock (🎓 apresentação, 🖥️ monitor, tema, 📌 auto-ocultar, usuários, pendências, avatar, sair) ficam
   dentro do `#pfDockMaisPop` (coluna que abre PRA CIMA) e aparecem só ao clicar no `#pfDockMaisBtn` (`pfDockMais(ev, abrir)`; fecha ao

@@ -524,6 +524,8 @@
   só-acrescenta nos logKeys.
 - CRM: bloco 📋 Pesquisa na ficha (última resposta, nota, escolhas, "Ver todas", "📋 Mandar pesquisa" `pfPesqEnviarDaFicha`),
   eventos na linha do tempo, e nota ≤6 nos últimos 60 dias entra em "📞 Clientes pra ligar" do Meu dia.
+- v115.2296 BUG ("o link abre isso mesmo?" — busca no Google): o "🔗 Link" da aba Enviar copiava a MENSAGEM inteira; agora copia só o
+  endereço `?f=` (a mensagem pronta continua no 💬 Enviar). Pesquisa nova sem perder a atual: ✏️ Modelos e perguntas → ➕ Nova pesquisa / 📄 Duplicar.
 - v115.2211 Ficha Técnica: a busca procura também em TODOS os campos (motor, transmissão, eixos…), palavra por palavra.
 
 ## 🗂️ Abas no topo (v115.2212 — etapa 1; prévia em `docs/referencias/area-tecnica-abas/`)

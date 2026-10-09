@@ -672,8 +672,11 @@
   lado do vendedor: "Cotações do portal" com nota + regras do gestor (sai sozinho até R$ X com saldo). Precisa decidir: login, preço visível, limite, segurança.
   **Decisões do Vitor (09/10/2026):** 1) login = usuário e senha ENVIADOS PELO VENDEDOR; 2) o cliente vê o preço NA HORA, pela margem da
   peça ou a do cliente (se ele tiver); 3) sai sozinho até X reais OU até X itens; 4) o cliente vê SOMENTE o preço (nada de custo, saldo
-  exato, fornecedor ou outros clientes). Quando montar: já entra VISÍVEL PRA TODOS (sem 👁 oculto / 🚧 em construção). Próximo passo:
-  prévia das telas (cliente + vendedor) antes de fazer.
+  exato, fornecedor ou outros clientes). Quando montar: já entra VISÍVEL PRA TODOS (sem 👁 oculto / 🚧 em construção).
+  Prévia aprovada (09/10): `docs/referencias/portal-cliente/previa-portal.html/.png` (login · acesso pelo vendedor na ficha do CRM · cotação
+  do cliente · fila "🌐 Cotações do portal" · ⚙️ regras do gestor). Ajustes do Vitor: ACIMA DO LIMITE o preço fica ESCONDIDO (o vendedor
+  confere e responde); validade 3 dias + condição de pagamento do cadastro OK; portal em endereço separado (`/portal`), sem nada do sistema.
+  Precisa: banco (tabelas com RLS + usuários do portal + Edge Function que calcula o preço sem mandar custo pro navegador).
 
 ## 📊 Painel de Clientes (Vendas → aba Painel de Clientes, `pvRenderKpis`)
 - v115.2242 (Vitor: "trabalhamos com fechamentos trimestrais, bom pra comparativo"; "% de cotações que os clientes fecham"; "rankings

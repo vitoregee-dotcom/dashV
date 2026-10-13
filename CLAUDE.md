@@ -215,6 +215,9 @@
   caixinhas "MOSTRAR" (`ccBgDetCaixasHtml`, `pf_cc_bg_cols`; padrão foto, descrição, monta com, dentes): Foto/Descrição/Monta com/
   Aplicação (`CC_BG_EXTRAS`) + medidas das famílias que apareceram (`ccBgColsDisp`, coluna = NOME da medida sem a letra; "Dentes /
   estrias" junta via `ccCampoEstrias`). Valor = 1º preenchido do grupo, Spicer primeiro (`ccBgValor`; "·" = a família não tem a medida).
+- v115.2301 ("em flanges é bom exibir a quantidade de furos"): selo azul "🔩 N furos" nas linhas da busca geral (ao lado do ⚙ dentes) pra
+  famílias flange* — `ccBgFurosInfo`/`ccBgSeloFurosHtml`: campo cujo nome começa com "Furos" (acoplamento D "4 x 15,5", orelha E), só inteiro
+  1–24 no começo do valor (Ø sozinho "12,5" não vira quantidade), Spicer primeiro no grupo; valor inteiro no title.
 - v115.2210 BUG "➕ Cadastrar item"/"📋 Colar print de aplicação": o pedido à IA não tinha "monta_com" (ela punha "MONTA COM
   2045005 / C020 / 52MM" DENTRO da aplicação) e as estrias ficavam só nas especificações. Agora: `monta_com` no JSON das duas
   leituras + `ccMontaComDaIA(j)` (junta e TIRA de dentro das aplicações; `ccMontaComDoTexto` separa por "/" e larga medida

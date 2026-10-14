@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2302</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2303</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2302</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2303</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -17068,6 +17068,26 @@ function pfDemoDadosLer(){
   try{var r=_pfLsGetOrig.call(localStorage,PF_DEMO_DADOS_KEY);if(!r)return null;if(typeof pfDecompress==='function')r=pfDecompress(r);var o=JSON.parse(r);
     if(!o||!o.por)return null;if(o.lote&&typeof pfDemoLotesApagados==='function'&&pfDemoLotesApagados().indexOf(o.lote)>=0)return null;return o;}catch(e){return null;}
 }
+// v115.2303 - A pedido do Vitor (mandou o usuário vitor.lima pro notebook do gerente: "precisa já estar funcionando no modo
+// demonstração e com dados fictícios"): a base fictícia (pfDemoDados_v1) não estava no servidor -- num aparelho novo o Avise-me,
+// Solicitações, RMA, Mapas, Lembretes, Pendências, Pesquisas etc. ficavam VAZIOS. Agora, no modo demonstração, se a base não
+// chegou (ou está vazia/de lote apagado) e os clientes fictícios já baixaram, o próprio aparelho monta a base com o lote atual
+// (pfDemoGerarListas, que também sobe pro servidor e completa os outros aparelhos). No máximo 1x por lote e 1 tentativa a cada 5 s.
+var _pfDemoDadosGerando=false,_pfDemoDadosUltTent=0,_pfDemoDadosTentado={};
+function pfDemoDadosGarantir(){
+  if(_pfDemoDadosGerando)return;var t=Date.now();if(t-_pfDemoDadosUltTent<5000)return;_pfDemoDadosUltTent=t;
+  try{
+    if(!(typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo()))return;
+    var o=pfDemoDadosLer();if(o&&o.lote&&o.por&&Object.keys(o.por).length)return;
+    if(typeof cadLoad!=='function'||typeof pfDemoGerarListas!=='function')return;
+    var ap=(typeof pfDemoLotesApagados==='function')?pfDemoLotesApagados():[];
+    var cl=(cadLoad(CLIE_KEY)||[]).filter(function(c){return c&&c.demo&&c.demoLote&&c.razao&&ap.indexOf(c.demoLote)<0;});if(!cl.length)return;
+    var lote=cl.reduce(function(m,c){return String(c.demoLote)>m?String(c.demoLote):m;},'');
+    if(_pfDemoDadosTentado[lote])return;_pfDemoDadosTentado[lote]=1;
+    var clis=cl.filter(function(c){return c.demoLote===lote;}),pecas=PF_DEMO_PECAS.map(function(p){return {codigo:p[0],marca:p[1],desc:p[2]};});
+    _pfDemoDadosGerando=true;pfDemoGerarListas(lote,pecas,clis);
+  }catch(e){console.warn('pfDemoDadosGarantir',e);}finally{_pfDemoDadosGerando=false;}
+}
 function pfDemoBase(key){
   // v115.2282 - A pedido do Vitor ("mas eu vou testar foto lá. precisa funcionar"): a Solicitação de Fotos é de verdade (tabela do
   // banco) também no modo demonstração -- o aviso "📷 foto recebida" mostra os eventos REAIS de quem está logado (só os dele).
@@ -17083,6 +17103,7 @@ function pfModoDemoSombraObj(key){
 }
 var _pfDemoVisaoMemo={};
 function pfModoDemoVisao(key){
+  pfDemoDadosGarantir(); // v115.2303
   var sbRaw=pfModoDemoSombraLer(key),dRaw=_pfLsGetOrig.call(localStorage,PF_DEMO_DADOS_KEY)+(key==='pfFotosEventos'?'|'+_pfLsGetOrig.call(localStorage,key):''),m=_pfDemoVisaoMemo[key];
   if(m&&m.sb===sbRaw&&m.d===dRaw)return m.out;
   var base=pfDemoBase(key),sb=pfModoDemoSombraObj(key),out=null;

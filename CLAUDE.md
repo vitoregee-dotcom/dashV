@@ -353,6 +353,11 @@
   principal na aplicação da peça de máquina. Colocar peças: select "⇄ peça normal / ↳ no lugar de X" embaixo da descrição (`pmInsAltHtml`/`pmInsAlt`, pega grupo/tipo
   da principal; `pmGravarPecas` só mexe no pmAlt se a linha trouxe `alt`); página: ⇄ em cada linha (`pmAltEscolher` → `pmAltGravar`), alternativa embaixo da
   principal com "↳ ou" (`pmOrdenarAlt`); cotação: linha "↳ ou, no lugar de X" logo depois da principal (`e.alt`, `e._o`) e fora do selecionar/selecionar grupo/todos.
+  v115.2315 ("quando eu digitar aqui em inglês, preciso que já traduza" — prints do CAT SIS): no formulário da ficha (`ftTraduzLigar`, no `ftRenderForm`),
+  colar/digitar no MODELO "320C FM Excavator Excavator TBR" separa modelo / categoria traduzida (`FT_TIPOS_EN`, o mais longo primeiro; `ftModeloEn`) /
+  série (prefixo do fim); e a linha de configuração "320C Forest Machines TBR00001-UP (MACHINE) POWERED BY 3066 Engine" (`ftConfigEn`) dá série TBR,
+  motor 3066 (fabricante CATERPILLAR se a marca é CAT), FLORESTAL na categoria, sem trocar o modelo já preenchido ("320C FM", `mo.dataset.ult`).
+  Categoria digitada em inglês vira português no change. Aviso verde "🌐 … →" embaixo do modelo.
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

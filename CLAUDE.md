@@ -346,6 +346,9 @@
   preservado); a tabela antiga = "📋 Tabela das fichas" (`ftRenderTabela`, `_maqTabela`). Ligar/tirar grava em TODA a série (`maqSerieMaquinasSet`: aplicações +
   cópia nas fichas de produto, igual ao ✏️ Editar grupo). "🚜 Vai em" no card da série em Aplicações (`maqVaiEmHtml`, "+ marcar máquina" `maqMarcarNaSerie`,
   máquina nova digitada) e na busca Série/Modelo da cotação (`vendasSerieVaiEmHtml`).
+  v115.2313 ("mais de uma série a mesma máquina… exibir a série já no card", print do CAT SIS 416F = LWT/KSF/PHD): `x.series` = campo Série/chassi
+  das fichas (separado por , ; / ou " e ") + séries do Peças por máquina → etiquetas amarelas `maqSeriesHtml` no card (até 4 + "+N") e na página; a
+  busca já acha pela série. BUG junto: ficha com a marca dentro do modelo ("CASE 695") virava "CASE CASE 695" — o `maq()` tira a marca do começo.
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

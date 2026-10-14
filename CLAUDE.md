@@ -252,6 +252,8 @@
   valor `ccBgPrincValor` (Spicer primeiro). **B (abre SEMPRE)** = tabela separada por tipo de peça com as colunas dele + APLIC. (nº, lista no title)
   (`ccBgDetPorTipo`; "MOSTRAR TAMBÉM" Foto/Descrição/Monta com/Todas as medidas em `pf_cc_bg_cols2`). "📋 Ver em lista" → **A** = etiquetas embaixo
   do código (`ccBgEtiquetasHtml`, substitui os selos ⚙/🔩/📏 antigos) + "🚚 N aplicações"; a troca vale só até recarregar. Família nova → linha no CC_BG_PRINC.
+- v115.2319 ("coloca algo que quando eu clicar copia o código da peça, pra colar na internet ou catálogo de fabricante"): 📋 do lado do código
+  em todas as linhas da busca geral (lista e tabela) — `ccBgCopiarHtml(cod)`/`ccBgCopiar` (clipboard ou `pfCopiarFallback`, "✓ copiado", não abre a peça).
 - v115.2302 ("nas cruzetas, na busca, já exibir medida do copo e de ponta a ponta… do lado do código"): `ccBgCruzMedHtml(fam,itens)` põe
   "📏 Ø copo B · ponta a ponta A" logo DEPOIS do código nas linhas de cruzeta da busca geral (Código e Monta com); sem as duas, nada.
 - v115.2309 ("precisa ser fácil colar o print da foto aqui, sem abrir o item"): na busca geral / Monta com / Detalhes, a miniatura VAZIA vira

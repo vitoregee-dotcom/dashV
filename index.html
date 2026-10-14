@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2307</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2308</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2307</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2308</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -39120,7 +39120,7 @@ var mapaEstadoId = null;
 
 // ── SYNC GENÉRICO (user_sync) ─────────────────────────────────────────
 // Chaves sincronizadas entre dispositivos (excluindo dados de sessão/device)
-var PF_SYNC_KEYS = ['pfOrbPrefs_v1', 'pfModoApresPrefs_v1', 'pfSolicNF_v1', 
+var PF_SYNC_KEYS = ['pfOrbPrefs_v1', 'pfTimerEstado_v1', 'pfModoApresPrefs_v1', 'pfSolicNF_v1', 
   // v115.1525 - A pedido do Vitor: chave da Anthropic passa a sincronizar
   // DIRETO entre aparelhos, sem senha nem criptografia (antes só existia
   // criptografada em "Minhas Chaves"/pfChavesDevEnc, e só ia pro
@@ -40665,6 +40665,11 @@ async function pfSyncPull(){
         if(row.chave==='pfModoApresPrefs_v1'){ // v115.2257 - Modo Apresentação 🎓 salvo por conta: o mais novo vence
           try{var ra=JSON.parse(val||'{}')||{},la=JSON.parse(localStorage.getItem('pfModoApresPrefs_v1')||'{}')||{};
             if((ra.ts||0)>(la.ts||0)){localStorage.setItem('pfModoApresPrefs_v1',JSON.stringify(ra));if(typeof pfAjudaAplicarModo==='function')setTimeout(pfAjudaAplicarModo,0);}}catch(e){}
+          return;
+        }
+        if(row.chave==='pfTimerEstado_v1'){ // v115.2308 - Timer/Cronômetro do usuário: o mais novo vence e a tela segue
+          try{var rt=JSON.parse(val||'{}')||{},lt=JSON.parse(localStorage.getItem('pfTimerEstado_v1')||'{}')||{};if(lt.uid&&sbUser&&lt.uid!==sbUser.id)lt={}; // outro usuário neste computador
+            if((rt.ts||0)>(lt.ts||0)){localStorage.setItem('pfTimerEstado_v1',JSON.stringify(rt));if(typeof pfTimerRestaurar==='function')setTimeout(function(){pfTimerRestaurar(rt);},0);}}catch(e){}
           return;
         }
         if(row.chave==='pfOrbPrefs_v1'){ // v115.2244 - preferência da órbita: o mais novo vence
@@ -57340,7 +57345,7 @@ function pfPainelTimerToggle(){
     _pfTimerRodando=true;
     _pfTimerInt=setInterval(function(){
       if(_pfTimerSeg>0){_pfTimerSeg--;}
-      else{clearInterval(_pfTimerInt);_pfTimerRodando=false; if(typeof pfPainelTimerFimAviso==='function')pfPainelTimerFimAviso();}
+      else{clearInterval(_pfTimerInt);_pfTimerRodando=false;try{pfTimerSalvar();}catch(e){} if(typeof pfPainelTimerFimAviso==='function')pfPainelTimerFimAviso();}
       pfPainelTarefasRender();
     },1000);
   }
@@ -57368,6 +57373,7 @@ function pfPainelTimerEditar(el){
     var seg=pfPainelTimerLerTexto(inp.value);
     if(seg!=null&&seg>0){_pfTimerSeg=seg;_pfTimerDuracaoAtual=seg;}
     pfPainelTarefasRender();
+    try{pfTimerSalvar();}catch(e){} // v115.2308
     if(iniciar&&seg!=null&&seg>0&&!_pfTimerRodando)pfPainelTimerToggle();
   };
   inp.onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();aplicar(true);}else if(e.key==='Escape'){feito=true;pfPainelTarefasRender();}};
@@ -57396,6 +57402,49 @@ function pfPainelCronoToggle(){
   pfPainelTarefasRender();
 }
 function pfPainelCronoZerar(){clearInterval(_pfCronoInt);_pfCronoRodando=false;_pfCronoSeg=0;pfPainelTarefasRender();}
+// v115.2308 - A pedido do Vitor ("não é cada computador, tem que ser cada usuário, não importa em qual computador ele esteja"):
+// o Timer/Cronômetro só existia na memória da página (F5 zerava). Agora o estado fica em pfTimerEstado_v1 {modo,dur,seg,rodando,
+// fimEm,crSeg,crRod,crIni,ts} na linha DO USUÁRIO (PF_SYNC_KEYS, não compartilhada) — abrindo em outro computador com o mesmo login
+// ele continua de onde estava (rodando = conta pelo horário de término/início). O mais novo (ts) vence no pull.
+var PF_TIMER_KEY='pfTimerEstado_v1',_pfTimerPushT=null,_pfTimerRestaurando=false;
+function pfTimerEstado(){
+  var agora=Date.now();
+  return {modo:_pfTimerModo,dur:_pfTimerDuracaoAtual,seg:_pfTimerSeg,rodando:!!_pfTimerRodando,fimEm:_pfTimerRodando?agora+_pfTimerSeg*1000:null,
+    crSeg:_pfCronoSeg,crRod:!!_pfCronoRodando,crIni:_pfCronoRodando?agora-_pfCronoSeg*1000:null,ts:agora,uid:pfTimerUid()};
+}
+function pfTimerUid(){try{return (window._pfSbUserPronto&&typeof sbUser!=='undefined'&&sbUser&&sbUser.id)||'';}catch(e){return '';}}
+function pfTimerSalvar(){
+  if(_pfTimerRestaurando||!pfTimerUid())return; // sem login não grava (o estado é do usuário)
+  try{localStorage.setItem(PF_TIMER_KEY,JSON.stringify(pfTimerEstado()));}catch(e){}
+  clearTimeout(_pfTimerPushT);_pfTimerPushT=setTimeout(function(){if(typeof pfSyncPush==='function')try{pfSyncPush([PF_TIMER_KEY]);}catch(e){}},800);
+}
+function pfTimerRestaurar(st){
+  if(!st||typeof st!=='object')return;
+  _pfTimerRestaurando=true;
+  try{
+    var agora=Date.now();
+    clearInterval(_pfTimerInt);_pfTimerRodando=false;clearInterval(_pfCronoInt);_pfCronoRodando=false;
+    if(st.modo==='timer'||st.modo==='crono')_pfTimerModo=st.modo;
+    if(+st.dur>0)_pfTimerDuracaoAtual=+st.dur;
+    if(st.rodando&&st.fimEm){var resta=Math.round((st.fimEm-agora)/1000);
+      if(resta>0){_pfTimerSeg=resta;pfPainelTimerToggle();}else{_pfTimerSeg=0;}}
+    else _pfTimerSeg=Math.max(0,+st.seg||0)||_pfTimerDuracaoAtual;
+    if(st.crRod&&st.crIni){_pfCronoSeg=Math.max(0,Math.round((agora-st.crIni)/1000));pfPainelCronoToggle();}
+    else _pfCronoSeg=Math.max(0,+st.crSeg||0);
+    pfPainelTarefasRender();
+  }catch(e){}
+  _pfTimerRestaurando=false;
+}
+(function(){ // cada ação do timer/cronômetro grava o estado
+  ['pfPainelTimerModoAlternar','pfPainelTimerToggle','pfPainelTimerZerar','pfPainelTimerAjustar','pfPainelTimerRetomar','pfPainelCronoToggle','pfPainelCronoZerar'].forEach(function(n){
+    var f=window[n];if(typeof f!=='function')return;
+    window[n]=function(){var r=f.apply(this,arguments);try{pfTimerSalvar();}catch(e){}return r;};
+  });
+  // ao abrir: volta pro estado salvo deste usuário (depois a sync traz o de outro computador, se for mais novo)
+  var _tent=0,_rest=function(){var u=pfTimerUid();if(!u){if(++_tent<40)setTimeout(_rest,1500);return;}
+    try{var st=JSON.parse(localStorage.getItem(PF_TIMER_KEY)||'null');if(st&&st.uid===u)pfTimerRestaurar(st);}catch(e){}};
+  setTimeout(_rest,2500);
+})();
 // v115.1580 - A pedido do Vitor ("nao recebi aviso no navegador... o
 // aviso sonoro tem que continuar enquanto eu nao der um OK... esta muito
 // sutil"): o Timer usava a mesma pfLembreteNotificar dos Lembretes, que

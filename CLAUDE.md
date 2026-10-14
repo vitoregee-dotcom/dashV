@@ -619,6 +619,10 @@
   (`pfAvisosRailDireita()`, conta o ícone mais largo); um ResizeObserver no `#pfAvisosRail` (criado em `pfAvisosMonta`) redesenha o
   painel sempre que a coluna aparece/alarga — antes calculava 1x e ficava por baixo dela.
 
+- v115.2308 ("não é cada computador, tem que ser cada usuário"): Timer/Cronômetro salvo POR USUÁRIO em `pfTimerEstado_v1` (PF_SYNC_KEYS,
+  linha do usuário; `pfTimerSalvar`/`pfTimerRestaurar`, uid no estado; rodando = conta pelo `fimEm`/`crIni`; pull: o mais novo vence).
+  Pendências pessoais (`pfPendenciasPessoais`) e Lembretes (`pfLembretes`) já eram por usuário e sincronizam entre computadores.
+
 ## Dashboard por baixo da tela inicial (v115.2300)
 - BUG (iPad: "o dash tá aparecendo por baixo"): o `initUserUI` (depois do login) fazia `pfSetActive('dash')` com a tela inicial aberta →
   `pf-view-dash` no body e a regra `body.has-data.pf-view-dash #dash{display:block!important}` ligava o Dashboard embaixo da home (página

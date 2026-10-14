@@ -137,6 +137,8 @@
     `ferrAbrirTab`, `pfAtAbrir`, abas de Vendas (`pfDemoAtivTela`). Vitor vê em 🎭 Dados de demonstração → "📜 O que fizeram na demonstração"
     (`pfDemoAtivAbrir`: resumo por pessoa, filtros, ⬇ Excel) e no 🎭 da barra de notificações (`demo` em PF_AVISOS_*, só ele).
   · Refazer/desligar = lote novo: o que fizeram some da tela, o registro fica.
+  · v115.2307 ("avisos ainda estão cada para o seu usuário?"): lembrete na demonstração é POR USUÁRIO (`PF_DEMO_POR_USUARIO`, `pfDemoSoMeus`):
+    cada um vê os de exemplo (sem `demoPor`) + os dele; apagar/mudar um de exemplo vale só pra ele (lápide "u:<email>|chave", mudar = cópia dele).
   · v115.2305: o registro só abre pro vitoregee@gmail.com (`pfDemoAtivAbrir` confere `pfEhVitorGmail`; o 🎭 some da tela de configurar avisos dos outros).
 - Notícias: cópia PRÓPRIA de usuário de `pfNoticias*` é ignorada no pull (Carlos tinha uma de 10/09 que passava na frente).
 

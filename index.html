@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2303</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2304</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2303</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2304</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -17078,7 +17078,7 @@ function pfDemoDadosGarantir(){
   if(_pfDemoDadosGerando)return;var t=Date.now();if(t-_pfDemoDadosUltTent<5000)return;_pfDemoDadosUltTent=t;
   try{
     if(!(typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo()))return;
-    var o=pfDemoDadosLer();if(o&&o.lote&&o.por&&Object.keys(o.por).length)return;
+    var o=pfDemoDadosLer();if(o&&o.lote&&o.por&&Object.keys(o.por).length){if(!_pfDemoSombrasMigradas)setTimeout(function(){try{pfDemoSombrasMigrar();}catch(e){}},0);return;} // v115.2304
     if(typeof cadLoad!=='function'||typeof pfDemoGerarListas!=='function')return;
     var ap=(typeof pfDemoLotesApagados==='function')?pfDemoLotesApagados():[];
     var cl=(cadLoad(CLIE_KEY)||[]).filter(function(c){return c&&c.demo&&c.demoLote&&c.razao&&ap.indexOf(c.demoLote)<0;});if(!cl.length)return;
@@ -17117,7 +17117,151 @@ function pfModoDemoVisao(key){
   }
   _pfDemoVisaoMemo[key]={sb:sbRaw,d:dRaw,out:out};return out;
 }
+// v115.2304 - A pedido do Vitor ("se outro usuário criar algo na demonstração, quero que apareça e fique salvo na demonstração
+// também… eu vou mandar o link e acesso, eles vão testar, e quero saber o que foi feito"): o que é criado/mudado/apagado no modo
+// demonstração deixa de ficar só no navegador (sombra) e vai pra BASE FICTÍCIA COMPARTILHADA (pfDemoDados_v1.por[chave]) -- aparece
+// pra todos que estão no modo e fica salvo no servidor; as listas reais continuam intocadas. Apagado vira lápide em
+// pfDemoDados_v1.del[chave] (não volta pela sync). Cada item mexido ganha demoPor (e-mail) / demoEm e entra no registro de
+// atividade pfDemoAtividade_v1 (log só-acrescenta, de todas as contas) que o Vitor vê em 🎭 Dados de demonstração → 📜.
+// Junta de aparelhos: pfDemoDadosJuntar (mesmo lote = união por item, o mais novo vence, lápides valem; lote diferente = o mais novo).
+// "Refazer os dados fictícios" começa um lote novo: o que fizeram some da tela, mas o registro de atividade fica.
+var PF_DEMO_ATIV_KEY='pfDemoAtividade_v1';
+var PF_DEMO_ATIV_NOMES={partsflow_cotacoes_v1:'Cotação',partsflow_pedidos_venda_v1:'Pedido de venda',pfContasReceber_v1:'Título a receber',cad_clientes_v1:'Cliente',
+  pfCrmEventos:'CRM (ficha do cliente)',meAvise_lista:'Avise-me',aviseItems:'Avise-me',solicitacoes:'Solicitação',cad_solicitacoes_compras_v1:'Solicitação de compra',
+  rma_lista_v1:'RMA',pfLembretes:'Lembrete',pfPendenciasAdmin:'Pendência',mapas_lista_v1:'Mapa de compras',pfMapaConcorrentes:'Concorrente (mapa)',
+  pfPesqEnvios:'Pesquisa enviada',pfPesqRespostas:'Resposta de pesquisa',pfSolicNF_v1:'Solicitação de NF',transitItems:'Trânsito',pfComprasAtivos:'Compras',
+  pfCatPedidos_v1:'Pedido pelo catálogo',_tela:'Tela',_login:'Entrou no sistema'};
+function pfDemoAtivEu(){try{return String(sbUser&&sbUser.email||'').toLowerCase();}catch(e){return '';}}
+function pfDemoAtivResumo(key,x){
+  if(!x||typeof x!=='object')return String(x==null?'':x).slice(0,120);
+  var c=[],add=function(v){v=v==null?'':String(v).trim();if(v&&c.indexOf(v)<0&&c.length<4)c.push(v.length>60?v.slice(0,60)+'…':v);};
+  var n=x.numero!=null?x.numero:(x.num!=null?x.num:(x.numeroPedido||x.numeroSolic||''));if(n!=='')add('#'+n);
+  add(x.cliente&&typeof x.cliente==='object'?(x.cliente.razao||x.cliente.nome):(x.clienteNome||x.cliente||x.razao||x.nome_cliente||x.nomeCliente));
+  add(x.ref||x.codigo||x.cod);add(x.titulo||x.texto||x.descricao||x.desc||x.obs||x.nota);
+  if(Array.isArray(x.itens))add(x.itens.length+' ite'+(x.itens.length===1?'m':'ns'));
+  if(x.total!=null&&!isNaN(+x.total)&&+x.total>0)add('R$ '+(+x.total).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}));
+  return c.join(' · ');
+}
+var _pfDemoAtivPushT=null,_pfDemoAtivTelas={};
+// telas abertas na demonstração: 1 linha por tela por sessão
+function pfDemoAtivTela(nome){
+  if(!nome||_pfDemoAtivTelas[nome]||typeof pfModoDemoAtivo!=='function'||!pfModoDemoAtivo())return;_pfDemoAtivTelas[nome]=1;
+  pfDemoAtivAdd('abriu','_tela',null,{resumo:String(nome).replace(/<[^>]*>/g,'').slice(0,80)});
+}
+// entrou no sistema com o modo ligado (1x por sessão) + leva as sombras antigas pra base compartilhada
+function pfDemoAtivEntrada(){
+  if(window._pfDemoAtivEntrou||typeof pfModoDemoAtivo!=='function'||!pfModoDemoAtivo())return;window._pfDemoAtivEntrou=1;
+  var ua=navigator.userAgent||'',ap=/iPad/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1)?'iPad':/iPhone/.test(ua)?'iPhone':/Android/.test(ua)?'Android':/Mac/.test(ua)?'Mac':/Windows/.test(ua)?'Windows':'computador';
+  pfDemoAtivAdd('entrou','_login',null,{resumo:'pelo '+ap});
+  try{pfDemoSombrasMigrar();}catch(e){}
+}
+function pfDemoAtivAdd(acao,key,x,extra){
+  try{
+    var me=pfDemoAtivEu();if(!me)return;
+    var l=[];try{l=JSON.parse(_pfLsGetOrig.call(localStorage,PF_DEMO_ATIV_KEY)||'[]');}catch(e){}if(!Array.isArray(l))l=[];
+    var agora=Date.now(),ref=(x&&typeof x==='object'&&x.id!=null)?String(x.id):'',res=extra&&extra.resumo!=null?extra.resumo:pfDemoAtivResumo(key,x);
+    // a cotação se salva sozinha a cada pouco: a mesma pessoa mexendo no mesmo item em 30 min = 1 linha só
+    for(var i=l.length-1;i>=0&&i>=l.length-80;i--){var e=l[i];if(e&&e.por===me&&e.chave===key&&e.acao===acao&&(ref?e.ref===ref:e.resumo===res)&&agora-(e.em||0)<30*60000)return;}
+    var d=null;try{d=pfDemoDadosLer();}catch(e){}
+    l.push({id:'da_'+agora.toString(36)+'_'+Math.random().toString(36).slice(2,7),em:agora,data:new Date(agora).toISOString(),por:me,acao:acao,chave:key,ref:ref,resumo:res,lote:(d&&d.lote)||''});
+    if(l.length>2000)l=l.slice(l.length-2000);
+    _pfLsSetOrig.call(localStorage,PF_DEMO_ATIV_KEY,JSON.stringify(l));
+    clearTimeout(_pfDemoAtivPushT);_pfDemoAtivPushT=setTimeout(function(){if(typeof pfSyncPush==='function')try{pfSyncPush([PF_DEMO_ATIV_KEY]);}catch(e){}},2500);
+  }catch(e){}
+}
+function pfDemoItemTs(x){if(!x||typeof x!=='object')return 0;return +x.demoEm||+x.ts||Date.parse(x.atualizadoEm||x.updatedAt||x.dataAtualizacao||x.data||'')||0;}
+// junta duas cópias da base fictícia (deste aparelho e do servidor)
+function pfDemoDadosJuntar(a,b){
+  if(!a||!a.por)return b;if(!b||!b.por)return a;
+  if((a.lote||'')!==(b.lote||'')){
+    var ap=(typeof pfDemoLotesApagados==='function')?pfDemoLotesApagados():[];
+    if(a.lote&&ap.indexOf(a.lote)>=0)return b;if(b.lote&&ap.indexOf(b.lote)>=0)return a;
+    return (a.ts||0)>=(b.ts||0)?a:b;
+  }
+  var novo=(a.ts||0)>=(b.ts||0)?a:b,velho=novo===a?b:a,r={lote:novo.lote,ts:Math.max(a.ts||0,b.ts||0),por:{},del:{},mapasEstado:novo.mapasEstado||velho.mapasEstado};
+  var dk={};[a,b].forEach(function(o){Object.keys(o.del||{}).forEach(function(k){dk[k]=1;});});
+  Object.keys(dk).forEach(function(k){var u={};[a,b].forEach(function(o){((o.del||{})[k]||[]).forEach(function(c){u[c]=1;});});r.del[k]=Object.keys(u);});
+  var ks={};[a,b].forEach(function(o){Object.keys(o.por||{}).forEach(function(k){ks[k]=1;});});
+  Object.keys(ks).forEach(function(k){
+    var la=novo.por[k],lb=velho.por[k];
+    if(!Array.isArray(la)||!Array.isArray(lb)){r.por[k]=la!==undefined?la:lb;return;}
+    var mortos={};(r.del[k]||[]).forEach(function(c){mortos[c]=1;});
+    var mapa={},ordem=[];
+    la.concat(lb).forEach(function(x){var c=pfModoDemoCh(x);if(mortos[c])return;if(!mapa.hasOwnProperty(c)){mapa[c]=x;ordem.push(c);}else if(pfDemoItemTs(x)>pfDemoItemTs(mapa[c]))mapa[c]=x;});
+    r.por[k]=ordem.map(function(c){return mapa[c];});
+  });
+  return r;
+}
+function pfDemoDadosJuntarRaw(localRaw,remotoRaw){
+  try{var des=function(r){return (typeof pfDecompress==='function'&&r)?pfDecompress(r):r;};
+    var a=localRaw?JSON.parse(des(localRaw)):null,b=remotoRaw?JSON.parse(des(remotoRaw)):null;
+    var r=pfDemoDadosJuntar(a,b);return r?JSON.stringify(r):localRaw;}catch(e){return localRaw;}
+}
+var _pfDemoDadosPushT=null;
+function pfDemoDadosPushLogo(){clearTimeout(_pfDemoDadosPushT);_pfDemoDadosPushT=setTimeout(function(){if(typeof pfSyncPush==='function')try{pfSyncPush([PF_DEMO_DADOS_KEY]);}catch(e){}},1500);}
+// grava a lista nova da tela na base compartilhada (antes = o que a tela via)
+function pfDemoSemCarimbo(x){
+  if(!x||typeof x!=='object'||Array.isArray(x))return JSON.stringify(x);
+  var o={};Object.keys(x).forEach(function(k){if(k!=='demoPor'&&k!=='demoEm'&&k!=='demo'&&k!=='demoLote'&&k!=='demoTela')o[k]=x[k];});return JSON.stringify(o);
+}
+function pfModoDemoBaseGravar(key,v,antes){
+  var d=pfDemoDadosLer();if(!d||!d.lote)return false;
+  var me=pfDemoAtivEu(),agora=Date.now(),mapaAntes={},objAntes={},vistos={},mudou=false,lista=[];
+  (antes||[]).forEach(function(x){var c=pfModoDemoCh(x);mapaAntes[c]=pfDemoSemCarimbo(x);objAntes[c]=x;});
+  // trava: muita coisa nova de uma vez, sem marca de demonstração, não é gente digitando (é lista real) -> fica só neste navegador
+  if(v.filter(function(x){return x&&typeof x==='object'&&!x.demo&&!mapaAntes.hasOwnProperty(pfModoDemoCh(x));}).length>15)return false;
+  v.forEach(function(x){
+    var c=pfModoDemoCh(x);
+    if(!mapaAntes.hasOwnProperty(c)&&x&&typeof x==='object'&&x.id==null){ // sem id: a chave é o próprio texto -- procura sem o carimbo
+      var sc=pfDemoSemCarimbo(x);for(var k in mapaAntes){if(!vistos[k]&&mapaAntes[k]===sc){c=k;break;}}}
+    if(mapaAntes.hasOwnProperty(c)){vistos[c]=1;
+      if(mapaAntes[c]===pfDemoSemCarimbo(x)){lista.push(objAntes[c]);return;}
+      if(x&&typeof x==='object'){x.demo=true;x.demoLote=x.demoLote||d.lote;x.demoPor=me;x.demoEm=agora;}
+      lista.push(x);mudou=true;pfDemoAtivAdd('alterou',key,x);return;}
+    if(x&&typeof x==='object'){x.demo=true;x.demoLote=x.demoLote||d.lote;x.demoPor=x.demoPor||me;x.demoEm=agora;}
+    lista.push(x);mudou=true;pfDemoAtivAdd('criou',key,x);
+  });
+  var mortos=[];Object.keys(mapaAntes).forEach(function(c){if(!vistos[c]){mortos.push(c);pfDemoAtivAdd('apagou',key,objAntes[c]);}});
+  if(!mudou&&!mortos.length){try{localStorage.removeItem(PF_MODO_DEMO_SOMBRA+key);}catch(e){}return true;}
+  d.por[key]=lista;d.del=d.del||{};if(mortos.length){var u={};(d.del[key]||[]).concat(mortos).forEach(function(c){u[c]=1;});d.del[key]=Object.keys(u);}
+  d.ts=agora;
+  _pfLsSetOrig.call(localStorage,PF_DEMO_DADOS_KEY,JSON.stringify(d));
+  try{localStorage.removeItem(PF_MODO_DEMO_SOMBRA+key);}catch(e){}
+  pfDemoDadosPushLogo();
+  return true;
+}
+// só as listas que a PESSOA preenche na tela vão pra base compartilhada; as que o sistema enche sozinho a partir do banco
+// (trânsito, compras, respostas de pesquisa, pendências automáticas, eventos…) continuam na sombra deste navegador -- assim
+// nada real vaza pra demonstração dos outros.
+var PF_DEMO_COMPARTILHA=['meAvise_lista','cad_solicitacoes_compras_v1','rma_lista_v1','pfSolicNF_v1','pfPesqEnvios','mapas_lista_v1','pfMapaConcorrentes','pfLembretes'];
 function pfModoDemoSombraGravar(key,value){
+  if(window._pfPullGravando>0&&key!=='pfFotosEventos')return true; // v115.2304 - o real que a sync traz não entra na demonstração
+  if(PF_DEMO_COMPARTILHA.indexOf(key)>=0){
+    try{
+      var v=JSON.parse((typeof pfDecompress==='function'&&value)?pfDecompress(value):value);
+      if(!Array.isArray(v))return true;
+      var antes=[];try{antes=JSON.parse(pfModoDemoVisao(key)||'[]');}catch(e){}if(!Array.isArray(antes))antes=[];
+      if(pfModoDemoBaseGravar(key,v,antes))return true;
+    }catch(e){console.warn('modo demo gravar',key,e);}
+  }
+  return pfModoDemoSombraGravarAntigo(key,value);
+}
+// sombras antigas (de antes da v115.2304, só neste navegador) -> base compartilhada, 1x por sessão
+var _pfDemoSombrasMigradas=false;
+function pfDemoSombrasMigrar(){
+  if(_pfDemoSombrasMigradas)return;
+  try{
+    var d=pfDemoDadosLer();if(!d||!d.lote)return;_pfDemoSombrasMigradas=true;
+    PF_MODO_DEMO_NADA.forEach(function(key){
+      if(key==='pfFotosEventos')return;var sb=pfModoDemoSombraObj(key);if(!sb||(!sb.add.length&&!sb.del.length))return;
+      var vis=[];try{vis=JSON.parse(pfModoDemoVisao(key)||'[]');}catch(e){}
+      var base=Array.isArray(d.por[key])?d.por[key]:[];
+      if(Array.isArray(vis))pfModoDemoBaseGravar(key,vis,base);
+      d=pfDemoDadosLer()||d;
+    });
+  }catch(e){}
+}
+function pfModoDemoSombraGravarAntigo(key,value){
   try{
     var des=function(r){return (typeof pfDecompress==='function'&&r)?pfDecompress(r):r;};
     var v=JSON.parse(des(value));
@@ -17165,13 +17309,31 @@ function pfModoDemoFiltrarRaw(key,raw){
 function pfModoDemoSoGravar(key,value){
   try{
     if(PF_MODO_DEMO_TODAS[key]!=='so'||!pfModoDemoAtivo())return value;
+    if(window._pfPullGravando>0)return value; // v115.2304 - gravação da sync passa direto
     var v=JSON.parse(pfDecompress(String(value)));if(!Array.isArray(v))return value;
     var realRaw=(PF_IDB_KEYS.indexOf(key)>=0)?(_pfMemCache.hasOwnProperty(key)?_pfMemCache[key]:null):_pfLsGetOrig.call(localStorage,key);
     var real=[];try{real=JSON.parse(pfDecompress(realRaw)||'[]');}catch(e){}if(!Array.isArray(real))real=[];
     var naReal={};real.forEach(function(x){if(x&&!x.demo)naReal[pfModoDemoCh(x)]=1;});
     if(v.some(function(x){return x&&!x.demo&&naReal[pfModoDemoCh(x)];}))return value; // sync / lista completa
     var d=pfDemoDadosLer(),lote=(d&&d.lote)||'demo_tela',vk={};
-    v.forEach(function(x){if(x&&typeof x==='object'&&!x.demo){x.demo=true;x.demoLote=x.demoLote||lote;x.demoTela=true;}vk[pfModoDemoCh(x)]=1;});
+    // v115.2304 - quem criou/mudou (demoPor/demoEm) + registro de atividade pro Vitor (logs de aviso "…Eventos" não entram)
+    var k2=function(x){return (x&&typeof x==='object'&&x.id!=null)?'id:'+x.id:'sc:'+pfDemoSemCarimbo(x);};
+    var me=pfDemoAtivEu(),agora=Date.now(),registra=!/Eventos$/.test(key)||key==='pfCrmEventos',prev={},prevObj={},vistos={};
+    real.forEach(function(x){if(x&&x.demo){var c=k2(x);prev[c]=pfDemoSemCarimbo(x);prevObj[c]=x;}});
+    // trava: muita coisa nova de uma vez sem marca de demonstração = lista real (não é gente na tela) -> grava como veio, sem marcar
+    var semMarcar=v.filter(function(x){return x&&typeof x==='object'&&!x.demo&&!prev.hasOwnProperty(k2(x));}).length>15;
+    if(semMarcar)v.forEach(function(x){vk[pfModoDemoCh(x)]=1;});
+    var _novos=v.filter(function(x){return x&&typeof x==='object'&&!prev.hasOwnProperty(k2(x));}).length;if(_novos>20)registra=false;
+    if(!semMarcar)v.forEach(function(x){
+      if(x&&typeof x==='object'){var c=k2(x);vistos[c]=1;
+        if(!x.demo){x.demo=true;x.demoLote=x.demoLote||lote;x.demoTela=true;}
+        if(!prev.hasOwnProperty(c)){x.demoPor=x.demoPor||me;x.demoEm=x.demoEm||agora;if(registra)pfDemoAtivAdd('criou',key,x);}
+        else if(prev[c]!==pfDemoSemCarimbo(x)){x.demoPor=me;x.demoEm=agora;if(registra)pfDemoAtivAdd('alterou',key,x);}
+        else if(prevObj[c].demoPor&&!x.demoPor){x.demoPor=prevObj[c].demoPor;x.demoEm=prevObj[c].demoEm;}
+      }
+      vk[pfModoDemoCh(x)]=1;});
+    if(registra&&!semMarcar){var sumiu=Object.keys(prev).filter(function(c){return !vistos[c]&&prevObj[c].demoLote===lote;});
+      if(sumiu.length>20)pfDemoAtivAdd('apagou',key,null,{resumo:sumiu.length+' itens'});else sumiu.forEach(function(c){pfDemoAtivAdd('apagou',key,prevObj[c]);});}
     var full=real.filter(function(x){return x&&!x.demo&&!vk[pfModoDemoCh(x)];}).concat(v);
     var txt=JSON.stringify(full);
     return (String(value).indexOf(PF_COMPRESS_MARK)===0&&typeof pfCompress==='function')?pfCompress(txt):txt;
@@ -38998,7 +39160,7 @@ var PF_SYNC_KEYS = ['pfOrbPrefs_v1', 'pfModoApresPrefs_v1', 'pfSolicNF_v1',
   'cc_desenhos_v1', // v115.2021 - desenho de cada família (Área Técnica), trocado pelo admin
   'rel_decisoes_v1', // v115.2030 - respostas às sugestões de relacionamento (cotados juntos)
   'rel_regras_v1', // v115.2030 - regras que filtram as ligações vindas de catálogo
-  'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfDemoDados_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', // v115.2111 - margem por perfil // v115.2058 - regras geral/cliente do Assistente de Vendas (+ v115.2062 etiquetas da cotação)
+  'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfIconeCor', 'pfCardsOcultosTodos', 'pfModoDemo', 'pfDemoDados_v1', 'pfDemoAtividade_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', // v115.2304 pfDemoAtividade_v1 (o que fizeram na demonstração) // v115.2111 - margem por perfil // v115.2058 - regras geral/cliente do Assistente de Vendas (+ v115.2062 etiquetas da cotação)
   'partsflow_pedidos_venda_v1',
   'venda_rascunho_v1',
   'imp_preview_cache_v1',
@@ -39170,7 +39332,12 @@ async function pfSyncPush(keys){
     return;
   }
   keys = keys || PF_SYNC_KEYS;
-  if(typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo())keys=keys.filter(function(k){return !PF_MODO_DEMO_TODAS[k];}); // v115.2254 - modo demonstração: não sobe lista filtrada
+  var _pfDemoPush=typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo();
+  // v115.2254 - modo demonstração: não sobe lista filtrada. v115.2304 - A pedido do Vitor ("o que eles criarem na demonstração precisa
+  // aparecer e ficar salvo"): as chaves "só demo" (cotações, pedidos, clientes, títulos, CRM…) SOBEM, com a lista COMPLETA deste
+  // navegador (os reais intocados + os demo:true criados aqui) -- igual a qualquer usuário, a união com o servidor não perde nada.
+  // As "nada" (listas reais escondidas) continuam paradas: o que se faz nelas vai na base fictícia pfDemoDados_v1.
+  if(_pfDemoPush)keys=keys.filter(function(k){return PF_MODO_DEMO_TODAS[k]!=='nada';});
   var syncCount = 0;
   var erros = [];
   
@@ -39189,6 +39356,7 @@ async function pfSyncPush(keys){
     // localStorage com o merge, pra não voltar a divergir no próximo push).
     var resultados = await Promise.all(keys.map(async function(chave){
       var raw=pfRawGetItem(chave);
+      if(_pfDemoPush&&PF_MODO_DEMO_TODAS[chave]==='so')raw=(PF_IDB_KEYS.indexOf(chave)>=0)?(_pfMemCache.hasOwnProperty(chave)?_pfMemCache[chave]:null):_pfLsGetOrig.call(localStorage,chave); // v115.2304 - sem o filtro da tela
       if(raw===null){
         console.log('pfSyncPush: ' + chave + ' não encontrado localmente');
         return null;
@@ -39436,12 +39604,13 @@ async function pfSyncPush(keys){
                 // síncrono automático se o worker falhar por qualquer
                 // motivo (nunca fica pior que antes).
                 if(remotoRaw===raw){paraEnviar=raw;}
+                else if(chave===PF_DEMO_DADOS_KEY){paraEnviar=pfDemoDadosJuntarRaw(raw,remotoRaw);} // v115.2304 - base fictícia: junta por item
                 else if(chave==='perf_diagnostico_v1'){paraEnviar=raw;} // v115.1956 - só o deste aparelho (máx 300), sem união com o servidor
                 else{paraEnviar = await pfMergeSyncValueAsync(raw, remotoRaw, chave);}
               }
               if(chave==='cad_clientes_v1')paraEnviar=pfClientesTirarDeletados(paraEnviar); // v115.1985
               if(chave==='cad_fornecedores_v1')paraEnviar=pfCadTirarDeletados(paraEnviar,'cad_fornecedores_deletados'); // v115.1989
-              if(paraEnviar!==raw){ await pfSafeSetItemAsync(chave, paraEnviar); } // mantém o navegador consistente com o que foi mesclado
+              if(paraEnviar!==raw){ window._pfPullGravando=(window._pfPullGravando||0)+1; try{ await pfSafeSetItemAsync(chave, paraEnviar); }finally{window._pfPullGravando--;} } // mantém o navegador consistente com o que foi mesclado (v115.2304: conta como gravação da sync)
             }
           }
         }catch(eGet){
@@ -39942,7 +40111,7 @@ async function pfSyncPull(){
     // que junta os registros de todos os aparelhos em vez de sobrescrever.
     // v115.2016 - A pedido do Vitor: lembrete é de cada usuário -- pfLembretes/pfLembretes_deletados saíram daqui
     // (juntava os lembretes de TODAS as contas e os do vitoregee apareciam pra todo mundo). Agora só a própria linha.
-    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin','pfApostasVendaEventos','pfApostasNovoEventos','pfPedidoVendaEventos','pfRmaEventos','pfCatPedEventos','pfPortalEventos','pfFotosEventos','pfCrmEventos','pfPesqEnvios','pfPesqRespostas','rma_lista_v1','pfSolicitadosEventos_deletados','pfComprasEventos_deletados','pfFaturadosEventos_deletados','promoTemplates_v1_deletados','lp_regras_v1_deletados','cad_clientes_deletados','cad_fornecedores_deletados'];
+    var logKeys = ['ia_uso_log_v1','pf_login_log_v1','pfDemoAtividade_v1','pfComprasEventos','pfFaturadosEventos','pfChegadasEventos','pfSolicitadosEventos','pfPendenciasAdmin','pfApostasVendaEventos','pfApostasNovoEventos','pfPedidoVendaEventos','pfRmaEventos','pfCatPedEventos','pfPortalEventos','pfFotosEventos','pfCrmEventos','pfPesqEnvios','pfPesqRespostas','rma_lista_v1','pfSolicitadosEventos_deletados','pfComprasEventos_deletados','pfFaturadosEventos_deletados','promoTemplates_v1_deletados','lp_regras_v1_deletados','cad_clientes_deletados','cad_fornecedores_deletados'];
     var rows = [];
 
     // v115.765 - Antes eram 13 requisições ao Supabase em SEQUÊNCIA (1 do
@@ -40160,10 +40329,20 @@ async function pfSyncPull(){
     // culpado for confirmado.
     var _pfRowsChaves=rows.map(function(r){return r.chave;});
     var _pfForEachT0=performance.now();
+    window._pfPullGravando=(window._pfPullGravando||0)+1; // v115.2304 - o que a sync grava não é "feito na demonstração"
+    try{
     rows.forEach(function(row){
       try{
         if(!PF_SYNC_KEYS.includes(row.chave) && row.chave.indexOf('mapa_estado_')!==0 && row.chave.indexOf('pfCardOrder_')!==0)return;
+        // v115.2304 - modo demonstração: as listas reais escondidas ("nada") não são gravadas aqui (iam parar na base fictícia
+        // compartilhada); ao desligar o modo, o pull completo traz tudo de novo.
+        if(row.chave!=='pfFotosEventos'&&PF_MODO_DEMO_TODAS[row.chave]==='nada'&&typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo())return;
         var val=typeof row.dados==='string'?row.dados:JSON.stringify(row.dados);
+        if(row.chave===PF_DEMO_DADOS_KEY){ // v115.2304 - base fictícia: junta por item (o que cada um fez na demonstração)
+          try{var _ldd=_pfLsGetOrig.call(localStorage,PF_DEMO_DADOS_KEY),_jdd=_ldd?pfDemoDadosJuntarRaw(_ldd,val):val;
+            if(_jdd!==_ldd)_pfLsSetOrig.call(localStorage,PF_DEMO_DADOS_KEY,_jdd);}catch(eDd){}
+          return;
+        }
         if(row.chave==='mapas_lista_v1'){
           // Merge por id+ts, respeitando deletados
           var remoto=JSON.parse(val||'[]');
@@ -40527,6 +40706,7 @@ async function pfSyncPull(){
         _pfMergeGenericoFila.push({chave:row.chave, localRaw:localRaw, remoteRaw:val});
       }catch(e){}
     });
+    }finally{window._pfPullGravando--;}
     // v115.1846 - ver comentário no início do forEach acima.
     var _pfForEachMs=performance.now()-_pfForEachT0;
     if(_pfForEachMs>300){
@@ -40542,7 +40722,8 @@ async function pfSyncPull(){
       await Promise.all(_pfMergeGenericoFila.map(async function(item){
         try{
           var merged=await pfMergeSyncValueAsync(item.localRaw, item.remoteRaw, item.chave);
-          await pfSafeSetItemAsync(item.chave, merged);
+          window._pfPullGravando=(window._pfPullGravando||0)+1; // v115.2304
+          try{await pfSafeSetItemAsync(item.chave, merged);}finally{window._pfPullGravando--;}
         }catch(eMergeGen){console.warn('merge genérico (worker) falhou pra "'+item.chave+'":',eMergeGen);}
       }));
     }
@@ -44754,6 +44935,7 @@ function ferrAoClicarIcone(){
 }
 
 function ferrAbrirTab(icon,title,fn){
+  try{pfDemoAtivTela('Ferramentas → '+title);}catch(eDa){} // v115.2304
   ferrGarantirEstrutura();
   // v115.1952 - sem a barra de abas visível (ver ferrAtualizarTabBar), abrir
   // de novo a mesma ferramenta substitui a aba anterior em vez de acumular
@@ -44848,6 +45030,7 @@ function pfAtGuardarAtual(){
 }
 function pfAtVisivel(){var b=document.getElementById('areaTecnicaBody');return !!(b&&b.offsetParent!==null&&typeof currentView!=='undefined'&&String(currentView).indexOf('area_tecnica')===0);}
 function pfAtAbrir(atalhoId,titulo,icone,fn,tentou){
+  if(!tentou)try{pfDemoAtivTela('Área Técnica → '+titulo);}catch(eDa){} // v115.2304
   if(PF_AT_SEM_ABA.test(titulo||'')){fn();return;}
   var ex=Object.keys(window._atTabs).filter(function(id){return window._atTabs[id].atalhoId===atalhoId;})[0];
   if(ex){pfAtIr(ex);return;}
@@ -48476,7 +48659,7 @@ function vendasRender(){
     var active=t[0]===tab;
     var c=document.createElement('div');
     c.style.cssText='background:'+(active?'var(--pf-painel-input,#151f30)':'rgba(255,255,255,.05)')+';border-radius:6px;border:1px solid '+(active?'rgba(0,0,0,.5)':'transparent')+';box-shadow:'+(active?'inset 0 2px 4px rgba(0,0,0,.3)':'none')+';padding:7px 30px 7px 12px;cursor:pointer;transition:border-color .15s,box-shadow .15s;display:flex;align-items:center;gap:6px;position:relative';
-    var fn=function(){window._vendasMainTab=t[0];vendasRender();};
+    var fn=function(){window._vendasMainTab=t[0];try{pfDemoAtivTela('Vendas → '+t[2]);}catch(e){}vendasRender();}; // v115.2304
     var atalhoId=pfAtalhoSlug(t[0]==='kpis'?'KPIs':t[2]); // v115.2082 - mantém o id antigo pro atalho já fixado não sumir
     pfAtalhoRegistrar(atalhoId,fn);
     c.innerHTML=pfAtalhoPinHtml(atalhoId,t[1],t[2],'vendas')+
@@ -53417,11 +53600,101 @@ function pfModoDemoBlocoHtml(){
     '<div style="font-size:15px;font-weight:800;color:'+(on?'#C0392B':'#1F4E79')+'">'+(on?'🎭 MODO DEMONSTRAÇÃO LIGADO pros outros usuários':'🎭 Modo demonstração pros outros usuários')+'</div>'+
     '<div style="margin:6px 0 10px;color:#1a2332">Ligado: todo mundo que <b>não é você</b> vê <b>só os dados fictícios</b> (cotações, pedidos, clientes, títulos, avisos e CRM de demonstração) '+
     'e as listas reais ficam <b>escondidas</b> (solicitações, compras, RMA, Avise-me, pendências, mapas…). Nada real é apagado — ao desligar tudo volta. '+
-    'Enquanto estiver ligado, o que os outros fizerem nessas telas <b>não sobe</b> pro sistema. Você continua vendo tudo, como sempre.</div>'+
+    'Enquanto estiver ligado, o que os outros criarem/mudarem/apagarem fica <b>salvo na demonstração</b> (aparece pra todos que estão nela, nunca nas listas reais) '+
+    'e entra no registro abaixo. <b>Refazer</b> ou desligar começa uma demonstração limpa — o registro continua. Você continua vendo tudo, como sempre.</div>'+ // v115.2304
     (on?'<button class="pfBtn pfBtnVermelho" onclick="pfModoDemoSet(false)">⏹ Desligar o modo demonstração</button> <button class="pfBtn pfBtnClaro" onclick="pfModoDemoSet(true,true)">🔄 Refazer os dados fictícios</button>'
        :'<button class="pfBtn pfBtnVerde" onclick="pfModoDemoSet(true)">▶ Ligar o modo demonstração</button> <span style="color:#607080;font-size:12px">(apaga as demonstrações antigas e gera uma nova completa, sem clientes reais)</span>')+
+    pfModoDemoAtivBlocoHtml()+ // v115.2304
     pfModoDemoMarcasBlocoHtml()+
   '</div>';
+}
+// v115.2304 - A pedido do Vitor ("eu vou mandar o link e acesso, eles vão testar, e quero saber o que foi feito"): registro do que
+// cada pessoa fez no modo demonstração (pfDemoAtividade_v1 -- entrou, telas que abriu, o que criou/mudou/apagou). Abre pelo bloco
+// do modo demonstração e pelo 🎭 da barra de notificações (só o Vitor).
+function pfDemoAtivLista(){var l=[];try{l=JSON.parse(_pfLsGetOrig.call(localStorage,PF_DEMO_ATIV_KEY)||'[]');}catch(e){}return Array.isArray(l)?l.filter(function(x){return x&&x.em;}):[];}
+function pfDemoAtivNome(em){em=String(em||'');var a=em.split('@')[0];return a||em||'?';}
+function pfModoDemoAtivBlocoHtml(){
+  var l=pfDemoAtivLista(),sete=Date.now()-7*86400000,rec=l.filter(function(x){return x.em>=sete&&x.acao!=='abriu';}),pes={};
+  rec.forEach(function(x){pes[x.por]=1;});
+  return '<div style="margin-top:12px;padding-top:10px;border-top:1px dashed #c9d3df;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+    '<button class="pfBtn pfBtnAzul" onclick="pfDemoAtivAbrir()">📜 O que fizeram na demonstração</button>'+
+    '<span style="color:#1a2332;font-size:13px">'+(rec.length?'<b>'+rec.length+'</b> registro'+(rec.length===1?'':'s')+' nos últimos 7 dias, de <b>'+Object.keys(pes).length+'</b> pessoa'+(Object.keys(pes).length===1?'':'s'):'Ninguém mexeu nos últimos 7 dias.')+'</span></div>';
+}
+var PF_DEMO_ATIV_ACOES={entrou:['🔑','entrou','#1F4E79'],abriu:['👁','abriu','#607080'],criou:['🟢','criou','#1E8449'],alterou:['✏️','alterou','#B9770E'],apagou:['🗑','apagou','#C0392B']};
+function pfDemoAtivAbrir(){
+  window._pfDemoAtivF=window._pfDemoAtivF||{pessoa:'',dias:7,telas:true};
+  pfDemoAtivRender();
+  if(!window._pfDemoAtivEsc){
+    window._pfDemoAtivEsc=function(e){if(e.key!=='Escape'||!document.getElementById('pfDemoAtivOverlay'))return;
+      var acima=[].some.call(document.querySelectorAll('body > div'),function(d){var z=+getComputedStyle(d).zIndex||0;return d.id!=='pfDemoAtivOverlay'&&z>99990&&d.offsetParent!==null&&getComputedStyle(d).position==='fixed'&&d.id!=='pfModoDemoSelo';});
+      if(acima)return;e.preventDefault();e.stopImmediatePropagation();pfDemoAtivFechar();};
+    document.addEventListener('keydown',window._pfDemoAtivEsc,true);
+  }
+}
+function pfDemoAtivFechar(){var o=document.getElementById('pfDemoAtivOverlay');if(o)o.remove();if(window._pfDemoAtivEsc){document.removeEventListener('keydown',window._pfDemoAtivEsc,true);window._pfDemoAtivEsc=null;}}
+function pfDemoAtivFiltradas(){
+  var F=window._pfDemoAtivF||{},desde=F.dias?Date.now()-F.dias*86400000:0;
+  return pfDemoAtivLista().filter(function(x){return x.em>=desde&&(!F.pessoa||x.por===F.pessoa)&&(F.telas||x.acao!=='abriu');}).sort(function(a,b){return b.em-a.em;});
+}
+function pfDemoAtivRender(){
+  var ex=document.getElementById('pfDemoAtivOverlay'),rol=0;if(ex){var c0=ex.querySelector('#pfDemoAtivCorpo');if(c0)rol=c0.scrollTop;ex.remove();}
+  var F=window._pfDemoAtivF,todas=pfDemoAtivLista(),l=pfDemoAtivFiltradas(),esc=pfEscHtml;
+  var pessoas={};todas.forEach(function(x){pessoas[x.por]=1;});
+  // resumo por pessoa (no período)
+  var res={};l.forEach(function(x){var r=res[x.por]=res[x.por]||{entrou:0,abriu:0,criou:0,alterou:0,apagou:0,ult:0};r[x.acao]=(r[x.acao]||0)+1;if(x.em>r.ult)r.ult=x.em;});
+  var dt=function(t,o){return new Date(t).toLocaleString('pt-BR',o);};
+  var h='';
+  var ks=Object.keys(res).sort(function(a,b){return res[b].ult-res[a].ult;});
+  if(ks.length){
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-bottom:14px">';
+    ks.forEach(function(p){var r=res[p];
+      h+='<div onclick="window._pfDemoAtivF.pessoa=window._pfDemoAtivF.pessoa===\''+pfEscJs(p)+'\'?\'\':\''+pfEscJs(p)+'\';pfDemoAtivRender()" style="cursor:pointer;background:#F5F9FE;border:2px solid '+(F.pessoa===p?'#1F4E79':'#dde6f0')+';border-radius:10px;padding:9px 11px;color:#1a2332">'+
+        '<div style="font-weight:800;font-size:14px">👤 '+esc(pfDemoAtivNome(p))+'</div>'+
+        '<div style="font-size:12px;color:#607080;margin-bottom:4px">última vez '+dt(r.ult,{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</div>'+
+        '<div style="font-size:13px">🔑 '+r.entrou+' entrada'+(r.entrou===1?'':'s')+' · 👁 '+r.abriu+' tela'+(r.abriu===1?'':'s')+'<br>🟢 '+r.criou+' criou · ✏️ '+r.alterou+' alterou · 🗑 '+r.apagou+' apagou</div></div>';
+    });
+    h+='</div>';
+  }
+  if(!l.length)h+='<div style="padding:30px;text-align:center;color:#607080">Nada registrado nesse período.</div>';
+  var diaAnt='';
+  l.slice(0,1500).forEach(function(x){
+    var d=dt(x.em,{weekday:'long',day:'2-digit',month:'2-digit'});
+    if(d!==diaAnt){diaAnt=d;h+='<div style="font-weight:800;color:#1F4E79;margin:12px 0 6px;font-size:13px;text-transform:capitalize;border-bottom:1px solid #dde6f0;padding-bottom:3px">📅 '+esc(d)+'</div>';}
+    var a=PF_DEMO_ATIV_ACOES[x.acao]||['•',x.acao,'#1a2332'],oq=x.chave==='_tela'||x.chave==='_login'?'':(PF_DEMO_ATIV_NOMES[x.chave]||x.chave);
+    h+='<div style="display:flex;gap:10px;align-items:baseline;padding:5px 4px;border-bottom:1px solid #f0f3f7;font-size:13px;color:#1a2332">'+
+      '<span style="color:#607080;min-width:42px">'+dt(x.em,{hour:'2-digit',minute:'2-digit'})+'</span>'+
+      '<span style="min-width:110px;font-weight:700">'+esc(pfDemoAtivNome(x.por))+'</span>'+
+      '<span style="min-width:84px;color:'+a[2]+';font-weight:700">'+a[0]+' '+esc(a[1])+'</span>'+
+      '<span style="flex:1;min-width:0">'+(oq?'<b>'+esc(oq)+'</b>'+(x.resumo?' — ':''):'')+esc(x.resumo||'')+'</span></div>';
+  });
+  if(l.length>1500)h+='<div style="color:#607080;font-size:12px;margin-top:8px">Mostrando os 1.500 mais novos de '+l.length+' (o Excel leva todos).</div>';
+  var sel='padding:6px 8px;border:1px solid #c9d3df;border-radius:6px;background:#fff;color:#1a2332;font-size:13px';
+  var filtros='<select style="'+sel+'" onchange="window._pfDemoAtivF.pessoa=this.value;pfDemoAtivRender()"><option value="">Todas as pessoas</option>'+
+      Object.keys(pessoas).sort().map(function(p){return '<option value="'+esc(p)+'"'+(F.pessoa===p?' selected':'')+'>'+esc(pfDemoAtivNome(p))+'</option>';}).join('')+'</select>'+
+    '<select style="'+sel+'" onchange="window._pfDemoAtivF.dias=+this.value;pfDemoAtivRender()">'+[[1,'Hoje e ontem'],[7,'Últimos 7 dias'],[30,'Últimos 30 dias'],[0,'Tudo']].map(function(o){return '<option value="'+o[0]+'"'+(F.dias===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>'+
+    '<label style="display:flex;align-items:center;gap:5px;font-size:13px;color:#1a2332;cursor:pointer"><input type="checkbox"'+(F.telas?' checked':'')+' onchange="window._pfDemoAtivF.telas=this.checked;pfDemoAtivRender()"> telas que abriram</label>';
+  var _baixo=(typeof pfAiDockClearance==='function')?pfAiDockClearance():24;
+  var ov=document.createElement('div');ov.id='pfDemoAtivOverlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99990;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:16px 12px '+_baixo+'px';
+  ov.onmousedown=function(e){ov._mdFundo=(e.target===ov);};
+  ov.onclick=function(e){if(e.target===ov&&ov._mdFundo)pfDemoAtivFechar();ov._mdFundo=false;};
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;width:920px;max-width:100%;max-height:100%;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3)" onclick="event.stopPropagation()">'+
+    '<div style="display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--pf-painel-bg,#1c2940);color:#fff;flex-shrink:0">'+
+      '<div style="flex:1"><div style="font-size:17px;font-weight:800">📜 O que fizeram na demonstração</div><div style="font-size:12px;opacity:.8">Quem entrou, as telas que abriu e o que criou, mudou ou apagou (só no modo demonstração)</div></div>'+
+      '<button onclick="pfDemoAtivFechar()" style="background:none;border:0;cursor:pointer;display:flex;padding:0" title="Fechar (Esc)">'+pfXGlossyHtml(22)+'</button></div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 18px;border-bottom:1px solid #dde6f0;flex-shrink:0;background:#fff">'+filtros+'</div>'+
+    '<div id="pfDemoAtivCorpo" style="padding:12px 18px;overflow:auto;flex:1;min-height:0;background:#fff">'+h+'</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;padding:10px 18px;border-top:1px solid #dde6f0;flex-shrink:0;background:#fff">'+
+      '<button class="pfBtn pfBtnAzul" onclick="pfDemoAtivExcel()">⬇ Excel</button><button class="pfBtn pfBtnClaro" onclick="pfDemoAtivFechar()">Fechar</button></div></div>';
+  document.body.appendChild(ov);
+  var c=ov.querySelector('#pfDemoAtivCorpo');if(c&&rol)c.scrollTop=rol;
+}
+function pfDemoAtivExcel(){
+  var l=pfDemoAtivFiltradas();
+  var linhas=l.map(function(x){var a=PF_DEMO_ATIV_ACOES[x.acao]||['',x.acao];return {'Data':new Date(x.em).toLocaleString('pt-BR'),'Pessoa':x.por,'Ação':a[1],'O quê':x.chave==='_tela'||x.chave==='_login'?'':(PF_DEMO_ATIV_NOMES[x.chave]||x.chave),'Detalhe':x.resumo||''};});
+  if(typeof XLSX==='undefined'){pfAlert('O Excel ainda não carregou — tente de novo em alguns segundos.');return;}
+  var ws=XLSX.utils.json_to_sheet(linhas),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Demonstração');
+  XLSX.writeFile(wb,'demonstracao-atividade-'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 function pfModoDemoSet(on,soRefazer){
   if(!pfEhVitorGmail())return;
@@ -53458,6 +53731,7 @@ function pfModoDemoVigiar(){
   }catch(e){}
 }
 setInterval(pfModoDemoVigiar,10000);setTimeout(pfModoDemoVigiar,4000);
+setInterval(function(){try{pfDemoAtivEntrada();}catch(e){}},15000);setTimeout(function(){try{pfDemoAtivEntrada();}catch(e){}},6000); // v115.2304
 // v115.2291 - A pedido do Vitor ("modo demonstração: não aparecer nome de marcas como BG Vedações e Vedamotors, também no
 // dashboard e nos produtos — substitua por ORIGINAL/IMPORTADO"): pra quem está no modo demonstração, o nome dessas marcas é
 // trocado NA TELA (texto, campos, title) por "ORIGINAL IMPORTADO" — Dashboard, cotação, cadastro de produtos, Alt+B, tudo.
@@ -55790,7 +56064,9 @@ var PF_AVISOS_CONFIG_DEFAULT={
   // v115.2264 - A pedido do Vitor ("tira esse aviso [popup Foto recebida] e coloca um na barra"): foto chegou pela Solicitação de Fotos
   foto:{fixo:true,email:false,navegador:false},
   // v115.2285 - cotação que o cliente mandou pelo Portal do cliente
-  portal:{fixo:true,email:false,navegador:false}
+  portal:{fixo:true,email:false,navegador:false},
+  // v115.2304 - o que os outros fizeram no modo demonstração (só aparece pro Vitor)
+  demo:{fixo:false,email:false,navegador:false}
 };
 function pfAvisosConfigLoad(){
   var raw={};
@@ -55826,7 +56102,8 @@ var PF_AVISOS_CONFIG_LABELS={
   rma:{emoji:'🔄',nome:'RMA / Garantia'}, // v115.2145 - mesmo 🔄 do card RMA — Devolução
   catalogo:{emoji:'📖',nome:'Pedido pelo catálogo'}, // v115.2231
   foto:{icone:'pf-icon-095.png',nome:'Foto recebida'}, // v115.2264 - mesma câmera da Solicitação de Fotos
-  portal:{emoji:'🌐',nome:'Cotação pelo portal'} // v115.2285
+  portal:{emoji:'🌐',nome:'Cotação pelo portal'}, // v115.2285
+  demo:{emoji:'🎭',nome:'Atividade na demonstração'} // v115.2304
 };
 function pfAvisosConfigAbrirPainel(){
   var existente=document.getElementById('pfAvisosConfigModal');
@@ -55881,7 +56158,7 @@ function pfAvisosConfigRenderModal(){
 // (localStorage 'pfAvisosLidoEm', sincroniza entre dispositivos) e o badge
 // passa a contar só os itens do log com data DEPOIS desse timestamp. Os
 // ícones continuam sempre visíveis (fixos), só o número muda.
-var PF_AVISOS_LOG_KEYS={solicitado:'pfSolicitadosEventos',comprado:'pfComprasEventos',faturado:'pfFaturadosEventos',chegou:'pfChegadasEventos',apostasvenda:'pfApostasVendaEventos',rma:'pfRmaEventos',catalogo:'pfCatPedEventos',foto:'pfFotosEventos',portal:'pfPortalEventos'};
+var PF_AVISOS_LOG_KEYS={solicitado:'pfSolicitadosEventos',comprado:'pfComprasEventos',faturado:'pfFaturadosEventos',chegou:'pfChegadasEventos',apostasvenda:'pfApostasVendaEventos',rma:'pfRmaEventos',catalogo:'pfCatPedEventos',foto:'pfFotosEventos',portal:'pfPortalEventos',demo:'pfDemoAtividade_v1'}; // v115.2304 demo
 function pfAvisosLidoCarregar(){
   try{return JSON.parse(pfSafeGetItem('pfAvisosLidoEm','{}'))||{};}catch(e){return {};}
 }
@@ -55891,6 +56168,7 @@ function pfAvisosLidoContarNaoLidos(etapaK){
   var log=[];try{log=JSON.parse(localStorage.getItem(logKey)||'[]');}catch(e){}
   var lidoEm=(pfAvisosLidoCarregar()[etapaK])||0;
   if(etapaK==='foto')log=log.filter(pfFotoEvMeu); // v115.2264 - só quem pediu a foto (admin vê todas)
+  if(etapaK==='demo')log=log.filter(function(ev){return ev&&ev.acao!=='abriu';}); // v115.2304 - tela aberta não conta
   return log.filter(function(ev){return new Date(ev.data).getTime()>lidoEm;}).length;
 }
 function pfAvisosMarcarLido(etapaK){
@@ -56071,7 +56349,8 @@ function pfAvisosAtualizar(){
     rma:{emoji:'<span style="font-size:26px;line-height:1">🔄</span>',titulo:'RMA / garantia'}, // v115.2145
     catalogo:{emoji:'<span style="font-size:26px;line-height:1">📖</span>',titulo:'pedido pelo catálogo'}, // v115.2231
     foto:{emoji:'<img src="icons/pack/pf-icon-095.png" style="width:36px;height:30px;object-fit:cover">',titulo:'foto recebida'}, // v115.2264
-    portal:{emoji:'<span style="font-size:26px;line-height:1">🌐</span>',titulo:'cotação pelo portal'} // v115.2285
+    portal:{emoji:'<span style="font-size:26px;line-height:1">🌐</span>',titulo:'cotação pelo portal'}, // v115.2285
+    demo:{emoji:'<span style="font-size:26px;line-height:1">🎭</span>',titulo:'atividade na demonstração'} // v115.2304
   };
   var cfgAvisos=pfAvisosConfigLoad();
   function pfIconeComBadge(etapaK,n,tituloTip){
@@ -56155,6 +56434,8 @@ function pfAvisosAtualizar(){
   // v115.2264 - foto chegou pela Solicitação de Fotos (só quem pediu; admin vê todas)
   // v115.2285 - cliente mandou cotação pelo Portal do cliente
   html+=pfIconeComBadge('portal',pfAvisosLidoContarNaoLidos('portal'),'Portal do cliente — cotações recebidas ('+pfPortalEventosLoad().length+' no total)');
+  // v115.2304 - o que os outros fizeram no modo demonstração (só o Vitor vê)
+  if(typeof pfEhVitorGmail==='function'&&pfEhVitorGmail())html+=pfIconeComBadge('demo',pfAvisosLidoContarNaoLidos('demo'),'Demonstração — o que os outros fizeram (clique pra ver)');
   html+=pfIconeComBadge('foto',pfAvisosLidoContarNaoLidos('foto'),'Fotos recebidas — Solicitação de Fotos ('+pfFotosEventosLoad().filter(pfFotoEvMeu).length+' no total)');
   // v115.1822 - "Chegou — Em Conferência": só monta o ícone se o usuário
   // logado for um dos 3 avisados (ver PF_CHEGOU_CONF_EMAILS) -- os
@@ -56591,6 +56872,7 @@ function pfAvisosMeAviseLimpar(){
   if(typeof pfAvisosAtualizar==='function')pfAvisosAtualizar();
 }
 function pfAvisosAbrirPainel(etapaK){
+  if(etapaK==='demo'){pfAvisosMarcarLido('demo');try{var _pAv=document.getElementById('pfAvisosPainel');if(_pAv)_pAv.remove();}catch(e){}pfDemoAtivAbrir();return;} // v115.2304
   // v115.1260 - BUG corrigido (a pedido do Vitor: escolher uma família no
   // dropdown não filtrava nada): a v115.1236 fazia ESSA MESMA função
   // resetar o filtro toda vez que roda -- mas pfAvisosSetFiltro() também
@@ -86050,6 +86332,7 @@ var PF_SNAPSHOT_VIEWS={
 // telas com essa complexidade, ver v115.1257 e v115.1269-1270).
 window._pfSnapshotsPorView=window._pfSnapshotsPorView||{};
 function pfNavigate(view){
+  try{var _tl=(typeof PF_BUSCAF_TELAS!=='undefined')&&PF_BUSCAF_TELAS.filter(function(x){return x[0]===view;})[0];pfDemoAtivTela(_tl?_tl[2]:String(view));}catch(eDa){} // v115.2304
   var telaAnterior=(typeof currentView!=='undefined')?currentView:null;
   if(telaAnterior&&telaAnterior!==view)window._pfNavAnterior=telaAnterior; // v115.2107 - pro "← Voltar" saber de onde veio
   // v115.1938 - Rede de segurança: se sair da tela de Rolamentos por

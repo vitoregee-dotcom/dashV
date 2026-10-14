@@ -245,6 +245,8 @@
   1–24 no começo do valor (Ø sozinho "12,5" não vira quantidade), Spicer primeiro no grupo; valor inteiro no title.
   v115.2316 BUG (print "5-153X", Flange de Orelha sem selo): no LNG a quantidade vem na OBSERVAÇÃO ("4 FUROS DISCO 90MM…" → especificacoes
   "Obs. (LNG)"); campo Furos vazio → procura "N FUROS" nas especificações (ou spec com "fur" no nome e só número), descrição e observação do grupo.
+- v115.2317 ("por que usamos esse roxo e não as cores do sistema?" → opção A): na busca geral dos Componentes Cardan, chips/etiquetas/cabeçalho de Código e
+  🔗 Monta com no AZUL do sistema `#1F4E79` (era roxo `#7B2D8B` / verde-água `#0D7377`); 🚚 Veículo continua verde. Decifrador Spicer não mudou.
 - v115.2302 ("nas cruzetas, na busca, já exibir medida do copo e de ponta a ponta… do lado do código"): `ccBgCruzMedHtml(fam,itens)` põe
   "📏 Ø copo B · ponta a ponta A" logo DEPOIS do código nas linhas de cruzeta da busca geral (Código e Monta com); sem as duas, nada.
 - v115.2309 ("precisa ser fácil colar o print da foto aqui, sem abrir o item"): na busca geral / Monta com / Detalhes, a miniatura VAZIA vira

@@ -120,6 +120,9 @@
   `pfModoDemo.marcas` [[real,troca]] (padrão `PF_MODO_DEMO_MARCAS_PADRAO`), editável pelo Vitor no bloco do modo demonstração (`pfModoDemoMarcasSalvar`).
   Não pega: gráfico em canvas e Excel exportado.
   v115.2292 BUG (Alt+B mostrava "VEDAMOTOR´S"): o regex aceita ´ ' ’ ` entre as letras e S final opcional (VEDAMOTOR).
+- v115.2303 BUG (vitor.lima no note do gerente com listas vazias): a base `pfDemoDados_v1` NÃO estava no servidor. `pfDemoDadosGarantir`
+  (chamada no `pfModoDemoVisao`, 1 tentativa/5 s, 1x por lote): no modo ativo, sem base (ou vazia/lote apagado) e com os clientes fictícios já
+  baixados, o aparelho monta a base com o lote mais novo dos clientes (`pfDemoGerarListas`) e sobe pro servidor.
 - Notícias: cópia PRÓPRIA de usuário de `pfNoticias*` é ignorada no pull (Carlos tinha uma de 10/09 que passava na frente).
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)

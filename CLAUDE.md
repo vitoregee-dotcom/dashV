@@ -137,6 +137,7 @@
     `ferrAbrirTab`, `pfAtAbrir`, abas de Vendas (`pfDemoAtivTela`). Vitor vê em 🎭 Dados de demonstração → "📜 O que fizeram na demonstração"
     (`pfDemoAtivAbrir`: resumo por pessoa, filtros, ⬇ Excel) e no 🎭 da barra de notificações (`demo` em PF_AVISOS_*, só ele).
   · Refazer/desligar = lote novo: o que fizeram some da tela, o registro fica.
+  · v115.2305: o registro só abre pro vitoregee@gmail.com (`pfDemoAtivAbrir` confere `pfEhVitorGmail`; o 🎭 some da tela de configurar avisos dos outros).
 - Notícias: cópia PRÓPRIA de usuário de `pfNoticias*` é ignorada no pull (Carlos tinha uma de 10/09 que passava na frente).
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)

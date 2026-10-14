@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2322</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2323</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2322</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2323</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -59427,6 +59427,7 @@ function pfOrbitaRender(){
     '</div>';
   pfOrb3DParar(); // v115.2127
   wrap.innerHTML=h;
+  window._pfOrbVazia=!lista.length; // v115.2323
   if(!lista.length){wrap.querySelector('canvas').parentNode.innerHTML='<div style="padding:30px;text-align:center;font-size:13px;color:var(--pf-noticias-text-muted,#8a9ab0)">'+(pg?'Ainda não há cotações nem pedidos com cliente.':'Nenhum cliente no seu nome ainda (Cadastros → Clientes → Vendedor).')+'</div>';return;}
   if(pfOrb3DLigado())pfOrb3DIniciar(lista);else{pfOrb3DParar();pfOrbIniciar(lista);}
 }
@@ -62063,7 +62064,9 @@ function pfOrb3DEventos(st){
 function pfOrbitaWatch(){
   var wrap=document.getElementById('pfOrbitaWrap');if(!wrap||typeof sbUser==='undefined'||!sbUser)return;
   var agora=Date.now();
-  if(!window._pfOrbUlt||agora-window._pfOrbUlt>120000||!wrap.firstChild){window._pfOrbUlt=agora;
+  // v115.2323 - BUG (print da home: "cadê a órbita?" — "0 clientes"): se a órbita foi desenhada antes das cotações/pedidos chegarem (sync /
+  // IndexedDB), ficava vazia até 2 min. Vazia = tenta de novo a cada 8 s.
+  if(!window._pfOrbUlt||agora-window._pfOrbUlt>(window._pfOrbVazia?8000:120000)||!wrap.firstChild){window._pfOrbUlt=agora;
     try{pfOrbitaRender();}catch(e){pfOrbMostrarErro(e);}}
 }
 
@@ -73837,17 +73840,26 @@ function ccFotoRapidaAlvo(alvo){
   var it=its.slice().sort(function(a,b){return ccPrioSpicer(b)-ccPrioSpicer(a);})[0];
   return {fam:alvo.fam,codigo:it.codigo,linha:it.linha||''};
 }
-async function ccFotoRapidaGravar(fam,codigo,linha,dataUrl){
+async function ccFotoRapidaGravar(fam,codigo,linha,dataUrl,subst){
   if(!dataUrl)return;
   try{dataUrl=await pfComprimirImagemDataUrl(dataUrl,480,0.72);}catch(e){}
   var ach=ccAcharItemIdx(fam,codigo,linha);
   if(ach.idx<0){pfAlert('Item não encontrado (pode ter sido alterado). Busque de novo.');return;}
   var item=ach.arr[ach.idx],fotos=(typeof pfFotosArr==='function')?pfFotosArr(item):((item.fotos&&item.fotos.slice())||[]);
-  fotos.push(dataUrl);item.fotos=fotos;delete item.foto;item.ts=Date.now();
+  if(subst&&fotos.length)fotos[0]=dataUrl;else if(subst)fotos.unshift(dataUrl);else fotos.push(dataUrl); // v115.2323 - substituir = troca a 1ª (a que aparece)
+  item.fotos=fotos;delete item.foto;item.ts=Date.now();
   ccSave(ach.data);
-  if(typeof pfToast==='function')pfToast('📷 Foto colocada em '+codigo);
+  if(typeof pfToast==='function')pfToast(subst?'📷 Foto substituída em '+codigo:'📷 Foto colocada em '+codigo);
   if(document.getElementById('ccBuscaGeralRes')||window._ccBuscaGeralTxt)try{ccBuscaGeralExecutar(window._ccBuscaGeralTxt||'');}catch(e){}
   try{if(typeof ccExecutarBusca==='function')ccExecutarBusca();}catch(e){}
+}
+// v115.2323 - A pedido do Vitor ("sobre foto: se não tiver foto já cola; se tiver, pergunta se quer substituir"): o quadradinho da foto que JÁ
+// tem foto também aceita Ctrl+V (mouse em cima), arrastar e o 📷 do cantinho -- sempre perguntando antes de trocar. Sem foto continua colando direto.
+function ccFotoRapidaAplicar(el,dataUrl){
+  if(!el||!dataUrl)return;
+  var fam=el.getAttribute('data-ccfoto-fam'),cod=el.getAttribute('data-ccfoto-cod'),lin=el.getAttribute('data-ccfoto-lin')||'';
+  if(el.getAttribute('data-ccfoto-tem')==='1')pfConfirm('A peça '+cod+' já tem foto.\nSubstituir pela imagem nova?',function(){ccFotoRapidaGravar(fam,cod,lin,dataUrl,true);},'Substituir');
+  else ccFotoRapidaGravar(fam,cod,lin,dataUrl);
 }
 async function ccFotoRapidaClique(el){
   var fam=el.getAttribute('data-ccfoto-fam'),cod=el.getAttribute('data-ccfoto-cod'),lin=el.getAttribute('data-ccfoto-lin')||'';
@@ -73860,12 +73872,12 @@ async function ccFotoRapidaClique(el){
     dataUrl=await new Promise(function(res){var inp=document.createElement('input');inp.type='file';inp.accept='image/*';
       inp.onchange=async function(){if(!inp.files[0]){res(null);return;}res(await rfLerArquivoComoDataUrl(inp.files[0]));};inp.click();});
   }
-  if(dataUrl)ccFotoRapidaGravar(fam,cod,lin,dataUrl);
+  if(dataUrl)ccFotoRapidaAplicar(el,dataUrl);
 }
 function ccFotoRapidaSoltar(ev,el){
   ev.preventDefault();ev.stopPropagation();el.style.background='#fff';
   var f=ev.dataTransfer&&ev.dataTransfer.files&&ev.dataTransfer.files[0];if(!f||f.type.indexOf('image/')!==0)return;
-  rfLerArquivoComoDataUrl(f).then(function(d){ccFotoRapidaGravar(el.getAttribute('data-ccfoto-fam'),el.getAttribute('data-ccfoto-cod'),el.getAttribute('data-ccfoto-lin')||'',d);});
+  rfLerArquivoComoDataUrl(f).then(function(d){ccFotoRapidaAplicar(el,d);});
 }
 (function(){ // Ctrl+V com o mouse em cima do quadradinho
   var sobre=null;
@@ -73876,7 +73888,7 @@ function ccFotoRapidaSoltar(ev,el){
     for(var i=0;i<its.length;i++){if(its[i].type&&its[i].type.indexOf('image/')===0){f=its[i].getAsFile();break;}}
     if(!f)return;
     e.preventDefault();e.stopImmediatePropagation();
-    var el=sobre;rfLerArquivoComoDataUrl(f).then(function(d){ccFotoRapidaGravar(el.getAttribute('data-ccfoto-fam'),el.getAttribute('data-ccfoto-cod'),el.getAttribute('data-ccfoto-lin')||'',d);});
+    var el=sobre;rfLerArquivoComoDataUrl(f).then(function(d){ccFotoRapidaAplicar(el,d);});
   },true);
 })();
 function ccMiniFotoHtml(fotos,px,alvo){
@@ -73886,7 +73898,10 @@ function ccMiniFotoHtml(fotos,px,alvo){
   if(!fotos||!fotos.length)return '<div style="width:'+px+'px;height:'+px+'px;flex-shrink:0;border-radius:6px;border:1px dashed #d5dde8;background:#fff"></div>';
   if(window._ccMiniFotos.length>3000)window._ccMiniFotos=[];
   var id=window._ccMiniFotos.push(fotos)-1;
-  return '<div onclick="event.stopPropagation();pfAbrirLightbox(window._ccMiniFotos['+id+'],0)" title="Clique pra ampliar" style="width:'+px+'px;height:'+px+'px;flex-shrink:0;border-radius:6px;border:1px solid #e0e8f0;cursor:zoom-in;background:#fff center/contain no-repeat;background-image:url(\''+String(fotos[0]).replace(/'/g,'%27')+'\')"></div>';
+  var _al=alvo?ccFotoRapidaAlvo(alvo):null; // v115.2323 - com foto: Ctrl+V / arrastar / 📷 do canto perguntam se substitui
+  var _at=_al?' data-ccfoto-fam="'+pfEscHtml(_al.fam)+'" data-ccfoto-cod="'+pfEscHtml(_al.codigo)+'" data-ccfoto-lin="'+pfEscHtml(_al.linha)+'" data-ccfoto-tem="1" ondragover="event.preventDefault()" ondrop="ccFotoRapidaSoltar(event,this)"':'';
+  return '<div'+_at+' onclick="event.stopPropagation();pfAbrirLightbox(window._ccMiniFotos['+id+'],0)" title="Clique pra ampliar'+(_al?' · pra trocar a foto: mouse aqui + Ctrl+V, arraste a imagem ou clique na câmera do canto':'')+'" style="width:'+px+'px;height:'+px+'px;flex-shrink:0;border-radius:6px;border:1px solid #e0e8f0;cursor:zoom-in;position:relative;background:#fff center/contain no-repeat;background-image:url(\''+String(fotos[0]).replace(/'/g,'%27')+'\')">'+
+    (_al?'<span onclick="event.stopPropagation();ccFotoRapidaClique(this.parentNode)" title="Trocar a foto (cola a imagem copiada ou escolhe o arquivo)" style="position:absolute;right:-5px;bottom:-5px;width:17px;height:17px;border-radius:50%;background:#fff;border:1px solid #b9d2ee;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2)"><img src="'+PF_SF_IC_CAM+'" alt="" style="width:12px;height:12px;object-fit:contain;pointer-events:none"></span>':'')+'</div>';
 }
 function ccRenderResultadosMontaCom(){
   var el=document.getElementById('ccResultadosMontaCom');

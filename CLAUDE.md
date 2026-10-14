@@ -260,6 +260,10 @@
   (`ccBgOrdenar`, `window._ccBgOrd` {fam,k,dir}, vazio no fim); números `ccBgFmtNum` (84.9/73,00 → 84,9/73) + "(mm)" (`ccBgEhMm`); sem medida = fim e cinza;
   FOTO sempre (saiu do MOSTRAR TAMBÉM); copiar pequeno `ccBgCopiarHtml(cod,true)`. **Cor de texto em td da busca: pôr num <span> (o tema passa por cima da cor do td).**
 - v115.2322 BUG ("copiei o código e foi com espaço"): o copiar da busca geral (`ccBgCopiar`) tira TODOS os espaços (6-3-2651 KX → 6-3-2651KX).
+- v115.2323 ("sobre foto: se não tiver foto já cola; se tiver pergunta se quer substituir"): miniatura COM foto na busca geral também tem
+  data-ccfoto-* + `data-ccfoto-tem="1"` → Ctrl+V com o mouse em cima, arrastar ou a câmera do canto (`ccFotoRapidaClique`) passam por
+  `ccFotoRapidaAplicar` (com foto = `pfConfirm` "Substituir" → `ccFotoRapidaGravar(...,subst)` troca a 1ª foto); clique na foto continua ampliando.
+  BUG junto ("cadê a órbita?" vazia): `window._pfOrbVazia` → `pfOrbitaWatch` tenta de novo a cada 8 s em vez de 2 min.
 - v115.2302 ("nas cruzetas, na busca, já exibir medida do copo e de ponta a ponta… do lado do código"): `ccBgCruzMedHtml(fam,itens)` põe
   "📏 Ø copo B · ponta a ponta A" logo DEPOIS do código nas linhas de cruzeta da busca geral (Código e Monta com); sem as duas, nada.
 - v115.2309 ("precisa ser fácil colar o print da foto aqui, sem abrir o item"): na busca geral / Monta com / Detalhes, a miniatura VAZIA vira

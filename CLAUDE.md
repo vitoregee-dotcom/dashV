@@ -349,6 +349,10 @@
   v115.2313 ("mais de uma série a mesma máquina… exibir a série já no card", print do CAT SIS 416F = LWT/KSF/PHD): `x.series` = campo Série/chassi
   das fichas (separado por , ; / ou " e ") + séries do Peças por máquina → etiquetas amarelas `maqSeriesHtml` no card (até 4 + "+N") e na página; a
   busca já acha pela série. BUG junto: ficha com a marca dentro do modelo ("CASE 695") virava "CASE CASE 695" — o `maq()` tira a marca do começo.
+  v115.2314 **peça "no lugar de"** (Vitor: "filtro de ar só tem primário e secundário… às vezes usa o Advance"; escolheu a opção A): `pmAlt` = código da
+  principal na aplicação da peça de máquina. Colocar peças: select "⇄ peça normal / ↳ no lugar de X" embaixo da descrição (`pmInsAltHtml`/`pmInsAlt`, pega grupo/tipo
+  da principal; `pmGravarPecas` só mexe no pmAlt se a linha trouxe `alt`); página: ⇄ em cada linha (`pmAltEscolher` → `pmAltGravar`), alternativa embaixo da
+  principal com "↳ ou" (`pmOrdenarAlt`); cotação: linha "↳ ou, no lugar de X" logo depois da principal (`e.alt`, `e._o`) e fora do selecionar/selecionar grupo/todos.
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

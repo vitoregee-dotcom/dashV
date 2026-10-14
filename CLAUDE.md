@@ -123,6 +123,20 @@
 - v115.2303 BUG (vitor.lima no note do gerente com listas vazias): a base `pfDemoDados_v1` NÃO estava no servidor. `pfDemoDadosGarantir`
   (chamada no `pfModoDemoVisao`, 1 tentativa/5 s, 1x por lote): no modo ativo, sem base (ou vazia/lote apagado) e com os clientes fictícios já
   baixados, o aparelho monta a base com o lote mais novo dos clientes (`pfDemoGerarListas`) e sobe pro servidor.
+- v115.2304 ("se outro usuário criar algo na demonstração, quero que apareça e fique salvo… eles vão testar e quero saber o que foi feito"):
+  · chaves "só demo" (cotações, pedidos, clientes, títulos, CRM) SOBEM no modo ativo com a lista COMPLETA do navegador (reais intocados +
+    demo:true criados ali; `_pfDemoPush` no `pfSyncPush`, raw sem o filtro da tela).
+  · chaves "nada" que a pessoa preenche na tela (`PF_DEMO_COMPARTILHA`: Avise-me, Solic. de compra, RMA, Solic. NF, Pesquisas enviadas,
+    Mapas, Concorrentes, Lembretes) gravam na BASE COMPARTILHADA (`pfModoDemoBaseGravar` → `pfDemoDados_v1.por[chave]`, lápide em `.del[chave]`);
+    as outras (trânsito, compras, respostas de pesquisa, pendências…) continuam na sombra local. Junta de aparelhos `pfDemoDadosJuntar`
+    (push e pull; mesmo lote = união por item, mais novo vence, lápide vale). Sombras antigas → base (`pfDemoSombrasMigrar`).
+  · Gravação da sync = `window._pfPullGravando` (no forEach do pull, na fila genérica e no regravar do push): não marca demo nem registra;
+    no pull, chave "nada" NÃO é gravada com o modo ativo. Travas: >15 itens novos sem demo:true numa gravação = lista real (não marca).
+  · Item mexido ganha `demoPor`/`demoEm` (comparação ignora o carimbo, `pfDemoSemCarimbo`); registro **`pfDemoAtividade_v1`** (logKeys, por
+    conta, máx 2000; `pfDemoAtivAdd`: entrou/abriu tela/criou/alterou/apagou, mesma pessoa+item em 30 min = 1 linha) — telas via `pfNavigate`,
+    `ferrAbrirTab`, `pfAtAbrir`, abas de Vendas (`pfDemoAtivTela`). Vitor vê em 🎭 Dados de demonstração → "📜 O que fizeram na demonstração"
+    (`pfDemoAtivAbrir`: resumo por pessoa, filtros, ⬇ Excel) e no 🎭 da barra de notificações (`demo` em PF_AVISOS_*, só ele).
+  · Refazer/desligar = lote novo: o que fizeram some da tela, o registro fica.
 - Notícias: cópia PRÓPRIA de usuário de `pfNoticias*` é ignorada no pull (Carlos tinha uma de 10/09 que passava na frente).
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)

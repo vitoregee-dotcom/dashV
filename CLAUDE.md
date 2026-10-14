@@ -247,6 +247,11 @@
   "Obs. (LNG)"); campo Furos vazio → procura "N FUROS" nas especificações (ou spec com "fur" no nome e só número), descrição e observação do grupo.
 - v115.2317 ("por que usamos esse roxo e não as cores do sistema?" → opção A): na busca geral dos Componentes Cardan, chips/etiquetas/cabeçalho de Código e
   🔗 Monta com no AZUL do sistema `#1F4E79` (era roxo `#7B2D8B` / verde-água `#0D7377`); 🚚 Veículo continua verde. Decifrador Spicer não mudou.
+- v115.2318 **medidas por tipo na busca geral** ("cada tipo de peça tem as medidas principais… aplicação tem muitas" → prévia `docs/referencias/busca-medidas/`,
+  "deixa as duas. só que fixo a B"): `CC_BG_PRINC` = medidas principais por família (`@furos` `ccBgFurosInfo`, `@estrias` `ccCampoEstrias`, `@tipo` ponteira),
+  valor `ccBgPrincValor` (Spicer primeiro). **B (abre SEMPRE)** = tabela separada por tipo de peça com as colunas dele + APLIC. (nº, lista no title)
+  (`ccBgDetPorTipo`; "MOSTRAR TAMBÉM" Foto/Descrição/Monta com/Todas as medidas em `pf_cc_bg_cols2`). "📋 Ver em lista" → **A** = etiquetas embaixo
+  do código (`ccBgEtiquetasHtml`, substitui os selos ⚙/🔩/📏 antigos) + "🚚 N aplicações"; a troca vale só até recarregar. Família nova → linha no CC_BG_PRINC.
 - v115.2302 ("nas cruzetas, na busca, já exibir medida do copo e de ponta a ponta… do lado do código"): `ccBgCruzMedHtml(fam,itens)` põe
   "📏 Ø copo B · ponta a ponta A" logo DEPOIS do código nas linhas de cruzeta da busca geral (Código e Monta com); sem as duas, nada.
 - v115.2309 ("precisa ser fácil colar o print da foto aqui, sem abrir o item"): na busca geral / Monta com / Detalhes, a miniatura VAZIA vira

@@ -243,6 +243,10 @@
   1–24 no começo do valor (Ø sozinho "12,5" não vira quantidade), Spicer primeiro no grupo; valor inteiro no title.
 - v115.2302 ("nas cruzetas, na busca, já exibir medida do copo e de ponta a ponta… do lado do código"): `ccBgCruzMedHtml(fam,itens)` põe
   "📏 Ø copo B · ponta a ponta A" logo DEPOIS do código nas linhas de cruzeta da busca geral (Código e Monta com); sem as duas, nada.
+- v115.2309 ("precisa ser fácil colar o print da foto aqui, sem abrir o item"): na busca geral / Monta com / Detalhes, a miniatura VAZIA vira
+  "📷 +" (`ccMiniFotoHtml(fotos,px,alvo)` com alvo {fam,itens}; `ccFotoRapidaAlvo` = Spicer primeiro): clique cola a imagem copiada (sem imagem →
+  escolhe arquivo, `ccFotoRapidaClique`), mouse em cima + Ctrl+V (listener de paste em captura) ou arrastar (`ccFotoRapidaSoltar`) →
+  `ccFotoRapidaGravar` (480 px, ccSave, redesenha a busca).
 - v115.2210 BUG "➕ Cadastrar item"/"📋 Colar print de aplicação": o pedido à IA não tinha "monta_com" (ela punha "MONTA COM
   2045005 / C020 / 52MM" DENTRO da aplicação) e as estrias ficavam só nas especificações. Agora: `monta_com` no JSON das duas
   leituras + `ccMontaComDaIA(j)` (junta e TIRA de dentro das aplicações; `ccMontaComDoTexto` separa por "/" e larga medida

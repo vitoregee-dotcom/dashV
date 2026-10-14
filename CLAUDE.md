@@ -243,6 +243,8 @@
 - v115.2301 ("em flanges é bom exibir a quantidade de furos"): selo azul "🔩 N furos" nas linhas da busca geral (ao lado do ⚙ dentes) pra
   famílias flange* — `ccBgFurosInfo`/`ccBgSeloFurosHtml`: campo cujo nome começa com "Furos" (acoplamento D "4 x 15,5", orelha E), só inteiro
   1–24 no começo do valor (Ø sozinho "12,5" não vira quantidade), Spicer primeiro no grupo; valor inteiro no title.
+  v115.2316 BUG (print "5-153X", Flange de Orelha sem selo): no LNG a quantidade vem na OBSERVAÇÃO ("4 FUROS DISCO 90MM…" → especificacoes
+  "Obs. (LNG)"); campo Furos vazio → procura "N FUROS" nas especificações (ou spec com "fur" no nome e só número), descrição e observação do grupo.
 - v115.2302 ("nas cruzetas, na busca, já exibir medida do copo e de ponta a ponta… do lado do código"): `ccBgCruzMedHtml(fam,itens)` põe
   "📏 Ø copo B · ponta a ponta A" logo DEPOIS do código nas linhas de cruzeta da busca geral (Código e Monta com); sem as duas, nada.
 - v115.2309 ("precisa ser fácil colar o print da foto aqui, sem abrir o item"): na busca geral / Monta com / Detalhes, a miniatura VAZIA vira

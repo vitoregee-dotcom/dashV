@@ -52677,6 +52677,20 @@ function vendasSerieGrupoAplic(a){
 var VENDAS_VEDACAO_RE=/\b(RETENTOR|RETENTORES|O[\s\-']?RINGS?|ANEL\s+O\b|ANEIS\s+O\b|JUNTAS?|GAXETAS?|VEDADOR(ES)?|VEDACAO|VEDACOES|VEDANTES?|SELOS?|SEAL|SEALS|GASKETS?)\b|\bANE(L|IS)\s+(DE\s+)?(VEDA|SEGMENTO|BORRACHA)|\bKIT\s+(DE\s+)?(VEDA|REPARO)|\bARRUELAS?\s+(DE\s+)?(VEDA|COBRE)|\bBUCHAS?\s+(DE\s+)?VEDA/;
 // v115.2299 - "JUNTA DUPLA" (double U-joint do eixo, cardan) não é vedação.
 function vendasSerieEhVedacao(desc){var d=String(desc||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');if(/\bANE(L|IS)\s+(DE\s+)?(TRAVA|ELASTICO)/.test(d)&&!/VEDA|RETENTOR|O[\s\-']?RING/.test(d))return false;if(/\bJUNTAS?\s+(UNIVERSA|HOMOCINET|ARTICULA|CARDAN|DESLIZ|DUPLA)/.test(d)&&!/VEDA/.test(d))return false;return VENDAS_VEDACAO_RE.test(d);}
+// v115.2309 - A pedido do Vitor ("vou começar a fazer o grupo dos filtros das máquinas… pra na cotação colocar a máquina e já aparecer
+// todos"; prévia aprovada): dentro do grupo FILTROS da busca Série/Modelo, os filtros vêm separados pelo TIPO (pela descrição) — cada
+// tipo com "selecionar". Ordem fixa de VENDAS_FILTRO_TIPOS; tipo novo/palavra nova → acrescentar no vendasFiltroTipo.
+var VENDAS_FILTRO_TIPOS=[['MOTOR','🛢️ Motor (óleo)'],['AR','🌬️ Ar'],['COMBUSTIVEL','⛽ Combustível'],['HIDRAULICO','💧 Hidráulico'],['TRANSMISSAO','⚙️ Transmissão'],['CABINE','❄️ Cabine / ar-condicionado'],['OUTROS','🔹 Outros filtros']];
+function vendasFiltroTipo(desc){
+  var d=String(desc||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(/CABINE|CABIN|AR[\s\-]*CONDICIONADO|\bA\/C\b|AMBIENTE|RECIRCULA/.test(d))return 'CABINE';
+  if(/COMBUST|DIESEL|\bFUEL|SEPARADOR|DECANTADOR|AGUA\b|\bWATER/.test(d))return 'COMBUSTIVEL';
+  if(/HIDRAUL|HYDRAUL|RETORNO|SUCCAO|SUCCION|RETURN/.test(d))return 'HIDRAULICO';
+  if(/TRANSMISS|TRASNMISS|CAMBIO|CONVERSOR|TRANSMISSION/.test(d))return 'TRANSMISSAO';
+  if(/\bAR\b|\bAIR\b|PRIMARIO|SECUNDARIO|PRIMARY|SECONDARY|SEGURANCA|EXTERNO|INTERNO/.test(d))return 'AR';
+  if(/OLEO|LUBRIF|\bOIL\b|MOTOR|ENGINE|BY[\s\-]?PASS/.test(d))return 'MOTOR';
+  return 'OUTROS';
+}
 // v115.2298 - A pedido do Vitor ("vamos colocar um percentual do tanto que são iguais em comparação com a outra série"): pra cada par de
 // séries do MESMO componente, % de peças iguais = códigos em comum ÷ códigos diferentes das duas juntas (+ "N em comum").
 function vendasSerieSemelhancaHtml(info,ord){
@@ -52730,8 +52744,13 @@ function vendasSerieAgruparHtml(aplics,ccRes,linhaAplic){
   }
   // v115.2297 - vedação primeiro dentro de cada componente; "Só vedação" deixa só ela
   var soVed=!!window._vendasSerieSoVed,nVedTot=0;
-  ordem.forEach(function(f){grupos[f].forEach(function(e){e.ved=vendasSerieEhVedacao(e.sel.desc);if(e.ved)nVedTot++;});
+  ordem.forEach(function(f){grupos[f].forEach(function(e){e.ved=f!=='FILTROS'&&vendasSerieEhVedacao(e.sel.desc);if(e.ved)nVedTot++;});
     grupos[f]=grupos[f].filter(function(e){return e.ved;}).concat(grupos[f].filter(function(e){return !e.ved;}));});
+  if(grupos.FILTROS){ // v115.2309 - filtros por tipo, na ordem fixa
+    var _ordT=VENDAS_FILTRO_TIPOS.map(function(t){return t[0];});
+    grupos.FILTROS.forEach(function(e){e.ftipo=vendasFiltroTipo(e.sel.desc);});
+    grupos.FILTROS.sort(function(a,b){return _ordT.indexOf(a.ftipo)-_ordT.indexOf(b.ftipo);});
+  }
   if(soVed){ordem.forEach(function(f){grupos[f]=grupos[f].filter(function(e){return e.ved;});});ordem=ordem.filter(function(f){return grupos[f].length;});
     if(!ordem.length)return '<div style="padding:16px 12px;font-size:12.5px;color:#607080">Nenhuma peça de vedação nessa busca. <span onclick="window._vendasSerieSoVed=false;vendasBuscarPorSerieInput()" style="color:#7B2D8B;font-weight:700;cursor:pointer">Mostrar tudo</span></div>';}
   window._vendasSerieGrupos=grupos;
@@ -52760,6 +52779,18 @@ function vendasSerieAgruparHtml(aplics,ccRes,linhaAplic){
         return '<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px 30px;background:'+(tipo==='ved'?'#EAF6F6':'#F7F5FA')+';border-bottom:1px solid '+(tipo==='ved'?'#CFE9EA':'#EEE8F3')+';font-size:11px;font-weight:800;color:'+(tipo==='ved'?'#0D6366':'#6B5A80')+'">'+
           '<span style="flex:1">'+(tipo==='ved'?'🛡 Vedação':'⚙️ Demais peças')+' <span style="font-weight:600;opacity:.75">('+n+')</span></span>'+
           '<label style="display:flex;align-items:center;gap:5px;font-weight:600;cursor:pointer"><input type="checkbox" '+(tSel?'checked':'')+' onchange="vendasSerieSelGrupo(\''+pfEscJs(f)+'\',this.checked,\''+tipo+'\')" style="width:13px;height:13px;cursor:pointer">selecionar</label></div>';};
+      if(f==='FILTROS'){ // v115.2309 - um bloco por tipo de filtro, cada um com "selecionar"
+        var _tAnt=null;
+        ents.slice(0,lim).forEach(function(e){
+          if(e.ftipo!==_tAnt){_tAnt=e.ftipo;var es=ents.filter(function(x){return x.ftipo===e.ftipo;}),tSel=es.every(function(x){return !!sel[x.sel.key];}),nome=(VENDAS_FILTRO_TIPOS.filter(function(t){return t[0]===e.ftipo;})[0]||[0,e.ftipo])[1];
+            h+='<div style="display:flex;align-items:center;gap:8px;padding:5px 12px 5px 30px;background:#EEF4FB;border-bottom:1px solid #D6E4F3;font-size:11px;font-weight:800;color:#1F4E79">'+
+              '<span style="flex:1">'+nome+' <span style="font-weight:600;opacity:.75">('+es.length+')</span></span>'+
+              '<label style="display:flex;align-items:center;gap:5px;font-weight:600;cursor:pointer"><input type="checkbox" '+(tSel?'checked':'')+' onchange="vendasSerieSelGrupo(\'FILTROS\',this.checked,\'ft:'+e.ftipo+'\')" style="width:13px;height:13px;cursor:pointer">selecionar</label></div>';}
+          h+=e.html||linhaAplic(e.a);
+        });
+        if(ents.length>lim)h+='<div onclick="window._vendasSerieGrupoTodos=window._vendasSerieGrupoTodos||{};window._vendasSerieGrupoTodos[\'FILTROS\']=true;vendasBuscarPorSerieInput()" style="padding:9px 12px;font-size:12px;font-weight:700;color:#7B2D8B;cursor:pointer;border-bottom:1px solid #F0E6F7">▾ Mostrar os outros '+(ents.length-lim)+' filtros</div>';
+        return;
+      }
       ents.slice(0,lim).forEach(function(e,ix){
         if(dividir&&ix===0)h+=sub('ved',nV);
         if(dividir&&ix===nV)h+=sub('outras',ents.length-nV);
@@ -52772,7 +52803,8 @@ function vendasSerieAgruparHtml(aplics,ccRes,linhaAplic){
 }
 function vendasSerieSelGrupo(fam,marcar,sub){
   var ents=(window._vendasSerieGrupos||{})[fam]||[];
-  if(sub)ents=ents.filter(function(e){return sub==='ved'?e.ved:!e.ved;}); // v115.2297 - só o bloco (vedação / demais)
+  if(sub&&String(sub).indexOf('ft:')===0)ents=ents.filter(function(e){return e.ftipo===String(sub).slice(3);}); // v115.2309 - só um tipo de filtro
+  else if(sub)ents=ents.filter(function(e){return sub==='ved'?e.ved:!e.ved;}); // v115.2297 - só o bloco (vedação / demais)
   window._vendasAplicSel=window._vendasAplicSel||{};
   ents.forEach(function(e){
     var k=e.sel.key;

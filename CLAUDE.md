@@ -320,6 +320,17 @@
   A = `pfIntercBlocoHtml(cod)` na ficha do produto (em cima das aplicações) e no card do Alt+B (`compacto`); modelo clicável →
   `pfIntercAbrirSerie` (Aplicações filtrada). B = botão "🔁 Peças mais intercambiáveis" em Aplicações → `pfIntercRankingAbrir` (filtros
   componente/🛡 vedação/saldo/marca/busca em `window._pfIntercF`, ⬇️ Excel `pfIntercExcel`). "JUNTA DUPLA" saiu da vedação.
+- v115.2310 **🚜 Peças por máquina** (Vitor: "grupo dos filtros das máquinas… na cotação colocar a máquina e já aparecer todos" + "marcar grupos:
+  material rodante, pinos e buchas, FPS" + "simples pra inserir" + "colar print / planilha"; prévias aprovadas em `docs/referencias/filtros-por-tipo/`):
+  card na Área Técnica → `pmAbrir` (lista de máquinas, abas por grupo, blocos por tipo com saldo/equivalentes das conversões do cadastro,
+  "+ digite o código" `pmAddRapido`, 🗑 `pmTirar`, Tipo/Motor da máquina `pmMaqCampo`) + "➕ Colocar peças" `pmInserirAbrir` (3 passos: máquina
+  (datalist, "+ série/chassi"), cola texto `pmLerTexto` / 📋 Colar print ou Ctrl+V (IA `pmInsIA`) / ⬆ arquivo: imagem/PDF → IA, Excel/CSV →
+  `pmLinhasDaPlanilha` / 📑 copiar de outra máquina; confere com select grupo›tipo; o que mudar à mão vai pro `aprendido` por código).
+  Grupos/tipos `PF_PM_GRUPOS_PADRAO` (filtros, fps, rodante, pinos) por PALAVRAS da descrição (`pmClassificar`; grupo = 1º que bate, tipo = o
+  ÚLTIMO da lista que bate), editáveis pelo gestor em ✏️ Grupos e tipos (`pmGruposEditar`). Config compartilhada `pfPecasMaq_v1`
+  {grupos?, aprendido, maquinas}. Peças gravadas em APLIC_KEY (`pmGravarPecas`: equip = nome do grupo, marca/modelo/série + marcaVeiculo/veiculo
+  da máquina, pmGrupo/pmTipo/pmMaq). Cotação: `vendasSerieGrupoAplic` usa o pmGrupo; grupo com tipos vira blocos por tipo com "selecionar"
+  (`vendasSerieSelGrupo(f,marcar,'ft:'+tipo)`); grupos novos no `VENDAS_SERIE_GRUPOS_ORDEM`.
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

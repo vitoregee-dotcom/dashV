@@ -233,6 +233,9 @@
   caixinhas "MOSTRAR" (`ccBgDetCaixasHtml`, `pf_cc_bg_cols`; padrão foto, descrição, monta com, dentes): Foto/Descrição/Monta com/
   Aplicação (`CC_BG_EXTRAS`) + medidas das famílias que apareceram (`ccBgColsDisp`, coluna = NOME da medida sem a letra; "Dentes /
   estrias" junta via `ccCampoEstrias`). Valor = 1º preenchido do grupo, Spicer primeiro (`ccBgValor`; "·" = a família não tem a medida).
+- v115.2306 (print da busca geral: "ponteira fixa ou deslizante… como descrição mesmo" + "dentes, muda para estria em todo sistema"): o selo da
+  família na busca geral mostra "PONTEIRA FIXA"/"PONTEIRA DESLIZANTE" (`ccPontRotulo`; a etiquetinha 🔩/↔️ saiu, só o ❔ sem tipo fica; descrição igual
+  ao selo não repete). Na TELA "dentes" virou "estrias" (selo ⚙ N estrias, coluna Estrias, labels Nº de estrias, 3D); o campo continua `numDentes`.
 - v115.2301 ("em flanges é bom exibir a quantidade de furos"): selo azul "🔩 N furos" nas linhas da busca geral (ao lado do ⚙ dentes) pra
   famílias flange* — `ccBgFurosInfo`/`ccBgSeloFurosHtml`: campo cujo nome começa com "Furos" (acoplamento D "4 x 15,5", orelha E), só inteiro
   1–24 no começo do valor (Ø sozinho "12,5" não vira quantidade), Spicer primeiro no grupo; valor inteiro no title.

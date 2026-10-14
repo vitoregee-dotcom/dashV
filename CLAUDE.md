@@ -255,6 +255,10 @@
 - v115.2319 ("coloca algo que quando eu clicar copia o código da peça, pra colar na internet ou catálogo de fabricante"): 📋 do lado do código
   em todas as linhas da busca geral (lista e tabela) — `ccBgCopiarHtml(cod)`/`ccBgCopiar` (clipboard ou `pfCopiarFallback`, "✓ copiado", não abre a peça).
 - v115.2320 ("colocou o ícone que mandei? o da câmera"): o "📷 +" da miniatura vazia (colar foto) usa o ícone da câmera do Vitor `PF_SF_IC_CAM` (pack 095).
+- v115.2321 (tabela da busca geral, prévia `docs/referencias/busca-tabela/`, "vamo no A"): listra LARANJA bem clarinha `#FFF6EC` (no tr, hover `#FDE7CF`);
+  "monta com X" igual em todas vai 1x pro título; marca embaixo do código (`ccBgMarcaCod`: linha do cadastro > `ccMarcaPeloCodigo`); clicar no título ordena
+  (`ccBgOrdenar`, `window._ccBgOrd` {fam,k,dir}, vazio no fim); números `ccBgFmtNum` (84.9/73,00 → 84,9/73) + "(mm)" (`ccBgEhMm`); sem medida = fim e cinza;
+  FOTO sempre (saiu do MOSTRAR TAMBÉM); copiar pequeno `ccBgCopiarHtml(cod,true)`. **Cor de texto em td da busca: pôr num <span> (o tema passa por cima da cor do td).**
 - v115.2302 ("nas cruzetas, na busca, já exibir medida do copo e de ponta a ponta… do lado do código"): `ccBgCruzMedHtml(fam,itens)` põe
   "📏 Ø copo B · ponta a ponta A" logo DEPOIS do código nas linhas de cruzeta da busca geral (Código e Monta com); sem as duas, nada.
 - v115.2309 ("precisa ser fácil colar o print da foto aqui, sem abrir o item"): na busca geral / Monta com / Detalhes, a miniatura VAZIA vira

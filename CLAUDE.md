@@ -333,6 +333,19 @@
   {grupos?, aprendido, maquinas}. Peças gravadas em APLIC_KEY (`pmGravarPecas`: equip = nome do grupo, marca/modelo/série + marcaVeiculo/veiculo
   da máquina, pmGrupo/pmTipo/pmMaq). Cotação: `vendasSerieGrupoAplic` usa o pmGrupo; grupo com tipos vira blocos por tipo com "selecionar"
   (`vendasSerieSelGrupo(f,marcar,'ft:'+tipo)`); grupos novos no `VENDAS_SERIE_GRUPOS_ORDEM`.
+- v115.2312 **🚜 Máquinas** (Vitor: "será que não fica muita coisa parecida?" + "puxar todas as máquinas que usam a transmissão X"; prévias aprovadas em
+  `docs/referencias/maquinas-unificar/`): Ficha Técnica + Peças por máquina viraram o card **Máquinas** (`maqAbrir`, `maqRender`, tela `#maqTela`); o card
+  Alimentar saiu (botão "📥 Alimentar pelo catálogo" dentro de Aplicações, ícone 🧩). Atalhos antigos do dock redirecionam (`pfAtalhoRegistrar` dos 3 slugs).
+  Máquina = marca|modelo (`maqChave`, alias CAT→CATERPILLAR em `MAQ_MARCA_ALIAS`) juntando fichas (`ftLoad`), máquinas do pm (`pmMaquinas`) e as máquinas
+  gravadas nas séries (veiculo/marcaVeiculo, `maqVeicTokens` — só token com número). Índice `maqIndice()` (cache 5 s, `maqIdxLimpar`): `M` máquinas, `G` séries
+  de componente (aplicações sem pmMaq, chave modelo|||série, `g.grupo` = componente mais comum). Ligação máquina↔série: marcada na série (`comps[gk].serie`) ou
+  ficha técnica que cita o componente (`acharSerie`: série/modelo+série/modelo único em alfanumérico, ou série ≥5 contida) → `vaiEm`. Lista: busca por nome/
+  ficha/código de peça (pm + séries ligadas), Tipo/Marca, chips ⚠️ sem ficha / sem peças / componente sem série; rascunho da ficha. Página: abas Tudo /
+  Componentes (`maqCompHtml`: "N peças ›" → `pfIntercAbrirSerie(maqTermoSerie)`, "+ ligar série" `maqLigarAbrir`, ✕ `maqDesligar`) / Peças de manutenção
+  (= `pmMaqHtml`; `pmAbrir` agora cai em `maqDoPm`) / Ficha técnica (`maqFichaHtml`, ✏️ `ftAbrirForm`, 🖨️ plaqueta). `ftRender` = `maqRender` (form vivo
+  preservado); a tabela antiga = "📋 Tabela das fichas" (`ftRenderTabela`, `_maqTabela`). Ligar/tirar grava em TODA a série (`maqSerieMaquinasSet`: aplicações +
+  cópia nas fichas de produto, igual ao ✏️ Editar grupo). "🚜 Vai em" no card da série em Aplicações (`maqVaiEmHtml`, "+ marcar máquina" `maqMarcarNaSerie`,
+  máquina nova digitada) e na busca Série/Modelo da cotação (`vendasSerieVaiEmHtml`).
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

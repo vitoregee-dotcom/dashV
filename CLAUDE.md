@@ -264,6 +264,9 @@
   data-ccfoto-* + `data-ccfoto-tem="1"` → Ctrl+V com o mouse em cima, arrastar ou a câmera do canto (`ccFotoRapidaClique`) passam por
   `ccFotoRapidaAplicar` (com foto = `pfConfirm` "Substituir" → `ccFotoRapidaGravar(...,subst)` troca a 1ª foto); clique na foto continua ampliando.
   BUG junto ("cadê a órbita?" vazia): `window._pfOrbVazia` → `pfOrbitaWatch` tenta de novo a cada 8 s em vez de 2 min.
+- v115.2325 ("se coloquei ST 35, mostrar o ST-35 na lista também, pra não ficar na dúvida"): na busca geral (tabela e lista), peça achada por OUTRO
+  código (conversão/equivalente/similar) mostra "🔎 achado por ST-35 SOROCARD" embaixo do código (`ccBgAchouInfo`/`ccBgAchouHtml`, usa `r.achou` + marca da
+  conversão `linha` / equivalente `marca` / cadastro `linha`).
 - v115.2302 ("nas cruzetas, na busca, já exibir medida do copo e de ponta a ponta… do lado do código"): `ccBgCruzMedHtml(fam,itens)` põe
   "📏 Ø copo B · ponta a ponta A" logo DEPOIS do código nas linhas de cruzeta da busca geral (Código e Monta com); sem as duas, nada.
 - v115.2309 ("precisa ser fácil colar o print da foto aqui, sem abrir o item"): na busca geral / Monta com / Detalhes, a miniatura VAZIA vira

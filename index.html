@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2323</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2324</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2323</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2324</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -36196,7 +36196,8 @@ var FROTA_EQUIPAMENTOS = {
   'RODOVIÁRIO': [
     'Caminhão Truck','Caminhão Toco','Cavalo Mecânico','Semirreboque',
     'Ônibus Urbano','Ônibus Rodoviário','Van / Micro-ônibus','Carreta Graneleira',
-    'Caminhão Basculante','Caminhão Betoneira','Caminhão Munck','Caminhão Guindauto'
+    'Caminhão Basculante','Caminhão Betoneira','Caminhão Munck','Caminhão Guindauto',
+    'Pick-up / Utilitário' // v115.2324 - frota do cliente (Hilux, S10…)
   ],
   'MOVIMENTAÇÃO DE CARGA': [
     'Empilhadeira Elétrica','Empilhadeira GLP','Empilhadeira Reach Truck',
@@ -36770,8 +36771,10 @@ cadFormCliente = function(data, idx){
   html += '<button id="frotaToggleBtn" style="background:#EEF2F7;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);color:var(--pf-fx-textoSec,#607080);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:11px;font-weight:600;margin-left:auto">▼ Exibir</button>';
   html += '</div>';
   html += '<div id="frotaBody" style="display:none;margin-top:10px">';
-  html += '<div style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0);margin-bottom:14px">Informe quantos equipamentos de cada tipo o cliente possui</div>';
+  html += frotaBlocoHtml(); // v115.2324 - lista de máquinas (print/planilha)
+  html += '<div style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0);margin-bottom:14px">Quantos equipamentos de cada tipo o cliente possui (os tipos que estão na lista acima são contados sozinhos)</div>';
   var frota = d.frota||{};
+  window._cadFrotaLista=Array.isArray(d.frotaLista)?d.frotaLista.map(function(x){return Object.assign({},x);}):[];window._cadFrotaIdx=idx; // v115.2324
   Object.keys(FROTA_EQUIPAMENTOS).forEach(function(linha){
     var equips = FROTA_EQUIPAMENTOS[linha];
     // Linha color
@@ -36805,8 +36808,10 @@ cadFormCliente = function(data, idx){
 
   el.innerHTML = html;
   // Restore frota counters in DOM
+  window._cadFrota={}; // v115.2324 - não herdar a contagem do cliente aberto antes
+  try{frotaListaRender();}catch(e){}
   if(frota){Object.keys(frota).forEach(function(k){window._cadFrota=window._cadFrota||{};window._cadFrota[k]=frota[k];});
-    if(Object.values(frota).some(function(v){return v>0;})){
+    if(Object.values(frota).some(function(v){return v>0;})||window._cadFrotaLista.length){
       var fb=document.getElementById('frotaBody');var ftb=document.getElementById('frotaToggleBtn');
       if(fb)fb.style.display='block';if(ftb)ftb.textContent='▲ Ocultar';
     }
@@ -36838,6 +36843,227 @@ function cadFrotaAlt(btn, delta, key){
     var lbl = row.querySelector('span:first-child');
     if(lbl){lbl.style.fontWeight=next>0?700:400;lbl.style.color=next>0?'#1F4E79':'#607080';}
   }
+}
+
+// ── v115.2324 - FROTA DO CLIENTE MÁQUINA POR MÁQUINA ────────────────────────────────────────────────────────────────────────────
+// A pedido do Vitor (print da lista de frota que o cliente mandou: CÓDIGO | MARCA | MODELO | EQUIPAMENTO — "às vezes pode ser planilha
+// também, como jogar no cadastro dele de forma rápida?" → prévia docs/referencias/frota-cliente/, "Tudo!"):
+//  1) Cadastro do cliente → 🚜 Frota: 📋 Colar print / ⬆ Carregar arquivo (print/foto/PDF = IA; Excel/CSV = lido direto) + Ctrl+V
+//     (imagem ou tabela copiada do Excel). Guardado em cad.frotaLista [{cod,marca,modelo,equip,tipo,ano,serie}]; os contadores por
+//     tipo (cad.frota) passam a sair sozinhos da lista nos tipos que ela tem.
+//  2) Janela de conferência (frotaConfAbrir): tipo do PF já escolhido pelo texto do cliente (frotaTipoAuto, trocável) e se a máquina
+//     já existe no 🚜 Máquinas (frotaMaqDe).
+//  3) Cotação: aviso "🚜 Frota" com as máquinas do cliente; clicar = busca Série/Modelo com a máquina (frotaBuscarNaCotacao).
+//  4) 🚜 Máquinas: "👥 Clientes com essa máquina" (maqClientesHtml).
+function frotaN(s){return String(s==null?'':s).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();}
+var FROTA_TIPO_REGRAS=[ // [regex no texto "EQUIPAMENTO MARCA MODELO", tipo] — a 1ª que bate vale
+  [/MINI\s*-?\s*ESCAV/,'LINHA AMARELA::Miniescavadeira'],
+  [/RETRO/,'LINHA AMARELA::Retroescavadeira'],
+  [/ESCAVADEIRA|ESCAVADORA|EXCAVATOR/,'LINHA AMARELA::Escavadeira Hidráulica'],
+  [/MOTONIVEL|PATROL|GRADER/,'LINHA AMARELA::Motoniveladora'],
+  [/ROLO|COMPACTADOR|COMPACTOR/,'LINHA AMARELA::Compactador/Rolo'],
+  [/SKID|BOB ?CAT|MINICARREG/,'LINHA AMARELA::Skid Steer (Bob Cat)'],
+  [/TELEHANDLER|MANIPULADOR/,'LINHA AMARELA::Telehandler'],
+  [/DUMPER|ARTICULADO|FORA DE ESTRADA/,'LINHA AMARELA::Rígido Articulado (Dumper)'],
+  [/PERFURATRIZ|PERFURADORA/,'LINHA AMARELA::Perfuratriz'],
+  [/PLATAFORMA/,'LINHA AMARELA::Plataforma Elevatória'],
+  [/MUNCK/,'RODOVIÁRIO::Caminhão Munck'],[/GUINDAUTO/,'RODOVIÁRIO::Caminhão Guindauto'],
+  [/GUINDASTE/,'LINHA AMARELA::Guindaste'],[/\bGRUA\b/,'LINHA AMARELA::Grua'],
+  [/REACH STACKER/,'MARÍTIMO / PORTUÁRIO::Reach Stacker'],
+  [/EMPILHADEIRA/,'LINHA AMARELA::Empilhadeira'],
+  [/COLHEIT|COLHEDORA/,'LINHA VERDE / AGRÍCOLA::Colheitadeira'],[/PLANTADEIRA|SEMEADORA/,'LINHA VERDE / AGRÍCOLA::Plantadeira'],
+  [/PULVERIZADOR/,'LINHA VERDE / AGRÍCOLA::Pulverizador Autopropelido'],[/FORRAGEIRA/,'LINHA VERDE / AGRÍCOLA::Forrageira'],
+  [/CARREGADEIRA AGRIC/,'LINHA VERDE / AGRÍCOLA::Carregadeira Agrícola'],
+  [/CARREGADEIRA|PA CARREG|WHEEL LOADER/,'LINHA AMARELA::Pá Carregadeira'],
+  [/TRATOR DE ESTEIRA|TRATOR ESTEIRA|BULLDOZER|\bDOZER/,'LINHA AMARELA::Trator de Esteira'],
+  [/TRATOR.*\b(CATERPILLAR|CAT|KOMATSU|LIEBHERR|SHANTUI|LIUGONG)\b.*\bD\d|TRATOR.*\bD\d+[A-Z]?\b/,'LINHA AMARELA::Trator de Esteira'],
+  [/TRATOR/,'LINHA VERDE / AGRÍCOLA::Trator Agrícola'],
+  [/PICK ?-?UP|CAMINHONETE|UTILITARIO|\b(HILUX|S10|S-10|RANGER|AMAROK|L200|FRONTIER|TORO|STRADA|SAVEIRO)\b/,'RODOVIÁRIO::Pick-up / Utilitário'],
+  [/BASCULANTE|CACAMBA|CAÇAMBA/,'RODOVIÁRIO::Caminhão Basculante'],[/BETONEIRA/,'RODOVIÁRIO::Caminhão Betoneira'],
+  [/CAVALO|CARRETA|TRUCK TRACTOR/,'RODOVIÁRIO::Cavalo Mecânico'],[/SEMI ?-?REBOQUE|REBOQUE/,'RODOVIÁRIO::Semirreboque'],
+  [/ONIBUS RODOV/,'RODOVIÁRIO::Ônibus Rodoviário'],[/ONIBUS/,'RODOVIÁRIO::Ônibus Urbano'],[/\bVAN\b|MICRO/,'RODOVIÁRIO::Van / Micro-ônibus'],
+  [/\bTOCO\b/,'RODOVIÁRIO::Caminhão Toco'],[/CAMINHAO|\bCAM\b|TRUCK/,'RODOVIÁRIO::Caminhão Truck']
+];
+function frotaTipoAuto(equip,marca,modelo){var t=frotaN([equip,marca,modelo].join(' ')).replace(/\./g,' ');
+  for(var i=0;i<FROTA_TIPO_REGRAS.length;i++)if(FROTA_TIPO_REGRAS[i][0].test(t))return FROTA_TIPO_REGRAS[i][1];return '';}
+function frotaTipoNome(k){return String(k||'').split('::')[1]||'';}
+function frotaTipoOpcoesHtml(sel){
+  return '<option value=""'+(sel?'':' selected')+'>❔ escolher</option>'+Object.keys(FROTA_EQUIPAMENTOS).map(function(l){
+    return '<optgroup label="'+pfEscHtml(l)+'">'+FROTA_EQUIPAMENTOS[l].map(function(e){var k=l+'::'+e;return '<option value="'+pfEscHtml(k)+'"'+(k===sel?' selected':'')+'>'+pfEscHtml(e)+'</option>';}).join('')+'</optgroup>';}).join('');}
+// máquina do 🚜 Máquinas que bate com marca+modelo (exato; senão o modelo mais parecido da mesma marca: "D6D-PS" acha "D6D")
+function frotaMaqDe(marca,modelo){
+  try{var I=maqIndice(),k=maqChave(marca,modelo);if(I.M[k])return I.M[k];
+    var mk=maqMarcaN(marca)+'|',A=maqAN(modelo);if(A.length<3)return null;var best=null;
+    Object.keys(I.M).forEach(function(kk){if(kk.indexOf(mk)!==0)return;var B=kk.slice(mk.length);if(B.length<3)return;
+      if((A.indexOf(B)===0||B.indexOf(A)===0)&&(!best||B.length>best.slice(mk.length).length))best=kk;});
+    return best?I.M[best]:null;}catch(e){return null;}
+}
+// tabela (planilha ou texto copiado do Excel) → máquinas
+function frotaLinhasDeRows(rows){
+  rows=(rows||[]).map(function(r){return (r||[]).map(function(v){return String(v==null?'':v).trim();});}).filter(function(r){return r.some(Boolean);});
+  var hi=-1,c={};
+  for(var i=0;i<Math.min(rows.length,15)&&hi<0;i++){var achou=0,cc={};rows[i].forEach(function(v,j){var t=frotaN(v);
+      if(cc.cod==null&&/^(COD|CODIGO|FROTA|PREFIXO|N FROTA|NUMERO|ID|TAG|PATRIMONIO)\b/.test(t)){cc.cod=j;achou++;}
+      else if(cc.marca==null&&/^(MARCA|FABRICANTE|MONTADORA)/.test(t)){cc.marca=j;achou++;}
+      else if(cc.modelo==null&&/^MODELO/.test(t)){cc.modelo=j;achou++;}
+      else if(cc.equip==null&&/^(EQUIPAMENTO|TIPO|DESCRI|MAQUINA|VEICULO|CATEGORIA)/.test(t)){cc.equip=j;achou++;}
+      else if(cc.ano==null&&/^ANO/.test(t)){cc.ano=j;achou++;}
+      else if(cc.serie==null&&/^(SERIE|CHASSI|N SERIE|PIN)/.test(t)){cc.serie=j;achou++;}
+      else if(cc.placa==null&&/^PLACA/.test(t)){cc.placa=j;achou++;}});
+    if(achou>=2&&(cc.marca!=null||cc.modelo!=null)){hi=i;c=cc;}}
+  if(hi<0){var n=Math.max.apply(null,rows.map(function(r){return r.length;}));if(n<2)return [];
+    c=n>=4?{cod:0,marca:1,modelo:2,equip:3}:{marca:0,modelo:1,equip:2};} // sem cabeçalho: na ordem da lista do cliente
+  var g=function(r,k){return c[k]!=null?String(r[c[k]]||'').trim():'';};
+  return rows.slice(hi+1).map(function(r){var x={cod:g(r,'cod').toUpperCase(),marca:g(r,'marca').toUpperCase(),modelo:g(r,'modelo').toUpperCase(),equip:g(r,'equip').toUpperCase(),ano:g(r,'ano'),serie:(g(r,'serie')||g(r,'placa')).toUpperCase()};
+    return x;}).filter(function(x){return (x.marca||x.modelo)&&!/^(MARCA|MODELO)$/.test(x.marca);});
+}
+function frotaMsg(h){var m=document.getElementById('frotaMsg');if(m)m.innerHTML=h;}
+async function frotaColar(){
+  try{var items=await navigator.clipboard.read();
+    for(var i=0;i<items.length;i++){var t=items[i].types.find(function(x){return x.indexOf('image/')===0;});if(t){var b=await items[i].getType(t);frotaIA(new File([b],'print.png',{type:t}));return;}}
+    var tx=await navigator.clipboard.readText();if(tx&&frotaTexto(tx))return;
+    frotaMsg('<span style="color:#C0392B">Nada copiado. Copie o print (ou as linhas do Excel) e tente de novo — ou aperte Ctrl+V aqui.</span>');
+  }catch(e){frotaMsg('<span style="color:#C0392B">O navegador não deixou ler a área de transferência — aperte <b>Ctrl+V</b> aqui.</span>');}
+}
+function frotaTexto(tx){var rows=String(tx||'').split(/\r?\n/).map(function(l){return l.split(/\t|;|\s{2,}/);});var L=frotaLinhasDeRows(rows);
+  if(!L.length)return false;frotaConfAbrir(L,'texto');return true;}
+function frotaArquivo(inp){var f=inp.files&&inp.files[0];inp.value='';if(!f)return;
+  if(/\.(xlsx|xls|csv)$/i.test(f.name)||/sheet|excel|csv/i.test(f.type)){
+    if(typeof XLSX==='undefined'){frotaMsg('<span style="color:#C0392B">A biblioteca do Excel ainda não carregou — tente de novo em alguns segundos.</span>');return;}
+    var rd=new FileReader();rd.onload=function(){try{var wb=XLSX.read(new Uint8Array(rd.result),{type:'array'}),out=[];
+      wb.SheetNames.forEach(function(sn){out=out.concat(frotaLinhasDeRows(XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:false,defval:''})));});
+      if(!out.length){frotaMsg('<span style="color:#C0392B">Não achei marca/modelo na planilha.</span>');return;}frotaConfAbrir(out,'planilha');
+    }catch(e){frotaMsg('<span style="color:#C0392B">Não consegui ler a planilha ('+pfEscHtml(e.message)+').</span>');}};rd.readAsArrayBuffer(f);return;}
+  frotaIA(f);
+}
+async function frotaIA(file){
+  if(!file)return;frotaMsg('🤖 Lendo '+(file.type==='application/pdf'?'o PDF':'o print')+'…');
+  try{var txt=await _anthropicReadDoc(file,'Esta imagem/PDF é a lista da FROTA de um cliente (máquinas e veículos). Extraia TODAS as linhas. Responda SOMENTE com JSON, sem markdown: '+
+      '{"itens":[{"codigo":"código/prefixo/nº de frota do cliente, se houver","marca":"","modelo":"","equipamento":"tipo como está escrito (ex.: ESCAVADEIRA HIDRÁULICA, CAM. BASCULANTE)","ano":"","serie":"série/chassi/placa se houver"}]}. Copie como está escrito; não invente.','Frota do cliente');
+    var j=JSON.parse(String(txt).replace(/```json|```/g,'').trim().replace(/^[^{]*/,'').replace(/[^}]*$/,''));
+    var L=(j.itens||[]).map(function(x){return {cod:String(x.codigo||'').trim().toUpperCase(),marca:String(x.marca||'').trim().toUpperCase(),modelo:String(x.modelo||'').trim().toUpperCase(),equip:String(x.equipamento||'').trim().toUpperCase(),ano:String(x.ano||'').trim(),serie:String(x.serie||'').trim().toUpperCase()};}).filter(function(x){return x.marca||x.modelo;});
+    if(!L.length){frotaMsg('<span style="color:#C0392B">Não achei máquinas nesse arquivo.</span>');return;}
+    frotaMsg('');frotaConfAbrir(L,'arquivo');
+  }catch(e){frotaMsg('<span style="color:#C0392B">Não consegui ler ('+pfEscHtml(e.message||e)+'). Se tiver em planilha, carregue a planilha.</span>');}
+}
+// ── janela de conferência ──
+function frotaConfAbrir(L,origem){
+  L.forEach(function(x){x.tipo=x.tipo||frotaTipoAuto(x.equip,x.marca,x.modelo);});
+  window._frotaConf={linhas:L,origem:origem};
+  var old=document.getElementById('frotaConfModal');if(old)old.remove();
+  var ov=document.createElement('div');ov.id='frotaConfModal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(10,18,32,.55);z-index:99990;display:flex;align-items:flex-start;justify-content:center;padding:24px 14px '+pfAiDockClearance()+'px';
+  ov.onmousedown=function(e){ov._fundo=(e.target===ov);};ov.onclick=function(e){if(e.target===ov&&ov._fundo)frotaConfFechar();};
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;width:min(900px,100%);max-height:100%;display:flex;flex-direction:column;box-shadow:0 18px 50px rgba(0,0,0,.35);overflow:hidden">'+
+    '<div style="background:var(--pf-painel-bg,#1c2940);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:16px;font-weight:800">🚜 Conferir a frota antes de gravar</div>'+
+      '<div id="frotaConfSub" style="font-size:12px;color:#c8d3e6"></div></div><button onclick="frotaConfFechar()" title="Fechar (Esc)" style="background:none;border:none;cursor:pointer;padding:0">'+pfXGlossyHtml(22)+'</button></div>'+
+    '<div id="frotaConfCorpo" style="flex:1;overflow:auto;padding:12px 16px"></div>'+
+    '<div style="border-top:1px solid #e3e9f0;padding:10px 16px;display:flex;gap:8px;justify-content:flex-end;align-items:center"><span style="flex:1;font-size:12px;color:#607080">O que já estiver na frota com o mesmo código é atualizado; o resto é acrescentado.</span>'+
+      '<button class="pfBtn pfBtnClaro" onclick="frotaConfFechar()">Cancelar</button><button id="frotaConfGravarBtn" class="pfBtn pfBtnVerde" onclick="frotaConfGravar()">✔ Gravar frota</button></div></div>';
+  document.body.appendChild(ov);
+  window._frotaConfEsc=function(e){if(e.key==='Escape'&&document.getElementById('frotaConfModal')){e.preventDefault();e.stopImmediatePropagation();frotaConfFechar();}};
+  document.addEventListener('keydown',window._frotaConfEsc,true);
+  frotaConfRender();
+}
+function frotaConfFechar(){var m=document.getElementById('frotaConfModal');if(m)m.remove();if(window._frotaConfEsc)document.removeEventListener('keydown',window._frotaConfEsc,true);window._frotaConfEsc=null;}
+function frotaConfRender(){
+  var el=document.getElementById('frotaConfCorpo');if(!el)return;var L=window._frotaConf.linhas;
+  var sub=document.getElementById('frotaConfSub');if(sub)sub.textContent=L.length+' máquina'+(L.length===1?'':'s')+' lida'+(L.length===1?'':'s')+' — confira o tipo de cada uma';
+  var bt=document.getElementById('frotaConfGravarBtn');if(bt)bt.textContent='✔ Gravar frota ('+L.length+')';
+  var inp='padding:4px 6px;border:1px solid #d5dce5;border-radius:6px;font-size:12.5px;color:#1a2332;width:100%;box-sizing:border-box';
+  var th='background:#1F4E79;color:#fff;font-size:10.5px;padding:6px;text-align:left;white-space:nowrap';
+  el.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr><th style="'+th+';width:90px">CÓD. CLIENTE</th><th style="'+th+';width:120px">MARCA</th><th style="'+th+';width:120px">MODELO</th><th style="'+th+'">EQUIPAMENTO (como veio)</th><th style="'+th+';width:200px">TIPO NO PF</th><th style="'+th+';width:120px">EM MÁQUINAS</th><th style="'+th+';width:24px"></th></tr>'+
+    L.map(function(x,i){var mq=frotaMaqDe(x.marca,x.modelo),bg=i%2?'#fff':'#FFF6EC',set=function(k){return 'oninput="window._frotaConf.linhas['+i+'].'+k+'=this.value.toUpperCase()"';};
+      return '<tr style="background:'+bg+'"><td style="padding:4px"><input value="'+pfEscHtml(x.cod)+'" '+set('cod')+' style="'+inp+';font-family:monospace;font-weight:700"></td>'+
+        '<td style="padding:4px"><input value="'+pfEscHtml(x.marca)+'" '+set('marca')+' onchange="frotaConfRender()" style="'+inp+'"></td>'+
+        '<td style="padding:4px"><input value="'+pfEscHtml(x.modelo)+'" '+set('modelo')+' onchange="frotaConfRender()" style="'+inp+'"></td>'+
+        '<td style="padding:4px 6px;color:#607080;font-size:11.5px">'+pfEscHtml(x.equip||'—')+(x.ano?' · '+pfEscHtml(x.ano):'')+(x.serie?' · '+pfEscHtml(x.serie):'')+'</td>'+
+        '<td style="padding:4px"><select onchange="window._frotaConf.linhas['+i+'].tipo=this.value;frotaConfRender()" style="'+inp+';font-weight:700;'+(x.tipo?'background:#EEF4FB;color:#1F4E79':'background:#FFF4D6;color:#8a5a00')+'">'+frotaTipoOpcoesHtml(x.tipo)+'</select></td>'+
+        '<td style="padding:4px 6px;font-size:11.5px;font-weight:700"><span style="color:'+(mq?'#1d7a43':'#B45309')+'">'+(mq?'✓ '+(mq.fichas.length?'ficha':'cadastrada')+(mq.nPm?' + '+mq.nPm+' peças':''):'➕ não tem ainda')+'</span></td>'+
+        '<td style="padding:4px;text-align:center"><span onclick="window._frotaConf.linhas.splice('+i+',1);frotaConfRender()" title="Tirar da lista" style="cursor:pointer;color:#C0392B;font-weight:900">✕</span></td></tr>';}).join('')+'</table>';
+}
+function frotaChave(x){return x.cod?'C:'+maqAN(x.cod):'M:'+maqAN(x.marca)+'|'+maqAN(x.modelo)+'|'+maqAN(x.serie);}
+function frotaConfGravar(){
+  var L=(window._frotaConf.linhas||[]).filter(function(x){return x.marca||x.modelo;});
+  var lista=window._frotaConf.editar?[]:(window._cadFrotaLista||[]).slice(),idx={};lista.forEach(function(x,i){idx[frotaChave(x)]=i;}); // ✏️ conferir = troca a lista inteira
+  var nNov=0,nAt=0;
+  L.forEach(function(x){var o={cod:x.cod||'',marca:x.marca||'',modelo:x.modelo||'',equip:x.equip||'',tipo:x.tipo||'',ano:x.ano||'',serie:x.serie||''};var k=frotaChave(o);
+    if(idx[k]!=null&&x.cod){lista[idx[k]]=o;nAt++;}else{lista.push(o);idx[k]=lista.length-1;nNov++;}});
+  window._cadFrotaLista=lista;frotaConfFechar();frotaAplicarContadores();frotaListaRender();
+  var salvo=frotaPersistir();
+  frotaMsg('✅ '+nNov+' máquina'+(nNov===1?'':'s')+' acrescentada'+(nNov===1?'':'s')+(nAt?' · '+nAt+' atualizada'+(nAt===1?'':'s'):'')+(salvo?' — já gravado no cadastro.':' — clique em <b>💾 Salvar Cliente</b> pra gravar.'));
+}
+// grava só a frota no cliente que está aberto (sem mexer no resto do formulário); cliente novo grava no "Salvar Cliente"
+function frotaPersistir(){
+  var i=window._cadFrotaIdx;if(i==null||i<0)return false;
+  try{var cl=cadLoad(CLIE_KEY);if(!cl[i])return false;cl[i]=Object.assign({},cl[i],{frotaLista:window._cadFrotaLista||[],frota:Object.assign({},cl[i].frota||{},window._cadFrota||{}),ts:Date.now()});
+    cadSave(CLIE_KEY,cl);window._frotaCliIdx=null;return true;}catch(e){return false;}
+}
+function frotaContar(lista){var c={};(lista||[]).forEach(function(x){if(x.tipo)c[x.tipo]=(c[x.tipo]||0)+1;});return c;}
+function frotaAplicarContadores(){ // os tipos que estão na lista ficam com a contagem da lista
+  var c=frotaContar(window._cadFrotaLista);window._cadFrota=window._cadFrota||{};
+  Object.keys(c).forEach(function(k){window._cadFrota[k]=c[k];
+    var sp=document.getElementById('frota_qty_'+k.replace(/[^a-z0-9]/gi,'_'));if(sp){sp.textContent=c[k];var row=sp.parentNode,cor=k.indexOf('AMARELA')>=0?'#E67E22':k.indexOf('VERDE')>=0?'#27AE60':k.indexOf('RODO')>=0?'#1F4E79':k.indexOf('CARGA')>=0?'#8E44AD':'#607080';
+      sp.style.color=cor;if(row){row.style.borderColor=cor;row.style.background='#F8F8FF';}}});
+}
+function frotaTirar(i){var l=window._cadFrotaLista||[];var x=l[i];if(!x)return;
+  pfConfirm('Tirar '+[x.cod,x.marca,x.modelo].filter(Boolean).join(' ')+' da frota?',function(){l.splice(i,1);
+    if(x.tipo){var c=frotaContar(l);window._cadFrota=window._cadFrota||{};window._cadFrota[x.tipo]=c[x.tipo]||0;var sp=document.getElementById('frota_qty_'+x.tipo.replace(/[^a-z0-9]/gi,'_'));if(sp)sp.textContent=c[x.tipo]||0;}
+    frotaListaRender();frotaPersistir();},'Tirar');}
+// bloco dentro do cadastro (botões + lista + resumo)
+function frotaBlocoHtml(){
+  return '<div style="border:1px solid #e3e9f0;border-radius:10px;padding:10px 12px;margin-bottom:14px;background:#FAFCFE">'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:12.5px;color:#1F4E79">Lista de máquinas do cliente</b><span style="font-size:11.5px;color:#8a9ab0">print, foto, PDF ou planilha — ou Ctrl+V aqui</span><span style="flex:1"></span>'+
+      pfBtnColarPrintHtml(30,'frotaColar()')+pfBtnCarregarArquivoHtml(30,'frotaArqInp','image/*,application/pdf,.xlsx,.xls,.csv','frotaArquivo(this)')+'</div>'+
+    '<div id="frotaMsg" style="font-size:12px;margin-top:6px"></div><div id="frotaListaBox"></div></div>';
+}
+function frotaListaRender(){
+  var el=document.getElementById('frotaListaBox');if(!el)return;var L=window._cadFrotaLista||[];
+  if(!L.length){el.innerHTML='<div style="font-size:12px;color:#8a9ab0;margin-top:6px">Nenhuma máquina na lista ainda.</div>';return;}
+  var c=frotaContar(L),chips=Object.keys(c).sort(function(a,b){return c[b]-c[a];}).map(function(k){var am=/AMARELA|VERDE/.test(k);
+    return '<span style="display:inline-block;border-radius:12px;padding:2px 9px;font-size:11.5px;font-weight:700;margin:2px 4px 2px 0;'+(am?'background:#FFF1DC;color:#9a5b00;border:1px solid #f3cf95':'background:#E8F1FB;color:#1F4E79;border:1px solid #b9d2ee')+'">'+pfEscHtml(frotaTipoNome(k))+' '+c[k]+'</span>';}).join('');
+  var semTipo=L.filter(function(x){return !x.tipo;}).length;
+  var th='background:#1F4E79;color:#fff;font-size:10px;padding:4px 6px;text-align:left';
+  el.innerHTML='<div style="margin-top:8px">'+chips+(semTipo?'<span style="font-size:11.5px;color:#8a5a00"> ❔ '+semTipo+' sem tipo</span>':'')+'</div>'+
+    '<div style="max-height:260px;overflow:auto;margin-top:6px;border:1px solid #e3e9f0;border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12px"><tr><th style="'+th+'">CÓD.</th><th style="'+th+'">MARCA</th><th style="'+th+'">MODELO</th><th style="'+th+'">TIPO</th><th style="'+th+'">EM MÁQUINAS</th><th style="'+th+'"></th></tr>'+
+    L.map(function(x,i){var mq=frotaMaqDe(x.marca,x.modelo);return '<tr style="background:'+(i%2?'#fff':'#FFF6EC')+'"><td style="padding:4px 6px;font-family:monospace;font-weight:700">'+pfEscHtml(x.cod||'—')+'</td><td style="padding:4px 6px">'+pfEscHtml(x.marca)+'</td><td style="padding:4px 6px">'+pfEscHtml(x.modelo)+'</td>'+
+      '<td style="padding:4px 6px">'+(x.tipo?pfEscHtml(frotaTipoNome(x.tipo)):'<span style="color:#8a5a00">❔</span>')+'</td>'+
+      '<td style="padding:4px 6px;font-size:11px">'+(mq?'<a href="javascript:void(0)" onclick="maqAbrirMaquina(\''+pfEscJs(mq.chave)+'\')" style="color:#1d7a43;font-weight:700;text-decoration:none">✓ abrir ›</a>':'<span style="color:#B45309">➕ não tem</span>')+'</td>'+
+      '<td style="padding:4px 6px;text-align:center"><span onclick="frotaTirar('+i+')" title="Tirar da frota" style="cursor:pointer;color:#C0392B;font-weight:900">✕</span></td></tr>';}).join('')+'</table></div>'+
+    '<div style="margin-top:6px"><a href="javascript:void(0)" onclick="frotaConfAbrir((window._cadFrotaLista||[]).map(function(x){return Object.assign({},x);}),\'editar\');window._frotaConf.editar=true" style="font-size:12px;color:#1F4E79;font-weight:700">✏️ Conferir / trocar os tipos</a></div>';
+}
+// Ctrl+V com o cadastro aberto na Frota (fora de campo de texto): imagem → IA; tabela copiada do Excel → lida direto
+document.addEventListener('paste',function(e){
+  var fb=document.getElementById('frotaBody');if(!fb||!fb.offsetParent||document.getElementById('frotaConfModal'))return;
+  var a=document.activeElement;if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.isContentEditable))return;
+  var its=(e.clipboardData&&e.clipboardData.items)||[];
+  for(var i=0;i<its.length;i++){if(its[i].type&&its[i].type.indexOf('image/')===0){var f=its[i].getAsFile();if(f){e.preventDefault();e.stopImmediatePropagation();frotaIA(f);return;}}}
+  var tx=e.clipboardData&&e.clipboardData.getData('text/plain');if(tx&&/\t/.test(tx)&&frotaTexto(tx)){e.preventDefault();e.stopImmediatePropagation();}
+},true);
+// ── 3) cotação: frota do cliente ──
+function frotaDoCliente(cad){return (cad&&Array.isArray(cad.frotaLista))?cad.frotaLista:[];}
+function frotaCotacaoHtml(cad){
+  var L=frotaDoCliente(cad);if(!L.length)return '';
+  var c=frotaContar(L),tipos=Object.keys(c).sort(function(a,b){return c[b]-c[a];});
+  var maqs={};L.forEach(function(x){var n=(x.marca+' '+x.modelo).trim();if(!n)return;var k=n.toUpperCase();(maqs[k]=maqs[k]||{n:n,q:0,tipo:x.tipo}).q++;});
+  var ord=Object.keys(maqs).sort(function(a,b){var A=/AMARELA|VERDE/.test(maqs[a].tipo||'')?0:1,B=/AMARELA|VERDE/.test(maqs[b].tipo||'')?0:1;return A-B||maqs[b].q-maqs[a].q;});
+  var chips=ord.slice(0,10).map(function(k){var m=maqs[k];return '<span onclick="frotaBuscarNaCotacao(\''+pfEscJs(m.n)+'\')" title="Buscar as peças dessa máquina (Série / modelo)" style="cursor:pointer;display:inline-block;border-radius:12px;padding:1px 8px;font-size:11.5px;font-weight:700;margin:2px 4px 0 0;background:#FFF1DC;color:#9a5b00;border:1px solid #f3cf95">'+pfEscHtml(m.n)+(m.q>1?' ×'+m.q:'')+'</span>';}).join('')+(ord.length>10?'<span style="font-size:11.5px;color:#607080"> +'+(ord.length-10)+'</span>':'');
+  return '<b>Frota ('+L.length+'):</b> '+tipos.slice(0,5).map(function(k){return c[k]+' '+pfEscHtml(frotaTipoNome(k).toLowerCase());}).join(' · ')+(tipos.length>5?' · …':'')+'<div>'+chips+'</div>';
+}
+function frotaBuscarNaCotacao(txt){var inp=document.getElementById('vendasSerieInput');
+  if(!inp){pfAlert('Abra a cotação pra buscar as peças da máquina.');return;}
+  inp.value=txt;try{vendasBuscarPorSerieInput();}catch(e){}try{inp.focus();}catch(e){}}
+// ── 4) 🚜 Máquinas: clientes que têm a máquina ──
+function frotaIdxClientes(){
+  var c=window._frotaCliIdx;if(c&&Date.now()-c.t<10000)return c.por;var por={};
+  try{(cadLoad(CLIE_KEY)||[]).forEach(function(cl){(cl&&cl.frotaLista||[]).forEach(function(x){var m=frotaMaqDe(x.marca,x.modelo);if(!m)return;
+    var r=(por[m.chave]=por[m.chave]||{}),k=cl.codigo||cl.razao;var e=r[k]=r[k]||{razao:cl.razao||'',nome:cl.fantasia||cl.razao||'',cods:[]};if(x.cod)e.cods.push(x.cod);else e.cods.push('');});});}catch(e){}
+  window._frotaCliIdx={t:Date.now(),por:por};return por;
+}
+function maqClientesHtml(x){
+  var r=frotaIdxClientes()[x.chave];if(!r)return '';var ks=Object.keys(r);if(!ks.length)return '';
+  return '<div style="margin-top:7px;font-size:12.5px;color:#1a2332"><b>👥 Clientes com essa máquina:</b> '+ks.map(function(k){var e=r[k],cs=e.cods.filter(Boolean);
+    return '<a href="javascript:void(0)" onclick="pfCrmAbrirPorRazao(\''+pfEscJs(e.razao)+'\')" title="Abrir a ficha do cliente" style="color:#1F4E79;font-weight:700;text-decoration:none">'+pfEscHtml(e.nome)+'</a> <span style="color:#607080">('+e.cods.length+(cs.length?': '+pfEscHtml(cs.slice(0,4).join(', '))+(cs.length>4?'…':''):'')+')</span>';}).join(' · ')+'</div>';
 }
 
 // ── Referências Comerciais/Bancárias e Transportadoras (listas dinâmicas) ────
@@ -36947,6 +37173,7 @@ function cadSalvarClienteV2(idx){
     referenciasBancarias:((window._cadRefs&&window._cadRefs.bancarias)||[]).filter(function(r){return r.nome||r.local||r.tel;}),
     transportadoras:((window._cadRefs&&window._cadRefs.transportadoras)||[]).filter(function(r){return r.nome||r.local||r.tel;}),
     frota:window._cadFrota||{},
+    frotaLista:window._cadFrotaLista||[], // v115.2324
     obs:document.getElementById('clieObs').value||'',
   };
   if(typeof cadRevColetar==='function')Object.assign(cli,cadRevColetar()); // v115.2111
@@ -50950,6 +51177,7 @@ function vendasAvisosCliente(c,cad){
         link:(i===0&&nAn>3)?'Ver todas ('+nAn+')':'',acao:"vendasPainelAbrir('cliente')"});
     });
   }
+  try{var fh=frotaCotacaoHtml(cad);if(fh)av.push({cor:'z',ic:'🚜',html:fh});}catch(e){} // v115.2324 - frota do cliente
   try{var ri=cad?pfRevInfo(cad):null;if(ri&&ri.estrategia)av.push({cor:'z',ic:'💡',html:'<b>Estratégia:</b> '+pfEscHtml(ri.estrategia)});}catch(e){}
   // v115.2285 - A pedido do Vitor ("e se o cliente tiver alguma regra no assistente de IA também deve aparecer ali nos avisos"): as regras
   // DESTE cliente no Assistente de Vendas (margem, marcas, avisos livres…) entram na caixa de avisos, cada uma numa linha.
@@ -88346,6 +88574,7 @@ function maqPaginaHtml(x,I){
     '<div style="display:flex;gap:16px;padding:14px 16px;align-items:center;border-bottom:1px solid #e3e9f0"><div style="width:96px;height:66px;border-radius:10px;background:linear-gradient(135deg,#f3c94b,#d99b1a);display:flex;align-items:center;justify-content:center;font-size:38px;flex-shrink:0">🚜</div>'+
       '<div><div style="font-size:21px;font-weight:800;color:#1a2332">'+pfEscHtml(x.nome)+'</div><div style="font-size:13px;color:#5d6b7a;margin-top:2px">'+pfEscHtml([x.tipo,x.pm.map(function(m){return m.motor;}).filter(Boolean)[0]?'motor '+x.pm.map(function(m){return m.motor;}).filter(Boolean)[0]:''].filter(Boolean).join(' · ')||'—')+'</div>'+
       maqSeriesHtml(x)+ // v115.2313
+      maqClientesHtml(x)+ // v115.2324 - clientes que têm essa máquina na frota
       '<div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap">'+maqChipHtml('🧩 '+linhas.length+' componente'+(linhas.length===1?'':'s'),linhas.length?'azul':'cinza')+maqChipHtml('🧽 '+x.nPm+' peça'+(x.nPm===1?'':'s')+' de manutenção',x.nPm?'verde':'cinza')+maqChipHtml('📋 '+(x.fichas.length?'ficha técnica preenchida':'sem ficha técnica'),x.fichas.length?'azul':'cinza')+'</div></div></div>';
   var abas=[['tudo','Tudo'],['comp','🧩 Componentes'],['pecas','🧽 Peças de manutenção'],['ficha','📋 Ficha técnica']];
   h+='<div style="display:flex;gap:4px;padding:0 14px;border-bottom:1px solid #e3e9f0;background:#f7f9fc;flex-wrap:wrap">'+abas.map(function(a){var on=S.aba===a[0];

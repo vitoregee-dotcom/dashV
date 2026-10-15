@@ -387,6 +387,18 @@
   alteração pede confirmação (`ftCancelarForm`); Esc com o formulário aberto fecha SÓ o formulário. Janela termina acima do dock
   (padding = `pfAiDockClearance`) com Cancelar/Salvar presos no rodapé. Lista mostra Ano/Série embaixo do modelo (busca acha).
 
+## 🚜 Frota do cliente máquina por máquina (v115.2324; prévia `docs/referencias/frota-cliente/`, Vitor: "Tudo!")
+- Cadastro do cliente → 🚜 Frota: `frotaBlocoHtml` (📋 Colar print `frotaColar` / ⬆ Carregar arquivo `frotaArquivo` + Ctrl+V com a Frota aberta e fora de
+  campo: imagem → IA `frotaIA` via `_anthropicReadDoc`; Excel/CSV ou linhas copiadas do Excel → `frotaLinhasDeRows`, cabeçalho CÓDIGO/MARCA/MODELO/EQUIPAMENTO
+  ou, sem cabeçalho, nessa ordem). Conferência `frotaConfAbrir`/`frotaConfRender`/`frotaConfGravar` (tipo do PF por `frotaTipoAuto` = `FROTA_TIPO_REGRAS`,
+  trocável; "EM MÁQUINAS" por `frotaMaqDe` = maqChave exato ou modelo-prefixo da mesma marca: D6D-PS → D6D). Grava `cad.frotaLista`
+  [{cod,marca,modelo,equip,tipo,ano,serie}] (mesmo código = atualiza; ✏️ Conferir = troca a lista) direto no cliente aberto (`frotaPersistir`,
+  `window._cadFrotaIdx`) e os contadores `cad.frota` dos tipos da lista passam a ser a contagem dela (`frotaAplicarContadores`). Tipo novo
+  "Pick-up / Utilitário" em FROTA_EQUIPAMENTOS RODOVIÁRIO. Regra nova de tipo → linha no `FROTA_TIPO_REGRAS` (a 1ª que bate vale).
+- Cotação: aviso 🚜 "Frota (N)" no `vendasAvisosCliente` (`frotaCotacaoHtml`: contagem por tipo + chips por máquina, linha amarela/agrícola primeiro);
+  clique no chip → `frotaBuscarNaCotacao` (preenche o "Série / modelo" e busca).
+- 🚜 Máquinas: "👥 Clientes com essa máquina" no cabeçalho da página (`maqClientesHtml`, índice `frotaIdxClientes` 10 s) → ficha do CRM.
+
 ## Rolamentos — Descobridor de Equivalência
 - Medidas por série+furo em `PF_ROL_DIM_TABLE` (`rolDetectarSerieBore` → `rolBuscarDimensoes`; Spicer por código exato `PF_ROL_DIM_SPICER`).
   v115.2251 BUG ("não era pra ter detalhes esse rolamento?" — 32308 sem medida): faltavam as séries cônicas **323** e **320** (32008X);

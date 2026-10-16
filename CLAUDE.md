@@ -425,6 +425,9 @@
   "📑 copiar de outra máquina" do Colocar peças). Captura `docs/referencias/maquina-copiar.png`.
   v115.2338 ("o que pode ir junto é categoria, fabricante também e os componentes"): a ficha INTEIRA não vai mais — opções 🏷️ Categoria, 🏭 Fabricantes
   (motorFab/transFab/eixoDianFab/eixoTrasFab) e cada componente (série ligada `g:` e/ou componente só da ficha `f:` → modelo+fabricante+part number, sem série).
+  v115.2340 ("editei a série mas não salvou… o caminho pra inserir a série está muito difícil"): na PÁGINA da máquina as séries são etiquetas com ✕ + caixinha
+  "+ série" (Enter ou sair do campo) que grava NA HORA na 1ª ficha (`maqSeriesEditHtml`/`maqSerieAdd`/`maqSerieTirar`/`maqSerieSet`; sem ficha cria uma mínima);
+  série do Peças por máquina aparece sem ✕. No formulário, o `ftSalvarForm` também pega o que ficou digitado no "+ série" sem Enter.
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

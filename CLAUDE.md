@@ -33,6 +33,11 @@
   - **Tudo que avisa/notifica vai pra BARRA DE NOTIFICAÇÕES** (pedido do Vitor, 07/10/2026: "é pra isso que ela serve"): log
     compartilhado só-acrescenta (`pfXxxEventos` com id/data, entra no sync e nos logKeys) + chave em `PF_AVISOS_LOG_KEYS`,
     `PF_AVISOS_CONFIG_DEFAULT`, labels, `iconePorEtapa`, `pfIconeComBadge` no rail e painel em `pfAvisosAbrirPainel` (modelo: `rma`, `catalogo`).
+- **📚 TODA FUNCIONALIDADE NOVA ENTRA NO "O QUE O SISTEMA FAZ"** (pedido do Vitor, 16/10/2026: "tudo que for criado novo vc vai colocando lá,
+  pois tem tanta coisa que eu nem sei que tem"): Ferramentas → 📚 O que o sistema faz (`ferrFuncoes`, v115.2329). Ao criar coisa nova,
+  acrescentar uma linha em `PF_FUNCOES` {a: área de `PF_FUNC_AREAS`, i, n: nome, o: o que é, p: pra que serve, w: onde fica/atalho,
+  v: número da versão, ir: 'tela:x'|'vendas:aba'|'cad:grupo'|'at:Título do card'|'ferr:Título do card'|'js:código', d:1 = só o Vitor}.
+  Melhoria grande numa existente: atualizar o texto e o `v` (entra em 🆕 Novidades). Linguagem de usuário, sem bastidores.
 - **🖥️ Modo monitor do trabalho** (v115.2177, refeito): botão 🖥️ na barra (`pfBtnMonitor`) / **Option+T (Alt+T)** (v115.2178; Alt+M = Mapa de Compras) → `pfMonitorToggle` vai pra
   `?pfmonitor=1`; um `<script>` no COMEÇO do `<head>` troca a página por uma moldura com o app num `<iframe>` 1920×1080 de verdade
   (`?pfmonframe=1`, `window._pfEmMonitor`) encolhido com `transform: scale` (media queries e vw/vh certos — o zoom no `<html>` da

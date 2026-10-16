@@ -38,6 +38,12 @@
   acrescentar uma linha em `PF_FUNCOES` {a: área de `PF_FUNC_AREAS`, i, n: nome, o: o que é, p: pra que serve, w: onde fica/atalho,
   v: número da versão, ir: 'tela:x'|'vendas:aba'|'cad:grupo'|'at:Título do card'|'ferr:Título do card'|'js:código', d:1 = só o Vitor}.
   Melhoria grande numa existente: atualizar o texto e o `v` (entra em 🆕 Novidades). Linguagem de usuário, sem bastidores.
+  v115.2330: **resumida × detalhada** — todos veem o/p/w; o Vitor (e quem ele liberar em `pfFuncLiberados` {emails,ts}, compartilhada) vê
+  também `x` "🔧 Por dentro" (pode ter bastidores) e 💡 Ideias pro futuro (`PF_FUNC_IDEIAS`: ideia/pendência combinada → linha lá; feita →
+  sai de lá e vai pro PF_FUNCOES). Detalhes e ranking em `PF_FUNC_DET[nome]` {r: posição no 🏆 Diferenciais, rr: por que é difícil outro
+  sistema ter, x}. 📋 Copiar em cada card e "Copiar esta lista" (`pfFuncTexto`, no modo da tela). Coisa nova que é diferencial → dar um r.
+- **🎯 Objetivo do Vitor (16/10/2026): "esse sistema precisa ser o MELHOR sistema de autopeças que existe."** Pensar sempre no que deixa
+  o vendedor/comprador mais rápido e no que outro sistema não tem; sugerir ideias novas (e guardar no `PF_FUNC_IDEIAS`).
 - **🖥️ Modo monitor do trabalho** (v115.2177, refeito): botão 🖥️ na barra (`pfBtnMonitor`) / **Option+T (Alt+T)** (v115.2178; Alt+M = Mapa de Compras) → `pfMonitorToggle` vai pra
   `?pfmonitor=1`; um `<script>` no COMEÇO do `<head>` troca a página por uma moldura com o app num `<iframe>` 1920×1080 de verdade
   (`?pfmonframe=1`, `window._pfEmMonitor`) encolhido com `transform: scale` (media queries e vw/vh certos — o zoom no `<html>` da

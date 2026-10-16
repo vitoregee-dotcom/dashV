@@ -738,6 +738,10 @@
 - v115.2328 ("aquela nova planilha do JBoss, configura dessa maneira no leitor" — print "XLS Aviso (Conversão e Mudança)"): `PF_LP_JBOSS_CONV=true`
   → Copiar e Baixar saem no modelo novo: cabeçalho `LP_JBOSS_COLS` + 1 linha por peça (código em CODIGOINTERNOMANUAL, QUANTIDADE; marca VAZIA = o JBoss
   importa todas as marcas e procura nas conversões) — `lpLinhasJbossConv`/`lpPlanilhaJbossConv`, arquivo `ITENS_PEDIDOS_<data>.xlsx`, código como texto.
+- v115.2342 BUG ("pq isso no leitor?" — "image dimensions exceed max allowed size: 8000 pixels"): copiar linhas do Excel põe TEXTO + FOTO das células na
+  área de transferência; o 📋 Colar print mandava a foto (400 linhas = >8000 px). Agora tabela com TAB e cabeçalho "Cód" vira planilha (`lpColarTabelaDoClipboard`
+  → `lpLerExcel`, sem IA); toda imagem do Leitor passa por `lpImgLimitar` (7900 px, ou 1950 com >20 imagens no pedido — limite da API); planilha sem coluna
+  de quantidade (TECFIL) entra com qtd 1. BUG junto ("botão bugado"): o Colar print ficava VAZIO depois do clique (`textContent=''`) — volta o innerHTML.
 
 ## Botões duplos / PDF (v115.2252)
 - "Botão duplo" (setinha ▾ colada) do Leitor de Peças e da Cotação SAIU: os 2 botões padrão (📋 Colar print + ⬆ Carregar arquivo) e o

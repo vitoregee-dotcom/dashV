@@ -160,6 +160,22 @@
   v115.2327 ("não está aqui"): o botão também fica DENTRO do selo vermelho do topo (pílula branca "👁 Ver como os outros").
 - Notícias: cópia PRÓPRIA de usuário de `pfNoticias*` é ignorada no pull (Carlos tinha uma de 10/09 que passava na frente).
 
+## 🧠 Perfil do cliente (v115.2331; prévias em `docs/referencias/perfil-cliente/`, capturas em `.../feito/`)
+- Vitor: "o sistema entender o cliente… avisar quando fora do comum" → "traçar um perfil no geral: cotação × compra, família que parou, linha"
+  → "opção mês, trimestre, ano · faz tudo". `pfPerfilCalc(c,per)` (c = item do `pcMontarDados`; cache `pfPerfilDe`, 60 s): AGORA (último
+  mês/tri/ano rolando, `PF_PERFIL_PER`) × NORMAL DELE (média dos 12 meses / 4 tri / ano anterior): ritmo (mediana dos intervalos, 24 meses),
+  valor, nº pedidos, ticket, cotações e % que fecha; tabelas Famílias (grupo do cadastro do produto `pfPerfilFamIdx`, senão
+  `pfClassificarGrupoSubgrupo` pela descrição; "Outros" não avisa) / Linhas (`idLinha`, sem GENÉRICO) / Marcas — status normal/▼ caiu/⛔ parou/▲ subiu/🆕 começou.
+  "Parou" independe do período: 4+ compras e 7%+ do valor em 18 meses, sem comprar há > max(75, 3× o intervalo dela) e 2+ pedidos depois.
+  Alertas `R.alertas` (ruins) e `R.bons`; no máx. 2 "parou"/1 "caiu"/1 "começou" por tipo; `R.resumo` em texto.
+- Onde: bloco 🧠 em cima da linha do tempo da ficha do CRM (`pfPerfilBlocoHtml`, chips Mês|Trimestre|Ano → `pfPerfilPerSet`, localStorage
+  `pf_perfil_per`); linha "🧠 Perfil" na caixa de avisos da cotação (`pfPerfilDoCliente`, sem repetir o "demorando/inativo"); Órbita ✨ Destacar →
+  🧠 Fora do comum (`x.perfilN`, `PF_ORB_SELO.perfil`) + linhas no balão; ☀️ Meu dia (clientes pra ligar); barra de notificações `perfil`
+  (log só-acrescenta `pfPerfilEventos`, `pfPerfilEventosGerar`: a cada 6 h por aparelho, 90 s depois de abrir, máx. 40 por rodada, id = cliente|tipo|ref|mês,
+  pula cliente demo e o modo demonstração; vendedor vê só a carteira `pfPerfilEvMeu`, gestor tudo; painel `pfPerfilPainelHtml` → ficha).
+- Config compartilhada `pfPerfilCfg` {per, fator (sumido = dias > fator × max(mediana, p80) dos intervalos, padrão 2), minDias 30, avisos{}} — ⚙️ no bloco
+  (gestor/admin, `pfPerfilCfgAbrir`). Regra/aviso novo → `PF_PERFIL_AVISOS` + `pfPerfilCalc` + texto no `PF_FUNC_DET['Perfil do cliente']`.
+
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)
 - Cotação: 90+ dias sem comprar = "⛔ inativo" (`PF_INATIVO_DIAS`), sem histórico = "🆕 primeira compra"; clique → `pfInatAbrir(modo)`
   (reanalise / novo_prazo / novo_vista), lista montada do PRÓPRIO atalho de texto (`pfCadCampoDoRotulo` mapeia rótulo→campo do cadastro).

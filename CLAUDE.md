@@ -428,6 +428,13 @@
   v115.2340 ("editei a série mas não salvou… o caminho pra inserir a série está muito difícil"): na PÁGINA da máquina as séries são etiquetas com ✕ + caixinha
   "+ série" (Enter ou sair do campo) que grava NA HORA na 1ª ficha (`maqSeriesEditHtml`/`maqSerieAdd`/`maqSerieTirar`/`maqSerieSet`; sem ficha cria uma mínima);
   série do Peças por máquina aparece sem ✕. No formulário, o `ftSalvarForm` também pega o que ficou digitado no "+ série" sem Enter.
+  v115.2341 **séries por componente** (Vitor: "alguma coisa muda quando muda a série" → opção A: 1 card por modelo, cada componente diz em quais séries vale):
+  `pfMaqSerieComp_v1` {por:{chaveMaq:{compKey:[séries]}},ts} (compartilhada; compKey = gk ou 'f:'+GRUPO; sem marca = todas). Clicar na etiqueta da série filtra
+  os componentes (`maqSerieFiltrar`, `_maq.serieSel`); "vale pra todas as séries ✎ / só série X" em cada componente (`maqCompSeriesAbrir`/`maqCompSeriesGravar`,
+  só aparece com 2+ séries). Cotação: `aplicBuscar` + `maqGksPorSerieDigitada(termo)` — digitar a série da máquina (LL9T) traz as peças dos componentes que valem pra ela.
+  **BUG GRAVE junto ("assim que salvei a série, sumiu")**: `pfMergeSyncValue` junta listas por id e na mesma id vence `tsMod||ts||data` maior — ficha não tinha
+  nenhum (0≥0 → o SERVIDOR velho vencia e a edição de ficha existente voltava atrás). `ftSave` agora põe `tsMod` em toda ficha que mudou.
+  **REGRA: lista sincronizada com item editável SEM ts → o item editado precisa ganhar `tsMod=Date.now()`, senão a edição se perde na sync.**
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

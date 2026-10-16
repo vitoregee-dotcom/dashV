@@ -423,6 +423,8 @@
   420F2" tira a marca), marca o que vai junto — cada componente ligado (`maqSerieMaquinasSet` acrescenta "MARCA MODELO" na série) e a ficha técnica (cópia da
   1ª ficha SEM série/ano/fotos, `copiadoDe`). Modelo que já tem ficha não é sobrescrito (só ganha as ligações). Peças de manutenção não copiam (já existe o
   "📑 copiar de outra máquina" do Colocar peças). Captura `docs/referencias/maquina-copiar.png`.
+  v115.2338 ("o que pode ir junto é categoria, fabricante também e os componentes"): a ficha INTEIRA não vai mais — opções 🏷️ Categoria, 🏭 Fabricantes
+  (motorFab/transFab/eixoDianFab/eixoTrasFab) e cada componente (série ligada `g:` e/ou componente só da ficha `f:` → modelo+fabricante+part number, sem série).
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2334</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2335</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2334</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2335</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -55649,13 +55649,25 @@ var PF_DICAS_KEY='pfDicasImpactoCache';
 async function pfDicasImpactoGerar(forcar){
   var wrap=document.getElementById('pfDicasImpactoWrap');
   if(!wrap)return;
-  var hoje=new Date().toISOString().slice(0,10);
+  var _d=new Date(),hoje=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0'); // v115.2335 - dia do Brasil (o UTC virava o dia às 21h)
   if(!forcar){
     try{
       var cached=JSON.parse(localStorage.getItem(PF_DICAS_KEY)||'null');
       if(cached&&cached.dia===hoje){pfDicasImpactoPintar(cached.texto);return;}
     }catch(e){}
+    // v115.2335 - A pedido do Vitor (print do Uso de IA: "Dicas de impacto" pago por VITOR LIMA, carlos.candis e MINEIRO no mesmo dia, até 3x
+    // a mesma pessoa): o cache era de CADA USUÁRIO/aparelho. Agora, antes de pagar, procura no servidor as dicas que QUALQUER pessoa da
+    // empresa já gerou hoje — uma geração por dia pra todo mundo (o "Atualizar" continua gerando na hora).
+    if(typeof sbFetch==='function'){try{
+      var rD=await sbFetch('/rest/v1/user_sync?chave=eq.'+PF_DICAS_KEY+'&select=dados,updated_at&order=updated_at.desc&limit=5');
+      var lD=await rD.json();var achou=null;
+      (Array.isArray(lD)?lD:[]).some(function(row){try{var o=typeof row.dados==='string'?JSON.parse(pfDecompress?pfDecompress(row.dados):row.dados):row.dados;if(o&&o.dia===hoje&&o.texto){achou=o;return true;}}catch(e){}return false;});
+      if(achou){try{localStorage.setItem(PF_DICAS_KEY,JSON.stringify(achou));}catch(e){}pfDicasImpactoPintar(achou.texto);return;}
+    }catch(eS){}}
+    // trava: outro aparelho DESTE navegador/usuário já está gerando agora (2 min)
+    if(window._pfDicasGerandoEm&&Date.now()-window._pfDicasGerandoEm<120000)return;
   }
+  window._pfDicasGerandoEm=Date.now();
   var apiKey=localStorage.getItem('anthropic_key')||'';
   if(!apiKey){
     wrap.innerHTML='<div style="font-size:11px;color:var(--pf-text-muted)">Cadastre a API Key da Anthropic (em Ferramentas) pra gerar as dicas de impacto.</div>';

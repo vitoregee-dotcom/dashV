@@ -146,6 +146,7 @@
   (só com o modo ligado) → chave LOCAL `pfModoDemoVerComoOutros`='1' (`pfModoDemoVerComoOutros`/`pfModoDemoVerSet`, recarrega; desligar faz pull completo)
   → `pfModoDemoAtivo` vale também pro Vitor nesse navegador. Selo do topo fica LARANJA "👁 Você está vendo como os outros — clique pra voltar".
   Desligar o modo apaga a chave. `pfDemoAtivAdd` ignora o Vitor (não entra no registro). Coisas só-do-dono (👁 ocultar card etc.) continuam aparecendo.
+  v115.2327 ("não está aqui"): o botão também fica DENTRO do selo vermelho do topo (pílula branca "👁 Ver como os outros").
 - Notícias: cópia PRÓPRIA de usuário de `pfNoticias*` é ignorada no pull (Carlos tinha uma de 10/09 que passava na frente).
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)

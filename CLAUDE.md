@@ -418,6 +418,11 @@
   enquanto digita (datalist `ftDlMarca`/`ftDlModelo`/`ftDlCategoria`, `ftSugestoesLigar`: marcas das fichas + Máquinas + `PF_FT_MARCAS`; modelos da marca digitada,
   com alias CAT→CATERPILLAR; categorias usadas + `FT_TIPOS_EN`). Série = etiquetas (`ftSeriesFormHtml`/`ftSeriesLigar`: Enter/vírgula/sair acrescenta, ✕ tira,
   colar "LWT, KSF / PHD" separa) gravando no MESMO `serie.v` separado por ", " (hidden `#ftF_serie`; checa a cada 0,7 s o que a IA/rascunho/tradução escreveu).
+  v115.2337 ("o mesmo eixo traseiro também é usado em 416F2, 420, 420F2… criar card desses modelos copiando desse, ao invés de preencher tudo de novo"):
+  "📑 Copiar pra outros modelos" no cabeçalho da página da máquina (`maqCopiarAbrir`/`maqCopiarGravar`): modelos novos em etiquetas (mesma marca; "CATERPILLAR
+  420F2" tira a marca), marca o que vai junto — cada componente ligado (`maqSerieMaquinasSet` acrescenta "MARCA MODELO" na série) e a ficha técnica (cópia da
+  1ª ficha SEM série/ano/fotos, `copiadoDe`). Modelo que já tem ficha não é sobrescrito (só ganha as ligações). Peças de manutenção não copiam (já existe o
+  "📑 copiar de outra máquina" do Colocar peças). Captura `docs/referencias/maquina-copiar.png`.
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

@@ -414,6 +414,10 @@
   série (prefixo do fim); e a linha de configuração "320C Forest Machines TBR00001-UP (MACHINE) POWERED BY 3066 Engine" (`ftConfigEn`) dá série TBR,
   motor 3066 (fabricante CATERPILLAR se a marca é CAT), FLORESTAL na categoria, sem trocar o modelo já preenchido ("320C FM", `mo.dataset.ult`).
   Categoria digitada em inglês vira português no change. Aviso verde "🌐 … →" embaixo do modelo.
+  v115.2336 ("coloca esse campo para ir preenchendo" + "a série precisa poder colocar mais de uma"): na ficha, Marca/Modelo/Categoria com sugestão
+  enquanto digita (datalist `ftDlMarca`/`ftDlModelo`/`ftDlCategoria`, `ftSugestoesLigar`: marcas das fichas + Máquinas + `PF_FT_MARCAS`; modelos da marca digitada,
+  com alias CAT→CATERPILLAR; categorias usadas + `FT_TIPOS_EN`). Série = etiquetas (`ftSeriesFormHtml`/`ftSeriesLigar`: Enter/vírgula/sair acrescenta, ✕ tira,
+  colar "LWT, KSF / PHD" separa) gravando no MESMO `serie.v` separado por ", " (hidden `#ftF_serie`; checa a cada 0,7 s o que a IA/rascunho/tradução escreveu).
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

@@ -142,6 +142,10 @@
   · v115.2311 ("esses lembretes não são do Carlos"): LEMBRETE SAIU DA DEMONSTRAÇÃO — é pessoal, cada um vê os SEUS de verdade e eles tocam
     (fora de PF_MODO_DEMO_NADA/PF_DEMO_COMPARTILHA; `PF_DEMO_POR_USUARIO`=[] — mecanismo da 2307 guardado; `por.pfLembretes` da base não é mais lido).
   · v115.2305: o registro só abre pro vitoregee@gmail.com (`pfDemoAtivAbrir` confere `pfEhVitorGmail`; o 🎭 some da tela de configurar avisos dos outros).
+- v115.2326 ("consigo ligar só pra mim pra ver a mesma versão que os outros veem?"): botão "👁 Ver como os outros" no bloco do modo demonstração
+  (só com o modo ligado) → chave LOCAL `pfModoDemoVerComoOutros`='1' (`pfModoDemoVerComoOutros`/`pfModoDemoVerSet`, recarrega; desligar faz pull completo)
+  → `pfModoDemoAtivo` vale também pro Vitor nesse navegador. Selo do topo fica LARANJA "👁 Você está vendo como os outros — clique pra voltar".
+  Desligar o modo apaga a chave. `pfDemoAtivAdd` ignora o Vitor (não entra no registro). Coisas só-do-dono (👁 ocultar card etc.) continuam aparecendo.
 - Notícias: cópia PRÓPRIA de usuário de `pfNoticias*` é ignorada no pull (Carlos tinha uma de 10/09 que passava na frente).
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)

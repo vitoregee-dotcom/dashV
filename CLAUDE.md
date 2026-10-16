@@ -687,6 +687,9 @@
 - `PF_LP_JBOSS_NOVO=false` (Vitor: "deixa como era antes, o modo antigo vai voltar; essa não deu certo"): sem coluna MARCA (JBOSS) e
   sem "Marcar todas as marcas"; Copiar = CODIGO/QUANTIDADE/DESCRICAO (tab); Baixar = `lista_pecas_<data>.xls` só código + qtd, sem
   cabeçalho. O modo da v115.2048 (LP_JBOSS_COLS, 1 linha por marca) continua no código — `true` liga de novo.
+- v115.2328 ("aquela nova planilha do JBoss, configura dessa maneira no leitor" — print "XLS Aviso (Conversão e Mudança)"): `PF_LP_JBOSS_CONV=true`
+  → Copiar e Baixar saem no modelo novo: cabeçalho `LP_JBOSS_COLS` + 1 linha por peça (código em CODIGOINTERNOMANUAL, QUANTIDADE; marca VAZIA = o JBoss
+  importa todas as marcas e procura nas conversões) — `lpLinhasJbossConv`/`lpPlanilhaJbossConv`, arquivo `ITENS_PEDIDOS_<data>.xlsx`, código como texto.
 
 ## Botões duplos / PDF (v115.2252)
 - "Botão duplo" (setinha ▾ colada) do Leitor de Peças e da Cotação SAIU: os 2 botões padrão (📋 Colar print + ⬆ Carregar arquivo) e o

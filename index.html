@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2327</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2328</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2327</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2328</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -48745,6 +48745,29 @@ async function lpLerTextoReal(txt){
 // sem a coluna MARCA (JBOSS); Copiar = CODIGO/QUANTIDADE/DESCRICAO; Baixar = .xls só com código e quantidade, sem cabeçalho.
 // O modo novo continua aqui (true liga de novo).
 var PF_LP_JBOSS_NOVO=false;
+// v115.2328 - A pedido do Vitor ("aquela nova planilha do JBoss, configura dessa maneira no leitor" — print do "XLS Aviso (Conversão e
+// Mudança)"): o JBoss agora aceita NOMEMARCA/IDMARCA em BRANCO (importa todas as marcas do código) e, se não achar o código, procura nas
+// MUDANÇAS (conversões). Então Copiar/Baixar saem no modelo novo: cabeçalho CODIGOINTERNOMANUAL…REFCLIENTE (sem acento), 1 linha por peça
+// com o código em CODIGOINTERNOMANUAL e a QUANTIDADE — marca vazia, sem escolher marca na tela. false = volta o formato antigo da v115.2255.
+var PF_LP_JBOSS_CONV=true;
+function lpLinhasJbossConv(){
+  return (window._lpItens||[]).map(function(it){var cod=String(it.codigo||'').trim();return cod?[cod,'','','',Number(it.qtd)||1,'','','']:null;}).filter(Boolean);
+}
+function lpPlanilhaJbossConv(){
+  var linhas=lpLinhasJbossConv();if(!linhas.length)return;
+  var nome='ITENS_PEDIDOS_'+new Date().toISOString().slice(0,10)+'.xlsx';
+  try{
+    if(typeof XLSX==='undefined')throw new Error('SheetJS indisponivel');
+    var ws=XLSX.utils.aoa_to_sheet([LP_JBOSS_COLS].concat(linhas));
+    linhas.forEach(function(l,ri){var ref=XLSX.utils.encode_cell({r:ri+1,c:0});if(ws[ref]){ws[ref].t='s';ws[ref].v=String(l[0]);ws[ref].z='@';}}); // código como texto (zero à esquerda)
+    ws['!cols']=[{wch:22},{wch:14},{wch:12},{wch:9},{wch:12},{wch:9},{wch:12},{wch:12}];
+    var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sheet');XLSX.writeFile(wb,nome);
+  }catch(e){
+    var csv=[LP_JBOSS_COLS].concat(linhas).map(function(l){return l.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(';');}).join('\n');
+    var blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=nome.replace('.xlsx','.csv');
+    document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
+  }
+}
 var LP_JBOSS_COLS=['CODIGOINTERNOMANUAL','CODIGOINTERNO','NOMEMARCA','IDMARCA','QUANTIDADE','PRECO','CODIGOSAP','REFCLIENTE'];
 function lpNormCodJb(c){return String(c==null?'':c).toUpperCase().replace(/[^A-Z0-9]/g,'');}
 function lpEstoqueIndice(){
@@ -48823,6 +48846,11 @@ function lpAvisoSemMarca(semMarca){
 }
 function lpCopiarTab(){
   lpAprenderComEdicoes();
+  if(PF_LP_JBOSS_CONV&&!PF_LP_JBOSS_NOVO){ // v115.2328 - modelo "Conversão e Mudança"
+    var lc=lpLinhasJbossConv();if(!lc.length)return;
+    navigator.clipboard.writeText([LP_JBOSS_COLS].concat(lc).map(function(l){return l.join('\t');}).join('\n')).then(function(){var btn=document.getElementById('lpCopyBtn');if(btn){btn.textContent='Copiado! (modelo JBoss)';btn.style.background='#1a7a1a';setTimeout(function(){btn.textContent='Copiar';btn.style.background='#27AE60';},2500);}});
+    return;
+  }
   if(!PF_LP_JBOSS_NOVO){ // v115.2255 - formato antigo
     var itensA=window._lpItens||[];if(!itensA.length)return;
     var txtA='CODIGO\tQUANTIDADE\tDESCRICAO\n'+itensA.map(function(it){return it.codigo+'\t'+it.qtd+'\t'+(it.desc||'');}).join('\n');
@@ -48839,6 +48867,7 @@ function lpCopiarTab(){
 }
 function lpBaixarXlsx(){
   lpAprenderComEdicoes();
+  if(PF_LP_JBOSS_CONV&&!PF_LP_JBOSS_NOVO){lpPlanilhaJbossConv();return;} // v115.2328 - modelo "Conversão e Mudança"
   if(!PF_LP_JBOSS_NOVO){ // v115.2255 - formato antigo: só código e quantidade, sem cabeçalho, .xls
     var itensB=window._lpItens||[];if(!itensB.length)return;
     var nomeB='lista_pecas_'+new Date().toISOString().slice(0,10)+'.xls';

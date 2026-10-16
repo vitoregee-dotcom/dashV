@@ -650,7 +650,7 @@
 - Dados: log compartilhado **`pfCrmEventos`** (logKeys + lista de sync) — SÓ ACRESCENTA (`pfCrmAdd`): tipos nota/ligacao/whats/
   email/prox{data}/feito{ref}. Próxima ação aberta = "prox" mais novo sem "feito" (`pfCrmProxAtual`). Nunca editar evento.
 - **☀️ Meu dia** = aba em Vendas (`pfCrmMeuDiaRender`): retornos combinados (atrasados/hoje/7 dias), cotações pra cobrar
-  (2–30 dias sem virar pedido, maiores primeiro, 💬 Cobrar `pfCrmCobrar`), clientes pra ligar (sumindo = dias > 1,5× o
+  (2–30 dias sem virar pedido, maiores primeiro, 💬 Cobrar `pfCrmCobrar`), clientes pra contatar (v115.2339: "ligar" virou "contatar" na tela — Registrar contato, ✔ Fiz contato; o tipo do evento continua `ligacao`) (sumindo = dias > 1,5× o
   intervalo e ≥30; inativo que ainda cota; crescendo ≥ +50%; título vencido). Vendedor vê a carteira dele; gestor escolhe.
 - Próximas fases (decidir com o Vitor): WhatsApp API oficial (Meta) com conversa dentro da ficha; caixa de e-mail ligada
   (Microsoft 365 ou Google); IA resumindo a conversa; pesquisas com o cliente (ver pedido de 06/10).

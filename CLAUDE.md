@@ -752,6 +752,22 @@
 - Órbita: "↺ Ver tudo" no cabeçalho quando tem filtro e "↺ Zerar filtros" sempre no popover (`pfOrbFiltrosLimpar` zera também o
   filtro do resumo, rastro 30 dias e zoom). Carlos Candis = role `gestor` em `profiles` (vê a carteira toda; pfVR2PodeGeral).
 
+## 📖 História das marcas + 🎬 vídeos no banner (v115.2345; prévia `docs/referencias/historia-marcas/`)
+- Vitor: "pegue a história de cada marca… banner como notícia… precisa ser verdadeira, com fotos, logo" + "pode contar inclusive das que a Triex não
+  trabalha" + "deixar o espaço das marcas pros vídeos… shorts… cabe 2 telas" + "você procura e me manda pra aprovar e joga nas notificações".
+- `data/historia-marcas.json` (15 marcas, pesquisadas com fonte, 3 perguntas de quiz cada; `logoUrl`/`fotoUrl` = Wikimedia Special:FilePath) e
+  `data/videos-sugeridos.json` (37 vídeos do YouTube, 15 Shorts), carregados 1x por `pfHistCarregar`. Marca nova = item no json (fatos com fonte).
+- Banner (`pfNoticiasRender`/`pfBannerHtml`): a cada 3 notícias entra 1 história (`pfHistHeroHtml`, rodízio pelo dia); notícia de marca sem foto ganha
+  cor + logo (`pfHistMarcaNoticiaFundo`, `pfHistPorNome`); a coluna da direita = vídeos APROVADOS (`pfVideosLateralHtml`: 2 Shorts lado a lado ou 1 deitado;
+  sem aprovado = notícias de marca, `pfBannerLateralHtml`, que também passam pro banner principal quando tem vídeo). Player `pfVideoAbrir` (youtube-nocookie).
+- História completa `pfHistAbrir` (logo, fotos, linha do tempo, 🇧🇷, curiosidade, vídeos da marca, fontes); só o Vitor: logo/foto por 📋 Colar print /
+  ⬆ Carregar arquivo / Ctrl+V (`pfMidiaGravarArquivo`: logo PNG 360 px em dataURL; foto 1400 px no Storage `ferramentas-arquivos/marcas/<id>/`).
+- Compartilhadas: `pfMarcaMidia_v1` {por:{id:{logo,fotos[]}},ts} e `pfVideos_v1` {por:{ytId:{st:ok|nao}},extras[],ts}. Barra de notificações 🎬 `midia`
+  (só o Vitor, conta = vídeos sem decisão + marcas sem logo/foto, `pfMidiaPendContar`) → `pfMidiaPendAbrir` (aprovar/recusar vídeo, colar logo/foto,
+  ➕ vídeo pelo link `pfVideoAdicionar`). Quiz com prêmios = `PF_FUNC_IDEIAS` (pra depois).
+- **Coluna "%" da cotação** (Vitor: "precisa sempre ser do custo lá da margem"): `vendasPctDaVenda` = margem LÍQUIDA da Calculadora (mesma conta do
+  `vendasCalcVenda`); digitar o % calcula o preço por `vendasCalcVenda(custo,uf,%)`. Custo 100, SP, 21% = R$ 140,58 = 21%.
+
 ## 🔎 Varredura de erros (v115.2344 — "faça uma varredura… erros nos detalhes")
 - **Carimbo automático no salvar** (`pfCarimbarMudancas`, dentro do `pfSafeSetItem`, fora da sync = `!window._pfPullGravando`): item de lista com id que
   mudou ganha `tsMod=agora`; objeto com `ts` (ou em `PF_CARIMBO_OBJ_KEYS`) que mudou ganha `ts=agora`. Resolveu edições que a sync desfazia (etapa do

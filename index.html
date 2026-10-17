@@ -27468,7 +27468,32 @@ function lpRenderFerr(){
 }
 
 
-function lpColarPrint(){navigator.clipboard.read().then(function(it){for(var i=0;i<it.length;i++){var t=it[i].types.find(function(x){return x.startsWith("image/");});if(t){it[i].getType(t).then(function(b){lpLerArquivo({files:[new File([b],"p.png",{type:b.type})]});});return;}}pfAlert("Sem imagem na area de transferencia.");}).catch(function(){pfAlert("Permissao negada.");});}
+// v115.2344 - A pedido do Vitor (varredura): os "📋 Colar print" da cotação, do Mapa e do Leitor antigo pegavam a FOTO das
+// células quando a pessoa copiava linhas do Excel (a foto de 400 linhas passa de 8000 px e a IA recusa — o erro em inglês que
+// apareceu no Leitor). pfColarPrintLer: tabela copiada (texto com TAB) vai pra onTabela; imagem é reduzida (lpImgLimitar) e vai
+// pra onImg; mensagens em português (antes "Permissao negada." pra qualquer falha).
+function pfColarPrintLer(onImg,onTabela){
+  if(!navigator.clipboard||!navigator.clipboard.read){pfAlert('Este navegador não deixa ler a área de transferência pelo botão. Use Ctrl+V (⌘+V no Mac) com a tela aberta.');return;}
+  navigator.clipboard.read().then(async function(it){
+    try{
+      if(onTabela){for(var i=0;i<it.length;i++){if(it[i].types.indexOf('text/plain')>=0){var tx=await (await it[i].getType('text/plain')).text();
+        if(tx&&tx.indexOf('\t')>=0&&tx.replace(/\r/g,'').split('\n').filter(function(l){return l.trim();}).length>=2){onTabela(tx);return;}}}}
+      for(var j=0;j<it.length;j++){var t=it[j].types.find(function(x){return x.indexOf('image/')===0;});
+        if(t){var b=await it[j].getType(t);var f=new File([b],'print.png',{type:b.type});
+          if(typeof lpImgLimitar==='function'){var du=await new Promise(function(res){var r=new FileReader();r.onload=function(e){res(e.target.result);};r.readAsDataURL(f);});
+            var red=await lpImgLimitar(du,7900);if(red){var bin=atob(red.b64),arr=new Uint8Array(bin.length);for(var k=0;k<bin.length;k++)arr[k]=bin.charCodeAt(k);f=new File([arr],'print.jpg',{type:red.mt});}}
+          onImg(f);return;}}
+      pfAlert('Não tem imagem copiada. Tire o print (ou copie a lista) e clique de novo — ou use Ctrl+V (⌘+V no Mac).');
+    }catch(e){pfAlert('Não consegui ler o que foi copiado. Tente Ctrl+V (⌘+V no Mac) com a tela aberta.');}
+  }).catch(function(){pfAlert('O navegador não deixou ler a área de transferência. Clique em "Permitir" quando ele perguntar, ou use Ctrl+V (⌘+V no Mac).');});
+}
+// texto com TAB e cabeçalho "Cód" -> File .xlsx (mesma leitura do ⬆ Carregar arquivo); null se não parecer planilha com cabeçalho
+function pfTabelaTextoParaXlsx(txt,nome){
+  if(!window.XLSX||typeof lpTabelaDoTexto!=='function')return null;var rows=lpTabelaDoTexto(txt);if(!rows)return null;
+  var wb=window.XLSX.utils.book_new();window.XLSX.utils.book_append_sheet(wb,window.XLSX.utils.aoa_to_sheet(rows),'Colado');
+  return new File([window.XLSX.write(wb,{bookType:'xlsx',type:'array'})],nome||'colado do Excel.xlsx',{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+function lpColarPrint(){return pfColarPrintLer(function(f){lpLerArquivo({files:[f]});});navigator.clipboard.read().then(function(it){for(var i=0;i<it.length;i++){var t=it[i].types.find(function(x){return x.startsWith("image/");});if(t){it[i].getType(t).then(function(b){lpLerArquivo({files:[new File([b],"p.png",{type:b.type})]});});return;}}pfAlert("Sem imagem na area de transferencia.");}).catch(function(){pfAlert("Permissao negada.");});}
 async function lpColarClipboard(){
   var btn=document.querySelector('button[onclick="lpColarClipboard()"]')||document.querySelector('button.lpColarBtn');
   // v115.2342 - BUG ("botão bugado"): no fim ele fazia btn.textContent='' e o botão 📋 Colar print ficava VAZIO. Agora volta o desenho.
@@ -29325,7 +29350,7 @@ function mapaAddForn(key,idx){
 }
 
 // ── Ler imagem/PDF com IA ──────────────────────────────────────
-function mapaColarPrint(){navigator.clipboard.read().then(function(it){for(var i=0;i<it.length;i++){var t=it[i].types.find(function(x){return x.startsWith("image/");});if(t){it[i].getType(t).then(function(b){mapaLerImagem({files:[new File([b],"p.png",{type:b.type})]});});return;}}pfAlert("Sem imagem na area de transferencia.");}).catch(function(){pfAlert("Permissao negada.");});}
+function mapaColarPrint(){return pfColarPrintLer(function(f){mapaLerImagem({files:[f]});});navigator.clipboard.read().then(function(it){for(var i=0;i<it.length;i++){var t=it[i].types.find(function(x){return x.startsWith("image/");});if(t){it[i].getType(t).then(function(b){mapaLerImagem({files:[new File([b],"p.png",{type:b.type})]});});return;}}pfAlert("Sem imagem na area de transferencia.");}).catch(function(){pfAlert("Permissao negada.");});}
 async function mapaLerImagem(input){
   var file=input.files[0];if(!file)return;
   var el=document.getElementById('mapaBody');
@@ -33804,6 +33829,7 @@ function cadLoad(key){try{return JSON.parse(pfSafeGetItem(key,'[]'));}catch(e){r
 function cadSave(key,data){
   pfSafeSetItem(key,JSON.stringify(data));
   if(key==='cad_produtos_v1')window._vendasProdImpCache=null; // v115.2150 - IPI/ST novo vale na hora na cotação
+  if(typeof CLIE_KEY!=='undefined'&&key===CLIE_KEY)window._pfVR2CliIdx=null; // v115.2344 - índice de clientes do pfVR2ClienteCad
   // Marca "mudei isso agora" -- usado pelo cadPullSupabase pra não deixar uma
   // sincronização de entrada (que ainda não sabe dessa mudança) sobrescrever ela,
   // trazendo de volta algo que acabou de ser excluído localmente.
@@ -50068,7 +50094,9 @@ function vendasRenderCotacao(el){
   window._venda=window._venda||{itens:[]};
   try{var _hp=document.getElementById('pfHistCliPop');if(_hp)_hp.remove();}catch(e){} // v115.2140 - balão do último preço não fica órfão
   var v=window._venda;
-  if(!v.nr)v.nr='V-'+new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9000)+1000);
+  // v115.2344 - BUG (varredura): o id da cotação era 'V-ano-' + um de só 9.000 números sorteados — duas cotações com o mesmo id viram
+  // UMA na sincronização (junta por id) e a outra some. Agora o id é único (data em base 36 + sorteio); as antigas mantêm o delas.
+  if(!v.nr)v.nr='V-'+new Date().getFullYear()+'-'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase();
   var hoje=new Date().toLocaleDateString('pt-BR');
 
   // Pré-computa o mapa de itens relacionados UMA vez por render (antes rodava
@@ -50105,7 +50133,7 @@ function vendasRenderCotacao(el){
       '<td title="'+pfEscHtml(it.codigo||'')+'" style="padding:3px 8px;font-family:monospace;font-size:14px;font-weight:600;color:#D97757;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+it.codigo+'</td>'+
       '<td style="padding:3px 8px"><div style="display:flex;align-items:center;gap:4px;min-width:0"><input type="text" value="'+(it.desc||'').replace(/"/g,'&quot;')+'" oninput="window._venda.itens['+i+'].desc=this.value" style="flex:1;min-width:40px;width:100%;border:none;background:transparent;font-family:\'Segoe UI\',system-ui,sans-serif;font-size:16px;font-weight:400;color:var(--pf-fx-textoEscuro,#1a2332);padding:0;outline:none" placeholder="—">'+vendasEtiquetasHtml(it,i,_nRelCat,_nMonta,_nSubst)+'</div></td>'+ // v115.2062 - etiquetas
       '<td title="'+pfEscHtml(it.marca||'')+'" style="padding:3px 8px;font-family:\'Segoe UI\',system-ui,sans-serif;font-size:16px;font-weight:400;color:var(--pf-fx-textoEscuro,#1a2332);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(it.marca||'&mdash;')+'</td>'+
-      '<td style="padding:3px 8px;text-align:center"><input type="number" min="1" value="'+it.qtd+'" oninput="window._venda.itens['+i+'].qtd=parseInt(this.value)||1" style="box-sizing:border-box;width:52px;height:30px;text-align:center;padding:0 4px;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:6px;font-family:inherit;font-size:16px;color:var(--pf-fx-textoEscuro,#1a2332)"></td>'+
+      '<td style="padding:3px 8px;text-align:center"><input type="number" min="1" value="'+it.qtd+'" oninput="window._venda.itens['+i+'].qtd=parseInt(this.value)||1;try{vendasAtualizarResumo();vendasAutoSalvarDebounced();}catch(e){}" style="box-sizing:border-box;width:52px;height:30px;text-align:center;padding:0 4px;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:6px;font-family:inherit;font-size:16px;color:var(--pf-fx-textoEscuro,#1a2332)"></td>'+
       // v115.2061 - A pedido do Vitor ("um atropelando o outro"): o selo de estoque baixo ia do lado do número e
       // invadia a coluna Status -- agora fica embaixo do número, pequeno, sem sair da célula.
       '<td style="padding:3px 4px;text-align:center;font-weight:500;white-space:nowrap;overflow:hidden;color:'+(isNeg?'#C00000':'#1a2332')+'">'+(it.saldo>0&&it.saldo<=5?'<span title="Estoque baixo ('+it.saldo+' pç) — pode acabar a qualquer momento" style="color:#B45309;font-weight:800;background:#FEF3C7;border-radius:5px;padding:1px 5px">⚠'+it.saldo+'</span>':(it.saldo!=null?it.saldo:'-'))+'</td>'+
@@ -50878,7 +50906,8 @@ function vendasEtqRenderConfig(){
 // v115.2061 - A pedido do Vitor ("por que os preços aparecem com ponto ao invés de vírgula?"): preço em
 // formato brasileiro (vírgula) na tabela da cotação; na leitura aceita os dois ("11,31" ou "11.31").
 function vendasFmtBR(n){return (n==null||isNaN(n))?'':Number(n).toFixed(2).replace('.',',');}
-function vendasNumBR(t){t=String(t==null?'':t).trim();if(t.indexOf(',')>=0)t=t.replace(/\./g,'').replace(',','.');var n=parseFloat(t);return isNaN(n)?NaN:n;}
+// v115.2344 - BUG (varredura): "1.500" virava 1,5 e "R$ 150,00" virava NaN (o preço digitado era jogado fora sem aviso).
+function vendasNumBR(t){t=String(t==null?'':t).replace(/R\$|\s/gi,'').trim();if(t.indexOf(',')>=0)t=t.replace(/\./g,'').replace(',','.');else if(/^-?\d{1,3}(\.\d{3})+$/.test(t))t=t.replace(/\./g,'');var n=parseFloat(t);return isNaN(n)?NaN:n;}
 // v115.2061 - A pedido do Vitor: no computador (mouse) as ações da linha ficam no botão direito (e no "⋯");
 // botões grandes só no iPad/celular (toque), onde não existe botão direito.
 function vendasEhToque(){try{return window.matchMedia('(hover:none) and (pointer:coarse)').matches;}catch(e){return false;}}
@@ -50989,7 +51018,7 @@ function vendasItens2LinhasHtml(v){
       '<td title="'+pfEscHtml(codCli?('Cliente passou: '+codCli+' · principal: '+it.codigo):(it.codigo||''))+'" style="padding:5px 8px 1px;font-family:monospace;font-size:14px;font-weight:600;color:#D97757;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pfEscHtml(codCli||it.codigo||'')+'</td>'+
       '<td style="padding:5px 8px 1px"><div style="display:flex;align-items:center;gap:4px;min-width:0"><input type="text" value="'+(it.desc||'').replace(/"/g,'&quot;')+'" oninput="window._venda.itens['+i+'].desc=this.value" style="flex:1;min-width:40px;width:100%;border:none;background:transparent;font-family:\'Segoe UI\',system-ui,sans-serif;font-size:16px;color:var(--pf-fx-textoEscuro,#1a2332);padding:0;outline:none" placeholder="—">'+vendasEtiquetasHtml(it,i,_nRelCat,_nMonta,_nSubst)+'</div></td>'+
       '<td title="'+pfEscHtml((it.marca||'')+(mInt?' · interna: '+mInt:''))+'" style="padding:5px 8px 1px;font-size:16px;color:var(--pf-fx-textoEscuro,#1a2332);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(pfEscHtml(it.marca||'')||'&mdash;')+'</td>'+
-      '<td style="padding:5px 6px 1px;text-align:center"><input type="number" min="1" value="'+it.qtd+'" oninput="window._venda.itens['+i+'].qtd=parseInt(this.value)||1;vendasAtualizarTotalLinha('+i+')" style="box-sizing:border-box;width:52px;height:30px;text-align:center;padding:0 4px;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:6px;font-family:inherit;font-size:16px;color:var(--pf-fx-textoEscuro,#1a2332)"></td>'+
+      '<td style="padding:5px 6px 1px;text-align:center"><input type="number" min="1" value="'+it.qtd+'" oninput="window._venda.itens['+i+'].qtd=parseInt(this.value)||1;vendasAtualizarTotalLinha('+i+');try{vendasAtualizarResumo();vendasAutoSalvarDebounced();}catch(e){}" style="box-sizing:border-box;width:52px;height:30px;text-align:center;padding:0 4px;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:6px;font-family:inherit;font-size:16px;color:var(--pf-fx-textoEscuro,#1a2332)"></td>'+
       '<td style="padding:5px 4px 1px;text-align:center;font-weight:500;white-space:nowrap;color:'+(isNeg?'#C00000':'#1a2332')+'">'+(it.saldo>0&&it.saldo<=5?'<span title="Estoque baixo ('+it.saldo+' pç)" style="color:#B45309;font-weight:800;background:#FEF3C7;border-radius:5px;padding:1px 5px">⚠'+it.saldo+'</span>':(it.saldo!=null?it.saldo:'-'))+'</td>'+
       '<td style="padding:5px 6px 1px;text-align:center;white-space:nowrap"><span style="font-size:12px;padding:4px 9px;border-radius:6px;font-weight:500;background:'+(isNeg?'#FEE2E2':'#DCFCE7')+';color:'+(isNeg?'#991B1B':'#166534')+'">'+(isNeg?'NEGATIVO':'IMEDIATO')+'</span>'+(isNeg&&_nSubst?'<span onclick="event.stopPropagation();vendasAbrirRelacionados('+i+')" title="Tem substituto cadastrado — clique pra ver" style="cursor:pointer;margin-left:3px;font-size:13px">🔄</span>':'')+'</td>'+
       // v115.2150 - jeito "Y" aprovado: em cima o UNIT. FINAL (preço + IPI + ST do cadastro); a caixa do preço sem imposto desce
@@ -58318,6 +58347,7 @@ function pfLembreteFimAviso(titulo,link,tocarSom){
     document.head.appendChild(st);
   }
   if(tocarSom!==false && typeof pfLembreteTocarSom==='function')pfLembreteTocarSom();
+  if(window._pfLembreteFimSomInt)clearInterval(window._pfLembreteFimSomInt); // v115.2344 - não deixa o apito antigo solto
   window._pfLembreteFimSomInt=setInterval(function(){ if(tocarSom!==false && typeof pfLembreteTocarSom==='function')pfLembreteTocarSom(); },1800);
 }
 function pfLembreteFimOk(){
@@ -61075,7 +61105,10 @@ function pfPerfilPainelHtml(){
 }
 // ── ficha ──
 function pfCrmFechar(){var m=document.getElementById('pfCrmFicha');if(m)m.remove();document.removeEventListener('keydown',pfCrmEsc,true);}
-function pfCrmEsc(e){if(e.key!=='Escape')return;var m=document.getElementById('pfCrmFicha');if(!m)return;if(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)&&document.activeElement.value){document.activeElement.blur();e.stopPropagation();e.preventDefault();return;}e.stopPropagation();e.preventDefault();pfCrmFechar();}
+function pfCrmEsc(e){if(e.key!=='Escape')return;var m=document.getElementById('pfCrmFicha');if(!m)return;
+  // v115.2344 - BUG (varredura): com uma janela aberta POR CIMA da ficha (resposta da pesquisa, ⚙️ Perfil, aviso), o Esc fechava a ficha
+  // e deixava a de cima solta. Agora, se a ficha não é a última janela do body, o Esc fica com o Esc geral (fecha a de cima).
+  try{var kids=document.body.children,acima=false;for(var ki=kids.length-1;ki>=0;ki--){var kd=kids[ki];if(kd===m)break;var kcs=getComputedStyle(kd);if(kcs.position==='fixed'&&kcs.display!=='none'&&parseFloat(kcs.opacity)>0.05&&(parseInt(kcs.zIndex,10)||0)>=(parseInt(getComputedStyle(m).zIndex,10)||0)&&kd.querySelector('button,input,select,textarea,[onclick]')&&kd.id!=='pfAiBotaoWrap'&&kd.id!=='pfModoDemoSelo'&&kd.id!=='pfSidebar'){acima=true;break;}}if(acima)return;}catch(eA){}if(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)&&document.activeElement.value){document.activeElement.blur();e.stopPropagation();e.preventDefault();return;}e.stopPropagation();e.preventDefault();pfCrmFechar();}
 function pfCrmAbrir(k){
   if(!k)return;
   window._pfCrmK=k;window._pfCrmFiltro=window._pfCrmFiltro||'tudo';
@@ -65252,10 +65285,14 @@ function pfVR2SoDig(s){return String(s||'').replace(/\D/g,'');}
 function pfVR2ClienteCad(cli){
   if(!cli)return null;
   var cods=(cli.codigo||'').toUpperCase().trim(), cnpj=pfVR2SoDig(cli.cnpj);
-  var lista=(typeof cadLoad==='function'&&typeof CLIE_KEY!=='undefined')?cadLoad(CLIE_KEY):[];
-  return (lista||[]).find(function(c){
-    return (cods&&(c.codigo||'').toUpperCase().trim()===cods)||(cnpj&&pfVR2SoDig(c.cnpj)===cnpj);
-  })||null;
+  // v115.2344 - LENTIDÃO (varredura): era chamada várias vezes POR ITEM (vendasCalcVenda em cada desenho/total/PDF) e cada vez lia
+  // e convertia o cadastro inteiro de clientes. Agora índice por código/CNPJ guardado por 5 s.
+  var ix=window._pfVR2CliIdx;
+  if(!ix||Date.now()-ix.t>5000){ix={t:Date.now(),cod:{},cnpj:{}};
+    var lista=(typeof cadLoad==='function'&&typeof CLIE_KEY!=='undefined')?cadLoad(CLIE_KEY):[];
+    (lista||[]).forEach(function(c){if(!c)return;var k=(c.codigo||'').toUpperCase().trim();if(k&&!ix.cod[k])ix.cod[k]=c;var d=pfVR2SoDig(c.cnpj);if(d&&!ix.cnpj[d])ix.cnpj[d]=c;});
+    window._pfVR2CliIdx=ix;}
+  return (cods&&ix.cod[cods])||(cnpj&&ix.cnpj[cnpj])||null;
 }
 function pfVR2PodeCliente(cli){
   if(!cli)return false;
@@ -65939,7 +65976,7 @@ function pfVendasPdfClienteMontarHtmlDoc(dados){
   return '<div id="pfVendasPdfDocTemp" style="width:780px;font-family:Arial,sans-serif;padding:24px;background:#fff;color:#1a2332">'+
     '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #FF6B6B;padding-bottom:12px;margin-bottom:16px">'+
       '<div style="font-size:20px;font-weight:800;color:#1F4E79">PartsFlow <span style="font-weight:400;color:#5a6b80;font-size:13px">| Cotação</span></div>'+
-      '<div style="font-size:11px;color:#8a9ab0;text-align:right">'+new Date().toLocaleDateString('pt-BR')+'<br>Nº '+(v.nr||v.num||'—')+'</div>'+
+      '<div style="font-size:11px;color:#8a9ab0;text-align:right">'+new Date().toLocaleDateString('pt-BR')+'<br>Nº '+(v.num||v.nr||'—')+'</div>'+
     '</div>'+
     '<div style="font-size:12px;color:#5a6b80;margin-bottom:16px">'+
       '<b>Cliente:</b> '+pfEscHtml(dados.cliente)+' &nbsp; <b>Condição:</b> '+pfEscHtml(v.condicao||'-')+' &nbsp; <b>Comprador:</b> '+pfEscHtml(v.comprador||'-')+
@@ -65964,7 +66001,7 @@ async function pfVendasPdfClienteGerarPDF(modo){
   temp.style.cssText='position:fixed;left:-9999px;top:0';
   temp.innerHTML=pfVendasPdfClienteMontarHtmlDoc(dados);
   document.body.appendChild(temp);
-  var filename='cotacao-'+(dados.v.nr||dados.v.num||'cliente')+'.pdf';
+  var filename='cotacao-'+(dados.v.num||dados.v.nr||'cliente')+'.pdf'; // v115.2344 - o nº que o vendedor vê (#1523), não o id interno
   try{
     if(typeof pfCarregarHtml2Pdf==='function')await pfCarregarHtml2Pdf();
     var blob=await html2pdf().set({margin:0,filename:filename,html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'pt',format:'a4'},pagebreak:{mode:['css','legacy']}}).from(document.getElementById('pfVendasPdfDocTemp')).outputPdf('blob');
@@ -65997,9 +66034,10 @@ async function pfVendasPdfClienteGerarPDF(modo){
 // itens com saldo (nenhum com saldo = todos), igual ao padrão da tela de escolha.
 function vendasPdfSelecaoPadrao(){
   var itens=(window._venda&&window._venda.itens)||[];
-  if(itens.some(function(it){return it._pdfCliente!=null;}))return;
+  // v115.2344 - BUG (varredura): se QUALQUER item já tinha a escolha, os itens adicionados depois ficavam sem ela e não iam pro PDF
+  // nem pro texto do WhatsApp. Agora a regra padrão vale pra cada item que ainda não foi escolhido.
   var comSaldo=itens.some(function(it){return it.saldo>0;});
-  itens.forEach(function(it){it._pdfCliente=comSaldo?(it.saldo>0):true;});
+  itens.forEach(function(it){if(it._pdfCliente==null)it._pdfCliente=comSaldo?(it.saldo>0):true;});
 }
 function vendasPdfRapido(modo){
   var itens=(window._venda&&window._venda.itens)||[];
@@ -66019,7 +66057,7 @@ function vendasPdfEmailDoCliente(){
 }
 async function vendasPdfEmail(){
   await pfVendasPdfClienteGerarPDF('baixar');
-  var v=window._venda||{},nr=v.nr||v.num||'';
+  var v=window._venda||{},nr=v.num||v.nr||'';
   var assunto='Cotação '+(nr?'nº '+nr+' ':'')+'- Triex';
   var corpo='Olá,\n\nSegue em anexo a cotação'+(nr?' nº '+nr:'')+'.\n'+(v.condicao?'Condição: '+v.condicao+'\n':'')+'\nQualquer dúvida, estou à disposição.\n\n'+(typeof pfNomeUsuario==='function'?pfNomeUsuario():'');
   window.location.href='mailto:'+encodeURIComponent(vendasPdfEmailDoCliente())+'?subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(corpo);
@@ -66367,8 +66405,10 @@ function vendasUndoAplicar(de,para,rotulo){
   var obj=null;try{obj=JSON.parse(alvo);}catch(e){return;}
   window._vendasUndoAplicando=true;
   try{
+    var _numAt=v.num,_nrAt=v.nr; // v115.2344 - desfazer não pode voltar o número/id (virava cotação duplicada)
     Object.keys(v).forEach(function(k){if(k!=='_tempoNovoSeg')delete v[k];});
     Object.keys(obj).forEach(function(k){v[k]=obj[k];});
+    if(_numAt)v.num=_numAt;if(_nrAt)v.nr=_nrAt;
     st.foto=vendasUndoFoto(v);
     if(typeof vendasRefresh==='function')vendasRefresh();
   }finally{window._vendasUndoAplicando=false;}
@@ -66400,7 +66440,7 @@ async function vendasGravarAoFechar(tid){
   var t=(window._vendasTabs||{})[tid];if(!t||!t.venda)return;
   var v=t.venda;if(v.pvEdit||!v.itens||!v.itens.length||!v.cliente)return;
   var ant=window._venda;window._venda=v;
-  try{await vendasSalvarCotacaoReal({});}catch(e){console.warn('gravar ao fechar:',e);}
+  try{await vendasSalvarCotacaoReal({aoFechar:true});}catch(e){console.warn('gravar ao fechar:',e);}
   finally{if(ant!==v)window._venda=ant;}
 }
 function vendasSemClienteComItens(ids){
@@ -67352,8 +67392,15 @@ function vendasBuscarCliente(query){
   var clientes=typeof cadLoad==='function'?cadLoad(CLIE_KEY):[];
   if(_demoVazio){clientes=(clientes||[]).filter(function(c){return c&&c.demo;});q='';}
   if(clientes&&clientes.length){
+    // v115.2344 - A pedido do Vitor (varredura): busca sem acento ("SAO" acha "SÃO"), também pelo nome fantasia, e CNPJ com ou
+    // sem pontuação; cada palavra digitada precisa aparecer (em qualquer ordem).
+    var _sa=function(t){return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();};
+    var qs=_sa(q).split(/\s+/).filter(Boolean),qd=String(q).replace(/\D/g,'');
     matches=clientes.filter(function(c){
-      return (c.razao||'').toUpperCase().indexOf(q)>=0||(c.cnpj||'').indexOf(q)>=0||(c.codigo||'').toUpperCase().indexOf(q)>=0;
+      if(!qs.length)return true;
+      var alvo=_sa((c.razao||'')+' '+(c.fantasia||'')+' '+(c.codigo||''));
+      if(qd.length>=4&&String(c.cnpj||'').replace(/\D/g,'').indexOf(qd)>=0)return true;
+      return qs.every(function(w){return alvo.indexOf(w)>=0;});
     }).slice(0,8);
   }
   if(!matches.length){res.style.display='none';return;}
@@ -67371,7 +67418,7 @@ function vendasSelecionarCliente(i){
   var contato='',tel='';
   if(c.contatos&&c.contatos[0]){contato=c.contatos[0].nome||'';tel=c.contatos[0].telefone||'';}
   window._venda.cliente={razao:c.razao,fantasia:c.fantasia||'',cnpj:c.cnpj,codigo:c.codigo,contato:contato,tel:tel,cidade:c.cidade,estado:c.estado};
-  if(c.estado)window._venda.uf=c.estado;
+  window._venda.uf=c.estado||'SP'; // v115.2344 - cliente sem estado herdava a UF (e o ICMS) do cliente anterior
   // v115.2058 - A pedido do Vitor: margem definida em regra do cliente
   // (Assistente de Vendas, Alt+O) entra sozinha ao escolher o cliente.
   // v115.2111 - A pedido do Vitor: sem regra do Assistente, vale a margem própria do cadastro ou a do perfil
@@ -67596,8 +67643,19 @@ async function vendasSalvarCotacaoReal(opts){
   if(v.pvEdit)return null; // v115.2060 - pedido em edição não grava como cotação
   var COTS_KEY='partsflow_cotacoes_v1';
   var cots=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');
-  var idxExistente=v.num?cots.findIndex(function(c){return c.num===v.num;}):-1;
-  var num=idxExistente>=0?v.num:(cots.length>0?Math.max.apply(null,cots.map(function(c){return c.demo?0:(c.num||0);}))+1:1); // v115.2124 - cotação de demonstração (900001+) não mexe na numeração real
+  // v115.2344 - BUG (varredura): achava a cotação pelo NÚMERO — dois vendedores que pegam o mesmo número (numeração local) gravavam
+  // um por cima do outro. Agora procura pelo id; pelo número só se aquela não tiver id (cotação antiga) ou for o mesmo id.
+  var idxExistente=v.nr?cots.findIndex(function(c){return c&&c.id&&c.id===v.nr;}):-1;
+  if(idxExistente<0&&v.num)idxExistente=cots.findIndex(function(c){return c&&c.num===v.num&&(!c.id||!v.nr||c.id===v.nr);});
+  // v115.2344 - no modo demonstração a lista só mostra as cotações demo (900001+): numerava todas como 1. Agora segue a numeração demo.
+  var _demoAtivo=(typeof pfModoDemoAtivo==='function')&&(function(){try{return pfModoDemoAtivo();}catch(e){return false;}})();
+  var num=idxExistente>=0?(cots[idxExistente].num||v.num):(_demoAtivo?Math.max.apply(null,[900000].concat(cots.map(function(c){return c&&c.demo?(c.num||0):0;})))+1:(cots.length>0?Math.max.apply(null,cots.map(function(c){return c.demo?0:(c.num||0);}))+1:1)); // v115.2124 - cotação de demonstração (900001+) não mexe na numeração real
+  if(idxExistente>=0&&opts.aoFechar){
+    // v115.2344 - BUG (varredura): só ABRIR e fechar uma cotação regravava tudo (data de hoje, quem abriu virava o atendente e o
+    // histórico de preços ganhava registros repetidos). Ao fechar, sem nada mudado, não grava.
+    try{var _a=cots[idxExistente]||{};var _k=function(o){return JSON.stringify([o.itens||[],(o.clienteObj&&(o.clienteObj.codigo||o.clienteObj.razao))||o.cliente||'',o.uf||'',+o.margem||0,o.condicao||'',o.comprador||'']);};
+      if(_k(_a)===_k({itens:v.itens,clienteObj:v.cliente,uf:v.uf,margem:v.margem,condicao:v.condicao,comprador:v.comprador})&&!v._tempoNovoSeg){v.num=num;return {num:num,idxExistente:idxExistente,semMudanca:true};}}catch(eK){}
+  }
   var cot={num:num,id:v.nr,data:new Date().toISOString(),atendenteEmail:(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||'',atendenteNome:(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)||'',/* v115.2087 - quem atendeu (Painel/Órbita do gestor) */cliente:v.cliente?v.cliente.razao:'',clienteObj:v.cliente||null,uf:v.uf||'SP',margem:v.margem||30,condicao:v.condicao||'',comprador:v.comprador||'',itens:(v.itens||[]).slice(),total:(v.itens||[]).reduce(function(s,it){
     var custo=it.custoOverride!=null?it.custoOverride:it.custo;
     var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf||'SP',v.margem||30):0);
@@ -67607,7 +67665,12 @@ async function vendasSalvarCotacaoReal(opts){
   // sinalizadas"): a cotação era remontada do zero a cada salvamento (inclusive o autosave) e perdia o que não vem
   // da tela -- dataPedido (gravada ao emitir o pedido), vendedor/transportadora editados direto na lista etc.
   // Agora o que já estava salvo e a tela não tem continua.
-  if(idxExistente>=0){var _ant=cots[idxExistente]||{};Object.keys(_ant).forEach(function(k){if(!(k in cot))cot[k]=_ant[k];});}
+  if(idxExistente>=0){var _ant=cots[idxExistente]||{};Object.keys(_ant).forEach(function(k){if(!(k in cot))cot[k]=_ant[k];});
+    // v115.2344 - a DATA da cotação é a de quando foi feita e o atendente é quem fez (antes virava hoje e quem abriu por último);
+    // a última alteração vai em tsMod (é ela que decide quem vence na sincronização).
+    if(_ant.data)cot.data=_ant.data;if(_ant.atendenteEmail){cot.atendenteEmail=_ant.atendenteEmail;cot.atendenteNome=_ant.atendenteNome||cot.atendenteNome;}
+    if(_ant.id&&!cot.id)cot.id=_ant.id;}
+  cot.tsMod=Date.now();
   // v115.2180 - tempo de trabalho na cotação (pfCotTempoTick): soma o que foi acumulado desde o último salvamento
   cot.tempoAtivoSeg=((idxExistente>=0&&cots[idxExistente]&&cots[idxExistente].tempoAtivoSeg)||0)+(v._tempoNovoSeg||0);v._tempoNovoSeg=0;
   if(!cot.inicioEm&&v.inicioEm)cot.inicioEm=v.inicioEm;
@@ -67707,7 +67770,7 @@ async function vendasPullCotacoes(){
   }catch(e){console.warn('vendasPullCotacoes erro:',e);}
 }
 
-function vendasColarPrint(){navigator.clipboard.read().then(function(it){for(var i=0;i<it.length;i++){var t=it[i].types.find(function(x){return x.startsWith("image/");});if(t){it[i].getType(t).then(function(b){vendasLerArquivo({files:[new File([b],"p.png",{type:b.type})]});});return;}}pfAlert("Sem imagem na area de transferencia.");}).catch(function(){pfAlert("Permissao negada.");});}
+function vendasColarPrint(){return pfColarPrintLer(function(f){vendasLerArquivo({files:[f]});},function(tx){var x=pfTabelaTextoParaXlsx(tx);if(x)vendasLerExcel({files:[x]});else if(typeof vendasProcessarTexto==='function')vendasProcessarTexto(tx.trim());});navigator.clipboard.read().then(function(it){for(var i=0;i<it.length;i++){var t=it[i].types.find(function(x){return x.startsWith("image/");});if(t){it[i].getType(t).then(function(b){vendasLerArquivo({files:[new File([b],"p.png",{type:b.type})]});});return;}}pfAlert("Sem imagem na area de transferencia.");}).catch(function(){pfAlert("Permissao negada.");});}
 async function vendasColarTexto(){
   var txt=prompt("Cole o texto da lista de itens:");
   if(txt&&txt.trim())vendasProcessarTexto(txt.trim());
@@ -67726,17 +67789,21 @@ async function vendasLerArquivo(input){
       var f=files[i];
       var b64=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(e){res(e.target.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(f);});
       var mt=f.type||'application/pdf';
-      if(mt.startsWith('image/')){parts.push({type:'image',source:{type:'base64',media_type:mt,data:b64}});}
+      if(mt.startsWith('image/')){var rl=(typeof lpImgLimitar==='function')?await lpImgLimitar('data:'+mt+';base64,'+b64,7900):null;if(rl){mt=rl.mt;b64=rl.b64;}parts.push({type:'image',source:{type:'base64',media_type:mt,data:b64}});} // v115.2344 - imagem > 8000 px
       else{parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});}
     }
     parts.push({type:'text',text:'Extraia os itens desta lista. Retorne APENAS JSON: [{"codigo":"","qtd":1}]. APENAS o JSON.'});
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:pfAnthropicHeaders(apiKey),
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:parts}]})});
+      // v115.2344 - BUG (varredura): max_tokens 1000 cortava listas grandes (uns 40 itens) e a leitura dava erro de JSON; e erro da IA
+      // virava "Cannot read properties of undefined". Mesmo conserto que o Leitor ganhou na v115.765.
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:8000,messages:[{role:'user',content:parts}]})});
     var data=await resp.json();
+    if(!resp.ok||data.error||!Array.isArray(data.content))throw new Error((data&&data.error&&data.error.message)?('a IA recusou: '+data.error.message):'a IA não respondeu direito (HTTP '+resp.status+'). Tente de novo.');
+    if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Cotação - Ler lista',data.usage);
     var txt=data.content.map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();
     var m2=txt.match(/\[[\s\S]*/);if(m2)txt=m2[0];
-    var itens=JSON.parse(txt);
+    var itens;try{itens=JSON.parse(txt);}catch(eJ){itens=[];var reI=/\{"codigo"[^}]*\}/g,om;while((om=reI.exec(txt))!==null){try{itens.push(JSON.parse(om[0]));}catch(e5){}}if(!itens.length)throw new Error('não consegui entender a resposta da IA. Tente de novo.');}
     var adicionados=0;
     itens.forEach(function(it){
       var cod=(it.codigo||'').trim().toUpperCase();
@@ -71241,6 +71308,36 @@ function pfRemoverAtalhoTela(tela,i){
   pfAbrirEditarAtalhosTela();
 }
 
+// v115.2344 - A pedido do Vitor (varredura: "erros nos detalhes"): o Esc geral só fazia .remove() na janela de cima —
+// (1) perdia o que a pessoa tinha DIGITADO (Nova RMA, Cadastrar item, Alimentar, lembrete...) sem perguntar; (2) janela que
+// precisa fazer algo ao fechar ficava pela metade: alarme do lembrete/timer continuava apitando, a escolha de colunas do Excel
+// travava a leitura (Promise sem resposta), o 3D não liberava o WebGL. Agora: janela com fechar próprio (el._pfEscFechar ou
+// os ids abaixo) usa ele; janela onde a pessoa digitou em 2+ campos ou numa caixa de texto grande pergunta antes de fechar.
+var PF_ESC_FECHAR={
+  pfTimerFimOverlay:function(){if(typeof pfPainelTimerFimOk==='function')pfPainelTimerFimOk();},
+  pfLembreteFimOverlay:function(){if(typeof pfLembreteFimOk==='function')pfLembreteFimOk();},
+  lpExcelColOverlay:function(el){var b=document.getElementById('lpExcelColCancelar');if(b)b.click();else el.remove();},
+  cc3dVer:function(){if(typeof cc3dFechar==='function')cc3dFechar();}
+};
+document.addEventListener('input',function(e){
+  try{var t=e.target;if(!t||!t.tagName)return;if(t.type==='search'||t.type==='file'||t.type==='checkbox'||t.type==='radio'||t.type==='range')return;
+    var top=t;while(top&&top.parentElement&&top.parentElement!==document.body)top=top.parentElement;
+    if(!top||top.parentElement!==document.body)return;
+    if(t.tagName==='TEXTAREA'){top._pfEscSujo=2;return;}
+    var set=top._pfEscCampos||(top._pfEscCampos=[]);if(set.indexOf(t)<0)set.push(t);
+    if(set.length>=2)top._pfEscSujo=2;
+  }catch(err){}
+},true);
+function pfEscFecharJanela(el){
+  if(!el)return;
+  var fn=el._pfEscFechar||PF_ESC_FECHAR[el.id];
+  var fechar=function(){if(typeof fn==='function'){try{fn(el);}catch(e){el.remove();}}else el.remove();};
+  if((el._pfEscSujo||el._pfSujo)&&!el._pfEscSemConfirmar&&typeof pfConfirm==='function'&&!/^pf(Alert|Confirm)/.test(el.id||'')){
+    pfConfirm('Fechar esta janela? O que você digitou nela vai se perder.',fechar,'Fechar sem salvar');return;
+  }
+  fechar();
+}
+
 // ── Atalhos de teclado ────────────────────────────────────────────
 (function(){
   document.addEventListener('keydown', function(e){
@@ -71264,11 +71361,20 @@ function pfRemoverAtalhoTela(tela,i){
         // fixo e z-index alto) contava como "janela aberta" e o Esc APAGAVA ele em vez de voltar. Fica de fora (e quem
         // tiver data-pf-esc-ignora também).
         if(el.id==='pfAiBotaoWrap'||(el.hasAttribute&&el.hasAttribute('data-pf-esc-ignora')))return false;
-        return st&&st.position==='fixed'&&parseInt(st.zIndex||'0',10)>=9990&&getComputedStyle(el).display!=='none';
+        if(el.id==='pfModoDemoSelo')return false; // v115.2344 - o selo da demonstração não é janela
+        if(!(st&&st.position==='fixed'&&parseInt(st.zIndex||'0',10)>=9990))return false;
+        var cs=getComputedStyle(el);
+        if(cs.display==='none'||cs.visibility==='hidden'||parseFloat(cs.opacity)<0.05)return false; // v115.2344 - aviso sumindo (opacity 0) não conta
+        // v115.2344 - avisinho rápido ("✓ copiado", "↶ Desfeito"...): pequeno e sem nada pra clicar NÃO é janela — antes o 1º Esc
+        // só apagava o aviso e o 2º é que fechava/voltava.
+        try{var r=el.getBoundingClientRect();
+          if(r.width*r.height<window.innerWidth*window.innerHeight*0.25&&!el.querySelector('button,input,select,textarea,a,[onclick]'))return false;}catch(eR){}
+        return true;
       });
       if(overlays.length){
-        overlays[overlays.length-1].remove();
+        var _ov=overlays[overlays.length-1];
         e.stopImmediatePropagation(); // v115.2108 - fechou a janela de cima; o ESC não pode seguir e fechar a cotação de baixo
+        pfEscFecharJanela(_ov);
         return;
       }
       // v115.2174 - Ficha Técnica com o formulário aberto: o Esc fecha SÓ o formulário (fica rascunho), não volta pros cards
@@ -73429,11 +73535,11 @@ function ccSpicerAtuAbrir(){
   '</div>';
   document.body.appendChild(ov);
   var onPaste=function(e){
-    if(!document.getElementById('ccSpAtuModal')){document.removeEventListener('paste',onPaste);return;}
+    var _pfEl=document.getElementById('ccSpAtuModal');if(!_pfEl||(onPaste._el&&onPaste._el!==_pfEl)){document.removeEventListener('paste',onPaste);return;} // v115.2344 - janela reaberta: o listener da janela antiga sai (antes 1 Ctrl+V lia o print N vezes)
     var its=(e.clipboardData&&e.clipboardData.items)||[];
     for(var i=0;i<its.length;i++){if(its[i].type&&(its[i].type.indexOf('image/')===0||its[i].type==='application/pdf')){e.preventDefault();ccSpicerAtuArquivo(its[i].getAsFile());return;}}
   };
-  document.addEventListener('paste',onPaste);
+  document.addEventListener('paste',onPaste);onPaste._el=document.getElementById('ccSpAtuModal');
 }
 async function ccSpicerAtuPronto(id){
   var f=PF_CC_SPICER_ATU.find(function(x){return x.id===id;});if(!f)return;
@@ -74340,11 +74446,11 @@ function ccDesenhoTrocarAbrir(fam){
     '</div></div>';
   document.body.appendChild(ov);
   var onPaste=function(e){
-    if(!document.getElementById('ccDesenhoModal')){document.removeEventListener('paste',onPaste);return;}
+    var _pfEl=document.getElementById('ccDesenhoModal');if(!_pfEl||(onPaste._el&&onPaste._el!==_pfEl)){document.removeEventListener('paste',onPaste);return;} // v115.2344 - janela reaberta: o listener da janela antiga sai (antes 1 Ctrl+V lia o print N vezes)
     var its=(e.clipboardData&&e.clipboardData.items)||[];
     for(var i=0;i<its.length;i++){if(its[i].type&&its[i].type.indexOf('image')===0){e.preventDefault();ccDesenhoCarregar(its[i].getAsFile());return;}}
   };
-  document.addEventListener('paste',onPaste);
+  document.addEventListener('paste',onPaste);onPaste._el=document.getElementById('ccDesenhoModal');
 }
 function ccDesenhoCampos(fam){
   var f=(typeof CC_FAMILIAS!=='undefined'?CC_FAMILIAS:[]).find(function(x){return x.key===fam;});
@@ -75493,11 +75599,11 @@ function ccColarPrintAplicacao(familia,codigo,linha){
   document.body.appendChild(ov);
   window._ccPrintAplAlvo={familia:familia,codigo:codigo,linha:linha};
   var onPaste=function(e){
-    if(!document.getElementById('ccPrintAplModal')){document.removeEventListener('paste',onPaste);return;}
+    var _pfEl=document.getElementById('ccPrintAplModal');if(!_pfEl||(onPaste._el&&onPaste._el!==_pfEl)){document.removeEventListener('paste',onPaste);return;} // v115.2344 - janela reaberta: o listener da janela antiga sai (antes 1 Ctrl+V lia o print N vezes)
     var its=(e.clipboardData&&e.clipboardData.items)||[];
     for(var i=0;i<its.length;i++){if(its[i].type&&its[i].type.indexOf('image/')===0){e.preventDefault();ccPrintAplLer(its[i].getAsFile());document.removeEventListener('paste',onPaste);return;}}
   };
-  document.addEventListener('paste',onPaste);
+  document.addEventListener('paste',onPaste);onPaste._el=document.getElementById('ccPrintAplModal');
   setTimeout(function(){var z=document.getElementById('ccPrintAplZona');if(z)z.focus();},50);
 }
 // v115.2042 - A pedido do Vitor ("do catálogo da REI não leu, por quê?"): BUG -- o texto mandado pra IA
@@ -75954,11 +76060,11 @@ function ccNovoItem(familia){
   document.body.appendChild(ov);
   ccNovoMedidasHtml();
   var onPaste=function(e){
-    if(!document.getElementById('ccNovoModal')){document.removeEventListener('paste',onPaste);return;}
+    var _pfEl=document.getElementById('ccNovoModal');if(!_pfEl||(onPaste._el&&onPaste._el!==_pfEl)){document.removeEventListener('paste',onPaste);return;} // v115.2344 - janela reaberta: o listener da janela antiga sai (antes 1 Ctrl+V lia o print N vezes)
     var its=(e.clipboardData&&e.clipboardData.items)||[];
     for(var i=0;i<its.length;i++){if(its[i].type&&its[i].type.indexOf('image/')===0){e.preventDefault();ccNovoLerPrint(its[i].getAsFile());return;}}
   };
-  document.addEventListener('paste',onPaste);
+  document.addEventListener('paste',onPaste);onPaste._el=document.getElementById('ccNovoModal');
   setTimeout(function(){var z=document.getElementById('ccNovoZona');if(z)z.focus();},50);
 }
 function ccNovoMedidasHtml(vals){
@@ -76598,11 +76704,11 @@ function ccColarDesenho(fam,codigo,linha){
     '</div></div>';
   document.body.appendChild(ov);
   var onPaste=function(e){
-    if(!document.getElementById('ccDesModal')){document.removeEventListener('paste',onPaste);return;}
+    var _pfEl=document.getElementById('ccDesModal');if(!_pfEl||(onPaste._el&&onPaste._el!==_pfEl)){document.removeEventListener('paste',onPaste);return;} // v115.2344 - janela reaberta: o listener da janela antiga sai (antes 1 Ctrl+V lia o print N vezes)
     var its=(e.clipboardData&&e.clipboardData.items)||[];
     for(var i=0;i<its.length;i++){if(its[i].type&&its[i].type.indexOf('image/')===0){e.preventDefault();ccDesenhoLer(its[i].getAsFile());return;}}
   };
-  document.addEventListener('paste',onPaste);
+  document.addEventListener('paste',onPaste);onPaste._el=document.getElementById('ccDesModal');
   setTimeout(function(){var z=document.getElementById('ccDesZona');if(z)z.focus();},50);
 }
 async function ccDesenhoLer(file){
@@ -79063,7 +79169,7 @@ function solicAbrirRevisao(id){
   window._solicRevisaoId=id;
   var overlay=document.createElement('div');
   overlay.id='solicRevisaoOverlay';
-  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9995;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto';
   overlay.innerHTML=solicRevisaoHtml(s);
   pfOverlayFecharAoClicarFora(overlay,solicFecharRevisao);
   document.body.appendChild(overlay);

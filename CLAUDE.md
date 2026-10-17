@@ -752,6 +752,27 @@
 - Órbita: "↺ Ver tudo" no cabeçalho quando tem filtro e "↺ Zerar filtros" sempre no popover (`pfOrbFiltrosLimpar` zera também o
   filtro do resumo, rastro 30 dias e zoom). Carlos Candis = role `gestor` em `profiles` (vê a carteira toda; pfVR2PodeGeral).
 
+## 🔎 Varredura de erros (v115.2344 — "faça uma varredura… erros nos detalhes")
+- **Carimbo automático no salvar** (`pfCarimbarMudancas`, dentro do `pfSafeSetItem`, fora da sync = `!window._pfPullGravando`): item de lista com id que
+  mudou ganha `tsMod=agora`; objeto com `ts` (ou em `PF_CARIMBO_OBJ_KEYS`) que mudou ganha `ts=agora`. Resolveu edições que a sync desfazia (etapa do
+  pedido de venda, revisão da solicitação, foto da Solicitação de Fotos, anotação do cliente, transportadora, ofertas, config Órbita/Pesquisas…).
+  Merge genérico compara em ms (`tsMod||ts||data`, data ISO convertida — main e worker); `pfMergeProdutosArr.tsDe` e os juntares especiais
+  (`pfTsItem`) contam o `tsMod`. Importar planilha de produtos NÃO apaga mais foto/desenho/conversões (só entra o que veio preenchido, id mantido).
+- Cotação: id novo único (`V-ano-<base36>`); gravação acha por id (número só p/ antiga sem id); demonstração numera 900001+; fechar sem mudar
+  NÃO grava (`aoFechar`); `data`/atendente ficam os da criação, alteração em `tsMod`; desfazer mantém num/nr; PDF/e-mail com `v.num`; seleção do
+  PDF por item; `vendasNumBR` aceita "1.500" e "R$ 150,00"; qtd atualiza resumo e autosalva; UF do cliente sem estado = SP; busca de cliente
+  sem acento + fantasia + CNPJ só dígitos; `pfVR2ClienteCad` com índice 5 s; ler lista com IA (`vendasLerArquivo`) 8000 tokens + erro claro.
+- Esc geral (`pfEscFecharJanela`, `PF_ESC_FECHAR`): ignora avisinho sem botão/opacity 0 e o selo da demo; janela com 2+ campos digitados ou
+  textarea pergunta antes; chama o fechar próprio (alarme para de apitar, colunas do Excel resolvem, 3D libera WebGL). Ficha do CRM não fecha
+  com janela por cima. Fundo de tela cheia só fecha se o clique COMEÇOU no fundo (listener geral de click em captura).
+- `pfColarPrintLer` (Colar print da cotação/Mapa): tabela copiada do Excel vira planilha/texto, imagem reduzida (`lpImgLimitar`), mensagens em pt.
+  `pfErroAmigavel` dentro do `pfAlert` traduz erro técnico em inglês. `ccDesenhoFamSalvar` (o "Trocar desenho" da família tinha o mesmo nome do
+  desenho do item). Paste das janelas Cardan não acumula. Título "Ferramentas" no topo; Dashboard sem planilha mostra o upZone; Voltar solto
+  não pinta a ferramenta inteira de escuro; Órbita sem 3D marca 2D; `ftSeedIfNeeded` lê pelo pfSafeGetItem.
+- **Ficou pra depois** (lista no resumo da conversa): coluna "%" da cotação mostra margem bruta (≠ margem líquida do cálculo); celular 390 px quebra
+  home/cotação; colunas MARGEM/AÇÕES somem em 1280; abas do topo sem rolagem; modo escuro (2 linhas, Painel de Clientes); janelas fora do padrão
+  (Nova RMA, Lembrete, "×" das abas de cotação/ferramentas, cabeçalhos claros do Assistente/PDF do cliente); corrida da sync (grava sem reler).
+
 ## Barra de notificações rola (v115.2343)
 - Vitor: "essa barra de notificações deveria rolar pra cima e pra baixo, caso tenha muitas". `pfAvisosRailAjustar` (MutationObserver no rail,
   resize e a cada 3 s): se os ícones não cabem entre a `#pfTopBar` e o dock (`pfAiDockClearance`), o `#pfAvisosRail` ganha `.pfAvisosRolando`

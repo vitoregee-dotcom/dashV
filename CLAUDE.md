@@ -752,6 +752,11 @@
 - Órbita: "↺ Ver tudo" no cabeçalho quando tem filtro e "↺ Zerar filtros" sempre no popover (`pfOrbFiltrosLimpar` zera também o
   filtro do resumo, rastro 30 dias e zoom). Carlos Candis = role `gestor` em `profiles` (vê a carteira toda; pfVR2PodeGeral).
 
+## Barra de notificações rola (v115.2343)
+- Vitor: "essa barra de notificações deveria rolar pra cima e pra baixo, caso tenha muitas". `pfAvisosRailAjustar` (MutationObserver no rail,
+  resize e a cada 3 s): se os ícones não cabem entre a `#pfTopBar` e o dock (`pfAiDockClearance`), o `#pfAvisosRail` ganha `.pfAvisosRolando`
+  (top/bottom fixos, overflow-y, sem barra visível, zoom do hover 1.12 em vez de 2x) e degradê na borda que tem mais (`pfAvisosRailBordas`).
+
 ## Painel de Tarefas da home (Timer/Pendências/Lembretes)
 - v115.2278 BUG ("está atrás dos ícones"): o painel (`pfPainelTarefasRender`) se posiciona pela borda da coluna de avisos
   (`pfAvisosRailDireita()`, conta o ícone mais largo); um ResizeObserver no `#pfAvisosRail` (criado em `pfAvisosMonta`) redesenha o

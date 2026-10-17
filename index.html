@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2342</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2343</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2342</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2343</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -56953,7 +56953,18 @@ function pfAvisosGarantirCss(){
     // z-index do RAIL INTEIRO quando qualquer ícone dele está em hover
     // (:has, suportado em todo navegador atual) -- agora o container todo
     // passa na frente do painel, não só o ícone dentro dele.
-    '#pfAvisosRail:has(.pf-aviso-icone:hover){z-index:100}';
+    '#pfAvisosRail:has(.pf-aviso-icone:hover){z-index:100}'+
+    // v115.2343 - A pedido do Vitor ("essa barra de notificações deveria rolar pra cima e pra baixo, caso tenha muitas"):
+    // quando os ícones não cabem entre o topo e o dock, a coluna fica presa nesse espaço e ROLA (roda do mouse / dedo).
+    // Sem barra de rolagem visível; a borda que tem mais ícones some em degradê. Zoom do hover menor (o 2x seria cortado).
+    '#pfAvisosRail.pfAvisosRolando{transform:none!important;justify-content:flex-start!important;overflow-y:auto!important;overflow-x:hidden!important;'+
+      'scrollbar-width:none;overscroll-behavior:contain;padding:8px 12px 8px 2px;box-sizing:border-box}'+
+    '#pfAvisosRail.pfAvisosRolando::-webkit-scrollbar{display:none}'+
+    '#pfAvisosRail.pfAvisosRolando>*{flex-shrink:0}'+
+    '#pfAvisosRail.pfAvisosRolando .pf-aviso-icone:hover{transform:scale(1.12)}'+
+    '#pfAvisosRail.pfAvRolaCima{-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 28px);mask-image:linear-gradient(to bottom,transparent 0,#000 28px)}'+
+    '#pfAvisosRail.pfAvRolaBaixo{-webkit-mask-image:linear-gradient(to top,transparent 0,#000 28px);mask-image:linear-gradient(to top,transparent 0,#000 28px)}'+
+    '#pfAvisosRail.pfAvRolaCima.pfAvRolaBaixo{-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 28px,#000 calc(100% - 28px),transparent 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 28px,#000 calc(100% - 28px),transparent 100%)}';
   document.head.appendChild(st);
 }
 function pfAvisosMonta(){
@@ -56997,7 +57008,45 @@ function pfAvisosMonta(){
     }
   }catch(e){}
   if(typeof pfPainelTarefasRender==='function')setTimeout(pfPainelTarefasRender,0);
+  // v115.2343 - rolagem quando não cabe (ver pfAvisosRailAjustar)
+  try{new MutationObserver(function(){pfAvisosRailAjustar();}).observe(rail,{childList:true,subtree:true});}catch(e){}
+  rail.addEventListener('scroll',function(){pfAvisosRailBordas(rail);},{passive:true});
+  if(!window._pfAvRailResize){window._pfAvRailResize=1;window.addEventListener('resize',function(){pfAvisosRailAjustar();});setInterval(function(){if(document.visibilityState==='visible')pfAvisosRailAjustar();},3000);}
   pfAvisosAtualizar();
+  setTimeout(pfAvisosRailAjustar,50);
+}
+// v115.2343 - A pedido do Vitor ("essa barra de notificações deveria rolar pra cima e pra baixo, caso tenha muitas"):
+// a coluna fica centralizada como sempre; se a altura dos ícones passar do espaço entre a barra de cima e o dock,
+// vira coluna presa (top/bottom) que rola. Mede o conteúdo sem o modo de rolagem pra saber se ainda precisa.
+function pfAvisosRailAjustar(){
+  var rail=document.getElementById('pfAvisosRail');if(!rail)return;
+  try{
+    var tb=document.getElementById('pfTopBar'),topo=12;
+    if(tb){var rt=tb.getBoundingClientRect();if(rt.height&&rt.bottom>0&&rt.bottom<window.innerHeight/2)topo=Math.round(rt.bottom)+8;}
+    var baixo=(typeof pfAiDockClearance==='function'?pfAiDockClearance():24)+4;
+    var disp=window.innerHeight-topo-baixo;
+    var conteudo=0,gap=10,n=0;
+    for(var i=0;i<rail.children.length;i++){var c=rail.children[i];if(!c.offsetHeight)continue;conteudo+=c.offsetHeight;n++;}
+    conteudo+=Math.max(0,n-1)*gap+12;
+    var rolar=n>0&&conteudo>disp;
+    var est=rail.classList.contains('pfAvisosRolando');
+    if(rolar){
+      if(!est)rail.classList.add('pfAvisosRolando');
+      if(rail.style.top!==topo+'px')rail.style.top=topo+'px';
+      if(rail.style.bottom!==baixo+'px')rail.style.bottom=baixo+'px';
+      if(rail.style.maxHeight)rail.style.maxHeight='';
+    }else if(est){
+      rail.classList.remove('pfAvisosRolando','pfAvRolaCima','pfAvRolaBaixo');
+      rail.style.top='50%';rail.style.bottom='';
+    }
+    pfAvisosRailBordas(rail);
+  }catch(e){}
+}
+function pfAvisosRailBordas(rail){
+  if(!rail)return;
+  var rol=rail.classList.contains('pfAvisosRolando');
+  rail.classList.toggle('pfAvRolaCima',rol&&rail.scrollTop>4);
+  rail.classList.toggle('pfAvRolaBaixo',rol&&rail.scrollTop+rail.clientHeight<rail.scrollHeight-4);
 }
 function pfAvisosDesmonta(){
   document.body.classList.remove('pf-avisos-ativo');

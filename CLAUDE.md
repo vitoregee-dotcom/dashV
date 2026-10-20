@@ -778,6 +778,8 @@
   v115.2354 ("aqui não tem logo" — lista de notícias da home): `pfNoticiaMarcaTile` usa o LOGO da história da marca (quadrinho branco, `pfHistPorNome`);
   sem história/logo que falha = quadrinho colorido com o nome (FPT ainda não tem história).
   v115.2355 BUG ("cadê os logos?"): a lista desenhava ANTES do json das histórias chegar e o `pfHistCarregar` só redesenhava o banner — agora redesenha a lista também.
+  ("tem que ser ou as fotos das notícias ou os logos"): quadrinho = logo da história > logo colado da marca da notícia (`pfMarcaMidia_v1.por['n:<MARCA>']`,
+  `pfNotMarcaChave`) > foto da história; marca de notícia sem história nem logo (FPT) entra no 🎬 com Colar print/Carregar arquivo direto na linha.
   v115.2352 ("pesquisa de novo… de preferência em português"): +81 sugestões (69 em pt, 25 Shorts pt) no topo do json, campo `idioma` (🇧🇷/🇺🇸/🇪🇸 na lista do 🎬). Etiqueta no card (`pfVideoCardHtml(v,vert,etq)`). Troca a cada 25 s (`_pfMarcasIdx`). Agora link (http/www), `type=url` e `data-pf-minusc` ficam de fora; `pfVideoIdDaUrl` aceita maiúscula/`live/`. Quiz com prêmios = `PF_FUNC_IDEIAS` (pra depois).
 - **Coluna "%" da cotação** (Vitor: "precisa sempre ser do custo lá da margem"): `vendasPctDaVenda` = margem LÍQUIDA da Calculadora (mesma conta do
   `vendasCalcVenda`); digitar o % calcula o preço por `vendasCalcVenda(custo,uf,%)`. Custo 100, SP, 21% = R$ 140,58 = 21%.

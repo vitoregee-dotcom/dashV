@@ -775,6 +775,8 @@
   par gira; deitado só entra se for do tema).
   v115.2353 ("por que você não consegue colocar os logos?" — o sandbox bloqueia Wikimedia, só o navegador dele baixa): fotos das 10 marcas sem foto achadas por
   busca + logo da Carraro redesenhado em SVG do print dele (`icons/marcas/carraro.svg`, arquivo do próprio site) (endereços Special:FilePath no json, sem conferir a imagem). Foto que não carregar volta pro 🎬 como "falta foto" (`pfHistImgFalhou`).
+  v115.2354 ("aqui não tem logo" — lista de notícias da home): `pfNoticiaMarcaTile` usa o LOGO da história da marca (quadrinho branco, `pfHistPorNome`);
+  sem história/logo que falha = quadrinho colorido com o nome (FPT ainda não tem história).
   v115.2352 ("pesquisa de novo… de preferência em português"): +81 sugestões (69 em pt, 25 Shorts pt) no topo do json, campo `idioma` (🇧🇷/🇺🇸/🇪🇸 na lista do 🎬). Etiqueta no card (`pfVideoCardHtml(v,vert,etq)`). Troca a cada 25 s (`_pfMarcasIdx`). Agora link (http/www), `type=url` e `data-pf-minusc` ficam de fora; `pfVideoIdDaUrl` aceita maiúscula/`live/`. Quiz com prêmios = `PF_FUNC_IDEIAS` (pra depois).
 - **Coluna "%" da cotação** (Vitor: "precisa sempre ser do custo lá da margem"): `vendasPctDaVenda` = margem LÍQUIDA da Calculadora (mesma conta do
   `vendasCalcVenda`); digitar o % calcula o preço por `vendasCalcVenda(custo,uf,%)`. Custo 100, SP, 21% = R$ 140,58 = 21%.

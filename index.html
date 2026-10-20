@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2357</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2358</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2357</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2358</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -17466,6 +17466,89 @@ try{pfRecomprimirExistentes();}catch(eRecomp){console.warn('pfRecomprimirExisten
 // chega pela Solicitação de Fotos, anotação do cliente, transportadora, regras de oferta, config da Órbita/Pesquisas/Margens...),
 // e a própria sincronização desfazia a mudança. Agora TODA gravação feita pela tela (não pela sync — window._pfPullGravando) compara
 // com a versão anterior: item de lista com id que mudou ganha tsMod = agora; objeto compartilhado que mudou ganha ts = agora.
+// v115.2358 - A pedido do Vitor ("é importante registrar também as modificações que os usuários fazem" → opção C: completo no que
+// importa, leve no resto): toda gravação feita pela TELA (não pela sync) numa chave de PF_AUDIT_KEYS vira registro em pf_auditoria
+// (banco, RLS: cada um grava o seu, só admin lê; apaga sozinho com 180 dias). Áreas com imp=1 guardam antes → depois de cada campo;
+// as outras só quem/quando/o quê. Mesma pessoa + mesmo item juntam numa linha até a próxima subida (2 min). Mais de 25 itens numa
+// gravação só (importação) = 1 linha de resumo. Fora do modo demonstração (que já tem registro próprio).
+var PF_AUDIT_KEYS={
+  'cad_produtos_v1':['Produtos',1],'cad_clientes_v1':['Clientes',1],'cad_fornecedores_v1':['Fornecedores',1],
+  'partsflow_pedidos_venda_v1':['Pedidos de venda',1],'pfContasReceber_v1':['Contas a Receber',1],'ficha_tecnica_v1':['Máquinas / Ficha técnica',1],
+  'pfVendasRegrasV2':['Regras do Assistente',1],'pfVendasMargemPerfis':['Margens por perfil',1],'pfVendasOfertas':['Ofertas da cotação',1],
+  'pfPerfilCfg':['Config. perfil do cliente',1],'pfOrbCfg':['Config. da Órbita',1],'pfCardsOcultosTodos':['Cards ocultos',1],
+  'partsflow_cotacoes_v1':['Cotações',0],'prod_aplicacoes_v1':['Aplicações',0],'rma_lista_v1':['RMA',0],
+  'cad_solicitacoes_compras_v1':['Solicitações de compra',0],'cad_relacionados_v1':['Relacionados',0],'componentes_cardan_v1':['Componentes cardan',0]
+};
+var PF_AUDIT_TIT=['num','numero','nr','codigo','razao','razaoSocial','fantasia','nome','cliente','marca','modelo','descricao','desc','titulo'];
+var PF_AUDIT_PULA_CAMPO={id:1,tsMod:1,ts:1,updated_at:1,demoPor:1,demoEm:1,fotos:1,foto:1,desenho:1,img:1,imagem:1,_tempoNovoSeg:1};
+window._pfAuditFila=window._pfAuditFila||{};
+function pfAuditCurto(v){
+  if(v==null||v==='')return '';
+  if(Array.isArray(v))return '(lista com '+v.length+')';
+  if(typeof v==='object')return '(… '+Object.keys(v).length+' campos)';
+  var t=String(v);if(/^data:/.test(t))return '(imagem)';return t.length>90?t.slice(0,88)+'…':t;
+}
+function pfAuditTitulo(o){
+  if(!o||typeof o!=='object')return '';var p=[];
+  for(var i=0;i<PF_AUDIT_TIT.length&&p.length<3;i++){var v=o[PF_AUDIT_TIT[i]];if(v!=null&&v!==''&&typeof v!=='object'){v=String(v);if(p.indexOf(v)<0)p.push(v.length>50?v.slice(0,48)+'…':v);}}
+  return p.join(' · ');
+}
+function pfAuditDiffCampos(a,d){
+  var out=[],vis={};a=a||{};d=d||{};
+  Object.keys(a).concat(Object.keys(d)).forEach(function(k){
+    if(vis[k]||PF_AUDIT_PULA_CAMPO[k]||out.length>=14)return;vis[k]=1;
+    var x=JSON.stringify(a[k]),y=JSON.stringify(d[k]);if(x===y)return;
+    var ca=pfAuditCurto(a[k]),cd=pfAuditCurto(d[k]);if(ca===cd&&ca)cd=Array.isArray(d[k])?'(lista alterada)':'(alterado)';
+    out.push({c:k,a:ca,d:cd});
+  });
+  return out;
+}
+function pfAuditAtivo(){
+  try{if(window._pfPullGravando)return false;if(typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo())return false;}catch(e){return false;}
+  return true;
+}
+// lista: muds = [{ant,novo}] (novo sem ant = criou; ant sem novo = apagou)
+function pfAuditRegistrar(key,muds){
+  try{
+    var cfg=PF_AUDIT_KEYS[key];if(!cfg||!muds||!muds.length||!pfAuditAtivo())return;
+    var area=cfg[0],imp=!!cfg[1],agora=Date.now();
+    if(muds.length>25){
+      var k0=key+'|*massa*';var e0=window._pfAuditFila[k0]||(window._pfAuditFila[k0]={chave:key,area:area,acao:'alterou',ref:null,titulo:'',n:0,refs:[],em:agora});
+      e0.n+=muds.length;muds.slice(0,20).forEach(function(m){var o=m.novo||m.ant;var r=String((o&&(o.id!=null?o.id:''))||'');if(e0.refs.length<20&&e0.refs.indexOf(r)<0)e0.refs.push(pfAuditTitulo(o)||r);});
+      e0.titulo=e0.n+' itens de uma vez (importação ou atualização em massa)';e0.em=agora;
+    }else muds.forEach(function(m){
+      var o=m.novo||m.ant||{},ref=o.id!=null?String(o.id):(o.codigo||o.num||'');
+      var acao=!m.ant?'criou':!m.novo?'apagou':'alterou';
+      var k=key+'|'+ref,e=window._pfAuditFila[k];
+      if(!e){e=window._pfAuditFila[k]={chave:key,area:area,acao:acao,ref:ref,titulo:pfAuditTitulo(o),antes:m.ant||null,em:agora};}
+      else{if(acao==='apagou')e.acao='apagou';e.titulo=pfAuditTitulo(o)||e.titulo;e.em=agora;}
+      e.depois=m.novo||null;e.imp=imp;
+    });
+    if(!window._pfAuditTimer)window._pfAuditTimer=setTimeout(pfAuditSubir,120000);
+  }catch(e){}
+}
+async function pfAuditSubir(semEspera){
+  window._pfAuditTimer=null;
+  var fila=window._pfAuditFila,ks=Object.keys(fila);if(!ks.length)return;
+  var email='',pronto=false;
+  try{if(window._pfSbUserPronto&&typeof sbUser!=='undefined'&&sbUser&&typeof sbSession!=='undefined'&&sbSession){email=sbUser.email||'';pronto=true;}}catch(e){}
+  if(!pronto){window._pfAuditTimer=setTimeout(pfAuditSubir,120000);return;}
+  var linhas=ks.map(function(k){var e=fila[k];
+    var mud=null;
+    if(e.n)mud={itens:e.refs};
+    else if(e.imp&&e.acao==='alterou')mud=pfAuditDiffCampos(e.antes,e.depois);
+    else if(e.imp&&e.acao==='apagou')mud=pfAuditDiffCampos(e.antes,{});
+    if(e.acao==='alterou'&&Array.isArray(mud)&&!mud.length&&!e.n)return null; // mexeu e voltou como era
+    return {email:email,chave:e.chave,area:e.area,acao:e.acao,ref:e.ref?String(e.ref).slice(0,120):null,titulo:(e.titulo||'').slice(0,200),mudancas:mud,versao:(typeof PF_VERSAO!=='undefined'?PF_VERSAO:null)};
+  }).filter(Boolean);
+  window._pfAuditFila={};
+  if(!linhas.length)return;
+  try{
+    var r=await sbFetch('/rest/v1/pf_auditoria',{method:'POST',headers:{'Prefer':'return=minimal'},body:JSON.stringify(linhas),keepalive:!!semEspera});
+    if(!r.ok)console.warn('pf_auditoria',r.status);
+  }catch(e){console.warn('pf_auditoria',e);}
+}
+try{window.addEventListener('pagehide',function(){try{pfAuditSubir(true);}catch(e){}});}catch(e){}
 var PF_CARIMBO_OBJ_KEYS=['pfOrbCfg','pfOrbMarcas','pfTemaCores','pfMapaComercialSede','pfMapaPinsCores','pfAvisosConfig'];
 var PF_CARIMBO_PULAR=/^(sb-|perf_|dashV_lastSheet|imp_preview_cache|pfAvisosLidoEm$|pfAvisosVistos$|pfDemoSombra__|cad_local_change_ts_|pf_|lp_historico)/;
 function pfCarimbarMudancas(key,value){
@@ -17481,13 +17564,17 @@ function pfCarimbarMudancas(key,value){
     if(Array.isArray(novo)&&Array.isArray(ant)){
       var porId={};ant.forEach(function(x){if(x&&typeof x==='object'&&x.id!=null&&x.id!=='')porId[String(x.id)]=x;});
       var sem=function(o){var c=Object.assign({},o);delete c.tsMod;return JSON.stringify(c);};
+      var _aud=PF_AUDIT_KEYS[key]?[]:null,_vistos=_aud?{}:null; // v115.2358 - registro de modificações
       novo.forEach(function(x){if(!x||typeof x!=='object'||x.id==null||x.id==='')return;var a=porId[String(x.id)];
-        if(!a){if(!x.tsMod&&!x.ts){x.tsMod=agora;mudou=true;}return;}
-        if(x.tsMod&&a.tsMod&&x.tsMod!==a.tsMod)return; // quem gravou já carimbou
-        if(sem(x)!==sem(a)){x.tsMod=agora;mudou=true;}});
+        if(_vistos)_vistos[String(x.id)]=1;
+        if(!a){if(!x.tsMod&&!x.ts){x.tsMod=agora;mudou=true;}if(_aud)_aud.push({novo:x});return;}
+        if(x.tsMod&&a.tsMod&&x.tsMod!==a.tsMod){if(_aud)_aud.push({ant:a,novo:x});return;} // quem gravou já carimbou
+        if(sem(x)!==sem(a)){x.tsMod=agora;mudou=true;if(_aud)_aud.push({ant:a,novo:x});}});
+      if(_aud){Object.keys(porId).forEach(function(id){if(!_vistos[id])_aud.push({ant:porId[id]});});if(_aud.length)pfAuditRegistrar(key,_aud);}
       return mudou?JSON.stringify(novo):value;
     }
     if(novo&&ant&&typeof novo==='object'&&typeof ant==='object'&&!Array.isArray(novo)&&!Array.isArray(ant)){
+      if(PF_AUDIT_KEYS[key]){try{var _dc=pfAuditDiffCampos(ant,novo);if(_dc.length)pfAuditRegistrar(key,[{ant:ant,novo:novo}]);}catch(eA){}} // v115.2358
       var temTs=typeof novo.ts==='number'||typeof ant.ts==='number'||PF_CARIMBO_OBJ_KEYS.indexOf(key)>=0;
       if(!temTs)return value;
       if(novo.ts&&ant.ts&&novo.ts!==ant.ts)return value; // quem gravou já carimbou
@@ -27139,9 +27226,86 @@ function pfSessSenhaModal(titulo,texto,duasVezes,cb){
   [i1,i2].forEach(function(x){if(x)x.onkeydown=function(e){if(e.key==='Enter')ok();if(e.key==='Escape')fechar();};});
   setTimeout(function(){i1.focus();},50);
 }
-async function pfSessoesAbrir(){
+// v115.2358 - 📝 Modificações (pf_auditoria): quem mudou o quê. Só admin + a senha do relatório de sessões.
+window._pfAudF=window._pfAudF||{dias:7,pessoa:'',area:'',busca:''};
+function pfAuditFechar(){var o=document.getElementById('pfAudOv');if(o)o.remove();}
+async function pfAuditAbrir(){
   if(!pfSessEhAdmin()){pfAlert('Acesso restrito.');return;}
-  if(Date.now()<_pfSessDesbloqueadoAte){pfSessoesRelatorio();return;}
+  if(Date.now()>=_pfSessDesbloqueadoAte){pfSessoesAbrir(pfAuditAbrir);return;}
+  pfAuditFechar();
+  var ov=document.createElement('div');ov.id='pfAudOv';
+  var baixo=(typeof pfAiDockClearance==='function'?pfAiDockClearance():24);
+  ov.style.cssText='position:fixed;inset:0;z-index:100020;background:rgba(10,18,32,.55);display:flex;align-items:flex-start;justify-content:center;padding:24px 12px '+baixo+'px;box-sizing:border-box';
+  ov.onmousedown=function(e){ov._d=e.target===ov;};ov.onclick=function(e){if(e.target===ov&&ov._d)pfAuditFechar();};
+  ov.innerHTML='<div style="background:#fff;color:#1a2332;border-radius:14px;padding:30px;font-size:14px">Carregando modificações…</div>';
+  document.body.appendChild(ov);
+  await pfAuditCarregar();
+}
+async function pfAuditCarregar(){
+  var f=window._pfAudF,desde=new Date(Date.now()-f.dias*864e5).toISOString();
+  try{await pfAuditSubir();}catch(e){}
+  var r=await sbFetch('/rest/v1/pf_auditoria?criado_em=gte.'+encodeURIComponent(desde)+'&order=criado_em.desc&limit=5000');
+  window._pfAudDados=r.ok?await r.json():null;window._pfAudErro=r.ok?'':('Erro ao carregar ('+r.status+')');
+  pfAuditRender();
+}
+function pfAuditFiltrados(){
+  var f=window._pfAudF,b=String(f.busca||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  return (window._pfAudDados||[]).filter(function(x){
+    if(f.pessoa&&x.email!==f.pessoa)return false;if(f.area&&x.area!==f.area)return false;
+    if(b){var t=(x.titulo+' '+x.ref+' '+x.area+' '+x.email+' '+JSON.stringify(x.mudancas||'')).toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'');if(t.indexOf(b)<0)return false;}
+    return true;});
+}
+function pfAuditNome(email){var e=String(email||'');return e.split('@')[0]||'—';}
+function pfAuditMudHtml(m){
+  if(!m)return '';
+  if(m.itens)return '<span style="color:#607080">'+pfEscHtml(m.itens.slice(0,8).join(' · '))+(m.itens.length>8?' …':'')+'</span>';
+  if(!Array.isArray(m)||!m.length)return '';
+  if(m.every(function(c){return !c.d;}))return '<span style="color:#607080">Como era: </span>'+m.map(function(c){return '<b style="color:#33465c">'+pfEscHtml(c.c)+':</b> '+pfEscHtml(c.a||'(vazio)');}).join(' · ');
+  return m.map(function(c){return '<div><b style="color:#33465c">'+pfEscHtml(c.c)+':</b> <span style="color:#B91C1C;text-decoration:line-through">'+pfEscHtml(c.a||'(vazio)')+'</span> → <span style="color:#166534;font-weight:700">'+pfEscHtml(c.d||'(vazio)')+'</span></div>';}).join('');
+}
+function pfAuditRender(){
+  var ov=document.getElementById('pfAudOv');if(!ov)return;
+  var f=window._pfAudF,D=window._pfAudDados||[],L=pfAuditFiltrados();
+  var pessoas={},areas={};D.forEach(function(x){pessoas[x.email||'']=(pessoas[x.email||'']||0)+1;areas[x.area||'']=1;});
+  var sel='height:34px;border:1px solid #d5dce5;border-radius:8px;padding:0 8px;font-size:13px;color:#1a2332;background:#fff';
+  var btnD=function(d,l){return '<button class="pfBtn '+(f.dias===d?'pfBtnAzul':'pfBtnClaro')+'" style="height:34px" onclick="window._pfAudF.dias='+d+';pfAuditCarregar()">'+l+'</button>';};
+  var cor={criou:'#166534',alterou:'#1F4E79',apagou:'#B91C1C'};
+  var linhas=L.slice(0,800).map(function(x){var d=new Date(x.criado_em);
+    return '<tr style="border-bottom:1px solid #eef2f6;vertical-align:top">'+
+      '<td style="padding:7px 8px;white-space:nowrap;color:#607080;font-size:12px">'+d.toLocaleDateString('pt-BR')+'<br>'+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</td>'+
+      '<td style="padding:7px 8px;font-weight:700;color:#1a2332">'+pfEscHtml(pfAuditNome(x.email))+'</td>'+
+      '<td style="padding:7px 8px;color:#33465c">'+pfEscHtml(x.area||x.chave)+'</td>'+
+      '<td style="padding:7px 8px"><span style="font-size:11px;font-weight:800;color:#fff;background:'+(cor[x.acao]||'#607080')+';padding:2px 8px;border-radius:10px">'+pfEscHtml(x.acao)+'</span></td>'+
+      '<td style="padding:7px 8px;color:#1a2332;font-weight:600">'+pfEscHtml(x.titulo||x.ref||'')+'</td>'+
+      '<td style="padding:7px 8px;font-size:12px;line-height:1.5">'+pfAuditMudHtml(x.mudancas)+'</td></tr>';}).join('');
+  ov.innerHTML='<div style="background:#fff;color:#1a2332;border-radius:14px;width:1200px;max-width:100%;max-height:100%;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 18px 50px rgba(0,0,0,.35)">'+
+    '<div style="background:var(--pf-painel-bg,#1c2940);color:#fff;padding:13px 18px;display:flex;align-items:center;gap:10px"><div style="flex:1"><b style="font-size:16px">📝 Modificações dos usuários</b><div style="font-size:12px;color:#b8c4d8;margin-top:2px">Quem mudou o quê — produtos, clientes, preços, regras e pedidos com antes → depois; o resto só o registro. Guardado por 6 meses.</div></div>'+
+      '<button onclick="pfAuditFechar()" title="Fechar (Esc)" style="background:none;border:none;cursor:pointer;padding:0;line-height:1">'+pfXGlossyHtml(24)+'</button></div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 18px;border-bottom:1px solid #eef2f6">'+
+      btnD(1,'Hoje')+btnD(7,'7 dias')+btnD(30,'30 dias')+btnD(90,'90 dias')+
+      '<select style="'+sel+'" onchange="window._pfAudF.pessoa=this.value;pfAuditRender()"><option value="">Todas as pessoas</option>'+Object.keys(pessoas).sort().map(function(p){return '<option value="'+pfEscHtml(p)+'"'+(f.pessoa===p?' selected':'')+'>'+pfEscHtml(pfAuditNome(p))+' ('+pessoas[p]+')</option>';}).join('')+'</select>'+
+      '<select style="'+sel+'" onchange="window._pfAudF.area=this.value;pfAuditRender()"><option value="">Todas as áreas</option>'+Object.keys(areas).sort().map(function(a){return '<option'+(f.area===a?' selected':'')+'>'+pfEscHtml(a)+'</option>';}).join('')+'</select>'+
+      '<input id="pfAudBusca" data-pf-minusc placeholder="Buscar (cliente, código, campo…)" value="'+pfEscHtml(f.busca||'')+'" oninput="window._pfAudF.busca=this.value;clearTimeout(window._pfAudBT);window._pfAudBT=setTimeout(function(){pfAuditRender();var i=document.getElementById(\'pfAudBusca\');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},250)" style="'+sel+';flex:1;min-width:200px">'+
+      '<button class="pfBtn pfBtnVerde" style="height:34px" onclick="pfAuditExcel()">⬇ Excel</button></div>'+
+    '<div style="overflow:auto;padding:0 18px 16px">'+
+      (window._pfAudErro?'<div style="padding:24px;color:#B91C1C">'+pfEscHtml(window._pfAudErro)+'</div>':
+       !L.length?'<div style="padding:30px;text-align:center;color:#8a9ab0">Nenhuma modificação registrada nesse filtro ainda.</div>':
+       '<div style="font-size:12px;color:#607080;padding:10px 0">'+L.length+' registro(s)'+(L.length>800?' — mostrando os 800 mais novos (o Excel leva todos)':'')+'</div>'+
+       '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left;color:#607080;font-size:11px;text-transform:uppercase;letter-spacing:.4px"><th style="padding:6px 8px">Quando</th><th style="padding:6px 8px">Quem</th><th style="padding:6px 8px">Área</th><th style="padding:6px 8px">Ação</th><th style="padding:6px 8px">Item</th><th style="padding:6px 8px">O que mudou</th></tr></thead><tbody>'+linhas+'</tbody></table>')+
+    '</div></div>';
+}
+function pfAuditExcel(){
+  if(typeof XLSX==='undefined'){pfAlert('A planilha ainda está carregando, tente de novo em instantes.');return;}
+  var L=pfAuditFiltrados().map(function(x){var m=x.mudancas;
+    return {Quando:new Date(x.criado_em).toLocaleString('pt-BR'),Quem:x.email,Área:x.area,Ação:x.acao,Item:x.titulo||x.ref||'',
+      'O que mudou':!m?'':m.itens?m.itens.join(' · '):Array.isArray(m)?m.map(function(c){return c.c+': '+(c.a||'(vazio)')+' → '+(c.d||'(vazio)');}).join(' | '):''};});
+  var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(L),'Modificações');
+  XLSX.writeFile(wb,'modificacoes-'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+async function pfSessoesAbrir(depois){
+  if(!pfSessEhAdmin()){pfAlert('Acesso restrito.');return;}
+  var _ir=typeof depois==='function'?depois:function(){pfSessoesRelatorio();}; // v115.2358 - a mesma senha abre as 📝 Modificações
+  if(Date.now()<_pfSessDesbloqueadoAte){_ir();return;}
   var r=await sbFetch('/rest/v1/pf_admin_config?chave=eq.senha_sessoes&select=valor');
   var j=r.ok?await r.json():[];
   var hashSalvo=j&&j[0]?j[0].valor:null;
@@ -27150,13 +27314,13 @@ async function pfSessoesAbrir(){
       var h=await pfSessHash(senha);
       var rs=await sbFetch('/rest/v1/pf_admin_config',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({chave:'senha_sessoes',valor:h,updated_at:new Date().toISOString()})});
       if(!rs.ok){erro('Não consegui salvar ('+rs.status+').');return;}
-      fechar();_pfSessDesbloqueadoAte=Date.now()+10*60*1000;pfSessoesRelatorio();
+      fechar();_pfSessDesbloqueadoAte=Date.now()+10*60*1000;_ir();
     });
     return;
   }
   pfSessSenhaModal('Relatório de sessões','Digite a senha do relatório.',false,async function(senha,fechar,erro){
     if(await pfSessHash(senha)!==hashSalvo){erro('Senha incorreta.');return;}
-    fechar();_pfSessDesbloqueadoAte=Date.now()+10*60*1000;pfSessoesRelatorio();
+    fechar();_pfSessDesbloqueadoAte=Date.now()+10*60*1000;_ir();
   });
 }
 function pfSessoesTrocarSenha(){
@@ -27235,6 +27399,7 @@ async function pfSessoesRelatorio(dias){
     '<div style="padding:14px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--pf-border)">'+
       '<div style="font-size:17px;font-weight:800;flex:1;min-width:200px">⏱ Sessões dos usuários <span style="font-size:12px;font-weight:600;color:var(--pf-text-muted)">· '+online.length+' online agora</span></div>'+
       btnDias(1,'Hoje')+btnDias(7,'7 dias')+btnDias(30,'30 dias')+
+      '<button class="pfBtn pfBtnAzul" onclick="pfAuditAbrir()" title="Quem mudou o quê (produtos, clientes, preços, regras, pedidos…)">📝 Modificações</button>'+ // v115.2358
       '<button class="pfBtn pfBtnClaro" onclick="pfSessoesTrocarSenha()">🔑 Trocar senha</button>'+
       '<button onclick="document.getElementById(\'pfSessRel\').remove()" title="Fechar" style="background:none;border:none;cursor:pointer;line-height:1;padding:0 4px">'+pfXGlossyHtml(22)+'</button>'+
     '</div>'+
@@ -46647,6 +46812,7 @@ var PF_FUNCOES=[
   {a:'avisos',i:'📖',n:'História das marcas no banner',o:'Na tela inicial, no meio das notícias, aparecem histórias reais das marcas do setor (Caterpillar, Komatsu, Dana/Spicer, Perkins…), com logo, linha do tempo, a marca no Brasil e as fontes.',p:'Conhecer a origem das marcas e ter assunto com o cliente.',w:'Tela inicial → banner Destaques do setor (clique pra ler tudo)',v:'2345',ir:'tela:home'},
   {a:'avisos',i:'🎬',n:'Vídeos de fabricação',o:'Na direita do banner da tela inicial, vídeos curtos (Shorts) de como são feitas as peças: rolamentos, cardans, retentores, engrenagens, motores e máquinas. Toca dentro do sistema.',p:'Entender o produto que vende vendo a fábrica.',w:'Tela inicial → coluna da direita do banner',v:'2345',ir:'tela:home'},
   // ── Vendas e cotação ──
+  {a:'dono',i:'📝',n:'Modificações dos usuários',o:'Registro de quem mudou o quê: produtos, clientes, fornecedores, pedidos, preços e regras com o antes → depois de cada campo; cotações, aplicações, RMA e solicitações com quem/quando/o quê.',p:'Saber quem alterou um cadastro ou preço e o que era antes, sem depender de memória.',w:'Ferramentas → ⏱ Sessões dos usuários → 📝 Modificações',v:'2358',ir:'js:pfAuditAbrir()',d:1},
   {a:'dono',i:'⏱',n:'Sessões dos usuários',o:'Relatório de quem está online, quanto tempo cada um usa o sistema e em quais telas.',p:'Acompanhar o uso do sistema pela equipe.',w:'Ferramentas → ⏱ Sessões dos usuários (ou ⋯ → 👤 Usuários → ⏱ Sessões)',v:'2357',ir:'ferr:Sessões dos usuários',d:1},
   {a:'vendas',i:'🛒',n:'Cards de Vendas',o:'Tela com um card pra cada parte de Vendas (Cotações, Pedido de Venda, Painel de Clientes, Contas a Receber, Meu dia, Pesquisas, Portal e Assistente), cada um dizendo pra que serve.',p:'Achar rápido tudo o que existe em Vendas.',w:'Vendas → ← Voltar (ou Esc) nas Cotações',v:'2349',ir:'js:window._vendasMainTab=\'menu\';pfNavigate(\'vendas\');window._vendasMainTab=\'menu\';vendasRender();'},
   {a:'vendas',i:'📋',n:'Cotação',o:'Tela onde se monta o orçamento do cliente: código, quantidade, preço, saldo e margem de cada item.',p:'Cotar rápido, com o preço já calculado pela margem e o histórico do cliente na mão.',w:'Vendas → Cotações → Nova cotação',v:'2271',ir:'vendas:cotacoes'},
@@ -54677,7 +54843,7 @@ function ferrSessoes(){
     '<div style="font-size:16px;font-weight:800;color:#1F4E79">⏱ Sessões dos usuários</div></div>'+
     '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:18px 20px;font-size:13px;line-height:1.7;color:#1a2332">'+
       'Quem está <b>online agora</b>, o <b>tempo de uso</b>, as <b>telas</b> em que cada um mais ficou, navegador e IP. Protegido pela senha do relatório.'+
-      '<div style="margin-top:12px"><button class="pfBtn pfBtnAzul" onclick="pfSessoesAbrir()">⏱ Abrir o relatório</button></div>'+
+      '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="pfBtn pfBtnAzul" onclick="pfSessoesAbrir()">⏱ Abrir o relatório</button><button class="pfBtn pfBtnEscuro" onclick="pfAuditAbrir()">📝 Modificações dos usuários</button></div>'+
     '</div></div>';
   try{pfSessoesAbrir();}catch(e){}
 }
@@ -71332,7 +71498,7 @@ function ferrRender(){
   // sozinho) e deixa por conta dele decidir o resto -- nunca apaga nada
   // sem ele escolher, pra não arriscar dado de negócio de verdade (ex:
   // promoTemplates_v1, modelos que ele mesmo criou).
-  if(typeof pfSessEhAdmin==='function'&&pfSessEhAdmin()) mkCard('⏱','Sessões dos usuários','Quem está online, tempo de uso e telas de cada usuário (com senha)','#1F4E79',function(){ferrSessoes();}); // v115.2357
+  if(typeof pfSessEhAdmin==='function'&&pfSessEhAdmin()) mkCard('⏱','Sessões dos usuários','Quem está online, tempo de uso, telas e o que cada um modificou (com senha)','#1F4E79',function(){ferrSessoes();}); // v115.2357
   if(pfUsoIAEhDono()) mkCard('🧹','Liberar Espaço','Ver o que está ocupando o navegador e limpar','#7A5000',function(){ferrLiberarEspaco();});
   if(_canSee('ferr_historico_avisos')) mkCard('🔔','Histórico de Avisos','Avisos de oportunidade anteriores','#E67E22',function(){ferrHistoricoAvisos();});
   if(_canSee('ferr_mapa_transp')) mkCard('🚚','Mapa de Transportadoras','Compara cotações de frete por rota','#0D7377',function(){transpMapaAbrir();});

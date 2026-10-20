@@ -1108,7 +1108,13 @@
 ## ⏱ Sessões dos usuários (v115.2003; atalho v115.2357)
 - Relatório `pfSessoesAbrir` (só admin `pfSessEhAdmin`, senha em `pf_admin_config.senha_sessoes`, liberado 10 min) → `pfSessoesRelatorio(dias)`: online agora,
   tempo ativo, telas, navegador, IP. Entradas: ⋯ → 👤 Usuários → ⏱ Sessões e, desde a v115.2357, card **Ferramentas → ⏱ Sessões dos usuários** (`ferrSessoes`).
-  PENDENTE (Vitor quer): registro das MODIFICAÇÕES que cada usuário faz — opções propostas em 20/10/2026, esperando ele escolher.
+- v115.2358 **📝 Modificações dos usuários** (Vitor: "é importante registrar também as modificações" → opção C): tabela `pf_auditoria` (RLS: insert só do
+  próprio `user_id = auth.uid()` + `pf_eh_da_empresa()`, select só `pf_eh_admin()`; pg_cron `pf_auditoria_limpar` apaga > 180 dias). Captura no
+  `pfCarimbarMudancas` (só gravação da TELA, fora do modo demonstração) das chaves em `PF_AUDIT_KEYS` [área, importante]: lista com id → criou/alterou/apagou
+  por item; objeto → alterou. Importante = antes → depois por campo (`pfAuditDiffCampos`, até 14 campos, valor curto); resto = só quem/quando/o quê. Fila
+  `_pfAuditFila` (mesmo item junta) sobe a cada 2 min e no pagehide (`pfAuditSubir`); > 25 itens numa gravação = 1 linha "N itens de uma vez".
+  Tela `pfAuditAbrir` (mesma senha do Sessões: `pfSessoesAbrir(depois)`): período, pessoa, área, busca, ⬇ Excel. Botão 📝 no relatório de sessões e no card.
+  Área nova importante → linha no `PF_AUDIT_KEYS`.
 
 ## Liberar Espaço (Ferramentas, só dono)
 - v115.2233: "Selecionar todos" (`ferrLiberarMarcarTodos`) + soma do marcado (`ferrLiberarSoma`); a chave do LOGIN (`sb-…-auth-token`,

@@ -1105,6 +1105,11 @@
   proteção de senha vazada no painel; rever login externo (Encopel, role `ferr_margem`); `cached_credentials` guarda
   `btoa(senha)` no navegador (login offline) — trocar; levar a chave da IA pra Edge Function.
 
+## ⏱ Sessões dos usuários (v115.2003; atalho v115.2357)
+- Relatório `pfSessoesAbrir` (só admin `pfSessEhAdmin`, senha em `pf_admin_config.senha_sessoes`, liberado 10 min) → `pfSessoesRelatorio(dias)`: online agora,
+  tempo ativo, telas, navegador, IP. Entradas: ⋯ → 👤 Usuários → ⏱ Sessões e, desde a v115.2357, card **Ferramentas → ⏱ Sessões dos usuários** (`ferrSessoes`).
+  PENDENTE (Vitor quer): registro das MODIFICAÇÕES que cada usuário faz — opções propostas em 20/10/2026, esperando ele escolher.
+
 ## Liberar Espaço (Ferramentas, só dono)
 - v115.2233: "Selecionar todos" (`ferrLiberarMarcarTodos`) + soma do marcado (`ferrLiberarSoma`); a chave do LOGIN (`sb-…-auth-token`,
   selo 🔒 LOGIN) fica fora do "todos" e o confirmar avisa se ela estiver marcada.

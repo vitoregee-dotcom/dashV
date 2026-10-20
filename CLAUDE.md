@@ -766,7 +766,10 @@
   (só o Vitor, conta = vídeos sem decisão + marcas sem logo/foto, `pfMidiaPendContar`) → `pfMidiaPendAbrir` (aprovar/recusar vídeo, colar logo/foto,
   ➕ vídeo pelo link `pfVideoAdicionar`).
   v115.2347 BUG ("não consigo subir o vídeo"): a maiusculização global (`aplicarMaiusculas`) virava o link em MAIÚSCULA e o código do vídeo (sensível
-  a maiúscula) quebrava. Agora link (http/www), `type=url` e `data-pf-minusc` ficam de fora; `pfVideoIdDaUrl` aceita maiúscula/`live/`. Quiz com prêmios = `PF_FUNC_IDEIAS` (pra depois).
+  a maiúscula) quebrava.
+  v115.2350 ("como eu edito? está sobre rolamentos, mas é motor"): ✏️ Editar em cada vídeo (pendências 🎬 e player, só o Vitor) → `pfVideoEditar`/
+  `pfVideoEditarGravar`: título, linha (`PF_VID_LINHAS`, + Óleos) e formato Short/deitado em `pfVideos_v1.ed[id]` (aplicado no `pfVideosTodos`). A lateral
+  mostra 2 Shorts lado a lado só com 2+ Shorts aprovados. O 8ElIpVd9E2Y do json estava descrito como rolamento (é óleo diesel) — sugestões podem vir erradas. Agora link (http/www), `type=url` e `data-pf-minusc` ficam de fora; `pfVideoIdDaUrl` aceita maiúscula/`live/`. Quiz com prêmios = `PF_FUNC_IDEIAS` (pra depois).
 - **Coluna "%" da cotação** (Vitor: "precisa sempre ser do custo lá da margem"): `vendasPctDaVenda` = margem LÍQUIDA da Calculadora (mesma conta do
   `vendasCalcVenda`); digitar o % calcula o preço por `vendasCalcVenda(custo,uf,%)`. Custo 100, SP, 21% = R$ 140,58 = 21%.
 

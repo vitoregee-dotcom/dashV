@@ -965,6 +965,8 @@
 - v115.2244 lista de cotações: coluna Contato = nome + cargo embaixo, pequeno e cinza (`vendasContatoCargo`: cargo da lista de Contatos do
   cadastro com o mesmo nome, senão Compras/Financeiro; sem cargo e vindo do cadastro = "do cadastro").
 
+- v115.2348 ("quando eu buscar algo já destaca pra mim… bater o olho"): na lista de Cotações, com CÓDIGO/DESCRIÇÃO no filtro, a linha expandida
+  destaca o item que bateu (fundo amarelo `#FFF4C2` + faixa laranja + trecho em `<mark>`, `data-pf-busca-achou`). Captura `docs/referencias/busca-destaque/`.
 - v115.2245 LENTIDÃO (diagnóstico `quadro_lento`: clicar em Vendas = 9,5 s, clicar numa linha = 1,7 s): `vendasAtualizarLista` lia o cadastro
   de clientes inteiro 3x POR LINHA (`cadLoad`+find em contato/transportadora/cargo) e desenhava TODAS as cotações. Agora índice
   `vendasCliPorNome` (5 s) e 150 linhas por vez (`window._vendasLimite`, "⬇ Mostrar mais" +300 / "Mostrar todas"; a selecionada sempre

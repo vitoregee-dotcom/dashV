@@ -999,6 +999,9 @@
   guarda a foto anterior numa pilha por cotação (WeakMap `_vendasUndoMap`, até 30, não vai pro banco); `vendasDesfazer`/`vendasRefazer`.
   Botão Salvar SAIU (`vendasSalvarPos()`='nenhum'): ao fechar a aba (×/Esc → `vendasFecharTabUI`) ou tudo (✕ → `vendasFecharTudoUI`) grava COM
   histórico de preços (`vendasGravarAoFechar`); cotação com itens e SEM cliente pergunta antes de fechar (não se salva sozinha).
+- v115.2346 (Vitor: "precisa ser mais claro pra que serve… Subir lista; principal colar print e a seta carregar arquivo" → opção A da prévia
+  `docs/referencias/botao-print-seta/cotacao.png`): na barra dos itens, "Colar print" + "Carregar arquivo" viraram UM botão azul "📥 Subir lista / colar print"
+  (`vendasColarPrint` → `pfColarPrintLer`: print ou tabela do Excel) com a parte ⬆ à direita = `<label>` com o `#vendasFileInput` (PDF, foto ou planilha). Só na cotação.
 - Barra dos itens: Código + Qtd + Adicionar numa caixa só; Série / modelo visível; Marcar aplicação / Colar print / Carregar arquivo BRANCOS
   (exceção ao padrão de cor do print/arquivo, pedido do Vitor "menos colorido"); CSS v115.2271 tira o 3D dos botões da cotação.
 

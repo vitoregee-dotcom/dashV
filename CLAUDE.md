@@ -435,6 +435,8 @@
   **BUG GRAVE junto ("assim que salvei a série, sumiu")**: `pfMergeSyncValue` junta listas por id e na mesma id vence `tsMod||ts||data` maior — ficha não tinha
   nenhum (0≥0 → o SERVIDOR velho vencia e a edição de ficha existente voltava atrás). `ftSave` agora põe `tsMod` em toda ficha que mudou.
   **REGRA: lista sincronizada com item editável SEM ts → o item editado precisa ganhar `tsMod=Date.now()`, senão a edição se perde na sync.**
+  v115.2359 BUG ("por que tem 2 eixos de cada?" — CASE 621D com 2 fichas): `maqCompLinhas`/`nComp` repetiam o componente que as 2 fichas citam; agora
+  componente da ficha = 1 por grupo + modelo (`maqAN(txt)`).
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

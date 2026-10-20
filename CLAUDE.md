@@ -818,6 +818,8 @@
 - v115.2308 ("não é cada computador, tem que ser cada usuário"): Timer/Cronômetro salvo POR USUÁRIO em `pfTimerEstado_v1` (PF_SYNC_KEYS,
   linha do usuário; `pfTimerSalvar`/`pfTimerRestaurar`, uid no estado; rodando = conta pelo `fimEm`/`crIni`; pull: o mais novo vence).
   Pendências pessoais (`pfPendenciasPessoais`) e Lembretes (`pfLembretes`) já eram por usuário e sincronizam entre computadores.
+- v115.2356 BUG ("quando eu ajusto o tamanho de cada parte não está salvando"): a divisória Pendências × Lembretes (`_pfPainelSplit`) ficava só no
+  navegador e o Sair limpa tudo. Agora também em `pfPainelPrefs_v1` {split,ts} por usuário (PF_SYNC_KEYS, merge próprio no pull, mais novo vence).
 
 ## Dashboard por baixo da tela inicial (v115.2300)
 - BUG (iPad: "o dash tá aparecendo por baixo"): o `initUserUI` (depois do login) fazia `pfSetActive('dash')` com a tela inicial aberta →

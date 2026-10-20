@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2355</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2356</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2355</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2356</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -39456,7 +39456,7 @@ var mapaEstadoId = null;
 
 // ── SYNC GENÉRICO (user_sync) ─────────────────────────────────────────
 // Chaves sincronizadas entre dispositivos (excluindo dados de sessão/device)
-var PF_SYNC_KEYS = ['pfOrbPrefs_v1', 'pfTimerEstado_v1', 'pfModoApresPrefs_v1', 'pfSolicNF_v1', 
+var PF_SYNC_KEYS = ['pfOrbPrefs_v1', 'pfPainelPrefs_v1', 'pfTimerEstado_v1', 'pfModoApresPrefs_v1', 'pfSolicNF_v1', 
   // v115.1525 - A pedido do Vitor: chave da Anthropic passa a sincronizar
   // DIRETO entre aparelhos, sem senha nem criptografia (antes só existia
   // criptografada em "Minhas Chaves"/pfChavesDevEnc, e só ia pro
@@ -41010,6 +41010,11 @@ async function pfSyncPull(){
         if(row.chave==='pfTimerEstado_v1'){ // v115.2308 - Timer/Cronômetro do usuário: o mais novo vence e a tela segue
           try{var rt=JSON.parse(val||'{}')||{},lt=JSON.parse(localStorage.getItem('pfTimerEstado_v1')||'{}')||{};if(lt.uid&&sbUser&&lt.uid!==sbUser.id)lt={}; // outro usuário neste computador
             if((rt.ts||0)>(lt.ts||0)){localStorage.setItem('pfTimerEstado_v1',JSON.stringify(rt));if(typeof pfTimerRestaurar==='function')setTimeout(function(){pfTimerRestaurar(rt);},0);}}catch(e){}
+          return;
+        }
+        if(row.chave==='pfPainelPrefs_v1'){ // v115.2356 - tamanho das partes do painel de tarefas, por usuário: o mais novo vence
+          try{var rq=JSON.parse(val||'{}')||{},lq=JSON.parse(localStorage.getItem('pfPainelPrefs_v1')||'{}')||{};
+            if((rq.ts||0)>(lq.ts||0)){localStorage.setItem('pfPainelPrefs_v1',JSON.stringify(rq));if(rq.split>0){_pfPainelSplit=rq.split;_pfPainelSplitManual=true;if(typeof pfPainelTarefasRender==='function'&&document.getElementById('pfPainelTarefas'))setTimeout(pfPainelTarefasRender,0);}}}catch(e){}
           return;
         }
         if(row.chave==='pfOrbPrefs_v1'){ // v115.2244 - preferência da órbita: o mais novo vence
@@ -58559,7 +58564,9 @@ function pfPendenciaPessoalSalvarNova(){
 // cada uma ocupa arrastando (não fixo no código). Proporção salva só
 // localmente (por aparelho -- não sincroniza, cada tela pode ter um
 // tamanho ideal diferente).
-var _pfPainelSplit=parseFloat(pfSafeGetItem('pfPainelTarefasSplit','-1'));
+// v115.2356 - A pedido do Vitor ("quando eu ajusto o tamanho de cada parte não está salvando"): o Sair limpa o navegador e a proporção
+// sumia. Agora fica também por USUÁRIO em pfPainelPrefs_v1 {split,ts} (PF_SYNC_KEYS, o mais novo vence) — volta depois do Sair e em outro aparelho.
+var _pfPainelSplit=(function(){try{var o=JSON.parse(localStorage.getItem('pfPainelPrefs_v1')||'{}')||{};if(o.split>0)return o.split;}catch(e){}return parseFloat(pfSafeGetItem('pfPainelTarefasSplit','-1'));})();
 var _pfPainelSplitManual=(_pfPainelSplit>=0); // v115.1572 - só usa % fixo se o Vitor já arrastou alguma vez
 if(_pfPainelSplit<0)_pfPainelSplit=0.55;
 var _pfPainelSplitArrastando=false;
@@ -58578,6 +58585,7 @@ function pfPainelSplitIniciar(ev){
     _pfPainelSplitArrastando=false;
     _pfPainelSplitManual=true;
     pfSafeSetItem('pfPainelTarefasSplit',String(_pfPainelSplit));
+    try{localStorage.setItem('pfPainelPrefs_v1',JSON.stringify({split:_pfPainelSplit,ts:Date.now()}));if(typeof pfSyncPush==='function')pfSyncPush(['pfPainelPrefs_v1']);}catch(e){}
     document.removeEventListener('mousemove',mover);
     document.removeEventListener('mouseup',soltar);
     document.removeEventListener('touchmove',mover);

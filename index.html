@@ -1964,7 +1964,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2350</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2351</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2122,7 +2122,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2350</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2351</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -56787,9 +56787,10 @@ function pfVideosTodos(){
 function pfVideosAprovados(){var por=pfVideosLoad().por;return pfVideosTodos().filter(function(v){return por[v.id]&&por[v.id].st==='ok';});}
 function pfVideosPendentes(){var por=pfVideosLoad().por;return pfVideosTodos().filter(function(v){return !por[v.id];});}
 function pfVideoThumb(id){return 'https://i.ytimg.com/vi/'+encodeURIComponent(id)+'/hqdefault.jpg';}
-function pfVideoCardHtml(v,vertical){
+function pfVideoCardHtml(v,vertical,etq){
   return '<div onclick="event.stopPropagation();pfVideoAbrir(\''+pfEscJs(v.id)+'\')" title="'+pfEscHtml(v.titulo||'')+'" style="flex:1;min-width:0;position:relative;border-radius:10px;overflow:hidden;cursor:pointer;background:#0d1520 url(\''+pfVideoThumb(v.id)+'\') center/cover no-repeat">'+
     '<div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.88),rgba(0,0,0,.05) 55%)"></div>'+
+    (etq?'<div style="position:absolute;left:8px;top:8px;z-index:2;font-size:9.5px;font-weight:900;letter-spacing:.3px;padding:3px 8px;border-radius:20px;color:#fff;background:'+(etq.indexOf('NOVO')>=0?'#E8590C':'rgba(31,78,121,.92)')+';box-shadow:0 2px 6px rgba(0,0,0,.35)">'+pfEscHtml(etq)+'</div>':'')+
     '<div style="position:absolute;left:50%;top:'+(vertical?'42%':'40%')+';transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;background:rgba(220,38,38,.92);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.4)"><span style="color:#fff;font-size:18px;margin-left:3px">▶</span></div>'+
     '<div style="position:absolute;left:0;right:0;bottom:0;padding:8px 10px">'+
       '<div style="font-size:9px;font-weight:800;color:#FFB4A8;margin-bottom:2px">🎬 '+(v.short?'SHORT · ':'')+pfEscHtml((PF_VID_LINHAS[v.linha]||'COMO É FEITO').toUpperCase())+'</div>'+
@@ -56797,14 +56798,47 @@ function pfVideoCardHtml(v,vertical){
     '</div></div>';
 }
 // coluna da direita do banner: 2 Shorts lado a lado, ou 1 vídeo deitado. '' = sem vídeo aprovado (fica a lateral antiga)
+// v115.2351 - A pedido do Vitor ("o algoritmo não está muito a minha cara" → opções C + D):
+//  C = NOVIDADE PRIMEIRO: o vídeo aprovado nos últimos PF_VID_NOVO_DIAS dias fica sempre na tela com a etiqueta 🆕 NOVO
+//      (Short = 1º lugar da dupla; deitado = alterna com a dupla do tema);
+//  D = CADA DIA UM ASSUNTO: a linha do dia (Motores, Rolamentos...) gira pelo dia do ano entre as linhas que têm vídeo aprovado;
+//      a dupla sai dessa linha (falta Short da linha → completa com os outros). Troca a cada 25 s dentro do assunto.
+var PF_VID_NOVO_DIAS=3;
+function pfVideosTemaHoje(A){
+  var ls=[];(A||pfVideosAprovados()).forEach(function(v){var l=v.linha||'outros';if(ls.indexOf(l)<0)ls.push(l);});
+  ls.sort();if(!ls.length)return '';
+  var dia=Math.floor((Date.now()-new Date().getTimezoneOffset()*60000)/864e5);
+  return ls[dia%ls.length];
+}
 function pfVideosLateralHtml(idx){
   var A=pfVideosAprovados();if(!A.length)return '';
-  var shorts=A.filter(function(v){return v.short;}),deitados=A.filter(function(v){return !v.short;});
-  var slots=[];shorts.length>=2&&slots.push('s');deitados.length&&slots.push('d');if(!slots.length)slots.push('s');
-  var tipo=slots[idx%slots.length];
-  if(tipo==='s'&&shorts.length){var i=(idx*2)%shorts.length,a=shorts[i],b=shorts[(i+1)%shorts.length];
-    return '<div style="flex:1;display:flex;gap:8px">'+pfVideoCardHtml(a,true)+(b&&b!==a?pfVideoCardHtml(b,true):'')+'</div>';}
-  var d=deitados[idx%deitados.length]||A[0];return pfVideoCardHtml(d,false);
+  var por=pfVideosLoad().por,ag=Date.now();
+  var nov=A.filter(function(v){var e=por[v.id]&&por[v.id].em;return e&&ag-e<PF_VID_NOVO_DIAS*864e5;}).sort(function(a,b){return (por[b.id].em||0)-(por[a.id].em||0);})[0]||null;
+  var tema=pfVideosTemaHoje(A),resto=A.filter(function(v){return !nov||v.id!==nov.id;});
+  var doTema=resto.filter(function(v){return (v.linha||'outros')===tema;}),outros=resto.filter(function(v){return (v.linha||'outros')!==tema;});
+  var etqTema='📅 HOJE: '+String(PF_VID_LINHAS[tema]||tema).toUpperCase(),etqNovo='🆕 NOVO';
+  var sT=doTema.filter(function(v){return v.short;}),sO=outros.filter(function(v){return v.short;});
+  var dT=doTema.filter(function(v){return !v.short;}),dO=outros.filter(function(v){return !v.short;});
+  // dupla de Shorts: só do tema (2+); com 1 do tema ele fica fixo e o par gira entre os outros; sem do tema, gira entre os outros
+  var dupla=function(k){
+    var a,b2;
+    if(sT.length>=2){var i=(k*2)%sT.length;a=sT[i];b2=sT[(i+1)%sT.length];}
+    else if(sT.length===1){a=sT[0];b2=sO.length?sO[k%sO.length]:null;}
+    else if(sO.length){var j=(k*2)%sO.length;a=sO[j];b2=sO[(j+1)%sO.length];}
+    else return null;
+    return '<div style="flex:1;display:flex;gap:8px">'+pfVideoCardHtml(a,true,sT.indexOf(a)>=0?etqTema:'')+(b2&&b2!==a?pfVideoCardHtml(b2,true,sT.indexOf(b2)>=0?etqTema:''):'')+'</div>';
+  };
+  if(nov&&nov.short){
+    var poolP=sT.length?sT:sO,par=poolP.length?poolP[idx%poolP.length]:null;
+    return '<div style="flex:1;display:flex;gap:8px">'+pfVideoCardHtml(nov,true,etqNovo)+(par?pfVideoCardHtml(par,true,sT.indexOf(par)>=0?etqTema:''):'')+'</div>';
+  }
+  if(nov&&!nov.short&&(idx%2===0||!(sT.length+sO.length+dT.length+dO.length)))return pfVideoCardHtml(nov,false,etqNovo);
+  var k=nov?Math.floor(idx/2):idx;
+  var temS=(sT.length+sO.length)>0,slots=[];temS&&slots.push('s');(dT.length||!temS)&&slots.push('d'); // deitado só entra se for do tema (ou se não tem Short)
+  var tipo=slots[k%slots.length];
+  if(tipo==='s'){var h=dupla(Math.floor(k/slots.length));if(h)return h;}
+  var dl=dT.length?dT:dO;if(!dl.length)dl=resto.length?resto:A;
+  var d=dl[Math.floor(k/slots.length)%dl.length];return pfVideoCardHtml(d,false,dT.indexOf(d)>=0?etqTema:'');
 }
 function pfVideoFechar(){var o=document.getElementById('pfVideoOv');if(o)o.remove();}
 function pfVideoAbrir(id){

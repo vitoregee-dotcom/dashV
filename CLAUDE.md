@@ -769,7 +769,10 @@
   a maiúscula) quebrava.
   v115.2350 ("como eu edito? está sobre rolamentos, mas é motor"): ✏️ Editar em cada vídeo (pendências 🎬 e player, só o Vitor) → `pfVideoEditar`/
   `pfVideoEditarGravar`: título, linha (`PF_VID_LINHAS`, + Óleos) e formato Short/deitado em `pfVideos_v1.ed[id]` (aplicado no `pfVideosTodos`). A lateral
-  mostra 2 Shorts lado a lado só com 2+ Shorts aprovados. O 8ElIpVd9E2Y do json estava descrito como rolamento (é óleo diesel) — sugestões podem vir erradas. Agora link (http/www), `type=url` e `data-pf-minusc` ficam de fora; `pfVideoIdDaUrl` aceita maiúscula/`live/`. Quiz com prêmios = `PF_FUNC_IDEIAS` (pra depois).
+  mostra 2 Shorts lado a lado só com 2+ Shorts aprovados. O 8ElIpVd9E2Y do json estava descrito como rolamento (é óleo diesel) — sugestões podem vir erradas.
+  v115.2351 ("o algoritmo não está muito a minha cara" → C + D): `pfVideosLateralHtml` = 🆕 NOVIDADE (aprovado há < `PF_VID_NOVO_DIAS`=3 dias fica sempre,
+  1º da dupla / deitado alterna) + 📅 ASSUNTO DO DIA (`pfVideosTemaHoje`: linha pelo dia entre as que têm aprovado; dupla do tema, com 1 só ele fica fixo e o
+  par gira; deitado só entra se for do tema). Etiqueta no card (`pfVideoCardHtml(v,vert,etq)`). Troca a cada 25 s (`_pfMarcasIdx`). Agora link (http/www), `type=url` e `data-pf-minusc` ficam de fora; `pfVideoIdDaUrl` aceita maiúscula/`live/`. Quiz com prêmios = `PF_FUNC_IDEIAS` (pra depois).
 - **Coluna "%" da cotação** (Vitor: "precisa sempre ser do custo lá da margem"): `vendasPctDaVenda` = margem LÍQUIDA da Calculadora (mesma conta do
   `vendasCalcVenda`); digitar o % calcula o preço por `vendasCalcVenda(custo,uf,%)`. Custo 100, SP, 21% = R$ 140,58 = 21%.
 

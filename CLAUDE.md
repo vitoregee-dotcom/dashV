@@ -965,6 +965,10 @@
 - v115.2244 lista de cotações: coluna Contato = nome + cargo embaixo, pequeno e cinza (`vendasContatoCargo`: cargo da lista de Contatos do
   cadastro com o mesmo nome, senão Compras/Financeiro; sem cargo e vindo do cadastro = "do cadastro").
 
+- v115.2349 ("as abas estão meio apagadas" → opção C + "cards em Vendas" → "deixa o simples"; prévias `docs/referencias/abas-vendas/`): abas de Vendas
+  com a ATIVA BRANCA (`.pfVendTab.on`, outras contorno fino e texto branco, 📌 só no hover — CSS `#pfVendTabsCss`); aba do topo (`#pfAbasBar .pfAba`) branca
+  com contorno azul. Menu de cards `vendasMenuRender` (`_vendasMainTab='menu'`, `PF_VENDAS_CARDS`): ← Voltar/Esc das Cotações vai pros cards, dos cards
+  vai pra tela inicial; o dock (pfNavigate vindo de outra tela) abre direto em Cotações.
 - v115.2348 ("quando eu buscar algo já destaca pra mim… bater o olho"): na lista de Cotações, com CÓDIGO/DESCRIÇÃO no filtro, a linha expandida
   destaca o item que bateu (fundo amarelo `#FFF4C2` + faixa laranja + trecho em `<mark>`, `data-pf-busca-achou`). Captura `docs/referencias/busca-destaque/`.
 - v115.2245 LENTIDÃO (diagnóstico `quadro_lento`: clicar em Vendas = 9,5 s, clicar numa linha = 1,7 s): `vendasAtualizarLista` lia o cadastro

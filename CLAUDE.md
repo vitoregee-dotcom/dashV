@@ -935,6 +935,11 @@
   `pfCatSerieInfoHtml` (✅ já existe e junta / ⚠ você quis dizer — Levenshtein `pfCatDist` / 🆕 nova); `pfCatSerieLigar` põe o mesmo aviso nos campos do
   import do PDF e do Alimentar e preenche com `window._pfCatSerieAlvo`. Os outros botões de subir (Aplicações, Guia Perkins, faixas LNG/Spicer) abrem a
   central (`pfCatCentralAbrir`); o "📥 Importar Catálogo" de Aplicações saiu. Lista "Séries só com a lista de peças" (`pfCatSemDesenhoHtml`) → 📥 Subir o desenho.
+- v115.2380 **catálogo ZF** (Vitor mandou o MT-B 3065 4475 058 052): `pfCatEnvZFLerPagina` (página "Figura" = nº 02.010… em TEXTO com posição → clicáveis;
+  "Tabela" = Item|Qtd.|Componente|Nº ZF|Nº <montadora>|Jogos de Reparo; última página "Item|Nº ZF|Observação" = ANTIGO:) → `pfCatEnvZFMontar` (grupo = figura +
+  tabelas seguintes; linha de continuação vai pro grupo cujo desenho tem o nº ou o prefixo; nome pelas peças `pfCatEnvZFNome`) → `pfCatEnvZFPrevia`. Código SEM espaço
+  (igual ao cadastro/Aplicações), série = Nº ZF do cabeçalho (10 dígitos); nº da montadora + antigos = `x.conv` → conversões da ficha nova; '*' = jogo de reparo, 'op'
+  = opcional (obs). Salvar corta o branco do desenho (`pfCatEnvAparar`, remapeia os nº). Posição vem da série que já existe (equip TRASEIRO/DIANTEIRO).
 - Chegada: `pfFormClienteChecarSubmissoes` → `pfCatEnvReceber` → `pfCatPedidos_v1` + pendência; 📥 Recebidos mostra foto,
   máquina, itens com código/saldo, "➜ Abrir como cotação" (`pfCatEnvPedidoCotacao`) e "✅ Conferi — gravar como aplicação"
   (`pfCatEnvGravarAplic`: máquina = veiculo/marcaVeiculo, eixo = marca/modelo/série, grupo = equip, em todas as peças).

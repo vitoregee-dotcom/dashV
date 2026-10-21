@@ -1972,7 +1972,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2362</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2363</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2130,7 +2130,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2362</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2363</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -19158,8 +19158,12 @@ function applyFilt(){
   // Colunas com filtro preenchido -- calculado UMA vez fora do loop (antes
   // era Object.entries(colFilters) recriado a cada item, e o `.every()`
   // rodava mesmo com colFilters vazio, que é o caso mais comum).
-  const _colFiltrosAtivos=Object.entries(colFilters).filter(([,val])=>val);
+  const _colFiltrosAtivos=Object.entries(colFilters).filter(([,val])=>val).map(([c,v])=>[c,v,pfBuscaN(v)]);
   const _numCols=["saldo","consumo","cM","cD","dE","vP","qtdC","cotacoes","pedido"];
+  // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): descrição e filtros de coluna comparam sem acento/ç;
+  // o texto normalizado de cada item fica num WeakMap (normalizar ~200 mil descrições a cada tecla travaria).
+  const _qN=q?pfBuscaN(q):'',_bnW=window._pfBuscaNItens||(window._pfBuscaNItens=new WeakMap());
+  const _nDe=(it,k)=>{let o=_bnW.get(it);if(!o){o={};_bnW.set(it,o);}let v=o[k];if(v===undefined)v=o[k]=pfBuscaN(it[k]);return v;};
   filtered=calcItems.filter(i=>{
     // Curto-circuito: sai assim que a primeira condição falhar, em vez de
     // calcular todas as ~10 condições pra todo item sempre (antes eram
@@ -19168,7 +19172,7 @@ function applyFilt(){
     if((typeof pfFamiliaAtiva!=='undefined'&&pfFamiliaAtiva!=='TODAS')&&(i.familia||'')!==pfFamiliaAtiva)return false;
     if(!(afilt==="T"?true:afilt==="OP"?i.sk==="OP":afilt==="U"?i.sk==="U":afilt==="A"?i.sk==="A":i.sk==="U"||i.sk==="A"))return false;
     if(!(abcF==="TODOS"||i.curva===abcF))return false;
-    if(!(!q||refMatch(i.ref,q)||i.desc.toLowerCase().includes(q)))return false;
+    if(!(!q||refMatch(i.ref,q)||_nDe(i,'desc').includes(_qN)))return false;
     if(!(marcasF.size===0||marcasF.has(i.marca)))return false;
     if(!(grupoF==="TODOS"||i.grupo===grupoF))return false;
     if(!(modeloSerieF==="TODOS"||(_modeloSerieItensSet&&_modeloSerieItensSet.has(i.ref.toUpperCase()+'||'+(i.marca||'').toUpperCase()))))return false;
@@ -19194,7 +19198,7 @@ function applyFilt(){
             if(!(isNaN(vn2)||iv>=vn2))return false;
           }
         }else{
-          if(!String(i[col]||"").toLowerCase().includes(val.toLowerCase()))return false;
+          if(!_nDe(i,col).includes(_colFiltrosAtivos[ci][2]))return false;
         }
       }
     }
@@ -23337,7 +23341,9 @@ function verAnaliseSnap(s){
     +'<tbody id="tbody">'+rows+'</tbody></table></div>'
     +'<scr'+'ipt>'
     +'var allRows=Array.from(document.querySelectorAll("#tbody tr"));'
-    +'function filtrar(v){v=v.toLowerCase();allRows.forEach(function(tr){tr.style.display=tr.textContent.toLowerCase().includes(v)?"":"none";});}'
+    // v115.2363 - busca do relatório sem acento/ç
+    +'function _n(x){x=String(x||"");try{x=x.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");}catch(e){}return x.toLowerCase();}'
+    +'function filtrar(v){v=_n(v);allRows.forEach(function(tr){tr.style.display=_n(tr.textContent).includes(v)?"":"none";});}'
     +'<'+'/script>'
     +'</body><!-- Build timestamp: 1782868987 --></html>';
   var w=window.open('','_blank');
@@ -24752,7 +24758,7 @@ function pfComprarRenderFiltros(){
   var familiasDisp=Array.from(new Set(itensParaFamilia.map(function(d){return d.familia;}).filter(Boolean))).sort();
   var itensNaFamilia=f.familias.length?itensParaFamilia.filter(function(d){return f.familias.indexOf(d.familia)>=0;}):itensParaFamilia;
   var marcasDisp=Array.from(new Set(itensNaFamilia.map(function(d){return d.marca;}).filter(Boolean))).sort();
-  if(buscaMarca)marcasDisp=marcasDisp.filter(function(m){return m.toUpperCase().indexOf(buscaMarca)>=0;});
+  if(buscaMarca)marcasDisp=marcasDisp.filter(function(m){return pfBuscaBate(m,buscaMarca);}); // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): filtro de marca
   var html='<div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:6px">'+
     '<div><div style="font-size:10px;color:var(--pf-fx-textoSuave,#8a9ab0);font-weight:700;text-transform:uppercase;margin-bottom:5px">Curva (pode marcar mais de uma)</div><div style="display:flex;gap:4px">'+
       pfComprarChip("pfComprarToggleCurva('')",'Todos',f.curvas.length===0)+
@@ -28640,9 +28646,9 @@ async function renderCotHistorico(el){
 }
 
 function filtrarHistCot(v){
-  var q=v.toLowerCase();
+  // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): histórico de cotações
   document.querySelectorAll('.histCotItem').forEach(function(el){
-    el.style.display=el.textContent.toLowerCase().includes(q)?'':'none';
+    el.style.display=pfBuscaBate(el.textContent,v)?'':'none';
   });
 }
 
@@ -29320,9 +29326,9 @@ function mapaAbrirFornecedoresEmTodos(){
   document.body.appendChild(overlay);
 }
 function mapaFornTodosFiltrar(v){
-  v=(v||'').toUpperCase();
+  // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): buscar fornecedor
   document.querySelectorAll('.mapaFornTodosItem').forEach(function(el){
-    el.style.display=el.dataset.nome.indexOf(v)>=0?'flex':'none';
+    el.style.display=pfBuscaBate(el.dataset.nome,v)?'flex':'none';
   });
 }
 function mapaConfirmarFornecedoresEmTodos(){
@@ -29419,9 +29425,9 @@ function mapaAbrirRemoverFornecedoresEmTodos(){
   document.body.appendChild(overlay);
 }
 function mapaFornRemoverFiltrar(v){
-  v=(v||'').toUpperCase();
+  // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): buscar fornecedor
   document.querySelectorAll('.mapaFornRemoverItem').forEach(function(el){
-    el.style.display=el.dataset.nome.indexOf(v)>=0?'flex':'none';
+    el.style.display=pfBuscaBate(el.dataset.nome,v)?'flex':'none';
   });
 }
 function mapaFornRemoverMarcarTodos(marcar){
@@ -29498,8 +29504,7 @@ function mapaFornSugestaoRender(idx,texto){
   try{
     var flist=cadLoad(FORN_KEY);
     var matches=flist.filter(function(f){
-      var nome=(f.fantasia||f.nome||f.razao||'').toLowerCase();
-      return nome.includes(texto);
+      return pfBuscaBate((f.fantasia||'')+' '+(f.nome||'')+' '+(f.razao||''),texto); // v115.2363 - sem acento/Ç, acha também pela razão
     }).slice(0,30); // lista customizada com scroll -- não trava mais a tela toda como o datalist nativo
     if(!matches.length){box.style.display='none';box.innerHTML='';return;}
     box.innerHTML=matches.map(function(f){
@@ -31634,7 +31639,7 @@ function mapaFiltrarFornDecidir(idKS){
   var q=(inp.value||'').trim().toUpperCase();
   if(q.length<2){res.style.display='none';return;}
   var matches=(cadLoad(FORN_KEY)||[]).filter(function(f){
-    return (f.fantasia||f.nome||f.razao||'').toUpperCase().indexOf(q)>=0;
+    return pfBuscaBate(f.fantasia||f.nome||f.razao||'',q); // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): 
   }).slice(0,8);
   if(!matches.length){res.style.display='none';return;}
   res.style.display='block';
@@ -33216,6 +33221,8 @@ function cadRenderAplicacoes(el){
   var _aplicAN=function(v){return String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');},_tAN=_aplicAN(termo);
   if(termo){
     list=list.filter(function(a){
+      // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): acento/ç (pfBuscaBate)
+      if(pfBuscaBate([a.modelo,a.serie,a.codigo,a.desc,a.equip,a.veiculo,a.marca,a.marcaVeiculo].join(' / '),termo))return true;
       return (a.modelo||'').toUpperCase().indexOf(termo)>=0||(a.serie||'').toUpperCase().indexOf(termo)>=0||(a.codigo||'').toUpperCase().indexOf(termo)>=0||(a.desc||'').toUpperCase().indexOf(termo)>=0||(a.equip||'').toUpperCase().indexOf(termo)>=0||(a.veiculo||'').toUpperCase().indexOf(termo)>=0||(a.marca||'').toUpperCase().indexOf(termo)>=0||(a.marcaVeiculo||'').toUpperCase().indexOf(termo)>=0||
         // v115.2362 - A pedido do Vitor ("desconsiderar espaços caso não digite"): "MT-B3" acha "MT-B 3065" — compara também sem espaço/traço/ponto
         (_tAN.length>=3&&[a.modelo,a.serie,a.codigo,a.veiculo,(a.modelo||'')+(a.serie||''),(a.marcaVeiculo||'')+(a.veiculo||'')].some(function(v){return _aplicAN(v).indexOf(_tAN)>=0;}));
@@ -33350,7 +33357,7 @@ function cadRenderAplicacoes(el){
         if(termoItem){
           ordem=ordem.filter(function(kk){
             var it=porCodigo[kk];
-            return (it.codigo||'').toUpperCase().indexOf(termoItem)>=0||(it.desc||'').toUpperCase().indexOf(termoItem)>=0;
+            return pfBuscaBate((it.codigo||'')+' / '+(it.desc||''),termoItem); // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): 
           });
         }
         if(!ordem.length){
@@ -33961,11 +33968,11 @@ function cadRenderProdutosV3(el){
   var pf=window._prodFiltro||{};
   var filtered=plist.map(function(p,idx){return {p:p,idx:idx};}).filter(function(o){
     var p=o.p;
-    if(q&&!((p.codigo||'').toLowerCase().includes(q)||(p.descricao||'').toLowerCase().includes(q)||(p.marca||'').toLowerCase().includes(q)))return false;
-    if(pf.marca&&!(p.marca||'').toLowerCase().includes(pf.marca.toLowerCase()))return false;
-    if(pf.linha&&!(p.linha||'').toLowerCase().includes(pf.linha.toLowerCase()))return false;
-    if(pf.grupo&&!(p.grupo||'').toLowerCase().includes(pf.grupo.toLowerCase()))return false;
-    if(pf.subgrupo&&!(p.subgrupo||'').toLowerCase().includes(pf.subgrupo.toLowerCase()))return false;
+    if(q&&!pfBuscaBate((p.codigo||'')+' / '+(p.descricao||'')+' / '+(p.marca||''),q))return false; // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): 
+    if(pf.marca&&!pfBuscaBate(p.marca,pf.marca))return false;
+    if(pf.linha&&!pfBuscaBate(p.linha,pf.linha))return false;
+    if(pf.grupo&&!pfBuscaBate(p.grupo,pf.grupo))return false;
+    if(pf.subgrupo&&!pfBuscaBate(p.subgrupo,pf.subgrupo))return false;
     if(pf.ncm&&!(p.ncm||'').toLowerCase().includes(pf.ncm.toLowerCase()))return false;
     return true;
   });
@@ -34279,12 +34286,13 @@ function cadRenderFornecedores(el){
   var f=window._fornFiltro||{};
   var filtered=flist.filter(function(x,i){
     x._idx=i;
-    if(f.codigo&&!(x.codigo||'').toLowerCase().includes(f.codigo.toLowerCase()))return false;
-    if(f.razao&&!((x.razao||'')+(x.fantasia||'')).toLowerCase().includes(f.razao.toLowerCase()))return false;
+    // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): 
+    if(f.codigo&&!pfBuscaBate(x.codigo,f.codigo))return false;
+    if(f.razao&&!pfBuscaBate((x.razao||'')+' / '+(x.fantasia||''),f.razao))return false;
     if(f.cnpj&&!(x.cnpj||'').replace(/[^0-9]/g,'').includes(f.cnpj.replace(/[^0-9]/g,'')))return false;
-    if(f.tipo&&!(x.tipo||'').toLowerCase().includes(f.tipo.toLowerCase()))return false;
-    if(f.grupo){var gl=pfGrupoInfo(x.grupo);if(!(gl?gl.label:'sem grupo').toLowerCase().includes(f.grupo.toLowerCase()))return false;}
-    if(f.linhas&&!((x.linhas||[]).join(' ')).toLowerCase().includes(f.linhas.toLowerCase()))return false;
+    if(f.tipo&&!pfBuscaBate(x.tipo,f.tipo))return false;
+    if(f.grupo){var gl=pfGrupoInfo(x.grupo);if(!pfBuscaBate(gl?gl.label:'sem grupo',f.grupo))return false;}
+    if(f.linhas&&!pfBuscaBate((x.linhas||[]).join(' / '),f.linhas))return false;
     if(f.email&&!(x.email||'').toLowerCase().includes(f.email.toLowerCase()))return false;
     return true;
   });
@@ -34509,11 +34517,12 @@ function cadRenderClientes(el){
   var f=window._clieFiltro||{};
   var filtered=clist.filter(function(c,i){
     c._idx=i;
-    if(f.codigo&&!(c.codigo||'').toLowerCase().includes(f.codigo.toLowerCase()))return false;
-    if(f.razao&&!(c.razao||'').toLowerCase().includes(f.razao.toLowerCase()))return false;
+    // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): 
+    if(f.codigo&&!pfBuscaBate(c.codigo,f.codigo))return false;
+    if(f.razao&&!pfBuscaBate((c.razao||'')+' / '+(c.fantasia||''),f.razao))return false;
     if(f.cnpj&&!(c.cnpj||'').replace(/[^0-9]/g,'').includes(f.cnpj.replace(/[^0-9]/g,'')))return false;
-    if(f.cidade&&!((c.cidade||'')+(c.estado||'')).toLowerCase().includes(f.cidade.toLowerCase()))return false;
-    if(f.grupo){var gl=pfGrupoInfo(c.grupo);if(!(gl?gl.label:'sem grupo').toLowerCase().includes(f.grupo.toLowerCase()))return false;}
+    if(f.cidade&&!pfBuscaBate((c.cidade||'')+' '+(c.estado||''),f.cidade))return false;
+    if(f.grupo){var gl=pfGrupoInfo(c.grupo);if(!pfBuscaBate(gl?gl.label:'sem grupo',f.grupo))return false;}
     return true;
   });
   var html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">';
@@ -36062,10 +36071,8 @@ function cadRenderProdutos(el){
 
   var filtered = plist.filter(function(p){
     if(!searchVal) return true;
-    var q = searchVal.toLowerCase();
-    return (p.codigo||'').toLowerCase().includes(q) ||
-           (p.descricao||'').toLowerCase().includes(q) ||
-           (p.marca||'').toLowerCase().includes(q);
+    // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): 
+    return pfBuscaBate((p.codigo||'')+' / '+(p.descricao||'')+' / '+(p.marca||''),searchVal);
   });
 
   var html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">';
@@ -37652,13 +37659,12 @@ cadRenderProdutos = function(el){
   var filtered = plist.filter(function(p){
     if(!searchVal)return true;
     var q=searchVal.toLowerCase();
-    var bateBasico=(p.codigo||'').toLowerCase().includes(q)||(p.descricao||'').toLowerCase().includes(q)||(p.marca||'').toLowerCase().includes(q);
+    var bateBasico=pfBuscaBate((p.codigo||'')+' / '+(p.descricao||'')+' / '+(p.marca||''),searchVal); // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): 
     if(bateBasico)return true;
     // Também busca por aplicação — equipamento, marca do equipamento, modelo ou série
     var aplic=p.aplicacoes||[];
     return aplic.some(function(a){
-      return (a.equip||'').toLowerCase().includes(q)||(a.marca||'').toLowerCase().includes(q)||
-             (a.modelo||'').toLowerCase().includes(q)||(a.serie||'').toLowerCase().includes(q);
+      return pfBuscaBate([a.equip,a.marca,a.modelo,a.serie].join(' / '),searchVal);
     });
   });
 
@@ -41514,7 +41520,7 @@ function impFiltrarPreview(el){
   var visiveis=0;
   linhas.forEach(function(tr){
     var alvo=tr.getAttribute('data-busca')||'';
-    var mostra=!termo||alvo.indexOf(termo)>=0;
+    var mostra=!termo||pfBuscaBate(alvo,termo); // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): 
     tr.style.display=mostra?'':'none';
     if(mostra)visiveis++;
   });
@@ -43330,16 +43336,16 @@ mapaRender = function(){
       if(cf.busca){
         var _bq=cf.busca.toLowerCase();
         var _bt=[m.numero,m.cliente,m.clienteRazao,m.titulo,(m.criadoPor&&m.criadoPor.nome)].join(' ').toLowerCase();
-        if(_bt.indexOf(_bq)<0)return false;
+        if(!pfBuscaBate(_bt,_bq))return false; // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): 
       }
       if(cf.numero&&!((m.numero||'').toLowerCase().indexOf(cf.numero.toLowerCase())>=0))return false;
       if(cf.origem){
         var origemTxt=m.vendaOrigem?'cotação':'mapa';
-        if(origemTxt.indexOf(cf.origem.toLowerCase())<0)return false;
+        if(!pfBuscaBate(origemTxt,cf.origem))return false;
       }
-      if(cf.cliente&&!(((m.cliente||'')+' '+(m.clienteRazao||'')).toLowerCase().indexOf(cf.cliente.toLowerCase())>=0))return false;
-      if(cf.usuario&&!((m.criadoPor&&m.criadoPor.nome||'').toLowerCase().indexOf(cf.usuario.toLowerCase())>=0))return false;
-      if(cf.status&&st.label.toLowerCase().indexOf(cf.status.toLowerCase())<0)return false;
+      if(cf.cliente&&!pfBuscaBate((m.cliente||'')+' '+(m.clienteRazao||''),cf.cliente))return false;
+      if(cf.usuario&&!pfBuscaBate(m.criadoPor&&m.criadoPor.nome||'',cf.usuario))return false;
+      if(cf.status&&!pfBuscaBate(st.label,cf.status))return false;
       if(cf.itens&&String(m.nItens).indexOf(cf.itens)<0)return false;
       if(cf.data&&new Date(m.criadoTs||m.ts).toLocaleString('pt-BR').toLowerCase().indexOf(cf.data.toLowerCase())<0)return false;
       if(cf.finalizado&&!(m.decididoTs&&new Date(m.decididoTs).toLocaleString('pt-BR').toLowerCase().indexOf(cf.finalizado.toLowerCase())>=0))return false;
@@ -52130,6 +52136,7 @@ function cadCriarFichasEmFalta(){
   var list=aplicLoad();
   if(termo){
     list=list.filter(function(a){
+      if(pfBuscaBate([a.modelo,a.serie,a.codigo,a.desc,a.equip,a.veiculo,a.marca,a.marcaVeiculo].join(' / '),termo))return true; // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): 
       return (a.modelo||'').toUpperCase().indexOf(termo)>=0||(a.serie||'').toUpperCase().indexOf(termo)>=0||(a.codigo||'').toUpperCase().indexOf(termo)>=0||(a.desc||'').toUpperCase().indexOf(termo)>=0||(a.equip||'').toUpperCase().indexOf(termo)>=0||(a.veiculo||'').toUpperCase().indexOf(termo)>=0||(a.marca||'').toUpperCase().indexOf(termo)>=0||(a.marcaVeiculo||'').toUpperCase().indexOf(termo)>=0;
     });
   }
@@ -52245,7 +52252,7 @@ function dashAplicBuscaSet(termoBruto){
   aplicLoad().forEach(function(a){
     if(!a.codigo)return;
     var alvo=[a.equip,a.modelo,a.serie,a.veiculo].filter(Boolean).join(' ').toUpperCase();
-    if(alvo.indexOf(termo)>=0){
+    if(pfBuscaBate(alvo,termo)){ // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): 
       set.add(String(a.codigo).toUpperCase()+'||'+String(a.marca||'').toUpperCase());
       var rot=[a.equip,a.modelo,a.serie].filter(Boolean).join(' · ');
       if(rot)vistoDescricao[rot]=true;
@@ -53205,15 +53212,16 @@ function aplicBuscar(termo){
   // onde a peça vai (veiculo + marcaVeiculo, "🚜 Máquinas onde vai" da v115.2270) ficava de fora. Agora acha também por ela
   // ("W20", "CASE W20").
   var gksSerie=null;try{gksSerie=typeof maqGksPorSerieDigitada==='function'?maqGksPorSerieDigitada(termo):null;}catch(e){} // v115.2341 - série da máquina (LL9T) → componentes que valem pra ela
-  var an=function(v){return String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');},tAN=an(termo); // v115.2362 - sem espaço/traço ("MT-B3" = "MT-B 3065")
+  var an=function(v){return pfBuscaAN(v);},tAN=an(termo),tN=pfBuscaN(termo); // v115.2362 - sem espaço/traço ("MT-B3" = "MT-B 3065")
   return list.filter(function(a){
     if((a.serie||'').toUpperCase().indexOf(termo)>=0||(a.modelo||'').toUpperCase().indexOf(termo)>=0)return true;
     if(tAN.length>=3&&(an(a.serie).indexOf(tAN)>=0||an((a.modelo||'')+(a.serie||'')).indexOf(tAN)>=0))return true;
+    if(tN&&(pfBuscaN(a.serie).indexOf(tN)>=0||pfBuscaN(a.modelo).indexOf(tN)>=0||pfBuscaN((a.marcaVeiculo||'')+' '+(a.veiculo||'')).indexOf(tN)>=0))return true; // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): 
     if(gksSerie&&!a.pmMaq&&gksSerie[(a.modelo||'')+'|||'+(a.serie||'')])return true;
     var mv=String(a.marcaVeiculo||'').toUpperCase(),vs=String(a.veiculo||'').toUpperCase();
     if(!vs&&!mv)return false;
     if(vs.indexOf(termo)>=0)return true;
-    return vs.split(',').some(function(x){x=x.trim();return x&&((mv?mv+' ':'')+x).indexOf(termo)>=0;});
+    return vs.split(',').some(function(x){x=x.trim();return x&&pfBuscaN((mv?mv+' ':'')+x).indexOf(tN)>=0;});
   });
 }
 
@@ -53491,14 +53499,14 @@ function vendasBuscarPorSerieInput(){
   var filtroDesc=(document.getElementById('vendasSerieFiltroDesc')||{}).value||'';
   var filtroU=filtroDesc.trim().toUpperCase();
   var resFiltrados=filtroU?res.filter(function(a){
-    return (a.desc||'').toUpperCase().indexOf(filtroU)>=0||(a.codigo||'').toUpperCase().indexOf(filtroU)>=0;
+    return pfBuscaBate((a.desc||'')+' / '+(a.codigo||''),filtroU); // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): 
   }):res;
   // v115.1567 - A pedido do Vitor ("selecionar todos respeitando o
   // filtro ativo, caso queira pegar todos os discos, todos retentores
   // etc"): guarda a lista filtrada atual num global pra
   // vendasAplicToggleTodos() usar sem precisar recalcular o filtro.
   window._vendasAplicResFiltrados=resFiltrados;
-  if(filtroU)ccRes=ccRes.filter(function(r){return (String(r.it.descricao||r.famNome||'')+' '+r.it.codigo+' '+(r.it.substitui||r.it.similar||'')).toUpperCase().indexOf(filtroU)>=0;});
+  if(filtroU)ccRes=ccRes.filter(function(r){return pfBuscaBate(String(r.it.descricao||r.famNome||'')+' '+r.it.codigo+' '+(r.it.substitui||r.it.similar||''),filtroU);});
   box.style.display='flex';
   if(backdrop)backdrop.style.display='block';
   // Preserva a rolagem da lista -- antes, marcar um item redesenhava tudo e
@@ -58242,7 +58250,8 @@ function pfAvisosMontarListaComFiltro(titulo,cor,logChave,linhaExtraFn,mostrarLi
     var passaMarcaFamilia=(!_pfAvisosFiltroMarca||x.marca===_pfAvisosFiltroMarca)&&(!_pfAvisosFiltroFamilia||x.familia===_pfAvisosFiltroFamilia);
     if(!passaMarcaFamilia) return false;
     if(!textoBusca) return true;
-    return (String(x.ref||'').toLowerCase().indexOf(textoBusca)>=0) || (String(x.desc||'').toLowerCase().indexOf(textoBusca)>=0);
+    // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema")
+    return pfBuscaBate(x.ref,textoBusca) || pfBuscaBate(x.desc,textoBusca);
   });
   _pfAvisosFiltradoAtual=filtrado;
   var contagemTxt=filtrado.length+(filtrado.length!==log.length?' de '+log.length:'');
@@ -60065,7 +60074,7 @@ function pfClassificarRender(){
     (comSug?'<button onclick="pfClassificarAceitarSugestoes()" class="pfBtn pfBtnVerde" style="margin-left:auto;padding:5px 12px;font-size:12px">✔ Aceitar as '+comSug+' sugestões</button>':'');
   var vis=lista.map(function(c,i){return {c:c,i:i};}).filter(function(o){
     if(window._pfClassifSoSem&&o.c.grupo&&pfTipoCli(o.c)&&!(window._pfClassifMexidos||{})[o.i])return false;
-    if(busca&&((o.c.razao||'')+' '+(o.c.fantasia||'')+' '+(o.c.codigo||'')).toUpperCase().indexOf(busca)<0)return false;
+    if(busca&&!pfBuscaBate((o.c.razao||'')+' '+(o.c.fantasia||'')+' '+(o.c.codigo||''),busca))return false; // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema")
     return true;
   }).sort(function(a,b){return String(a.c.razao||'').localeCompare(String(b.c.razao||''));});
   var el=document.getElementById('pfClassifLista');if(!el)return;
@@ -62287,7 +62296,7 @@ function pfChegouFaixaHtml(fv){
     '<span style="font-size:12px;font-weight:700;color:#fff;background:#1fa855;border-radius:8px;padding:6px 12px">Ver e oferecer</span></div>';
 }
 function pfCrmBuscaAbrir(v){v=String(v||'').trim();if(!v)return;
-  var l=pcMontarDados(),u=v.toUpperCase();var x=l.find(function(c){return String(c.nome).toUpperCase()===u||String(c.razao).toUpperCase()===u;})||l.find(function(c){return String(c.nome).toUpperCase().indexOf(u)>=0||String(c.razao).toUpperCase().indexOf(u)>=0;});
+  var l=pcMontarDados(),u=v.toUpperCase();var x=l.find(function(c){return String(c.nome).toUpperCase()===u||String(c.razao).toUpperCase()===u;})||l.find(function(c){return pfBuscaBate(c.nome,v)||pfBuscaBate(c.razao,v);}); // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema")
   if(x)pfCrmAbrir(x.k);else pfCrmAbrirPorRazao(v);}
 function pfCrmCobrar(k,num){pfCrmAbrir(k);setTimeout(function(){
   var c=window._pfCrmC,nome=((c&&c.cad&&((c.cad.contatoCompras||{}).nome||c.cad.contato))||'').split(' ')[0];
@@ -63220,7 +63229,7 @@ function pfPesqEnviarHtml(el){
     if(f.tipo&&x.tipo!==f.tipo)return false;
     if(f.so==='nunca'&&respK[x.k])return false;
     if(f.so==='naoenviado'&&(respK[x.k]||envK[x.k]))return false;
-    if(f.q){var u=f.q.toUpperCase();if(String(x.nome).toUpperCase().indexOf(u)<0&&String(x.c.razao||'').toUpperCase().indexOf(u)<0)return false;}
+    if(f.q){if(!pfBuscaBate(x.nome,f.q)&&!pfBuscaBate(x.c.razao,f.q))return false;} // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema")
     return true;}).sort(function(a,b){return (b.tel?1:0)-(a.tel?1:0)||String(a.nome).localeCompare(String(b.nome));});
   window._pfPesqLista=lista;
   var sel='padding:7px 9px;border:1.5px solid #d9e1ea;border-radius:8px;font-size:13px';
@@ -65010,7 +65019,7 @@ function pfMapaComercialEntidadesRender(){
   }
   var itens=(window._pfMapaEntidadesTodos||[]).filter(function(it){
     if(tipo&&it.tipo!==tipo)return false;
-    if(termo&&it.nome.toLowerCase().indexOf(termo)===-1&&(it.sub||'').toLowerCase().indexOf(termo)===-1)return false;
+    if(termo&&!pfBuscaBate(it.nome,termo)&&!pfBuscaBate(it.sub,termo))return false; // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema")
     return true;
   });
   if(!itens.length){
@@ -67654,12 +67663,14 @@ function vendasExpandirLinhaHtml(c,colspan){
   var _fBusca=window._vendasFiltro||{},_fCod=String(_fBusca.cod||'').trim().toUpperCase(),_fDesc=String(_fBusca.desc||'').trim().toUpperCase();
   function _marcaBusca(txt,termo){
     txt=String(txt||'');if(!termo)return pfEscHtml(txt);
-    var k=txt.toUpperCase().indexOf(termo);if(k<0)return pfEscHtml(txt);
+    // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): acha a posição comparando letra a letra sem acento (mesmo tamanho do texto)
+    var _fold=function(x){return x.split('').map(function(ch){var b=pfBuscaN(ch);return b.length===1?b:ch.toUpperCase().charAt(0)||ch;}).join('');};
+    var k=_fold(txt).indexOf(_fold(termo));if(k<0)return pfEscHtml(txt);
     return pfEscHtml(txt.slice(0,k))+'<mark style="background:#FFC94D;color:#1a2332;padding:0 2px;border-radius:3px;font-weight:800">'+pfEscHtml(txt.slice(k,k+termo.length))+'</mark>'+pfEscHtml(txt.slice(k+termo.length));
   }
   (c.itens||[]).forEach(function(it){
     var neg=!it.saldo||it.saldo<=0;
-    var _bate=(_fCod&&String(it.codigo||'').toUpperCase().indexOf(_fCod)>=0)||(_fDesc&&String(it.desc||it.descricao||'').toUpperCase().indexOf(_fDesc)>=0);
+    var _bate=(_fCod&&pfBuscaBate(it.codigo,_fCod))||(_fDesc&&pfBuscaBate(it.desc||it.descricao,_fDesc)); // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema")
     var custoIt=it.custoOverride!=null?it.custoOverride:it.custo;
     var vendaIt=it.vendaOverride!=null?it.vendaOverride:(custoIt?vendasCalcVenda(custoIt,c.uf||'SP',c.margem||30):0);
     var vliq=vendaIt?vendaIt.toFixed(2).replace('.',','):'-';
@@ -67812,14 +67823,15 @@ function vendasAtualizarLista(){
   try{(typeof pvLoad==='function'?pvLoad():[]).forEach(function(p){if(p&&p.cotacaoNum!=null){var k=p.cotacaoNum;var e=_pvPorCot[k]||(_pvPorCot[k]={data:p.data,nums:[]});if(p.data&&(!e.data||p.data<e.data))e.data=p.data;e.nums.push(p.numero);}});}catch(e){}
   var f=window._vendasFiltro||{};
   var lista=cots.filter(function(c){
-    if(f.cli&&!(c.cliente||'').toUpperCase().includes(f.cli.toUpperCase()))return false;
-    if(f.transp&&!vendasResolverTransportadora(c).toUpperCase().includes(f.transp.toUpperCase()))return false;
-    if(f.vendedor&&!(c.vendedorInterno||'').toUpperCase().includes(f.vendedor.toUpperCase()))return false;
-    if(f.contato&&!vendasResolverContato(c).toUpperCase().includes(f.contato.toUpperCase()))return false;
+    // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): filtros de texto da lista ignoram acento/ç (e espaço/traço quando não bate)
+    if(f.cli&&!pfBuscaBate(c.cliente,f.cli))return false;
+    if(f.transp&&!pfBuscaBate(vendasResolverTransportadora(c),f.transp))return false;
+    if(f.vendedor&&!pfBuscaBate(c.vendedorInterno,f.vendedor))return false;
+    if(f.contato&&!pfBuscaBate(vendasResolverContato(c),f.contato))return false;
     if(f.uf&&(c.uf||'').toUpperCase()!==f.uf.toUpperCase())return false;
     if(f.num&&String(c.num).indexOf(f.num)<0)return false;
-    if(f.cod&&!((c.itens||[]).some(function(it){return (it.codigo||'').toUpperCase().includes(f.cod.toUpperCase());})))return false;
-    if(f.desc&&!((c.itens||[]).some(function(it){return (it.desc||it.descricao||'').toUpperCase().includes(f.desc.toUpperCase());})))return false;
+    if(f.cod&&!((c.itens||[]).some(function(it){return pfBuscaBate(it.codigo,f.cod);})))return false;
+    if(f.desc&&!((c.itens||[]).some(function(it){return pfBuscaBate(it.desc||it.descricao,f.desc);})))return false;
     if(f.dtI&&c.data<f.dtI)return false;
     if(f.dtF&&c.data>f.dtF)return false;
     if((f.valMin||f.valMax)){
@@ -68106,7 +68118,9 @@ function vendasFiltrarListaClientes(){
   var termo=((document.getElementById('vendasListaClientesFiltro')||{}).value||'').trim().toUpperCase();
   var clientes=typeof cadLoad==='function'?cadLoad(CLIE_KEY):[];
   var lista=termo?clientes.filter(function(c){
-    return (c.razao||'').toUpperCase().indexOf(termo)>=0||(c.fantasia||'').toUpperCase().indexOf(termo)>=0||(c.cnpj||'').indexOf(termo)>=0||(c.codigo||'').toUpperCase().indexOf(termo)>=0||(c.cidade||'').toUpperCase().indexOf(termo)>=0||(c.estado||'').toUpperCase().indexOf(termo)>=0;
+    // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema") (CNPJ também sem pontuação)
+    var _qd=termo.replace(/\D/g,'');
+    return pfBuscaBate((c.razao||'')+' '+(c.fantasia||'')+' '+(c.codigo||'')+' '+(c.cidade||'')+' '+(c.estado||''),termo)||(c.cnpj||'').indexOf(termo)>=0||(_qd.length>=4&&String(c.cnpj||'').replace(/\D/g,'').indexOf(_qd)>=0);
   }):clientes;
   window._vendasListaClientesFiltrados=lista;
   if(!lista.length){
@@ -73070,7 +73084,7 @@ function ftRenderTabela(){
       // v115.2211 - A pedido do Vitor ("aqui não puxa por modelo de componente também? motor por exemplo"): procura também em
       // TODOS os campos da ficha (modelo/fabricante do motor, transmissão, eixos dianteiro/traseiro...), cada palavra em qualquer campo
       Object.keys(r).forEach(function(k){var v=r[k];if(v&&typeof v==='object'&&!Array.isArray(v))v=v.v;if(typeof v==='string'&&v.length<120&&!/^data:/.test(v))alvo+=' '+v.toLowerCase();});
-      if(!b.split(/\s+/).filter(Boolean).every(function(p){return alvo.indexOf(p)!==-1;})) return false;
+      if(!pfBuscaPalavras(alvo,b)) return false; // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema")
     }
     return true;
   });
@@ -75915,12 +75929,12 @@ function ccExecutarBusca(){
         var d=Math.abs(rn-fn);
         if(d>tol) ok=false; else desvioTotal+=d;
       } else {
-        if(!comecaCom && String(rec[c.k]||'').toLowerCase().indexOf(fv.toLowerCase())===-1) ok=false;
+        if(!comecaCom && !pfBuscaBate(rec[c.k],fv)) ok=false; // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema")
       }
     });
     if(ok && _ccFiltro[cfg.extraFiltro.k]){
       var ev=_ccFiltro[cfg.extraFiltro.k];
-      if(String(rec[cfg.extraFiltro.k]||'').toLowerCase().indexOf(ev.toLowerCase())===-1) ok=false;
+      if(!pfBuscaBate(rec[cfg.extraFiltro.k],ev)) ok=false; // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema")
     }
     var matchDireto=false;
     if(ok && _ccFiltro.texto){
@@ -75965,8 +75979,7 @@ function ccExecutarBusca(){
       if(!apareceNoMontaCom) ok=false;
     }
     if(ok && _ccFiltro.veiculos){
-      var vs=(rec.veiculos||[]).join(' ').toLowerCase();
-      if(vs.indexOf(_ccFiltro.veiculos.toLowerCase())===-1) ok=false;
+      if(!pfBuscaBate((rec.veiculos||[]).join(' '),_ccFiltro.veiculos)) ok=false; // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema")
     }
     if(ok && _ccFiltro.linha){
       if((rec.linha||'')!==_ccFiltro.linha) ok=false;
@@ -78031,8 +78044,7 @@ function retExecutarBusca(){
       } else { ok=false; }
     });
     if(ok && _retFiltro.codigo){
-      var t=_retFiltro.codigo.toLowerCase();
-      if((rec.codigo||'').toLowerCase().indexOf(t)===-1) ok=false;
+      if(!pfBuscaBate(rec.codigo,_retFiltro.codigo)) ok=false; // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema")
     }
     return ok?{rec:rec, desvio:desvioTotal}:null;
   }).filter(Boolean).sort(function(a,b){return a.desvio-b.desvio;});
@@ -79706,21 +79718,21 @@ function solicRender(){
   var SCF_KEY='solic_cols_widths_v2';
   var cfs=window._solicColFiltro||{};
   var listFiltrada=list.filter(function(s){
-    if(cfs.numero&&(String(s.numero||'').toLowerCase().indexOf(cfs.numero.toLowerCase())<0))return false;
+    // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): filtros das colunas
+    if(cfs.numero&&!pfBuscaBate(s.numero,cfs.numero))return false;
     if(cfs.titulo){
       var tit=s.mapaMaster?('MAPA #'+(s.numeroMapa?s.numeroMapa.replace('MAPA-',''):'0001')):(s.origem!=='mapa'?'VENDA CASADA':'MAPA DE COMPRAS');
-      if(tit.toLowerCase().indexOf(cfs.titulo.toLowerCase())<0)return false;
+      if(!pfBuscaBate(tit,cfs.titulo))return false;
     }
     if(cfs.cliente){
-      var cf1=((s.cliente||'')+' '+(s.fornecedor||'')).toLowerCase();
-      if(cf1.indexOf(cfs.cliente.toLowerCase())<0)return false;
+      if(!pfBuscaBate((s.cliente||'')+' '+(s.fornecedor||''),cfs.cliente))return false;
     }
     if(cfs.status){
       var stTxt=s.mapaMaster?'':(s.status==='enviado'?'enviado':'pendente');
-      if(stTxt.toLowerCase().indexOf(cfs.status.toLowerCase())<0)return false;
+      if(!pfBuscaBate(stTxt,cfs.status))return false;
     }
     if(cfs.itens&&String((s.itens||[]).length).indexOf(cfs.itens)<0)return false;
-    if(cfs.usuario&&!((s.usuarioCriacaco||'').toLowerCase().indexOf(cfs.usuario.toLowerCase())>=0))return false;
+    if(cfs.usuario&&!pfBuscaBate(s.usuarioCriacaco,cfs.usuario))return false;
     if(cfs.data){
       var dtc=new Date(s.data);
       var dtTxt2=dtc.toLocaleDateString('pt-BR')+' '+dtc.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
@@ -82408,7 +82420,7 @@ function promoCodBuscarSugestoes(valor){
   _promoCodMarcaEscolhida=null;
   var el=document.getElementById('promoCodSugestoes');
   if(!el)return;
-  var termo=(valor||'').trim().toUpperCase();
+  var termo=(valor||'').trim().toUpperCase(),termoAN=pfBuscaAN(termo);
   if(termo.length<2){el.style.display='none';return;}
   // Índice combinado por código, buscado nas 3 fontes -- reaproveita o
   // mesmo padrão de promoTodosCandidatos, mas varrendo por SUBSTRING (não
@@ -82417,7 +82429,7 @@ function promoCodBuscarSugestoes(valor){
   function coletar(lista,getCod,getMarca,getRec){
     lista.forEach(function(r){
       var c=(getCod(r)||'').toUpperCase();
-      if(c.indexOf(termo)===-1)return;
+      if(c.indexOf(termo)===-1&&!(termoAN.length>=3&&c.replace(/[^A-Z0-9]/g,'').indexOf(termoAN)>=0))return; // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema")
       var f=pfFotosArr(getRec(r));
       achados.push({codigo:getCod(r),marca:getMarca(r)||'',foto:f.length?f[0]:null});
     });
@@ -83430,12 +83442,9 @@ function ferrMeAvise(){
     var termoBuscaSolic=(_maBuscaEl?_maBuscaEl.value:(window._maBuscaSolic||'')).trim();
     window._maBuscaSolic=termoBuscaSolic;
     if(termoBuscaSolic){
-      var _termoUpSolic=termoBuscaSolic.toUpperCase();
+      // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema")
       avisos=avisos.filter(function(a){
-        return (a.numeroSolic||'').toUpperCase().indexOf(_termoUpSolic)>=0||
-          (a.numeroPedido||'').toString().toUpperCase().indexOf(_termoUpSolic)>=0||
-          (a.nome_cliente||'').toUpperCase().indexOf(_termoUpSolic)>=0||
-          (a.cod_cliente||'').toString().toUpperCase().indexOf(_termoUpSolic)>=0;
+        return pfBuscaBate([a.numeroSolic,a.numeroPedido,a.nome_cliente,a.cod_cliente].map(function(v){return v==null?'':String(v);}).join(' | '),termoBuscaSolic);
       });
     }else if(pfMeAviseOcultarSolic()){
       avisos=avisos.filter(function(a){return a.origem!=='solicitacao';});
@@ -84158,7 +84167,7 @@ function rfFiltrarProdutos(id){
   var lista=document.getElementById('rfListaProd_'+id);
   if(!q){lista.innerHTML='';return;}
   var produtos=(typeof cadLoad==='function'?cadLoad('cad_produtos_v1'):[]).filter(function(p){
-    return (p.codigo||'').toLowerCase().indexOf(q)>-1||(p.descricao||'').toLowerCase().indexOf(q)>-1||(p.marca||'').toLowerCase().indexOf(q)>-1;
+    return pfBuscaBate((p.codigo||'')+' | '+(p.descricao||'')+' | '+(p.marca||''),q); // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema")
   }).slice(0,20);
   if(!produtos.length){lista.innerHTML='<div style="font-size:11px;color:#aab4c2;padding:4px">Nenhum produto encontrado</div>';return;}
   lista.innerHTML=produtos.map(function(p){

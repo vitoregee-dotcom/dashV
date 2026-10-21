@@ -922,6 +922,12 @@
   `pfCatEnvMarcasHtml` + "Ver as peças do grupo", ‹ › entre lugares) no Alt+B e na ficha do produto; B = `pfCatEnvNumEtqHtml` "📖 nº" nas linhas da busca
   Série/Modelo. `pfCatEnvPopup` agora z 100050 (por cima do Alt+B/busca). Em 21/10/2026 só existia 1 catálogo (Eixo dianteiro 20.16): W20 sem desenho.
   D (desenhos do Alimentar sem posição) NÃO feito — hoje não há desenho do Alimentar fora dos catálogos; o Alimentar nem guarda o nº do item.
+- v115.2378 **W20E = referência de testes** (Vitor: "vamos fazer tudo em cima da W20… nos catálogos que temos dela"): os catálogos da W20E entraram pelo
+  Importar Catálogo de Cadastros (só lista, SEM desenho/PDF no banco) → precisa subir de novo no 📖 Catálogos de peças com a REF = série que já existe
+  (13.HR28443-501 / 12.1HR28421-503 / 260009 + modelo 176/413 ou 176/414). `pfCatEnvMandarAplic` agora NÃO duplica: peça que já está na série+marca (qualquer
+  componente/máquina) = mesma aplicação (`flatPeca`); peça nova herda componente/máquina mais comum da série (e do MESMO modelo — os 2 eixos têm série 260009),
+  `catGrupo` = grupo do catálogo. `pfAplicArrumarW20E` (no `pfAplicJuntarSemModelo`): componente com as letras de TRANSMISSAO → "TRANSMISSÃO"
+  (TRASNMISSÃO/TRANSMSISÃO, 35 peças) e DANA "W20E" sem marca → CASE. Banco em 21/10: 176/413 = EIXO TRASEIRO e 176/414 = EIXO DIANTEIRO (confirmar com o Vitor).
 - Chegada: `pfFormClienteChecarSubmissoes` → `pfCatEnvReceber` → `pfCatPedidos_v1` + pendência; 📥 Recebidos mostra foto,
   máquina, itens com código/saldo, "➜ Abrir como cotação" (`pfCatEnvPedidoCotacao`) e "✅ Conferi — gravar como aplicação"
   (`pfCatEnvGravarAplic`: máquina = veiculo/marcaVeiculo, eixo = marca/modelo/série, grupo = equip, em todas as peças).

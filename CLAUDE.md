@@ -176,6 +176,14 @@
 - Config compartilhada `pfPerfilCfg` {per, fator (sumido = dias > fator × max(mediana, p80) dos intervalos, padrão 2), minDias 30, avisos{}} — ⚙️ no bloco
   (gestor/admin, `pfPerfilCfgAbrir`). Regra/aviso novo → `PF_PERFIL_AVISOS` + `pfPerfilCalc` + texto no `PF_FUNC_DET['Perfil do cliente']`.
 
+## 🔎 Buscas sem acento / Ç / espaço (v115.2363 — "isso em todo o sistema, faça uma varredura")
+- Helpers globais no 1º `<script>` grande: `pfBuscaN` (sem acento, Ç→C, maiúscula), `pfBuscaAN` (só letras+números), `pfBuscaBate(texto,termo)`
+  (contém, ou sem espaço/traço quando o termo tem 3+), `pfBuscaPalavras` (todas as palavras, qualquer ordem). **Busca nova = usar esses.**
+- Varridas: Dashboard (`applyFilt`, cache `window._pfBuscaNItens`), cadastros (produtos/fornecedores/clientes + colunas), Aplicações, Série/modelo da
+  cotação, lista de Cotações (+ destaque), Mapa de Compras, Solicitações, Avise-me, Fotos, Promoção, Cardan (filtros da família), Retentores, notificações,
+  Pesquisas, Mapa Comercial, Tabela das fichas, histórico de cotações etc. Fora de propósito: busca de CÓDIGO exato na planilha grande (desempenho) e
+  comparações internas de dados.
+
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)
 - Cotação: 90+ dias sem comprar = "⛔ inativo" (`PF_INATIVO_DIAS`), sem histórico = "🆕 primeira compra"; clique → `pfInatAbrir(modo)`
   (reanalise / novo_prazo / novo_vista), lista montada do PRÓPRIO atalho de texto (`pfCadCampoDoRotulo` mapeia rótulo→campo do cadastro).

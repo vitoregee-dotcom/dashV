@@ -184,6 +184,13 @@
   Pesquisas, Mapa Comercial, Tabela das fichas, histórico de cotações etc. Fora de propósito: busca de CÓDIGO exato na planilha grande (desempenho) e
   comparações internas de dados.
 
+## 🤖 Mascote do assistente = robozinho LARANJA (v115.2364)
+- Vitor: "melhorar a cara de tudo que se referir ao assistente… usar sempre esses" (folha com 13 poses). Arquivos `assets-visuais/icones/robo-laranja-<pose>.png`
+  (`PF_ROBO_POSES`), `pfRoboHtml(pose,px,css)` / `pfRoboSrc(pose)`. Botão flutuante e janela do Tira-dúvidas (`pfAiRobotSvg` agora = robô), Assistente
+  PartsFlow (cabeçalho, carregando = notebook, tela vazia = acenando), Assistente de Vendas (card, botão, avatar, "Regras em vigor", aviso da cotação = apontando),
+  aba Regras IA, item Assistente IA da barra. Ícone branco antigo escolhido à mão vira laranja na exibição (`pfRoboLaranja` no `pfIconOverrideGet`).
+  Coisa nova de assistente/IA → usar `pfRoboHtml` (nada de 🤖). Os "🤖 Lendo…" de leitura por IA continuam emoji (não são o assistente).
+
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)
 - Cotação: 90+ dias sem comprar = "⛔ inativo" (`PF_INATIVO_DIAS`), sem histórico = "🆕 primeira compra"; clique → `pfInatAbrir(modo)`
   (reanalise / novo_prazo / novo_vista), lista montada do PRÓPRIO atalho de texto (`pfCadCampoDoRotulo` mapeia rótulo→campo do cadastro).

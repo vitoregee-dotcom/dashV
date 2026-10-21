@@ -194,7 +194,7 @@
 
 ## 🗺️ Mapa do sistema + ❓ Tour da tela (v115.2369; prévia `docs/referencias/mapa-telas/`, capturas em `.../feito/`)
 - Vitor: "vamos precisar mapa para as telas, explicando as funções. eu nem sei pra que serve tudo" → "faz as duas"; "só o adm deve saber os detalhes".
-- **Mapa** (`pfMapaSisAbrir`/`pfMapaSisDesenhar`, ⋯ do dock → 🗺️): `pfFuncLista()` por área (`PF_FUNC_AREAS`), busca `pfBuscaPalavras`, "abrir ›" = `pfFuncIr`;
+- **Mapa** (`pfMapaSisAbrir`/`pfMapaSisDesenhar`, ⋯ do dock → 🗺️; v115.2371: também card em Ferramentas, botão no 📚 O que o sistema faz e Alt+S): `pfFuncLista()` por área (`PF_FUNC_AREAS`), busca `pfBuscaPalavras`, "abrir ›" = `pfFuncIr`;
   🔒 "sem acesso" quando o cargo não libera (`pfMapaPodeVer`: ir → chave de permissão, `PF_MAPA_PERM_FERR` título da ferramenta → `ferr_*`); "🔧 Por dentro"
   (`PF_FUNC_DET[n].x`) só pra admin (`pfEhAdminTela`). Ferramenta nova com permissão → linha no `PF_MAPA_PERM_FERR`.
 - **Tour** (`pfTourAbrir(id)`, `PF_TOURS` {titulo,sub,raiz,passos[{sel|txt, sobe, card, t, d, x(só admin)}]}): `pfTourAlvo` acha o elemento pelo seletor ou pelo

@@ -192,6 +192,16 @@
   Coisa nova de assistente/IA → usar `pfRoboHtml` (nada de 🤖). v115.2365 ("pode trocar também"): os "Lendo…/Processando…/Gerando…" da IA = robô notebook, "Preencher com IA" = chave inglesa, botões
   Ler/Marcar/Gerar com IA = apontando (status que era textContent virou innerHTML). Ficaram emoji só textos de ajuda/alertas.
 
+## 🗺️ Mapa do sistema + ❓ Tour da tela (v115.2369; prévia `docs/referencias/mapa-telas/`, capturas em `.../feito/`)
+- Vitor: "vamos precisar mapa para as telas, explicando as funções. eu nem sei pra que serve tudo" → "faz as duas"; "só o adm deve saber os detalhes".
+- **Mapa** (`pfMapaSisAbrir`/`pfMapaSisDesenhar`, ⋯ do dock → 🗺️): `pfFuncLista()` por área (`PF_FUNC_AREAS`), busca `pfBuscaPalavras`, "abrir ›" = `pfFuncIr`;
+  🔒 "sem acesso" quando o cargo não libera (`pfMapaPodeVer`: ir → chave de permissão, `PF_MAPA_PERM_FERR` título da ferramenta → `ferr_*`); "🔧 Por dentro"
+  (`PF_FUNC_DET[n].x`) só pra admin (`pfEhAdminTela`). Ferramenta nova com permissão → linha no `PF_MAPA_PERM_FERR`.
+- **Tour** (`pfTourAbrir(id)`, `PF_TOURS` {titulo,sub,raiz,passos[{sel|txt, sobe, card, t, d, x(só admin)}]}): `pfTourAlvo` acha o elemento pelo seletor ou pelo
+  TEXTO que começa a parte (o mais de dentro) e sobe `sobe` níveis / até o cartão (`card`); buraco iluminado + números em cada parte + painel com a lista
+  (← → Esc; o painel pula pra esquerda se cobrir a parte). Botão `pfTourBtnHtml(id,claro)`: Ficha do CRM, Meu dia, Máquinas. Mudou o texto/título de uma
+  parte dessas telas → conferir o `txt` do passo. Tela nova → tour novo no `PF_TOURS` + botão.
+
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)
 - Cotação: 90+ dias sem comprar = "⛔ inativo" (`PF_INATIVO_DIAS`), sem histórico = "🆕 primeira compra"; clique → `pfInatAbrir(modo)`
   (reanalise / novo_prazo / novo_vista), lista montada do PRÓPRIO atalho de texto (`pfCadCampoDoRotulo` mapeia rótulo→campo do cadastro).

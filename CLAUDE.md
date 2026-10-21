@@ -443,6 +443,8 @@
   "▦ Cards | ☰ Lista" no cabeçalho (`maqModo`/`maqModoSet`, localStorage `pf_maq_modo`); `maqConfInfo(x,I)` = linhas do `maqCompLinhas` com/sem gk →
   ✓ confirmado (todas com série ligada, card com contorno verde) / ◐ parcial / ⚠ só pela ficha (`maqConfSeloHtml`, `maqConfLinhasHtml` no card);
   chips "✓ Confirmadas"/"◐ Parcial" (`_maq.f` conf/parc). Lista = `maqListaTabelaHtml` (por marca, colunas `MAQ_LISTA_COLS`, ordena no título `maqListaOrdenar`).
+- v115.2362 (print "MT-B3" sem resultado: "desconsiderar espaços"): a busca de Aplicações (`cadRenderAplicacoes`) e a Série/Modelo da cotação (`aplicBuscar`)
+  comparam também só letras+números (`MT-B3` acha `MT-B 3065`, `mtb3065` também; modelo+série juntos).
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

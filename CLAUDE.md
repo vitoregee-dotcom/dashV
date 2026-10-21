@@ -439,6 +439,10 @@
   componente da ficha = 1 por grupo + modelo (`maqAN(txt)`).
   v115.2360 ("como eu tiro essa transmissão sem série?" — CASE W20E: ficha "HR28.000 4M" + série ligada 28.000 12.1HR28421-503): componente da ficha
   SEM série some quando a máquina já tem série ligada do MESMO tipo; o texto da ficha vai embaixo da série ("ficha: …", `l.fichaTxt`); nComp/semSerie também.
+  v115.2361 ("2 modelos de visualização: cards e lista" + "marcar os que têm componente confirmado"; prévia `docs/referencias/maquinas-lista/`): botão
+  "▦ Cards | ☰ Lista" no cabeçalho (`maqModo`/`maqModoSet`, localStorage `pf_maq_modo`); `maqConfInfo(x,I)` = linhas do `maqCompLinhas` com/sem gk →
+  ✓ confirmado (todas com série ligada, card com contorno verde) / ◐ parcial / ⚠ só pela ficha (`maqConfSeloHtml`, `maqConfLinhasHtml` no card);
+  chips "✓ Confirmadas"/"◐ Parcial" (`_maq.f` conf/parc). Lista = `maqListaTabelaHtml` (por marca, colunas `MAQ_LISTA_COLS`, ordena no título `maqListaOrdenar`).
 - v115.2268 ("voltar está indo pro lugar errado... volta pra cá, pra ver as outras listas"): o ← Voltar de Aplicações (`atAplicVoltar`) com busca/filtro
   (ex.: vindo do "Conferir no Aplicações" da cotação) ou série aberta volta primeiro pra LISTA COMPLETA; da lista completa vai pro menu da Área Técnica.
 - **Ficha Técnica de Equipamentos** (v115.2174): formulário (`ftRenderForm`) só fecha pelo fundo se o clique COMEÇOU no fundo

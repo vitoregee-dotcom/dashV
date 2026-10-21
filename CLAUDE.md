@@ -1080,6 +1080,8 @@
 - v115.2374 ("dois cliques na seta e o preço ficasse igual da última venda"): setinha do preço (`pfPrecoUltimoBadge`) — 1 clique = histórico
   (`pfPrecoUltimoClique`, espera 280 ms), 2 cliques = `pfPrecoUltimoUsar` (vendaOverride = preço do `_pfPrecoUltimoCache`: último VENDIDO, senão o cotado;
   avisinho verde/âmbar com preço, data e marca se for outra; autosave + desfazer).
+  v115.2375 ("o preço pode estar abaixo da margem de hoje"): compara com `vendasCalcVenda(custo, uf, v.margem)`; abaixo = aviso VERMELHO 6 s
+  "⚠ Margem fica X% — abaixo dos Y% de hoje (pela margem seria R$ Z)" e a mesma linha no balão da setinha.
 - Total do item embaixo (`vendasAtualizarTotalLinha`). Ações = `vendasItemAcoesHtml` (compartilhado com a tabela).
 - v115.2144: largura das colunas ajustável (alça na borda do cabeçalho, `vendas2ColRes`; 2 cliques/"↺ larguras" volta,
   `vendas2ColPadrao`; localStorage `vendas_item2_cols`, padrão `VENDAS_C2_PADRAO`); v115.2158: a divisória troca espaço SÓ entre as duas vizinhas

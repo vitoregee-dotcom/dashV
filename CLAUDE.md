@@ -1077,6 +1077,9 @@
 - Último preço do cliente (`pfHistCliDados`, cache `_pfHistCliCache`, vem de `item_historico_precos` via
   `pfBuscarHistoricoPreco`; PV- = vendido, V- = só cotado; ignora a cotação aberta; mesma marca, senão outra avisando):
   etiqueta + preço + data, apagado; mouse/toque → `vendasHistPop` mostra o OUTRO (vendido ↔ só cotado).
+- v115.2374 ("dois cliques na seta e o preço ficasse igual da última venda"): setinha do preço (`pfPrecoUltimoBadge`) — 1 clique = histórico
+  (`pfPrecoUltimoClique`, espera 280 ms), 2 cliques = `pfPrecoUltimoUsar` (vendaOverride = preço do `_pfPrecoUltimoCache`: último VENDIDO, senão o cotado;
+  avisinho verde/âmbar com preço, data e marca se for outra; autosave + desfazer).
 - Total do item embaixo (`vendasAtualizarTotalLinha`). Ações = `vendasItemAcoesHtml` (compartilhado com a tabela).
 - v115.2144: largura das colunas ajustável (alça na borda do cabeçalho, `vendas2ColRes`; 2 cliques/"↺ larguras" volta,
   `vendas2ColPadrao`; localStorage `vendas_item2_cols`, padrão `VENDAS_C2_PADRAO`); v115.2158: a divisória troca espaço SÓ entre as duas vizinhas

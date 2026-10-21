@@ -201,6 +201,9 @@
   TEXTO que começa a parte (o mais de dentro) e sobe `sobe` níveis / até o cartão (`card`); buraco iluminado + números em cada parte + painel com a lista
   (← → Esc; o painel pula pra esquerda se cobrir a parte). Botão `pfTourBtnHtml(id,claro)`: Ficha do CRM, Meu dia, Máquinas. Mudou o texto/título de uma
   parte dessas telas → conferir o `txt` do passo. Tela nova → tour novo no `PF_TOURS` + botão.
+  v115.2372 ("e cotação não tem tour?"): `PF_TOURS.cotacao` (21 passos, raiz `#vendasModal`), botão "▶ Tour" na barra azul ao lado do "?" e
+  "▶ Fazer o tour na cotação" na explicação numerada; pelo mapa abre a cotação mais recente com itens. Passo novo: `th:'TÍTULO'` = coluna inteira
+  (`pfTourRect`), `re:` = texto por regex; parte sem tamanho (vazia) = "não está aparecendo". Mudou a barra/cabeçalho da cotação → conferir os passos.
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)
 - Cotação: 90+ dias sem comprar = "⛔ inativo" (`PF_INATIVO_DIAS`), sem histórico = "🆕 primeira compra"; clique → `pfInatAbrir(modo)`

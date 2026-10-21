@@ -928,6 +928,13 @@
   componente/máquina) = mesma aplicação (`flatPeca`); peça nova herda componente/máquina mais comum da série (e do MESMO modelo — os 2 eixos têm série 260009),
   `catGrupo` = grupo do catálogo. `pfAplicArrumarW20E` (no `pfAplicJuntarSemModelo`): componente com as letras de TRANSMISSAO → "TRANSMISSÃO"
   (TRASNMISSÃO/TRANSMSISÃO, 35 peças) e DANA "W20E" sem marca → CASE. Banco em 21/10: 176/413 = EIXO TRASEIRO e 176/414 = EIXO DIANTEIRO (confirmar com o Vitor).
+- v115.2379 **porta única pra subir catálogo** (Vitor: "somente 1 lugar para subir catálogos… lá já serve para tudo"; "por enquanto só eu subo"; "cardan pode
+  colocar junto"; prévia `docs/referencias/catalogo-unico/`): 📖 Catálogos de peças → "📥 Subir catálogo" (`pfCatSubirAbrir(tipo,alvo)`, só `pfCatPodeSubir` = Vitor):
+  `PF_CAT_TIPOS` pdf (→ `pfCatEnvImportar`) / print (→ Alimentar) / lista (→ Importar Catálogo de Cadastros) / cardan (LNG `ccImportarLngAbrir`, Spicer
+  `ccSpicerAtuAbrir`) / excel (Catálogo PDF → Excel). Marca/modelo/série com datalist das séries existentes (`pfCatSeriesExistentes`, 8 s) e aviso
+  `pfCatSerieInfoHtml` (✅ já existe e junta / ⚠ você quis dizer — Levenshtein `pfCatDist` / 🆕 nova); `pfCatSerieLigar` põe o mesmo aviso nos campos do
+  import do PDF e do Alimentar e preenche com `window._pfCatSerieAlvo`. Os outros botões de subir (Aplicações, Guia Perkins, faixas LNG/Spicer) abrem a
+  central (`pfCatCentralAbrir`); o "📥 Importar Catálogo" de Aplicações saiu. Lista "Séries só com a lista de peças" (`pfCatSemDesenhoHtml`) → 📥 Subir o desenho.
 - Chegada: `pfFormClienteChecarSubmissoes` → `pfCatEnvReceber` → `pfCatPedidos_v1` + pendência; 📥 Recebidos mostra foto,
   máquina, itens com código/saldo, "➜ Abrir como cotação" (`pfCatEnvPedidoCotacao`) e "✅ Conferi — gravar como aplicação"
   (`pfCatEnvGravarAplic`: máquina = veiculo/marcaVeiculo, eixo = marca/modelo/série, grupo = equip, em todas as peças).

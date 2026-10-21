@@ -189,7 +189,8 @@
   (`PF_ROBO_POSES`), `pfRoboHtml(pose,px,css)` / `pfRoboSrc(pose)`. Botão flutuante e janela do Tira-dúvidas (`pfAiRobotSvg` agora = robô), Assistente
   PartsFlow (cabeçalho, carregando = notebook, tela vazia = acenando), Assistente de Vendas (card, botão, avatar, "Regras em vigor", aviso da cotação = apontando),
   aba Regras IA, item Assistente IA da barra. Ícone branco antigo escolhido à mão vira laranja na exibição (`pfRoboLaranja` no `pfIconOverrideGet`).
-  Coisa nova de assistente/IA → usar `pfRoboHtml` (nada de 🤖). Os "🤖 Lendo…" de leitura por IA continuam emoji (não são o assistente).
+  Coisa nova de assistente/IA → usar `pfRoboHtml` (nada de 🤖). v115.2365 ("pode trocar também"): os "Lendo…/Processando…/Gerando…" da IA = robô notebook, "Preencher com IA" = chave inglesa, botões
+  Ler/Marcar/Gerar com IA = apontando (status que era textContent virou innerHTML). Ficaram emoji só textos de ajuda/alertas.
 
 ## Cliente inativo / novo → o que precisa pra vender (v115.2126)
 - Cotação: 90+ dias sem comprar = "⛔ inativo" (`PF_INATIVO_DIAS`), sem histórico = "🆕 primeira compra"; clique → `pfInatAbrir(modo)`

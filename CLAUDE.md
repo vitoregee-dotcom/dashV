@@ -917,6 +917,11 @@
 - v115.2231: o que chega pelo link também vai pra **barra de notificações** (📖 Pedido pelo catálogo; log `pfCatPedEventos`,
   `pfCatPedEventoAdd`; painel abre a aba 📥 Recebidos) e o `c.html` NÃO pede mais nome/telefone (o link é repassado pro cliente do
   cliente — o Vitor não pode "atravessar"); só observação.
+- v115.2377 **peça marcada no desenho** (Vitor: "na cotação quero ver no catálogo onde o item trabalha… as que trabalham perto"; A+B da prévia
+  `docs/referencias/catalogo-marcado/`): `pfCatEnvLugares(cods,serie)` (pfCatEnvIdx, série buscada primeiro) → A = `pfCatEnvOndeHtml` (miniatura com anel laranja
+  `pfCatEnvMarcasHtml` + "Ver as peças do grupo", ‹ › entre lugares) no Alt+B e na ficha do produto; B = `pfCatEnvNumEtqHtml` "📖 nº" nas linhas da busca
+  Série/Modelo. `pfCatEnvPopup` agora z 100050 (por cima do Alt+B/busca). Em 21/10/2026 só existia 1 catálogo (Eixo dianteiro 20.16): W20 sem desenho.
+  D (desenhos do Alimentar sem posição) NÃO feito — hoje não há desenho do Alimentar fora dos catálogos; o Alimentar nem guarda o nº do item.
 - Chegada: `pfFormClienteChecarSubmissoes` → `pfCatEnvReceber` → `pfCatPedidos_v1` + pendência; 📥 Recebidos mostra foto,
   máquina, itens com código/saldo, "➜ Abrir como cotação" (`pfCatEnvPedidoCotacao`) e "✅ Conferi — gravar como aplicação"
   (`pfCatEnvGravarAplic`: máquina = veiculo/marcaVeiculo, eixo = marca/modelo/série, grupo = equip, em todas as peças).

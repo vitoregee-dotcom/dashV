@@ -1979,7 +1979,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2365</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2366</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2017,6 +2017,8 @@ button { min-height:36px; }
       <h2>👤 Gerenciar Usuários</h2>
       <!-- v115.2003 - relatório de sessões (só admin, com senha) -->
       <button onclick="pfSessoesAbrir()" title="Tempo de uso, telas e IP de cada usuário (protegido por senha)" style="margin-left:auto;margin-right:10px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:inherit;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">⏱ Sessões</button>
+      <!-- v115.2366 - cargos com permissões padrão -->
+      <button onclick="pfCargosAbrir()" title="Permissões padrão de cada cargo" style="margin-right:10px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:inherit;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">🧩 Cargos</button>
       <button class="adminClose" onclick="closeAdmin()"><img src="icons/btn-x-glossy.png" style="width:16px;height:16px;display:inline-block;vertical-align:middle;object-fit:contain"></button>
     </div>
     <div class="adminBody">
@@ -2026,6 +2028,7 @@ button { min-height:36px; }
         <div class="adminForm">
           <input type="text" id="newNome" placeholder="Nome completo">
           <input type="email" id="newEmail" placeholder="E-mail">
+          <select id="newCargo" class="pfCargoSel" onchange="pfCargoNivelSug(this,'newRole')"><option value="">Cargo…</option></select>
           <select id="newRole"><option value="user">Usuário</option><option value="gestor">Gestor</option><option value="admin">Admin</option></select>
           <button class="adminFormBtn" onclick="inviteUser()">Convidar</button>
         </div>
@@ -2041,6 +2044,7 @@ button { min-height:36px; }
           <input type="text" id="directUid" placeholder="UID do Supabase (Authentication → Users)">
           <input type="text" id="directNome" placeholder="Nome completo">
           <input type="email" id="directEmail" placeholder="E-mail">
+          <select id="directCargo" class="pfCargoSel" onchange="pfCargoNivelSug(this,'directRole')"><option value="">Cargo…</option></select>
           <select id="directRole"><option value="user">Usuário</option><option value="gestor">Gestor</option><option value="admin">Admin</option></select>
           <button class="adminFormBtn" onclick="cadastrarSemConvite()">Cadastrar</button>
         </div>
@@ -2137,7 +2141,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2365</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2366</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -27443,7 +27447,8 @@ async function loadUsers(){
   list.innerHTML='<div style="font-size:12px;color:var(--pf-fx-textoSec,#607080)">Carregando...</div>';
   try{
     const tok=sbSession?sbSession.access_token:SB_KEY;
-    const r=await fetch(SB_URL+'/rest/v1/profiles?select=id,email,nome,role,modulos',{
+    await pfCargosCarregar(); // v115.2366
+    const r=await fetch(SB_URL+'/rest/v1/profiles?select=id,email,nome,role,modulos,cargo,excecoes',{
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+tok}
     });
     const txt=await r.text();
@@ -27455,22 +27460,25 @@ async function loadUsers(){
       const isMe=sbUser&&u.id===sbUser.id;
       const delBtn=isMe?'<span style="font-size:10px;color:var(--pf-fx-textoSec,#607080)">(você)</span>':
         '<button class="adminFormBtn del" onclick="removeUser(this)" data-id="'+u.id+'" data-email="'+u.email+'">Remover</button>';
-      const permBtn=isMe?'':'<button class="adminFormBtn" onclick="openPermPanel(this)" data-id="'+u.id+'" data-nome="'+encodeURIComponent(u.nome||u.email)+'" data-modulos="'+encodeURIComponent(JSON.stringify(u.modulos||{}))+'" style="background:#7B2D8B;color:#fff">Permiss\u00f5es</button>';
+      const permBtn=isMe?'':'<button class="adminFormBtn" onclick="openPermPanel(this)" data-id="'+u.id+'" data-nome="'+encodeURIComponent(u.nome||u.email)+'" data-modulos="'+encodeURIComponent(JSON.stringify(u.modulos||{}))+'" data-cargo="'+pfEscHtml(u.cargo||'')+'" data-role="'+pfEscHtml(u.role||'')+'" data-exc="'+encodeURIComponent(JSON.stringify(u.excecoes||{}))+'" style="background:#7B2D8B;color:#fff">Permiss\u00f5es</button>';
       return '<div class="adminUserItem">'
         +'<div class="adminUserInfo"><div class="adminUserName">'+(u.nome||'(sem nome)')+'</div>'
         +'<div class="adminUserEmail">'+u.email+'</div></div>'
         +'<span class="roleTag '+(u.role==='admin'||u.role==='gestor'?'roleAdmin':'roleUser')+'">'+(u.role==='admin'?'Admin':u.role==='gestor'?'Gestor':'Usu\u00e1rio')+'</span>' // v115.2058 - papel Gestor
+        +pfCargoTagHtml(u)
         +permBtn+delBtn+'</div>';
     }).join('');
   }catch(e){list.innerHTML='<div style="font-size:12px;color:var(--pf-fx-vermelho,#C00000)">Erro: '+e.message+'</div>';}
 }
 async function inviteUser(){
+  var _cg=(document.getElementById('newCargo')||{}).value||''; // v115.2366
   const nome=(document.getElementById('newNome').value||'').trim();
   const email=(document.getElementById('newEmail').value||'').trim();
   const role=document.getElementById('newRole').value;
   if(!nome||!email){showAdminMsg('Preencha nome e e-mail.',false);return;}
   const r=await sbFetch('/auth/v1/invite',{method:'POST',body:JSON.stringify({email:email,data:{nome:nome,role:role}})});
   const d=await r.json();
+  if(r.ok&&_cg){try{var _c=pfCargoDe(_cg);await sbFetch('/rest/v1/profiles?email=eq.'+encodeURIComponent(email),{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({cargo:_cg,excecoes:{},modulos:pfCargoEfetivo(_c,{})})});}catch(e){}}
   if(r.ok){showAdminMsg('✅ Convite enviado para '+email,true);document.getElementById('newNome').value='';document.getElementById('newEmail').value='';setTimeout(loadUsers,1500);}
   else showAdminMsg(d.msg||d.error_description||'Erro ao convidar.',false);
 }
@@ -27493,7 +27501,7 @@ async function cadastrarSemConvite(){
   const r=await sbFetch('/rest/v1/profiles',{
     method:'POST',
     headers:{'Prefer':'return=representation'},
-    body:JSON.stringify({id:uid,email:email,nome:nome,role:role,modulos:{}})
+    body:JSON.stringify((function(){var cg=(document.getElementById('directCargo')||{}).value||'';return {id:uid,email:email,nome:nome,role:role,modulos:cg?pfCargoEfetivo(pfCargoDe(cg),{}):{},cargo:cg||null,excecoes:{}};})()) // v115.2366 - já entra com as permissões do cargo
   });
   if(r.ok){
     showAdminMsg('✅ '+nome+' cadastrado!',true);
@@ -27539,6 +27547,7 @@ function openPermPanel(btn){
     var val=modulos.hasOwnProperty(mod)?modulos[mod]:defaults[mod];
     b.className='pfToggle '+(val?'on':'off');
   });
+  pfPermCargoMontar(btn); // v115.2366
   document.getElementById('adminUserList').closest('.adminSection').style.display='none';
   document.getElementById('adminPermPanel').style.display='block';
 }
@@ -27560,15 +27569,118 @@ document.addEventListener('click',function(e){
   var btn=e.target.closest('.pfToggle');
   if(btn){pfTogglePerm(btn);}
 },true);
+// v115.2366 - A pedido do Vitor ("quando criarmos usuários, colocamos o cargo e as permissões serão de acordo com o cargo… com suas
+// exceções"; prévia docs/referencias/cargos/): tabela pf_cargos {id,nome,nivel,modulos} (RLS: empresa lê, só admin grava) +
+// profiles.cargo/excecoes. Permissão que vale = a do cargo, menos/mais as exceções da pessoa; o profiles.modulos continua sendo a
+// fonte do _canSee (é recalculado ao gravar o usuário ou o cargo). Usuário sem cargo = permissões avulsas como antes.
+window._pfCargos=null;
+async function pfCargosCarregar(){try{var r=await sbFetch('/rest/v1/pf_cargos?select=*&order=ordem.asc,nome.asc');if(r.ok)window._pfCargos=await r.json();}catch(e){}
+  var lista=window._pfCargos||[];
+  document.querySelectorAll('select.pfCargoSel').forEach(function(sel){var v=sel.value;sel.innerHTML='<option value="">Cargo…</option>'+lista.map(function(c){return '<option value="'+pfEscHtml(c.id)+'">'+pfEscHtml(c.nome)+'</option>';}).join('');sel.value=v;});
+  return lista;}
+function pfCargoDe(id){return (window._pfCargos||[]).find(function(c){return c.id===id;})||null;}
+function pfCargoNivelSug(sel,roleId){var c=pfCargoDe(sel.value),r=document.getElementById(roleId);if(c&&r&&r.value!=='admin')r.value=c.nivel==='gestor'?'gestor':'user';}
+function pfCargoTagHtml(u){var c=pfCargoDe(u.cargo);var n=u.excecoes?Object.keys(u.excecoes).length:0;
+  return c?'<span title="'+(n?n+' exceção(ões) só dele':'igual ao cargo')+'" style="font-size:11px;font-weight:800;border-radius:10px;padding:2px 8px;background:#EEF4FB;color:#1F4E79;margin-left:6px;white-space:nowrap">'+pfEscHtml(c.nome)+(n?' · ★'+n:'')+'</span>':
+    (u.role==='admin'?'':'<span style="font-size:11px;color:#9aa6b4;margin-left:6px">sem cargo</span>');}
+function pfPermToggles(){return Array.prototype.slice.call(document.querySelectorAll('#adminPermPanel .pfToggle[data-mod]'));}
+function pfPermChaves(){return pfPermToggles().map(function(b){return b.dataset.mod;});}
+function pfPermRotulo(k){var b=document.querySelector('#adminPermPanel .pfToggle[data-mod="'+k+'"]');var sp=b&&b.parentElement&&b.parentElement.querySelector('span');return sp?sp.textContent.trim():k;}
+function pfPermGrupos(){var out=[],cur=null;document.querySelectorAll('#adminPermPanel .permSection, #adminPermPanel .pfToggle[data-mod]').forEach(function(el){
+  if(el.classList.contains('permSection')){cur=[el.textContent.trim(),[]];out.push(cur);}else{if(!cur){cur=['',[]];out.push(cur);}cur[1].push(el.dataset.mod);}});return out.filter(function(g){return g[1].length;});}
+function pfCargoEfetivo(c,exc){var m={};pfPermChaves().forEach(function(k){m[k]=exc&&Object.prototype.hasOwnProperty.call(exc,k)?!!exc[k]:!!(c&&c.modulos&&c.modulos[k]);});return m;}
+function pfPermCargoMontar(btn){
+  var pan=document.getElementById('adminPermPanel');if(!pan)return;var box=document.getElementById('permCargoBox');
+  if(!box){box=document.createElement('div');box.id='permCargoBox';pan.insertBefore(box,pan.children[1]||null);}
+  var cg=btn.dataset.cargo||'',role=btn.dataset.role||'user',lista=window._pfCargos||[];
+  var sel='padding:8px 10px;border:1.5px solid #cfd8e3;border-radius:8px;font-size:13.5px;font-weight:600;background:#fff;color:#1a2332;width:100%';
+  box.innerHTML='<div style="display:flex;gap:10px;margin-bottom:12px"><label style="flex:1;font-size:11px;font-weight:800;color:#5a6b7d">CARGO<br><select id="permCargoSel" onchange="pfPermCargoTrocar()" style="'+sel+'"><option value="">— sem cargo (permissões avulsas) —</option>'+
+    lista.map(function(c){return '<option value="'+pfEscHtml(c.id)+'"'+(c.id===cg?' selected':'')+'>'+pfEscHtml(c.nome)+'</option>';}).join('')+'</select></label>'+
+    '<label style="width:150px;font-size:11px;font-weight:800;color:#5a6b7d">NÍVEL<br><select id="permNivelSel" style="'+sel+'">'+
+    (role==='admin'||role==='ferr_margem'?'<option value="'+role+'" selected>'+(role==='admin'?'Admin':'Externo (Margem)')+'</option>':'')+
+    '<option value="user"'+(role==='user'?' selected':'')+'>Usuário</option><option value="gestor"'+(role==='gestor'?' selected':'')+'>Gestor</option></select></label></div>'+
+    '<div id="permCargoDica" style="font-size:11.5px;color:#607080;margin:-4px 0 10px"></div>';
+  pfPermMarcar();
+}
+function pfPermCargoTrocar(){var c=pfCargoDe((document.getElementById('permCargoSel')||{}).value);if(!c){pfPermMarcar();return;}
+  pfPermToggles().forEach(function(b){var on=!!(c.modulos||{})[b.dataset.mod];b.className='pfToggle '+(on?'on':'off');});
+  var n=document.getElementById('permNivelSel');if(n&&n.value!=='admin'&&n.value!=='ferr_margem')n.value=c.nivel==='gestor'?'gestor':'user';
+  pfPermMarcar();}
+function pfPermPadrao(k){var c=pfCargoDe((document.getElementById('permCargoSel')||{}).value);var b=document.querySelector('#adminPermPanel .pfToggle[data-mod="'+k+'"]');
+  if(c&&b){var on=!!(c.modulos||{})[k];b.className='pfToggle '+(on?'on':'off');pfPermMarcar();}}
+function pfPermMarcar(){var c=pfCargoDe((document.getElementById('permCargoSel')||{}).value),n=0;
+  pfPermToggles().forEach(function(b){var m=b.parentElement.querySelector('.pfPermMarca');if(!m){m=document.createElement('span');m.className='pfPermMarca';m.style.cssText='margin-left:auto;margin-right:10px;font-size:10.5px;white-space:nowrap';b.parentElement.insertBefore(m,b);}
+    if(!c){m.innerHTML='';return;}var on=b.classList.contains('on'),pad=!!(c.modulos||{})[b.dataset.mod];
+    if(on===pad){m.innerHTML='<span style="color:#9aa6b4">do cargo</span>';}
+    else{n++;m.innerHTML='<span style="font-weight:800;background:#FFF1D6;color:#9a5b00;border:1px solid #f0c06a;border-radius:8px;padding:1px 7px">★ exceção: '+(on?'liberado':'bloqueado')+' só pra ele</span> <a href="javascript:void(0)" onclick="event.stopPropagation();pfPermPadrao(\''+b.dataset.mod+'\')" style="color:#1F4E79;font-weight:700">↺ padrão</a>';}});
+  var d=document.getElementById('permCargoDica');if(d)d.innerHTML=c?'Permissões do cargo <b>'+pfEscHtml(c.nome)+'</b>'+(n?' · <b style="color:#9a5b00">★ '+n+' exceção(ões)</b> só dele':' · sem exceções'):'Sem cargo: cada permissão é escolhida à mão.';}
+document.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('#adminPermPanel .pfToggle'))setTimeout(pfPermMarcar,0);});
+// ── tela dos cargos (só admin)
+function pfCargosFechar(){var o=document.getElementById('pfCargosOv');if(o)o.remove();if(window._pfCargosEsc){document.removeEventListener('keydown',window._pfCargosEsc,true);window._pfCargosEsc=null;}}
+async function pfCargosAbrir(){
+  if(!((typeof pfEhVitorGmail==='function'&&pfEhVitorGmail())||(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.role==='admin'))){pfAlert('Só o administrador mexe nos cargos.');return;}
+  await pfCargosCarregar();var us=[];try{var r=await sbFetch('/rest/v1/profiles?select=id,cargo,excecoes,modulos');if(r.ok)us=await r.json();}catch(e){}
+  window._pfCargosEd={cargos:JSON.parse(JSON.stringify(window._pfCargos||[])),apagar:[],usuarios:us};
+  pfCargosFechar();var ov=document.createElement('div');ov.id='pfCargosOv';var baixo=(typeof pfAiDockClearance==='function')?pfAiDockClearance():24;
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:16px 12px '+baixo+'px';
+  ov.onmousedown=function(e){ov._md=(e.target===ov);};ov.onclick=function(e){if(e.target===ov&&ov._md)pfCargosFechar();ov._md=false;};
+  document.body.appendChild(ov);pfCargosRender();
+  window._pfCargosEsc=function(e){if(e.key==='Escape'&&document.getElementById('pfCargosOv')){e.preventDefault();e.stopImmediatePropagation();pfCargosFechar();}};
+  document.addEventListener('keydown',window._pfCargosEsc,true);
+}
+function pfCargosRender(){
+  var ov=document.getElementById('pfCargosOv'),E=window._pfCargosEd;if(!ov||!E)return;
+  var qtd=function(id){return E.usuarios.filter(function(u){return u.cargo===id;}).length;};
+  var th='background:#f4f6f9;font-size:11px;color:#4a5a6c;padding:8px 6px;border-bottom:1px solid #dde3ea;vertical-align:top;min-width:120px';
+  var h='<table style="border-collapse:collapse;width:100%;font-size:12.5px"><tr><th style="'+th+';text-align:left;position:sticky;left:0;z-index:1">PERMISSÃO</th>'+
+    E.cargos.map(function(c,i){var n=qtd(c.id);return '<th style="'+th+'"><input value="'+pfEscHtml(c.nome)+'" oninput="window._pfCargosEd.cargos['+i+'].nome=this.value" style="width:100%;box-sizing:border-box;font-weight:800;font-size:12.5px;border:1px solid #d6dfe9;border-radius:6px;padding:4px 6px;color:#1a2332;text-align:center">'+
+      '<select onchange="window._pfCargosEd.cargos['+i+'].nivel=this.value" style="margin-top:4px;font-size:11px;border:1px solid #d6dfe9;border-radius:6px;padding:2px 4px;color:#1a2332"><option value="user"'+(c.nivel!=='gestor'?' selected':'')+'>Nível Usuário</option><option value="gestor"'+(c.nivel==='gestor'?' selected':'')+'>Nível Gestor</option></select>'+
+      '<div style="margin-top:4px;font-weight:600;color:#8a9ab0">'+n+' pessoa'+(n===1?'':'s')+(n?'':' · <a href="javascript:void(0)" onclick="pfCargoApagar('+i+')" style="color:#C62828">apagar</a>')+'</div></th>';}).join('')+'</tr>';
+  pfPermGrupos().forEach(function(g){
+    h+='<tr><td colspan="'+(E.cargos.length+1)+'" style="background:#EEF4FB;font-weight:800;color:#1F4E79;font-size:11.5px;padding:6px 8px;letter-spacing:.3px">'+pfEscHtml(g[0].toUpperCase())+'</td></tr>';
+    g[1].forEach(function(k,ri){h+='<tr style="background:'+(ri%2?'#fbfcfd':'#fff')+'"><td style="padding:6px 8px;border-bottom:1px solid #eef1f5;position:sticky;left:0;background:inherit"><span style="color:#33465e">'+pfEscHtml(pfPermRotulo(k))+'</span></td>'+
+      E.cargos.map(function(c,i){var on=!!(c.modulos||{})[k];return '<td style="text-align:center;border-bottom:1px solid #eef1f5"><input type="checkbox"'+(on?' checked':'')+' onchange="var m=window._pfCargosEd.cargos['+i+'].modulos=window._pfCargosEd.cargos['+i+'].modulos||{};m[\''+k+'\']=this.checked" style="width:17px;height:17px;cursor:pointer;accent-color:#1E8449"></td>';}).join('')+'</tr>';});
+  });
+  h+='</table>';
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;width:1000px;max-width:100%;max-height:100%;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3);color:#1a2332">'+
+    '<div style="display:flex;align-items:center;gap:12px;padding:13px 16px;background:var(--pf-painel-bg,#1c2940);color:#fff;flex-shrink:0"><div style="flex:1"><div style="font-size:16px;font-weight:800">🧩 Cargos e permissões padrão</div><div style="font-size:12px;opacity:.75">Quem tem o cargo recebe essas permissões; o que você mudar no usuário fica como exceção só dele.</div></div>'+
+      '<button onclick="pfCargosFechar()" style="background:none;border:0;cursor:pointer;display:flex;padding:0" title="Fechar (Esc)">'+pfXGlossyHtml(22)+'</button></div>'+
+    '<div style="overflow:auto;flex:1">'+h+'</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;border-top:1px solid #e3e9f0;flex-shrink:0"><button class="pfBtn pfBtnClaro" onclick="pfCargoNovo()" style="margin-right:auto">➕ Novo cargo</button><button class="pfBtn pfBtnClaro" onclick="pfCargosFechar()">Cancelar</button><button class="pfBtn pfBtnVerde" onclick="pfCargosGravar()">✔ Gravar cargos</button></div></div>';
+}
+function pfCargoNovo(){var E=window._pfCargosEd;var nome='NOVO CARGO',id='c'+Date.now().toString(36);E.cargos.push({id:id,nome:nome,nivel:'user',modulos:{},ordem:E.cargos.length+1,_novo:1});pfCargosRender();}
+function pfCargoApagar(i){var E=window._pfCargosEd,c=E.cargos[i];if(!c)return;pfConfirm('Apagar o cargo "'+c.nome+'"?',function(){if(!c._novo)E.apagar.push(c.id);E.cargos.splice(i,1);pfCargosRender();},'Apagar');}
+async function pfCargosGravar(){
+  var E=window._pfCargosEd;if(!E)return;var erro='';
+  for(var i=0;i<E.cargos.length;i++){var c=E.cargos[i];c.nome=String(c.nome||'').trim();if(!c.nome){erro='Tem cargo sem nome.';break;}
+    var m={};pfPermChaves().forEach(function(k){m[k]=!!(c.modulos||{})[k];});
+    var r=await sbFetch('/rest/v1/pf_cargos',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({id:c.id,nome:c.nome,nivel:c.nivel==='gestor'?'gestor':'user',modulos:m,ordem:i+1,atualizado_em:new Date().toISOString()})});
+    if(!r.ok){erro='Não consegui gravar o cargo '+c.nome+' ('+r.status+').';break;}c.modulos=m;delete c._novo;}
+  if(!erro)for(var j=0;j<E.apagar.length;j++){await sbFetch('/rest/v1/pf_cargos?id=eq.'+encodeURIComponent(E.apagar[j]),{method:'DELETE'});}
+  if(erro){pfAlert(erro);return;}
+  window._pfCargos=E.cargos.slice();var mud=0;
+  for(var u=0;u<E.usuarios.length;u++){var us=E.usuarios[u],c2=pfCargoDe(us.cargo);if(!c2)continue;
+    var ef=pfCargoEfetivo(c2,us.excecoes||{});if(Object.keys(ef).every(function(k){return !!(us.modulos||{})[k]===ef[k];}))continue;
+    var r2=await sbFetch('/rest/v1/profiles?id=eq.'+us.id,{method:'PATCH',headers:{'Prefer':'return=minimal'},body:JSON.stringify({modulos:ef})});if(r2.ok)mud++;}
+  pfCargosFechar();await pfCargosCarregar();try{loadUsers();}catch(e){}
+  showAdminMsg('✅ Cargos gravados'+(mud?' · permissões de '+mud+' pessoa(s) atualizadas (valem no próximo login)':''),true);
+}
 async function savePermissions(){
   if(!_permUserId)return;
   var modulos={};
   document.querySelectorAll('#adminPermPanel .pfToggle').forEach(function(b){modulos[b.dataset.mod]=b.classList.contains('on');});
   var tok=sbSession?sbSession.access_token:SB_KEY;
+  var corpo={modulos:modulos};
+  // v115.2366 - cargo + exceções (o que ficou diferente do padrão do cargo) + nível
+  var selC=document.getElementById('permCargoSel'),selN=document.getElementById('permNivelSel');
+  if(selC){var cg=selC.value,c=pfCargoDe(cg),exc={};
+    if(c)Object.keys(modulos).forEach(function(k){if(modulos[k]!==!!(c.modulos||{})[k])exc[k]=modulos[k];});
+    corpo.cargo=cg||null;corpo.excecoes=exc;}
+  if(selN&&selN.value)corpo.role=selN.value;
   var r=await fetch(SB_URL+'/rest/v1/profiles?id=eq.'+_permUserId,{
     method:'PATCH',
     headers:{'apikey':SB_KEY,'Authorization':'Bearer '+tok,'Content-Type':'application/json','Prefer':'return=minimal'},
-    body:JSON.stringify({modulos:modulos})
+    body:JSON.stringify(corpo)
   });
   var respText=await r.text();
   if(r.ok||r.status===204){showAdminMsg('Permissões salvas! O usuário precisa relogar para ver as mudanças.',true);setTimeout(function(){closePermPanel();loadUsers();},2000);}
@@ -46837,6 +46949,7 @@ var PF_FUNCOES=[
   {a:'avisos',i:'🎬',n:'Vídeos de fabricação',o:'Na direita do banner da tela inicial, vídeos curtos (Shorts) de como são feitas as peças: rolamentos, cardans, retentores, engrenagens, motores e máquinas. Toca dentro do sistema.',p:'Entender o produto que vende vendo a fábrica.',w:'Tela inicial → coluna da direita do banner',v:'2345',ir:'tela:home'},
   // ── Vendas e cotação ──
   {a:'dono',i:'📝',n:'Modificações dos usuários',o:'Registro de quem mudou o quê: produtos, clientes, fornecedores, pedidos, preços e regras com o antes → depois de cada campo; cotações, aplicações, RMA e solicitações com quem/quando/o quê.',p:'Saber quem alterou um cadastro ou preço e o que era antes, sem depender de memória.',w:'Ferramentas → ⏱ Sessões dos usuários → 📝 Modificações',v:'2358',ir:'js:pfAuditAbrir()',d:1},
+  {a:'dono',i:'🧩',n:'Cargos e permissões',o:'Cada cargo (Vendedor, Comprador, Estoque, Financeiro, Gerência…) tem as telas e ferramentas liberadas por padrão; o usuário recebe as do cargo e o que for diferente fica marcado como exceção só dele.',p:'Criar usuário novo já com as permissões certas e mudar as de um cargo inteiro de uma vez.',w:'⋯ → 👤 Usuários → 🧩 Cargos (e o cargo/nível dentro de cada usuário)',v:'2366',d:1},
   {a:'dono',i:'⏱',n:'Sessões dos usuários',o:'Relatório de quem está online, quanto tempo cada um usa o sistema e em quais telas.',p:'Acompanhar o uso do sistema pela equipe.',w:'Ferramentas → ⏱ Sessões dos usuários (ou ⋯ → 👤 Usuários → ⏱ Sessões)',v:'2357',ir:'ferr:Sessões dos usuários',d:1},
   {a:'vendas',i:'🛒',n:'Cards de Vendas',o:'Tela com um card pra cada parte de Vendas (Cotações, Pedido de Venda, Painel de Clientes, Contas a Receber, Meu dia, Pesquisas, Portal e Assistente), cada um dizendo pra que serve.',p:'Achar rápido tudo o que existe em Vendas.',w:'Vendas → ← Voltar (ou Esc) nas Cotações',v:'2349',ir:'js:window._vendasMainTab=\'menu\';pfNavigate(\'vendas\');window._vendasMainTab=\'menu\';vendasRender();'},
   {a:'vendas',i:'📋',n:'Cotação',o:'Tela onde se monta o orçamento do cliente: código, quantidade, preço, saldo e margem de cada item.',p:'Cotar rápido, com o preço já calculado pela margem e o histórico do cliente na mão.',w:'Vendas → Cotações → Nova cotação',v:'2271',ir:'vendas:cotacoes'},

@@ -1142,6 +1142,17 @@
   Tela `pfAuditAbrir` (mesma senha do Sessões: `pfSessoesAbrir(depois)`): período, pessoa, área, busca, ⬇ Excel. Botão 📝 no relatório de sessões e no card.
   Área nova importante → linha no `PF_AUDIT_KEYS`.
 
+## 🧩 Cargos e permissões (v115.2366; prévia `docs/referencias/cargos/`)
+- Vitor: "quando criarmos usuários, colocamos o cargo e as permissões serão de acordo com o cargo… com suas exceções". Tabela `pf_cargos`
+  {id,nome,nivel user|gestor,modulos,ordem} (RLS: empresa lê, só `pf_eh_admin` grava) + `profiles.cargo`/`profiles.excecoes`. O `_canSee` continua lendo
+  `profiles.modulos` = `pfCargoEfetivo(cargo, excecoes)` (recalculado no `savePermissions` e no `pfCargosGravar` pra todos do cargo). Sem cargo = avulso (como antes).
+- Tela: ⋯ → 👤 Usuários → "🧩 Cargos" (`pfCargosAbrir`/`pfCargosRender`, matriz permissão × cargo, ➕ Novo cargo, apagar só com 0 pessoas); no usuário
+  (`openPermPanel` → `pfPermCargoMontar`) select Cargo + Nível, cada linha "do cargo" ou "★ exceção … só pra ele" + "↺ padrão" (`pfPermMarcar`). Convidar/cadastrar
+  sem convite têm select de cargo (`.pfCargoSel`). Permissão nova → linha no `#adminPermPanel` (a matriz e o cálculo leem de lá: `pfPermGrupos`/`pfPermChaves`).
+- Triex hoje (21/10/2026): Comprador = Murilo, Everton · Vendedor = Mineiro (adenicio), Alaina, Fellipe, Carlos Candis (nível gestor) · Gerência = vitor.lima (gestor)
+  · sem cargo: carlos.henrique, Bruno (Encopel, externo). Faltam criar: Marco, Leila, Matheus, Danilo, Cesar, Caina (vendas), Fernando + 3 (estoque). Financeiro usa o da Encopel.
+- Futuro (Vitor): cada área com gestor e diretor (nível "diretor" ainda não existe).
+
 ## Liberar Espaço (Ferramentas, só dono)
 - v115.2233: "Selecionar todos" (`ferrLiberarMarcarTodos`) + soma do marcado (`ferrLiberarSoma`); a chave do LOGIN (`sb-…-auth-token`,
   selo 🔒 LOGIN) fica fora do "todos" e o confirmar avisa se ela estiver marcada.

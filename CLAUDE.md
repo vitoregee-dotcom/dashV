@@ -1151,7 +1151,9 @@
   sem convite têm select de cargo (`.pfCargoSel`). Permissão nova → linha no `#adminPermPanel` (a matriz e o cálculo leem de lá: `pfPermGrupos`/`pfPermChaves`).
 - Triex hoje (21/10/2026): Comprador = Murilo, Everton · Vendedor = Mineiro (adenicio), Alaina, Fellipe, Carlos Candis (nível gestor) · Gerência = vitor.lima (gestor)
   · sem cargo: carlos.henrique, Bruno (Encopel, externo). Faltam criar: Marco, Leila, Matheus, Danilo, Cesar, Caina (vendas), Fernando + 3 (estoque). Financeiro usa o da Encopel.
-- Futuro (Vitor): cada área com gestor e diretor (nível "diretor" ainda não existe).
+- v115.2367 ("já cria de diretor"): níveis `PF_NIVEIS` Usuário/Gestor/Diretor (`pfNivelOk`, `pfNivelOptsHtml`); Diretor pode tudo o que o gestor pode
+  (`pvEhAdminOuGestor`, `pfVR2PodeGeral`, `pfEhGestorOuAcima`); `pfEhDiretor` pro que for só de diretor. Carlos Henrique = Gerência, nível gestor.
+  Checagem nova de "gestor" → usar `pfEhGestorOuAcima()` (nunca `role==='gestor'` sozinho).
 
 ## Liberar Espaço (Ferramentas, só dono)
 - v115.2233: "Selecionar todos" (`ferrLiberarMarcarTodos`) + soma do marcado (`ferrLiberarSoma`); a chave do LOGIN (`sb-…-auth-token`,

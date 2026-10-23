@@ -1979,7 +1979,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2386</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2387</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2141,7 +2141,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2386</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2387</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -85502,10 +85502,15 @@ function pfAlimLimpar(){window._pfAlim={linhas:[],img:null,rect:null};var g=docu
 // quando o login expirou (JWT "exp") ou a regra de acesso barra -- o sbFetch só renova o login no 401/403. Aqui: lê o motivo,
 // renova o login e tenta de novo; se ainda falhar, tenta na pasta "pendencias/" (que já recebe arquivos no sistema).
 async function pfStorageSubir(bucket,path,blob,tipo){
-  var envia=function(pp){return sbFetch('/storage/v1/object/'+bucket+'/'+pp,{method:'POST',headers:{'Content-Type':tipo||blob.type||'application/octet-stream','x-upsert':'true'},body:blob});};
+  // v115.2387 - BUG (Vitor: "não deixou salvar — Failed to fetch"): a conexão caiu no meio de um envio de desenho (2 MB) e o fetch
+  // ESTOURA (não volta resposta) — derrubava o salvar inteiro. Agora tenta 3x (1,5 s / 4 s) e, se não der, devolve status 0.
+  var envia=async function(pp){var ult=null;for(var t=0;t<3;t++){try{return await sbFetch('/storage/v1/object/'+bucket+'/'+pp,{method:'POST',headers:{'Content-Type':tipo||blob.type||'application/octet-stream','x-upsert':'true'},body:blob});}
+    catch(e){ult=e;await new Promise(function(r){setTimeout(r,t?4000:1500);});}}
+    return {ok:false,status:0,text:function(){return Promise.resolve(JSON.stringify({message:'sem conexão com o servidor ('+((ult&&ult.message)||'falhou')+') — confira a internet e clique em Salvar de novo; o que já subiu não sobe de novo'}));}};};
   var txt=function(r){return r.text().catch(function(){return '';});};
   var r=await envia(path);if(r.ok)return {ok:true,path:path};
   var msg=await txt(r),st=r.status;
+  if(st===0){var m0='';try{m0=JSON.parse(msg).message;}catch(e){}return {ok:false,status:0,msg:m0};} // v115.2387 sem conexão: já tentou 3x
   if(typeof sbRefreshSession==='function'){try{await sbRefreshSession();}catch(e){}}
   r=await envia(path);if(r.ok)return {ok:true,path:path};
   msg=await txt(r)||msg;st=r.status;
@@ -86948,7 +86953,7 @@ async function pfCatEnvSalvarNovo(){
   var N=window._pfCatEnvNovo;if(!N)return;
   var btn=document.getElementById('pfCatEnvSalvarBtn'),msg=document.getElementById('pfCatEnvMsg');if(btn)btn.disabled=true;
   var val=function(id){return String((document.getElementById(id)||{}).value||'').trim();};
-  var id='cat_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  var id=N._id||('cat_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));N._id=id;N._up=N._up||{}; // v115.2387 - Salvar de novo continua (mesmo id, desenho que já subiu não sobe de novo)
   if(!val('pfCatEnvMarca')){pfAlert('Preencha a MARCA (ex.: CARRARO) — ela vai nas aplicações.');if(btn)btn.disabled=false;return;}
   var cat={id:id,titulo:val('pfCatEnvTit')||'Catálogo de peças',marca:val('pfCatEnvMarca').toUpperCase(),modelo:val('pfCatEnvModelo'),ref:val('pfCatEnvRef'),posicao:val('pfCatEnvPos'),v2183:1,em:Date.now(),
     por:(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||'',arquivo:N.file.name,grupos:[],links:[]};
@@ -86963,15 +86968,17 @@ async function pfCatEnvSalvarNovo(){
         if(bb){var o0=g.rec;g.nums=g.nums.map(function(q){var ax=o0[0]+q.cx*(o0[2]-o0[0]),ay=o0[1]+q.cy*(o0[3]-o0[1]);return {n:q.n,cx:(ax-bb[0])/(bb[2]-bb[0]),cy:(ay-bb[1])/(bb[3]-bb[1])};});g.rec=bb;}g._apar=1;}
       var x0=0,y0=Math.max(0,Math.round(g.y0*S)),ww=cv.width,hh=Math.round((g.y1-g.y0)*S);
       if(g.rec){var rc=g.rec,pd=0.01;x0=Math.round(Math.max(0,rc[0]-pd)*cv.width);y0=Math.round(Math.max(0,rc[1]-pd)*cv.height);ww=Math.round(Math.min(1,rc[2]+pd)*cv.width)-x0;hh=Math.round(Math.min(1,rc[3]+pd)*cv.height)-y0;}
-      var up=jaSubiu[g.pag];
+      var up=jaSubiu[g.pag]||N._up[g.id];
       if(!up){
         var cr=document.createElement('canvas');cr.width=ww;cr.height=hh;
         cr.getContext('2d').drawImage(cv,x0,y0,ww,hh,0,0,ww,hh);
-        var blob=await new Promise(function(res){cr.toBlob(res,'image/png');});
+        var blob=await new Promise(function(res){cr.toBlob(res,'image/png');}),ext='png',mime='image/png';
+        // v115.2387 - página escaneada (foto) em PNG dava 1,6–2,3 MB por desenho → JPEG (o bucket não aceita WEBP)
+        if(N.esc||blob.size>1500000){var bj=await new Promise(function(res){cr.toBlob(res,'image/jpeg',0.85);});if(bj&&bj.size<blob.size){blob=bj;ext='jpg';mime='image/jpeg';}}
         // caminho neutro (sem marca/empresa): c/<id>/<grupo>.png
-        up=await pfStorageSubir('ferramentas-arquivos','c/'+id+'/'+g.id+'.png',blob,'image/png');
-        if(!up.ok)throw new Error('o desenho '+(i+1)+' não subiu (status '+up.status+(up.msg?' — '+up.msg:'')+')');
-        if(g.rec)jaSubiu[g.pag]=up;
+        up=await pfStorageSubir('ferramentas-arquivos','c/'+id+'/'+g.id+'.'+ext,blob,mime);
+        if(!up.ok)throw new Error('o desenho '+(i+1)+' de '+N.grupos.length+' não subiu ('+(up.status?'status '+up.status:'sem conexão')+(up.msg?' — '+up.msg:'')+'). Clique em Salvar de novo: continua de onde parou.');
+        N._up[g.id]=up;if(g.rec)jaSubiu[g.pag]=up;
       }
       // nº da IA vem em fração do retângulo sem a folga — acerta pra imagem com folga
       var ajN=function(n){if(!g.rec)return n;var rc=g.rec,X0=x0/cv.width,Y0=y0/cv.height,W=ww/cv.width,H=hh/cv.height;return {n:n.n,cx:(rc[0]+n.cx*(rc[2]-rc[0])-X0)/W,cy:(rc[1]+n.cy*(rc[3]-rc[1])-Y0)/H,ia:n.ia};};
@@ -86980,7 +86987,8 @@ async function pfCatEnvSalvarNovo(){
           if(x.manuscrito&&!x.ok){o.conferir=true;if(x.codImpresso)o.codImpresso=x.codImpresso;if(x.obs)o.obs=x.obs;}if(x.conv)o.conv=x.conv;if(x.obs&&!o.obs)o.obs=x.obs;return o;})}); // v115.2380 conv/obs (ZF)
     }
     if(msg)msg.textContent='⏳ Guardando o PDF original…';
-    var upP=await pfStorageSubir('cadastro-clientes','interno/catalogos/'+id+'.pdf',new Blob([N.buf],{type:'application/pdf'}),'application/pdf');
+    // v115.2387 - a pasta do PDF original aceita até 15 MB; maior que isso não tenta (o catálogo grava assim mesmo)
+    var upP=N.buf.byteLength>15*1024*1024?{ok:false,status:'grande',msg:'o PDF tem '+(N.buf.byteLength/1048576).toFixed(0)+' MB (limite 15 MB)'}:await pfStorageSubir('cadastro-clientes','interno/catalogos/'+id+'.pdf',new Blob([N.buf],{type:'application/pdf'}),'application/pdf');
     if(upP.ok)cat.pdfPath=upP.path;
     var o=pfCatEnvLoad();o.por[id]=cat;pfCatEnvSalvar(o);window._pfCatEnvNovo=null;if(N.esc)pfCatEnvEscRascApagar(); // v115.2193
     if(msg)msg.textContent='⏳ Mandando pras Aplicações…';
@@ -86989,7 +86997,7 @@ async function pfCatEnvSalvarNovo(){
     if(ra.erro)pfAlert('Catálogo salvo, mas não foi pras Aplicações ('+ra.erro+'). Use "🔁 Mandar pras Aplicações".');
     else{setTimeout(function(){try{pfCatEnvArrAbrir(id);}catch(e){}},50); // v115.2386 - já abre a tela de arrumar as descrições
       pfAlert('✅ Catálogo salvo e já está em Aplicações — Modelos & Séries (série '+ra.serie+', '+cat.grupos.length+' grupos com desenho)'+(ra.novas?'. '+ra.novas+' peça(s) não tinham ficha: criei marcadas "⚠️ conferir" (falta NCM).':'.')+' Confira as descrições na tela que abriu.');}
-    if(!upP.ok)pfAlert('Catálogo salvo, mas o PDF original não subiu (status '+upP.status+'). Os desenhos e as tabelas estão ok.');
+    if(!upP.ok)pfAlert('Catálogo salvo, mas o PDF original não ficou guardado ('+(upP.msg||('status '+upP.status))+'). Os desenhos e as tabelas estão ok — o PDF você continua tendo no seu computador.');
   }catch(e){if(btn)btn.disabled=false;if(msg)msg.innerHTML='<span style="color:#C0392B">'+pfEscHtml(e.message)+'</span>';}
 }
 // v115.2182 - A pedido do Vitor ("quando eu carregar um catálogo ele já vai servir pra tudo no sistema? já vai ficar lá no

@@ -1979,7 +1979,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2382</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2383</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2141,7 +2141,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2382</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2383</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -33968,6 +33968,10 @@ function pfAplicArrumarW20E(){
     var conserta=function(a){var mud=false;
       var e=String(a.equip||'').trim();if(e&&e!=='TRANSMISSÃO'&&letras(e)===ALVO){a.equip='TRANSMISSÃO';mud=true;}
       if(String(a.marca||'').toUpperCase()==='DANA'&&String(a.veiculo||'').trim().toUpperCase()==='W20E'&&!String(a.marcaVeiculo||'').trim()){a.marcaVeiculo='CASE';mud=true;}
+      // v115.2383 - A pedido do Vitor ("provavelmente o que tem mais peças está correto"): o conversor C5000 série C5402-270 estava dividido em
+      // CLARK (218) e DANA (142, quase todas peças diferentes) → tudo CLARK. E "Transmissão" no campo MÁQUINA (102 peças) não é máquina → vazio.
+      if(String(a.serie||'').trim().toUpperCase()==='C5402-270'&&String(a.marca||'').trim().toUpperCase()==='DANA'){a.marca='CLARK';mud=true;}
+      var ve=String(a.veiculo||'').trim();if(ve&&!String(a.marcaVeiculo||'').trim()&&letras(ve)===ALVO){a.veiculo='';mud=true;}
       return mud;};
     var agora=Date.now(),flat=(typeof aplicLoad==='function'?aplicLoad():[])||[],n=0;
     flat.forEach(function(a){if(conserta(a)){a.ts=agora;a.tsMod=agora;n++;}});
@@ -44140,6 +44144,7 @@ cadGerenciarSubst = function(){
   var html = '<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);padding:24px;max-width:820px">';
   html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">';
   html += '<div style="font-size:15px;font-weight:800;color:var(--pf-fx-marca,#1F4E79)">⚙️ Substituições de Descrição</div>';
+  if(lista.length)html += '<button class="pfBtn pfBtnAzul" onclick="substCadAbrir()" title="Passa as regras nas descrições das peças que já estão no sistema (com prévia antes de gravar)" style="margin-left:auto;font-size:12px;padding:6px 12px">🔁 Aplicar nas peças já cadastradas</button>'; // v115.2383
   html += '<button onclick="if(window._impTelaOrigem===&quot;geral&quot;){cadImportarProdutosGeral();}else{cadImportarProdutos();}" style="margin-left:auto;background:none;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);color:var(--pf-fx-textoSec,#607080);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px">← Voltar</button>';
   html += '</div>';
 
@@ -44184,6 +44189,95 @@ cadGerenciarSubst = function(){
   el.innerHTML = html;
 };
 
+// v115.2383 - A pedido do Vitor ("e nesses outros?" — as 18 séries que entraram antes das regras sincronizarem; "pode fazer!"):
+// 🔁 Aplicar nas peças já cadastradas = passa as regras nas descrições que JÁ estão no sistema, com prévia "antes → depois".
+//   * Peças que vieram de catálogo (doCatalogo, ou criadas por importação de catálogo: descricaoCompleta e id que não é do estoque) → marcadas;
+//   * texto das séries em Aplicações — Modelos & Séries (desc da lista) → marcado;
+//   * fichas da Triex (estoque/cadastro) → aparecem DESMARCADAS (só troca se o Vitor marcar).
+// Regra que contém o próprio texto ("JUNTA" → "JUNTA DE VEDAÇÃO") não é reaplicada onde já está (substAplicarSeguro).
+// A descrição antiga fica em descAntesRegra (1ª vez). Os catálogos (📖) também recebem, senão o "Mandar pras Aplicações" voltava a antiga.
+function substAplicarSeguro(desc){
+  var lista=substCarregar().slice().sort(function(a,b){if(a.exato&&!b.exato)return -1;if(!a.exato&&b.exato)return 1;return b.de.length-a.de.length;});
+  var t=String(desc||'').toUpperCase().trim();
+  lista.forEach(function(r){var de=String(r.de||'').toUpperCase(),pa=String(r.para||'').toUpperCase();if(!de)return;
+    if(r.exato){if(t===de)t=pa;return;}
+    if(pa.indexOf(de)>=0&&t.indexOf(pa)>=0)return;
+    t=t.replace(new RegExp(de.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),pa);});
+  return t.replace(/\s+/g,' ').trim();
+}
+function substCadCalc(){
+  var plist=cadLoad(PROD_KEY)||[],flat=(typeof aplicLoad==='function'?aplicLoad():[])||[],L=[];
+  var deCat=function(f){return !!(f.doCatalogo||(f.descricaoCompleta&&!/^p_est_/.test(String(f.id||''))));};
+  plist.forEach(function(f,i){var a=String(f.descricao||'').trim();if(!a)return;var d=substAplicarSeguro(a);if(d&&d!==a.toUpperCase())L.push({t:deCat(f)?'cat':'triex',i:i,id:f.id,cod:f.codigo,marca:f.marca,antes:a,depois:d,on:deCat(f)});});
+  flat.forEach(function(x,i){var a=String(x.desc||'').trim();if(!a)return;var d=substAplicarSeguro(a);if(d&&d!==a.toUpperCase())L.push({t:'aplic',i:i,id:x.id,cod:x.codigo,marca:x.marca,serie:x.serie,antes:a,depois:d,on:true});});
+  return L;
+}
+function substCadAbrir(){
+  window._substCad={L:substCadCalc(),q:'',ver:{}};
+  var old=document.getElementById('substCadOv');if(old)old.remove();
+  var ov=document.createElement('div');ov.id='substCadOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10050;display:flex;align-items:flex-start;justify-content:center;padding:24px 16px';
+  ov.onmousedown=function(e){ov._dn=(e.target===ov);};ov.onclick=function(e){if(e.target===ov&&ov._dn)substCadFechar();};
+  document.body.appendChild(ov);
+  window._substCadEsc=function(e){if(e.key==='Escape'&&document.getElementById('substCadOv')){e.preventDefault();e.stopImmediatePropagation();substCadFechar();}};
+  document.addEventListener('keydown',window._substCadEsc,true);
+  substCadRender();
+}
+function substCadFechar(){var o=document.getElementById('substCadOv');if(o)o.remove();if(window._substCadEsc)document.removeEventListener('keydown',window._substCadEsc,true);window._substCadEsc=null;}
+var SUBST_CAD_GRUPOS=[['cat','📚 Peças que vieram de catálogo','fichas criadas pelo 📖 Catálogo, 📥 Alimentar ou importação de catálogo'],['aplic','🚜 Texto das séries em Aplicações','a descrição que aparece no card da série (Aplicações — Modelos & Séries)'],['triex','🏢 Fichas da Triex','cadastro/estoque da empresa — só troca o que você marcar']];
+function substCadBuscar(v){
+  window._substCad.q=v;clearTimeout(window._substCadT);
+  window._substCadT=setTimeout(function(){substCadRender();var e=document.getElementById('substCadBusca');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},200);
+}
+function substCadRender(){
+  var S=window._substCad,ov=document.getElementById('substCadOv');if(!S||!ov)return;
+  var corpo0=document.getElementById('substCadCorpo'),rol=corpo0?corpo0.scrollTop:0;
+  var bate=function(r){return !S.q||pfBuscaBate([r.cod,r.marca,r.serie,r.antes,r.depois].join(' '),S.q);};
+  var nOn=S.L.filter(function(r){return r.on;}).length,dock=(typeof pfAiDockClearance==='function'?pfAiDockClearance():90);
+  var h='<div style="background:#fff;border-radius:12px;width:980px;max-width:100%;max-height:calc(100vh - '+(dock+48)+'px);display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.3);overflow:hidden">'+
+    '<div style="background:var(--pf-painel-bg,#1c2940);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-weight:800;font-size:15px;color:#fff">🔁 Aplicar as regras nas peças já cadastradas</div>'+
+      '<div style="font-size:12px;color:#fff;opacity:.8">'+S.L.length+' descrição(ões) mudam com as '+substCarregar().length+' regras. Confira e grave só o que quiser.</div></div>'+
+      '<button type="button" onclick="substCadFechar()" style="background:none;border:none;padding:0;cursor:pointer">'+pfXGlossyHtml(24)+'</button></div>'+
+    '<div style="padding:10px 16px;border-bottom:1px solid #e3eaf3;background:#F7F9FC"><input id="substCadBusca" value="'+pfEscHtml(S.q||'')+'" oninput="substCadBuscar(this.value)" placeholder="Buscar código, marca, série ou descrição…" style="width:100%;box-sizing:border-box;border:1.5px solid #dfe5ec;border-radius:8px;padding:8px 10px;font-size:13px;color:#1a2332;background:#fff"></div>'+
+    '<div id="substCadCorpo" style="overflow:auto;padding:6px 16px 14px;flex:1">';
+  if(!S.L.length)h+='<div style="padding:40px;text-align:center;color:#607080;font-size:14px">✅ Nada pra trocar — as descrições já estão de acordo com as regras.</div>';
+  SUBST_CAD_GRUPOS.forEach(function(G){
+    var rs=S.L.filter(function(r){return r.t===G[0];});if(!rs.length)return;
+    var vis=rs.filter(bate),on=rs.filter(function(r){return r.on;}).length,lim=S.ver[G[0]]?vis.length:150;
+    h+='<div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:800;font-size:13.5px;color:#1a2332"><input type="checkbox" '+(on===rs.length?'checked':'')+' onchange="substCadGrupo(\''+G[0]+'\',this.checked)">'+G[1]+'</label>'+
+      '<span style="font-size:12px;color:#607080">'+on+' de '+rs.length+' marcada(s) · '+G[2]+'</span></div>';
+    h+='<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px;table-layout:fixed"><colgroup><col style="width:30px"><col style="width:150px"><col><col style="width:28px"><col></colgroup><tbody>'+vis.slice(0,lim).map(function(r){var k=S.L.indexOf(r);
+      return '<tr style="border-bottom:1px solid #eef2f6'+(r.on?'':';opacity:.6')+'"><td style="padding:5px 6px;width:24px"><input type="checkbox" '+(r.on?'checked':'')+' onchange="window._substCad.L['+k+'].on=this.checked;substCadRender()"></td>'+
+        '<td style="padding:5px 6px;white-space:nowrap"><span style="font-weight:800;color:#1F4E79">'+pfEscHtml(r.cod||'')+'</span><div style="font-size:10.5px;color:#8a9ab0">'+pfEscHtml([r.marca,r.serie].filter(Boolean).join(' · '))+'</div></td>'+
+        '<td style="padding:5px 6px"><span style="color:#C0392B;text-decoration:line-through">'+pfEscHtml(r.antes)+'</span></td><td style="padding:5px 4px"><span style="color:#8a9ab0">→</span></td>'+
+        '<td style="padding:5px 6px"><span style="color:#1E7B45;font-weight:700">'+pfEscHtml(r.depois)+'</span></td></tr>';}).join('')+'</tbody></table>';
+    if(vis.length>lim)h+='<div style="padding:8px 0"><button class="pfBtn pfBtnClaro" style="font-size:12px;padding:5px 10px" onclick="window._substCad.ver[\''+G[0]+'\']=1;substCadRender()">▾ Mostrar as outras '+(vis.length-lim)+'</button></div>';
+  });
+  h+='</div><div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid #e3eaf3;background:#F7F9FC"><span style="flex:1;font-size:12px;color:#607080">A descrição antiga fica guardada na ficha.</span>'+
+    '<button class="pfBtn pfBtnClaro" onclick="substCadFechar()">Cancelar</button>'+
+    '<button class="pfBtn pfBtnVerde" '+(nOn?'':'disabled')+' onclick="substCadGravar()">✅ Trocar '+nOn+' descrição(ões)</button></div></div>';
+  ov.innerHTML=h;
+  var c=document.getElementById('substCadCorpo');if(c)c.scrollTop=rol;
+}
+function substCadGrupo(t,on){(window._substCad.L||[]).forEach(function(r){if(r.t===t)r.on=on;});substCadRender();}
+function substCadGravar(){
+  var S=window._substCad;if(!S)return;var sel=S.L.filter(function(r){return r.on;});if(!sel.length)return;
+  var agora=Date.now(),plist=cadLoad(PROD_KEY)||[],flat=(typeof aplicLoad==='function'?aplicLoad():[])||[],nF=0,nA=0;
+  var pId={};plist.forEach(function(f){if(f.id)pId[f.id]=f;});var aId={};flat.forEach(function(x){if(x.id)aId[x.id]=x;});
+  sel.forEach(function(r){
+    if(r.t==='aplic'){var x=(r.id&&aId[r.id])||flat[r.i];if(x&&String(x.desc||'').trim()===r.antes){x.desc=r.depois;x.tsMod=agora;nA++;}return;}
+    var f=(r.id&&pId[r.id])||plist[r.i];if(!f||String(f.descricao||'').trim()!==r.antes)return;
+    if(!f.descAntesRegra)f.descAntesRegra=r.antes;f.descricao=r.depois;f.ts=agora;f.tsMod=agora;nF++;
+  });
+  if(nF)cadSave(PROD_KEY,plist);if(nA)aplicSave(flat);
+  // catálogos (📖): as peças lidas também passam pelas regras (o "Mandar pras Aplicações" usa a descrição do catálogo)
+  try{if(sel.some(function(r){return r.t!=='triex';})){var o=pfCatEnvLoad(),mudC=false;Object.keys(o.por).forEach(function(k){(o.por[k].grupos||[]).forEach(function(g){(g.itens||[]).forEach(function(y){
+    var a=String(y.desc||'').trim();if(!a)return;var d=substAplicarSeguro(a);if(d!==a.toUpperCase()){y.desc=d;mudC=true;}});});});if(mudC)pfCatEnvSalvar(o);}}catch(e){}
+  if(typeof pfSyncPush==='function')try{pfSyncPush([PROD_KEY,APLIC_KEY]);}catch(e){}
+  window._vendasProdIdxCache=null;
+  substCadFechar();
+  pfAlert('✅ Pronto: '+nF+' ficha(s) e '+nA+' linha(s) das Aplicações com a descrição nova.');
+}
 // substSalvarNova and substRemover now call cadGerenciarSubst directly (no chain)
 substSalvarNova = function(){
   var de=(document.getElementById('substDe').value||'').trim().toUpperCase();

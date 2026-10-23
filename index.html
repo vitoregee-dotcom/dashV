@@ -1979,7 +1979,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2387</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2388</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2141,7 +2141,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2387</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2388</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -41696,8 +41696,8 @@ function substSalvar(lista){
   bruta.forEach(function(s){if(s&&s.de){var k=kk(s),o=porK[k];if(!o||(s.tsMod||0)>=(o.tsMod||0))porK[k]=s;}});
   var novos={};
   (lista||[]).forEach(function(s){if(!s||!s.de)return;var k=kk(s);if(novos[k])return;novos[k]=1;var ant=porK[k];
-    var n={id:'s:'+k,de:k,para:s.para,exato:!!s.exato,count:s.count||0,tsMod:s.tsMod||0};
-    if(!ant||ant.del||ant.para!==n.para||!!ant.exato!==n.exato||!ant.tsMod)n.tsMod=agora;
+    var n={id:'s:'+k,de:k,para:s.para,exato:!!s.exato,count:s.count||0,tsMod:s.tsMod||0};if(s.comeca)n.comeca=true;
+    if(!ant||ant.del||ant.para!==n.para||!!ant.exato!==n.exato||!!ant.comeca!==!!n.comeca||!ant.tsMod)n.tsMod=agora;
     out.push(n);});
   Object.keys(porK).forEach(function(k){if(novos[k])return;var o=porK[k];out.push(o.del?o:{id:'s:'+k,de:k,del:true,tsMod:agora});});
   pfSafeSetItem(SUBST_KEY, JSON.stringify(out));
@@ -41730,17 +41730,21 @@ function impFiltrarPreview(el){
     else cont.style.display='none';
   }
 }
+function substOrdem(a,b){var w=function(s){return s.exato?0:s.comeca?1:2;};return (w(a)-w(b))||(b.de.length-a.de.length);}
+function substComecaBate(t,de){t=String(t||'').toUpperCase().trim();de=String(de||'').toUpperCase().trim();if(!de)return false;
+  if(t===de)return true;if(t.indexOf(de)!==0)return false;var c=t.charAt(de.length);return /[\s\-,.\/(]/.test(c);}
 function substAplicar(desc){
   var lista = substCarregar();
   var resultado = (desc||'').toUpperCase();
   // Sort: exact matches first, then by length desc (more specific first)
-  lista.sort(function(a,b){
-    if(a.exato&&!b.exato)return -1;
-    if(!a.exato&&b.exato)return 1;
-    return b.de.length-a.de.length;
-  });
+  lista.sort(substOrdem);
+  // v115.2388 - "começa com" (Vitor: "parafuso é parafuso, não importa de onde seja"): descrição que COMEÇA com o texto vira o "para"
+  // inteiro ("PARAFUSO DE RETENÇÃO DO TUBO…" → "PARAFUSO"). Vale uma vez (o mais comprido que bate) e para por aí.
+  var jaComeca=false;
   lista.forEach(function(s){
-    if(s.exato){
+    if(s.comeca){
+      if(!jaComeca&&substComecaBate(resultado,s.de)){resultado=s.para;jaComeca=true;}
+    } else if(s.exato){
       if(resultado.toUpperCase()===s.de.toUpperCase())resultado=s.para;
     } else {
       var re=new RegExp(s.de.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');
@@ -41780,11 +41784,11 @@ function substReaplicarNaPreview(){
   }catch(e){}
 }
 
-function substAdicionarOuAtualizar(de, para, exato){
-  var lista=substCarregar();
+function substAdicionarOuAtualizar(de, para, exato, comeca){
+  var lista=substCarregar();exato=!!exato&&!comeca;comeca=!!comeca;
   var idx=lista.findIndex(function(s){return s.de.toUpperCase()===de.toUpperCase();});
-  if(idx>=0){lista[idx].para=para;lista[idx].exato=!!exato;lista[idx].count=(lista[idx].count||0)+1;}
-  else lista.push({de:de.toUpperCase(),para:para,exato:!!exato,count:1});
+  if(idx>=0){lista[idx].para=para;lista[idx].exato=exato;lista[idx].comeca=comeca;lista[idx].count=(lista[idx].count||0)+1;}
+  else lista.push({de:de.toUpperCase(),para:para,exato:exato,comeca:comeca,count:1});
   substSalvar(lista);
 }
 
@@ -42745,7 +42749,7 @@ function cadGerenciarSubst(){
   html+='<div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;align-items:end">';
   html+=cadField('De (original)','substDe','','Ex: SHIM','text');
   html+=cadField('Para (substituir por)','substPara','','Ex: CALÇO','text');
-  html+='<div><label style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSec,#607080);display:block;margin-bottom:5px">Tipo</label><select id="substTipo" style="padding:9px 12px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:8px;font-size:12px;background:#fff"><option value="0">Contém</option><option value="1">Exato</option></select></div>';
+  html+='<div><label style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSec,#607080);display:block;margin-bottom:5px">Tipo</label><select id="substTipo" style="padding:9px 12px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:8px;font-size:12px;background:#fff"><option value="0">Contém</option><option value="2">Começa com</option><option value="1">Exato</option></select></div>';
   html+='<button onclick="substSalvarNova()" style="background:var(--pf-fx-marca,#1F4E79);color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:13px;font-weight:700;margin-bottom:1px">+ Adicionar</button>';
   html+='</div></div>';
 
@@ -42760,7 +42764,7 @@ function cadGerenciarSubst(){
       html+='<tr style="border-bottom:1px solid var(--pf-fx-bordaClara,#e0e8f0)">';
       html+='<td style="padding:10px;font-family:monospace;color:var(--pf-fx-vermelho,#C00000)">'+s.de+'</td>';
       html+='<td style="padding:10px;font-family:monospace;color:var(--pf-fx-verde,#27AE60)">'+s.para+'</td>';
-      html+='<td style="padding:10px;text-align:center"><span style="font-size:10px;background:var(--pf-fx-fundoSuave,#F0F4F8);padding:2px 8px;border-radius:6px">'+(s.exato?'Exato':'Contém')+'</span></td>';
+      html+='<td style="padding:10px;text-align:center"><span style="font-size:10px;background:var(--pf-fx-fundoSuave,#F0F4F8);padding:2px 8px;border-radius:6px">'+(s.exato?'Exato':s.comeca?'Começa com':'Contém')+'</span></td>';
       html+='<td style="padding:10px;text-align:center;color:var(--pf-fx-textoSuave,#8a9ab0)">'+(s.count||0)+'x</td>';
       html+='<td style="padding:10px;text-align:center"><button onclick="substRemover('+i+')" style="background:none;border:none;color:var(--pf-fx-vermelho,#C00000);cursor:pointer;font-size:15px">🗑</button></td>';
       html+='</tr>';
@@ -42775,9 +42779,9 @@ function cadGerenciarSubst(){
 function substSalvarNova(){
   var de=(document.getElementById('substDe').value||'').trim();
   var para=(document.getElementById('substPara').value||'').trim();
-  var exato=document.getElementById('substTipo').value==='1';
+  var exato=document.getElementById('substTipo').value==='1',comeca=document.getElementById('substTipo').value==='2';
   if(!de||!para){pfAlert('Preencha os dois campos.');return;}
-  substAdicionarOuAtualizar(de,para,exato);
+  substAdicionarOuAtualizar(de,para,exato,comeca);
   cadGerenciarSubst();
 }
 
@@ -44179,7 +44183,7 @@ cadGerenciarSubst = function(){
   html += '<div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;align-items:end">';
   html += cadField('De (original)','substDe','','Ex: SHIM','text');
   html += cadField('Para (substituir por)','substPara','','Ex: CALÇO','text');
-  html += '<div><label style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSec,#607080);display:block;margin-bottom:5px">Tipo</label><select id="substTipo" style="padding:9px 12px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:8px;font-size:12px;background:#fff"><option value="0">Contém</option><option value="1">Exato</option></select></div>';
+  html += '<div><label style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSec,#607080);display:block;margin-bottom:5px">Tipo</label><select id="substTipo" style="padding:9px 12px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:8px;font-size:12px;background:#fff"><option value="0">Contém</option><option value="2">Começa com</option><option value="1">Exato</option></select></div>';
   html += '<button onclick="substSalvarNova()" style="background:var(--pf-fx-marca,#1F4E79);color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:13px;font-weight:700;margin-bottom:1px">+ Adicionar</button>';
   html += '</div></div>';
 
@@ -44192,13 +44196,13 @@ cadGerenciarSubst = function(){
       html += '<tr style="border-bottom:1px solid var(--pf-fx-bordaClara,#e0e8f0)">';
       html += '<td style="padding:10px;font-family:monospace;color:var(--pf-fx-vermelho,#C00000)">'+s.de+'</td>';
       html += '<td style="padding:10px;font-family:monospace;color:var(--pf-fx-verde,#27AE60)">'+s.para+'</td>';
-      html += '<td style="padding:10px;text-align:center"><span style="font-size:10px;background:var(--pf-fx-fundoSuave,#F0F4F8);padding:2px 8px;border-radius:6px">'+(s.exato?'Exato':'Contém')+'</span></td>';
+      html += '<td style="padding:10px;text-align:center"><span style="font-size:10px;background:var(--pf-fx-fundoSuave,#F0F4F8);padding:2px 8px;border-radius:6px">'+(s.exato?'Exato':s.comeca?'Começa com':'Contém')+'</span></td>';
       html += '<td style="padding:10px;text-align:center;color:var(--pf-fx-textoSuave,#8a9ab0)">'+(s.count||0)+'x</td>';
       html += '<td style="padding:10px;text-align:center"><button onclick="substRemover('+i+')" style="background:none;border:none;color:var(--pf-fx-vermelho,#C00000);cursor:pointer;font-size:15px">🗑</button></td>';
       html += '</tr>';
     });
     html += '</tbody></table>';
-    html += '<div style="margin-top:12px;padding:10px;background:#FFF9E6;border-radius:8px;font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0)">💡 "Contém" substitui em qualquer parte da descrição. "Exato" só quando a descrição inteira for igual.</div>';
+    html += '<div style="margin-top:12px;padding:10px;background:#FFF9E6;border-radius:8px;font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0)">💡 "Contém" substitui em qualquer parte da descrição. "Começa com": a descrição que começa com o texto vira o "Para" inteiro (PARAFUSO… → PARAFUSO). "Exato" só quando a descrição inteira for igual.</div>';
   }
   html += '</div>';
   el.innerHTML = html;
@@ -44212,9 +44216,10 @@ cadGerenciarSubst = function(){
 // Regra que contém o próprio texto ("JUNTA" → "JUNTA DE VEDAÇÃO") não é reaplicada onde já está (substAplicarSeguro).
 // A descrição antiga fica em descAntesRegra (1ª vez). Os catálogos (📖) também recebem, senão o "Mandar pras Aplicações" voltava a antiga.
 function substAplicarSeguro(desc){
-  var lista=substCarregar().slice().sort(function(a,b){if(a.exato&&!b.exato)return -1;if(!a.exato&&b.exato)return 1;return b.de.length-a.de.length;});
+  var lista=substCarregar().slice().sort(substOrdem),jaC=false;
   var t=String(desc||'').toUpperCase().trim();
   lista.forEach(function(r){var de=String(r.de||'').toUpperCase(),pa=String(r.para||'').toUpperCase();if(!de)return;
+    if(r.comeca){if(!jaC&&substComecaBate(t,de)){t=pa;jaC=true;}return;}
     if(r.exato){if(t===de)t=pa;return;}
     if(pa.indexOf(de)>=0&&t.indexOf(pa)>=0)return;
     t=t.replace(new RegExp(de.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),pa);});
@@ -44297,9 +44302,9 @@ function substCadGravar(){
 substSalvarNova = function(){
   var de=(document.getElementById('substDe').value||'').trim().toUpperCase();
   var para=(document.getElementById('substPara').value||'').trim().toUpperCase();
-  var exato=document.getElementById('substTipo').value==='1';
+  var exato=document.getElementById('substTipo').value==='1',comeca=document.getElementById('substTipo').value==='2';
   if(!de||!para){pfAlert('Preencha os dois campos.');return;}
-  substAdicionarOuAtualizar(de,para,exato);
+  substAdicionarOuAtualizar(de,para,exato,comeca);
   substReaplicarNaPreview();
   cadGerenciarSubst();
 };
@@ -87132,7 +87137,9 @@ function pfCatArrRegra(k){
   var r=window._pfCatArr.L[k];if(!r)return;
   if(r.desc===r.antes){pfAlert('Mude o resumo na caixa primeiro; depois clique no 💾 pra virar regra.');return;}
   var dif=pfAlimRegraDiff(r.antes,r.desc),old=document.getElementById('pfAlimRegraDlg');if(old)old.remove();
-  if(!dif.para)dif={de:r.antes,para:r.desc,parcial:false}; // só encurtou: regra da descrição inteira (exata) — nunca "apagar texto" de tudo
+  if(!dif.para)dif={de:r.antes,para:r.desc,parcial:false}; // só encurtou: nunca "apagar texto" de tudo
+  var comecaSug=substComecaBate(r.antes,r.desc)&&r.desc!==r.antes; // v115.2388 encurtou pro começo ("PARAFUSO…" → "PARAFUSO") = começa com
+  if(comecaSug)dif={de:r.desc,para:r.desc,parcial:false};
   var inp='width:100%;box-sizing:border-box;border:1.5px solid #dfe5ec;border-radius:8px;padding:8px 10px;font-size:13px;font-weight:700;color:#1a2332;background:#fff';
   var ov=document.createElement('div');ov.id='pfAlimRegraDlg';
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100070;display:flex;align-items:center;justify-content:center;padding:16px';
@@ -87144,8 +87151,9 @@ function pfCatArrRegra(k){
     '<div style="padding:14px 16px;font-size:13px;color:#1a2332;display:flex;flex-direction:column;gap:10px">'+
       '<div><div style="font-size:10.5px;font-weight:800;color:#607080;text-transform:uppercase;margin-bottom:3px">Trocar</div><input id="pfCatArrRgDe" value="'+pfEscHtml(dif.de)+'" style="'+inp+'"></div>'+
       '<div><div style="font-size:10.5px;font-weight:800;color:#607080;text-transform:uppercase;margin-bottom:3px">Por</div><input id="pfCatArrRgPara" value="'+pfEscHtml(dif.para)+'" style="'+inp+'"></div>'+
-      '<label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="radio" name="pfCatArrRgModo" value="contem" '+(dif.parcial?'checked':'')+'><span><b>Em qualquer descrição</b> que tenha esse texto (ex.: todo "JOGO" vira "JG")</span></label>'+
-      '<label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="radio" name="pfCatArrRgModo" value="exato" '+(dif.parcial?'':'checked')+'><span><b>Só quando a descrição for exatamente</b> esse texto</span></label>'+
+      '<label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="radio" name="pfCatArrRgModo" value="comeca" '+(comecaSug?'checked':'')+'><span><b>Toda descrição que COMEÇA com</b> esse texto vira o "Por" inteiro (ex.: "PARAFUSO DE RETENÇÃO DO TUBO…" → "PARAFUSO")</span></label>'+
+      '<label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="radio" name="pfCatArrRgModo" value="contem" '+(!comecaSug&&dif.parcial?'checked':'')+'><span><b>Trocar o texto em qualquer descrição</b> que tenha ele (ex.: todo "JOGO" vira "JG")</span></label>'+
+      '<label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="radio" name="pfCatArrRgModo" value="exato" '+(!comecaSug&&!dif.parcial?'checked':'')+'><span><b>Só quando a descrição for exatamente</b> esse texto</span></label>'+
       '<div style="font-size:11.5px;color:#607080">Já passa nas outras peças desta lista (as que você não mexeu) e vale nos próximos catálogos, no 📥 Alimentar e na importação.</div>'+
     '</div>'+
     '<div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #e3eaf3;background:#F7F9FC">'+
@@ -87154,11 +87162,11 @@ function pfCatArrRegra(k){
   ov.querySelectorAll('[data-x]').forEach(function(b){b.onclick=fechar;});
   ov.querySelector('[data-ok]').onclick=function(){
     var de=String(document.getElementById('pfCatArrRgDe').value||'').trim().toUpperCase(),pa=String(document.getElementById('pfCatArrRgPara').value||'').trim().toUpperCase();
-    var ex=(document.querySelector('input[name="pfCatArrRgModo"]:checked')||{}).value==='exato';
+    var md=(document.querySelector('input[name="pfCatArrRgModo"]:checked')||{}).value,ex=md==='exato',co=md==='comeca';
     if(!de){pfAlert('Preencha o texto a trocar.');return;}
-    substAdicionarOuAtualizar(de,pa,ex);fechar();
-    var n=0;window._pfCatArr.L.forEach(function(L){if(L.mao)return;var d=pfSubstAplicarUma(L.desc,de,pa,ex);if(d!==L.desc){L.desc=d;n++;}});
-    pfCatArrRender();var m=document.getElementById('pfCatArrMsg');if(m)m.innerHTML='💾 Regra salva: <b>'+pfEscHtml(de)+'</b> → <b>'+pfEscHtml(pa)+'</b>'+(n?' — já passou em mais '+n+' peça(s) desta lista':'')+'. Clique em ✅ Gravar.';
+    substAdicionarOuAtualizar(de,pa,ex,co);fechar();
+    var n=0;window._pfCatArr.L.forEach(function(L){if(L.mao)return;var d=co?((substComecaBate(L.desc,de)||substComecaBate(L.completa,de))?pa:L.desc):pfSubstAplicarUma(L.desc,de,pa,ex);if(d!==L.desc){L.desc=d;n++;}});
+    pfCatArrRender();var m=document.getElementById('pfCatArrMsg');if(m)m.innerHTML='💾 Regra salva: '+(co?'começa com ':'')+'<b>'+pfEscHtml(de)+'</b> → <b>'+pfEscHtml(pa)+'</b>'+(n?' — já passou em mais '+n+' peça(s) desta lista':'')+'. Clique em ✅ Gravar.';
   };
 }
 function pfCatArrGravar(){
@@ -87417,8 +87425,9 @@ function pfCatEnvTradDiff(){
   var r=document.querySelector('input[name="pfCatEnvTrModo"][value="'+(dif.parcial?'contem':'exato')+'"]');if(r&&!(document.querySelector('input[name="pfCatEnvTrModo"][value="so"]')||{}).checked)r.checked=true;
 }
 // aplica UMA regra num texto (mesma conta do substAplicar); regra que contém o próprio texto ("JUNTA" → "JUNTA DE VEDAÇÃO") não é reaplicada
-function pfSubstAplicarUma(txt,de,para,exato){
+function pfSubstAplicarUma(txt,de,para,exato,comeca){
   var t=String(txt||'').toUpperCase();if(!de)return t;
+  if(comeca)return substComecaBate(t,de)?para:t;
   if(exato)return t===de?para:t;
   if(para.indexOf(de)>=0)return t;
   return t.replace(new RegExp(de.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),para);

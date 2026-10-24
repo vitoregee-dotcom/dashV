@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2405</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2406</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2405</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2406</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -68035,6 +68035,7 @@ function vendasFecharTab(tabId){
 // mas nunca existia) — por isso o X dava erro e travava no meio, deixando o
 // modal aberto com as abas já zeradas, daí aparecia em branco ao restaurar.
 function vendasFecharModal(){
+  setTimeout(function(){try{window._pfCotAbertasUlt=null;pfCotAbertasGuardar();}catch(e){}},0); // v115.2406 - fechou = tira do guardado
   var modal=document.getElementById('vendasModal');
   if(modal)modal.style.display='none';
   window._vendasMinimized=false;
@@ -92426,10 +92427,18 @@ function pfCotAbertasGuardar(){
     var at=window._vendasActiveTab;if(at&&window._vendasTabs[at]&&window._venda)window._vendasTabs[at].venda=window._venda;
     var tabs={},n=0;Object.keys(window._vendasTabs).forEach(function(k){var t=window._vendasTabs[k];if(t&&t.venda&&!t.venda.pvEdit&&((t.venda.itens||[]).length||t.venda.cliente)){tabs[k]=t;n++;}});
     if(!n){localStorage.removeItem(PF_COT_ABERTAS_KEY);return;}
+    var _j=JSON.stringify({ativa:at,tabs:tabs});
+    if(_j===window._pfCotAbertasUlt&&Date.now()-(window._pfCotAbertasUltTs||0)<60000)return;
+    window._pfCotAbertasUlt=_j;window._pfCotAbertasUltTs=Date.now();
     localStorage.setItem(PF_COT_ABERTAS_KEY,JSON.stringify({ts:Date.now(),ativa:at,tabs:tabs}));
   }catch(e){}
 }
 window.addEventListener('pagehide',function(){pfCotAbertasGuardar();});
+// v115.2406 - BUG (Vitor no iPad: "estava na cotação e veio pra cá do nada, sozinho"): o Chrome/Safari do iPad DESCARTA a aba em segundo plano
+// e recarrega ao voltar — sem pagehide, a cotação aberta não era guardada. Agora guarda também ao esconder a aba (visibilitychange) e a cada 5 s
+// com a cotação aberta (só grava se mudou).
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')pfCotAbertasGuardar();});
+setInterval(function(){try{if(window._vendasModalMode&&window._vendasTabs)pfCotAbertasGuardar();}catch(e){}},5000);
 (function(){
   try{if(/[?&]pfmonitor=1/.test(location.search)&&!/[?&]pfmonframe=1/.test(location.search))return;}catch(e){} // a moldura do monitor não roda o app
   var n=0,t=setInterval(function(){n++;if(n>60){clearInterval(t);return;}

@@ -1321,3 +1321,6 @@
   kit × avulsas (`vendasKitConflitoAbrir`) — v115.2401–2403; **TIPO DE PEÇA** (`vendasSerieTipoPeca`, v115.2404); **GRUPOS** (v115.2405,
   `pfPecaGrupos_v1`, padrão `PF_PECA_GRUPOS_PADRAO`: Vedação/Fixação/Rolamentos e buchas/Engrenagens e eixos/Kits; tela 🧩 `pfPecaGruposAbrir`).
 - Vedação: "anel retentor"/"retentor do anel/de mola" = trava, não vedação (v115.2399).
+- v115.2406 BUG ("estava na cotação e veio pra cá do nada, sozinho" — iPad): o Chrome do iPad descarta a aba em segundo plano e recarrega (sessão nova
+  no `pf_sessoes`), sem `pagehide`. `pfCotAbertasGuardar` agora roda também no `visibilitychange` hidden e a cada 5 s com a cotação aberta (só grava se
+  mudou); `vendasFecharModal` atualiza/apaga o guardado (fechar de propósito não reabre).

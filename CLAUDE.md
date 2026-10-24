@@ -1300,3 +1300,24 @@
   `<button>` e `.pfBtn` das 3 rotinas de opacity do alfinete.
 - Carta de Correção: `CCC_PARA_EXTRA_EMAILS` (faturamento@encopelrolamentos.com.br no "Para").
 - Testes: Playwright **1.56.1** (casa com /opt/pw-browsers/chromium-1194); servidor http no MESMO comando do teste.
+
+## Sessão 23–24/10/2026 (v115.2381 → v115.2405) — descrições padrão, catálogo, kits e grupos
+- **Substituições de Descrição são da empresa** (v115.2381): `desc_substituicoes_v1` e `catpdf_traducoes_v1` no sync (PF_SYNC_KEYS + sharedKeys +
+  PF_CATALOGO_UNICO_KEYS). Regra = {id:'s:DE', de, para, exato, comeca, tsMod}; remover = lápide `del` (`substSalvar` monta; `substCarregar` só ativas).
+  Antes ficavam só no navegador e o Sair apagava. Tipo **"começa com"** (v115.2388, `comeca`): "PARAFUSO…" → "PARAFUSO". `substAplicarSeguro` (cache, não
+  reaplica regra cujo "para" contém o "de"). **As regras valem pra TUDO** (v115.2400): itens da cotação (`vendasDescPadrao`, 1x por item `it._dr`),
+  lista da busca Série/Modelo, catálogo. 🔁 Aplicar nas peças já cadastradas (`substCadAbrir`, prévia antes→depois; Triex marcada também).
+- **2 descrições** (v115.2384): Descrição = resumo (com regras); Descrição Completa = igual ao catálogo em português SEM regra; texto em
+  inglês/italiano vai pra `descricaoOriginal`. Ficha vazia do estoque recebe a do catálogo (v115.2385, `descDoCat`).
+- **✏️ Arrumar descrições** no 📖 Catálogo (v115.2386, `pfCatEnvArrAbrir`): completa × resumo editável + 💾 regra; abre ao salvar catálogo novo e já
+  vem com as regras de hoje aplicadas (linhas amarelas, v115.2389).
+- Catálogo: salvar não trava com "Failed to fetch" (v115.2387: `pfStorageSubir` tenta 3x, continua de onde parou `N._up`, escaneado em JPEG, PDF > 15 MB
+  não bloqueia). Números do desenho: **arrastar o círculo** e **🎯 Ajustar com IA** (recorte ampliado, `pfCatEnvMarcaRefinarIA(btn,id,gids)`; todos os
+  desenhos de uma vez; caixa "ajustar ao salvar" no escaneado/Dana) — v115.2394/2395. `pfCatEnv_v1` sincroniza **catálogo por catálogo** (tsMod + `del`, v115.2396).
+- Cotação: cabeçalho do cliente em 2 visuais A/B (v115.2392, `vendasCabEstilo`, `pfCotCabPrefs_v1` por usuário; botão "🤝 FICHA (CRM)"; "#NOVA").
+  Cotações abertas reabrem sozinhas após F5/modo monitor (v115.2393, `pfCotAbertas_v1`, 30 min). Esc na lista Série/Modelo fecha só a lista (v115.2391).
+- **Busca Série/Modelo** (cotação): janela acima do dock (v115.2397); "+ Adicionar" só o que está à vista (v115.2398); **kits** (`vendasKitInfo`: catálogo
+  kitInclui/kitPai, cadastro ehKit/composicaoKit, descrição KIT/JOGO/CONJUNTO/"INCLUI ITENS") em bloco próprio, fora do "selecionar", aviso de duplicidade
+  kit × avulsas (`vendasKitConflitoAbrir`) — v115.2401–2403; **TIPO DE PEÇA** (`vendasSerieTipoPeca`, v115.2404); **GRUPOS** (v115.2405,
+  `pfPecaGrupos_v1`, padrão `PF_PECA_GRUPOS_PADRAO`: Vedação/Fixação/Rolamentos e buchas/Engrenagens e eixos/Kits; tela 🧩 `pfPecaGruposAbrir`).
+- Vedação: "anel retentor"/"retentor do anel/de mola" = trava, não vedação (v115.2399).

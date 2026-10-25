@@ -1347,3 +1347,11 @@
 - v115.2413 (catálogo DANA 176/413 conferido com o PDF — as posições "faltando" estão VAZIAS na lista da DANA: Carcaça Central "FREE NUMBERS 12 13 14 20" +
   5/6/7/16/18/19 "Optional" sem código; o leitor estava certo). Ajuste: o nº do desenho no cabeçalho da lista pode vir "176-04--057" (2 tracinhos, Diferencial) —
   o regex do `pfCatEnvLerPaginaDana` aceita `[-.]{1,2}` (antes a lista ligava ao desenho só pela página vizinha).
+- v115.2414 **📝 observações do desenho** (Vitor: "essas informações descritas nas figuras… seria bom estar em alguma observação do catálogo… sempre em inglês";
+  prévia `docs/referencias/catalogo-observacoes/` aprovada): `pfCatEnvObsIA(g,pdf,key)` manda a PÁGINA INTEIRA do PDF (o recorte salvo corta o rodapé) + o desenho
+  do sistema → `g.obs` {opc, livres, notas[{pt,en,nums}], lidoEm, ed} e `g.numsOp` [{n,cx,cy}] = nº no desenho SEM peça na lista (círculo cinza tracejado, só aviso).
+  `pfCatEnvObsLer(btn,id,gids,{pdf,silencioso,forcar})` (abre o PDF por `pfGarUrlAssinada(c.pdfPath)`; editado à mão `ed` não é relido sem forcar); roda sozinho depois
+  de salvar catálogo novo (depois do 🎯 ajuste). Caixa amarela `pfCatEnvObsHtml` embaixo do desenho (tela, popup da cotação): chips azul = tem peça / cinza = não vai,
+  código de desenho de outro grupo vira link pro grupo, 🌐 texto original, ✏️ `pfCatEnvObsEditar` (janela padrão), 🔁 ler de novo. Link do cliente: prefill `op` + `obs`
+  (c.html: `.hs.op` + caixa "📝 Observações"). Link já mandado não muda. Prévia da LISTA de catálogos (busca/filtros, por máquina + tabela) em
+  `docs/referencias/catalogo-lista/` — o Vitor quer as DUAS (miniaturas e lista), a fazer.

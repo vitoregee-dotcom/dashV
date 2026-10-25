@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2415</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2416</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2415</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2416</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -87862,7 +87862,8 @@ async function pfCatEnvObsIA(g,pdf,apiKey){
   }
   if(!data)throw errU||new Error('sem resposta');
   if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Catálogo de peças — observações do desenho',data.usage);
-  var txt=(data.content||[]).map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim(),m=txt.match(/\{[\s\S]*\}/),j=JSON.parse(m?m[0]:txt);
+  var txt=(data.content||[]).map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim(),m=txt.match(/\{[\s\S]*\}/),j;
+  try{j=JSON.parse(m?m[0]:txt);}catch(eJ){j=JSON.parse((m?m[0]:txt).replace(/,\s*([\]}])/g,'$1'));} // v115.2416 - vírgula sobrando no fim da lista
   var S2=function(a){return (Array.isArray(a)?a:[]).map(function(v){return String(v==null?'':v).trim();}).filter(Boolean);};
   var tem={};lista.forEach(function(n){tem[n]=1;});var livres=S2(j.livres),lv={};livres.forEach(function(n){lv[n]=1;});
   return {obs:{opc:S2(j.opcionais),livres:livres,notas:(Array.isArray(j.notas)?j.notas:[]).map(function(x){return {pt:String(x&&x.pt||'').trim(),en:String(x&&x.en||'').trim(),nums:S2(x&&x.nums)};}).filter(function(x){return x.pt||x.en;}),lidoEm:Date.now()},
@@ -87870,7 +87871,8 @@ async function pfCatEnvObsIA(g,pdf,apiKey){
 }
 async function pfCatEnvObsLer(btn,id,gids,opc){
   opc=opc||{};var c=pfCatEnvLoad().por[id];if(!c)return;
-  var grupos=(c.grupos||[]).filter(function(g){return g.img&&(!gids||gids.indexOf(g.id)>=0)&&!(g.obs&&g.obs.ed&&!opc.forcar);});
+  // v115.2416 - sem gids = só os desenhos que ainda não foram lidos (antes relia todos e o que deu erro sumia calado)
+  var grupos=(c.grupos||[]).filter(function(g){return g.img&&(gids?gids.indexOf(g.id)>=0:(opc.forcar||!(g.obs&&g.obs.lidoEm)))&&!(g.obs&&g.obs.ed&&!opc.forcar);});
   if(!grupos.length)return;
   var apiKey=localStorage.getItem('anthropic_key')||'';
   if(!apiKey&&!opc.silencioso){apiKey=window.prompt('Cole sua Anthropic API Key:');if(apiKey)pfAnthropicKeySet(apiKey);}
@@ -87882,8 +87884,8 @@ async function pfCatEnvObsLer(btn,id,gids,opc){
   for(var i=0;i<grupos.length;i++){var g=grupos[i];
     st('📝 Lendo as observações '+(grupos.length>1?'do desenho '+(i+1)+' de '+grupos.length:'do desenho')+'…');
     try{var r=await pfCatEnvObsIA(g,pdf,apiKey);
-      pfCatEnvMarcaGrupoSalvar(id,g.id,function(gg){gg.obs=r.obs;gg.numsOp=r.numsOp;});feitos++;if(pfCatEnvObsTem({obs:r.obs})||r.numsOp.length)comObs++;}
-    catch(e){erros.push(g.nome+': '+pfErroAmigavel(e&&e.message));}
+      pfCatEnvMarcaGrupoSalvar(id,g.id,function(gg){gg.obs=r.obs;gg.numsOp=r.numsOp;delete gg.obsErro;});feitos++;if(pfCatEnvObsTem({obs:r.obs})||r.numsOp.length)comObs++;}
+    catch(e){var em=pfErroAmigavel(e&&e.message);erros.push(g.nome+': '+em);pfCatEnvMarcaGrupoSalvar(id,g.id,function(gg){gg.obsErro={msg:em,em:Date.now()};});} // v115.2416 - erro fica marcado no desenho
   }
   if(btn){btn.disabled=false;btn.textContent=txt0;}else pfCatAjStatus('');
   var V=window._pfCatEnvVer;if(V&&V.id===id)pfCatEnvVer(id,V.gid,V.box);
@@ -87894,7 +87896,14 @@ function pfCatEnvObsHtml(c,g,bid,pop){
   var o=g.obs,pode=!pop&&pfCatEnvPode(),tem=pfCatEnvObsTem(g);
   if(!tem){
     if(!pode)return '';
-    return '<div style="margin-top:6px"><button class="pfBtn pfBtnClaro" style="height:28px;font-size:12px" title="A IA lê o que está escrito no desenho (opcionais, números sem uso, notas de montagem) e traduz — todos os desenhos deste catálogo (≈ US$ 0,01 por desenho)" onclick="pfCatEnvObsLer(this,\''+c.id+'\')">📝 '+(o&&o.lidoEm?'Ler de novo as observações':'Ler as observações dos desenhos')+'</button>'+(o&&o.lidoEm?' <span style="font-size:11px;color:#8a9ab0">este desenho não tem observação escrita</span>':'')+'</div>';
+    // v115.2416 - A pedido do Vitor ("esse tem observação no desenho, já leu, mas onde vai mostrar?" — o Bolts e Nuts tinha dado erro na leitura
+    // e nada avisava): diz se deu erro, lê SÓ este desenho, e o botão de todos lê só os que faltam.
+    var pend=(c.grupos||[]).filter(function(x){return x.img&&!(x.obs&&x.obs.lidoEm);}).length,er=g.obsErro;
+    return '<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
+      (er?'<span style="font-size:11.5px;color:#C0392B;font-weight:700">⚠ A leitura das observações deste desenho deu erro ('+pfEscHtml(er.msg||'')+')</span>':'')+
+      '<button class="pfBtn pfBtnClaro" style="height:28px;font-size:12px" title="A IA lê o que está escrito neste desenho (opcionais, números sem uso, notas de montagem) e traduz (≈ US$ 0,01)" onclick="pfCatEnvObsLer(this,\''+c.id+'\',[\''+g.id+'\'],{forcar:1})">📝 '+(o&&o.lidoEm?'Ler de novo':(er?'Tentar de novo':'Ler as observações deste desenho'))+'</button>'+
+      (pend>1?'<button class="pfBtn pfBtnClaro" style="height:28px;font-size:12px" onclick="pfCatEnvObsLer(this,\''+c.id+'\')">📝 Ler os '+pend+' desenhos que faltam</button>':'')+
+      (o&&o.lidoEm&&!er?'<span style="font-size:11px;color:#8a9ab0">este desenho não tem observação escrita</span>':'')+'</div>';
   }
   var lista=pfCatEnvNumsLista(g),temN={};lista.forEach(function(n){temN[n]=1;});
   var chip=function(n){var a=!!temN[n];return '<span onclick="pfCatEnvNum(\''+pfEscJs(n)+'\')" title="'+(a?'Nº '+pfEscHtml(n)+' — está na lista':'Nº '+pfEscHtml(n)+' — não vai neste equipamento (sem peça na lista)')+'" style="display:inline-block;min-width:18px;text-align:center;border-radius:10px;padding:0 5px;margin:0 1px;font-size:11.5px;font-weight:700;cursor:pointer;'+(a?'background:#e6f0fb;color:#1F4E79;border:1px solid #9cc0e8':'background:#eef0f3;color:#6b7480;border:1px dashed #9aa4b2')+'">'+pfEscHtml(n)+'</span>';};

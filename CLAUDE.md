@@ -1361,3 +1361,6 @@
   não perde o foco). Linhas `pfCatListaLinhas`: catálogos + séries só com a lista (`pfCatSeriesExistentes` sem desenho, n≥5, só quem sobe); máquinas pelas
   aplicações da série (`pfCatListaMaqs`: "W20, W20E" + marca CASE → CASE W20 / CASE W20E), componente `pfCatListaComp`. Estado `window._pfCatL`, modo em
   localStorage `pf_cat_modo`. Tabela ordena clicando no título. A antiga seção "Séries só com a lista" (`pfCatSemDesenhoHtml`) não é mais chamada.
+- v115.2416 BUG ("esse tem observação no desenho, já leu, mas onde vai mostrar?" — Bolts e Nuts do 176/413): a leitura daquele desenho deu erro e nada avisava
+  (os outros 4 foram lidos). Agora erro fica em `g.obsErro` {msg,em} e aparece embaixo do desenho com "Tentar de novo" (lê SÓ aquele, `forcar`); o botão geral
+  lê só os desenhos sem `obs.lidoEm` ("📝 Ler os N desenhos que faltam"); JSON da IA com vírgula sobrando é aceito.

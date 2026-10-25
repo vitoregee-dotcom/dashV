@@ -1364,3 +1364,6 @@
 - v115.2416 BUG ("esse tem observação no desenho, já leu, mas onde vai mostrar?" — Bolts e Nuts do 176/413): a leitura daquele desenho deu erro e nada avisava
   (os outros 4 foram lidos). Agora erro fica em `g.obsErro` {msg,em} e aparece embaixo do desenho com "Tentar de novo" (lê SÓ aquele, `forcar`); o botão geral
   lê só os desenhos sem `obs.lidoEm` ("📝 Ler os N desenhos que faltam"); JSON da IA com vírgula sobrando é aceito.
+- v115.2417 ("os cinzas ficaram fora do lugar"): a posição dos `numsOp` vinha da leitura da página inteira (imprecisa). `pfCatEnvMarcaRefinarIA(btn,id,gids,silencioso,campo)`
+  ganhou `campo` ('nums' padrão | 'numsOp': ajusta os sem `aj2`); o `pfCatEnvObsLer` roda sozinho no fim nos desenhos com cinzas; link "🎯 acertar os cinzas" na
+  caixa de observações (some quando todos têm `aj2`).

@@ -927,7 +927,7 @@
   (13.HR28443-501 / 12.1HR28421-503 / 260009 + modelo 176/413 ou 176/414). `pfCatEnvMandarAplic` agora NÃO duplica: peça que já está na série+marca (qualquer
   componente/máquina) = mesma aplicação (`flatPeca`); peça nova herda componente/máquina mais comum da série (e do MESMO modelo — os 2 eixos têm série 260009),
   `catGrupo` = grupo do catálogo. `pfAplicArrumarW20E` (no `pfAplicJuntarSemModelo`): componente com as letras de TRANSMISSAO → "TRANSMISSÃO"
-  (TRASNMISSÃO/TRANSMSISÃO, 35 peças) e DANA "W20E" sem marca → CASE. Banco em 21/10: 176/413 = EIXO TRASEIRO e 176/414 = EIXO DIANTEIRO (confirmar com o Vitor).
+  (TRASNMISSÃO/TRANSMSISÃO, 35 peças) e DANA "W20E" sem marca → CASE. Banco em 21/10: 176/413 = EIXO TRASEIRO e 176/414 = EIXO DIANTEIRO (CONFIRMADO pelo Vitor em 25/10/2026).
 - v115.2379 **porta única pra subir catálogo** (Vitor: "somente 1 lugar para subir catálogos… lá já serve para tudo"; "por enquanto só eu subo"; "cardan pode
   colocar junto"; prévia `docs/referencias/catalogo-unico/`): 📖 Catálogos de peças → "📥 Subir catálogo" (`pfCatSubirAbrir(tipo,alvo)`, só `pfCatPodeSubir` = Vitor):
   `PF_CAT_TIPOS` pdf (→ `pfCatEnvImportar`) / print (→ Alimentar) / lista (→ Importar Catálogo de Cadastros) / cardan (LNG `ccImportarLngAbrir`, Spicer

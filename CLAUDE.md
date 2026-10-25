@@ -1354,4 +1354,10 @@
   de salvar catálogo novo (depois do 🎯 ajuste). Caixa amarela `pfCatEnvObsHtml` embaixo do desenho (tela, popup da cotação): chips azul = tem peça / cinza = não vai,
   código de desenho de outro grupo vira link pro grupo, 🌐 texto original, ✏️ `pfCatEnvObsEditar` (janela padrão), 🔁 ler de novo. Link do cliente: prefill `op` + `obs`
   (c.html: `.hs.op` + caixa "📝 Observações"). Link já mandado não muda. Prévia da LISTA de catálogos (busca/filtros, por máquina + tabela) em
-  `docs/referencias/catalogo-lista/` — o Vitor quer as DUAS (miniaturas e lista), a fazer.
+  `docs/referencias/catalogo-lista/` — o Vitor quis as DUAS (feito na v115.2415).
+- v115.2415 **🗂️ lista de catálogos** ("como vão ficar organizados quando tiver vários?" → "gostei das 2 opções"): `pfCatEnvListaRender` = barra
+  `pfCatListaBarraHtml` (busca `pfBuscaPalavras` em título/marca/série/máquina/código das peças do catálogo, selects Marca/Componente/Máquina, chips Todos /
+  ✔ Com desenho / ⚠ Só lista / 🔗 Mandados pro cliente, modo 🚜 Por máquina | 🧩 Por componente | ☰ Lista) + `pfCatListaRes` (redesenha só o resultado, a busca
+  não perde o foco). Linhas `pfCatListaLinhas`: catálogos + séries só com a lista (`pfCatSeriesExistentes` sem desenho, n≥5, só quem sobe); máquinas pelas
+  aplicações da série (`pfCatListaMaqs`: "W20, W20E" + marca CASE → CASE W20 / CASE W20E), componente `pfCatListaComp`. Estado `window._pfCatL`, modo em
+  localStorage `pf_cat_modo`. Tabela ordena clicando no título. A antiga seção "Séries só com a lista" (`pfCatSemDesenhoHtml`) não é mais chamada.

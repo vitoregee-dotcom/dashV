@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2409</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2410</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2409</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2410</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -33973,6 +33973,57 @@ function pfAplicMarcarW20Trans501(){
 // v115.2378 - A pedido do Vitor (W20E vira a referência de testes): o componente digitado torto ("TRASNMISSÃO", "TRANSMSISÃO" — 35 peças da
 // 13.HR28443-501) separava a transmissão em 3 na busca → vira TRANSMISSÃO (mesmas letras de TRANSMISSAO, sem acento); e a máquina "W20E" sem
 // marca (série 12.1HR28421-503) ganha CASE, senão a W20E aparecia 2x em Máquinas. Roda sempre (só grava quando acha algo), lista e fichas.
+// v115.2410 - A pedido do Vitor (catálogo DANA 176/414: "esse código aí, na verdade, é o part number do eixo"): o nº do carimbo (176.97.000.414)
+// entrava como SÉRIE nova, mas o eixo já existia SEM série (DANA 176/413 · EIXO TRASEIRO · CASE W20E, 91 peças) → o catálogo criou uma 2ª série com as
+// MESMAS peças (repetidas). Agora o part number vira a série DESSE eixo: as aplicações da mesma marca+modelo SEM série ganham esse nº (mesmo id, mantêm
+// componente/máquina) e a cópia repetida que o catálogo criou é apagada (o grupo do catálogo vai pra catGrupo da que fica). Roda ao mandar o catálogo
+// pras Aplicações e ao abrir Aplicações (pfAplicJuntarSemModelo) — idempotente, então se outro aparelho devolver a repetida, junta de novo.
+function pfAplicSerieVaziaJuntar(marca,modelo,serie){
+  var U=function(x){return String(x||'').trim().toUpperCase();},M=U(marca),Mo=U(modelo),S=String(serie||'').replace(/\s+/g,'').trim();
+  if(!M||!Mo||!S)return 0;
+  var agora=Date.now(),flat=(typeof aplicLoad==='function'?aplicLoad():[])||[],mud=0;
+  var doEixo=function(a){return a&&!a.pmMaq&&U(a.marca)===M&&U(a.modelo)===Mo;};
+  var vazias=flat.filter(function(a){return doEixo(a)&&!String(a.serie||'').trim();});
+  var temS=flat.some(function(a){return doEixo(a)&&U(a.serie)===U(S);});
+  if(!vazias.length)return 0;
+  vazias.forEach(function(a){a.serie=S;a.ts=agora;a.tsMod=agora;mud++;});
+  if(temS){
+    // a que tem máquina/componente da lista antiga fica; a cópia do catálogo (catGrupo, sem máquina) sai
+    var cod=function(a){return pfAlimNorm(a.codigo).replace(/^0+(?=\d)/,'');},porCod={},tirar={},del=[];
+    flat.forEach(function(a){if(doEixo(a)&&U(a.serie)===U(S)){var k=cod(a);(porCod[k]=porCod[k]||[]).push(a);}});
+    var top={},nTop={};vazias.forEach(function(a){var hk=[a.equip||'',a.marcaVeiculo||'',a.veiculo||''].join('|');nTop[hk]=(nTop[hk]||0)+1;});
+    var hk=Object.keys(nTop).sort(function(a,b){return nTop[b]-nTop[a];})[0];if(hk){var hp=hk.split('|');top={equip:hp[0],marcaVeiculo:hp[1],veiculo:hp[2]};}
+    Object.keys(porCod).forEach(function(k){var l=porCod[k];
+      var fica=l.find(function(a){return vazias.indexOf(a)>=0;})||l[0];
+      l.forEach(function(a){if(a===fica)return;if(a.catGrupo&&!fica.catGrupo)fica.catGrupo=a.catGrupo;if(a.qtd!=null&&fica.qtd==null)fica.qtd=a.qtd;tirar[aplicChaveUnica(a)]=1;del.push(aplicChaveUnica(a));});
+      // peça que só o catálogo tinha: entra no componente/máquina do eixo
+      if(vazias.indexOf(fica)<0&&top.equip&&!String(fica.veiculo||'').trim()){if(!fica.catGrupo)fica.catGrupo=fica.equip;fica.equip=top.equip;fica.veiculo=top.veiculo;fica.marcaVeiculo=top.marcaVeiculo;}
+      fica.ts=agora;fica.tsMod=agora;});
+    if(del.length){flat=flat.filter(function(a){return !tirar[aplicChaveUnica(a)];});try{pfMarcarAplicacoesDeletadas(del);}catch(e){}mud+=del.length;}
+  }
+  aplicSave(flat);
+  // fichas: a aplicação sem série desse eixo ganha o nº; repetida (mesma série+marca) sai
+  var plist=cadLoad(PROD_KEY)||[],np=0;
+  plist.forEach(function(f){var ap=f.aplicacoes||[],m=false;
+    ap.forEach(function(a){if(doEixo(a)&&!String(a.serie||'').trim()){a.serie=S;m=true;}});
+    var vis={},n0=ap.length;f.aplicacoes=ap.filter(function(a){if(!doEixo(a)||U(a.serie)!==U(S))return true;if(vis.x){if(a.catGrupo&&!vis.x.catGrupo)vis.x.catGrupo=a.catGrupo;return false;}vis.x=a;return true;});
+    if(f.aplicacoes.length!==n0)m=true;
+    if(m){f.ts=agora;f.tsMod=agora;np++;}});
+  if(np)cadSave(PROD_KEY,plist);
+  if(typeof pfSyncPush==='function')try{pfSyncPush(np?[PROD_KEY,APLIC_KEY]:[APLIC_KEY]);}catch(e){}
+  console.log('v115.2410: '+M+' '+Mo+' → série '+S+' ('+mud+' vínculo(s), '+np+' ficha(s))');
+  return mud;
+}
+// conserta o que já entrou: série que veio de catálogo (tem catGrupo) + aplicações do MESMO eixo sem série → junta
+function pfAplicSerieVaziaReparar(){
+  try{
+    var U=function(x){return String(x||'').trim().toUpperCase();},flat=(typeof aplicLoad==='function'?aplicLoad():[])||[],g={};
+    flat.forEach(function(a){if(!a||a.pmMaq||!a.marca||!a.modelo)return;var k=U(a.marca)+'|'+U(a.modelo),x=g[k]=g[k]||{marca:a.marca,modelo:a.modelo,vaz:0,cat:{}};
+      var se=String(a.serie||'').trim();if(!se)x.vaz++;else if(a.catGrupo)x.cat[se]=1;});
+    var n=0;Object.keys(g).forEach(function(k){var x=g[k],ss=Object.keys(x.cat);if(x.vaz&&ss.length===1)n+=pfAplicSerieVaziaJuntar(x.marca,x.modelo,ss[0]);});
+    return n;
+  }catch(e){console.warn('reparar série vazia',e);return 0;}
+}
 function pfAplicArrumarW20E(){
   try{
     var letras=function(t){return pfBuscaAN(t).split('').sort().join('');},ALVO=letras('TRANSMISSAO');
@@ -34012,6 +34063,7 @@ function pfAplicJuntarSemModelo(fixo){
   try{pfAplicSepararDana260009();}catch(e){}
   try{pfAplicMarcarW20Trans501();}catch(e){}
   try{pfAplicArrumarW20E();}catch(e){} // v115.2378
+  try{pfAplicSerieVaziaReparar();}catch(e){} // v115.2410
   try{pfDescCompletaArrumar();}catch(e){} // v115.2384
   var flat=(typeof aplicLoad==='function'?aplicLoad():[])||[],cnt={},U=function(x){return String(x||'').trim().toUpperCase();};
   flat.forEach(function(a){if(a.serie&&a.modelo&&PF_APLIC_MARCA_MOTOR.test(U(a.marca))){var k=U(a.marca)+'|'+U(a.serie),m=U(a.modelo);(cnt[k]=cnt[k]||{})[m]=(cnt[k][m]||0)+1;}});
@@ -85338,13 +85390,13 @@ function pfAlimCtxSalvar(){var g=function(id){var e=document.getElementById(id);
 function pfAplicDesLoad(){var o={};try{o=JSON.parse(pfSafeGetItem(PF_APLIC_DES_KEY,'{}'))||{};}catch(e){}if(!o.por)o.por={};return o;}
 function pfAplicDesSalvar(o){o.ts=Date.now();pfSafeSetItem(PF_APLIC_DES_KEY,JSON.stringify(o));if(typeof pfSyncPush==='function')try{pfSyncPush([PF_APLIC_DES_KEY]);}catch(e){}}
 function pfAplicDesChave(marca,serie,grupo){return [marca,serie,grupo].map(function(x){return String(x||'').toUpperCase().replace(/\s+/g,' ').trim();}).join('|');}
-function pfAplicDesenhoDe(a){if(!a||!a.serie)return null;var o=pfAplicDesLoad();return o.por[pfAplicDesChave(a.marca,a.serie,a.equip)]||null;}
+function pfAplicDesenhoDe(a){if(!a||!a.serie)return null;var o=pfAplicDesLoad();return (a.catGrupo&&o.por[pfAplicDesChave(a.marca,a.serie,a.catGrupo)])||o.por[pfAplicDesChave(a.marca,a.serie,a.equip)]||null;} // v115.2410 catGrupo
 // v115.2171 - lista os desenhos guardados de uma série (selo 🖼 no card de Aplicações); 1 só = abre direto
 function pfAplicDesenhosDaSerie(serie){
   // v115.2173 - mostra também os grupos SEM desenho da série, com "➕ Subir desenho" (abre o Alimentar já no grupo)
   var U=function(x){return String(x||'').trim().toUpperCase();},S=U(serie),o=pfAplicDesLoad().por;
   var l=Object.keys(o).map(function(k){return o[k];}).filter(function(d){return U(d.serie)===S;});
-  var grs={},marca='',modelo='';((typeof aplicLoad==='function'?aplicLoad():[])||[]).forEach(function(a){if(U(a.serie)===S){if(a.equip)grs[a.equip]=1;marca=marca||a.marca;modelo=modelo||a.modelo;}});
+  var grs={},marca='',modelo='';((typeof aplicLoad==='function'?aplicLoad():[])||[]).forEach(function(a){if(U(a.serie)===S){if(a.catGrupo||a.equip)grs[a.catGrupo||a.equip]=1;marca=marca||a.marca;modelo=modelo||a.modelo;}});
   var sem=Object.keys(grs).sort().filter(function(g){return !l.some(function(d){return U(d.grupo)===U(g);});});
   var old=document.getElementById('pfAplicDesSerieOv');if(old)old.remove();
   var ov=document.createElement('div');ov.id='pfAplicDesSerieOv';ov.style.cssText='position:fixed;inset:0;background:rgba(10,18,32,.6);z-index:10040;display:flex;align-items:center;justify-content:center;padding:16px';
@@ -86565,6 +86617,12 @@ function pfCatSerieInfoHtml(marca,modelo,serie,fill){
   var box=function(cor,bg,bd,t){return '<div data-pf-cat-serie-info style="margin-top:8px;background:'+bg+';border:1px solid '+bd+';color:'+cor+';border-radius:10px;padding:9px 12px;font-size:12.5px;line-height:1.5">'+t+'</div>';};
   if(ex.length){var x=ex[0];return box('#1E6B33','#EAF6EE','#9fd3b0','✅ <b>Essa série já existe:</b> '+pfEscHtml([x.marca,x.modelo].filter(Boolean).join(' '))+' · '+pfEscHtml(x.equip||'')+' · <b>'+x.n+' peça'+(x.n>1?'s':'')+'</b>'+(x.maq?' · 🚜 '+pfEscHtml(x.maq):'')+
     '<br>O catálogo <b>junta com ela</b>: as peças que já estão lá ganham o desenho e o nº; as novas entram em '+pfEscHtml((x.equip||'?')+(x.maq?' / '+x.maq:''))+'.'+(x.temDes?'<br>ℹ️ Essa série já tem desenho — subir de novo atualiza.':''));}
+  // v115.2410 - eixo/componente que já existe SEM série (mesma marca + modelo): o nº digitado (part number) passa a ser a série dele
+  if(M&&Mo){var vz={n:0,eq:{},mq:{}};((typeof aplicLoad==='function'?aplicLoad():[])||[]).forEach(function(a){if(!a||a.pmMaq||String(a.serie||'').trim()||pfBuscaN(a.marca).trim()!==M||pfBuscaAN(a.modelo)!==Mo)return;vz.n++;
+      if(a.equip)vz.eq[a.equip]=(vz.eq[a.equip]||0)+1;var mq=[a.marcaVeiculo,a.veiculo].filter(Boolean).join(' ').trim();if(mq)vz.mq[mq]=(vz.mq[mq]||0)+1;});
+    if(vz.n){var tp=function(o){return Object.keys(o).sort(function(a,b){return o[b]-o[a];})[0]||'';},eq=tp(vz.eq),mq=tp(vz.mq);
+      return box('#1E6B33','#EAF6EE','#9fd3b0','✅ <b>Esse eixo já existe, sem número de série:</b> '+pfEscHtml(M+' '+modelo)+(eq?' · '+pfEscHtml(eq):'')+' · <b>'+vz.n+' peça'+(vz.n>1?'s':'')+'</b>'+(mq?' · 🚜 '+pfEscHtml(mq):'')+
+        '<br>O catálogo <b>junta com ele</b> e o nº <b>'+pfEscHtml(serie)+'</b> (part number) passa a ser a série dele — sem repetir peça.');}}
   var par=l.filter(function(x){var a=pfBuscaAN(x.serie);return (!M||x.marca===M)&&a!==S&&(pfCatDist(a,S)<=2||(S.length>=5&&(a.indexOf(S)===0||S.indexOf(a)===0)));}).slice(0,3);
   if(par.length)return box('#8A5A00','#FFF6E5','#E8B04B','⚠ <b>Essa série não existe.</b> Você quis dizer: '+par.map(function(x){return '<a href="javascript:void(0)" onclick="'+(fill||'')+'(\''+pfEscJs(x.marca)+'\',\''+pfEscJs(x.modelo)+'\',\''+pfEscJs(x.serie)+'\')" style="color:#1F4E79;font-weight:800">'+pfEscHtml(x.serie)+'</a> <span style="opacity:.8">('+pfEscHtml([x.modelo,x.equip].filter(Boolean).join(' · '))+' · '+x.n+' peças)</span>';}).join(' · ')+'?<br>Se for mesmo uma série NOVA, pode seguir.');
   return box('#1F4E79','#EEF4FB','#c9dcf0','🆕 <b>Série nova</b> — vai criar '+pfEscHtml([M,modelo,serie].filter(Boolean).join(' · '))+'.');
@@ -87014,6 +87072,8 @@ async function pfCatEnvDanaMontar(pdf,file,buf,danaPags,semTexto,textoTodo){
   N.marca='DANA';N.modelo=mod;N.ref=mRef?mRef[1]:mod;
   var mq=/Macchina:\s*(.+?)(?:\s{2,}|\s+Note\b|$)/i.exec(textoTodo);N.maquina=mq?mq[1].trim():'';
   N.posicao=pfCatEnvDetectarPosicao(grupos,textoTodo);
+  try{var Ue=function(x){return String(x||'').trim().toUpperCase();},cP={};((typeof aplicLoad==='function'?aplicLoad():[])||[]).forEach(function(a){if(Ue(a.marca)==='DANA'&&mod&&Ue(a.modelo)===Ue(mod)){var e=Ue(a.equip);if(/DIANTEIR/.test(e))cP.dianteiro=(cP.dianteiro||0)+1;else if(/TRASEIR/.test(e))cP.traseiro=(cP.traseiro||0)+1;}});
+    var pK=Object.keys(cP).sort(function(a,b){return cP[b]-cP[a];})[0];if(pK)N.posicao=pK;}catch(e){} // v115.2410 - posição vem do eixo que já existe (176/414 = dianteiro no cadastro)
   pfCatEnvDanaPrevia();
 }
 function pfCatEnvDanaMontarGrupos(N){
@@ -87298,6 +87358,7 @@ async function pfCatEnvSalvarNovo(){
 //   * peça sem ficha = FICHA NOVA com doCatalogo (⚠️ conferir na cotação até ter NCM), igual ao Alimentar.
 // Roda ao salvar o catálogo e pelo botão "🔁 Mandar pras Aplicações" (catálogo já carregado / depois de corrigir tradução).
 function pfCatEnvMandarAplic(cat){
+  try{if(cat&&cat.marca&&cat.modelo&&(cat.ref||'').trim())pfAplicSerieVaziaJuntar(cat.marca,cat.modelo,cat.ref);}catch(e){} // v115.2410
   var agora=Date.now(),plist=cadLoad(PROD_KEY)||[],flat=(typeof aplicLoad==='function'?aplicLoad():[])||[],idx={},nApl=0,novas=0,nDes=0,nDescF=0;
   var U=function(x){return String(x||'').trim().toUpperCase();},marca=U(cat.marca),serie=U(cat.ref||cat.modelo),modelo=String(cat.modelo||'').trim();
   if(!marca||!serie)return {erro:'falta marca ou ref./série no catálogo'};

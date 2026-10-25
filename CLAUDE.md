@@ -1331,3 +1331,9 @@
   chamada e o aviso dizia "não achou". Agora avisa "✅ todos já estão marcados" e aponta o 🎯 Ajustar / arrastar o círculo (`jaTodos` no `pfCatEnvMarcarIA`).
 - v115.2409 ("por que já não estava assim?"): o 🤖 Marcar com IA já roda o 🎯 Ajustar sozinho logo depois (`pfCatEnvMarcaRefinarIA(btn,id,gids,silencioso)`
   devolve {ajust,tot,erros} sem aviso) nos desenhos que ganharam marcas; um aviso só no fim.
+- v115.2410 ("esse código aí, na verdade, é o part number do eixo" — catálogo DANA 176/414, ref 176.97.000.414): o eixo já existia SEM série (176/413 ·
+  EIXO TRASEIRO · W20E e 176/414 · EIXO DIANTEIRO · W20E) e o catálogo do 176/413 criou a série "176.97.000.413" com 91 peças REPETIDAS. `pfAplicSerieVaziaJuntar
+  (marca,modelo,pn)`: aplicações da mesma marca+modelo sem série ganham o part number como série (mesmo id, mantêm componente/máquina), a cópia do catálogo sai
+  (grupo do catálogo vai pra `catGrupo`), peça só do catálogo herda componente/máquina. Roda no `pfCatEnvMandarAplic` e no `pfAplicJuntarSemModelo`
+  (`pfAplicSerieVaziaReparar`, idempotente). Aviso ✅ "esse eixo já existe sem número de série" no `pfCatSerieInfoHtml`; posição do Dana vem do eixo que já existe;
+  `pfAplicDesenhoDe` usa `catGrupo` antes do equip.

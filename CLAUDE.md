@@ -1337,3 +1337,6 @@
   (grupo do catálogo vai pra `catGrupo`), peça só do catálogo herda componente/máquina. Roda no `pfCatEnvMandarAplic` e no `pfAplicJuntarSemModelo`
   (`pfAplicSerieVaziaReparar`, idempotente). Aviso ✅ "esse eixo já existe sem número de série" no `pfCatSerieInfoHtml`; posição do Dana vem do eixo que já existe;
   `pfAplicDesenhoDe` usa `catGrupo` antes do equip.
+- v115.2411 ("ainda marca errado"): o 🎯 Ajustar (`pfCatEnvMarcaRefinarIA`) agora faz 2 aproximações por número — recorte GRANDE (35% do desenho) pra achar
+  e recorte FECHADO (11%) em volta do achado pra centralizar —, a IA devolve o RETÂNGULO dos algarismos (box) em vez de um ponto. ≈ US$ 0,002 por número.
+  `pfCatEnvNumAjustar(x)` = ia:1 ou ia:2 sem `aj2` (os do ajuste antigo voltam a aparecer no botão); arrastar à mão tira o `ia` (não é mexido de novo).

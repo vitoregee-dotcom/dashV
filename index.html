@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2410</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2411</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2410</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2411</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -87666,7 +87666,9 @@ function pfCatEnvMarcaArrastar(ev,idx,el){
 function pfCatEnvMarcaCircClique(ev,idx){ev.stopPropagation();if(window._pfCatEnvArrastou&&Date.now()-window._pfCatEnvArrastou<400)return;pfCatEnvMarcaApagar(ev,idx);}
 // 2ª passada da IA: um recorte AMPLIADO em volta de cada círculo que veio da IA ("procure o nº X aqui") → centro certo. Até 8 recortes por pedido.
 // v115.2395 - "tenho que fazer página por página?": aceita vários desenhos (id + gids) — "🎯 Ajustar todos" e o ajuste automático ao salvar.
-function pfCatEnvNIa1(g){return (g.nums||[]).filter(function(x){return x.ia===1;}).length;}
+// v115.2411 - precisa de ajuste = marcado pela IA e ainda não passou pelo ajuste de 2 aproximações (aj2) — os do ajuste antigo (ia:2 sem aj2) também
+function pfCatEnvNumAjustar(x){return !!x&&(x.ia===1||(x.ia===2&&!x.aj2));}
+function pfCatEnvNIa1(g){return (g.nums||[]).filter(pfCatEnvNumAjustar).length;}
 function pfCatAjStatus(t){var d=document.getElementById('pfCatAjStatus');if(!t){if(d)d.remove();return;}
   if(!d){d=document.createElement('div');d.id='pfCatAjStatus';d.style.cssText='position:fixed;right:20px;bottom:'+((typeof pfAiDockClearance==='function'?pfAiDockClearance():90)+12)+'px;z-index:100080;background:#1c2940;color:#fff;border-radius:10px;padding:10px 14px;font-size:13px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.3)';document.body.appendChild(d);}
   d.textContent=t;}
@@ -87686,30 +87688,43 @@ async function pfCatEnvMarcaRefinarIA(btn,id,gids,silencioso){ // v115.2409 sile
   for(var G=0;G<grupos.length;G++){
     var g=grupos[G];
     try{
-      var alvos=(g.nums||[]).map(function(n,i){return {i:i,n:n};}).filter(function(a){return a.n.ia===1;});
+      var alvos=(g.nums||[]).map(function(n,i){return {i:i,n:n};}).filter(function(a){return pfCatEnvNumAjustar(a.n);});
       var blob=await (await fetch(g.img)).blob(),url=URL.createObjectURL(blob);
       var im=await new Promise(function(res,rej){var x=new Image();x.onload=function(){res(x);};x.onerror=function(){rej(new Error('desenho não abriu'));};x.src=url;});
-      var W=im.naturalWidth,H=im.naturalHeight,S=Math.round(Math.max(160,Math.min(W,H)*0.16)),OUT=400,lotes=[];
-      for(var k=0;k<alvos.length;k+=8)lotes.push(alvos.slice(k,k+8));
-      for(var L=0;L<lotes.length;L++){
-        st('🎯 Ajustando '+(grupos.length>1?'desenho '+(G+1)+'/'+grupos.length+' · ':'')+(feito+1)+'–'+Math.min(tot,feito+lotes[L].length)+' de '+tot+'…');
-        var conteudo=[],rec=[];
-        lotes[L].forEach(function(a,j){
-          var px=a.n.cx*W,py=a.n.cy*H,x0=Math.round(Math.min(Math.max(0,px-S/2),Math.max(0,W-S))),y0=Math.round(Math.min(Math.max(0,py-S/2),Math.max(0,H-S))),sw=Math.min(S,W),sh=Math.min(S,H);
-          var cv=document.createElement('canvas');cv.width=OUT;cv.height=Math.round(OUT*sh/sw);var cx2=cv.getContext('2d');cx2.fillStyle='#fff';cx2.fillRect(0,0,cv.width,cv.height);cx2.drawImage(im,x0,y0,sw,sh,0,0,cv.width,cv.height);
-          rec.push({a:a,x0:x0,y0:y0,sw:sw,sh:sh,ow:cv.width,oh:cv.height});
-          conteudo.push({type:'text',text:'Recorte '+(j+1)+' — procure o número '+a.n.n+':'});
+      // v115.2411 - A pedido do Vitor ("ainda marca errado"): 1 recorte só (16%) em volta do círculo errado → se a IA da 1ª passada errou longe,
+      // o nº nem estava no recorte e o círculo ficava. Agora 2 aproximações: recorte GRANDE (35%) pra ACHAR o nº e recorte FECHADO (11%) em volta
+      // do que achou pra acertar o CENTRO; a IA devolve o RETÂNGULO dos algarismos (mais preciso que um ponto). Não achou no grande = fica como está.
+      var W=im.naturalWidth,H=im.naturalHeight,OUT=420,lotes=[],mn=Math.min(W,H);
+      for(var k=0;k<alvos.length;k+=6)lotes.push(alvos.slice(k,k+6));
+      var pedir=async function(lista,S,rotulo){ // lista [{a,px,py}] → {i:{x,y}} em px do desenho
+        var conteudo=[],rec=[],out={};
+        lista.forEach(function(q,j){
+          var sw=Math.min(S,W),sh=Math.min(S,H),x0=Math.round(Math.min(Math.max(0,q.px-sw/2),Math.max(0,W-sw))),y0=Math.round(Math.min(Math.max(0,q.py-sh/2),Math.max(0,H-sh)));
+          var cv=document.createElement('canvas');cv.width=OUT;cv.height=Math.round(OUT*sh/sw);var c2=cv.getContext('2d');c2.fillStyle='#fff';c2.fillRect(0,0,cv.width,cv.height);c2.drawImage(im,x0,y0,sw,sh,0,0,cv.width,cv.height);
+          rec.push({q:q,x0:x0,y0:y0,sw:sw,sh:sh,ow:cv.width,oh:cv.height});
+          conteudo.push({type:'text',text:'Recorte '+(j+1)+' ('+cv.width+'x'+cv.height+' px) — número pedido: '+q.a.n.n});
           conteudo.push({type:'image',source:{type:'base64',media_type:'image/png',data:cv.toDataURL('image/png').split(',')[1]}});
         });
-        conteudo.push({type:'text',text:'Cada recorte é um pedaço ampliado ('+OUT+' px de largura) de um desenho técnico de peças. Em cada um, ache o número de referência pedido IMPRESSO no desenho (os algarismos, às vezes dentro de um círculo; não confunda com cotas nem com outros números). '+
-          'Responda SÓ com JSON: [{"k":1,"x":200,"y":180}] — x,y = pixel do CENTRO dos algarismos dentro daquele recorte. Se o número pedido não estiver no recorte, use "x":null.'});
+        conteudo.push({type:'text',text:'Cada recorte é um pedaço ampliado de um desenho técnico de peças (vista explodida). Em cada recorte, ache o NÚMERO DE REFERÊNCIA pedido: algarismos impressos (às vezes dentro de um círculo/balão) na ponta de uma linha fina que aponta pra peça. '+
+          'Não confunda com cotas, outros números de referência ou partes do desenho. Se aparecer mais de uma vez, escolha o mais perto do CENTRO do recorte. '+
+          'Responda SÓ com JSON: [{"k":1,"box":[x0,y0,x1,y1]}] — box = retângulo justo em volta dos ALGARISMOS (não do balão nem da peça), em pixels daquele recorte. Se o número não estiver no recorte, "box":null.'});
         var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:pfAnthropicHeaders(apiKey),body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1500,messages:[{role:'user',content:conteudo}]})});
         var data=await resp.json();if(data.error)throw new Error(data.error.message||'erro na leitura');
-        if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Catálogo de peças — ajustar números com IA',data.usage);
+        if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Catálogo de peças — ajustar números com IA ('+rotulo+')',data.usage);
         var t=(data.content||[]).map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim(),m=t.match(/\[[\s\S]*\]/),arr=[];try{arr=JSON.parse(m?m[0]:t);}catch(e){}
-        var novos={};(Array.isArray(arr)?arr:[]).forEach(function(p){var R=rec[(+p.k)-1];if(!R||p.x==null||p.y==null)return;var x=+p.x,y=+p.y;if(!(x>=0&&x<=R.ow&&y>=0&&y<=R.oh))return;
-          novos[R.a.i]={cx:+((R.x0+x/R.ow*R.sw)/W).toFixed(4),cy:+((R.y0+y/R.oh*R.sh)/H).toFixed(4)};});
-        pfCatEnvMarcaGrupoSalvar(id,g.id,function(gg){Object.keys(novos).forEach(function(i){var x=gg.nums[i];if(x&&x.ia===1){x.cx=novos[i].cx;x.cy=novos[i].cy;x.ia=2;ajust++;}});});
+        (Array.isArray(arr)?arr:[]).forEach(function(r){var R=rec[(+r.k)-1],b=r.box;if(!R||!Array.isArray(b)||b.length!==4)return;b=b.map(Number);
+          if(b.some(function(v){return isNaN(v);}))return;var x=(b[0]+b[2])/2,y=(b[1]+b[3])/2;if(!(x>=0&&x<=R.ow&&y>=0&&y<=R.oh))return;
+          out[R.q.a.i]={x:R.x0+x/R.ow*R.sw,y:R.y0+y/R.oh*R.sh};});
+        return out;
+      };
+      for(var L=0;L<lotes.length;L++){
+        st('🎯 Ajustando '+(grupos.length>1?'desenho '+(G+1)+'/'+grupos.length+' · ':'')+(feito+1)+'–'+Math.min(tot,feito+lotes[L].length)+' de '+tot+'…');
+        var l1=lotes[L].map(function(a){return {a:a,px:a.n.cx*W,py:a.n.cy*H};});
+        var r1=await pedir(l1,Math.round(Math.max(260,mn*0.35)),'achar');
+        var l2=l1.filter(function(q){return r1[q.a.i];}).map(function(q){return {a:q.a,px:r1[q.a.i].x,py:r1[q.a.i].y};});
+        var r2=l2.length?await pedir(l2,Math.round(Math.max(110,mn*0.11)),'centro'):{};
+        var novos={};l2.forEach(function(q){var p2=r2[q.a.i]||r1[q.a.i];novos[q.a.i]={cx:+(p2.x/W).toFixed(4),cy:+(p2.y/H).toFixed(4)};});
+        pfCatEnvMarcaGrupoSalvar(id,g.id,function(gg){Object.keys(novos).forEach(function(i){var x=gg.nums[i];if(pfCatEnvNumAjustar(x)){x.cx=novos[i].cx;x.cy=novos[i].cy;x.ia=2;x.aj2=1;ajust++;}});});
         feito+=lotes[L].length;
       }
       URL.revokeObjectURL(url);
@@ -87720,7 +87735,7 @@ async function pfCatEnvMarcaRefinarIA(btn,id,gids,silencioso){ // v115.2409 sile
   if(silencioso)return {ajust:ajust,tot:tot,erros:erros};
   pfAlert('🎯 A IA ajustou '+ajust+' de '+tot+' círculo(s)'+(grupos.length>1?' em '+grupos.length+' desenhos':'')+'. Confira: o que ainda estiver fora, arraste pro número certo (📍 Marcar números).'+(erros.length?'\n\nNão deu em: '+erros.join('; '):''));
 }
-function pfCatAjAoSalvarHtml(){return '<label title="Depois de salvar, a IA olha de perto cada número que ela marcou e acerta o centro (≈ US$ 0,001 por número)" style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#1a2332;cursor:pointer;margin-left:6px"><input type="checkbox" id="pfCatAjAoSalvar" checked> 🎯 Ajustar os números com IA ao salvar</label>';}
+function pfCatAjAoSalvarHtml(){return '<label title="Depois de salvar, a IA olha de perto cada número que ela marcou e acerta o centro (≈ US$ 0,002 por número)" style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#1a2332;cursor:pointer;margin-left:6px"><input type="checkbox" id="pfCatAjAoSalvar" checked> 🎯 Ajustar os números com IA ao salvar</label>';}
 function pfCatEnvMarcaApagar(ev,idx){
   ev.stopPropagation();var V=window._pfCatEnvVer,M=window._pfCatEnvMarca;if(!V)return;
   var g=pfCatEnvMarcaGrupoSalvar(V.id,V.gid,function(g){var x=g.nums[idx];if(x&&M)M.n=x.n;g.nums.splice(idx,1);});
@@ -87743,17 +87758,17 @@ function pfCatEnvMarcaBarraHtml(c,g){
     return '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">'+
       '<button class="pfBtn pfBtnClaro" style="height:30px;font-size:12px" title="Clique uma vez em cada número do desenho" onclick="pfCatEnvMarcaLigar(\''+c.id+'\',\''+g.id+'\',true)">📍 Marcar números</button>'+
       '<button class="pfBtn pfBtnClaro" style="height:30px;font-size:12px" title="A IA acha onde está cada número; depois você confere" onclick="pfCatEnvMarcarIA(\''+c.id+'\',[\''+g.id+'\'],this)">'+pfRoboHtml('apontando',18,'vertical-align:-4px;margin-right:2px')+'Marcar com IA</button>'+
-      (function(){var gs=(c.grupos||[]).filter(function(x){return pfCatEnvNIa1(x);}),n=gs.reduce(function(s,x){return s+pfCatEnvNIa1(x);},0);return n?'<button class="pfBtn pfBtnAzul" style="height:30px;font-size:12px" title="A IA olha de perto cada número que ela marcou e acerta o centro — todos os desenhos de uma vez (≈ US$ '+(n*0.001).toFixed(2)+')" onclick="pfCatEnvMarcaRefinarIA(this,\''+c.id+'\','+pfEscHtml(JSON.stringify(gs.map(function(x){return x.id;})))+')">🎯 Ajustar todos os desenhos ('+n+' nº)</button>':'';})()+
+      (function(){var gs=(c.grupos||[]).filter(function(x){return pfCatEnvNIa1(x);}),n=gs.reduce(function(s,x){return s+pfCatEnvNIa1(x);},0);return n?'<button class="pfBtn pfBtnAzul" style="height:30px;font-size:12px" title="A IA olha de perto cada número que ela marcou e acerta o centro — todos os desenhos de uma vez (≈ US$ '+(n*0.002).toFixed(2)+')" onclick="pfCatEnvMarcaRefinarIA(this,\''+c.id+'\','+pfEscHtml(JSON.stringify(gs.map(function(x){return x.id;})))+')">🎯 Ajustar todos os desenhos ('+n+' nº)</button>':'';})()+
       (semNum.length>1?'<button class="pfBtn pfBtnClaro" style="height:30px;font-size:12px" onclick="pfCatEnvMarcarIA(\''+c.id+'\','+pfEscHtml(JSON.stringify(semNum.map(function(x){return x.id;})))+',this)">'+pfRoboHtml('apontando',18,'vertical-align:-4px;margin-right:2px')+'Todos os desenhos sem número ('+semNum.length+')</button>':'')+
       (f.length&&(g.nums||[]).length?'<span style="font-size:11px;color:#b9770e">faltam '+f.length+' nº: '+pfEscHtml(f.slice(0,12).join(', '))+(f.length>12?'…':'')+'</span>':'')+'</div>';
   }
   var opts=l.map(function(n){return '<option value="'+pfEscHtml(n)+'"'+(n===M.n?' selected':'')+'>'+pfEscHtml(n)+(f.indexOf(n)>=0?'':' ✓')+'</option>';}).join('');
-  var nIa=(g.nums||[]).filter(function(x){return x.ia;}).length,nIa1=(g.nums||[]).filter(function(x){return x.ia===1;}).length;
+  var nIa=(g.nums||[]).filter(function(x){return x.ia;}).length,nIa1=(g.nums||[]).filter(pfCatEnvNumAjustar).length;
   return '<div style="margin-top:6px;padding:8px 10px;background:#FFF4EC;border:1.5px solid #E2622A;border-radius:10px;font-size:12.5px;color:#5a2d0c">'+
     '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><b>📍 Clique no desenho onde está o nº</b>'+
     '<select onchange="window._pfCatEnvMarca.n=this.value" style="font-size:14px;font-weight:800;padding:3px 6px;border:1.5px solid #E2622A;border-radius:6px;color:#E2622A">'+opts+'</select>'+
     '<span>· marcados '+(l.length-f.length)+' de '+l.length+'</span><span style="flex:1"></span>'+
-    (nIa1?'<button class="pfBtn pfBtnAzul" style="height:28px;font-size:12px" title="A IA olha um recorte ampliado em volta de cada círculo dela e acerta o centro (≈ US$ 0,001 por número)" onclick="pfCatEnvMarcaRefinarIA(this)">🎯 Ajustar este desenho ('+nIa1+')</button>':'')+
+    (nIa1?'<button class="pfBtn pfBtnAzul" style="height:28px;font-size:12px" title="A IA olha um recorte ampliado em volta de cada círculo dela e acerta o centro (≈ US$ 0,002 por número)" onclick="pfCatEnvMarcaRefinarIA(this)">🎯 Ajustar este desenho ('+nIa1+')</button>':'')+
     '<button class="pfBtn pfBtnClaro" style="height:28px;font-size:12px" onclick="pfCatEnvMarcaDesfazer()"'+((g.nums||[]).length?'':' disabled')+'>↶ Desfazer</button>'+
     '<button class="pfBtn pfBtnClaro" style="height:28px;font-size:12px" onclick="pfCatEnvMarcaLimpar()"'+((g.nums||[]).length?'':' disabled')+'>🗑 Limpar</button>'+
     '<button class="pfBtn pfBtnVerde" style="height:28px;font-size:12px" onclick="pfCatEnvMarcaLigar(\''+c.id+'\',\''+g.id+'\',false)">✓ Pronto</button></div>'+

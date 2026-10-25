@@ -1329,3 +1329,5 @@
   passando pelo `substAplicarSeguro` (no `vendasAplicAdicionarSelecionados` e no `vendasAdicionarPorAplicacao`).
 - v115.2408 ("mas por que a IA não acha?"): o 🤖 Marcar com IA só procura os nº SEM círculo (`pfCatEnvNumsFaltam`); com todos já marcados ela nem era
   chamada e o aviso dizia "não achou". Agora avisa "✅ todos já estão marcados" e aponta o 🎯 Ajustar / arrastar o círculo (`jaTodos` no `pfCatEnvMarcarIA`).
+- v115.2409 ("por que já não estava assim?"): o 🤖 Marcar com IA já roda o 🎯 Ajustar sozinho logo depois (`pfCatEnvMarcaRefinarIA(btn,id,gids,silencioso)`
+  devolve {ajust,tot,erros} sem aviso) nos desenhos que ganharam marcas; um aviso só no fim.

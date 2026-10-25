@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2411</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2412</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2411</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2412</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -28815,7 +28815,7 @@ function pfErroAmigavel(s){
 }
 function pfAlert(msg){
   try{
-    var s=pfErroAmigavel(String(msg==null?'':msg));
+    var s=window._pfSemTraduzirErro?String(msg==null?'':msg):pfErroAmigavel(String(msg==null?'':msg)); // v115.2412
     var isErro=/erro|falha|negad|n[aã]o foi poss[ií]vel|inv[aá]lid/i.test(s);
     var bg=isErro?'#C00000':'#1F4E79';
     var icon=isErro?'⚠️':'📦';
@@ -87684,7 +87684,7 @@ async function pfCatEnvMarcaRefinarIA(btn,id,gids,silencioso){ // v115.2409 sile
   if(!apiKey)return;
   var txt0=btn?btn.textContent:'';if(btn)btn.disabled=true;
   var st=function(t){if(btn)btn.textContent=t;else pfCatAjStatus(t);};
-  var ajust=0,feito=0,erros=[];
+  var ajust=0,feito=0,erros=[],falhou=0,erroMsg='';
   for(var G=0;G<grupos.length;G++){
     var g=grupos[G];
     try{
@@ -87708,8 +87708,18 @@ async function pfCatEnvMarcaRefinarIA(btn,id,gids,silencioso){ // v115.2409 sile
         conteudo.push({type:'text',text:'Cada recorte é um pedaço ampliado de um desenho técnico de peças (vista explodida). Em cada recorte, ache o NÚMERO DE REFERÊNCIA pedido: algarismos impressos (às vezes dentro de um círculo/balão) na ponta de uma linha fina que aponta pra peça. '+
           'Não confunda com cotas, outros números de referência ou partes do desenho. Se aparecer mais de uma vez, escolha o mais perto do CENTRO do recorte. '+
           'Responda SÓ com JSON: [{"k":1,"box":[x0,y0,x1,y1]}] — box = retângulo justo em volta dos ALGARISMOS (não do balão nem da peça), em pixels daquele recorte. Se o número não estiver no recorte, "box":null.'});
-        var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:pfAnthropicHeaders(apiKey),body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1500,messages:[{role:'user',content:conteudo}]})});
-        var data=await resp.json();if(data.error)throw new Error(data.error.message||'erro na leitura');
+        // v115.2412 - A pedido do Vitor ("perdi tudo que tinha feito?" — "sem conexão" no meio do ajuste): conexão que cai / IA sobrecarregada
+        // tenta de novo sozinha (3x, esperando 2 s, 6 s); só desiste desse grupo de números, o resto continua.
+        var data=null,errU=null,corpo=JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1500,messages:[{role:'user',content:conteudo}]});
+        for(var tt=0;tt<3&&!data;tt++){
+          if(tt)await new Promise(function(r){setTimeout(r,tt===1?2000:6000);});
+          try{var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:pfAnthropicHeaders(apiKey),body:corpo});
+            var dj=await resp.json();
+            if(dj.error){var em=String(dj.error.message||'erro na leitura');if(/overload|rate|529|429|timeout|internal/i.test(em+' '+(dj.error.type||''))){errU=new Error(em);continue;}throw new Error(em);}
+            data=dj;}
+          catch(eF){if(/failed to fetch|network|load failed|aborted/i.test(String(eF&&eF.message))){errU=eF;continue;}throw eF;}
+        }
+        if(!data)throw errU||new Error('sem resposta');
         if(data.usage&&typeof pfLogUsoIA==='function')pfLogUsoIA('Catálogo de peças — ajustar números com IA ('+rotulo+')',data.usage);
         var t=(data.content||[]).map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim(),m=t.match(/\[[\s\S]*\]/),arr=[];try{arr=JSON.parse(m?m[0]:t);}catch(e){}
         (Array.isArray(arr)?arr:[]).forEach(function(r){var R=rec[(+r.k)-1],b=r.box;if(!R||!Array.isArray(b)||b.length!==4)return;b=b.map(Number);
@@ -87719,21 +87729,23 @@ async function pfCatEnvMarcaRefinarIA(btn,id,gids,silencioso){ // v115.2409 sile
       };
       for(var L=0;L<lotes.length;L++){
         st('🎯 Ajustando '+(grupos.length>1?'desenho '+(G+1)+'/'+grupos.length+' · ':'')+(feito+1)+'–'+Math.min(tot,feito+lotes[L].length)+' de '+tot+'…');
-        var l1=lotes[L].map(function(a){return {a:a,px:a.n.cx*W,py:a.n.cy*H};});
-        var r1=await pedir(l1,Math.round(Math.max(260,mn*0.35)),'achar');
-        var l2=l1.filter(function(q){return r1[q.a.i];}).map(function(q){return {a:q.a,px:r1[q.a.i].x,py:r1[q.a.i].y};});
-        var r2=l2.length?await pedir(l2,Math.round(Math.max(110,mn*0.11)),'centro'):{};
+        var l1=lotes[L].map(function(a){return {a:a,px:a.n.cx*W,py:a.n.cy*H};}),r1={},l2=[],r2={};
+        try{r1=await pedir(l1,Math.round(Math.max(260,mn*0.35)),'achar');}catch(eL){falhou+=lotes[L].length;feito+=lotes[L].length;erroMsg=eL&&eL.message||'';continue;}
+        l2=l1.filter(function(q){return r1[q.a.i];}).map(function(q){return {a:q.a,px:r1[q.a.i].x,py:r1[q.a.i].y};});
+        try{r2=l2.length?await pedir(l2,Math.round(Math.max(110,mn*0.11)),'centro'):{};}catch(eL2){r2={};} // sem o 2º passo, fica o do 1º
         var novos={};l2.forEach(function(q){var p2=r2[q.a.i]||r1[q.a.i];novos[q.a.i]={cx:+(p2.x/W).toFixed(4),cy:+(p2.y/H).toFixed(4)};});
         pfCatEnvMarcaGrupoSalvar(id,g.id,function(gg){Object.keys(novos).forEach(function(i){var x=gg.nums[i];if(pfCatEnvNumAjustar(x)){x.cx=novos[i].cx;x.cy=novos[i].cy;x.ia=2;x.aj2=1;ajust++;}});});
         feito+=lotes[L].length;
       }
       URL.revokeObjectURL(url);
-    }catch(e){erros.push(g.nome+': '+e.message);}
+    }catch(e){erros.push(g.nome+': '+pfErroAmigavel(e&&e.message));}
   }
   if(btn){btn.disabled=false;btn.textContent=txt0;}else pfCatAjStatus('');
   var V2=window._pfCatEnvVer;if(V2&&V2.id===id)pfCatEnvVer(id,V2.gid);
+  if(falhou)erros.push(falhou+' número(s) ficaram pra depois ('+(/fetch|network|load failed|conex/i.test(erroMsg)?'a conexão caiu':/overload|529/i.test(erroMsg)?'a IA estava sobrecarregada':'a IA não respondeu')+') — clique em 🎯 Ajustar de novo que ele continua só esses');
   if(silencioso)return {ajust:ajust,tot:tot,erros:erros};
-  pfAlert('🎯 A IA ajustou '+ajust+' de '+tot+' círculo(s)'+(grupos.length>1?' em '+grupos.length+' desenhos':'')+'. Confira: o que ainda estiver fora, arraste pro número certo (📍 Marcar números).'+(erros.length?'\n\nNão deu em: '+erros.join('; '):''));
+  // v115.2412 - o aviso não usa o texto do erro (o tradutor de erro trocava a mensagem inteira por "Sem conexão" e escondia quantos já tinham sido ajustados)
+  window._pfSemTraduzirErro=1;try{pfAlert('🎯 A IA ajustou '+ajust+' de '+tot+' círculo(s)'+(grupos.length>1?' em '+grupos.length+' desenhos':'')+' — já estão gravados. Confira: o que ainda estiver fora, arraste pro número certo (📍 Marcar números).'+(erros.length?'\n\n⚠ '+erros.join('\n⚠ '):''));}finally{window._pfSemTraduzirErro=0;}
 }
 function pfCatAjAoSalvarHtml(){return '<label title="Depois de salvar, a IA olha de perto cada número que ela marcou e acerta o centro (≈ US$ 0,002 por número)" style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#1a2332;cursor:pointer;margin-left:6px"><input type="checkbox" id="pfCatAjAoSalvar" checked> 🎯 Ajustar os números com IA ao salvar</label>';}
 function pfCatEnvMarcaApagar(ev,idx){

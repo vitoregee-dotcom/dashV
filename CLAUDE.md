@@ -1344,3 +1344,6 @@
   o botão mostra só os que faltam). Agora cada pedido tenta 3x (2 s, 6 s) em queda de conexão/IA sobrecarregada; grupo que falhar fica "pra depois" e o
   resto continua; aviso final mostra "ajustou X de Y — já gravados" + "⚠ N ficaram pra depois". `window._pfSemTraduzirErro` faz o `pfAlert` não trocar a
   mensagem inteira pelo `pfErroAmigavel`.
+- v115.2413 (catálogo DANA 176/413 conferido com o PDF — as posições "faltando" estão VAZIAS na lista da DANA: Carcaça Central "FREE NUMBERS 12 13 14 20" +
+  5/6/7/16/18/19 "Optional" sem código; o leitor estava certo). Ajuste: o nº do desenho no cabeçalho da lista pode vir "176-04--057" (2 tracinhos, Diferencial) —
+  o regex do `pfCatEnvLerPaginaDana` aceita `[-.]{1,2}` (antes a lista ligava ao desenho só pela página vizinha).

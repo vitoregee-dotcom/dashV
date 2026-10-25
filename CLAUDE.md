@@ -1340,3 +1340,7 @@
 - v115.2411 ("ainda marca errado"): o 🎯 Ajustar (`pfCatEnvMarcaRefinarIA`) agora faz 2 aproximações por número — recorte GRANDE (35% do desenho) pra achar
   e recorte FECHADO (11%) em volta do achado pra centralizar —, a IA devolve o RETÂNGULO dos algarismos (box) em vez de um ponto. ≈ US$ 0,002 por número.
   `pfCatEnvNumAjustar(x)` = ia:1 ou ia:2 sem `aj2` (os do ajuste antigo voltam a aparecer no botão); arrastar à mão tira o `ia` (não é mexido de novo).
+- v115.2412 ("perdi tudo que tinha feito?" — "Sem conexão" no meio do 🎯 Ajustar): nada se perde (cada grupo de até 6 nº é gravado assim que a IA responde;
+  o botão mostra só os que faltam). Agora cada pedido tenta 3x (2 s, 6 s) em queda de conexão/IA sobrecarregada; grupo que falhar fica "pra depois" e o
+  resto continua; aviso final mostra "ajustou X de Y — já gravados" + "⚠ N ficaram pra depois". `window._pfSemTraduzirErro` faz o `pfAlert` não trocar a
+  mensagem inteira pelo `pfErroAmigavel`.

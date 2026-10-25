@@ -1324,3 +1324,6 @@
 - v115.2406 BUG ("estava na cotação e veio pra cá do nada, sozinho" — iPad): o Chrome do iPad descarta a aba em segundo plano e recarrega (sessão nova
   no `pf_sessoes`), sem `pagehide`. `pfCotAbertasGuardar` agora roda também no `visibilitychange` hidden e a cada 5 s com a cotação aberta (só grava se
   mudou); `vendasFecharModal` atualiza/apaga o guardado (fechar de propósito não reabre).
+- v115.2407 BUG ("quando eu transfiro os itens, não vem pra cotação com a descrição certa" — lista ANEL ORING, cotação "ANEL O"): a transferência da busca
+  Série/Modelo usava a descrição da PLANILHA do estoque (cortada no ERP). `vendasDescDaAplic(descLista, prodCad, descEst)`: lista > cadastro do produto > planilha,
+  passando pelo `substAplicarSeguro` (no `vendasAplicAdicionarSelecionados` e no `vendasAdicionarPorAplicacao`).

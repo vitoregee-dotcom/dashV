@@ -1367,3 +1367,6 @@
 - v115.2417 ("os cinzas ficaram fora do lugar"): a posição dos `numsOp` vinha da leitura da página inteira (imprecisa). `pfCatEnvMarcaRefinarIA(btn,id,gids,silencioso,campo)`
   ganhou `campo` ('nums' padrão | 'numsOp': ajusta os sem `aj2`); o `pfCatEnvObsLer` roda sozinho no fim nos desenhos com cinzas; link "🎯 acertar os cinzas" na
   caixa de observações (some quando todos têm `aj2`).
+- v115.2418 ("os cinzas ainda não estão legais… melhor nem ter, já que está explicando… também vai pro cliente?"): círculos cinza SAÍRAM (tela interna e link).
+  Fica só a caixa de observações (chips cinza no texto). Link do cliente: `op:[]` e a 1ª observação vira "Os números X, Y do desenho são opcionais e não vão nesta
+  máquina." (opcionais sem peça na lista). `g.numsOp` continua sendo gravado, mas não é mostrado; o `campo` do `pfCatEnvMarcaRefinarIA` ficou sem uso.

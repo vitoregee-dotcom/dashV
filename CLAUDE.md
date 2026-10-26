@@ -1381,3 +1381,8 @@
 - v115.2423 BUG ("eu ajusto o desenho mas ainda continua pra ajustar no botão azul"): número que a IA procura no 🎯 Ajustar e NÃO acha ficava ia:1 sem aj2 pra
   sempre (176/414 tinha 23) e cada clique tentava de novo. Agora ganha `ajNao=1` (sai do `pfCatEnvNumAjustar`), fica VERMELHO no 📍 Marcar números, a barra avisa
   "⚠ a IA não achou X, Y — arraste" (`pfCatEnvNaoAchou`) e o aviso final lista. Arrastar à mão tira `ia`/`ajNao`.
+- v115.2424 ("fiz a cotação pelo link do catálogo… quando for enviar pro cliente, a maioria das vezes não quero mandar o código… o número no desenho, tipo 05";
+  opção C): itens vindos do catálogo guardam `it.catRef` {gn: nome do desenho, n} (`pfCatEnvItensCotacao`, link e "➕ Cotação" do catálogo). `v.pdfCod`
+  'desenho'|'' (salvo na cotação; a aberta pelo link já vem 'desenho') → `pfVendasPdfClienteDados` troca o código por `vendasDesenhoTxt(vendasDesenhoRef(it))`
+  ("Carcaça Central · 05"; sem catRef procura no `pfCatEnvIdx`; sem desenho = vazio) no PDF (coluna DESENHO · Nº), WhatsApp e HTML. Troca no ▾ do PDF
+  (`vendasPdfCodSet`) e na caixinha do "Escolher itens". O link NÃO pede CNPJ nem fica amarrado a cliente (Vitor: o cliente pode repassar).

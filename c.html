@@ -93,6 +93,7 @@ function portao(){
     '<form id="fm"><label class="l">Marca da máquina *</label><input class="i" name="marca" value="'+esc(m.marca||'')+'" placeholder="ex.: Case, JCB, Randon" autocomplete="off">'+
     '<label class="l">Modelo *</label><input class="i" name="modelo" value="'+esc(m.modelo||'')+'" placeholder="ex.: 580N, 3CX" autocomplete="off">'+
     '<label class="l">Ano *</label><input class="i" name="ano" value="'+esc(m.ano||'')+'" inputmode="numeric" placeholder="ex.: 2018" autocomplete="off">'+
+    '<label class="l">Série / chassi <span style="font-weight:400;color:#667385">(se souber)</span></label><input class="i" name="serie" value="'+esc(m.serie||'')+'" placeholder="ex.: número que está na plaqueta" autocomplete="off">'+ // v115.2420 - opcional
     '<label class="l">Foto da máquina *</label><div class="foto" id="fFoto"><div id="fFotoTx" style="font-size:13px;color:#667385">📷 Uma foto da máquina inteira (ou da plaqueta)</div>'+
     '<div class="fbtns"><label class="btn b1" style="padding:10px 8px;font-size:13.5px">📷 Tirar foto<input type="file" accept="image/*" capture="environment" onchange="fotoEscolhida(this)"></label>'+
     '<label class="btn b3" style="padding:10px 8px;font-size:13.5px">📁 Escolher arquivo<input type="file" accept="image/*" onchange="fotoEscolhida(this)"></label></div></div>'+
@@ -120,7 +121,7 @@ async function enviar(dados,arquivos){
 }
 async function portaoEnviar(){
   var f=document.getElementById('fm'),msg=document.getElementById('fMsg');
-  var v={marca:f.marca.value.trim(),modelo:f.modelo.value.trim(),ano:f.ano.value.trim()};
+  var v={marca:f.marca.value.trim(),modelo:f.modelo.value.trim(),ano:f.ano.value.trim(),serie:(f.serie&&f.serie.value||'').trim()};
   var falta=[];if(!v.marca)falta.push('marca');if(!v.modelo)falta.push('modelo');if(!v.ano)falta.push('ano');if(!window._foto)falta.push('foto');
   if(falta.length){msg.style.color='#b45309';msg.textContent='Falta: '+falta.join(', ')+'.';return;}
   var btn=f.querySelector('button[type=submit]');btn.disabled=true;btn.textContent='Enviando a foto…';msg.textContent='';
@@ -130,7 +131,7 @@ async function portaoEnviar(){
     var ru=await fetch(SB_URL+'/storage/v1/object/cadastro-clientes/'+path,{method:'POST',headers:Object.assign({'Content-Type':b.type||'image/jpeg'},H()),body:b});
     if(!ru.ok)throw new Error('a foto não subiu (status '+ru.status+')');
     btn.textContent='Abrindo…';
-    await enviar({tipo:'acesso',maqMarca:v.marca,maqModelo:v.modelo,maqAno:v.ano},[{path:path,nome:'Foto da máquina.'+ext,slot:'maquina',tipo:b.type||'',tam:b.size||0,em:Date.now(),origem:'link do catálogo'}]);
+    await enviar({tipo:'acesso',maqMarca:v.marca,maqModelo:v.modelo,maqAno:v.ano,maqSerie:v.serie},[{path:path,nome:'Foto da máquina.'+ext,slot:'maquina',tipo:b.type||'',tam:b.size||0,em:Date.now(),origem:'link do catálogo'}]);
     MAQ=Object.assign(v,{ok:true});lsSet('pfc_maq_'+K,MAQ);catalogo();
   }catch(e){btn.disabled=false;btn.textContent='Ver o catálogo';msg.style.color='#b91c1c';msg.textContent='Não consegui enviar agora ('+e.message+'). Confira a internet e tente de novo.';}
 }
@@ -151,7 +152,7 @@ function catalogo(){
       (q?'<span class="qt"><button onclick="mais(\''+k+'\',-1)">−</button><span>'+q+'</span><button onclick="mais(\''+k+'\',1)">+</button></span>':'<button class="add" onclick="mais(\''+k+'\',1)">+ Pedir</button>')+'</div>';}).join('');
   var n=nSel();
   document.getElementById('app').innerHTML='<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:8px"><h1>'+esc(C.titulo||'Catálogo de peças')+'</h1>'+
-      '<span class="sub">🚜 '+esc([MAQ.marca,MAQ.modelo,MAQ.ano].join(' '))+' · <a href="#" onclick="MAQ.ok=false;lsSet(\'pfc_maq_\'+K,MAQ);portao();return false" style="color:#2e7dc1">trocar</a></span></div>'+
+      '<span class="sub">🚜 '+esc([MAQ.marca,MAQ.modelo,MAQ.ano].join(' ')+(MAQ.serie?' · série '+MAQ.serie:''))+' · <a href="#" onclick="MAQ.ok=false;lsSet(\'pfc_maq_\'+K,MAQ);portao();return false" style="color:#2e7dc1">trocar</a></span></div>'+
     '<div class="chips">'+chips+'</div>'+
     '<div class="lado"><div class="esq"><div class="des" id="des"><div class="desIn" style="width:'+(ZOOM?'220%':'100%')+'"><img src="'+esc(g.img)+'" alt="" oncontextmenu="return false">'+hs+'</div></div>'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><span class="sub">'+((g.nums||[]).length?'👆 Toque no número da peça no desenho':'👇 Veja o nº no desenho e escolha na lista')+'</span>'+
@@ -190,7 +191,7 @@ function pedido(){
   var linhas=ks.map(function(k){var x=itemDe(k);if(!x)return '';return '<div class="lin"><span class="d">'+esc(x.it[2])+'<small>'+esc(x.g.nome)+' · nº '+esc(x.it[1])+'</small></span>'+
     '<span class="qt"><button onclick="mais(\''+k+'\',-1)">−</button><span>'+SEL[k]+'</span><button onclick="mais(\''+k+'\',1)">+</button></span></div>';}).join('');
   var h='<div class="sheet"><div style="display:flex;align-items:center"><b style="flex:1;font-size:16px">🧾 Seu pedido de cotação</b><button class="chip" onclick="document.getElementById(\'pedOv\').remove();catalogo()">✕</button></div>'+
-    '<div class="sub" style="margin-top:2px">🚜 '+esc([MAQ.marca,MAQ.modelo,MAQ.ano].join(' '))+'</div>'+linhas+
+    '<div class="sub" style="margin-top:2px">🚜 '+esc([MAQ.marca,MAQ.modelo,MAQ.ano].join(' ')+(MAQ.serie?' · série '+MAQ.serie:''))+'</div>'+linhas+
     // v115.2231 - A pedido do Vitor: SEM nome e telefone -- o link pode ser repassado pro cliente do cliente, e o pedido chega
     // pelo cliente que mandou o link (não dá pra "atravessar" falando direto com quem está na ponta).
     '<label class="l">Observação (opcional)</label><textarea class="i" id="pObs" rows="2" placeholder="nº de série, urgência…"></textarea>'+
@@ -204,7 +205,7 @@ async function pedidoEnviar(){
   var itens=Object.keys(SEL).map(function(k){var x=itemDe(k);return x?{g:x.g.id,i:x.it[0],q:SEL[k],n:x.it[1],d:x.it[2],gn:x.g.nome}:null;}).filter(Boolean);
   btn.disabled=true;btn.textContent='Enviando…';
   try{
-    await enviar({tipo:'pedido',maqMarca:MAQ.marca,maqModelo:MAQ.modelo,maqAno:MAQ.ano,contato:'',obs:obs,itens:itens});
+    await enviar({tipo:'pedido',maqMarca:MAQ.marca,maqModelo:MAQ.modelo,maqAno:MAQ.ano,maqSerie:MAQ.serie||'',contato:'',obs:obs,itens:itens});
     SEL={};salvaSel();var b=document.getElementById('bar');if(b)b.remove();
     document.getElementById('pedOv').remove();
     document.getElementById('app').innerHTML='<div class="card" style="text-align:center;margin-top:50px"><div style="font-size:42px">✅</div><b style="font-size:17px">Pedido enviado!</b>'+

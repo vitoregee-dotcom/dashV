@@ -1389,3 +1389,4 @@
 - v115.2425 ("eu já não tinha subido o arquivo? tá pedindo pra eu subir"): na faixa 📥 Atualização da Spicer (`ccSpicerAtuBotaoHtml`), com folheto já lido
   no sistema aparece "✔ Gravar folheto pronto" (e o selo vermelho é clicável) → `ccSpicerAtuAbrir` (Ver o que muda → Gravar). Antes só tinha "Subir catálogo"
   (central), que pedia arquivo. Tarefa agendada "Vídeos novos pro banner" (seg e qui 8h39, Brasília): sessão nova pesquisa vídeos e acrescenta no videos-sugeridos.json.
+- v115.2426 ("tá me levando pra cá o gravar"): o "✔ Gravar folheto pronto" já abre no "Ver o que muda" do 1º folheto pronto (`ccSpicerAtuPronto`).

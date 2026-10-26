@@ -1374,3 +1374,5 @@
   não vê nº de desenho) e nota que só cita números que não vão nesta máquina (ex.: "(21) Versão longa" com 20/21 opcionais) não vai pro cliente.
 - v115.2420 ("aqui vamos colocar a série, mas não obrigatório"): c.html pede "Série / chassi (se souber)" (opcional) antes de ver o catálogo → `maqSerie` na
   submissão (acesso e pedido) → `ped.maq.serie` (📥 Recebidos e aviso mostram "· série X").
+- v115.2421 ("a foto é complicado ser obrigatória… o cliente pode acessar pelo PC"): no c.html a FOTO da máquina virou opcional ("(se tiver)"); sem foto o acesso
+  é gravado com `arquivos:[]` (Recebidos já lidava com pedido sem foto). Obrigatórios: marca, modelo e ano.

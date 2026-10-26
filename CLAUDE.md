@@ -1378,3 +1378,6 @@
   é gravado com `arquivos:[]` (Recebidos já lidava com pedido sem foto). Obrigatórios: marca, modelo e ano.
 - v115.2422 ("ainda está dando msg dos cinzas, mas não vai ter cinzas"): a caixa de observações não fala mais em "cinzas" — os opcionais viram 2 linhas
   "Opcionais que vão neste equipamento" (chips azuis) / "Opcionais que não vão neste equipamento (sem código na lista)".
+- v115.2423 BUG ("eu ajusto o desenho mas ainda continua pra ajustar no botão azul"): número que a IA procura no 🎯 Ajustar e NÃO acha ficava ia:1 sem aj2 pra
+  sempre (176/414 tinha 23) e cada clique tentava de novo. Agora ganha `ajNao=1` (sai do `pfCatEnvNumAjustar`), fica VERMELHO no 📍 Marcar números, a barra avisa
+  "⚠ a IA não achou X, Y — arraste" (`pfCatEnvNaoAchou`) e o aviso final lista. Arrastar à mão tira `ia`/`ajNao`.

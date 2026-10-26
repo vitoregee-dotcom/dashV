@@ -1370,3 +1370,7 @@
 - v115.2418 ("os cinzas ainda não estão legais… melhor nem ter, já que está explicando… também vai pro cliente?"): círculos cinza SAÍRAM (tela interna e link).
   Fica só a caixa de observações (chips cinza no texto). Link do cliente: `op:[]` e a 1ª observação vira "Os números X, Y do desenho são opcionais e não vão nesta
   máquina." (opcionais sem peça na lista). `g.numsOp` continua sendo gravado, mas não é mostrado; o `campo` do `pfCatEnvMarcaRefinarIA` ficou sem uso.
+- v115.2419 (conferindo o link 51fopqice1 do 176/413): no link do cliente a observação "ver desenho 176-01-0010" vira o NOME do grupo ("Bolts e Nuts" — o cliente
+  não vê nº de desenho) e nota que só cita números que não vão nesta máquina (ex.: "(21) Versão longa" com 20/21 opcionais) não vai pro cliente.
+- v115.2420 ("aqui vamos colocar a série, mas não obrigatório"): c.html pede "Série / chassi (se souber)" (opcional) antes de ver o catálogo → `maqSerie` na
+  submissão (acesso e pedido) → `ped.maq.serie` (📥 Recebidos e aviso mostram "· série X").

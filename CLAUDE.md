@@ -1376,3 +1376,5 @@
   submissão (acesso e pedido) → `ped.maq.serie` (📥 Recebidos e aviso mostram "· série X").
 - v115.2421 ("a foto é complicado ser obrigatória… o cliente pode acessar pelo PC"): no c.html a FOTO da máquina virou opcional ("(se tiver)"); sem foto o acesso
   é gravado com `arquivos:[]` (Recebidos já lidava com pedido sem foto). Obrigatórios: marca, modelo e ano.
+- v115.2422 ("ainda está dando msg dos cinzas, mas não vai ter cinzas"): a caixa de observações não fala mais em "cinzas" — os opcionais viram 2 linhas
+  "Opcionais que vão neste equipamento" (chips azuis) / "Opcionais que não vão neste equipamento (sem código na lista)".

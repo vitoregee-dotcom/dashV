@@ -1386,3 +1386,6 @@
   'desenho'|'' (salvo na cotação; a aberta pelo link já vem 'desenho') → `pfVendasPdfClienteDados` troca o código por `vendasDesenhoTxt(vendasDesenhoRef(it))`
   ("Carcaça Central · 05"; sem catRef procura no `pfCatEnvIdx`; sem desenho = vazio) no PDF (coluna DESENHO · Nº), WhatsApp e HTML. Troca no ▾ do PDF
   (`vendasPdfCodSet`) e na caixinha do "Escolher itens". O link NÃO pede CNPJ nem fica amarrado a cliente (Vitor: o cliente pode repassar).
+- v115.2425 ("eu já não tinha subido o arquivo? tá pedindo pra eu subir"): na faixa 📥 Atualização da Spicer (`ccSpicerAtuBotaoHtml`), com folheto já lido
+  no sistema aparece "✔ Gravar folheto pronto" (e o selo vermelho é clicável) → `ccSpicerAtuAbrir` (Ver o que muda → Gravar). Antes só tinha "Subir catálogo"
+  (central), que pedia arquivo. Tarefa agendada "Vídeos novos pro banner" (seg e qui 8h39, Brasília): sessão nova pesquisa vídeos e acrescenta no videos-sugeridos.json.

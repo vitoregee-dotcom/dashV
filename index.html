@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2426</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2427</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2426</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2427</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -41826,13 +41826,27 @@ function substAplicar(desc){
     } else if(s.exato){
       if(resultado.toUpperCase()===s.de.toUpperCase())resultado=s.para;
     } else {
-      var re=new RegExp(s.de.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');
-      resultado=resultado.replace(re,s.para);
+      var pa=String(s.para||'').toUpperCase();if(pa.indexOf(s.de.toUpperCase())>=0&&resultado.indexOf(pa)>=0&&pfSubstRegex(pa).test(resultado))return;
+      resultado=pfSubstTrocar(resultado,s.de,s.para); // v115.2427 - palavra inteira (antes "O → ORING" trocava todo "O")
     }
   });
   return resultado;
 }
 
+// v115.2427 - reparo (1x por navegador): se a regra "O → ORING" chegou a rodar por PEDAÇO de texto neste navegador, desfaz "PARAFUSORING",
+// "RORINGLAMENTORING" etc. ("ORING" grudado em letra/número volta a ser "O"; "ANEL ORING" separado fica) nas cotações, aplicações e catálogos.
+function pfSubstRepararOring(){
+  try{if(localStorage.getItem('pfOringReparo2427'))return;}catch(e){return;}
+  var fx=function(t){return typeof t==='string'&&/[A-Z0-9À-Ý]ORING|ORING[A-Z0-9À-Ý]/.test(t)?t.replace(/([A-Z0-9À-Ý])ORING/g,'$1O').replace(/ORING(?=[A-Z0-9À-Ý])/g,'O'):t;};
+  var n=0;
+  try{var cs=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]'),mc=false;cs.forEach(function(c){(c.itens||[]).forEach(function(it){var d=fx(it.desc);if(d!==it.desc){it.desc=d;mc=true;n++;c.tsMod=Date.now();}});});if(mc)pfSafeSetItem(COTS_KEY,JSON.stringify(cs));}catch(e){}
+  try{(window._vendasTabs?Object.keys(window._vendasTabs):[]).forEach(function(k){var v=window._vendasTabs[k].venda;(v&&v.itens||[]).forEach(function(it){var d=fx(it.desc);if(d!==it.desc){it.desc=d;n++;}});});}catch(e){}
+  try{if(typeof aplicLoad==='function'){var fl=aplicLoad()||[],ma=false;fl.forEach(function(x){var d=fx(x.desc);if(d!==x.desc){x.desc=d;x.tsMod=Date.now();ma=true;n++;}});if(ma)aplicSave(fl);}}catch(e){}
+  try{if(typeof pfCatEnvLoad==='function'){var o=pfCatEnvLoad(),mo=false;Object.keys(o.por||{}).forEach(function(id){(o.por[id].grupos||[]).forEach(function(g){(g.itens||[]).forEach(function(y){var d=fx(y.desc);if(d!==y.desc){y.desc=d;mo=true;n++;}});});if(mo)o.por[id].tsMod=Date.now();});if(mo)pfCatEnvSalvar(o);}}catch(e){}
+  try{localStorage.setItem('pfOringReparo2427','1');}catch(e){}
+  if(n)console.log('v115.2427 reparo ORING:',n,'descrições');
+}
+setTimeout(function(){try{pfSubstRepararOring();}catch(e){}},8000);
 function substAplicarLote(itens){
   return itens.map(function(it){
     var nova=substAplicar(it.descricao||it.desc||'');
@@ -44303,8 +44317,8 @@ function substAplicarSeguro(desc){
   lista.forEach(function(r){var de=String(r.de||'').toUpperCase(),pa=String(r.para||'').toUpperCase();if(!de)return;
     if(r.comeca){if(!jaC&&substComecaBate(t,de)){t=pa;jaC=true;}return;}
     if(r.exato){if(t===de)t=pa;return;}
-    if(pa.indexOf(de)>=0&&t.indexOf(pa)>=0)return;
-    t=t.replace(new RegExp(de.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),pa);});
+    if(pa.indexOf(de)>=0&&t.indexOf(pa)>=0&&pfSubstRegex(pa).test(t))return; // v115.2427 - já está trocado
+    t=pfSubstTrocar(t,de,pa);});
   return t.replace(/\s+/g,' ').trim();
 }
 function substCadCalc(){
@@ -87573,7 +87587,7 @@ function pfCatArrRender(){
       '<td style="'+td+'"><span style="color:#607080">'+pfEscHtml(r.orig)+'</span></td>'+
       '<td style="'+td+'"><span style="color:#1a2332">'+pfEscHtml(r.completa)+'</span></td>'+
       '<td style="'+td+'"><input value="'+pfEscHtml(r.desc)+'" onchange="pfCatArrSet('+k+',this.value,this)" style="'+inp+(mud?';border-color:#E6A23C':'')+'">'+
-        (r.triex?'<div style="font-size:10.5px;color:#8a5a00;margin-top:2px">🏢 a ficha da Triex fica: '+pfEscHtml(r.triex)+'</div>':(r.novo?'':''))+'</td>'+
+        (r.triex?'<div class="pfCatArrTx" style="font-size:10.5px;color:'+(r.mao&&mud?'#1E6B33':'#8a5a00')+';margin-top:2px">'+pfCatArrTxTexto(r)+'</div>':'')+'</td>'+
       '<td style="'+td+';text-align:center"><button type="button" onclick="pfCatArrRegra('+k+')" title="Salvar como regra de descrição (vale nas outras peças e nos próximos catálogos)" style="background:none;border:none;cursor:pointer;font-size:15px;padding:2px">💾</button></td></tr>';});
   h+='</tbody></table>'+(vis.length>lim?'<div style="padding:10px 0"><button class="pfBtn pfBtnClaro" onclick="window._pfCatArr.ver=true;pfCatArrRender()">▾ Mostrar as outras '+(vis.length-lim)+'</button></div>':'')+'</div>'+
     '<div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid #e3eaf3;background:#F7F9FC"><span id="pfCatArrMsg" style="flex:1;font-size:12px;color:#607080">'+(nMud?nMud+' descrição(ões) mudada(s) — falta gravar.':'Ficha da Triex que já tem descrição continua com a dela.')+'</span>'+
@@ -87582,7 +87596,11 @@ function pfCatArrRender(){
   ov.innerHTML=h;
   var cc=document.getElementById('pfCatArrCorpo');if(cc)cc.scrollTop=rol;
 }
+// v115.2427 - A pedido do Vitor ("e na ficha da Triex, não deveria ficar a descrição que eu coloquei?"): o resumo que ele DIGITA aqui vai também
+// pra ficha da Triex (antes ela ficava com a dela); o que só a regra mudou (linha amarela sem mexer) continua não mexendo na ficha da Triex.
+function pfCatArrTxTexto(r){return r.mao&&r.desc!==r.antes?'🏢 a ficha da Triex também vai ficar: <b>'+pfEscHtml(r.desc)+'</b> (era '+pfEscHtml(r.triex)+')':'🏢 a ficha da Triex fica: '+pfEscHtml(r.triex);}
 function pfCatArrSet(k,v,el){var A=window._pfCatArr,r=A.L[k];if(!r)return;r.desc=String(v||'').toUpperCase().replace(/\s+/g,' ').trim();r.mao=true;
+  if(el&&r.triex){var tx=el.parentNode&&el.parentNode.querySelector('.pfCatArrTx');if(tx){tx.innerHTML=pfCatArrTxTexto(r);tx.style.color=r.desc!==r.antes?'#1E6B33':'#8a5a00';}}
   // sem redesenhar (o clique no 💾 logo depois cairia num elemento que sumiu): só a linha e o rodapé
   if(el){el.value=r.desc;el.style.borderColor=r.desc!==r.antes?'#E6A23C':'#dfe5ec';var tr=el.closest('tr');if(tr)tr.style.background=r.desc!==r.antes?'#FFF8E6':'';}
   var nMud=A.L.filter(function(x){return x.desc!==x.antes;}).length,m=document.getElementById('pfCatArrMsg'),b=document.querySelector('#pfCatArrOv .pfBtnVerde');
@@ -87628,11 +87646,17 @@ function pfCatArrGravar(){
   var A=window._pfCatArr;if(!A)return;var o=pfCatEnvLoad(),c=o.por[A.id];if(!c)return;
   var n=0;A.L.forEach(function(r){if(r.desc===r.antes||!r.desc)return;var g=(c.grupos||[]).find(function(x){return x.id===r.gid;}),x=g&&g.itens[r.i];if(!x)return;x.desc=r.desc;n++;});
   pfCatEnvSalvar(o);
+  // v115.2427 - resumo digitado à mão vai também pras fichas da Triex desse código (as do próprio catálogo o MandarAplic já atualiza)
+  var nTx=0;try{var mao=A.L.filter(function(r){return r.mao&&r.desc&&r.desc!==r.antes&&r.triex;});
+    if(mao.length){var pl=cadLoad(PROD_KEY)||[],agora=Date.now(),idk={};mao.forEach(function(r){idk[pfAlimNorm(r.cod).replace(/^0+(?=\d)/,'')]=r.desc;});
+      pl.forEach(function(f){var k=pfAlimNorm(f.codigo).replace(/^0+(?=\d)/,'');if(!idk[k]||!String(f.descricao||'').trim()||(f.doCatalogo&&f.doCatalogo.catEnv===A.id)||f.descDoCat===A.id)return;
+        if(f.descricao!==idk[k]){if(!f.descricaoAntes)f.descricaoAntes=f.descricao;f.descricao=idk[k];f.ts=agora;f.tsMod=agora;nTx++;}});
+      if(nTx){cadSave(PROD_KEY,pl);window._vendasProdIdxCache=null;if(typeof pfSyncPush==='function')try{pfSyncPush([PROD_KEY]);}catch(e){}}}}catch(e){}
   var ra={};try{ra=pfCatEnvMandarAplic(c)||{};}catch(e){ra={erro:e.message};}
   A.L.forEach(function(r){r.antes=r.desc;r.mao=false;});
   pfCatArrFechar(true);
   try{pfCatEnvVer(A.id);}catch(e){}
-  pfAlert('✅ '+n+' descrição(ões) gravada(s)'+(ra.nDescFichas?' · '+ra.nDescFichas+' ficha(s) atualizada(s)':'')+(ra.erro?' — mas não foi pras Aplicações ('+ra.erro+')':'')+'.');
+  pfAlert('✅ '+n+' descrição(ões) gravada(s)'+(ra.nDescFichas?' · '+ra.nDescFichas+' ficha(s) atualizada(s)':'')+(nTx?' · '+nTx+' ficha(s) da Triex com a descrição que você digitou':'')+(ra.erro?' — mas não foi pras Aplicações ('+ra.erro+')':'')+'.');
 }
 function pfCatEnvMandarAplicBtn(id,btn){
   var c=pfCatEnvLoad().por[id];if(!c)return;
@@ -88127,12 +88151,22 @@ function pfCatEnvTradDiff(){
   var r=document.querySelector('input[name="pfCatEnvTrModo"][value="'+(dif.parcial?'contem':'exato')+'"]');if(r&&!(document.querySelector('input[name="pfCatEnvTrModo"][value="so"]')||{}).checked)r.checked=true;
 }
 // aplica UMA regra num texto (mesma conta do substAplicar); regra que contém o próprio texto ("JUNTA" → "JUNTA DE VEDAÇÃO") não é reaplicada
+// v115.2427 - A pedido do Vitor ("troquei pra ANEL ORING e salvei, não deveria trocar já de todos?"): o 💾 virou a regra "O → ORING"
+// (só a palavra que mudou) e a troca era por PEDAÇO de texto: (1) aqui ela nunca rodava ("ORING" contém "O") e (2) no resto do sistema
+// trocaria TODO "O" de qualquer descrição (PARAFUSO → PARAFUSORING). Agora "qualquer descrição" troca a PALAVRA inteira: "ANEL O" vira
+// "ANEL ORING" e "PARAFUSO"/"O-RING" não são tocados. Texto de até 3 letras: traço, ponto, apóstrofo e barra também contam como parte da palavra.
+function pfSubstRegex(de){
+  de=String(de||'').toUpperCase();var esc=de.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  var W=de.replace(/\s/g,'').length<=3?"A-Z0-9À-ÖØ-Ý\\-'.\\/":'A-Z0-9À-ÖØ-Ý';
+  var ini=/^[A-Z0-9À-Ý]/.test(de)?'(^|[^'+W+'])':'()',fim=/[A-Z0-9À-Ý]$/.test(de)?'(?=$|[^'+W+'])':'';
+  return new RegExp(ini+esc+fim,'gi');
+}
+function pfSubstTrocar(t,de,para){return String(t||'').replace(pfSubstRegex(de),function(m,a){return (a||'')+para;});}
 function pfSubstAplicarUma(txt,de,para,exato,comeca){
   var t=String(txt||'').toUpperCase();if(!de)return t;
   if(comeca)return substComecaBate(t,de)?para:t;
   if(exato)return t===de?para:t;
-  if(para.indexOf(de)>=0)return t;
-  return t.replace(new RegExp(de.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),para);
+  return pfSubstTrocar(t,de,para);
 }
 function pfCatEnvTradGravar(){
   var T=window._pfCatEnvTrad;if(!T)return;

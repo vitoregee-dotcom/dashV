@@ -1390,3 +1390,9 @@
   no sistema aparece "✔ Gravar folheto pronto" (e o selo vermelho é clicável) → `ccSpicerAtuAbrir` (Ver o que muda → Gravar). Antes só tinha "Subir catálogo"
   (central), que pedia arquivo. Tarefa agendada "Vídeos novos pro banner" (seg e qui 8h39, Brasília): sessão nova pesquisa vídeos e acrescenta no videos-sugeridos.json.
 - v115.2426 ("tá me levando pra cá o gravar"): o "✔ Gravar folheto pronto" já abre no "Ver o que muda" do 1º folheto pronto (`ccSpicerAtuPronto`).
+- v115.2427 BUG GRAVE ("troquei pra ANEL ORING e salvei, não deveria trocar já de todos?"): o 💾 virou a regra "O → ORING" (só a palavra que mudou) e as
+  regras "qualquer descrição" trocavam por PEDAÇO de texto — no Arrumar não rodava ("ORING" contém "O") e no resto trocaria TODO "O" (PARAFUSO → PARAFUSORING).
+  Agora troca a PALAVRA inteira (`pfSubstRegex`/`pfSubstTrocar`, usados no `pfSubstAplicarUma`, `substAplicarSeguro` e `substAplicar`; até 3 letras, - ' . /
+  contam como parte da palavra: "O-RING" não é tocado). Reparo 1x por navegador `pfSubstRepararOring` (ORING grudado em letra volta a "O"). A regra ainda não
+  tinha subido pro servidor (conferido). E ("na ficha da Triex não deveria ficar a que eu coloquei?"): no ✏️ Arrumar descrições, resumo DIGITADO à mão vai também
+  pra ficha da Triex do código (`pfCatArrGravar`, antiga em `descricaoAntes`); o que só a regra mudou não mexe na ficha da Triex. Aviso da linha `pfCatArrTxTexto`.

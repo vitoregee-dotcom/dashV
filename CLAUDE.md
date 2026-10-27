@@ -1428,3 +1428,8 @@
   Robô `noticias-scraper` **v6** (deploy direto no Supabase): lê card por card pelo `<a href="/noticias/?slug=">`, foto do próprio card; card sem data (ranking) fica fora.
   App: `pfNoticiasBuscarViaScraper` com robô VAZIO e notícias antigas na lista = mantém as antigas e dá erro (não apaga mais). Site mudar de novo → olhar o HTML
   pelo `net.http_get` + `net._http_response` (o proxy daqui bloqueia revistamt).
+- v115.2436 **zoom + ⛶ tela cheia no desenho do catálogo** ("vou precisar ampliar a imagem pra conseguir ajustar" → opção C): `pfCatZStageHtml(MK,g,hs,modo)`
+  (quadro `[data-pfcatvp]` + palco `[data-pfcatstage]` com `transform: translate scale`, botões ＋ − ↺ ⛶), rodinha/pinça (`pfCatZRoda`, ctrlKey = trackpad),
+  arrastar o fundo / 2 dedos (`pfCatZPan`, listeners no window — NÃO usar pointer capture no quadro, senão o clique de marcar não chega no palco), limites
+  `pfCatZAplicar`. Tela cheia = `#pfCatZFull` no body (z 100070, ‹ anterior / próximo ›, barra do 📍 Marcar números embaixo, Esc em captura no window),
+  montada no `pfCatZDepois` (fim do `pfCatEnvVer`). Estado `window._pfCatZ` {id,bid,gid,full,n,f}. Círculos com `scale(calc(1 / var(--pfz)))` = mesmo tamanho na tela.

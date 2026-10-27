@@ -1411,3 +1411,8 @@
   Hoje/7/30 dias, pessoa, busca). IP: `pfIpGeoHtml`/`pfIpGeoPreencher` (ipwho.is, cache `pf_ip_geo` 30 dias neste navegador; "🏢 rede usada por N pessoas").
 - v115.2430 ("pensei que mostrasse o endereço do computador… esse não faz diferença pra mim" → opção A): SAIU a cidade/operadora do IP nas Sessões
   (`pfIpGeo*`, ipwho.is — só dava a cidade da operadora); volta a mostrar só o número. 🖱 Cliques continua.
+- v115.2431 ("essas 3 telas de máquinas, não sei bem pra que serve cada uma" → prévias `docs/referencias/telas-maquinas/` → opção C "pode fazer"): as 3 continuam
+  (Máquinas / Aplicações / Catálogos), cada card diz QUANDO usar (nome da máquina × série do componente × desenhos) e cada tela pula pras outras: `pfCatDaSerie(marca,modelo,serie)`
+  acha o catálogo da série (ref = série, modelo desempata); Máquinas → botão "📖 desenhos ›" no componente; Aplicações → "📖 Ver os desenhos ›" (`pfCatLinkHtml`) embaixo do
+  🚜 Vai em; Catálogo → "🧩 Lista de peças (N) ›" + "🚜 máquina ›" (`pfCatLigacoesHtml`); abrir catálogo de fora = `pfCatAbrirDe(id)`. Ideia combinada: depois de umas
+  semanas olhar o 🖱 Cliques e juntar a tela menos usada (A ou B da prévia). Títulos dos cards NÃO mudaram (slug dos atalhos/ícones).

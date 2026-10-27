@@ -1416,3 +1416,5 @@
   acha o catálogo da série (ref = série, modelo desempata); Máquinas → botão "📖 desenhos ›" no componente; Aplicações → "📖 Ver os desenhos ›" (`pfCatLinkHtml`) embaixo do
   🚜 Vai em; Catálogo → "🧩 Lista de peças (N) ›" + "🚜 máquina ›" (`pfCatLigacoesHtml`); abrir catálogo de fora = `pfCatAbrirDe(id)`. Ideia combinada: depois de umas
   semanas olhar o 🖱 Cliques e juntar a tela menos usada (A ou B da prévia). Títulos dos cards NÃO mudaram (slug dos atalhos/ícones).
+- v115.2432 (print da ☰ Lista de Máquinas: "tá certo?"): componente só da ficha saía "DANA DANA HR28000" / "FPT FPT F4HFE613" (fabricante + modelo que já
+  começa com o fabricante) — `maqTxtLimpo` no `maqCompLinhas` tira a palavra repetida. Coluna "PEÇAS" da lista virou "PEÇAS MANUT." (conta só peças de manutenção).

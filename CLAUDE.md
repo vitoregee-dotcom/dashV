@@ -1423,3 +1423,8 @@
 - v115.2434 ("quero poder organizar por equipamentos que têm mais componentes confirmados, ex.: eixo, motor e transmissão"): select "Ordenar: por marca |
   mais componentes confirmados" na lista de Máquinas (`maqOrd`/`maqOrdSet`, localStorage `pf_maq_ord`): agrupa por nº de componentes com série ligada
   (`maqConfInfo().c`, mais completos primeiro; card/linha mostram MARCA + modelo). Vale pra Cards e Lista. Captura `docs/referencias/telas-maquinas/feito-ordenar.png`.
+- v115.2435 BUG ("cadê as notícias?"): a Revista M&T TROCOU O SITE (links `/noticias/?slug=…`, cards `<a class="nc|lanc-card">` com img/`-cat`/`-t`/data
+  "27 de outubro de 2026" ou "20/10/2026" dentro do próprio `<a>`) e o robô v5 voltou vazio — a lista vazia apagava todas as notícias (só ficavam as 3 de marca).
+  Robô `noticias-scraper` **v6** (deploy direto no Supabase): lê card por card pelo `<a href="/noticias/?slug=">`, foto do próprio card; card sem data (ranking) fica fora.
+  App: `pfNoticiasBuscarViaScraper` com robô VAZIO e notícias antigas na lista = mantém as antigas e dá erro (não apaga mais). Site mudar de novo → olhar o HTML
+  pelo `net.http_get` + `net._http_response` (o proxy daqui bloqueia revistamt).

@@ -1409,3 +1409,5 @@
   texto não conta; rótulo `pfCliqueRotulo`, janela `pfCliqueJanela` (overlay *Ov/*Modal/#vendasModal/#pfCrmFicha + título), extra "cotação N"; fila `_pfCliques`
   sobe no `pfSessaoFlush` (60 s, pagehide keepalive) por `pfCliquesEnviar`. Relatório "🖱 Cliques" nas Sessões (`pfCliquesAbrir`/`pfCliquesRender`, mesma senha,
   Hoje/7/30 dias, pessoa, busca). IP: `pfIpGeoHtml`/`pfIpGeoPreencher` (ipwho.is, cache `pf_ip_geo` 30 dias neste navegador; "🏢 rede usada por N pessoas").
+- v115.2430 ("pensei que mostrasse o endereço do computador… esse não faz diferença pra mim" → opção A): SAIU a cidade/operadora do IP nas Sessões
+  (`pfIpGeo*`, ipwho.is — só dava a cidade da operadora); volta a mostrar só o número. 🖱 Cliques continua.

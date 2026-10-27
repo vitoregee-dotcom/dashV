@@ -1403,3 +1403,9 @@
   "🔁 Padronizar" = `substCadAbrir`. No Arrumar: `pfNpSugerir` (jeito achado no texto do catálogo, ou mesma 1ª palavra + metade das palavras; "PARAFUSO" sozinho não
   sugere) → "📘 Parece X ✔ Usar / não é" (`pfCatArrNpUsar` ensina: descrição antiga vira jeito; `pfCatArrNpNao` em localStorage `pf_np_naoe`) e "➕ virar nome padrão".
   A regra "O → ORING" (criada no 💾 da v115.2427) vira "ANEL O → ANEL ORING" 1x. PF_FUNCOES ganhou a linha.
+- v115.2429 **🖱 Cliques + 📍 local do IP** ("dá pra saber cada clique onde foi? e de onde é o IP?" → opção A): tabela `pf_cliques` (SQL em `supabase/pf-cliques.sql`,
+  rodado pelo Vitor no SQL Editor — o apply_migration pelo MCP expirava; RLS: insert só do próprio + `pf_eh_da_empresa()`, select só `pf_eh_admin()`; cron
+  `pf_cliques_limpar` 90 dias). Captura `pfCliqueReg` (click em captura, ligado no `pfSessaoIniciar`): botão/link/[onclick]/.pfBtn/checkbox/select/aba — campo de
+  texto não conta; rótulo `pfCliqueRotulo`, janela `pfCliqueJanela` (overlay *Ov/*Modal/#vendasModal/#pfCrmFicha + título), extra "cotação N"; fila `_pfCliques`
+  sobe no `pfSessaoFlush` (60 s, pagehide keepalive) por `pfCliquesEnviar`. Relatório "🖱 Cliques" nas Sessões (`pfCliquesAbrir`/`pfCliquesRender`, mesma senha,
+  Hoje/7/30 dias, pessoa, busca). IP: `pfIpGeoHtml`/`pfIpGeoPreencher` (ipwho.is, cache `pf_ip_geo` 30 dias neste navegador; "🏢 rede usada por N pessoas").

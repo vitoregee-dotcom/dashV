@@ -1396,3 +1396,10 @@
   contam como parte da palavra: "O-RING" não é tocado). Reparo 1x por navegador `pfSubstRepararOring` (ORING grudado em letra volta a "O"). A regra ainda não
   tinha subido pro servidor (conferido). E ("na ficha da Triex não deveria ficar a que eu coloquei?"): no ✏️ Arrumar descrições, resumo DIGITADO à mão vai também
   pra ficha da Triex do código (`pfCatArrGravar`, antiga em `descricaoAntes`); o que só a regra mudou não mexe na ficha da Triex. Aviso da linha `pfCatArrTxTexto`.
+- v115.2428 **📘 Nomes padrão** ("quero as fichas padronizadas… a maioria das peças devem ter o mesmo nome, independente do fabricante"; prévia
+  `docs/referencias/nomes-padrao/` aprovada, capturas `feito-*.png`): NÃO é lista nova — são as Substituições de Descrição agrupadas pelo "Para" (`pfNpGrupos`;
+  nome sem jeito = regra "NOME → NOME"). Tela `pfNpAbrir`/`pfNpRender` (botão 📘 nas Substituições de Descrição e no cabeçalho do ✏️ Arrumar): jeitos em etiquetas
+  (× `pfNpTirar`, "+ jeito" `pfNpJeito`), ➕ nome `pfNpNovo`, ✏️ `pfNpRenomear` (o nome antigo vira jeito), "Peças hoje · N fora" (`pfNpContar`, `pfNpRegraBate`) e
+  "🔁 Padronizar" = `substCadAbrir`. No Arrumar: `pfNpSugerir` (jeito achado no texto do catálogo, ou mesma 1ª palavra + metade das palavras; "PARAFUSO" sozinho não
+  sugere) → "📘 Parece X ✔ Usar / não é" (`pfCatArrNpUsar` ensina: descrição antiga vira jeito; `pfCatArrNpNao` em localStorage `pf_np_naoe`) e "➕ virar nome padrão".
+  A regra "O → ORING" (criada no 💾 da v115.2427) vira "ANEL O → ANEL ORING" 1x. PF_FUNCOES ganhou a linha.

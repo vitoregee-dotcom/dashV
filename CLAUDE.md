@@ -1433,3 +1433,6 @@
   arrastar o fundo / 2 dedos (`pfCatZPan`, listeners no window — NÃO usar pointer capture no quadro, senão o clique de marcar não chega no palco), limites
   `pfCatZAplicar`. Tela cheia = `#pfCatZFull` no body (z 100070, ‹ anterior / próximo ›, barra do 📍 Marcar números embaixo, Esc em captura no window),
   montada no `pfCatZDepois` (fim do `pfCatEnvVer`). Estado `window._pfCatZ` {id,bid,gid,full,n,f}. Círculos com `scale(calc(1 / var(--pfz)))` = mesmo tamanho na tela.
+- v115.2437 ("ainda precisa dos 3 cards?" → opção A): o card **Aplicações — Modelos & Séries SAIU da Área Técnica** (a tela continua). Entradas: "N peças ›" do
+  componente em Máquinas, "🧩 Lista de peças ›" do Catálogo, Alt+S (item fixo no `pfBuscaF`) e atalho do dock (`pfAtalhoRegistrar` junto dos slugs antigos).
+  Alimentar = 📥 Subir catálogo → Print de 1 grupo. Ficam 2 cards: Máquinas e Catálogos de peças.

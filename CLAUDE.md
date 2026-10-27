@@ -1420,3 +1420,6 @@
   começa com o fabricante) — `maqTxtLimpo` no `maqCompLinhas` tira a palavra repetida. Coluna "PEÇAS" da lista virou "PEÇAS MANUT." (conta só peças de manutenção).
 - v115.2433 BUG ("tô no 2431 ainda" — modo monitor): o Cmd+Shift+R recarrega só a MOLDURA; o sistema de dentro (`?pfmonframe=1`) vinha do cache. O iframe
   agora ganha `pfv=<agora>` no endereço a cada abertura (script do começo do `<head>`).
+- v115.2434 ("quero poder organizar por equipamentos que têm mais componentes confirmados, ex.: eixo, motor e transmissão"): select "Ordenar: por marca |
+  mais componentes confirmados" na lista de Máquinas (`maqOrd`/`maqOrdSet`, localStorage `pf_maq_ord`): agrupa por nº de componentes com série ligada
+  (`maqConfInfo().c`, mais completos primeiro; card/linha mostram MARCA + modelo). Vale pra Cards e Lista. Captura `docs/referencias/telas-maquinas/feito-ordenar.png`.

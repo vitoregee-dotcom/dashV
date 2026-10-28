@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2444</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2445</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2444</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2445</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -51638,6 +51638,10 @@ function vendasAdicionarItem(){
   if(m){var n=m[2];while(n.length<6)n='0'+n;cod=m[1]+n;}
   var codDigitado=cod;
   var codPrincipal=null;
+  // v115.2445 - conjunto de rolamento (tabela Meritor): o cliente manda o nº Meritor e precisa ir o CONJUNTO (cone + capa), nunca só um
+  if(!window._vendasConjPular){var cjS=vendasConjuntoDe(cod);if(cjS){vendasConjuntoDigitado(cjS,cod,qtd);codEl.value='';if(qtdEl)qtdEl.value='1';
+    setTimeout(function(){var el=document.getElementById('vendasCodInput');if(el)el.focus();},50);return;}}
+  window._vendasConjPular=false;
   var items=vendasBuscarItem(cod);
   if(!items||!items.length){
     // não achou direto - procura nas conversões dos produtos cadastrados
@@ -51689,6 +51693,71 @@ function vendasAdicionarItem(){
   vendasInserirItensNaLista(cod, codDigitado, qtd, items);
   codEl.value='';if(qtdEl)qtdEl.value='1';
   setTimeout(function(){var el=document.getElementById('vendasCodInput');if(el)el.focus();},50);
+}
+// v115.2445 - A pedido do Vitor ("não correr o risco de o cliente pedir o conjunto e eu mandar só a capa ou o cone… ele me mandando o número Meritor";
+// "fica separado capa ou cone, mas às vezes fica o conjunto mesmo… com a /"): ficha com conversões de CONJUNTO (tabela Meritor) = conjunto cone + capa.
+// Na cotação: 1) procura o conjunto no estoque (JHM720249/JHM720210 ou JHM720249/10); 2) sem conjunto → cone E capa entram JUNTOS, mesma qtd, presos
+// (it.conjMeritor {cod,parte,grupo}); 3) falta uma parte → linha dela sem saldo + aviso; etiqueta fica vermelha se uma das duas sair da cotação.
+// Número que também é peça de OUTRA marca no estoque (Meritor 802702 × DANA 802702 kit de vedação) → pergunta qual o cliente pediu.
+function vendasConjuntoIdx(){var c=window._vendasConjIdx;if(c&&Date.now()-c.t<30000)return c.m;var m={};
+  try{(cadLoad(PROD_KEY)||[]).forEach(function(p){if(!p||!p.codigo)return;var cv=(p.conversoes||[]).filter(function(o){return o&&o.ref;});
+    var conj=cv.filter(function(o){return /^conjunto/i.test(o.desc||'');});if(!conj.length)return;
+    var x={prod:p,conj:conj.map(function(o){return o.ref;}),cone:(cv.filter(function(o){return /^cone/i.test(o.desc||'');})[0]||{}).ref||'',capa:(cv.filter(function(o){return /^capa/i.test(o.desc||'');})[0]||{}).ref||''};
+    m['p:'+pfAlimNorm(p.codigo)]=x;x.conj.forEach(function(r){m['c:'+pfAlimNorm(r)]=m['c:'+pfAlimNorm(r)]||x;});});}catch(e){}
+  window._vendasConjIdx={t:Date.now(),m:m};return m;}
+function vendasConjuntoDe(cod){var k=pfAlimNorm(cod);if(!k)return null;var I=vendasConjuntoIdx();
+  if(I['p:'+k])return {x:I['p:'+k],por:'codigo'};
+  if(I['c:'+k]){var r=null;try{r=vendasBuscarItem(cod,{semEquiv:true,silencioso:true});}catch(e){}if(!r||!r.length)return {x:I['c:'+k],por:'conjunto'};} // o conjunto em si existe no estoque = segue normal
+  return null;}
+function vendasConjuntoDigitado(cj,cod,qtd){
+  var x=cj.x,mer=String(x.prod.marca||'MERITOR').toUpperCase();
+  var outros=[];if(cj.por==='codigo'){try{outros=(vendasBuscarItem(cod,{semEquiv:true,silencioso:true})||[]).filter(function(r){var m=String(r.marca||'').toUpperCase();return m&&m.indexOf(mer)<0&&mer.indexOf(m)<0;});}catch(e){}}
+  if(!outros.length){vendasConjuntoAdicionar(x,cod,qtd);return;}
+  var o=outros[0];
+  vendasEscolherAbrir('O número '+cod+' é de 2 peças diferentes','Qual delas o cliente pediu?',[
+    {rot:'⚙️ '+mer+' — '+(x.prod.descricao||'rolamento')+' (conjunto cone + capa)',fn:function(){vendasConjuntoAdicionar(x,cod,qtd);}},
+    {rot:'📦 '+(o.marca||'')+' — '+(o.desc||'')+(outros.length>1?' (+'+(outros.length-1)+' ficha'+(outros.length>2?'s':'')+')':''),fn:function(){var el=document.getElementById('vendasCodInput'),q=document.getElementById('vendasQtdInput');if(el)el.value=cod;if(q)q.value=qtd;window._vendasConjPular=true;vendasAdicionarItem();}}]);
+}
+function vendasConjuntoAdicionar(x,codDigitado,qtd){
+  var V=window._venda;if(!V)return;V.itens=V.itens||[];
+  var busca=function(ref){var r=null;try{r=vendasBuscarItem(ref,{semEquiv:true,silencioso:true});}catch(e){}r=r||[];
+    if(r.length&&typeof pfVR2Aplicar==='function'){try{var rr=pfVR2Aplicar(ref,r,V.cliente);if(rr&&rr.items&&rr.items.length)r=rr.items;}catch(e){}}return r;};
+  var grupo='cj'+Date.now().toString(36),antes=V.itens.slice();
+  var marcar=function(parte){V.itens.forEach(function(it){if(antes.indexOf(it)<0&&!it.conjMeritor){it.conjMeritor={cod:x.prod.codigo,marca:x.prod.marca||'MERITOR',parte:parte,grupo:grupo};}});antes=V.itens.slice();};
+  // 1) o conjunto com código próprio (com a "/")
+  for(var i=0;i<x.conj.length;i++){var r=busca(x.conj[i]);if(r.length){vendasInserirItensNaLista(x.conj[i],codDigitado,qtd,r);marcar('conjunto');vendasConjFim('✔ '+codDigitado+' '+(x.prod.marca||'')+' = conjunto '+x.conj[i]);return;}}
+  // 2) cone + capa separados, juntos
+  if(!x.cone&&!x.capa){vendasInserirItensNaLista(x.prod.codigo,codDigitado,qtd,[]);marcar('conjunto');vendasConjFim('');return;}
+  var faltam=[];
+  [['cone',x.cone],['capa',x.capa]].forEach(function(pc){if(!pc[1])return;var r=busca(pc[1]);
+    vendasInserirItensNaLista(pc[1],codDigitado,qtd,r);
+    if(!r.length){faltam.push(pc[0]+' '+pc[1]);V.itens.forEach(function(it){if(antes.indexOf(it)<0&&!it.desc)it.desc=pc[0].toUpperCase()+' DO ROLAMENTO (conjunto '+(x.prod.marca||'')+' '+x.prod.codigo+')';});}
+    marcar(pc[0]);});
+  vendasConjFim(faltam.length?'':'✔ '+codDigitado+' '+(x.prod.marca||'')+' = conjunto: cone '+x.cone+' + capa '+x.capa+' (as 2 linhas)',
+    faltam.length?'⚠ O cliente pediu o CONJUNTO '+(x.prod.marca||'')+' '+x.prod.codigo+' (cone '+x.cone+' + capa '+x.capa+').\n\nNão achei no estoque: '+faltam.join(' e ')+'.\nA linha entrou sem saldo pra você não esquecer dela.':'');
+}
+function vendasConjFim(toast,alerta){window._vendasConjIdx=null;try{vendasRefresh();}catch(e){}try{vendasAutoSalvarDebounced();}catch(e){}
+  if(alerta)pfAlert(alerta);else if(toast&&typeof pfToast==='function')pfToast(toast);}
+function vendasConjEtqHtml(it){var c=it&&it.conjMeritor;if(!c)return '';var V=window._venda||{},its=V.itens||[];
+  var parc=c.parte==='cone'?'capa':c.parte==='capa'?'cone':'';var par=parc?its.filter(function(o){return o!==it&&o.conjMeritor&&o.conjMeritor.grupo===c.grupo&&o.conjMeritor.parte===parc;})[0]:null;
+  var titulo='Cliente pediu o conjunto '+c.marca+' '+c.cod+(c.parte==='conjunto'?'':' = cone + capa (vão juntos)');
+  if(parc&&!par)return '<span title="'+pfEscHtml(titulo)+'" style="font-size:10.5px;font-weight:800;border-radius:9px;padding:1px 7px;margin:1px 3px 1px 0;display:inline-block;background:#FDECEA;color:#B42318;border:1px solid #F5B5AE">⚠ falta a '+parc+' do conjunto '+pfEscHtml(c.marca+' '+c.cod)+'</span>';
+  var difQ=par&&Number(par.qtd)!==Number(it.qtd);
+  return '<span title="'+pfEscHtml(titulo)+'" style="font-size:10.5px;font-weight:800;border-radius:9px;padding:1px 7px;margin:1px 3px 1px 0;display:inline-block;background:'+(difQ?'#FFF4D6':'#EEF4FB')+';color:'+(difQ?'#8a5a00':'#1F4E79')+';border:1px solid '+(difQ?'#F0D58A':'#d6e4f3')+'">🔗 '+(c.parte==='conjunto'?'conjunto':c.parte)+' · '+pfEscHtml(c.marca+' '+c.cod)+(difQ?' · qtd diferente da '+parc:'')+'</span>';}
+// janela de escolha padrão (cabeçalho escuro, ✕, Esc)
+function vendasEscolherAbrir(titulo,sub,ops){
+  var old=document.getElementById('vendasEscOv');if(old)old.remove();
+  var ov=document.createElement('div');ov.id='vendasEscOv';ov.style.cssText='position:fixed;inset:0;background:rgba(10,20,35,.5);z-index:100100;display:flex;align-items:center;justify-content:center;padding:16px';
+  var fechar=function(){ov.remove();document.removeEventListener('keydown',esc,true);};
+  var esc=function(e){if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();fechar();}};document.addEventListener('keydown',esc,true);
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;width:min(520px,100%);overflow:hidden;box-shadow:0 14px 44px rgba(0,0,0,.35)">'+
+    '<div style="background:var(--pf-painel-bg,#1c2940);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-weight:800;font-size:15px;color:#fff">'+pfEscHtml(titulo)+'</div><div style="font-size:12.5px;color:#fff;opacity:.8">'+pfEscHtml(sub||'')+'</div></div>'+
+    '<button data-x style="background:none;border:0;cursor:pointer;padding:0">'+pfXGlossyHtml(22)+'</button></div>'+
+    '<div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">'+ops.map(function(o,i){return '<button data-i="'+i+'" class="pfBtn '+(i?'pfBtnClaro':'pfBtnAzul')+'" style="text-align:left;justify-content:flex-start;white-space:normal;height:auto;min-height:40px;padding:9px 14px;font-size:13.5px">'+pfEscHtml(o.rot)+'</button>';}).join('')+'</div></div>';
+  ov.addEventListener('mousedown',function(e){ov._ini=e.target===ov;});ov.addEventListener('click',function(e){if(e.target===ov&&ov._ini)fechar();});
+  ov.querySelector('[data-x]').onclick=fechar;
+  ov.querySelectorAll('[data-i]').forEach(function(b){b.onclick=function(){fechar();var o=ops[+b.getAttribute('data-i')];if(o&&o.fn)o.fn();};});
+  document.body.appendChild(ov);setTimeout(function(){var b=ov.querySelector('[data-i="0"]');if(b)b.focus();},30);
 }
 function vendasInserirItensNaLista(cod, codDigitado, qtd, items){
   if(!window._venda.itens)window._venda.itens=[];
@@ -52000,6 +52069,7 @@ function vendasEtiquetasHtml(it,i,nRel,nMonta,nSubst){
   // v115.2161 - ficha criada pelo "Alimentar aplicações" (catálogo) ainda sem NCM: o Vitor quer ver na cotação que é item
   // pra tomar cuidado (cadastro incompleto). Some sozinha quando o NCM for preenchido.
   if(prod&&prod.doCatalogo&&!String(prod.ncm||'').trim())h+='<span onclick="event.stopPropagation();vendasVerCadastroItem(\''+pfEscHtml(pfEscJs(it.codigo||''))+'\',\''+pfEscHtml(pfEscJs(it.desc||''))+'\')" title="Ficha criada pelo catálogo ('+pfEscHtml(prod.doCatalogo.serie||'')+') — sem NCM e cadastro incompleto. Clique pra abrir a ficha." style="cursor:pointer;font-size:10.5px;font-weight:800;border-radius:8px;padding:1px 6px;margin-left:3px;background:#FFF3CD;color:#8a5a00;white-space:nowrap">⚠️ conferir</span>';
+  try{h+=vendasConjEtqHtml(it);}catch(eCj){} // v115.2445 - 🔗 conjunto cone + capa
   if(typeof pfCatEnvEtqHtml==='function')try{h+=pfCatEnvEtqHtml(it);}catch(eCat){} // v115.2181 - 📖 catálogo / 🧰 kit
   try{h+=pfAlimKitEtqHtml(it,prod);}catch(eKit){} // v115.2217 - 📦 kit com N peças / 🧰 vem no JG …
   cfg.forEach(function(t){

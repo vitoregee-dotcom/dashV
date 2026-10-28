@@ -1446,3 +1446,7 @@
 - v115.2437 ("ainda precisa dos 3 cards?" → opção A): o card **Aplicações — Modelos & Séries SAIU da Área Técnica** (a tela continua). Entradas: "N peças ›" do
   componente em Máquinas, "🧩 Lista de peças ›" do Catálogo, Alt+S (item fixo no `pfBuscaF`) e atalho do dock (`pfAtalhoRegistrar` junto dos slugs antigos).
   Alimentar = 📥 Subir catálogo → Print de 1 grupo. Ficam 2 cards: Máquinas e Catálogos de peças.
+- v115.2438 BUG ("por que o desenho está ruim assim?" — ZF Flange de acionamento): na ZF o desenho ocupa só um pedaço da página e o corte saía com ~600 px
+  (borrado na tela Retina e no zoom). Ao salvar catálogo ZF o PDF (vetor) é renderizado de novo na escala que dá `PF_CAT_DES_LADO`=2200 px no lado maior do
+  desenho (`pfCatEnvEscalaHD`, máx. 8x e ~30 Mpx). Catálogo já gravado: botão "🔍 Desenhos em alta" (marca ZF, com PDF, algum grupo sem `hd`) → `pfCatEnvDesenhosHD`
+  (refaz o corte igual ao da importação, confere a proporção com o `ar` antigo — diferença > 3% não troca —, sobe `c/<id>/<g>_hd.png` e marca `g.hd`; nº marcados ficam).

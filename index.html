@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2437</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2438</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2437</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2438</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -87562,6 +87562,43 @@ function pfCatEnvAparar(ctx,W,H,rc){
     if(Mx<0)return null;var pd=0.015;
     return [Math.max(0,(X0+mx)/W-pd),Math.max(0,(Y0+my)/H-pd),Math.min(1,(X0+Mx)/W+pd),Math.min(1,(Y0+My)/H+pd)];}catch(e){return null;}
 }
+// v115.2438 - escala pra o desenho cortado (rec = fração da página) ficar com PF_CAT_DES_LADO px no lado maior (máx. 8x e ~30 milhões de pixels)
+var PF_CAT_DES_LADO=2200;
+function pfCatEnvEscalaHD(pg,S,rec,cv){
+  var v1=pg.getViewport({scale:1}),lado=Math.max((rec[2]-rec[0])*cv.width,(rec[3]-rec[1])*cv.height);if(!lado)return S;
+  return Math.min(8,S*PF_CAT_DES_LADO/lado,Math.sqrt(30e6/(v1.width*v1.height)));
+}
+// v115.2438 - refaz os desenhos JÁ gravados (catálogo ZF) em alta resolução, pelo PDF original; os números marcados não mudam de lugar
+async function pfCatEnvDesenhosHD(id,btn){
+  var c=pfCatEnvLoad().por[id];if(!c)return;if(!c.pdfPath){pfAlert('Esse catálogo não tem o PDF original guardado — não dá pra refazer os desenhos.');return;}
+  var t0=btn?btn.textContent:'';if(btn)btn.disabled=true;var st=function(t){if(btn)btn.textContent=t;};
+  var feitos=0,pulou=[],bons=0;
+  try{
+    st('🔍 Abrindo o PDF…');await pfCarregarPdfJs();var u=await pfGarUrlAssinada(c.pdfPath),buf=await (await fetch(u)).arrayBuffer(),pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    var gs=(c.grupos||[]).slice(),S=2.5,feitoPag={};
+    for(var i=0;i<gs.length;i++){var g=gs[i];st('🔍 Desenho '+(i+1)+' de '+gs.length+'…');
+      try{
+        var pg=await pdf.getPage(+g.pag),v1=pg.getViewport({scale:1}),tc=await pg.getTextContent(),r=pfCatEnvZFLerPagina(tc.items,v1.width,v1.height);
+        if(!r||!r.rec){pulou.push(g.nome+' (página sem desenho da ZF)');continue;}
+        var rd=async function(sc){var vp=pg.getViewport({scale:sc}),cv=document.createElement('canvas');cv.width=Math.round(vp.width);cv.height=Math.round(vp.height);var ctx=cv.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,cv.width,cv.height);await pg.render({canvasContext:ctx,viewport:vp}).promise;return {cv:cv,ctx:ctx};};
+        var A=await rd(S),bb=pfCatEnvAparar(A.ctx,A.cv.width,A.cv.height,r.rec)||r.rec,S2=pfCatEnvEscalaHD(pg,S,bb,A.cv);
+        if(S2<=S*1.05){bons++;continue;}
+        var B=await rd(S2),cv=B.cv,pd=0.01,x0=Math.round(Math.max(0,bb[0]-pd)*cv.width),y0=Math.round(Math.max(0,bb[1]-pd)*cv.height),ww=Math.round(Math.min(1,bb[2]+pd)*cv.width)-x0,hh=Math.round(Math.min(1,bb[3]+pd)*cv.height)-y0;
+        if(g.ar&&Math.abs(hh/ww-g.ar)/g.ar>0.03){pulou.push(g.nome+' (o corte não bateu com o desenho de antes)');continue;}
+        var up=feitoPag[g.pag];
+        if(!up){var cr=document.createElement('canvas');cr.width=ww;cr.height=hh;cr.getContext('2d').drawImage(cv,x0,y0,ww,hh,0,0,ww,hh);
+          var blob=await new Promise(function(res){cr.toBlob(res,'image/png');}),ext='png',mime='image/png';
+          if(blob.size>1500000){var bj=await new Promise(function(res){cr.toBlob(res,'image/jpeg',0.9);});if(bj&&bj.size<blob.size){blob=bj;ext='jpg';mime='image/jpeg';}}
+          up=await pfStorageSubir('ferramentas-arquivos','c/'+id+'/'+g.id+'_hd.'+ext,blob,mime);
+          if(!up.ok){pulou.push(g.nome+' (não subiu'+(up.status?' — status '+up.status:'')+')');continue;}feitoPag[g.pag]=up;}
+        pfCatEnvMarcaGrupoSalvar(id,g.id,function(gg){gg.img=SB_URL+'/storage/v1/object/public/ferramentas-arquivos/'+up.path;gg.hd=1;});feitos++;
+      }catch(eG){pulou.push(g.nome+' ('+pfErroAmigavel(eG&&eG.message)+')');}
+    }
+  }catch(e){if(btn){btn.disabled=false;btn.textContent=t0;}pfAlert('Não deu pra abrir o PDF original: '+pfErroAmigavel(e&&e.message));return;}
+  if(btn){btn.disabled=false;btn.textContent=t0;}
+  var V=window._pfCatEnvVer;if(V&&V.id===id)pfCatEnvVer(id,V.gid,V.box);
+  window._pfSemTraduzirErro=1;try{pfAlert('🔍 '+feitos+' desenho(s) refeito(s) em alta resolução'+(bons?' · '+bons+' já estavam bons':'')+'. Os números marcados continuam no mesmo lugar.'+(pulou.length?'\n\n⚠ Ficaram como estavam:\n• '+pulou.join('\n• '):''));}finally{window._pfSemTraduzirErro=0;}
+}
 // lê o PDF inteiro, mostra o resumo e pede marca/modelo/ref antes de subir os desenhos
 async function pfCatEnvImportar(file){
   if(!pfCatPodeSubir())return pfCatSoVitorAviso(); // v115.2379
@@ -87634,6 +87671,10 @@ async function pfCatEnvSalvarNovo(){
       // v115.2192 escaneado: recorte do desenho pelo retângulo que a IA achou (x e y); o mesmo desenho (sub-grupos) sobe 1 vez só
       if(N.zf&&g.rec&&!g._apar){var bb=pfCatEnvAparar(ctx,cv.width,cv.height,g.rec); // v115.2380 ZF: o desenho ocupa só parte da página — corta o branco
         if(bb){var o0=g.rec;g.nums=g.nums.map(function(q){var ax=o0[0]+q.cx*(o0[2]-o0[0]),ay=o0[1]+q.cy*(o0[3]-o0[1]);return {n:q.n,cx:(ax-bb[0])/(bb[2]-bb[0]),cy:(ay-bb[1])/(bb[3]-bb[1])};});g.rec=bb;}g._apar=1;}
+      // v115.2438 - A pedido do Vitor ("por que o desenho está ruim assim?"): na ZF o desenho ocupa só um pedaço da página e, cortado, ficava
+      // pequeno (~600 px) e borrado ao ampliar. O PDF é vetor: renderiza de novo numa escala maior até o desenho ter PF_CAT_DES_LADO px.
+      if(N.zf&&g.rec){var S2=pfCatEnvEscalaHD(pg,S,g.rec,cv);if(S2>S*1.05){vp=pg.getViewport({scale:S2});cv=document.createElement('canvas');cv.width=Math.round(vp.width);cv.height=Math.round(vp.height);
+        ctx=cv.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,cv.width,cv.height);await pg.render({canvasContext:ctx,viewport:vp}).promise;}}
       var x0=0,y0=Math.max(0,Math.round(g.y0*S)),ww=cv.width,hh=Math.round((g.y1-g.y0)*S);
       if(g.rec){var rc=g.rec,pd=0.01;x0=Math.round(Math.max(0,rc[0]-pd)*cv.width);y0=Math.round(Math.max(0,rc[1]-pd)*cv.height);ww=Math.round(Math.min(1,rc[2]+pd)*cv.width)-x0;hh=Math.round(Math.min(1,rc[3]+pd)*cv.height)-y0;}
       var up=jaSubiu[g.pag]||N._up[g.id];
@@ -87908,6 +87949,7 @@ function pfCatEnvVer(id,gid,bid){
       '<b style="font-size:15px;color:#1F4E79">'+pfEscHtml(c.titulo)+'</b><span style="font-size:12px;color:#607080">'+pfEscHtml([c.marca,c.modelo,c.ref?'ref. '+c.ref:''].filter(Boolean).join(' · '))+'</span>'+
       '<span style="flex:1"></span>'+
       (c.pdfPath?'<button class="pfBtn pfBtnClaro" style="height:32px;font-size:12px" onclick="pfCatEnvPdfOriginal(\''+id+'\',this)">📄 PDF original</button>':'')+
+      (!pop&&pfCatEnvPode()&&c.pdfPath&&/^ZF\b/i.test(c.marca||'')&&(c.grupos||[]).some(function(x){return !x.hd;})?'<button class="pfBtn pfBtnClaro" style="height:32px;font-size:12px" title="Desenha de novo cada figura pelo PDF original, bem maior (fica nítido ao ampliar). Os números marcados não mudam." onclick="pfCatEnvDesenhosHD(\''+id+'\',this)">🔍 Desenhos em alta</button>':'')+ // v115.2438
       (!pop&&pfCatEnvPode()?'<button class="pfBtn pfBtnClaro" style="height:32px;font-size:12px" title="Ver e arrumar a descrição de cada peça (resumo × completa), com 💾 pra virar regra" onclick="pfCatEnvArrAbrir(\''+id+'\')">✏️ Arrumar descrições</button>':'')+ // v115.2386
       (!pop&&pfCatEnvPode()?'<button class="pfBtn pfBtnClaro" style="height:32px;font-size:12px" title="'+(c.aplicEm?'Já está em Aplicações desde '+new Date(c.aplicEm).toLocaleDateString('pt-BR')+' — clique pra atualizar':'Ainda não está em Aplicações — Modelos & Séries')+'" onclick="pfCatEnvMandarAplicBtn(\''+id+'\',this)">'+(c.aplicEm?'✅ Em Aplicações':'🔁 Mandar pras Aplicações')+'</button>':'')+
       '<button data-cotbtn class="pfBtn pfBtnAzul" style="height:32px;font-size:12px" onclick="pfCatEnvCotarMarcados()"'+(nSel?'':' disabled')+'>'+pfCatEnvCotTxt(nSel)+'</button>'+

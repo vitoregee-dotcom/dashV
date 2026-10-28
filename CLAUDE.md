@@ -1473,3 +1473,11 @@
   `pfCatProntosHtml` e depois do `cadConfirmarImport`): conta quantos códigos do json já estão no cadastro com a marca do catálogo (ou família, TX CUMMINS) →
   ✅ Importado (≥95%) · N de N peças / ◐ Em parte / ⬜ Ainda não importado; botão vira "🔁 Abrir prévia de novo". Json baixado 1x por sessão (`_pfCatProntoJson`).
   Cummins já estava importado (861 peças em Aplicações, conferido no banco em 28/10).
+- v115.2443 BUG ("uma mesma cruzeta da LNG tem o mesmo código de um rolamento Meritor" — print do Carlos: Sorocard LR-40R rolamento "SIMILAR 801154 (MERITOR)",
+  e no PF 801154 = CRUZETA LNG): `ccEqMarcaPeloCodigo` trocava QUALQUER marca pela do cadastro (801154 existe como LNG → virava LNG e a peça entrava no card da
+  LNG). Agora marca escrita no catálogo (MERITOR, EATON, STAHL…) é mantida; só corrige vazio / SPICER / SOROCARD / REI. **Mesmo número em 2 marcas = peça diferente.**
+  Aviso "⚠ mesmo nº em <MARCA> (<o que é>) — outra peça" SÓ nos códigos que coincidem (Vitor: "só os códigos que coincidem mesmo"): `pfCodMarcasIdx` (cadastro de
+  produtos com a marca crua + Componentes Cardan pela linha + equivalentes com marca escrita, 60 s) → `pfCodOutrasMarcas(cod,marca)`/`pfCodOutrasMarcasHtml` na busca
+  geral do Cardan (lista e tabela), na prévia do Importar Produtos (coluna Status; ex.: Meritor 802702 × DANA 802702 KIT DE VEDAÇÃO, 802760 × DANA KIT DE ENGRENAGENS)
+  e nas peças do 🚚 Rodoviário. `pmInfo(cod, marcaSo)`: com marca, o saldo/descrição/conversões são SÓ dessa marca (não soma a peça da outra). Prévia do catálogo já lido
+  mostra também "🔁 conversões: Cone X · Capa Y" e "🚚 N veículos: …" (antes as aplicações não apareciam).

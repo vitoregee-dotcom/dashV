@@ -1450,3 +1450,5 @@
   (borrado na tela Retina e no zoom). Ao salvar catálogo ZF o PDF (vetor) é renderizado de novo na escala que dá `PF_CAT_DES_LADO`=2200 px no lado maior do
   desenho (`pfCatEnvEscalaHD`, máx. 8x e ~30 Mpx). Catálogo já gravado: botão "🔍 Desenhos em alta" (marca ZF, com PDF, algum grupo sem `hd`) → `pfCatEnvDesenhosHD`
   (refaz o corte igual ao da importação, confere a proporção com o `ar` antigo — diferença > 3% não troca —, sobe `c/<id>/<g>_hd.png` e marca `g.hd`; nº marcados ficam).
+- v115.2439 BUG (print do ✏️ Arrumar da ZF: ARRUELA DE ENCOSTO → "📘 Parece ARRUELA DE PRESSÃO"): o `pfNpSugerir` aceitava só a 1ª palavra igual (2 palavras =
+  50%). Agora precisa de 2+ palavras em comum (fora DE/DO/DA/PARA/COM/SEM).

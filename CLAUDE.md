@@ -1481,3 +1481,7 @@
   geral do Cardan (lista e tabela), na prévia do Importar Produtos (coluna Status; ex.: Meritor 802702 × DANA 802702 KIT DE VEDAÇÃO, 802760 × DANA KIT DE ENGRENAGENS)
   e nas peças do 🚚 Rodoviário. `pmInfo(cod, marcaSo)`: com marca, o saldo/descrição/conversões são SÓ dessa marca (não soma a peça da outra). Prévia do catálogo já lido
   mostra também "🔁 conversões: Cone X · Capa Y" e "🚚 N veículos: …" (antes as aplicações não apareciam).
+- v115.2444 ("esses de conjuntos, como vão ficar? geralmente cjt de rolamentos ficam assim: JHM720249/JHM720210 OU JHM720249/10"): no json da Meritor
+  cada cônico com cone ≠ capa ganha conversão de CONJUNTO (desc "conjunto cone/capa (tabela Meritor)") nos 2 jeitos: cheio "CONE/CAPA" e curto "CONE/cauda" (a
+  parte da capa que muda; só com cone e capa do mesmo tamanho, cone 4+ caracteres, cauda até 2 — ou 3 com 3+ iguais: JHM720249/10, 9278/20, H715334/11; 387A/382S
+  e 64450/64700 ficam só cheios) + cone e capa separados. Máquinas → "conjunto: …" com saldo embaixo da descrição; cone/capa pelo começo do desc (`^cone`/`^capa`).

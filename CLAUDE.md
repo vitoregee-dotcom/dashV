@@ -1525,3 +1525,9 @@
   dígitos (CT-20/25 = CT-25; W-36/ TRATOR 4490 = 4490). `maqCcIdx` marca `e.rod`/`e.fora`; `x.ccRod` decide o Rodoviário (`maqLinhaDe`), tipo da máquina nova = o do texto.
   Com o LNG 2015: 219 máquinas do Fora de estrada com cardan (CASE W20 = a mesma da ficha). Card de fora com cardan continua mostrando peças de manutenção/ficha.
   Capturas `feito-fora-cardan.png` / `feito-case-w20-cardan.png`.
+- v115.2450 ("eu nem lembro o que são esses avisos… coloca lá no que o sistema faz"): a linha 'Máquinas' do `PF_FUNCOES` explica os botões da lista (⚠️ sem ficha
+  técnica / sem peças de manutenção / componente sem série ligada, ✓ Confirmadas, ◐ Parcial) e cita o cardan. Ideia nova no `PF_FUNC_IDEIAS`: **📉 Vendas perdidas por
+  falta de saldo** (Vitor, 28/10: "contabilizar item que foi cotado com saldo zero… cliente que sempre compra a marca X, quando cotou não tinha e comprou outra marca…
+  nos relatórios de itens cotados e não vendidos"). Hoje NÃO existe: o card "💡 Mais Cotações / Menos Vendas" do Dashboard vem da planilha do ERP (sem saldo/marca
+  da hora), a ficha do cliente tem "Cotou e não fechou" (sem o motivo). Dá pra montar com o que já está gravado: o item da cotação guarda o `saldo` de quando entrou
+  (`it.saldo`, não é atualizado depois), `marca`/`marcaInterna`, e o `_pcFech`/pedidos (`pvLoad`) dizem o que virou pedido e com qual marca.

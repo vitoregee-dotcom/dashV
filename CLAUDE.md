@@ -1590,3 +1590,6 @@
 - v115.2459 BUG ("digitei 098537 e não apareceu marca… por que não puxou nenhuma ficha?"): código que NÃO está na planilha do estoque mas tem ficha no cadastro
   entrava em branco — `vendasInserirItensNaLista` sem resultado agora usa marca e descrição da ficha (`daFicha`). Conjunto Meritor sem cone, capa nem conjunto no estoque
   (`vendasConjuntoAdicionar`) = 1 linha com a ficha do código pedido ("ROLAMENTO… (CONE X + CAPA Y)", 🔗 conjunto) em vez de 2 linhas vazias + aviso.
+- v115.2460 ("botões com alturas diferentes e textos com posições diferentes"): cabeçalho de Máquinas (`maqCabHtml` → `maqCssGarantir`, `<style id="maqAlinhaCss">`):
+  botões `.maqCabBtns>*` + Voltar `.maqCabVoltar` = 36 px (o mínimo de toque do sistema é 36; o Voltar padrão `pfBtnVoltar` é 34 — sobrescrito só aqui), texto centrado;
+  Cards/Lista `.maqTog` estica; chips da linha `.maqChipL` 38 px e filtros `.maqChipF` 30 px. Captura `docs/referencias/telas-maquinas/feito-botoes-alinhados.png`.

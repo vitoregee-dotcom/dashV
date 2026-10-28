@@ -1579,3 +1579,4 @@
   gestor: 🔓 Liberar e gerar o pedido, registrado com auto). Log só-acrescenta `pfLibEventos` (pedido {cotKey=v.nr, cotNum, itens[k=código|marca, preco…]} / decisao {ref,ok,resp,paraEmail})
   → barra de notificações `liberacao` (gestor vê pedidos, vendedor respostas, `pfLibEvMeu`, painel `pfLibPainelHtml`, ✅/❌ `pfLibResponder`). Liberado vale pra preço ≥ o
   liberado (`pfLibIdx`/`pfLibSituacao`); baixar mais = pede de novo. Gestão → 💲 Margem: KPI e tabela "⛔ abaixo do mínimo da marca" com quem liberou. Capturas `docs/referencias/liberacao-preco/`.
+- v115.2457 ("as que não tiver é 21%"): marca fora da lista do `pfMargemMinMarca_v1` = mínimo 21% (`PF_LIB_PADRAO`=21; campo "Outras marcas" vazio também vale 21).

@@ -1531,3 +1531,12 @@
   nos relatórios de itens cotados e não vendidos"). Hoje NÃO existe: o card "💡 Mais Cotações / Menos Vendas" do Dashboard vem da planilha do ERP (sem saldo/marca
   da hora), a ficha do cliente tem "Cotou e não fechou" (sem o motivo). Dá pra montar com o que já está gravado: o item da cotação guarda o `saldo` de quando entrou
   (`it.saldo`, não é atualizado depois), `marca`/`marcaInterna`, e o `_pcFech`/pedidos (`pvLoad`) dizem o que virou pedido e com qual marca.
+- v115.2451 **📉 Vendas perdidas** (Vitor: "contabilizar item cotado com saldo zero… cliente que sempre compra a marca X e levou outra… se cotei 3 marcas e ele
+  confirmou uma, como saber o motivo?" → prévia `docs/referencias/vendas-perdidas/` aprovada "já com a 3"; capturas `feito-*.png`): aba/card em Vendas (`perdidas`,
+  `pfVpRender`). Peça = itens da cotação com o mesmo `codigoOriginal` (`pfVpGk`): levou qualquer marca (`it.pvNumero` ou pedido com `cotacaoNum` com código+marca) =
+  vendida; nenhuma = perdida; cotação sem pedido < 7 dias = em aberto (`PF_VP_ABERTO_DIAS`). Saldo = `it.saldo` de quando entrou (null = sem saldo). Perfil
+  `pfVpPerfil(x,gk,marcas,exceto)`: a mesma peça 2+ compras e 60%+, senão a marca entre as cotadas 4+ e o dobro da 2ª (sem o pedido da própria cotação). Motivo
+  `pfVpMotivo` (`PF_VP_MOT` preco/marca/saldo/tecnica/nao/sem/dele): resposta do vendedor `q.motivos[gk]` {m,por,em,pulou} > perfil > saldo das outras > preço.
+  Pergunta ao gerar pedido (`pvConfirmarCriarPedido` → `pfVpPerguntarAbrir`/`pfVpPerguntas`, grava `pfVpGravarResp` na cotação e no `window._venda`): só quando o
+  motivo dá "sem" (ou `sempre`) e, com `naoLevou`, as peças que não foram no pedido; Pular grava `pulou`. Config compartilhada `pfVendasPerdCfg` {perguntar,naoLevou,
+  sempre,ts} (⚙️ do gestor, `pfVpCfgAbrir`). Vendedor vê só as dele. ⬇ Excel `pfVpExcel`. PF_FUNCOES 'Vendas perdidas' (saiu do PF_FUNC_IDEIAS).

@@ -1566,3 +1566,7 @@
   vendas, devoluções, por grupo, ⬇ Excel `pfGeMargemExcel` (3 abas). Vendas: chips de grupo (`pfGeGrupoChipsHtml`), KPI margem média, ⚖️ Grupos lado a lado
   (`pfGeGruposLadoHtml`, sem grupo escolhido), 🏷️ Marcas vendidas (`pfGeMarcasHtml`: 📈 mais cresceram / 📉 mais caíram / 🆕 começaram + tabela com antes/diferença).
   Avisos ganharam grupo ±15% e grupo com 15%+ dos itens abaixo da margem.
+- v115.2455 **meta automática** (Vitor: "as metas, vamos colocar um % de 10 a mais que no trimestre passado" → "ou melhor 10% a menos… pq é fim de ano"): sem meta
+  gravada no trimestre, `pfGeMetas` usa `pfGeMetaAuto(triIni,pct)` = trimestre anterior × (1 + pct/100) pra vendido, cotações/dia útil e vendido de cada vendedor
+  (% que fecha = o do trimestre anterior; perdido sem saldo fica sem meta). `pct` = `pfGestaoMetas_v1.autoPct` (padrão `PF_GE_META_AUTO_PCT` = −10), trocável no
+  ✏️ Definir metas (campo "🤖 Meta automática" + "Preencher"); gravar fixa os números. Faixa "🤖 Meta automática: −10% sobre o 3º tri" em cima das barras.

@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2454</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2455</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2454</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2455</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -50820,7 +50820,20 @@ function pfGeDados(per,grupo){ // v115.2454 - por grupo + margem/comissão (d.M)
 function pfGeTriChave(t){var d=new Date(t);return d.getFullYear()+'-'+(Math.floor(d.getMonth()/3)+1);}
 function pfGeTriNomeDe(t){var d=new Date(t);return (Math.floor(d.getMonth()/3)+1)+'º tri/'+d.getFullYear();}
 function pfGeMetasLoad(){var o={};try{o=JSON.parse(localStorage.getItem('pfGestaoMetas_v1')||'{}')||{};}catch(e){}if(!o.por)o.por={};return o;}
-function pfGeMetas(P){return pfGeMetasLoad().por[pfGeTriChave(P.triIni)]||null;}
+// v115.2455 - A pedido do Vitor ("as metas, vamos colocar um % de 10 a mais que no trimestre passado" → "ou melhor 10% a menos… pq é fim de ano"):
+// sem meta gravada, a meta é AUTOMÁTICA = trimestre anterior × (1 + autoPct/100) (padrão −10%, `pfGestaoMetas_v1.autoPct`, trocável no ✏️ Definir metas):
+// vendido, cotações por dia útil e vendido de cada vendedor; % que fecha = o do trimestre anterior. Gravar no ✏️ fixa os números.
+var PF_GE_META_AUTO_PCT=-10;
+function pfGeMetaAutoPct(){var o=pfGeMetasLoad();return o.autoPct!=null&&!isNaN(o.autoPct)?+o.autoPct:PF_GE_META_AUTO_PCT;}
+function pfGeMetaAuto(triIni,pct){
+  var d=new Date(triIni),ini=new Date(d.getFullYear(),d.getMonth()-3,1).getTime(),pc=pct!=null?pct:pfGeMetaAutoPct(),k='auto|'+triIni+'|'+pc,C=window._pfGeMetaAutoC=window._pfGeMetaAutoC||{};
+  if(C[k]&&Date.now()-C[k].em<20000)return C[k].m;
+  var b=pfGeCalc(ini,triIni,pcMontarDados()),f=1+pc/100,m=null;
+  if(b.vend>0){m={auto:true,pct:pc,base:pfGeTriNomeDe(ini),vendido:Math.round(b.vend*f/100)*100,fecha:Math.round(b.pctFech),perdMax:0,cotDia:Math.round(b.nCot/pfGeDiasUteis(ini,triIni)*f*10)/10,vend:{}};
+    Object.keys(b.vends).forEach(function(e){var v=b.vends[e];if(e&&v.vend>0)m.vend[e]=Math.round(v.vend*f/100)*100;});}
+  C[k]={em:Date.now(),m:m};return m;
+}
+function pfGeMetas(P){return pfGeMetasLoad().por[pfGeTriChave(P.triIni)]||pfGeMetaAuto(P.triIni);}
 // ── formatos ──
 function pfGeR(v){v=v||0;return Math.abs(v)>=100000?'R$ '+Math.round(v/1000).toLocaleString('pt-BR')+' mil':'R$ '+Math.round(v).toLocaleString('pt-BR');}
 function pfGeDelta(a,b,pp,inv){if(b==null||(!a&&!b))return '';var d=pp?Math.round(a-b):(b?Math.round((a-b)/b*100):100);if(!d)return '<span style="color:#8a9ab0;font-weight:700;font-size:11px">= igual</span>';
@@ -51086,6 +51099,7 @@ function pfGeAvisosHtml(d){var av=pfGeAvisos(d),cs={r:['#C0392B','#FDECEA'],a:['
   return av.length?av.map(function(a){var c=cs[a.c];return '<div style="display:flex;gap:10px;align-items:center;padding:9px 10px;border-radius:8px;margin-bottom:8px;border-left:4px solid '+c[0]+';background:'+c[1]+'"><span style="font-size:20px">'+a.ic+'</span><div style="flex:1;min-width:0"><b style="font-size:13px;color:#1a2332">'+pfEscHtml(a.t)+'</b><div style="color:#556;font-size:11.5px;margin-top:2px">'+pfEscHtml(a.s)+'</div></div><button onclick="'+a.fn+'" style="background:#fff;border:1px solid #ccd;border-radius:6px;padding:5px 10px;font-size:11.5px;font-weight:700;white-space:nowrap;cursor:pointer;color:#1a2332">'+pfEscHtml(a.bt)+'</button></div>';}).join(''):'<div style="font-size:12.5px;color:#778">Nada fora do normal no período. 👍</div>';}
 function pfGeMetasHtml(d){var M=pfGeMetas(d.P),A=d.A,ger=pfGeAcesso();var tri=pcTriNome(0),P=d.P;
   var ed=ger?'<button onclick="pfGeMetasAbrir()" style="float:right;background:none;border:0;color:#1F4E79;font-weight:700;font-size:12px;cursor:pointer">✏️ Definir metas</button>':'';
+  var autoTxt=M&&M.auto?'<div style="font-size:11.5px;color:#556;background:#EEF4FB;border-radius:6px;padding:5px 8px;margin-bottom:6px">🤖 Meta automática: '+(M.pct>0?'+':'')+String(M.pct).replace('.',',')+'% sobre o '+pfEscHtml(M.base)+(ger?' · ✏️ Definir metas pra mudar ou fixar':'')+'</div>':'';
   if(!M)return '<div style="font-size:12.5px;color:#556">Nenhuma meta cadastrada pra este trimestre.'+(ger?'<div style="margin-top:10px"><button class="pfBtn pfBtnAzul" onclick="pfGeMetasAbrir()">✏️ Definir metas</button></div>':'')+'</div>';
   var fr=Math.min(1,Math.max(0,(Math.min(Date.now(),P.triFim)-P.triIni)/Math.max(1,P.triFim-P.triIni)));
   var bar=function(t,txt,pct,cor,sub,esp){return '<div style="margin:10px 0"><div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;color:#1a2332"><span>'+t+'</span><span>'+txt+'</span></div><div style="height:12px;background:#eef1f5;border-radius:6px;overflow:hidden;margin-top:4px;position:relative"><i style="display:block;height:100%;border-radius:6px;width:'+Math.min(100,Math.max(0,pct))+'%;background:'+cor+'"></i>'+(esp!=null?'<b style="position:absolute;top:0;width:2px;height:12px;background:#1a2332;left:'+Math.min(99,esp*100)+'%"></b>':'')+'</div><div style="font-size:11px;color:#667;margin-top:2px">'+sub+'</div></div>';};
@@ -51093,11 +51107,11 @@ function pfGeMetasHtml(d){var M=pfGeMetas(d.P),A=d.A,ger=pfGeAcesso();var tri=pc
   if(M.vendido>0){var p=A.vend/M.vendido;h+=bar('🛒 Vendido',pfGeR(A.vend)+' de '+pfGeR(M.vendido),p*100,p>=fr*0.95?'#1F4E79':'#E8590C',Math.round(p*100)+'%'+(fr<1?' · esperado hoje '+Math.round(fr*100)+'% (linha preta) · '+(p>=fr*0.95?'✅ no ritmo':'⚠ abaixo do ritmo'):''),fr<1?fr:null);}
   if(M.fecha>0){var ok=A.pctFech>=M.fecha;h+=bar('📊 % que fecha',Math.round(A.pctFech)+'% de '+M.fecha+'%',A.pctFech/M.fecha*100,ok?'#1A7A3C':'#E8590C',ok?'✅ na meta':'⚠ abaixo da meta');}
   if(M.perdMax>0){var pp=d.perdSemV/M.perdMax;h+=bar('📦 Perdido por falta de saldo',pfGeR(d.perdSemV)+' · máx '+pfGeR(M.perdMax),pp*100,pp>1?'#C0392B':pp>0.8?'#E8590C':'#1A7A3C',pp>1?'❌ passou do limite':pp>0.8?'⚠ perto do limite':'✅ dentro do limite');}
-  if(M.cotDia>0){var cd=A.nCot/A.diasUteis;h+=bar('📋 Cotações por dia (equipe)',cd.toFixed(1).replace('.',',')+' de '+M.cotDia,cd/M.cotDia*100,cd>=M.cotDia?'#1A7A3C':'#E8590C',cd>=M.cotDia?'✅ na meta':'⚠ abaixo');}
+  if(M.cotDia>0){var cd=A.nCot/A.diasUteis;h+=bar('📋 Cotações por dia (equipe)',cd.toFixed(1).replace('.',',')+' de '+String(M.cotDia).replace('.',','),cd/M.cotDia*100,cd>=M.cotDia?'#1A7A3C':'#E8590C',cd>=M.cotDia?'✅ na meta':'⚠ abaixo');}
   var vm=M.vend||{},vk=Object.keys(vm).filter(function(k){return vm[k]>0;});
   if(vk.length)h+='<div style="font-size:13.5px;font-weight:800;color:#1a2332;margin:14px 0 6px">👤 Metas por vendedor</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px">'+vk.map(function(k){var v=A.vends[k]||{vend:0,nome:pcNomeVendedor(k)},p=v.vend/vm[k];var c=p>=fr*0.95?['#E1F5E6','#1d6b35']:p>=fr*0.7?['#FFF3C4','#7a5b00']:['#FDE2E0','#A0281C'];
     return '<div title="'+pfEscHtml(pfGeR(v.vend)+' de '+pfGeR(vm[k]))+'" style="border-radius:8px;padding:8px;text-align:center;font-size:11px;font-weight:700;background:'+c[0]+';color:'+c[1]+'"><b style="display:block;font-size:18px">'+Math.round(p*100)+'%</b>'+pfEscHtml(v.nome)+'</div>';}).join('')+'</div>';
-  return h||'<div style="font-size:12.5px;color:#556">Metas sem valor.</div>';}
+  return h?autoTxt+h:'<div style="font-size:12.5px;color:#556">Metas sem valor.</div>';}
 function pfGeGeralHtml(d){
   var M=pfGeMetas(d.P),ger=pfGeAcesso();
   return pfGeSetoresHtml(d)+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:14px;margin-top:14px">'+
@@ -51173,7 +51187,7 @@ async function pfGeEquipeSessoes(d){
   }catch(e){var tab2=document.getElementById('pfGeEqTab');if(tab2)tab2.querySelectorAll('[data-ges]').forEach(function(sp){sp.textContent='—';sp.title='Sessões não disponíveis ('+e.message+')';});}
 }
 function pfGeMetasAbrir(){
-  if(!pfGeAcesso())return;var d=pfGeDados(window._pfGe.per),P=d.P,ch=pfGeTriChave(P.triIni),o=pfGeMetasLoad(),M=o.por[ch]||{},vm=M.vend||{};
+  if(!pfGeAcesso())return;var d=pfGeDados(window._pfGe.per),P=d.P,ch=pfGeTriChave(P.triIni),o=pfGeMetasLoad(),M=o.por[ch]||pfGeMetaAuto(P.triIni)||{},vm=M.vend||{};
   var vends={};Object.keys(d.A.vends).concat(Object.keys(d.B.vends)).forEach(function(k){if(k)vends[k]=(d.A.vends[k]||d.B.vends[k]).nome;});Object.keys(vm).forEach(function(k){if(!vends[k])vends[k]=pcNomeVendedor(k);});
   var old=document.getElementById('pfGeMetasOv');if(old)old.remove();
   var ov=document.createElement('div');ov.id='pfGeMetasOv';ov.style.cssText='position:fixed;inset:0;background:rgba(10,20,35,.5);z-index:100100;display:flex;align-items:center;justify-content:center;padding:16px';
@@ -51185,6 +51199,7 @@ function pfGeMetasAbrir(){
   ov.innerHTML='<div style="background:#fff;border-radius:12px;width:min(600px,100%);max-height:calc(100vh - '+((typeof pfAiDockClearance==='function'?pfAiDockClearance():90)+32)+'px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 14px 44px rgba(0,0,0,.35)">'+
     '<div style="background:var(--pf-painel-bg,#1c2940);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0"><div style="flex:1"><div style="font-weight:800;font-size:15px;color:#fff">🎯 Metas do '+pfEscHtml(P.triIni===pcTriInicio(0)?pcTriNome(0):d.P.nome)+'</div><div style="font-size:12px;color:#fff;opacity:.8">Deixe vazio o que não quiser acompanhar · trimestre passado: '+pfGeR(bTri.vend)+' vendidos, '+Math.round(bTri.pctFech)+'% de fechamento</div></div><button data-x style="background:none;border:0;cursor:pointer;padding:0">'+pfXGlossyHtml(22)+'</button></div>'+
     '<div style="padding:8px 16px;overflow-y:auto;flex:1;font-size:13px">'+
+      '<div style="background:#EEF4FB;border-radius:8px;padding:8px 10px;margin:6px 0 4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#1a2332"><b>🤖 Meta automática:</b> <input id="geMAuto" value="'+String(pfGeMetaAutoPct()).replace('.',',')+'" inputmode="decimal" style="width:60px;border:1px solid #ccd;border-radius:6px;padding:5px 6px;font-size:13px">% sobre o trimestre passado <button class="pfBtn pfBtnAzul" data-auto style="padding:4px 10px;font-size:12px">Preencher</button><div style="font-size:11.5px;color:#667;width:100%">Ex.: −10 = 10% a menos (fim de ano) · +10 = 10% a mais. Sem meta gravada, vale essa conta sozinha.</div></div>'+
       lin('🛒 Vendido no trimestre (R$)',inp('geMVend',M.vendido,'ex.: 600000'))+lin('📊 % das cotações que fecham',inp('geMFecha',M.fecha,'ex.: 45'))+
       lin('📦 Perdido por falta de saldo — máximo (R$)',inp('geMPerd',M.perdMax,'ex.: 60000'),'Passar disso fica vermelho')+lin('📋 Cotações por dia útil (equipe toda)',inp('geMCot',M.cotDia,'ex.: 25'))+
       '<div style="font-weight:800;color:#1a2332;margin:14px 0 4px">👤 Vendido por vendedor (R$)</div>'+
@@ -51193,10 +51208,13 @@ function pfGeMetasAbrir(){
   ov.addEventListener('input',function(){mudou=true;});
   ov.addEventListener('mousedown',function(e){ov._ini=e.target===ov;});ov.addEventListener('click',function(e){if(e.target===ov&&ov._ini)fechar();});
   ov.querySelector('[data-x]').onclick=function(){fechar();};ov.querySelector('[data-c]').onclick=function(){fechar();};
+  ov.querySelector('[data-auto]').onclick=function(){var pc=num(ov.querySelector('#geMAuto').value),A=pfGeMetaAuto(P.triIni,pc);if(!A){pfAlert('O trimestre passado não tem vendas pra calcular.');return;}
+    var put=function(id,v){var el=ov.querySelector('#'+id);if(el)el.value=v?String(v).replace('.',','):'';};put('geMVend',A.vendido);put('geMFecha',A.fecha);put('geMCot',A.cotDia);
+    ov.querySelectorAll('[data-gev]').forEach(function(i){var v=A.vend[i.getAttribute('data-gev')];i.value=v?String(v):'';});mudou=true;};
   var num=function(v){v=String(v||'').replace(/[^\d,.-]/g,'');if(!v)return 0;if(v.indexOf(',')>=0)v=v.replace(/\./g,'').replace(',','.');else if(/\.\d{3}($|\.)/.test(v))v=v.replace(/\./g,'');return parseFloat(v)||0;};
   ov.querySelector('[data-s]').onclick=function(){var n={vendido:num(ov.querySelector('#geMVend').value),fecha:num(ov.querySelector('#geMFecha').value),perdMax:num(ov.querySelector('#geMPerd').value),cotDia:num(ov.querySelector('#geMCot').value),vend:{},por:(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||'',em:Date.now()};
     ov.querySelectorAll('[data-gev]').forEach(function(i){var v=num(i.value);if(v>0)n.vend[i.getAttribute('data-gev')]=v;});
-    var o2=pfGeMetasLoad();o2.por[ch]=n;o2.ts=Date.now();try{localStorage.setItem('pfGestaoMetas_v1',JSON.stringify(o2));}catch(e){}if(typeof pfSyncPush==='function')try{pfSyncPush(['pfGestaoMetas_v1']);}catch(e){}
+    var o2=pfGeMetasLoad();o2.por[ch]=n;o2.ts=Date.now();var apc=num(ov.querySelector('#geMAuto').value);if(String(ov.querySelector('#geMAuto').value).trim()!=='')o2.autoPct=apc;window._pfGeMetaAutoC={};try{localStorage.setItem('pfGestaoMetas_v1',JSON.stringify(o2));}catch(e){}if(typeof pfSyncPush==='function')try{pfSyncPush(['pfGestaoMetas_v1']);}catch(e){}
     fechar(true);pfGeRender();};
   document.body.appendChild(ov);
 }

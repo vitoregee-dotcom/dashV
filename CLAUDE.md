@@ -1596,3 +1596,12 @@
 - v115.2461 ("status confirmado deve aparecer quando um COMPONENTE é confirmado no veículo, e não uma peça… cada componente teria que ser confirmado"):
   `maqConfInfo` NÃO conta mais as peças da tabela Meritor (dirComp) nem do Cardan como componente confirmado (desfaz a v115.2447) — só série ligada conta; `ci.pecas`
   = nº de componentes só com peças → selo azul "⚙️ só peças" (`maqConfSeloHtml`, lista e card); nas linhas do card o ✓ verde dessas peças virou ⚙️/🔩.
+- v115.2462 ("o status confirmado… AGRALE 575 COMPACT só tem o motor confirmado"): `maqConfInfo` → ✓ confirmado SÓ com os 4 principais (`MAQ_LISTA_COLS`:
+  transmissão, eixo dianteiro, eixo traseiro, motor) ligados à série; senão ◐ N/4 (`ci.pc`/`ci.np`). Máquina sem eixo (escavadeira de esteira) nunca fica ✓.
+  **Rolamentos Spicer** ("já subimos catálogo Spicer de rolamentos?" → "quero que faça sim"): o catálogo nov/2022 só estava no Descobridor de Equivalência
+  (`PF_ROL_DIM_SPICER`/`PF_SPICER_CRUZADA`/`PF_SPICER_APLICACAO`, 1ª ocorrência de cada código). `scripts/catalogo-spicer/gerar_rolamentos.py` monta
+  `data/catalogos/spicer-rolamentos-2022.json` (244 peças, ~330 veículos/máquinas; cone/capa = conversões "cone/capa (tabela Spicer)" — NUNCA "conjunto", senão a
+  cotação troca a peça Spicer pelo cone+capa; código OEM = "referência original"; medidas e texto original no obs) → 📚 Catálogos já lidos. `familia` no
+  PF_CAT_PRONTOS: código que já existe como DANA/DANA-R/SPICER ROLAMENTOS-R/ALLISON SPICER usa essa ficha. `tiposVeic` {veículo: tipo} na aplicação (caminhão,
+  utilitário, ônibus, AUTOMÓVEL — entrou no `MAQ_ROD_RE` —, trator, pá carregadeira…) → linha amarela/agrícola vai pro 🚜 Fora de estrada. Falta o PDF original
+  (aplicações de código repetido no catálogo ficaram só com a 1ª linha).

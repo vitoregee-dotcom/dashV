@@ -1469,3 +1469,7 @@
   (`maqDiretasHtml`: código → Alt+B, descrição, cone, capa com saldo, onde, saldo); veículo só com a tabela mostra só esse bloco. Busca de Máquinas acha pelo código e pelo
   cone/capa. Cotação: "cargo 1317" no Série/Modelo já traz os rolamentos (aplicBuscar procura no veiculo). Tabela nova de veículo pesado → mesmo formato (veicDireto).
   Depois (combinado): puxar os veículos dos Componentes Cardan pro Rodoviário.
+- v115.2442 ("esse Cummins eu não tinha subido ainda?… marca os importados"): selo em cada 📚 Catálogo já lido (`pfCatProntosMarcar`, chamado pelo
+  `pfCatProntosHtml` e depois do `cadConfirmarImport`): conta quantos códigos do json já estão no cadastro com a marca do catálogo (ou família, TX CUMMINS) →
+  ✅ Importado (≥95%) · N de N peças / ◐ Em parte / ⬜ Ainda não importado; botão vira "🔁 Abrir prévia de novo". Json baixado 1x por sessão (`_pfCatProntoJson`).
+  Cummins já estava importado (861 peças em Aplicações, conferido no banco em 28/10).

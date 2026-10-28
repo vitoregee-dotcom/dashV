@@ -1452,3 +1452,6 @@
   (refaz o corte igual ao da importação, confere a proporção com o `ar` antigo — diferença > 3% não troca —, sobe `c/<id>/<g>_hd.png` e marca `g.hd`; nº marcados ficam).
 - v115.2439 BUG (print do ✏️ Arrumar da ZF: ARRUELA DE ENCOSTO → "📘 Parece ARRUELA DE PRESSÃO"): o `pfNpSugerir` aceitava só a 1ª palavra igual (2 palavras =
   50%). Agora precisa de 2+ palavras em comum (fora DE/DO/DA/PARA/COM/SEM).
+- v115.2440 ("pra conferir o que realmente é a peça… olhar na imagem ou pesquisar no Google" → opção C, "com o código ZF"): no ✏️ Arrumar descrições cada linha
+  tem a miniatura do desenho com anel laranja no nº (`pfCatArrVerHtml`; clique → `pfCatArrVerDesenho` = `pfCatEnvPopup`, que com o Arrumar aberto sobe pra z 100080;
+  Esc fecha só o desenho) e "🔎 Google" (Google Imagens `"<código>" <marca do catálogo>`, aba nova). Tela cheia do desenho (`#pfCatZFull`) foi pra z 100090.

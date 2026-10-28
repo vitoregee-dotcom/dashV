@@ -1485,3 +1485,12 @@
   cada cônico com cone ≠ capa ganha conversão de CONJUNTO (desc "conjunto cone/capa (tabela Meritor)") nos 2 jeitos: cheio "CONE/CAPA" e curto "CONE/cauda" (a
   parte da capa que muda; só com cone e capa do mesmo tamanho, cone 4+ caracteres, cauda até 2 — ou 3 com 3+ iguais: JHM720249/10, 9278/20, H715334/11; 387A/382S
   e 64450/64700 ficam só cheios) + cone e capa separados. Máquinas → "conjunto: …" com saldo embaixo da descrição; cone/capa pelo começo do desc (`^cone`/`^capa`).
+- v115.2445 **🔗 conjunto na cotação** (Vitor: "não correr o risco de o cliente pedir o conjunto e eu mandar só a capa ou o cone… ele me mandando o número Meritor"
+  + "fica separado capa ou cone, mas às vezes fica o conjunto mesmo… com a /"): ficha do cadastro com conversões `^conjunto` = conjunto (`vendasConjuntoIdx`, 30 s:
+  'p:'+código da ficha e 'c:'+cada ref de conjunto). No `vendasAdicionarItem`, ANTES da busca normal, `vendasConjuntoDe(cod)` (código da ficha, ou o próprio ref do
+  conjunto quando ele não está no estoque) → `vendasConjuntoDigitado`: mesmo número no estoque em OUTRA marca (Meritor 802702 × DANA kit) = janela
+  `vendasEscolherAbrir` (padrão: cabeçalho escuro, ✕, Esc) "qual o cliente pediu?" (a outra = fluxo normal com `_vendasConjPular`). `vendasConjuntoAdicionar`:
+  1) conjunto com código próprio no estoque ("JHM720249/JHM720210" ou "/10") = 1 linha; 2) senão cone E capa, mesma qtd, as 2 linhas; parte que não tem no estoque
+  entra sem saldo ("CAPA DO ROLAMENTO (conjunto …)") + aviso. Regras do Assistente (`pfVR2Aplicar`) valem. Linhas marcadas `it.conjMeritor` {cod,marca,parte,grupo} →
+  etiqueta `vendasConjEtqHtml` (🔗 cone/capa/conjunto · MERITOR X; vermelha "⚠ falta a capa do conjunto" se a outra sair; âmbar se as qtds ficarem diferentes).
+  Captura `docs/referencias/maquinas-rodoviario/feito-cotacao-conjunto.png`.

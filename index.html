@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2447</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2448</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2447</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2448</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -75390,6 +75390,94 @@ function ccImportarLngAplicar(){
 // do catálogo 2020 -- aqui só ganham as aplicações/montagem que faltam. O que não é peça principal (juntas,
 // abraçadeiras, parafusos, porcas...) vai pra família nova "Acessórios / Fixação".
 var CC_LNG2015_MARCA={DANA:'SPICER'};
+// v115.2448 - A pedido do Vitor ("top. quero" — catálogo Cruzetas Meritor 2013): 47 cruzetas Meritor 801xxx lidas aqui do PDF (aplicação por veículo e ano,
+// tabela de medidas com a referência Spicer e referência cruzada Nakata/SKF/montadoras) → data/meritor-cruzetas-2013.json. Cada uma entra em Cruzetas com
+// linha MERITOR no card da SPICER, ligada PELA REFERÊNCIA SPICER (5-280XS = 5-280X) — NUNCA pelo número: a LNG usa os mesmos 801xxx e até o 801033 é a
+// mesma peça, mas do 801034 em diante é OUTRA cruzeta (Meritor 801036 = SPL170, LNG 801036 = 5-12018X). Medidas: "Diam. castanha (A)" da Meritor = Ø do copo
+// (B no PF) e "Comp. total (B)" = distância entre pontas (A no PF); C…J da figura vão pras especificações.
+function ccMerTok(c){var t=ccNormCod(c);return t;}
+async function ccImportarMeritorCruzPlano(){
+  var r=await fetch('data/meritor-cruzetas-2013.json',{cache:'no-store'});if(!r.ok)throw new Error('não achei data/meritor-cruzetas-2013.json');
+  var cat=await r.json(),dados=ccLoad()||{},lista=dados.cruzetas=dados.cruzetas||[];
+  var porTok={},chaveDe=function(it){return it.substitui||it.similar||it.codigo;};
+  lista.forEach(function(it){if(!it)return;var sp=/SPICER|DANA/i.test(it.linha||'');
+    [it.codigo,it.substitui,it.similar].concat((it.equivalentesExtra||[]).filter(function(e){return e&&/SPICER|DANA/i.test(e.marca||'');}).map(function(e){return e.codigo;})).forEach(function(c,i){
+      String(c||'').split(/[\/,]| OU /).forEach(function(t){t=ccMerTok(t);if(!t)return;var o=porTok[t];if(!o||(sp&&i===0&&!/SPICER|DANA/i.test(o.linha||'')))porTok[t]=it;});});});
+  var acha=function(c){var t=ccMerTok(c);return porTok[t]||porTok[t.replace(/S$/,'')]||porTok[t+'S']||null;};
+  var plano={novos:[],ligados:0,semPar:0,iguaisLng:0,difLng:[],dados:dados};
+  cat.itens.forEach(function(L){
+    var ex=lista.find(function(it){return it&&ccNormMarcaCC(it.linha)==='MERITOR'&&ccNormCod(it.codigo)===ccNormCod(L.codigo);});
+    var par=null;(L.spicer||[]).some(function(c){par=acha(c);return !!par;});
+    var eqKey=par?chaveDe(par):((L.spicer||[])[0]||'');
+    var extras=[];(L.spicer||[]).forEach(function(c){if(ccMerTok(c).replace(/S$/,'')!==ccMerTok(eqKey).replace(/S$/,''))extras.push({marca:'SPICER',codigo:c,tipo:'similar'});});
+    (L.equivalentes||[]).forEach(function(e){extras.push({marca:e.marca,codigo:e.codigo,tipo:'similar'});});
+    (L.originais||[]).forEach(function(o){extras.push({marca:'ORIGINAL',codigo:o.codigo,tipo:'original',obs:o.marca});});
+    var rec={codigo:L.codigo,linha:'MERITOR',descricao:L.descricao||'CRUZETA CARDAN',similar:eqKey,veiculos:(L.veiculos||[]).slice(),equivalentesExtra:extras,
+      especificacoes:(L.especificacoes||[]).slice(),fotos:[],origem:'Catálogo Meritor Cruzetas 2013'};
+    Object.keys(L.medidas||{}).forEach(function(k){rec[k]=L.medidas[k];});
+    var lng=lista.find(function(it){return it&&ccNormMarcaCC(it.linha)==='LNG'&&ccNormCod(it.codigo)===ccNormCod(L.codigo);});
+    var nm=function(v){var n=parseFloat(String(v||'').replace(',','.'));return isNaN(n)?null:n;},md=L.medidas||{};
+    if(!par&&lng&&nm(md.A)!=null&&nm(md.B)!=null&&Math.abs(nm(md.A)-(nm(lng.A)||-9))<0.6&&Math.abs(nm(md.B)-(nm(lng.B)||-9))<0.6){par=lng;eqKey=chaveDe(lng);rec.similar=eqKey;} // sem Spicer: mesmo nº + mesmas medidas da LNG = mesma peça
+    if(lng){if(eqKey&&ccMerTok(chaveDe(lng))===ccMerTok(eqKey))plano.iguaisLng++;else plano.difLng.push({cod:L.codigo,mer:(L.spicer||[])[0]||'?',lng:chaveDe(lng)});}
+    if(par)plano.ligados++;else plano.semPar++;
+    plano.novos.push({rec:rec,existente:ex,par:par});
+  });
+  return plano;
+}
+async function ccImportarMeritorCruzAbrir(){
+  var plano;try{plano=await ccImportarMeritorCruzPlano();}catch(e){pfAlert('Não consegui ler o catálogo Meritor: '+e.message);return;}
+  window._ccMerPlano=plano;
+  var td='padding:4px 8px;border-top:1px solid #eef2f6';
+  var ex=plano.novos.slice(0,6).map(function(n){return '<tr><td style="'+td+';font-family:monospace;font-weight:700;color:#1a2332">'+pfEscHtml(n.rec.codigo)+'</td><td style="'+td+';color:#1a2332">'+(n.par?('↔ '+pfEscHtml(n.par.codigo)+' <span style="color:#8a9ab0">('+pfEscHtml(n.par.linha||'')+')</span>'):'<span style="color:#8a5a00">peça nova (card '+pfEscHtml(n.rec.similar||'próprio')+')</span>')+'</td><td style="'+td+';font-size:11px;color:#607080">'+n.rec.veiculos.length+' veículo(s)</td></tr>';}).join('');
+  var dif=plano.difLng.length?'<div style="margin-top:10px;background:#FFF4E5;border:1px solid #F0C06A;border-radius:8px;padding:8px 10px;font-size:12px;color:#7a4b00">⚠ <b>'+plano.difLng.length+' números iguais aos da LNG mas que são OUTRA cruzeta</b> — ficam em cards diferentes e o sistema avisa "mesmo nº em LNG — outra peça":<div style="margin-top:4px;font-family:monospace;color:#1a2332">'+plano.difLng.map(function(d){return pfEscHtml(d.cod)+': Meritor '+pfEscHtml(d.mer)+' × LNG '+pfEscHtml(d.lng);}).join(' · ')+'</div></div>':'';
+  var ov=document.createElement('div');ov.id='ccMerModal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99995;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.onmousedown=function(e){ov._fundo=e.target===ov;};ov.onclick=function(e){if(e.target===ov&&ov._fundo)ccImportarMeritorFechar();};
+  ov.innerHTML='<div style="background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:calc(100vh - '+(typeof pfAiDockClearance==='function'?pfAiDockClearance():90)+'px);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3)">'+
+    '<div style="background:var(--pf-painel-bg,#1c2940);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0"><b>📥 Importar catálogo Meritor — Cruzetas 2013</b><button onclick="ccImportarMeritorFechar()" style="background:none;border:none;cursor:pointer">'+pfXGlossyHtml(22)+'</button></div>'+
+    '<div style="padding:16px;font-size:13px;line-height:1.7;color:#1a2332;overflow:auto">'+
+      '<div><b>'+plano.novos.length+'</b> cruzetas Meritor no catálogo'+(plano.novos.filter(function(n){return n.existente;}).length?' <span style="color:#607080">('+plano.novos.filter(function(n){return n.existente;}).length+' já existem — só ganham o que falta)</span>':'')+'</div>'+
+      '<div>🔗 <b>'+plano.ligados+'</b> entram no card da Spicer que já existe (pela referência Spicer)</div>'+
+      '<div>🆕 <b>'+plano.semPar+'</b> sem par no sistema — entram como peça nova</div>'+
+      (plano.iguaisLng?'<div>✅ <b>'+plano.iguaisLng+'</b> têm o mesmo número da LNG e são a MESMA peça (mesma Spicer) — ficam juntas no card</div>':'')+
+      '<div style="color:#607080;font-size:12px">Cada cruzeta leva: veículos com o ano, medidas (Ø do copo e ponta a ponta + as da figura), referência Spicer, Nakata/SKF e os códigos originais das montadoras. Os veículos de caminhão/ônibus aparecem também no 🚚 Rodoviário de Máquinas.</div>'+
+      dif+
+      '<table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;background:#F7F9FC;border-radius:8px">'+ex+'</table>'+
+    '</div>'+
+    '<div style="padding:10px 16px;border-top:1px solid #e8edf4;display:flex;justify-content:flex-end;gap:8px;flex-shrink:0"><button onclick="ccImportarMeritorFechar()" class="pfBtn pfBtnClaro">Cancelar</button><button onclick="ccImportarMeritorAplicar()" class="pfBtn pfBtnVerde">✓ Importar</button></div>'+
+  '</div>';
+  document.body.appendChild(ov);
+  window._ccMerEsc=function(e){if(e.key==='Escape'&&document.getElementById('ccMerModal')){e.stopImmediatePropagation();e.preventDefault();ccImportarMeritorFechar();}};
+  window.addEventListener('keydown',window._ccMerEsc,true);
+}
+function ccImportarMeritorFechar(){var m=document.getElementById('ccMerModal');if(m)m.remove();if(window._ccMerEsc){window.removeEventListener('keydown',window._ccMerEsc,true);window._ccMerEsc=null;}}
+function ccImportarMeritorAplicar(){
+  var plano=window._ccMerPlano;if(!plano)return;var dados=plano.dados,lista=dados.cruzetas,agora=Date.now();
+  plano.novos.forEach(function(n){
+    if(n.existente){var e=n.existente;
+      (n.rec.veiculos||[]).forEach(function(v){e.veiculos=e.veiculos||[];if(e.veiculos.indexOf(v)<0)e.veiculos.push(v);});
+      ['similar','descricao','A','B','C','D','E','F'].forEach(function(k){if(!e[k]&&n.rec[k])e[k]=n.rec[k];});
+      e.equivalentesExtra=e.equivalentesExtra||[];n.rec.equivalentesExtra.forEach(function(x){if(!e.equivalentesExtra.some(function(y){return ccNormCod(y.codigo)===ccNormCod(x.codigo);}))e.equivalentesExtra.push(x);});
+      e.especificacoes=e.especificacoes||[];n.rec.especificacoes.forEach(function(x){if(!e.especificacoes.some(function(y){return y.nome===x.nome;}))e.especificacoes.push(x);});
+      e.tsMod=agora;
+    }else{n.rec.id='mer_'+n.rec.codigo;n.rec.tsMod=agora;lista.push(n.rec);}
+  });
+  dados.importacoes=dados.importacoes||{};dados.importacoes.meritor_cruzetas_2013=agora;
+  ccSave(dados);
+  if(typeof pfSyncPush==='function')try{pfSyncPush([CC_KEY]);}catch(e){}
+  ccImportarMeritorFechar();
+  window._vendasCcRelCache=null;window._pfCodMarcasIdx=null;window._ccCodIdxCache=null;window._maqCcCache=null;try{maqIdxLimpar();}catch(e){}
+  pfAlert('✅ Catálogo Meritor importado: '+plano.novos.length+' cruzetas ('+plano.ligados+' no card da Spicer, '+plano.semPar+' novas).');
+  if(typeof ccRender==='function')ccRender();
+}
+function ccImportarMeritorBotaoHtml(){
+  var adm=(typeof ccDesenhoEhAdmin==='function')&&ccDesenhoEhAdmin();if(!adm)return '';
+  var d={};try{d=ccLoad()||{};}catch(e){}
+  if(d.importacoes&&d.importacoes.meritor_cruzetas_2013)return '';
+  return '<div style="max-width:760px;margin-bottom:16px;display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px dashed #1F4E79;border-radius:10px;background:#F4F8FC">'+
+    '<span style="font-size:12.5px;flex:1;color:#1a2332">📘 <b>Catálogo Meritor — Cruzetas (2013)</b> pronto pra importar: 47 cruzetas com veículos e ano, medidas, referência Spicer, Nakata/SKF e originais.</span>'+
+    '<button class="pfBtn pfBtnAzul" onclick="ccImportarMeritorCruzAbrir()">📥 Importar Meritor</button></div>';
+}
 function ccImportarLng2015BotaoHtml(){
   var adm=(typeof ccDesenhoEhAdmin==='function')&&ccDesenhoEhAdmin();if(!adm)return '';
   var d={};try{d=ccLoad()||{};}catch(e){}
@@ -76316,6 +76404,7 @@ function ccRender(){
       '<div style="font-size:12px;color:var(--pf-text-muted);margin-bottom:16px">Escolha o tipo de peça pra gerar um gabarito (enviar ao cliente preencher) ou buscar pelo código a partir das medidas já preenchidas</div>'+
       ccBuscaGeralHtml()+ // v115.2022 - busca em todas as famílias
       ccImportarLngBotaoHtml()+ // v115.2031
+      ccImportarMeritorBotaoHtml()+ // v115.2448
       ccImportarLng2015BotaoHtml()+ // v115.2041
       ccSpicerAtuBotaoHtml()+ // v115.2225
       '<div id="ccFamiliasGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:760px">'+cardsHtml+'</div>'+
@@ -77763,7 +77852,7 @@ function pfCodMarcasIdx(){
     var mk=ond==='cadastro'?mc:(ccNormMarcaCC(mc)||mc),o=(m[k]=m[k]||{});if(!o[mk])o[mk]={marca:mk,desc:String(desc||'').trim(),ond:ond};else if(!o[mk].desc&&desc)o[mk].desc=String(desc).trim();};
   try{(cadLoad(PROD_KEY)||[]).forEach(function(p){if(p&&p.codigo)add(p.codigo,p.marca,p.descricao,'cadastro');});}catch(e){}
   try{var d=ccLoad()||{};Object.keys(d).forEach(function(f){(Array.isArray(d[f])?d[f]:[]).forEach(function(it){if(!it)return;var fs=(CC_NOME_SINGULAR&&CC_NOME_SINGULAR[f])||f;
-    if(it.codigo)add(it.codigo,it.linha,fs,'cardan');
+    if(it.codigo){add(it.codigo,it.linha,fs,'cardan');var _k=String(it.codigo).toUpperCase().replace(/[^A-Z0-9]/g,''),_mk=ccNormMarcaCC(String(it.linha||'').toUpperCase())||String(it.linha||'').toUpperCase().trim();if(m[_k]&&m[_k][_mk]){var _g=m[_k][_mk].g=m[_k][_mk].g||{};_g[f+'|'+ccPontChave(it)]=1;}} // v115.2448 - card do Cardan (LNG e Meritor no mesmo card = mesma peça)
     (it.equivalentesExtra||[]).forEach(function(e){if(e&&e.codigo&&e.marca&&!/ORIGINAL/i.test(e.marca))add(e.codigo,e.marca,'citado como '+(e.tipo||'equivalente').toLowerCase()+' de '+it.codigo+' ('+fs.toLowerCase()+')','cardan-eq');});});});}catch(e){}
   window._pfCodMarcasIdx={t:Date.now(),m:m};return m;
 }
@@ -77771,7 +77860,8 @@ function pfCodMarcasIdx(){
 function pfCodOutrasMarcas(cod,marca){
   var k=String(cod||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(!k)return [];var o=pfCodMarcasIdx()[k];if(!o)return [];
   var mA=String(marca||'').toUpperCase().trim(),nA=ccNormMarcaCC(mA)||mA;
-  return Object.keys(o).filter(function(mk){var nk=ccNormMarcaCC(mk)||mk;return nk!==nA&&!(mA&&(mk.indexOf(mA)>=0||mA.indexOf(mk)>=0));}).map(function(mk){return o[mk];});
+  var gA=(o[nA]||o[mA]||{}).g;var mesmoCard=function(x){if(!gA||!x.g)return false;return Object.keys(x.g).some(function(k){return gA[k];});}; // v115.2448 - mesmo card do Cardan = mesma peça (LNG 801013 = Meritor 801013 = Spicer 5-280X)
+  return Object.keys(o).filter(function(mk){var nk=ccNormMarcaCC(mk)||mk;return nk!==nA&&!(mA&&(mk.indexOf(mA)>=0||mA.indexOf(mk)>=0))&&!mesmoCard(o[mk]);}).map(function(mk){return o[mk];});
 }
 function pfCodOutrasMarcasHtml(cod,marca,curto){
   var l=pfCodOutrasMarcas(cod,marca);if(!l.length)return '';
@@ -87064,7 +87154,7 @@ function pfCatSubirRender(){
   if(t==='pdf')acao=pfBtnCarregarArquivoHtml(40,'pfCatSubArq','application/pdf','if(this.files[0])pfCatSubirPdf(this.files[0])')+'<span style="font-size:12px;color:#607080;align-self:center">Com texto é lido sem IA; escaneado a IA lê (≈ R$ 0,30 por página) e você confere.</span>';
   else if(t==='print')acao='<button class="pfBtn pfBtnAzul" onclick="pfCatSubirIr(\'print\')">📥 Abrir pra colar o print do grupo</button><span style="font-size:12px;color:#607080;align-self:center">Abre o 📥 Alimentar já com a série.</span>';
   else if(t==='lista')acao='<button class="pfBtn pfBtnAzul" onclick="pfCatSubirIr(\'lista\')">📋 Abrir o Importar Catálogo</button><span style="font-size:12px;color:#607080;align-self:center">PDF ou planilha de 1 máquina/modelo — vira lista de peças com a mesma aplicação. O desenho você sobe depois aqui.</span>';
-  else if(t==='cardan')acao=(typeof ccImportarLngAbrir==='function'?'<button class="pfBtn pfBtnAzul" onclick="pfCatSubirIr(\'lng\')">📘 Catálogo LNG (cruzetas)</button>':'')+'<button class="pfBtn pfBtnVermelho" onclick="pfCatSubirIr(\'spicer\')">📥 Folheto de atualização Spicer</button>';
+  else if(t==='cardan')acao=(typeof ccImportarLngAbrir==='function'?'<button class="pfBtn pfBtnAzul" onclick="pfCatSubirIr(\'lng\')">📘 Catálogo LNG (cruzetas)</button>':'')+'<button class="pfBtn pfBtnAzul" onclick="pfCatSubirIr(\'meritor\')">📘 Catálogo Meritor (cruzetas)</button>'+'<button class="pfBtn pfBtnVermelho" onclick="pfCatSubirIr(\'spicer\')">📥 Folheto de atualização Spicer</button>';
   else if(t==='excel')acao='<button class="pfBtn pfBtnAzul" onclick="pfCatSubirIr(\'excel\')">📊 Abrir o Catálogo PDF → Excel</button>';
   ov.innerHTML='<div style="background:#fff;border-radius:14px;width:820px;max-width:100%;max-height:100%;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 16px 44px rgba(0,0,0,.35);color:#1a2332">'+
     '<div style="background:var(--pf-painel-bg,#1c2940);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0"><div style="flex:1"><b style="font-size:15px">📥 Subir catálogo</b><div style="font-size:12px;opacity:.75">Um lugar só: o que subir aqui vale pro desenho, série, cadastro, cotação e Alt+B.</div></div>'+
@@ -87087,6 +87177,7 @@ function pfCatSubirIr(k){
   else if(k==='lista'){pfNavigate('cadastros');setTimeout(function(){if(typeof cadGoTab==='function')cadGoTab('aplicacoes');setTimeout(function(){if(typeof cadImportarProdutos==='function')cadImportarProdutos();},150);},200);}
   else if(k==='lng'){if(typeof ccImportarLngAbrir==='function')ccImportarLngAbrir();}
   else if(k==='spicer'){if(typeof ccSpicerAtuAbrir==='function')ccSpicerAtuAbrir();}
+  else if(k==='meritor'){if(typeof ccImportarMeritorCruzAbrir==='function')ccImportarMeritorCruzAbrir();} // v115.2448
   else if(k==='excel'){var id=pfAtalhoSlug('Catálogo PDF → Excel');pfNavigate('ferramentas');setTimeout(function(){var fn=(window._pfAtalhosRegistry||{})[id];if(typeof fn==='function')ferrAbrirTab('📘','Catálogo PDF → Excel',fn);else if(typeof ferrCatalogoPdf==='function')ferrCatalogoPdf();},120);}
 }
 // biblioteca: séries que entraram só como lista (sem desenho) — só pra quem sobe

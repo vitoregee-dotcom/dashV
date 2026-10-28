@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2458</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2459</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2458</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2459</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -52865,8 +52865,14 @@ function vendasConjuntoAdicionar(x,codDigitado,qtd){
   for(var i=0;i<x.conj.length;i++){var r=busca(x.conj[i]);if(r.length){vendasInserirItensNaLista(x.conj[i],codDigitado,qtd,r);marcar('conjunto');vendasConjFim('✔ '+codDigitado+' '+(x.prod.marca||'')+' = conjunto '+x.conj[i]);return;}}
   // 2) cone + capa separados, juntos
   if(!x.cone&&!x.capa){vendasInserirItensNaLista(x.prod.codigo,codDigitado,qtd,[]);marcar('conjunto');vendasConjFim('');return;}
+  // v115.2459 - nem o cone nem a capa estão no estoque: entra 1 linha com a ficha do conjunto (código e marca que o cliente pediu), não 2 linhas em branco
+  var rCone=x.cone?busca(x.cone):[],rCapa=x.capa?busca(x.capa):[];
+  if(!rCone.length&&!rCapa.length){vendasInserirItensNaLista(String(x.prod.codigo||'').toUpperCase(),codDigitado,qtd,[]);
+    V.itens.forEach(function(it){if(antes.indexOf(it)<0){it.marca=it.marca||x.prod.marca||'';it.marcaInterna=it.marcaInterna||x.prod.marca||'';
+      it.desc=(it.desc||x.prod.descricao||'ROLAMENTO')+' (CONE '+(x.cone||'?')+' + CAPA '+(x.capa||'?')+')';}});
+    marcar('conjunto');vendasConjFim('','⚠ '+(x.prod.marca||'')+' '+x.prod.codigo+' = conjunto cone '+x.cone+' + capa '+x.capa+'.\n\nNão achei no estoque nem o conjunto, nem o cone, nem a capa.\nEntrou 1 linha com a ficha do '+x.prod.codigo+' (sem saldo) pra você não esquecer dela.');return;}
   var faltam=[];
-  [['cone',x.cone],['capa',x.capa]].forEach(function(pc){if(!pc[1])return;var r=busca(pc[1]);
+  [['cone',x.cone],['capa',x.capa]].forEach(function(pc){if(!pc[1])return;var r=pc[0]==='cone'?rCone:rCapa;
     vendasInserirItensNaLista(pc[1],codDigitado,qtd,r);
     if(!r.length){faltam.push(pc[0]+' '+pc[1]);V.itens.forEach(function(it){if(antes.indexOf(it)<0&&!it.desc)it.desc=pc[0].toUpperCase()+' DO ROLAMENTO (conjunto '+(x.prod.marca||'')+' '+x.prod.codigo+')';});}
     marcar(pc[0]);});
@@ -52912,7 +52918,10 @@ function vendasInserirItensNaLista(cod, codDigitado, qtd, items){
         viaEquivalencia:it.viaEquivalencia||false,classificacaoEquivalencia:it.classificacao||null});
     });
   } else {
-    novosItens.push({codigo:cod,codigoOriginal:codDigitado,qtd:qtd,desc:'',marca:marcaCot||'',marcaInterna:'',saldo:null,custo:null});
+    // v115.2459 - A pedido do Vitor ("digitei 098537 e não apareceu marca… por que não puxou nenhuma ficha?"): código que não está na
+    // planilha do estoque mas TEM ficha no cadastro (ex.: catálogo Meritor importado) entra com a marca e a descrição da ficha.
+    var dCad=prodCad?String(prodCad.descricaoResumida||prodCad.descricao||'').trim():'',mCad=prodCad?String(prodCad.marca||prodCad.linha||'').trim():'';
+    novosItens.push({codigo:cod,codigoOriginal:codDigitado,qtd:qtd,desc:dCad,marca:marcaCot||mCad,marcaInterna:mCad,saldo:null,custo:null,daFicha:prodCad?1:0});
   }
   var ai=window._vendasItemAtivo;
   var insertAt=(ai!=null&&ai>=0&&ai<window._venda.itens.length)?ai+1:window._venda.itens.length;

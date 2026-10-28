@@ -1587,3 +1587,6 @@
   descMax ('' = desconto livre até o mínimo),ini,fim,qtd,motivo,por,porNome,tsMod,del}] (janela `pfLibExcEditar`; promoção exige fim; lote exige código e acaba sozinho quando
   os pedidos desde o início somam a qtd, `pfLibLoteVendido` cache 10 s). `pfLibRegraPara(cod,marca,cliente,t)`: 📦 lote ganha; entre 👤 cliente e 🎉 promoção vale o MENOR mínimo;
   sem exceção = marca. Usada no `pfLibChecar` (selo 🎉/📦/👤 quando dentro da exceção) e no "abaixo do mínimo" da Gestão (data do pedido).
+- v115.2459 BUG ("digitei 098537 e não apareceu marca… por que não puxou nenhuma ficha?"): código que NÃO está na planilha do estoque mas tem ficha no cadastro
+  entrava em branco — `vendasInserirItensNaLista` sem resultado agora usa marca e descrição da ficha (`daFicha`). Conjunto Meritor sem cone, capa nem conjunto no estoque
+  (`vendasConjuntoAdicionar`) = 1 linha com a ficha do código pedido ("ROLAMENTO… (CONE X + CAPA Y)", 🔗 conjunto) em vez de 2 linhas vazias + aviso.

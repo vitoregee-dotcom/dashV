@@ -1593,3 +1593,6 @@
 - v115.2460 ("botões com alturas diferentes e textos com posições diferentes"): cabeçalho de Máquinas (`maqCabHtml` → `maqCssGarantir`, `<style id="maqAlinhaCss">`):
   botões `.maqCabBtns>*` + Voltar `.maqCabVoltar` = 36 px (o mínimo de toque do sistema é 36; o Voltar padrão `pfBtnVoltar` é 34 — sobrescrito só aqui), texto centrado;
   Cards/Lista `.maqTog` estica; chips da linha `.maqChipL` 38 px e filtros `.maqChipF` 30 px. Captura `docs/referencias/telas-maquinas/feito-botoes-alinhados.png`.
+- v115.2461 ("status confirmado deve aparecer quando um COMPONENTE é confirmado no veículo, e não uma peça… cada componente teria que ser confirmado"):
+  `maqConfInfo` NÃO conta mais as peças da tabela Meritor (dirComp) nem do Cardan como componente confirmado (desfaz a v115.2447) — só série ligada conta; `ci.pecas`
+  = nº de componentes só com peças → selo azul "⚙️ só peças" (`maqConfSeloHtml`, lista e card); nas linhas do card o ✓ verde dessas peças virou ⚙️/🔩.

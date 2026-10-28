@@ -1455,3 +1455,17 @@
 - v115.2440 ("pra conferir o que realmente é a peça… olhar na imagem ou pesquisar no Google" → opção C, "com o código ZF"): no ✏️ Arrumar descrições cada linha
   tem a miniatura do desenho com anel laranja no nº (`pfCatArrVerHtml`; clique → `pfCatArrVerDesenho` = `pfCatEnvPopup`, que com o Arrumar aberto sobe pra z 100080;
   Esc fecha só o desenho) e "🔎 Google" (Google Imagens `"<código>" <marca do catálogo>`, aba nova). Tela cheia do desenho (`#pfCatZFull`) foi pra z 100090.
+- v115.2441 **🚚 Rodoviário em Máquinas + catálogo Meritor** (Vitor: "quero subir esse catálogo da Meritor" → "já colocar em Máquinas… divisão de fora de estrada e
+  outros veículos"; prévia `docs/referencias/maquinas-rodoviario/` aprovada, capturas `feito-*.png`): tabela de aplicação de rolamentos Meritor (2021, sem desenho)
+  lida aqui do PDF (pymupdf, colunas pelas linhas da tabela) → `data/catalogos/meritor-rolamentos-2021.json` + PDF em `PF_CAT_PRONTOS` (Cadastros → Importar Produtos →
+  📚 Catálogos já lidos). 113 rolamentos; Cone/Capa = `conversoes` (desc "cone/capa (tabela Meritor)"); modelos abreviados abertos no Python ("1113 /14 /16" = 1113,1114,1116;
+  "26-310 /320"; "GM A/C/D 60 / 70"; MB "O355" = ÔNIBUS; "16/17/… 24 Ton." sem veículo → vai em `obs`) — ~314 veículos "MARCA MODELO". Aplicação = 1 por rolamento×componente
+  {marca MERITOR, modelo 'TABELA DE ROLAMENTOS', equip EIXO DIANTEIRO/EIXO TRASEIRO/TRANSMISSÃO (= caixa de mudança)/EIXO, veiculo = lista "FORD CARGO 1317, VOLKSWAGEN
+  17-220…", **`veicDireto:1`**, `posicao` (DIFERENCIAL/RODA/CÂMBIO/PONTA DE EIXO), `tipoVeic` CAMINHÃO/ÔNIBUS/UTILITÁRIO/MICRO-ÔNIBUS}. O `pfCatProntoAbrir`/`cadConfirmarImport`
+  levam conversões, veículo e esses campos (reimportar atualiza o veiculo). `maqIndice`: aplicação `veicDireto` NÃO vira série de componente (G) — cada veículo vira
+  máquina com `x.diretas`/`x.dirComp[equip][codigo]`/`x.nDir`; tipo = mais comum (`maqTipoVeicDe`). **Linha** `x.linha` = `maqLinhaDe` ('rod' se o tipo bate `MAQ_ROD_RE`
+  caminhão/ônibus/utilitário/cavalo/van… ou só tem diretas; senão 'fora'); chips 🚜 Fora de estrada | 🚚 Rodoviário | Todos (`maqLinhaChipsHtml`, localStorage `pf_maq_linha`,
+  padrão fora). Card/página com 🚚 e fundo azul (`maqIcone`), chip "⚙️ N peças MERITOR" + linhas por componente (`maqDirLinhasHtml`); página = bloco "⚙️ Peças por componente"
+  (`maqDiretasHtml`: código → Alt+B, descrição, cone, capa com saldo, onde, saldo); veículo só com a tabela mostra só esse bloco. Busca de Máquinas acha pelo código e pelo
+  cone/capa. Cotação: "cargo 1317" no Série/Modelo já traz os rolamentos (aplicBuscar procura no veiculo). Tabela nova de veículo pesado → mesmo formato (veicDireto).
+  Depois (combinado): puxar os veículos dos Componentes Cardan pro Rodoviário.

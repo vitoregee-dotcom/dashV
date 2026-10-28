@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2462</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2463</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2462</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2463</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -33860,12 +33860,19 @@ function pfAplicMaquinasDoGrupo(modelo,serie){
   });
   return out.join(', ');
 }
+// v115.2463 - BUG ("coloquei eixo nessa 310… me deu impressão de estar fazendo a mesma coisa várias vezes"): "JOHN DEERE 310L" era partido na 1ª palavra —
+// marca "JOHN" + máquina "DEERE 310L" — e a ligação não caía no card da JOHN DEERE 310L. Marca de 2 palavras fica inteira.
+var PF_MARCAS_2P=['JOHN DEERE','NEW HOLLAND','MASSEY FERGUSON','CASE IH','CLARK MICHIGAN','LIU GONG','LAND ROVER','MERCEDES BENZ'];
+function pfMarcaDoTexto(t){t=String(t||'').trim().replace(/\s+/g,' ');var T=t.toUpperCase();
+  for(var i=0;i<PF_MARCAS_2P.length;i++){var m=PF_MARCAS_2P[i];if(T===m||T.indexOf(m+' ')===0)return {marca:m,resto:t.slice(m.length).trim()};}
+  var p=t.split(' ');return p.length>1?{marca:p[0].toUpperCase(),resto:p.slice(1).join(' ')}:{marca:'',resto:t};}
 function pfAplicMaquinasParse(txt){
   var l=String(txt||'').split(',').map(function(x){return x.trim().replace(/\s+/g,' ');}).filter(Boolean);
+  l=l.filter(function(x){var md=pfMarcaDoTexto(x);return !(md.marca&&!md.resto&&PF_MARCAS_2P.indexOf(md.marca)>=0);}); // "JOHN DEERE" sozinho não é máquina
   if(!l.length)return {veiculo:'',marcaVeiculo:''};
-  var marcas=l.map(function(x){var p=x.split(' ');return p.length>1?p[0].toUpperCase():'';});
+  var marcas=l.map(function(x){return pfMarcaDoTexto(x).marca;});
   var mesma=marcas[0]&&marcas.every(function(m){return m===marcas[0];});
-  if(mesma)return {marcaVeiculo:marcas[0],veiculo:l.map(function(x){return x.split(' ').slice(1).join(' ');}).join(', ')};
+  if(mesma)return {marcaVeiculo:marcas[0],veiculo:l.map(function(x){return pfMarcaDoTexto(x).resto;}).join(', ')};
   return {marcaVeiculo:'',veiculo:l.join(', ')};
 }
 function cadEditarGrupoAplicacao(chave,componenteAtual,marcaAtual){
@@ -55750,9 +55757,11 @@ function vendasSerieGrupoAplic(a){
   // "MOLA DO DISCO BY-PASS DO FILTRO" continua na transmissão), venha de qual componente vier.
   if(/^\s*(FILTRO|ELEMENTO|REFIL|CARTUCHO|FILTER)/.test(String(a.desc||'').toUpperCase()))return 'FILTROS';
   if(/TRANSMISS|TRASNMISS|CAMBIO|CONVERSOR|POWER ?SHUTTLE|POWERSHIFT/.test(t))return 'TRANSMISSÃO';
-  if(/DIANT|FRONT|ANTERIOR/.test(t)&&/EIXO|AXLE|DIFERENC/.test(t))return 'EIXO DIANTEIRO';
-  if(/TRASEIR|REAR|POSTERIOR/.test(t)&&/EIXO|AXLE|DIFERENC/.test(t))return 'EIXO TRASEIRO';
-  if(/\bEIXO\b|AXLE|DIFERENCIAL/.test(t))return 'EIXO';
+  // v115.2463 - A pedido do Vitor ("coloquei eixo nessa 310, mas não tá aparecendo"): o componente foi gravado como "EICO DIANTEIRO" e caía em DIVERSOS —
+  // erro de digitação de EIXO (EICO/EXIO/EIXOS) também vale.
+  if(/DIANT|FRONT|ANTERIOR/.test(t)&&/EIXO|E[IX][CXI]O|AXLE|DIFERENC/.test(t))return 'EIXO DIANTEIRO';
+  if(/TRASEIR|REAR|POSTERIOR/.test(t)&&/EIXO|E[IX][CXI]O|AXLE|DIFERENC/.test(t))return 'EIXO TRASEIRO';
+  if(/\bEIXO\b|\bE[IX][CXI]OS?\b|AXLE|DIFERENCIAL/.test(t))return 'EIXO';
   if(/CARDAN|CRUZETA|PONTEIRA|PONTUVA|MANCAL CENTRAL/.test(t))return 'COMPONENTES CARDAN';
   var mk=String(a.marca||'').toUpperCase();
   if(/MOTOR|ENGINE|CABECOTE|CYLINDER|BLOCK|CRANK|PISTON|LUBRICATION|FUEL/.test(t)||(typeof PF_APLIC_MARCA_MOTOR!=='undefined'&&PF_APLIC_MARCA_MOTOR.test&&PF_APLIC_MARCA_MOTOR.test(mk)))return 'MOTOR';
@@ -93534,9 +93543,10 @@ var MAQ_COMP_ORDEM=['TRANSMISSÃO','EIXO DIANTEIRO','EIXO TRASEIRO','EIXO','MOTO
 function maqVeicTokens(a){ // "Máquinas onde vai" da aplicação → [{marca,modelo}] (só o que tem cara de modelo: tem número)
   var mv=String(a.marcaVeiculo||'').trim(),MV=mv.toUpperCase(),out=[];
   String(a.veiculo||'').split(',').forEach(function(t){t=t.trim().replace(/\s+/g,' ');if(!t||/^(transmiss|eixo|motor)/i.test(t)||!/\d/.test(t))return;var T=t.toUpperCase();
+    if(MV){var md2=pfMarcaDoTexto(mv+' '+t);if(md2.marca.length>MV.length&&md2.resto){out.push({marca:md2.marca,modelo:md2.resto});return;}} // v115.2463 - gravado partido: JOHN + "DEERE 310L"
     if(MV&&T.indexOf(MV+' ')===0)out.push({marca:mv,modelo:t.slice(mv.length).trim()});
     else if(MV)out.push({marca:mv,modelo:t});
-    else{var p=t.split(' ');if(p.length>1&&!/\d/.test(p[0]))out.push({marca:p[0],modelo:p.slice(1).join(' ')});else out.push({marca:'',modelo:t});}
+    else{var md=pfMarcaDoTexto(t);if(md.marca&&!/\d/.test(md.marca))out.push({marca:md.marca,modelo:md.resto});else out.push({marca:'',modelo:t});}
   });
   return out;
 }
@@ -93703,8 +93713,8 @@ function maqIndice(){
   // séries de componente = Aplicações (sem as peças de manutenção das máquinas)
   // v115.2441 - aplicação com os veículos direto (tabela Meritor): peça → caminhão, sem série de componente no meio
   var _tv={};
-  (aplicLoad()||[]).forEach(function(a){if(!a||!a.veicDireto)return;String(a.veiculo||'').split(',').forEach(function(v){v=v.trim();if(!v)return;var i=v.indexOf(' ');if(i<1)return;
-    var x=maq(v.slice(0,i),v.slice(i+1));if(!x)return;x.diretas.push(a);var t=maqTipoVeicDe(x.modelo,(a.tiposVeic&&a.tiposVeic[v])||a.tipoVeic);if(t){var c=_tv[x.chave]=_tv[x.chave]||{};c[t]=(c[t]||0)+1;}});});
+  (aplicLoad()||[]).forEach(function(a){if(!a||!a.veicDireto)return;String(a.veiculo||'').split(',').forEach(function(v){v=v.trim();if(!v)return;var md=pfMarcaDoTexto(v);if(!md.marca||!md.resto)return; // v115.2463 - JOHN DEERE 5055E
+    var x=maq(md.marca,md.resto);if(!x)return;x.diretas.push(a);var t=maqTipoVeicDe(x.modelo,(a.tiposVeic&&a.tiposVeic[v])||a.tipoVeic);if(t){var c=_tv[x.chave]=_tv[x.chave]||{};c[t]=(c[t]||0)+1;}});});
   Object.keys(_tv).forEach(function(k){var x=M[k];if(x&&!x.tipo){var c=_tv[k];x.tipo=Object.keys(c).sort(function(a,b){return c[b]-c[a];})[0];}});
   try{var _CC=maqCcIdx();Object.keys(_CC).forEach(function(k){var e=_CC[k],x=maq(e.marca,e.modelo);if(!x)return;x.ccG=x.ccG||{};Object.keys(e.g).forEach(function(gk){x.ccG[gk]=e.g[gk];});
     if(e.rod)x.ccRod=1;if(!x.tipo)x.tipo=e.rod?maqCcTipoDe(x.marca,x.modelo):(e.tipo||'');});}catch(e){} // v115.2447 - veículos dos Componentes Cardan no 🚚 Rodoviário · v115.2449 fora de estrada
@@ -93846,7 +93856,7 @@ function maqMarcarNaSerie(gk){
     I.lista.forEach(function(x){if(g.vaiEm[x.chave])return;if(Q&&pmN(x.nome+' '+x.tipo).indexOf(Q)<0)return;
       its.push({rot:pfEscHtml(x.nome),sub:pfEscHtml(x.tipo||''),acao:"maqLigar('"+pfEscJs(x.chave)+"','"+pfEscJs(gk)+"')"});});
     var pal=String(q||'').trim().toUpperCase().replace(/\s+/g,' ');
-    if(pal.split(' ').length>=2&&/\d/.test(pal)&&!I.M[maqChave(pal.split(' ')[0],pal.split(' ').slice(1).join(' '))])
+    if(pal.split(' ').length>=2&&/\d/.test(pal)&&!I.M[maqChave(pfMarcaDoTexto(pal).marca,pfMarcaDoTexto(pal).resto)])
       its.unshift({rot:'➕ Máquina nova: '+pfEscHtml(pal),sub:'marca e modelo — ela aparece no card 🚜 Máquinas',destaque:true,acao:"maqMarcarNova('"+pfEscJs(gk)+"','"+pfEscJs(pal)+"')"});
     else if(!its.length)its.push({rot:'Digite a marca e o modelo da máquina (ex.: CASE W20E)',sub:'',acao:''});
     return its.slice(0,60);});

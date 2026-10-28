@@ -1570,3 +1570,12 @@
   gravada no trimestre, `pfGeMetas` usa `pfGeMetaAuto(triIni,pct)` = trimestre anterior × (1 + pct/100) pra vendido, cotações/dia útil e vendido de cada vendedor
   (% que fecha = o do trimestre anterior; perdido sem saldo fica sem meta). `pct` = `pfGestaoMetas_v1.autoPct` (padrão `PF_GE_META_AUTO_PCT` = −10), trocável no
   ✏️ Definir metas (campo "🤖 Meta automática" + "Preencher"); gravar fixa os números. Faixa "🤖 Meta automática: −10% sobre o 3º tri" em cima das barras.
+- v115.2456 **🔓 Liberação de preço** (Vitor: "algumas marcas trabalhamos com margem mais baixa… tecfil, mahle, wega 18%, cat e mann 21%, fleetguard 15%, perkins 21…
+  preço mínimo. preço de tela é outra coisa… não mais do que 10% de desconto do preço de tela" → "do PF · avisa e envia liberação pro gestor · o preço é definido na entrada,
+  caso a caso"): preço SUGERIDO não muda. Config compartilhada `pfMargemMinMarca_v1` {por:{MARCA:%}, padrao (vazio = outras marcas sem mínimo), descMax 10, ts}
+  (`PF_LIB_MIN_PADRAO`, ⚙️ `pfLibCfgAbrir`, só gestor+; marca pelo começo "MANN-FILTER" ou `pfVR2MarcaIgual`). `pfLibChecar(v,it)`: preço de tela = vendasCalcVenda(custo,uf,v.margem),
+  mínimo = vendasCalcVenda(custo,uf,% da marca) → ⛔ abaixo do mínimo / ⚠️ desconto > descMax. Selo `[data-libslot]` ao lado do preço (`pfLibSeloHtml`, atualiza no
+  vendasAtualizarLinha) + faixa `#vendasLibBox` (`pfLibBoxRender`). `pvCriarPedido` → `pfLibBloqueiaPedido` → janela `pfLibAbrir` (vendedor: 📨 pedir com o porquê;
+  gestor: 🔓 Liberar e gerar o pedido, registrado com auto). Log só-acrescenta `pfLibEventos` (pedido {cotKey=v.nr, cotNum, itens[k=código|marca, preco…]} / decisao {ref,ok,resp,paraEmail})
+  → barra de notificações `liberacao` (gestor vê pedidos, vendedor respostas, `pfLibEvMeu`, painel `pfLibPainelHtml`, ✅/❌ `pfLibResponder`). Liberado vale pra preço ≥ o
+  liberado (`pfLibIdx`/`pfLibSituacao`); baixar mais = pede de novo. Gestão → 💲 Margem: KPI e tabela "⛔ abaixo do mínimo da marca" com quem liberou. Capturas `docs/referencias/liberacao-preco/`.

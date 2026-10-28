@@ -1494,3 +1494,6 @@
   entra sem saldo ("CAPA DO ROLAMENTO (conjunto …)") + aviso. Regras do Assistente (`pfVR2Aplicar`) valem. Linhas marcadas `it.conjMeritor` {cod,marca,parte,grupo} →
   etiqueta `vendasConjEtqHtml` (🔗 cone/capa/conjunto · MERITOR X; vermelha "⚠ falta a capa do conjunto" se a outra sair; âmbar se as qtds ficarem diferentes).
   Captura `docs/referencias/maquinas-rodoviario/feito-cotacao-conjunto.png`.
+- v115.2446 ("e esses sem aplicação?" — 802724/802752/802753/802754 na prévia sem veículo): a tabela da Meritor só diz "Mercedes Benz 16/ 17/… 24 Ton." nesses 4
+  (sem modelo) — viraram o veículo "MERCEDES-BENZ 16/17/18/19/22/23/24 TON" (13/14/… e "11 A 24 TON") no json. Códigos pra testar a Meritor:
+  `docs/referencias/maquinas-rodoviario/TESTAR.md`.

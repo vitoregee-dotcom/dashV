@@ -1518,3 +1518,10 @@
   medidas da LNG (±0,6) = mesma peça (801028). Medidas: "Diam. castanha (A)" Meritor = B (Ø copo) no PF; "Comp. total (B)" = A (ponta a ponta); C…J e a figura →
   especificações. Originais = equivalentesExtra ORIGINAL com `obs` = montadora. `pfCodOutrasMarcas` agora NÃO avisa quando as duas marcas estão no MESMO card do
   Cardan (`pfCodMarcasIdx` guarda `g` = família|ccPontChave). Veículos entram no 🚚 Rodoviário pelo `maqCcIdx`. Captura `feito-importar-meritor-cruzetas.png`.
+- v115.2449 ("coloca já" — linha amarela/agrícola dos Componentes Cardan no 🚜 Fora de estrada): veículo que o `maqCcVeicParse` (Rodoviário) recusa passa pelo
+  `maqCcVeicParseFora`: marca `MAQ_CC_MARCAS_FORA` (J.I.CASE→CASE, VALTRA/VALMET→VALTRA, CLARK/MICHIGAN→CLARK MICHIGAN; VOLVO/FORD/FIAT/MERCEDES só com palavra de máquina,
+  `MAQ_CC_FORA_SO_COM_TIPO`), tipo pela palavra do pedaço (`MAQ_CC_FORA_TIPOS`: PÁ CARREGADEIRA, TRATOR (DE ESTEIRA), RETRO, MOTONIVELADORA, MOTOSCRAPER, EMPILHADEIRA,
+  GUINDASTE, ROLO COMPACTADOR, COLHEITADEIRA), corta o que é do cardan (`MAQ_CC_FORA_CORTE_RE`) e código de peça (8V-7336, 1G-632); letra carregada só com o mesmo nº de
+  dígitos (CT-20/25 = CT-25; W-36/ TRATOR 4490 = 4490). `maqCcIdx` marca `e.rod`/`e.fora`; `x.ccRod` decide o Rodoviário (`maqLinhaDe`), tipo da máquina nova = o do texto.
+  Com o LNG 2015: 219 máquinas do Fora de estrada com cardan (CASE W20 = a mesma da ficha). Card de fora com cardan continua mostrando peças de manutenção/ficha.
+  Capturas `feito-fora-cardan.png` / `feito-case-w20-cardan.png`.

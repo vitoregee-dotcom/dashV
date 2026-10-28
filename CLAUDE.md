@@ -1497,3 +1497,15 @@
 - v115.2446 ("e esses sem aplicação?" — 802724/802752/802753/802754 na prévia sem veículo): a tabela da Meritor só diz "Mercedes Benz 16/ 17/… 24 Ton." nesses 4
   (sem modelo) — viraram o veículo "MERCEDES-BENZ 16/17/18/19/22/23/24 TON" (13/14/… e "11 A 24 TON") no json. Códigos pra testar a Meritor:
   `docs/referencias/maquinas-rodoviario/TESTAR.md`.
+- v115.2447 ("aqui nos rodoviários, não deveria aparecer os rolamentos que subi? e também agora colocar os componentes que tenho?"): na ☰ Lista de Máquinas
+  as peças da tabela Meritor aparecem na coluna do componente ("⚙️ N peças MERITOR") e contam como componente confirmado (`maqConfInfo` soma dirComp + Cardan);
+  no Rodoviário PEÇAS MANUT./FICHA = "—" (não é aviso). **Componentes Cardan no 🚚 Rodoviário**: `maqCcIdx` (cache pelo tamanho do CC_KEY) lê os `veiculos` de
+  cada peça → `maqCcVeicParse` (marca `MAQ_CC_MARCAS`: MERCEDES→MERCEDES-BENZ, GEN. MOTORS→GM…; fora = `MAQ_CC_FORA_RE` trator/carregadeira/guindaste/APLIC./
+  DIVERS/SUPORTE; ruído `MAQ_CC_RUIDO_RE` 6X4/C/ MOTOR/CAMBIO…; faixa "1419 A 2425" e código de peça "90-3-21X" fora; família carregada AXOR 2035/ 2040;
+  FORD: 4 dígitos sem 00 / 8xx-9xx = "CARGO NNNN" (nome da Meritor), resto = série F; GM carrega a letra "D10/ 20"). Mesmo nome = mesmo veículo da Meritor
+  (chave só letras+números: 17.220 = 17-220). Peças agrupadas como no Cardan (`ccPontChave`, Spicer/DANA na frente): `x.ccG`/`x.nCc`, tipo `maqCcTipoDe`
+  (ônibus O/OF/OH, B10M; utilitário Hilux/S10/F250…). Card: chip "🔩 N cardan" + linha "✓ Cardan · 2 cruzetas…" (`maqCcLinhaHtml`); lista: coluna CARDAN; página:
+  `maqCardanHtml` (uma tabela por tipo de peça, outros códigos do grupo, saldo; clique = Componentes Cardan com a busca `maqCcAbrir`). Busca de Máquinas acha
+  pelo código da peça. Com o LNG 2015: 1.147 veículos rodoviários, 1.029 com cardan, 199 também com Meritor. Captura `feito-lista-cardan.png`/`feito-cargo-1317-cardan.png`.
+  Catálogo **Cruzetas Meritor 2013** (801xxx, ref. Spicer 5-280XS, medidas A/B, veículo×ano, referência cruzada) ainda NÃO subido — o LNG cita essas cruzetas no
+  "monta com" (CRUZ. 801018 = Meritor).

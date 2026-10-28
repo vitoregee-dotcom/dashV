@@ -1553,3 +1553,16 @@
   tempo ±20%, meta abaixo do ritmo, vencidos). 🎯 metas `pfGestaoMetas_v1` {por:{'AAAA-T':{vendido,fecha,perdMax,cotDia,vend:{email}}},ts} (compartilhada, ✏️ `pfGeMetasAbrir`).
   Abas Compras/Financeiro/Logística = números + atalhos (relatórios completos = etapa 2). Equipe: sessões de `pf_sessoes` (dias/tempo ativo, última vez). 📺 `pfGeTv`
   (escuro, tela cheia, atualiza a cada 5 min).
+- v115.2454 **Gestão por grupo + 💲 Margem e comissão** (Vitor: "somos divididos em grupos: motores, filtros, eixos e transmissões… margem de venda, quem vendeu acima,
+  quem vendeu abaixo… comissão"; "por família de produtos"; "eu, Carlos Candis e Mineiro = eixos/transmissões/cardan; Fellipe, Marco, Leila, Alaina = motores; os outros 4 =
+  filtros"; "comissão fixa de 1% ao valor líquido"; "considerar devoluções"; "KPI de marcas, se aumentou ou baixou"; prévia `docs/referencias/gestao-grupos/`, capturas `feito-*.png`):
+  `PF_GE_GRUPOS` eixos/motores/filtros. Grupo da PEÇA `pfGeGrupoItem(it,vendEmail)`: descrição filtro (`PF_GE_FILTRO_RE`) / cardan (`PF_GE_CARDAN_RE`) > família do cadastro
+  (`pfPerfilFamDe` + mapa `fam`, padrão `PF_GE_GRUPO_FAM_PADRAO`) > grupo do vendedor (`pfGeGrupoVend`: config ou nome por `PF_GE_GRUPO_VEND_PADRAO`). Config compartilhada
+  `pfGestaoGrupos_v1` {vend:{email:grupo},fam:{família:grupo},ts} (⚙️ Grupos da equipe `pfGeGruposCfgAbrir`, gestor+). `pfGeDados(per,grupo)` (cache `_pfGeCacheG` por per|grupo;
+  `pfGeListaDoGrupo` deixa só os itens do grupo nos pedidos e as cotações com item do grupo) + `d.M`/`d.MB` = `pfGeMargemCalc`: margem LÍQUIDA por item (`pfGeMargemPct` =
+  conta do `vendasPctDaVenda` com UF/tipo do cliente), certa = `q.margem` da cotação do pedido senão o padrão (21%), "na margem" ±`PF_GE_NA_MARGEM_PP`=0,5; deixou de ganhar =
+  (vendasCalcVenda(custo,uf,certa) − preço) × qtd; devoluções = RMA de cliente não cancelado no período, valor = preço do último pedido do cliente com o código, vendedor pelo
+  nome do RMA (`FUNC_KEY`) ou o do pedido; comissão = `PF_GE_COMISSAO_PCT`=1% × (vendido − devoluções). Aba `margem` (só `pfGeAcessoEquipe`): KPIs, por vendedor, piores
+  vendas, devoluções, por grupo, ⬇ Excel `pfGeMargemExcel` (3 abas). Vendas: chips de grupo (`pfGeGrupoChipsHtml`), KPI margem média, ⚖️ Grupos lado a lado
+  (`pfGeGruposLadoHtml`, sem grupo escolhido), 🏷️ Marcas vendidas (`pfGeMarcasHtml`: 📈 mais cresceram / 📉 mais caíram / 🆕 começaram + tabela com antes/diferença).
+  Avisos ganharam grupo ±15% e grupo com 15%+ dos itens abaixo da margem.

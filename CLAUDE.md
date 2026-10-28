@@ -1605,3 +1605,8 @@
   PF_CAT_PRONTOS: código que já existe como DANA/DANA-R/SPICER ROLAMENTOS-R/ALLISON SPICER usa essa ficha. `tiposVeic` {veículo: tipo} na aplicação (caminhão,
   utilitário, ônibus, AUTOMÓVEL — entrou no `MAQ_ROD_RE` —, trator, pá carregadeira…) → linha amarela/agrícola vai pro 🚜 Fora de estrada. Falta o PDF original
   (aplicações de código repetido no catálogo ficaram só com a 1ª linha).
+- v115.2463 BUG ("coloquei eixo nessa 310, mas não tá aparecendo… achei complicado ligar na série, impressão de fazer a mesma coisa várias vezes"): a série ZF MS-B 3025
+  4475004125 estava gravada com equip "EICO DIANTEIRO" (→ DIVERSOS) e máquina partida `marcaVeiculo` "JOHN" + `veiculo` "DEERE, DEERE 310L" — a ligação nunca
+  caía no card JOHN DEERE 310L. `vendasSerieGrupoAplic` aceita EICO/EXIO; marca de 2 palavras inteira: `PF_MARCAS_2P` + `pfMarcaDoTexto` (usado no
+  `pfAplicMaquinasParse` — "JOHN DEERE" sozinho sai —, no `maqVeicTokens` — junta o que já foi gravado partido —, nas tabelas veicDireto e na máquina nova do
+  `maqMarcarNaSerie`). Marca nova de 2 palavras → acrescentar no `PF_MARCAS_2P`. Ainda no banco: ZF MT-B 3065 4475058044 (EIXO TRASEIRO) com máquina só "JOHN DEERE" (sem modelo).

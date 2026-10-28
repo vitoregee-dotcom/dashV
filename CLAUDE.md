@@ -1580,3 +1580,10 @@
   → barra de notificações `liberacao` (gestor vê pedidos, vendedor respostas, `pfLibEvMeu`, painel `pfLibPainelHtml`, ✅/❌ `pfLibResponder`). Liberado vale pra preço ≥ o
   liberado (`pfLibIdx`/`pfLibSituacao`); baixar mais = pede de novo. Gestão → 💲 Margem: KPI e tabela "⛔ abaixo do mínimo da marca" com quem liberou. Capturas `docs/referencias/liberacao-preco/`.
 - v115.2457 ("as que não tiver é 21%"): marca fora da lista do `pfMargemMinMarca_v1` = mínimo 21% (`PF_LIB_PADRAO`=21; campo "Outras marcas" vazio também vale 21).
+- v115.2458 **⚙️ Regras na Gestão + exceções** (Vitor: "um quadro lá em gestão para essas configurações… exceções em promoções" → prévia `docs/referencias/gestao-regras/`
+  opção B, "monta com as 3. diretor e gerente"; capturas `feito-*.png`): aba `regras` no `PF_GE_ABAS` (`pfGeRegrasHtml`, todo gestor+ vê; mexe `pfLibExcPode` = gestor/diretor/Vitor):
+  Margem e desconto + Margem mínima por marca (→ `pfLibCfgAbrir`), 🎯 Exceções (cartões de 🎉 promoção / 📦 lote com vendido e dias/un. que faltam, encerradas escondidas;
+  lista 👤 clientes), Metas e Grupos (botões pras janelas de sempre). Lista compartilhada `pfLibExcecoes_v1` [{id,tipo lote|promo|cliente,nome,cod,marca,cliente,minPct,
+  descMax ('' = desconto livre até o mínimo),ini,fim,qtd,motivo,por,porNome,tsMod,del}] (janela `pfLibExcEditar`; promoção exige fim; lote exige código e acaba sozinho quando
+  os pedidos desde o início somam a qtd, `pfLibLoteVendido` cache 10 s). `pfLibRegraPara(cod,marca,cliente,t)`: 📦 lote ganha; entre 👤 cliente e 🎉 promoção vale o MENOR mínimo;
+  sem exceção = marca. Usada no `pfLibChecar` (selo 🎉/📦/👤 quando dentro da exceção) e no "abaixo do mínimo" da Gestão (data do pedido).

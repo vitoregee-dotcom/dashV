@@ -1540,6 +1540,7 @@
   Pergunta ao gerar pedido (`pvConfirmarCriarPedido` → `pfVpPerguntarAbrir`/`pfVpPerguntas`, grava `pfVpGravarResp` na cotação e no `window._venda`): só quando o
   motivo dá "sem" (ou `sempre`) e, com `naoLevou`, as peças que não foram no pedido; Pular grava `pulou`. Config compartilhada `pfVendasPerdCfg` {perguntar,naoLevou,
   sempre,ts} (⚙️ do gestor, `pfVpCfgAbrir`). Vendedor vê só as dele. ⬇ Excel `pfVpExcel`. PF_FUNCOES 'Vendas perdidas' (saiu do PF_FUNC_IDEIAS).
+- v115.2453 BUG ("a barra inferior sumiu?"): a Gestão estava em z 9995 por cima do dock (z 60) — agora `#pfGestao` z 58.
 - v115.2452 **📊 Gestão** (Vitor: "card de gestão… relatórios e dashboards de todos os setores… kpis dos usuários" → prévias `docs/referencias/gestao/`, escolheu
   A + B + D (sem a barra lateral do C); "o que é importante: clientes novos, reativados, inativados, nº de cotação por vendedor, tempo de cotação"; capturas `feito-*.png`):
   tela cheia `#pfGestao` (`pfGeAbrir`/`pfGeRender`, z 9995, Esc fecha) — card "📊 Gestão" no menu de Vendas (`_gestao` em PF_VENDAS_CARDS, fixável no dock) + Alt+S;

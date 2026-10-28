@@ -1540,3 +1540,15 @@
   Pergunta ao gerar pedido (`pvConfirmarCriarPedido` → `pfVpPerguntarAbrir`/`pfVpPerguntas`, grava `pfVpGravarResp` na cotação e no `window._venda`): só quando o
   motivo dá "sem" (ou `sempre`) e, com `naoLevou`, as peças que não foram no pedido; Pular grava `pulou`. Config compartilhada `pfVendasPerdCfg` {perguntar,naoLevou,
   sempre,ts} (⚙️ do gestor, `pfVpCfgAbrir`). Vendedor vê só as dele. ⬇ Excel `pfVpExcel`. PF_FUNCOES 'Vendas perdidas' (saiu do PF_FUNC_IDEIAS).
+- v115.2452 **📊 Gestão** (Vitor: "card de gestão… relatórios e dashboards de todos os setores… kpis dos usuários" → prévias `docs/referencias/gestao/`, escolheu
+  A + B + D (sem a barra lateral do C); "o que é importante: clientes novos, reativados, inativados, nº de cotação por vendedor, tempo de cotação"; capturas `feito-*.png`):
+  tela cheia `#pfGestao` (`pfGeAbrir`/`pfGeRender`, z 9995, Esc fecha) — card "📊 Gestão" no menu de Vendas (`_gestao` em PF_VENDAS_CARDS, fixável no dock) + Alt+S;
+  só `pfGeAcesso` (gestor/diretor/Vitor); aba Equipe só `pfGeAcessoEquipe` (diretor/Vitor). Período `pfGePer` (trimestre atual × mesmos N dias do anterior, trimestres
+  fechados, 30/90/365 dias). `pfGeCalc(ini,fim,lista)` sobre pcMontarDados: vendido/pedidos/ticket/cotações/% fecha/tempo (mediana de `q.tempoAtivoSeg`), por vendedor
+  (pedido = `vendedorEmail`, cotação = `atendenteEmail`), marcas/produtos (itens dos pedidos), cliente NOVO = 1ª compra no período, REATIVADO = comprou depois de
+  > PF_INATIVO_DIAS, INATIVADO = última compra + 90 dias caiu no período. `pfGeSetores` = Compras (solicitações abertas/+7 dias, Avise-me, trânsito, chegadas),
+  Financeiro (Contas a Receber), Logística (pedidos aberto/separado/conferido, RMAs). `pfGeDados` (cache 20 s) + perdido sem saldo do `pfVpAnalisar`.
+  🔔 `pfGeAvisos` (frases com botão: peça perdida por saldo, vendedor ±5 p.p. com 15+ cotações, inativados, novos/reativados, solicitações paradas, marca ±20%,
+  tempo ±20%, meta abaixo do ritmo, vencidos). 🎯 metas `pfGestaoMetas_v1` {por:{'AAAA-T':{vendido,fecha,perdMax,cotDia,vend:{email}}},ts} (compartilhada, ✏️ `pfGeMetasAbrir`).
+  Abas Compras/Financeiro/Logística = números + atalhos (relatórios completos = etapa 2). Equipe: sessões de `pf_sessoes` (dias/tempo ativo, última vez). 📺 `pfGeTv`
+  (escuro, tela cheia, atualiza a cada 5 min).

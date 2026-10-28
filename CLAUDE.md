@@ -1509,3 +1509,12 @@
   pelo código da peça. Com o LNG 2015: 1.147 veículos rodoviários, 1.029 com cardan, 199 também com Meritor. Captura `feito-lista-cardan.png`/`feito-cargo-1317-cardan.png`.
   Catálogo **Cruzetas Meritor 2013** (801xxx, ref. Spicer 5-280XS, medidas A/B, veículo×ano, referência cruzada) ainda NÃO subido — o LNG cita essas cruzetas no
   "monta com" (CRUZ. 801018 = Meritor).
+- v115.2448 **Cruzetas Meritor 2013** ("top. quero"): PDF lido aqui (pymupdf; aplicação em 2 colunas por página — marca = Helvetica-BoldOblique 11, modelo = Bold 8,
+  ano/PN/ref = Helvetica 8; medidas págs. 17–18; referência cruzada 19–21) → `data/meritor-cruzetas-2013.json` (47 cruzetas, 672 veículos com ano, 170 originais) +
+  `data/catalogos/meritor-cruzetas-2013.pdf`. Faixa "📘 Catálogo Meritor — Cruzetas (2013)" no menu dos Componentes Cardan (admin, some depois de importar
+  `importacoes.meritor_cruzetas_2013`) e botão na central 📥 Subir catálogo → Cardan → `ccImportarMeritorCruzAbrir`/`ccImportarMeritorCruzPlano`/`ccImportarMeritorAplicar`.
+  Linha MERITOR no card da Spicer **pela referência Spicer** (5-280XS = 5-280X; `porTok` de codigo/substitui/similar/equivalentes Spicer) — **NUNCA pelo número**:
+  a LNG usa os mesmos 801xxx; até ~801033 é a mesma peça, do 801034 em diante é OUTRA (Meritor 801036 = SPL170, LNG 801036 = 5-12018X). Sem Spicer: mesmo nº + mesmas
+  medidas da LNG (±0,6) = mesma peça (801028). Medidas: "Diam. castanha (A)" Meritor = B (Ø copo) no PF; "Comp. total (B)" = A (ponta a ponta); C…J e a figura →
+  especificações. Originais = equivalentesExtra ORIGINAL com `obs` = montadora. `pfCodOutrasMarcas` agora NÃO avisa quando as duas marcas estão no MESMO card do
+  Cardan (`pfCodMarcasIdx` guarda `g` = família|ccPontChave). Veículos entram no 🚚 Rodoviário pelo `maqCcIdx`. Captura `feito-importar-meritor-cruzetas.png`.

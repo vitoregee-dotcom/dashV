@@ -1,7 +1,17 @@
 # PartsFlow (dashV) — notas para o Claude
 
 - **Idioma**: responder sempre em português. Usuário: Vitor (dono do sistema).
-- **App**: tudo em `index.html` (arquivo único, ~70 mil linhas). Publicado na Vercel a partir da `main`.
+- **App**: tudo em `index.html` (arquivo único, ~94 mil linhas — ver "📊 Tamanho do projeto"). Publicado na Vercel a partir da `main`.
+
+## 📊 Tamanho do projeto (atualizado toda segunda pela tarefa agendada "Resumo semanal do projeto")
+- Pedido do Vitor (28/10/2026): "deixa lá esse registro e coloca pra atualizar uma vez na semana, dando um resumo".
+  Como medir: `git fetch --unshallow` (o clone vem raso), `git log origin/main` (1º commit, nº de commits, dias com commit, por mês),
+  `wc -l index.html`, e `git ls-files | grep -E '\.(html|js|py|sql|ts)$' | xargs wc -l` pro código todo. Acrescentar uma linha no histórico (não apagar as antigas).
+- Começo: **27/05/2026** (1º commit).
+- Histórico semanal:
+  | Data | index.html (linhas) | Código todo (linhas) | Arquivos | Commits | Dias trabalhados | Versão | Resumo da semana |
+  |---|---|---|---|---|---|---|---|
+  | 28/10/2026 | 93.761 | ~195 mil | 2.887 | 3.252 | 127 | v115.2437 | 78 commits (v115.2361→2437): busca sem acento, robô laranja, mapa do sistema + tour, cargos, catálogos (ZF, Dana, observações, lista, zoom), nomes padrão, cliques, Máquinas mais organizada, notícias de volta |
 
 ## Fluxo de trabalho combinado
 - Trabalhar na branch da sessão, abrir PR e **fazer o merge (squash) na `main` sem perguntar** — o Vitor autorizou.

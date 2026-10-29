@@ -172,6 +172,7 @@ def idLinha(r):
          ('RANDON', lambda r: re.match(r'^\d{9}$', r) and r[:2] in ('21', '22')),
          ('ALLISON', lambda r: re.match(r'^\d{8}$', r) and r[:2] in ('23', '29')),
          ('JCB', lambda r: re.match(r'^\d{2}/\d{6}$', r)),
+         ('FORD TRATOR', lambda r: re.match(r'^[A-G]\dN[A-Z][A-Z0-9]{4,8}$', r)),
          ('FORD', lambda r: re.match(r'^[A-Z]{1,2}\d[A-Z]{1,2}\d[A-Z0-9]{3,5}[A-Z]{1,2}$', r)),
          ('HYUNDAI', lambda r: re.match(r'^\d{2}[A-Z0-9]{2}-\d{5}$', r) or r.startswith('ZTAM-'))]
     for l, t in T:

@@ -1648,6 +1648,6 @@
   preenche a nota) / 💬 Pedir a lista (`pfFrPedirLista` preenche a mensagem) / 🚜 Cadastrar a frota (`pfFrIrCadastro`). Nada de horas trabalhadas.
 - v115.2471 ("aqueles códigos que estão como originais… identificar os padrões e mudar pro nome da linha"): o catálogo Spicer de rolamentos (PDF de nov/2022,
   pág. 13–16) só diz "referência cruzada", sem a marca. `linhaOriginal` no `gerar_rolamentos.py` decide pelo FORMATO: BH3X4K… FOTON · AL/RE/JD/SJ+nº JOHN DEERE ·
-  F/X+12 dígitos AGCO · 11/17+6 dígitos VOLVO (Clark Michigan) · nnnnnnA1/C1 e letra antiga D/E/L/N/S+nº CASE · D2NN7N854A FORD · 7+7 dígitos CNH (CASE; só NH 12B
-  = NEW HOLLAND) · 20/28+6 dígitos CASE · 10 dígitos ZF. Conversão vira {linha, desc "código original <LINHA> (tabela Spicer)"}; 005090803 (= o próprio código
-  sem pontos) saiu. Reimportar (📚 Catálogos já lidos) dá a linha às conversões já gravadas e tira essa. Formato novo → regra no `linhaOriginal`.
+  F/X+12 dígitos AGCO · D2NN7N854A FORD. O Vitor disse que os de 7/8 dígitos (75206608, 73155406…), A1/C1 e letra+nº NÃO são CASE, os 11xxxxxx NÃO são VOLVO e
+  o 6950117004 "talvez ZF" → esses 72 ficam "referência original" sem linha até ele dizer de quem são. Conversão com linha = desc "código original <LINHA> (tabela
+  Spicer)"; 005090803 (= o próprio código sem pontos) saiu. Reimportar (📚 Catálogos já lidos) dá a linha às conversões já gravadas. Formato novo → regra no `linhaOriginal`.

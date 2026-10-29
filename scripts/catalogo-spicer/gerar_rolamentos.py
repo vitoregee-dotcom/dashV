@@ -154,14 +154,8 @@ def linhaOriginal(ref, veic):
     if re.match(r'^BH3X4K', r): return 'FOTON'
     if re.match(r'^(AL|RE|JD|SJ)\d{4,6}$', r): return 'JOHN DEERE'
     if re.match(r'^(F\d{12}|X\d{12})$', r): return 'AGCO'
-    if re.match(r'^1[17]\d{6}$', r): return 'VOLVO'            # VOE 11xxxxxx (Clark Michigan → Volvo)
-    if re.match(r'^\d{6,7}[AC]\d$', r): return 'CASE'          # 148989A1, 1537147C1
-    if re.match(r'^[DELNS]\d{4,6}$', r): return 'CASE'          # J.I. Case antigo: D63366, L33513, N7276
     if re.match(r'^[A-H]\d[A-Z]{2}\d[A-Z]\d{3}[A-Z]{1,2}$', r): return 'FORD'  # D2NN7N854A
-    if re.match(r'^7\d{7}$', r): return 'NEW HOLLAND' if 'CASE' not in V and 'NEW HOLLAND' in V else 'CASE'  # CNH 7xxxxxxx
-    if re.match(r'^7\d{6}$', r) and 'MICHIGAN' in V: return 'VOLVO'
-    if re.match(r'^2[08]\d{6}$', r): return 'CASE'              # 20045200, 28043230 (CNH)
-    if re.match(r'^\d{10}$', r): return 'ZF'
+    # Vitor: os de 7/8 dígitos, A1/C1 e letra+nº NÃO são CASE, e os 11xxxxxx NÃO são VOLVO; o de 10 dígitos "talvez ZF" → ficam sem linha até ele dizer
     return ''
 
 def conversoes(cod, ref, veic=''):

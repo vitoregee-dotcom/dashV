@@ -1617,3 +1617,6 @@
   (saldo de cada peça no desenho do catálogo, no popup do ✏️ Arrumar, no kit e nos Recebidos) usava `vendasBuscarItem(c)` COMPLETO — código fora do estoque
   (quase todo o catálogo ZF) caía na equivalência de rolamento que varre a planilha (~80 ms × peça × 2 com zero à esquerda). Agora `{semEquiv,silencioso}` +
   cache de 20 s (`_pfCatSaldoCache`); o saldo mostrado é só o do próprio código (antes somava equivalentes de rolamento).
+- v115.2466 ("quando clicar no Vendas abrir aqui nos cards, ao invés da cotação"): o clique no Vendas do DOCK (`elNat.onclick` do `PF_DOCK_NATIVE_MAP` e o `nv`
+  antigo) marca `window._vendasIrMenu` → `pfNavigate` abre nos cards (`_vendasMainTab='menu'`), mesmo estando em Cotações. Outros caminhos (abrir cotação, CRM,
+  atalhos, reabrir cotações) continuam como antes.

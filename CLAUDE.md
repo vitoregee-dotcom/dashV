@@ -1620,3 +1620,5 @@
 - v115.2466 ("quando clicar no Vendas abrir aqui nos cards, ao invés da cotação"): o clique no Vendas do DOCK (`elNat.onclick` do `PF_DOCK_NATIVE_MAP` e o `nv`
   antigo) marca `window._vendasIrMenu` → `pfNavigate` abre nos cards (`_vendasMainTab='menu'`), mesmo estando em Cotações. Outros caminhos (abrir cotação, CRM,
   atalhos, reabrir cotações) continuam como antes.
+- v115.2467 ("aqui, acho melhor exibir os top 10 ou 15 do cliente e talvez a data da última venda" — ficha do CRM): "🔩 O que mais compra (12 meses · top 15)"
+  mostra 15 peças (era 5) e, embaixo de cada uma, "última DD/MM/AAAA (há N dias)" + nº de pedidos e unidades (`pfCrmNumeros`: `top[].ult`/`nPed`, pedido contado 1x).

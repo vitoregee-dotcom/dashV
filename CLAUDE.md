@@ -1654,3 +1654,6 @@
   como Ford Cargo 1119/Foton). Sem fonte = sem linha ("referência original"): SJ27145, X619069000005, 28043230, 28969370, 6950117004. Pela LINHAS: 11xxxxxx/20xxxxxx
   = VOLVO e 7019578 = CATERPILLAR (7 dígitos). Conversão com linha = desc "código original <LINHA> (tabela Spicer)"; 005090803 (= o próprio código sem pontos) saiu.
   Reimportar (📚 Catálogos já lidos) dá a linha às conversões já gravadas.
+- v115.2472 (Vitor, sobre a 2471: "esses muito provavelmente estão errados… 1199 acho que são Michigan, não estou com a minha tabela"): SAÍRAM da LINHAS a regra
+  Ford trator "NN" = NEW HOLLAND e a linha AGCO (F+12 dígitos). No catálogo Spicer, original de aplicação MICHIGAN que a LINHAS daria VOLVO/CATERPILLAR fica SEM
+  linha (11998189, 11703845, 11993334, 11993768, 20045200, 7019578) — esperando a tabela dele. D2NN7N854A agora cai no formato FORD (prefixo-base-sufixo).

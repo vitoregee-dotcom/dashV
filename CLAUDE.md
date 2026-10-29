@@ -1715,3 +1715,8 @@
   cotação de **cliente final** (cliente revenda/concessionária/concorrente = não aparece) e diz "dá pra comprar deles e mandar pro cliente · uso interno, não citar o nome".
 - v115.2481 ("esse número aqui é o número da cotação né? coloca o nosso X padrão"): o fechar de cada aba de cotação (barra de abas da cotação) = ✕ padrão
   `pfXGlossyHtml(16)` (quadrado vermelho), não mais o "×" em texto.
+- v115.2482 **⚔️ Concorrência na região** (Vitor: "quando um cliente for do mesmo estado e cidade desses distribuidores, avisar o vendedor com quem eles estão
+  concorrendo" → opção B "só quando importa"): `pfConcRegiao(cad, marcas)` = clientes com `distribMarcas` (cache 10 s `pfConcLista`) do MESMO ESTADO que vendem
+  alguma das marcas (mesma comparação do `pfRevParceirosDaMarca`), separados em mesma cidade (`pfBuscaN`) × só estado; o próprio cliente fica fora. Cotação:
+  `vendasAvisosCliente` com as marcas dos itens (marca + marcaInterna) → `pfConcAvisos` (cidade = laranja em destaque, estado = cinza discreto, "uso interno").
+  Ficha do CRM: card "⚔️ Concorrência na região" depois da 🚜 Frota, com as marcas que ele comprou/cotou em 12 meses. Vale pra qualquer tipo de cliente.

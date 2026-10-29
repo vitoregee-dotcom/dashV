@@ -1709,3 +1709,7 @@
   (\d[A-Z]\d|TL\d|T\d\d)+6+letra (antes da CATERPILLAR; TH7 fora — a Ford também usa) — mesma ordem no `gerar_rolamentos.py`. Cotação: etiqueta "⚙ relação 3.90:1 · confirme"
   (`vendasEtiquetasHtml`, ficha com "Relação de redução:" no obs e descrição COROA/CAIXA DO DIFERENCIAL). Máquinas (`maqDiretasHtml`): colunas CONE/CAPA só quando o eixo
   tem rolamento com cone/capa; senão "original: AGRALE 6007… · FORD BF6T…" embaixo da descrição. Captura `docs/referencias/spicer-diferenciais/feito-agrale-8500.png`.
+- v115.2480 ("na verdade essas entidades não são parceiros, são concorrentes… num momento que eu não tenha o produto, se for pra um cliente final, pode ser que eu consiga
+  comprar lá e mandar pro cliente, caso o cliente não os conheça… um concorrente que pode ser um fornecedor"): o `distribMarcas`/`ri.parc` continua igual, mas na TELA
+  "🤝 parceiro" virou **"⚔️ concorrente (vende a marca)"** (cadastro, selos, Órbita, resumo, PF_FUNCOES). A faixa 🚨 da cotação (`pfRevFaixaCotacaoHtml`) só aparece em
+  cotação de **cliente final** (cliente revenda/concessionária/concorrente = não aparece) e diz "dá pra comprar deles e mandar pro cliente · uso interno, não citar o nome".

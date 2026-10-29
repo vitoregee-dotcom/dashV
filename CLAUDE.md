@@ -1646,3 +1646,11 @@
   dias > max(1,5× mediana, mediana+15) e ≤ max(4× mediana, 180); vale pra qualquer cliente, 🚜 quando é peça da frota. **🧭 Frotista sem frota** (`pfFrFrotista`): não-revenda
   + 2 motivos (consumo/serviço, grupo Linha amarela/agrícola…, ramo/nome `PF_FR_RAMO_RE`, 3+ pedidos de filtro/vedação em 12 m) → `PF_FR_PERGUNTAS` + ✍️ Anotar (`pfFrAnotar`
   preenche a nota) / 💬 Pedir a lista (`pfFrPedirLista` preenche a mensagem) / 🚜 Cadastrar a frota (`pfFrIrCadastro`). Nada de horas trabalhadas.
+- v115.2471 ("aqueles códigos que estão como originais… identificar os padrões e mudar pro nome da linha" → "fora de estrada segue o nosso padrão cadastrado" +
+  "fontes confiáveis… descubra o padrão e inclua na nossa lista"): o catálogo Spicer de rolamentos (PDF nov/2022, pág. 13–16) só diz "referência cruzada". A linha
+  sai da tabela **`LINHAS`/`idLinha`** do PF (cópia em Python no `gerar_rolamentos.py`, MESMA ordem — mudou a LINHAS, mudar lá também). Entraram na LINHAS:
+  JOHN DEERE AL+5/6 dígitos (CTP/Costex) e JD+nº (shop.deere.com); NEW HOLLAND = Ford trator "NN" no prefixo (D2NN7N854A; D2NNA765B na New Holland Rochester);
+  **AGCO** F+12 dígitos (Fendt, usado em MF/Valtra — bartsparts/masseyparts); **FORD** prefixo-base-sufixo grudado (BH3X4K209AA; catálogo do eixo Spicer S-130 cita BH3X
+  como Ford Cargo 1119/Foton). Sem fonte = sem linha ("referência original"): SJ27145, X619069000005, 28043230, 28969370, 6950117004. Pela LINHAS: 11xxxxxx/20xxxxxx
+  = VOLVO e 7019578 = CATERPILLAR (7 dígitos). Conversão com linha = desc "código original <LINHA> (tabela Spicer)"; 005090803 (= o próprio código sem pontos) saiu.
+  Reimportar (📚 Catálogos já lidos) dá a linha às conversões já gravadas.

@@ -147,7 +147,36 @@ def componente(d, txt, eixo, fora):
     if re.search(r'DIFERENCIAL|PINHAO|COROA|SATELITE|SEMIEIXO|REDUCAO', T): return ('EIXO' if fora else 'EIXO TRASEIRO'), 'DIFERENCIAL'
     return 'EIXO', ''
 
-def conversoes(cod, ref):
+# v115.2471 - A pedido do Vitor ("aqueles códigos que estão como originais… identificar os padrões e mudar pro nome da linha"):
+# o catálogo só diz "referência cruzada" — a linha sai do FORMATO do código (+ a marca da aplicação quando o formato é da CNH)
+def linhaOriginal(ref, veic):
+    r = re.sub(r'[\s.\-]', '', ref.upper()); V = N(veic)
+    return idLinha(r)
+
+# Vitor: "fora de estrada, continua seguindo o nosso padrão cadastrado" = a tabela LINHAS / idLinha do index.html (mesma ordem; GENÉRICO = sem linha)
+def idLinha(r):
+    T = [('JOHN DEERE', lambda r: re.match(r'^R\d{5,7}$', r) or re.match(r'^AT\d', r) or re.match(r'^RE\d', r) or re.match(r'^AL\d{5,6}$', r) or re.match(r'^JD\d{3,6}$', r)),
+         ('CASE', lambda r: re.match(r'^\d{6,7}[CA]\d$', r) or re.match(r'^[A-Z]\d{4,7}$', r)),
+         ('NEW HOLLAND', lambda r: re.match(r'^\d{8}$', r) and r[0] in '786' or re.match(r'^[A-H]\dNN[A-Z0-9]{4,8}$', r)),
+         ('CATERPILLAR', lambda r: re.match(r'^\d{7}$', r) or re.match(r'^[0-9][A-Z]\d{4}', r) or re.match(r'^[A-Z]\d[A-Z]\d{4}', r)),
+         ('VOLVO', lambda r: re.match(r'^\d{8}$', r) and (r.startswith('11') or r.startswith('20'))),
+         ('MASSEY', lambda r: re.match(r'^\d{6,7}[RM]\d$', r)),
+         ('VALTRA', lambda r: re.match(r'^\d{8}$', r) and r[0] in '38'),
+         ('SPICER', lambda r: re.match(r'^\d+-\d', r) or re.match(r'^[A-Z]\d*-\d', r) or re.match(r'^500\d{4}$', r)),
+         ('DANA', lambda r: re.match(r'^2\d{5}$', r) or re.match(r'^420\d{4}$', r) or re.search(r'60K|76K|25K', r) or re.match(r'^\d{3}\.\d{2}\.', r) or r.startswith('001.') or r.startswith('112.')),
+         ('CARRARO', lambda r: re.match(r'^[^2]\d{4,5}$', r)),
+         ('AGRALE', lambda r: re.match(r'^\d{4}\.\d', r)),
+         ('RANDON', lambda r: re.match(r'^\d{9}$', r) and r[:2] in ('21', '22')),
+         ('ALLISON', lambda r: re.match(r'^\d{8}$', r) and r[:2] in ('23', '29')),
+         ('JCB', lambda r: re.match(r'^\d{2}/\d{6}$', r)),
+         ('AGCO', lambda r: re.match(r'^F\d{12}$', r)),
+         ('FORD', lambda r: re.match(r'^[A-Z]{1,2}\d[A-Z]{1,2}\d[A-Z0-9]{3,5}[A-Z]{1,2}$', r)),
+         ('HYUNDAI', lambda r: re.match(r'^\d{2}[A-Z0-9]{2}-\d{5}$', r) or r.startswith('ZTAM-'))]
+    for l, t in T:
+        if t(r): return l
+    return ''
+
+def conversoes(cod, ref, veic=''):
     out = []
     if not ref or N(ref) == N(cod): return out
     def add(r, d):
@@ -161,7 +190,11 @@ def conversoes(cod, ref):
     for j in jogos:
         if '/' in j: add(j, 'rolamento equivalente — cone/capa (tabela Spicer)')  # NÃO usar "conjunto": a cotação trocaria a peça Spicer pelo cone+capa
         elif re.match(r'^(3\d{4}|30204)$', j): add(j, 'rolamento equivalente (tabela Spicer)')
-        else: add(j, 'referência original (tabela Spicer)')
+        elif N(re.sub(r'\D', '', j)) == N(re.sub(r'\D', '', cod)): continue  # 005090803 = o próprio código Spicer sem os pontos
+        else:
+            ln = linhaOriginal(j, veic)
+            add(j, 'código original ' + ln + ' (tabela Spicer)' if ln else 'referência original (tabela Spicer)')
+            if ln: out[-1]['linha'] = ln
     return out
 
 # texto do catálogo com o componente no MEIO (o recorte automático perderia os veículos depois da descrição)
@@ -178,7 +211,7 @@ for cod in list(APL) + [c for c in list(DIM) + list(CRUZ) if c not in APL]:
     a = APL.get(cod, {})
     d, txt, eixo = a.get('desc', 'Rolamento'), a.get('aplicacao', ''), a.get('eixo', '')
     it = {'codigo': cod, 'marca': 'SPICER ROLAMENTOS', 'descricao': N(d).replace('CILIN.', 'CILINDRICO').replace('ROLAMENTOS', 'ROLAMENTOS'),
-          'conversoes': conversoes(cod, CRUZ.get(cod, '')), 'aplicacoes': []}
+          'conversoes': conversoes(cod, CRUZ.get(cod, ''), txt), 'aplicacoes': []}
     obs = []
     if cod in DIM: x = DIM[cod]; obs.append('Medidas: furo %s × externo %s × altura %s mm' % (num(x['furo']), num(x['od']), num(x['altura'])))
     if eixo and eixo not in ('-', 'Diversos'): obs.append('Eixo/transmissão: ' + eixo)

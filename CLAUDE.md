@@ -1657,3 +1657,6 @@
 - v115.2472 (Vitor, sobre a 2471: "esses muito provavelmente estão errados… 1199 acho que são Michigan, não estou com a minha tabela"): SAÍRAM da LINHAS a regra
   Ford trator "NN" = NEW HOLLAND e a linha AGCO (F+12 dígitos). No catálogo Spicer, original de aplicação MICHIGAN que a LINHAS daria VOLVO/CATERPILLAR fica SEM
   linha (11998189, 11703845, 11993334, 11993768, 20045200, 7019578) — esperando a tabela dele. D2NN7N854A agora cai no formato FORD (prefixo-base-sufixo).
+- v115.2473 ("deve ter diferentes, pq tem de trator e de caminhão"): na LINHAS, **FORD TRATOR** = prefixo Ford antigo com a 3ª letra N (década A–G + ano + N + divisão:
+  D2NN7N854A = 1972, C5NN… = 1965; N = trator desde 1958, H = caminhão médio/pesado — The Ranger Station / Blue Oval Trucks / Eaton Detroit Spring) ANTES da **FORD**
+  (caminhão, BH3X4K209AA). Mesma regra no `gerar_rolamentos.py`.

@@ -147,7 +147,24 @@ def componente(d, txt, eixo, fora):
     if re.search(r'DIFERENCIAL|PINHAO|COROA|SATELITE|SEMIEIXO|REDUCAO', T): return ('EIXO' if fora else 'EIXO TRASEIRO'), 'DIFERENCIAL'
     return 'EIXO', ''
 
-def conversoes(cod, ref):
+# v115.2471 - A pedido do Vitor ("aqueles códigos que estão como originais… identificar os padrões e mudar pro nome da linha"):
+# o catálogo só diz "referência cruzada" — a linha sai do FORMATO do código (+ a marca da aplicação quando o formato é da CNH)
+def linhaOriginal(ref, veic):
+    r = re.sub(r'[\s.\-]', '', ref.upper()); V = N(veic)
+    if re.match(r'^BH3X4K', r): return 'FOTON'
+    if re.match(r'^(AL|RE|JD|SJ)\d{4,6}$', r): return 'JOHN DEERE'
+    if re.match(r'^(F\d{12}|X\d{12})$', r): return 'AGCO'
+    if re.match(r'^1[17]\d{6}$', r): return 'VOLVO'            # VOE 11xxxxxx (Clark Michigan → Volvo)
+    if re.match(r'^\d{6,7}[AC]\d$', r): return 'CASE'          # 148989A1, 1537147C1
+    if re.match(r'^[DELNS]\d{4,6}$', r): return 'CASE'          # J.I. Case antigo: D63366, L33513, N7276
+    if re.match(r'^[A-H]\d[A-Z]{2}\d[A-Z]\d{3}[A-Z]{1,2}$', r): return 'FORD'  # D2NN7N854A
+    if re.match(r'^7\d{7}$', r): return 'NEW HOLLAND' if 'CASE' not in V and 'NEW HOLLAND' in V else 'CASE'  # CNH 7xxxxxxx
+    if re.match(r'^7\d{6}$', r) and 'MICHIGAN' in V: return 'VOLVO'
+    if re.match(r'^2[08]\d{6}$', r): return 'CASE'              # 20045200, 28043230 (CNH)
+    if re.match(r'^\d{10}$', r): return 'ZF'
+    return ''
+
+def conversoes(cod, ref, veic=''):
     out = []
     if not ref or N(ref) == N(cod): return out
     def add(r, d):
@@ -161,7 +178,11 @@ def conversoes(cod, ref):
     for j in jogos:
         if '/' in j: add(j, 'rolamento equivalente — cone/capa (tabela Spicer)')  # NÃO usar "conjunto": a cotação trocaria a peça Spicer pelo cone+capa
         elif re.match(r'^(3\d{4}|30204)$', j): add(j, 'rolamento equivalente (tabela Spicer)')
-        else: add(j, 'referência original (tabela Spicer)')
+        elif N(re.sub(r'\D', '', j)) == N(re.sub(r'\D', '', cod)): continue  # 005090803 = o próprio código Spicer sem os pontos
+        else:
+            ln = linhaOriginal(j, veic)
+            add(j, 'código original ' + ln + ' (tabela Spicer)' if ln else 'referência original (tabela Spicer)')
+            if ln: out[-1]['linha'] = ln
     return out
 
 # texto do catálogo com o componente no MEIO (o recorte automático perderia os veículos depois da descrição)
@@ -178,7 +199,7 @@ for cod in list(APL) + [c for c in list(DIM) + list(CRUZ) if c not in APL]:
     a = APL.get(cod, {})
     d, txt, eixo = a.get('desc', 'Rolamento'), a.get('aplicacao', ''), a.get('eixo', '')
     it = {'codigo': cod, 'marca': 'SPICER ROLAMENTOS', 'descricao': N(d).replace('CILIN.', 'CILINDRICO').replace('ROLAMENTOS', 'ROLAMENTOS'),
-          'conversoes': conversoes(cod, CRUZ.get(cod, '')), 'aplicacoes': []}
+          'conversoes': conversoes(cod, CRUZ.get(cod, ''), txt), 'aplicacoes': []}
     obs = []
     if cod in DIM: x = DIM[cod]; obs.append('Medidas: furo %s × externo %s × altura %s mm' % (num(x['furo']), num(x['od']), num(x['altura'])))
     if eixo and eixo not in ('-', 'Diversos'): obs.append('Eixo/transmissão: ' + eixo)

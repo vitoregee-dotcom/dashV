@@ -151,11 +151,29 @@ def componente(d, txt, eixo, fora):
 # o catálogo só diz "referência cruzada" — a linha sai do FORMATO do código (+ a marca da aplicação quando o formato é da CNH)
 def linhaOriginal(ref, veic):
     r = re.sub(r'[\s.\-]', '', ref.upper()); V = N(veic)
-    if re.match(r'^BH3X4K', r): return 'FOTON'
-    if re.match(r'^(AL|RE|JD|SJ)\d{4,6}$', r): return 'JOHN DEERE'
-    if re.match(r'^(F\d{12}|X\d{12})$', r): return 'AGCO'
-    if re.match(r'^[A-H]\d[A-Z]{2}\d[A-Z]\d{3}[A-Z]{1,2}$', r): return 'FORD'  # D2NN7N854A
-    # Vitor: os de 7/8 dígitos, A1/C1 e letra+nº NÃO são CASE, e os 11xxxxxx NÃO são VOLVO; o de 10 dígitos "talvez ZF" → ficam sem linha até ele dizer
+    return idLinha(r)
+
+# Vitor: "fora de estrada, continua seguindo o nosso padrão cadastrado" = a tabela LINHAS / idLinha do index.html (mesma ordem; GENÉRICO = sem linha)
+def idLinha(r):
+    T = [('JOHN DEERE', lambda r: re.match(r'^R\d{5,7}$', r) or re.match(r'^AT\d', r) or re.match(r'^RE\d', r) or re.match(r'^AL\d{5,6}$', r) or re.match(r'^JD\d{3,6}$', r)),
+         ('CASE', lambda r: re.match(r'^\d{6,7}[CA]\d$', r) or re.match(r'^[A-Z]\d{4,7}$', r)),
+         ('NEW HOLLAND', lambda r: re.match(r'^\d{8}$', r) and r[0] in '786' or re.match(r'^[A-H]\dNN[A-Z0-9]{4,8}$', r)),
+         ('CATERPILLAR', lambda r: re.match(r'^\d{7}$', r) or re.match(r'^[0-9][A-Z]\d{4}', r) or re.match(r'^[A-Z]\d[A-Z]\d{4}', r)),
+         ('VOLVO', lambda r: re.match(r'^\d{8}$', r) and (r.startswith('11') or r.startswith('20'))),
+         ('MASSEY', lambda r: re.match(r'^\d{6,7}[RM]\d$', r)),
+         ('VALTRA', lambda r: re.match(r'^\d{8}$', r) and r[0] in '38'),
+         ('SPICER', lambda r: re.match(r'^\d+-\d', r) or re.match(r'^[A-Z]\d*-\d', r) or re.match(r'^500\d{4}$', r)),
+         ('DANA', lambda r: re.match(r'^2\d{5}$', r) or re.match(r'^420\d{4}$', r) or re.search(r'60K|76K|25K', r) or re.match(r'^\d{3}\.\d{2}\.', r) or r.startswith('001.') or r.startswith('112.')),
+         ('CARRARO', lambda r: re.match(r'^[^2]\d{4,5}$', r)),
+         ('AGRALE', lambda r: re.match(r'^\d{4}\.\d', r)),
+         ('RANDON', lambda r: re.match(r'^\d{9}$', r) and r[:2] in ('21', '22')),
+         ('ALLISON', lambda r: re.match(r'^\d{8}$', r) and r[:2] in ('23', '29')),
+         ('JCB', lambda r: re.match(r'^\d{2}/\d{6}$', r)),
+         ('AGCO', lambda r: re.match(r'^F\d{12}$', r)),
+         ('FORD', lambda r: re.match(r'^[A-Z]{1,2}\d[A-Z]{1,2}\d[A-Z0-9]{3,5}[A-Z]{1,2}$', r)),
+         ('HYUNDAI', lambda r: re.match(r'^\d{2}[A-Z0-9]{2}-\d{5}$', r) or r.startswith('ZTAM-'))]
+    for l, t in T:
+        if t(r): return l
     return ''
 
 def conversoes(cod, ref, veic=''):

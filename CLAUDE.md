@@ -1669,3 +1669,16 @@
   janela `pfNcJanela('pfOrigJan')`) 2) `eq.obs` (Meritor escreve a montadora) 3) a peça vai numa marca só (`pfOrigMarcasDe` = marcas dos `veiculos` por MAQ_CC_MARCAS(_FORA) +
   `PF_ORIG_MARCAS_EXTRA`) 4) formato (`PF_ORIG_FORMATOS` Ford / Lada 21xx. / Mercedes 10 dígitos, depois `idLinha`) SÓ se a marca está nos veículos 5) jeito aprendido
   (3+ marcados com o mesmo jeito e uma marca só, `pfOrigAprendidos`). LNG 2015: 778 de 1.356 com linha (504 marca única + 274 formato). Sem linha = title "pode ser de: …".
+- v115.2476 **Gestão — Compras, Financeiro e Logística de verdade** (prévia `docs/referencias/gestao-setores/` → "pra começar deve estar bom" + "financeiro: contas a
+  pagar e a receber" + "logística: KPIs dos usuários que atenderam os pedidos e solicitações, tempo, erros nos RMA de separação e conferência" + "recebimento e expedição"):
+  `pfGeComprasHtml`/`pfGeCompras(P)` (solicitação→decisão = `dataDecisao`−`data`; compra→chegada = `pfComprasEventos` × 1ª `pfChegadasEventos` do mesmo código+marca
+  em 120 dias; abertas = `PF_GE_SOL_FECHADA`; por comprador = **`decididoPor`/`decididoEm`, gravados no `solicSave` a partir desta versão**; fornecedores = `fornecedoresMap`
+  das decididas em 12 m com prazo até a chegada; perdidas sem saldo). `pfGeFinHtml`: Contas a Receber + **Contas a Pagar NOVA `pfContasPagar_v1`** (`cpLoad`/`cpSave`, sync,
+  PF_MODO_DEMO_NADA) — vencido por idade, devedores (vendedor pelo pedido), fluxo 8 semanas, saldo 30 dias, prazo médio/condição pelos pedidos; **📥 Importar do ERP**
+  (`pfGeFinImportarAbrir(receber|pagar)`: planilha `pfGeFinArquivo` ou Ctrl+V/Colar do Excel `pfGeFinTexto` → `pfGeFinLinhas` acha cabeçalho nome/vencimento/valor|saldo/
+  doc/pagamento → `pfGeFinGravar`: `origem:'erp'`, a importação anterior do ERP vira lápide `del` — `crLoad` agora filtra `del`). `pfGeLogHtml`/`pfGeLogistica(P)`: 📤 Expedição
+  pelo `logHistorico` dos pedidos (etapa, data, nome — impresso/separado/conferido/faturado/despachado): tempos, parados +2 dias, por etapa, entrega; **👤 por pessoa** (separou/
+  tempo p/ separar desde a impressão, conferiu/tempo desde separado, faturou, despachou, 📷 fotos atendidas `fotos_solicitacoes` atendido_por/atendido_em via `pfGeFotosCarregar`
+  2 min, 📥 chegadas lançadas `pfChegadasConf.criadoPor`, ❌ erros); **❌ erros** = RMA de cliente do período com motivo `PF_GE_ERRO_LOG_RE` (peça/qtd errada, faltou, separação,
+  conferência…) → pedido (`pfGeRmaPedido`: refPedido = nº do PV, senão último pedido do cliente com o código em 180 dias) → conta pra quem SEPAROU e quem CONFERIU.
+  📥 Recebimento: chegadas, em conferência agora, tempo em conferência (**`resolvidoEm` gravado no `pfChegouConfAtivo` quando o saldo entra**), fotos atendidas/esperando.

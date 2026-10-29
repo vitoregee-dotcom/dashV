@@ -1613,3 +1613,7 @@
 - v115.2464 BUG ("já salvei uma descrição ali em cima e no outro item aqui embaixo não mudou… só altera quando fecho a janela e abro de novo" — ✏️ Arrumar do
   MT-B 3065, 0634303427 repetido): o mesmo código repetido no catálogo ("repete — vale a 1ª") ficava com o texto antigo. `pfCatArrEspelhar(k)` (no `pfCatArrSet` e
   depois do 💾 da regra) copia o resumo digitado pras outras linhas do MESMO código e atualiza os campos na tela (`input[data-pfarrk]`) sem redesenhar.
+- v115.2465 LENTIDÃO ("lentidão pra abrir os desenhos pra alterar a descrição… deu umas travadas" — longtasks de 13 s/13 s/7 s em 28/10 21h): `pfCatEnvSaldo`
+  (saldo de cada peça no desenho do catálogo, no popup do ✏️ Arrumar, no kit e nos Recebidos) usava `vendasBuscarItem(c)` COMPLETO — código fora do estoque
+  (quase todo o catálogo ZF) caía na equivalência de rolamento que varre a planilha (~80 ms × peça × 2 com zero à esquerda). Agora `{semEquiv,silencioso}` +
+  cache de 20 s (`_pfCatSaldoCache`); o saldo mostrado é só o do próprio código (antes somava equivalentes de rolamento).

@@ -1633,3 +1633,7 @@
   cálculo por cliente `pfNcCalcDe` (20 s). **Família = `PF_NC_FAMILIAS`** pela descrição (Filtros, Óleos, Cardan, Rolamentos, Vedação, Motor — internos, Injeção,
   Arrefecimento, Correias, Turbo, Embreagem e freio, Engrenagens e eixos, Hidráulico, Elétrica, Fixação, Buchas, Material rodante, Ferramentas de corte), senão o
   subgrupo do `pfClassificarGrupoSubgrupo` (o grupo do Perfil é largo demais: filtro, pistão e junta caíam todos em "Motor"). Família nova → linha no PF_NC_FAMILIAS.
+- v115.2469 BUG antigo ("os ícones da barra inferior aparecem os antigos quando atualiza e depois mudam pros novos… faz muito tempo"): os itens do dock (`#pfNav`
+  `.pf-nav-icon[data-pf-atalho-id^="nav_"]`) vêm no HTML com o ícone padrão e o escolhido só entra no `pfAplicarIconOverridesNaTela` (DOMContentLoaded, depois das
+  ~94 mil linhas). Agora um `<style id="pfIconesEsperaCss">` logo no `<head>` deixa a imagem invisível (o lugar fica) até `html.pfIconesProntos` — posta pelo
+  `pfAplicarIconOverridesNaTela` quando já tem ícone escolhido ou depois da 1ª sincronização (`window._pfIconesPullOk`, no pull); trava de 6 s no próprio `<head>`.

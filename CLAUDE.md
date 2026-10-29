@@ -1682,3 +1682,11 @@
   2 min, 📥 chegadas lançadas `pfChegadasConf.criadoPor`, ❌ erros); **❌ erros** = RMA de cliente do período com motivo `PF_GE_ERRO_LOG_RE` (peça/qtd errada, faltou, separação,
   conferência…) → pedido (`pfGeRmaPedido`: refPedido = nº do PV, senão último pedido do cliente com o código em 180 dias) → conta pra quem SEPAROU e quem CONFERIU.
   📥 Recebimento: chegadas, em conferência agora, tempo em conferência (**`resolvidoEm` gravado no `pfChegouConfAtivo` quando o saldo entra**), fotos atendidas/esperando.
+- v115.2477 (Vitor: "fluxo de caixa entra onde? contas a pagar tem ligação com compras?" → "não sei se o comprador deve ter acesso a fluxo de caixa" → "talvez só o
+  diretor" → "talvez depois liberar aos gestores" → "faz as 3 partes"): aba 💰 Financeiro da Gestão = **só diretor e o Vitor** (`pfGeAcessoFin`; o quadro Financeiro da
+  Visão geral e o aviso de vencidos também); o diretor libera pros gestores em ⚙️ Regras → 🔐 (`pfGestaoAcesso_v1` {finGestor,ts}, `pfGeAcessoFinSet`). Fluxo de caixa
+  (`pfFinFluxoHtml`, card largo) ganhou: 1) **compra decidida = previsão a pagar** (`pfFinPrevPagar`: fornecedoresMap das solicitações decididas em 150 dias, vencimento =
+  decisão + prazo do fornecedor, some quando o ERP traz título do mesmo fornecedor com valor ±5% ou 20 dias depois de vencer); 2) **🏦 saldo do banco** digitado → coluna SALDO
+  acumulado; 3) **pedido não faturado = previsão a receber** (`pfFinPrevReceber`: aberto/separado/conferido sem título com o pvNumero, parcelas da condição a partir de hoje);
+  cotações abertas 15 dias = só "pode entrar" (`pfFinCotAbertas`). Config compartilhada `pfFinCfg_v1` {saldo,saldoEm,prazoPadrao 28,prazoForn:{chave `pfFinFornChave`:"28/56"}}
+  em ⚙️ Ajustes do fluxo (`pfFinCfgAbrir`/`pfFinCfgGravar`). O PF não tinha prazo de pagamento de fornecedor em lugar nenhum.

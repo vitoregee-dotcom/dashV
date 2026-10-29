@@ -1690,3 +1690,9 @@
   acumulado; 3) **pedido não faturado = previsão a receber** (`pfFinPrevReceber`: aberto/separado/conferido sem título com o pvNumero, parcelas da condição a partir de hoje);
   cotações abertas 15 dias = só "pode entrar" (`pfFinCotAbertas`). Config compartilhada `pfFinCfg_v1` {saldo,saldoEm,prazoPadrao 28,prazoForn:{chave `pfFinFornChave`:"28/56"}}
   em ⚙️ Ajustes do fluxo (`pfFinCfgAbrir`/`pfFinCfgGravar`). O PF não tinha prazo de pagamento de fornecedor em lugar nenhum.
+- v115.2478 ("e na demonstração, já está atualizada nessas novas áreas?" → "refaz a demonstração… um ciclo quase completo"): o `pfDemoGerar` agora dá a cada pedido o
+  `logHistorico` (impresso → separado → conferido → faturado → despachado com nomes do estoque fictício `PF_DEMO_ESTOQUE` + "Patrícia (faturamento)"; os recentes param
+  no meio: aguardando/separado/conferido) e só pedido faturado/despachado ganha título a receber. `pfDemoGerarListas(lote,pecas,clis,comEventos)`: +14 solicitações
+  DECIDIDAS (dataDecisao, decididoPor "Ricardo/Paula (compras)", fornecedoresMap, totalGeral), `por.pfContasPagar_v1` (16 títulos), +6 RMAs de erro de separação/conferência
+  ligados a pedidos da demo (refPedido = nº do pedido); com `comEventos` (só no pfDemoGerar do Vitor) grava compra + chegada (`pfComprasEventos`/`pfChegadasEventos`
+  demo) de cada item decidido. `PF_GE_ERRO_LOG_RE` sem "embalag" (avaria = transporte). Pra valer: Ferramentas → 🎭 Dados de demonstração → 🔄 Refazer.

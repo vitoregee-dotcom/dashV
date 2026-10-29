@@ -1663,3 +1663,9 @@
 - v115.2474 ("mais botões com tamanhos diferentes" — Cadastros → Produtos): com a letra maior o emoji deixava cada botão de uma altura. `<style>` no começo da
   barra (`cadRenderProdutosV3`, classe `.cadProdBarra`): busca + botões = 38 px fixos (inline-flex, sem padding vertical); Voltar (`.pfCadHead .pfCadVoltar`) e
   abas do `#cadTabBarProdutos` também 38 px. NÃO forçar `display` nas abas (a 🚜 Aplicações é escondida com display:none inline).
+- v115.2475 **linha dos códigos ORIGINAIS no Cardan** ("esses que estão como originais, como vamos colocar a linha? da parte de componentes" → "já faz tudo"): na tela
+  (cadastro intacto) `pfOrigLinhaDe(eq,rec)` → selo com a montadora (azul) no card (`pfOrigPillHtml`, no lugar do selo cinza ORIGINAL de `equivalentesExtra` marca ORIGINAL).
+  Ordem: 1) marcado à mão — `pfOrigLinhas_v1` {por:{códigoSóLetrasNúmeros:{l,j=jeito 9/A,em,por}},ts} (compartilhada; clique no selo, só admin, `pfOrigMarcarEl`/`pfOrigGravar`,
+  janela `pfNcJanela('pfOrigJan')`) 2) `eq.obs` (Meritor escreve a montadora) 3) a peça vai numa marca só (`pfOrigMarcasDe` = marcas dos `veiculos` por MAQ_CC_MARCAS(_FORA) +
+  `PF_ORIG_MARCAS_EXTRA`) 4) formato (`PF_ORIG_FORMATOS` Ford / Lada 21xx. / Mercedes 10 dígitos, depois `idLinha`) SÓ se a marca está nos veículos 5) jeito aprendido
+  (3+ marcados com o mesmo jeito e uma marca só, `pfOrigAprendidos`). LNG 2015: 778 de 1.356 com linha (504 marca única + 274 formato). Sem linha = title "pode ser de: …".

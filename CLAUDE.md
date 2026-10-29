@@ -1637,3 +1637,12 @@
   `.pf-nav-icon[data-pf-atalho-id^="nav_"]`) vêm no HTML com o ícone padrão e o escolhido só entra no `pfAplicarIconOverridesNaTela` (DOMContentLoaded, depois das
   ~94 mil linhas). Agora um `<style id="pfIconesEsperaCss">` logo no `<head>` deixa a imagem invisível (o lugar fica) até `html.pfIconesProntos` — posta pelo
   `pfAplicarIconOverridesNaTela` quando já tem ícone escolhido ou depois da 1ª sincronização (`window._pfIconesPullOk`, no pull); trava de 6 s no próprio `<head>`.
+- v115.2470 **🚜 Frota na ficha do CRM** (Vitor: "frotas, será que é bom estar no CRM?" → "amarrar peças vendidas de acordo com a frota" + "se o cliente for
+  frotista, dicas pro vendedor sondar" + "revenda geralmente não tem frota" + horas trabalhadas não dá pra garantir → ritmo do cliente; prévia `docs/referencias/frota-crm/`,
+  capturas `feito-*.png`): embaixo do 🚫 Não compra, `pfFrBlocoHtml`. Máquinas da `cad.frotaLista` agrupadas por marca+modelo (`pfFrDadosDe`, 20 s) → `frotaMaqDe` →
+  códigos da máquina (`pfFrCodsDaMaq`: séries ligadas + peças de manutenção + veicDireto + Cardan, só letras+números `pfFrAN`) × compras de 12 m (código e código
+  original) → "✔ R$ · comprou N peças · última há N dias" / "nunca comprou" / "⚠ sem peças no PF"; 🚜 abrir › (`maqAbrirMaquina`) e 🔎 peças dela (`pfFrPecasAbrir`:
+  não compra primeiro, componente, saldo). Máquina sem modelo/ano → aviso + perguntas. **⏰ Já devia ter comprado de novo** (`ritmo`): peça com 3+ dias de compra em 24 m,
+  dias > max(1,5× mediana, mediana+15) e ≤ max(4× mediana, 180); vale pra qualquer cliente, 🚜 quando é peça da frota. **🧭 Frotista sem frota** (`pfFrFrotista`): não-revenda
+  + 2 motivos (consumo/serviço, grupo Linha amarela/agrícola…, ramo/nome `PF_FR_RAMO_RE`, 3+ pedidos de filtro/vedação em 12 m) → `PF_FR_PERGUNTAS` + ✍️ Anotar (`pfFrAnotar`
+  preenche a nota) / 💬 Pedir a lista (`pfFrPedirLista` preenche a mensagem) / 🚜 Cadastrar a frota (`pfFrIrCadastro`). Nada de horas trabalhadas.

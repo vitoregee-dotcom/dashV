@@ -1660,3 +1660,6 @@
 - v115.2473 ("deve ter diferentes, pq tem de trator e de caminhão"): na LINHAS, **FORD TRATOR** = prefixo Ford antigo com a 3ª letra N (década A–G + ano + N + divisão:
   D2NN7N854A = 1972, C5NN… = 1965; N = trator desde 1958, H = caminhão médio/pesado — The Ranger Station / Blue Oval Trucks / Eaton Detroit Spring) ANTES da **FORD**
   (caminhão, BH3X4K209AA). Mesma regra no `gerar_rolamentos.py`.
+- v115.2474 ("mais botões com tamanhos diferentes" — Cadastros → Produtos): com a letra maior o emoji deixava cada botão de uma altura. `<style>` no começo da
+  barra (`cadRenderProdutosV3`, classe `.cadProdBarra`): busca + botões = 38 px fixos (inline-flex, sem padding vertical); Voltar (`.pfCadHead .pfCadVoltar`) e
+  abas do `#cadTabBarProdutos` também 38 px. NÃO forçar `display` nas abas (a 🚜 Aplicações é escondida com display:none inline).

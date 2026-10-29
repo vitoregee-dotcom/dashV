@@ -1713,3 +1713,5 @@
   comprar lá e mandar pro cliente, caso o cliente não os conheça… um concorrente que pode ser um fornecedor"): o `distribMarcas`/`ri.parc` continua igual, mas na TELA
   "🤝 parceiro" virou **"⚔️ concorrente (vende a marca)"** (cadastro, selos, Órbita, resumo, PF_FUNCOES). A faixa 🚨 da cotação (`pfRevFaixaCotacaoHtml`) só aparece em
   cotação de **cliente final** (cliente revenda/concessionária/concorrente = não aparece) e diz "dá pra comprar deles e mandar pro cliente · uso interno, não citar o nome".
+- v115.2481 ("esse número aqui é o número da cotação né? coloca o nosso X padrão"): o fechar de cada aba de cotação (barra de abas da cotação) = ✕ padrão
+  `pfXGlossyHtml(16)` (quadrado vermelho), não mais o "×" em texto.

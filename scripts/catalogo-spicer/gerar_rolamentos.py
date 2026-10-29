@@ -161,6 +161,7 @@ def idLinha(r):
     T = [('JOHN DEERE', lambda r: re.match(r'^R\d{5,7}$', r) or re.match(r'^AT\d', r) or re.match(r'^RE\d', r) or re.match(r'^AL\d{5,6}$', r) or re.match(r'^JD\d{3,6}$', r)),
          ('CASE', lambda r: re.match(r'^\d{6,7}[CA]\d$', r) or re.match(r'^[A-Z]\d{4,7}$', r)),
          ('NEW HOLLAND', lambda r: re.match(r'^\d{8}$', r) and r[0] in '786'),
+         ('VOLKSWAGEN', lambda r: re.match(r'^(\d[A-Z]\d|TL\d|T\d\d)\d{6}[A-Z]{0,2}$', r)),
          ('CATERPILLAR', lambda r: re.match(r'^\d{7}$', r) or re.match(r'^[0-9][A-Z]\d{4}', r) or re.match(r'^[A-Z]\d[A-Z]\d{4}', r)),
          ('VOLVO', lambda r: re.match(r'^\d{8}$', r) and (r.startswith('11') or r.startswith('20'))),
          ('MASSEY', lambda r: re.match(r'^\d{6,7}[RM]\d$', r)),
@@ -172,6 +173,10 @@ def idLinha(r):
          ('RANDON', lambda r: re.match(r'^\d{9}$', r) and r[:2] in ('21', '22')),
          ('ALLISON', lambda r: re.match(r'^\d{8}$', r) and r[:2] in ('23', '29')),
          ('JCB', lambda r: re.match(r'^\d{2}/\d{6}$', r)),
+         ('AGRALE', lambda r: re.match(r'^(40|60|80)\d{11}$', r)),
+         ('GM', lambda r: re.match(r'^(93|52)\d{6}$', r)),
+         ('IVECO', lambda r: re.match(r'^50\d{7}$', r)),
+         ('MERCEDES-BENZ', lambda r: re.match(r'^A\d{10}$', r)),
          ('FORD TRATOR', lambda r: re.match(r'^[A-G]\dN[A-Z][A-Z0-9]{4,8}$', r)),
          ('FORD', lambda r: re.match(r'^[A-Z]{1,2}\d[A-Z]{1,2}\d[A-Z0-9]{3,5}[A-Z]{1,2}$', r)),
          ('HYUNDAI', lambda r: re.match(r'^\d{2}[A-Z0-9]{2}-\d{5}$', r) or r.startswith('ZTAM-'))]

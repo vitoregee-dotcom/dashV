@@ -1696,3 +1696,16 @@
   DECIDIDAS (dataDecisao, decididoPor "Ricardo/Paula (compras)", fornecedoresMap, totalGeral), `por.pfContasPagar_v1` (16 títulos), +6 RMAs de erro de separação/conferência
   ligados a pedidos da demo (refPedido = nº do pedido); com `comEventos` (só no pfDemoGerar do Vitor) grava compra + chegada (`pfComprasEventos`/`pfChegadasEventos`
   demo) de cada item decidido. `PF_GE_ERRO_LOG_RE` sem "embalag" (avaria = transporte). Pra valer: Ferramentas → 🎭 Dados de demonstração → 🔄 Refazer.
+- v115.2479 **📘 Catálogo Spicer — Eixos diferenciais de caminhões (2016)** ("olha esse catálogo da Spicer… o que podemos usar pra agregar informações no PF" → "pode fazer"):
+  lido aqui do PDF (texto, sem IA) por `scripts/catalogo-spicer/gerar_diferenciais.py` (colunas pela posição do cabeçalho de cada página; linha nova = tem relação/eixo;
+  veículo/anos/motor/eixo herdados das células mescladas; nome partido "A-20 / C-20 /" + "D-20" junta; "Continuação" ignorado) → `data/catalogos/spicer-diferenciais-2016.json`
+  + PDF, em `PF_CAT_PRONTOS` (📚 Catálogos já lidos, marca SPICER, família SPICER/DANA/SPICER ROLAMENTOS/DANA-R). 311 peças: coroa e pinhão (descrição com os DENTES 41X11),
+  caixa completa/vazia, kits de reparo/calços/rolamentos, semieixo, terminal/flange; 89 veículos (veicDireto → 🚚 Rodoviário; tipo por `tipo_veic`: S10/Hilux/Ranger/F-250/
+  Daily/Sprinter… = UTILITÁRIO, Volare/Scudato/Agrale MA = MICRO-ÔNIBUS). **1 aplicação por peça × eixo** (a importação junta por modelo+série+código+marca+eixo e a 2ª
+  apagava os veículos da 1ª) com **`posVeic` {veículo: "DIFERENCIAL · Dana 284 OT · 3.90:1"}** — passa pelo `pfCatProntoAbrir`/gravação e o `maqIndice` usa a posição de
+  CADA veículo. Kits: `ehKit` + `composicaoKit` [{codigo:'',desc,qtd}] (componentes do desenho × qtd) e obs "Vem no kit: …" — `cadConfirmarImport` grava (não troca kit já
+  montado à mão). Acessórios por modelo de eixo (Dana 44/60/70…) = aplicação {marca DANA, modelo DANA 44}. Referência cruzada (266) = conversões "código original <MONTADORA>"
+  com `linha`. **LINHAS ganhou (fonte = essa referência cruzada)**: AGRALE (40|60|80)+11 dígitos, GM (93|52)+6, IVECO 50+7, MERCEDES-BENZ A+10, VOLKSWAGEN
+  (\d[A-Z]\d|TL\d|T\d\d)+6+letra (antes da CATERPILLAR; TH7 fora — a Ford também usa) — mesma ordem no `gerar_rolamentos.py`. Cotação: etiqueta "⚙ relação 3.90:1 · confirme"
+  (`vendasEtiquetasHtml`, ficha com "Relação de redução:" no obs e descrição COROA/CAIXA DO DIFERENCIAL). Máquinas (`maqDiretasHtml`): colunas CONE/CAPA só quando o eixo
+  tem rolamento com cone/capa; senão "original: AGRALE 6007… · FORD BF6T…" embaixo da descrição. Captura `docs/referencias/spicer-diferenciais/feito-agrale-8500.png`.

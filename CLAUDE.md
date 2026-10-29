@@ -1610,3 +1610,6 @@
   caía no card JOHN DEERE 310L. `vendasSerieGrupoAplic` aceita EICO/EXIO; marca de 2 palavras inteira: `PF_MARCAS_2P` + `pfMarcaDoTexto` (usado no
   `pfAplicMaquinasParse` — "JOHN DEERE" sozinho sai —, no `maqVeicTokens` — junta o que já foi gravado partido —, nas tabelas veicDireto e na máquina nova do
   `maqMarcarNaSerie`). Marca nova de 2 palavras → acrescentar no `PF_MARCAS_2P`. Ainda no banco: ZF MT-B 3065 4475058044 (EIXO TRASEIRO) com máquina só "JOHN DEERE" (sem modelo).
+- v115.2464 BUG ("já salvei uma descrição ali em cima e no outro item aqui embaixo não mudou… só altera quando fecho a janela e abro de novo" — ✏️ Arrumar do
+  MT-B 3065, 0634303427 repetido): o mesmo código repetido no catálogo ("repete — vale a 1ª") ficava com o texto antigo. `pfCatArrEspelhar(k)` (no `pfCatArrSet` e
+  depois do 💾 da regra) copia o resumo digitado pras outras linhas do MESMO código e atualiza os campos na tela (`input[data-pfarrk]`) sem redesenhar.

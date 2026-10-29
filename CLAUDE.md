@@ -1622,3 +1622,14 @@
   atalhos, reabrir cotações) continuam como antes.
 - v115.2467 ("aqui, acho melhor exibir os top 10 ou 15 do cliente e talvez a data da última venda" — ficha do CRM): "🔩 O que mais compra (12 meses · top 15)"
   mostra 15 peças (era 5) e, embaixo de cada uma, "última DD/MM/AAAA (há N dias)" + nº de pedidos e unidades (`pfCrmNumeros`: `top[].ult`/`nPed`, pedido contado 1x).
+- v115.2468 **🚫 O que o cliente NÃO compra** (Vitor: "mostrar também o que ele não compra: família, marca" → prévia `docs/referencias/nao-compra/` → "gostei dos 3… ver nos
+  clientes de mesmo perfil o que compra e ele não, indicar pro vendedor oferecer, perguntar se não tem demanda… baseado também nas pesquisas"; capturas `feito-*.png`):
+  na ficha do CRM, embaixo do "O que mais compra". **A** `pfNcBlocoHtml` (abas Famílias/Marcas/Linhas, `window._pfNcTab`): pares = clientes ativos do mesmo `pfTipoCli`
+  (menos de 8 = todos os ativos, `pfNcPares`); família/marca/linha que 25%+ (mín. 3) compram e ele não comprou em 12 meses, ordem por % × mediana/ano; ▼ parou (12–24 m),
+  📄 só cota, 📋 citou na pesquisa (`pfNcPesqTexto`/`pfNcPesqBate`, texto das respostas dele). 🔎 peças (`pfNcPecasAbrir`: o que os parecidos levam, nº de clientes, saldo,
+  clique = Alt+B) e 💬 Perguntei (`pfNcPerguntar`/`pfNcResponder` → `pfCrmAdd` nota com `nc` {tp,key,r}; `PF_NC_RESP` sim/outro/nao; "sem demanda" sai da lista 180 dias).
+  **B** "📄 Cota mas não leva" (`pfNcCotas`: peças das cotações de 12 m agrupadas como nas Vendas perdidas, % que virou pedido, motivo `pfVpMotivo`; 2+ cotações e até 40%).
+  **C** "🗺️ Ver tudo" (`pfNcMapaAbrir`): todas com ✔ compra / ▼ parou / 📄 só cota / 🚫 sem demanda / ✖ nunca. Índice de todos os clientes `pfNcIdx` (10 min),
+  cálculo por cliente `pfNcCalcDe` (20 s). **Família = `PF_NC_FAMILIAS`** pela descrição (Filtros, Óleos, Cardan, Rolamentos, Vedação, Motor — internos, Injeção,
+  Arrefecimento, Correias, Turbo, Embreagem e freio, Engrenagens e eixos, Hidráulico, Elétrica, Fixação, Buchas, Material rodante, Ferramentas de corte), senão o
+  subgrupo do `pfClassificarGrupoSubgrupo` (o grupo do Perfil é largo demais: filtro, pistão e junta caíam todos em "Motor"). Família nova → linha no PF_NC_FAMILIAS.

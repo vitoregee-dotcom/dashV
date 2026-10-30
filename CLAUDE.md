@@ -1815,3 +1815,7 @@
   departamentos pra Triex, como base só"): LISTA ÚNICA de departamentos da Triex — Vendas, Compras, Estoque, Logística, Fiscal, Financeiro (Cadastro de Clientes / Contas a Pagar /
   Contas a Receber), Facilities / Manutenção Predial e Frota, Jurídico, Marketing, RH, Recepção, T.I. – Suporte Técnico, Telefonia / Internet / Câmeras e Biometria, Diretoria.
   Sem blocos e sem TomTicket (`pfChDeptNoPf` = true; `pfChTomTicket`/`ttUrl` ficaram sem uso). Captura `feito-setores.png`.
+- v115.2495 ("financeiro… tem o cadastro também… a parte dos atalhos lá: cadastro à vista, cadastro cliente a prazo, reativação"): os tipos do Financeiro mudam pela
+  parte (`PF_CH_TIPOS_SUB.financeiro` cadcli/pagar/receber, `pfChTiposDe(setor,sub)`); escolher "Cadastro de cliente à vista / a prazo / Reativação de cadastro"
+  (`pfChTipoSet`, `PF_CH_TIPO_ATALHO`) coloca no "O que precisa" o texto do ATALHO de texto (`pfCadTextoDoModo` novo_vista/novo_prazo/reanalise — o mesmo do Cliente
+  inativo/novo) e o assunto "tipo — cliente ligado". Captura `feito-financeiro-cadastro.png`.

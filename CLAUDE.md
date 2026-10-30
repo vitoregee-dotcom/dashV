@@ -1720,3 +1720,20 @@
   alguma das marcas (mesma comparação do `pfRevParceirosDaMarca`), separados em mesma cidade (`pfBuscaN`) × só estado; o próprio cliente fica fora. Cotação:
   `vendasAvisosCliente` com as marcas dos itens (marca + marcaInterna) → `pfConcAvisos` (cidade = laranja em destaque, estado = cinza discreto, "uso interno").
   Ficha do CRM: card "⚔️ Concorrência na região" depois da 🚜 Frota, com as marcas que ele comprou/cotou em 12 meses. Vale pra qualquer tipo de cliente.
+- v115.2483 **🛒 Mesa do comprador + 📄 Ordem de compra do PF** (Vitor: "como acha que deveria ser a tela de compras?" → prévias `docs/referencias/compras-mesa/` →
+  "agora já estamos criando pra ser um ERP" + cobertura "bom poder ajustar" + "sim"; capturas `feito-*.png`): card 1º em Compras (`_canSee('mapa')`) → `pfMesaAbrir`
+  (`#pfMesa` z 58, Esc). Abas 🛒 Mesa (4 colunas `pfMesaColunasHtml`) / 📦 Repor estoque (`pfMesaReporHtml`, filtros, busca, "pôr os da tela no carrinho") / 📄 Ordens de compra.
+  📨 Pra comprar agora = itens de solicitações NÃO enviadas (`pfMsSolItens`: sem `it.oc`, casada = vendaCasada/numeroPedido/cliente primeiro, urgente, mais antiga).
+  📦 Repor (`pfMsRepor`, cache 60 s + `_pfDashDataRev`, fonte `pfComprarFonteItens`): disp = saldo + trânsito + pedido ERP + em OC (`pfMsEmOcIdx`) + já solicitado;
+  entra se disp < consumo/dia × (prazo do fornecedor + folga); sugerido = consumo/dia × max(cobertura da curva, prazo+folga) − disp; curva com cobertura 0 (C) só com
+  Avise-me. Motivos: zerado, 📉 vendas perdidas sem saldo 90 d (`pfMsPerdidas` ← `pfVpAnalisar`), 🔔 Avise-me, abaixo do mínimo, acaba antes de chegar.
+  Config compartilhada **`pfComprasCfg_v1`** {cob:{A:45,B:60,C:0}, folga 15, prazoEnt 15, forn:{chave `pfFinFornChave`:{nome,prazo,min}}} — ⚙️ Ajustes (`pfComprasCfgAbrir`, gestor+).
+  Prazo de entrega `pfMsPrazoForn`: combinado > mediana das OCs recebidas > padrão. Último fornecedor/preço `pfMsUltCompra` (OCs + solicitações). 🗂️ Em cotação = mapas sem
+  decisão (`pfMsMapas`: fornecedores do fornSel × respostas em precos). 🚚 = OCs enviadas/parciais (atrasada = prevEm < hoje).
+  🧺 Carrinho LOCAL (`pf_mesa_carrinho`) por fornecedor (`pfMsCarrRender`: trocar fornecedor, qtd, preço, mínimo do fornecedor) → "🗂️ Cotar" = mapa NOVO (`pfMsCarrMapa`, não mexe no
+  aberto) ou "📄 Gerar ordem de compra" (`pfMsCarrGerarOc`). **`pfOrdensCompra_v1`** (lista por id, sync + PF_MODO_DEMO_NADA/COMPARTILHA, auditoria): {num OC-0001, status rascunho/
+  enviada/parcial/recebida/cancelada, forn{nome,email,tel,cnpj}, cond, prazo, frete, obs, itens[{ref,desc,marca,qtd,preco,orig casada|solic|estoque,sol{id,i,num},pv,cliente,rec}],
+  enviadaEm, prevEm, recebidaEm, hist}. Janela `pfOcAbrir`/`pfOcRender` (rascunho editável; 📄 Ver/PDF `pfOcDoc` = documento com os dados da Triex `PF_GAR_TRIEX` + ⬇ Baixar PDF;
+  ✉️ e-mail = PDF + mailto; 💬 `pfWhatsAbrir`; pergunta "marco como enviada?"; Chegou por item / Chegou tudo). Item de solicitação na OC ganha `it.oc`; OC enviada com todos
+  os itens da solicitação = `s.status='enviado'` (`pfOcMarcarSolic`); cancelar devolve. OC enviada = previsão a pagar no fluxo de caixa (`pfFinPrevPagar`, condição da OC).
+  Demo: 7 OCs fictícias no `pfDemoGerarListas`. Ainda NÃO: aviso de OC atrasada na barra de notificações, Gestão → Compras contando as OCs, opção B (juntar com o Mapa).

@@ -1811,3 +1811,7 @@
   Departamento do grupo SEM ninguém marcado nele (`pfChDeptNoPf`) = aviso âmbar + botão "🎫 Copiar e abrir no TomTicket" (`pfChTomTicket`: copia assunto/texto/ligações e abre
   `pfChamadosCfg_v1.ttUrl`, padrão `PF_CH_TT_PADRAO` jboss03.tomticket.com/helpdesk/novo, editável no ⚙️) e não dá pra "passar" pra ele; alguém da Encopel marcou o setor =
   passa a atender pelo PF sozinho. Captura `feito-tomticket.png`.
+- v115.2494 ("todos os departamentos servem tanto pra Triex quanto Encopel… esquece TomTicket" → "esquece Encopel, depois a gente inclui… vamos entender todos aqueles
+  departamentos pra Triex, como base só"): LISTA ÚNICA de departamentos da Triex — Vendas, Compras, Estoque, Logística, Fiscal, Financeiro (Cadastro de Clientes / Contas a Pagar /
+  Contas a Receber), Facilities / Manutenção Predial e Frota, Jurídico, Marketing, RH, Recepção, T.I. – Suporte Técnico, Telefonia / Internet / Câmeras e Biometria, Diretoria.
+  Sem blocos e sem TomTicket (`pfChDeptNoPf` = true; `pfChTomTicket`/`ttUrl` ficaram sem uso). Captura `feito-setores.png`.

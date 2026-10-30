@@ -168,7 +168,7 @@ def idLinha(r):
          ('VALTRA', lambda r: re.match(r'^\d{8}$', r) and r[0] in '38'),
          ('SPICER', lambda r: re.match(r'^\d+-\d', r) or re.match(r'^[A-Z]\d*-\d', r) or re.match(r'^500\d{4}$', r)),
          ('DANA', lambda r: re.match(r'^2\d{5}$', r) or re.match(r'^420\d{4}$', r) or re.search(r'60K|76K|25K', r) or re.match(r'^\d{3}\.\d{2}\.', r) or r.startswith('001.') or r.startswith('112.')),
-         ('CARRARO', lambda r: re.match(r'^[^2]\d{4,5}$', r)),
+         ('CARRARO', lambda r: re.match(r'^[^28]\d{4,5}$', r)),
          ('AGRALE', lambda r: re.match(r'^\d{4}\.\d', r)),
          ('RANDON', lambda r: re.match(r'^\d{9}$', r) and r[:2] in ('21', '22')),
          ('ALLISON', lambda r: re.match(r'^\d{8}$', r) and r[:2] in ('23', '29')),

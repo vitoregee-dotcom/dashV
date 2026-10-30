@@ -1773,3 +1773,14 @@
   = conversão da ficha com esse código e `linha` preenchida > `idLinha` (tabela LINHAS; com traço/espaço tenta sem: 1R-0750 = 1R0750, Spicer N-NNN fica como está);
   GENÉRICO não aparece; nosso código de outra linha vai no title. Tipo `linha` no `PF_COT_ETQ_TIPOS` (liga/desliga em 🏷️ Etiquetas). Obs.: a regra CASE da LINHAS
   (letra + 4–7 dígitos) pega também filtros Donaldson P550084. Capturas `docs/referencias/linha-cotacao/`.
+- v115.2489 **🏷️ Informações da cotação liga/desliga** (Vitor: "a cotação pode ficar muito cheia de etiquetas… com algum botão exiba… configurável… atalho no teclado"
+  + "prefiro código do cliente e o nosso separados por colunas… etiquetas embaixo de cada código" + "linha do nosso código também" + "as colunas têm que ter no mínimo o
+  tamanho das etiquetas" + "caterpillar deixa só CAT"; prévias `docs/referencias/cotacao-informacoes/`): botão `vendasInfoBtnHtml` na barra dos itens + **Alt+V** (keydown
+  em captura com a cotação aberta) → `vendasInfoSet` (por usuário em `pfCotCabPrefs_v1.info`; `vendasCabEstiloSet` agora preserva os outros campos). `vendasEtiquetasHtml`
+  separa `al` (alertas, sempre: ⚠️ conferir, conjunto com ⚠, relação do diferencial) de `inf` (informações); escondido = "ⓘ N" (`title` lista; clique liga). Etiquetas
+  num wrapper que quebra linha e nunca é cortado; descrição corta com "…" (min 110 px). Linha: `vendasLinhaCliChip` embaixo do CÓD. CLIENTE e `vendasLinhaNossoChip`
+  embaixo do CÓDIGO (Tabela) / ao lado de cada código (2 linhas, coluna padrão 215 px) — `vendasLinhaChipHtml` (classe `.vendasLnChip`, nome curto `PF_LINHA_CURTO`
+  CATERPILLAR→CAT; código só com números = `duvida` → tracejado + "?"). `vendasLinhaColMin` (depois de desenhar) alarga as colunas de código até caber a etiqueta e o
+  arrastar não deixa ficar menor (`_vendasColMinChip`/`_vendasColMinChip2`). Logos (`PF_LINHA_LOGOS`: placas da Órbita CAT/CASE/PERKINS/MF/VALTRA + carraro.svg)
+  prontos mas DESLIGADOS (`window._pfLnLogoModo` 'texto'|'logo'|'logonome') até o Vitor escolher. LINHAS: CASE não começa com T (`[A-SU-Z]`), PERKINS reconhece
+  T+6, U9AA9999, 9999A999; CARRARO não começa com 2 nem 8 (nos 4 catálogos Carraro do repo nenhum começa com 8; 8xxxxx = LNG/Meritor). Mesmo no `gerar_rolamentos.py`.

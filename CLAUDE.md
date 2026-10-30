@@ -769,7 +769,11 @@
 - v115.2218 BUG: a aba, o menu ＋ e o seletor Alt+Q mostravam o ícone ORIGINAL do card; agora `pfAbasIcone(título, original)` usa o
   escolhido pelo Vitor (`pfIconOverrides`, chave `pfAtalhoSlug(título)`), igual ao card/dock; título interno da Ficha Técnica também.
 - v115.2241: o fechar de cada aba é o ✕ padrão (`pfXGlossyHtml(16)` no `.pfAbaX`).
-- **Etapa 2 (a fazer)**: Vendas, Compras, Cadastros, Logística.
+- **Etapa 2 (v115.2485)**: Vendas, Compras, Cadastros e Logística também viram aba (`window._pfTelaTabs`, tipo 'tela'). `pfTelaAbaAtual()` descobre a tela
+  (Vendas = `_vendasMainTab` ≠ menu; Cadastros = `_cadGrupoAtivo` + `cadTab`; `PF_TELA_ABAS` dash/mapa/solicitacoes/pedido_compra/logistica/mapa_comercial) e
+  `pfTelaAbasTick` (0,6 s) cria a aba ao entrar; `pfTelaAbaIr` volta (tela + sub-aba), `pfTelaAbaFechar` (se ativa, volta pro menu da área); ＋ ganhou Vendas/
+  Compras/Logística/Cadastros (`pfTelaAbasMenuHtml`). Essas telas já moram em containers próprios (não vão pro pool). Tela nova nessas áreas → `PF_TELA_ABAS`.
+  BUG junto: a lista de mapas esconde a `#pfTopBar` (inline) e ninguém mostrava de volta — o `pfAbasBarRender` mostra de novo fora do Dashboard.
 
 ## 👁 Ocultar card / 🚧 em construção (v115.2250; capturas em `docs/referencias/cards-ocultar/`)
 - Todo card passa pelo `pfAtalhoPinHtml` → `pfCardOlhoHtml(id)`: 👁 e 🚧 (ícone `icons/pack/pf-icon-036.png`) só aparecem pra
@@ -1739,3 +1743,16 @@
   Demo: 7 OCs fictícias no `pfDemoGerarListas`. Ainda NÃO: aviso de OC atrasada na barra de notificações, Gestão → Compras contando as OCs, opção B (juntar com o Mapa).
 - v115.2484 ("dá pra mudar no modo de apresentação também?"): o "?" do 🎓 Modo Apresentação no card da Mesa do comprador ganhou o texto próprio
   (`PF_AJUDA_TEXTOS['mesa-do-comprador']`: para que serve, como usar em 4 passos, o que a empresa ganha) — antes mostrava só "Função do PartsFlow.".
+- v115.2485 **Mesa + Mapa juntos** (Vitor: "junta a mesa no mapa" = opção B da prévia `docs/referencias/compras-mesa/previa-B-fluxo-unico.png`): barra dos 5 passos
+  em cima da Mesa (`pfMesaPassosHtml`: Itens · Cotar ou pedir direto · Decidir preço (Mapa) · Ordem de compra (aba OC filtro 📝 Rascunhos) · Acompanhar). Mapa passo 4:
+  por fornecedor "📄 Ordem de compra" (`pfMapaOcPF`/`pfMapaOcBtnHtml`: OC do PF com o preço/qtd decididos, `o.mapa`={id,fid,num}; rascunho é refeito, enviada só abre;
+  item com cliente/pedido = casada, `solRef` vira `sol`) — o antigo "📄 OC" virou "📧 Solicitação por e-mail (compras@)". Mesa → 🗂️ Em cotação mostra mapa decidido
+  (30 dias) sem OC do PF (`pfMsMapasDecididos`; "📄 Gerar a OC ›" `pfMesaAbrirMapaPasso4`, "✔ já resolvido" em localStorage `pf_mesa_mapa_ok`). Card "Pedido de Compra"
+  SAIU de Compras: virou "📋 Colar lista" na Mesa (`pfMsColarAbrir`/`pfMsColarLinhas`/`pfMsColarGravar`: código + qtd + marca → carrinho, k 'l:'); rascunhos antigos
+  (`cad_pedidos_compra_v1`) = botão "📋 Pedidos antigos (N)" na Mesa. Capturas `docs/referencias/compras-mesa/feito-passos.png`.
+  **⏰ OC atrasada na barra de notificações** (`oc`): log só-acrescenta `pfOcEventos` {id 'atr|ocId|dia', ocId, num, forn, prevEm, n, valor, cas, porEmail} gerado por
+  `pfOcAtrasoVerificar` (90 s + 30 min, fora da demonstração); vê `pfOcAvisoPodeVer` (gestor+/Vitor/quem tem 'mapa') ou quem fez a OC (`pfOcEvMeu`); painel
+  `pfOcPainelHtml` (atrasadas agora + avisos anteriores com o estado de hoje). Captura `feito-aviso-atrasada.png`.
+  **⏱ Sessões por ferramenta** (Vitor: "não dá pra saber qual ferramenta exatamente usou e por quanto tempo?" + "assim também na área técnica"): `pfSessaoTelaAtual`
+  grava 'f:<ferramenta>' / 'at:<card da Área Técnica>' / 'v:<aba de Vendas>' / 'c:<cadastro>' / 'x:<Mesa|Gestão|Ficha do CRM|Cotação aberta>'; `pfSessTelaNome` dá o nome
+  ("Ferramentas › RMA"); relatório ganhou a tabela "Por ferramenta / tela" (tempo total + quem usou, cada um com o tempo). Antes de 30/10/2026 = só a área.

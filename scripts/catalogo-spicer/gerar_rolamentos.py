@@ -159,7 +159,7 @@ def linhaOriginal(ref, veic):
 # Vitor: "fora de estrada, continua seguindo o nosso padrão cadastrado" = a tabela LINHAS / idLinha do index.html (mesma ordem; GENÉRICO = sem linha)
 def idLinha(r):
     T = [('JOHN DEERE', lambda r: re.match(r'^R\d{5,7}$', r) or re.match(r'^AT\d', r) or re.match(r'^RE\d', r) or re.match(r'^AL\d{5,6}$', r) or re.match(r'^JD\d{3,6}$', r)),
-         ('CASE', lambda r: re.match(r'^\d{6,7}[CA]\d$', r) or re.match(r'^[A-Z]\d{4,7}$', r)),
+         ('CASE', lambda r: re.match(r'^\d{6,7}[CA]\d$', r) or re.match(r'^[A-SU-Z]\d{4,7}$', r)),
          ('NEW HOLLAND', lambda r: re.match(r'^\d{8}$', r) and r[0] in '786'),
          ('VOLKSWAGEN', lambda r: re.match(r'^(\d[A-Z]\d|TL\d|T\d\d)\d{6}[A-Z]{0,2}$', r)),
          ('CATERPILLAR', lambda r: re.match(r'^\d{7}$', r) or re.match(r'^[0-9][A-Z]\d{4}', r) or re.match(r'^[A-Z]\d[A-Z]\d{4}', r)),

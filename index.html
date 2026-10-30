@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2491</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2492</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2491</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2492</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -76702,7 +76702,16 @@ function pfChPodeMexer(c){var eu=pfChEu();return pfChMeuSetor(c)||c.resp===eu||p
 // barra de notificações: chamado novo (ou passado) pro meu setor; o resto só nos que eu abri, sigo ou peguei — o que eu mesmo fiz não conta
 function pfChEvMeu(ev){if(!ev||!ev.ch||ev.tipo==='seguir')return false;var eu=pfChEu();if(!eu||ev.por===eu)return false;var c=pfChDe(ev.ch);if(!c)return false;
   if(ev.tipo==='novo'||ev.tipo==='setor')return pfChMeuSetor(c)||c.de===eu;
+  if(ev.tipo==='atrasou')return pfChAtrasado(c)&&(pfChMeuSetor(c)||c.de===eu||!!c.seg[eu]||c.resp===eu); // v115.2492 - só enquanto continua atrasado
   return c.de===eu||!!c.seg[eu]||c.resp===eu;}
+// v115.2492 - A pedido do Vitor ("providenciar notificações dos chamados também, pra barra de notificações"): chamado que passou do prazo vira
+// aviso ⏰ no 📨 (pro setor, quem abriu, quem pegou e quem segue). Evento só-acrescenta {id:'atr|<chamado>|<prazo>', tipo:'atrasou'} — o id fixo
+// evita repetir quando vários computadores conferem; prazo novo (reaberto/passado de setor) = aviso novo. Confere 90 s depois de abrir e a cada 10 min.
+function pfChAtrasoVerificar(){try{if(!pfChEu())return;if(typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo())return;
+  var ids={};pfChLog().forEach(function(e){if(e&&e.id)ids[e.id]=1;});
+  pfChTodos().filter(pfChAtrasado).forEach(function(c){var id='atr|'+c.id+'|'+c.prazoEm;if(ids[id])return;
+    pfChAdd({id:id,tipo:'atrasou',ch:c.id,por:'sistema',porNome:'PartsFlow'});});}catch(e){console.warn('pfChAtrasoVerificar',e);}}
+setTimeout(function(){pfChAtrasoVerificar();setInterval(pfChAtrasoVerificar,10*60000);},90000);
 function pfChToast(t){var d=document.createElement('div');d.textContent=t;d.style.cssText='position:fixed;left:50%;bottom:'+((typeof pfAiDockClearance==='function'?pfAiDockClearance():90)+16)+'px;transform:translateX(-50%);background:#1c2940;color:#fff;padding:10px 18px;border-radius:10px;font:700 13.5px Inter,sans-serif;z-index:100100;box-shadow:0 8px 24px rgba(0,0,0,.3)';document.body.appendChild(d);setTimeout(function(){d.remove();},3200);}
 function pfChDur(ms){return typeof pfNfHorasTxt==='function'?pfNfHorasTxt(Math.max(0,ms)/3600000):Math.round(ms/3600000)+' h';}
 function pfChDataTxt(t){return t?new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';}
@@ -76914,6 +76923,7 @@ function pfChVer(id){var c=pfChDe(id);if(!c){pfAlert('Chamado não encontrado.')
     if(e.tipo==='pegar')return sis('🙋 '+n+' pegou o chamado',e);
     if(e.tipo==='status'){var s=pfChStInfo(e.st);return sis(s[1]+' '+n+' mudou pra <b style="color:'+s[3]+'">'+s[2]+'</b>',e);}
     if(e.tipo==='setor')return sis('↪ '+n+' passou pro setor <b>'+pfEscHtml(pfChSetorTxt(e.setor,e.sub))+'</b>',e);
+    if(e.tipo==='atrasou')return sis('<b style="color:#B3231C">⏰ passou do prazo</b>',e);
     return '';}).join('');
   var segs=Object.keys(c.seg).map(pfGeNomeEmail).join(', ');
   var inf=function(l,v){return '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:800;color:#8a9ab0;text-transform:uppercase">'+l+'</div><div style="font-size:12.5px;color:#1a2332;margin-top:1px">'+v+'</div></div>';};
@@ -76975,7 +76985,7 @@ function pfChPassarGravar(id){var P=window._pfChPass;if(!P||!P.setor){pfAlert('E
 // ═══ BARRA DE NOTIFICAÇÕES ═══
 function pfChPainelHtml(){var eu=pfChEu(),log=pfChLog().filter(pfChEvMeu).sort(function(a,b){return new Date(b.data)-new Date(a.data);}).slice(0,30),meus=pfChTodos().filter(function(c){return pfChMeuSetor(c)&&c.status!=='resolvido';}),atr=meus.filter(pfChAtrasado);
   var txt=function(e){var c=pfChDe(e.ch)||{};var q='<b>'+pfEscHtml(e.porNome||pfGeNomeEmail(e.por))+'</b>';
-    return e.tipo==='novo'?'📨 '+q+' abriu pro '+pfEscHtml(pfChSetorTxt(e.setor,e.sub)):e.tipo==='msg'?'💬 '+q+' respondeu':e.tipo==='pegar'?'🙋 '+q+' pegou':e.tipo==='setor'?'↪ '+q+' passou pro '+pfEscHtml(pfChSetorTxt(e.setor,e.sub)):e.tipo==='status'?pfChStInfo(e.st)[1]+' '+q+': '+pfChStInfo(e.st)[2]:'';};
+    return e.tipo==='novo'?'📨 '+q+' abriu pro '+pfEscHtml(pfChSetorTxt(e.setor,e.sub)):e.tipo==='msg'?'💬 '+q+' respondeu':e.tipo==='pegar'?'🙋 '+q+' pegou':e.tipo==='setor'?'↪ '+q+' passou pro '+pfEscHtml(pfChSetorTxt(e.setor,e.sub)):e.tipo==='status'?pfChStInfo(e.st)[1]+' '+q+': '+pfChStInfo(e.st)[2]:e.tipo==='atrasou'?'<b style="color:#B3231C">⏰ Passou do prazo</b>'+(c.respNome?' · com '+pfEscHtml(c.respNome):' · ninguém pegou'):'';};
   return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><b style="font-size:17px;color:#1F4E79">📨 Chamados</b><span style="flex:1"></span><span onclick="document.getElementById(\'pfAvisosPainel\').remove()" style="cursor:pointer">'+pfXGlossyHtml(18)+'</span></div>'+
     '<button class="pfBtn pfBtnAzul" style="padding:4px 10px;font-size:12px;margin-bottom:8px" onclick="var _pp=document.getElementById(\'pfAvisosPainel\');if(_pp)_pp.remove();pfChAbrir()">Abrir os chamados ›</button>'+
     (meus.length?'<div style="padding:8px 14px;font-size:12.5px;background:#F4F8FC;border-bottom:1px solid var(--pf-border,#e0e8f0)">Pro seu setor agora: <b>'+meus.length+' aberto'+(meus.length>1?'s':'')+'</b>'+(atr.length?' · <b style="color:#B3231C">'+atr.length+' atrasado'+(atr.length>1?'s':'')+'</b>':'')+'</div>':'')+

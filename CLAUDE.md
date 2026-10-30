@@ -1801,3 +1801,6 @@
 - Barra de notificações 📨 `chamado` (`pfChEvMeu`: novo/passado pro meu setor; o resto só nos que abri, sigo ou peguei), painel `pfChPainelHtml`. Gestão → aba 📨 Chamados
   (`pfGeChamadosHtml`: abertos/resolvidos, tempo pra pegar/resolver, % no prazo, por setor, atrasados, quem mais resolveu, quem mais pede, assuntos).
 - Junto: ⛶ ampliar coluna também na 🛒 Mesa (`pfMsCol(...,key)`, `pfMesaAmpl`, `_pfMs.ampl`; Esc volta pras colunas). `pfToast` NÃO existe — usar `pfChToast`.
+- v115.2492 ("providenciar notificações dos chamados também, pra barra de notificações"): além de novo/resposta, ⏰ **passou do prazo** — `pfChAtrasoVerificar`
+  (90 s + 10 min, fora do modo demonstração) grava evento `atrasou` {id:'atr|<chamado>|<prazoEm>'} (id fixo = sem repetir entre computadores; prazo novo = aviso novo);
+  `pfChEvMeu` mostra pro setor, quem abriu, pegou ou segue, só enquanto continua atrasado; linha vermelha na conversa e no painel. Captura `feito-aviso-atraso.png`.

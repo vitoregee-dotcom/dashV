@@ -1737,3 +1737,5 @@
   ✉️ e-mail = PDF + mailto; 💬 `pfWhatsAbrir`; pergunta "marco como enviada?"; Chegou por item / Chegou tudo). Item de solicitação na OC ganha `it.oc`; OC enviada com todos
   os itens da solicitação = `s.status='enviado'` (`pfOcMarcarSolic`); cancelar devolve. OC enviada = previsão a pagar no fluxo de caixa (`pfFinPrevPagar`, condição da OC).
   Demo: 7 OCs fictícias no `pfDemoGerarListas`. Ainda NÃO: aviso de OC atrasada na barra de notificações, Gestão → Compras contando as OCs, opção B (juntar com o Mapa).
+- v115.2484 ("dá pra mudar no modo de apresentação também?"): o "?" do 🎓 Modo Apresentação no card da Mesa do comprador ganhou o texto próprio
+  (`PF_AJUDA_TEXTOS['mesa-do-comprador']`: para que serve, como usar em 4 passos, o que a empresa ganha) — antes mostrava só "Função do PartsFlow.".

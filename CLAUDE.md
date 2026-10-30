@@ -1833,3 +1833,16 @@
 - Mapa: `pfFpReusar()` no começo do `mapaStep2` copia pro mapa novo o preço que o MESMO fornecedor mandou há até `PF_FP_REUSO_DIAS`=3 dias
   (`mapaPrecos[pk].reuso` {mapa,num,ts}); `pfFpPrecisa(item,fid)` tira esses itens do envio (cartões do passo 2, `mapaEmail`, `mapaEmailBccTodos`,
   `mapaCopiarWhatsAppTodos`). Passo 3: etiqueta "♻️ do mapa #N" + "🔄 pedir de novo" (`pfFpPedirDeNovo` grava `semReuso`, não reaproveita mais).
+
+## 🎓 Treinamento (v115.2497; prévia `docs/referencias/vitrine-cotacao/`, capturas `feito-*.png`)
+- Vitor: "tela de demonstração com a lista de funções da cotação, onde vai ticando e mostrando como exibe" + "treinar os usuários e novos usuários… vamos ter
+  isso como base" → "faz as duas · um card · o gestor manda". Card **Ferramentas → 🎓 Treinamento** (`ferrTreinamento`, todos veem).
+- `PF_TREINO_AULAS` {cotacao:{titulo, img:'assets-visuais/treino/cotacao.jpg', passos:[{id,g c|b|i,ic,t,d,f,r:[x,y,l,a] fração da foto]}]}} — 34 funções.
+  A FOTO é a cotação de exemplo (pfDemoGerar fixo, seed 11, nomes inventados) SEM os números; r = posição de cada função (tiradas com Playwright pelo
+  mesmo roteiro da foto da proposta). **Mudou a cotação → tirar a foto de novo e conferir os r.** Tela nova pra treinar → mais uma entrada no PF_TREINO_AULAS.
+- Tela `#pfTreino` (z 100030, Esc, `pfTrAbrir(aula,modo)`): **Vitrine** = lista com caixinhas por grupo (`PF_TR_GRUPOS`), desmarcada fica coberta na foto,
+  marcada com contorno + balão (`pfTrBalaoHtml`); Limpar/Marcar tudo. **Aula** = passo a passo (`window._pfTr.i`), área acesa com o resto escurecido
+  (`pfTrVeuHtml`, 4 faixas), "👉 Agora faça você" → clicar na área (`pfTrAcertou`, avança sozinho em 1,8 s) / fora dela = "Quase…" (`pfTrCliqueFoto`).
+- Log só-acrescenta **`pfTreinoEventos`** (sync + logKeys): atrib {para, aula} (gestor manda), feito {id 'f|email|aula|passo'}, fim. `pfTrProg(email,aula)`.
+  Gestor+ (`pfTrPodeMandar`): "👥 Mandar aula pra equipe" (profiles, `pfTrUsuarios`), tabela com mandada em / progresso / situação. Barra de notificações
+  🎓 `treino` (`pfTrEvMeu` = aula mandada pra mim e não concluída, painel `pfTrPainelHtml` com "▶ Começar/Continuar a aula").

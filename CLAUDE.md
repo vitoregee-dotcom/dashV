@@ -1758,3 +1758,13 @@
   ("Ferramentas › RMA"); relatório ganhou a tabela "Por ferramenta / tela" (tempo total + quem usou, cada um com o tempo). Antes de 30/10/2026 = só a área.
 - v115.2486 BUG (print da Mesa: "a barra de notificações some aqui?"): Mesa e Gestão (tela cheia z 58) cobriam o `#pfAvisosRail` (z 55). `pfTelaCheiaEsq()` põe o
   `left` das duas na borda direita da barra (no render e no resize). Obs.: rail é fixed → `offsetParent` é sempre null, não usar pra saber se está visível.
+- v115.2487 **🧾 Ordem de compra sem NF** (Vitor: "ordem enviada com faturamento pro mesmo dia… não chegou NF/XML no e-mail em determinado tempo → notificar
+  o compras… pra não o motorista ir buscar e não estar pronto… configurado a cada fornecedor" → prévia `docs/referencias/oc-sem-nf/` → A + B, ícone separado, "considerar já
+  pra ler e-mail"): prazo pra faturar `pfComprasCfg_v1.forn[k].fatH` (horas; ⚙️ Ajustes "FATURA EM" aceita 1h/30min/3d, `pfNfParseHoras`; coluna "COSTUMA" = `pfNfMedido`,
+  mediana envio→NF das últimas 20) → `pfNfPrazoForn` (combinado > medido×1,5 > `PF_NF_PRAZO_PADRAO_H`=24), fim de semana não conta (`pfNfSomaHoras`). `pfNfSit(o)`:
+  ok (o.nf, parcial/recebida) / atrasada / retAlerta (`o.retiradaEm` − `o.retAvisoH`, padrão 2 h). Bloco na janela da ordem `pfOcNfBlocoHtml` (💬 Perguntar ao vendedor
+  `pfOcNfPerguntar` → pfWhatsAbrir/mailto, 🧾 NF chegou `pfOcNfAMao`, ⬆ Carregar XML `pfOcNfXmlArquivo`, +2 h `o.nfAdiadoAte`, 🚚 retirada datetime), chip `pfNfChipHtml`
+  na coluna 🚚 da Mesa. `o.nf` {num,serie,chave,em,emissao,de:transito|mao|xml|email}. **Porta única pro e-mail de compras**: `pfNfXmlLer(xml)` (NF-e: ide/emit/det/
+  xPed/infCpl) → `pfNfReceber(nf,'email')` (acha a ordem: nº da OC no xPed/infCpl > CNPJ/nome do emitente + códigos em comum) — o leitor de e-mail (a fazer) só precisa
+  chamar isso. Automático: item em trânsito (`pfFaturadosEventos` depois do envio, `pfNfPeloTransito`). Barra 🧾 `nf`: log `pfNfEventos` (`pfNfVerificar` 90 s + 10 min;
+  'snf|ocId|prazo' / 'ret|ocId|retirada'), painel `pfNfPainelHtml`, mesmo público do ⏰ (`pfOcEvMeu`). Capturas `feito-*.png`.

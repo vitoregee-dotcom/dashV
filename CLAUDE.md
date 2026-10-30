@@ -1784,3 +1784,6 @@
   arrastar não deixa ficar menor (`_vendasColMinChip`/`_vendasColMinChip2`). Logos (`PF_LINHA_LOGOS`: placas da Órbita CAT/CASE/PERKINS/MF/VALTRA + carraro.svg)
   DESLIGADOS — o Vitor viu a prévia (`previa-logos.png`) e preferiu as etiquetas de TEXTO (30/10/2026: "logos ainda não está legal"); não ligar sem ele pedir. LINHAS: CASE não começa com T (`[A-SU-Z]`), PERKINS reconhece
   T+6, U9AA9999, 9999A999; CARRARO não começa com 2 nem 8 (nos 4 catálogos Carraro do repo nenhum começa com 8; 8xxxxx = LNG/Meritor). Mesmo no `gerar_rolamentos.py`.
+- v115.2490 ("gostei da B e da C" — prévia `docs/referencias/linha-cores/`): a etiqueta da linha na cotação tem 2 visuais, escolha POR USUÁRIO no seletor
+  "Linha: ■ Cor cheia | ● Discreta" ao lado do 🏷️ Informações (`vendasLnCor`/`vendasLnCorSet`, `pfCotCabPrefs_v1.lnCor`, padrão cheia): cheia = fundo na cor
+  da marca (`ln.c`) e letra branca (linha com `ln.x` = amarela → letra escura); discreta = bolinha na cor + nome cinza. Dúvida (só números) = tracejado + "?" nas duas.

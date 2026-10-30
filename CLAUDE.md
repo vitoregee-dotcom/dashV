@@ -1756,3 +1756,5 @@
   **⏱ Sessões por ferramenta** (Vitor: "não dá pra saber qual ferramenta exatamente usou e por quanto tempo?" + "assim também na área técnica"): `pfSessaoTelaAtual`
   grava 'f:<ferramenta>' / 'at:<card da Área Técnica>' / 'v:<aba de Vendas>' / 'c:<cadastro>' / 'x:<Mesa|Gestão|Ficha do CRM|Cotação aberta>'; `pfSessTelaNome` dá o nome
   ("Ferramentas › RMA"); relatório ganhou a tabela "Por ferramenta / tela" (tempo total + quem usou, cada um com o tempo). Antes de 30/10/2026 = só a área.
+- v115.2486 BUG (print da Mesa: "a barra de notificações some aqui?"): Mesa e Gestão (tela cheia z 58) cobriam o `#pfAvisosRail` (z 55). `pfTelaCheiaEsq()` põe o
+  `left` das duas na borda direita da barra (no render e no resize). Obs.: rail é fixed → `offsetParent` é sempre null, não usar pra saber se está visível.

@@ -1768,3 +1768,8 @@
   xPed/infCpl) → `pfNfReceber(nf,'email')` (acha a ordem: nº da OC no xPed/infCpl > CNPJ/nome do emitente + códigos em comum) — o leitor de e-mail (a fazer) só precisa
   chamar isso. Automático: item em trânsito (`pfFaturadosEventos` depois do envio, `pfNfPeloTransito`). Barra 🧾 `nf`: log `pfNfEventos` (`pfNfVerificar` 90 s + 10 min;
   'snf|ocId|prazo' / 'ret|ocId|retirada'), painel `pfNfPainelHtml`, mesmo público do ⏰ (`pfOcEvMeu`). Capturas `feito-*.png`.
+- v115.2488 ("na cotação não identifica a linha do código que o cliente passou? … precisa aparecer na tabela 1 e 2 … ler o código que o cliente informa"):
+  etiqueta 🏷️ LINHA nas visões Tabela e 2 linhas (dentro do `vendasEtiquetasHtml`) e na Compacta, pelo CÓDIGO DO CLIENTE (`codigoOriginal`): `vendasLinhaCliente(it,prod)`
+  = conversão da ficha com esse código e `linha` preenchida > `idLinha` (tabela LINHAS; com traço/espaço tenta sem: 1R-0750 = 1R0750, Spicer N-NNN fica como está);
+  GENÉRICO não aparece; nosso código de outra linha vai no title. Tipo `linha` no `PF_COT_ETQ_TIPOS` (liga/desliga em 🏷️ Etiquetas). Obs.: a regra CASE da LINHAS
+  (letra + 4–7 dígitos) pega também filtros Donaldson P550084. Capturas `docs/referencias/linha-cotacao/`.

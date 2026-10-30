@@ -1804,3 +1804,10 @@
 - v115.2492 ("providenciar notificações dos chamados também, pra barra de notificações"): além de novo/resposta, ⏰ **passou do prazo** — `pfChAtrasoVerificar`
   (90 s + 10 min, fora do modo demonstração) grava evento `atrasou` {id:'atr|<chamado>|<prazoEm>'} (id fixo = sem repetir entre computadores; prazo novo = aviso novo);
   `pfChEvMeu` mostra pro setor, quem abriu, pegou ou segue, só enquanto continua atrasado; linha vermelha na conversa e no painel. Captura `feito-aviso-atraso.png`.
+- v115.2493 ("na verdade chama TomTicket" + "Encopel é do grupo da Triex" + "parte adm da Triex é a Encopel quem faz" + "vamos na sua sugestão… e sim" = o pessoal da
+  Encopel VAI usar o PF): `PF_CH_SETORES` [k,ícone,nome,bloco] em 2 blocos — 't' Triex (Vendas, Compras, Estoque, Logística, Fiscal, Diretoria) e 'g' Grupo/Encopel com os
+  nomes do TomTicket (Facilities / Manutenção Predial e Frota, Financeiro › Cadastro de Clientes | Contas a Pagar, Jurídico, Marketing, RH, Recepção, T.I. – Suporte Técnico,
+  Telefonia / Internet / Câmeras e Biometria); 'x' = só pros chamados antigos (Cadastro, Contas a receber). `pfChSetoresBlocosHtml` (abrir, meu setor), `pfChSetoresVis`/`pfChSubVis`.
+  Departamento do grupo SEM ninguém marcado nele (`pfChDeptNoPf`) = aviso âmbar + botão "🎫 Copiar e abrir no TomTicket" (`pfChTomTicket`: copia assunto/texto/ligações e abre
+  `pfChamadosCfg_v1.ttUrl`, padrão `PF_CH_TT_PADRAO` jboss03.tomticket.com/helpdesk/novo, editável no ⚙️) e não dá pra "passar" pra ele; alguém da Encopel marcou o setor =
+  passa a atender pelo PF sozinho. Captura `feito-tomticket.png`.

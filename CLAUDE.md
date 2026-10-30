@@ -1787,3 +1787,17 @@
 - v115.2490 ("gostei da B e da C" — prévia `docs/referencias/linha-cores/`): a etiqueta da linha na cotação tem 2 visuais, escolha POR USUÁRIO no seletor
   "Linha: ■ Cor cheia | ● Discreta" ao lado do 🏷️ Informações (`vendasLnCor`/`vendasLnCorSet`, `pfCotCabPrefs_v1.lnCor`, padrão cheia): cheia = fundo na cor
   da marca (`ln.c`) e letra branca (linha com `ln.x` = amarela → letra escura); discreta = bolinha na cor + nome cinza. Dúvida (só números) = tracejado + "?" nas duas.
+
+## 📨 Chamados entre setores (v115.2491; prévia `docs/referencias/chamados/`, capturas `feito-*.png`)
+- Vitor: "card de solicitações gerais… como os chamados… o e-connect, onde são feitas as solicitações entre os setores" → "gostei desse formato da mesa" + Marketing
+  + Financeiro com contas a pagar/receber + "o setor inteiro recebe" + "serve pra gestão/diretoria com KPIs". Tela cheia `#pfChamados` (`pfChAbrir(id?)`, z 58, Esc; ícone 📨 no
+  dock `navChamados`, Alt+S, cotação ⋮ → `pfChNovoDaCotacao`, ficha do CRM → `pfChNovoDoCrm`). Abas 📥 Pro meu setor / 📤 Que eu abri / sigo / 🗂️ Todos (gestor+);
+  ▦ Quadro (colunas `PF_CH_ST` aberto/andamento/esperando/resolvido 7 dias; arrastar = `pfChMudar`) | ☰ Lista (`pf_ch_modo`); ⛶ amplia uma coluna (`_pfCh.ampl`).
+- Dados = log SÓ-ACRESCENTA **`pfChamadosEventos`** (logKeys, PF_MODO_DEMO_NADA) — tipos novo/msg/pegar/status/setor/seguir; o chamado é montado por `pfChTodos` (cache pelo
+  tamanho do log). Nº = maior + 1. Config compartilhada `pfChamadosCfg_v1` {setorDe:{email:[setores]}, prazoH:{u,n,b} horas úteis (padrão 2/24/72, `pfNfSomaHoras`)} —
+  cada um marca o setor na 1ª vez (`pfChSetorEscolher`), gestor ajusta em ⚙️ (`pfChCfgAbrir`). Setores `PF_CH_SETORES` (+ `PF_CH_SUB` financeiro pagar/receber), tipos
+  sugeridos `PF_CH_TIPOS`. Anexos no bucket privado `cadastro-clientes/interno/chamados/<id>/` (`pfChSubirAnexos` → `pfCadDocSubir`, abre com `pfCadDocAbrir`).
+  Ligado a `PF_CH_LIGA_T` cot/ped/peca/cli/rma (`pfChLigaAbrir`). Quem do setor responde um chamado aberto já pega.
+- Barra de notificações 📨 `chamado` (`pfChEvMeu`: novo/passado pro meu setor; o resto só nos que abri, sigo ou peguei), painel `pfChPainelHtml`. Gestão → aba 📨 Chamados
+  (`pfGeChamadosHtml`: abertos/resolvidos, tempo pra pegar/resolver, % no prazo, por setor, atrasados, quem mais resolveu, quem mais pede, assuntos).
+- Junto: ⛶ ampliar coluna também na 🛒 Mesa (`pfMsCol(...,key)`, `pfMesaAmpl`, `_pfMs.ampl`; Esc volta pras colunas). `pfToast` NÃO existe — usar `pfChToast`.

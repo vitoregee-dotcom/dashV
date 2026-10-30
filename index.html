@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2495</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2496</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2495</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2496</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -30290,15 +30290,21 @@ function mapaGerarImpressaoAnalise(){
 function mapaStep2(el){
   var flist=typeof cotFornecedores!=='undefined'?cotFornecedores:[];
   var fornItens={};
+  try{pfFpReusar();}catch(e){console.warn('pfFpReusar',e);} // v115.2496 - preço que o fornecedor mandou há até 3 dias entra sozinho
+  var _nReuso=0;
   mapaItens.filter(function(i){return i.sel!==false;}).forEach(function(item){
     var key=item.ref+'||'+(item.marca||'');
-    (mapaFornSelecionados[key]||[]).forEach(function(fid){if(!fornItens[fid])fornItens[fid]=[];fornItens[fid].push(item);});
+    (mapaFornSelecionados[key]||[]).forEach(function(fid){if(!pfFpPrecisa(item,fid)){_nReuso++;return;}if(!fornItens[fid])fornItens[fid]=[];fornItens[fid].push(item);});
   });
   var fids=Object.keys(fornItens);
+  if(!fids.length&&_nReuso){ // v115.2496 - tudo já veio de mapa recente
+    el.innerHTML='<div class="mSection" style="text-align:center;padding:30px;color:#7a5200">♻️ Todos os preços já vieram de mapas dos últimos '+PF_FP_REUSO_DIAS+' dias — não precisa mandar pra ninguém.<br><button onclick="mapaGoStep(3)" class="pfBtn pfBtnVerde" style="margin-top:12px">Ver os preços →</button></div>';return;
+  }
   if(!fids.length){
     el.innerHTML='<div class="mSection" style="text-align:center;padding:30px;color:var(--pf-fx-textoSuave,#8a9ab0)">Nenhum fornecedor selecionado.<br><button onclick="mapaGoStep(1)" style="background:none;border:none;color:var(--pf-fx-marca,#1F4E79);cursor:pointer;text-decoration:underline;font-size:13px">← Voltar e selecionar</button></div>';return;
   }
-  var html='<div class="mSection"><div class="mSectionTitle">📨 E-mails de Cotação</div>';
+  var html='<div class="mSection"><div class="mSectionTitle">📨 E-mails de Cotação</div>'+
+    (_nReuso?'<div style="background:#FFF8E6;border:1px solid #f1d9a0;color:#7a5200;border-radius:8px;padding:8px 12px;font-size:12.5px;margin-bottom:10px"><b>♻️ '+_nReuso+' preço'+(_nReuso>1?'s':'')+' já entr'+(_nReuso>1?'aram':'ou')+' no mapa</b> — o mesmo fornecedor mandou há menos de '+PF_FP_REUSO_DIAS+' dias. No envio vão só os itens que faltam pra cada um (dá pra pedir de novo no passo 3, 🔄).</div>':'');
   var nComEmail=fids.filter(function(fid){var f=flist.find(function(x){return x.id===fid;});return f&&f.email;}).length;
   var codTipo=window._mapaCodTipo||'principal';
   html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;color:var(--pf-fx-textoSec,#607080)">';
@@ -30348,7 +30354,7 @@ function mapaCopiarWhatsAppTodos(){
     else alert('Mapa não carregado.');
     return;
   }
-  var itensSel=mapaItens.filter(function(i){return i.sel!==false;});
+  var itensSel=mapaItens.filter(function(i){return i.sel!==false&&(!(mapaFornSelecionados[i.ref+'||'+(i.marca||'')]||[]).length||(mapaFornSelecionados[i.ref+'||'+(i.marca||'')]||[]).some(function(fid){return pfFpPrecisa(i,fid);}));}); // v115.2496 - sem o que todos já mandaram há até 3 dias
   if(!itensSel.length){
     if(typeof pfAlert==='function') pfAlert('Nenhum item selecionado.');
     else alert('Nenhum item selecionado.');
@@ -30400,7 +30406,7 @@ function mapaEmailBccTodos(){
   var fornItens={};
   mapaItens.filter(function(i){return i.sel!==false;}).forEach(function(item){
     var key=item.ref+'||'+(item.marca||'');
-    (mapaFornSelecionados[key]||[]).forEach(function(fid){if(!fornItens[fid])fornItens[fid]=[];fornItens[fid].push(item);});
+    (mapaFornSelecionados[key]||[]).forEach(function(fid){if(!pfFpPrecisa(item,fid))return;if(!fornItens[fid])fornItens[fid]=[];fornItens[fid].push(item);}); // v115.2496
   });
   var fids=Object.keys(fornItens);
   var comEmail=[],semEmail=[];
@@ -30414,7 +30420,7 @@ function mapaEmailBccTodos(){
   var vistos=new Set(),itensUnicos=[];
   mapaItens.filter(function(i){return i.sel!==false;}).forEach(function(item){
     var k=item.ref+'||'+(item.marca||'');
-    if((mapaFornSelecionados[k]||[]).some(function(fid){return comEmail.some(function(f){return f.id===fid;});})&&!vistos.has(k)){
+    if((mapaFornSelecionados[k]||[]).some(function(fid){return pfFpPrecisa(item,fid)&&comEmail.some(function(f){return f.id===fid;});})&&!vistos.has(k)){ // v115.2496
       vistos.add(k);itensUnicos.push(item);
     }
   });
@@ -30498,7 +30504,7 @@ function mapaEmail(fid){
   if(!forn){pfAlert('Fornecedor não encontrado.');return;}
   var temEmail=!!forn.email, temTel=!!pfTelParaWa(forn.tel);
   if(!temEmail&&!temTel){pfAlert('Nem e-mail nem telefone/WhatsApp cadastrado pra esse fornecedor.');return;}
-  var itens=mapaItens.filter(function(i){return i.sel!==false&&(mapaFornSelecionados[i.ref+'||'+(i.marca||'')]||[]).includes(fid);});
+  var itens=mapaItens.filter(function(i){return i.sel!==false&&(mapaFornSelecionados[i.ref+'||'+(i.marca||'')]||[]).includes(fid)&&pfFpPrecisa(i,fid);}); // v115.2496 - sem o que ele já mandou há até 3 dias
   var codTipo=window._mapaCodTipo||'principal';
   var nomeForn=forn.fantasia||forn.nome||forn.razao||fid;
   var hoje=new Date().toLocaleDateString('pt-BR');
@@ -30644,6 +30650,7 @@ function mapaStep3(el){
       html += '<span style="font-weight:700;font-size:12px;color:var(--pf-fx-marca,#1F4E79)">'+it.ref+'</span>';
       html += '<span style="font-size:11px;color:var(--pf-fx-textoSec,#607080)">'+it.desc+'</span>';
       if(mapaPrecos[pk].declinou)html += '<span style="font-size:10px;font-weight:700;color:#fff;background:var(--pf-fx-vermelho,#C00000);border-radius:5px;padding:2px 8px">❌ NÃO TINHA</span>';
+      html += (typeof pfFpReusoTagHtml==='function'?pfFpReusoTagHtml(pk):''); // v115.2496
       if(mapaPrecos[pk].origemAuto)html += '<span style="font-size:10px;font-weight:700;color:var(--pf-fx-marca,#1F4E79);background:#EEF6FF;border-radius:5px;padding:2px 8px" title="Preenchido automaticamente a partir da resposta do fornecedor por e-mail">📥 Recebido automático</span>';
       html += '<span style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0);margin-left:auto">Qtd: <b>'+it.qtd+'</b></span>';
       html += '</div>';
@@ -47656,6 +47663,7 @@ var PF_FUNCOES=[
   {a:'compras',i:'📨',n:'Solicitações de compra',o:'Vendedor pede compra de uma peça pro setor de compras.',p:'Não perder pedido de compra no WhatsApp.',w:'Compras → Solicitações',v:'',ir:'tela:solicitacoes'},
   {a:'compras',i:'📋',n:'Pedido de Compra',o:'Rascunho item a item que puxa das Solicitações e do Mapa.',p:'Montar o pedido pro fornecedor.',w:'Compras → Pedido de Compra',v:'',ir:'tela:pedido_compra'},
   {a:'sistema',i:'📨',n:'Chamados',o:'Pedidos entre os setores da empresa: qualquer pessoa abre um chamado pra Vendas, Compras, Estoque, Logística, Fiscal, Financeiro (Cadastro de Clientes, Contas a Pagar ou a Receber), Facilities / Manutenção Predial e Frota, Jurídico, Marketing, RH, Recepção, T.I., Telefonia / Internet / Câmeras e Biometria ou Diretoria, com tipo, prioridade, prazo, anexos (print ou arquivo) e ligado a uma cotação, pedido, peça, cliente ou RMA. O setor inteiro recebe, alguém pega e a conversa fica registrada.',p:'Nada de pedido perdido em WhatsApp: cada um vê o que é do seu setor num quadro igual à Mesa (Aberto → Em andamento → Esperando quem abriu → Resolvido; arrasta o cartão ou usa os botões), com ⏰ atrasado em vermelho, ☰ Lista pra buscar o histórico e ⛶ pra ampliar uma coluna. Avisa na barra de notificações (chamado novo pro seu setor e respostas nos que você abriu ou segue). Da cotação e da ficha do cliente o chamado já sai ligado a ela. O gestor vê na Gestão quanto cada setor recebe, demora e atrasa.',w:'Barra de baixo → 📨 Chamados · Alt+S → Chamados · cotação → ⋮ Mais ações → 📨 Abrir chamado · ficha do cliente → 📨 Chamado · Gestão → aba 📨 Chamados',v:'2491',ir:'js:pfChAbrir()'},
+  {a:'vendas',i:'💰',n:'Preços dos fornecedores',o:'Na cotação, a coluna FORN. mostra 💰 com quantos preços os fornecedores já mandaram pra aquele código nos mapas de compras. Clique (ou Alt+F) abre a tabela: data, fornecedor, marca, preço, prazo e quem foi comprado, com menor, maior e média.',p:'Responder o cliente na hora, mesmo sem a peça no estoque, sem precisar cotar de novo. E o mapa novo já vem com o preço que o mesmo fornecedor mandou há até 3 dias — esse item nem vai de novo pra ele.',w:'Vendas → cotação → coluna FORN. (💰) ou Alt+F com o item selecionado',v:'v115.2496',ir:'vendas:cotacoes'},
   {a:'compras',i:'🛒',n:'Mesa do comprador',o:'Tela única do comprador: o que tem pra comprar agora (solicitações, com as compras casadas primeiro), o que repor no estoque, os mapas em cotação e as ordens de compra esperando chegar.',p:'Marcar os itens, juntar por fornecedor no 🧺 carrinho e gerar a ordem de compra do PF (PDF, e-mail ou WhatsApp) — ou mandar cotar no Mapa, que agora é o passo 3 da Mesa: decidido o preço, o Mapa gera a mesma ordem de compra do PF. Em cima, os 5 passos do caminho (Itens → Cotar ou pedir direto → Decidir preço → Ordem de compra → Acompanhar); 📋 Colar lista põe código + quantidade direto no carrinho; ⏰ ordem atrasada avisa na barra de notificações. 🧾 Sem NF: cada fornecedor tem um prazo pra faturar (⚙️ Ajustes → Fatura em; vazio = o tempo que o PF mediu) — passou e a nota não saiu, avisa na barra pra perguntar ao vendedor do fornecedor; com 🚚 retirada marcada na ordem, avisa antes do motorista sair. A NF entra sozinha quando a peça aparece em trânsito, pelo XML da NF-e ou no 🧾 NF chegou. Repor estoque sugere a quantidade pela venda de cada peça, a cobertura da curva (A/B/C) e o prazo do fornecedor; o gestor ajusta em ⚙️ Ajustes. Quando a mercadoria chega, marca o que veio na ordem.',w:'Compras → 🛒 Mesa do comprador',v:'2487',ir:'js:pfMesaAbrir()'},
   {a:'compras',i:'🔔',n:'Me Avise',o:'Cliente quer a peça que está em falta: quando chegar, o sistema avisa.',p:'Não esquecer de ligar quando a peça chega.',w:'Ferramentas → Me Avise',v:'',ir:'ferr:Me Avise'},
   {a:'compras',i:'📦',n:'Chegou — Em Conferência',o:'Cola o print da chegada e os vendedores são avisados na hora.',p:'Vendedor saber o que chegou antes de conferir.',w:'Ferramentas → Chegou — Em Conferência',v:'',ir:'ferr:Chegou — Em Conferência'},
@@ -52194,9 +52202,9 @@ function ccAbrirDoLink(familia,codigo){
 // v115.2064 - A pedido do Vitor ("de novo coisa amontoada -- algumas colunas precisam ter tamanho mínimo"): mínimo
 // pra TODAS as colunas (antes só Status), no tamanho do conteúdo. Vale no desenho e ao arrastar a borda; larguras salvas
 // menores que isso sobem sozinhas. Venda = selo do último preço + campo, por isso é a maior.
-var VENDAS_ITEM_COL_MIN={0:46,1:28,2:28,3:104,4:110,5:170,6:96,7:62,8:55,9:100,10:84,11:156,12:72,13:70};
+var VENDAS_ITEM_COL_MIN={0:46,1:28,2:28,3:104,4:110,5:170,6:96,7:62,8:55,9:100,10:84,11:156,12:72,13:70,14:50};
 function vendasItemColgroup(){
-  var defaults=['46px','28px','28px','104px','110px','230px','96px','62px','55px','100px','96px','156px','72px','100px']; // v115.2064 venda/margem maiores
+  var defaults=['46px','28px','28px','104px','110px','230px','96px','62px','55px','100px','96px','156px','72px','100px','54px']; // v115.2064 venda/margem maiores · v115.2496 FORN.
   var widths=defaults.slice();
   try{
     var saved=JSON.parse(localStorage.getItem('vendas_item_cols_widths')||'[]');
@@ -52323,7 +52331,9 @@ function vendasItemColReorderApply(){
   if(!tbl)return;
   var saved;
   try{saved=JSON.parse(localStorage.getItem('vendas_item_cols_order')||'null');}catch(e){saved=null;}
-  if(!saved||!Array.isArray(saved)||!saved.length)return; // ordem padrão, nada a fazer
+  // v115.2496 - a coluna FORN. (data-col 14) nasce no fim do HTML; na ordem padrão (e em ordem salva antes dela existir) entra antes do CUSTO
+  if(!saved||!Array.isArray(saved)||!saved.length)saved=['0','1','2','3','4','5','6','7','8','9','10','11','12','13'];
+  if(saved.indexOf('14')<0){saved=saved.slice();var _i10=saved.indexOf('10');saved.splice(_i10<0?saved.length:_i10,0,'14');}
   var thead=tbl.querySelector('thead tr');
   var colgroup=tbl.querySelector('colgroup');
   if(!thead||!colgroup)return;
@@ -52658,6 +52668,108 @@ function pfPrecoUltimoClique(ref,marca){
   clearTimeout(window._pfPrecoUltT);
   window._pfPrecoUltT=setTimeout(function(){if(typeof pfAbrirHistoricoItem==='function')pfAbrirHistoricoItem(ref,marca,'');},280);
 }
+// v115.2496 - A pedido do Vitor ("o vendedor vê os preços que foram cotados e ele mesmo tira uma média, pra chutar um preço sem ter que
+// cotar de novo… quantos fornecedores, preço, marca e data" + "se o item entrou nessa lista nos últimos 3 dias e for criado um mapa, já
+// aparecer no mapa preenchido"; prévias em docs/referencias/preco-fornecedores/, escolheu a coluna C2): 💰 Preços dos fornecedores.
+// Índice de TODAS as respostas dos mapas de compras por código (pfFpIdx), coluna FORN. na cotação (ícone + nº de preços), tabela no
+// clique / Alt+F (pfFpAbrir; clicar numa linha usa o preço como custo) e o mapa novo reaproveita o que o MESMO fornecedor mandou há
+// até PF_FP_REUSO_DIAS dias (pfFpReusar, no passo 2) — esses itens não vão de novo no envio pra ele (pfFpPrecisa).
+var PF_FP_REUSO_DIAS=3;
+function pfFpN(c){return String(c||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+function pfFpIdx(){
+  var lista=[];try{lista=JSON.parse(localStorage.getItem(MAPAS_LIST_KEY)||'[]')||[];}catch(e){lista=[];}
+  var c=window._pfFpCache,sig=lista.length+'|'+lista.reduce(function(t,m){return Math.max(t,+m.ts||0);},0);
+  if(c&&c.sig===sig&&Date.now()-c.t<30000)return c.m;
+  var forn={};try{(cadLoad(FORN_KEY)||[]).forEach(function(f){if(f&&f.id)forn[f.id]=f.fantasia||f.nome||f.razao||'';});}catch(e){}
+  var m={};
+  lista.forEach(function(L){if(!L||!L.id)return;var est=null;try{est=JSON.parse(localStorage.getItem('mapa_estado_'+L.id)||'null');}catch(e){}
+    if(!est||!est.itens)return;var pr=est.precos||{},fs=est.fornSel||{},dec=est.decisoes||{},tsM=+est.criadoTs||+est.ts||+L.ts||0,num=est.numero||L.numero||'';
+    est.itens.forEach(function(it){if(!it||!it.ref)return;var key=it.ref+'||'+(it.marca||''),k=pfFpN(it.ref),arr=m[k]=m[k]||[],vistos={};
+      (fs[key]||[]).forEach(function(fid){if(vistos[fid])return;vistos[fid]=1;var p=pr[key+'||'+fid],base={mapa:L.id,num:num,cliente:est.cliente||L.clienteRazao||L.cliente||'',fid:fid,forn:forn[fid]||fid,ref:it.ref,desc:it.desc||'',qtd:it.qtd||''};
+        if(p&&p.reuso)return; // reaproveitado de outro mapa = já está no índice pelo original
+        var ents=(p&&p.entries)||[],tem=false;
+        ents.forEach(function(e,ei){if(!(+e.preco>0))return;tem=true;
+          arr.push(Object.assign({},base,{ts:+e.ts||tsM,preco:+e.preco,marca:e.marca||'',prazo:e.prazo||'',ipi:+e.ipi||0,st:+e.st||0,ganhou:dec[key+'||'+fid]===key+'||'+fid+'||'+ei}));});
+        if(!tem)arr.push(Object.assign({},base,{ts:tsM,preco:0,nada:p&&p.declinou?'nao':'sem'}));});});});
+  Object.keys(m).forEach(function(k){m[k].sort(function(a,b){return b.ts-a.ts;});});
+  window._pfFpCache={t:Date.now(),sig:sig,m:m};return m;
+}
+function pfFpDoItem(it){var I=pfFpIdx(),out=[],v={};[it.codigo,it.codigoOriginal,it.ref].forEach(function(c){var k=pfFpN(c);if(!k||v[k])return;v[k]=1;(I[k]||[]).forEach(function(r){out.push(r);});});
+  var seen={};out=out.filter(function(r){var s=r.mapa+'|'+r.fid+'|'+r.preco+'|'+r.marca;if(seen[s])return false;seen[s]=1;return true;});
+  return out.sort(function(a,b){return b.ts-a.ts;});}
+function pfFpResumo(rows){var p=rows.filter(function(r){return r.preco>0;}),vs=p.map(function(r){return r.preco;});
+  return {n:p.length,mapas:Object.keys(rows.reduce(function(o,r){o[r.mapa]=1;return o;},{})).length,min:vs.length?Math.min.apply(null,vs):0,max:vs.length?Math.max.apply(null,vs):0,
+    med:vs.length?vs.reduce(function(a,b){return a+b;},0)/vs.length:0,ult:p[0]||null,resp:Object.keys(p.reduce(function(o,r){o[r.mapa+'|'+r.fid]=1;return o;},{})).length,
+    pedidos:Object.keys(rows.reduce(function(o,r){o[r.mapa+'|'+r.fid]=1;return o;},{})).length};}
+function pfFpR$(n){return 'R$ '+(+n||0).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d),)/g,'.');}
+function pfFpData(ts){return ts?new Date(ts).toLocaleDateString('pt-BR'):'';}
+// ícone da coluna FORN. (C2): 💰 + quantos preços; sem preço = "—"
+function pfFpCelHtml(it,i){var R=pfFpResumo(pfFpDoItem(it));
+  if(!R.n)return '<span style="color:#b0b8c2;font-size:12px">—</span>';
+  var tit='Fornecedores já cotaram: '+pfFpR$(R.min)+(R.max!==R.min?' a '+pfFpR$(R.max):'')+' · média '+pfFpR$(R.med)+' · '+R.n+' preço'+(R.n>1?'s':'')+(R.ult?' · último '+pfFpData(R.ult.ts)+' ('+R.ult.forn+')':'')+' — clique (ou Alt+F) pra ver a tabela';
+  return '<button type="button" data-pf-no-drag onclick="event.stopPropagation();pfFpAbrir('+i+')" title="'+pfEscHtml(tit)+'" style="position:relative;display:inline-flex;width:26px;height:26px;border-radius:6px;background:#EEF6FF;border:1px solid #b9d4f1;align-items:center;justify-content:center;font-size:13px;cursor:pointer;padding:0">💰'+
+    '<span style="position:absolute;top:-6px;right:-7px;background:#1F4E79;color:#fff;font-size:9.5px;font-weight:800;border-radius:8px;padding:0 4px;line-height:14px">'+R.n+'</span></button>';}
+window._pfFpF=window._pfFpF||{marca:'',per:365};
+function pfFpAbrir(i){var v=window._venda,it=v&&v.itens&&v.itens[i];if(!it){pfAlert('Selecione um item na cotação primeiro.');return;}
+  window._pfFpI=i;var ov=pfNcJanela('pfFpJan','💰 Preços dos fornecedores · '+pfEscHtml(it.codigo||it.codigoOriginal||''),pfEscHtml(it.desc||'')+' · tudo o que veio nos mapas de compras',pfFpCorpoHtml(it),900);
+  ov.style.zIndex='100045';}
+function pfFpCorpoHtml(it){
+  var todos=pfFpDoItem(it),F=window._pfFpF,lim=F.per?Date.now()-F.per*86400000:0;
+  var rows=todos.filter(function(r){return r.ts>=lim&&(!F.marca||pfBuscaN(r.marca)===F.marca||r.nada);});
+  if(!todos.length)return '<div style="padding:24px;text-align:center;color:#607080">Nenhum fornecedor cotou esse código ainda.<br><span style="font-size:12px">Quando ele passar por um mapa de compras, os preços aparecem aqui.</span></div>';
+  var R=pfFpResumo(rows),k=function(l,v,s,cor){return '<div style="background:#fff;border:1px solid #dfe6ee;border-radius:9px;padding:6px 12px;font-size:10.5px;color:#607080;font-weight:700">'+l+'<b style="display:block;font-size:16px;color:'+(cor||'#1A2B3C')+'">'+v+'</b>'+(s?'<span style="font-weight:400">'+s+'</span>':'')+'</div>';};
+  var h='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'+k('MAPAS',R.mapas)+k('FORNECEDORES',R.resp+' de '+R.pedidos,'responderam')+
+    (R.n?k('MENOR',pfFpR$(R.min))+k('MAIOR',pfFpR$(R.max))+k('MÉDIA',pfFpR$(R.med),R.n+' preço'+(R.n>1?'s':''),'#0b6b2e')+k('ÚLTIMO',pfFpR$(R.ult.preco),pfEscHtml(pfFpData(R.ult.ts)+' · '+R.ult.forn)):'')+'</div>';
+  var marcas={};todos.forEach(function(r){if(r.marca)marcas[pfBuscaN(r.marca)]=r.marca;});
+  var chip=function(on,txt,js){return '<button type="button" onclick="'+js+'" style="border:1px solid '+(on?'#1F4E79':'#cfd8e3')+';background:'+(on?'#1F4E79':'#fff')+';color:'+(on?'#fff':'#1A2B3C')+';border-radius:14px;padding:3px 11px;font-size:12px;cursor:pointer">'+txt+'</button>';};
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'+chip(!F.marca,'Todas as marcas',"window._pfFpF.marca='';pfFpRedesenhar()")+
+    Object.keys(marcas).sort().map(function(mk){return chip(F.marca===mk,pfEscHtml(marcas[mk]),"window._pfFpF.marca='"+mk.replace(/'/g,'')+"';pfFpRedesenhar()");}).join('')+
+    '<select onchange="window._pfFpF.per=+this.value;pfFpRedesenhar()" style="margin-left:auto;border:1px solid #cfd8e3;border-radius:14px;padding:3px 8px;font-size:12px">'+
+    [[30,'Últimos 30 dias'],[90,'Últimos 90 dias'],[365,'Últimos 12 meses'],[0,'Tudo']].map(function(o){return '<option value="'+o[0]+'"'+(F.per===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div>';
+  if(!rows.length)return h+'<div style="padding:18px;text-align:center;color:#607080">Nada nesse filtro.</div>';
+  var th='padding:6px 9px;text-align:left;font-size:10.5px;color:#607080;border-bottom:2px solid #e3e8ef';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr><th style="'+th+'">DATA</th><th style="'+th+'">MAPA</th><th style="'+th+'">FORNECEDOR</th><th style="'+th+'">MARCA</th><th style="'+th+';text-align:right">PREÇO</th><th style="'+th+'">PRAZO</th><th style="'+th+'"></th></tr>';
+  var dias=function(ts){var d=Math.floor((Date.now()-ts)/86400000);return d<=0?'hoje':d===1?'ontem':'há '+d+' dias';};
+  rows.forEach(function(r){var td='padding:6px 9px;border-bottom:1px solid #eef1f5';
+    if(r.nada){h+='<tr style="color:#9aa5b1"><td style="'+td+'">'+pfFpData(r.ts)+'</td><td style="'+td+';font-size:11px">#'+pfEscHtml(r.num||'')+'</td><td style="'+td+'">'+pfEscHtml(r.forn)+'</td><td style="'+td+'">—</td><td style="'+td+';text-align:right">'+(r.nada==='nao'?'não tinha':'sem resposta')+'</td><td style="'+td+'"></td><td style="'+td+'"></td></tr>';return;}
+    var rec=Date.now()-r.ts<=PF_FP_REUSO_DIAS*86400000;
+    h+='<tr onclick="pfFpUsar('+r.preco+')" title="Clique pra usar '+pfFpR$(r.preco)+' como custo deste item" style="cursor:pointer;'+(r.ganhou?'background:#EAF6EE':'')+'" onmouseover="this.style.outline=\'2px solid #9cc3ea\'" onmouseout="this.style.outline=\'\'">'+
+      '<td style="'+td+'">'+pfFpData(r.ts)+'<div style="font-size:10.5px;color:'+(rec?'#0b6b2e':'#8a9ab0')+'">'+dias(r.ts)+'</div></td>'+
+      '<td style="'+td+';font-size:11px;color:#607080">#'+pfEscHtml(r.num||'')+(r.cliente?' · '+pfEscHtml(r.cliente):'')+'</td>'+
+      '<td style="'+td+'">'+pfEscHtml(r.forn)+'</td><td style="'+td+'">'+pfEscHtml(r.marca||'—')+'</td>'+
+      '<td style="'+td+';text-align:right;'+(r.ganhou?'font-weight:800':'')+'">'+pfFpR$(r.preco)+'</td><td style="'+td+'">'+pfEscHtml(r.prazo||'')+'</td>'+
+      '<td style="'+td+'">'+(r.ganhou?'<span style="font-size:10.5px;font-weight:800;color:#fff;background:#1e8a4c;border-radius:4px;padding:1px 6px">✔ comprado</span>':'')+'</td></tr>';});
+  return h+'</table><div style="font-size:11.5px;color:#607080;margin-top:8px">Clique numa linha pra usar aquele preço como custo do item — o preço de venda sai pela margem da cotação.</div>';
+}
+function pfFpRedesenhar(){var ov=document.getElementById('pfFpJan'),v=window._venda,it=v&&v.itens&&v.itens[window._pfFpI];if(!ov||!it)return;var c=ov.querySelector('[data-pfnc-corpo]');if(c)c.innerHTML=pfFpCorpoHtml(it);}
+function pfFpUsar(preco){var v=window._venda,i=window._pfFpI,it=v&&v.itens&&v.itens[i];if(!it||!(preco>0))return;
+  it.custoOverride=Math.round(preco*100)/100;it.vendaOverride=null;pfNcFechar('pfFpJan');
+  try{vendasRefresh();}catch(e){try{vendasAtualizarLinha(i);}catch(e2){}}
+  if(typeof vendasAutoSalvarDebounced==='function')vendasAutoSalvarDebounced();
+  try{pfChToast('💰 Custo '+pfFpR$(preco)+' (preço do fornecedor) — venda calculada pela margem');}catch(e){}}
+// Alt+F (Option+F no Mac) = tabela do item ativo
+document.addEventListener('keydown',function(e){
+  if(!e.altKey||e.ctrlKey||e.metaKey||e.code!=='KeyF')return;
+  var v=window._venda,md=document.getElementById('vendasModal');if(!v||!v.itens||!md||md.style.display==='none'||typeof window._vendasItemAtivo!=='number')return;
+  e.preventDefault();e.stopPropagation();pfFpAbrir(window._vendasItemAtivo);},true);
+// ── mapa: reaproveitar preço recente do MESMO fornecedor ──
+function pfFpReusar(){
+  if(typeof mapaItens==='undefined'||!mapaItens||!mapaFornSelecionados)return 0;
+  var I=pfFpIdx(),lim=Date.now()-PF_FP_REUSO_DIAS*86400000,n=0,meu=typeof mapaEstadoId!=='undefined'?mapaEstadoId:'';
+  mapaItens.filter(function(i){return i.sel!==false;}).forEach(function(it){var key=it.ref+'||'+(it.marca||'');
+    (mapaFornSelecionados[key]||[]).forEach(function(fid){var pk=key+'||'+fid,p=mapaPrecos[pk];
+      if(p&&(p.declinou||p.reuso||p.semReuso||(p.entries||[]).some(function(e){return +e.preco>0;})))return;
+      var rs=(I[pfFpN(it.ref)]||[]).filter(function(r){return r.fid===fid&&r.mapa!==meu&&r.preco>0&&r.ts>=lim;});if(!rs.length)return;
+      var m0=rs[0].mapa,ts0=rs[0].ts,num0=rs[0].num;rs=rs.filter(function(r){return r.mapa===m0;});
+      mapaPrecos[pk]={entries:rs.map(function(r){return {marca:r.marca,preco:r.preco,ipi:r.ipi||0,icms:0,st:r.st||0,prazo:r.prazo,ts:r.ts};}),reuso:{mapa:m0,num:num0,ts:ts0}};n++;});});
+  if(n){try{mapaSalvarEstado();}catch(e){}}
+  return n;}
+function pfFpPrecisa(it,fid){var p=mapaPrecos[it.ref+'||'+(it.marca||'')+'||'+fid];return !(p&&p.reuso);}
+function pfFpReusoTagHtml(pk){var r=mapaPrecos[pk]&&mapaPrecos[pk].reuso;if(!r)return '';var d=Math.max(0,Math.floor((Date.now()-r.ts)/86400000));
+  return '<span title="Esse fornecedor mandou o preço há '+(d||'menos de 1')+' dia(s) no mapa #'+pfEscHtml(r.num||'')+' — por isso não foi pedido de novo" style="font-size:10px;font-weight:700;color:#0b6b2e;background:#E5F4E4;border-radius:5px;padding:2px 8px">♻️ do mapa #'+pfEscHtml(r.num||'')+' · '+pfFpData(r.ts)+'</span>'+
+    '<button type="button" onclick="event.stopPropagation();pfFpPedirDeNovo(\''+pk.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')" style="font-size:10px;border:1px solid #cfd8e3;background:#fff;border-radius:5px;padding:1px 7px;cursor:pointer">🔄 pedir de novo</button>';}
+function pfFpPedirDeNovo(pk){if(!mapaPrecos[pk])return;mapaPrecos[pk]={entries:[{marca:'',preco:0,ipi:0,icms:0,st:0,prazo:''}],semReuso:1};
+  try{mapaSalvarEstado();}catch(e){}try{mapaGoStep(mapaStep);}catch(e){}}
 function pfPrecoUltimoUsar(el){
   clearTimeout(window._pfPrecoUltT);try{var sel=window.getSelection&&window.getSelection();if(sel)sel.removeAllRanges();}catch(e){}
   var slot=el&&el.closest&&el.closest('[data-badgeslot]');var v=window._venda;if(!slot||!v||!v.itens)return;
@@ -52899,6 +53011,7 @@ function vendasRenderCotacao(el){
       '<td style="padding:3px 8px;text-align:center;white-space:nowrap;line-height:1;overflow:hidden">'+
         vendasItemAcoesHtml(it,i,isNeg,_nRel,toque)+ // v115.2140 - mesmo HTML usado no modo 2 linhas
       '</td>'+
+      '<td style="padding:3px 4px;text-align:center">'+(typeof pfFpCelHtml==='function'?pfFpCelHtml(it,i):'')+'</td>'+ // v115.2496 - 💰 FORN.
       '</tr>';
   }).join('');
 
@@ -53023,6 +53136,7 @@ function vendasRenderCotacao(el){
       '<th data-col="11" style="position:relative;padding:5px 6px;text-align:center;font-size:10px;color:rgba(255,255,255,.7)" title="Preço de venda (editável)">VENDA</th>'+
       '<th data-col="12" style="position:relative;padding:5px 6px;text-align:center;font-size:10px;color:#7DFFB3" title="Margem de lucro (editável)">MARGEM</th>'+
       '<th data-col="13" style="position:relative;padding:5px 6px;text-align:center;font-size:10px;color:rgba(255,255,255,.7)" title="Ações: ficha do item, enviar ao Mapa, excluir">AÇÕES</th>'+
+      '<th data-col="14" style="position:relative;padding:5px 6px;text-align:center;font-size:10px;color:rgba(255,255,255,.7)" title="💰 Preços que os fornecedores já mandaram nos mapas de compras (o número = quantos preços). Clique ou Alt+F">FORN.</th>'+ // v115.2496
       '</tr></thead>'+'<tbody>'+itensRows+'</tbody></table></div>'):
       '<div style="text-align:center;padding:24px;color:var(--pf-fx-textoSuave,#8a9ab0);font-size:13px">Nenhum item adicionado ainda</div>')+
     '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--pf-fx-fundoSuave,#f0f4f8);display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start">'+
@@ -53938,7 +54052,7 @@ function vendasItens2LinhasHtml(v){
       // último preço: sem marca interna diferente, ocupa também o espaço embaixo da MARCA (a descrição fica estreita no iPad)
       '<td data-histslot="'+i+'"'+(mInt?'':' colspan="2"')+' style="padding:0 8px 6px;border-bottom:1px solid #dfe5ec;font-size:11px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+vendasHistCliHtml(it,i)+'</td>'+
       (mInt?'<td style="padding:0 8px 6px;border-bottom:1px solid #dfe5ec;'+pequenoAzul.replace('font-family:monospace;font-size:12px;','font-size:11px;')+'" title="Marca interna">'+pfEscHtml(mInt)+'</td>':'')+
-      '<td colspan="5" style="padding:0 8px 6px;border-bottom:1px solid #dfe5ec;text-align:right;font-size:11.5px;color:#8a9ab0;white-space:nowrap"><span style="display:inline-flex;align-items:center;justify-content:flex-end;gap:5px"><span data-badgeslot="'+i+'">'+(typeof pfPrecoUltimoBadge==='function'?pfPrecoUltimoBadge(it.codigo,it.marca,(v.cliente&&v.cliente.razao)||'',venda):'')+'</span>'+(typeof pfLibSeloHtml==='function'?pfLibSeloHtml(i):'')+'<input type="text" inputmode="decimal" data-field="venda" title="Preço sem imposto (é o que você digita)" value="'+(venda?vendasFmtBR(venda):'')+'" onclick="event.stopPropagation()" onchange="var _vv=vendasNumBR(this.value);window._venda.itens['+i+'].vendaOverride=isNaN(_vv)?null:_vv;vendasAtualizarLinha('+i+')" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" style="box-sizing:border-box;width:84px;height:24px;text-align:right;padding:0 6px;border:1px solid var(--pf-fx-marca,#1F4E79);border-radius:6px;font-size:13px;font-family:monospace;color:var(--pf-fx-marca,#1F4E79);font-weight:700;background:#fff" placeholder="—"><span data-imp="'+i+'">'+vendasImpTextoHtml(it,venda)+'</span><span>· total <b data-tot="'+i+'" style="color:#1E293B;font-size:12.5px">'+(venda?vendasFmtBR(_vals.final*(it.qtd||1)):'—')+'</b></span></span></td>'+
+      '<td colspan="5" style="padding:0 8px 6px;border-bottom:1px solid #dfe5ec;text-align:right;font-size:11.5px;color:#8a9ab0;white-space:nowrap"><span style="display:inline-flex;align-items:center;justify-content:flex-end;gap:5px">'+(typeof pfFpCelHtml==='function'&&pfFpResumo(pfFpDoItem(it)).n?pfFpCelHtml(it,i):'')+'<span data-badgeslot="'+i+'">'+(typeof pfPrecoUltimoBadge==='function'?pfPrecoUltimoBadge(it.codigo,it.marca,(v.cliente&&v.cliente.razao)||'',venda):'')+'</span>'+(typeof pfLibSeloHtml==='function'?pfLibSeloHtml(i):'')+'<input type="text" inputmode="decimal" data-field="venda" title="Preço sem imposto (é o que você digita)" value="'+(venda?vendasFmtBR(venda):'')+'" onclick="event.stopPropagation()" onchange="var _vv=vendasNumBR(this.value);window._venda.itens['+i+'].vendaOverride=isNaN(_vv)?null:_vv;vendasAtualizarLinha('+i+')" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" style="box-sizing:border-box;width:84px;height:24px;text-align:right;padding:0 6px;border:1px solid var(--pf-fx-marca,#1F4E79);border-radius:6px;font-size:13px;font-family:monospace;color:var(--pf-fx-marca,#1F4E79);font-weight:700;background:#fff" placeholder="—"><span data-imp="'+i+'">'+vendasImpTextoHtml(it,venda)+'</span><span>· total <b data-tot="'+i+'" style="color:#1E293B;font-size:12.5px">'+(venda?vendasFmtBR(_vals.final*(it.qtd||1)):'—')+'</b></span></span></td>'+
       '</tr>';
   }).join('');
   // v115.2144 - A pedido do Vitor ("quero poder ajustar a largura das colunas"): cada cabeçalho tem a alça na borda
@@ -64749,7 +64863,7 @@ function pfNcJanela(id,titulo,sub,corpo,largura){
     '<div data-pfnc-corpo style="overflow:auto;padding:12px 16px">'+corpo+'</div></div>';
   var md=false;ov.onmousedown=function(e){md=e.target===ov;};ov.onclick=function(e){if(md&&e.target===ov)pfNcFechar(id);};
   document.body.appendChild(ov);
-  var esc=function(e){if(e.key!=='Escape')return;var top=document.querySelectorAll('#pfNcMapa,#pfNcPecas,#pfOrigJan');if(top[top.length-1]!==ov)return;e.stopImmediatePropagation();e.preventDefault();pfNcFechar(id);};
+  var esc=function(e){if(e.key!=='Escape')return;var top=document.querySelectorAll('#pfNcMapa,#pfNcPecas,#pfOrigJan,#pfFpJan');if(top[top.length-1]!==ov)return;e.stopImmediatePropagation();e.preventDefault();pfNcFechar(id);};
   ov._esc=esc;document.addEventListener('keydown',esc,true);return ov;
 }
 function pfNcFechar(id){var o=document.getElementById(id);if(!o)return;if(o._esc)document.removeEventListener('keydown',o._esc,true);o.remove();}

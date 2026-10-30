@@ -1819,3 +1819,17 @@
   parte (`PF_CH_TIPOS_SUB.financeiro` cadcli/pagar/receber, `pfChTiposDe(setor,sub)`); escolher "Cadastro de cliente à vista / a prazo / Reativação de cadastro"
   (`pfChTipoSet`, `PF_CH_TIPO_ATALHO`) coloca no "O que precisa" o texto do ATALHO de texto (`pfCadTextoDoModo` novo_vista/novo_prazo/reanalise — o mesmo do Cliente
   inativo/novo) e o assunto "tipo — cliente ligado". Captura `feito-financeiro-cadastro.png`.
+
+## 💰 Preços dos fornecedores (v115.2496; prévias `docs/referencias/preco-fornecedores/`, escolheu a coluna C2)
+- Vitor: "o vendedor vê os preços que foram cotados e ele mesmo tira uma média, pra chutar um preço sem ter que cotar de novo… quantos fornecedores,
+  preço, marca e data" + "se o item entrou nessa lista nos últimos 3 dias e for criado um mapa, já aparecer no mapa preenchido".
+- `pfFpIdx()` (cache 30 s, assinatura = nº de mapas + maior ts) lê `mapas_lista_v1` + `mapa_estado_<id>`: por código (`pfFpN` = só letras+números) as respostas
+  {mapa,num,cliente,fid,forn,marca,preco,prazo,ts (entry.ts ou criação do mapa),ganhou (decisoes[key||fid] === key||fid||ei)} + "não tinha"/"sem resposta"
+  (`nada`); preço reaproveitado (`p.reuso`) não entra (já está pelo original). `pfFpDoItem(it)` junta codigo/codigoOriginal; `pfFpResumo`.
+- Cotação: coluna **FORN.** (`th data-col="14"`, nasce no fim do HTML; `vendasItemColReorderApply` põe o '14' antes do '10' CUSTO na ordem padrão e nas
+  ordens salvas antigas) com `pfFpCelHtml` = 💰 + nº de preços (sem preço = "—"); 2 linhas = o ícone ao lado do preço (linha de baixo). Clique ou **Alt+F**
+  (item ativo) → `pfFpAbrir(i)` (`pfNcJanela('pfFpJan')`, z 100045; menor/maior/média/último, filtro marca e período `window._pfFpF`); clicar numa linha =
+  `pfFpUsar(preco)` → `custoOverride` (venda pela margem).
+- Mapa: `pfFpReusar()` no começo do `mapaStep2` copia pro mapa novo o preço que o MESMO fornecedor mandou há até `PF_FP_REUSO_DIAS`=3 dias
+  (`mapaPrecos[pk].reuso` {mapa,num,ts}); `pfFpPrecisa(item,fid)` tira esses itens do envio (cartões do passo 2, `mapaEmail`, `mapaEmailBccTodos`,
+  `mapaCopiarWhatsAppTodos`). Passo 3: etiqueta "♻️ do mapa #N" + "🔄 pedir de novo" (`pfFpPedirDeNovo` grava `semReuso`, não reaproveita mais).

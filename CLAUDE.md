@@ -1782,5 +1782,5 @@
   embaixo do CÓDIGO (Tabela) / ao lado de cada código (2 linhas, coluna padrão 215 px) — `vendasLinhaChipHtml` (classe `.vendasLnChip`, nome curto `PF_LINHA_CURTO`
   CATERPILLAR→CAT; código só com números = `duvida` → tracejado + "?"). `vendasLinhaColMin` (depois de desenhar) alarga as colunas de código até caber a etiqueta e o
   arrastar não deixa ficar menor (`_vendasColMinChip`/`_vendasColMinChip2`). Logos (`PF_LINHA_LOGOS`: placas da Órbita CAT/CASE/PERKINS/MF/VALTRA + carraro.svg)
-  prontos mas DESLIGADOS (`window._pfLnLogoModo` 'texto'|'logo'|'logonome') até o Vitor escolher. LINHAS: CASE não começa com T (`[A-SU-Z]`), PERKINS reconhece
+  DESLIGADOS — o Vitor viu a prévia (`previa-logos.png`) e preferiu as etiquetas de TEXTO (30/10/2026: "logos ainda não está legal"); não ligar sem ele pedir. LINHAS: CASE não começa com T (`[A-SU-Z]`), PERKINS reconhece
   T+6, U9AA9999, 9999A999; CARRARO não começa com 2 nem 8 (nos 4 catálogos Carraro do repo nenhum começa com 8; 8xxxxx = LNG/Meritor). Mesmo no `gerar_rolamentos.py`.

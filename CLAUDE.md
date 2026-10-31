@@ -1850,3 +1850,12 @@
   fotos `assets-visuais/treino/mesa-*.jpg` com a demo + planilha e carrinho de exemplo) e cada passo com `p` = índice da tela (`pfTrTelas(A)`; `S.tela`; botões das telas
   em cima da foto na Vitrine, `pfTrTela(k)`; na Aula a tela troca sozinha com o passo). Grupos novos `m` colunas e carrinho, `r` repor, `o` ordem de compra.
   Balão de área que vai até o fim da foto sobe (`pfTrBalaoHtml`). Aula nova com várias telas = mesmo formato (`telas` + `p`).
+
+## 📊 Gestão — Ordens de compra + 📦 Estoque (v115.2500)
+- Vitor: "gestão já fizemos de todos setores?" → "1 e 2". Aba Compras ganhou o bloco 📄 Ordens de compra do PF (`pfGeOcs(P)`/`pfGeOcsHtml`, âncora `pfGeF_ocs`):
+  enviadas no período × anterior, valor, casadas, abertas, ⏰ atrasadas agora (prevEm < hoje), 🧾 sem NF no prazo (`pfNfSit`), % que chegou no prazo (recebidaEm ≤ prevEm+1 dia),
+  prazo real (envio → chegada), tempo pra faturar (envio → NF), rascunhos parados +3 dias e tabela por fornecedor; OC clicável (`pfOcAbrir`). Avisos ⏰/🧾 no 🔔 O que mudou.
+- Aba nova **📦 Estoque** (`pfGeEstoque` cache 60 s pelo `_pfDashDataRev`, `pfGeEstoqueHtml`): FOTO DE HOJE da planilha do Dashboard (`pfComprarFonteItens`, consumo do `periodo`):
+  valor (saldo × custo), cobertura (valor ÷ consumo/dia em R$), giro, zerados que vendem (curva A primeiro, R$/mês em risco), abaixo do mínimo, parado (saldo e sem consumo),
+  excesso (> 180 dias de consumo), 🛒 pra repor (`pfMsRepor`), por curva e por família. Sem planilha = aviso + botão pro Dashboard. Aviso "curva A zerada" no 🔔.
+- Ainda sem KPI próprio: Fiscal, Marketing, RH, Facilities, Jurídico, T.I. (só pelos 📨 Chamados).

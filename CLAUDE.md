@@ -1846,3 +1846,7 @@
 - Log só-acrescenta **`pfTreinoEventos`** (sync + logKeys): atrib {para, aula} (gestor manda), feito {id 'f|email|aula|passo'}, fim. `pfTrProg(email,aula)`.
   Gestor+ (`pfTrPodeMandar`): "👥 Mandar aula pra equipe" (profiles, `pfTrUsuarios`), tabela com mandada em / progresso / situação. Barra de notificações
   🎓 `treino` (`pfTrEvMeu` = aula mandada pra mim e não concluída, painel `pfTrPainelHtml` com "▶ Começar/Continuar a aula").
+- v115.2499 (Vitor: "faz a mesa de compras"): aula **🛒 Mesa do comprador** (33 funções) com 3 telas — `telas:[{img,nome}]` (Mesa / Repor estoque / Ordem de compra,
+  fotos `assets-visuais/treino/mesa-*.jpg` com a demo + planilha e carrinho de exemplo) e cada passo com `p` = índice da tela (`pfTrTelas(A)`; `S.tela`; botões das telas
+  em cima da foto na Vitrine, `pfTrTela(k)`; na Aula a tela troca sozinha com o passo). Grupos novos `m` colunas e carrinho, `r` repor, `o` ordem de compra.
+  Balão de área que vai até o fim da foto sobe (`pfTrBalaoHtml`). Aula nova com várias telas = mesmo formato (`telas` + `p`).

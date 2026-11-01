@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2502</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2503</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2502</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2503</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -76650,7 +76650,7 @@ function pfMesaColunasHtml(sol,rep,maps,ocAb,ocAtr,carr,dec){dec=dec||[];var noC
 function pfMsFmtN(v){v=+v||0;return v>=10?String(Math.round(v)):v.toFixed(1).replace('.',',').replace(',0','');}
 function pfMesaAbrirMapa(id){pfMesaFechar();try{pfNavigate('mapa');}catch(e){}setTimeout(function(){try{mapaAbrirDaListaSeguro(id);}catch(e){console.warn(e);}},120);}
 // ── 📦 aba Repor estoque (tabela inteira) ──
-// v115.2502 - A pedido do Vitor (print do Dashboard: "esses são os relatórios que eu costumo usar pra solicitar peças e ver o que estava com saldo baixo…
+// v115.2502 (conta própria da Mesa desde a v115.2503, ver pfMsRelBase) - A pedido do Vitor (print do Dashboard: "esses são os relatórios que eu costumo usar pra solicitar peças e ver o que estava com saldo baixo…
 // talvez pudesse usar eles na mesa do comprador" → prévia docs/referencias/mesa-relatorios/ → "unir coisas que eu coloquei no dash… algo assim"):
 // a aba 📦 Repor estoque da Mesa passa a usar os MESMOS relatórios e a MESMA conta do Dashboard (calcItems: sk U/A/OP, qtdC, pedido, trânsito, grupo,
 // solicitações) — o número da Mesa bate com o do Dashboard. Cards 🔥 Urgente+Atenção / 🔴 Urgente / 🟡 Atenção / 💡 Oportunidade + 📉 Perdendo venda /
@@ -76660,17 +76660,29 @@ function pfMsRelBase(){var src=(typeof calcItems!=='undefined'&&calcItems&&calcI
   var rev=window._pfDashDataRev||0,C=window._pfMsRel;if(C&&C.src===src&&C.n===src.length&&C.rev===rev&&Date.now()-C.em<60000)return C.l;
   var rep=pfMsRepor()||[],rk={};rep.forEach(function(x){rk[pfMsK(x.ref,x.marca)]=x;});
   var perd=pfMsPerdidas(),ma=pfMsAviseIdx(),emOc=pfMsEmOcIdx(),solM={};pfMsSolItens().forEach(function(x){var k=pfMsK(x.ref,x.marca);solM[k]=(solM[k]||0)+x.qtd;});
-  var sols=(typeof solicitacoes!=='undefined'&&solicitacoes)||{},out=[];
+  // v115.2503 - A pedido do Vitor ("está considerando reposição pra quanto tempo? no que está baseada a urgência?" → "melhor só na Mesa"): a Mesa tem a
+  // PRÓPRIA conta (o Dashboard não muda): o que já vem (trânsito + pedido no ERP + ordem de compra do PF) conta na urgência, o prazo é o DE CADA FORNECEDOR
+  // (pfMsPrazoForn) e o Comprar cobre a curva (pfComprasCfg: A 45 / B 60 / C só até chegar, + folga). Urgente = acaba antes de o fornecedor entregar;
+  // Atenção = acaba antes do prazo + folga; ✔ "o que vem cobre" = pelo saldo estaria urgente, mas pedido/trânsito/OC resolvem. 💡 Oportunidade = a do Dashboard.
+  var sols=(typeof solicitacoes!=='undefined'&&solicitacoes)||{},out=[],Cf=pfComprasCfg(),pzC={};
   src.forEach(function(d){var ref=String(d.ref||'').trim();if(!ref)return;var nk=pfAlimNorm(ref),k=pfMsK(ref,d.marca),r=rk[k],pq=perd[nk]||0,av=ma[nk]||0;
     var solic=false;try{solic=!!sols[solKey(d.ref,d.marca)];}catch(e){}
-    var eo=emOc[k]||0,so=solM[k]||0,qd=r?r.qtd:Math.max(0,Math.round((+d.qtdC||0)-eo-so));
-    var mot=r?r.mot.slice():[];
-    if(!r){if((+d.saldo||0)<=0&&(+d.cD||0)>0)mot.push(['zerado','#FDECEA','#B3231C']);if(pq)mot.push(['📉 perdeu '+pq+' venda'+(pq>1?'s':''),'#FFF1E6','#C2410C']);if(av)mot.push(['🔔 '+av+' no Avise-me','#E7F6EC','#1b7a3d']);}
-    if(d.pedido>0)mot.push([(d.pedido<d.qtdC&&d.qtdC>0?'⚠ pedido ERP menor que a sugestão':'já tem pedido no ERP'),'#E8F1FB','#1F4E79']);
-    if(eo)mot.push(['📄 '+eo+' em ordem de compra','#E8F1FB','#1F4E79']);if(solic||so)mot.push(['📨 já solicitado','#eef2f7','#607080']);
-    out.push({k:r?r.k:'d:'+k,ref:ref,desc:d.desc||'',marca:d.marca||'',curva:['A','B','C'].indexOf(d.curva)>=0?d.curva:'—',sk:d.sk,grupo:d.grupo||'',saldo:+d.saldo||0,
-      ped:+d.pedido||0,tA:+d.tA||0,cM:+d.cM||0,cD:+d.cD||0,dura:(+d.cD>0)?Math.floor(Math.max(0,(+d.saldo||0)+(+d.tA||0))/d.cD):null,qtdC:+d.qtdC||0,
-      solic:solic||so>0,eo:eo,pq:pq,av:av,qtd:qd,mot:mot,custo:+d.custo||0,r:r});});
+    var eo=emOc[k]||0,so=solM[k]||0,saldo=+d.saldo||0,tA=+d.tA||0,ped=+d.pedido||0,cD=+d.cD||0,vem=tA+ped+eo;
+    var uc=null;if(cD>0||d.sk==='OP'||av){try{uc=pfMsUltCompra(ref,d.marca);}catch(e){}}var fn=uc&&uc.forn||'',pz=pzC[fn]||(pzC[fn]=pfMsPrazoForn(fn).d),fol=+Cf.folga||0;
+    var cur=['A','B','C'].indexOf(d.curva)>=0?d.curva:'—',cob=Math.max(+(Cf.cob&&Cf.cob[cur])||0,pz+fol);
+    var duraS=cD>0?saldo/cD:null,duraT=cD>0?(saldo+vem)/cD:null,sk='O',cobre=false;
+    if(d.sk==='OP')sk='OP';else if(cD>0){sk=duraT<pz?'U':duraT<pz+fol?'A':'O';cobre=sk==='O'&&duraS<pz+fol&&vem>0;}
+    if(sk==='O'&&av&&saldo+vem<=0)sk='A';
+    var qd=(sk==='U'||sk==='A')?Math.max(0,Math.ceil(cD*cob-(saldo+vem+so))):0;if(!qd&&av&&saldo+vem+so<av)qd=av-(saldo+vem+so);
+    var mot=[];
+    if(saldo<=0&&cD>0)mot.push(['zerado','#FDECEA','#B3231C']);if(pq)mot.push(['📉 perdeu '+pq+' venda'+(pq>1?'s':''),'#FFF1E6','#C2410C']);if(av)mot.push(['🔔 '+av+' no Avise-me','#E7F6EC','#1b7a3d']);
+    if(sk==='U')mot.push(['acaba antes de chegar','#eef2f7','#607080','o fornecedor leva '+pz+' dias pra entregar']);
+    if(cobre)mot.push(['✔ o que vem cobre','#E7F6EC','#1b7a3d']);
+    if(ped>0)mot.push(['pedido ERP '+ped,'#E8F1FB','#1F4E79']);if(tA>0)mot.push(['🚚 '+tA+' em trânsito','#E8F1FB','#1F4E79']);
+    if(eo)mot.push(['📄 '+eo+' em ordem de compra','#E8F1FB','#1F4E79']);if(solic||so)mot.push(['📨 já solicitado'+(so?' '+so:''),'#eef2f7','#607080']);
+    out.push({k:r?r.k:'d:'+k,ref:ref,desc:d.desc||'',marca:d.marca||'',curva:cur,sk:sk,grupo:d.grupo||'',saldo:saldo,
+      ped:ped,tA:tA,cM:+d.cM||0,cD:cD,dura:duraT==null?null:Math.floor(duraT),duraS:duraS==null?null:Math.floor(duraS),pz:pz,cob:cob,vem:vem,qtdC:+d.qtdC||0,
+      solic:solic||so>0,eo:eo,pq:pq,av:av,qtd:qd,mot:mot,custo:+d.custo||0,r:r,uc:uc});});
   window._pfMsRel={src:src,n:src.length,rev:rev,em:Date.now(),l:out};window._pfMsRelIdx=null;return out;}
 function pfMsRelPorK(k){var l=pfMsRelBase()||[],I=window._pfMsRelIdx;if(!I){I={};l.forEach(function(x){I[x.k]=x;});window._pfMsRelIdx=I;}return I[k]||null;}
 var PF_MS_REL_CARDS=[['UA','🔥','Urgente + Atenção','#1F4E79','#EAF0F7'],['U','🔴','Urgente','#C00000','#FDEDED'],['A','🟡','Atenção','#B8790A','#FFF3D6'],['OP','💡','Oportunidade','#5B2D8E','#EEE5FF'],
@@ -76708,8 +76720,12 @@ function pfMesaReporHtml(){var M=window._pfMs,l=pfMsRelBase();
       lab('Fornecedor',sel('rForn',forns,'Todos'))+
       lab('Buscar','<input type="text" placeholder="código, descrição, marca…" value="'+pfEscHtml(M.busca||'')+'" oninput="pfMesaReporSet(\'busca\',this.value)" style="height:32px;border:1px solid #cfd8e3;border-radius:7px;padding:0 10px;font-size:12.5px;min-width:200px">')+
       '<div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap"><button class="pfBtn pfBtnVerde" onclick="pfMesaReporExcel()">⬇ Excel</button><button class="pfBtn pfBtnAzul" onclick="pfMesaReporMarcarTodos()">🧺 Pôr os da tela no carrinho</button></div></div>'+
+    (function(){var C=pfComprasCfg();return '<div style="background:#E8F1FB;border-left:4px solid #1F4E79;border-radius:6px;padding:7px 12px;margin-bottom:8px;font-size:12.5px;color:#1a2332">📐 <b>Como a Mesa calcula:</b> '+
+      '🔴 <b>Urgente</b> = saldo + o que já vem (trânsito, pedido no ERP, ordem de compra) acaba antes de o fornecedor entregar · 🟡 <b>Atenção</b> = acaba antes do prazo + '+C.folga+' dias de folga · '+
+      '<b>Comprar</b> = cobre <b>A '+C.cob.A+' · B '+C.cob.B+' · C '+(C.cob.C>0?C.cob.C+' dias':'só até chegar')+'</b> de venda (nunca menos que o prazo + folga), menos o que tem, vem e já foi solicitado. '+
+      'Prazo = o combinado com o fornecedor, senão o das últimas ordens, senão '+C.prazoEnt+' dias. Venda por dia = consumo do período do Dashboard.'+(pfComprasPodeCfg()?' <a href="javascript:void(0)" onclick="pfComprasCfgAbrir()" style="color:#1F4E79;font-weight:700">⚙️ ajustar</a>':'')+'</div>';})()+
     '<div id="pfMsRepRes">'+pfMesaReporTabela(l)+'</div>'+
-    '<div style="font-size:12px;color:#607080;margin-top:8px">Mesmos relatórios e mesma conta do 📊 Dashboard (Urgente = acaba antes do prazo de compra; Atenção = acaba antes de 2× o prazo). <b>Comprar</b> já desconta saldo, trânsito, pedido no ERP, ordens de compra do PF e o que já foi solicitado. '+(pfComprasPodeCfg()?'<a href="javascript:void(0)" onclick="pfComprasCfgAbrir()" style="color:#1F4E79;font-weight:700">⚙️ Ajustes de compra</a>':'')+'</div>';}
+    '<div style="font-size:12px;color:#607080;margin-top:8px">A conta aqui é da Mesa: o 📊 Dashboard continua com a dele (urgência só pelo saldo e prazo fixo). 💡 Oportunidade é a mesma do Dashboard (cotado várias vezes, sem saldo e sem venda).</div>';}
 function pfMesaReporTabela(l){var f=pfMesaReporFiltrar(l||[]),noC={};pfMsCarr().forEach(function(o){noC[o.k]=1;});
   var ord={U:0,A:1,OP:2,O:3},cu={A:0,B:1,C:2};f.sort(function(a,b){return ((ord[a.sk]==null?4:ord[a.sk])-(ord[b.sk]==null?4:ord[b.sk]))||((cu[a.curva]==null?3:cu[a.curva])-(cu[b.curva]==null?3:cu[b.curva]))||((a.dura==null?9e9:a.dura)-(b.dura==null?9e9:b.dura));});
   window._pfMsRepTela=f;
@@ -76719,7 +76735,7 @@ function pfMesaReporTabela(l){var f=pfMesaReporFiltrar(l||[]),noC={};pfMsCarr().
   var td='padding:6px 8px;border-bottom:1px solid #eef2f7';
   return '<div style="background:#fff;border:1px solid #dde3ea;border-radius:12px;overflow:auto;max-height:calc(100vh - 360px)"><table style="border-collapse:collapse;width:100%;font-size:12.5px;color:#1a2332"><tr>'+
     th('')+th('Situação')+th('Curva')+th('Referência')+th('Descrição')+th('Marca')+th('Saldo',1)+th('Pedido aberto',1)+th('Solicitado')+th('Trânsito',1)+th('Consumo/mês',1)+th('Dura')+th('Comprar',1)+th('Por quê')+th('Último fornecedor')+'</tr>'+
-    f.slice(0,600).map(function(x,i){var uc=pfMsUltCompra(x.ref,x.marca);
+    f.slice(0,600).map(function(x,i){var uc=x.uc||pfMsUltCompra(x.ref,x.marca);
       return '<tr style="background:'+(i%2?'#FFF6EC':'#fff')+'"><td style="'+td+'"><input type="checkbox" '+(noC[x.k]?'checked':'')+' onchange="pfMsCarrToggle(\''+pfEscJs(x.k)+'\',this.checked)" style="width:16px;height:16px;accent-color:#1F4E79;cursor:pointer"></td>'+
         '<td style="'+td+'">'+sit(x.sk)+'</td><td style="'+td+'">'+pfMsChip(x.curva,'#E7F6EC','#1b7a3d')+'</td>'+
         '<td style="'+td+';white-space:nowrap"><span onclick="try{pfItemCardAbrir({codigo:\''+pfEscJs(x.ref)+'\',marca:\''+pfEscJs(x.marca)+'\'})}catch(e){}" title="Abrir o card da peça (Alt+B)" style="cursor:pointer">'+pfMsCod(x.ref)+'</span></td>'+
@@ -76728,9 +76744,9 @@ function pfMesaReporTabela(l){var f=pfMesaReporFiltrar(l||[]),noC={};pfMsCarr().
         '<td style="'+td+';text-align:right">'+(x.ped?'<span style="background:#E7F6EC;color:#1b7a3d;font-weight:800;border-radius:9px;padding:1px 8px">'+x.ped.toLocaleString('pt-BR')+'</span>':'—')+'</td>'+
         '<td style="'+td+';text-align:center">'+(x.solic?'✔':'—')+'</td><td style="'+td+';text-align:right">'+(x.tA||'—')+'</td>'+
         '<td style="'+td+';text-align:right">'+pfMsFmtN(x.cM)+'</td>'+
-        '<td style="'+td+';white-space:nowrap;font-weight:800"><span style="color:'+(x.sk==='U'?'#B3231C':x.sk==='A'?'#8a5a00':'#1a2332')+'">'+(x.dura==null?'—':x.dura+(x.dura===1?' dia':' dias'))+'</span></td>'+
-        '<td style="'+td+';text-align:right;font-weight:800"><span style="color:#1F4E79">'+(x.qtd>0?x.qtd.toLocaleString('pt-BR'):'—')+'</span></td>'+
-        '<td style="'+td+'">'+x.mot.map(function(m){return pfMsChip(m[0],m[1],m[2]);}).join('')+'</td>'+
+        '<td style="'+td+';white-space:nowrap;font-weight:800" title="'+(x.dura==null?'sem venda no período':'com saldo + o que vem; só o saldo: '+x.duraS+' dias · o fornecedor leva '+x.pz+' dias')+'"><span style="color:'+(x.sk==='U'?'#B3231C':x.sk==='A'?'#8a5a00':'#1a2332')+'">'+(x.dura==null?'—':x.dura+(x.dura===1?' dia':' dias'))+'</span>'+(x.vem>0&&x.dura!=null&&x.duraS!==x.dura?'<div style="font-size:10.5px;font-weight:600;color:#8a9ab0">só saldo: '+x.duraS+'</div>':'')+'</td>'+
+        '<td style="'+td+';text-align:right;font-weight:800" title="cobre '+x.cob+' dias de venda, menos o que tem, vem e já foi solicitado"><span style="color:#1F4E79">'+(x.qtd>0?x.qtd.toLocaleString('pt-BR'):'—')+'</span></td>'+
+        '<td style="'+td+';min-width:170px">'+x.mot.map(function(m){return pfMsChip(m[0],m[1],m[2],m[3]);}).join('')+'</td>'+
         '<td style="'+td+';font-size:11.5px"><span style="color:#607080">'+(uc&&uc.forn?pfEscHtml(uc.forn)+(uc.preco?' · '+pfMsR(uc.preco):''):'—')+'</span></td></tr>';}).join('')+'</table></div>'+
     '<div style="font-size:12px;color:#607080;margin-top:6px">'+(f.length>600?'Mostrando 600 de '+f.length.toLocaleString('pt-BR')+' — use os filtros ou a busca. ':f.length.toLocaleString('pt-BR')+' itens. ')+'</div>';}
 function pfMesaReporMarcarTodos(){var l=window._pfMsRepTela||[],c=pfMsCarr(),tem={};c.forEach(function(o){tem[o.k]=1;});var n=0;

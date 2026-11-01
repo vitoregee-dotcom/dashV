@@ -1859,3 +1859,7 @@
   valor (saldo × custo), cobertura (valor ÷ consumo/dia em R$), giro, zerados que vendem (curva A primeiro, R$/mês em risco), abaixo do mínimo, parado (saldo e sem consumo),
   excesso (> 180 dias de consumo), 🛒 pra repor (`pfMsRepor`), por curva e por família. Sem planilha = aviso + botão pro Dashboard. Aviso "curva A zerada" no 🔔.
 - Ainda sem KPI próprio: Fiscal, Marketing, RH, Facilities, Jurídico, T.I. (só pelos 📨 Chamados).
+- v115.2501 ("em compras deve ter um card de gestão? e logística também" → "os dois"): card **📊 Gestão de Compras** no menu de Compras (`pfGeAbrir('compras')`) e botão
+  **📊 Gestão da Logística** no cabeçalho da Separação de Pedidos (`pfGeAbrir('log')`), só pra quem tem `pfGeAcesso`. Selo da demonstração ("muda de lugar… nem onde estava
+  antes, estava atrapalhando"): virou pílula pequena DENTRO do dock, logo depois do `#pfVersionBadge` ("🎭 Demo ligada" + "👁 ver"; laranja "👁 Vendo como os outros · voltar"),
+  não flutua mais (`pfModoDemoVigiar`). Prévia do "📈 Meus números" (comprador/estoque) em `docs/referencias/meus-numeros/`.

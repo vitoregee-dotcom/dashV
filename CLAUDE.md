@@ -1868,3 +1868,7 @@
   cards `PF_MS_REL_CARDS` (UA/U/A/OP + 📉 perd + 🔔 av + T, `window._pfMs.rel`), filtros `rSol`/`rPed` (I = pedido < qtdC)/`rCur`/`rGrp`/`rMarca`/`rForn` (último fornecedor `pfMsUltCompra`)/busca,
   tabela `pfMesaReporTabela` (600 linhas; ordem U→A→OP, curva, dura) com COMPRAR = `pfMsRepor` (se o item está lá) senão qtdC − em OC − solicitado; ⬇ `pfMesaReporExcel`; carrinho pela chave
   'r:'/'d:' (`pfMsItemPorK` → `pfMsRelPorK`). Família filtrada no Dashboard vale aqui (aviso). Botão 📊 Dashboard no topo da Mesa. A foto `assets-visuais/treino/mesa-repor.jpg` da aula ficou antiga.
+- v115.2503 ("está considerando reposição pra quanto tempo? no que está baseada a urgência?" → "melhor só na Mesa"): o 📦 Repor estoque da Mesa tem CONTA PRÓPRIA (Dashboard
+  não muda) no `pfMsRelBase`: vem = trânsito + pedido ERP + OC do PF; prazo = `pfMsPrazoForn` do último fornecedor; 🔴 U = (saldo+vem)/venda dia < prazo; 🟡 A = < prazo + folga
+  (`pfComprasCfg_v1`); "✔ o que vem cobre" quando só o saldo daria aviso; OP = a do Dashboard; Comprar = venda/dia × max(cobertura da curva, prazo+folga) − (saldo+vem+solicitado).
+  Faixa "📐 Como a Mesa calcula" em cima da tabela; Dura mostra também "só saldo". ~0,45 s pra 60 mil itens (cache 60 s).

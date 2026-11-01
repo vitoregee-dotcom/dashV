@@ -1863,3 +1863,8 @@
   **📊 Gestão da Logística** no cabeçalho da Separação de Pedidos (`pfGeAbrir('log')`), só pra quem tem `pfGeAcesso`. Selo da demonstração ("muda de lugar… nem onde estava
   antes, estava atrapalhando"): virou pílula pequena DENTRO do dock, logo depois do `#pfVersionBadge` ("🎭 Demo ligada" + "👁 ver"; laranja "👁 Vendo como os outros · voltar"),
   não flutua mais (`pfModoDemoVigiar`). Prévia do "📈 Meus números" (comprador/estoque) em `docs/referencias/meus-numeros/`.
+- v115.2502 (print do Dashboard: "esses são os relatórios que eu costumo usar pra solicitar peças… usar eles na mesa" → prévia `docs/referencias/mesa-relatorios/` → "algo assim… é por aí"):
+  aba **📦 Repor estoque** da Mesa = relatórios do Dashboard com a MESMA conta (`calcItems`: sk U/A/OP, qtdC, pedido, tA, grupo; `solicitacoes[solKey]`) — `pfMsRelBase` (cache 60 s),
+  cards `PF_MS_REL_CARDS` (UA/U/A/OP + 📉 perd + 🔔 av + T, `window._pfMs.rel`), filtros `rSol`/`rPed` (I = pedido < qtdC)/`rCur`/`rGrp`/`rMarca`/`rForn` (último fornecedor `pfMsUltCompra`)/busca,
+  tabela `pfMesaReporTabela` (600 linhas; ordem U→A→OP, curva, dura) com COMPRAR = `pfMsRepor` (se o item está lá) senão qtdC − em OC − solicitado; ⬇ `pfMesaReporExcel`; carrinho pela chave
+  'r:'/'d:' (`pfMsItemPorK` → `pfMsRelPorK`). Família filtrada no Dashboard vale aqui (aviso). Botão 📊 Dashboard no topo da Mesa. A foto `assets-visuais/treino/mesa-repor.jpg` da aula ficou antiga.

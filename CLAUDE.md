@@ -1892,6 +1892,16 @@
 - v115.2514 BUG (iPad: "quando eu desativo os fornecedores, eles continuam em fornecedores"): no painel "Fornecedores do mapa" o botão laranja (parcial)
   parece ligado mas o toque LIGAVA pra todos; agora `mapaFornPainelToggle` desliga de todos quando o fornecedor está em algum item (`u.n>0`).
 
+## 🧰 Kits de máquina e componente (v115.2517; prévia `docs/referencias/kits-maquina/`, capturas `feito-*.png`)
+- Vitor: "cadastrar kit tanto pra máquinas quanto pra componentes… nem sempre vão ter código nem de peça" (ex.: adaptação flex plate da transmissão 28.000 na
+  Michigan 55C) → "manda bala". Lista compartilhada **`pfKits_v1`** [{id,nome,cod?,tipo (`PF_KIT_TIPOS`),maqs:[maqChave],series:[gk],obs,itens:[{desc,cod?,qtd}],
+  por,porNome,ts,tsMod,del}] (sync + PF_CATALOGO_UNICO_KEYS; apagar = lápide `del`). Editor `pfKitEditar(id,{maq,gk})` (janela padrão z 100040, Esc/fundo,
+  confirma se mudou; 📋 Colar print `pfKitColar` / ⬆ `pfKitArquivo` / Ctrl+V: texto com TAB/linhas → `pfKitTextoLer` (1ª linha sozinha = nome; última célula
+  número = qtd; célula com número sem espaço = código), imagem/PDF → IA `pfKitIA`; máquina por datalist `pfKitEMaqAdd` (nova = maqChave), série `pfKitESerieAdd`).
+  Exige nome, peças e máquina ou série. Onde aparece: página da máquina aba 🧰 Kits + bloco no Tudo (`pfKitsDaMaq`: máquina ou série ligada nela), série em
+  Aplicações (`pfKitSerieBlocoHtml`), cotação Série/Modelo (`pfKitsCotHtml` → `pfKitPorNaCot`: código vai como na aplicação, sem código = linha com a descrição,
+  `semCodigo` + etiqueta ⚠ s/ código `pfKitAlertaHtml`; `kitRef` → etiqueta 🧰 kit `pfKitEtqHtml`) e Alt+B (`pfKitsAltbHtml`). Ver peças `pfKitVer`.
+
 ## 🚜 Alt+B busca máquina (v115.2515; prévia `docs/referencias/altb-maquina/`, escolheu B "o completo")
 - Alt+B (`pfItemCardBuscar`) sem peça com aquele código → `pfAltbMaqHtml(termo)` (só letras+números, `maqIndice`): 🚜 máquinas que batem no nome/modelo/série
   (selo ✓/◐ do `maqConfInfo`, "abrir ›" = `pfAltbMaqAbrir` → `maqAbrirMaquina`) + ⚙️ séries de componente dessas máquinas e as que batem no modelo/série

@@ -1896,6 +1896,8 @@
 - Alt+B (`pfItemCardBuscar`) sem peça com aquele código → `pfAltbMaqHtml(termo)` (só letras+números, `maqIndice`): 🚜 máquinas que batem no nome/modelo/série
   (selo ✓/◐ do `maqConfInfo`, "abrir ›" = `pfAltbMaqAbrir` → `maqAbrirMaquina`) + ⚙️ séries de componente dessas máquinas e as que batem no modelo/série
   ("ver peças ›" = `pfAltbSerieAbrir` → `pfIntercAbrirSerie(maqTermoSerie)`). Captura `feito.png` / `feito-abrir.png`.
+- v115.2516 BUG ("fui abrir uma série aqui e não abriu"): com a cotação aberta a lista de peças/máquina abria POR TRÁS dela — `pfAltbFecharBusca` minimiza a cotação
+  (`_vendasMinimized` + `vendasRenderTabs`) e fecha a ficha do CRM (`pfCrmFechar`) antes de abrir.
 
 ## Lentidão no filtro de medidas dos Componentes Cardan (v115.2508)
 - BUG ("é normal eu digitar no campo de medidas e demorar alguns segundos pra aparecer o que eu digitei?"): o `perf_diagnostico_v1` mostrou `ccExecutarBusca` ~1,9 s

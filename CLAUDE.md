@@ -1921,4 +1921,6 @@
 - Compra: `pfMdSolGravar` (solicitação venda casada `mdMapa`, itens de `pfMdSolItens` com fornecedor/fornNome/custo por item; atualiza a não enviada, mantém
   itens já em OC; Avise-me; aviso `pfMapaCotEventoAdd` tipo 'sol' → painel 🗂️ abre a Mesa `pfMapaCotSolAbrir`). Mesa: `forn` = `it.fornNome`.
 - `pvGerarSolicitacaoAutomatica`: mapa com decisões → só itens decididos que estão no pedido (reaproveita a solicitação e liga o nº do pedido). BUG antigo
-  corrigido: gravava em 'solicitacoes_compras_v1' (a lista é `cad_solicitacoes_compras_v1`) — a solicitação automática nunca aparecia.
+  v115.2512: o aviso 🔔 Cotações recebidas (fornecedor respondeu no mapa, `cotacao`) ganhou "📄 Abrir a cotação N" quando o mapa tem vendaOrigem
+  (`pfCotacoesCotDoMapa`/`pfCotacoesAbrirCot`: abre a cotação e já o Decidir pelo mapa) + "🗂️ Abrir o mapa".
+  corrigido (2510): gravava em 'solicitacoes_compras_v1' (a lista é `cad_solicitacoes_compras_v1`) — a solicitação automática nunca aparecia.

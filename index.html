@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2512</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2513</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2512</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2513</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -30926,13 +30926,27 @@ function pfCotacoesNaoLidasRemover(id){
 function pfCotacoesCotDoMapa(mapaId){if(!mapaId)return null;var e=null;try{e=JSON.parse(localStorage.getItem('mapa_estado_'+mapaId)||'null');}catch(x){}
   var nr=e&&e.vendaOrigem;if(!nr){try{var L=JSON.parse(localStorage.getItem('mapas_lista_v1')||'[]')||[],m=L.find(function(x){return x&&x.id===mapaId;});nr=m&&m.vendaOrigem;}catch(x){}}
   if(!nr)return null;var cs=[];try{cs=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]')||[];}catch(x){}
-  return cs.find(function(c){return c&&c.nr===nr;})||null;}
-function pfCotacoesAbrirCot(id,mapaId){var cx=pfCotacoesCotDoMapa(mapaId);
+  return cs.find(function(c){return c&&(c.id===nr||c.nr===nr);})||null;} // a cotação gravada guarda o nr da tela no campo id
+// v115.2513 - A pedido do Vitor ("caso a cotação tenha algum mapa de compra, coloque uma observação na lista das cotações e com um clique já abra
+// no mapa. E quando eu acessar o mapa, seja aqui ou pela notificação, quero que lá tenha um botão pra eu abrir a cotação, pra enxergar ela"):
+// índice cotação (nr) → mapas ligados (vendaOrigem), selo 🗂️ na coluna # da lista de cotações e botão "📄 Abrir a cotação" no cabeçalho do mapa.
+function pfMapaPorCotIdx(){var C=window._pfMapaPorCot;if(C&&Date.now()-C.t<10000)return C.m;var m={},L=[];
+  try{L=JSON.parse(localStorage.getItem('mapas_lista_v1')||'[]')||[];}catch(e){}
+  L.forEach(function(x){if(!x||!x.id)return;var nr=x.vendaOrigem,step=+x.step||1;if(!nr){try{var e=JSON.parse(localStorage.getItem('mapa_estado_'+x.id)||'null');if(e){nr=e.vendaOrigem;step=+e.step||step;}}catch(e2){}}
+    if(!nr)return;(m[nr]=m[nr]||[]).push({id:x.id,num:x.numero||'',step:step,ts:+x.ts||0});});
+  Object.keys(m).forEach(function(k){m[k].sort(function(a,b){return b.ts-a.ts;});});
+  window._pfMapaPorCot={t:Date.now(),m:m};return m;}
+function pfMapaCotSeloHtml(nr){var a=nr&&pfMapaPorCotIdx()[nr];if(!a||!a.length)return '';
+  return a.map(function(x){var et=x.step>=4?'decidido':x.step===3?'preços chegando':x.step===2?'enviando':'a enviar';
+    return '<span onclick="event.stopPropagation();pfMapaAbrirPorId(\''+pfEscJs(x.id)+'\')" title="'+pfEscHtml('Esta cotação tem o mapa de compras '+(x.num||'')+' ('+et+') — clique pra abrir o mapa')+'" style="display:inline-block;margin-left:6px;font-size:10.5px;font-weight:800;color:#1F4E79;background:#EEF6FF;border:1px solid #b9d4f1;border-radius:5px;padding:0 6px;cursor:pointer;white-space:nowrap">🗂️ mapa '+pfEscHtml(x.num||'')+'</span>';}).join('');}
+function pfMapaAbrirPorId(id){try{pfNavigate('mapa');}catch(e){}setTimeout(function(){try{mapaAbrirDaListaSeguro(id);}catch(e){pfAlert('Não consegui abrir esse mapa.');}},150);}
+function pfMapaAbrirCotacao(){var id=typeof mapaEstadoId!=='undefined'?mapaEstadoId:null;if(!id)return;pfCotacoesAbrirCot(null,id,true);}
+function pfCotacoesAbrirCot(id,mapaId,soVer){var cx=pfCotacoesCotDoMapa(mapaId);
   if(id)try{pfCotacoesNaoLidasRemover(id);}catch(e){}
   var painel=document.getElementById('pfAvisosPainel');if(painel)painel.remove();
   if(!cx){pfAlert('Não achei a cotação desse mapa neste computador (pode não ter sincronizado ainda).');return;}
   try{pfNavigate('vendas');}catch(e){}
-  setTimeout(function(){try{vendasAbrirModal(cx);setTimeout(function(){try{pfMdAbrir();}catch(e){}},400);}catch(e){pfAlert('Não consegui abrir a cotação.');}},200);}
+  setTimeout(function(){try{vendasAbrirModal(cx);if(!soVer)setTimeout(function(){try{pfMdAbrir();}catch(e){}},400);}catch(e){pfAlert('Não consegui abrir a cotação.');}},200);}
 function pfCotacoesAbrirMapa(id,mapaId){
   pfCotacoesNaoLidasRemover(id);
   var painel=document.getElementById('pfAvisosPainel');if(painel)painel.remove();
@@ -43713,6 +43727,7 @@ function mapaRenderInfoHeader(){
     '<span style="background:#1F4E79;color:#fff;padding:3px 10px;border-radius:6px;font-weight:800;font-size:12px;white-space:nowrap">🗂️ MAPA '+pfEscHtml(window._mapaEstadoNumero||'—')+'</span>'+
     (window._mapaEstadoCliente?'<span style="font-weight:700;color:#1a2332">'+pfEscHtml(window._mapaEstadoCliente)+'</span>':'<span style="color:#8a9ab0;font-style:italic">sem cliente definido</span>')+
     '<span style="color:#8a9ab0">· '+nSel+' de '+nItens+' item(ns) selecionado(s)</span>'+
+    (function(){var cx=window._mapaVendaOrigem&&pfCotacoesCotDoMapa(mapaEstadoId);return cx?'<button class="pfBtn pfBtnAzul" style="font-size:12px;padding:5px 12px" onclick="pfMapaAbrirCotacao()" title="Abrir a cotação que deu origem a este mapa">📄 Abrir a cotação '+pfEscHtml(cx.num||'')+'</button>':'';})()+ // v115.2513
     (window._mapaClienteUF?'<span style="margin-left:auto;background:#F0F4F8;color:#607080;padding:2px 8px;border-radius:6px;font-size:11px">UF venda: '+pfEscHtml(window._mapaClienteUF)+'</span>':'')+
     '</div>';
 }
@@ -71988,7 +72003,7 @@ function vendasAtualizarLista(){
     var vbru=vliq;
     COLS.forEach(function(col){
       var td=document.createElement('td');
-      if(col==='num'){td.style.cssText='padding:0px 8px;font-weight:600;color:var(--pf-table-text);font-size:12px';td.textContent='#'+c.num;}
+      if(col==='num'){td.style.cssText='padding:0px 8px;font-weight:600;color:var(--pf-table-text);font-size:12px;white-space:nowrap';td.textContent='#'+c.num;var _ms=pfMapaCotSeloHtml(c.id||c.nr);if(_ms)td.insertAdjacentHTML('beforeend',_ms);} // v115.2513 - 🗂️ mapa ligado
       else if(col==='fantasia'){td.style.cssText='padding:0px 8px;font-weight:600;color:var(--pf-table-text);text-transform:uppercase;font-size:12px';td.textContent=(c.nomeFantasia||c.cliente||'-').toUpperCase();}
       else if(col==='cidade'){td.style.cssText='padding:0px 8px;color:var(--pf-table-text);font-size:12px';td.textContent=(c.cidade||c.clienteObj&&c.clienteObj.cidade||'—').toUpperCase();}
       else if(col==='uf'){td.style.cssText='padding:0px 8px;color:var(--pf-table-text);font-size:12px;text-align:center';td.textContent=(c.uf||'—');}

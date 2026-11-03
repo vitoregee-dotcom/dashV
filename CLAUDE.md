@@ -1923,4 +1923,7 @@
 - `pvGerarSolicitacaoAutomatica`: mapa com decisões → só itens decididos que estão no pedido (reaproveita a solicitação e liga o nº do pedido). BUG antigo
   v115.2512: o aviso 🔔 Cotações recebidas (fornecedor respondeu no mapa, `cotacao`) ganhou "📄 Abrir a cotação N" quando o mapa tem vendaOrigem
   (`pfCotacoesCotDoMapa`/`pfCotacoesAbrirCot`: abre a cotação e já o Decidir pelo mapa) + "🗂️ Abrir o mapa".
+  v115.2513 ("caso a cotação tenha mapa, coloque na lista das cotações e com um clique abra o mapa… no mapa um botão pra abrir a cotação"): selo "🗂️ mapa N"
+  na coluna # da lista de cotações (`pfMapaPorCotIdx` 10 s, `pfMapaCotSeloHtml` → `pfMapaAbrirPorId`) e "📄 Abrir a cotação N" no cabeçalho do mapa
+  (`mapaRenderInfoHeader` → `pfMapaAbrirCotacao` = `pfCotacoesAbrirCot(null,id,soVer)`, só abre a cotação).
   corrigido (2510): gravava em 'solicitacoes_compras_v1' (a lista é `cad_solicitacoes_compras_v1`) — a solicitação automática nunca aparecia.

@@ -1895,3 +1895,14 @@
   `ccFotosGrupoCC`) = JSON de ~1,4 MB + migrações relidos centenas de vezes. Agora `ccExecutarBusca` = `ccLoad()` 1x em `window._ccLoadMemo` (o `ccLoad` devolve o memo
   só enquanto desenha) → `ccExecutarBuscaReal`; campos com espera de 250 ms (`ccBuscaFiltroDebounced`). Teste 608 cruzetas: 1.389 ms/266 leituras → 39 ms/1 leitura.
   **Função chamada por card que precisa do cadastro: usar a lista já carregada, nunca `ccLoad()` dentro de loop.**
+
+## 🗂️ Mapa da cotação: rascunho até confirmar + aviso pros compradores (v115.2509)
+- Vitor: "quando vou em criar mapa dos itens que não tem… precisa primeiro me mostrar essa tela, pra eu criar o mapa somente quando confirmar os fornecedores" +
+  "quando confirmar, já aparece pros compradores, com notificação na barra… eles ou eu mandamos pros fornecedores… tanto eles quanto eu preenchemos" + "na cotação quero acesso àquele mapa".
+- `vendasEnviarTodosNeg` (⚠️ Negativos→Mapa) e, quando não há mapa aberto, `vendasEnviarSelecionados`/`vendasEnviarMapa` → `pfMapaRascIniciar(itens)` (`pfMapaRascItemDe`):
+  Etapa 1 como **rascunho** `window._mapaRascunho` — `mapaSalvarEstado`/`mapaSalvarNaLista` não gravam; faixa `pfMapaRascFaixaHtml` (✅ Criar o mapa e avisar os compradores /
+  🗑 Descartar `pfMapaRascDescartar`); ir pra etapa 2 ou "Processar" = `pfMapaRascConfirmar` (grava, step 2, aviso). Wrappers ficam logo antes do `vendasEnviarTodosNeg`.
+- Aviso 🗂️ `mapacot` na barra: log só-acrescenta **`pfMapaCotEventos`** {id 'novo|mapaId', mapaId, num, titulo, cliente, cotNum, nItens, nSemForn, porEmail, porNome}
+  (`pfMapaCotEventoAdd`; vê `pfMapaCotEvMeu` = quem tem o Mapa liberado/gestor, menos quem criou); painel `pfMapaCotPainelHtml` com a etapa atual do mapa → `pfMapaCotAbrir`.
+- BUG junto: o `mapaSalvarEstado` (wrapper da v115.x perto da linha 43630) não gravava `vendaOrigem` → a 1ª gravação apagava a ligação e o "📍 Editar Mapa" da cotação sumia.
+  Agora `window._mapaVendaOrigem` (setado no carregar/rascunho, zerado no `mapaLimparEstado`) vai em toda gravação e o resumo da lista mantém o anterior.

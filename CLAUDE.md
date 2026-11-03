@@ -1916,7 +1916,8 @@
 - `pfMdUsar`: grava NO MAPA no formato da Etapa 4 (decisoes key||fid → key||fid||ei, qtdDecidida, precoDecidido {preco,custo}; tudo decidido = step 4) por
   `pfMdGravarEstado` (NÃO usa mapaSalvarNaLista — ele mexe no título do mapa aberto; atualiza a memória se o mapa está aberto na tela). Cotação `pfMdAplicarNaCot`:
   1 linha por fornecedor (base + cópias), qtd, custoOverride, marca/marcaInterna = marca do fornecedor, `it.mapaDec` {mapa,num,key,fid,forn,ei,q,custo,prazo,de};
-  etiqueta `pfMdEtqHtml` (alerta, mostra a margem praticada). A venda continua pela margem da cotação sobre o custo do fornecedor.
+  v115.2511 ("os itens que não tenho imediato, aparecer o nome do fornecedor que estou pegando"): fornecedor + prazo embaixo do NEGATIVO na coluna STATUS
+  (`pfMdStatusHtml`, Tabela/2 linhas/Compacta; item `enviadoMapa` sem escolha = "🗂️ escolher fornecedor"); a etiqueta `pfMdEtqHtml` saiu da descrição (sem uso). A venda continua pela margem da cotação sobre o custo do fornecedor.
 - Compra: `pfMdSolGravar` (solicitação venda casada `mdMapa`, itens de `pfMdSolItens` com fornecedor/fornNome/custo por item; atualiza a não enviada, mantém
   itens já em OC; Avise-me; aviso `pfMapaCotEventoAdd` tipo 'sol' → painel 🗂️ abre a Mesa `pfMapaCotSolAbrir`). Mesa: `forn` = `it.fornNome`.
 - `pvGerarSolicitacaoAutomatica`: mapa com decisões → só itens decididos que estão no pedido (reaproveita a solicitação e liga o nº do pedido). BUG antigo

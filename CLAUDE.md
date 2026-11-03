@@ -1906,3 +1906,18 @@
   (`pfMapaCotEventoAdd`; vê `pfMapaCotEvMeu` = quem tem o Mapa liberado/gestor, menos quem criou); painel `pfMapaCotPainelHtml` com a etapa atual do mapa → `pfMapaCotAbrir`.
 - BUG junto: o `mapaSalvarEstado` (wrapper da v115.x perto da linha 43630) não gravava `vendaOrigem` → a 1ª gravação apagava a ligação e o "📍 Editar Mapa" da cotação sumia.
   Agora `window._mapaVendaOrigem` (setado no carregar/rascunho, zerado no `mapaLimparEstado`) vai em toda gravação e o resumo da lista mantém o anterior.
+
+## 🗂️ Decidir pelo mapa na cotação (v115.2510; prévias `docs/referencias/mapa-decidir/`, escolheu A + caixinha marcada + 2 linhas)
+- Vitor: "entrar na cotação e com um atalho já aparecer pra eu selecionar o fornecedor… aplicar a margem e trazer pra cotação… já solicitar a compra…
+  no pedido de venda gerar solicitação, notificar os compradores e aparecer na mesa deles" + "posso querer 2 fornecedores por item".
+- Botão "🗂️ Decidir pelo mapa · N de M com preço" ao lado do 📍 Editar Mapa (`pfMdBotaoHtml`) ou **Alt+D** → `pfMdAbrir` (`pfNcJanela('pfMdJan')`, z 100045,
+  rodapé `[data-pfmd-ft]`). Mapa = `pfMdMapaDaCot(v)` (vendaOrigem = v.nr, o mais novo). Respostas `pfMdRespostas` (cada entry = 1 linha; não tinha/sem resposta).
+  Estado `window._pfMd` {id,num,sel:{key:{fid:{ei,q}}},pedir:true,dig}; marcar `pfMdMarcar` (qtd sugerida = o que falta), `pfMdQtd`; ✏️ preço recebido `pfMdDigGravar`.
+- `pfMdUsar`: grava NO MAPA no formato da Etapa 4 (decisoes key||fid → key||fid||ei, qtdDecidida, precoDecidido {preco,custo}; tudo decidido = step 4) por
+  `pfMdGravarEstado` (NÃO usa mapaSalvarNaLista — ele mexe no título do mapa aberto; atualiza a memória se o mapa está aberto na tela). Cotação `pfMdAplicarNaCot`:
+  1 linha por fornecedor (base + cópias), qtd, custoOverride, marca/marcaInterna = marca do fornecedor, `it.mapaDec` {mapa,num,key,fid,forn,ei,q,custo,prazo,de};
+  etiqueta `pfMdEtqHtml` (alerta, mostra a margem praticada). A venda continua pela margem da cotação sobre o custo do fornecedor.
+- Compra: `pfMdSolGravar` (solicitação venda casada `mdMapa`, itens de `pfMdSolItens` com fornecedor/fornNome/custo por item; atualiza a não enviada, mantém
+  itens já em OC; Avise-me; aviso `pfMapaCotEventoAdd` tipo 'sol' → painel 🗂️ abre a Mesa `pfMapaCotSolAbrir`). Mesa: `forn` = `it.fornNome`.
+- `pvGerarSolicitacaoAutomatica`: mapa com decisões → só itens decididos que estão no pedido (reaproveita a solicitação e liga o nº do pedido). BUG antigo
+  corrigido: gravava em 'solicitacoes_compras_v1' (a lista é `cad_solicitacoes_compras_v1`) — a solicitação automática nunca aparecia.

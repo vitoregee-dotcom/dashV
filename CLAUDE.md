@@ -1888,3 +1888,10 @@
 - Pedido ("por que aqui não está mostrando os fornecedores que é para serem cotados? só me mostra essas exceções que eu nem lembro pra que é"): a coluna "Exceções"
   (v115.1912, só a diferença "sem X / + Y" em relação ao painel "Fornecedores do mapa") virou **Fornecedores** com o NOME de cada um que vai cotar o item: azul = ligado
   pra todos no painel, verde "+" = só neste item, vermelho riscado = ligado pra todos mas tirado deste item. Captura `docs/referencias/compras-mesa/feito-mapa-fornecedores.png`.
+
+## Lentidão no filtro de medidas dos Componentes Cardan (v115.2508)
+- BUG ("é normal eu digitar no campo de medidas e demorar alguns segundos pra aparecer o que eu digitei?"): o `perf_diagnostico_v1` mostrou `ccExecutarBusca` ~1,9 s
+  por tecla. Os campos de medida/veículo/extra/tolerância chamavam a busca a cada tecla e, dentro dela, cada card chamava `ccLoad()` de novo (irmãos, `pfDesenhoDe`,
+  `ccFotosGrupoCC`) = JSON de ~1,4 MB + migrações relidos centenas de vezes. Agora `ccExecutarBusca` = `ccLoad()` 1x em `window._ccLoadMemo` (o `ccLoad` devolve o memo
+  só enquanto desenha) → `ccExecutarBuscaReal`; campos com espera de 250 ms (`ccBuscaFiltroDebounced`). Teste 608 cruzetas: 1.389 ms/266 leituras → 39 ms/1 leitura.
+  **Função chamada por card que precisa do cadastro: usar a lista já carregada, nunca `ccLoad()` dentro de loop.**

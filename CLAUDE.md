@@ -1878,3 +1878,8 @@
   `pfGeTv` troca a tela a cada `PF_GE_TV_SEG`=30 s (`pfGeTvTelas`: resumo, vendas, fin só `pfGeAcessoFin`, compras, estoque só com planilha, log, chamados; `pfGeTvIr`,
   `pfGeTvPausar`, ← → espaço Esc, bolinhas clicáveis; dados novos a cada 5 min). Telas `pfGeTvResumoHtml`/`pfGeTvVendasHtml` (a tela antiga)/`pfGeTvFinHtml`/`pfGeTvComprasHtml`/
   `pfGeTvEstoqueHtml`/`pfGeTvLogHtml`/`pfGeTvChamadosHtml`, peças `pfGeTvK`/`pfGeTvCard`/`pfGeTvL`/`pfGeTvRk`. Setor novo na Gestão → tela nova no rodízio.
+
+## 🔎 Busca geral dos Componentes Cardan — descrição e montadora (v115.2506)
+- Vitor (print "KIT PONT" = 0): "quero poder buscar por descrição também. e por modelo de veículo e montadora". Botão novo **📝 Descrição** (`porDesc`, modo `desc`):
+  todas as palavras digitadas em descricao/descricaoCatalogo/descSemTipo (pedaço de palavra vale); grupo que já saiu por código não repete. Veículo: `ccBgVeicTxt`/`ccBgVeicBate`
+  = também só letras+números (LO 814 = LO814, 17.220 = 17-220) + apelidos da montadora `CC_BG_MONT_ALIAS` (MERCEDES-BENZ/MB, VW, GM/CHEVROLET/GEN. MOTORS, MF/AGCO…). Montadora nova → linha no alias.

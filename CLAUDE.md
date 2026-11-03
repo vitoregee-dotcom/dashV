@@ -1883,3 +1883,8 @@
 - Vitor (print "KIT PONT" = 0): "quero poder buscar por descrição também. e por modelo de veículo e montadora". Botão novo **📝 Descrição** (`porDesc`, modo `desc`):
   todas as palavras digitadas em descricao/descricaoCatalogo/descSemTipo (pedaço de palavra vale); grupo que já saiu por código não repete. Veículo: `ccBgVeicTxt`/`ccBgVeicBate`
   = também só letras+números (LO 814 = LO814, 17.220 = 17-220) + apelidos da montadora `CC_BG_MONT_ALIAS` (MERCEDES-BENZ/MB, VW, GM/CHEVROLET/GEN. MOTORS, MF/AGCO…). Montadora nova → linha no alias.
+
+## Mapa de Compras — coluna Fornecedores no passo 1 (v115.2507)
+- Pedido ("por que aqui não está mostrando os fornecedores que é para serem cotados? só me mostra essas exceções que eu nem lembro pra que é"): a coluna "Exceções"
+  (v115.1912, só a diferença "sem X / + Y" em relação ao painel "Fornecedores do mapa") virou **Fornecedores** com o NOME de cada um que vai cotar o item: azul = ligado
+  pra todos no painel, verde "+" = só neste item, vermelho riscado = ligado pra todos mas tirado deste item. Captura `docs/referencias/compras-mesa/feito-mapa-fornecedores.png`.

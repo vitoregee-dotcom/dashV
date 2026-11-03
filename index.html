@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2505</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2506</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2505</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2506</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -79763,13 +79763,20 @@ function ccBuscaGeralHtml(){
 }
 function ccBgNorm(x){return String(x||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
 function ccBgNormTxt(x){return String(x||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();}
+// v115.2506 - A pedido do Vitor (busca "KIT PONT" dando 0: "quero poder buscar por descrição também. e por modelo de veículo e montadora"):
+// veículo compara também só letras+números (LO 814 = LO814, 17.220 = 17-220) e com os apelidos da montadora (MERCEDES-BENZ/MB/M.BENZ,
+// VW, GM/CHEVROLET/GEN. MOTORS, MF/MASSEY/AGCO…) — o catálogo escreve "MERCEDES 1418", "GEN. MOTORS D10".
+var CC_BG_MONT_ALIAS=[[/MERCEDES|M\.?\s?BENZ|\bMB\b/,'MERCEDES BENZ MERCEDESBENZ MB'],[/VOLKSWAGEN|\bVW\b/,'VOLKSWAGEN VW'],[/GEN\.?\s*MOTORS|GENERAL MOTORS|\bGM\b|CHEVROLET/,'GM CHEVROLET GENERAL MOTORS GENMOTORS'],
+  [/MASSEY|\bMF\b|AGCO/,'MF MASSEY FERGUSON AGCO'],[/NEW HOLLAND|\bNH\b/,'NEW HOLLAND NH'],[/INTERNATIONAL|NAVISTAR/,'INTERNATIONAL NAVISTAR'],[/J\.?\s?I\.?\s?CASE|\bCASE\b/,'CASE'],[/CATERPILLAR|\bCAT\b/,'CATERPILLAR CAT'],[/JOHN DEERE|\bJD\b/,'JOHN DEERE JD']];
+function ccBgVeicTxt(v){var t=ccBgNormTxt(v),ex='';CC_BG_MONT_ALIAS.forEach(function(a){if(a[0].test(t))ex+=' '+a[1];});t+=ex;return {t:t,an:t.replace(/[^A-Z0-9]/g,'')};}
+function ccBgVeicBate(vt,tok){if(vt.t.indexOf(tok)>=0)return true;var a=tok.replace(/[^A-Z0-9]/g,'');return a.length>=2&&vt.an.indexOf(a)>=0;}
 function ccBuscaGeralExecutar(txt){
   window._ccBuscaGeralTxt=txt;
   var box=document.getElementById('ccBuscaGeralRes');if(!box)return;
   var q=ccBgNorm(txt);
   if(q.length<3){box.innerHTML=txt.trim()?'<div style="font-size:11px;color:var(--pf-text-muted);margin-top:6px">Digite pelo menos 3 caracteres.</div>':'';return;}
   var dados={};try{dados=ccLoad()||{};}catch(e){}
-  var porCod=[],porApl=[],vistos={},apl2mc=[];
+  var porCod=[],porApl=[],porDesc=[],vistos={},apl2mc=[];
   var toks=ccBgNormTxt(txt).split(/\s+/).filter(Boolean);
   Object.keys(CC_NOME_SINGULAR).forEach(function(fam){
     (dados[fam]||[]).forEach(function(it){
@@ -79787,16 +79794,20 @@ function ccBuscaGeralExecutar(txt){
       }
       if(toks.length&&(it.veiculos||[]).length){
         var hit=null;
-        for(var i=0;i<it.veiculos.length;i++){var vv=ccBgNormTxt(it.veiculos[i]);if(toks.every(function(t){return vv.indexOf(t)>=0;})){hit=it.veiculos[i];break;}}
+        for(var i=0;i<it.veiculos.length;i++){var vv=ccBgVeicTxt(it.veiculos[i]);if(toks.every(function(t){return ccBgVeicBate(vv,t);})){hit=it.veiculos[i];break;}} // v115.2506 - apelidos da montadora + sem espaço/traço
         // v115.2205 - A pedido do Vitor ("tá certo mostrar isso quando vou em Veículo?"): buscando um CÓDIGO (ex.: 5-263X), a aplicação
         // "AGRALE APLIC. CRUZETA 5-263X/…" não é veículo — é peça que MONTA COM esse código → vai pro "Monta com"
         if(hit&&toks.length===1&&/\d/.test(toks[0])&&/[-.\/]|\d[a-z]|[a-z]\d/i.test(String(txt).trim())){apl2mc.push({item:it,familia:CC_NOME_SINGULAR[fam]||fam,familiaChave:fam,bate:[String(txt).trim().toUpperCase()+' (na aplicação: '+hit+')']});hit=null;}
         if(hit){var ka='A'+gk;if(!vistos[ka]){vistos[ka]={fam:fam,itens:[it],veic:hit,gk:gk};porApl.push(vistos[ka]);}else vistos[ka].itens.push(it);}
       }
+      // v115.2506 - 📝 Descrição: todas as palavras digitadas na descrição (pedaço de palavra vale: "KIT PONT" acha "KIT PONTEIRA …")
+      if(toks.length){var dtx=ccBgNormTxt([it.descricao,it.descricaoCatalogo,it.descSemTipo].filter(Boolean).join(' '));
+        if(dtx&&toks.every(function(t){return dtx.indexOf(t)>=0;})){var kd='D'+gk;if(!vistos[kd]){vistos[kd]={fam:fam,itens:[it],gk:gk};porDesc.push(vistos[kd]);}else vistos[kd].itens.push(it);}}
     });
   });
   porCod.sort(function(a,b){return b.sc-a.sc;});
   porApl=porApl.filter(function(r){return !vistos[r.gk];}); // peça que já apareceu por código não repete na parte de veículo
+  porDesc=porDesc.filter(function(r){return !vistos[r.gk];}); // v115.2506 - nem na descrição
   var mostrarApl=true; // v115.2033 - A pedido do Vitor ("1113 também é modelo de caminhão"): código E veículo sempre, código primeiro
   function linha(r){
     var it=r.itens[0],eq=it.substitui||it.similar||'';
@@ -79825,13 +79836,14 @@ function ccBuscaGeralExecutar(txt){
   var chip=function(k,rot,n,cor){var on=modo===k;return '<button onclick="ccBuscaGeralModo(\''+k+'\')" style="font-size:11.5px;font-weight:700;padding:4px 11px;border-radius:14px;cursor:pointer;border:1.5px solid '+cor+';background:'+(on?cor:'#fff')+';color:'+(on?'#fff':cor)+(n===0&&k!=='tudo'?';opacity:.45':'')+'">'+rot+' <span style="font-weight:800">'+n+'</span></button>';};
   // v115.2317 - A pedido do Vitor ("por que usamos esse roxo e não as cores do sistema?" → opção A): Código e Monta com no AZUL do sistema (#1F4E79) no lugar do roxo/verde-água; Veículo continua verde.
   var barra='<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px">'+
-    chip('tudo','Tudo',porCod.length+nApl+mcRes.length,'#1F4E79')+chip('codigo','Código',porCod.length,'#1F4E79')+
+    chip('tudo','Tudo',porCod.length+porDesc.length+nApl+mcRes.length,'#1F4E79')+chip('codigo','Código',porCod.length,'#1F4E79')+chip('desc','📝 Descrição',porDesc.length,'#1F4E79')+
     chip('montacom','🔗 Monta com',mcRes.length,'#1F4E79')+chip('veiculo','🚚 Veículo',nApl,'#27AE60')+
     '<button onclick="ccBgDetAlternar()" title="Trocar entre a tabela por tipo de peça e a lista com etiquetas" style="font-size:11.5px;font-weight:700;padding:4px 11px;border-radius:14px;cursor:pointer;border:1.5px solid #1F4E79;background:#fff;color:#1F4E79;margin-left:auto">'+(ccBgDetLigado()?'📋 Ver em lista':'📐 Ver em tabela')+'</button>'+'</div>'; // v115.2228
   // v115.2052 - A pedido do Vitor ("um campo pra filtrar, ex: se eu quiser buscar terminal só"): 2ª linha de botões
   // com as famílias que apareceram (no tipo escolhido acima), com contagem; escolhendo uma, filtra as listas
   var famCont={};
   if(ver('codigo'))porCod.forEach(function(r){famCont[r.fam]=(famCont[r.fam]||0)+1;});
+  if(ver('desc'))porDesc.forEach(function(r){famCont[r.fam]=(famCont[r.fam]||0)+1;});
   if(ver('veiculo')&&mostrarApl)porApl.forEach(function(r){famCont[r.fam]=(famCont[r.fam]||0)+1;});
   if(ver('montacom'))mcRes.forEach(function(r){famCont[r.familiaChave]=(famCont[r.familiaChave]||0)+1;});
   var famSel=window._ccBgFam||'';if(famSel&&!famCont[famSel])famSel='';
@@ -79844,10 +79856,12 @@ function ccBuscaGeralExecutar(txt){
   if(famSel){
     porCod=porCod.filter(function(r){return r.fam===famSel;});
     porApl=porApl.filter(function(r){return r.fam===famSel;});
+    porDesc=porDesc.filter(function(r){return r.fam===famSel;});
     mcRes=mcRes.filter(function(r){return r.familiaChave===famSel;});
   }
   var h='';
   if(ver('codigo')&&porCod.length)h+='<div style="font-size:10.5px;font-weight:700;color:#607080;margin:10px 0 2px">POR CÓDIGO — '+porCod.length+'</div>'+porCod.slice(0,40).map(linha).join('');
+  if(ver('desc')&&porDesc.length)h+='<div style="font-size:10.5px;font-weight:700;color:#607080;margin:10px 0 2px">📝 POR DESCRIÇÃO — '+porDesc.length+'</div>'+porDesc.slice(0,60).map(linha).join('');
   if(ver('veiculo')&&mostrarApl&&porApl.length)h+='<div style="font-size:10.5px;font-weight:700;color:#607080;margin:10px 0 2px">POR APLICAÇÃO (VEÍCULO) — '+porApl.length+'</div>'+porApl.slice(0,40).map(linha).join('');
   // v115.2049 - A pedido do Vitor ("uma busca geral de monta com"): peças de qualquer família que MONTAM COM o código digitado
   if(ver('montacom')&&mcRes.length)h+='<div style="font-size:10.5px;font-weight:700;color:#1F4E79;margin:10px 0 2px">🔗 MONTA COM — '+mcRes.length+'</div>'+mcRes.slice(0,60).map(function(r){
@@ -79869,6 +79883,7 @@ function ccBuscaGeralExecutar(txt){
       return {fam:r.familiaChave,itens:grp,cod:ch,desc:it.descricao||'',sub:'monta com '+r.bate.join(' · '),subCor:'#1F4E79',cor:'#1F4E79',abrir:it.codigo||'',fotos:ccFotosGrupoCC(r.familiaChave,it)};};
     var _L=[],_secs=[];
     if(ver('codigo')&&porCod.length)_secs.push(['POR CÓDIGO',porCod.slice(0,40).map(_deCod),'#607080']);
+    if(ver('desc')&&porDesc.length)_secs.push(['📝 POR DESCRIÇÃO',porDesc.slice(0,60).map(_deCod),'#607080']);
     if(ver('veiculo')&&mostrarApl&&porApl.length)_secs.push(['POR APLICAÇÃO (VEÍCULO)',porApl.slice(0,40).map(_deCod),'#607080']);
     if(ver('montacom')&&mcRes.length)_secs.push(['🔗 MONTA COM',mcRes.slice(0,60).map(_deMc),'#1F4E79']);
     _secs.forEach(function(sx){_L=_L.concat(sx[1]);});

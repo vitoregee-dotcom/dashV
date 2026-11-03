@@ -1892,6 +1892,11 @@
 - v115.2514 BUG (iPad: "quando eu desativo os fornecedores, eles continuam em fornecedores"): no painel "Fornecedores do mapa" o botão laranja (parcial)
   parece ligado mas o toque LIGAVA pra todos; agora `mapaFornPainelToggle` desliga de todos quando o fornecedor está em algum item (`u.n>0`).
 
+## 🚜 Alt+B busca máquina (v115.2515; prévia `docs/referencias/altb-maquina/`, escolheu B "o completo")
+- Alt+B (`pfItemCardBuscar`) sem peça com aquele código → `pfAltbMaqHtml(termo)` (só letras+números, `maqIndice`): 🚜 máquinas que batem no nome/modelo/série
+  (selo ✓/◐ do `maqConfInfo`, "abrir ›" = `pfAltbMaqAbrir` → `maqAbrirMaquina`) + ⚙️ séries de componente dessas máquinas e as que batem no modelo/série
+  ("ver peças ›" = `pfAltbSerieAbrir` → `pfIntercAbrirSerie(maqTermoSerie)`). Captura `feito.png` / `feito-abrir.png`.
+
 ## Lentidão no filtro de medidas dos Componentes Cardan (v115.2508)
 - BUG ("é normal eu digitar no campo de medidas e demorar alguns segundos pra aparecer o que eu digitei?"): o `perf_diagnostico_v1` mostrou `ccExecutarBusca` ~1,9 s
   por tecla. Os campos de medida/veículo/extra/tolerância chamavam a busca a cada tecla e, dentro dela, cada card chamava `ccLoad()` de novo (irmãos, `pfDesenhoDe`,

@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2503</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2504</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2503</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2504</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -40486,38 +40486,13 @@ async function pfSyncPush(keys){
                   paraEnviar=JSON.stringify(Object.keys(porIdLbP).map(function(k){return porIdLbP[k];}));
                 }catch(eLbP){paraEnviar=raw;}
               }else if(chave==='componentes_cardan_v1'){
-                // v115.1596 - Defesa extra além do fix do ts em ccSave (ver
-                // comentário lá): mesmo com ts certo, o merge genérico troca
-                // o objeto INTEIRO pelo lado mais novo -- se o Vitor editar 1
-                // item no celular sem ainda ter puxado uma foto adicionada
-                // em outro aparelho nesse meio-tempo, o push do celular
-                // apagaria essa foto de novo. Aqui faz merge CAMPO A CAMPO
-                // por item (casado por código dentro de cada família): todo
-                // campo que só existe do lado remoto (local não tem esse
-                // campo, tipo "foto") é preservado, mesmo quando o item em
-                // si foi editado localmente.
+                // v115.2504 - junta item por item com o servidor (pfMergeCardanObj): o que só existe lá (importação feita em outro
+                // computador, `importacoes`) entra; antes só completava campo dos itens que já existiam aqui e perdia o resto.
                 try{
                   var remotoCC=JSON.parse(pfDecompress(remotoRaw)||'{}');
                   var localCC=JSON.parse(pfDecompress(raw)||'{}');
-                  var familiasCC=Object.keys(Object.assign({},remotoCC,localCC));
-                  familiasCC.forEach(function(fam){
-                    if(fam==='ts')return;
-                    var remArrCC=Array.isArray(remotoCC[fam])?remotoCC[fam]:[];
-                    var locArrCC=Array.isArray(localCC[fam])?localCC[fam]:[];
-                    if(!remArrCC.length)return;
-                    var remPorCodigoCC={};
-                    remArrCC.forEach(function(it){if(it&&it.codigo)remPorCodigoCC[it.codigo]=it;});
-                    locArrCC.forEach(function(it){
-                      if(!it||!it.codigo)return;
-                      var remCC=remPorCodigoCC[it.codigo];
-                      if(!remCC)return;
-                      Object.keys(remCC).forEach(function(k){
-                        if((it[k]===undefined||it[k]===null)&&remCC[k]!==undefined&&remCC[k]!==null)it[k]=remCC[k];
-                      });
-                    });
-                  });
-                  localCC.ts=Date.now();
-                  paraEnviar=pfCompress(JSON.stringify(localCC));
+                  var mCC=pfMergeCardanObj(localCC,remotoCC);mCC.ts=Date.now();
+                  paraEnviar=pfCompress(JSON.stringify(mCC));
                 }catch(eCC){paraEnviar=raw;}
               }else{
                 // v115.1790 - BUG DE RAIZ achado (a pedido do Vitor: "faz a
@@ -40683,6 +40658,31 @@ function pfMergeProdutosArr(local, remote){
 // Faz merge seguro entre o valor local e o que veio do Supabase, pra nunca perder
 // um item adicionado localmente que ainda não tinha sido "pushado" quando um pull
 // trouxe uma versão mais antiga (mesma classe de bug já corrigida nos Cadastros).
+// v115.2504 - BUG (Vitor: "pq no computador da empresa está dando essa msg? eu já tinha feito no pc de casa" — faixas Meritor/Spicer
+// "pronto pra importar/gravar" de novo): componentes_cardan_v1 é UM objeto e o merge trocava ele INTEIRO pelo lado de `ts` maior. As correções
+// automáticas de 1x por sessão (ccRender) gravam com ts=agora → a cópia VELHA de outro computador passava a "ganhar" do servidor e a
+// importação feita em casa (itens novos + `importacoes`) não chegava (e o push dela ainda podia apagar do servidor). Agora junta: base = lado
+// mais novo; item (codigo|linha, em qualquer família) que só existe no outro lado entra; campo vazio é completado; `importacoes` = união.
+// Função pura (copiada pra Web Worker de merge via .toString()).
+function pfMergeCardanObj(local, remote){
+  var lN=(+local.ts||0)>=(+remote.ts||0), base=JSON.parse(JSON.stringify(lN?local:remote)), outro=lN?remote:local;
+  function k(it){return String(it.codigo||'').trim().toUpperCase()+'|'+String(it.linha||'').trim().toUpperCase();}
+  var idx={};
+  Object.keys(base).forEach(function(f){if(Array.isArray(base[f]))base[f].forEach(function(it){if(it&&it.codigo)idx[k(it)]=it;});});
+  Object.keys(outro).forEach(function(f){
+    var v=outro[f];
+    if(f==='importacoes'&&v&&typeof v==='object'){base.importacoes=base.importacoes||{};Object.keys(v).forEach(function(i){base.importacoes[i]=Math.max(+base.importacoes[i]||0,+v[i]||0)||v[i];});return;}
+    if(!Array.isArray(v)){if(base[f]===undefined)base[f]=v;return;}
+    if(!Array.isArray(base[f]))base[f]=[];
+    v.forEach(function(it){
+      if(!it||!it.codigo)return;var b=idx[k(it)];
+      if(!b){base[f].push(it);idx[k(it)]=it;return;}
+      Object.keys(it).forEach(function(c){if((b[c]===undefined||b[c]===null||b[c]===''||(Array.isArray(b[c])&&!b[c].length))&&it[c]!=null&&it[c]!=='')b[c]=it[c];});
+    });
+  });
+  base.ts=Math.max(+local.ts||0,+remote.ts||0);
+  return base;
+}
 function pfMergeSyncValue(localRaw, remoteRaw, chave){
   // v115.1412 - BUG GRAVE corrigido (a pedido do Vitor: criava fichas em
   // Cadastro>Produtos, sincronizava, e elas sumiam -- de novo a cada vez):
@@ -40758,6 +40758,7 @@ function pfMergeSyncValue(localRaw, remoteRaw, chave){
   }
   // v115.2107 - BUG (Vitor: "mesmo abrindo as notificações ainda fica mostrando o número"): marcação de lido/visto é
   // por aviso -- junta chave a chave (maior data / união), senão um aparelho nunca recebia o que foi lido no outro.
+  if(chave==='componentes_cardan_v1'&&typeof local==='object'&&typeof remote==='object'&&!Array.isArray(local)&&!Array.isArray(remote))return JSON.stringify(pfMergeCardanObj(local,remote)); // v115.2504
   if(chave==='pfCatEnv_v1'&&typeof local==='object'&&typeof remote==='object'&&!Array.isArray(local)&&!Array.isArray(remote)){ // v115.2396 - catálogo por catálogo
     var oC={por:{},del:Object.assign({},remote.del||{},local.del||{}),base:(local.ts||0)>=(remote.ts||0)?local.base:remote.base,ts:Math.max(local.ts||0,remote.ts||0)};
     Object.keys(remote.del||{}).forEach(function(k){if(local.del&&local.del[k])oC.del[k]=Math.max(local.del[k],remote.del[k]);});
@@ -40840,6 +40841,7 @@ function _pfMergeWorkerCodigo(){
 "    });\n"+
 "    return JSON.stringify(Object.keys(porId).map(function(k){ return porId[k]; }));\n"+
 "  }\n"+
+"  if(chave==='componentes_cardan_v1'&&typeof local==='object'&&typeof remote==='object'&&!Array.isArray(local)&&!Array.isArray(remote))return JSON.stringify(pfMergeCardanObj(local,remote));\n"+
 "  if(chave==='pfCatEnv_v1'&&typeof local==='object'&&typeof remote==='object'&&!Array.isArray(local)&&!Array.isArray(remote)){\n"+
 "    var oC={por:{},del:Object.assign({},remote.del||{},local.del||{}),base:(local.ts||0)>=(remote.ts||0)?local.base:remote.base,ts:Math.max(local.ts||0,remote.ts||0)};\n"+
 "    Object.keys(remote.del||{}).forEach(function(k){if(local.del&&local.del[k])oC.del[k]=Math.max(local.del[k],remote.del[k]);});\n"+
@@ -40868,7 +40870,7 @@ function _pfMergeWorkerCodigo(){
 "  }\n"+
 "  return localRaw;\n"+
 "}\n"+
-"\n"+pfMergeProdutosArr.toString()+"\n"+
+"\n"+pfMergeProdutosArr.toString()+"\n"+pfMergeCardanObj.toString()+"\n"+
 "function compressIfNeeded(value){\n"+
 "  if(value && value.length>20000)return pfCompressW(value);\n"+
 "  return value;\n"+

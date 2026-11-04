@@ -1883,6 +1883,11 @@
 - Vitor (print "KIT PONT" = 0): "quero poder buscar por descrição também. e por modelo de veículo e montadora". Botão novo **📝 Descrição** (`porDesc`, modo `desc`):
   todas as palavras digitadas em descricao/descricaoCatalogo/descSemTipo (pedaço de palavra vale); grupo que já saiu por código não repete. Veículo: `ccBgVeicTxt`/`ccBgVeicBate`
   = também só letras+números (LO 814 = LO814, 17.220 = 17-220) + apelidos da montadora `CC_BG_MONT_ALIAS` (MERCEDES-BENZ/MB, VW, GM/CHEVROLET/GEN. MOTORS, MF/AGCO…). Montadora nova → linha no alias.
+- v115.2519 ("coloquei 1519 em veículo, mas não sei se todas vão no 1519… exibisse a montadora" → opção A da prévia `docs/referencias/cardan-montadora/`):
+  BUG: "15.190" virava 15190 e batia com 1519 — `ccBgVeicBate`: termo que começa/termina com número só bate com o número INTEIRO (separador entre dígitos some, entre
+  letra e número também: LO814 = LO 814). Montadora: `ccBgVeicInfo(hit,toks)` (marca pelo começo do texto, `MAQ_CC_MARCAS`/`_FORA`; modelo que bateu entre os "/") →
+  `ccBgVeicHtml` (selo verde MONTADORA + modelo destacado + outros em cinza; sem marca = amarelo "❔ montadora não informada"), na lista e na tabela (`subHtml`);
+  chips MONTADORA (`ccBuscaGeralMont`, `window._ccBgMont`, '?' = não informada) em cima dos resultados por veículo.
 
 ## Mapa de Compras — coluna Fornecedores no passo 1 (v115.2507)
 - Pedido ("por que aqui não está mostrando os fornecedores que é para serem cotados? só me mostra essas exceções que eu nem lembro pra que é"): a coluna "Exceções"

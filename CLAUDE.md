@@ -515,6 +515,9 @@
   Só a NTN cilíndrica com gaiola de AÇO continua "❔ conferir".
   v115.2524 ("e SKF, Timken?"): linha TIMKEN — cilíndrico EMA latão (furo 65–400) / EJ aço (65–150) / poliamida sem fonte (nota); esferas 6206-2RS-C3 / -ZZ-C3, gaiola
   latão/poliamida sem fonte (nota). SKF latão em tamanho maior avisa ECML/ECMA.
+  v115.2525 ("não tem mais variações? não precisa explicar? como trava"): cada opção de `ROL_VAR_OPC` = [valor, rótulo, explicação] (title + linha "ℹ" embaixo);
+  esferas ganharam vedação de 1 lado (Z / RS1·RSR·DU·LU·-RS) e TRAVA (`t`: N ranhura / NR ranhura + anel; SKF 6209-2RS1NR, NSK DDUNR, NTN LLUNR, Timken -2RS-NR, FAG = ❔).
+  BUG junto: código igual em várias marcas (6209) somava o saldo de todas — `rolVarSaldo(c,pref,marca)` filtra pela marca (`ROL_VAR_MARCA_RE`), "não cadastrado nessa marca".
 - Medidas por série+furo em `PF_ROL_DIM_TABLE` (`rolDetectarSerieBore` → `rolBuscarDimensoes`; Spicer por código exato `PF_ROL_DIM_SPICER`).
   v115.2251 BUG ("não era pra ter detalhes esse rolamento?" — 32308 sem medida): faltavam as séries cônicas **323** e **320** (32008X);
   acrescentadas na tabela, no detector e nas listas de série cônica (diagrama CL7C/DF; X/B não é gaiola). Série nova = tabela + regex + listas.

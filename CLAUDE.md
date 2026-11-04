@@ -1888,6 +1888,10 @@
   letra e número também: LO814 = LO 814). Montadora: `ccBgVeicInfo(hit,toks)` (marca pelo começo do texto, `MAQ_CC_MARCAS`/`_FORA`; modelo que bateu entre os "/") →
   `ccBgVeicHtml` (selo verde MONTADORA + modelo destacado + outros em cinza; sem marca = amarelo "❔ montadora não informada"), na lista e na tabela (`subHtml`);
   chips MONTADORA (`ccBuscaGeralMont`, `window._ccBgMont`, '?' = não informada) em cima dos resultados por veículo.
+- v115.2520 (aplicações "1218 L / 1313 LA / 1314 LAK / 1418 EL…" sem montadora: "tenho quase certeza que é tudo Mercedes"): `ccBgVeicInfo` dá `prov`='MERCEDES-BENZ'
+  pra 4 dígitos + letras de modelo MB (L/LA/LAK/LK/LS/LP/A/AK/K/EL/E) ou LO/LPO/OF/OH/O + nº → selo amarelo "· provável MERCEDES-BENZ ✎"; admin (`ccDesenhoEhAdmin`) clica →
+  `ccBgMontEscolher` (menu `CC_BG_MONT_OPCOES`, a provável em 1º, Outra…) → `ccBgMontAplicar` (pfConfirm; põe "MONTADORA " na frente de TODA aplicação sem marca do grupo
+  `ccPontChave` da peça naquela família, `tsMod`, ccSave + pfSyncPush). Captura `docs/referencias/cardan-montadora/feito-provavel.png`.
 
 ## Mapa de Compras — coluna Fornecedores no passo 1 (v115.2507)
 - Pedido ("por que aqui não está mostrando os fornecedores que é para serem cotados? só me mostra essas exceções que eu nem lembro pra que é"): a coluna "Exceções"

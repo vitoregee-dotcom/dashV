@@ -1901,6 +1901,8 @@
   Exige nome, peças e máquina ou série. Onde aparece: página da máquina aba 🧰 Kits + bloco no Tudo (`pfKitsDaMaq`: máquina ou série ligada nela), série em
   Aplicações (`pfKitSerieBlocoHtml`), cotação Série/Modelo (`pfKitsCotHtml` → `pfKitPorNaCot`: código vai como na aplicação, sem código = linha com a descrição,
   `semCodigo` + etiqueta ⚠ s/ código `pfKitAlertaHtml`; `kitRef` → etiqueta 🧰 kit `pfKitEtqHtml`) e Alt+B (`pfKitsAltbHtml`). Ver peças `pfKitVer`.
+- v115.2518 ("preciso poder colocar só o modelo de transmissão, sem colocar série"): componente pode ser `m:<MODELO>` = todas as séries do modelo
+  (`pfKitEhModelo`/`pfKitCompBate` por letras+números; datalist mostra "… · todas as séries" antes das séries; modelo sem série cadastrada também vale).
 
 ## 🚜 Alt+B busca máquina (v115.2515; prévia `docs/referencias/altb-maquina/`, escolheu B "o completo")
 - Alt+B (`pfItemCardBuscar`) sem peça com aquele código → `pfAltbMaqHtml(termo)` (só letras+números, `maqIndice`): 🚜 máquinas que batem no nome/modelo/série

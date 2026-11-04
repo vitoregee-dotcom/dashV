@@ -1130,6 +1130,13 @@
 - v115.2376 ("vou clicar no PDF pra mandar pro cliente; caso tenha item da mesma marca com preço diferente, é bom avisar"): `vendasPdfConferir(continuar)`
   antes de gerar/copiar (vendasPdfRapido e os botões da tela Escolher itens): `vendasPdfConflitos` junta os itens que vão pro cliente por código+marca; 2+ preços →
   janela `vendasPdfConfRender` ("Usar R$ X nos N" `vendasPdfConfUsar` / Mandar assim mesmo / Voltar e corrigir).
+- v115.2530 **PDF da cotação com prazo, impostos, total líquido e observações** (Vitor: "precisa mostrar o prazo, os impostos, total líquido… campo de observações…
+  kit composto por tais itens" → opção A da prévia `docs/referencias/cotacao-pdf-impostos/`, captura `feito.png`): `pfVendasPdfClienteDados` dá por item prazo
+  (`vendasItemPrazo`: `it.prazoTxt` > saldo ≥ qtd = IMEDIATO > `mapaDec.prazo` > "A CONSULTAR"), IPI/ST por unidade (`vendasItemValores`), total com impostos e info
+  (`vendasItemInfo`: `it.infoOff` / `it.infoTxt` / automático `vendasItemInfoAuto` = obs da ficha + "Composto por" do `composicaoKit`, ficha por `vendasFichaIdx`);
+  doc com colunas PRAZO/IPI/ST (IPI/ST somem se ninguém tem), quadro Produtos/IPI/ST/TOTAL LÍQUIDO, caixa 📝 Observações (`v.obsCli`, salvo na cotação e no
+  "fechar sem mudar"); WhatsApp/HTML também. Na tela: `#vendasPdfInfoBox` embaixo do resumo (`vendasPdfInfoHtml`: textarea + itens com info ou prazo ≠ IMEDIATO,
+  ✏️ prazo/informação por prompt, ✕ não mandar). Valores com ponto de milhar (`vendasMoedaBR`).
 - Barra dos itens: Código + Qtd + Adicionar numa caixa só; Série / modelo visível; Marcar aplicação / Colar print / Carregar arquivo BRANCOS
   (exceção ao padrão de cor do print/arquivo, pedido do Vitor "menos colorido"); CSS v115.2271 tira o 3D dos botões da cotação.
 

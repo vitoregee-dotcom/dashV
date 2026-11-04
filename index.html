@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2518</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2519</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2518</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2519</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -80069,7 +80069,37 @@ function ccBgNormTxt(x){return String(x||'').normalize('NFD').replace(/[̀-ͯ]/g
 var CC_BG_MONT_ALIAS=[[/MERCEDES|M\.?\s?BENZ|\bMB\b/,'MERCEDES BENZ MERCEDESBENZ MB'],[/VOLKSWAGEN|\bVW\b/,'VOLKSWAGEN VW'],[/GEN\.?\s*MOTORS|GENERAL MOTORS|\bGM\b|CHEVROLET/,'GM CHEVROLET GENERAL MOTORS GENMOTORS'],
   [/MASSEY|\bMF\b|AGCO/,'MF MASSEY FERGUSON AGCO'],[/NEW HOLLAND|\bNH\b/,'NEW HOLLAND NH'],[/INTERNATIONAL|NAVISTAR/,'INTERNATIONAL NAVISTAR'],[/J\.?\s?I\.?\s?CASE|\bCASE\b/,'CASE'],[/CATERPILLAR|\bCAT\b/,'CATERPILLAR CAT'],[/JOHN DEERE|\bJD\b/,'JOHN DEERE JD']];
 function ccBgVeicTxt(v){var t=ccBgNormTxt(v),ex='';CC_BG_MONT_ALIAS.forEach(function(a){if(a[0].test(t))ex+=' '+a[1];});t+=ex;return {t:t,an:t.replace(/[^A-Z0-9]/g,'')};}
-function ccBgVeicBate(vt,tok){if(vt.t.indexOf(tok)>=0)return true;var a=tok.replace(/[^A-Z0-9]/g,'');return a.length>=2&&vt.an.indexOf(a)>=0;}
+// v115.2519 - BUG (Vitor: "coloquei 1519 em veículo, mas não sei se todas vão no 1519"): sem pontos "15.190" vira 15190 e batia com 1519. Agora
+// termo que começa/termina com número só bate com o número INTEIRO do modelo (1519, 1519 L, L1519 sim; 15.190, 15190, 11519 não).
+function ccBgVeicBate(vt,tok){var a=tok.replace(/[^A-Z0-9]/g,'');
+  if(!/^\d|\d$/.test(a)){if(vt.t.indexOf(tok)>=0)return true;return a.length>=2&&vt.an.indexOf(a)>=0;}
+  if(!vt.dg)vt.dg=vt.t.replace(/(\d)[.\-\s](?=\d)/g,'$1');
+  var esc=function(x){return x.replace(/[.*+?^${}()|[\]\\\/]/g,'\\$&');};
+  var re=new RegExp((/^\d/.test(tok)?'(^|[^0-9])':'')+esc(tok)+(/\d$/.test(tok)?'(?![0-9])':''));
+  if(re.test(vt.dg)||re.test(vt.t))return true;
+  // sem espaço/traço entre letra e número (LO814 = LO 814, L-1519 = L1519), mas sem juntar dois números diferentes
+  if(!vt.cp)vt.cp=vt.dg.replace(/([A-Z])[\s.\-]+(?=\d)/g,'$1').replace(/(\d)[\s.\-]+(?=[A-Z])/g,'$1');
+  var re2=new RegExp((/^\d/.test(a)?'(^|[^0-9])':'')+esc(a)+(/\d$/.test(a)?'(?![0-9])':''));
+  return re2.test(vt.cp);}
+// v115.2519 - A pedido do Vitor ("como ficaria se exibisse a montadora… pra confirmar com o cliente, já que modelo de caminhão pode ter igual, por ser número"
+// → opção A da prévia docs/referencias/cardan-montadora/): selo com a montadora + o modelo que bateu em destaque + os outros modelos da linha em cinza;
+// sem montadora no catálogo = "❔ montadora não informada". Chips de MONTADORA em cima dos resultados por veículo (window._ccBgMont).
+function ccBgVeicInfo(hit,toks){
+  var s=String(hit||'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim(),mk='',resto=s;
+  var listas=[].concat(typeof MAQ_CC_MARCAS!=='undefined'?MAQ_CC_MARCAS:[],typeof MAQ_CC_MARCAS_FORA!=='undefined'?MAQ_CC_MARCAS_FORA:[]);
+  for(var i=0;i<listas.length;i++){var an=String(listas[i][0]).toUpperCase();if(s===an||s.indexOf(an+' ')===0){mk=listas[i][1];resto=s.slice(an.length).trim();break;}}
+  var partes=resto.split('/').map(function(x){return x.trim();}).filter(Boolean),bate=-1;
+  partes.some(function(p,j){var vt=ccBgVeicTxt(p);if(toks.every(function(t){return ccBgVeicBate(vt,t)||(mk&&ccBgVeicBate(ccBgVeicTxt(mk),t));})){bate=j;return true;}return false;});
+  if(bate<0&&partes.length)bate=0;
+  return {mk:mk,mod:partes[bate]||resto,outros:partes.filter(function(x,j){return j!==bate;}),txt:hit};
+}
+function ccBgVeicHtml(inf,toks){
+  var marca=function(t){var h=pfEscHtml(t);toks.forEach(function(k){if(!k)return;var re=new RegExp('('+k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','i');h=h.replace(re,'<mark style="background:#FFE58A;padding:0 1px">$1</mark>');});return h;};
+  var out=inf.outros.length?' <span style="font-family:Calibri,Arial,sans-serif;font-size:10.5px;color:#607080;font-weight:400">+ '+pfEscHtml(inf.outros.slice(0,3).join(' · '))+(inf.outros.length>3?' · +'+(inf.outros.length-3):'')+'</span>':'';
+  if(!inf.mk)return '<span title="'+pfEscHtml(inf.txt)+'" style="display:inline-block;margin-top:3px;font-family:Calibri,Arial,sans-serif;font-size:11.5px;font-weight:700;color:#8a5a00;background:#FFF4D6;border:1px dashed #E0B850;border-radius:6px;padding:1px 6px">❔ '+marca(inf.mod)+' · montadora não informada</span>'+out;
+  return '<span title="'+pfEscHtml(inf.txt)+'" style="display:inline-block;margin-top:3px;font-family:Calibri,Arial,sans-serif;font-size:11.5px;font-weight:700;color:#1E6B3A;background:#EAF6EE;border:1px solid #bfe3cb;border-radius:6px;padding:1px 6px"><span style="background:#1E6B3A;color:#fff;border-radius:4px;padding:0 5px;margin-right:4px;font-size:10.5px">'+pfEscHtml(inf.mk)+'</span>'+marca(inf.mod)+'</span>'+out;
+}
+function ccBuscaGeralMont(m){window._ccBgMont=m||'';ccBuscaGeralExecutar(window._ccBuscaGeralTxt||'');}
 function ccBuscaGeralExecutar(txt){
   window._ccBuscaGeralTxt=txt;
   var box=document.getElementById('ccBuscaGeralRes');if(!box)return;
@@ -80123,7 +80153,7 @@ function ccBuscaGeralExecutar(txt){
         (function(){var eqEhCadastro=eq&&(dados[r.fam]||[]).some(function(x){return x&&ccBgNorm(x.codigo)===ccBgNorm(eq);});
           return eq?'<div><b style="color:var(--pf-fx-marca,#1F4E79);font-family:monospace;font-size:13px">'+pfEscHtml(eq)+'</b>'+ccBgCopiarHtml(eq)+(eqEhCadastro?'':' <span style="color:#8a9ab0;font-size:11px">Spicer</span>')+' <span style="font-family:monospace;font-size:11px">· '+(cods.filter(function(c,ci){return !(ccBgNorm(r.itens[ci].codigo)===ccBgNorm(eq));}).join(' · ')||'')+'</span>'+'</div>'
             :'<div><span style="font-family:monospace;font-size:13px">'+cods.join(' · ')+'</span>'+ccBgCopiarHtml(it.codigo)+'</div>';})()+ccBgAchouHtml(r,eq||(r.itens.some(function(x){return ccBgNorm(x.codigo)===ccBgNorm(r.achou);})?r.achou:it.codigo))+pfCodOutrasMarcasHtml(it.codigo,it.linha,true)+ // v115.2443ccBgEtiquetasHtml(r.fam,r.itens)+ // v115.2318 / v115.2325 achado por
-        (r.veic?'<div style="font-size:10.5px;color:var(--pf-fx-verde,#27AE60)">'+pfEscHtml(r.veic)+'</div>':'')+
+        (r.veic?'<div>'+(r.vinfo?ccBgVeicHtml(r.vinfo,toks):'<span style="font-size:10.5px;color:var(--pf-fx-verde,#27AE60)">'+pfEscHtml(r.veic)+'</span>')+'</div>':'')+
       '</div><span style="color:#8a9ab0;font-size:14px">›</span></div>';
   }
   // v115.2050 - A pedido do Vitor ("não está muito dinâmico; talvez um tick de código, monta com ou veículo"): botões
@@ -80159,6 +80189,14 @@ function ccBuscaGeralExecutar(txt){
     porDesc=porDesc.filter(function(r){return r.fam===famSel;});
     mcRes=mcRes.filter(function(r){return r.familiaChave===famSel;});
   }
+  // v115.2519 - montadora de cada resultado por veículo + chips de filtro
+  porApl.forEach(function(r){try{r.vinfo=ccBgVeicInfo(r.veic,toks);}catch(eV){r.vinfo=null;}});
+  if(ver('veiculo')&&porApl.length){var mCont={},nSem=0;porApl.forEach(function(r){var m=r.vinfo&&r.vinfo.mk;if(m)mCont[m]=(mCont[m]||0)+1;else nSem++;});
+    var mSel=window._ccBgMont||'';if(mSel&&mSel!=='?'&&!mCont[mSel])mSel='';if(mSel==='?'&&!nSem)mSel='';
+    var mKeys=Object.keys(mCont).sort(function(a,b){return mCont[b]-mCont[a];});
+    if(mKeys.length+(nSem?1:0)>1||nSem){var chipM=function(k,rot,n){var on=mSel===k;return '<button onclick="ccBuscaGeralMont(\''+pfEscJs(k)+'\')" style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;cursor:pointer;border:1px solid #1E6B3A;background:'+(on?'#1E6B3A':'#fff')+';color:'+(on?'#fff':'#1E6B3A')+'">'+pfEscHtml(rot)+(n!=null?' <span style="font-weight:800">'+n+'</span>':'')+'</button>';};
+      barra+='<div style="display:flex;gap:5px;flex-wrap:wrap;margin:6px 0 2px;align-items:center"><span style="font-size:10.5px;font-weight:700;color:#8a9ab0;margin-right:2px">MONTADORA:</span>'+chipM('','Todas',porApl.length)+mKeys.map(function(k){return chipM(k,k,mCont[k]);}).join('')+(nSem?chipM('?','❔ não informada',nSem):'')+'</div>';}
+    if(mSel)porApl=porApl.filter(function(r){var m=r.vinfo&&r.vinfo.mk;return mSel==='?'?!m:m===mSel;});}
   var h='';
   if(ver('codigo')&&porCod.length)h+='<div style="font-size:10.5px;font-weight:700;color:#607080;margin:10px 0 2px">POR CÓDIGO — '+porCod.length+'</div>'+porCod.slice(0,40).map(linha).join('');
   if(ver('desc')&&porDesc.length)h+='<div style="font-size:10.5px;font-weight:700;color:#607080;margin:10px 0 2px">📝 POR DESCRIÇÃO — '+porDesc.length+'</div>'+porDesc.slice(0,60).map(linha).join('');
@@ -80178,7 +80216,7 @@ function ccBuscaGeralExecutar(txt){
   // v115.2228 - 📐 Detalhes: as mesmas listas em tabela com foto + medidas escolhidas
   if(ccBgDetLigado()){
     var _fotoDe=function(itens){var f0=null;itens.slice().sort(function(a,b){return ccPrioSpicer(b)-ccPrioSpicer(a);}).some(function(x){var f=(x.fotos&&x.fotos[0])||x.foto;if(f)f0=(typeof f==='string')?f:(f.url||f.src||f.dataUrl||null);return !!f0;});return f0?[f0]:[];};
-    var _deCod=function(r){var it=r.itens[0];return {fam:r.fam,itens:r.itens,cod:it.substitui||it.similar||it.codigo||'',desc:(r.itens.find(function(x){return x&&x.descricao&&ccPrioSpicer(x);})||it).descricao||'',sub:r.veic||'',abrir:r.achou||it.codigo||'',achou:r.achou||'',fotos:_fotoDe(r.itens)};};
+    var _deCod=function(r){var it=r.itens[0];return {fam:r.fam,itens:r.itens,cod:it.substitui||it.similar||it.codigo||'',desc:(r.itens.find(function(x){return x&&x.descricao&&ccPrioSpicer(x);})||it).descricao||'',sub:r.veic||'',subHtml:r.vinfo?ccBgVeicHtml(r.vinfo,toks):'',abrir:r.achou||it.codigo||'',achou:r.achou||'',fotos:_fotoDe(r.itens)};};
     var _deMc=function(r){var it=r.item,ch=it.substitui||it.similar||it.codigo,grp=(dados[r.familiaChave]||[]).filter(function(o){return ccMesmoGrupoCC(o,ch);});if(grp.indexOf(it)<0)grp.unshift(it);
       return {fam:r.familiaChave,itens:grp,cod:ch,desc:it.descricao||'',sub:'monta com '+r.bate.join(' · '),subCor:'#1F4E79',cor:'#1F4E79',abrir:it.codigo||'',fotos:ccFotosGrupoCC(r.familiaChave,it)};};
     var _L=[],_secs=[];
@@ -80317,7 +80355,7 @@ function ccBgDetPorTipo(linhas){
           '<td style="'+td+';font-family:monospace;font-weight:800;white-space:nowrap"><span style="color:'+(apag?'#9aa8b8':'var(--pf-fx-marca,#1F4E79)')+'">'+pfEscHtml(r.cod)+'</span>'+ccBgCopiarHtml(r.cod,true)+ccBgAchouHtml(r,r.cod)+ // v115.2325
             (mc?'<div style="font-family:inherit;font-size:9.5px;font-weight:800;color:#607080;letter-spacing:.3px">'+pfEscHtml(mc)+'</div>':'')+
             '<div style="font-family:inherit;white-space:normal">'+pfCodOutrasMarcasHtml(r.cod,mc,true)+'</div>'+ // v115.2443 - mesmo nº em outra marca
-            (r.sub&&!subIgual?'<div style="font-family:inherit;font-weight:400;font-size:10.5px;color:'+(r.subCor||'#27AE60')+';white-space:normal">'+pfEscHtml(r.sub)+'</div>':'')+'</td>'+
+            (r.sub&&(!subIgual||r.subHtml)?'<div style="font-family:inherit;font-weight:400;font-size:10.5px;color:'+(r.subCor||'#27AE60')+';white-space:normal">'+(r.subHtml||pfEscHtml(r.sub))+'</div>':'')+'</td>'+
           (vD?'<td style="'+td+';color:#607080;font-size:11.5px">'+pfEscHtml(r.desc||'')+'</td>':'')+
           cols.map(function(c){var v=ccBgFmtNum(o.vals[c[0]]),cor=v?(apag&&c[0]!=='@furos'?'#9aa8b8':'#1a2332'):'#c0c8d2'; // cor no span (a do td é passada por cima pelo tema)
             return '<td style="'+td+';text-align:center;font-family:monospace;font-weight:700;white-space:nowrap"><span style="color:'+cor+'">'+(v?pfEscHtml(v):'—')+'</span></td>';}).join('')+

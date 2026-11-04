@@ -1888,6 +1888,8 @@
   letra e número também: LO814 = LO 814). Montadora: `ccBgVeicInfo(hit,toks)` (marca pelo começo do texto, `MAQ_CC_MARCAS`/`_FORA`; modelo que bateu entre os "/") →
   `ccBgVeicHtml` (selo verde MONTADORA + modelo destacado + outros em cinza; sem marca = amarelo "❔ montadora não informada"), na lista e na tabela (`subHtml`);
   chips MONTADORA (`ccBuscaGeralMont`, `window._ccBgMont`, '?' = não informada) em cima dos resultados por veículo.
+- v115.2521 ("o monta com vem muito longe da tela, tenho que deslocar pro lado" → opção A da prévia `docs/referencias/cardan-montacom/`): na tabela da busca
+  geral (`ccBgDetPorTipo`) a coluna MONTA COM fica logo depois do CÓDIGO (antes da descrição e das medidas).
 - v115.2520 (aplicações "1218 L / 1313 LA / 1314 LAK / 1418 EL…" sem montadora: "tenho quase certeza que é tudo Mercedes"): `ccBgVeicInfo` dá `prov`='MERCEDES-BENZ'
   pra 4 dígitos + letras de modelo MB (L/LA/LAK/LK/LS/LP/A/AK/K/EL/E) ou LO/LPO/OF/OH/O + nº → selo amarelo "· provável MERCEDES-BENZ ✎"; admin (`ccDesenhoEhAdmin`) clica →
   `ccBgMontEscolher` (menu `CC_BG_MONT_OPCOES`, a provável em 1º, Outra…) → `ccBgMontAplicar` (pfConfirm; põe "MONTADORA " na frente de TODA aplicação sem marca do grupo

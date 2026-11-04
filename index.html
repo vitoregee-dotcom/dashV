@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2517</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2518</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2517</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2518</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -95965,15 +95965,23 @@ function pfKitDe(id){return pfKitLoad().find(function(k){return k&&k.id===id;})|
 function pfKitTipoRot(t){var x=PF_KIT_TIPOS.find(function(p){return p[0]===t;});return x?x[1]:'📦 Kit';}
 function pfKitAN(s){return String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');}
 function pfKitMaqNome(ch,I){var x=I&&I.M&&I.M[ch];return x?x.nome:String(ch||'').replace('|',' ');}
-function pfKitSerieRot(gk,I){var g=I&&I.G&&I.G[gk];if(!g){var p=String(gk||'').split('|||');return [p[0],p[1]].filter(Boolean).join(' · ');}
+// v115.2518 - A pedido do Vitor ("preciso poder colocar só o modelo de transmissão, sem colocar série"): componente pode ser 'm:<MODELO>' = vale pra
+// TODAS as séries desse modelo (pfKitModeloDe; bate pelo modelo só letras+números, então serve até modelo ainda sem série cadastrada).
+function pfKitEhModelo(k){return String(k||'').indexOf('m:')===0;}
+function pfKitModeloDe(k){return String(k||'').slice(2);}
+function pfKitCompBate(k,gk,I){if(k===gk)return true;if(!pfKitEhModelo(k))return false;var g=I&&I.G&&I.G[gk],mod=g?g.modelo:String(gk||'').split('|||')[0];return !!mod&&pfKitAN(mod)===pfKitAN(pfKitModeloDe(k));}
+function pfKitSerieRot(gk,I){
+  if(pfKitEhModelo(gk)){var m=pfKitModeloDe(gk),T=pfKitAN(m),g0=null;Object.keys((I&&I.G)||{}).some(function(k){var g=I.G[k];if(pfKitAN(g.modelo)===T){g0=g;return true;}return false;});
+    return (g0?[g0.grupo&&g0.grupo!=='DIVERSOS'?g0.grupo:'',g0.marcaTxt].filter(Boolean).join(' ')+' ':'')+m+' · todas as séries';}
+  var g=I&&I.G&&I.G[gk];if(!g){var p=String(gk||'').split('|||');return [p[0],p[1]].filter(Boolean).join(' · ');}
   return [g.grupo&&g.grupo!=='DIVERSOS'?g.grupo:'',g.marcaTxt,g.modelo].filter(Boolean).join(' ')+(g.serie?' · '+g.serie:'');}
 function pfKitIdx(){try{return maqIndice();}catch(e){return {M:{},G:{},lista:[]};}}
-function pfKitsDaMaq(x){if(!x)return [];var comps=x.comps||{};return pfKitAtivos().filter(function(k){return (k.maqs||[]).indexOf(x.chave)>=0||(k.series||[]).some(function(gk){return !!comps[gk];});});}
-function pfKitsDaSerie(gk){return pfKitAtivos().filter(function(k){return (k.series||[]).indexOf(gk)>=0;});}
+function pfKitsDaMaq(x){if(!x)return [];var comps=Object.keys(x.comps||{}),I=pfKitIdx();return pfKitAtivos().filter(function(k){return (k.maqs||[]).indexOf(x.chave)>=0||(k.series||[]).some(function(c){return comps.some(function(gk){return pfKitCompBate(c,gk,I);});});});}
+function pfKitsDaSerie(gk){var I=pfKitIdx();return pfKitAtivos().filter(function(k){return (k.series||[]).some(function(c){return pfKitCompBate(c,gk,I);});});}
 function pfKitSaldo(cod){if(!cod)return null;try{return pfNcSaldoTxt(cod,'');}catch(e){return null;}}
 function pfKitResumo(k){var n=(k.itens||[]).length,sc=0,ss=0;(k.itens||[]).forEach(function(it){if(!it.cod)sc++;else{var s=pfKitSaldo(it.cod);if(!(s>0))ss++;}});return {n:n,semCod:sc,semSaldo:ss};}
 // texto pra busca (nome, código, máquinas, séries)
-function pfKitTexto(k,I){return [k.nome,k.cod,(k.maqs||[]).map(function(ch){return pfKitMaqNome(ch,I);}).join(' '),(k.series||[]).map(function(gk){var g=I.G[gk];return g?[g.modelo,g.serie,g.marcaTxt].join(' '):gk;}).join(' ')].join(' ');}
+function pfKitTexto(k,I){return [k.nome,k.cod,(k.maqs||[]).map(function(ch){return pfKitMaqNome(ch,I);}).join(' '),(k.series||[]).map(function(gk){if(pfKitEhModelo(gk))return pfKitModeloDe(gk)+' '+pfKitSerieRot(gk,I);var g=I.G[gk];return g?[g.modelo,g.serie,g.marcaTxt].join(' '):gk;}).join(' ')].join(' ');}
 function pfKitsBuscar(termo){var T=pfKitAN(termo);if(T.length<2)return [];var I=pfKitIdx();
   return pfKitAtivos().filter(function(k){var t=pfKitTexto(k,I),a=pfKitAN(t);if(a.indexOf(T)>=0)return true;
     var ps=String(termo).toUpperCase().split(/\s+/).map(pfKitAN).filter(Boolean);return ps.length>1&&ps.every(function(p){return a.indexOf(p)>=0;});});}
@@ -96091,7 +96099,8 @@ function pfKitERender(){
   var inp='width:100%;box-sizing:border-box;border:1px solid #d6e0ea;border-radius:7px;padding:7px 9px;font-size:13.5px;color:#1a2332;background:#fff';
   var chip=function(t,cor,fn){return '<span style="display:inline-flex;align-items:center;gap:5px;border-radius:12px;padding:3px 10px;font-size:12.5px;font-weight:700;margin:2px 4px 2px 0;'+cor+'">'+pfEscHtml(t)+'<span onclick="'+fn+'" title="Tirar" style="cursor:pointer;font-weight:900">✕</span></span>';};
   var maqDl=(I.lista||[]).map(function(x){return '<option value="'+pfEscHtml(x.nome)+'">';}).join('');
-  var serDl=Object.keys(I.G||{}).slice(0,3000).map(function(gk){return '<option value="'+pfEscHtml(pfKitSerieRot(gk,I))+'">';}).join('');
+  var _mods={};Object.keys(I.G||{}).forEach(function(gk){var g=I.G[gk];if(g.modelo&&!_mods[pfKitAN(g.modelo)])_mods[pfKitAN(g.modelo)]='m:'+String(g.modelo).toUpperCase();});
+  var serDl=Object.keys(_mods).map(function(k){return '<option value="'+pfEscHtml(pfKitSerieRot(_mods[k],I))+'">';}).join('')+Object.keys(I.G||{}).slice(0,3000).map(function(gk){return '<option value="'+pfEscHtml(pfKitSerieRot(gk,I))+'">';}).join('');
   var tdS='padding:4px 5px;border-top:1px solid #eef1f5;font-size:12.5px;color:#1a2332;vertical-align:middle';
   var cel='width:100%;box-sizing:border-box;border:1px solid #e0e7ef;border-radius:6px;padding:5px 7px;font-size:12.5px;color:#1a2332;background:#fff';
   var linhas=e.itens.map(function(it,i){var s=pfKitSaldo(it.cod);
@@ -96113,8 +96122,8 @@ function pfKitERender(){
         '<div>'+lab('TIPO')+'<select style="'+inp+'" onchange="pfKitECampo(\'tipo\',this.value)">'+PF_KIT_TIPOS.map(function(t){return '<option value="'+t[0]+'"'+(e.tipo===t[0]?' selected':'')+'>'+t[1]+'</option>';}).join('')+'</select></div></div>'+
       lab('VAI EM (MÁQUINAS)')+'<div style="'+inp+';display:flex;flex-wrap:wrap;align-items:center;gap:2px">'+e.maqs.map(function(ch,i){return chip('🚜 '+pfKitMaqNome(ch,I),'background:#EEF4FB;color:#1F4E79;border:1px solid #c9dbef','pfKitEChipTirar(\'maqs\','+i+')');}).join('')+
         '<input list="pfKitDlMaq" placeholder="+ máquina (digite e Enter)" style="border:none;outline:none;flex:1;min-width:180px;font-size:13px;padding:3px" onkeydown="if(event.key===\'Enter\'){event.preventDefault();pfKitEMaqAdd(this.value);}" onchange="pfKitEMaqAdd(this.value)"><datalist id="pfKitDlMaq">'+maqDl+'</datalist></div>'+
-      lab('COMPONENTE (SÉRIE)')+'<div style="'+inp+';display:flex;flex-wrap:wrap;align-items:center;gap:2px">'+e.series.map(function(gk,i){return chip('⚙️ '+pfKitSerieRot(gk,I),'background:#FFF4D6;color:#7a5600;border:1px solid #F0D58A','pfKitEChipTirar(\'series\','+i+')');}).join('')+
-        '<input list="pfKitDlSer" placeholder="+ série (digite modelo ou série)" style="border:none;outline:none;flex:1;min-width:180px;font-size:13px;padding:3px" onkeydown="if(event.key===\'Enter\'){event.preventDefault();pfKitESerieAdd(this.value);}" onchange="pfKitESerieAdd(this.value)"><datalist id="pfKitDlSer">'+serDl+'</datalist></div>'+
+      lab('COMPONENTE (MODELO OU SÉRIE)')+'<div style="'+inp+';display:flex;flex-wrap:wrap;align-items:center;gap:2px">'+e.series.map(function(gk,i){return chip('⚙️ '+pfKitSerieRot(gk,I),'background:#FFF4D6;color:#7a5600;border:1px solid #F0D58A','pfKitEChipTirar(\'series\','+i+')');}).join('')+
+        '<input list="pfKitDlSer" placeholder="+ modelo (todas as séries) ou série específica" style="border:none;outline:none;flex:1;min-width:180px;font-size:13px;padding:3px" onkeydown="if(event.key===\'Enter\'){event.preventDefault();pfKitESerieAdd(this.value);}" onchange="pfKitESerieAdd(this.value)"><datalist id="pfKitDlSer">'+serDl+'</datalist></div>'+
       lab('OBSERVAÇÃO')+'<textarea style="'+inp+';min-height:44px;resize:vertical" oninput="pfKitECampo(\'obs\',this.value)" placeholder="Ex.: troca a cremalheira por flex plate">'+pfEscHtml(e.obs||'')+'</textarea>'+
       lab('PEÇAS ('+e.itens.length+(sc0?' · '+sc0+' sem código':'')+')')+
       (e.itens.length?'<table style="width:100%;border-collapse:collapse"><tr><th style="text-align:left;font-size:11px;color:#607080;padding:5px">PEÇA</th><th style="text-align:left;font-size:11px;color:#607080;padding:5px">CÓDIGO</th><th style="text-align:right;font-size:11px;color:#607080;padding:5px">QTD</th><th style="text-align:right;font-size:11px;color:#607080;padding:5px">SALDO</th><th></th></tr>'+linhas+'</table>':'<div style="padding:12px;border:1px dashed #d5dce5;border-radius:10px;color:#8a9ab0;font-size:12.5px">Cole o print ou a lista do Excel — ou acrescente as peças uma a uma.</div>')+
@@ -96139,11 +96148,15 @@ function pfKitEMaqAdd(v){v=String(v||'').trim();if(!v)return;var S=window._pfKit
     try{ch=maqChave(marca,modelo||marca);}catch(e){ch=marca+'|'+modelo;}}
   if(S.k.maqs.indexOf(ch)<0)S.k.maqs.push(ch);pfKitERender();
   setTimeout(function(){var el=document.querySelector('#pfKitEd input[list=pfKitDlMaq]');if(el)el.focus();},20);}
-function pfKitESerieAdd(v){v=String(v||'').trim();if(!v)return;var S=window._pfKitE,I=pfKitIdx(),T=pfKitAN(v);
-  var ks=Object.keys(I.G||{}),gk=ks.find(function(k){return pfKitAN(pfKitSerieRot(k,I))===T;})||ks.find(function(k){var g=I.G[k];return pfKitAN(g.serie)===T;})||ks.find(function(k){var g=I.G[k];return !g.serie&&pfKitAN(g.modelo)===T;})||
-    ks.find(function(k){var g=I.G[k];return pfKitAN(g.modelo)===T;});
-  if(!gk){pfKitMsg('<span style="color:#C0392B">Não achei a série "'+pfEscHtml(v)+'" nas Aplicações — digite o modelo ou a série como estão lá (a lista sugere enquanto digita).</span>');return;}
-  if(S.k.series.indexOf(gk)<0)S.k.series.push(gk);pfKitERender();}
+function pfKitESerieAdd(v){v=String(v||'').trim();if(!v)return;var S=window._pfKitE,I=pfKitIdx(),ks=Object.keys(I.G||{}),c=null;
+  var vm=v.replace(/\s*·\s*todas as s[ée]ries\s*$/i,''),todas=vm!==v,T=pfKitAN(v);
+  if(!todas)c=ks.find(function(k){return pfKitAN(pfKitSerieRot(k,I))===T;})||ks.find(function(k){var g=I.G[k];return g.serie&&pfKitAN(g.serie)===T;})||null;
+  if(!c){ // modelo (todas as séries): pelo rótulo da lista ou pelo nome do modelo; modelo ainda sem série cadastrada também vale
+    var TM=pfKitAN(vm),g0=null;ks.some(function(k){var g=I.G[k];if(pfKitAN(g.modelo)===TM||pfKitAN(pfKitSerieRot('m:'+g.modelo,I).replace(/·\s*todas as s[ée]ries$/i,''))===TM){g0=g;return true;}return false;});
+    var mod=g0?String(g0.modelo).toUpperCase():vm.toUpperCase();c='m:'+mod;
+    if(!g0)pfKitMsg('ℹ️ O modelo "'+pfEscHtml(mod)+'" ainda não tem série nas Aplicações — o kit fica ligado a ele e aparece quando a série for cadastrada.');}
+  if(S.k.series.indexOf(c)<0)S.k.series.push(c);pfKitERender();
+  setTimeout(function(){var el=document.querySelector('#pfKitEd input[list=pfKitDlSer]');if(el)el.focus();},20);}
 // lê texto (colado do Excel / lista): uma peça por linha — descrição, código (opcional), qtd
 function pfKitTextoLer(txt){var S=window._pfKitE;if(!S)return;
   var linhas=String(txt||'').replace(/\r/g,'').split('\n'),out=[],titulo='';

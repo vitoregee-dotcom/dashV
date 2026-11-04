@@ -229,6 +229,10 @@
   como FICHA NOVA e apagava o preenchimento. Agora, com resultado na tela, imagem colada = resposta do cliente
   (`ferrAtalhosTextoPreencherRespostaArquivo`: IA completa só o que falta; botões padrão Colar print/Carregar arquivo na caixa
   de resposta); ficha nova por cima pede confirmação; `ferrPreencherMostrarResultado` mantém os dados do pedido de crédito.
+- v115.2527 BUG ("valor está sem casa decimal quando copio o texto" + "Condição de pgto: 1"): no pedido de crédito do texto copiado o valor sai sempre
+  "R$ 540,00" (`ferrPreencherCredValorNum` → `ferrPreencherCredMoeda`; "4.850" sem vírgula = 4850), condição só com prazo em número vira "28 dias"/"28/56 dias"
+  (`ferrPreencherCredCondTxt`) e número que não é prazo (1–6, `ferrPreencherCredCondSuspeita`) faz o Copiar perguntar antes. Não achei de onde veio o "1"
+  (nenhuma cotação gravada tem condição "1").
 
 ## Área Técnica (Componentes Cardan, `componentes_cardan_v1`)
 - Famílias em `CC_FAMILIAS` (+ `CC_NOME_SINGULAR`); item = `{codigo, linha, descricao, veiculos[], montaCom[], conversoes[],

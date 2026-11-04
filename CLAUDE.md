@@ -510,6 +510,9 @@
   e rígido de esferas 6xxx/16xxx (`rolVarBase`); códigos por marca em `rolVarCodigos` (SKF EC+J/P/M + /C3; FAG -E-JP3/-TVP2/-M1 + -C3; NSK E+W/T/M + C3; NTN = ❔ conferir
   na gaiola; esferas 2Z/2RS1, 2Z/2RSR, ZZ/DDU, ZZ/LLU, poliamida TN9/TVH, latão M). Saldo = código EXATO da planilha (`rolVarSaldo`, índice `vendasBuscaIndiceGet`; Qualquer = começo);
   "📦 Já cadastrados com <base>" = tudo do estoque que começa com o código-base (`rolVarExistentes`). 📋 copiar; ➕ só com a cotação aberta. Tipo novo / sufixo confirmado → mexer no `rolVarCodigos`.
+  v115.2523 ("procure na internet em fontes confiáveis"): sufixos conferidos — Schaeffler (TVP2 poliamida, M1 latão, JP3 aço só sob encomenda → aviso `nota`),
+  NSK (cilíndrico EW aço/ET poliamida/EM latão; esfera M latão, T1X poliamida), NTN (FAQ: G1 latão e T2 poliamida no cilíndrico; esfera L1 latão — antes estava G1, errado).
+  Só a NTN cilíndrica com gaiola de AÇO continua "❔ conferir".
 - Medidas por série+furo em `PF_ROL_DIM_TABLE` (`rolDetectarSerieBore` → `rolBuscarDimensoes`; Spicer por código exato `PF_ROL_DIM_SPICER`).
   v115.2251 BUG ("não era pra ter detalhes esse rolamento?" — 32308 sem medida): faltavam as séries cônicas **323** e **320** (32008X);
   acrescentadas na tabela, no detector e nas listas de série cônica (diagrama CL7C/DF; X/B não é gaiola). Série nova = tabela + regex + listas.

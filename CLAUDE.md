@@ -513,6 +513,8 @@
   v115.2523 ("procure na internet em fontes confiáveis"): sufixos conferidos — Schaeffler (TVP2 poliamida, M1 latão, JP3 aço só sob encomenda → aviso `nota`),
   NSK (cilíndrico EW aço/ET poliamida/EM latão; esfera M latão, T1X poliamida), NTN (FAQ: G1 latão e T2 poliamida no cilíndrico; esfera L1 latão — antes estava G1, errado).
   Só a NTN cilíndrica com gaiola de AÇO continua "❔ conferir".
+  v115.2524 ("e SKF, Timken?"): linha TIMKEN — cilíndrico EMA latão (furo 65–400) / EJ aço (65–150) / poliamida sem fonte (nota); esferas 6206-2RS-C3 / -ZZ-C3, gaiola
+  latão/poliamida sem fonte (nota). SKF latão em tamanho maior avisa ECML/ECMA.
 - Medidas por série+furo em `PF_ROL_DIM_TABLE` (`rolDetectarSerieBore` → `rolBuscarDimensoes`; Spicer por código exato `PF_ROL_DIM_SPICER`).
   v115.2251 BUG ("não era pra ter detalhes esse rolamento?" — 32308 sem medida): faltavam as séries cônicas **323** e **320** (32008X);
   acrescentadas na tabela, no detector e nas listas de série cônica (diagrama CL7C/DF; X/B não é gaiola). Série nova = tabela + regex + listas.

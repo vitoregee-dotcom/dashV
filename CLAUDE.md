@@ -505,6 +505,11 @@
 - 🚜 Máquinas: "👥 Clientes com essa máquina" no cabeçalho da página (`maqClientesHtml`, índice `frotaIdxClientes` 10 s) → ficha do CRM.
 
 ## Rolamentos — Descobridor de Equivalência
+- v115.2522 **🔧 Quero com…** (Vitor: "NJ313 comum… se eu quiser com variação, gaiola de bronze ou latão" → opção A da prévia `docs/referencias/rolamento-variacoes/`):
+  botão no card (`rolVarBtnHtml`, nos 2 tipos de card) → painel `rolVarPainelHtml` (estado `window._rolVar` {ref,g,f,a,v}, `rolVarSet`). Só rolos cilíndricos N/NU/NJ/NUP
+  e rígido de esferas 6xxx/16xxx (`rolVarBase`); códigos por marca em `rolVarCodigos` (SKF EC+J/P/M + /C3; FAG -E-JP3/-TVP2/-M1 + -C3; NSK E+W/T/M + C3; NTN = ❔ conferir
+  na gaiola; esferas 2Z/2RS1, 2Z/2RSR, ZZ/DDU, ZZ/LLU, poliamida TN9/TVH, latão M). Saldo = código EXATO da planilha (`rolVarSaldo`, índice `vendasBuscaIndiceGet`; Qualquer = começo);
+  "📦 Já cadastrados com <base>" = tudo do estoque que começa com o código-base (`rolVarExistentes`). 📋 copiar; ➕ só com a cotação aberta. Tipo novo / sufixo confirmado → mexer no `rolVarCodigos`.
 - Medidas por série+furo em `PF_ROL_DIM_TABLE` (`rolDetectarSerieBore` → `rolBuscarDimensoes`; Spicer por código exato `PF_ROL_DIM_SPICER`).
   v115.2251 BUG ("não era pra ter detalhes esse rolamento?" — 32308 sem medida): faltavam as séries cônicas **323** e **320** (32008X);
   acrescentadas na tabela, no detector e nas listas de série cônica (diagrama CL7C/DF; X/B não é gaiola). Série nova = tabela + regex + listas.

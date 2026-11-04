@@ -518,6 +518,10 @@
   v115.2525 ("não tem mais variações? não precisa explicar? como trava"): cada opção de `ROL_VAR_OPC` = [valor, rótulo, explicação] (title + linha "ℹ" embaixo);
   esferas ganharam vedação de 1 lado (Z / RS1·RSR·DU·LU·-RS) e TRAVA (`t`: N ranhura / NR ranhura + anel; SKF 6209-2RS1NR, NSK DDUNR, NTN LLUNR, Timken -2RS-NR, FAG = ❔).
   BUG junto: código igual em várias marcas (6209) somava o saldo de todas — `rolVarSaldo(c,pref,marca)` filtra pela marca (`ROL_VAR_MARCA_RE`), "não cadastrado nessa marca".
+  v115.2526 ("tenho que ficar falando todas? você não podia pesquisar tudo?"): pesquisa de uma vez — folga C2 + PRECISÃO P6/P5 (`p`, `rolVarTail`: SKF /P63, FAG -P63,
+  NTN/NSK C3P6) no cilíndrico e nas esferas; tipos novos no `rolVarBase`: `rol` autocompensador de rolos (gaiola aço E/E1/EA/EJ × latão CA/MB/CAM/EM, furo K + bucha
+  `rolVarBucha` H3xx/H23xx/H30xx…, folga), `aut` autocompensador de esferas (poliamida TN9/TVH, furo K, bucha H2xx), `ang` contato angular (gaiola P/J/M, universal
+  BECBP/-UO). Sufixo sem fonte = ❔ conferir. Ainda fora: cônicos (numeração própria), axiais, agulhas.
 - Medidas por série+furo em `PF_ROL_DIM_TABLE` (`rolDetectarSerieBore` → `rolBuscarDimensoes`; Spicer por código exato `PF_ROL_DIM_SPICER`).
   v115.2251 BUG ("não era pra ter detalhes esse rolamento?" — 32308 sem medida): faltavam as séries cônicas **323** e **320** (32008X);
   acrescentadas na tabela, no detector e nas listas de série cônica (diagrama CL7C/DF; X/B não é gaiola). Série nova = tabela + regex + listas.

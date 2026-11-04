@@ -430,7 +430,9 @@
   Grupos/tipos `PF_PM_GRUPOS_PADRAO` (filtros, fps, rodante, pinos) por PALAVRAS da descrição (`pmClassificar`; grupo = 1º que bate, tipo = o
   ÚLTIMO da lista que bate), editáveis pelo gestor em ✏️ Grupos e tipos (`pmGruposEditar`).
   v115.2528 ("já vai para o grupo de filtros?" — 149167A1 com descrição cortada "ELEMENTO"): `pmClassificar` põe descrição que COMEÇA com ELEMENTO
-  em Filtros (menos bomba/injetor/aquecedor/resistência/vedação/mola); "(sem cadastro)" continua "❔ escolher grupo" e só grava o que tem grupo. Config compartilhada `pfPecasMaq_v1`
+  em Filtros (menos bomba/injetor/aquecedor/resistência/vedação/mola).
+  v115.2529 ("o certo é gravar todos né? até o que não tenho cadastro"): o `pmInsGravar` grava TODAS — peça sem grupo (sem cadastro/descrição cortada)
+  vai pro grupo que mais aparece na lista, tipo Outros (pfConfirm lista os códigos; `l.auto` igual = não entra no aprendido); botão "Gravar N peças" = a lista inteira. Config compartilhada `pfPecasMaq_v1`
   {grupos?, aprendido, maquinas}. Peças gravadas em APLIC_KEY (`pmGravarPecas`: equip = nome do grupo, marca/modelo/série + marcaVeiculo/veiculo
   da máquina, pmGrupo/pmTipo/pmMaq). Cotação: `vendasSerieGrupoAplic` usa o pmGrupo; grupo com tipos vira blocos por tipo com "selecionar"
   (`vendasSerieSelGrupo(f,marcar,'ft:'+tipo)`); grupos novos no `VENDAS_SERIE_GRUPOS_ORDEM`.

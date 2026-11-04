@@ -428,7 +428,9 @@
   (datalist, "+ série/chassi"), cola texto `pmLerTexto` / 📋 Colar print ou Ctrl+V (IA `pmInsIA`) / ⬆ arquivo: imagem/PDF → IA, Excel/CSV →
   `pmLinhasDaPlanilha` / 📑 copiar de outra máquina; confere com select grupo›tipo; o que mudar à mão vai pro `aprendido` por código).
   Grupos/tipos `PF_PM_GRUPOS_PADRAO` (filtros, fps, rodante, pinos) por PALAVRAS da descrição (`pmClassificar`; grupo = 1º que bate, tipo = o
-  ÚLTIMO da lista que bate), editáveis pelo gestor em ✏️ Grupos e tipos (`pmGruposEditar`). Config compartilhada `pfPecasMaq_v1`
+  ÚLTIMO da lista que bate), editáveis pelo gestor em ✏️ Grupos e tipos (`pmGruposEditar`).
+  v115.2528 ("já vai para o grupo de filtros?" — 149167A1 com descrição cortada "ELEMENTO"): `pmClassificar` põe descrição que COMEÇA com ELEMENTO
+  em Filtros (menos bomba/injetor/aquecedor/resistência/vedação/mola); "(sem cadastro)" continua "❔ escolher grupo" e só grava o que tem grupo. Config compartilhada `pfPecasMaq_v1`
   {grupos?, aprendido, maquinas}. Peças gravadas em APLIC_KEY (`pmGravarPecas`: equip = nome do grupo, marca/modelo/série + marcaVeiculo/veiculo
   da máquina, pmGrupo/pmTipo/pmMaq). Cotação: `vendasSerieGrupoAplic` usa o pmGrupo; grupo com tipos vira blocos por tipo com "selecionar"
   (`vendasSerieSelGrupo(f,marcar,'ft:'+tipo)`); grupos novos no `VENDAS_SERIE_GRUPOS_ORDEM`.

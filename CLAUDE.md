@@ -1790,6 +1790,7 @@
   ("Ferramentas › RMA"); relatório ganhou a tabela "Por ferramenta / tela" (tempo total + quem usou, cada um com o tempo). Antes de 30/10/2026 = só a área.
 - v115.2486 BUG (print da Mesa: "a barra de notificações some aqui?"): Mesa e Gestão (tela cheia z 58) cobriam o `#pfAvisosRail` (z 55). `pfTelaCheiaEsq()` põe o
   `left` das duas na borda direita da barra (no render e no resize). Obs.: rail é fixed → `offsetParent` é sempre null, não usar pra saber se está visível.
+- v115.2531 ("solicitações tem que ficar lá em cima mesmo? ou na mesa?" → prévia `docs/referencias/mesa-barra/` "acho que ficou bom"): a barra de cima da Mesa ficou só com 📋 Colar lista / ⋯ Mais / ⚙️ Ajustes — Pedidos antigos, Dashboard, Todas as solicitações e Mapa de Compras foram pro menu `pfMesaMaisAbrir` (`#pfMesaMaisPop`) e viraram link no título de cada coluna (`pfMsColLink`: 📨 ver todas as solicitações · 📊 abrir no Dashboard · 🗂️ abrir o Mapa de Compras · 📄 ver ordens de compra). Captura `feito.png`.
 - v115.2487 **🧾 Ordem de compra sem NF** (Vitor: "ordem enviada com faturamento pro mesmo dia… não chegou NF/XML no e-mail em determinado tempo → notificar
   o compras… pra não o motorista ir buscar e não estar pronto… configurado a cada fornecedor" → prévia `docs/referencias/oc-sem-nf/` → A + B, ícone separado, "considerar já
   pra ler e-mail"): prazo pra faturar `pfComprasCfg_v1.forn[k].fatH` (horas; ⚙️ Ajustes "FATURA EM" aceita 1h/30min/3d, `pfNfParseHoras`; coluna "COSTUMA" = `pfNfMedido`,

@@ -2069,3 +2069,6 @@
   **Fotos LNG melhores** ("pega as fotos desses itens e coloca nos que não tiver foto da Spicer"): os arquivos `fotos-componentes-cardan/lng/<código>.jpg` (eram 164×110) foram
   trocados pelas 149 fotos da planilha (500–1200 px) — item com a foto padrão LNG melhora sozinho, foto da Spicer (fotoSpicer/cadastro Spicer) continua; 13 códigos que não tinham
   foto (`PF_CC_LNG_FOTOS_2026`) ganham a nova no item LNG sem foto (`ccFotosLng2026`, 1x por sessão no ccRender).
+- v115.2560 ("talvez seja bom colocarmos filtro aqui. por fornecedores, por solicitante e cliente" — Mesa, 📨 Pra comprar agora): 3 selects embaixo do link da coluna
+  (`pfMsSolFiltroHtml`, opções tiradas dos itens com a quantidade; `pfMsSolFiltro(campo,v)` → `window._pfMs.sf` {f,s,c}; ✕ limpa). Contador "N de M"; os números de cima
+  continuam contando tudo. Captura `docs/referencias/mesa-filtros/feito.png`.

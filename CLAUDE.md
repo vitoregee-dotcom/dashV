@@ -1146,6 +1146,9 @@
   **v115.2542: SEGURADO (chamada comentada no `maqAbrir`)** — os 10 rolamentos da W20E NÃO estão na transmissão 12.1HR28421-503 nem nos eixos 176/413/414; esperando o Vitor decidir.
   **v115.2543 ("deixa essa lista oculta então, por enquanto"):** `PF_MAQ_SPICER_ROL_OCULTA=true` → o `maqIndice` não põe a tabela de rolamentos Spicer nas máquinas de
   FORA DE ESTRADA (veículo cujo tipo não bate `MAQ_ROD_RE`); dados intactos, rodoviário continua. Mostrar de novo = `false`.
+- v115.2548 BUGs (print do iPad): card com "ANO [object Object]" — `maqAnosTxt` lia `r.ano` (objeto {v:''}) quando o ano estava vazio; agora `maqFtV(r,'ano')`.
+  E "pq a barra inferior está subindo quando rola?": no Safari do iPad a área visível cresce ao rolar e o dock fixo ficava no meio — IIFE antes do `pfDockMais` acompanha o
+  `visualViewport` (gap = offsetTop+height − clientHeight → `#pfSidebar.style.bottom = 12 − gap`; com zoom de pinça não mexe). Não deu pra testar no iPad daqui.
 - v115.2547 **ano dos catálogos** ("no catálogo Spicer não aparecia o ano né?" → "sim"): Spicer diferenciais 2016 ganhou `anosVeic` {veículo:"1998–2007"} em cada aplicação
   (`anos_norm` no `gerar_diferenciais.py`; json NÃO foi regerado inteiro — o script de hoje perde 12 conversões da referência cruzada, os anos foram juntados no json antigo), levado
   pela importação (como o posVeic) → `a.anosV` nas diretas do `maqIndice`. Cruzetas Meritor: "(1970–1987)" no veículo do Cardan → `ccG[gk].anos` (`maqCcIdx`). Card: sem ano de

@@ -2063,3 +2063,9 @@
   na coluna # da lista de cotações (`pfMapaPorCotIdx` 10 s, `pfMapaCotSeloHtml` → `pfMapaAbrirPorId`) e "📄 Abrir a cotação N" no cabeçalho do mapa
   (`mapaRenderInfoHeader` → `pfMapaAbrirCotacao` = `pfCotacoesAbrirCot(null,id,soVer)`, só abre a cotação).
   corrigido (2510): gravava em 'solicitacoes_compras_v1' (a lista é `cad_solicitacoes_compras_v1`) — a solicitação automática nunca aparecia.
+- v115.2559 BUG ("no Leitor… precisamos de uma abordagem diferente pra peças de cardan… tem traços que não podem ser ignorados" — planilha PRODUCT_LIST_SPICER):
+  o `lpApplyRuleCase` lia "26-320" como qtd 26 + código 320. `lpEhCodCardan` (1–3 dígitos [.d] + traço + 1–4 dígitos/letras, mais partes: 41-230, 41-059A, 2-70-59,
+  6.5-40-191, 3-3-1601KX1, 5-280X) = código inteiro na planilha, no texto colado (1ª palavra) e no pedido à IA (`PF_LP_CARDAN_PROMPT`); "02-A17908"/"04-8603281" continuam qtd+código.
+  **Fotos LNG melhores** ("pega as fotos desses itens e coloca nos que não tiver foto da Spicer"): os arquivos `fotos-componentes-cardan/lng/<código>.jpg` (eram 164×110) foram
+  trocados pelas 149 fotos da planilha (500–1200 px) — item com a foto padrão LNG melhora sozinho, foto da Spicer (fotoSpicer/cadastro Spicer) continua; 13 códigos que não tinham
+  foto (`PF_CC_LNG_FOTOS_2026`) ganham a nova no item LNG sem foto (`ccFotosLng2026`, 1x por sessão no ccRender).

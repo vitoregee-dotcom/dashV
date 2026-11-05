@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2561</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2562</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2561</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2562</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -69867,6 +69867,18 @@ function pvEntregaLabel(t){return {Retirado:'Retira',Entregue:'Entrega',Transpor
 // v115.2073 - A pedido do Vitor ("bom mostrar um resumo da venda: margem, custo, valores totais, impostos"):
 // resumo dos itens do pedido na tela de confirmação. Impostos = estimativa de saída (ICMS da UF + PIS/COFINS),
 // mesma conta que o sistema usa pra formar o preço (vendasCalcVenda); crédito de entrada abatido no resultado.
+// v115.2562 - A pedido do Vitor ("nesse resumo deixa valor de itens comprados fora tbm e valor do estoque… quantidade de itens sem estoque e que não foi comprado…
+// esses números podem servir para relatórios"): cada item do pedido é dividido em DO ESTOQUE (até o saldo de quando entrou na cotação), COMPRADO FORA (qtd escolhida
+// no Decidir pelo mapa, it.mapaDec) e SEM ESTOQUE E NÃO COMPRADO (o resto). Grava no pedido (pedido.origem) pros relatórios.
+function pvOrigemItens(itens,v){v=v||window._venda||{};var o={est:0,fora:0,sem:0,nEst:0,nFora:0,nSem:0,qSem:0};
+  (itens||[]).forEach(function(it){var q=+it.qtd||0,pr=+it.venda||0;if(!q)return;var orig=(v.itens&&it._idx!=null)?v.itens[it._idx]:null;orig=orig||{};
+    var md=orig.mapaDec||it.mapaDec,qf=md?Math.min(q,+md.q||q):0,sal=Math.max(0,+(orig.saldo!=null?orig.saldo:it.saldo)||0),qe=Math.min(sal,q-qf),qs=q-qf-qe;
+    o.fora+=qf*pr;o.est+=qe*pr;o.sem+=qs*pr;if(qf)o.nFora++;if(qe)o.nEst++;if(qs>0){o.nSem++;o.qSem+=qs;}
+    it.origem={est:qe,fora:qf,sem:qs};});
+  ['est','fora','sem'].forEach(function(k){o[k]=Math.round(o[k]*100)/100;});return o;}
+function pvUltimosEnvios(clienteRazao,n){var raz=String(clienteRazao||'').toUpperCase();if(!raz)return [];
+  return (pvLoad()||[]).filter(function(p){return p&&String(p.clienteRazao||'').toUpperCase()===raz&&p.transportadora;}).sort(function(a,b){return new Date(b.data||0)-new Date(a.data||0);}).slice(0,n||5);}
+function pvEnvioEscolher(t){pvSetEntregaTipo('Transportadora');var i=document.getElementById('pvTranspInput');if(i)i.value=t;}
 function pvResumoVendaHtml(itens,uf){
   var COFINS=0.076,PIS=0.0165,icE=0.12;
   var iv=(typeof ICMS_SAIDA!=='undefined'&&ICMS_SAIDA[uf]!=null)?ICMS_SAIDA[uf]:0.12;
@@ -69892,6 +69904,12 @@ function pvResumoVendaHtml(itens,uf){
       cel('Crédito entrada',brl(cred),'#607080','ICMS 12% + PIS/COFINS')+
       cel('Resultado (est.)',brl(liq),liq>=0?'#1E8449':'#C00000',liqPct+'% da venda')+
     '</div>'+
+    (function(){var o=pvOrigemItens(itens);var pc=function(x){return tv?Math.round(x/tv*100)+'%':'';};
+      return '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px">'+
+        cel('📦 Do estoque',brl(o.est),'#1E8449',o.nEst+' ite'+(o.nEst===1?'m':'ns')+' · '+pc(o.est))+
+        cel('🛒 Comprado fora',brl(o.fora),'#B45309',o.nFora+' ite'+(o.nFora===1?'m':'ns')+' · '+pc(o.fora))+
+        cel('⚠ Sem estoque e não comprado',brl(o.sem),o.nSem?'#C00000':'#8a9ab0',o.nSem?(o.nSem+' ite'+(o.nSem===1?'m':'ns')+' · '+o.qSem+' pç'):'nenhum')+
+      '</div>';})()+ // v115.2562
     (semCusto?'<div style="font-size:11px;color:#9a3c00;margin-top:5px">⚠ '+semCusto+' item(ns) sem custo — o resumo fica incompleto.</div>':'')+
   '</div>';
 }
@@ -69944,6 +69962,9 @@ function pvAbrirConfirmacao(){
         }).join('')+
       '</div>'+
     '</div>'+
+    (function(){var E=pvUltimosEnvios(v.cliente&&v.cliente.razao,5);if(!E.length)return '';var dt=function(d){try{return new Date(d).toLocaleDateString('pt-BR');}catch(e){return '';}};
+      return '<div style="margin:-6px 0 14px"><div style="font-size:10.5px;font-weight:700;color:#8a9ab0;text-transform:uppercase;margin-bottom:4px">🚚 Últimos envios pra esse cliente</div>'+
+        E.map(function(p){var t=String(p.transportadora);return '<div onclick="pvEnvioEscolher(\''+pfEscHtml(t).replace(/'/g,"\\'")+'\')" title="Usar esta transportadora" style="display:flex;gap:8px;align-items:center;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:12px;color:#33465e;background:#F7F9FC;margin-bottom:3px"><b style="color:#1F4E79;flex:1">'+pfEscHtml(t)+'</b><span style="color:#8a9ab0">'+dt(p.data)+'</span><span style="color:#8a9ab0">'+pfEscHtml(p.numero||'')+'</span></div>';}).join('')+'</div>';})()+ // v115.2562
     '<div id="pvTranspWrap" style="display:none;margin-bottom:14px">'+
       '<div style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSec,#607080);text-transform:uppercase;margin-bottom:5px">Transportadora</div>'+
       '<input type="text" id="pvTranspInput" placeholder="Nome da transportadora" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:7px;font-size:13px;margin-bottom:6px">'+
@@ -69960,17 +69981,19 @@ function pvAbrirConfirmacao(){
     '</div>';
   document.body.appendChild(overlay);
   window._pvEntregaTipo=null;
-  try{pvCondMarcar();var _es=pvEntregaSugerida(v);if(_es){pvSetEntregaTipo(_es.tipo);if(_es.transp){var _ti=document.getElementById('pvTranspInput');if(_ti&&!_ti.value)_ti.value=_es.transp;}
-    var _sg=document.getElementById('pvEntregaSug');if(_sg)_sg.textContent='💡 sugerido: '+pvEntregaLabel(_es.tipo)+(_es.transp?' · '+_es.transp:'')+' — '+_es.por;}}catch(eS){} // v115.2558
+  // v115.2562 - A pedido do Vitor ("melhor não deixar já selecionado o transporte, mas umas linhas pontilhadas da sugestão"): a sugestão só fica tracejada; quem clica escolhe.
+  try{pvCondMarcar();var _es=pvEntregaSugerida(v);window._pvEntregaSugTipo=_es?_es.tipo:null;if(_es){pvSetEntregaTipo(null);if(_es.transp){var _ti=document.getElementById('pvTranspInput');if(_ti&&!_ti.value)_ti.value=_es.transp;}
+    var _sg=document.getElementById('pvEntregaSug');if(_sg)_sg.textContent='💡 sugerido: '+pvEntregaLabel(_es.tipo)+(_es.transp?' · '+_es.transp:'')+' — '+_es.por+' (clique pra confirmar)';}}catch(eS){} // v115.2558
 }
 
 function pvSetEntregaTipo(tipo){
   window._pvEntregaTipo=tipo;
   document.querySelectorAll('#pvEntregaBtns button').forEach(function(b){
-    var ativo=b.getAttribute('data-tipo')===tipo;
-    b.style.borderColor=ativo?'#1F4E79':'#e0e8f0';
+    var ativo=b.getAttribute('data-tipo')===tipo,sug=!tipo&&b.getAttribute('data-tipo')===window._pvEntregaSugTipo; // v115.2562 - sugestão tracejada
+    b.style.borderStyle=sug?'dashed':'solid';b.style.borderWidth=sug?'2px':'1.5px';
+    b.style.borderColor=ativo||sug?'#1F4E79':'#e0e8f0';
     b.style.background=ativo?'#1F4E79':'#fff';
-    b.style.color=ativo?'#fff':'#607080';
+    b.style.color=ativo?'#fff':sug?'#1F4E79':'#607080';
   });
   var tw=document.getElementById('pvTranspWrap');
   if(tw)tw.style.display=tipo==='Transportadora'?'block':'none';
@@ -70137,6 +70160,8 @@ function pvConfirmarCriarPedido(){
     status:'aberto',
     prazoPagamento:prazo,
     entrega:window._pvEntregaTipo,
+    entregaSugerida:window._pvEntregaSugTipo||'', // v115.2562
+    origem:(function(){try{var o=pvOrigemItens(itensSel,v);return {estoque:o.est,fora:o.fora,semEstoque:o.sem,nEstoque:o.nEst,nFora:o.nFora,nSemEstoque:o.nSem,qSemEstoque:o.qSem};}catch(e){return null;}})(), // v115.2562 - pra relatórios
     transportadora:transp,
     obs:obs,
     vendedor:(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)||(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||'', // v115.2078 - A pedido do Vitor: vendedor na tela de Separação

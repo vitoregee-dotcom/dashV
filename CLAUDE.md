@@ -1138,6 +1138,12 @@
   "fechar sem mudar"); WhatsApp/HTML também. Na tela: `#vendasPdfInfoBox` embaixo do resumo (`vendasPdfInfoHtml`: textarea + itens com info ou prazo ≠ IMEDIATO,
   ✏️ prazo/informação por prompt, ✕ não mandar). Valores com ponto de milhar (`vendasMoedaBR`).
 - v115.2533 BUG ("Alt+V só está exibindo… quando digito de novo não esconde"): o keydown repetia e trocava 2x — agora ignora `e.repeat` e 2º disparo em < 400 ms (`window._vendasInfoUlt`). "?", ▶ Tour e ⌨️ Atalhos da barra azul com 22 px. v115.2534: precisavam de `min-height:0` (regra geral `button{min-height:36px}` esticava). Fichas Técnicas (planilha de eixos DANA, direto no banco): + CASE W20E REFORÇADO (T 176/428), XCMG XS122 (192/75 — rolo de 1 cilindro, eixo único de tração = traseiro), MANITOU MLT-X 840-140 PS (D 212-C21 / T 212-10066639_APL-5), DL200 K1016630A ganhou T 176/365. W20E: ficha diz 413 D / 414 T, Aplicações dizem o contrário — esperando o Vitor.
+- v115.2539 ("quero poder confirmar o eixo, pq tá ficando amarelo" + "fui editar o nome, aí já criou outra"): componente SÓ na ficha (sem série nas
+  Aplicações) ganha "✓ Confirmar" na aba Componentes da máquina → `pfMaqCompConf_v1` {por:{chaveMaq:{GRUPO:{txt,por,em}}},ts} (sync), `l.conf` no `maqCompLinhas`;
+  conta no ✓/◐ (`maqConfInfo`), card e lista mostram ✓; "desfazer" no componente. Renomear a máquina na ficha (`ftSalvarForm` → `pfMaqRenomear`) leva junto as outras
+  fichas da mesma máquina, as séries marcadas (veiculo nas Aplicações), `pfMaqSerieComp_v1` e `pfMaqCompConf_v1`. Acerto 1x por navegador `pfMaqW20eRefArrumar`
+  (no `maqAbrir`, flag `pf_w20eref_2539`): REFORÇADO + REFORÇADA → CASE W20E REFORÇADA (D 176/413 e transmissão da W20E ligados, T DANA 176/428 confirmado, 176/414 sai).
+  Captura `docs/referencias/telas-maquinas/feito-confirmar-eixo.png`.
 - v115.2538 ("fui em Máquinas e já abriu aqui [CASE W20E] ao invés de abrir na lista"): o card Máquinas começa SEMPRE pela lista (`maqAbrir` zera `_maq.sel`;
   com a aba já aberta numa máquina, o `pfAtAbrir` do card volta pra lista). Quem pede uma máquina (`maqAbrirMaquina`: Alt+B, frota, links) marca `_maqAbrindoSel`
   e cai direto nela. Trocar de aba lá em cima continua mantendo a máquina aberta.

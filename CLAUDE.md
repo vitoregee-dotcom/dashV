@@ -1138,6 +1138,12 @@
   "fechar sem mudar"); WhatsApp/HTML também. Na tela: `#vendasPdfInfoBox` embaixo do resumo (`vendasPdfInfoHtml`: textarea + itens com info ou prazo ≠ IMEDIATO,
   ✏️ prazo/informação por prompt, ✕ não mandar). Valores com ponto de milhar (`vendasMoedaBR`).
 - v115.2533 BUG ("Alt+V só está exibindo… quando digito de novo não esconde"): o keydown repetia e trocava 2x — agora ignora `e.repeat` e 2º disparo em < 400 ms (`window._vendasInfoUlt`). "?", ▶ Tour e ⌨️ Atalhos da barra azul com 22 px. v115.2534: precisavam de `min-height:0` (regra geral `button{min-height:36px}` esticava). Fichas Técnicas (planilha de eixos DANA, direto no banco): + CASE W20E REFORÇADO (T 176/428), XCMG XS122 (192/75 — rolo de 1 cilindro, eixo único de tração = traseiro), MANITOU MLT-X 840-140 PS (D 212-C21 / T 212-10066639_APL-5), DL200 K1016630A ganhou T 176/365. W20E: ficha diz 413 D / 414 T, Aplicações dizem o contrário — esperando o Vitor.
+- v115.2536 **voltar pra cotação de onde veio** ("eu estava na cotação, fui no mapa pela cotação, saí e saiu da cotação também… revisão de sair ou voltar pra onde
+  estava, inclusive em outros lugares"): ir DA cotação pra outra tela (qualquer `pfNavigate` com a cotação aberta, Alt+B, Conferir no Aplicações) marca `window._pfVoltaCot`
+  {dest,de,ts} (`pfVoltaCotMarcar`; '*' = destino ainda não definido, a 1ª navegação vira o destino). O 1º "voltar" reabre a cotação (`pfVoltaCotTentar`/`pfVoltaCotAbrirDeNovo`):
+  `pfNavigate` pra uma tela de "voltar" (`PF_VOLTA_COT_BACK`: compras/home/vendas/ferramentas/cadastros/logistica/area_tecnica) troca o destino pela tela de antes e reabre;
+  `mapaBtnVoltarClick` (o botão vira "← Voltar pra cotação"), `atAplicVoltar`, `maqVoltar`, `ftVoltarCards`, `pfTelaAbaFechar` e `pfIrParaHome` também. Ir pra FRENTE pra
+  outra tela apaga a marca. Tela nova com "← Voltar" próprio (sem pfNavigate) → chamar `pfVoltaCotTentar()` no começo dele.
 - v115.2532 ("preciso de um botão aqui na cotação para eu ver os atalhos pq nem lembro mais"): "⌨️ Atalhos" na barra azul ao lado do ▶ Tour → `pfCotAtalhosAbrir`
   (lista fixa `PF_COT_ATALHOS`: na cotação / em qualquer tela + os configurados na Central de Atalhos via `pfAtalhosEfetivos`; "⚙️ Criar meus atalhos"). Atalho novo → linha no PF_COT_ATALHOS.
 - Barra dos itens: Código + Qtd + Adicionar numa caixa só; Série / modelo visível; Marcar aplicação / Colar print / Carregar arquivo BRANCOS

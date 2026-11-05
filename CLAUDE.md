@@ -1138,6 +1138,11 @@
   "fechar sem mudar"); WhatsApp/HTML também. Na tela: `#vendasPdfInfoBox` embaixo do resumo (`vendasPdfInfoHtml`: textarea + itens com info ou prazo ≠ IMEDIATO,
   ✏️ prazo/informação por prompt, ✕ não mandar). Valores com ponto de milhar (`vendasMoedaBR`).
 - v115.2533 BUG ("Alt+V só está exibindo… quando digito de novo não esconde"): o keydown repetia e trocava 2x — agora ignora `e.repeat` e 2º disparo em < 400 ms (`window._vendasInfoUlt`). "?", ▶ Tour e ⌨️ Atalhos da barra azul com 22 px. v115.2534: precisavam de `min-height:0` (regra geral `button{min-height:36px}` esticava). Fichas Técnicas (planilha de eixos DANA, direto no banco): + CASE W20E REFORÇADO (T 176/428), XCMG XS122 (192/75 — rolo de 1 cilindro, eixo único de tração = traseiro), MANITOU MLT-X 840-140 PS (D 212-C21 / T 212-10066639_APL-5), DL200 K1016630A ganhou T 176/365. W20E: ficha diz 413 D / 414 T, Aplicações dizem o contrário — esperando o Vitor.
+- v115.2541 ("na verdade pode tirar… pega esses números New Holland e coloca como conversão dos códigos Dana — essas peças já estão dentro do eixo ou
+  transmissão"): `pfSpicerRolForaTirar` (no `maqAbrir`, 1x por navegador, flag `pf_spirol_fora_2541`, lê `data/catalogos/spicer-rolamentos-2022.json`): a tabela de
+  rolamentos Spicer (modelo "TABELA DE ROLAMENTOS SPICER", veicDireto) sai das máquinas de FORA DE ESTRADA (veículo cujo `tiposVeic` não bate `MAQ_ROD_RE`; rodoviário fica),
+  em `APLIC_KEY` e nas `aplicacoes` das fichas; aplicação sem veículo nenhum = apagada (`pfMarcarAplicacoesDeletadas`). Os códigos originais com linha (NEW HOLLAND…) dessas
+  peças viram conversão nas fichas DANA/DANA-R do mesmo código (a importação não tinha posto nas fichas DANA que já existiam). Em 05/11: ~135 peças em 30 máquinas.
 - v115.2540 ("como eu faço para excluir se quiser?" + "deixa o campo ano visível no card"): "🗑 Excluir" no cabeçalho da página da máquina (`maqExcluirAbrir`/
   `maqExcluir`: fichas técnicas viram lápide, tira a máquina das séries marcadas, peças de manutenção apagadas com `pfMarcarAplicacoesDeletadas` + máquina do `pfPecasMaq_v1`,
   limpa `pfMaqSerieComp_v1`/`pfMaqCompConf_v1`; peças de tabela DANA/Meritor/Cardan ficam). **BUG junto:** ficha técnica apagada voltava na sync (lista junta por id) —

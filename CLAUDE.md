@@ -60,6 +60,8 @@
   v115.2176 deixava o layout de "tela pequena" no Mac). O app só roda dentro do iframe; "✕ Sair" no topo / Option+T voltam pra URL normal.
 
 ## Testar antes de publicar
+- **Comandos sem pedir permissão** (Vitor, 05/11/2026: "pq toda hora fica me perguntando isso?"): NUNCA montar script com heredoc (`cat > x <<EOF` / `python3 - <<EOF`)
+  quando o texto tem chaves `{}` com aspas — o app trava e pede permissão. Escrever o script com a ferramenta Write no scratchpad e rodar só `node arquivo.js` / `python3 arquivo.py`.
 - Sintaxe: extrair os `<script>` inline e rodar `new Function(bloco)` em cada um.
 - Navegador: Playwright (Chromium em /opt/pw-browsers) com `python3 -m http.server`;
   abortar requisições externas (`page.route(/^https?:\/\/(?!localhost)/, r=>r.abort())`),

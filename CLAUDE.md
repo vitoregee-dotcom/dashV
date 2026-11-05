@@ -1146,6 +1146,7 @@
   **v115.2542: SEGURADO (chamada comentada no `maqAbrir`)** — os 10 rolamentos da W20E NÃO estão na transmissão 12.1HR28421-503 nem nos eixos 176/413/414; esperando o Vitor decidir.
   **v115.2543 ("deixa essa lista oculta então, por enquanto"):** `PF_MAQ_SPICER_ROL_OCULTA=true` → o `maqIndice` não põe a tabela de rolamentos Spicer nas máquinas de
   FORA DE ESTRADA (veículo cujo tipo não bate `MAQ_ROD_RE`); dados intactos, rodoviário continua. Mostrar de novo = `false`.
+- v115.2546 BUG ("W20G não abriu com o Alt+B"): com a aba Máquinas já aberta e outra tela na frente, `maqAbrirMaquina` só redesenhava a aba escondida — agora só redesenha direto se `#maqTela` está à vista; senão passa pelo `pfAtAbrir` (→ `pfAtIr`, que navega).
 - v115.2545 **📋 Outras máquinas** (print do site da CASE: eixo 87606958 = DANA 176/428 em W20E/W20F/W20G T3/W20G T3 FERTILIZER → "faça a parte do colar print"; "só na reforçada"):
   botão em cada componente da aba Componentes (`maqAplAbrir(chave,g)`, janela `pfNcJanela('maqAplJan')`): 📋 Colar print / ⬆ arquivo / Ctrl+V (imagem → IA `maqAplIA`) ou texto
   da página (`maqAplParse`/`maqAplLinha`: modelo antes da palavra de tipo `MAQ_APL_TIPO_RE` — "W20G WHEEL LOADER W20G T3 - BR" = W20G T3 —, tipo `maqAplTipo`, datas MM/AA → "2008–2016").

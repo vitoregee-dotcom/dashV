@@ -2072,3 +2072,10 @@
 - v115.2560 ("talvez seja bom colocarmos filtro aqui. por fornecedores, por solicitante e cliente" — Mesa, 📨 Pra comprar agora): 3 selects embaixo do link da coluna
   (`pfMsSolFiltroHtml`, opções tiradas dos itens com a quantidade; `pfMsSolFiltro(campo,v)` → `window._pfMs.sf` {f,s,c}; ✕ limpa). Contador "N de M"; os números de cima
   continuam contando tudo. Captura `docs/referencias/mesa-filtros/feito.png`.
+- v115.2561 **🧴 Material de uso e consumo** ("as solicitações de materiais diversos pra consumo vão pra onde?" → opção C): 📨 Chamado pro Compras, tipo
+  "Material de uso e consumo" (`pfChTipoSet` põe o modelo `PF_UC_MODELO`, um item por linha: quantidade + o que é) → na Mesa, topo do 📨 Pra comprar agora
+  (`pfMsUcPendentes`: chamado de compras aberto/andamento com esse tipo e sem solicitação) com "✔ Aceitar → solicitação" (`pfMsUcAceitar`: `pfMsUcItens` lê as linhas,
+  solicitação `usoConsumo:true` + `chamadoId`/`chamadoNum`/`setorPedido`, itens SEM código; chamado ganha "pegar" + mensagem com o nº). `pfMsSolItens` aceita item sem
+  ref quando `s.usoConsumo` (`x.uc` → etiqueta 🧴, "pediu X"). Captura `docs/referencias/uso-consumo/feito.png`.
+  BUG junto ("quando tô na mesa, não consigo ir pra outro lugar?"): Mesa/Gestão/Chamados (tela cheia z 58) ficavam por cima e o dock trocava a tela POR TRÁS —
+  listener de click em captura no `#pfSidebar` (menos o ⋯) fecha as três antes (perto do `pfMesaFechar`).

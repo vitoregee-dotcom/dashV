@@ -1148,6 +1148,7 @@
   **v115.2542: SEGURADO (chamada comentada no `maqAbrir`)** — os 10 rolamentos da W20E NÃO estão na transmissão 12.1HR28421-503 nem nos eixos 176/413/414; esperando o Vitor decidir.
   **v115.2543 ("deixa essa lista oculta então, por enquanto"):** `PF_MAQ_SPICER_ROL_OCULTA=true` → o `maqIndice` não põe a tabela de rolamentos Spicer nas máquinas de
   FORA DE ESTRADA (veículo cujo tipo não bate `MAQ_ROD_RE`); dados intactos, rodoviário continua. Mostrar de novo = `false`.
+- v115.2552 ("essas colunas não precisam estar alinhadas?" — página da máquina, tabelas de Cruzetas/Pontuvas do cardan): as tabelas do `maqCardanHtml` têm `table-layout:fixed` + colgroup 20/38/32/10% — mesma largura de coluna em todas.
 - v115.2551 BUG ("cadê a transmissão que coloquei na ficha?" — CASE W-18): a ficha nova (pelo "+ Preencher ficha técnica" da máquina) saiu SEM marca e modelo
   (só transmissão DANA HR18.000) e não ligou em nenhuma máquina. `maqNovaFicha` esperava 120 ms fixos pra preencher; agora tenta até os campos existirem (até 4 s)
   e guarda `window._ftNovaMaq` (zerado no `ftAbrirForm`); o `ftSalvarForm` usa essa máquina se o modelo ficou vazio e NÃO salva ficha sem modelo (avisa).

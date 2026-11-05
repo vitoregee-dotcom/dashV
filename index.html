@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2540</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2541</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2540</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2541</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -97906,7 +97906,46 @@ function maqExcluir(chave){
   maqIdxLimpar();try{maqRender();}catch(e){}
   try{pfChToast('🗑 '+x.nome+' excluída');}catch(e){}
 }
+// v115.2541 - A pedido do Vitor ("na verdade pode tirar… pega esses números New Holland e coloca como conversão dos códigos Dana — essas peças já
+// estão dentro do eixo ou da transmissão"): a tabela de rolamentos do catálogo Spicer (modelo "TABELA DE ROLAMENTOS SPICER", veicDireto) sai das
+// máquinas de FORA DE ESTRADA (pá carregadeira, trator…; quem é rodoviário pelo MAQ_ROD_RE fica — caminhão/utilitário/ônibus não têm outro catálogo).
+// Os códigos originais com linha (NEW HOLLAND…) dessas peças viram conversão nas fichas DANA/DANA-R do mesmo código (sem DANA = ficam na ficha que já
+// tem). 1x por navegador (flag pf_spirol_fora_2541); aplicação que fica sem nenhum veículo é apagada (prod_aplicacoes_deletados).
+function pfSpicerRolForaTirar(){
+  try{if(localStorage.getItem('pf_spirol_fora_2541'))return;}catch(e){return;}
+  fetch('data/catalogos/spicer-rolamentos-2022.json').then(function(r){return r.json();}).then(function(d){
+    var conv={};((d&&d.itens)||[]).forEach(function(x){var c=(x.conversoes||[]).filter(function(v){return v&&v.ref&&v.linha;});if(c.length)conv[pfBuscaAN(x.codigo)]=(conv[pfBuscaAN(x.codigo)]||[]).concat(c);});
+    var ehRod=function(t){return MAQ_ROD_RE.test(String(t||''));};
+    var ag=Date.now(),cods={},apagar=[],nEd=0;
+    var mexe=function(a){if(!a||a.modelo!=='TABELA DE ROLAMENTOS SPICER'||!a.veicDireto)return 0;
+      var vs=String(a.veiculo||'').split(',').map(function(v){return v.trim();}).filter(Boolean),tv=a.tiposVeic||{};
+      var fica=vs.filter(function(v){var t=tv[v]||a.tipoVeic;return !t||ehRod(t);});if(fica.length===vs.length)return 0;
+      cods[pfBuscaAN(a.codigo)]=1;
+      if(!fica.length)return -1;
+      var nt={};fica.forEach(function(v){if(tv[v])nt[v]=tv[v];});a.veiculo=fica.join(', ');a.tiposVeic=nt;
+      var tt=fica.map(function(v){return nt[v];}).filter(Boolean);if(tt.length)a.tipoVeic=tt[0];a.ts=ag;a.tsMod=ag;return 1;};
+    var ap=aplicLoad()||[],fica=ap.filter(function(a){var r=mexe(a);if(r===-1){apagar.push(aplicChaveUnica(a));return false;}if(r===1)nEd++;return true;});
+    if(apagar.length)pfMarcarAplicacoesDeletadas(apagar);
+    if(apagar.length||nEd)aplicSave(fica);
+    var pl=cadLoad(PROD_KEY)||[],nP=0,nC=0;
+    pl.forEach(function(pr){var mu=false;
+      if(Array.isArray(pr.aplicacoes)){var antes=pr.aplicacoes.length;pr.aplicacoes=pr.aplicacoes.filter(function(a){return mexe(a)!==-1;});if(pr.aplicacoes.length!==antes)mu=true;
+        pr.aplicacoes.forEach(function(a){if(a&&a.tsMod===ag)mu=true;});}
+      if(mu){pr.ts=ag;pr.tsMod=ag;nP++;}});
+    Object.keys(cods).forEach(function(k){var cs=conv[k];if(!cs)return;
+      var alvo=pl.filter(function(pr){return pfBuscaAN(pr.codigo)===k&&/^DANA\b/.test(String(pr.marca||'').toUpperCase());});
+      alvo.forEach(function(pr){pr.conversoes=Array.isArray(pr.conversoes)?pr.conversoes:[];var mu=false;
+        cs.forEach(function(c){if(pr.conversoes.some(function(v){return pfBuscaAN(v.ref)===pfBuscaAN(c.ref);}))return;pr.conversoes.push({ref:c.ref,desc:'código original '+c.linha,linha:c.linha});mu=true;nC++;});
+        if(mu){pr.ts=ag;pr.tsMod=ag;}});});
+    if(nP||nC)cadSave(PROD_KEY,pl);
+    if(typeof pfSyncPush==='function')try{pfSyncPush([APLIC_KEY,PROD_KEY,'prod_aplicacoes_deletados']);}catch(e){}
+    localStorage.setItem('pf_spirol_fora_2541','1');window._aplicBuscarCache=null;maqIdxLimpar();
+    console.log('v115.2541: tabela Spicer fora de estrada — '+apagar.length+' apagada(s), '+nEd+' editada(s), '+nC+' conversão(ões) nas fichas DANA');
+    try{if(document.getElementById('maqTela'))maqRender();}catch(e){}
+  }).catch(function(e){console.warn('spicer rol fora',e);});
+}
 function maqAbrir(){
+  try{pfSpicerRolForaTirar();}catch(e){} // v115.2541
   try{pfMaqW20eRefArrumar();}catch(e){} // v115.2539
   var el=document.getElementById('areaTecnicaBody');if(!el)return;
   // v115.2538 - A pedido do Vitor ("fui em Máquinas e já abriu aqui [na CASE W20E] ao invés de abrir na lista"): abrir o card Máquinas

@@ -1146,6 +1146,12 @@
   **v115.2542: SEGURADO (chamada comentada no `maqAbrir`)** — os 10 rolamentos da W20E NÃO estão na transmissão 12.1HR28421-503 nem nos eixos 176/413/414; esperando o Vitor decidir.
   **v115.2543 ("deixa essa lista oculta então, por enquanto"):** `PF_MAQ_SPICER_ROL_OCULTA=true` → o `maqIndice` não põe a tabela de rolamentos Spicer nas máquinas de
   FORA DE ESTRADA (veículo cujo tipo não bate `MAQ_ROD_RE`); dados intactos, rodoviário continua. Mostrar de novo = `false`.
+- v115.2545 **📋 Outras máquinas** (print do site da CASE: eixo 87606958 = DANA 176/428 em W20E/W20F/W20G T3/W20G T3 FERTILIZER → "faça a parte do colar print"; "só na reforçada"):
+  botão em cada componente da aba Componentes (`maqAplAbrir(chave,g)`, janela `pfNcJanela('maqAplJan')`): 📋 Colar print / ⬆ arquivo / Ctrl+V (imagem → IA `maqAplIA`) ou texto
+  da página (`maqAplParse`/`maqAplLinha`: modelo antes da palavra de tipo `MAQ_APL_TIPO_RE` — "W20G WHEEL LOADER W20G T3 - BR" = W20G T3 —, tipo `maqAplTipo`, datas MM/AA → "2008–2016").
+  Conferência (`maqAplStatus`: é esta / já ligada / ⚠ já tem OUTRO componente do tipo = desmarcada / existe / 🆕). `maqAplGravarCore`: série ligada → `maqSerieMaquinasSet`;
+  componente só da ficha → copia modelo/fabricante/PN pra ficha (cria ficha mínima com categoria e ano) + confirmação `pfMaqCompConf_v1`. `pfMaqCase428Ligar` (1x, flag
+  `pf_case428_2545`): 176/428 em CASE W20F (2017–2023), W20G T3 e W20G T3 FERTILIZER (2023–); a W20E comum continua com o 176/414. Captura `feito-outras-maquinas.png`.
 - v115.2544 ("deixa a série e ano visível"): o card da máquina tem SEMPRE a linha "SÉRIE … · ANO …" (`maqSerieAnoLinha`, "—" quando a ficha não diz; até 3 séries + "+N") no lugar do ANO ao lado do tipo e das etiquetas `maqSeriesHtml` do card. Captura `docs/referencias/telas-maquinas/feito-serie-ano.png`.
 - v115.2540 ("como eu faço para excluir se quiser?" + "deixa o campo ano visível no card"): "🗑 Excluir" no cabeçalho da página da máquina (`maqExcluirAbrir`/
   `maqExcluir`: fichas técnicas viram lápide, tira a máquina das séries marcadas, peças de manutenção apagadas com `pfMarcarAplicacoesDeletadas` + máquina do `pfPecasMaq_v1`,

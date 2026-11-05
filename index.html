@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2556</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2557</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2556</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2557</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -34983,6 +34983,7 @@ function cadRenderClientes(el){
   var html='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">';
   html+='<div style="font-size:13px;font-weight:700;color:var(--pf-fx-marca,#1F4E79)">'+filtered.length+' de '+clist.length+' cliente(s)</div>';
   html+='<div style="display:flex;gap:8px"><button onclick="pfClassificarClientesAbrir()" style="background:#fff;color:var(--pf-fx-marca,#1F4E79);border:1.5px solid var(--pf-fx-marca,#1F4E79);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:700">🏷️ Classificar clientes</button>'; // v115.2098
+  html+='<button onclick="pfEntImpAbrir()" title="Planilha do ERP com limite de crédito, dados fiscais, prazos e entrega — acha o cliente pelo CNPJ/código" style="background:#fff;color:var(--pf-fx-marca,#1F4E79);border:1.5px solid var(--pf-fx-marca,#1F4E79);border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13px;font-weight:700">📥 Importar do ERP</button>'; // v115.2557
   html+='<button onclick="cadNovoCliente()" style="background:var(--pf-fx-marca,#1F4E79);color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:13px;font-weight:700">+ Novo Cliente</button></div>';
   html+='</div>';
   if(!clist.length){
@@ -37483,6 +37484,7 @@ cadFormCliente = function(data, idx){
       '<option value="consumo"'+(d.finalidade==='consumo'?' selected':'')+'>Uso e Consumo</option>'+
     '</select></div>';
   html += '</div>';
+  html += pfEntFormHtml(d); // v115.2557 - abas Comercial / Fiscal / Financeiro / Entrega
 
   // Linhas Principais
   html += '<div style="margin-top:18px">';
@@ -37852,6 +37854,178 @@ function cadRefsRemoverLinha(tipo,i){
   var cont=document.getElementById('cadRefsContainer');
   if(cont)cont.innerHTML=cadRenderTodasRefs();
 }
+// v115.2557 - A pedido do Vitor ("campos que precisam ter no cadastro de entidades… classificações fiscais e também financeiras… endereço de entrega" →
+// prévia docs/referencias/cadastro-entidade/ → "à mão ou por envio de arquivo de cadastro e talvez por planilha de ERP" + "já liga agora"):
+// 4 abas no cadastro do cliente (💼 Comercial · 🧾 Fiscal · 💳 Financeiro · 🚚 Entrega), guardadas em cad.ent {chave:valor}. Campo novo = linha no PF_ENT_CAMPOS
+// [aba, chave, rótulo, tipo (t texto | n número | d data | s select | c caixinha | a texto longo), opções, dica, sinônimos pra importar planilha].
+// Já valem: ICMS/isenções/Suframa/contribuinte na conta do preço (pfEntFiscal → vendasCalcVenda/vendasPctDaVenda/calcMargemLiq), IPI/ST isento some do item
+// (vendasItemImpostos), prazo normal = condição da cotação, transportadora/frete no pedido, avisos de limite de crédito, prazo limite e recuperação judicial.
+var PF_ENT_ABAS=[['com','💼 Comercial'],['fis','🧾 Fiscal'],['fin','💳 Financeiro'],['ent','🚚 Entrega']];
+var PF_SN=['','SIM','NÃO'];
+var PF_ENT_CAMPOS=[
+  ['com','tipoCliErp','Tipo de cliente (ERP)','t','','ex.: 3 · Prospecção','tipo cliente'],
+  ['com','classif','Classificação','t','','A / B / C…','classificacao'],
+  ['com','representante','Representante','t','','','representante'],
+  ['com','outrosVend','Outros vendedores','t','','separados por vírgula','outros vendedores'],
+  ['com','tabela','Tabela de preço','t','','','tabela'],
+  ['com','preco','Preço','t','','','preco'],
+  ['com','contratoPct','Contrato (%)','n','','','contrato'],
+  ['com','comissaoPct','Comissão (%)','n','','vazio = a regra da empresa (1%)','comissao'],
+  ['com','capitalSocial','Capital social (R$)','n','','','capital social'],
+  ['com','limiteCredito','Limite de crédito (R$)','n','','a cotação avisa quando passa','limite de credito|limite credito'],
+  ['com','limiteValidade','Validade do limite','d','','a cotação avisa quando venceu','validade limite'],
+  ['com','limitador','Limitador automático (R$)','n','','','limitador'],
+  ['com','descontoPct','Desconto (%)','n','','','desconto'],
+  ['com','fretePct','Frete (%)','n','','','frete %|frete pct'],
+  ['com','libComprar','Liberado comprar (empresas)','t','','ex.: 01, 02, 03, 04','lib comprar|liberado comprar'],
+  ['com','recJudicial','Cliente em recuperação judicial','c','','pedido só com o gestor','recuperacao judicial'],
+  ['com','semAvisoCobranca','Não receber aviso de cobrança por e-mail','c','','','aviso cobranca'],
+  ['com','tags','Tags','t','','separadas por vírgula','tags'],
+  ['fis','contribuinte','Contribuinte de ICMS','s',['','SIM','NÃO','ISENTO'],'NÃO = cobra DIFAL como consumidor final','contribuinte'],
+  ['fis','ramo','Ramo de atividade','t','','','ramo de atividade|ramo'],
+  ['fis','cnae','CNAE','t','','','cnae'],
+  ['fis','tipoEmp','Tipo empresa (contábil)','t','','','tipo emp|tipo empresa'],
+  ['fis','destinoPadrao','Destino padrão','t','','','destino padrao'],
+  ['fis','codFiscal','Código fiscal','t','','','codigo fiscal'],
+  ['fis','descEspeciais','Descontos especiais','t','','','desctos especiais|descontos especiais'],
+  ['fis','isPis','Isento PIS','s',PF_SN,'entra na conta do preço','isento pis'],
+  ['fis','isCofins','Isento COFINS','s',PF_SN,'entra na conta do preço','isento cofins'],
+  ['fis','isIcms','Isento ICMS','s',PF_SN,'entra na conta do preço','isento icms'],
+  ['fis','isIpi','Isento IPI','s',PF_SN,'IPI some da cotação e do PDF','isento ipi'],
+  ['fis','isSt','Isento ST','s',PF_SN,'ST some da cotação e do PDF','isento st'],
+  ['fis','aliqIcms','Alíquota ICMS (%)','n','','vazio = a do estado','aliquota icms'],
+  ['fis','aliqIntIcms','Alíquota interna ICMS (%)','n','','usada no DIFAL do consumidor','aliq int icms|aliquota interna'],
+  ['fis','suframa','Suframa','t','','com validade = ICMS e PIS/COFINS zerados','suframa'],
+  ['fis','suframaVal','Validade Suframa','d','','','validade suframa'],
+  ['fis','stIcmsDb','ST por ICMS DB','c','','','st por icms db'],
+  ['fis','ignorarSemSt','Ignorar "SEM ST" do cadastro do produto','c','','','ignorar sem st'],
+  ['fin','prazo1','Prazo normal de pagamento','t','','ex.: 28/56 DDL — vira a condição da cotação','prazo normal|prazos normais|prazo pagto|condicao de pagamento|condicao pagamento'],
+  ['fin','prazo2','Prazo normal 2','t','','','prazo normal 2'],
+  ['fin','prazoLimite','Prazo limite (dias)','n','','a cotação avisa se a condição passar disso','prazo limite'],
+  ['fin','prazoSmart','Prazo Smart (apps)','t','','','prazo smart'],
+  ['fin','formasPgto','Formas de pagamento','t','','ex.: Boleto, PIX','formas de pagamento|forma de pagamento'],
+  ['fin','contaBanc','Conta bancária','t','','','conta bancaria'],
+  ['fin','tipoDoc','Tipo de documento','t','','ex.: Boleto','tp docum|tipo de documento|tipo documento'],
+  ['fin','diasVenc','Aceita vencimento só nos dias','t','','ex.: 10, 20, 30','aceita vencimento|dias vencimento'],
+  ['fin','diasSemana','Forçar dias da semana','t','','','forcar dias'],
+  ['fin','vencEspecial','Vencimento especial','s',PF_SN,'','vencto especial|vencimento especial'],
+  ['fin','semBoleto','Não gerar boleto na emissão da NF (DDA)','c','','','nao gerar boleto|dda'],
+  ['ent','transportadora','Transportadora','t','','vem preenchida no pedido de venda','transportadora'],
+  ['ent','frete','Frete','s',['','EMITENTE (CIF)','DESTINATÁRIO (FOB)','TERCEIROS','SEM FRETE'],'','frete|modalidade frete'],
+  ['ent','endEntrega','Endereço de entrega','a','','vazio = o mesmo do cadastro','endereco de entrega|end entrega'],
+  ['ent','placa','Placa do veículo','t','','','placa'],
+  ['ent','intervaloContato','Intervalo contato','t','','','intervalo contato'],
+  ['ent','local','Local','t','','ex.: Portaria 2','local'],
+  ['ent','horario','Horário','t','','ex.: 7h–16h','horario']
+];
+function pfEntDe(cad){return (cad&&cad.ent&&typeof cad.ent==='object')?cad.ent:{};}
+function pfEntNum(v){if(v==null||v==='')return null;var s=String(v).replace(/[R$\s%]/g,'');if(/,\d{1,2}$/.test(s))s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'');var n=parseFloat(s);return isFinite(n)?n:null;}
+function pfEntSim(v){return /^S(IM)?$|^1$|^TRUE$|^X$/i.test(String(v==null?'':v).trim());}
+function pfEntDataOk(v){if(!v)return null;var s=String(v).trim(),m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);if(m){var a=+m[3];if(a<100)a+=2000;return new Date(a,+m[2]-1,+m[1]);}var d=new Date(s);return isNaN(d)?null:d;}
+// formulário
+function pfEntFormHtml(d){
+  var E=pfEntDe(d),aba=window._pfEntAba||'com';
+  var inp='width:100%;padding:9px 12px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:8px;font-size:12px;background:#fff;box-sizing:border-box;color:#1a2332';
+  var rot=function(t,dica){return '<label style="font-size:11px;font-weight:700;color:var(--pf-fx-textoSec,#607080);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px"'+(dica?' title="'+pfEscHtml(dica)+'"':'')+'>'+pfEscHtml(t)+(dica?' <span style="text-transform:none;font-weight:500;color:#8a9ab0;letter-spacing:0">· '+pfEscHtml(dica)+'</span>':'')+'</label>';};
+  var campo=function(c){var k=c[1],v=E[k]==null?'':E[k],id='pfEnt_'+k;
+    if(c[3]==='c')return '<label style="display:flex;gap:7px;align-items:center;font-size:12.5px;color:#33465e;cursor:pointer;padding-top:6px"><input type="checkbox" id="'+id+'"'+(v?' checked':'')+' style="width:16px;height:16px"> '+pfEscHtml(c[2])+(c[5]?' <span style="color:#8a9ab0;font-size:11px">· '+pfEscHtml(c[5])+'</span>':'')+'</label>';
+    if(c[3]==='s')return '<div>'+rot(c[2],c[5])+'<select id="'+id+'" style="'+inp+'">'+(c[4]||[]).map(function(o){return '<option value="'+pfEscHtml(o)+'"'+(String(v)===o?' selected':'')+'>'+(o?pfEscHtml(o):'—')+'</option>';}).join('')+'</select></div>';
+    if(c[3]==='a')return '<div style="grid-column:1/-1">'+rot(c[2],c[5])+'<textarea id="'+id+'" rows="2" style="'+inp+';resize:vertical;font-family:inherit">'+pfEscHtml(v)+'</textarea></div>';
+    return '<div>'+rot(c[2],c[5])+'<input id="'+id+'" type="'+(c[3]==='d'?'date':'text')+'" value="'+pfEscHtml(v)+'"'+(c[3]==='n'?' inputmode="decimal"':'')+' style="'+inp+'"></div>';};
+  var h='<div id="pfEntBloco" style="margin-top:18px;border:1.5px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:10px;overflow:hidden">'+
+    '<div style="display:flex;gap:4px;padding:8px 10px 0;background:#F4F7FB;border-bottom:1px solid #dde4ee;flex-wrap:wrap;align-items:flex-end">';
+  PF_ENT_ABAS.forEach(function(a){var on=a[0]===aba,n=PF_ENT_CAMPOS.filter(function(c){return c[0]===a[0]&&E[c[1]]!=null&&E[c[1]]!==''&&E[c[1]]!==false;}).length;
+    h+='<button type="button" onclick="pfEntAba(\''+a[0]+'\')" data-pfentaba="'+a[0]+'" style="padding:8px 14px;border-radius:8px 8px 0 0;font-size:12.5px;font-weight:800;cursor:pointer;border:1px solid '+(on?'#dde4ee':'transparent')+';border-bottom-color:'+(on?'#fff':'transparent')+';margin-bottom:-1px;background:'+(on?'#fff':'transparent')+';color:'+(on?'#1F4E79':'#607080')+';min-height:0">'+a[1]+(n?' <span style="font-size:10.5px;background:#E8F0FA;color:#1F4E79;border-radius:8px;padding:0 6px">'+n+'</span>':'')+'</button>';});
+  h+='</div>';
+  PF_ENT_ABAS.forEach(function(a){
+    h+='<div data-pfentpainel="'+a[0]+'" style="padding:14px;display:'+(a[0]===aba?'grid':'none')+';grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px 14px">'+
+      PF_ENT_CAMPOS.filter(function(c){return c[0]===a[0];}).map(campo).join('')+'</div>';});
+  return h+'<div style="padding:0 14px 12px;font-size:11.5px;color:#8a9ab0">💡 Pra preencher de uma vez: o 📄 Ler documento do cadastro (lá em cima) também lê estes campos; e em Cadastros → Clientes tem o 📥 Importar do ERP (planilha).</div></div>';
+}
+function pfEntAba(a){window._pfEntAba=a;document.querySelectorAll('[data-pfentpainel]').forEach(function(p){p.style.display=p.getAttribute('data-pfentpainel')===a?'grid':'none';});
+  document.querySelectorAll('[data-pfentaba]').forEach(function(b){var on=b.getAttribute('data-pfentaba')===a;b.style.background=on?'#fff':'transparent';b.style.color=on?'#1F4E79':'#607080';b.style.borderColor=on?'#dde4ee':'transparent';b.style.borderBottomColor=on?'#fff':'transparent';});}
+function pfEntColetar(){var o={},tem=false;PF_ENT_CAMPOS.forEach(function(c){var el=document.getElementById('pfEnt_'+c[1]);if(!el)return;tem=true;
+    var v=c[3]==='c'?!!el.checked:String(el.value||'').trim();if(v===''||v===false)return;o[c[1]]=c[3]==='c'?true:v;});
+  return tem?o:null;}
+// fiscal → conta do preço
+function pfEntFiscal(cad,uf){
+  var E=pfEntDe(cad),r={fin:null,icmsV:null,icmsInt:null,semPis:false,semCofins:false,isIpi:false,isSt:false,suframa:false,txt:[]};
+  if(!cad)return r;
+  var hoje=new Date();hoje.setHours(0,0,0,0);
+  var sv=pfEntDataOk(E.suframaVal);if(E.suframa&&(!sv||sv>=hoje)){r.suframa=true;r.icmsV=0;r.semPis=true;r.semCofins=true;r.txt.push('Suframa: ICMS e PIS/COFINS zerados');}
+  if(pfEntSim(E.isIcms)){r.icmsV=0;r.txt.push('isento de ICMS');}
+  if(pfEntSim(E.isPis)){r.semPis=true;r.txt.push('isento de PIS');}
+  if(pfEntSim(E.isCofins)){r.semCofins=true;r.txt.push('isento de COFINS');}
+  if(pfEntSim(E.isIpi)){r.isIpi=true;}
+  if(pfEntSim(E.isSt)){r.isSt=true;}
+  if(r.icmsV==null){var a=pfEntNum(E.aliqIcms);if(a!=null&&a>=0&&a<=30){r.icmsV=a/100;r.txt.push('ICMS '+String(a).replace('.',',')+'% do cadastro');}}
+  var ai=pfEntNum(E.aliqIntIcms);if(ai!=null&&ai>0&&ai<=30)r.icmsInt=ai/100;
+  if(/^N/i.test(String(E.contribuinte||''))){r.fin='consumo';r.txt.push('não contribuinte (DIFAL)');}
+  return r;
+}
+function pfEntCadDaCotacao(){try{return (typeof pfVR2ClienteCad==='function'&&window._venda&&window._venda.cliente)?pfVR2ClienteCad(window._venda.cliente):null;}catch(e){return null;}}
+// avisos na cotação
+function pfEntAvisos(cad,v){var av=[],E=pfEntDe(cad);if(!cad)return av;
+  if(E.recJudicial)av.push({cor:'v',ic:'⚖️',html:'<b>Cliente em recuperação judicial</b> — pedido só com o gestor.'});
+  var hoje=new Date();hoje.setHours(0,0,0,0);
+  var lim=pfEntNum(E.limiteCredito),val=pfEntDataOk(E.limiteValidade);
+  if(lim!=null&&lim>0){
+    if(val&&val<hoje)av.push({cor:'a',ic:'💳',html:'<b>Limite de crédito vencido</b> em '+val.toLocaleDateString('pt-BR')+' (R$ '+vendasMoedaBR(lim)+').'});
+    var tot=0;try{(v&&v.itens||[]).forEach(function(it){var cu=it.custoOverride!=null?it.custoOverride:it.custo,ve=it.vendaOverride!=null?it.vendaOverride:(cu?vendasCalcVenda(cu,v.uf,v.margem):0);tot+=(+ve||0)*(+it.qtd||1);});}catch(e){}
+    var venc=0;try{var crv=crResumoCliente(cad.razao);if(crv)venc=+crv.valor||0;}catch(e){}
+    if(tot+venc>lim)av.push({cor:'v',ic:'💳',html:'<b>Passa do limite de crédito</b> — cotação R$ '+vendasMoedaBR(tot)+(venc?' + vencido R$ '+vendasMoedaBR(venc):'')+' · limite R$ '+vendasMoedaBR(lim)+'.'});
+  }
+  var pl=pfEntNum(E.prazoLimite);if(pl&&v&&v.condicao){var ds=(String(v.condicao).match(/\d+/g)||[]).map(Number).filter(function(n){return n<400;});var mx=ds.length?Math.max.apply(null,ds):0;
+    if(mx>pl)av.push({cor:'a',ic:'📅',html:'<b>Condição passa do prazo limite</b> — '+pfEscHtml(v.condicao)+' (até '+pl+' dias pro cliente).'});}
+  var F=pfEntFiscal(cad);if(F.txt.length)av.push({cor:'z',ic:'🧾',html:'<b>Fiscal:</b> '+pfEscHtml(F.txt.join(' · '))+(F.isIpi||F.isSt?' · isento de '+[F.isIpi?'IPI':'',F.isSt?'ST':''].filter(Boolean).join(' e '):'')+' — já entra no preço.'});
+  else if(F.isIpi||F.isSt)av.push({cor:'z',ic:'🧾',html:'<b>Fiscal:</b> isento de '+[F.isIpi?'IPI':'',F.isSt?'ST':''].filter(Boolean).join(' e ')+'.'});
+  var en=[E.transportadora?'transportadora '+E.transportadora:'',E.frete?'frete '+E.frete:'',E.local,E.horario].filter(Boolean);
+  if(en.length||E.endEntrega)av.push({cor:'z',ic:'🚚',html:'<b>Entrega:</b> '+pfEscHtml(en.join(' · '))+(E.endEntrega?(en.length?' · ':'')+'<span title="'+pfEscHtml(E.endEntrega)+'">endereço próprio de entrega</span>':'')});
+  return av;}
+// importar planilha do ERP (Cadastros → Clientes)
+function pfEntImpN(s){return String(s==null?'':s).replace(/%/g,' PCT ').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
+function pfEntImpAbrir(){
+  var ov=pfNcJanela('pfEntImpJan','📥 Importar dados do ERP pro cadastro dos clientes','Planilha com uma linha por cliente — acha o cliente pelo CNPJ ou pelo código e preenche as abas Comercial / Fiscal / Financeiro / Entrega',
+    '<div style="font-size:13px;color:#33465e;margin-bottom:10px">A 1ª linha precisa ter os nomes das colunas (ex.: <b>CNPJ</b>, <b>Código</b>, Limite de Crédito, Isento ICMS, Alíquota ICMS, Prazo Normal, Transportadora, Frete…). Coluna que não for reconhecida é ignorada. Campo vazio na planilha não apaga o que já está no cadastro.</div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+pfBtnColarPrintHtml(38,'pfEntImpColar()')+pfBtnCarregarArquivoHtml(38,'pfEntImpArq','.xlsx,.xls,.csv','pfEntImpArquivo(this)')+'</div>'+
+    '<div id="pfEntImpRes" style="font-size:13px;color:#607080">Nenhuma planilha ainda.</div>',820);
+  ov.style.zIndex='100040';
+  window._pfEntImpPaste=function(e){if(!document.getElementById('pfEntImpJan'))return;var t=e.clipboardData&&e.clipboardData.getData('text/plain');if(t&&/\t/.test(t)){e.preventDefault();pfEntImpTexto(t);}};
+  document.addEventListener('paste',window._pfEntImpPaste,true);
+  var obs=new MutationObserver(function(){if(!document.getElementById('pfEntImpJan')){document.removeEventListener('paste',window._pfEntImpPaste,true);obs.disconnect();}});obs.observe(document.body,{childList:true});
+}
+async function pfEntImpColar(){try{var t=await navigator.clipboard.readText();if(t)pfEntImpTexto(t);else pfAlert('A área de transferência está vazia. Copie as linhas no Excel (com o cabeçalho) e tente de novo.');}catch(e){pfAlert('Não consegui ler a área de transferência. Use Ctrl+V com esta janela aberta.');}}
+function pfEntImpTexto(t){var rows=String(t).split(/\r?\n/).filter(function(l){return l.trim();}).map(function(l){return l.split('\t');});pfEntImpLinhas(rows);}
+function pfEntImpArquivo(inp){var f=inp.files&&inp.files[0];inp.value='';if(!f)return;var rd=new FileReader();
+  rd.onload=function(){try{var wb=XLSX.read(new Uint8Array(rd.result),{type:'array'});var ws=wb.Sheets[wb.SheetNames[0]];pfEntImpLinhas(XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:''}));}catch(e){pfAlert('Não consegui ler a planilha: '+e.message);}};rd.readAsArrayBuffer(f);}
+function pfEntImpLinhas(rows){
+  var hi=rows.findIndex(function(r){var t=pfEntImpN(r.join(' '));return /CNPJ|CODIGO|COD\b|RAZAO/.test(t);});if(hi<0){pfAlert('Não achei a linha do cabeçalho (precisa ter uma coluna CNPJ ou Código).');return;}
+  var H=rows[hi].map(pfEntImpN),map={},iCnpj=-1,iCod=-1,iRaz=-1;
+  H.forEach(function(h,i){if(!h)return;if(iCnpj<0&&/CNPJ|CPF/.test(h)){iCnpj=i;return;}if(iCod<0&&/^(CODIGO|COD|COD CLIENTE|CODIGO CLIENTE|ID)$/.test(h)){iCod=i;return;}if(iRaz<0&&/RAZAO|NOME/.test(h)&&!/FANTASIA/.test(h)){iRaz=i;return;}
+    var best=null,bl=0;PF_ENT_CAMPOS.forEach(function(c){(String(c[6]||'').split('|').concat([c[2]])).forEach(function(s){s=pfEntImpN(s);if(!s)return;if((h===s||h.indexOf(s)>=0)&&s.length>bl){best=c;bl=s.length;}});});
+    if(best&&!Object.keys(map).some(function(k){return map[k]===best[1];}))map[i]=best[1];});
+  if(iCnpj<0&&iCod<0){pfAlert('A planilha precisa de uma coluna CNPJ ou Código pra achar o cliente.');return;}
+  var cl=cadLoad(CLIE_KEY)||[],porCnpj={},porCod={};cl.forEach(function(c,i){var d=String(c.cnpj||'').replace(/\D/g,'');if(d)porCnpj[d]=i;if(c.codigo)porCod[String(c.codigo).trim()]=i;});
+  var achou=[],nao=[];
+  rows.slice(hi+1).forEach(function(r){if(!r||!r.some(function(x){return String(x).trim();}))return;
+    var d=iCnpj>=0?String(r[iCnpj]||'').replace(/\D/g,''):'',cod=iCod>=0?String(r[iCod]||'').trim():'';
+    var ix=d&&porCnpj[d]!=null?porCnpj[d]:(cod&&porCod[cod]!=null?porCod[cod]:-1);
+    var vals={};Object.keys(map).forEach(function(i){var c=PF_ENT_CAMPOS.find(function(x){return x[1]===map[i];}),v=String(r[i]==null?'':r[i]).trim();if(!v)return;
+      if(c[3]==='c')vals[c[1]]=pfEntSim(v);else if(c[3]==='s'&&c[4]===PF_SN)vals[c[1]]=pfEntSim(v)?'SIM':/^N/i.test(v)?'NÃO':v.toUpperCase();else if(c[3]==='s'){var vn=pfEntImpN(v).replace(/^\d+\s*/,'').split(' ')[0];vals[c[1]]=(vn&&(c[4]||[]).find(function(o){return o&&pfEntImpN(o).indexOf(vn)>=0;}))||v.toUpperCase();}else vals[c[1]]=v;});
+    if(ix<0)nao.push((iRaz>=0?r[iRaz]:'')||cod||d);else if(Object.keys(vals).length)achou.push({ix:ix,vals:vals});});
+  window._pfEntImp=achou;
+  var cols=Object.keys(map).map(function(i){return PF_ENT_CAMPOS.find(function(x){return x[1]===map[i];})[2];});
+  var el=document.getElementById('pfEntImpRes');if(!el)return;
+  el.innerHTML='<div style="background:#F4F7FB;border-radius:8px;padding:10px 12px;margin-bottom:10px;color:#1a2332"><b>'+achou.length+'</b> cliente(s) achado(s) · <b>'+nao.length+'</b> sem cadastro no PF'+
+    '<div style="margin-top:6px;font-size:12px;color:#607080">Colunas reconhecidas ('+cols.length+'): '+pfEscHtml(cols.join(' · ')||'nenhuma')+'</div>'+
+    (nao.length?'<div style="margin-top:6px;font-size:12px;color:#9A5B00" title="'+pfEscHtml(nao.join('\n'))+'">Sem cadastro: '+pfEscHtml(nao.slice(0,6).join(', '))+(nao.length>6?' e mais '+(nao.length-6):'')+'</div>':'')+'</div>'+
+    (achou.length&&cols.length?'<button class="pfBtn pfBtnVerde" onclick="pfEntImpGravar()">✔ Gravar nos '+achou.length+' cliente(s)</button>':'<div style="color:#B3231C">Nada pra gravar.</div>');
+}
+function pfEntImpGravar(){var L=window._pfEntImp||[];if(!L.length)return;var cl=cadLoad(CLIE_KEY)||[],agora=Date.now(),n=0;
+  L.forEach(function(x){var c=cl[x.ix];if(!c)return;c.ent=Object.assign({},pfEntDe(c),x.vals);c.ts=agora;c.tsMod=agora;n++;});
+  cadSave(CLIE_KEY,cl);try{if(typeof pfSyncPush==='function')pfSyncPush([CLIE_KEY]);}catch(e){}
+  pfNcFechar('pfEntImpJan');pfAlert('✅ Dados do ERP gravados em '+n+' cliente(s).');try{cadGoTab('clientes');}catch(e){}}
+
 function cadSalvarClienteV2(idx){
   var razao = (document.getElementById('clieRazao').value||'').trim();
   if(!razao){pfAlert('Razão Social é obrigatória.');return;}
@@ -37917,6 +38091,7 @@ function cadSalvarClienteV2(idx){
     obs:document.getElementById('clieObs').value||'',
   };
   if(typeof cadRevColetar==='function')Object.assign(cli,cadRevColetar()); // v115.2111
+  try{var _ent=pfEntColetar();if(_ent)cli.ent=_ent;}catch(eEnt){} // v115.2557
   var clist = cadLoad(CLIE_KEY);
   // v115.2098 - BUG: salvar trocava o cliente inteiro pelo formulário e apagava o que não aparece nele (vendedor
   // responsável, anotações, grupo...). Agora mescla com o que já existia.
@@ -37947,7 +38122,8 @@ async function cadLerDocumentoV2(input, ctx){
       '"contatos":[{"tipo":"compras|financeiro|nfe|geral","nome":"","email":"","telefone":""}],'+
       '"referencias_comerciais":[{"nome":"","local":"cidade/UF","telefone":""}],'+
       '"referencias_bancarias":[{"nome":"","local":"cidade/UF","telefone":""}],'+
-      '"transportadoras":[{"nome":"","local":"cidade/UF","telefone":""}]}\n'+
+      '"transportadoras":[{"nome":"","local":"cidade/UF","telefone":""}],'+
+      '"cadastro_extra":{"limite_credito":"","prazo_pagamento":"","formas_pagamento":"","transportadora":"","endereco_entrega":"","cnae":"","ramo_atividade":"","suframa":"","contribuinte_icms":"SIM|NÃO|ISENTO","horario_recebimento":""}}\n'+
       'No campo "contatos", extraia TODOS os e-mails/telefones de PESSOAS de contato encontrados no documento, classificando "tipo" pelo contexto (perto de "Compras", "Financeiro/Contas a Pagar" ou "NF-e/Fiscal") -- se não der pra saber, use "geral". '+
       'Em "referencias_comerciais", "referencias_bancarias" e "transportadoras", extraia TODOS os itens de cada lista encontrada no documento (se tiver 3, 7 ou mais, inclua todos, não limite a poucos) -- não confunda uma lista com a outra. Campos não encontrados: string vazia ou lista vazia.';
     var txt=await _anthropicReadDoc(file,promptBase,'Cadastro Cliente/Fornecedor');
@@ -37958,6 +38134,9 @@ async function cadLerDocumentoV2(input, ctx){
     var fm={razao_social:p+'Razao',nome_fantasia:p+'Fantasia',cidade:p+'Cidade',uf:p+'Estado'};
     if(ctx==='clie'){fm.endereco='clieEndereco';fm.inscricao_estadual='clieIE';fm.site='clieSite';}
     Object.keys(fm).forEach(function(k){if(d[k]){var el=document.getElementById(fm[k]);if(el&&!el.value)el.value=d[k];}});
+    if(ctx==='clie')try{var X=d.cadastro_extra||{},mp={limite_credito:'limiteCredito',prazo_pagamento:'prazo1',formas_pagamento:'formasPgto',transportadora:'transportadora',endereco_entrega:'endEntrega',cnae:'cnae',ramo_atividade:'ramo',suframa:'suframa',horario_recebimento:'horario'}; // v115.2557 - abas novas do cadastro
+      Object.keys(mp).forEach(function(k){var el=document.getElementById('pfEnt_'+mp[k]);if(X[k]&&el&&!el.value)el.value=X[k];});
+      var ci=document.getElementById('pfEnt_contribuinte');if(ci&&!ci.value&&/^(SIM|NÃO|NAO|ISENTO)$/i.test(String(X.contribuinte_icms||'').trim()))ci.value=String(X.contribuinte_icms).trim().toUpperCase().replace('NAO','NÃO');}catch(eX){}
     if(d.telefone_geral){var elTel=document.getElementById(p+'Tel');if(elTel&&!elTel.value)elTel.value=d.telefone_geral;}
 
     // Fornecedor continua com e-mail/telefone únicos (sem contatos por setor ainda)
@@ -47730,6 +47909,7 @@ var PF_FUNCOES=[
   {a:'clientes',i:'🤝',n:'Ficha do cliente (CRM)',o:'Tudo do cliente numa tela: números, contatos, linha do tempo (cotações, pedidos, ligações, mensagens), próxima ação.',p:'Saber a história do cliente antes de ligar.',w:'Clique no cliente na Órbita, no Painel de Clientes, "🤝 Ficha" na cotação ou busca do Meu dia',v:'2209',ir:'vendas:meudia'},
   {a:'vendas',i:'📊',n:'Gestão',o:'Tela do gestor com os números de todos os setores, separados também por GRUPO (⚙️ Eixos, Transmissões e Cardan · 🔧 Motores · 🧴 Filtros — pela família da peça, cada vendedor ligado ao grupo dele): Visão geral (Vendas, Compras, Financeiro e Logística resumidos), 🔔 O que mudou (o sistema escreve em frases o que saiu do normal — peça perdendo venda por falta de saldo, vendedor fechando menos, clientes que ficaram inativos, marca crescendo — com botão pra ver), 🎯 Metas do trimestre com barra de progresso (por setor e por vendedor), aba Vendas (vendido, pedidos, ticket, cotações e % que fecha, tempo por cotação, clientes ativos/novos/reativados/inativados, vendedores, margem média, produtos, vendido por mês, grupos lado a lado, marcas que mais cresceram e caíram), aba 💲 Margem e comissão (margem real de cada venda pela conta da Calculadora, quem vendeu acima e abaixo da margem do cliente, quanto deixou de ganhar e a comissão de 1% do vendido menos as devoluções) aba 🛒 Compras (tempo da solicitação até decidir e da compra até chegar, solicitações paradas, cada comprador, prazo de entrega de cada fornecedor, o que se perdeu por falta de saldo e as 📄 ORDENS DE COMPRA do PF — enviadas, valor, atrasadas, sem NF no prazo, % que chegou no prazo, prazo real e tempo pra faturar de cada fornecedor), aba 📦 Estoque (foto de hoje da planilha: valor em estoque, cobertura em dias, giro, zerados que vendem com a curva A primeiro, abaixo do mínimo, parados sem venda, excesso de mais de 6 meses, quanto está pra repor, por curva e por família), aba 💰 Financeiro, só do diretor (contas a receber E a pagar, vencidos por idade, maiores devedores, FLUXO DE CAIXA das próximas 8 semanas com o saldo do banco e as previsões — compra decidida vira previsão a pagar pelo prazo do fornecedor e pedido ainda não faturado vira previsão a receber —, prazo médio e condição de pagamento; 📥 importa a lista do ERP por planilha), aba 🚚 Logística (📤 expedição e 📥 recebimento: tempo pra separar, conferir e despachar, pedidos parados, quem separou/conferiu/faturou/despachou e em quanto tempo, fotos atendidas pelo estoque e os ERROS de separação e conferência que viraram RMA, por pessoa) e aba Equipe (cotações e tempo de cada pessoa). Tudo comparado com o período anterior.',p:'O gerente ver num lugar só como está a empresa e onde agir, sem abrir relatório por relatório.',w:'Vendas → card 📊 Gestão (gestor e diretor; Margem e comissão e Equipe só diretor) · Compras → card 📊 Gestão de Compras · Logística → botão 📊 Gestão da Logística · Alt+S → Gestão · 📺 Modo TV pra deixar numa TV: troca sozinho a cada 30 s entre Resumo geral, Vendas, Financeiro (só quem vê o financeiro), Compras, Estoque, Logística e Chamados (← → troca, espaço para)',v:2505,ir:'js:pfGeAbrir()'},
   {a:'vendas',i:'🔓',n:'Liberação de preço',o:'Piso de preço por marca, limite de desconto e exceções na cotação. Cada marca tem uma margem mínima (Tecfil, Mahle e Wega 18%, Fleetguard 15%, CAT, Mann e Perkins 21%; as outras, 21%) e o desconto sobre o preço de tela (o que a cotação sugere) tem um máximo (10%). Exceções: 🎉 promoção com data (marca ou peça), 📦 lote comprado mais barato (vale até vender a quantidade) e 👤 cliente com acordo.',p:'Ninguém vende abaixo do mínimo sem o gestor saber: o item fora da regra ganha ⛔ (abaixo do mínimo) ou ⚠️ (desconto alto) do lado do preço e o pedido só sai com a liberação do gestor, que libera ou recusa pela barra de notificações. Item que cai numa exceção mostra 🎉/📦/👤 e não precisa pedir liberação dentro da regra dela.',w:'Cotação → faixa 🔓 Preço fora da regra / Gerar pedido · barra de notificações 🔓 · Gestão → ⚙️ Regras (margens, exceções, metas e grupos; gestor e diretor mudam) · Gestão → 💲 Margem e comissão',v:'2458',ir:'js:pfGeAbrir(\'regras\')'},
+  {a:'clientes',i:'📑',n:'Cadastro do cliente: comercial, fiscal, financeiro e entrega',o:'Quatro abas no cadastro do cliente com os dados do ERP: limite de crédito e validade, comissão, recuperação judicial, contribuinte de ICMS, isenções (PIS, COFINS, ICMS, IPI, ST), alíquota de ICMS, Suframa, prazos e formas de pagamento, transportadora, frete e endereço de entrega.',p:'O preço da cotação já sai certo pro cliente (isenções, Suframa, alíquota e DIFAL entram na conta), a condição de pagamento vem pronta e a cotação avisa quando passa do limite de crédito, do prazo limite ou quando o cliente está em recuperação judicial.',w:'Cadastros → Clientes → abrir o cliente (abas embaixo do regime tributário) · 📥 Importar do ERP na lista de clientes · o 📄 Ler documento também preenche',v:'115.2557',ir:'cad:empresas'},
   {a:'vendas',i:'📉',n:'Vendas perdidas',o:'Relatório do que foi cotado e não virou venda: quanto se perdeu, quanto foi por FALTA DE SALDO (e quais peças comprar primeiro), e quando o cliente cotou 2+ marcas e levou outra que não a dele. Cada caso tem o motivo provável — 💲 preço, 🏷️ preferência de marca, 📦 saldo/prazo, 🔧 indicação técnica — deduzido pelo perfil de compra do cliente; quando o sistema não sabe, pergunta ao vendedor com um clique na hora de gerar o pedido.',p:'Saber o que está fazendo perder venda: comprar as peças que mais faltaram, entender se perde por preço ou por marca, e quais marcas perdem pra outra.',w:'Vendas → 📉 Vendas perdidas (filtro por trimestre, vendedor, marca; ⬇ Excel) · pergunta "Por que ele escolheu…?" ao gerar o pedido · ⚙️ Pergunta ao vendedor (gestor)',v:'2451',ir:'vendas:perdidas'},
   {a:'clientes',i:'🚜',n:'Frota do cliente na ficha',o:'Na ficha do cliente (CRM): as máquinas da frota dele, o que ele já comprou com a gente pra cada máquina e as máquinas pra qual nunca comprou nada (com a lista de peças de cada uma e o saldo). Mostra também as peças que ele compra sempre e já passou do tempo de comprar de novo (pelo ritmo dele). Se o cliente parece frotista e ainda não tem frota cadastrada, o sistema dá as perguntas pra entender a frota dele.',p:'Oferecer as peças certas pras máquinas do cliente e conhecer melhor quem tem frota.',w:'Ficha do cliente (CRM) → 🚜 Frota · ⏰ Já devia ter comprado de novo',v:'2470',ir:'vendas:kpis'},
   {a:'clientes',i:'🚫',n:'O que o cliente não compra',o:'Na ficha do cliente (CRM): as famílias, marcas e linhas que os clientes do mesmo tipo dele compram e ele não, com quanto um cliente parecido costuma comprar por ano; o que ele cota com a gente mas não leva (e o motivo); e o mapa completo do que ele compra × não compra. O vendedor marca o que o cliente respondeu (vai cotar, compra de outro fornecedor, sem demanda) e o que ele citou na pesquisa aparece junto.',p:'Saber o que oferecer pra cada cliente e por que ele não compra certas linhas.',w:'Ficha do cliente (CRM) → 🚫 Não compra · 📄 Cota mas não leva · 🗺️ Ver tudo',v:'2468',ir:'vendas:kpis'},
@@ -53824,9 +54004,10 @@ function vendasCalcVenda(custo,clienteUF,margem){
   var uf=clienteUF||'SP',fin='revenda';
   try{var cad=(typeof pfVR2ClienteCad==='function'&&window._venda&&window._venda.cliente)?pfVR2ClienteCad(window._venda.cliente):null;
     if(cad&&typeof pfTipoCli==='function'&&pfTipoCli(cad)==='consumo')fin='consumo';}catch(e){}
+  var F=null;try{F=pfEntFiscal(cad,uf);if(F.fin)fin=F.fin;}catch(e){} // v115.2557 - ICMS/isenções/Suframa/contribuinte do cadastro
   var m=(margem!=null&&!isNaN(margem)?+margem:21)/100;
   try{
-    var r=calcMargemLiq(custo,(ICMS_ENTRADA[PF_VENDAS_FORN_UF]!=null?ICMS_ENTRADA[PF_VENDAS_FORN_UF]:0.18),0,0,(ICMS_SAIDA[uf]!=null?ICMS_SAIDA[uf]:0.12),m,fin,uf);
+    var r=calcMargemLiq(custo,(ICMS_ENTRADA[PF_VENDAS_FORN_UF]!=null?ICMS_ENTRADA[PF_VENDAS_FORN_UF]:0.18),0,0,(ICMS_SAIDA[uf]!=null?ICMS_SAIDA[uf]:0.12),m,fin,uf,F);
     if(r&&r.venda>0&&isFinite(r.venda))return r.venda;
   }catch(e){}
   return custo*1.5;
@@ -53838,8 +54019,9 @@ function vendasCalcVenda(custo,clienteUF,margem){
 function vendasPctDaVenda(custo,venda){
   custo=+custo||0;venda=+venda||0;if(!custo||!venda)return '';
   try{var uf=(window._venda&&window._venda.uf)||'SP',fin='revenda';
-    try{var cad=(typeof pfVR2ClienteCad==='function'&&window._venda&&window._venda.cliente)?pfVR2ClienteCad(window._venda.cliente):null;if(cad&&typeof pfTipoCli==='function'&&pfTipoCli(cad)==='consumo')fin='consumo';}catch(e){}
-    var r=calcMargemLiq(custo,(ICMS_ENTRADA[PF_VENDAS_FORN_UF]!=null?ICMS_ENTRADA[PF_VENDAS_FORN_UF]:0.18),0,0,(ICMS_SAIDA[uf]!=null?ICMS_SAIDA[uf]:0.12),0,fin,uf);
+    var cad=null;try{cad=(typeof pfVR2ClienteCad==='function'&&window._venda&&window._venda.cliente)?pfVR2ClienteCad(window._venda.cliente):null;if(cad&&typeof pfTipoCli==='function'&&pfTipoCli(cad)==='consumo')fin='consumo';}catch(e){}
+    var F=null;try{F=pfEntFiscal(cad,uf);if(F.fin)fin=F.fin;}catch(e){} // v115.2557
+    var r=calcMargemLiq(custo,(ICMS_ENTRADA[PF_VENDAS_FORN_UF]!=null?ICMS_ENTRADA[PF_VENDAS_FORN_UF]:0.18),0,0,(ICMS_SAIDA[uf]!=null?ICMS_SAIDA[uf]:0.12),0,fin,uf,F);
     if(r&&r.venda>0){var fator=r.liq_venda/r.venda;return Math.round(((venda*fator-r.liq_custo)/venda)*100);}
   }catch(e){}
   return Math.round((1-(custo/venda))*100);
@@ -54656,7 +54838,9 @@ function vendasProdImpIdx(){
 function vendasItemImpostos(it){
   var m=vendasProdImpIdx(),k=(it&&it.codigo||'').toString().toUpperCase().trim();if(!k)return {ipi:0,st:0};
   var p=m[k+'|'+String(it.marcaInterna||'').toUpperCase().trim()]||m[k+'|'+String(it.marca||'').toUpperCase().trim()]||m[k]||null;
-  return {ipi:p?(+p.ipi||0):0,st:p?(+p.st||0):0};
+  var r={ipi:p?(+p.ipi||0):0,st:p?(+p.st||0):0};
+  if(r.ipi||r.st){try{var F=pfEntFiscal(pfEntCadDaCotacao());if(F.isIpi)r.ipi=0;if(F.isSt)r.st=0;}catch(e){}} // v115.2557 - cliente isento de IPI/ST
+  return r;
 }
 function vendasItemValores(it,venda){
   var t=vendasItemImpostos(it),ipiV=venda?Math.round(venda*t.ipi)/100:0,stV=venda?Math.round(venda*t.st)/100:0;
@@ -55221,6 +55405,7 @@ function vendasAvisosCliente(c,cad){
   try{if(typeof pfVR2RegrasDoContexto==='function'){var rgs=(pfVR2RegrasDoContexto(c).cliente||[]).slice().sort(function(a,b){return (b.ts||0)-(a.ts||0);});
     rgs.forEach(function(rg,i){var tx=rg.tipo==='livre'?String(rg.texto||''):pfVR2DescricaoTexto(rg).replace(/^regra do cliente:\s*/,'');
       av.push({cor:'a',ic:pfRoboHtml('apontando',18,'vertical-align:-4px'),html:'<b>Regra do Assistente:</b> '+pfEscHtml(tx),link:i===0?'Abrir regras':'',acao:'pfVendasRegrasIAAbrirPainel({cliente:true})'});});}}catch(e){}
+  try{av=av.concat(pfEntAvisos(cad,window._venda));}catch(e){} // v115.2557 - limite de crédito, prazo limite, recuperação judicial, fiscal, entrega
   return av;
 }
 function vendasAvisosChave(c){return String((c&&(c.codigo||c.razao))||'').toUpperCase();}
@@ -69643,6 +69828,7 @@ function pvCriarPedido(){
     itensSel.push({codigo:it.codigo,desc:it.desc,marca:it.marca,marcaInterna:marcaReal,qtd:it.qtd,custo:custo,venda:venda,familia:pvFindFamilia(it.codigo,marcaReal),_idx:i});
   });
   if(!itensSel.length){pfAlert('Selecione ao menos um item na coluna PV.');return;}
+  try{var _cj=pfEntCadDaCotacao();if(_cj&&pfEntDe(_cj).recJudicial&&!(typeof pfEhGestorOuAcima==='function'&&pfEhGestorOuAcima())){pfAlert('⚖️ Cliente em recuperação judicial — o pedido precisa ser gerado por um gestor.');return;}}catch(eRJ){} // v115.2557
   // v115.2456 - item abaixo do mínimo da marca / desconto acima do máximo sem liberação do gestor → janela de pedir (gestor libera ali mesmo)
   try{if(typeof pfLibBloqueiaPedido==='function'&&pfLibBloqueiaPedido(v,itensSel,function(){window._pvItensPendentes=itensSel;pvAbrirConfirmacao();}))return;}catch(eLib){console.warn('pfLib',eLib);}
   window._pvItensPendentes=itensSel;
@@ -69698,6 +69884,7 @@ function pvResumoVendaHtml(itens,uf){
 function pvAbrirConfirmacao(){
   var v=window._venda;
   var sugestoes=pvUltimasTransportadoras(v.cliente&&v.cliente.razao);
+  try{var _ce=pfEntDe(pfEntCadDaCotacao());if(_ce.transportadora){sugestoes=sugestoes.filter(function(x){return x!==_ce.transportadora;});sugestoes.unshift(_ce.transportadora);}}catch(eT){} // v115.2557 - transportadora do cadastro primeiro
   var overlay=document.createElement('div');
   overlay.id='pvConfirmModal';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
@@ -72431,6 +72618,7 @@ function vendasSelecionarCliente(i){
   if(c.contatos&&c.contatos[0]){contato=c.contatos[0].nome||'';tel=c.contatos[0].telefone||'';}
   window._venda.cliente={razao:c.razao,fantasia:c.fantasia||'',cnpj:c.cnpj,codigo:c.codigo,contato:contato,tel:tel,cidade:c.cidade,estado:c.estado};
   window._venda.uf=c.estado||'SP'; // v115.2344 - cliente sem estado herdava a UF (e o ICMS) do cliente anterior
+  try{var _E=pfEntDe(c),_v=window._venda;if(_E.prazo1&&(!_v.condicao||_v.condicao===_v._condAuto)){_v.condicao=_E.prazo1;_v._condAuto=_E.prazo1;}}catch(eE){} // v115.2557 - prazo normal do cadastro
   // v115.2058 - A pedido do Vitor: margem definida em regra do cliente
   // (Assistente de Vendas, Alt+O) entra sozinha ao escolher o cliente.
   // v115.2111 - A pedido do Vitor: sem regra do Assistente, vale a margem própria do cadastro ou a do perfil
@@ -90064,17 +90252,18 @@ var ICMS_INTERNA={'AC':0.19,'AL':0.205,'AM':0.20,'AP':0.18,'BA':0.205,'CE':0.20,
 // (interestadual + diferencial = interna, por construção), não mais só
 // a interestadual. Quando destino=SP (mesmo estado de Triex), não muda
 // nada -- não existe DIFAL dentro do mesmo estado.
-function calcMargemLiq(custo,icms_c,ipi_pct,st_val,icms_v,margem,finalidade,ufDestino){
-  var temST=st_val>0;
+function calcMargemLiq(custo,icms_c,ipi_pct,st_val,icms_v,margem,finalidade,ufDestino,opc){
+  var temST=st_val>0;opc=opc||{}; // v115.2557 - opc {icmsV, icmsInt, semPis, semCofins} = dados fiscais do cadastro do cliente
   var cofins_c=custo*COFINS_PCT, pis_c=custo*PIS_PCT;
   var icms_credito=temST?0:custo*icms_c;
   var liq_custo=custo-cofins_c-pis_c-icms_credito+custo*ipi_pct+st_val;
   var icms_venda_efetivo=icms_v;
   if(finalidade==='consumo'&&ufDestino&&ICMS_INTERNA[ufDestino]!=null){
-    icms_venda_efetivo=ICMS_INTERNA[ufDestino];
+    icms_venda_efetivo=opc.icmsInt!=null?opc.icmsInt:ICMS_INTERNA[ufDestino];
   }
+  if(opc.icmsV!=null&&!(finalidade==='consumo'&&opc.icmsV>0))icms_venda_efetivo=opc.icmsV;
   var icms_venda=temST?0:icms_venda_efetivo;
-  var fator=1-COFINS_PCT-PIS_PCT-icms_venda;
+  var fator=1-(opc.semCofins?0:COFINS_PCT)-(opc.semPis?0:PIS_PCT)-icms_venda;
   var venda=liq_custo/(fator-margem);
   var liq_venda=venda*fator;
   var resultado=liq_venda-liq_custo;

@@ -1990,7 +1990,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2534</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2535</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2152,7 +2152,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2534</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2535</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -34209,6 +34209,32 @@ function pfAplicSerieVaziaReparar(){
     return n;
   }catch(e){console.warn('reparar série vazia',e);return 0;}
 }
+// v115.2535 - A pedido do Vitor ("vamos manter da planilha no W20E"): DANA 176/413 = EIXO DIANTEIRO e 176/414 = EIXO TRASEIRO da CASE W20E
+// (a planilha e a Ficha Técnica diziam isso; as peças e os catálogos estavam ao contrário). Idempotente: só troca o que ainda está do lado errado.
+var PF_W20E_LADO={'176/413':'DIANTEIRO','176/414':'TRASEIRO'};
+function pfAplicW20eLados(){
+  try{
+    var oposto=function(l){return l==='DIANTEIRO'?'TRASEIRO':'DIANTEIRO';};
+    var lado=function(a){if(String(a.marca||'').trim().toUpperCase()!=='DANA')return '';return PF_W20E_LADO[String(a.modelo||'').trim()]||'';};
+    var conserta=function(a){var l=lado(a);if(!l)return false;var e=String(a.equip||'');var re=new RegExp('EIXO\\s+'+oposto(l));
+      if(re.test(e)){a.equip=e.replace(re,'EIXO '+l);return true;}return false;};
+    var agora=Date.now(),flat=(typeof aplicLoad==='function'?aplicLoad():[])||[],n=0;
+    flat.forEach(function(a){if(conserta(a)){a.ts=agora;a.tsMod=agora;n++;}});
+    var cats=typeof pfCatEnvLoad==='function'?pfCatEnvLoad():{por:{}},catIds={},nc=0;
+    Object.keys(cats.por||{}).forEach(function(k){var c=cats.por[k];if(!c||String(c.marca||'DANA').toUpperCase().indexOf('DANA')<0)return;var l=PF_W20E_LADO[String(c.modelo||'').trim()];if(!l)return;
+      catIds[k]=l;var lc=l.toLowerCase();if(c.posicao!==lc){c.posicao=lc;c.titulo=String(c.titulo||'').replace(/^Eixo (dianteiro|traseiro)/i,'Eixo '+lc);nc++;}});
+    if(nc&&typeof pfCatEnvSalvar==='function')pfCatEnvSalvar(cats);
+    var plist=cadLoad(PROD_KEY)||[],np=0,reOp={DIANTEIRO:/EIXO TRASEIRO/g,TRASEIRO:/EIXO DIANTEIRO/g};
+    plist.forEach(function(p){var m=false;(p.aplicacoes||[]).forEach(function(a){if(conserta(a))m=true;});
+      var dc=p.doCatalogo,l=dc&&dc.catEnv&&catIds[dc.catEnv];
+      if(l){['descricao','descricaoCompleta'].forEach(function(f){var t=String(p[f]||'');var nt=t.replace(reOp[l],'EIXO '+l);if(nt!==t){p[f]=nt;m=true;}});}
+      if(m){p.ts=agora;p.tsMod=agora;np++;}});
+    if(n)aplicSave(flat);if(np)cadSave(PROD_KEY,plist);
+    if((n||np)&&typeof pfSyncPush==='function')try{pfSyncPush(np?[PROD_KEY,APLIC_KEY]:[APLIC_KEY]);}catch(e){}
+    if(n||np||nc)console.log('v115.2535: W20E 413 dianteiro / 414 traseiro — '+n+' vínculo(s), '+np+' ficha(s), '+nc+' catálogo(s)');
+    return n+np+nc;
+  }catch(e){console.warn('W20E lados',e);return 0;}
+}
 function pfAplicArrumarW20E(){
   try{
     var letras=function(t){return pfBuscaAN(t).split('').sort().join('');},ALVO=letras('TRANSMISSAO');
@@ -34248,6 +34274,7 @@ function pfAplicJuntarSemModelo(fixo){
   try{pfAplicSepararDana260009();}catch(e){}
   try{pfAplicMarcarW20Trans501();}catch(e){}
   try{pfAplicArrumarW20E();}catch(e){} // v115.2378
+  try{pfAplicW20eLados();}catch(e){} // v115.2535
   try{pfAplicSerieVaziaReparar();}catch(e){} // v115.2410
   try{pfDescCompletaArrumar();}catch(e){} // v115.2384
   var flat=(typeof aplicLoad==='function'?aplicLoad():[])||[],cnt={},U=function(x){return String(x||'').trim().toUpperCase();};

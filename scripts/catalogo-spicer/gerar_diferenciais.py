@@ -94,6 +94,14 @@ def codigos(cel):
             out.append((cod, (m.group(2) or '').strip('[]'), bool(m.group(3))))
     return out
 
+def anos_norm(t):
+    """'1998 a 2007' → '1998–2007'; '2012 em diante' / '2012 >' → '2012–'; '2010' → '2010'"""
+    t = str(t or '').strip()
+    ys = re.findall(r'(?:19|20)\d\d', t)
+    if not ys: return ''
+    if len(ys) >= 2: return ys[0] + '–' + ys[-1]
+    return ys[0] + ('–' if re.search(r'diante|>|atual|\+', t, re.I) else '')
+
 def tipo_veic(mont, v):
     V = v.upper()
     if re.search(r'S10|S-10|BLAZER|HILUX|RANGER|F-?100\b|F-?1000|F-?250|F-?350|JEEP|T4\b|A-?10|A-?20|C-?10|C-?20|D-?10|D-?20|FRONTIER|L200|PAJERO|TROLLER|AMAROK|BANDEIRANTE|SPRINTER|DAILY|SILVERADO|VERANEIO|MARRUÁ|MARRUA|TR4|ACCELO 6', V): return 'UTILITÁRIO'
@@ -241,15 +249,18 @@ for cod, it in itens.items():
     # 1 aplicação por peça × eixo (a importação junta pela chave modelo+série+código+marca+eixo); a posição de cada veículo (eixo · relação) vai em posVeic
     porEq = collections.OrderedDict()
     for (pos, onde), vs in it['_veic'].items():
-        a = porEq.setdefault(pos, {'vs': collections.OrderedDict(), 'pos': collections.OrderedDict()})
+        a = porEq.setdefault(pos, {'vs': collections.OrderedDict(), 'pos': collections.OrderedDict(), 'anos': collections.OrderedDict()})
         for k, v in vs.items():
             a['vs'][k] = v
             a['pos'][k] = onde
+            an = anos_norm(v.get('anos'))  # v115.2547 - ano de cada veículo (o mesmo veículo pode ter 2 faixas, ex.: Ranger 1998–2007 e 2007–2012)
+            if an and an not in a['anos'].setdefault(k, []): a['anos'][k].append(an)
     for pos, a in porEq.items():
         cnt = collections.Counter(a['pos'].values())
         aps.append({'equip': pos, 'marca': 'SPICER', 'modelo': 'TABELA DE DIFERENCIAIS SPICER', 'serie': '', 'veiculo': ', '.join(a['vs'].keys()), 'veicDireto': 1,
                     'posicao': cnt.most_common(1)[0][0], 'posVeic': dict(a['pos']),
                     'tipoVeic': collections.Counter(v['tipo'] for v in a['vs'].values()).most_common(1)[0][0], 'tiposVeic': {k: v['tipo'] for k, v in a['vs'].items()}})
+        if a['anos']: aps[-1]['anosVeic'] = {k: ', '.join(v) for k, v in a['anos'].items() if v}
     for m in it.get('_acess', []):
         aps.append({'equip': 'EIXO', 'marca': 'DANA', 'modelo': m, 'serie': '', 'veiculo': ''})
     o = {'codigo': cod, 'marca': 'SPICER', 'descricao': it['descricao'], 'conversoes': it['conversoes'], 'aplicacoes': aps, 'obs': ' · '.join(obs)}

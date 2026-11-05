@@ -1146,6 +1146,8 @@
   **v115.2542: SEGURADO (chamada comentada no `maqAbrir`)** — os 10 rolamentos da W20E NÃO estão na transmissão 12.1HR28421-503 nem nos eixos 176/413/414; esperando o Vitor decidir.
   **v115.2543 ("deixa essa lista oculta então, por enquanto"):** `PF_MAQ_SPICER_ROL_OCULTA=true` → o `maqIndice` não põe a tabela de rolamentos Spicer nas máquinas de
   FORA DE ESTRADA (veículo cujo tipo não bate `MAQ_ROD_RE`); dados intactos, rodoviário continua. Mostrar de novo = `false`.
+- v115.2550 BUG ("pq aqui não aparece e no Alt+B aparece W18?"): a máquina vinha do Cardan como "CASE W-18"; a busca da lista de Máquinas só comparava
+  letras+números com 4+ caracteres. Agora o nome (marca + modelo) também bate só letras+números a partir de 2 (`maqAN`), igual ao Alt+B.
 - v115.2549 BUGs do 🧮 Cálculo NF ("tá estranho esse botão" + "não tô conseguindo copiar nem baixar o pdf, só visualizar" + "pq tá diferente as margens?"):
   1) `nfGerarPDF`: `nomeArquivoPdf` era criado dentro do 1º `.then` e usado no 2º → ReferenceError e Copiar/Baixar não salvavam nada (Visualizar não usa o nome).
   2) `pfPdfCaberNaFolha` (vale pra todo PDF que usa ela): `text-size-adjust:100%` + `overflow:hidden` — o Safari do iPad aumenta a letra de bloco largo e a tabela passava da folha

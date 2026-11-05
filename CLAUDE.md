@@ -1146,6 +1146,10 @@
   **v115.2542: SEGURADO (chamada comentada no `maqAbrir`)** — os 10 rolamentos da W20E NÃO estão na transmissão 12.1HR28421-503 nem nos eixos 176/413/414; esperando o Vitor decidir.
   **v115.2543 ("deixa essa lista oculta então, por enquanto"):** `PF_MAQ_SPICER_ROL_OCULTA=true` → o `maqIndice` não põe a tabela de rolamentos Spicer nas máquinas de
   FORA DE ESTRADA (veículo cujo tipo não bate `MAQ_ROD_RE`); dados intactos, rodoviário continua. Mostrar de novo = `false`.
+- v115.2551 BUG ("cadê a transmissão que coloquei na ficha?" — CASE W-18): a ficha nova (pelo "+ Preencher ficha técnica" da máquina) saiu SEM marca e modelo
+  (só transmissão DANA HR18.000) e não ligou em nenhuma máquina. `maqNovaFicha` esperava 120 ms fixos pra preencher; agora tenta até os campos existirem (até 4 s)
+  e guarda `window._ftNovaMaq` (zerado no `ftAbrirForm`); o `ftSalvarForm` usa essa máquina se o modelo ficou vazio e NÃO salva ficha sem modelo (avisa).
+  Ficha `ft_1793897321444` acertada direto no banco (CASE W18, PÁ CARREGADEIRA).
 - v115.2550 BUG ("pq aqui não aparece e no Alt+B aparece W18?"): a máquina vinha do Cardan como "CASE W-18"; a busca da lista de Máquinas só comparava
   letras+números com 4+ caracteres. Agora o nome (marca + modelo) também bate só letras+números a partir de 2 (`maqAN`), igual ao Alt+B.
 - v115.2549 BUGs do 🧮 Cálculo NF ("tá estranho esse botão" + "não tô conseguindo copiar nem baixar o pdf, só visualizar" + "pq tá diferente as margens?"):

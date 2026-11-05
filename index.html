@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2550</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2551</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2550</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2551</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -78804,7 +78804,7 @@ function ftRenderTabela(){
     }
   }
 }
-function ftAbrirForm(id){
+function ftAbrirForm(id){window._ftNovaMaq=null; /* v115.2551 */
   _ftEditando=id;
   ftRender();
 }
@@ -79226,6 +79226,9 @@ function ftSalvarForm(idAlvo){
   var _antL=rec.linha||'',_antM=rec.modelo||''; // v115.2539 - pra renomear junto as ligações
   rec.linha=(document.getElementById('ftF_linha')||{}).value||'';
   rec.modelo=(document.getElementById('ftF_modelo')||{}).value||'';
+  if(!String(rec.modelo).trim()&&novo&&window._ftNovaMaq){rec.linha=rec.linha||window._ftNovaMaq.marca;rec.modelo=window._ftNovaMaq.modelo;} // v115.2551
+  if(!String(rec.modelo).trim()){pfAlert('Preencha o MODELO da máquina antes de salvar — sem ele a ficha não liga em nenhuma máquina.');return;} // v115.2551
+  window._ftNovaMaq=null;
   rec.categoria=(document.getElementById('ftF_categoria')||{}).value||'';
   rec.fotoPlaqueta=(document.getElementById('ftPlqData_maq')||{}).value||''; // v115.2055
   var fpc={};FT_PLQ_COMP.forEach(function(k){var v=(document.getElementById('ftPlqData_'+k)||{}).value||'';if(v)fpc[k]=v;});
@@ -98325,10 +98328,15 @@ function maqFichaHtml(x,completa){
       '<div style="display:flex;gap:8px;padding:8px 12px;border-top:1px solid #eef2f6"><button class="pfBtn pfBtnClaro" style="height:30px;font-size:12px" onclick="ftAbrirForm(\''+pfEscJs(r.id)+'\')">✏️ Editar ficha</button>'+
       '<button class="pfBtn pfBtnClaro" style="height:30px;font-size:12px" onclick="ftImprimirPlaquetas([\''+pfEscJs(r.id)+'\'])">🖨️ Plaqueta</button></div>';}).join('');
 }
+// v115.2551 - BUG ("cadê a transmissão que coloquei na ficha?" — CASE W-18): a ficha nova saiu SEM marca e modelo (só a transmissão) e não ligou na máquina.
+// O preencher esperava 120 ms fixos; em computador mais lento (ou com rascunho voltando) o formulário ainda não existia. Agora tenta até achar os campos
+// (até 4 s) e o salvar usa a máquina de onde a ficha foi aberta se o modelo ficou vazio (`window._ftNovaMaq`).
 function maqNovaFicha(chave){
   var x=maqIndice().M[chave];ftAbrirForm('novo');
-  setTimeout(function(){if(!x)return;var a=document.getElementById('ftF_linha'),b=document.getElementById('ftF_modelo'),c=document.getElementById('ftF_categoria');
-    if(a&&!a.value)a.value=x.marca;if(b&&!b.value)b.value=x.modelo;if(c&&!c.value&&x.tipo)c.value=x.tipo;},120);
+  if(!x)return;window._ftNovaMaq={marca:x.marca,modelo:x.modelo,tipo:x.tipo||''};
+  var n=0,t=setInterval(function(){n++;var a=document.getElementById('ftF_linha'),b=document.getElementById('ftF_modelo'),c=document.getElementById('ftF_categoria');
+    if(a&&b){if(!a.value)a.value=x.marca;if(!b.value)b.value=x.modelo;if(c&&!c.value&&x.tipo)c.value=x.tipo;if(n>6)clearInterval(t);}
+    if(n>26)clearInterval(t);},150);
 }
 function maqPmResumoHtml(x){
   if(!x.nPm)return '<div style="padding:12px;font-size:13px;color:#607080;border-top:1px solid #eef2f6">Nenhuma peça de manutenção ainda. <span onclick="maqColocarPecas(\''+pfEscJs(x.chave)+'\')" style="cursor:pointer;color:#1E8449;font-weight:800">➕ Colocar peças</span></div>';

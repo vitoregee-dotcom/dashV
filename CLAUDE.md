@@ -1138,6 +1138,9 @@
   "fechar sem mudar"); WhatsApp/HTML também. Na tela: `#vendasPdfInfoBox` embaixo do resumo (`vendasPdfInfoHtml`: textarea + itens com info ou prazo ≠ IMEDIATO,
   ✏️ prazo/informação por prompt, ✕ não mandar). Valores com ponto de milhar (`vendasMoedaBR`).
 - v115.2533 BUG ("Alt+V só está exibindo… quando digito de novo não esconde"): o keydown repetia e trocava 2x — agora ignora `e.repeat` e 2º disparo em < 400 ms (`window._vendasInfoUlt`). "?", ▶ Tour e ⌨️ Atalhos da barra azul com 22 px. v115.2534: precisavam de `min-height:0` (regra geral `button{min-height:36px}` esticava). Fichas Técnicas (planilha de eixos DANA, direto no banco): + CASE W20E REFORÇADO (T 176/428), XCMG XS122 (192/75 — rolo de 1 cilindro, eixo único de tração = traseiro), MANITOU MLT-X 840-140 PS (D 212-C21 / T 212-10066639_APL-5), DL200 K1016630A ganhou T 176/365. W20E: ficha diz 413 D / 414 T, Aplicações dizem o contrário — esperando o Vitor.
+- v115.2538 ("fui em Máquinas e já abriu aqui [CASE W20E] ao invés de abrir na lista"): o card Máquinas começa SEMPRE pela lista (`maqAbrir` zera `_maq.sel`;
+  com a aba já aberta numa máquina, o `pfAtAbrir` do card volta pra lista). Quem pede uma máquina (`maqAbrirMaquina`: Alt+B, frota, links) marca `_maqAbrindoSel`
+  e cai direto nela. Trocar de aba lá em cima continua mantendo a máquina aberta.
 - v115.2537 ("acho que precisa alinhar esse cabeçalho… na versão A também"): no B a 1ª linha (código, razão, lupa, Detalhes, Ficha e os botões do mapa `.pfCabBtns`)
   toda com 40 px e rótulos na mesma altura; nº da cotação + seletor A|B numa linha só em cima dos botões; 2ª linha ocupa a largura (Fantasia/Endereço/Perfil com flex — `campo()`
   aceita largura "flex:…"). No A o código tem 40 px como a razão e as etiquetas (Fantasia/CNPJ/Cidade) 28 px como Detalhes/Ficha. Capturas `docs/referencias/cotacao-cabecalho-alinhar/`.

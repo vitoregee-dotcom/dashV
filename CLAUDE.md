@@ -1146,6 +1146,7 @@
   **v115.2542: SEGURADO (chamada comentada no `maqAbrir`)** — os 10 rolamentos da W20E NÃO estão na transmissão 12.1HR28421-503 nem nos eixos 176/413/414; esperando o Vitor decidir.
   **v115.2543 ("deixa essa lista oculta então, por enquanto"):** `PF_MAQ_SPICER_ROL_OCULTA=true` → o `maqIndice` não põe a tabela de rolamentos Spicer nas máquinas de
   FORA DE ESTRADA (veículo cujo tipo não bate `MAQ_ROD_RE`); dados intactos, rodoviário continua. Mostrar de novo = `false`.
+- v115.2544 ("deixa a série e ano visível"): o card da máquina tem SEMPRE a linha "SÉRIE … · ANO …" (`maqSerieAnoLinha`, "—" quando a ficha não diz; até 3 séries + "+N") no lugar do ANO ao lado do tipo e das etiquetas `maqSeriesHtml` do card. Captura `docs/referencias/telas-maquinas/feito-serie-ano.png`.
 - v115.2540 ("como eu faço para excluir se quiser?" + "deixa o campo ano visível no card"): "🗑 Excluir" no cabeçalho da página da máquina (`maqExcluirAbrir`/
   `maqExcluir`: fichas técnicas viram lápide, tira a máquina das séries marcadas, peças de manutenção apagadas com `pfMarcarAplicacoesDeletadas` + máquina do `pfPecasMaq_v1`,
   limpa `pfMaqSerieComp_v1`/`pfMaqCompConf_v1`; peças de tabela DANA/Meritor/Cardan ficam). **BUG junto:** ficha técnica apagada voltava na sync (lista junta por id) —

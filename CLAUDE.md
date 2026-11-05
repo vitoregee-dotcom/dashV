@@ -1143,6 +1143,7 @@
   rolamentos Spicer (modelo "TABELA DE ROLAMENTOS SPICER", veicDireto) sai das máquinas de FORA DE ESTRADA (veículo cujo `tiposVeic` não bate `MAQ_ROD_RE`; rodoviário fica),
   em `APLIC_KEY` e nas `aplicacoes` das fichas; aplicação sem veículo nenhum = apagada (`pfMarcarAplicacoesDeletadas`). Os códigos originais com linha (NEW HOLLAND…) dessas
   peças viram conversão nas fichas DANA/DANA-R do mesmo código (a importação não tinha posto nas fichas DANA que já existiam). Em 05/11: ~135 peças em 30 máquinas.
+  **v115.2542: SEGURADO (chamada comentada no `maqAbrir`)** — os 10 rolamentos da W20E NÃO estão na transmissão 12.1HR28421-503 nem nos eixos 176/413/414; esperando o Vitor decidir.
 - v115.2540 ("como eu faço para excluir se quiser?" + "deixa o campo ano visível no card"): "🗑 Excluir" no cabeçalho da página da máquina (`maqExcluirAbrir`/
   `maqExcluir`: fichas técnicas viram lápide, tira a máquina das séries marcadas, peças de manutenção apagadas com `pfMarcarAplicacoesDeletadas` + máquina do `pfPecasMaq_v1`,
   limpa `pfMaqSerieComp_v1`/`pfMaqCompConf_v1`; peças de tabela DANA/Meritor/Cardan ficam). **BUG junto:** ficha técnica apagada voltava na sync (lista junta por id) —

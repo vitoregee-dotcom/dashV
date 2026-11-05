@@ -1137,6 +1137,7 @@
   doc com colunas PRAZO/IPI/ST (IPI/ST somem se ninguém tem), quadro Produtos/IPI/ST/TOTAL LÍQUIDO, caixa 📝 Observações (`v.obsCli`, salvo na cotação e no
   "fechar sem mudar"); WhatsApp/HTML também. Na tela: `#vendasPdfInfoBox` embaixo do resumo (`vendasPdfInfoHtml`: textarea + itens com info ou prazo ≠ IMEDIATO,
   ✏️ prazo/informação por prompt, ✕ não mandar). Valores com ponto de milhar (`vendasMoedaBR`).
+- v115.2533 BUG ("Alt+V só está exibindo… quando digito de novo não esconde"): o keydown repetia e trocava 2x — agora ignora `e.repeat` e 2º disparo em < 400 ms (`window._vendasInfoUlt`). "?", ▶ Tour e ⌨️ Atalhos da barra azul ficaram com 22 px de altura ("quase saindo da parte azul").
 - v115.2532 ("preciso de um botão aqui na cotação para eu ver os atalhos pq nem lembro mais"): "⌨️ Atalhos" na barra azul ao lado do ▶ Tour → `pfCotAtalhosAbrir`
   (lista fixa `PF_COT_ATALHOS`: na cotação / em qualquer tela + os configurados na Central de Atalhos via `pfAtalhosEfetivos`; "⚙️ Criar meus atalhos"). Atalho novo → linha no PF_COT_ATALHOS.
 - Barra dos itens: Código + Qtd + Adicionar numa caixa só; Série / modelo visível; Marcar aplicação / Colar print / Carregar arquivo BRANCOS

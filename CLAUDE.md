@@ -1146,6 +1146,11 @@
   **v115.2542: SEGURADO (chamada comentada no `maqAbrir`)** — os 10 rolamentos da W20E NÃO estão na transmissão 12.1HR28421-503 nem nos eixos 176/413/414; esperando o Vitor decidir.
   **v115.2543 ("deixa essa lista oculta então, por enquanto"):** `PF_MAQ_SPICER_ROL_OCULTA=true` → o `maqIndice` não põe a tabela de rolamentos Spicer nas máquinas de
   FORA DE ESTRADA (veículo cujo tipo não bate `MAQ_ROD_RE`); dados intactos, rodoviário continua. Mostrar de novo = `false`.
+- v115.2549 BUGs do 🧮 Cálculo NF ("tá estranho esse botão" + "não tô conseguindo copiar nem baixar o pdf, só visualizar" + "pq tá diferente as margens?"):
+  1) `nfGerarPDF`: `nomeArquivoPdf` era criado dentro do 1º `.then` e usado no 2º → ReferenceError e Copiar/Baixar não salvavam nada (Visualizar não usa o nome).
+  2) `pfPdfCaberNaFolha` (vale pra todo PDF que usa ela): `text-size-adjust:100%` + `overflow:hidden` — o Safari do iPad aumenta a letra de bloco largo e a tabela passava da folha
+  (torto e cortado à direita; não reproduzido aqui). 3) "📋 Copiar PDF ▾" e "Novo cálculo" viraram `.pfBtn pfBtnVerde`/`pfBtnClaro` (as 2 partes com a mesma altura e sombra).
+  Testar PDF aqui: o cdnjs é bloqueado — `npm pack html2pdf.js@0.10.1` e servir o bundle pelo `page.route(/html2pdf/)`. Captura `docs/referencias/botao-copiar-pdf.png`.
 - v115.2548 BUGs (print do iPad): card com "ANO [object Object]" — `maqAnosTxt` lia `r.ano` (objeto {v:''}) quando o ano estava vazio; agora `maqFtV(r,'ano')`.
   E "pq a barra inferior está subindo quando rola?": no Safari do iPad a área visível cresce ao rolar e o dock fixo ficava no meio — IIFE antes do `pfDockMais` acompanha o
   `visualViewport` (gap = offsetTop+height − clientHeight → `#pfSidebar.style.bottom = 12 − gap`; com zoom de pinça não mexe). Não deu pra testar no iPad daqui.

@@ -2135,3 +2135,5 @@
   WhatsApp por paste/insertText, NÃO manda; registra no CRM), "📄 Abrir a cotação no PF" (`pfExtAbrirCot`: vendasAbrirModal + vendasSelecionarCliente), "📤 PDF" (abre e `vendasPdfRapido('baixar')`).
   Cartões `pfExtCardCliente`/`pfExtCardForn` ganharam `hist`, `pecas`, `prontas` (pfCrmProntas) e `contato`; ações `lembrete` (pfCrmAdd prox) e `saldo` (`pfExtSaldo`). Mexeu na extensão →
   subir a `version` do manifest e refazer o zip.
+- v115.2575 ("https://vitoregee-dotcom.github.io/dashV/" — o PF abre no GitHub Pages, não no vercel.app): extensão 1.2 libera `https://vitoregee-dotcom.github.io/*` no manifest
+  (host_permissions + matches do ponte.js) e no `PF_URLS` do fundo.js. Zip: https://vitoregee-dotcom.github.io/dashV/extensao-whatsapp/partsflow-whatsapp.zip

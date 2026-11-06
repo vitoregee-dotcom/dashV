@@ -2,7 +2,7 @@
 // Guarda qual aba é o PF e qual é o WhatsApp Web, leva as perguntas do painel pro PF
 // e manda a fila de mensagens uma por uma (abre a conversa, o whatsapp.js aperta enviar e confirma).
 'use strict';
-var PF_URLS = ['https://*.vercel.app/*', 'http://localhost/*', 'http://127.0.0.1/*'];
+var PF_URLS = ['https://vitoregee-dotcom.github.io/*', 'https://*.vercel.app/*', 'http://localhost/*', 'http://127.0.0.1/*'];
 var PAUSA_MIN = 4000, PAUSA_MAX = 9000; // pausa entre uma mensagem e outra (parecer envio normal)
 
 function guardar(o) { return chrome.storage.local.set(o); }

@@ -82,6 +82,41 @@
     return n >= 2 || (n >= 1 && pede) ? n : 0;
   }
 
+  // ═══ ler a lista de conversas (nome, número quando aparece, etiqueta) ═══
+  async function lerListaConversas(onprog) {
+    var pane = document.querySelector('#pane-side');
+    if (!pane) return { erro: 'Abra o WhatsApp Web (a lista de conversas não apareceu).' };
+    var mapa = {};
+    function coleta() {
+      var rows = pane.querySelectorAll('[role="listitem"]');
+      if (!rows.length) rows = pane.querySelectorAll('div[role="row"]');
+      rows.forEach(function (r) {
+        var nomeEl = r.querySelector('span[title]');
+        var nome = nomeEl ? (nomeEl.getAttribute('title') || '').trim() : '';
+        if (!nome) return;
+        var grupo = !!r.querySelector('[data-icon="default-group"], [data-icon*="group"]');
+        var etqs = [];
+        r.querySelectorAll('[aria-label]').forEach(function (e) { var a = (e.getAttribute('aria-label') || '').trim(); var m = a.match(/^(?:Etiqueta|Label)[:\s]+(.+)$/i); if (m) { var t = m[1].trim(); if (t && etqs.indexOf(t) < 0) etqs.push(t); } });
+        var tel = /^[+\d][\d\s()\-]{7,}$/.test(nome) ? nome.replace(/\D/g, '') : '';
+        if (!mapa[nome]) mapa[nome] = { nome: nome, grupo: grupo, etqs: etqs, tel: tel };
+        else if (etqs.length && !mapa[nome].etqs.length) mapa[nome].etqs = etqs;
+      });
+    }
+    pane.scrollTop = 0; await dormir(250);
+    var ult = -1, iguais = 0;
+    for (var i = 0; i < 800; i++) {
+      coleta();
+      if (onprog) onprog(Object.keys(mapa).length);
+      pane.scrollTop = pane.scrollTop + Math.max(300, pane.clientHeight - 80);
+      await dormir(200);
+      if (pane.scrollTop <= ult + 2) { iguais++; if (iguais >= 4) break; } else iguais = 0;
+      ult = pane.scrollTop;
+    }
+    coleta(); pane.scrollTop = 0;
+    var lista = Object.keys(mapa).map(function (k) { return mapa[k]; });
+    return { lista: lista };
+  }
+
   // ═══ 3) PAINEL + BOTÕES ═══
   var P = null, B = null, AV = null, ultimo = '', aberto = true, visual = 'A', aba = 'cot', resp = null, cot = null, cotErro = '', cotando = false, saldoR = null, statusLote = '', contatoAt = null, avisoFechado = '';
   var BOTOES = [['cot', '📄', 'Cotar no PF'], ['saldo', '📦', 'Saldo'], ['ficha', '🤝', 'Ficha'], ['lemb', '⏰', 'Lembrete'], ['prontas', '⚡', 'Prontas'], ['pdf', '📤', 'PDF']];
@@ -92,7 +127,8 @@
     P = document.createElement('div'); P.id = 'pfwa';
     P.innerHTML = '<div class="pfwa-aba" title="PartsFlow">PF</div><div class="pfwa-caixa"><div class="pfwa-cab">' + logoSvg('#fff', '#0F1F35') +
       '<div class="pfwa-cabt"><b>PartsFlow</b><small class="pfwa-cabsub"></small></div><span class="pfwa-vis" title="Onde ficam os botões do PF: A = coluna ao lado das mensagens · D = barra embaixo"><i data-vis="A">A</i><i data-vis="D">D</i></span><span class="pfwa-x" title="Recolher">›</span></div>' +
-      '<div class="pfwa-lote"></div><div class="pfwa-tabs"></div><div class="pfwa-corpo"></div></div>';
+      '<div class="pfwa-lote"></div><div class="pfwa-tabs"></div><div class="pfwa-corpo"></div>'+
+      '<div class="pfwa-rod"><button data-acao="importar" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button><span class="pfwa-rodst"></span></div></div>';
     document.body.appendChild(P);
     B = document.createElement('div'); B.id = 'pfwa-bots'; document.body.appendChild(B);
     AV = document.createElement('div'); AV.id = 'pfwa-aviso'; document.body.appendChild(AV);
@@ -108,6 +144,17 @@
     var b = e.target.closest('[data-acao]'); if (!b) return;
     var ac = b.getAttribute('data-acao'), arg = b.getAttribute('data-arg') || '';
     if (ac === 'aba') { irAba(arg); return; }
+    if (ac === 'importar') {
+      var st = P.querySelector('.pfwa-rodst'), o0 = b.textContent;
+      b.disabled = true; b.textContent = 'Lendo a lista…';
+      var res = await lerListaConversas(function (n) { if (st) st.textContent = n + ' lidos…'; });
+      b.disabled = false; b.textContent = o0;
+      if (!res || res.erro) { if (st) st.textContent = ''; flash(b, (res && res.erro) || 'Não consegui ler'); return; }
+      if (st) st.textContent = res.lista.length + ' contatos — abrindo o PF…';
+      var r = await msg({ t: 'acao', acao: 'importarContatos', focar: true, arg: { lista: res.lista } });
+      if (st) st.textContent = (r && r.ok) ? '✔ Confira a lista no PF' : 'Abra uma aba do PF primeiro';
+      return;
+    }
     if (ac === 'b-cot' || ac === 'cotar') { irAba('cot'); cotar(); return; }
     if (ac === 'b-saldo') { var sel = String(window.getSelection() || '').trim(); irAba('pecas'); if (sel && sel.length < 30) { var i = P.querySelector('.pfwa-saldo-in'); if (i) i.value = sel; buscarSaldo(sel); } else setTimeout(function () { var i = P.querySelector('.pfwa-saldo-in'); if (i) i.focus(); }, 50); return; }
     if (ac === 'b-ficha') { if (resp && resp.k) msg({ t: 'acao', acao: 'ficha', arg: resp.k, focar: true }); else irAba('cli'); return; }

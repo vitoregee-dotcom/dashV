@@ -2095,3 +2095,7 @@
   agora o Copiar põe `pfSaudar('setor:cadastro')` + "Por gentileza, realizar o cadastro do cliente abaixo para pagamento à vista." (`ferrPreencherEhVista`; não repete se o texto já começa com saudação). O a prazo já tinha.
 - v115.2565 ("esse aqui não foi enviado não né? pq eu não enviei"): o ✉️/💬 da linha só ABRE o e-mail/WhatsApp — o sistema não sabe se foi mandado. A marca virou
   "✉️ e-mail aberto HH:MM" / "💬 WhatsApp aberto" / "no e-mail CCO aberto" (âmbar, `pfMapaEnvRotulo`, estado {h,c}) com ✕ pra tirar (`pfMapaEnvDesmarcar`); contador "✉️ aberto pra X de N". Captura `feito-aberto.png`.
+- v115.2566 ("opção de exibir como vai pro fornecedor" → B "pra abrir sem ter que abrir outra tela"): na etapa 2 do mapa, clicar no NOME do fornecedor (▸/▾) ou no ✉️ abre
+  embaixo da linha a mensagem como vai (`pfMapaEnvVer`/`pfMapaEnvVerHtml`, estado `window._mapaEnvVer`: Para, Assunto `pfMapaEnvAssunto`, texto `pfMapaEnvTexto`) com
+  ✉️ Abrir no e-mail (`pfMapaEnvMailto`: mailto com assunto + corpo), 💬 WhatsApp, 📋 Copiar texto (`pfMapaEnvCopiar`) e 🖼 Ver formatado (`mapaEmail`, a janela antiga).
+  Só olhar NÃO marca; "aberto" só no Abrir no e-mail/WhatsApp (e no Outlook/WhatsApp da janela formatada → `mapaMarcarFornAberto`). Captura `feito-ver-mensagem.png`.

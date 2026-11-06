@@ -118,7 +118,7 @@
   }
 
   // ═══ 3) PAINEL + BOTÕES ═══
-  var P = null, B = null, AV = null, ultimo = '', aberto = true, visual = 'A', aba = 'cot', resp = null, cot = null, cotErro = '', cotando = false, saldoR = null, statusLote = '', contatoAt = null, avisoFechado = '';
+  var P = null, B = null, AV = null, ultimo = '', aberto = true, visual = 'A', aba = 'cot', resp = null, cot = null, cotErro = '', cotando = false, saldoR = null, statusLote = '', contatoAt = null, avisoFechado = '', avisoLigado = true;
   var BOTOES = [['cot', '📄', 'Cotar no PF'], ['saldo', '📦', 'Saldo'], ['ficha', '🤝', 'Ficha'], ['lemb', '⏰', 'Lembrete'], ['prontas', '⚡', 'Prontas'], ['pdf', '📤', 'PDF']];
   function logoSvg(f, l) { return '<svg width="24" height="24" viewBox="0 0 40 40"><rect width="40" height="40" rx="10" fill="' + f + '"/><rect x="9" y="8" width="4" height="22" rx="1.5" fill="' + l + '"/><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="' + l + '" stroke-width="4" stroke-linecap="round"/><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="33" r="2" fill="#E67E22"/></svg>'; }
 
@@ -126,7 +126,7 @@
     if (P) return;
     P = document.createElement('div'); P.id = 'pfwa';
     P.innerHTML = '<div class="pfwa-aba" title="PartsFlow">PF</div><div class="pfwa-caixa"><div class="pfwa-cab">' + logoSvg('#fff', '#0F1F35') +
-      '<div class="pfwa-cabt"><b>PartsFlow</b><small class="pfwa-cabsub"></small></div><span class="pfwa-vis" title="Onde ficam os botões do PF: A = coluna ao lado das mensagens · D = barra embaixo"><i data-vis="A">A</i><i data-vis="D">D</i></span><span class="pfwa-x" title="Recolher">›</span></div>' +
+      '<div class="pfwa-cabt"><b>PartsFlow</b><small class="pfwa-cabsub"></small></div><i class="pfwa-sino" data-acao="sino" title="Avisar quando o cliente manda códigos de cotação">🔔</i><span class="pfwa-vis" title="Onde ficam os botões do PF: A = coluna ao lado das mensagens · D = barra embaixo"><i data-vis="A">A</i><i data-vis="D">D</i></span><span class="pfwa-x" title="Recolher">›</span></div>' +
       '<div class="pfwa-lote"></div><div class="pfwa-tabs"></div><div class="pfwa-corpo"></div>'+
       '<div class="pfwa-rod"><button data-acao="importar" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button><span class="pfwa-rodst"></span></div></div>';
     document.body.appendChild(P);
@@ -136,7 +136,7 @@
     P.querySelector('.pfwa-x').onclick = function () { aberto = false; chrome.storage.local.set({ painelAberto: false }); pinta(); };
     P.querySelectorAll('[data-vis]').forEach(function (el) { el.onclick = function () { visual = el.getAttribute('data-vis'); chrome.storage.local.set({ visual: visual }); pinta(); }; });
     [P, B, AV].forEach(function (el) { el.addEventListener('click', clique); });
-    chrome.storage.local.get(['painelAberto', 'visual'], function (s) { if (s.painelAberto === false) aberto = false; if (s.visual === 'D' || s.visual === 'A') visual = s.visual; pinta(); });
+    chrome.storage.local.get(['painelAberto', 'visual', 'avisoLigado'], function (s) { if (s.painelAberto === false) aberto = false; if (s.visual === 'D' || s.visual === 'A') visual = s.visual; if (s.avisoLigado === false) avisoLigado = false; pinta(); });
   }
   function abrirPainel() { if (!aberto) { aberto = true; chrome.storage.local.set({ painelAberto: true }); } }
   function irAba(a) { aba = a; abrirPainel(); pinta(); }
@@ -144,6 +144,7 @@
     var b = e.target.closest('[data-acao]'); if (!b) return;
     var ac = b.getAttribute('data-acao'), arg = b.getAttribute('data-arg') || '';
     if (ac === 'aba') { irAba(arg); return; }
+    if (ac === 'sino') { avisoLigado = !avisoLigado; chrome.storage.local.set({ avisoLigado: avisoLigado }); pinta(); if (!avisoLigado && AV) AV.style.display = 'none'; else vigiar(); return; }
     if (ac === 'importar') {
       var st = P.querySelector('.pfwa-rodst'), o0 = b.textContent;
       b.disabled = true; b.textContent = 'Lendo a lista…';
@@ -217,6 +218,7 @@
     P.classList.toggle('fechado', !aberto); P.classList.toggle('pfwa-vD', visual === 'D');
     document.documentElement.classList.toggle('pfwa-aberto', aberto);
     P.querySelectorAll('[data-vis]').forEach(function (el) { el.classList.toggle('on', el.getAttribute('data-vis') === visual); });
+    var sino = P.querySelector('.pfwa-sino'); if (sino) { sino.textContent = avisoLigado ? '🔔' : '🔕'; sino.classList.toggle('off', !avisoLigado); sino.title = avisoLigado ? 'Avisos de cotação: ligados (clique pra desligar)' : 'Avisos de cotação: desligados (clique pra ligar)'; }
     var abas = [['cot', '📄 Cotação'], ['cli', resp && resp.tipo === 'fornecedor' ? '🏭 Fornecedor' : '🤝 Cliente'], ['hist', '🕘 Histórico'], ['pecas', '📦 Peças']];
     P.querySelector('.pfwa-tabs').innerHTML = abas.map(function (a) { return '<span data-acao="aba" data-arg="' + a[0] + '" class="' + (aba === a[0] ? 'on' : '') + '">' + a[1] + '</span>'; }).join('');
     pintaCorpo(); posicionar();
@@ -299,7 +301,7 @@
   }
   function pintaAviso(n) {
     if (!AV) return;
-    if (!n || avisoFechado === ultimo || (aberto && aba === 'cot' && cot)) { AV.style.display = 'none'; return; }
+    if (!n || !avisoLigado || avisoFechado === ultimo || (aberto && aba === 'cot' && cot)) { AV.style.display = 'none'; return; }
     AV.style.display = 'flex';
     AV.innerHTML = '<span>📄</span><div><b>O PF achou um pedido de cotação</b> — ' + n + ' código' + (n > 1 ? 's' : '') + ' nas mensagens</div><button data-acao="b-cot">📄 Cotar no PF</button><span class="pfwa-avx" data-acao="fechaAviso" title="Fechar">✕</span>';
   }

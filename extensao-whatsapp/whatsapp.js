@@ -117,6 +117,101 @@
     return { lista: lista };
   }
 
+
+  // ═══ buscar os números que faltam (1.6) ═══
+  // Pra cada contato salvo no PF sem número: procura a conversa pelo nome, abre, lê o número (da própria conversa ou
+  // dos dados do contato) e manda pro PF. Só LÊ — não manda mensagem. Dá pra parar e continuar depois (numEstado).
+  var numRodando = false, numParar = false;
+  function caixaBusca() {
+    return $('#side div[contenteditable="true"][role="textbox"]') || $('#side div[contenteditable="true"]') ||
+      $('#side input[type="text"]') || $('[aria-label="Pesquisar ou começar uma nova conversa"]') || $('[aria-label="Search or start new chat"]');
+  }
+  function escreverBusca(cx, txt) {
+    cx.focus();
+    if (cx.tagName === 'INPUT') {
+      var set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(cx, txt);
+      cx.dispatchEvent(new Event('input', { bubbles: true })); return;
+    }
+    try { document.execCommand('selectAll', false, null); document.execCommand('delete', false, null); } catch (e) { }
+    if (txt) { try { document.execCommand('insertText', false, txt); } catch (e) { } }
+    if ((cx.innerText || '').trim() !== txt) { cx.textContent = txt; cx.dispatchEvent(new InputEvent('input', { bubbles: true, data: txt })); }
+  }
+  function linhaDoNome(nome) {
+    var pane = $('#pane-side'); if (!pane) return null;
+    var sp = pane.querySelectorAll('span[title]');
+    for (var i = 0; i < sp.length; i++) if ((sp[i].getAttribute('title') || '').trim() === nome) return sp[i].closest('[role="listitem"],[role="row"]') || sp[i];
+    return null;
+  }
+  function clicar(el) {
+    var alvo = el.querySelector('[role="gridcell"]') || el.firstElementChild || el;
+    ['mousedown', 'mouseup', 'click'].forEach(function (t) { alvo.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window })); });
+  }
+  function tituloConversa() { var c = contatoAtual(); return c ? c.nome : ''; }
+  var TEL_RE = /^\+?\d[\d\s().\-]{8,}\d$/;
+  function telNaTela() {
+    // número que aparece nos dados do contato (painel da direita), fora da lista, da conversa e do painel do PF
+    var els = document.querySelectorAll('span, div');
+    for (var i = 0; i < els.length; i++) {
+      var e = els[i]; if (e.children.length) continue;
+      var t = (e.textContent || '').trim(); if (!TEL_RE.test(t)) continue;
+      if (e.closest('#pane-side') || e.closest('#main') || e.closest('#pfwa') || e.closest('#pfwa-bots') || e.closest('#pfwa-aviso')) continue;
+      var d = t.replace(/\D/g, ''); if (d.length >= 10 && d.length <= 15) return d;
+    }
+    return '';
+  }
+  function fecharDados() {
+    var b = $('[aria-label="Fechar"]') || $('[aria-label="Close"]') || $('[data-icon="x"]') || $('[data-icon="close"]');
+    if (b) { (b.closest('button') || b.closest('[role="button"]') || b).click(); return; }
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }));
+  }
+  async function numeroDe(nome) {
+    var cx = caixaBusca(); if (!cx) return { erro: 'Não achei a caixa de pesquisa do WhatsApp' };
+    escreverBusca(cx, nome);
+    var lin = await esperar(function () { return linhaDoNome(nome); }, 5000);
+    if (!lin) return { nao: 'não achei a conversa' };
+    clicar(lin);
+    var ok = await esperar(function () { return tituloConversa() === nome ? 1 : null; }, 6000);
+    if (!ok) return { nao: 'a conversa não abriu' };
+    await dormir(700);
+    var c = contatoAtual(); if (c && c.tel) return { tel: c.tel, de: 'conversa' };
+    var cab = $('#main header'); if (!cab) return { nao: 'sem cabeçalho' };
+    var alvo = cab.querySelector('[role="button"]') || cab.querySelector('span[title]') || cab;
+    clicar(alvo);
+    var tel = await esperar(telNaTela, 4500);
+    fecharDados(); await dormir(300);
+    return tel ? { tel: tel, de: 'dados' } : { nao: 'sem número nos dados' };
+  }
+  async function buscarNumeros(b) {
+    var st = P.querySelector('.pfwa-rodst');
+    if (numRodando) { numParar = true; b.textContent = 'Parando…'; return; }
+    var est = (await chrome.storage.local.get(['numEstado'])).numEstado;
+    var r = await msg({ t: 'acao', acao: 'contatosSemTel' });
+    if (!r || r.erro || !Array.isArray(r.nomes)) { flash(b, r && r.erro === 'semPF' ? 'Abra o PF numa aba deste Chrome' : 'Atualize o PF (F5) — versão nova'); return; }
+    var nomes = r.nomes;
+    if (!nomes.length) { if (st) st.textContent = '✔ Todos os contatos já têm número'; chrome.storage.local.remove('numEstado'); return; }
+    // continua de onde parou: tira os que já foram tentados nesta rodada
+    var feitos = (est && est.feitos) || {};
+    var falta = nomes.filter(function (n) { return !feitos[n]; });
+    if (!falta.length) { feitos = {}; falta = nomes; }
+    numRodando = true; numParar = false; b.textContent = '⏸ Parar';
+    var achou = (est && est.achou) || 0, n0 = nomes.length - falta.length;
+    for (var i = 0; i < falta.length && !numParar; i++) {
+      var nome = falta[i];
+      if (st) st.textContent = '📞 ' + (n0 + i + 1) + ' de ' + nomes.length + ' · ' + achou + ' número(s) achados';
+      var res = null; try { res = await numeroDe(nome); } catch (e) { res = { nao: 'erro' }; }
+      if (res && res.erro) { if (st) st.textContent = res.erro; break; }
+      if (res && res.tel) { var g = await msg({ t: 'acao', acao: 'contatoTel', arg: { nome: nome, tel: res.tel } }); if (g && g.gravou) achou++; }
+      feitos[nome] = res && res.tel ? 'ok' : (res && res.nao) || 'nao';
+      await chrome.storage.local.set({ numEstado: { feitos: feitos, achou: achou, em: Date.now() } });
+      await dormir(900 + Math.random() * 1300);
+    }
+    var cx = caixaBusca(); if (cx) escreverBusca(cx, '');
+    numRodando = false; b.textContent = '📞 Buscar números que faltam';
+    var semN = Object.keys(feitos).filter(function (k) { return feitos[k] !== 'ok'; }).length;
+    if (st) st.textContent = (numParar ? '⏸ Parado — clique de novo pra continuar · ' : '✔ Pronto · ') + achou + ' número(s) gravados no PF' + (semN ? ' · ' + semN + ' sem número' : '');
+    if (!numParar) chrome.storage.local.remove('numEstado');
+  }
+
   // ═══ 3) PAINEL + BOTÕES ═══
   var P = null, B = null, AV = null, ultimo = '', aberto = true, visual = 'A', aba = 'cot', resp = null, cot = null, cotErro = '', cotando = false, saldoR = null, statusLote = '', contatoAt = null, avisoFechado = '', avisoLigado = true, botsMin = false;
   var BOTOES = [['cot', '📄', 'Cotar no PF'], ['saldo', '📦', 'Saldo'], ['ficha', '🤝', 'Ficha'], ['lemb', '⏰', 'Lembrete'], ['prontas', '⚡', 'Prontas'], ['pdf', '📤', 'PDF']];
@@ -128,7 +223,7 @@
     P.innerHTML = '<div class="pfwa-aba" title="PartsFlow">PF</div><div class="pfwa-caixa"><div class="pfwa-cab">' + logoSvg('#fff', '#0F1F35') +
       '<div class="pfwa-cabt"><b>PartsFlow</b><small class="pfwa-cabsub"></small></div><i class="pfwa-sino" data-acao="sino" title="Avisar quando o cliente manda códigos de cotação">🔔</i><span class="pfwa-vis" title="Onde ficam os botões do PF: A = coluna ao lado das mensagens · D = barra embaixo"><i data-vis="A">A</i><i data-vis="D">D</i></span><span class="pfwa-x" title="Recolher">›</span></div>' +
       '<div class="pfwa-lote"></div><div class="pfwa-tabs"></div><div class="pfwa-corpo"></div>'+
-      '<div class="pfwa-rod"><button data-acao="importar" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button><span class="pfwa-rodst"></span></div></div>';
+      '<div class="pfwa-rod"><button data-acao="importar" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button><button data-acao="numeros" class="pfwa-num" title="Abre cada conversa dos contatos salvos sem número, lê o número e grava no PF (só lê, não manda nada). Clique de novo pra parar.">📞 Buscar números que faltam</button><span class="pfwa-rodst"></span></div></div>';
     document.body.appendChild(P);
     B = document.createElement('div'); B.id = 'pfwa-bots'; document.body.appendChild(B);
     AV = document.createElement('div'); AV.id = 'pfwa-aviso'; document.body.appendChild(AV);
@@ -146,6 +241,7 @@
     if (ac === 'aba') { irAba(arg); return; }
     if (ac === 'sino') { avisoLigado = !avisoLigado; chrome.storage.local.set({ avisoLigado: avisoLigado }); pinta(); if (!avisoLigado && AV) AV.style.display = 'none'; else vigiar(); return; }
     if (ac === 'botsToggle') { botsMin = !botsMin; chrome.storage.local.set({ botsMin: botsMin }); posicionar(); return; }
+    if (ac === 'numeros') { buscarNumeros(b); return; }
     if (ac === 'importar') {
       var st = P.querySelector('.pfwa-rodst'), o0 = b.textContent;
       b.disabled = true; b.textContent = 'Lendo a lista…';

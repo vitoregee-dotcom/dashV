@@ -2107,3 +2107,10 @@
   "🏭 Corrigir todas de uma vez" na linha MONTADORA da busca geral e no menu do ✎. O selo "provável …" usa as mesmas regras. Captura `docs/referencias/cardan-montadora/feito-corrigir-todas.png`.
 - v115.2568 ("a cruzeta tá, o código é o mesmo da Spicer" — aviso "⚠ mesmo nº em TX COMPONENTES — outra peça" no 5-12213XS): a TX usa o MESMO número da Spicer/Dana →
   `pfCodTxSpicer(a,b)` no `pfCodOutrasMarcas`: mesmo nº entre TX* e SPICER/DANA = mesma peça, sem aviso. Os outros casos (Meritor × LNG etc.) continuam avisando.
+- v115.2569 **🎨 Trocar emoji com o botão direito** ("em todo o sistema, onde tiver emojis, quero poder alterar com o usuário de adm, com o botão direito" → "o adm troca, troca pra todos"):
+  `contextmenu` em captura (só `pfEhAdminTela`; Shift = menu normal) → `pfEmoNoPonto` (caretRangeFromPoint + Intl.Segmenter, confere que o clique caiu no caractere; img já
+  trocada = `data-pf-emo`) → menu `pfEmoMenu` → janela `pfEmoTrocarAbrir`/`pfEmoTrocarRender` (`pfNcJanela('pfEmoJan')`: outro emoji ou imagem por 📋 Colar print / ⬆ arquivo /
+  Ctrl+V, reduzida a 72 px PNG dataURL). Config compartilhada **`pfEmojiTroca_v1`** {por:{emojiSemFE0F:{t:'emoji'|'img',v,por,em}},ts} (PF_SYNC_KEYS + empresa + sharedKeys).
+  Aplicação NA TELA: `pfEmoLigar` (MutationObserver no body, rAF) + `pfEmoPassar`/`pfEmoTrocarNo` (troca o texto dos nós; img inline `.pfEmoImg`; fora: SCRIPT/STYLE/TEXTAREA/
+  INPUT/contenteditable/`#pfEmoJan`/`[data-pf-emo-nao]`; <option> só emoji→emoji). Mudou/voltou uma troca que já existia = recarrega a página. Não pega: title/placeholder, canvas, PDF/e-mail.
+  Captura `docs/referencias/emoji-trocar-feito.png`.

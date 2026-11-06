@@ -2080,3 +2080,7 @@
   ref quando `s.usoConsumo` (`x.uc` → etiqueta 🧴, "pediu X"). Captura `docs/referencias/uso-consumo/feito.png`.
   BUG junto ("quando tô na mesa, não consigo ir pra outro lugar?"): Mesa/Gestão/Chamados (tela cheia z 58) ficavam por cima e o dock trocava a tela POR TRÁS —
   listener de click em captura no `#pfSidebar` (menos o ⋯) fecha as três antes (perto do `pfMesaFechar`).
+- v115.2562 BUG ("entrei no mapa por aqui [Mesa → Em cotação] e não consigo voltar pra Mesa" + "com Esc volta pra lista de mapas"): ir DA Mesa pra outra tela
+  (`pfMesaIr`, `pfMesaAbrirMapa`, `pfMesaAbrirMapaPasso4`) marca `window._pfVoltaMesa` {dest,ts} (`pfVoltaMesaMarcar`/`pfVoltaMesaPendente`, vale 4 h). O "← Voltar pra Mesa"
+  do mapa (`mapaBtnVoltarClick` → `pfVoltaMesaTentar`, rótulo nas 3 rotinas que escrevem o `#mapaBtnVoltar`), o Esc com o mapa aberto (antes do passo 2 do Esc geral) e o
+  `pfNavigate` pra Compras/tela inicial reabrem a Mesa; ir pra outra tela apaga a marca. Mapa aberto sem passar pela Mesa continua voltando pra lista.

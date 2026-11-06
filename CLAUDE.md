@@ -2105,3 +2105,5 @@
   Teste contra o LNG 2015 (que tem montadora, tirando a marca): 1.097 certas, 0 erradas, 623 sem regra. Tela `ccMontRevAbrir`/`ccMontRevRender`/`ccMontRevGravar`
   (janela `ccMontJan`): reconhecidas / conflito / sem regra, select por aplicação, grava "MONTADORA " na frente em TODO o cadastro (tsMod + pfSyncPush). Entradas (admin):
   "🏭 Corrigir todas de uma vez" na linha MONTADORA da busca geral e no menu do ✎. O selo "provável …" usa as mesmas regras. Captura `docs/referencias/cardan-montadora/feito-corrigir-todas.png`.
+- v115.2568 ("a cruzeta tá, o código é o mesmo da Spicer" — aviso "⚠ mesmo nº em TX COMPONENTES — outra peça" no 5-12213XS): a TX usa o MESMO número da Spicer/Dana →
+  `pfCodTxSpicer(a,b)` no `pfCodOutrasMarcas`: mesmo nº entre TX* e SPICER/DANA = mesma peça, sem aviso. Os outros casos (Meritor × LNG etc.) continuam avisando.

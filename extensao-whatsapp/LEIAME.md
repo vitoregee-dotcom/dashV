@@ -9,5 +9,5 @@ Etapa 1 (v115.2573): painel do PF + envio do mapa pra vários fornecedores. Etap
 - `whatsapp.js` — aperta enviar e confirma (caixa de texto ficou vazia); número inválido / sem QR = erro. Painel `#pfwa` pergunta pro PF
   "quem é" (telefone pelo `data-id` …@c.us da conversa, senão pelo nome) e mostra o cartão que o PF devolve (`pfExtQuem` no index.html).
 - Mudou algum arquivo → subir a `version` do manifest e refazer `partsflow-whatsapp.zip` (pasta `partsflow-whatsapp/` dentro do zip).
-- PF com domínio próprio (fora do vercel.app) → acrescentar o domínio no `host_permissions` e no `matches` do ponte.js.
+- Endereço do PF: https://vitoregee-dotcom.github.io/dashV/ (GitHub Pages) — liberado na 1.2. Outro domínio → acrescentar o domínio no `host_permissions` e no `matches` do ponte.js.
 - Seletores do WhatsApp Web mudam de vez em quando: botão enviar = `button[aria-label="Enviar"]` / `[data-icon="send"]`, caixa = `#main footer div[contenteditable]`.

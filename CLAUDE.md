@@ -2099,3 +2099,9 @@
   embaixo da linha a mensagem como vai (`pfMapaEnvVer`/`pfMapaEnvVerHtml`, estado `window._mapaEnvVer`: Para, Assunto `pfMapaEnvAssunto`, texto `pfMapaEnvTexto`) com
   ✉️ Abrir no e-mail (`pfMapaEnvMailto`: mailto com assunto + corpo), 💬 WhatsApp, 📋 Copiar texto (`pfMapaEnvCopiar`) e 🖼 Ver formatado (`mapaEmail`, a janela antiga).
   Só olhar NÃO marca; "aberto" só no Abrir no e-mail/WhatsApp (e no Outlook/WhatsApp da janela formatada → `mapaMarcarFornAberto`). Captura `feito-ver-mensagem.png`.
+- v115.2567 **🏭 Montadora das aplicações de uma vez** ("corrigir isso aqui tudo de uma vez… pesquise fontes confiáveis pra colocar a montadora dos caminhões"): regras de
+  MODELO → MONTADORA pela nomenclatura de cada fábrica (`CC_MONT_REGRAS`; `ccMontDoModelo(pedaço)`, `ccMontDaAplic(aplicação)`: todos os modelos reconhecidos têm de
+  concordar, número solto só acompanha). **Número puro de 4 dígitos NÃO decide** — no LNG 2015 a Ford usa 1114/1314/1418/1618 na série F; GMC também usa "12.170" (`CC_MONT_GMC_DOT`).
+  Teste contra o LNG 2015 (que tem montadora, tirando a marca): 1.097 certas, 0 erradas, 623 sem regra. Tela `ccMontRevAbrir`/`ccMontRevRender`/`ccMontRevGravar`
+  (janela `ccMontJan`): reconhecidas / conflito / sem regra, select por aplicação, grava "MONTADORA " na frente em TODO o cadastro (tsMod + pfSyncPush). Entradas (admin):
+  "🏭 Corrigir todas de uma vez" na linha MONTADORA da busca geral e no menu do ✎. O selo "provável …" usa as mesmas regras. Captura `docs/referencias/cardan-montadora/feito-corrigir-todas.png`.

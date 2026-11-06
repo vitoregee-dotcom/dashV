@@ -2126,3 +2126,12 @@
   pra todos pelo WhatsApp" (`pfMapaEnvWhatsTodos` → `pfMapaEnvWhatsExt` → `pfExtEnviarLote`) e o 💬 da linha pela extensão; estado `whatsFila/Indo/Ok/Erro` no `pfMapaEnvEstado`
   (verde = confirmado que saiu, `pfMapaEnvCor`). Sem extensão = link "🧩 Instalar a extensão". Testado com WhatsApp Web de mentira (Playwright `channel:'chromium'` + --load-extension).
   Próximas etapas combinadas: etiquetas nas conversas (barra em cima da lista como no Watidy), ler a resposta do fornecedor e lançar no mapa, status/envio em massa.
+- v115.2574 **WhatsApp: painel com abas + Cotar no PF + visual A | D** (prévias `docs/referencias/whatsapp-pf/` A/B/C/D/A+D → "gostei do A e do D… queria as 2 poder escolher";
+  etiquetas = "decidir depois"; capturas `feito-*.png`): extensão 1.1 — painel com abas Cotação / Cliente / Histórico / Peças e o seletor A | D no cabeçalho (`visual` no chrome.storage:
+  A = coluna de botões ao lado das mensagens, D = barra flutuante embaixo + cabeçalho laranja). Botões: Cotar no PF, Saldo (código selecionado na conversa), Ficha, Lembrete, Prontas, PDF.
+  Aviso "O PF achou um pedido de cotação" em cima da conversa quando o cliente mandou 2+ códigos (ou 1 + "cota/preço/tem"). PF: `pfExtLerPedido(msgs)` (códigos = token com 4+ dígitos,
+  sem data/hora/telefone/dinheiro; qtd da linha "2x / 2 un / qtd 2" ou geral "06 de cada") → `pfExtCotar` (ficha `vendasEscolherFichaResumo`, preço `pfExtPreco` = vendasCalcVenda com
+  `window._venda` trocado SÓ durante a conta pelo cliente, margem `pfExtMargemDe` = Assistente > própria/perfil > padrão; resposta pronta) → "💬 Pôr na conversa" (escreve na caixa do
+  WhatsApp por paste/insertText, NÃO manda; registra no CRM), "📄 Abrir a cotação no PF" (`pfExtAbrirCot`: vendasAbrirModal + vendasSelecionarCliente), "📤 PDF" (abre e `vendasPdfRapido('baixar')`).
+  Cartões `pfExtCardCliente`/`pfExtCardForn` ganharam `hist`, `pecas`, `prontas` (pfCrmProntas) e `contato`; ações `lembrete` (pfCrmAdd prox) e `saldo` (`pfExtSaldo`). Mexeu na extensão →
+  subir a `version` do manifest e refazer o zip.

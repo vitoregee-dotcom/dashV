@@ -1,6 +1,6 @@
 # PartsFlow no WhatsApp (extensão do Chrome)
 
-Etapa 1 (v115.2573): painel do PF ao lado da conversa no WhatsApp Web + envio do mapa pra vários fornecedores de uma vez.
+Etapa 1 (v115.2573): painel do PF + envio do mapa pra vários fornecedores. Etapa 2 (v115.2574, versão 1.1): abas, Cotar no PF e visual A | D.
 
 - `manifest.json` — Manifest V3. Roda em web.whatsapp.com (`whatsapp.js`/`whatsapp.css`) e nas páginas do PF (`ponte.js`: *.vercel.app, localhost).
 - `ponte.js` — conversa com o index.html por `window.postMessage` (`pfExt`: ola/souPF, lote, progresso, req/res).

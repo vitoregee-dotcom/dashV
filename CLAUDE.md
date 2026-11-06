@@ -2091,3 +2091,5 @@
   → `pfWhatsAbrir(telefone)` ou copia o texto `pfMapaEnvTexto`). Clicou pra mandar = linha verde "✔ enviado HH:MM" (`window._mapaEnviados[nº do mapa]`, só nesta sessão).
   ✏️ `pfMapaEnvEmailEditar`/`pfMapaEnvEmailGravar`: e-mail na hora no `cotFornecedores` e, com "gravar no cadastro do fornecedor" marcado, no `FORN_KEY` (`tsMod` + pfSyncPush;
   vários e-mails separados por ";"). Capturas `docs/referencias/mapa-enviar/feito*.png`.
+- v115.2564 ("aqui tá faltando a saudação né? no cadastro à vista dos atalhos"): o 🧾 Preencher atalho com ficha do cliente copiava o cadastro À VISTA só com o formulário;
+  agora o Copiar põe `pfSaudar('setor:cadastro')` + "Por gentileza, realizar o cadastro do cliente abaixo para pagamento à vista." (`ferrPreencherEhVista`; não repete se o texto já começa com saudação). O a prazo já tinha.

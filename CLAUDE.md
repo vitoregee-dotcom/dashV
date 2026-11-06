@@ -2084,3 +2084,10 @@
   (`pfMesaIr`, `pfMesaAbrirMapa`, `pfMesaAbrirMapaPasso4`) marca `window._pfVoltaMesa` {dest,ts} (`pfVoltaMesaMarcar`/`pfVoltaMesaPendente`, vale 4 h). O "← Voltar pra Mesa"
   do mapa (`mapaBtnVoltarClick` → `pfVoltaMesaTentar`, rótulo nas 3 rotinas que escrevem o `#mapaBtnVoltar`), o Esc com o mapa aberto (antes do passo 2 do Esc geral) e o
   `pfNavigate` pra Compras/tela inicial reabrem a Mesa; ir pra outra tela apaga a marca. Mapa aberto sem passar pela Mesa continua voltando pra lista.
+- v115.2563 **Mapa · etapa 2 Enviar mais limpa** ("muita informação que até assusta" → opção A da prévia `docs/referencias/mapa-enviar/` + "precisa ter o botão de enviar e-mail
+  c/c oculta a todos… editar e-mail ou incluir… já alterar no cadastro do fornecedor"): `mapaStep2` = "N fornecedores · M itens" + "✔ enviado pra X de N" + seletor Código
+  Principal/Do cliente; botões "✉️ E-mail pra todos (CCO)" (`pfMapaEnvTodos` → `mapaEmailBccTodos`, avisa quem está sem e-mail), 💬 Copiar pro WhatsApp, 🖨️; o parágrafo de
+  explicação saiu. 1 linha por fornecedor (e-mail pequeno ✏️ / "⚠ sem e-mail · + colocar", nº de itens, ✉️ `pfMapaEnvUm(fid,'email')` → `mapaEmail`, 💬 `pfMapaEnvUm(fid,'whats')`
+  → `pfWhatsAbrir(telefone)` ou copia o texto `pfMapaEnvTexto`). Clicou pra mandar = linha verde "✔ enviado HH:MM" (`window._mapaEnviados[nº do mapa]`, só nesta sessão).
+  ✏️ `pfMapaEnvEmailEditar`/`pfMapaEnvEmailGravar`: e-mail na hora no `cotFornecedores` e, com "gravar no cadastro do fornecedor" marcado, no `FORN_KEY` (`tsMod` + pfSyncPush;
+  vários e-mails separados por ";"). Capturas `docs/referencias/mapa-enviar/feito*.png`.

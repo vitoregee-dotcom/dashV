@@ -2093,3 +2093,5 @@
   vários e-mails separados por ";"). Capturas `docs/referencias/mapa-enviar/feito*.png`.
 - v115.2564 ("aqui tá faltando a saudação né? no cadastro à vista dos atalhos"): o 🧾 Preencher atalho com ficha do cliente copiava o cadastro À VISTA só com o formulário;
   agora o Copiar põe `pfSaudar('setor:cadastro')` + "Por gentileza, realizar o cadastro do cliente abaixo para pagamento à vista." (`ferrPreencherEhVista`; não repete se o texto já começa com saudação). O a prazo já tinha.
+- v115.2565 ("esse aqui não foi enviado não né? pq eu não enviei"): o ✉️/💬 da linha só ABRE o e-mail/WhatsApp — o sistema não sabe se foi mandado. A marca virou
+  "✉️ e-mail aberto HH:MM" / "💬 WhatsApp aberto" / "no e-mail CCO aberto" (âmbar, `pfMapaEnvRotulo`, estado {h,c}) com ✕ pra tirar (`pfMapaEnvDesmarcar`); contador "✉️ aberto pra X de N". Captura `feito-aberto.png`.

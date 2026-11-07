@@ -2152,3 +2152,4 @@
   (linhas de chamada), pedaços ligados de 12–60 px de altura (2 dígitos juntos), lê cada pedaço (psm 7, só dígitos) e aceita só número da lista com certeza ≥75 ou ≥20 com
   linha encostada ("1" = ≥85 ou linha + ≥30). Achados = `ia:3` + `aj2` (tracejado, "lido no desenho", fora do 🎯 Ajustar); a IA só procura os que faltarem. Teste (Carraro
   20.43, 4 desenhos): 81/84 nítido, 72/84 em baixa resolução. Teste local: npm `tesseract.js@5.1.1` + `@tesseract.js-data/eng` servidos pelo `page.route`.
+- v115.2588 ("cadê o marcar com IA?"): com o 📍 Marcar números ligado a barra laranja não tinha o 🤖 Marcar com IA (só aparecia depois do ✓ Pronto) — agora tem nas duas.

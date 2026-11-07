@@ -15,6 +15,7 @@
   }
   function msg(m) { return new Promise(function (res) { try { chrome.runtime.sendMessage(m, function (r) { void chrome.runtime.lastError; res(r || null); }); } catch (e) { res({ erro: 'recarregar' }); } }); }
   function reais(v) { return 'R$ ' + (+v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  var VER = (function () { try { return chrome.runtime.getManifest().version; } catch (e) { return ''; } })();
 
   // ═══ 1) ENVIO ═══
   function caixaTexto() { return $('#main footer div[contenteditable="true"]'); }
@@ -221,7 +222,7 @@
     if (P) return;
     P = document.createElement('div'); P.id = 'pfwa';
     P.innerHTML = '<div class="pfwa-aba" title="PartsFlow">PF</div><div class="pfwa-caixa"><div class="pfwa-cab">' + logoSvg('#fff', '#0F1F35') +
-      '<div class="pfwa-cabt"><b>PartsFlow</b><small class="pfwa-cabsub"></small></div><i class="pfwa-sino" data-acao="sino" title="Avisar quando o cliente manda códigos de cotação">🔔</i><span class="pfwa-vis" title="Onde ficam os botões do PF: A = coluna ao lado das mensagens · D = barra embaixo"><i data-vis="A">A</i><i data-vis="D">D</i></span><span class="pfwa-x" title="Recolher">›</span></div>' +
+      '<div class="pfwa-cabt"><b>PartsFlow</b><span class="pfwa-ver">' + (VER ? 'v' + VER : '') + '</span><small class="pfwa-cabsub"></small></div><i class="pfwa-sino" data-acao="sino" title="Avisar quando o cliente manda códigos de cotação">🔔</i><span class="pfwa-vis" title="Onde ficam os botões do PF: A = coluna ao lado das mensagens · D = barra embaixo"><i data-vis="A">A</i><i data-vis="D">D</i></span><span class="pfwa-x" title="Recolher">›</span></div>' +
       '<div class="pfwa-lote"></div><div class="pfwa-tabs"></div><div class="pfwa-corpo"></div>'+
       '<div class="pfwa-rod"><button data-acao="importar" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button><button data-acao="numeros" class="pfwa-num" title="Abre cada conversa dos contatos salvos sem número, lê o número e grava no PF (só lê, não manda nada). Clique de novo pra parar.">📞 Buscar números que faltam</button><span class="pfwa-rodst"></span></div></div>';
     document.body.appendChild(P);

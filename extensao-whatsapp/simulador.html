@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Simulador — PartsFlow no WhatsApp</title>
+<link rel="stylesheet" href="whatsapp.css">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', system-ui, Helvetica, Arial, sans-serif; background: #0b141a; }
+  #sim-bar { height: 46px; background: #11212e; color: #cfe0f0; display: flex; align-items: center; gap: 8px; padding: 0 12px; font-size: 13px; border-bottom: 1px solid #1f3447; flex-wrap: wrap; }
+  #sim-bar b { color: #fff; }
+  #sim-bar .tag { background: #E67E22; color: #fff; font-weight: 800; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+  #sim-bar .sv { color: #7fd1a0; font-weight: 700; margin-left: 2px; }
+  #sim-bar .sp { flex: 1; }
+  #sim-bar button { background: #1f3447; color: #cfe0f0; border: 1px solid #2d4b64; border-radius: 8px; padding: 6px 11px; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  #sim-bar button.on { background: #25D366; color: #06230f; border-color: #25D366; }
+  #app { display: flex; height: calc(100vh - 46px); }
+  #side { width: 360px; background: #111b21; border-right: 1px solid #22303a; display: flex; flex-direction: column; color: #e9edef; }
+  #side .top { padding: 10px 14px; font-weight: 800; color: #fff; }
+  #side .busca { margin: 0 10px 8px; }
+  #side .busca div { background: #202c33; border-radius: 9px; padding: 8px 12px; color: #8696a0; font-size: 13px; }
+  #pane-side { flex: 1; overflow: auto; }
+  #pane-side [role="listitem"] { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-bottom: 1px solid #1b262e; cursor: pointer; }
+  #pane-side [role="listitem"]:hover { background: #182229; }
+  #pane-side .av { width: 42px; height: 42px; border-radius: 50%; background: #2a3942; flex: 0 0 42px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  #pane-side span[title] { color: #e9edef; font-weight: 600; font-size: 14.5px; }
+  #pane-side .etq { font-size: 10px; font-weight: 800; color: #fff; border-radius: 4px; padding: 1px 6px; margin-top: 3px; display: inline-block; }
+  #main { flex: 1; display: flex; flex-direction: column; background: #0b141a; }
+  #main header { height: 60px; background: #202c33; display: flex; align-items: center; gap: 12px; padding: 0 16px; color: #e9edef; }
+  #main header .av { width: 40px; height: 40px; border-radius: 50%; background: #2a3942; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  #main header span[dir] { font-weight: 700; font-size: 16px; }
+  #msgs { flex: 1; overflow: auto; padding: 18px 68px; background: #0b141a; background-image: radial-gradient(#13222c 1px, transparent 1px); background-size: 18px 18px; }
+  .message-in, .message-out { margin: 6px 0; display: flex; }
+  .message-out { justify-content: flex-end; }
+  .message-in .b, .message-out .b { max-width: 70%; padding: 7px 11px; border-radius: 9px; font-size: 14px; color: #e9edef; }
+  .message-in .b { background: #202c33; }
+  .message-out .b { background: #005c4b; }
+  #main footer { display: flex; align-items: center; gap: 10px; background: #202c33; padding: 10px 16px; }
+  #main footer .cx { flex: 1; background: #2a3942; border-radius: 9px; padding: 9px 12px; color: #e9edef; min-height: 20px; }
+  #main footer button { background: none; border: none; color: #8696a0; font-size: 20px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="sim-bar">
+  <span class="tag">🧪 SIMULADOR</span>
+  <b>PartsFlow no WhatsApp</b> <span class="sv" id="sim-ver">…</span>
+  <span style="opacity:.6">— não é o WhatsApp real, dados fictícios</span>
+  <span class="sp"></span>
+  <span style="opacity:.7">Abrir conversa de:</span>
+  <button data-sim="cliente" class="on">👤 Cliente</button>
+  <button data-sim="fornecedor">🏭 Fornecedor</button>
+  <button data-sim="novo">🆕 Não cadastrado</button>
+  <button data-sim="grupo">👥 Grupo</button>
+</div>
+<div id="app">
+  <div id="side">
+    <div class="top">WhatsApp <span style="font-size:11px;color:#8696a0">(simulado)</span></div>
+    <div class="busca"><div>🔍 Pesquisar ou começar uma nova conversa</div></div>
+    <div id="pane-side"></div>
+  </div>
+  <div id="main"></div>
+</div>
+
+<script>
+// ===== dados fictícios (um por tipo de contato) =====
+var CONTATOS = {
+  cliente: {
+    nome: 'Tork Lubrificantes (1906)', tel: '5565999990000', grupo: false, etq: 'Revenda', etqc: '#2DA44E', av: '🛢️',
+    msgs: [['in','bom dia, preciso cotar umas peças'],['in','1333715'],['in','1495240'],['in','2373800'],['in','06 de cada por favor']],
+    card: { achou: true, tipo: 'cliente', pelo: '', k: 'c:1906', titulo: 'TORK COMERCIO INDUSTRIA IMPORTACAO LTDA', sub: 'Vitor · compras',
+      etqs: [ { t: 'Revenda' }, { t: '👤 vitor' } ],
+      linhas: [ { ic: '💰', t: 'R$ 48.500,00 em 12 meses', d: '12 pedidos · último há 8 dias' }, { ic: '📄', t: '3 cotações em 12 meses', d: '40% viraram pedido' }, { ic: '⏰', t: 'Próxima ação amanhã', d: 'cobrar a cotação 394427' } ],
+      hist: [ { tit: '📄 Cotações abertas (30 dias)', vazio: 'nenhuma', itens: [ { t: 'Nº 394427 · 5 itens', d: '06/11/2026', acao: 'cot', arg: '394427' } ] }, { tit: '📦 Últimos pedidos', vazio: 'nenhum', itens: [ { t: 'PV 12033 · R$ 2.140,00', d: '29/10/2026', acao: 'ped', arg: '12033' } ] } ],
+      pecas: [ { tit: '🔩 O que mais compra (12 meses)', vazio: '', itens: [ { t: '1333715 · FILTRO', d: 'FFT · 48 un' }, { t: '2373800 · ELEMENTO', d: 'FFT · 30 un' } ] } ],
+      prontas: [ { t: 'Bom dia', txt: 'Bom dia! Já te passo essa cotação, um instante 👍' }, { t: 'Prazo', txt: 'Esses itens são imediatos, tenho saldo em estoque.' } ],
+      botoes: [ { acao: 'ficha', arg: 'c:1906', rot: '🤝 Abrir ficha (CRM)' } ], contato: 'Vitor' },
+    cotar: { itens: [ { cod: '1333715', qtd: 6, achou: true, desc: 'FILTRO', marca: 'FFT', saldo: 10, preco: 139.12 }, { cod: '1495240', qtd: 6, achou: true, desc: 'RETENTOR', marca: 'FFT', saldo: 5, preco: 31.30 }, { cod: '2373800', qtd: 6, achou: true, desc: 'ELEMENTO', marca: 'FFT', saldo: 8, preco: 71.80 } ], total: 1452.72, geral: 6, margem: 21, uf: 'MT',
+      resposta: 'Bom dia! Segue a cotação:\n1333715 — FILTRO — 6 un — R$ 139,12\n1495240 — RETENTOR — 6 un — R$ 31,30\n2373800 — ELEMENTO — 6 un — R$ 71,80\nTotal: R$ 1.452,72\nQualquer coisa estou à disposição!' } },
+  fornecedor: {
+    nome: 'BR Rolamentos', tel: '5511944551200', grupo: false, etq: 'Fornecedor', etqc: '#57606A', av: '🏭',
+    msgs: [['out','Oi, tem o NJ313 em estoque?'],['in','Tenho sim, R$ 212,00 cada']],
+    card: { achou: true, tipo: 'fornecedor', pelo: 'nome', titulo: 'BR ROLAMENTOS LTDA', sub: 'Fornecedor',
+      etqs: [ { t: '🏭 Fornecedor', bg: '#E8F1FB', cor: '#1F4E79' } ],
+      linhas: [ { ic: '🗂️', t: '2 mapas esperando resposta', d: 'Mapa 118 · Mapa 121' }, { ic: '📄', t: '1 ordem de compra aberta', d: 'OC-0007 · R$ 3.400,00' } ],
+      hist: [], pecas: [], prontas: [],
+      botoes: [ { acao: 'mapa', arg: '118', rot: '🗂️ Abrir mapa 118' } ], contato: '' } },
+  novo: {
+    nome: 'João Peças Diesel', tel: '5562988887777', grupo: false, etq: '', etqc: '', av: '🧑',
+    msgs: [['in','oi, vocês trabalham com peças de retroescavadeira?']],
+    card: { achou: false, nome: 'João Peças Diesel' } },
+  grupo: {
+    nome: 'Fornecedores Triex', tel: '', grupo: true, etq: '', etqc: '', av: '👥',
+    msgs: [['in','pessoal, lista de preços nova em anexo']],
+    card: { grupo: 1 } }
+};
+var ORDEM = ['cliente','fornecedor','novo','grupo'];
+var CUR = 'cliente';
+
+// ===== chrome falso (precisa existir ANTES do whatsapp.js) =====
+var MEM = {};
+function respQuem() { return JSON.parse(JSON.stringify(CONTATOS[CUR].card)); }
+function respAcao(acao, arg) {
+  if (acao === 'cotar') return CONTATOS[CUR].cotar ? JSON.parse(JSON.stringify(CONTATOS[CUR].cotar)) : { itens: [], total: 0, geral: 0, margem: 21, uf: 'SP', resposta: 'Não achei códigos nesta conversa.' };
+  if (acao === 'saldo') return { cod: String(arg || ''), itens: [ { cod: String(arg || ''), marca: 'FFT', desc: 'FILTRO DE EXEMPLO', saldo: 10 } ] };
+  if (acao === 'contatosSemTel') return { ok: true, nomes: [], total: ORDEM.length };
+  if (acao === 'contatoTel') return { ok: true, gravou: true };
+  if (acao === 'importarContatos') { setTimeout(function(){ toast('No PF real abriria a tela de conferência com os contatos lidos.'); }, 50); return { ok: true }; }
+  if (acao === 'registrar' || acao === 'lembrete') { toast('✔ (simulado) gravado no CRM'); return { ok: true }; }
+  if (['abrirCot','ficha','cot','ped','mapa','oc'].indexOf(acao) >= 0) { toast('No PF real isso abriria: ' + acao + (arg ? ' ' + JSON.stringify(arg) : '')); return { ok: true }; }
+  return { ok: true };
+}
+window.chrome = {
+  runtime: {
+    lastError: null,
+    getManifest: function () { return { version: window.__pfVer || 'sim' }; },
+    sendMessage: function (m, cb) {
+      var r;
+      if (m.t === 'quem') r = respQuem();
+      else if (m.t === 'acao') r = respAcao(m.acao, m.arg);
+      else r = { ok: 1 };
+      setTimeout(function () { try { cb && cb(r); } catch (e) {} }, 60);
+    },
+    onMessage: { addListener: function () {} }
+  },
+  storage: { local: {
+    get: function (keys, cb) { var out = {}; (Array.isArray(keys) ? keys : [keys]).forEach(function (k) { if (k in MEM) out[k] = MEM[k]; }); if (cb) cb(out); return Promise.resolve(out); },
+    set: function (o, cb) { Object.keys(o).forEach(function (k) { MEM[k] = o[k]; }); if (cb) cb(); return Promise.resolve(); },
+    remove: function (k, cb) { (Array.isArray(k) ? k : [k]).forEach(function (x) { delete MEM[x]; }); if (cb) cb(); return Promise.resolve(); }
+  } },
+  alarms: { create: function () {}, clear: function () {}, onAlarm: { addListener: function () {} } }
+};
+
+// ===== montar o WhatsApp de mentira =====
+function toast(t) {
+  var d = document.createElement('div'); d.textContent = t;
+  d.style.cssText = 'position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#11212e;color:#cfe0f0;border:1px solid #2d4b64;padding:10px 16px;border-radius:10px;font:13px sans-serif;z-index:100000;box-shadow:0 6px 20px rgba(0,0,0,.4)';
+  document.body.appendChild(d); setTimeout(function () { d.remove(); }, 2600);
+}
+function painelLista() {
+  var h = '';
+  ORDEM.forEach(function (k) { var c = CONTATOS[k];
+    h += '<div role="listitem" data-sim-row="' + k + '"><div class="av">' + c.av + '</div><div><span dir="auto" title="' + c.nome + '">' + c.nome + '</span>' + (c.etq ? '<br><span class="etq" aria-label="Etiqueta ' + c.etq + '" style="background:' + (c.etqc || '#888') + '">' + c.etq + '</span>' : '') + '</div></div>';
+  });
+  document.getElementById('pane-side').innerHTML = h;
+  document.querySelectorAll('#pane-side [data-sim-row]').forEach(function (el) { el.onclick = function () { abrir(el.getAttribute('data-sim-row')); }; });
+}
+function abrir(k) {
+  CUR = k; var c = CONTATOS[k];
+  var did = c.grupo ? 'grupo_1@g.us' : 'true_' + c.tel + '@c.us';
+  var msgs = c.msgs.map(function (m, i) { return '<div class="message-' + m[0] + '" data-id="false_' + (c.tel || 'g') + '@c.us_' + i + '"><div class="b copyable-text" data-pre-plain-text="[14:00] ' + c.nome + ': "><span class="selectable-text">' + m[1] + '</span></div></div>'; }).join('');
+  document.getElementById('main').innerHTML =
+    '<header><div class="av">' + c.av + '</div><span dir="auto" title="' + c.nome + '" data-id="' + did + '">' + c.nome + '</span>' + (c.grupo ? '<span data-icon="default-group" style="margin-left:6px">👥</span>' : '') + '</header>' +
+    '<div id="msgs">' + msgs + '</div>' +
+    '<footer><button>😊</button><div class="cx" contenteditable="true" role="textbox"></div><button aria-label="Enviar">➤</button></footer>';
+  document.querySelectorAll('#sim-bar [data-sim]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-sim') === k); });
+}
+document.querySelectorAll('#sim-bar [data-sim]').forEach(function (b) { b.onclick = function () { abrir(b.getAttribute('data-sim')); }; });
+painelLista();
+abrir('cliente');
+
+// ===== pega a versão real do manifest e injeta o whatsapp.js de verdade =====
+fetch('manifest.json').then(function (r) { return r.json(); }).then(function (mj) { window.__pfVer = mj.version; })
+  .catch(function () { window.__pfVer = '?'; })
+  .then(function () {
+    document.getElementById('sim-ver').textContent = 'v' + (window.__pfVer || '?');
+    var s = document.createElement('script'); s.src = 'whatsapp.js?sim=' + Date.now(); document.body.appendChild(s);
+  });
+</script>
+</body>
+</html>

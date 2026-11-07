@@ -2153,3 +2153,4 @@
   linha encostada ("1" = ≥85 ou linha + ≥30). Achados = `ia:3` + `aj2` (tracejado, "lido no desenho", fora do 🎯 Ajustar); a IA só procura os que faltarem. Teste (Carraro
   20.43, 4 desenhos): 81/84 nítido, 72/84 em baixa resolução. Teste local: npm `tesseract.js@5.1.1` + `@tesseract.js-data/eng` servidos pelo `page.route`.
 - v115.2588 ("cadê o marcar com IA?"): com o 📍 Marcar números ligado a barra laranja não tinha o 🤖 Marcar com IA (só aparecia depois do ✓ Pronto) — agora tem nas duas.
+- v115.2589 ("mto ruim" — Mangas e Cilindro, círculos longe dos números): o aviso do 🤖 Marcar com IA mostra sempre o que o 🔎 leitor de números fez (N achados ou "NÃO FUNCIONOU (erro)"), pra saber se foi ele ou a IA.

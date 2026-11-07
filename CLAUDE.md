@@ -2154,3 +2154,4 @@
   20.43, 4 desenhos): 81/84 nítido, 72/84 em baixa resolução. Teste local: npm `tesseract.js@5.1.1` + `@tesseract.js-data/eng` servidos pelo `page.route`.
 - v115.2588 ("cadê o marcar com IA?"): com o 📍 Marcar números ligado a barra laranja não tinha o 🤖 Marcar com IA (só aparecia depois do ✓ Pronto) — agora tem nas duas.
 - v115.2589 ("mto ruim" — Mangas e Cilindro, círculos longe dos números): o aviso do 🤖 Marcar com IA mostra sempre o que o 🔎 leitor de números fez (N achados ou "NÃO FUNCIONOU (erro)"), pra saber se foi ele ou a IA.
+- v115.2590 BUG ("e aqui vou onde?" — série 26.22 em Aplicações sem máquina): o "🚜 Vai em / + marcar máquina" só aparecia com máquina já ligada; agora o card da série sempre mostra (`maqVaiEmHtml(k,{sempre:true})`, "🚜 AINDA NÃO LIGADA A NENHUMA MÁQUINA").

@@ -2192,6 +2192,20 @@
   `ccMedidasDasEspecs(fam,specs,marca)`, chamado com `marcaCat` no ➕ Cadastrar item). E do PF = quantidade de furos → número > 24 que a IA pôs no E é apagado.
   G NÃO é o Ø do copo: 170-2-35 G 109,5 com SPL170 (copo 55, ponta 164). Flange 2060002 monta com a cruzeta 2060005 = LNG 801103 = Stahl HCZ-214 (copo 59,05 · ponta 167,8)
   — achado no `scripts/dados-spicer-aplicacao.json`. Peças já cadastradas NÃO foram mexidas (precisa colar o print de novo ou um catálogo Spicer de flanges).
+- v115.2601 **📏 Medidas das peças — catálogo Spicer** (Vitor mandou o PDF "Dimensões das peças · Cruzetas e componentes de cardans", págs. 88–95, só imagem):
+  transcrito à mão pelo `gera.py` (scratchpad) → `data/catalogos/spicer-medidas.json` {familias:{fam:[{codigo,grupo,serie,tipo,letras…,estrias,emaior,emenor,furos,tubo,graxeira}]}}
+  + PDF. 247 peças (54 cruzetas, 6 flanges acopl., 25 flanges de orelha, 32 garfos, 36 luvas, 56 ponteiras, 1 pontuva, 37 terminais). **CORREÇÃO da 2600:** no desenho
+  da Spicer o **D** das flanges de orelha/garfos/luvas/terminais é o Ø do FURO DO COPO da cruzeta (250-2-15 D 59,9 ↔ SPL250 copo 60; 170-2-35 D 54,9 ↔ SPL170 copo 55),
+  E = vão entre orelhas (campo novo **V**), G = da face ao centro da cruzeta. Campos: flangesOrelha D "Ø do copo da cruzeta", V, G; garfos ganharam D/V; luvas e terminais
+  D relabel + V; `CC_BG_PRINC` mostra "Ø copo cruzeta". Letra Spicer → campo PF em `CC_SPMED_MAPA` (cruzeta A/B, C→G trava a trava; flange acopl. R→A, G→B, B→E, furos→D,
+  estrias→H; ponteira F→F, K→E, L→C, Ø maior→B, Ø menor→A; luva J→B, L→A; terminal G→B, R→A; pontuva K→A, L→B); cruzeta de castanha só especificação. Tudo também em
+  especificações ("Medidas no catálogo Spicer (mm)", série, tipo, tubo, estrias). Importador `ccSpMedAbrir`/`ccSpMedPlano`/`ccSpMedAplicar` (faixa `ccSpMedBotaoHtml` no
+  menu dos Componentes Cardan, só admin, some depois de gravar `importacoes.spicer_medidas`; central 📥 Subir catálogo → Cardan → 📏 Medidas Spicer): acha pelo código
+  (aceita S no fim, Spicer primeiro, `ccSpMedAchar`); medida diferente no item Spicer é trocada pela do catálogo e a antiga fica em `medAntesSpicer`; sem cadastro Spicer =
+  peça nova (`spmed_<cod>`) no card que já cita o código (`ccChaveSpicerExistente`). Obs.: o catálogo marca as ponteiras 2-53-501/3-53-1361… e 2-53-1131/3-53-23xx como [PD]
+  deslizante (a regra do PF diz -53- = fixa) — peça nova entra "PONTEIRA DESLIZANTE" como o catálogo. 2060002/2060005 NÃO estão nessas páginas.
+  Junto: a janela 🧩 PartsFlow no WhatsApp avisa "⚠ Está desatualizada: você tem a X e a mais nova é a Y" (`PF_EXT_VER_NOVA`='1.9', `pfExtVerMenor`) —
+  **subiu a version do manifest da extensão → subir o PF_EXT_VER_NOVA também.**
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma — ainda NÃO feito):**
   · **Menu em volta do WhatsApp Web = versão A** da prévia `docs/referencias/whatsapp-menu/` (barra de cima com filtros: Clientes/Fornecedores, etiquetas do WhatsApp,
     situação no PF; coluna de ícones à esquerda) nas **2 cores (azul e discreta, escolha do usuário)** + chave **liga/desliga** "Menu do PF".

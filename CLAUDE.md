@@ -2206,6 +2206,8 @@
   deslizante (a regra do PF diz -53- = fixa) — peça nova entra "PONTEIRA DESLIZANTE" como o catálogo. 2060002/2060005 NÃO estão nessas páginas.
   Junto: a janela 🧩 PartsFlow no WhatsApp avisa "⚠ Está desatualizada: você tem a X e a mais nova é a Y" (`PF_EXT_VER_NOVA`='1.9', `pfExtVerMenor`) —
   **subiu a version do manifest da extensão → subir o PF_EXT_VER_NOVA também.**
+- v115.2602 ("mostra pra mim a versão que estou aqui" — janela dizia "não está instalada"): sem extensão detectada a janela mostra "Versão mais nova: 1.9" +
+  "recarregue esta aba do PF (F5)" (o `data-pf-ext` só aparece depois que o ponte.js roda, ao carregar a página) + conferir chrome://extensions.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma — ainda NÃO feito):**
   · **Menu em volta do WhatsApp Web = versão A** da prévia `docs/referencias/whatsapp-menu/` (barra de cima com filtros: Clientes/Fornecedores, etiquetas do WhatsApp,
     situação no PF; coluna de ícones à esquerda) nas **2 cores (azul e discreta, escolha do usuário)** + chave **liga/desliga** "Menu do PF".

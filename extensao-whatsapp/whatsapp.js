@@ -217,6 +217,8 @@
   var P = null, B = null, AV = null, ultimo = '', aberto = true, visual = 'A', aba = 'cot', resp = null, cot = null, cotErro = '', cotando = false, saldoR = null, statusLote = '', contatoAt = null, avisoFechado = '', avisoLigado = true, botsMin = false;
   // 1.8 - 💡 ofertas e respostas + ⚠ já ofereci + 📢 status
   var OF = null, JA = null, ST = null, ofPend = [], ofSig = '', ofSel = {}, ofIgn = {}, digAnt = '', jaR = null, jaFechado = '';
+  // 2.0 - Menu do PF em volta do WhatsApp (barra de cima + coluna de ícones + etiquetas por conversa)
+  var MENU = null, RAIL = null, menuLig = true, menuCor = 'azul', menuFiltro = '', sitCache = {}, sitSig = '', sitTimer = null;
   chrome.storage.local.get(['ofIgn'], function (s) { ofIgn = s.ofIgn || {}; });
   var BOTOES = [['cot', '📄', 'Cotar no PF'], ['saldo', '📦', 'Saldo'], ['ficha', '🤝', 'Ficha'], ['lemb', '⏰', 'Lembrete'], ['prontas', '⚡', 'Prontas'], ['pdf', '📤', 'PDF']];
   function logoSvg(f, l) { return '<svg width="24" height="24" viewBox="0 0 40 40"><rect width="40" height="40" rx="10" fill="' + f + '"/><rect x="9" y="8" width="4" height="22" rx="1.5" fill="' + l + '"/><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="' + l + '" stroke-width="4" stroke-linecap="round"/><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="33" r="2" fill="#E67E22"/></svg>'; }
@@ -234,11 +236,13 @@
     OF = document.createElement('div'); OF.id = 'pfwa-of'; document.body.appendChild(OF);
     JA = document.createElement('div'); JA.id = 'pfwa-ja'; document.body.appendChild(JA);
     ST = document.createElement('div'); ST.id = 'pfwa-st'; document.body.appendChild(ST);
+    MENU = document.createElement('div'); MENU.id = 'pfwa-menu'; document.body.appendChild(MENU);
+    RAIL = document.createElement('div'); RAIL.id = 'pfwa-rail'; document.body.appendChild(RAIL);
     P.querySelector('.pfwa-aba').onclick = function () { aberto = !aberto; chrome.storage.local.set({ painelAberto: aberto }); pinta(); };
     P.querySelector('.pfwa-x').onclick = function () { aberto = false; chrome.storage.local.set({ painelAberto: false }); pinta(); };
     P.querySelectorAll('[data-vis]').forEach(function (el) { el.onclick = function () { visual = el.getAttribute('data-vis'); chrome.storage.local.set({ visual: visual }); pinta(); }; });
-    [P, B, AV, OF, JA, ST].forEach(function (el) { el.addEventListener('click', clique); });
-    chrome.storage.local.get(['painelAberto', 'visual', 'avisoLigado', 'botsMin'], function (s) { if (s.painelAberto === false) aberto = false; if (s.visual === 'D' || s.visual === 'A') visual = s.visual; if (s.avisoLigado === false) avisoLigado = false; if (s.botsMin) botsMin = true; pinta(); });
+    [P, B, AV, OF, JA, ST, MENU, RAIL].forEach(function (el) { el.addEventListener('click', clique); });
+    chrome.storage.local.get(['painelAberto', 'visual', 'avisoLigado', 'botsMin', 'menuLig', 'menuCor', 'menuFiltro'], function (s) { if (s.painelAberto === false) aberto = false; if (s.visual === 'D' || s.visual === 'A') visual = s.visual; if (s.avisoLigado === false) avisoLigado = false; if (s.botsMin) botsMin = true; if (s.menuLig === false) menuLig = false; if (s.menuCor === 'discreta' || s.menuCor === 'azul') menuCor = s.menuCor; if (s.menuFiltro) menuFiltro = s.menuFiltro; pinta(); pintarMenu(); });
   }
   function abrirPainel() { if (!aberto) { aberto = true; chrome.storage.local.set({ painelAberto: true }); } }
   function irAba(a) { aba = a; abrirPainel(); pinta(); }
@@ -287,6 +291,9 @@
       var r2 = await msg({ t: 'acao', acao: 'lembrete', arg: { k: arg, data: d, texto: tt } }); flash(b, r2 && r2.ok ? '✔ Marcado — aparece no Meu dia' : 'Não deu — abra o PF'); return;
     }
     if (ac === 'parar') { msg({ t: 'parar' }); return; }
+    if (ac === 'menuTog') { menuLig = !menuLig; chrome.storage.local.set({ menuLig: menuLig }); pintarMenu(); return; }
+    if (ac === 'menuCor') { menuCor = arg; chrome.storage.local.set({ menuCor: menuCor }); pintarMenu(); return; }
+    if (ac === 'menuFiltro') { menuFiltro = (menuFiltro === arg ? '' : arg); chrome.storage.local.set({ menuFiltro: menuFiltro }); pintarMenu(); return; }
     if (ac === 'ofResp') { var o0 = ofPend[0]; if (o0) { ofSel[o0.h] = arg; pintaOferta(); } return; }
     if (ac === 'ofSalvar' || ac === 'ofIgnorar') {
       var o = ofPend[0]; if (!o) return;
@@ -574,7 +581,92 @@
     setTimeout(function () { if (ST && ST.className === 'ok') ST.style.display = 'none'; }, 15000);
   }
 
+  // ═══ 🧩 MENU DO PF em volta do WhatsApp (2.0) ═══
+  // Barra de cima (filtros Clientes/Fornecedores, etiquetas do WhatsApp, Cotação aberta / Sem resposta + liga-desliga + cor),
+  // coluna de ícones à esquerda (atalhos do PF) e etiquetas embaixo de cada conversa. Tudo some com o "Menu do PF" desligado.
+  var PFM_CORES = ['#FDE68A', '#BFDBFE', '#BBF7D0', '#FBCFE8', '#DDD6FE', '#FED7AA', '#C7D2FE', '#A7F3D0'];
+  function etqCor(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return PFM_CORES[h % PFM_CORES.length]; }
+  function linhasLista() {
+    var pane = $('#pane-side'); if (!pane) return [];
+    var rows = pane.querySelectorAll('[role="listitem"]'); if (!rows.length) rows = pane.querySelectorAll('div[role="row"]');
+    var out = [];
+    rows.forEach(function (r) {
+      var ne = r.querySelector('span[title]'); var nome = ne ? (ne.getAttribute('title') || '').trim() : ''; if (!nome) return;
+      var tel = /^[+\d][\d\s()\-]{7,}$/.test(nome) ? nome.replace(/\D/g, '') : '';
+      var etqs = []; r.querySelectorAll('[aria-label]').forEach(function (e) { var a = (e.getAttribute('aria-label') || '').trim(); var m = a.match(/^(?:Etiqueta|Label)[:\s]+(.+)$/i); if (m) { var t = m[1].trim(); if (t && etqs.indexOf(t) < 0) etqs.push(t); } });
+      var unread = !!r.querySelector('[aria-label*="ão lida"],[aria-label*="ão lidas"],[aria-label*="nread"]');
+      out.push({ el: r, nome: nome, tel: tel, etqs: etqs, unread: unread });
+    });
+    return out;
+  }
+  function carregarSituacoes() {
+    if (!menuLig) return;
+    clearTimeout(sitTimer);
+    sitTimer = setTimeout(function () {
+      var ls = linhasLista(); var sig = ls.map(function (x) { return x.nome; }).join('|');
+      if (sig === sitSig && Object.keys(sitCache).length) { pintarMenu(); return; }
+      sitSig = sig;
+      msg({ t: 'acao', acao: 'situacoes', arg: { lista: ls.map(function (x) { return { nome: x.nome, tel: x.tel }; }) } }).then(function (r) { if (r && r.sit) sitCache = r.sit; pintarMenu(); });
+    }, 500);
+  }
+  function badgesRender() {
+    var pane = $('#pane-side');
+    if (!menuLig || !pane) { document.querySelectorAll('.pfwa-rowb').forEach(function (e) { e.remove(); }); return; }
+    linhasLista().forEach(function (x) {
+      var host = x.el.querySelector('span[title]'); if (!host) return; host = host.parentElement; if (!host) return;
+      // só a situação do PF — a etiqueta do WhatsApp o próprio WhatsApp já mostra na linha (não duplicar)
+      var s = sitCache[x.nome] || {}, chips = [];
+      if (s.tipo === 'cliente') chips.push('<span class="cli">🤝 cliente' + (s.cot ? ' · 📄 cot. ' + esc(s.cot) : '') + '</span>');
+      else if (s.tipo === 'fornecedor') chips.push('<span class="forn">🏭 fornecedor' + (s.mapa ? ' · mapa ' + esc(s.mapa) : '') + '</span>');
+      if (x.unread) chips.push('<span class="sem">⏳ sem resposta</span>');
+      var b = host.querySelector(':scope > .pfwa-rowb');
+      if (!chips.length) { if (b) b.remove(); return; }
+      var html = chips.join('');
+      if (!b) { b = document.createElement('div'); b.className = 'pfwa-rowb'; host.appendChild(b); }
+      if (b.getAttribute('data-h') !== html) { b.innerHTML = html; b.setAttribute('data-h', html); }
+    });
+  }
+  function aplicarFiltro() {
+    var rows = document.querySelectorAll('#pane-side [role="listitem"]');
+    if (!menuLig || !menuFiltro) { rows.forEach(function (r) { r.style.display = ''; }); return; }
+    linhasLista().forEach(function (x) {
+      var s = sitCache[x.nome] || {}, ok = false;
+      if (menuFiltro === 'cliente') ok = s.tipo === 'cliente';
+      else if (menuFiltro === 'fornecedor') ok = s.tipo === 'fornecedor';
+      else if (menuFiltro === 'cot') ok = !!s.cot;
+      else if (menuFiltro === 'semresp') ok = x.unread;
+      else if (menuFiltro.indexOf('etq:') === 0) ok = x.etqs.indexOf(menuFiltro.slice(4)) >= 0;
+      x.el.style.display = ok ? '' : 'none';
+    });
+  }
+  function pintarMenu() {
+    if (!MENU) return;
+    var root = document.documentElement;
+    root.classList.toggle('pfwa-menu', menuLig);
+    root.classList.toggle('pfwa-menudisc', menuCor === 'discreta');
+    if (!menuLig) {
+      MENU.className = 'pfm-off'; MENU.style.right = 'auto'; MENU.style.display = 'flex';
+      MENU.innerHTML = '<span class="pfm-offchip" data-acao="menuTog" title="Ligar o Menu do PF">🧩 Menu do PF ▸</span>';
+      RAIL.style.display = 'none'; badgesRender(); aplicarFiltro(); return;
+    }
+    MENU.className = (menuCor === 'discreta' ? 'pfwa-disc' : ''); MENU.style.display = 'flex';
+    MENU.style.right = root.classList.contains('pfwa-aberto') ? '380px' : '0';
+    RAIL.style.display = 'flex';
+    var ls = linhasLista(), nC = 0, nF = 0, nCot = 0, nSem = 0, etqN = {};
+    ls.forEach(function (x) { var s = sitCache[x.nome] || {}; if (s.tipo === 'cliente') nC++; else if (s.tipo === 'fornecedor') nF++; if (s.cot) nCot++; if (x.unread) nSem++; x.etqs.forEach(function (e) { etqN[e] = (etqN[e] || 0) + 1; }); });
+    var etqTop = Object.keys(etqN).sort(function (a, b) { return etqN[b] - etqN[a]; }).slice(0, 5);
+    var pill = function (k, txt, n) { return '<span class="pfm-pill' + (menuFiltro === k ? ' on' : '') + '" data-acao="menuFiltro" data-arg="' + esc(k) + '">' + txt + (n != null ? ' <b>' + n + '</b>' : '') + '</span>'; };
+    var h = '<span class="pfm-logo">PF</span>' + pill('', 'Tudo') + pill('cliente', '🤝 Clientes', nC) + pill('fornecedor', '🏭 Fornecedores', nF);
+    etqTop.forEach(function (e) { h += pill('etq:' + e, esc(e), etqN[e]); });
+    h += pill('cot', '📄 Cotação aberta', nCot) + pill('semresp', '⏳ Sem resposta', nSem);
+    h += '<span class="pfm-dir"><span class="pfm-cor"><i data-acao="menuCor" data-arg="azul" class="' + (menuCor !== 'discreta' ? 'on' : '') + '">azul</i><i data-acao="menuCor" data-arg="discreta" class="' + (menuCor === 'discreta' ? 'on' : '') + '">discreta</i></span><span class="pfm-tog" data-acao="menuTog" title="Desligar o Menu do PF">Menu do PF <span class="pfm-sw"></span></span></span>';
+    MENU.innerHTML = h;
+    var rail = [['vendas', '📄', 'Cotações'], ['mesa', '🛒', 'Mesa do comprador'], ['home', '🏠', 'Início do PF'], ['ext', '🧩', 'PartsFlow no WhatsApp']];
+    RAIL.innerHTML = rail.map(function (r) { return '<span data-acao="irTela" data-arg="' + r[0] + '" title="' + r[2] + '">' + r[1] + '</span>'; }).join('');
+    badgesRender(); aplicarFiltro();
+  }
+
   processarEnvio();
-  setInterval(function () { vigiar().catch(function (e) { console.warn('PF', e); }); }, 1500);
+  setInterval(function () { vigiar().catch(function (e) { console.warn('PF', e); }); try { carregarSituacoes(); badgesRender(); aplicarFiltro(); } catch (e) { } }, 1500);
   window.addEventListener('resize', posicionar);
 })();

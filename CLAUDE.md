@@ -2214,6 +2214,11 @@
   `ccPontSpicerCat`, aceita S no fim; qualquer código do grupo) > descrição > rosca G = fixa > -40- = deslizante > dedução Stahl. `PF_SPICER_TIPO_MEIO['53']` sem `pont`.
   Descrição que o próprio sistema escreveu ("PONTEIRA FIXA/DESLIZANTE" com `descSemTipo`, `ccPontDescAuto`) NÃO conta como fonte; grupo que ficou sem tipo volta à
   descrição antiga; `ccPontDescAplicar` reescreve o resto (com tsMod). Junto: `PF_EXT_VER_NOVA` estava '1.9' com o manifest na 2.2 → '2.2' (mudou o manifest = mudar aqui).
+- v115.2607 **🤖 Avisos do cliente + Assistente no painel do WhatsApp** (extensão **2.3**; item da revisão do Watidy): `pfExtAvisosCli(c)` roda o MESMO `vendasAvisosCliente`
+  da cotação (com `window._venda` vazio na hora — concorrência fica fora) e manda em texto (`pfExtTxt`) → `R.avisos` [{ic,t,cor}] + `R.nRegras`. Extensão: bloco "⚠ N avisos
+  deste cliente" no topo da aba Cliente (`avisosHtml`), faixa curta clicável na aba Cotação, botão 🤖 na coluna/barra (`b-assist`) e "Ver as regras do Assistente" →
+  acao `assistente` → `pfExtAssistente(k)` (abre `pfVendasRegrasIAAbrirPainel` em "De um cliente" com esse cliente). Simulador com avisos de exemplo. Captura
+  `docs/referencias/whatsapp-menu/feito-avisos.png`. `PF_EXT_VER_NOVA`='2.3'. Zip: pasta interna `partsflow-whatsapp/` (script `zipext.sh` no scratchpad).
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · **1 Quadro (Kanban) AUTOMÁTICO**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);
@@ -2226,7 +2231,7 @@
     tela inicial) + CRM próxima ação amanhã (`crm_wa_<hash>`, ☀️ Meu dia + ficha) com o cliente + o que ele pediu (`pfExtVerifResumo` = última msg do cliente com código/"?") + os
     códigos (`pfExtVerifCods`). Dedup por hash (não duplica). Cartão verde "📌 Anotei — desfazer" (`#pfwa-vf`) → `verificarDesfazer` tira a pendência + marca o prox como feito.
     FALTA (quando o Vitor pedir): lista de frases editável + "amanhã cedo/até sexta" virando a data.
-  · **🤖 Avisos do cliente + Assistente de Vendas no painel**: a mesma caixa de avisos da cotação (`vendasAvisosCliente`: anotações, regras do Assistente, inativo, vencido, frota,
+  · ~~**🤖 Avisos do cliente + Assistente de Vendas no painel**~~ **FEITO v115.2607**: a mesma caixa de avisos da cotação (`vendasAvisosCliente`: anotações, regras do Assistente, inativo, vencido, frota,
     perfil, concorrência, já ofereceu) na aba Cliente + botão 🤖 na coluna; "Abrir as regras do Assistente" no cliente.
   · ~~**Código entre parênteses = código do cliente no JBoss**, aviso quando não existe no PF~~ **FEITO v115.2604** (extensão 2.1): `pfExtQuem` calcula `codFalta` (código em parênteses no
     nome do WhatsApp que NENHUM cliente do PF tem, só quando não casou como cliente) → banner laranja no painel "📇 Código X não está no PF — cadastrar" + botão "➕ Cadastrar no PF"

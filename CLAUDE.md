@@ -2263,6 +2263,13 @@
   "📱 + salvar no celular" (`svWa`: clica no "Adicionar aos contatos" do próprio WhatsApp e escreve o nome; falhou = nome copiado). AJUDA ganhou a linha. `PF_EXT_VER_NOVA`='2.7'.
   ATENÇÃO (09/11): o cadastro de clientes do PF (`user_sync` cad_clientes_v1) tem só 20 clientes reais + 150 da demo; 823 ids em `cad_clientes_deletados` (222 dos 242 da cópia
   antiga de 02/09 em `user_cadastros`, inclusive os 3 MAXIMUS 000017/000018/000183). Perguntei ao Vitor se foi de propósito (A só o Maximus / B os 222 / C nada) — sem resposta ainda.
+- v115.2614 **clientes do backup + 🙈 só eu vejo + Código JBoss** (Vitor: "tem um backup dos clientes q tinha antes… quero que apareça só pra mim" + "abrir um campo no
+  cadastro de cliente e colocar esse código… como código JBoss"): 171 clientes reais voltaram (backup `backup_clientes_20260923` de 03/07 + `user_cadastros` de 02/09, sem
+  repetidos nem os 20 ativos) com id NOVO `r2613_<antigo>` (a lista `cad_clientes_deletados` é união e esconderia o id antigo), `restauradoDe`, `soDono:true`. Cópia de antes
+  em `backup_clientes_20261109`. **`PF_SO_DONO_KEYS`** {cad_clientes_v1}: item `soDono` só aparece pro vitoregee@gmail.com (`pfSoDonoEu`) — filtro na leitura (`pfSoDonoFiltrar`
+  no getItem e no pfRawGetItem, depois do filtro da demonstração); gravação da TELA de outra pessoa devolve os soDono do navegador (`pfSoDonoGravar`); a sync passa direto.
+  Campo **Código JBoss** (`codJboss`, `clieCodJboss`) no cadastro do cliente; o número entre parênteses do nome no WhatsApp bate com ele ou com o código do PF (`pfExtCodBate`, no
+  pfExtQuem/pfExtAcharK/codFalta/pfExtClientesSugerir); 👤+ Salvar contato grava o Código JBoss no cliente se estiver vazio. Maximus = 1 cadastro, código 000183, Código JBoss 12662.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

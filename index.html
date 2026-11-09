@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2613</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2614</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2613</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2614</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -17062,7 +17062,8 @@ function pfDemoCotSemApagados(raw){
 function pfRawGetItem(key){
   if(PF_IDB_KEYS.indexOf(key)>=0){var _v=_pfMemCache.hasOwnProperty(key)?_pfMemCache[key]:null;
     if(key==='partsflow_cotacoes_v1')_v=pfDemoCotSemApagados(_v); // v115.2259
-    return PF_MODO_DEMO_TODAS[key]?pfModoDemoFiltrarRaw(key,_v):_v;}
+    if(PF_MODO_DEMO_TODAS[key])_v=pfModoDemoFiltrarRaw(key,_v);
+    return (window.PF_SO_DONO_KEYS&&PF_SO_DONO_KEYS[key])?pfSoDonoFiltrar(key,_v):_v;}
   return localStorage.getItem(key);
 }
 // ════════════════════════════════════════════════════════════════
@@ -17412,13 +17413,44 @@ function pfModoDemoSoGravar(key,value){
     return (String(value).indexOf(PF_COMPRESS_MARK)===0&&typeof pfCompress==='function')?pfCompress(txt):txt;
   }catch(e){return value;}
 }
+// v115.2614 - A pedido do Vitor ("quero que apareça só pra mim" -> marca "só eu vejo"): item com soDono:true numa chave de
+// PF_SO_DONO_KEYS (hoje os 171 clientes reais que voltaram do backup de 03/07 e 02/09) só aparece pro vitoregee@gmail.com, com o modo
+// demonstração ligado ou desligado. Filtro na LEITURA (pfRawGetItem/getItem); gravação da TELA de outra pessoa devolve os soDono que
+// estavam no navegador (senão a lista dela apagaria a cópia local). A sync grava e sobe a lista inteira, como sempre.
+var PF_SO_DONO_KEYS={cad_clientes_v1:1},_pfSoDonoMemo={};
+function pfSoDonoEu(){try{return !!window._pfSbUserPronto&&typeof pfEhVitorGmail==='function'&&pfEhVitorGmail();}catch(e){return false;}}
+function pfSoDonoFiltrar(key,raw){
+  if(!PF_SO_DONO_KEYS[key]||raw==null||pfSoDonoEu())return raw;
+  var m=_pfSoDonoMemo[key];if(m&&m.raw===raw)return m.out;
+  var out=raw;
+  try{var txt=(typeof pfDecompress==='function')?pfDecompress(raw):raw;
+    if(txt&&txt.indexOf('"soDono"')>=0){var v=JSON.parse(txt);if(Array.isArray(v))out=JSON.stringify(v.filter(function(x){return !(x&&x.soDono);}));}
+  }catch(e){out=raw;}
+  _pfSoDonoMemo[key]={raw:raw,out:out};return out;
+}
+function pfSoDonoGravar(key,value,realRaw){
+  try{
+    if(!PF_SO_DONO_KEYS[key]||pfSoDonoEu()||window._pfPullGravando>0||realRaw==null)return value;
+    var rt=(typeof pfDecompress==='function')?pfDecompress(realRaw):realRaw;if(!rt||rt.indexOf('"soDono"')<0)return value;
+    var real=JSON.parse(rt);if(!Array.isArray(real))return value;
+    var sd=real.filter(function(x){return x&&x.soDono;});if(!sd.length)return value;
+    var v=JSON.parse(pfDecompress(String(value)));if(!Array.isArray(v))return value;
+    var ja={};v.forEach(function(x){if(x&&x.id!=null)ja[x.id]=1;});
+    var falta=sd.filter(function(x){return !ja[x.id];});if(!falta.length)return value;
+    var txt=JSON.stringify(v.concat(falta));
+    return (String(value).indexOf(PF_COMPRESS_MARK)===0&&typeof pfCompress==='function')?pfCompress(txt):txt;
+  }catch(e){return value;}
+}
 Storage.prototype.setItem=function(k,v){if(this===window.localStorage&&PF_MODO_DEMO_TODAS[k]==='nada'&&pfModoDemoAtivo()){pfModoDemoSombraGravar(k,String(v));return;}
-  if(this===window.localStorage&&PF_MODO_DEMO_TODAS[k]==='so')v=pfModoDemoSoGravar(k,v);return _pfLsSetOrig.call(this,k,v);};
-Storage.prototype.getItem=function(k){var v=_pfLsGetOrig.call(this,k);return (this===window.localStorage&&PF_MODO_DEMO_TODAS[k])?pfModoDemoFiltrarRaw(k,v):v;};
+  if(this===window.localStorage&&PF_MODO_DEMO_TODAS[k]==='so')v=pfModoDemoSoGravar(k,v);
+  if(this===window.localStorage&&PF_SO_DONO_KEYS[k])v=pfSoDonoGravar(k,v,_pfLsGetOrig.call(this,k));
+  return _pfLsSetOrig.call(this,k,v);};
+Storage.prototype.getItem=function(k){var v=_pfLsGetOrig.call(this,k);if(this===window.localStorage&&PF_MODO_DEMO_TODAS[k])v=pfModoDemoFiltrarRaw(k,v);return (this===window.localStorage&&PF_SO_DONO_KEYS[k])?pfSoDonoFiltrar(k,v):v;};
 function pfRawSetItem(key, value){
   if(PF_MODO_DEMO_TODAS[key]==='nada'&&pfModoDemoAtivo()){pfModoDemoSombraGravar(key,value);return true;} // v115.2280
   if(PF_IDB_KEYS.indexOf(key)>=0){
     if(PF_MODO_DEMO_TODAS[key]==='so')value=pfModoDemoSoGravar(key,value); // v115.2284 (no localStorage o setItem já faz)
+    if(window.PF_SO_DONO_KEYS&&PF_SO_DONO_KEYS[key])value=pfSoDonoGravar(key,value,_pfMemCache.hasOwnProperty(key)?_pfMemCache[key]:null); // v115.2614
     _pfMemCache[key]=value;
     clearTimeout(_pfIdbWriteTimers[key]);
     _pfIdbWriteTimers[key]=setTimeout(function(){pfIdbSet(key,value);},800);
@@ -35387,8 +35419,11 @@ function cadFormCliente(data,idx){
   html+='</div>';
 
   // CNPJ + Sintegra
-  html+='<div style="display:grid;grid-template-columns:140px 1fr auto;gap:14px;align-items:end">';
+  html+='<div style="display:grid;grid-template-columns:140px 140px 1fr auto;gap:14px;align-items:end">';
   html+=cadField('Código','clieCodigo',d.codigo||cadProximoCodigoCliente(),'Ex: 001529','text');
+  // v115.2614 - A pedido do Vitor ("abrir um campo no cadastro de cliente e colocar esse código... como código JBoss"): o número entre
+  // parênteses no nome do WhatsApp ("Rogerio - Cardans SP (1525)") é o código do cliente no JBoss -> o painel do WhatsApp acha por ele.
+  html+=cadField('Código JBoss','clieCodJboss',d.codJboss||'','Ex: 1525','text');
   html+=cadField('CNPJ','clieCnpj',d.cnpj||'','00.000.000/0000-00','text');
   html+='<div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:1px">';
   html+='<button onclick="cadBuscarCNPJ(\'clie\')" style="background:var(--pf-fx-verde,#27AE60);color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">🔍 Buscar CNPJ</button>';
@@ -38291,6 +38326,7 @@ function cadSalvarClienteV2(idx){
   var cli = {
     id: idx>=0?cadLoad(CLIE_KEY)[idx].id:('c_'+Date.now()),
     codigo:(document.getElementById('clieCodigo')?document.getElementById('clieCodigo').value:'')||'',
+    codJboss:(document.getElementById('clieCodJboss')?String(document.getElementById('clieCodJboss').value||'').replace(/\D/g,''):(idx>=0?(cadLoad(CLIE_KEY)[idx].codJboss||''):''))||'',
     razao:razao, fantasia:document.getElementById('clieFantasia').value||'',
     cnpj:document.getElementById('clieCnpj').value||'',
     inscricaoEstadual:document.getElementById('clieIE')?document.getElementById('clieIE').value||'':'',
@@ -74828,8 +74864,8 @@ function pfExtQuem(tel,nome){
   // v115.2591 - A pedido do Vitor ("abre mas sem o nome do cliente" — contato "Dener - Triangulo Locacoes (7840) (13468)"): o código do cliente
   // entre parênteses no nome do WhatsApp era jogado fora. Agora cada número entre parênteses é procurado como CÓDIGO do cadastro (o que existir vale).
   if(!achou){var cods=(String(nome||'').match(/\(\s*\d{2,8}\s*\)/g)||[]).map(function(x){return x.replace(/\D/g,'');});
-    cods.some(function(cd){var cd0=cd.replace(/^0+/,'');return cls.some(function(c){var cc=String((c.cad&&c.cad.codigo)||'').replace(/\D/g,'').replace(/^0+/,'');
-      if((cc&&cc===cd0)||c.k==='c:'+cd){achou=c;pelo='código '+cd;return true;}return false;});});}
+    cods.some(function(cd){return cls.some(function(c){
+      if(pfExtCodBate(c.cad,cd)||c.k==='c:'+cd){achou=c;pelo='código '+cd;return true;}return false;});});}
   var forn=null,fcont=null;
   var fl=[];try{fl=cadLoad(FORN_KEY)||[];}catch(e){}
   var telsF=function(f){var a=[f.whatsapp,f.telefone,f.tel,f.celular];(f.contatos||[]).forEach(function(o){a.push(o.whatsapp,o.tel,o.telefone,o.celular);});return a;};
@@ -74850,7 +74886,7 @@ function pfExtQuem(tel,nome){
   var _r=achou?pfExtCardCliente(achou,contato,pelo):forn?pfExtCardForn(forn,fcont,pelo):{achou:false,nome:nome||''};
   // v115.2604 - A pedido do Vitor: o código entre parênteses no nome do WhatsApp é o código do cliente no JBoss; quando esse código NÃO existe
   // no PF (e o contato não casou como cliente), avisa no painel pra cadastrar com o MESMO código.
-  if(!achou){var codFalta='';try{(String(nome||'').match(/\(\s*\d{2,8}\s*\)/g)||[]).map(function(x){return x.replace(/\D/g,'');}).some(function(cd){var cd0=cd.replace(/^0+/,'');var tem=cls.some(function(c){var cc=String((c.cad&&c.cad.codigo)||'').replace(/\D/g,'').replace(/^0+/,'');return (cc&&cc===cd0)||c.k==='c:'+cd;});if(!tem){codFalta=cd;return true;}return false;});}catch(e){}if(codFalta)_r.codFalta=codFalta;}
+  if(!achou){var codFalta='';try{(String(nome||'').match(/\(\s*\d{2,8}\s*\)/g)||[]).map(function(x){return x.replace(/\D/g,'');}).some(function(cd){var cd0=cd.replace(/^0+/,'');var tem=cls.some(function(c){return pfExtCodBate(c.cad,cd0)||c.k==='c:'+cd;});if(!tem){codFalta=cd;return true;}return false;});}catch(e){}if(codFalta)_r.codFalta=codFalta;}
   return _r;}
 // v115.2574 - A pedido do Vitor (prévias docs/referencias/whatsapp-pf/, "gostei do A e do D… queria as 2, poder escolher"): o painel da extensão
 // ganhou abas (Cotação / Cliente / Histórico / Peças) e o "Cotar no PF": o PF lê os códigos e a quantidade nas mensagens do cliente
@@ -75002,7 +75038,7 @@ function pfExtAcharK(nome,tel){
     var N=function(s){return typeof pfBuscaN==='function'?pfBuscaN(s||''):String(s||'').toUpperCase();};
     if(tN.length>=8){var ac=null;cls.some(function(c){if(!c.cad)return false;var cs=[];try{cs=pfCrmContatos(c.cad);}catch(e){}if(cs.find(function(o){return pfExtTelBate(o.tel,tN);})){ac=c;return true;}return false;});if(ac)return {tipo:'cliente',k:ac.k,titulo:ac.razao||ac.nome,c:ac};}
     var cods=(String(nome||'').match(/\(\s*\d{2,8}\s*\)/g)||[]).map(function(x){return x.replace(/\D/g,'');});
-    for(var ci=0;ci<cods.length;ci++){var cd0=cods[ci].replace(/^0+/,'');var cc=cls.find(function(c){var x=String((c.cad&&c.cad.codigo)||'').replace(/\D/g,'').replace(/^0+/,'');return (x&&x===cd0)||c.k==='c:'+cods[ci];});if(cc)return {tipo:'cliente',k:cc.k,titulo:cc.razao||cc.nome,c:cc};}
+    for(var ci=0;ci<cods.length;ci++){var cd0=cods[ci].replace(/^0+/,'');var cc=cls.find(function(c){return pfExtCodBate(c.cad,cd0)||c.k==='c:'+cods[ci];});if(cc)return {tipo:'cliente',k:cc.k,titulo:cc.razao||cc.nome,c:cc};}
     if(tN.length>=8){var ff=null;fl.some(function(f){if(!f||f.del)return false;var a=[f.whatsapp,f.telefone,f.tel,f.celular];(f.contatos||[]).forEach(function(o){a.push(o.whatsapp,o.tel,o.telefone,o.celular);});if(a.some(function(x){return pfExtTelBate(x,tN);})){ff=f;return true;}return false;});if(ff)return {tipo:'fornecedor',titulo:ff.fantasia||ff.nome||ff.razao};}
     var _nm=pfExtNomeMatcher(nome),ped=_nm.pedacos;
     if(ped.length){var bate=_nm.bate;
@@ -75476,12 +75512,15 @@ function pfExtImpGravar(){
 // o 👤+ da extensão (2.7) procura o cliente pela empresa digitada (pfExtClientesSugerir) e grava (pfExtSalvarContato): contato do WhatsApp na lista
 // compartilhada pfContatosWhats_v1 (mesmo número = atualiza) + contato no cadastro do cliente escolhido (tel no padrão, cargo WhatsApp).
 function pfExtClientesSugerir(q){q=String(q||'').trim();if(q.length<3&&!/^\d{2,}$/.test(q))return {ok:true,l:[]};
-  if(/^\d{2,8}$/.test(q)){var q0=q.replace(/^0+/,'');var lc=[];try{lc=pfExtClientes()||[];}catch(e){}var porCod=lc.filter(function(c){return c.cad&&String(c.cad.codigo||'').replace(/\D/g,'').replace(/^0+/,'')===q0;});
+  if(/^\d{2,8}$/.test(q)){var q0=q.replace(/^0+/,'');var lc=[];try{lc=pfExtClientes()||[];}catch(e){}var porCod=lc.filter(function(c){return pfExtCodBate(c.cad,q0);});
     if(porCod.length)return {ok:true,l:porCod.slice(0,8).map(function(c){var cad=c.cad||{},rz=c.razao||c.nome||'';return {k:c.k,razao:rz,curto:String(cad.fantasia||rz).replace(/\s+(LTDA|EIRELI|ME|EPP|S\/?A)\.?$/i,'').trim(),codigo:cad.codigo||'',cidade:[cad.cidade,cad.estado||cad.uf].filter(Boolean).join('/'),porCod:1};})};}
   var l=[];try{l=pfExtClientes()||[];}catch(e){}var qa=pfBuscaAN(q);
   var r=l.filter(function(c){var t=[c.razao,c.nome,c.cad&&c.cad.fantasia,c.cad&&c.cad.codigo].filter(Boolean).join(' ');return pfBuscaPalavras(t,q)||(qa.length>=3&&pfBuscaAN(t).indexOf(qa)>=0);})
     .sort(function(a,b){return ((b.peds||[]).length-(a.peds||[]).length)||String(a.razao||'').localeCompare(String(b.razao||''));}).slice(0,8);
   return {ok:true,l:r.map(function(c){var cad=c.cad||{},rz=c.razao||c.nome||'';return {k:c.k,razao:rz,curto:String(cad.fantasia||rz).replace(/\s+(LTDA|EIRELI|ME|EPP|S\/?A)\.?$/i,'').trim(),codigo:cad.codigo||'',cidade:[cad.cidade,cad.estado||cad.uf].filter(Boolean).join('/')};})};}
+// v115.2614 - código entre parênteses do WhatsApp bate com o Código JBoss do cadastro (ou com o código do PF, como antes)
+function pfExtCodBate(cad,cd){if(!cad)return false;var cd0=String(cd||'').replace(/\D/g,'').replace(/^0+/,'');if(!cd0)return false;
+  return [cad.codJboss,cad.codigo].some(function(v){var x=String(v||'').replace(/\D/g,'').replace(/^0+/,'');return x&&x===cd0;});}
 function pfExtSalvarContato(a){
   var tel=pfExtTel(a.tel||''),nome=String(a.nome||'').trim();if(!nome)return {ok:false};
   var agora=Date.now(),eu=(typeof pfVR2MeuEmail==='function'&&pfVR2MeuEmail())||'',cli=null;
@@ -75495,6 +75534,8 @@ function pfExtSalvarContato(a){
   else l.push({id:'w'+agora.toString(36)+Math.random().toString(36).slice(2,6),nome:nome,tel:tel,etqs:[],clienteK:cli?cli.k:'',clienteNome:cli?(cli.razao||cli.nome):'',codJboss:String(a.cod||'').replace(/\D/g,''),criadoEm:agora,por:eu,tsMod:agora,de:'salvar'});
   pfExtContatosSave(l);
   var noCad='';
+  if(cli&&a.cod){try{var _cj=String(a.cod).replace(/\D/g,''),_cl=cadLoad(CLIE_KEY)||[],_cc=_cl.find(function(c){return c&&!c.del&&'c:'+String(c.codigo||c.razao||'').toUpperCase()===cli.k;});
+    if(_cc&&_cj&&!_cc.codJboss&&String(_cc.codigo||'').replace(/^0+/,'')!==_cj.replace(/^0+/,'')){_cc.codJboss=_cj;_cc.tsMod=Date.now();cadSave(CLIE_KEY,_cl);}}catch(e){}}
   if(cli&&tel){try{var pessoa=String(a.pessoa||'').trim()||nome;var n=pfExtImpLigarCadastro([{casa:{tipo:'cliente',k:cli.k},tel:tel,nome:pessoa}]);noCad=cli.razao||cli.nome;if(!n)noCad=cli.razao||cli.nome;}catch(e){}}
   try{window._pfExtCliCache=null;}catch(e){}
   return {ok:true,cli:noCad};

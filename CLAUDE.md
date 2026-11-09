@@ -2222,6 +2222,14 @@
 - v115.2608 **❓ Ajuda "Como funciona" na extensão** (extensão **2.4**; item da revisão do Watidy): ❓ no cabeçalho do painel troca o corpo pela explicação de cada
   função em linguagem simples (`AJUDA` no whatsapp.js, grupos: começo, barra de cima, botões, abas, avisos automáticos, rodapé; `htmlAjuda`, estado `ajuda`, trocar de aba
   fecha). **Função nova na extensão → linha no `AJUDA`.** Captura `docs/referencias/whatsapp-menu/feito-ajuda.png`. `PF_EXT_VER_NOVA`='2.4'.
+- v115.2609 **💰 Crédito do cliente** (prévia `docs/referencias/credito-cliente/` aprovada; capturas `feito-janela.png`/`feito-print.png`): log só-acrescenta **`pfCreditoEventos`**
+  (sync + logKeys) {id,k,razao,tipo lanc|uso|desf,valor,motivo,cot,total,ref,por,porEmail,ts}; saldo = lançamentos − usos (desfeito não conta; `pfCredDe`/`pfCredSaldo`), nunca vence.
+  Janela `pfCredAbrir(k,nome)` (pfNcJanela `pfCredJan`, z 100060): saldo, ➖ Usar (quanto, cotação, total antes — com a cotação do cliente aberta já vem o nº/total e "dá pra abater
+  até R$ X" = soma de (preço − mínimo da liberação `pfLibChecar.pMin`) × qtd, `pfCredCotInfo`; passar disso pergunta), ➕ Lançar (valor + motivo), extrato com desfazer, uso em
+  cotação que não virou pedido em 7 dias (`PF_CRED_VOLTA_DIAS`) pergunta "o crédito volta?". Depois de usar: texto pronto (`pfCredTexto`: Crédito / Desconto neste pedido /
+  Resta de crédito / linha em branco / Total do pedido) com 📋 Copiar, 🖼 Copiar como imagem (`pfCredCanvas`, igual à prévia) e 💬 Abrir no WhatsApp. Cada lançamento/uso vira
+  nota no CRM. Onde: aviso 💰 no topo da caixa de avisos da cotação (`pfCredAvisoCot`), card na ficha do CRM (`pfCredFichaHtml`, antes da Próxima ação), botão "💰 Crédito R$ X"
+  no painel do WhatsApp (acao `credito`). O preço da cotação NÃO muda sozinho. PF_FUNCOES 'Crédito do cliente'.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · **1 Quadro (Kanban) AUTOMÁTICO**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);
@@ -2239,7 +2247,7 @@
   · ~~**Código entre parênteses = código do cliente no JBoss**, aviso quando não existe no PF~~ **FEITO v115.2604** (extensão 2.1): `pfExtQuem` calcula `codFalta` (código em parênteses no
     nome do WhatsApp que NENHUM cliente do PF tem, só quando não casou como cliente) → banner laranja no painel "📇 Código X não está no PF — cadastrar" + botão "➕ Cadastrar no PF"
     (`data-acao="cadcli"` → `pfExtAcao`/`pfExtIrTela({tela:'cadcli',cod})` → `cadFormCliente({codigo:cod},-1)`, já com o código).
-  · **💰 Crédito do cliente** (prévia `docs/referencias/credito-cliente/` aprovada "top"): o próprio vendedor lança (+ valor + motivo) e usa; **nunca vence**; extrato só-acrescenta
+  · ~~**💰 Crédito do cliente**~~ **FEITO v115.2609** (prévia `docs/referencias/credito-cliente/` aprovada "top"): o próprio vendedor lança (+ valor + motivo) e usa; **nunca vence**; extrato só-acrescenta
     (corrigir = lançamento novo / desfazer). Fluxo dele: manda a cotação com preço cheio → cliente aprova → **💰 Usar crédito** na cotação (ou no painel, cotação aberta do cliente)
     mostra o saldo e "dá pra abater até R$ X sem ficar abaixo do mínimo" (conta da liberação de preço / margem mínima da marca) → ele digita quanto → baixa ligada à cotação + texto
     pronto na conversa (padrão; print/imagem é opção): "Crédito: R$ 119,38 / Desconto neste pedido: − R$ 49,60 / Resta de crédito: R$ 69,78 / (linha em branco) / Total do pedido:

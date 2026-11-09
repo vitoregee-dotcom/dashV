@@ -2221,8 +2221,9 @@
     tela inicial, ☀️ Meu dia e ficha do cliente; prazo "depois" = amanhã, entende "até sexta/amanhã cedo".
   · **🤖 Avisos do cliente + Assistente de Vendas no painel**: a mesma caixa de avisos da cotação (`vendasAvisosCliente`: anotações, regras do Assistente, inativo, vencido, frota,
     perfil, concorrência, já ofereceu) na aba Cliente + botão 🤖 na coluna; "Abrir as regras do Assistente" no cliente.
-  · **Código entre parênteses no nome do WhatsApp = código do cliente no JBoss**; o Vitor quer cadastrar os clientes no PF com o MESMO código. Aviso no painel quando o código
-    não existe no PF ("código 13468 não está no PF — cadastrar?") — ENTRA.
+  · ~~**Código entre parênteses = código do cliente no JBoss**, aviso quando não existe no PF~~ **FEITO v115.2604** (extensão 2.1): `pfExtQuem` calcula `codFalta` (código em parênteses no
+    nome do WhatsApp que NENHUM cliente do PF tem, só quando não casou como cliente) → banner laranja no painel "📇 Código X não está no PF — cadastrar" + botão "➕ Cadastrar no PF"
+    (`data-acao="cadcli"` → `pfExtAcao`/`pfExtIrTela({tela:'cadcli',cod})` → `cadFormCliente({codigo:cod},-1)`, já com o código).
   · **💰 Crédito do cliente** (prévia `docs/referencias/credito-cliente/` aprovada "top"): o próprio vendedor lança (+ valor + motivo) e usa; **nunca vence**; extrato só-acrescenta
     (corrigir = lançamento novo / desfazer). Fluxo dele: manda a cotação com preço cheio → cliente aprova → **💰 Usar crédito** na cotação (ou no painel, cotação aberta do cliente)
     mostra o saldo e "dá pra abater até R$ X sem ficar abaixo do mínimo" (conta da liberação de preço / margem mínima da marca) → ele digita quanto → baixa ligada à cotação + texto

@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2611</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2612</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2611</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2612</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -74819,7 +74819,9 @@ function pfExtQuem(tel,nome){
   pfExtContPegarTel(tel,nome);
   var tN=pfExtTel(tel),nN=typeof pfBuscaN==='function'?pfBuscaN(nome||''):String(nome||'').toUpperCase();
   // nome do WhatsApp costuma vir "Fulano - Empresa (1234)": tira o código e procura cada pedaço
-  var pedacos=nN.replace(/\(\s*\d+\s*\)/g,' ').split(/\s+-\s+|\s*\|\s*|\s*\/\s*/).map(function(s){return s.trim();}).filter(function(s){return s.length>=4;});
+  // v115.2612 - A pedido do Vitor ("esse cliente eu tenho no PF… pelo nome, não pelo código" — "Tiago - maximus cardans (12662)", cadastro MAXIMUS CARDANS MECANICA
+  // DE AUTO LTDA com outro código): traço longo (– —), dois-pontos, ponto, emoji e espaço duplo também separam; e a comparação aceita 2+ palavras seguidas do nome.
+  var pedacos=nN.replace(/\(\s*\d+\s*\)/g,' ').replace(/[^\w\s\-–—|\/:·•.&]/g,' ').split(/\s*[-–—|\/:·•]\s*|\s{2,}/).map(function(s){return s.replace(/\s+/g,' ').trim();}).filter(function(s){return s.length>=4;});
   var cls=pfExtClientes(),achou=null,contato=null,pelo='';
   if(tN.length>=8)cls.some(function(c){if(!c.cad)return false;var cs=[];try{cs=pfCrmContatos(c.cad);}catch(e){}
     var x=cs.find(function(o){return pfExtTelBate(o.tel,tN);});if(x){achou=c;contato=x;pelo='';return true;}return false;});
@@ -74834,8 +74836,16 @@ function pfExtQuem(tel,nome){
   if(!achou&&tN.length>=8)fl.some(function(f){if(!f||f.del)return false;var ok=telsF(f).some(function(x){return pfExtTelBate(x,tN);});
     if(ok){forn=f;fcont=(f.contatos||[]).find(function(o){return [o.whatsapp,o.tel,o.telefone,o.celular].some(function(x){return pfExtTelBate(x,tN);});})||null;}return ok;});
   if(!achou&&!forn&&pedacos.length){var N=function(s){return typeof pfBuscaN==='function'?pfBuscaN(s||''):String(s||'').toUpperCase();};
-    var bateNome=function(alvo){alvo=N(alvo);return alvo.length>=4&&pedacos.some(function(p){return alvo===p||(p.length>=6&&alvo.indexOf(p)>=0)||(alvo.length>=6&&p.indexOf(alvo)>=0);});};
-    cls.some(function(c){if(bateNome(c.razao)||bateNome(c.nome)||(c.cad&&bateNome(c.cad.fantasia))){achou=c;pelo='nome';return true;}return false;});
+    var _sem=function(s){return String(s||'').replace(/[^A-Z0-9]/g,'');};
+    var _fora={LTDA:1,EIRELI:1,COMERCIO:1,COM:1,PECAS:1,DE:1,DA:1,DO:1,DOS:1,DAS:1,E:1,ME:1,EPP:1,SA:1,IND:1,INDUSTRIA:1};
+    var pares=[];pedacos.forEach(function(p){var w=p.split(' ').filter(function(x){return x.length>=3&&!_fora[x];});for(var i=0;i+1<w.length;i++)pares.push(w[i]+' '+w[i+1]);});
+    var bateNome=function(alvo){alvo=N(alvo);if(alvo.length<4)return false;var aS=_sem(alvo),aW=' '+alvo.replace(/[^A-Z0-9]+/g,' ').trim()+' ';
+      return pedacos.some(function(p){var pS=_sem(p);return alvo===p||(p.length>=6&&alvo.indexOf(p)>=0)||(alvo.length>=6&&p.indexOf(alvo)>=0)||(pS.length>=8&&aS.indexOf(pS)>=0);})||
+        pares.some(function(pp){return aW.indexOf(' '+pp+' ')>=0;});};
+    // v115.2612 - mesmo nome em mais de um cadastro (MAXIMUS CARDANS 000017/000018/000183): fica o que tem mais pedidos, cotações e CNPJ
+    var _cand=cls.filter(function(c){return bateNome(c.razao)||bateNome(c.nome)||(c.cad&&bateNome(c.cad.fantasia));});
+    var _pt=function(c){return ((c.peds||[]).length*100)+((c.cots||[]).length*10)+(c.cad&&c.cad.cnpj?5:0)+(c.cad?1:0);};
+    if(_cand.length){_cand.sort(function(a,b){return _pt(b)-_pt(a);});achou=_cand[0];pelo='nome'+(_cand.length>1?' ('+_cand.length+' cadastros com esse nome)':'');}
     if(!achou)fl.some(function(f){if(f&&!f.del&&(bateNome(f.fantasia)||bateNome(f.nome)||bateNome(f.razao))){forn=f;pelo='nome';return true;}return false;});}
   var _r=achou?pfExtCardCliente(achou,contato,pelo):forn?pfExtCardForn(forn,fcont,pelo):{achou:false,nome:nome||''};
   // v115.2604 - A pedido do Vitor: o código entre parênteses no nome do WhatsApp é o código do cliente no JBoss; quando esse código NÃO existe
@@ -74919,7 +74929,7 @@ function pfExtLerPedido(msgs){
     t.split(/\n+/).forEach(function(lin){
       lin=lin.replace(/https?:\/\/\S+/g,' ');
       var toks=lin.match(/[A-Za-z0-9][A-Za-z0-9.\-\/]{2,}[A-Za-z0-9]/g)||[];
-      var qL=null,mq=lin.match(/(?:\bqtd\.?\s*:?\s*|\bx\s*)(\d{1,4})\b|\b(\d{1,4})\s*(?:x|un|und|unid|unidades?|p[çc]s?|pe[çc]as?)\b/i);if(mq)qL=+(mq[1]||mq[2]);
+      var qL=null,mq=lin.match(/(?:\bqtd\.?\s*:?\s*|(?:^|\s)x\s*)(\d{1,4})(?![\w.\-\/])|(?:^|\s)(\d{1,4})\s*(?:x|un|und|unid|unidades?|p[çc]s?|pe[çc]as?)(?![\w\-\/])/i);if(mq)qL=+(mq[1]||mq[2]); // v115.2612 - "5-438x" não é 438 unidades (número colado no código não é quantidade)
       toks.forEach(function(tok){
         var d=tok.replace(/\D/g,'');if(d.length<4)return;
         if(/^\d{1,2}[\/.]\d{1,2}([\/.]\d{2,4})?$/.test(tok))return; // data
@@ -74973,6 +74983,19 @@ function pfExtSaldo(cod){cod=String(cod||'').trim().toUpperCase();if(!cod)return
   return {cod:cod,itens:its.slice(0,8).map(function(f){return {marca:f.marca||'',desc:f.desc||'',saldo:parseFloat(f.saldo)||0,cod:f._refExemplo||cod};})};}
 // v115.2603 - matcher LEVE (sem efeito colateral, não grava telefone, não monta o card inteiro) pra dizer rápido quem é cada conversa
 // da lista do WhatsApp — usado pelo Menu do PF (etiquetas por conversa). Mesma lógica de casar do pfExtQuem, só que enxuta.
+// v115.2612 - comparação de NOME do WhatsApp com o cadastro (usada no painel e nas etiquetas da lista): separa por traço (- – —), | / : · •, espaço
+// duplo e emoji; casa com o pedaço inteiro, o pedaço sem espaços ou 2+ palavras seguidas (sem LTDA/COMERCIO/DE…).
+function pfExtNomeMatcher(nome){
+  var N=function(s){return typeof pfBuscaN==='function'?pfBuscaN(s||''):String(s||'').toUpperCase();};
+  var pedacos=N(nome).replace(/\(\s*\d+\s*\)/g,' ').replace(/[^\w\s\-–—|\/:·•.&]/g,' ').split(/\s*[-–—|\/:·•]\s*|\s{2,}/).map(function(s){return s.replace(/\s+/g,' ').trim();}).filter(function(s){return s.length>=4;});
+  var _sem=function(s){return String(s||'').replace(/[^A-Z0-9]/g,'');};
+  var _fora={LTDA:1,EIRELI:1,COMERCIO:1,COM:1,PECAS:1,DE:1,DA:1,DO:1,DOS:1,DAS:1,E:1,ME:1,EPP:1,SA:1,IND:1,INDUSTRIA:1};
+  var pares=[];pedacos.forEach(function(p){var w=p.split(' ').filter(function(x){return x.length>=3&&!_fora[x];});for(var i=0;i+1<w.length;i++)pares.push(w[i]+' '+w[i+1]);});
+  var bate=function(alvo){alvo=N(alvo);if(alvo.length<4)return false;var aS=_sem(alvo),aW=' '+alvo.replace(/[^A-Z0-9]+/g,' ').trim()+' ';
+    return pedacos.some(function(p){var pS=_sem(p);return alvo===p||(p.length>=6&&alvo.indexOf(p)>=0)||(alvo.length>=6&&p.indexOf(alvo)>=0)||(pS.length>=8&&aS.indexOf(pS)>=0);})||
+      pares.some(function(pp){return aW.indexOf(' '+pp+' ')>=0;});};
+  return {pedacos:pedacos,bate:bate};
+}
 function pfExtAcharK(nome,tel){
   try{
     var tN=pfExtTel(tel),cls=pfExtClientes(),fl=[];try{fl=cadLoad(FORN_KEY)||[];}catch(e){}
@@ -74981,8 +75004,8 @@ function pfExtAcharK(nome,tel){
     var cods=(String(nome||'').match(/\(\s*\d{2,8}\s*\)/g)||[]).map(function(x){return x.replace(/\D/g,'');});
     for(var ci=0;ci<cods.length;ci++){var cd0=cods[ci].replace(/^0+/,'');var cc=cls.find(function(c){var x=String((c.cad&&c.cad.codigo)||'').replace(/\D/g,'').replace(/^0+/,'');return (x&&x===cd0)||c.k==='c:'+cods[ci];});if(cc)return {tipo:'cliente',k:cc.k,titulo:cc.razao||cc.nome,c:cc};}
     if(tN.length>=8){var ff=null;fl.some(function(f){if(!f||f.del)return false;var a=[f.whatsapp,f.telefone,f.tel,f.celular];(f.contatos||[]).forEach(function(o){a.push(o.whatsapp,o.tel,o.telefone,o.celular);});if(a.some(function(x){return pfExtTelBate(x,tN);})){ff=f;return true;}return false;});if(ff)return {tipo:'fornecedor',titulo:ff.fantasia||ff.nome||ff.razao};}
-    var ped=N(nome).replace(/\(\s*\d+\s*\)/g,' ').split(/\s+-\s+|\s*\|\s*|\s*\/\s*/).map(function(s){return s.trim();}).filter(function(s){return s.length>=4;});
-    if(ped.length){var bate=function(alvo){alvo=N(alvo);return alvo.length>=4&&ped.some(function(p){return alvo===p||(p.length>=6&&alvo.indexOf(p)>=0)||(alvo.length>=6&&p.indexOf(alvo)>=0);});};
+    var _nm=pfExtNomeMatcher(nome),ped=_nm.pedacos;
+    if(ped.length){var bate=_nm.bate;
       var cN=null;cls.some(function(c){if(bate(c.razao)||bate(c.nome)||(c.cad&&bate(c.cad.fantasia))){cN=c;return true;}return false;});if(cN)return {tipo:'cliente',k:cN.k,titulo:cN.razao||cN.nome,c:cN};
       var fN=null;fl.some(function(f){if(f&&!f.del&&(bate(f.fantasia)||bate(f.nome)||bate(f.razao))){fN=f;return true;}return false;});if(fN)return {tipo:'fornecedor',titulo:fN.fantasia||fN.nome||fN.razao};}
   }catch(e){}

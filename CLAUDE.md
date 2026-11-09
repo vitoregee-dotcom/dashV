@@ -2247,6 +2247,12 @@
   Junto, BUG ("pq não encontrei essa pelo número do diâmetro da cruzeta?" — 2045002 Sorocard SF-49 "CRUZETA Ø 52,0 MM"): nas tabelas Stahl/Sorocard o Ø do copo veio em `cruzetaDiametro`
   ou escrito no `cruzetaNumero`; o filtro D só olhava o D. `ccMedRec(fam,rec,k)` (flanges de orelha, garfos, luvas, terminais — `CC_COPO_FAMS`): D vazio usa esses dois — no filtro
   da família, no `ccBgPrincValor`, `ccBgValor` e `ccBgCruzMedHtml`.
+- v115.2612 BUGs do painel do WhatsApp ("Mas esse cliente eu tenho no PF né?… pelo nome, não pelo código" — "Tiago - maximus cardans (12662)": 12662 é o código do JBoss,
+  no PF são 3 cadastros MAXIMUS CARDANS MECANICA DE AUTO LTDA 000017/000018/000183 em Itupeva): a busca pelo NOME só separava por " - " comum — traço longo (– —), emoji etc.
+  não casavam e caía no "código não está no PF". `pfExtNomeMatcher(nome)` (usado no `pfExtQuem` e no `pfExtAcharK` das etiquetas): separa por - – — | / : · • e espaço duplo,
+  tira emoji, casa pedaço inteiro, pedaço sem espaços (8+) ou 2+ palavras seguidas (sem LTDA/COMERCIO/DE…). Vários cadastros com o mesmo nome = fica o com mais pedidos/cotações/
+  CNPJ (`pelo` "nome (3 cadastros com esse nome)"). E a QUANTIDADE do 📄 Cotar no PF: "Cruzeta 5-438x" virava 438 unidades — `pfExtLerPedido` só aceita número solto
+  (começo da linha ou depois de espaço, não colado em código) como "2x / 3 un / qtd 3".
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

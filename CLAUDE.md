@@ -2253,6 +2253,16 @@
   tira emoji, casa pedaço inteiro, pedaço sem espaços (8+) ou 2+ palavras seguidas (sem LTDA/COMERCIO/DE…). Vários cadastros com o mesmo nome = fica o com mais pedidos/cotações/
   CNPJ (`pelo` "nome (3 cadastros com esse nome)"). E a QUANTIDADE do 📄 Cotar no PF: "Cruzeta 5-438x" virava 438 unidades — `pfExtLerPedido` só aceita número solto
   (começo da linha ou depois de espaço, não colado em código) como "2x / 3 un / qtd 3".
+- v115.2613 **👤+ Salvar contato rápido** (extensão **2.7**; Vitor: "do lado do contato… um botão de salvar o contato do cliente mais rápido, igual tem no Watidy" + "já salva no
+  contato do cliente do PF também depois que eu colocar o nome do cliente, ou código"; captura `docs/referencias/whatsapp-menu/feito-salvar-contato.png`): bolinha verde `#pfwa-svb`
+  logo depois do nome no cabeçalho da conversa (fixa pelo retângulo do nome, `svPos`; azul quando o contato já é do PF; some em grupo e com foto por cima) → quadrinho `#pfwa-sv`
+  (`svAbrir`): NOME DA PESSOA / EMPRESA (sugere clientes do PF, acao `clientesSugerir` → `pfExtClientesSugerir`: palavras ou só letras+números; número = código do cliente) /
+  CÓDIGO NO JBOSS (digitar o código também procura) → "Vai ficar: Fulano - Empresa (código)" (`svMontar`, já vem do nome atual do WhatsApp). 💾 Salvar no PF → acao `salvarContato`
+  → `pfExtSalvarContato`: grava em `pfContatosWhats_v1` (mesmo número = atualiza; `codJboss`, `de:'salvar'`) e põe o contato (pessoa + telefone, cargo WhatsApp) no cadastro do
+  cliente (`pfExtImpLigarCadastro`) — cliente = o escolhido na lista, senão o que tem o código digitado, senão a empresa que bate com 1 cliente só. Número sem nome salvo no celular →
+  "📱 + salvar no celular" (`svWa`: clica no "Adicionar aos contatos" do próprio WhatsApp e escreve o nome; falhou = nome copiado). AJUDA ganhou a linha. `PF_EXT_VER_NOVA`='2.7'.
+  ATENÇÃO (09/11): o cadastro de clientes do PF (`user_sync` cad_clientes_v1) tem só 20 clientes reais + 150 da demo; 823 ids em `cad_clientes_deletados` (222 dos 242 da cópia
+  antiga de 02/09 em `user_cadastros`, inclusive os 3 MAXIMUS 000017/000018/000183). Perguntei ao Vitor se foi de propósito (A só o Maximus / B os 222 / C nada) — sem resposta ainda.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

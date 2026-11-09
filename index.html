@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2603</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2604</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2603</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2604</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -74462,9 +74462,11 @@ function pfExtQuem(tel,nome){
     var bateNome=function(alvo){alvo=N(alvo);return alvo.length>=4&&pedacos.some(function(p){return alvo===p||(p.length>=6&&alvo.indexOf(p)>=0)||(alvo.length>=6&&p.indexOf(alvo)>=0);});};
     cls.some(function(c){if(bateNome(c.razao)||bateNome(c.nome)||(c.cad&&bateNome(c.cad.fantasia))){achou=c;pelo='nome';return true;}return false;});
     if(!achou)fl.some(function(f){if(f&&!f.del&&(bateNome(f.fantasia)||bateNome(f.nome)||bateNome(f.razao))){forn=f;pelo='nome';return true;}return false;});}
-  if(achou)return pfExtCardCliente(achou,contato,pelo);
-  if(forn)return pfExtCardForn(forn,fcont,pelo);
-  return {achou:false,nome:nome||''};}
+  var _r=achou?pfExtCardCliente(achou,contato,pelo):forn?pfExtCardForn(forn,fcont,pelo):{achou:false,nome:nome||''};
+  // v115.2604 - A pedido do Vitor: o código entre parênteses no nome do WhatsApp é o código do cliente no JBoss; quando esse código NÃO existe
+  // no PF (e o contato não casou como cliente), avisa no painel pra cadastrar com o MESMO código.
+  if(!achou){var codFalta='';try{(String(nome||'').match(/\(\s*\d{2,8}\s*\)/g)||[]).map(function(x){return x.replace(/\D/g,'');}).some(function(cd){var cd0=cd.replace(/^0+/,'');var tem=cls.some(function(c){var cc=String((c.cad&&c.cad.codigo)||'').replace(/\D/g,'').replace(/^0+/,'');return (cc&&cc===cd0)||c.k==='c:'+cd;});if(!tem){codFalta=cd;return true;}return false;});}catch(e){}if(codFalta)_r.codFalta=codFalta;}
+  return _r;}
 // v115.2574 - A pedido do Vitor (prévias docs/referencias/whatsapp-pf/, "gostei do A e do D… queria as 2, poder escolher"): o painel da extensão
 // ganhou abas (Cotação / Cliente / Histórico / Peças) e o "Cotar no PF": o PF lê os códigos e a quantidade nas mensagens do cliente
 // (pfExtLerPedido), busca saldo e o preço com a margem e o estado DESSE cliente (pfExtCotar) e monta a resposta pronta. Ações: abrir a
@@ -74599,13 +74601,14 @@ function pfExtSituacaoDe(nome,tel){
   return {tipo:'fornecedor',titulo:m.titulo,mapa:mapa};
 }
 // atalhos da coluna de ícones do Menu do PF (abrem telas do PF)
-function pfExtIrTela(a){a=String(a||'');
-  if(a==='vendas'||a==='cot'){try{window._vendasIrMenu=true;}catch(e){}pfNavigate('vendas');}
-  else if(a==='mesa'){if(typeof pfMesaAbrir==='function')pfMesaAbrir();else pfNavigate('compras');}
-  else if(a==='compras')pfNavigate('compras');
-  else if(a==='home'){if(typeof pfIrParaHome==='function')pfIrParaHome();else pfNavigate('home');}
-  else if(a==='ext'){if(typeof pfExtInstalarAbrir==='function')pfExtInstalarAbrir();}
-  else if(a)pfNavigate(a);
+function pfExtIrTela(a){var tela=(a&&typeof a==='object'?a.tela:a)||'',cod=(a&&typeof a==='object'?a.cod:'')||'';tela=String(tela);
+  if(tela==='vendas'||tela==='cot'){try{window._vendasIrMenu=true;}catch(e){}pfNavigate('vendas');}
+  else if(tela==='mesa'){if(typeof pfMesaAbrir==='function')pfMesaAbrir();else pfNavigate('compras');}
+  else if(tela==='compras')pfNavigate('compras');
+  else if(tela==='home'){if(typeof pfIrParaHome==='function')pfIrParaHome();else pfNavigate('home');}
+  else if(tela==='ext'){if(typeof pfExtInstalarAbrir==='function')pfExtInstalarAbrir();}
+  else if(tela==='cadcli'){try{if(typeof cadFormCliente==='function')cadFormCliente(cod?{codigo:cod}:null,-1);else if(typeof cadNovoCliente==='function')cadNovoCliente();else pfNavigate('cadastros');}catch(e){try{cadNovoCliente();}catch(e2){pfNavigate('cadastros');}}}
+  else if(tela)pfNavigate(tela);
 }
 function pfExtAcao(acao,arg){
   if(acao==='registrar'){if(!arg||!arg.k||!arg.texto)return {ok:false};pfCrmAdd({k:arg.k,tipo:'whats',texto:arg.texto,para:'WhatsApp'});return {ok:true};}
@@ -74625,6 +74628,7 @@ function pfExtAcao(acao,arg){
   // quem é cliente/fornecedor e se tem cotação/mapa aberto → etiquetas embaixo de cada conversa e contadores na barra de cima.
   if(acao==='situacoes'){var o={};((arg&&arg.lista)||[]).slice(0,150).forEach(function(x){try{o[x.nome]=pfExtSituacaoDe(x.nome,x.tel||'');}catch(e){o[x.nome]={tipo:''};}});return {ok:true,sit:o};}
   if(acao==='irTela'){setTimeout(function(){try{pfExtIrTela(arg);}catch(e){console.warn('irTela',e);}},50);return {ok:true};}
+  if(acao==='cadcli'){setTimeout(function(){try{pfExtIrTela({tela:'cadcli',cod:arg});}catch(e){console.warn('cadcli',e);}},50);return {ok:true};}
   setTimeout(function(){try{
     if(acao==='ficha')pfCrmAbrir(arg);
     else if(acao==='cot')pfCrmAbrirCot(isNaN(+arg)?arg:+arg);

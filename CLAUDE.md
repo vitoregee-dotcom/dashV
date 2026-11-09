@@ -2216,9 +2216,11 @@
   · **2 Disparo em massa** com lista montada pelo PF (📣 Chegou, promoção/marca, etiqueta/grupo, clientes sumidos), {nome}, foto opcional, limite por hora, parar; cada envio = oferta
     registrada (💡) e pula quem já recebeu a mesma oferta. Motor = fila da extensão (`pfExtEnviarLote`). O Vitor já usa disparo no Watidy e funciona.
   · **❓ Ajuda "Como funciona"** na extensão explicando cada função em linguagem simples (pros outros usuários) — ir montando a cada função nova.
-  · **📌 "Vou verificar depois" → pendência AUTOMÁTICA** (com "desfazer"): frase SUA na conversa ("vou anotar pra verificar", "vou dar uma conferida", "deixa eu ver no catálogo",
-    "vou checar com o fornecedor"; lista editável) cria pendência com o cliente + o que ele pediu antes + códigos/série citados (abrir no catálogo / Alt+B); vai pras Pendências da
-    tela inicial, ☀️ Meu dia e ficha do cliente; prazo "depois" = amanhã, entende "até sexta/amanhã cedo".
+  · ~~**📌 "Vou verificar depois" → pendência AUTOMÁTICA**~~ **FEITO v115.2605** (extensão 2.2): quando a ÚLTIMA mensagem que o vendedor mandou bate `VERIF_RE` ("deixa eu ver no
+    catálogo", "vou verificar/conferir/checar", "já te retorno"…), a extensão chama `verificar` → `pfExtVerificar`: cria pendência pessoal (`pp_wa_<hash>` em `pfPendenciasPessoais`,
+    tela inicial) + CRM próxima ação amanhã (`crm_wa_<hash>`, ☀️ Meu dia + ficha) com o cliente + o que ele pediu (`pfExtVerifResumo` = última msg do cliente com código/"?") + os
+    códigos (`pfExtVerifCods`). Dedup por hash (não duplica). Cartão verde "📌 Anotei — desfazer" (`#pfwa-vf`) → `verificarDesfazer` tira a pendência + marca o prox como feito.
+    FALTA (quando o Vitor pedir): lista de frases editável + "amanhã cedo/até sexta" virando a data.
   · **🤖 Avisos do cliente + Assistente de Vendas no painel**: a mesma caixa de avisos da cotação (`vendasAvisosCliente`: anotações, regras do Assistente, inativo, vencido, frota,
     perfil, concorrência, já ofereceu) na aba Cliente + botão 🤖 na coluna; "Abrir as regras do Assistente" no cliente.
   · ~~**Código entre parênteses = código do cliente no JBoss**, aviso quando não existe no PF~~ **FEITO v115.2604** (extensão 2.1): `pfExtQuem` calcula `codFalta` (código em parênteses no

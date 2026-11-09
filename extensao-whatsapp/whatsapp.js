@@ -423,7 +423,24 @@
     AV.style.display = 'flex';
     AV.innerHTML = '<span>📄</span><div><b>O PF achou um pedido de cotação</b> — ' + n + ' código' + (n > 1 ? 's' : '') + ' nas mensagens</div><button data-acao="b-cot">📄 Cotar no PF</button><span class="pfwa-avx" data-acao="fechaAviso" title="Fechar">✕</span>';
   }
+  // 1.9 - BUG (Vitor: foto aberta em tela cheia ficava com o aviso e o botão "PF" por cima): se alguma coisa do WhatsApp cobre a conversa
+  // (foto, vídeo, documento, janela), esconde os avisos e os botões da extensão até fechar.
+  var MEUS = '#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st';
+  function conversaCoberta() {
+    var main = $('#main'); if (!main) return false;
+    var r = main.getBoundingClientRect(); if (r.width < 50 || r.height < 50) return false;
+    var pts = [[r.left + r.width / 2, r.top + r.height / 2], [r.left + 40, r.top + r.height * 0.35], [r.right - 40, r.top + r.height * 0.65]];
+    for (var i = 0; i < pts.length; i++) {
+      var els = document.elementsFromPoint(pts[i][0], pts[i][1]) || [];
+      var el = els.find(function (e) { return !e.closest(MEUS); });
+      if (el && !main.contains(el)) return true;
+    }
+    return false;
+  }
+  function marcarCoberta() { var cob = conversaCoberta(); document.documentElement.classList.toggle('pfwa-coberto', cob); return cob; }
+  setInterval(marcarCoberta, 400);
   function posicionar() {
+    marcarCoberta();
     var main = $('#main'); if (!B) return;
     if (!main || !contatoAt) { B.style.display = 'none'; if (AV) AV.style.display = 'none'; if (OF) OF.style.display = 'none'; if (JA) JA.style.display = 'none'; return; }
     var r = main.getBoundingClientRect(), foot = main.querySelector('footer'), fh = foot ? foot.getBoundingClientRect().height : 62, hd = main.querySelector('header'), hh = hd ? hd.getBoundingClientRect().height : 60;

@@ -262,6 +262,7 @@
     ['Embaixo do painel', [
       ['📥', 'Importar meus contatos', 'Lê a lista de conversas e traz pro PF (você escolhe quem entra).'],
       ['📣', 'Disparo pelo PF', 'No PF, Vendas → 📣 Disparo pelo WhatsApp: escolhe a lista (o que chegou, uma marca, um grupo, os sumidos ou uma etiqueta), escreve a mensagem com {nome} e a extensão manda uma por uma, no ritmo que você escolher por hora. Quem já recebeu a mesma oferta fica de fora.'],
+      ['👤', 'Salvar contato', 'Botão verde ao lado do nome da conversa: escreve o nome, a empresa (procura nos clientes do PF) e o código do JBoss — vira "Fulano - Empresa (código)". Salva no PF e, se o número não está salvo, abre o "Adicionar aos contatos" do WhatsApp com o nome.'],
       ['📞', 'Buscar números que faltam', 'Abre cada conversa dos contatos salvos sem número e pega o telefone. Clique de novo pra parar.']]]
   ];
   function htmlAjuda() {
@@ -288,18 +289,26 @@
     MENU = document.createElement('div'); MENU.id = 'pfwa-menu'; document.body.appendChild(MENU);
     RAIL = document.createElement('div'); RAIL.id = 'pfwa-rail'; document.body.appendChild(RAIL);
     VF = document.createElement('div'); VF.id = 'pfwa-vf'; document.body.appendChild(VF);
+    SVB = document.createElement('div'); SVB.id = 'pfwa-svb'; SVB.setAttribute('data-acao', 'svAbrir'); SVB.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6"/><path d="M19 8v6M16 11h6"/></svg>'; document.body.appendChild(SVB);
+    SV = document.createElement('div'); SV.id = 'pfwa-sv'; document.body.appendChild(SV);
     P.querySelector('.pfwa-aba').onclick = function () { aberto = !aberto; chrome.storage.local.set({ painelAberto: aberto }); pinta(); };
     P.querySelector('.pfwa-x').onclick = function () { aberto = false; chrome.storage.local.set({ painelAberto: false }); pinta(); };
     P.querySelectorAll('[data-vis]').forEach(function (el) { el.onclick = function () { visual = el.getAttribute('data-vis'); chrome.storage.local.set({ visual: visual }); pinta(); }; });
-    [P, B, AV, OF, JA, ST, MENU, RAIL, VF].forEach(function (el) { el.addEventListener('click', clique); });
+    [P, B, AV, OF, JA, ST, MENU, RAIL, VF, SVB, SV].forEach(function (el) { el.addEventListener('click', clique); });
     chrome.storage.local.get(['painelAberto', 'visual', 'avisoLigado', 'botsMin', 'menuLig', 'menuCor', 'menuFiltro'], function (s) { if (s.painelAberto === false) aberto = false; if (s.visual === 'D' || s.visual === 'A') visual = s.visual; if (s.avisoLigado === false) avisoLigado = false; if (s.botsMin) botsMin = true; if (s.menuLig === false) menuLig = false; if (s.menuCor === 'discreta' || s.menuCor === 'azul') menuCor = s.menuCor; if (s.menuFiltro) menuFiltro = s.menuFiltro; pinta(); pintarMenu(); });
   }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && svAberto && SV) { svAberto = false; SV.style.display = 'none'; e.stopPropagation(); } }, true);
   function abrirPainel() { if (!aberto) { aberto = true; chrome.storage.local.set({ painelAberto: true }); } }
   function irAba(a) { aba = a; abrirPainel(); pinta(); }
   async function clique(e) {
     var b = e.target.closest('[data-acao]'); if (!b) return;
     var ac = b.getAttribute('data-acao'), arg = b.getAttribute('data-arg') || '';
     if (ac === 'aba') { ajuda = false; irAba(arg); return; }
+    if (ac === 'svAbrir') { if (svAberto) { svAberto = false; SV.style.display = 'none'; } else svAbrir(); return; } // 2.7
+    if (ac === 'svFechar') { svAberto = false; SV.style.display = 'none'; return; }
+    if (ac === 'svUsar') { svUsar(arg); return; }
+    if (ac === 'svSalvar') { svSalvar(b); return; }
+    if (ac === 'svWa') { svWa(); return; }
     if (ac === 'ajuda') { ajuda = !ajuda; abrirPainel(); pinta(); return; }
     if (ac === 'sino') { avisoLigado = !avisoLigado; chrome.storage.local.set({ avisoLigado: avisoLigado }); pinta(); if (!avisoLigado && AV) AV.style.display = 'none'; else vigiar(); return; }
     if (ac === 'botsToggle') { botsMin = !botsMin; chrome.storage.local.set({ botsMin: botsMin }); posicionar(); return; }
@@ -501,7 +510,7 @@
   }
   // 1.9 - BUG (Vitor: foto aberta em tela cheia ficava com o aviso e o botão "PF" por cima): se alguma coisa do WhatsApp cobre a conversa
   // (foto, vídeo, documento, janela), esconde os avisos e os botões da extensão até fechar.
-  var MEUS = '#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st,#pfwa-vf,#pfwa-menu,#pfwa-rail';
+  var MEUS = '#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st,#pfwa-vf,#pfwa-menu,#pfwa-rail,#pfwa-svb,#pfwa-sv';
   function conversaCoberta() {
     var main = $('#main'); if (!main) return false;
     var r = main.getBoundingClientRect(); if (r.width < 50 || r.height < 50) return false;
@@ -515,7 +524,94 @@
   }
   function marcarCoberta() { var cob = conversaCoberta(); document.documentElement.classList.toggle('pfwa-coberto', cob); return cob; }
   setInterval(marcarCoberta, 400);
+  // 2.7 - 👤+ Salvar contato rápido (pedido do Vitor: "do lado do contato… um botão de salvar o contato do cliente mais rápido, igual tem no Watidy").
+  // Botão verde logo depois do nome da conversa → quadrinho Nome / Empresa (sugere clientes do PF) / Código do JBoss → nome no padrão
+  // "Fulano - Empresa (código)" → grava no PF (contatos do WhatsApp + contato no cadastro do cliente) e, se o número ainda não está salvo,
+  // oferece o "Adicionar aos contatos" do próprio WhatsApp (salva no celular) já com o nome.
+  var SV = null, SVB = null, svAberto = false, svSug = [], svK = '', svT = null;
+  function nomeEl() { var h = $('#main header'); return h ? (h.querySelector('span[dir="auto"][title]') || h.querySelector('span[dir="auto"]')) : null; }
+  function svPos() {
+    if (!SVB) return; var c = contatoAt, el = nomeEl();
+    if (!c || c.grupo || !el || document.documentElement.classList.contains('pfwa-coberto')) { SVB.style.display = 'none'; if (SV) SV.style.display = 'none'; svAberto = false; return; }
+    var r = el.getBoundingClientRect(); if (!r.width) { SVB.style.display = 'none'; return; }
+    SVB.style.display = 'flex'; SVB.style.left = Math.round(r.right + 8) + 'px'; SVB.style.top = Math.round(r.top + r.height / 2 - 13) + 'px';
+    SVB.title = (resp && resp.achou && resp.tipo === 'cliente') ? 'Salvar / acertar este contato (' + (resp.titulo || '') + ')' : 'Salvar este contato no PF';
+    SVB.classList.toggle('ok', !!(resp && resp.achou));
+    if (SV && svAberto) { SV.style.left = Math.max(8, Math.min(window.innerWidth - 360, r.left)) + 'px'; SV.style.top = Math.round(r.bottom + 14) + 'px'; }
+  }
+  function svNomeBase(n) { n = String(n || '').trim(); if (/^[+\d\s()\-]{8,}$/.test(n)) return ''; return n.replace(/\s*\(\s*\d+\s*\)\s*/g, ' ').split(/\s+[-–—]\s+/)[0].trim(); }
+  function svEmpBase(n) { n = String(n || '').replace(/\s*\(\s*\d+\s*\)\s*/g, ' ').trim(); var p = n.split(/\s+[-–—]\s+/); return p.length > 1 ? p.slice(1).join(' - ').trim() : ''; }
+  function svCodBase(n) { var m = String(n || '').match(/\(\s*(\d{2,8})\s*\)/); return m ? m[1] : ''; }
+  function svMontar() {
+    var n = (SV.querySelector('.sv-nome') || {}).value || '', e = (SV.querySelector('.sv-emp') || {}).value || '', c = (SV.querySelector('.sv-cod') || {}).value || '';
+    return [n.trim(), e.trim() ? ' - ' + e.trim() : '', c.trim() ? ' (' + c.trim().replace(/\D/g, '') + ')' : ''].join('').trim();
+  }
+  function svPrev() { var p = SV && SV.querySelector('.sv-prev'); if (p) p.textContent = svMontar() || '—'; }
+  function svAbrir() {
+    var c = contatoAt; if (!c || c.grupo) return;
+    var r = resp && resp.achou && resp.tipo === 'cliente' ? resp : null;
+    svK = r ? r.k : ''; svSug = [];
+    var nome = svNomeBase(c.nome) || (r && r.contato) || '', emp = svEmpBase(c.nome) || (r ? r.titulo : ''), cod = svCodBase(c.nome) || (r && r.cod) || '';
+    var semNum = /^[+\d\s()\-]{8,}$/.test(c.nome || '');
+    SV.innerHTML = '<div class="sv-cab"><b>👤 Salvar contato</b><span class="sv-x" data-acao="svFechar" title="Fechar">✕</span></div>' +
+      '<div class="sv-tel">📱 ' + esc(c.tel ? fmtTel(c.tel) : 'número não aparece na conversa') + '</div>' +
+      '<label>NOME DA PESSOA<input class="sv-nome" value="' + esc(nome) + '" placeholder="Ex.: Tiago"></label>' +
+      '<label>EMPRESA (cliente do PF)<input class="sv-emp" value="' + esc(emp) + '" placeholder="Digite pra procurar no PF" autocomplete="off"></label><div class="sv-sug"></div>' +
+      '<label>CÓDIGO NO JBOSS<input class="sv-cod" value="' + esc(cod) + '" placeholder="Ex.: 12662" inputmode="numeric"></label>' +
+      '<div class="sv-pv">Vai ficar: <b class="sv-prev"></b></div>' +
+      '<div class="sv-k">' + (svK ? '🔗 ligado a <b>' + esc(r.titulo) + '</b>' : '') + '</div>' +
+      '<div class="sv-bts"><button class="sv-ok" data-acao="svSalvar">💾 Salvar no PF</button>' + (semNum ? '<button class="sv-wa" data-acao="svWa">📱 + salvar no celular</button>' : '') + '</div>' +
+      '<div class="sv-st"></div>';
+    SV.style.display = 'block'; svAberto = true; svPos(); svPrev();
+    ['sv-nome', 'sv-emp', 'sv-cod'].forEach(function (k) { var i = SV.querySelector('.' + k); if (i) i.oninput = function () { svPrev(); if (k === 'sv-emp' || (k === 'sv-cod' && !svK)) { if (k === 'sv-emp') { svK = ''; SV.querySelector('.sv-k').innerHTML = ''; } clearTimeout(svT); svT = setTimeout(function () { svBuscar(i.value); }, 250); } }; });
+    var f = SV.querySelector(nome ? '.sv-emp' : '.sv-nome'); if (f) f.focus();
+  }
+  async function svBuscar(q) {
+    var box = SV.querySelector('.sv-sug'); if (!box) return;
+    if (String(q || '').trim().length < 3 && !/^\d{2,}$/.test(String(q || '').trim())) { box.innerHTML = ''; return; }
+    var r = await msg({ t: 'acao', acao: 'clientesSugerir', arg: { q: q } });
+    svSug = (r && r.l) || [];
+    box.innerHTML = svSug.map(function (s, i) { return '<div class="sv-it" data-acao="svUsar" data-arg="' + i + '"><b>' + esc(s.razao) + '</b><small>' + esc([s.codigo ? 'cód. ' + s.codigo : '', s.cidade].filter(Boolean).join(' · ')) + '</small></div>'; }).join('');
+  }
+  function svUsar(i) {
+    var s = svSug[+i]; if (!s) return; svK = s.k;
+    var e = SV.querySelector('.sv-emp'); if (e) e.value = s.curto || s.razao;
+    var c = SV.querySelector('.sv-cod'); if (c && !c.value && s.codigo) c.value = String(s.codigo).replace(/^0+/, '');
+    SV.querySelector('.sv-sug').innerHTML = ''; SV.querySelector('.sv-k').innerHTML = '🔗 ligado a <b>' + esc(s.razao) + '</b>'; svPrev();
+  }
+  async function svSalvar(b) {
+    var c = contatoAt; if (!c) return; var nomeFull = svMontar(); if (!nomeFull) { flash(b, 'Escreva o nome'); return; }
+    b.disabled = true; b.textContent = 'Salvando…';
+    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: (SV.querySelector('.sv-nome') || {}).value || '', k: svK, cod: (SV.querySelector('.sv-cod') || {}).value || '', emp: (SV.querySelector('.sv-emp') || {}).value || '' } });
+    b.disabled = false; b.textContent = '💾 Salvar no PF';
+    var st = SV.querySelector('.sv-st');
+    if (r && r.ok) { st.innerHTML = '✔ Salvo no PF' + (r.cli ? ' · contato no cadastro de <b>' + esc(r.cli) + '</b>' : ' · <span style="color:#9A6B00">sem cliente no PF (escolha a empresa na lista pra ligar)</span>') + '.'; ultimo = ''; }
+    else st.textContent = 'Não deu — abra o PartsFlow numa aba.';
+  }
+  // abre o "Adicionar aos contatos" do WhatsApp e escreve o nome (o WhatsApp salva no celular)
+  function svWa() {
+    var nomeFull = svMontar();
+    var bt = Array.prototype.find.call(document.querySelectorAll('#main button, #main [role="button"]'), function (x) { return /adicionar aos contatos|add to contacts/i.test(x.textContent || ''); });
+    var st = SV.querySelector('.sv-st');
+    if (!bt) { st.innerHTML = 'Não achei o "Adicionar aos contatos" do WhatsApp nesta conversa (só aparece pra número não salvo).'; return; }
+    try { navigator.clipboard.writeText(nomeFull); } catch (e) { }
+    bt.click();
+    var n = 0, tm = setInterval(function () {
+      n++; var inp = Array.prototype.find.call(document.querySelectorAll('input[type="text"], div[contenteditable="true"]'), function (x) { return !x.closest('#pfwa,#pfwa-sv,#main footer') && x.getBoundingClientRect().width > 0; });
+      if (inp || n > 20) {
+        clearInterval(tm);
+        if (inp) {
+          inp.focus();
+          if (inp.tagName === 'INPUT') { var set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(inp, nomeFull); inp.dispatchEvent(new Event('input', { bubbles: true })); }
+          else { try { document.execCommand('insertText', false, nomeFull); } catch (e) { } }
+          st.innerHTML = '📱 Abri o "Adicionar aos contatos" com o nome — confira e salve.';
+        } else st.innerHTML = '📱 Abri o "Adicionar aos contatos". O nome está copiado: cole (Ctrl+V) no campo do nome.';
+      }
+    }, 150);
+  }
+  function fmtTel(t) { t = String(t || '').replace(/\D/g, ''); if (t.length >= 12 && t.indexOf('55') === 0) t = t.slice(2); if (t.length === 11) return '(' + t.slice(0, 2) + ') ' + t.slice(2, 7) + '-' + t.slice(7); if (t.length === 10) return '(' + t.slice(0, 2) + ') ' + t.slice(2, 6) + '-' + t.slice(6); return t; }
   function posicionar() {
+    svPos();
     marcarCoberta();
     var main = $('#main'); if (!B) return;
     if (!main || !contatoAt) { B.style.display = 'none'; if (AV) AV.style.display = 'none'; if (OF) OF.style.display = 'none'; if (JA) JA.style.display = 'none'; if (VF) VF.style.display = 'none'; return; }

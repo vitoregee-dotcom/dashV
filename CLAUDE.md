@@ -2173,6 +2173,15 @@
   E 🚚 transportadora ("no JBoss fica meio escondida"): linha no painel = aba Entrega do cadastro (`pfEntDe(cad).transportadora`) > `cad.transportadoras[0]` > a mais usada nos últimos 8 pedidos.
   Combinado também (ainda NÃO feito): **🏢 faturar pela filial** no cadastro (Matriz SP / Filial / Cotar pelo melhor — a cotação calcula
   pelos dois com o ICMS de cada origem) — falta o Vitor dizer o ESTADO da filial e a mudança do ICMS de SP. "Gueri" (cliente que compra com NF abaixo do valor) NÃO vai ser feito.
+- v115.2598 **BUG GRAVE no preço da cotação** (Vitor conferindo a 2045005 Spicer com kardex + NF 648 da filial SC; escolheu "A" = corrigir e manter 21%):
+  a planilha do Dashboard traz o **"custo Medio Matriz"** do JBoss = custo MÉDIO, que JÁ vem SEM o ICMS da compra e COM o IPI (DANA: 776,20 + IPI 25,23 = 801,43 bruto
+  → 708,28 médio, −12% ICMS). O `calcMargemLiq` tratava como bruto e tirava 18% de ICMS de novo (crédito em dobro, preço ~20% baixo). Agora `pfIcmsCreditoCusto()`
+  (`PF_CUSTO_PLANILHA_SEM_ICMS=true`) = 0 em `vendasCalcVenda`, `vendasPctDaVenda`, `pfGeMargemPct` e `pfPortalFatores`; só o PIS/COFINS (Lucro Real 9,25%) sai do custo.
+  **Custo 100, SP, 21% = R$ 175,36** (antes 140,58); 2045005 (701,45) = R$ 1.230,08 em SP, R$ 1.102,28 com ICMS 12%. A Calculadora de Margem (custo digitado bruto + ICMS
+  da compra) e as contas com preço de fornecedor do Mapa (linhas ~30186/32921) NÃO mudaram. Portal: preços refeitos na próxima publicação (`pfPortalPublicar`, 6 h).
+  Filial SC (CNPJ 00.609.213/0002-04, Joinville, empresa 5 no JBoss): recebe por transferência ~pelo custo e vende pra SP com ICMS 12% destacado, sem ST/IPI (NF 648 →
+  Cardans Bauru, 2045005 a R$ 1.060). Triex = Lucro Real. SP tirou o anexo de autopeças da ST em 01/10/2026 (Portaria SRE 34/2026). **"Faturar por" (Matriz SP / Filial SC /
+  Cotar pelo melhor) ainda NÃO feito** — revenda credita só 12% vindo de SC, consumo paga DIFAL; cotação deve mostrar os dois preços.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma — ainda NÃO feito):**
   · **Menu em volta do WhatsApp Web = versão A** da prévia `docs/referencias/whatsapp-menu/` (barra de cima com filtros: Clientes/Fornecedores, etiquetas do WhatsApp,
     situação no PF; coluna de ícones à esquerda) nas **2 cores (azul e discreta, escolha do usuário)** + chave **liga/desliga** "Menu do PF".

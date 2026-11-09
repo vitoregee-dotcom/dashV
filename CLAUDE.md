@@ -2186,6 +2186,12 @@
   localStorage `pf_mg_tipocusto`, padrão **medio**): 📦 Custo médio do estoque = sem crédito de ICMS da compra e sem somar IPI (igual à cotação, coluna ICMS "C: já saiu",
   UF do fornecedor apagada) · 📄 Preço da nota do fornecedor = conta de antes (credita ICMS pela UF do fornecedor + IPI/ST). Ler PDF/print de cotação de fornecedor muda pra
   "nota". 2045005 (701,45) SP 21%: médio R$ 1.230,08 · nota R$ 1.030,15.
+- v115.2600 **flange de orelha: campo G + letras da Spicer** (print do site da Spicer, 170-2-35: "no spicer é chamado de G" → "quero sim"): campo novo
+  `G` = "Encaixe da cruzeta (G)" em `flangesOrelha` (e coluna "Encaixe cruzeta" no `CC_BG_PRINC`). A Spicer usa letras DIFERENTES das do PF: Spicer A (Ø corpo) = A,
+  **B (Ø furação) = C**, **E (altura) = B**, D = D, G = G — `CC_MED_SIN.flangesOrelha` com `so:'SPICER'` (regra com `so` só vale quando o print é do catálogo daquela marca:
+  `ccMedidasDasEspecs(fam,specs,marca)`, chamado com `marcaCat` no ➕ Cadastrar item). E do PF = quantidade de furos → número > 24 que a IA pôs no E é apagado.
+  G NÃO é o Ø do copo: 170-2-35 G 109,5 com SPL170 (copo 55, ponta 164). Flange 2060002 monta com a cruzeta 2060005 = LNG 801103 = Stahl HCZ-214 (copo 59,05 · ponta 167,8)
+  — achado no `scripts/dados-spicer-aplicacao.json`. Peças já cadastradas NÃO foram mexidas (precisa colar o print de novo ou um catálogo Spicer de flanges).
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma — ainda NÃO feito):**
   · **Menu em volta do WhatsApp Web = versão A** da prévia `docs/referencias/whatsapp-menu/` (barra de cima com filtros: Clientes/Fornecedores, etiquetas do WhatsApp,
     situação no PF; coluna de ícones à esquerda) nas **2 cores (azul e discreta, escolha do usuário)** + chave **liga/desliga** "Menu do PF".

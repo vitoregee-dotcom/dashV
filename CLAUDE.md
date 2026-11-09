@@ -2167,6 +2167,11 @@
 - **4) CRM estruturado** (não copiar texto): cada ação pelo painel vira evento `pfCrmEventos` (whats) COM dados (códigos, valor, cotação nº), ligado ao cliente/cotação; botão "📝 Resumir com IA" (resumo + próxima ação); dado novo do cliente (endereço/CNPJ/contato) a IA SUGERE atualizar o cadastro (confirma, nunca grava sozinho).
 - **5) Atalhos** (endereço, dados bancários, PIX…): botão "⚡ Atalhos" no painel lista os atalhos de texto do PF (Central de Atalhos) → escreve na caixa do WhatsApp (humano envia). Rapidinho.
 - Tudo desenhado no 🧪 simulador antes de ligar no WhatsApp real. Ordem sugerida: resposta do fornecedor (mais economiza tempo) → saudação → cotação interna → CRM → atalhos.
+- v115.2597 BUG ("quando eu abro uma imagem no whats tá ficando isso lá na imagem"): extensão **1.9** — foto/vídeo/janela do WhatsApp por cima da conversa = `html.pfwa-coberto`
+  (`conversaCoberta`: `elementsFromPoint` em 3 pontos do `#main`, ignorando os elementos da extensão; checa a cada 400 ms) → CSS esconde `#pfwa-bots`/`#pfwa-aviso`/`#pfwa-of`/`#pfwa-ja`.
+  Junto ("gosto de saber o estado… exibir a cidade também"): etiqueta "📍 Cidade · UF" do cadastro no painel do cliente (`pfExtCardCliente`).
+  Combinado também (ainda NÃO feito): mostrar a transportadora do cadastro no painel; **🏢 faturar pela filial** no cadastro (Matriz SP / Filial / Cotar pelo melhor — a cotação calcula
+  pelos dois com o ICMS de cada origem) — falta o Vitor dizer o ESTADO da filial e a mudança do ICMS de SP. "Gueri" (cliente que compra com NF abaixo do valor) NÃO vai ser feito.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma — ainda NÃO feito):**
   · **Menu em volta do WhatsApp Web = versão A** da prévia `docs/referencias/whatsapp-menu/` (barra de cima com filtros: Clientes/Fornecedores, etiquetas do WhatsApp,
     situação no PF; coluna de ícones à esquerda) nas **2 cores (azul e discreta, escolha do usuário)** + chave **liga/desliga** "Menu do PF".

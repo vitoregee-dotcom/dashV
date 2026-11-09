@@ -2230,9 +2230,16 @@
   Resta de crédito / linha em branco / Total do pedido) com 📋 Copiar, 🖼 Copiar como imagem (`pfCredCanvas`, igual à prévia) e 💬 Abrir no WhatsApp. Cada lançamento/uso vira
   nota no CRM. Onde: aviso 💰 no topo da caixa de avisos da cotação (`pfCredAvisoCot`), card na ficha do CRM (`pfCredFichaHtml`, antes da Próxima ação), botão "💰 Crédito R$ X"
   no painel do WhatsApp (acao `credito`). O preço da cotação NÃO muda sozinho. PF_FUNCOES 'Crédito do cliente'.
+- v115.2610 **🗂️ Quadro de vendas (Kanban automático)** (revisão do Watidy, item 1; extensão **2.5**; captura `docs/referencias/quadro-vendas/feito.png`): `pfKbAbrir` (tela `#pfKanban`
+  z 10040, Esc) — card em Vendas (`_quadro` no PF_VENDAS_CARDS) e ícone 🗂️ na coluna da extensão (irTela `kanban`). `pfKbDados` (cotações dos últimos `PF_KB_DIAS`=45 via
+  pcMontarDados + pfCrmEventos): 💬 Novo contato = conversa (whats/ligação/e-mail/nota/oferta) nos últimos 7 dias sem cotação no período (inclusive cliente que só conversou),
+  ✏️ Cotando, 📤 Proposta enviada = `q.pdfEm` (gravado pelo `vendasPdfRapido` em baixar/whats/email; o salvar da cotação guarda e não pula por "sem mudança"), 🤝 Negociando =
+  mexida 1h+ depois do envio ou conversa depois, ✅ Fechou = `_pcFech`, ❌ Perdeu = sem pedido há > `PF_KB_PERDEU_DIAS`=15. Arrastar/menu "Mover pra" só corrige: `pfKanban_v1`
+  {por:{'q:<nº>'|'c:<k>':{col,por,ts}},ts} (3 listas da sync); voltar pra coluna automática apaga a correção; cartão movido mostra "✋ movido por… (o PF dizia X)". Clique no
+  cartão: abrir cotação / 💬 conversa no WhatsApp (`pfKbWhats` → telefone do cadastro) / ficha. Vendedor vê só os dele, gestor escolhe. PF_FUNCOES 'Quadro de vendas'.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
-  · **1 Quadro (Kanban) AUTOMÁTICO**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);
+  · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);
     arrastar só pra corrigir; cartão abre a conversa.
   · **2 Disparo em massa** com lista montada pelo PF (📣 Chegou, promoção/marca, etiqueta/grupo, clientes sumidos), {nome}, foto opcional, limite por hora, parar; cada envio = oferta
     registrada (💡) e pula quem já recebeu a mesma oferta. Motor = fila da extensão (`pfExtEnviarLote`). O Vitor já usa disparo no Watidy e funciona.

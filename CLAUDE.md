@@ -2167,6 +2167,29 @@
 - **4) CRM estruturado** (não copiar texto): cada ação pelo painel vira evento `pfCrmEventos` (whats) COM dados (códigos, valor, cotação nº), ligado ao cliente/cotação; botão "📝 Resumir com IA" (resumo + próxima ação); dado novo do cliente (endereço/CNPJ/contato) a IA SUGERE atualizar o cadastro (confirma, nunca grava sozinho).
 - **5) Atalhos** (endereço, dados bancários, PIX…): botão "⚡ Atalhos" no painel lista os atalhos de texto do PF (Central de Atalhos) → escreve na caixa do WhatsApp (humano envia). Rapidinho.
 - Tudo desenhado no 🧪 simulador antes de ligar no WhatsApp real. Ordem sugerida: resposta do fornecedor (mais economiza tempo) → saudação → cotação interna → CRM → atalhos.
+- **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma — ainda NÃO feito):**
+  · **Menu em volta do WhatsApp Web = versão A** da prévia `docs/referencias/whatsapp-menu/` (barra de cima com filtros: Clientes/Fornecedores, etiquetas do WhatsApp,
+    situação no PF; coluna de ícones à esquerda) nas **2 cores (azul e discreta, escolha do usuário)** + chave **liga/desliga** "Menu do PF".
+  · **1 Quadro (Kanban) AUTOMÁTICO**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);
+    arrastar só pra corrigir; cartão abre a conversa.
+  · **2 Disparo em massa** com lista montada pelo PF (📣 Chegou, promoção/marca, etiqueta/grupo, clientes sumidos), {nome}, foto opcional, limite por hora, parar; cada envio = oferta
+    registrada (💡) e pula quem já recebeu a mesma oferta. Motor = fila da extensão (`pfExtEnviarLote`). O Vitor já usa disparo no Watidy e funciona.
+  · **❓ Ajuda "Como funciona"** na extensão explicando cada função em linguagem simples (pros outros usuários) — ir montando a cada função nova.
+  · **📌 "Vou verificar depois" → pendência AUTOMÁTICA** (com "desfazer"): frase SUA na conversa ("vou anotar pra verificar", "vou dar uma conferida", "deixa eu ver no catálogo",
+    "vou checar com o fornecedor"; lista editável) cria pendência com o cliente + o que ele pediu antes + códigos/série citados (abrir no catálogo / Alt+B); vai pras Pendências da
+    tela inicial, ☀️ Meu dia e ficha do cliente; prazo "depois" = amanhã, entende "até sexta/amanhã cedo".
+  · **🤖 Avisos do cliente + Assistente de Vendas no painel**: a mesma caixa de avisos da cotação (`vendasAvisosCliente`: anotações, regras do Assistente, inativo, vencido, frota,
+    perfil, concorrência, já ofereceu) na aba Cliente + botão 🤖 na coluna; "Abrir as regras do Assistente" no cliente.
+  · **Código entre parênteses no nome do WhatsApp = código do cliente no JBoss**; o Vitor quer cadastrar os clientes no PF com o MESMO código. Aviso no painel quando o código
+    não existe no PF ("código 13468 não está no PF — cadastrar?") — ENTRA.
+  · **💰 Crédito do cliente** (prévia `docs/referencias/credito-cliente/` aprovada "top"): o próprio vendedor lança (+ valor + motivo) e usa; **nunca vence**; extrato só-acrescenta
+    (corrigir = lançamento novo / desfazer). Fluxo dele: manda a cotação com preço cheio → cliente aprova → **💰 Usar crédito** na cotação (ou no painel, cotação aberta do cliente)
+    mostra o saldo e "dá pra abater até R$ X sem ficar abaixo do mínimo" (conta da liberação de preço / margem mínima da marca) → ele digita quanto → baixa ligada à cotação + texto
+    pronto na conversa (padrão; print/imagem é opção): "Crédito: R$ 119,38 / Desconto neste pedido: − R$ 49,60 / Resta de crédito: R$ 69,78 / (linha em branco) / Total do pedido:
+    R$ 1.714,03". Cotação que não virou pedido em alguns dias = pergunta se o crédito volta. Mostrar saldo no painel do WhatsApp, cotação e ficha do CRM. Hoje ele faz isso numa
+    mensagem fixada "RESTA: 119,38" que some em 30 dias + calculadora.
+  · Próximo da revisão: **3 IA** (resumir pra ficha, entender pedido solto, melhorar texto, ler resposta do fornecedor) — falta decidir; depois os outros ícones do Watidy
+    (agendar, fluxos/chatbot, filtros, respostas rápidas, follow-up, variáveis, +4 apps).
 - v115.2595 BUG (conferência das mudanças de 07/11 feitas de outra conta): o "✅ Lançar no mapa" da 📥 Resposta do fornecedor (`pfRespFornLancar`) SUBSTITUÍA o que já estava digitado pro fornecedor (item com 2 marcas virava 1; IPI/ICMS/ST sumiam). Agora mesma marca = atualiza só preço/prazo (impostos ficam), marca nova = mais uma linha, "não tem" só marca sem preço digitado (senão avisa); a prévia mostra "já no mapa: R$ … MARCA" (`pfRfCasar` → `r.antes`). Testado com IA simulada (Playwright). Resto da 2592–2594 conferido: sintaxe ok, zip 1.7 = arquivos da pasta, simulador sem erro.
 - v115.2596 **💡 Ofertas e respostas + 📢 Status do WhatsApp** (Vitor: "às vezes esqueço se já ofereci algo pro cliente… não quero falar a mesma coisa" + "salvar a resposta do
   cliente daquele item ou linha" + "a questão do status também, amanhã quero começar a usar"; prévia `docs/referencias/whatsapp-crm/`). Extensão **1.8** (zip refeito).

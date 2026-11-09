@@ -2182,6 +2182,10 @@
   Filial SC (CNPJ 00.609.213/0002-04, Joinville, empresa 5 no JBoss): recebe por transferência ~pelo custo e vende pra SP com ICMS 12% destacado, sem ST/IPI (NF 648 →
   Cardans Bauru, 2045005 a R$ 1.060). Triex = Lucro Real. SP tirou o anexo de autopeças da ST em 01/10/2026 (Portaria SRE 34/2026). **"Faturar por" (Matriz SP / Filial SC /
   Cotar pelo melhor) ainda NÃO feito** — revenda credita só 12% vindo de SC, consumo paga DIFAL; cotação deve mostrar os dois preços.
+- v115.2599 ("altere também o cálculo de margem das ferramentas"): a Calculadora de Margem (`ferrMargem`) ganhou "O custo é" (`mgTipoCusto`/`mgTipoCustoSet`,
+  localStorage `pf_mg_tipocusto`, padrão **medio**): 📦 Custo médio do estoque = sem crédito de ICMS da compra e sem somar IPI (igual à cotação, coluna ICMS "C: já saiu",
+  UF do fornecedor apagada) · 📄 Preço da nota do fornecedor = conta de antes (credita ICMS pela UF do fornecedor + IPI/ST). Ler PDF/print de cotação de fornecedor muda pra
+  "nota". 2045005 (701,45) SP 21%: médio R$ 1.230,08 · nota R$ 1.030,15.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma — ainda NÃO feito):**
   · **Menu em volta do WhatsApp Web = versão A** da prévia `docs/referencias/whatsapp-menu/` (barra de cima com filtros: Clientes/Fornecedores, etiquetas do WhatsApp,
     situação no PF; coluna de ícones à esquerda) nas **2 cores (azul e discreta, escolha do usuário)** + chave **liga/desliga** "Menu do PF".

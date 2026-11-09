@@ -2270,6 +2270,13 @@
   no getItem e no pfRawGetItem, depois do filtro da demonstração); gravação da TELA de outra pessoa devolve os soDono do navegador (`pfSoDonoGravar`); a sync passa direto.
   Campo **Código JBoss** (`codJboss`, `clieCodJboss`) no cadastro do cliente; o número entre parênteses do nome no WhatsApp bate com ele ou com o código do PF (`pfExtCodBate`, no
   pfExtQuem/pfExtAcharK/codFalta/pfExtClientesSugerir); 👤+ Salvar contato grava o Código JBoss no cliente se estiver vazio. Maximus = 1 cadastro, código 000183, Código JBoss 12662.
+- v115.2615 (extensão **2.8**; prints do WhatsApp: "ainda está aparecendo isso por cima da imagem" + "salvar contato e cargo pra já ficar no cadastro do cliente" + "não tá
+  abrindo a cotação já com os itens no PF"): 1) `telaPorCima()` no `conversaCoberta`: dialog/aria-modal/media-viewer grande ou img/video/canvas grande fora do #main e da lista =
+  coberto (o visualizador de documento tem partes com pointer-events:none e o elementsFromPoint não via); coberto agora esconde também o menu/coluna do PF. 2) 👤+ Salvar contato
+  ganhou CARGO (`sv-cargo`, datalist) → `pfExtImpLigarCadastro` grava o cargo (contato do mesmo número = troca nome/cargo); empresa fora do PF → "➕ Criar cliente no PF" (`criar`:
+  cadastro mínimo razão + Código JBoss + contato, `criadoDe:'whatsapp'`) e "abrir o cadastro ›" (irTela `cadcliK`). 3) "📄 Abrir a cotação no PF" mandava só os códigos ACHADOS
+  no estoque (sem achado = cotação vazia) — agora vão todos. BUG junto: o campo Código JBoss da 2614 foi no formulário de cliente ANTIGO (35411, sobrescrito) — agora está no que vale
+  (`cadFormCliente` da linha ~37666, depois do Estado); `cadcli` da extensão usa `codJboss` (não `codigo`).
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

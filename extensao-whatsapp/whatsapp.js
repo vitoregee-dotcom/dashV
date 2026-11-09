@@ -262,7 +262,7 @@
     ['Embaixo do painel', [
       ['📥', 'Importar meus contatos', 'Lê a lista de conversas e traz pro PF (você escolhe quem entra).'],
       ['📣', 'Disparo pelo PF', 'No PF, Vendas → 📣 Disparo pelo WhatsApp: escolhe a lista (o que chegou, uma marca, um grupo, os sumidos ou uma etiqueta), escreve a mensagem com {nome} e a extensão manda uma por uma, no ritmo que você escolher por hora. Quem já recebeu a mesma oferta fica de fora.'],
-      ['👤', 'Salvar contato', 'Botão verde ao lado do nome da conversa: escreve o nome, a empresa (procura nos clientes do PF) e o código do JBoss — vira "Fulano - Empresa (código)". Salva no PF e, se o número não está salvo, abre o "Adicionar aos contatos" do WhatsApp com o nome.'],
+      ['👤', 'Salvar contato', 'Botão verde ao lado do nome da conversa: escreve o nome, a empresa (procura nos clientes do PF) e o código do JBoss — vira "Fulano - Empresa (código)". Salva no PF e, se o número não está salvo, abre o "Adicionar aos contatos" do WhatsApp com o nome. Tem também o CARGO; se a empresa ainda não está no PF, aparece “➕ Criar cliente no PF”, que já cria o cadastro com esse contato.'],
       ['📞', 'Buscar números que faltam', 'Abre cada conversa dos contatos salvos sem número e pega o telefone. Clique de novo pra parar.']]]
   ];
   function htmlAjuda() {
@@ -308,6 +308,8 @@
     if (ac === 'svFechar') { svAberto = false; SV.style.display = 'none'; return; }
     if (ac === 'svUsar') { svUsar(arg); return; }
     if (ac === 'svSalvar') { svSalvar(b); return; }
+    if (ac === 'svCriar') { svSalvar(b, true); return; }
+    if (ac === 'svCadAbrir') { if (svK) msg({ t: 'acao', acao: 'irTela', arg: { tela: 'cadcliK', k: svK } }); return; }
     if (ac === 'svWa') { svWa(); return; }
     if (ac === 'ajuda') { ajuda = !ajuda; abrirPainel(); pinta(); return; }
     if (ac === 'sino') { avisoLigado = !avisoLigado; chrome.storage.local.set({ avisoLigado: avisoLigado }); pinta(); if (!avisoLigado && AV) AV.style.display = 'none'; else vigiar(); return; }
@@ -396,7 +398,7 @@
   }
   function abrirCot(pdf) {
     if (!cot) return;
-    msg({ t: 'acao', acao: 'abrirCot', focar: true, arg: { k: resp && resp.k, pdf: !!pdf, itens: cot.itens.filter(function (o) { return o.achou; }).map(function (o) { return { cod: o.cod, qtd: o.qtd, marca: o.marca, desc: o.desc }; }) } });
+    msg({ t: 'acao', acao: 'abrirCot', focar: true, arg: { k: resp && resp.k, pdf: !!pdf, itens: cot.itens.filter(function (o) { return o.cod; }).map(function (o) { return { cod: o.cod, qtd: o.qtd, marca: o.marca, desc: o.desc }; }) } });
   }
   async function buscarSaldo(cod) { cod = String(cod || '').trim(); if (!cod) return; saldoR = { cod: cod, carregando: 1 }; pintaCorpo(); var r = await msg({ t: 'acao', acao: 'saldo', arg: cod }); saldoR = r && !r.erro ? r : { cod: cod, erro: 1 }; pintaCorpo(); }
 
@@ -511,8 +513,23 @@
   // 1.9 - BUG (Vitor: foto aberta em tela cheia ficava com o aviso e o botão "PF" por cima): se alguma coisa do WhatsApp cobre a conversa
   // (foto, vídeo, documento, janela), esconde os avisos e os botões da extensão até fechar.
   var MEUS = '#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st,#pfwa-vf,#pfwa-menu,#pfwa-rail,#pfwa-svb,#pfwa-sv';
+  // 2.8 - BUG (Vitor: documento/PDF aberto no WhatsApp ainda ficava com o aviso e o "PF" por cima): o visualizador do WhatsApp nem sempre
+  // aparece no elementsFromPoint (partes com pointer-events:none). Agora também conta janela aberta (dialog/aria-modal) e imagem/vídeo/canvas
+  // GRANDE fora da conversa e da lista (foto, documento, vídeo em tela cheia).
+  function telaPorCima() {
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var dl = document.querySelectorAll('[role="dialog"],[aria-modal="true"],[data-animate-media-viewer],[data-testid*="media-viewer"],[data-testid*="document-viewer"]');
+    for (var i = 0; i < dl.length; i++) { var d = dl[i]; if (d.closest(MEUS)) continue; var q = d.getBoundingClientRect(); if (q.width > vw * 0.4 && q.height > vh * 0.4) return true; }
+    var md = document.querySelectorAll('img,video,canvas');
+    for (var j = 0; j < md.length; j++) {
+      var m = md[j]; if (m.closest(MEUS) || m.closest('#main') || m.closest('#pane-side')) continue;
+      var w = m.getBoundingClientRect(); if (w.width > vw * 0.3 && w.height > vh * 0.4 && w.bottom > 0 && w.top < vh) { var st = getComputedStyle(m); if (st.visibility !== 'hidden' && st.opacity !== '0') return true; }
+    }
+    return false;
+  }
   function conversaCoberta() {
     var main = $('#main'); if (!main) return false;
+    if (telaPorCima()) return true;
     var r = main.getBoundingClientRect(); if (r.width < 50 || r.height < 50) return false;
     var pts = [[r.left + r.width / 2, r.top + r.height / 2], [r.left + 40, r.top + r.height * 0.35], [r.right - 40, r.top + r.height * 0.65]];
     for (var i = 0; i < pts.length; i++) {
@@ -557,6 +574,8 @@
       '<div class="sv-tel">📱 ' + esc(c.tel ? fmtTel(c.tel) : 'número não aparece na conversa') + '</div>' +
       '<label>NOME DA PESSOA<input class="sv-nome" value="' + esc(nome) + '" placeholder="Ex.: Tiago"></label>' +
       '<label>EMPRESA (cliente do PF)<input class="sv-emp" value="' + esc(emp) + '" placeholder="Digite pra procurar no PF" autocomplete="off"></label><div class="sv-sug"></div>' +
+      '<label>CARGO<input class="sv-cargo" value="' + esc((r && r.cargo) || '') + '" placeholder="Ex.: Compras, Dono, Mecânico" list="pfwa-sv-cargos"></label>' +
+      '<datalist id="pfwa-sv-cargos"><option>Compras<option>Comprador<option>Dono<option>Sócio<option>Gerente<option>Financeiro<option>Mecânico<option>Encarregado<option>Vendedor<option>Balconista</datalist>' +
       '<label>CÓDIGO NO JBOSS<input class="sv-cod" value="' + esc(cod) + '" placeholder="Ex.: 12662" inputmode="numeric"></label>' +
       '<div class="sv-pv">Vai ficar: <b class="sv-prev"></b></div>' +
       '<div class="sv-k">' + (svK ? '🔗 ligado a <b>' + esc(r.titulo) + '</b>' : '') + '</div>' +
@@ -579,13 +598,22 @@
     var c = SV.querySelector('.sv-cod'); if (c && !c.value && s.codigo) c.value = String(s.codigo).replace(/^0+/, '');
     SV.querySelector('.sv-sug').innerHTML = ''; SV.querySelector('.sv-k').innerHTML = '🔗 ligado a <b>' + esc(s.razao) + '</b>'; svPrev();
   }
-  async function svSalvar(b) {
+  // 2.8 - A pedido do Vitor ("quando eu cadastrar um contato que no PartsFlow não tem cadastrado, quero poder já salvar contato e cargo, pra já
+  // ficar no cadastro do cliente"): campo CARGO e, se a empresa não está no PF, "➕ Criar cliente no PF" (cadastro mínimo com o contato + cargo).
+  async function svSalvar(b, criar) {
     var c = contatoAt; if (!c) return; var nomeFull = svMontar(); if (!nomeFull) { flash(b, 'Escreva o nome'); return; }
-    b.disabled = true; b.textContent = 'Salvando…';
-    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: (SV.querySelector('.sv-nome') || {}).value || '', k: svK, cod: (SV.querySelector('.sv-cod') || {}).value || '', emp: (SV.querySelector('.sv-emp') || {}).value || '' } });
-    b.disabled = false; b.textContent = '💾 Salvar no PF';
+    var v = function (k) { return (SV.querySelector('.' + k) || {}).value || ''; };
+    if (criar && !v('sv-emp').trim()) { flash(b, 'Escreva a empresa'); return; }
+    var txt = b.textContent; b.disabled = true; b.textContent = 'Salvando…';
+    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), criar: !!criar } });
+    b.disabled = false; b.textContent = txt;
     var st = SV.querySelector('.sv-st');
-    if (r && r.ok) { st.innerHTML = '✔ Salvo no PF' + (r.cli ? ' · contato no cadastro de <b>' + esc(r.cli) + '</b>' : ' · <span style="color:#9A6B00">sem cliente no PF (escolha a empresa na lista pra ligar)</span>') + '.'; ultimo = ''; }
+    if (r && r.ok) {
+      if (r.k) { svK = r.k; SV.querySelector('.sv-k').innerHTML = '🔗 ligado a <b>' + esc(r.cli || '') + '</b>'; }
+      st.innerHTML = r.cli ? ('✔ Salvo · ' + (r.novo ? 'cliente <b>' + esc(r.cli) + '</b> criado no PF com o contato' : 'contato' + (v('sv-cargo') ? ' (' + esc(v('sv-cargo')) + ')' : '') + ' no cadastro de <b>' + esc(r.cli) + '</b>') + '. <span class="sv-lk" data-acao="svCadAbrir">abrir o cadastro ›</span>')
+        : ('✔ Salvo no PF. <span style="color:#9A6B00">A empresa não está no PF.</span><br><button class="sv-ok sv-cria" data-acao="svCriar">➕ Criar cliente "' + esc(v('sv-emp') || '?') + '" no PF</button>');
+      ultimo = '';
+    }
     else st.textContent = 'Não deu — abra o PartsFlow numa aba.';
   }
   // abre o "Adicionar aos contatos" do WhatsApp e escreve o nome (o WhatsApp salva no celular)

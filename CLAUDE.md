@@ -2277,6 +2277,11 @@
   cadastro mínimo razão + Código JBoss + contato, `criadoDe:'whatsapp'`) e "abrir o cadastro ›" (irTela `cadcliK`). 3) "📄 Abrir a cotação no PF" mandava só os códigos ACHADOS
   no estoque (sem achado = cotação vazia) — agora vão todos. BUG junto: o campo Código JBoss da 2614 foi no formulário de cliente ANTIGO (35411, sobrescrito) — agora está no que vale
   (`cadFormCliente` da linha ~37666, depois do Estado); `cadcli` da extensão usa `codJboss` (não `codigo`).
+- v115.2616 BUG (extensão **2.9**; print do 👤+ Salvar contato: "esse cliente estava no cadastro antes, não estava?" — "P - Adailton - Cardan Brasil (1427) Cardan" =
+  COMERCIO DE CARDAN BRASIL LTDA 000070, um dos 171 do backup): a empresa vinha "Adailton - Cardan Brasil Cardan" (tudo depois do 1º traço) e a busca exigia TODAS as palavras →
+  "não está no PF". Agora `svNomeBase`/`svEmpBase` (`svPartes`): pessoa = 1º pedaço com 3+ letras, empresa = ÚLTIMO pedaço; `pfExtClientesSugerir` também acha pelo `pfExtNomeMatcher`;
+  `pfExtSalvarContato` sem cliente tenta `pfExtAcharK` com o nome inteiro do WhatsApp/empresa (e grava o Código JBoss no cliente achado). "🔗 ligado a" vazio não aparece; o quadrinho
+  rola e não passa da tela (o "➕ Criar cliente" ficava cortado). Sem número na conversa (só @lid) o contato NÃO entra no cadastro (precisa do telefone) — só o Código JBoss.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

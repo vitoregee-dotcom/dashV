@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2597</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2598</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2597</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2598</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -51943,7 +51943,7 @@ function pfGeListaDoGrupo(lista,g){
 }
 // margem LÍQUIDA (mesma conta do vendasPctDaVenda/Calculadora) com a UF e o tipo do cliente
 function pfGeMargemPct(custo,venda,uf,fin){custo=+custo||0;venda=+venda||0;if(!custo||!venda)return null;
-  try{var r=calcMargemLiq(custo,(ICMS_ENTRADA[PF_VENDAS_FORN_UF]!=null?ICMS_ENTRADA[PF_VENDAS_FORN_UF]:0.18),0,0,(ICMS_SAIDA[uf]!=null?ICMS_SAIDA[uf]:0.12),0,fin||'revenda',uf);
+  try{var r=calcMargemLiq(custo,pfIcmsCreditoCusto(),0,0,(ICMS_SAIDA[uf]!=null?ICMS_SAIDA[uf]:0.12),0,fin||'revenda',uf);
     if(r&&r.venda>0){var fator=r.liq_venda/r.venda;return ((venda*fator-r.liq_custo)/venda)*100;}}catch(e){}
   return (1-custo/venda)*100;}
 // margem, comissão e devoluções do período (lista já filtrada pelo grupo quando tiver)
@@ -54251,6 +54251,14 @@ function vendasRenderCotacao(el){
 // valor cheio, ICMS de venda pelo estado do cliente e DIFAL quando o cliente é de uso/consumo. Margem padrão = 21% (a do card).
 // A conta antiga (crédito fixo de 12% e PIS/COFINS sobre o custo sem ICMS) ficou em vendasCalcVendaAntiga, sem uso.
 var PF_VENDAS_FORN_UF='SP';
+// v115.2598 - BUG GRAVE (Vitor, conferindo a 2045005 Spicer com o kardex e a NF 648 da filial SC): o custo que vem na planilha do Dashboard
+// é o "custo Medio Matriz" do JBoss = custo MÉDIO, que JÁ vem SEM o ICMS da compra (e com o IPI dentro) — ex.: compra DANA R$ 776,20
+// + IPI 25,23 = 801,43 bruto → 708,28 médio (−12% de ICMS). A conta (calcMargemLiq) tratava esse número como BRUTO e tirava 18% de ICMS
+// de novo → crédito em dobro e preço sugerido ~20% BAIXO em toda cotação. Agora o crédito de ICMS sobre o custo da planilha é ZERO e só o
+// PIS/COFINS (Lucro Real, 9,25%) sai do custo. Custo 100, SP, 21% = R$ 175,36 (antes R$ 140,58). A Calculadora de Margem (Ferramentas),
+// onde o custo é digitado bruto com o ICMS da compra, e as contas com preço de fornecedor do Mapa NÃO mudam.
+var PF_CUSTO_PLANILHA_SEM_ICMS=true;
+function pfIcmsCreditoCusto(){return PF_CUSTO_PLANILHA_SEM_ICMS?0:(ICMS_ENTRADA[PF_VENDAS_FORN_UF]!=null?ICMS_ENTRADA[PF_VENDAS_FORN_UF]:0.18);}
 function vendasCalcVenda(custo,clienteUF,margem){
   custo=+custo||0;if(!custo)return 0;
   var uf=clienteUF||'SP',fin='revenda';
@@ -54259,7 +54267,7 @@ function vendasCalcVenda(custo,clienteUF,margem){
   var F=null;try{F=pfEntFiscal(cad,uf);if(F.fin)fin=F.fin;}catch(e){} // v115.2557 - ICMS/isenções/Suframa/contribuinte do cadastro
   var m=(margem!=null&&!isNaN(margem)?+margem:21)/100;
   try{
-    var r=calcMargemLiq(custo,(ICMS_ENTRADA[PF_VENDAS_FORN_UF]!=null?ICMS_ENTRADA[PF_VENDAS_FORN_UF]:0.18),0,0,(ICMS_SAIDA[uf]!=null?ICMS_SAIDA[uf]:0.12),m,fin,uf,F);
+    var r=calcMargemLiq(custo,pfIcmsCreditoCusto(),0,0,(ICMS_SAIDA[uf]!=null?ICMS_SAIDA[uf]:0.12),m,fin,uf,F);
     if(r&&r.venda>0&&isFinite(r.venda))return r.venda;
   }catch(e){}
   return custo*1.5;
@@ -54273,7 +54281,7 @@ function vendasPctDaVenda(custo,venda){
   try{var uf=(window._venda&&window._venda.uf)||'SP',fin='revenda';
     var cad=null;try{cad=(typeof pfVR2ClienteCad==='function'&&window._venda&&window._venda.cliente)?pfVR2ClienteCad(window._venda.cliente):null;if(cad&&typeof pfTipoCli==='function'&&pfTipoCli(cad)==='consumo')fin='consumo';}catch(e){}
     var F=null;try{F=pfEntFiscal(cad,uf);if(F.fin)fin=F.fin;}catch(e){} // v115.2557
-    var r=calcMargemLiq(custo,(ICMS_ENTRADA[PF_VENDAS_FORN_UF]!=null?ICMS_ENTRADA[PF_VENDAS_FORN_UF]:0.18),0,0,(ICMS_SAIDA[uf]!=null?ICMS_SAIDA[uf]:0.12),0,fin,uf,F);
+    var r=calcMargemLiq(custo,pfIcmsCreditoCusto(),0,0,(ICMS_SAIDA[uf]!=null?ICMS_SAIDA[uf]:0.12),0,fin,uf,F);
     if(r&&r.venda>0){var fator=r.liq_venda/r.venda;return Math.round(((venda*fator-r.liq_custo)/venda)*100);}
   }catch(e){}
   return Math.round((1-(custo/venda))*100);
@@ -67110,7 +67118,7 @@ function pfPortalFatores(cad){
   try{if(mg==null&&typeof pfRevMargemDoCliente==='function'){var m2=pfRevMargemDoCliente(cad);if(m2&&m2.valor!=null){mg=+m2.valor;orig=m2.origem||'cadastro';}}}catch(e){}
   if(mg==null||isNaN(mg)){mg=(typeof pfVendasMargemPadraoLoad==='function'?+pfVendasMargemPadraoLoad():21)||21;orig='geral';}
   var a=0.7735,b=0.7875;
-  try{var icmsC=(ICMS_ENTRADA[PF_VENDAS_FORN_UF]!=null?ICMS_ENTRADA[PF_VENDAS_FORN_UF]:0.18),icmsV=(ICMS_SAIDA[uf]!=null?ICMS_SAIDA[uf]:0.12);
+  try{var icmsC=pfIcmsCreditoCusto(),icmsV=(ICMS_SAIDA[uf]!=null?ICMS_SAIDA[uf]:0.12);
     var r=calcMargemLiq(1,icmsC,0,0,icmsV,0,fin,uf);a=r.liq_custo;b=1-COFINS_PCT-PIS_PCT-r.icms_venda_efetivo;}catch(e){}
   return {uf:uf,fin:fin,margem:mg/100,margemOrigem:orig,preco_a:Math.round(a*1e6)/1e6,preco_b:Math.round(b*1e6)/1e6};
 }

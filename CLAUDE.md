@@ -2219,13 +2219,16 @@
   deste cliente" no topo da aba Cliente (`avisosHtml`), faixa curta clicável na aba Cotação, botão 🤖 na coluna/barra (`b-assist`) e "Ver as regras do Assistente" →
   acao `assistente` → `pfExtAssistente(k)` (abre `pfVendasRegrasIAAbrirPainel` em "De um cliente" com esse cliente). Simulador com avisos de exemplo. Captura
   `docs/referencias/whatsapp-menu/feito-avisos.png`. `PF_EXT_VER_NOVA`='2.3'. Zip: pasta interna `partsflow-whatsapp/` (script `zipext.sh` no scratchpad).
+- v115.2608 **❓ Ajuda "Como funciona" na extensão** (extensão **2.4**; item da revisão do Watidy): ❓ no cabeçalho do painel troca o corpo pela explicação de cada
+  função em linguagem simples (`AJUDA` no whatsapp.js, grupos: começo, barra de cima, botões, abas, avisos automáticos, rodapé; `htmlAjuda`, estado `ajuda`, trocar de aba
+  fecha). **Função nova na extensão → linha no `AJUDA`.** Captura `docs/referencias/whatsapp-menu/feito-ajuda.png`. `PF_EXT_VER_NOVA`='2.4'.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · **1 Quadro (Kanban) AUTOMÁTICO**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);
     arrastar só pra corrigir; cartão abre a conversa.
   · **2 Disparo em massa** com lista montada pelo PF (📣 Chegou, promoção/marca, etiqueta/grupo, clientes sumidos), {nome}, foto opcional, limite por hora, parar; cada envio = oferta
     registrada (💡) e pula quem já recebeu a mesma oferta. Motor = fila da extensão (`pfExtEnviarLote`). O Vitor já usa disparo no Watidy e funciona.
-  · **❓ Ajuda "Como funciona"** na extensão explicando cada função em linguagem simples (pros outros usuários) — ir montando a cada função nova.
+  · ~~**❓ Ajuda "Como funciona"** na extensão~~ **FEITO v115.2608** explicando cada função em linguagem simples (pros outros usuários) — ir montando a cada função nova.
   · ~~**📌 "Vou verificar depois" → pendência AUTOMÁTICA**~~ **FEITO v115.2605** (extensão 2.2): quando a ÚLTIMA mensagem que o vendedor mandou bate `VERIF_RE` ("deixa eu ver no
     catálogo", "vou verificar/conferir/checar", "já te retorno"…), a extensão chama `verificar` → `pfExtVerificar`: cria pendência pessoal (`pp_wa_<hash>` em `pfPendenciasPessoais`,
     tela inicial) + CRM próxima ação amanhã (`crm_wa_<hash>`, ☀️ Meu dia + ficha) com o cliente + o que ele pediu (`pfExtVerifResumo` = última msg do cliente com código/"?") + os

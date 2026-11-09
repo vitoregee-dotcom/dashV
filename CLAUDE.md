@@ -2168,3 +2168,17 @@
 - **5) Atalhos** (endereço, dados bancários, PIX…): botão "⚡ Atalhos" no painel lista os atalhos de texto do PF (Central de Atalhos) → escreve na caixa do WhatsApp (humano envia). Rapidinho.
 - Tudo desenhado no 🧪 simulador antes de ligar no WhatsApp real. Ordem sugerida: resposta do fornecedor (mais economiza tempo) → saudação → cotação interna → CRM → atalhos.
 - v115.2595 BUG (conferência das mudanças de 07/11 feitas de outra conta): o "✅ Lançar no mapa" da 📥 Resposta do fornecedor (`pfRespFornLancar`) SUBSTITUÍA o que já estava digitado pro fornecedor (item com 2 marcas virava 1; IPI/ICMS/ST sumiam). Agora mesma marca = atualiza só preço/prazo (impostos ficam), marca nova = mais uma linha, "não tem" só marca sem preço digitado (senão avisa); a prévia mostra "já no mapa: R$ … MARCA" (`pfRfCasar` → `r.antes`). Testado com IA simulada (Playwright). Resto da 2592–2594 conferido: sintaxe ok, zip 1.7 = arquivos da pasta, simulador sem erro.
+- v115.2596 **💡 Ofertas e respostas + 📢 Status do WhatsApp** (Vitor: "às vezes esqueço se já ofereci algo pro cliente… não quero falar a mesma coisa" + "salvar a resposta do
+  cliente daquele item ou linha" + "a questão do status também, amanhã quero começar a usar"; prévia `docs/referencias/whatsapp-crm/`). Extensão **1.8** (zip refeito).
+  · Ofertas (PF, bloco perto do pfExtAcao): `pfOfAlvos(texto)` = peças (código que existe no estoque, `vendasBuscaIndiceGet`; ks c:/f:/m:), famílias (`PF_NC_FAMILIAS` testadas a partir de
+    cada palavra, sem FERRAMENTAS DE CORTE/FIXAÇÃO) e marcas (`pfOfMarcas`: marcas que aparecem 3+ vezes em cotações/pedidos). `pfOfConversa(k,msgs)`: mensagem SUA com `PF_OF_RE`
+    (aproveita/leva também/temos/promoção/chegou…), alvo que o cliente NÃO pediu antes, já respondida e não salva (`of.h` = hash) → cartão na extensão com a resposta sugerida
+    (`pfOfSugResp`, `PF_OF_RESP_RE`). `pfOfSalvar` = evento **`oferta`** no pfCrmEventos {of:{h,alvos,resp,motivo,msg,canal}} (+ `nc` pro 🚫 Não compra quando é família/marca;
+    "vai pensar"/lembrar = `prox`). `pfOfDoCliente(k,c)` junta: ofertas, 📣 Chegou (origem chegou + refs), 💬 Perguntei (nc), itens `it.oferta` das cotações; código comprado em até 90 dias
+    = ✔ comprou. `pfOfChecar(k,texto)` = ⚠ "você já ofereceu" enquanto digita (180 dias). Onde: extensão (cartão `#pfwa-of`, aviso `#pfwa-ja` em cima da caixa, bloco "💡 Já ofereci"
+    no Cliente/Histórico), ficha do CRM (`pfOfBlocoHtml` + registrar à mão `pfOfManualSalvar`; linha do tempo com pílula), cotação (`pfOfAvisoCotacao` na caixa de avisos, etiqueta
+    `pfOfEtqItem` no item e no 💡 Ofereça também). "Não é oferta" na extensão = ignorado só neste navegador (`ofIgn`).
+  · Status (`pfStAbrir(tipo)`, Ferramentas → 📢 Status do WhatsApp e botão no 📣 Chegou): imagem 1080×1920 em canvas (`pfStDesenhar`: 📣 chegou 3 dias / ⭐ destaque com códigos e preço
+    opcional / ✍ texto; cor e rodapé em `pf_st_prefs`), ⬇ Baixar / 📋 Copiar / 📢 Postar → postMessage 'status' → ponte → fundo (`statusPend`, abre o WhatsApp Web) → whatsapp.js
+    `postarStatus`: botão Status → ＋ → coloca o arquivo no input[type=file] → legenda → PARA (o Vitor aperta enviar). Falhou = baixa a imagem e explica o caminho à mão. **Seletores do Status
+    só testados no simulador** (botão "📢 Status" e conversa "💡 Oferta" no `simulador.html`) — se o WhatsApp real não achar, ajustar `botaoStatus`/`botaoAddStatus`/`inputImagem`/`caixaLegenda`.

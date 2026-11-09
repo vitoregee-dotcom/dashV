@@ -215,6 +215,9 @@
 
   // ═══ 3) PAINEL + BOTÕES ═══
   var P = null, B = null, AV = null, ultimo = '', aberto = true, visual = 'A', aba = 'cot', resp = null, cot = null, cotErro = '', cotando = false, saldoR = null, statusLote = '', contatoAt = null, avisoFechado = '', avisoLigado = true, botsMin = false;
+  // 1.8 - 💡 ofertas e respostas + ⚠ já ofereci + 📢 status
+  var OF = null, JA = null, ST = null, ofPend = [], ofSig = '', ofSel = {}, ofIgn = {}, digAnt = '', jaR = null, jaFechado = '';
+  chrome.storage.local.get(['ofIgn'], function (s) { ofIgn = s.ofIgn || {}; });
   var BOTOES = [['cot', '📄', 'Cotar no PF'], ['saldo', '📦', 'Saldo'], ['ficha', '🤝', 'Ficha'], ['lemb', '⏰', 'Lembrete'], ['prontas', '⚡', 'Prontas'], ['pdf', '📤', 'PDF']];
   function logoSvg(f, l) { return '<svg width="24" height="24" viewBox="0 0 40 40"><rect width="40" height="40" rx="10" fill="' + f + '"/><rect x="9" y="8" width="4" height="22" rx="1.5" fill="' + l + '"/><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="' + l + '" stroke-width="4" stroke-linecap="round"/><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="33" r="2" fill="#E67E22"/></svg>'; }
 
@@ -228,10 +231,13 @@
     document.body.appendChild(P);
     B = document.createElement('div'); B.id = 'pfwa-bots'; document.body.appendChild(B);
     AV = document.createElement('div'); AV.id = 'pfwa-aviso'; document.body.appendChild(AV);
+    OF = document.createElement('div'); OF.id = 'pfwa-of'; document.body.appendChild(OF);
+    JA = document.createElement('div'); JA.id = 'pfwa-ja'; document.body.appendChild(JA);
+    ST = document.createElement('div'); ST.id = 'pfwa-st'; document.body.appendChild(ST);
     P.querySelector('.pfwa-aba').onclick = function () { aberto = !aberto; chrome.storage.local.set({ painelAberto: aberto }); pinta(); };
     P.querySelector('.pfwa-x').onclick = function () { aberto = false; chrome.storage.local.set({ painelAberto: false }); pinta(); };
     P.querySelectorAll('[data-vis]').forEach(function (el) { el.onclick = function () { visual = el.getAttribute('data-vis'); chrome.storage.local.set({ visual: visual }); pinta(); }; });
-    [P, B, AV].forEach(function (el) { el.addEventListener('click', clique); });
+    [P, B, AV, OF, JA, ST].forEach(function (el) { el.addEventListener('click', clique); });
     chrome.storage.local.get(['painelAberto', 'visual', 'avisoLigado', 'botsMin'], function (s) { if (s.painelAberto === false) aberto = false; if (s.visual === 'D' || s.visual === 'A') visual = s.visual; if (s.avisoLigado === false) avisoLigado = false; if (s.botsMin) botsMin = true; pinta(); });
   }
   function abrirPainel() { if (!aberto) { aberto = true; chrome.storage.local.set({ painelAberto: true }); } }
@@ -281,6 +287,19 @@
       var r2 = await msg({ t: 'acao', acao: 'lembrete', arg: { k: arg, data: d, texto: tt } }); flash(b, r2 && r2.ok ? '✔ Marcado — aparece no Meu dia' : 'Não deu — abra o PF'); return;
     }
     if (ac === 'parar') { msg({ t: 'parar' }); return; }
+    if (ac === 'ofResp') { var o0 = ofPend[0]; if (o0) { ofSel[o0.h] = arg; pintaOferta(); } return; }
+    if (ac === 'ofSalvar' || ac === 'ofIgnorar') {
+      var o = ofPend[0]; if (!o) return;
+      if (ac === 'ofIgnorar') { ofIgn[o.h] = Date.now(); chrome.storage.local.set({ ofIgn: ofIgn }); ofPend.shift(); pintaOferta(); return; }
+      var mo = (OF.querySelector('.pfwa-of-mot') || {}).value || '', le = (OF.querySelector('.pfwa-of-lemb') || {}).value || '';
+      b.disabled = true; b.textContent = 'Salvando…';
+      var rr = await msg({ t: 'acao', acao: 'ofertaSalvar', arg: { k: resp && resp.k, h: o.h, alvos: o.alvos, resp: ofSel[o.h] || o.sug || 'sem', motivo: mo, msg: o.msg, lembrar: +le || 0, canal: 'whats' } });
+      if (rr && rr.ok) { ofPend.shift(); pintaOferta(); var rf = await msg({ t: 'quem', tel: contatoAt && contatoAt.tel, nome: contatoAt && contatoAt.nome }); if (rf && rf.achou) { resp = rf; pintaCorpo(); } }
+      else { b.disabled = false; flash(b, 'Não deu — abra o PF'); }
+      return;
+    }
+    if (ac === 'jaX') { jaFechado = digAnt; JA.style.display = 'none'; return; }
+    if (ac === 'stX') { ST.style.display = 'none'; return; }
     msg({ t: 'acao', acao: ac, arg: arg, focar: true });
   }
   function flash(b, t) { var o = b.textContent; b.textContent = t; setTimeout(function () { b.textContent = o; }, 2200); }
@@ -367,6 +386,7 @@
     var r = resp, h = cabCliente(r);
     if (!r || !r.achou) return '<div class="pfwa-vazio">Esse contato <b>não está no PF</b>.<br><small>Procurei pelo telefone' + (r && r.nome ? ' e pelo nome' : '') + ' nos clientes e fornecedores.</small></div>';
     (r.linhas || []).forEach(function (l) { h += '<div class="pfwa-lin"><span>' + esc(l.ic) + '</span><div><b>' + esc(l.t) + '</b>' + (l.d ? '<br><small>' + esc(l.d) + '</small>' : '') + '</div></div>'; });
+    if (r.ofertas) h += bloco(r.ofertas);
     if (r.botoes && r.botoes.length) h += '<div class="pfwa-bots">' + r.botoes.map(function (b) { return '<button data-acao="' + esc(b.acao) + '" data-arg="' + esc(b.arg || '') + '">' + esc(b.rot) + '</button>'; }).join('') + '</div>';
     if (r.k) {
       var am = new Date(Date.now() + 86400000), iso = am.getFullYear() + '-' + String(am.getMonth() + 1).padStart(2, '0') + '-' + String(am.getDate()).padStart(2, '0');
@@ -405,7 +425,7 @@
   }
   function posicionar() {
     var main = $('#main'); if (!B) return;
-    if (!main || !contatoAt) { B.style.display = 'none'; if (AV) AV.style.display = 'none'; return; }
+    if (!main || !contatoAt) { B.style.display = 'none'; if (AV) AV.style.display = 'none'; if (OF) OF.style.display = 'none'; if (JA) JA.style.display = 'none'; return; }
     var r = main.getBoundingClientRect(), foot = main.querySelector('footer'), fh = foot ? foot.getBoundingClientRect().height : 62, hd = main.querySelector('header'), hh = hd ? hd.getBoundingClientRect().height : 60;
     B.className = (visual === 'D' ? 'pfwa-barra' : 'pfwa-coluna') + (botsMin ? ' pfwa-min' : ''); B.style.display = 'flex';
     if (botsMin) { B.innerHTML = '<span data-acao="botsToggle" class="pri pfwa-botspf" title="Mostrar os bot\u00f5es do PF">PF</span>'; }
@@ -413,6 +433,8 @@
     if (visual === 'D') { B.style.left = (r.left + r.width / 2) + 'px'; B.style.top = (r.bottom - fh - 58) + 'px'; }
     else { B.style.left = (r.left + 12) + 'px'; B.style.top = (r.top + hh + 70) + 'px'; }
     if (AV) { AV.style.left = (r.left + 70) + 'px'; AV.style.width = Math.max(260, r.width - 140) + 'px'; AV.style.top = (r.top + hh + 10) + 'px'; }
+    if (OF) { OF.style.left = (r.left + 70) + 'px'; OF.style.width = Math.max(300, Math.min(560, r.width - 140)) + 'px'; OF.style.top = (r.top + hh + (AV && AV.style.display === 'flex' ? 64 : 10)) + 'px'; }
+    if (JA) { JA.style.left = (r.left + 16) + 'px'; JA.style.width = Math.max(300, r.width - 32) + 'px'; JA.style.bottom = (window.innerHeight - r.bottom + fh + 8) + 'px'; }
   }
   function contatoAtual() {
     var main = $('#main'); if (!main) return null;
@@ -435,15 +457,104 @@
     var chave = c ? (c.grupo ? 'g:' + c.nome : c.tel + '|' + c.nome) : '';
     posicionar();
     var nCod = c && !c.grupo ? pareceCotacao(lerMensagens()) : 0;
-    if (chave === ultimo) { pintaAviso(nCod); return; }
-    ultimo = chave; cot = null; cotErro = ''; saldoR = null;
+    statusVigiar();
+    if (chave === ultimo) { pintaAviso(nCod); ofertasVigiar(); digitandoVigiar(); return; }
+    ultimo = chave; cot = null; cotErro = ''; saldoR = null; ofPend = []; ofSig = ''; jaR = null; digAnt = ''; jaFechado = ''; pintaOferta(); pintaJa();
     if (!c) { resp = null; pinta(); pintaAviso(0); return; }
     if (c.grupo) { resp = { grupo: 1 }; pinta(); return; }
     resp = null; pinta();
     var r = await msg({ t: 'quem', tel: c.tel, nome: c.nome });
     if (chave !== ultimo) return; resp = r || { erro: 'semPF' };
     if (aba === 'cli' && resp.tipo !== 'cliente' && resp.tipo !== 'fornecedor') aba = 'cot';
-    pinta(); pintaAviso(nCod);
+    pinta(); pintaAviso(nCod); ofertasVigiar();
+  }
+
+  // ═══ 💡 OFERTAS (1.8) ═══
+  // Você ofereceu algo (peça, família, marca) e o cliente respondeu → cartão pra salvar a resposta na ficha (1 clique).
+  var RESP = [['quer', '👍', 'Quer'], ['pensa', '🤔', 'Vai pensar'], ['agoranao', '👎', 'Agora não'], ['caro', '💲', 'Achou caro'], ['naousa', '🚫', 'Não usa'], ['outro', '🏷️', 'Compra de outro']];
+  async function ofertasVigiar() {
+    if (!resp || resp.tipo !== 'cliente' || !resp.k || !contatoAt || contatoAt.grupo) { if (ofPend.length) { ofPend = []; pintaOferta(); } return; }
+    var ms = lerMensagens(); var sig = ultimo + '|' + ms.length + '|' + (ms.length ? ms[ms.length - 1].t.slice(-60) : '');
+    if (sig === ofSig) return; ofSig = sig;
+    var ch = ultimo;
+    var r = await msg({ t: 'acao', acao: 'ofertasConversa', arg: { k: resp.k, msgs: ms } });
+    if (ch !== ultimo || !r || !Array.isArray(r.pend)) return;
+    ofPend = r.pend.filter(function (o) { return !ofIgn[o.h]; });
+    pintaOferta();
+  }
+  function pintaOferta() {
+    if (!OF) return; var o = ofPend[0];
+    if (!o || !contatoAt) { OF.style.display = 'none'; return; }
+    var sel = ofSel[o.h] || o.sug || '';
+    var nomes = o.alvos.map(function (a) { return a.nome; }).join(' · ');
+    OF.style.display = 'block';
+    OF.innerHTML = '<div class="pfwa-of-t">💡 <b>Você ofereceu:</b> ' + esc(nomes) + (ofPend.length > 1 ? ' <small>(+' + (ofPend.length - 1) + ')</small>' : '') + '</div>' +
+      '<div class="pfwa-of-r">Ele: <i>"' + esc(o.resposta.slice(0, 140)) + '"</i></div>' +
+      (o.ja && o.ja.length ? '<div class="pfwa-of-ja">↺ já tinha oferecido em ' + esc(o.ja[0].quando) + ' — ' + esc(o.ja[0].resp) + (o.ja[0].motivo ? ': ' + esc(o.ja[0].motivo) : '') + '</div>' : '') +
+      '<div class="pfwa-of-chips">' + RESP.map(function (x) { return '<span data-acao="ofResp" data-arg="' + x[0] + '" class="' + (sel === x[0] ? 'on' : '') + '">' + x[1] + ' ' + x[2] + '</span>'; }).join('') + '</div>' +
+      '<div class="pfwa-of-l"><input class="pfwa-of-mot" placeholder="O que ele disse (opcional)" value="' + esc(o.resposta.slice(0, 120)) + '">' +
+      '<select class="pfwa-of-lemb" title="Lembrar de oferecer de novo (vira próxima ação no Meu dia)"><option value="">não lembrar</option><option value="3"' + (sel === 'pensa' ? ' selected' : '') + '>lembrar em 3 dias</option><option value="15">em 15 dias</option><option value="30">em 30 dias</option><option value="60">em 60 dias</option><option value="90">em 90 dias</option></select></div>' +
+      '<div class="pfwa-of-b"><button data-acao="ofSalvar" class="pfwa-of-ok">Salvar na ficha</button><button data-acao="ofIgnorar" class="pfwa-of-no">Não é oferta</button></div>';
+    posicionar();
+  }
+  // ⚠ enquanto digita: já ofereceu isso pra ele?
+  async function digitandoVigiar() {
+    var cx = caixaTexto(); var t = cx ? (cx.innerText || '').trim() : '';
+    if (t === digAnt) return; digAnt = t;
+    if (t.length < 4 || !resp || resp.tipo !== 'cliente' || !resp.k) { jaR = null; pintaJa(); return; }
+    var r = await msg({ t: 'acao', acao: 'ofertaChecar', arg: { k: resp.k, texto: t } });
+    if (t !== digAnt) return; jaR = r && r.ja && r.ja.length ? r : null; pintaJa();
+  }
+  function pintaJa() {
+    if (!JA) return;
+    if (!jaR || !digAnt || jaFechado === digAnt) { JA.style.display = 'none'; return; }
+    JA.style.display = 'flex';
+    JA.innerHTML = '<span class="pfwa-ja-i">⚠</span><div><b>Você já ofereceu isso pra ele</b>' + jaR.ja.map(function (j) { return '<div>• ' + esc(j.nomes) + ' — <b>' + esc(j.quando) + '</b> (' + esc(j.dias === 0 ? 'hoje' : 'há ' + j.dias + ' dias') + ') · ' + esc(j.resp) + (j.motivo ? ': "' + esc(j.motivo.slice(0, 90)) + '"' : '') + (j.canal && j.canal !== 'whats' ? ' · ' + esc(j.canal) : '') + '</div>'; }).join('') + '</div><span data-acao="jaX" class="pfwa-avx" title="Fechar">✕</span>';
+    posicionar();
+  }
+
+  // ═══ 📢 STATUS (1.8) ═══
+  // O PF manda a imagem; aqui abre Status → ＋ → coloca a imagem e a legenda e PARA (você confere e aperta enviar).
+  var stRodando = false;
+  function stMostra(html, tipo) { if (!ST) return; ST.className = tipo || ''; ST.style.display = 'block'; ST.innerHTML = '<span data-acao="stX" class="pfwa-avx" style="float:right">✕</span>' + html; }
+  function clicarEl(el) { if (!el) return false; var b = el.closest('button,[role="button"],a') || el; ['mousedown', 'mouseup', 'click'].forEach(function (t) { b.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window })); }); return true; }
+  function primeiro(sels, raiz) { for (var i = 0; i < sels.length; i++) { var e = (raiz || document).querySelector(sels[i]); if (e) return e; } return null; }
+  function porTexto(re, raiz) { var els = (raiz || document).querySelectorAll('[role="button"],button,li,[role="menuitem"],[role="listitem"] span,div[aria-label],span[title]'); for (var i = 0; i < els.length; i++) { var t = (els[i].getAttribute('aria-label') || els[i].getAttribute('title') || els[i].textContent || '').trim(); if (t.length < 60 && re.test(t)) return els[i]; } return null; }
+  function botaoStatus() { return primeiro(['[aria-label="Status"]', '[title="Status"]', '[data-icon="status-refreshed"]', '[data-icon="status-outline"]', '[data-icon="status"]', '[data-icon="wds-ic-status"]', '[data-navbar-item-index="1"]']); }
+  function botaoAddStatus() { return primeiro(['[aria-label="Adicionar status"]', '[aria-label="Add status"]', '[aria-label="Add Status"]', '[title="Adicionar status"]', '[data-icon="status-add"]', '[data-icon="plus-rounded"]', '[data-icon="plus"]', '[data-icon="wds-ic-add"]']) || porTexto(/^(adicionar|novo) status|^add status|^meu status$|^my status$/i); }
+  function inputImagem() { var l = document.querySelectorAll('input[type="file"]'); for (var i = 0; i < l.length; i++) { var a = l[i].getAttribute('accept') || ''; if (!a || /image/.test(a)) return l[i]; } return null; }
+  function caixaLegenda() { var l = document.querySelectorAll('div[contenteditable="true"]'); for (var i = 0; i < l.length; i++) { var e = l[i]; if (e.closest('#side') || e.closest('#main footer') || e.closest('#pfwa')) continue; if (e.offsetParent) return e; } return null; }
+  function dataUrlArquivo(u, nome) { var p = u.split(','), mime = (p[0].match(/:(.*?);/) || [])[1] || 'image/jpeg', bin = atob(p[1]), arr = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); return new File([arr], nome, { type: mime }); }
+  function baixarImagem(u, nome) { var a = document.createElement('a'); a.href = u; a.download = nome; document.body.appendChild(a); a.click(); setTimeout(function () { a.remove(); }, 300); }
+  async function statusVigiar() {
+    if (stRodando) return; var s = await chrome.storage.local.get(['statusPend']); var S = s.statusPend;
+    if (!S || Date.now() - S.ts > 5 * 60000) return;
+    stRodando = true; await chrome.storage.local.remove('statusPend');
+    try { await postarStatus(S); } catch (e) { console.warn('PF status', e); falhaStatus(S, 'erro inesperado'); }
+    stRodando = false;
+  }
+  function falhaStatus(S, onde) {
+    baixarImagem(S.img, S.nome);
+    stMostra('<b>📢 Não consegui abrir o Status sozinho</b> (' + esc(onde) + ').<br>A imagem foi <b>baixada</b> (pasta Downloads). Faça à mão: <b>Status → ＋ → Fotos e vídeos</b> e escolha <b>' + esc(S.nome) + '</b>.' + (S.legenda ? '<br>Legenda (já copiada): <i>' + esc(S.legenda) + '</i>' : ''), 'erro');
+    if (S.legenda) try { navigator.clipboard.writeText(S.legenda); } catch (e) { }
+  }
+  async function postarStatus(S) {
+    stMostra('📢 Abrindo o Status…');
+    var ok = await esperar(function () { return $('#side') || botaoStatus(); }, 20000); if (!ok) return falhaStatus(S, 'WhatsApp Web não carregou');
+    var bs = botaoStatus(); if (!bs) return falhaStatus(S, 'não achei o botão Status');
+    clicarEl(bs); await dormir(1200);
+    var inp = inputImagem();
+    if (!inp) { var ad = await esperar(botaoAddStatus, 6000); if (!ad) return falhaStatus(S, 'não achei o ＋ do Status'); clicarEl(ad); await dormir(800);
+      inp = await esperar(inputImagem, 3000);
+      if (!inp) { var mf = porTexto(/fotos? e v[ií]deos?|photos? (&|and) videos?/i); if (mf) { /* não clica: abriria a janela de arquivos do computador */ } inp = await esperar(inputImagem, 2000); } }
+    if (!inp) return falhaStatus(S, 'não achei onde colocar a foto');
+    var f = dataUrlArquivo(S.img, S.nome), dt = new DataTransfer(); dt.items.add(f);
+    inp.files = dt.files; inp.dispatchEvent(new Event('change', { bubbles: true }));
+    var leg = await esperar(caixaLegenda, 8000);
+    if (!leg) return falhaStatus(S, 'a tela de prévia do Status não abriu');
+    if (S.legenda) { leg.focus(); try { document.execCommand('insertText', false, S.legenda); } catch (e) { } }
+    stMostra('<b>📢 Status pronto!</b> Confira a imagem e a legenda e aperte o <b>✈ enviar</b> do WhatsApp pra publicar.', 'ok');
+    setTimeout(function () { if (ST && ST.className === 'ok') ST.style.display = 'none'; }, 15000);
   }
 
   processarEnvio();

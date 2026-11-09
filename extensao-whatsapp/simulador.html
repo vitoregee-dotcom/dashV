@@ -52,10 +52,12 @@
   <button data-sim="fornecedor">🏭 Fornecedor</button>
   <button data-sim="novo">🆕 Não cadastrado</button>
   <button data-sim="grupo">👥 Grupo</button>
+  <button data-sim="oferta">💡 Oferta</button>
+  <button id="sim-status" title="Simula o PF mandando uma imagem pro Status">📢 Status</button>
 </div>
 <div id="app">
   <div id="side">
-    <div class="top">WhatsApp <span style="font-size:11px;color:#8696a0">(simulado)</span></div>
+    <div class="top">WhatsApp <span style="font-size:11px;color:#8696a0">(simulado)</span> <span aria-label="Status" title="Status" id="sim-stbtn" role="button" style="cursor:pointer;margin-left:8px">⭕</span></div>
     <div class="busca"><div>🔍 Pesquisar ou começar uma nova conversa</div></div>
     <div id="pane-side"></div>
   </div>
@@ -89,12 +91,18 @@ var CONTATOS = {
     nome: 'João Peças Diesel', tel: '5562988887777', grupo: false, etq: '', etqc: '', av: '🧑',
     msgs: [['in','oi, vocês trabalham com peças de retroescavadeira?']],
     card: { achou: false, nome: 'João Peças Diesel' } },
+  oferta: {
+    nome: 'Triângulo Locações (13468)', tel: '5534999990000', grupo: false, etq: 'Consumo', etqc: '#1F6FEB', av: '🚜',
+    msgs: [['in','Bom dia! Precisa 2 filtros 2654407 pra Perkins'],['out','Bom dia! Tenho sim. Aproveita e leva o óleo 15W-40 TurboLub pra troca? 20 L sai R$ 389'],['in','Óleo agora não, comprei semana passada']],
+    card: { achou: true, tipo: 'cliente', pelo: 'código 13468', k: 'c:13468', titulo: 'TRIANGULO SERVICOS LTDA', sub: 'Dener · compras', etqs: [ { t: 'Consumo' } ],
+      linhas: [ { ic: '💰', t: 'R$ 21.300,00 em 12 meses', d: '9 pedidos · último há 12 dias' } ], hist: [], pecas: [], prontas: [], botoes: [],
+      ofertas: { tit: '💡 Já ofereci (6 meses)', vazio: '', itens: [ { t: 'Linha Filtros Fleetguard', d: '02/10/2026 · 🤔 Vai pensar — manda a tabela · WhatsApp' }, { t: 'Kit vedação DANA 28.000', d: '12/09/2026 · ✔ Comprou · WhatsApp' } ] }, contato: 'Dener' } },
   grupo: {
     nome: 'Fornecedores Triex', tel: '', grupo: true, etq: '', etqc: '', av: '👥',
     msgs: [['in','pessoal, lista de preços nova em anexo']],
     card: { grupo: 1 } }
 };
-var ORDEM = ['cliente','fornecedor','novo','grupo'];
+var ORDEM = ['cliente','fornecedor','novo','grupo','oferta'];
 var CUR = 'cliente';
 
 // ===== chrome falso (precisa existir ANTES do whatsapp.js) =====
@@ -106,6 +114,13 @@ function respAcao(acao, arg) {
   if (acao === 'contatosSemTel') return { ok: true, nomes: [], total: ORDEM.length };
   if (acao === 'contatoTel') return { ok: true, gravou: true };
   if (acao === 'importarContatos') { setTimeout(function(){ toast('No PF real abriria a tela de conferência com os contatos lidos.'); }, 50); return { ok: true }; }
+  if (acao === 'ofertasConversa') {
+    var ms = (arg && arg.msgs) || [], i = ms.findIndex(function (m) { return m.eu && /aproveita/i.test(m.t); });
+    if (i < 0 || MEM.simOfSalva || !ms[i + 1]) return { pend: [] };
+    return { pend: [ { h: 'sim1', msg: ms[i].t, alvos: [ { tp: 'fam', key: 'ÓLEOS', nome: 'Óleos e lubrificantes', ks: ['f:ÓLEOS'] }, { tp: 'mar', key: 'TURBOLUB', nome: 'Marca TURBOLUB', ks: ['m:TURBOLUB'] } ], resposta: ms[i + 1].t, sug: 'agoranao', ja: [] } ] };
+  }
+  if (acao === 'ofertaSalvar') { MEM.simOfSalva = 1; toast('✔ (simulado) oferta salva na ficha: ' + arg.resp + (arg.lembrar ? ' · lembrar em ' + arg.lembrar + ' dias' : '')); return { ok: true }; }
+  if (acao === 'ofertaChecar') { if (/[oó]leo|turbolub/i.test(arg && arg.texto || '')) return { alvos: ['Óleos e lubrificantes'], ja: [ { quando: '07/11/2026', dias: 2, resp: '👎 Agora não', motivo: 'comprei semana passada', canal: 'whats', nomes: 'Óleos e lubrificantes · Marca TURBOLUB' } ] }; return { ja: [] }; }
   if (acao === 'registrar' || acao === 'lembrete') { toast('✔ (simulado) gravado no CRM'); return { ok: true }; }
   if (['abrirCot','ficha','cot','ped','mapa','oc'].indexOf(acao) >= 0) { toast('No PF real isso abriria: ' + acao + (arg ? ' ' + JSON.stringify(arg) : '')); return { ok: true }; }
   return { ok: true };
@@ -156,6 +171,22 @@ function abrir(k) {
   document.querySelectorAll('#sim-bar [data-sim]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-sim') === k); });
 }
 document.querySelectorAll('#sim-bar [data-sim]').forEach(function (b) { b.onclick = function () { abrir(b.getAttribute('data-sim')); }; });
+// ===== Status de mentira: ⭕ Status → ＋ Adicionar status → foto → prévia com legenda =====
+document.getElementById('sim-stbtn').onclick = function () {
+  document.getElementById('pane-side').innerHTML = '<div style="padding:14px"><div role="button" aria-label="Adicionar status" id="sim-add" style="cursor:pointer;color:#25D366;font-weight:700">＋ Meu status</div><div style="font-size:12px;color:#8696a0;margin-top:6px">(Status simulado)</div></div>';
+  document.getElementById('sim-add').onclick = function () {
+    var i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*,video/mp4'; i.style.display = 'none'; document.body.appendChild(i);
+    i.onchange = function () { var f = i.files[0]; var u = URL.createObjectURL(f); var ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;background:#0b141a;z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px';
+      ov.innerHTML = '<img src="' + u + '" style="max-height:70vh;border-radius:8px"><div style="display:flex;gap:8px;width:520px"><div contenteditable="true" role="textbox" aria-label="Adicionar legenda" style="flex:1;background:#2a3942;color:#e9edef;border-radius:9px;padding:10px"></div><button aria-label="Enviar" style="background:#25D366;border:none;border-radius:50%;width:46px;height:46px;font-size:20px">➤</button></div><div style="color:#8696a0;font-size:12px">' + f.name + ' · ' + Math.round(f.size / 1024) + ' KB</div>';
+      document.body.appendChild(ov); ov.querySelector('button').onclick = function () { ov.remove(); toast('(simulado) status publicado'); painelLista(); }; };
+  };
+};
+document.getElementById('sim-status').onclick = function () {
+  var c = document.createElement('canvas'); c.width = 540; c.height = 960; var x = c.getContext('2d'); x.fillStyle = '#1F4E79'; x.fillRect(0, 0, 540, 960); x.fillStyle = '#fff'; x.font = 'bold 48px sans-serif'; x.fillText('CHEGOU NO ESTOQUE', 30, 120);
+  MEM.statusPend = { img: c.toDataURL('image/jpeg', .9), legenda: '📣 Chegou no estoque! Precisando, é só chamar 👇', nome: 'status-teste.jpg', ts: Date.now() };
+  toast('PF mandou a imagem pro Status (simulado)…');
+};
 painelLista();
 abrir('cliente');
 

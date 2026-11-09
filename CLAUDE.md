@@ -241,6 +241,11 @@
   equivalentesExtra[{marca,codigo,tipo}], especificacoes[{nome,valor}], fotos[], medidas por letra}`.
 - "📋 Colar print de aplicação" (`ccColarPrintAplicacao`) junta aplicação/equivalentes/foto num item existente e nos relacionados;
   "➕ Cadastrar item" (`ccNovoItem`) cria item novo por print ou à mão. Aplicação exibida por `ccAplicacaoOrganizadaHtml`.
+  - v115.2619 (Vitor: "já muda pra ele ler o que tiver e juntar a info" + "e se eu quiser incluir à mão um código que ficou de fora?"): o Colar print de aplicação
+    também lê **medidas/características** (a IA devolve `especificacoes:[{nome,valor}]`+`medidas:{}`; prévia 📏, só o que falta) → grava em `rec.especificacoes` (dedupe por
+    nome) + preenche os campos de letra VAZIOS via `ccMedidasDasEspecs` e, pro print da Spicer que nomeia a especificação só com a letra ("A","B"), mapeia a letra pura direto
+    pelo `ccCamposAtivos(fam)`. E a seção "Equivalentes e conversões" ganhou **"➕ Adicionar à mão"** (marca + código + tipo) → `ccPrintAplAddEqManual` (`window._ccPrintAplManual`,
+    classe `.ccPaEM`), somado ao `eqSel` no `ccPrintAplSalvar`. Prévia `docs/referencias/cardan-print-info/feito.png`.
 - **Spicer é a principal** (fabrica pras montadoras; REI/Sorocard/Stahl/LNG são paralelos): código, descrição e foto da Spicer
   mandam no card (`ccPrioSpicer`, `ccAplicarSpicerNoGrupo`); a descrição de outro catálogo vai pra `descricaoCatalogo`.
   Catálogo LNG 2015 (cardan) em `data/lng-cardan-2015.json` + família `acessorios`.

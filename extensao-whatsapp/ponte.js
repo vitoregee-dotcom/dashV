@@ -12,7 +12,7 @@
     var d = e.data;
     try {
       if (d.pfExt === 'souPF') chrome.runtime.sendMessage({ t: 'souPF' });
-      else if (d.pfExt === 'lote') chrome.runtime.sendMessage({ t: 'lote', id: d.id, itens: d.itens, titulo: d.titulo || '' });
+      else if (d.pfExt === 'lote') chrome.runtime.sendMessage({ t: 'lote', id: d.id, itens: d.itens, titulo: d.titulo || '', pausaSeg: d.pausaSeg || 0 });
       else if (d.pfExt === 'parar') chrome.runtime.sendMessage({ t: 'parar', id: d.id });
       else if (d.pfExt === 'status') chrome.runtime.sendMessage({ t: 'status', img: d.img, legenda: d.legenda || '', nome: d.nome || 'status.jpg' });
       else if (d.pfExt === 'res') { var cb = pend[d.rid]; if (cb) { delete pend[d.rid]; cb(d.r); } }

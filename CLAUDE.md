@@ -2282,6 +2282,12 @@
   "não está no PF". Agora `svNomeBase`/`svEmpBase` (`svPartes`): pessoa = 1º pedaço com 3+ letras, empresa = ÚLTIMO pedaço; `pfExtClientesSugerir` também acha pelo `pfExtNomeMatcher`;
   `pfExtSalvarContato` sem cliente tenta `pfExtAcharK` com o nome inteiro do WhatsApp/empresa (e grava o Código JBoss no cliente achado). "🔗 ligado a" vazio não aparece; o quadrinho
   rola e não passa da tela (o "➕ Criar cliente" ficava cortado). Sem número na conversa (só @lid) o contato NÃO entra no cadastro (precisa do telefone) — só o Código JBoss.
+- v115.2617 **🌱 CNPJ no Salvar contato = pré-cadastro (prospect)** (extensão **3.0**; Vitor: "coloca um campo pra CNPJ, que se eu preencher e o cliente ainda não tiver cadastro,
+  ele já entra no cadastro de prospect ou pré-cadastro"; captura `docs/referencias/whatsapp-menu/feito-salvar-cnpj.png`): campo CNPJ (`sv-cnpj`, formata ao digitar) → acao
+  `salvarContato` vai pro `pfExtSalvarContatoCnpj` (async — o listener `pfExt req` agora espera Promise): CNPJ de um cliente que já existe = liga nele (`cnpjJa`); CNPJ novo =
+  busca na BrasilAPI/cnpj.ws (`pfExtCnpjDados`: razão, fantasia, cidade, UF, endereço, e-mail, telefone) e cria o cliente com **`prospect:true`** (+ Código JBoss, contato com cargo,
+  `criadoDe:'whatsapp'`), sem dados da Receita usa a empresa digitada. Selo "🌱 PROSPECT" na lista de clientes e caixinha "🌱 Pré-cadastro (prospect)" no cadastro (desmarcar e
+  salvar = cliente completo; `cadSalvarClienteV2` grava `prospect`).
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

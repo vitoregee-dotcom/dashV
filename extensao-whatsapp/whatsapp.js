@@ -219,6 +219,9 @@
   var OF = null, JA = null, ST = null, ofPend = [], ofSig = '', ofSel = {}, ofIgn = {}, digAnt = '', jaR = null, jaFechado = '';
   // 2.0 - Menu do PF em volta do WhatsApp (barra de cima + coluna de ícones + etiquetas por conversa)
   var MENU = null, RAIL = null, menuLig = true, menuCor = 'azul', menuFiltro = '', sitCache = {}, sitSig = '', sitTimer = null;
+  // 2.2 - 📌 "vou verificar depois" → pendência automática (com desfazer)
+  var VF = null, vfR = null, vfSig = '';
+  var VERIF_RE = /\bvou (anotar|verificar|conferir|checar|ver\b|dar uma (olhada|conferida)|confirmar|olhar|pesquisar|te retornar|te dar)|deixa eu (ver|verificar|conferir|checar|dar uma olhada|olhar)|preciso (verificar|conferir|ver no|checar)|j[aá] (te )?(retorno|verifico|confiro)|vou (te )?(retornar|dar) (o|um|a)/i;
   chrome.storage.local.get(['ofIgn'], function (s) { ofIgn = s.ofIgn || {}; });
   var BOTOES = [['cot', '📄', 'Cotar no PF'], ['saldo', '📦', 'Saldo'], ['ficha', '🤝', 'Ficha'], ['lemb', '⏰', 'Lembrete'], ['prontas', '⚡', 'Prontas'], ['pdf', '📤', 'PDF']];
   function logoSvg(f, l) { return '<svg width="24" height="24" viewBox="0 0 40 40"><rect width="40" height="40" rx="10" fill="' + f + '"/><rect x="9" y="8" width="4" height="22" rx="1.5" fill="' + l + '"/><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="' + l + '" stroke-width="4" stroke-linecap="round"/><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="33" r="2" fill="#E67E22"/></svg>'; }
@@ -238,10 +241,11 @@
     ST = document.createElement('div'); ST.id = 'pfwa-st'; document.body.appendChild(ST);
     MENU = document.createElement('div'); MENU.id = 'pfwa-menu'; document.body.appendChild(MENU);
     RAIL = document.createElement('div'); RAIL.id = 'pfwa-rail'; document.body.appendChild(RAIL);
+    VF = document.createElement('div'); VF.id = 'pfwa-vf'; document.body.appendChild(VF);
     P.querySelector('.pfwa-aba').onclick = function () { aberto = !aberto; chrome.storage.local.set({ painelAberto: aberto }); pinta(); };
     P.querySelector('.pfwa-x').onclick = function () { aberto = false; chrome.storage.local.set({ painelAberto: false }); pinta(); };
     P.querySelectorAll('[data-vis]').forEach(function (el) { el.onclick = function () { visual = el.getAttribute('data-vis'); chrome.storage.local.set({ visual: visual }); pinta(); }; });
-    [P, B, AV, OF, JA, ST, MENU, RAIL].forEach(function (el) { el.addEventListener('click', clique); });
+    [P, B, AV, OF, JA, ST, MENU, RAIL, VF].forEach(function (el) { el.addEventListener('click', clique); });
     chrome.storage.local.get(['painelAberto', 'visual', 'avisoLigado', 'botsMin', 'menuLig', 'menuCor', 'menuFiltro'], function (s) { if (s.painelAberto === false) aberto = false; if (s.visual === 'D' || s.visual === 'A') visual = s.visual; if (s.avisoLigado === false) avisoLigado = false; if (s.botsMin) botsMin = true; if (s.menuLig === false) menuLig = false; if (s.menuCor === 'discreta' || s.menuCor === 'azul') menuCor = s.menuCor; if (s.menuFiltro) menuFiltro = s.menuFiltro; pinta(); pintarMenu(); });
   }
   function abrirPainel() { if (!aberto) { aberto = true; chrome.storage.local.set({ painelAberto: true }); } }
@@ -307,6 +311,8 @@
     }
     if (ac === 'jaX') { jaFechado = digAnt; JA.style.display = 'none'; return; }
     if (ac === 'stX') { ST.style.display = 'none'; return; }
+    if (ac === 'vfDesfazer') { if (vfR) msg({ t: 'acao', acao: 'verificarDesfazer', arg: vfR.id }); vfR = null; pintaVf(); return; }
+    if (ac === 'vfX') { vfR = null; pintaVf(); return; }
     msg({ t: 'acao', acao: ac, arg: arg, focar: true });
   }
   function flash(b, t) { var o = b.textContent; b.textContent = t; setTimeout(function () { b.textContent = o; }, 2200); }
@@ -434,7 +440,7 @@
   }
   // 1.9 - BUG (Vitor: foto aberta em tela cheia ficava com o aviso e o botão "PF" por cima): se alguma coisa do WhatsApp cobre a conversa
   // (foto, vídeo, documento, janela), esconde os avisos e os botões da extensão até fechar.
-  var MEUS = '#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st';
+  var MEUS = '#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st,#pfwa-vf,#pfwa-menu,#pfwa-rail';
   function conversaCoberta() {
     var main = $('#main'); if (!main) return false;
     var r = main.getBoundingClientRect(); if (r.width < 50 || r.height < 50) return false;
@@ -451,7 +457,7 @@
   function posicionar() {
     marcarCoberta();
     var main = $('#main'); if (!B) return;
-    if (!main || !contatoAt) { B.style.display = 'none'; if (AV) AV.style.display = 'none'; if (OF) OF.style.display = 'none'; if (JA) JA.style.display = 'none'; return; }
+    if (!main || !contatoAt) { B.style.display = 'none'; if (AV) AV.style.display = 'none'; if (OF) OF.style.display = 'none'; if (JA) JA.style.display = 'none'; if (VF) VF.style.display = 'none'; return; }
     var r = main.getBoundingClientRect(), foot = main.querySelector('footer'), fh = foot ? foot.getBoundingClientRect().height : 62, hd = main.querySelector('header'), hh = hd ? hd.getBoundingClientRect().height : 60;
     B.className = (visual === 'D' ? 'pfwa-barra' : 'pfwa-coluna') + (botsMin ? ' pfwa-min' : ''); B.style.display = 'flex';
     if (botsMin) { B.innerHTML = '<span data-acao="botsToggle" class="pri pfwa-botspf" title="Mostrar os bot\u00f5es do PF">PF</span>'; }
@@ -461,6 +467,7 @@
     if (AV) { AV.style.left = (r.left + 70) + 'px'; AV.style.width = Math.max(260, r.width - 140) + 'px'; AV.style.top = (r.top + hh + 10) + 'px'; }
     if (OF) { OF.style.left = (r.left + 70) + 'px'; OF.style.width = Math.max(300, Math.min(560, r.width - 140)) + 'px'; OF.style.top = (r.top + hh + (AV && AV.style.display === 'flex' ? 64 : 10)) + 'px'; }
     if (JA) { JA.style.left = (r.left + 16) + 'px'; JA.style.width = Math.max(300, r.width - 32) + 'px'; JA.style.bottom = (window.innerHeight - r.bottom + fh + 8) + 'px'; }
+    if (VF && VF.style.display === 'flex') { VF.style.left = (r.left + 16) + 'px'; VF.style.width = Math.max(300, r.width - 32) + 'px'; VF.style.bottom = (window.innerHeight - r.bottom + fh + 8 + (JA && JA.style.display === 'flex' ? 70 : 0)) + 'px'; }
   }
   function contatoAtual() {
     var main = $('#main'); if (!main) return null;
@@ -484,8 +491,8 @@
     posicionar();
     var nCod = c && !c.grupo ? pareceCotacao(lerMensagens()) : 0;
     statusVigiar();
-    if (chave === ultimo) { pintaAviso(nCod); ofertasVigiar(); digitandoVigiar(); return; }
-    ultimo = chave; cot = null; cotErro = ''; saldoR = null; ofPend = []; ofSig = ''; jaR = null; digAnt = ''; jaFechado = ''; pintaOferta(); pintaJa();
+    if (chave === ultimo) { pintaAviso(nCod); ofertasVigiar(); digitandoVigiar(); verificarVigiar(); return; }
+    ultimo = chave; cot = null; cotErro = ''; saldoR = null; ofPend = []; ofSig = ''; jaR = null; digAnt = ''; jaFechado = ''; vfR = null; vfSig = ''; pintaOferta(); pintaJa(); pintaVf();
     if (!c) { resp = null; pinta(); pintaAviso(0); return; }
     if (c.grupo) { resp = { grupo: 1 }; pinta(); return; }
     resp = null; pinta();
@@ -536,6 +543,30 @@
     if (!jaR || !digAnt || jaFechado === digAnt) { JA.style.display = 'none'; return; }
     JA.style.display = 'flex';
     JA.innerHTML = '<span class="pfwa-ja-i">⚠</span><div><b>Você já ofereceu isso pra ele</b>' + jaR.ja.map(function (j) { return '<div>• ' + esc(j.nomes) + ' — <b>' + esc(j.quando) + '</b> (' + esc(j.dias === 0 ? 'hoje' : 'há ' + j.dias + ' dias') + ') · ' + esc(j.resp) + (j.motivo ? ': "' + esc(j.motivo.slice(0, 90)) + '"' : '') + (j.canal && j.canal !== 'whats' ? ' · ' + esc(j.canal) : '') + '</div>'; }).join('') + '</div><span data-acao="jaX" class="pfwa-avx" title="Fechar">✕</span>';
+    posicionar();
+  }
+
+  // ═══ 📌 "VOU VERIFICAR DEPOIS" → pendência automática (2.2) ═══
+  // Quando a ÚLTIMA mensagem que VOCÊ mandou é uma frase de "vou verificar / deixa eu ver no catálogo / vou checar com o fornecedor",
+  // o PF cria sozinho uma pendência (cliente + o que ele pediu + códigos) e aparece um cartão "📌 Anotei — desfazer".
+  async function verificarVigiar() {
+    if (!contatoAt || contatoAt.grupo) { if (vfR) { vfR = null; pintaVf(); } return; }
+    var ms = lerMensagens(); if (!ms.length) return;
+    var last = ms[ms.length - 1];
+    if (!last.eu || !VERIF_RE.test(last.t)) return;
+    var sig = ultimo + '|' + ms.length + '|' + last.t.slice(0, 80);
+    if (sig === vfSig) return; vfSig = sig;
+    var ch = ultimo;
+    var r = await msg({ t: 'acao', acao: 'verificar', arg: { k: resp && resp.k, nome: contatoAt.nome, texto: last.t, msgs: ms } });
+    if (ch !== ultimo || !r || !r.ok) return;
+    if (r.jaTinha) { vfR = null; pintaVf(); return; }
+    vfR = r; pintaVf();
+  }
+  function pintaVf() {
+    if (!VF) return;
+    if (!vfR || !contatoAt) { VF.style.display = 'none'; return; }
+    VF.style.display = 'flex';
+    VF.innerHTML = '<span class="pfwa-vf-i">📌</span><div><b>Anotei pra você verificar</b><br><small>' + esc(vfR.resumo || '') + ' — vai pras Pendências, ☀️ Meu dia e ficha</small></div><button data-acao="vfDesfazer" data-arg="' + esc(vfR.id) + '">desfazer</button><span data-acao="vfX" class="pfwa-avx" title="Fechar">✕</span>';
     posicionar();
   }
 

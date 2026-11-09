@@ -62,10 +62,14 @@ async function resultado(m) {
   await guardar({ lote: L, atual: null });
   await avisarPF(L);
   if (L.parado) { L.fim = Date.now(); await guardar({ lote: L }); await avisarPF(L); return; }
-  setTimeout(enviarItem, PAUSA_MIN + Math.random() * (PAUSA_MAX - PAUSA_MIN));
+  // 2.6 - disparo em massa: L.pausa (segundos, vem do limite por hora). Espera longa vai por alarme (o fundo dorme depois de ~30 s).
+  var ms = PAUSA_MIN + Math.random() * (PAUSA_MAX - PAUSA_MIN);
+  if (L.pausa) ms = Math.max(ms, L.pausa * 1000 * (0.85 + Math.random() * 0.3));
+  if (ms > 25000) chrome.alarms.create('pfProx', { when: Date.now() + ms }); else setTimeout(enviarItem, ms);
 }
 
 chrome.alarms.onAlarm.addListener(async function (a) {
+  if (a.name === 'pfProx') { enviarItem(); return; }
   if (a.name !== 'pfVigia') return;
   var s = await ler(['atual']);
   if (s.atual) resultado({ id: s.atual.id, ok: false, erro: 'O WhatsApp demorou demais pra abrir a conversa' });
@@ -81,7 +85,7 @@ chrome.runtime.onMessage.addListener(function (m, sender, send) {
         s.lote.itens = s.lote.itens.concat((m.itens || []).map(function (x) { return { tel: x.tel, texto: x.texto, ref: x.ref, nome: x.nome || '', lote: m.id }; }));
         await guardar({ lote: s.lote }); return;
       }
-      var L = { id: m.id, titulo: m.titulo || '', origem: sender.tab ? sender.tab.id : null, criado: Date.now(), itens: (m.itens || []).map(function (x) { return { tel: x.tel, texto: x.texto, ref: x.ref, nome: x.nome || '', lote: m.id }; }) };
+      var L = { id: m.id, titulo: m.titulo || '', pausa: +m.pausaSeg || 0, origem: sender.tab ? sender.tab.id : null, criado: Date.now(), itens: (m.itens || []).map(function (x) { return { tel: x.tel, texto: x.texto, ref: x.ref, nome: x.nome || '', lote: m.id }; }) };
       await guardar({ lote: L, atual: null });
       enviarItem();
     })();

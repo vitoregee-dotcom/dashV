@@ -2237,11 +2237,21 @@
   mexida 1h+ depois do envio ou conversa depois, ✅ Fechou = `_pcFech`, ❌ Perdeu = sem pedido há > `PF_KB_PERDEU_DIAS`=15. Arrastar/menu "Mover pra" só corrige: `pfKanban_v1`
   {por:{'q:<nº>'|'c:<k>':{col,por,ts}},ts} (3 listas da sync); voltar pra coluna automática apaga a correção; cartão movido mostra "✋ movido por… (o PF dizia X)". Clique no
   cartão: abrir cotação / 💬 conversa no WhatsApp (`pfKbWhats` → telefone do cadastro) / ficha. Vendedor vê só os dele, gestor escolhe. PF_FUNCOES 'Quadro de vendas'.
+- v115.2611 **📣 Disparo pelo WhatsApp** (revisão do Watidy, item 2; extensão **2.6**; captura `docs/referencias/disparo/feito.png`): card em Vendas (`_disparo`) → `pfDispAbrir(fonte)`
+  (pfNcJanela `pfDispJan`). Lista montada pelo PF (`pfDispMontar`, estado `window._pfDisp`): 📣 o que chegou (`pfChegouCalc` 3/7/15 dias, mensagem de cada cliente = `pfChegouMsg`),
+  🏷️ quem comprou uma marca em 12 meses, 🟡 grupo (`PF_GRUPOS`) ou tipo de cliente, 😴 sumidos (60/90/180/365 dias sem comprar, até 2 anos), 📇 etiqueta do WhatsApp
+  (`pfContatosWhats_v1`). Mensagem com {nome} (1º nome do contato), ASSUNTO obrigatório = chave da oferta (`pfDispH`), POR HORA (padrão 30) → `pfExtEnviarLote(itens,titulo,cb,{pausaSeg})`
+  (novo 4º parâmetro; ponte passa `pausaSeg`; fundo.js `L.pausa`, espera > 25 s por alarme `pfProx`). Cada envio que sai = oferta no CRM (`pfOfSalvar`, alvo tp 'disp', canal 'disparo';
+  contato sem cliente → localStorage `pf_disp_tel`) → na próxima lista quem já recebeu o mesmo assunto vem desmarcado ("já recebeu em dd/mm"). ⏹ Parar. Só texto (foto ainda não).
+  Gestor pode tirar "só minha carteira". AJUDA da extensão ganhou a linha. PF_FUNCOES 'Disparo pelo WhatsApp'.
+  Junto, BUG ("pq não encontrei essa pelo número do diâmetro da cruzeta?" — 2045002 Sorocard SF-49 "CRUZETA Ø 52,0 MM"): nas tabelas Stahl/Sorocard o Ø do copo veio em `cruzetaDiametro`
+  ou escrito no `cruzetaNumero`; o filtro D só olhava o D. `ccMedRec(fam,rec,k)` (flanges de orelha, garfos, luvas, terminais — `CC_COPO_FAMS`): D vazio usa esses dois — no filtro
+  da família, no `ccBgPrincValor`, `ccBgValor` e `ccBgCruzMedHtml`.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);
     arrastar só pra corrigir; cartão abre a conversa.
-  · **2 Disparo em massa** com lista montada pelo PF (📣 Chegou, promoção/marca, etiqueta/grupo, clientes sumidos), {nome}, foto opcional, limite por hora, parar; cada envio = oferta
+  · ~~**2 Disparo em massa**~~ **FEITO v115.2611** com lista montada pelo PF (📣 Chegou, promoção/marca, etiqueta/grupo, clientes sumidos), {nome}, foto opcional, limite por hora, parar; cada envio = oferta
     registrada (💡) e pula quem já recebeu a mesma oferta. Motor = fila da extensão (`pfExtEnviarLote`). O Vitor já usa disparo no Watidy e funciona.
   · ~~**❓ Ajuda "Como funciona"** na extensão~~ **FEITO v115.2608** explicando cada função em linguagem simples (pros outros usuários) — ir montando a cada função nova.
   · ~~**📌 "Vou verificar depois" → pendência AUTOMÁTICA**~~ **FEITO v115.2605** (extensão 2.2): quando a ÚLTIMA mensagem que o vendedor mandou bate `VERIF_RE` ("deixa eu ver no

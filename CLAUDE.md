@@ -2316,6 +2316,10 @@
   ignora CNPJ (`00.000.000/0000-00`) e CPF mascarado — não viram item. 2) Extensão: quando o contato NÃO está no PF e o cliente mandou um CNPJ na conversa (`cnpjNaConversa`), a aba Cliente
   mostra "➕ Cadastrar no PF" (`data-acao="svCnpj"`) que abre o 👤 Salvar contato com o CNPJ já preenchido → `pfExtSalvarContatoCnpj` (pré-cadastro 🌱 com dados da Receita). Testado no
   simulador (contato "cnpj" novo) + leitura do PF. `PF_EXT_VER_NOVA`='4.4', zip refeito. Captura `docs/referencias/whatsapp-menu/feito-cadastrar-cnpj.png`.
+- v115.2640 + extensão **4.5** BUG (Vitor: "quando abro imagem ainda estão os ícones da extensão" — PDF/DANFE "Exibido por Adobe Acrobat" com o menu/coluna/rail do PF por cima):
+  o leitor de PDF/documento do WhatsApp é um `<embed>/<iframe>/<object>`, que o `telaPorCima()` não olhava (só img/vídeo/canvas). Agora inclui embed/iframe/object (grandes, fora
+  de `#main`/`#pane-side`) → `html.pfwa-coberto` esconde tudo (`#pfwa-menu`/`#pfwa-rail`/`#pfwa-bots`/`#pfwa-svb`…). Testado no simulador (leitor por cima = esconde; fechar = volta).
+  `PF_EXT_VER_NOVA`='4.5', zip refeito.
 - v115.2624 ("esses não são os dados reais… via de regra eu sempre vejo os dados reais e os outros os fictícios; coloca um botão pra eu ver o modo fictício se eu quiser"):
   pro dono as listas "só demo" (`PF_MODO_DEMO_TODAS`=so: cotações, pedidos, títulos, clientes, CRM, avisos) escondem `demo:true` na leitura (`pfDonoSemDemo`/`pfDonoSemDemoFiltrar`,
   no getItem e pfRawGetItem); gravação da tela dele devolve os demo:true do navegador (`pfDonoSemDemoGravar`, setItem e pfRawSetItem); o push lê cru; as ferramentas da demo

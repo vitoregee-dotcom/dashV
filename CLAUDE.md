@@ -2335,6 +2335,10 @@
   de cada uma na conversa; "➕ Salvar o que escrevi como resposta" → `pfRrSalvar` (atalho novo `de:'whatsapp'`; nome/empresa/saudação/nº da cotação viram variável). Atalho com formulário
   (frete) = "📝 abre no PF" (acao `rrForm`). 📣 Disparo usa as mesmas variáveis (`pfDispTexto`); editor do atalho lista as variáveis. Config `barra` (CFG_LISTA) desliga o "/".
   Decisões pendentes mostradas em `docs/referencias/whatsapp-decisoes/previa.png`: aviso de cotação (hoje / A grifar / B selo / C faixa) e cotação interna (A sozinho / B 1 clique).
+- v115.2629 **📄 selo no balão + criar cotação com 1 clique** (extensão **3.8**; decisões da prévia `docs/referencias/whatsapp-decisoes/`: aviso = "gosto de como está e da B", cotação = "prefiro eu decidir, mas mais discreto";
+  capturas `feito-selo*.png`): a bolinha do botão 📄 continua e o ÚLTIMO balão de cada sequência de mensagens do cliente com códigos (`selosVigiar`: blocos até a próxima mensagem sua, regra `spContaCods` = 2+ códigos ou 1 + cota/preço/tem)
+  ganha o selinho laranja "📄 N" (`.pfwa-selo`, dentro do `[data-pre-plain-text]`). Clique = janelinha `#pfwa-sp` (acao `cotar` só com as mensagens do bloco: código × qtd e saldo) + "Criar cotação no PF" (acao `abrirCot`) e "ver no painel ›".
+  Nada é criado sem o clique; criada = selo verde ✓ cot. (`sessionStorage pfwa_sp_feitos`, hash conversa+texto). Desliga em ⚙️ (`selo` no CFG_LISTA) ou com o aviso de cotação. Falta validar a posição do selo no WhatsApp real.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

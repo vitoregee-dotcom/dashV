@@ -82,6 +82,62 @@
     return (cx.innerText || '') !== antes;
   }
 
+  // ═══ 4.16 - 🎤 DESCREVER ÁUDIO ═══ pega o último áudio da conversa (blob do WhatsApp) e manda pro PF transcrever.
+  function ultimoAudioEl() {
+    var main = $('#main'); if (!main) return null;
+    var as = main.querySelectorAll('audio'), i;
+    for (i = as.length - 1; i >= 0; i--) { if (as[i].src && /^blob:/.test(as[i].src)) return as[i]; }
+    return as.length ? as[as.length - 1] : null;
+  }
+  function blobUrlDataUrl(url) {
+    return fetch(url).then(function (r) { return r.blob(); }).then(function (b) {
+      return new Promise(function (ok, err) { var fr = new FileReader(); fr.onload = function () { ok({ dataUrl: fr.result, size: b.size }); }; fr.onerror = err; fr.readAsDataURL(b); });
+    });
+  }
+  function audioBoxEl() {
+    var b = document.getElementById('pfwa-audio');
+    if (!b) {
+      b = document.createElement('div'); b.id = 'pfwa-audio';
+      b.style.cssText = 'position:fixed;right:18px;bottom:90px;z-index:2147483600;max-width:340px;background:#fff;border:1px solid #d7deea;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.22);font-size:13px;color:#1a2332;overflow:hidden';
+      b.addEventListener('click', function (e) {
+        var a = e.target.closest('[data-aud]'); if (!a) return; var k = a.getAttribute('data-aud');
+        if (k === 'x') { b.remove(); return; }
+        if (k === 'cfg') { msg({ t: 'acao', acao: 'sttConfig' }); return; }
+        var t = b.querySelector('[data-aud-txt]'); if (!t) return;
+        if (k === 'copy') { try { navigator.clipboard.writeText(t.textContent); a.textContent = '✓ copiado'; } catch (e) { } }
+        else if (k === 'por') { escreverNaCaixa(t.textContent); }
+      });
+      document.body.appendChild(b);
+    }
+    return b;
+  }
+  function audioMsg(txt, config) {
+    var b = audioBoxEl();
+    b.innerHTML = '<div style="background:#1c2940;color:#fff;padding:8px 12px;font-weight:700;display:flex;justify-content:space-between;align-items:center">🎤 Áudio <span data-aud="x" style="cursor:pointer">✕</span></div>' +
+      '<div style="padding:12px;line-height:1.5">' + esc(txt) + (config ? '<div style="margin-top:10px"><button data-aud="cfg" class="pfwa-verde" style="border:0;border-radius:7px;padding:6px 10px;cursor:pointer;color:#fff">⚙️ Configurar a chave</button></div>' : '') + '</div>';
+  }
+  function audioResultado(texto) {
+    var b = audioBoxEl();
+    b.innerHTML = '<div style="background:#1c2940;color:#fff;padding:8px 12px;font-weight:700;display:flex;justify-content:space-between;align-items:center">🎤 Descrição do áudio <span data-aud="x" style="cursor:pointer">✕</span></div>' +
+      '<div style="padding:12px;line-height:1.5"><div data-aud-txt style="white-space:pre-wrap;max-height:240px;overflow:auto">' + esc(texto) + '</div>' +
+      '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">' +
+        '<button data-aud="por" class="pfwa-verde" style="border:0;border-radius:7px;padding:6px 10px;cursor:pointer;color:#fff">💬 Pôr na conversa</button>' +
+        '<button data-aud="copy" style="border:1px solid #cfd8e3;background:#f4f7fb;border-radius:7px;padding:6px 10px;cursor:pointer">📋 Copiar</button>' +
+      '</div></div>';
+  }
+  async function transcreverUltimoAudio() {
+    audioMsg('🎤 Lendo o áudio…');
+    var el = ultimoAudioEl();
+    if (!el || !el.src || !/^blob:/.test(el.src)) { audioMsg('Não achei áudio carregado nesta conversa. Toque no ▶ do áudio uma vez pra carregar e clique de novo.'); return; }
+    var d;
+    try { d = await blobUrlDataUrl(el.src); } catch (e) { audioMsg('Não consegui pegar o áudio (' + ((e && e.message) || '') + '). Toque no ▶ e tente de novo.'); return; }
+    if (!d || !d.dataUrl) { audioMsg('Não consegui ler o áudio.'); return; }
+    var r = await msg({ t: 'acao', acao: 'transcreverAudio', arg: { dataUrl: d.dataUrl } });
+    if (!r) { audioMsg('Abra o PartsFlow numa aba deste Chrome.'); return; }
+    if (r.erro) { audioMsg(r.msg || 'Não deu pra transcrever o áudio.', r.erro === 'sem_chave'); return; }
+    audioResultado(r.texto || '(o serviço não reconheceu fala no áudio)');
+  }
+
   // ═══ 2) MENSAGENS DA CONVERSA ═══
   function lerMensagens() {
     var out = [], els = document.querySelectorAll('#main [data-pre-plain-text]');
@@ -262,7 +318,7 @@
   var VF = null, vfR = null, vfSig = '';
   var VERIF_RE = /\bvou (anotar|verificar|conferir|checar|ver\b|dar uma (olhada|conferida)|confirmar|olhar|pesquisar|te retornar|te dar)|deixa eu (ver|verificar|conferir|checar|dar uma olhada|olhar)|preciso (verificar|conferir|ver no|checar)|j[aá] (te )?(retorno|verifico|confiro)|vou (te )?(retornar|dar) (o|um|a)/i;
   chrome.storage.local.get(['ofIgn'], function (s) { ofIgn = s.ofIgn || {}; });
-  var BOTOES = [['cot', '📄', 'Cotar no PF'], ['saldo', '📦', 'Saldo'], ['ficha', '🤝', 'Ficha'], ['lemb', '⏰', 'Lembrete'], ['prontas', '⚡', 'Prontas'], ['assist', '🤖', 'Assistente'], ['pdf', '📤', 'PDF']];
+  var BOTOES = [['cot', '📄', 'Cotar no PF'], ['saldo', '📦', 'Saldo'], ['ficha', '🤝', 'Ficha'], ['audio', '🎤', 'Descrever áudio'], ['lemb', '⏰', 'Lembrete'], ['prontas', '⚡', 'Prontas'], ['assist', '🤖', 'Assistente'], ['pdf', '📤', 'PDF']];
   function logoSvg(f, l) { return '<svg width="24" height="24" viewBox="0 0 40 40"><rect width="40" height="40" rx="10" fill="' + f + '"/><rect x="9" y="8" width="4" height="22" rx="1.5" fill="' + l + '"/><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="' + l + '" stroke-width="4" stroke-linecap="round"/><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="33" r="2" fill="#E67E22"/></svg>'; }
 
   // 2.4 - ❓ Ajuda "Como funciona" (pedido do Vitor: explicar cada função em linguagem simples pros outros usuários).
@@ -321,6 +377,7 @@
       ['📄', 'Cotar no PF', 'Lê os códigos e quantidades que o cliente mandou depois da sua última mensagem (se ele mandar mais, vai somando; pedido antigo = clique no selo 📄 do balão), mostra saldo e preço (com a margem dele) e monta a resposta. "Pôr na conversa" escreve na caixa; você confere e manda.'],
       ['📦', 'Saldo', 'Selecione um código na conversa e clique: mostra o saldo de cada marca.'],
       ['🤝', 'Ficha', 'Abre a ficha do cliente no PF (CRM).'],
+      ['🎤', 'Descrever áudio', 'Transcreve o último áudio da conversa (texto do que o cliente falou). Toque no ▶ do áudio uma vez pra carregar e clique no 🎤. Precisa da chave do serviço de transcrição (configura no PF, uma vez só). "Pôr na conversa" escreve o texto na caixa.'],
       ['⏰', 'Lembrete', 'Marca uma próxima ação (aparece no ☀️ Meu dia do PF).'],
       ['⚡', 'Respostas rápidas', 'Clique no ⚡ (ou digite / na caixa de texto, ex.: /banco): aparecem as respostas deste cliente e os seus Atalhos de Texto do PF, já com o nome dele, a empresa, a cidade… trocados. Escolha (↑ ↓ e Enter) e o texto vai pra caixa — você confere e manda.'],
       ['🔤', 'Variáveis', 'No atalho de texto do PF, escreva {saudacao}, {nome}, {empresa}, {cidade}, {cnpj}, {codigo}, {condicao}, {cotacao}, {vendedor}… e o PF troca pelos dados do cliente da conversa. "🔤 Variáveis" na lista mostra todas e o valor de cada uma.'],
@@ -457,6 +514,7 @@
     if (ac === 'b-ficha') { if (resp && resp.k) msg({ t: 'acao', acao: 'ficha', arg: resp.k, focar: true }); else irAba('cli'); return; }
     if (ac === 'b-assist') { if (resp && resp.k) msg({ t: 'acao', acao: 'assistente', arg: resp.k, focar: true }); else irAba('cli'); return; } // 2.3
     if (ac === 'b-lemb') { irAba('cli'); setTimeout(function () { var i = P.querySelector('.pfwa-lemb-d'); if (i) i.focus(); }, 50); return; }
+    if (ac === 'b-audio') { transcreverUltimoAudio(); return; } // 4.16 - 🎤 descrever áudio
     if (ac === 'b-prontas') { if (rrAberto) rrFechar(); else rrAbrir('', false); return; } // 3.7 - ⚡ respostas rápidas
     if (ac === 'b-pdf' || ac === 'pdf') { if (!cot || !cot.itens.length) { irAba('cot'); await cotar(); } if (cot && cot.itens.length) abrirCot(true); return; }
     if (ac === 'abrirCot') { abrirCot(false); return; }
@@ -879,12 +937,26 @@
   function waVisivel(x) { var r = x.getBoundingClientRect(); return r.width > 0 && r.height > 0; }
   function waFora(x) { return !x.closest('#pfwa,#pfwa-sv,#pfwa-menu,#pfwa-rail,#pfwa-bots,#main footer,#side,#pane-side'); }
   function waBotao(re, dentro) { return Array.prototype.find.call((dentro || document).querySelectorAll('button,[role="button"],[aria-label],[title]'), function (x) { var t = (x.getAttribute('aria-label') || '') + ' ' + (x.getAttribute('title') || '') + ' ' + (x.textContent || ''); return waFora(x) && waVisivel(x) && re.test(t.trim()); }); }
-  // 4.13 - acha o Editar/Adicionar contato: pelo texto/aria-label OU pelo ícone do lápis (span[data-icon*=pencil|edit])
+  // 4.16 - A pedido do Vitor (print "Dados do contato" do Fabio Wagner): no WhatsApp novo quem salva/renomeia é o botão "Adicionar" do
+  // painel (bonequinho+) pra número NÃO salvo, e "Editar contato" pra salvo. O lápis que estava sendo pego era o das ANOTAÇÕES (errado) — tirado.
+  function waEhNota(x) { // o lápis das "Adicione notas sobre seu cliente" (não é o do nome)
+    try { var p = x; for (var i = 0; i < 4 && p; i++) { if (/nota|note/i.test(p.textContent || '')) return true; p = p.parentElement; } } catch (e) { } return false;
+  }
   function waEditarBotao() {
-    var b = waBotao(/^\s*(editar( contato)?|edit( contact)?)\s*$/i) || waBotao(/editar contato|edit contact/i) || waBotao(/adicionar (aos )?contatos?|add (to )?contacts?|novo contato|new contact/i);
+    // 1) "Editar contato" (contato já salvo)
+    var b = waBotao(/^\s*(editar( contato)?|edit( contact)?)\s*$/i) || waBotao(/editar contato|edit contact/i);
     if (b) return b;
-    var ics = document.querySelectorAll('span[data-icon*="pencil"],span[data-icon*="edit"],span[data-icon*="contact-add"],span[data-icon*="add-user"]');
-    for (var i = 0; i < ics.length; i++) { var x = ics[i]; if (!waFora(x) || !waVisivel(x) || x.closest('#main')) continue; return x.closest('button,[role="button"]') || x; }
+    // 2) "Adicionar aos contatos" / "Adicionar" do painel (número não salvo) — NUNCA "Adicionar à lista"
+    b = waBotao(/adicionar aos contatos?|add to contacts?|novo contato|new contact/i);
+    if (b) return b;
+    b = Array.prototype.find.call(document.querySelectorAll('button,[role="button"],[aria-label]'), function (x) {
+      var t = ((x.getAttribute('aria-label') || '') + ' ' + (x.getAttribute('title') || '') + ' ' + (x.textContent || '')).trim();
+      return waFora(x) && waVisivel(x) && !x.closest('#main') && /^\s*(adicionar|add)\s*$/i.test(t) && !/lista|list/i.test(t);
+    });
+    if (b) return b;
+    // 3) ícone de adicionar contato (bonequinho+) ou lápis que NÃO seja o das anotações
+    var ics = document.querySelectorAll('span[data-icon*="contact-add"],span[data-icon*="add-user"],span[data-icon*="person-add"],span[data-icon*="edit"],span[data-icon*="pencil"]');
+    for (var i = 0; i < ics.length; i++) { var x = ics[i]; if (!waFora(x) || !waVisivel(x) || x.closest('#main') || waEhNota(x)) continue; return x.closest('button,[role="button"]') || x; }
     return null;
   }
   // 4.13 - quando não acha, lista os botões que estão aparecendo fora da conversa (pro Vitor mandar print e a gente acertar)

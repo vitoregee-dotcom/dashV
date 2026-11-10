@@ -2406,6 +2406,17 @@
   (array) + `cad.grupo` = 1º grupo BASE (Dashboard/Órbita continuam pelo grupo único; grupo criado é guardado como texto, sem cor no PF por enquanto — lista compartilhada fica pra depois).
   `PF_EXT_VER_NOVA`='4.15', zip refeito. Obs.: o "📱 Só no WhatsApp" não renomear é a mesma coisa da v2651 (seletores do WhatsApp real ainda sendo acertados).
 - v115.2655 Leitor de Peças ("qnd eu altero aqui o código não fica mais amarelo para salvar a alteração para as próximas vezes"): código mexido na revisão = linha amarela + "💾 vai lembrar: X → Y (grava ao Copiar/Baixar)" (`lpCodEditado`/`lpNotaHtml`). As correções guardadas em `lp_exemplos_v1` (até 400, uma por código lido) viram REGRA: o mesmo código lido de novo já entra corrigido em qualquer leitura (`lpCorrecoesIdx` no `lpMergeItens`, `it._aprendido`/`it._corr`, selo "🧠 corrigido como da última vez"); voltar à mão pro código lido = esquece a correção. Antes a correção só ia de exemplo pro pedido à IA (não valia pra planilha/texto).
+- v115.2654 ("se a peça não é DANA, a msg não deve ser essa; algo como esse é nosso processo de rma"): a mensagem do WhatsApp do link de garantia (`pfGarMsg`) só fala "com a
+  fábrica (Dana)" quando a peça é Dana/Spicer (`pfGarEhDana` pela `r.garantia.marca` > `r.garantiaDana`); nas outras = mensagem genérica "seguimos o nosso processo de RMA…". O
+  formulário dentro do link já era genérico desde a v115.2643.
+- v115.2656 + extensão **4.16** (dois pedidos do Vitor): 1) **mudar o nome do contato** (print "Dados do contato" do Fabio Wagner): o `waEditarBotao` caía no lápis das ANOTAÇÕES
+  ("Adicione notas sobre seu cliente", errado). Agora prioriza "Editar contato" (salvo) → "Adicionar aos contatos"/"Adicionar" do painel (número NÃO salvo, bonequinho+, nunca
+  "Adicionar à lista") → ícone contact-add/lápis que NÃO seja o das notas (`waEhNota`). Seletores ainda **não validados no WhatsApp real** (preciso de novo print se não pegar).
+  2) **🎤 Descrever áudio**: botão 🎤 na coluna/barra da extensão (`transcreverUltimoAudio`) pega o último `<audio>` blob da conversa → dataURL → PF (`transcreverAudio`). O Claude
+  NÃO escuta áudio, então o PF usa um serviço externo: **`PF_STT_PROV`** groq (padrão, `whisper-large-v3`) / openai (`whisper-1`), chave em `pf_stt_cfg_v1` (localStorage, SÓ neste
+  navegador — como a chave da IA), config em `pfSttCfgAbrir` (abre pela própria caixa do áudio → ⚙️, ou acao `sttConfig`). `pfExtTranscreverAudio` monta FormData (file+model+language
+  pt) e chama `/audio/transcriptions` com Bearer. Resultado numa caixinha flutuante (`#pfwa-audio`): "💬 Pôr na conversa" (`escreverNaCaixa`) + 📋 Copiar. Sem chave = avisa + ⚙️.
+  **FALTA validar:** CORS do Groq/OpenAI direto do navegador (github.io) — se bloquear, pôr um atalho no servidor (Edge Function). `PF_EXT_VER_NOVA`='4.16', zip refeito.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

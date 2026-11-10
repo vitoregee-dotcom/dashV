@@ -256,7 +256,7 @@
       ['🕘', 'Histórico', 'Cotações abertas, últimos pedidos e o que você já ofereceu.'],
       ['📦', 'Peças', 'Saldo de um código e o que o cliente mais compra.']]],
     ['O PF avisa sozinho', [
-      ['🔔', 'Pedido de cotação', 'Quando o cliente manda códigos, aparece "O PF achou um pedido de cotação". O sino 🔔 no cabeçalho liga/desliga esse aviso.'],
+      ['🔔', 'Pedido de cotação', 'Quando o cliente manda códigos, aparece uma bolinha laranja com o número de códigos no botão 📄 do PF (ao lado das mensagens). Clique nela pra cotar. Pra desligar: o sino 🔔 no cabeçalho do painel (vira 🔕) ou o botão direito na bolinha.'],
       ['💡', 'Ofertas', 'Quando você oferece algo e o cliente responde, o PF pergunta o que ele achou e guarda na ficha. Se for oferecer de novo, ele avisa "você já ofereceu".'],
       ['📌', 'Vou verificar', 'Se você escrever "deixa eu ver / vou verificar / já te retorno", o PF cria uma pendência sozinho (com desfazer).'],
       ['📇', 'Código que não está no PF', 'Se o nome no WhatsApp tem um código entre parênteses que não existe no PF, aparece "Cadastrar no PF" já com o código.']]],
@@ -314,7 +314,7 @@
     if (ac === 'svWa') { svWa(); return; }
     if (ac === 'conexao') { conPintar(''); conChecar(); return; }
     if (ac === 'ajuda') { ajuda = !ajuda; abrirPainel(); pinta(); return; }
-    if (ac === 'sino') { avisoLigado = !avisoLigado; chrome.storage.local.set({ avisoLigado: avisoLigado }); pinta(); if (!avisoLigado && AV) AV.style.display = 'none'; else vigiar(); return; }
+    if (ac === 'sino') { avisoLigado = !avisoLigado; chrome.storage.local.set({ avisoLigado: avisoLigado }); pinta(); marcaCot(); if (!avisoLigado && AV) AV.style.display = 'none'; else vigiar(); return; }
     if (ac === 'botsToggle') { botsMin = !botsMin; chrome.storage.local.set({ botsMin: botsMin }); posicionar(); return; }
     if (ac === 'numeros') { buscarNumeros(b); return; }
     if (ac === 'importar') {
@@ -507,11 +507,20 @@
     var si = c.querySelector('.pfwa-saldo-in'); if (si) si.onkeydown = function (e) { if (e.key === 'Enter') buscarSaldo(si.value); };
     if (foco) { var f = c.querySelector('.' + foco.split(' ')[0]); if (f) f.focus(); }
   }
+  // 3.3 - A pedido do Vitor ("vamos arrumar um outro lugar… assim no meio da tela não está legal… hoje uso o JBoss… e coloca um jeito de desligar"):
+  // o aviso amarelo largo em cima da conversa SAIU. Agora é só uma bolinha laranja com o nº de códigos no botão 📄 da coluna/barra do PF
+  // (ou no "PF" minimizado). Desligar = 🔔 no cabeçalho do painel (vira 🔕) — e o clique direito na bolinha também desliga.
+  var avisoN = 0;
+  function marcaCot() {
+    if (!B) return; var el = B.querySelector('.pri'); if (!el) return;
+    var on = avisoN > 0 && avisoLigado && avisoFechado !== ultimo && !(aberto && aba === 'cot' && cot);
+    el.classList.toggle('pfwa-temcot', on);
+    if (on) { el.setAttribute('data-n', avisoN > 9 ? '9+' : String(avisoN)); el.title = 'O PF achou ' + avisoN + ' código' + (avisoN > 1 ? 's' : '') + ' nas mensagens — clique pra cotar · botão direito: desligar este aviso'; }
+    else el.removeAttribute('data-n');
+    el.oncontextmenu = on ? function (ev) { ev.preventDefault(); ev.stopPropagation(); avisoLigado = false; chrome.storage.local.set({ avisoLigado: false }); marcaCot(); pinta(); } : null;
+  }
   function pintaAviso(n) {
-    if (!AV) return;
-    if (!n || !avisoLigado || avisoFechado === ultimo || (aberto && aba === 'cot' && cot)) { AV.style.display = 'none'; return; }
-    AV.style.display = 'flex';
-    AV.innerHTML = '<span>📄</span><div><b>O PF achou um pedido de cotação</b> — ' + n + ' código' + (n > 1 ? 's' : '') + ' nas mensagens</div><button data-acao="b-cot">📄 Cotar no PF</button><span class="pfwa-avx" data-acao="fechaAviso" title="Fechar">✕</span>';
+    avisoN = n || 0; if (AV) AV.style.display = 'none'; marcaCot();
   }
   // 1.9 - BUG (Vitor: foto aberta em tela cheia ficava com o aviso e o botão "PF" por cima): se alguma coisa do WhatsApp cobre a conversa
   // (foto, vídeo, documento, janela), esconde os avisos e os botões da extensão até fechar.
@@ -668,6 +677,7 @@
     B.className = (visual === 'D' ? 'pfwa-barra' : 'pfwa-coluna') + (botsMin ? ' pfwa-min' : ''); B.style.display = 'flex';
     if (botsMin) { B.innerHTML = '<span data-acao="botsToggle" class="pri pfwa-botspf" title="Mostrar os bot\u00f5es do PF">PF</span>'; }
     else { var tog = '<span data-acao="botsToggle" class="pfwa-botsx" title="Esconder os bot\u00f5es do PF">' + (visual === 'D' ? '\u2039' : '\u2013') + '</span>'; B.innerHTML = tog + BOTOES.map(function (b, i) { return '<span data-acao="b-' + b[0] + '" class="' + (i === 0 ? 'pri' : '') + '" title="' + b[2] + '">' + b[1] + (visual === 'D' ? ' ' + b[2] : '') + '</span>'; }).join(''); }
+    marcaCot();
     if (visual === 'D') { B.style.left = (r.left + r.width / 2) + 'px'; B.style.top = (r.bottom - fh - 58) + 'px'; }
     else { B.style.left = (r.left + 12) + 'px'; B.style.top = (r.top + hh + 70) + 'px'; }
     if (AV) { AV.style.left = (r.left + 70) + 'px'; AV.style.width = Math.max(260, r.width - 140) + 'px'; AV.style.top = (r.top + hh + 10) + 'px'; }

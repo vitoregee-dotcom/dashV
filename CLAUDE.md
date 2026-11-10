@@ -2353,6 +2353,9 @@
   `ausTxt[modo]` com {saudacao}{nome}{volta}{substituto}): manda UMA vez por conversa no período (`autoAusEnv` = modo|ate|ausDesde), a QUALQUER hora (ignora horário/liga), abre as outras conversas sozinho
   quando você está parado; no `ate` volta pra Disponível (`autoAusente`). Pílula `.pfwa-stpill` no cabeçalho do painel; etiqueta "🏖️ avisei que tô fora · responda"; CRM "🗓️ Aviso de ausência (modo)".
   Pedido do Vitor (próximo): mudar o status mandando WhatsApp ("preciso poder ajustar essas coisas enviando um whatsapp") — proposta: comandos na conversa com você mesmo.
+- v115.2632 BUG ("fui colar um print de uma foto na ficha do item e fechou a janela e veio pra cá"): o invólucro `cadSalvarProdutoV2=function(idx)` (seção "APLICAÇÕES NO FORM DE PRODUTO")
+  jogava fora o `opts` → o salvar automático ao colar/anexar foto (`{silencioso:true}`) virava o salvar COMPLETO (`cadVoltarDeProduto`). Agora passa o opts. Junto: as aplicações da tela eram gravadas no
+  ÚLTIMO produto da lista (não no aberto) e o salvar montava o produto só com os campos da tela (perdia `aplicacoesCatalogo`, `kitsQueContem`…) — agora grava no produto editado e devolve os campos que a tela não mostra.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

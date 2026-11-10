@@ -1406,8 +1406,11 @@
   function autoChave(c) { return (c.tel || '') + '|' + c.nome; }
   function autoPodeConv(c, aus) {
     if (!c || c.grupo) return false;
+    // 4.1 - A pedido do Vitor ("não responder a cada msg do cliente… o Watidy manda a msg de ausência um monte de vezes, isso é irritante"):
+    // já mandou QUALQUER mensagem automática nessa conversa e você ainda não respondeu = não manda mais nada (nem ausência, nem saudação).
+    if (autoPend[c.nome]) return false;
     var k = autoChave(c);
-    if (aus) { var per = aus + '|' + (AUTO.ate || '') + '|' + (AUTO.ausDesde || ''); if (autoAusEnv[k] === per) return false; }
+    if (aus) { var per = aus + '|' + (AUTO.ausDesde || ''); if (autoAusEnv[k] === per) return false; }
     else { var u = autoEnv[k]; if (u && Date.now() - u < (+AUTO.horas || 4) * 3600000) return false; }
     var h1 = Date.now() - 3600000; autoHist = autoHist.filter(function (t) { return t > h1; });
     return autoHist.length < (+AUTO.porHora || 15);
@@ -1418,7 +1421,7 @@
     var r = await msg({ t: 'acao', acao: 'situacoes', arg: { lista: [{ nome: c.nome, tel: c.tel || '' }] } });
     return !!(r && r.sit && r.sit[c.nome] && r.sit[c.nome].tipo === 'cliente');
   }
-  function autoMarcarFeito(c, aus) { var k = autoChave(c); if (aus) autoAusEnv[k] = aus + '|' + (AUTO.ate || '') + '|' + (AUTO.ausDesde || ''); else autoEnv[k] = Date.now(); autoGravar(); }
+  function autoMarcarFeito(c, aus) { var k = autoChave(c); if (aus) autoAusEnv[k] = aus + '|' + (AUTO.ausDesde || ''); else autoEnv[k] = Date.now(); autoGravar(); }
   // manda na conversa ABERTA se a última mensagem é do cliente e está sem resposta há X min
   async function autoNaAberta() {
     var aus = autoAusente();
@@ -1530,7 +1533,7 @@
         '<label>Responder depois de<input type="number" min="0" max="60" data-au="ausMin" value="' + esc(A.ausMin) + '" ' + inp + '> min</label></div>' +
         '<div class="au-fr"><small>Mensagem própria (deixe vazio pra o PF variar sozinho · use {saudacao} {nome} {volta}' + (aus === 'ferias' ? ' {substituto}' : '') + ')</small><textarea data-au="ausTxt.' + aus + '" rows="2">' + esc((A.ausTxt || {})[aus] || '') + '</textarea></div>' +
         '<div class="au-ex">Vai sair algo assim:' + ex(function () { return autoTexto(nomeEx, null, aus); }) + '</div>' +
-        '<div class="au-st">Manda UMA vez pra cada conversa enquanto você estiver ' + esc(AUTO_MODOS[aus][1].toLowerCase()) + ', a qualquer hora, e abre as conversas que chegarem sozinho (se você não estiver mexendo no WhatsApp). No "até" volta sozinho pra 🟢 Disponível.</div>';
+        '<div class="au-st">Manda UMA vez só pra cada conversa enquanto você estiver ' + esc(AUTO_MODOS[aus][1].toLowerCase()) + ' — se o cliente continuar mandando mensagem, não repete. A qualquer hora, e abre as conversas que chegarem sozinho (se você não estiver mexendo no WhatsApp). No "até" volta sozinho pra 🟢 Disponível.</div>';
     }
     h += '</div>';
     // 👋 Saudação de espera

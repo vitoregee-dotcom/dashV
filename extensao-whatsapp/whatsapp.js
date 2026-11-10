@@ -94,6 +94,18 @@
     }
     return out.filter(function (m) { return m.t; }).slice(-40);
   }
+  // 4.14 - A pedido do Vitor ("vi que puxou até de uns dias atrás… se o cliente for enviando mais, antes de eu cotar?"): o 📄 Cotar e a bolinha
+  // leem só o PEDIDO ATUAL = tudo o que o cliente mandou depois da sua última mensagem (ele mandando mais, vai somando). A mensagem automática
+  // (saudação/ausência) não conta como "sua". Se a última mensagem é sua, vale o último bloco do cliente antes dela. Pedido antigo = selo do balão.
+  function msgsPedido() {
+    var ms = lerMensagens(), nm = contatoAt && contatoAt.nome, autos = {};
+    try { if (nm && autoUlt[nm]) autos[String(autoUlt[nm]).trim()] = 1; if (nm && autoPend[nm] && autoPend[nm].txt) autos[String(autoPend[nm].txt).trim()] = 1; } catch (e) { }
+    var minha = function (m) { return m.eu && !autos[String(m.t || '').trim()]; };
+    var i = ms.length - 1, out = [];
+    while (i >= 0 && minha(ms[i])) i--;
+    for (; i >= 0; i--) { if (minha(ms[i])) break; if (!ms[i].eu) out.unshift(ms[i]); }
+    return out;
+  }
   // 4.4 - A pedido do Vitor ("como esse cliente não tem cadastro, não deveria me perguntar pra cadastrar? pois tem o cnpj"): acha o CNPJ que o cliente mandou na conversa.
   function cnpjNaConversa() {
     var txt = lerMensagens().filter(function (m) { return !m.eu; }).map(function (m) { return m.t; }).join('\n');
@@ -306,7 +318,7 @@
       ['🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome: se é cliente ou fornecedor do PF, cotação aberta, mapa esperando preço.'],
       ['⚙️', 'Menu do PF', 'A chave "Menu do PF" liga/desliga a barra. "azul / discreta" troca a cor.']]],
     ['Botões ao lado da conversa', [
-      ['📄', 'Cotar no PF', 'Lê os códigos e quantidades que o cliente mandou, mostra saldo e preço (com a margem dele) e monta a resposta. "Pôr na conversa" escreve na caixa; você confere e manda.'],
+      ['📄', 'Cotar no PF', 'Lê os códigos e quantidades que o cliente mandou depois da sua última mensagem (se ele mandar mais, vai somando; pedido antigo = clique no selo 📄 do balão), mostra saldo e preço (com a margem dele) e monta a resposta. "Pôr na conversa" escreve na caixa; você confere e manda.'],
       ['📦', 'Saldo', 'Selecione um código na conversa e clique: mostra o saldo de cada marca.'],
       ['🤝', 'Ficha', 'Abre a ficha do cliente no PF (CRM).'],
       ['⏰', 'Lembrete', 'Marca uma próxima ação (aparece no ☀️ Meu dia do PF).'],
@@ -514,7 +526,7 @@
   var resumoR = null, resumindo = false;
   async function cotarIA() {
     if (cotando) return; cotando = true; cotErro = ''; cot = null; pintaCorpo();
-    var r = await msg({ t: 'acao', acao: 'cotarIA', arg: { k: resp && resp.k, contato: resp && resp.contato, msgs: lerMensagens() } });
+    var r = await msg({ t: 'acao', acao: 'cotarIA', arg: { k: resp && resp.k, contato: resp && resp.contato, msgs: msgsPedido() } });
     cotando = false;
     if (!r || r.erro) cotErro = r && r.erro === 'ia' ? 'A IA não respondeu: ' + (r.msg || '') : r && r.erro === 'semResposta' ? 'A IA demorou demais. Tente de novo.' : 'O PF não respondeu. Dê F5 na aba do PartsFlow.';
     else cot = r;
@@ -553,7 +565,7 @@
   }
   async function cotar() {
     if (cotando) return; cotando = true; cotErro = ''; cot = null; pintaCorpo();
-    var r = await msg({ t: 'acao', acao: 'cotar', arg: { k: resp && resp.k, contato: resp && resp.contato, msgs: lerMensagens() } });
+    var r = await msg({ t: 'acao', acao: 'cotar', arg: { k: resp && resp.k, contato: resp && resp.contato, msgs: msgsPedido() } });
     cotando = false;
     if (!r || r.erro) { cotErro = r && r.erro === 'semPF' ? 'Abra o PartsFlow numa aba deste Chrome (já logado).' : r && r.erro === 'pfF5' ? 'Dê F5 na aba do PartsFlow (a extensão foi atualizada depois que ele abriu).' : 'O PF não respondeu. Dê F5 na aba do PartsFlow.'; }
     else cot = r;
@@ -987,7 +999,7 @@
     var c = contatoAtual(); contatoAt = c;
     var chave = c ? (c.grupo ? 'g:' + c.nome : c.tel + '|' + c.nome) : '';
     posicionar();
-    var nCod = c && !c.grupo ? pareceCotacao(lerMensagens()) : 0;
+    var nCod = c && !c.grupo ? pareceCotacao(msgsPedido()) : 0;
     statusVigiar();
     if (chave === ultimo) { pintaAviso(nCod); ofertasVigiar(); digitandoVigiar(); verificarVigiar(); return; }
     ultimo = chave; cot = null; cotErro = ''; saldoR = null; ofPend = []; ofSig = ''; jaR = null; digAnt = ''; jaFechado = ''; vfR = null; vfSig = ''; pintaOferta(); pintaJa(); pintaVf();

@@ -237,6 +237,7 @@
     ['etq', '🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome da lista: cliente / fornecedor do PF, cotação aberta, mapa, sem resposta.'],
     ['bots', '📄', 'Botões do PF ao lado das mensagens', 'A coluna (A) ou barra (D) com Cotar, Saldo, Ficha, Lembrete, Prontas…'],
     ['aviso', '🔔', 'Aviso de pedido de cotação', 'A bolinha laranja com o número de códigos no botão 📄 quando o cliente manda códigos.'],
+    ['selo', '📄', 'Selo no balão da mensagem', 'O selinho "📄 N" no canto da mensagem do cliente que tem códigos. Clique = ver os códigos e criar a cotação no PF.'],
     ['barra', '⚡', 'Respostas rápidas com "/"', 'Digitar / no começo da caixa de texto abre as respostas rápidas (o botão ⚡ continua funcionando).'],
     ['salvar', '👤', 'Botão Salvar contato', 'O botão verde ao lado do nome da conversa.'],
     ['ofertas', '💡', 'Guardar ofertas e respostas', 'Quando você oferece algo, o cartão pra salvar a oferta e a resposta do cliente no CRM.'],
@@ -296,6 +297,7 @@
       ['📦', 'Peças', 'Saldo de um código e o que o cliente mais compra.']]],
     ['O PF avisa sozinho', [
       ['🔔', 'Pedido de cotação', 'Quando o cliente manda códigos, aparece uma bolinha laranja com o número de códigos no botão 📄 do PF (ao lado das mensagens). Clique nela pra cotar. Pra desligar: ⚙️ Configurações → Aviso de pedido de cotação, ou o botão direito na bolinha.'],
+      ['📄', 'Selo na mensagem', 'A mensagem do cliente que tem códigos ganha um selinho laranja "📄 3" no canto. Clique nele: aparecem os códigos com quantidade e saldo e o botão "Criar cotação no PF". Só cria se você clicar. Depois de criada, o selo fica verde ✓.'],
       ['💡', 'Ofertas', 'Quando você oferece algo e o cliente responde, o PF pergunta o que ele achou e guarda na ficha. Se for oferecer de novo, ele avisa "você já ofereceu".'],
       ['📌', 'Vou verificar', 'Se você escrever "deixa eu ver / vou verificar / já te retorno", o PF cria uma pendência sozinho (com desfazer).'],
       ['📇', 'Código que não está no PF', 'Se o nome no WhatsApp tem um código entre parênteses que não existe no PF, aparece "Cadastrar no PF" já com o código.']]],
@@ -657,7 +659,7 @@
   }
   // 1.9 - BUG (Vitor: foto aberta em tela cheia ficava com o aviso e o botão "PF" por cima): se alguma coisa do WhatsApp cobre a conversa
   // (foto, vídeo, documento, janela), esconde os avisos e os botões da extensão até fechar.
-  var MEUS = '#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st,#pfwa-vf,#pfwa-menu,#pfwa-rail,#pfwa-svb,#pfwa-sv';
+  var MEUS = '#pfwa-sp,.pfwa-selo,#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st,#pfwa-vf,#pfwa-menu,#pfwa-rail,#pfwa-svb,#pfwa-sv';
   // 2.8 - BUG (Vitor: documento/PDF aberto no WhatsApp ainda ficava com o aviso e o "PF" por cima): o visualizador do WhatsApp nem sempre
   // aparece no elementsFromPoint (partes com pointer-events:none). Agora também conta janela aberta (dialog/aria-modal) e imagem/vídeo/canvas
   // GRANDE fora da conversa e da lista (foto, documento, vídeo em tela cheia).
@@ -1181,6 +1183,92 @@
   }, true);
   document.addEventListener('mousedown', function (e) { if (rrAberto && RR && !RR.contains(e.target) && !(e.target.closest && e.target.closest('#pfwa-bots,#main footer'))) rrFechar(); }, true);
   setInterval(function () { if (rrAberto) { if (!contatoAt || rrChave !== ultimo) { rrFechar(); rrDados = null; } else rrPos(); } }, 700);
+
+  // ═══ 📄 SELO NO BALÃO (3.8) ═══
+  // A pedido do Vitor (prévia docs/referencias/whatsapp-decisoes/: aviso "gosto de como está e da B" + cotação "prefiro eu decidir, mas mais discreto"):
+  // a mensagem do cliente que tem códigos ganha um selinho laranja "📄 N" no canto do balão (a bolinha do botão 📄 continua). Clique = janelinha com os
+  // códigos lidos (qtd e saldo) e "Criar cotação no PF" — nada é criado sem esse clique. Cotação criada = selo verde ✓ (lembrado nesta aba).
+  var SP = null, spMsg = null, spR = null, spFeitos = {};
+  try { spFeitos = JSON.parse(sessionStorage.getItem('pfwa_sp_feitos') || '{}') || {}; } catch (e) { spFeitos = {}; }
+  function spHash(s) { s = String(s || ''); var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h.toString(36); }
+  function spContaCods(t) {
+    var n = 0; (String(t || '').match(COD_RE) || []).forEach(function (tk) { if (tk.replace(/\D/g, '').length >= 4 && !/^\d{1,2}[\/.:]\d{2}/.test(tk)) n++; });
+    var pede = /\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo)/i.test(t);
+    return n >= 2 || (n >= 1 && pede) ? n : 0;
+  }
+  function selosVigiar() {
+    var liga = CFG.selo !== false && avisoLigado && contatoAt && !contatoAt.grupo;
+    var els = Array.prototype.slice.call(document.querySelectorAll('#main [data-pre-plain-text]')).slice(-40);
+    var txt = function (el) { var tx = el.querySelector('.selectable-text'); return ((tx ? tx.innerText : el.innerText) || '').replace(/📄\s*\d+\+?|✓ cot\./g, '').trim(); };
+    // blocos = mensagens seguidas do cliente (até a próxima sua); o selo vai na última do bloco e lê o pedido inteiro
+    var blocos = [], cur = null;
+    els.forEach(function (el) { if (el.closest('.message-out')) { cur = null; return; } if (!cur) { cur = []; blocos.push(cur); } cur.push(el); });
+    var alvo = {};
+    if (liga) blocos.forEach(function (b) { var t = b.map(txt).join('\n'); var n = spContaCods(t); if (n) alvo[blocos.indexOf(b)] = { el: b[b.length - 1], t: t, n: n }; });
+    els.forEach(function (el) { var s = el.querySelector(':scope > .pfwa-selo'); if (s && !Object.keys(alvo).some(function (k) { return alvo[k].el === el; })) s.remove(); });
+    Object.keys(alvo).forEach(function (k) {
+      var A = alvo[k], el = A.el, t = A.t, n = A.n;
+      var s = el.querySelector(':scope > .pfwa-selo');
+      var h = spHash(ultimo + '|' + t), feito = !!spFeitos[h];
+      if (!s) { s = document.createElement('span'); s.className = 'pfwa-selo'; if (getComputedStyle(el).position === 'static') el.style.position = 'relative'; el.appendChild(s); }
+      if (s._h === h && s._f === feito) return;
+      s._h = h; s._f = feito; s._t = t; s._n = n;
+      s.classList.toggle('ok', feito);
+      s.textContent = feito ? '✓ cot.' : '📄 ' + (n > 9 ? '9+' : n);
+      s.title = feito ? 'Você já criou a cotação deste pedido no PF — clique pra ver de novo' : 'O PF achou ' + n + ' código' + (n > 1 ? 's' : '') + ' neste pedido — clique pra ver e, se quiser, criar a cotação';
+      s.onclick = function (ev) { ev.preventDefault(); ev.stopPropagation(); spAbrir(s); };
+    });
+    if (!liga && SP && SP.style.display !== 'none') spFechar();
+  }
+  function spEl() { if (!SP) { SP = document.createElement('div'); SP.id = 'pfwa-sp'; document.body.appendChild(SP); SP.addEventListener('click', spClique); } return SP; }
+  function spFechar() { if (SP) SP.style.display = 'none'; spMsg = null; spR = null; }
+  function spPos() {
+    if (!SP || !spMsg || SP.style.display === 'none') return;
+    if (!document.body.contains(spMsg)) { spFechar(); return; }
+    var r = spMsg.getBoundingClientRect(), w = 300, h = SP.offsetHeight || 160;
+    var bal = spMsg.parentElement ? spMsg.parentElement.getBoundingClientRect() : r; var left = Math.min(window.innerWidth - w - 10, Math.max(10, bal.left));
+    var top = r.bottom + 6; if (top + h > window.innerHeight - 10) top = Math.max(10, r.top - h - 6);
+    SP.style.left = left + 'px'; SP.style.top = top + 'px';
+  }
+  async function spAbrir(s) {
+    spEl(); spMsg = s; spR = null;
+    SP.style.display = 'block'; SP.innerHTML = '<div class="sp-cab"><b>📄 ' + s._n + ' código' + (s._n > 1 ? 's' : '') + ' neste pedido</b><span class="sp-x" data-sp="x" title="Fechar (Esc)">✕</span></div><div class="sp-nada">Lendo no PF…</div>';
+    spPos();
+    var r = await msg({ t: 'acao', acao: 'cotar', arg: { k: resp && resp.k, contato: resp && resp.contato, msgs: s._t.split('\n').map(function (x) { return { t: x, eu: false }; }) } });
+    if (spMsg !== s) return;
+    spR = r; spPinta();
+  }
+  function spPinta() {
+    var s = spMsg, r = spR; if (!s || !SP) return;
+    var h = '<div class="sp-cab"><b>📄 ' + s._n + ' código' + (s._n > 1 ? 's' : '') + ' neste pedido</b><span class="sp-x" data-sp="x" title="Fechar (Esc)">✕</span></div>';
+    if (!r || r.erro) { SP.innerHTML = h + '<div class="sp-nada">' + (r && r.erro === 'pfF5' ? 'Dê F5 na aba do PartsFlow.' : 'Abra o PartsFlow numa aba deste Chrome.') + '</div>'; spPos(); return; }
+    var its = (r.itens || []).filter(function (o) { return o.cod; });
+    if (!its.length) { SP.innerHTML = h + '<div class="sp-nada">Não achei código de peça aqui.</div>'; spPos(); return; }
+    h += '<div class="sp-l">' + its.map(function (o) {
+      var cor = !o.achou ? '#b0bccb' : o.saldo > 0 ? '#2E7D32' : '#C0392B', st = !o.achou ? 'não localizei' : o.saldo > 0 ? 'saldo ' + o.saldo : 'sem saldo';
+      return '<div><i style="background:' + cor + '"></i><b>' + esc(o.cod) + '</b> × ' + (o.qtd || 1) + '<small>' + esc(st) + '</small></div>';
+    }).join('') + '</div>';
+    var feito = !!spFeitos[s._h];
+    h += '<div class="sp-b"><button data-sp="criar">' + (feito ? '📄 Criar de novo no PF' : '📄 Criar cotação no PF') + '</button><span class="sp-lk" data-sp="painel">ver no painel ›</span></div>' +
+      (feito ? '<div class="sp-ok">✓ Você já criou a cotação desta mensagem.</div>' : '');
+    SP.innerHTML = h; spPos();
+  }
+  function spClique(e) {
+    var el = e.target.closest('[data-sp]'); if (!el) return; var a = el.getAttribute('data-sp');
+    e.preventDefault(); e.stopPropagation();
+    if (a === 'x') { spFechar(); return; }
+    if (a === 'painel') { if (spR && !spR.erro) { cot = spR; cotErro = ''; } spFechar(); irAba('cot'); return; }
+    if (a === 'criar') {
+      var s = spMsg, r = spR; if (!s || !r) return;
+      msg({ t: 'acao', acao: 'abrirCot', focar: true, arg: { k: resp && resp.k, itens: (r.itens || []).filter(function (o) { return o.cod; }).map(function (o) { return { cod: o.cod, qtd: o.qtd, marca: o.marca, desc: o.desc }; }) } });
+      spFeitos[s._h] = Date.now(); try { sessionStorage.setItem('pfwa_sp_feitos', JSON.stringify(spFeitos)); } catch (er) { }
+      s._f = null; spFechar(); selosVigiar();
+    }
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && SP && SP.style.display === 'block') { spFechar(); e.stopPropagation(); } }, true);
+  document.addEventListener('mousedown', function (e) { if (SP && SP.style.display === 'block' && !SP.contains(e.target) && !(e.target.closest && e.target.closest('.pfwa-selo'))) spFechar(); }, true);
+  document.addEventListener('scroll', function () { spPos(); }, true);
+  setInterval(function () { try { selosVigiar(); } catch (e) { } }, 1500);
 
   processarEnvio();
   setInterval(function () { vigiar().catch(function (e) { console.warn('PF', e); }); try { carregarSituacoes(); badgesRender(); aplicarFiltro(); } catch (e) { } }, 1500);

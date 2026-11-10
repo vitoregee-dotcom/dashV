@@ -317,7 +317,7 @@
     ['Embaixo do painel', [
       ['📥', 'Importar meus contatos', 'Lê a lista de conversas e traz pro PF (você escolhe quem entra).'],
       ['📣', 'Disparo pelo PF', 'No PF, Vendas → 📣 Disparo pelo WhatsApp: escolhe a lista (o que chegou, uma marca, um grupo, os sumidos ou uma etiqueta), escreve a mensagem com {nome} e a extensão manda uma por uma, no ritmo que você escolher por hora. Quem já recebeu a mesma oferta fica de fora.'],
-      ['👤', 'Salvar contato', 'Botão verde ao lado do nome da conversa: escreve o nome, a empresa (procura nos clientes do PF) e o código do JBoss — vira "Fulano - Empresa (código)". Salva no PF (o contato entra no cadastro do cliente, mesmo sem número) e já salva/renomeia o contato no WhatsApp com esse nome. Tem também o GRUPO do cliente (Linha Amarela, Agrícola… — vai pro cadastro), o CARGO e o CNPJ (CNPJ que ainda não é cliente = entra no PF como pré-cadastro 🌱 com os dados da Receita); se a empresa ainda não está no PF, aparece “➕ Criar cliente no PF”, que já cria o cadastro com esse contato. E quando o contato não está no PF e o cliente mandou o CNPJ na conversa, a aba Cliente mostra “➕ Cadastrar no PF” já com esse CNPJ.'],
+      ['👤', 'Salvar contato', 'Botão verde ao lado do nome da conversa: escreve o nome, a empresa (procura nos clientes do PF) e o código do JBoss — vira "Fulano - Empresa (código)". Salva no PF (o contato entra no cadastro do cliente, mesmo sem número) e já salva/renomeia o contato no WhatsApp com esse nome, com o "Sincronizar no telefone" ligado (vai pra agenda do celular também). Tem também o GRUPO do cliente (Linha Amarela, Agrícola… — vai pro cadastro), o CARGO e o CNPJ (CNPJ que ainda não é cliente = entra no PF como pré-cadastro 🌱 com os dados da Receita); se a empresa ainda não está no PF, aparece “➕ Criar cliente no PF”, que já cria o cadastro com esse contato. E quando o contato não está no PF e o cliente mandou o CNPJ na conversa, a aba Cliente mostra “➕ Cadastrar no PF” já com esse CNPJ.'],
       ['↕️', 'Mudar o PF de altura', 'Segure e arraste a coluna de botões do PF (ou o "PF" minimizado) pra cima ou pra baixo. Fica guardado.'],
       ['🧠', 'Entender com IA', 'Na aba Cotação: quando o cliente pede pelo NOME da peça ("kit de vedação da 28000, transmissão e conversor"), a IA separa peça, quantidade e máquina e o PF procura nas Aplicações e no estoque. Confira antes de mandar.'],
       ['📝', 'Resumir a conversa', 'Na aba Cliente: a IA escreve o que o cliente pediu e a próxima ação. Você corrige e grava na ficha do CRM (e no ☀️ Meu dia).'],
@@ -833,6 +833,21 @@
     if (inp.tagName === 'INPUT') { var set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(inp, txt); inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true })); }
     else { try { document.execCommand('selectAll', false, null); if (txt) document.execCommand('insertText', false, txt); else document.execCommand('delete', false, null); } catch (e) { } }
   }
+  // acha a chave "Sincronizar contato no telefone" da janela de contato do WhatsApp e liga (se estiver desligada). 'ok' | 'nao'
+  function waSincLigar() {
+    try {
+      var rotulo = Array.prototype.find.call(document.querySelectorAll('span,div,label'), function (x) {
+        return waFora(x) && waVisivel(x) && !x.closest('#main') && x.children.length < 3 && /sincronizar (o )?contato|sync contact|sincronizar no (telefone|celular)/i.test(x.textContent || '');
+      });
+      if (!rotulo) return 'nao';
+      var p = rotulo, ch = null;
+      for (var i = 0; i < 6 && p && !ch; i++) { ch = p.querySelector('[role="switch"],[role="checkbox"],input[type="checkbox"],[aria-checked]'); p = p.parentElement; }
+      if (!ch) return 'nao';
+      var lig = ch.tagName === 'INPUT' ? ch.checked : String(ch.getAttribute('aria-checked')) === 'true';
+      if (!lig) ch.click();
+      return 'ok';
+    } catch (e) { return 'nao'; }
+  }
   async function waSalvarNome(nomeFull, st) {
     var c = contatoAt; if (!c || !nomeFull) return;
     var dizer = function (h) { if (st) st.innerHTML += '<br>' + h; };
@@ -850,8 +865,10 @@
     if (!inps) { dizer('📱 Abri o contato no WhatsApp, mas não achei o campo do nome — cole o nome (já copiado).'); return; }
     waEscrever(inps[0], nomeFull);
     if (inps[1] && inps[1].tagName === 'INPUT' && !/\d{4}/.test(inps[1].value || '')) waEscrever(inps[1], '');
+    // 4.8 - A pedido do Vitor ("já deixa a extensão ligada para isso"): liga o "Sincronizar contato no telefone" → vai pra agenda do celular também
+    var sinc = waSincLigar();
     var salvar = await waEsperar(function () { return waBotao(/^\s*(salvar|save)\s*$/i); }, 1500);
-    if (salvar) { setTimeout(function () { salvar.click(); }, 300); dizer('📱 Salvo no WhatsApp como <b>' + esc(nomeFull) + '</b>.'); }
+    if (salvar) { setTimeout(function () { salvar.click(); }, 300); dizer('📱 Salvo no WhatsApp como <b>' + esc(nomeFull) + '</b>' + (sinc === 'ok' ? ' e na agenda do celular' : sinc === 'nao' ? ' (não achei a opção "Sincronizar no telefone" — confira no celular)' : '') + '.'); }
     else dizer('📱 Escrevi o nome no contato do WhatsApp — confira e aperte Salvar.');
   }
   // abre o "Adicionar aos contatos" do WhatsApp e escreve o nome (o WhatsApp salva no celular)

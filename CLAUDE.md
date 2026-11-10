@@ -2307,6 +2307,11 @@
 - v115.2623 BUGs do painel do WhatsApp ("NÃO ACHOU O CLIENTE E NÃO RECONHECEU A QUANTIDADE" — "Alessandro - Trackpeças (1750) PR", mensagens "02-148933A1"/"04-87457092"):
   1) o `pfExtQuem` tinha cópia própria dos pedaços do nome sem tirar a UF → agora usa `pfExtNomeMatcher(nome).pedacos`. 2) `pfExtLerPedido`: quantidade grudada com traço
   na frente do código ("04-87457092" = 4 × 87457092) quando começa com 0 e o resto tem 5+ letras/números, ou o resto tem 7+; código de cardan (5-12018X, 2-70-59, 6.5-40-191) fica inteiro.
+- v115.2638 **peças de Componentes Cardan no 📄 Cotar do WhatsApp** (Vitor: "não entendeu o código das peças. São peças de componentes cardan, o sistema precisa reconhecer" —
+  "LUVA03541X2"/"CRUZETA512278X" davam "não localizei"): 1) `pfExtLerPedido` tira a PALAVRA DO TIPO colada no código (LUVA/CRUZETA/PONTEIRA/PONTUVA/FLANGE/GARFO/TERMINAL/CARDAN +
+  código com 4+ dígitos → fica só o código). 2) `pfExtCotar`: não achou no estoque → `pfItemCardCcAcha(cod)` (código/conversão/equivalente/similar nos Componentes Cardan, só
+  letras+números) — se o código do catálogo tiver estoque, usa o preço; senão reconhece a peça (`o.cardan`, descrição do catálogo) e responde "— vou verificar o prazo" (antes "não
+  localizei"). `pfItemCardCcAcha` agora devolve também `desc`. Palavra nova de tipo → acrescentar no regex do `pfExtLerPedido`.
 - v115.2624 ("esses não são os dados reais… via de regra eu sempre vejo os dados reais e os outros os fictícios; coloca um botão pra eu ver o modo fictício se eu quiser"):
   pro dono as listas "só demo" (`PF_MODO_DEMO_TODAS`=so: cotações, pedidos, títulos, clientes, CRM, avisos) escondem `demo:true` na leitura (`pfDonoSemDemo`/`pfDonoSemDemoFiltrar`,
   no getItem e pfRawGetItem); gravação da tela dele devolve os demo:true do navegador (`pfDonoSemDemoGravar`, setItem e pfRawSetItem); o push lê cru; as ferramentas da demo

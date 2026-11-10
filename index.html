@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2637</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2638</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2637</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2638</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -75050,6 +75050,9 @@ function pfExtLerPedido(msgs){
       var toks=lin.match(/[A-Za-z0-9][A-Za-z0-9.\-\/]{2,}[A-Za-z0-9]/g)||[];
       var qL=null,mq=lin.match(/(?:\bqtd\.?\s*:?\s*|(?:^|\s)x\s*)(\d{1,4})(?![\w.\-\/])|(?:^|\s)(\d{1,4})\s*(?:x|un|und|unid|unidades?|p[çc]s?|pe[çc]as?)(?![\w\-\/])/i);if(mq)qL=+(mq[1]||mq[2]); // v115.2612 - "5-438x" não é 438 unidades (número colado no código não é quantidade)
       toks.forEach(function(tok){
+        // v115.2638 - A pedido do Vitor ("não entendeu o código das peças de cardan"): palavra do tipo colada no código (LUVA03541X2, CRUZETA512278X) -> tira a palavra, fica só o código.
+        var mTipo=tok.match(/^(LUVA|CRUZETA|PONTEIRA|PONTUVA|FLANGE|GARFO|TERMINAL|CARDAN)[\s.\-]*([0-9][A-Za-z0-9.\-\/]*)$/i);
+        if(mTipo&&mTipo[2].replace(/\D/g,'').length>=4)tok=mTipo[2];
         var d=tok.replace(/\D/g,'');if(d.length<4)return;
         if(/^\d{1,2}[\/.]\d{1,2}([\/.]\d{2,4})?$/.test(tok))return; // data
         if(/^\d{1,2}:\d{2}$/.test(tok))return;
@@ -75082,8 +75085,12 @@ function pfExtCotar(a){
   P.itens.forEach(function(x){
     var r={ficha:null};try{window._venda={cliente:c?(c.razao||c.nome):''};r=vendasEscolherFichaResumo(x.cod,'');}catch(e){}finally{window._venda=antes;}
     if(!r.ficha&&/^0+\d/.test(x.cod))try{r=vendasEscolherFichaResumo(x.cod.replace(/^0+/,''),'');}catch(e){}
+    // v115.2638 - A pedido do Vitor ("São peças de componentes cardan, o sistema precisa reconhecer"): não achou no estoque -> procura no catálogo de Componentes Cardan (código/conversão/equivalente) e, se tiver estoque pelo código do catálogo, usa.
+    var ccA=null;
+    if(!r.ficha){try{ccA=pfItemCardCcAcha(x.cod);}catch(e){}
+      if(ccA){try{window._venda={cliente:c?(c.razao||c.nome):''};var r3=vendasEscolherFichaResumo(ccA.cod,'');if(r3&&r3.ficha){r=r3;x.cod=ccA.cod;}}catch(e){}finally{window._venda=antes;}}}
     var f=r.ficha,saldo=f?(parseFloat(f.saldo)||0):null,custo=f?(parseFloat(f.custo)||0):0,preco=custo>0?pfExtPreco(c,custo):0;
-    var o={cod:x.cod,qtd:x.qtd,achou:!!f,desc:f?(f.desc||''):'',marca:f?(f.marca||''):'',saldo:saldo,preco:Math.round(preco*100)/100,lin:x.lin};
+    var o={cod:x.cod,qtd:x.qtd,achou:!!f||!!ccA,cardan:!f&&!!ccA,desc:f?(f.desc||''):(ccA?(ccA.desc||'peça de cardan'):''),marca:f?(f.marca||''):'',saldo:saldo,preco:Math.round(preco*100)/100,lin:x.lin};
     if(f&&preco>0&&saldo>0){var q=Math.min(saldo,x.qtd);tot+=q*o.preco;nOk++;}
     lin.push(o);});
   var fmt=function(v){return 'R$ '+(+v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
@@ -101494,9 +101501,9 @@ function pfItemCardCcAcha(cod){
   var N=function(x){return String(x||'').toUpperCase().replace(/[^A-Z0-9]/g,'');},achou=null;
   Object.keys(D).some(function(fam){var arr=D[fam];if(!Array.isArray(arr))return false;
     return arr.some(function(it){if(!it)return false;
-      if(N(it.codigo)===n){achou={fam:fam,cod:it.codigo};return true;}
+      if(N(it.codigo)===n){achou={fam:fam,cod:it.codigo,desc:it.descricao||''};return true;}
       var outros=[].concat((it.conversoes||[]).map(function(c){return c&&(c.ref||c.codigo);}),(it.equivalentesExtra||[]).map(function(c){return c&&c.codigo;}),[it.substitui,it.similar]);
-      if(outros.some(function(x){return x&&N(x)===n;})){achou={fam:fam,cod:it.codigo};return true;}
+      if(outros.some(function(x){return x&&N(x)===n;})){achou={fam:fam,cod:it.codigo,desc:it.descricao||''};return true;}
       return false;});});
   return achou;
 }

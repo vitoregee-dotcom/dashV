@@ -2370,6 +2370,7 @@
   do ✏️ Cadastro no card do Alt+B (`pfItemCardAbrirCardan`; `pfItemCardCcAcha` acha a peça pelo código ou por conversão/equivalente/similar, só letras+números) → Área Técnica › Componentes Cardan na família
   filtrada no código (`ccBuscaGeralAbrir`), onde fica o 📋 Colar print de aplicação. Sem a peça lá = "Procurar no catálogo" (busca geral, `maqCcAbrir`). Extensão **4.3** ("com o botão direito eu desligo, mas como
   ligo de volta?"): botão direito no 📄 da coluna/barra liga E desliga o aviso de cotação (avisinho ao lado), title diz quando está desligado.
+- v115.2637 BUG ("não abriu no componente de cardan"): o botão "🔩 Abrir no catálogo" do Alt+B (`pfItemCardAbrirCardan`) e o `maqCcAbrir` chamavam `pfFuncIr('at:Componentes Cardan')` — o pfFuncIr recebe o ÍNDICE da lista, com texto não faz nada. Agora usam `ccAbrirDoLink(fam,cod)` / `pfNavigate('area_tecnica')+ccNavigate()`. **Abrir tela da Área Técnica de fora: nunca `pfFuncIr` com texto.**
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

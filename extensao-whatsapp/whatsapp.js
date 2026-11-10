@@ -297,7 +297,7 @@
       ['🕘', 'Histórico', 'Cotações abertas, últimos pedidos e o que você já ofereceu.'],
       ['📦', 'Peças', 'Saldo de um código e o que o cliente mais compra.']]],
     ['O PF avisa sozinho', [
-      ['🔔', 'Pedido de cotação', 'Quando o cliente manda códigos, aparece uma bolinha laranja com o número de códigos no botão 📄 do PF (ao lado das mensagens). Clique nela pra cotar. Pra desligar: ⚙️ Configurações → Aviso de pedido de cotação, ou o botão direito na bolinha.'],
+      ['🔔', 'Pedido de cotação', 'Quando o cliente manda códigos, aparece uma bolinha laranja com o número de códigos no botão 📄 do PF (ao lado das mensagens). Clique nela pra cotar. Pra desligar ou ligar de novo: botão direito no 📄 (ou ⚙️ Configurações → Aviso de pedido de cotação).'],
       ['📄', 'Selo na mensagem', 'A mensagem do cliente que tem códigos ganha um selinho laranja "📄 3" no canto. Clique nele: aparecem os códigos com quantidade e saldo e o botão "Criar cotação no PF". Só cria se você clicar. Depois de criada, o selo fica verde ✓.'],
       ['💡', 'Ofertas', 'Quando você oferece algo e o cliente responde, o PF pergunta o que ele achou e guarda na ficha. Se for oferecer de novo, ele avisa "você já ofereceu".'],
       ['👋', 'Saudação de espera', 'Se o cliente fica X minutos sem resposta (você escolhe), a extensão manda UMA mensagem como se fosse você, de acordo com o que ele mandou ("já vou ver esses códigos", "vi a foto", "vou ouvir aqui"…). Só no horário escolhido, uma vez por conversa a cada N horas e com limite por hora. Vem desligada: ⚙️ → Mensagens automáticas. A conversa fica com a etiqueta "👋 … responda" até você responder.'],
@@ -664,7 +664,9 @@
     el.classList.toggle('pfwa-temcot', on);
     if (on) { el.setAttribute('data-n', avisoN > 9 ? '9+' : String(avisoN)); el.title = 'O PF achou ' + avisoN + ' código' + (avisoN > 1 ? 's' : '') + ' nas mensagens — clique pra cotar · botão direito: desligar este aviso'; }
     else el.removeAttribute('data-n');
-    el.oncontextmenu = on ? function (ev) { ev.preventDefault(); ev.stopPropagation(); avisoLigado = false; chrome.storage.local.set({ avisoLigado: false }); marcaCot(); pinta(); } : null;
+    // 4.3 - A pedido do Vitor ("com o botão direito eu desligo. mas como eu ligo de volta?"): o botão direito no 📄 liga e desliga (antes só desligava)
+    el.oncontextmenu = function (ev) { ev.preventDefault(); ev.stopPropagation(); avisoLigado = !avisoLigado; chrome.storage.local.set({ avisoLigado: avisoLigado }); marcaCot(); pinta(); try { var tt = document.createElement('div'); tt.textContent = avisoLigado ? '🔔 Aviso de cotação ligado' : '🔕 Aviso de cotação desligado — botão direito liga de novo'; var rc = el.getBoundingClientRect(); tt.style.cssText = 'position:fixed;z-index:10001;left:' + (rc.right + 8) + 'px;top:' + rc.top + 'px;background:#1c2940;color:#fff;font:600 12px Inter,Segoe UI,sans-serif;padding:6px 10px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.3)'; document.body.appendChild(tt); setTimeout(function () { tt.remove(); }, 2200); } catch (e) { } };
+    if (!on) el.title = avisoLigado ? 'Cotar no PF' : 'Cotar no PF · aviso de cotação DESLIGADO — botão direito liga de novo';
   }
   function pintaAviso(n) {
     avisoN = n || 0; if (AV) AV.style.display = 'none'; marcaCot();

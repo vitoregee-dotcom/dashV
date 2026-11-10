@@ -4,6 +4,24 @@
 // 3) Botões do PF na conversa: em coluna (visual A) ou numa barra embaixo (visual D) — cada um escolhe.
 (function () {
   'use strict';
+  // 4.9 - extensão atualizada com o WhatsApp aberto = "Extension context invalidated" a cada 1,5 s. Agora os timers param
+  // quietos e aparece um aviso pequeno "dê F5 nesta aba" (o código velho não fala mais com a extensão nova).
+  function vivo() { try { return !!(chrome && chrome.runtime && chrome.runtime.id); } catch (e) { return false; } }
+  var _avisoF5 = false;
+  function avisoF5() {
+    if (_avisoF5) return; _avisoF5 = true;
+    try {
+      var d = document.createElement('div');
+      d.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:2147483647;background:#E67E22;color:#fff;font:700 13px Inter,Segoe UI,sans-serif;padding:8px 14px;border-radius:10px;box-shadow:0 3px 10px rgba(0,0,0,.35);cursor:pointer';
+      d.textContent = '🧩 A extensão do PartsFlow foi atualizada — clique aqui (ou F5) pra recarregar o WhatsApp';
+      d.onclick = function () { location.reload(); };
+      document.body.appendChild(d);
+    } catch (e) { }
+  }
+  var setInterval = function (fn, ms) {
+    var id = window.setInterval(function () { if (!vivo()) { window.clearInterval(id); avisoF5(); return; } fn(); }, ms);
+    return id;
+  };
   function $(s, r) { return (r || document).querySelector(s); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function dormir(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }

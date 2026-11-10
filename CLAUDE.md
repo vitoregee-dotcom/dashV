@@ -1381,6 +1381,11 @@
   peças devolvidas ÷ peças dos pedidos de venda do período (`rmaVendidoPorCodigo`); ⬇️ Excel (`rmaRelatorioExcel`, SheetJS).
 - RMA ganhou `vendedor` (Nova RMA com sugestão `rmaSugerirVendedor`: PV do cliente com a peça > PV do cliente > vendedor do
   cadastro; editável no detalhe, `rmaVendedorSalvar`). Motivo vazio = "garantia DANA"/"(sem motivo)" (`rmaMotivo`).
+- v115.2641 ("qnd eu colocar o código do item, já deve puxar descrição e as marcas que eu tenho"): na Nova RMA, código do item (onchange `rmaItemCod(i)`) →
+  `vendasBuscarItem(cod,{semEquiv,silencioso})` puxa a descrição (se vazia) e as marcas; marca única entra sozinha, várias viram datalist no campo Marca + dica
+  "✔ DESC · marcas: X, Y" (código não cadastrado = aviso). Campos temp `_marcas`/`_achou`/`_descCad` são tirados no salvar (`rmaSalvarNova` mapeia só os campos limpos).
+  PENDENTE (pedidos do Vitor, a confirmar): campo Cód. cliente (igual cotação) + puxar últimos pedidos de venda do cliente (PF não tem NF, é do ERP); mensagem genérica
+  de RMA quando a peça NÃO é DANA (hoje `pfGarMsg` é só Dana).
 - Cotação: botão direito → "🔄 RMAs deste item (N)" → `vendasRmasItem(i)` (números 12m, aviso se o cliente da cotação já
   devolveu, lista clicável). `rmaDoCodigo(cod)` compara código normalizado. Prévias em `docs/referencias/rma-consulta/`.
 

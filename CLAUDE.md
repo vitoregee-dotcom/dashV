@@ -2296,6 +2296,10 @@
 - v115.2620 BUG (extensão **3.1**; print: painel "Abra o PartsFlow numa aba deste Chrome" COM a aba do PF aberta): a aba guardada (`pfTab`) tinha a ponte MORTA (extensão
   atualizada depois que o PF abriu) e o `fundo.js` devolvia `semPF` sem procurar de novo. Agora `acharPF` confere com `pingPF`; aba do PF (título PartsFlow / url dashV) que não
   responde ganha o `ponte.js` de novo por `chrome.scripting` (permissão nova "scripting") e, se nem assim, o painel diz "Dê F5 na aba do PartsFlow" (erro `pfF5`).
+- v115.2621 (extensão **3.2**; "vamos colocar algum aviso de conectado" + "tenho ctza q eu tinha esse cliente" — "Alessandro - Trackpeças (1750) PR" = TRACKPECAS COM DE PECAS
+  PARA TRATORES 000074, do backup): pílula no cabeçalho do painel ao lado da versão (`.pfwa-con`: verde ● Conectado / laranja Dê F5 no PF ou nesta aba / vermelho PF fechado; clique
+  = confere) + bolinha no "PF" da barra de cima (`html[data-pfwa-con]`); `conChecar` a cada 10 s e ao voltar pra aba → `{t:'pfStatus'}` no fundo.js (acharPF). `pfExtNomeMatcher`
+  tira a sigla de UF solta do fim/meio dos pedaços ("TRACKPECAS PR" → "TRACKPECAS"). Captura `docs/referencias/whatsapp-menu/feito-conectado.png`.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

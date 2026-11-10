@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2622</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2623</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2622</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2623</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -74877,7 +74877,9 @@ function pfExtQuem(tel,nome){
   // nome do WhatsApp costuma vir "Fulano - Empresa (1234)": tira o código e procura cada pedaço
   // v115.2612 - A pedido do Vitor ("esse cliente eu tenho no PF… pelo nome, não pelo código" — "Tiago - maximus cardans (12662)", cadastro MAXIMUS CARDANS MECANICA
   // DE AUTO LTDA com outro código): traço longo (– —), dois-pontos, ponto, emoji e espaço duplo também separam; e a comparação aceita 2+ palavras seguidas do nome.
-  var pedacos=nN.replace(/\(\s*\d+\s*\)/g,' ').replace(/[^\w\s\-–—|\/:·•.&]/g,' ').split(/\s*[-–—|\/:·•]\s*|\s{2,}/).map(function(s){return s.replace(/\s+/g,' ').trim();}).filter(function(s){return s.length>=4;});
+  // v115.2623 - BUG ("NÃO ACHOU O CLIENTE" — "Alessandro - Trackpeças (1750) PR"): esta cópia da regra não tirava a sigla do estado ("TRACKPECAS PR")
+  // como o pfExtNomeMatcher já tira (v115.2621) → agora os pedaços vêm dele.
+  var pedacos=[];try{pedacos=pfExtNomeMatcher(nome).pedacos;}catch(e){pedacos=nN.replace(/\(\s*\d+\s*\)/g,' ').split(/\s*[-–—|\/:·•]\s*|\s{2,}/).map(function(s){return s.trim();}).filter(function(s){return s.length>=4;});}
   var cls=pfExtClientes(),achou=null,contato=null,pelo='';
   if(tN.length>=8)cls.some(function(c){if(!c.cad)return false;var cs=[];try{cs=pfCrmContatos(c.cad);}catch(e){}
     var x=cs.find(function(o){return pfExtTelBate(o.tel,tN);});if(x){achou=c;contato=x;pelo='';return true;}return false;});
@@ -74992,8 +74994,13 @@ function pfExtLerPedido(msgs){
         if(/^\d{1,2}:\d{2}$/.test(tok))return;
         if(/^\(?\d{2}\)?9?\d{4}-?\d{4}$/.test(tok)&&d.length>=10)return; // telefone
         if(/^R\$|^\d{1,3}(\.\d{3})*,\d{2}$/.test(tok))return; // dinheiro
+        // v115.2623 - A pedido do Vitor ("NÃO RECONHECEU A QUANTIDADE" — "02-148933A1", "04-87457092"): quantidade grudada na frente do código com traço.
+        // Vale quando a quantidade começa com 0 (02-, 04-) e o resto tem 5+ letras/números, ou quando o resto tem 7+ — assim código de cardan
+        // (5-12018X, 2-70-59, 41-059A, 6.5-40-191) continua inteiro.
+        var qT=null,mT=tok.match(/^(\d{1,3})-([A-Za-z0-9][A-Za-z0-9.\-\/]*)$/);
+        if(mT){var resto=mT[2].replace(/[^A-Za-z0-9]/g,''),pre=mT[1];if(+pre>0&&((pre.charAt(0)==='0'&&resto.length>=5)||resto.length>=7)&&!/-/.test(mT[2])){qT=+pre;tok=mT[2];}}
         var n=tok.toUpperCase().replace(/[.\-\/]/g,'');if(vis[n])return;vis[n]=1;
-        it.push({cod:tok.toUpperCase(),qtd:qL,lin:lin.trim().slice(0,80)});
+        it.push({cod:tok.toUpperCase(),qtd:qT||qL,lin:lin.trim().slice(0,80)});
       });
     });
   });

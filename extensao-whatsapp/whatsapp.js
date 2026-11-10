@@ -317,7 +317,7 @@
     ['Embaixo do painel', [
       ['📥', 'Importar meus contatos', 'Lê a lista de conversas e traz pro PF (você escolhe quem entra).'],
       ['📣', 'Disparo pelo PF', 'No PF, Vendas → 📣 Disparo pelo WhatsApp: escolhe a lista (o que chegou, uma marca, um grupo, os sumidos ou uma etiqueta), escreve a mensagem com {nome} e a extensão manda uma por uma, no ritmo que você escolher por hora. Quem já recebeu a mesma oferta fica de fora.'],
-      ['👤', 'Salvar contato', 'Botão verde ao lado do nome da conversa: escreve o nome, a empresa (procura nos clientes do PF) e o código do JBoss — vira "Fulano - Empresa (código)". Salva no PF e, se o número não está salvo, abre o "Adicionar aos contatos" do WhatsApp com o nome. Tem também o CARGO e o CNPJ (CNPJ que ainda não é cliente = entra no PF como pré-cadastro 🌱 com os dados da Receita); se a empresa ainda não está no PF, aparece “➕ Criar cliente no PF”, que já cria o cadastro com esse contato. E quando o contato não está no PF e o cliente mandou o CNPJ na conversa, a aba Cliente mostra “➕ Cadastrar no PF” já com esse CNPJ.'],
+      ['👤', 'Salvar contato', 'Botão verde ao lado do nome da conversa: escreve o nome, a empresa (procura nos clientes do PF) e o código do JBoss — vira "Fulano - Empresa (código)". Salva no PF (o contato entra no cadastro do cliente, mesmo sem número) e já salva/renomeia o contato no WhatsApp com esse nome. Tem também o GRUPO do cliente (Linha Amarela, Agrícola… — vai pro cadastro), o CARGO e o CNPJ (CNPJ que ainda não é cliente = entra no PF como pré-cadastro 🌱 com os dados da Receita); se a empresa ainda não está no PF, aparece “➕ Criar cliente no PF”, que já cria o cadastro com esse contato. E quando o contato não está no PF e o cliente mandou o CNPJ na conversa, a aba Cliente mostra “➕ Cadastrar no PF” já com esse CNPJ.'],
       ['↕️', 'Mudar o PF de altura', 'Segure e arraste a coluna de botões do PF (ou o "PF" minimizado) pra cima ou pra baixo. Fica guardado.'],
       ['🧠', 'Entender com IA', 'Na aba Cotação: quando o cliente pede pelo NOME da peça ("kit de vedação da 28000, transmissão e conversor"), a IA separa peça, quantidade e máquina e o PF procura nas Aplicações e no estoque. Confira antes de mandar.'],
       ['📝', 'Resumir a conversa', 'Na aba Cliente: a IA escreve o que o cliente pediu e a próxima ação. Você corrige e grava na ficha do CRM (e no ☀️ Meu dia).'],
@@ -400,6 +400,7 @@
     if (ac === 'svCnpj') { svAbrir(arg); return; } // 4.4 - cadastrar já com o CNPJ da conversa
     if (ac === 'svFechar') { svAberto = false; SV.style.display = 'none'; return; }
     if (ac === 'svUsar') { svUsar(arg); return; }
+    if (ac === 'svGrupo') { svGrupoSet(arg); return; } // 4.7
     if (ac === 'svSalvar') { svSalvar(b); return; }
     if (ac === 'svCriar') { svSalvar(b, true); return; }
     if (ac === 'svCadAbrir') { if (svK) msg({ t: 'acao', acao: 'irTela', arg: { tela: 'cadcliK', k: svK } }); return; }
@@ -752,6 +753,10 @@
   function svNomeBase(n) { n = String(n || '').trim(); if (/^[+\d\s()\-]{8,}$/.test(n)) return ''; var p = svPartes(n); if (p.length > 2) { var q = p.slice(0, -1).filter(function (s) { return s.replace(/[^A-Za-zÀ-ú]/g, '').length >= 3; }); if (q.length) return q[0]; } return p[0] || ''; }
   function svEmpBase(n) { var p = svPartes(n); return p.length > 1 ? p[p.length - 1] : ''; }
   function svCodBase(n) { var m = String(n || '').match(/\(\s*(\d{2,8})\s*\)/); return m ? m[1] : ''; }
+  // 4.7 - A pedido do Vitor ("coloca pra eu escolher o grupo do cliente, já pra vir com o grupo pro cadastro, ex. linha amarela")
+  var SV_GRUPOS = [['amarela', 'Linha Amarela', '#E6B800'], ['agricola', 'Linha Agrícola', '#27AE60'], ['energia', 'Energia', '#1a1a1a'], ['rodoviario', 'Rodoviário', '#C0392B'], ['maritimo', 'Marítimo', '#7B3FC4'], ['portuario', 'Portuário', '#2E86DE']];
+  var svGrupo = '';
+  function svGrupoSet(g) { svGrupo = svGrupo === g ? '' : g; Array.prototype.forEach.call(SV.querySelectorAll('.sv-g'), function (x) { x.classList.toggle('on', x.getAttribute('data-g') === svGrupo); }); }
   function svMontar() {
     var n = (SV.querySelector('.sv-nome') || {}).value || '', e = (SV.querySelector('.sv-emp') || {}).value || '', c = (SV.querySelector('.sv-cod') || {}).value || '';
     return [n.trim(), e.trim() ? ' - ' + e.trim() : '', c.trim() ? ' (' + c.trim().replace(/\D/g, '') + ')' : ''].join('').trim();
@@ -770,12 +775,13 @@
       '<label>CARGO<input class="sv-cargo" value="' + esc((r && r.cargo) || '') + '" placeholder="Ex.: Compras, Dono, Mecânico" list="pfwa-sv-cargos"></label>' +
       '<datalist id="pfwa-sv-cargos"><option>Compras<option>Comprador<option>Dono<option>Sócio<option>Gerente<option>Financeiro<option>Mecânico<option>Encarregado<option>Vendedor<option>Balconista</datalist>' +
       '<label>CÓDIGO NO JBOSS<input class="sv-cod" value="' + esc(cod) + '" placeholder="Ex.: 12662" inputmode="numeric"></label>' +
+      '<div class="sv-gl">GRUPO DO CLIENTE</div><div class="sv-gr">' + SV_GRUPOS.map(function (g) { return '<span class="sv-g" data-acao="svGrupo" data-arg="' + g[0] + '" data-g="' + g[0] + '" style="--c:' + g[2] + '"><i></i>' + g[1] + '</span>'; }).join('') + '</div>' +
       '<label>CNPJ <span style="font-weight:600;text-transform:none">(cliente novo entra como pré-cadastro 🌱)</span><input class="sv-cnpj" value="' + esc(fmtCnpj(cnpjPre || '')) + '" placeholder="00.000.000/0000-00" inputmode="numeric"></label>' +
       '<div class="sv-pv">Vai ficar: <b class="sv-prev"></b></div>' +
       '<div class="sv-k">' + (svK && r && r.titulo ? '🔗 ligado a <b>' + esc(r.titulo) + '</b>' : '') + '</div>' +
       '<div class="sv-bts"><button class="sv-ok" data-acao="svSalvar">💾 Salvar no PF</button>' + (semNum ? '<button class="sv-wa" data-acao="svWa">📱 + salvar no celular</button>' : '') + '</div>' +
       '<div class="sv-st"></div>';
-    SV.style.display = 'block'; svAberto = true; svPos(); svPrev();
+    svGrupo = ''; SV.style.display = 'block'; svAberto = true; svPos(); svPrev();
     ['sv-nome', 'sv-emp', 'sv-cod'].forEach(function (k) { var i = SV.querySelector('.' + k); if (i) i.oninput = function () { svPrev(); if (k === 'sv-emp' || (k === 'sv-cod' && !svK)) { if (k === 'sv-emp') { svK = ''; SV.querySelector('.sv-k').innerHTML = ''; } clearTimeout(svT); svT = setTimeout(function () { svBuscar(i.value); }, 250); } }; });
     var cnI = SV.querySelector('.sv-cnpj'); if (cnI) cnI.oninput = function () { var d = cnI.value.replace(/\D/g, '').slice(0, 14); cnI.value = d.length === 14 ? d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') : d; };
     var f = SV.querySelector(nome ? '.sv-emp' : '.sv-nome'); if (f) f.focus();
@@ -802,7 +808,7 @@
     var txt = b.textContent; b.disabled = true; b.textContent = 'Salvando…';
     var cn = v('sv-cnpj').replace(/\D/g, ''); if (cn && cn.length !== 14 && cn.length !== 11) { flash(b, 'CNPJ incompleto'); b.disabled = false; b.textContent = txt; return; }
     if (cn) b.textContent = 'Buscando o CNPJ…';
-    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar } });
+    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: svGrupo } });
     b.disabled = false; b.textContent = txt;
     var st = SV.querySelector('.sv-st');
     if (r && r.ok) {
@@ -810,8 +816,43 @@
       st.innerHTML = r.cli ? ('✔ Salvo · ' + (r.prospect ? '🌱 pré-cadastro <b>' + esc(r.cli) + '</b> criado no PF' + (r.base ? ' (dados da Receita)' : '') + ' com o contato' : r.cnpjJa ? 'esse CNPJ já era de <b>' + esc(r.cli) + '</b> — contato salvo lá' : r.novo ? 'cliente <b>' + esc(r.cli) + '</b> criado no PF com o contato' : 'contato' + (v('sv-cargo') ? ' (' + esc(v('sv-cargo')) + ')' : '') + ' no cadastro de <b>' + esc(r.cli) + '</b>') + '. <span class="sv-lk" data-acao="svCadAbrir">abrir o cadastro ›</span>')
         : ('✔ Salvo no PF. <span style="color:#9A6B00">A empresa não está no PF.</span><br><button class="sv-ok sv-cria" data-acao="svCriar">➕ Criar cliente "' + esc(v('sv-emp') || '?') + '" no PF</button>');
       ultimo = '';
+      // 4.7 - A pedido do Vitor ("quando eu salvar aqui, tem que salvar o contato no WhatsApp também, do jeito que coloquei no nome"): já abre o
+      // salvar/editar contato do próprio WhatsApp com o nome montado e aperta Salvar.
+      if (!criar) waSalvarNome(nomeFull, st);
     }
     else st.textContent = 'Não deu — abra o PartsFlow numa aba.';
+  }
+  // 4.7 - salva/renomeia o contato no próprio WhatsApp: "Adicionar aos contatos" (número não salvo) ou abre os dados do contato → Editar;
+  // escreve o nome (Nome = tudo, Sobrenome vazio) e aperta Salvar. O WhatsApp Web muda de cara de vez em quando — sem achar, avisa e deixa o nome copiado.
+  function waVisivel(x) { var r = x.getBoundingClientRect(); return r.width > 0 && r.height > 0; }
+  function waFora(x) { return !x.closest('#pfwa,#pfwa-sv,#pfwa-menu,#pfwa-rail,#pfwa-bots,#main footer,#side,#pane-side'); }
+  function waBotao(re, dentro) { return Array.prototype.find.call((dentro || document).querySelectorAll('button,[role="button"],[aria-label],[title]'), function (x) { var t = (x.getAttribute('aria-label') || '') + ' ' + (x.getAttribute('title') || '') + ' ' + (x.textContent || ''); return waFora(x) && waVisivel(x) && re.test(t.trim()); }); }
+  function waEsperar(fn, ms) { return new Promise(function (ok) { var t0 = Date.now(); (function v() { var r = fn(); if (r || Date.now() - t0 > ms) ok(r || null); else setTimeout(v, 150); })(); }); }
+  function waEscrever(inp, txt) {
+    inp.focus();
+    if (inp.tagName === 'INPUT') { var set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(inp, txt); inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true })); }
+    else { try { document.execCommand('selectAll', false, null); if (txt) document.execCommand('insertText', false, txt); else document.execCommand('delete', false, null); } catch (e) { } }
+  }
+  async function waSalvarNome(nomeFull, st) {
+    var c = contatoAt; if (!c || !nomeFull) return;
+    var dizer = function (h) { if (st) st.innerHTML += '<br>' + h; };
+    try { navigator.clipboard.writeText(nomeFull); } catch (e) { }
+    if (String(c.nome || '').trim() === nomeFull.trim()) { dizer('📱 No WhatsApp já está com esse nome.'); return; }
+    var bt = waBotao(/adicionar aos contatos|add to contacts/i, $('#main'));
+    if (!bt) {
+      var cab = $('#main header'); var alvo = cab && (cab.querySelector('span[title]') || cab);
+      if (alvo) alvo.click();
+      bt = await waEsperar(function () { return waBotao(/^\s*(editar( contato)?|edit( contact)?)\s*$/i) || waBotao(/editar contato|edit contact/i) || waBotao(/adicionar (aos )?contatos?|add (to )?contacts?|novo contato|new contact/i); }, 2500);
+    }
+    if (!bt) { dizer('📱 Não achei o "Editar contato" do WhatsApp — o nome está copiado: abra os dados do contato → Editar e cole (Ctrl+V).'); return; }
+    bt.click();
+    var inps = await waEsperar(function () { var l = Array.prototype.filter.call(document.querySelectorAll('input[type="text"],input:not([type]),div[contenteditable="true"]'), function (x) { return waFora(x) && waVisivel(x) && !x.closest('#main'); }); return l.length ? l : null; }, 2500);
+    if (!inps) { dizer('📱 Abri o contato no WhatsApp, mas não achei o campo do nome — cole o nome (já copiado).'); return; }
+    waEscrever(inps[0], nomeFull);
+    if (inps[1] && inps[1].tagName === 'INPUT' && !/\d{4}/.test(inps[1].value || '')) waEscrever(inps[1], '');
+    var salvar = await waEsperar(function () { return waBotao(/^\s*(salvar|save)\s*$/i); }, 1500);
+    if (salvar) { setTimeout(function () { salvar.click(); }, 300); dizer('📱 Salvo no WhatsApp como <b>' + esc(nomeFull) + '</b>.'); }
+    else dizer('📱 Escrevi o nome no contato do WhatsApp — confira e aperte Salvar.');
   }
   // abre o "Adicionar aos contatos" do WhatsApp e escreve o nome (o WhatsApp salva no celular)
   function svWa() {

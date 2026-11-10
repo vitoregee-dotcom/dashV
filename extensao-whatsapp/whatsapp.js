@@ -846,6 +846,26 @@
   function waVisivel(x) { var r = x.getBoundingClientRect(); return r.width > 0 && r.height > 0; }
   function waFora(x) { return !x.closest('#pfwa,#pfwa-sv,#pfwa-menu,#pfwa-rail,#pfwa-bots,#main footer,#side,#pane-side'); }
   function waBotao(re, dentro) { return Array.prototype.find.call((dentro || document).querySelectorAll('button,[role="button"],[aria-label],[title]'), function (x) { var t = (x.getAttribute('aria-label') || '') + ' ' + (x.getAttribute('title') || '') + ' ' + (x.textContent || ''); return waFora(x) && waVisivel(x) && re.test(t.trim()); }); }
+  // 4.13 - acha o Editar/Adicionar contato: pelo texto/aria-label OU pelo ícone do lápis (span[data-icon*=pencil|edit])
+  function waEditarBotao() {
+    var b = waBotao(/^\s*(editar( contato)?|edit( contact)?)\s*$/i) || waBotao(/editar contato|edit contact/i) || waBotao(/adicionar (aos )?contatos?|add (to )?contacts?|novo contato|new contact/i);
+    if (b) return b;
+    var ics = document.querySelectorAll('span[data-icon*="pencil"],span[data-icon*="edit"],span[data-icon*="contact-add"],span[data-icon*="add-user"]');
+    for (var i = 0; i < ics.length; i++) { var x = ics[i]; if (!waFora(x) || !waVisivel(x) || x.closest('#main')) continue; return x.closest('button,[role="button"]') || x; }
+    return null;
+  }
+  // 4.13 - quando não acha, lista os botões que estão aparecendo fora da conversa (pro Vitor mandar print e a gente acertar)
+  function waDiag() {
+    try {
+      var vis = [], vist = {};
+      Array.prototype.forEach.call(document.querySelectorAll('button,[role="button"],span[data-icon]'), function (x) {
+        if (!waFora(x) || !waVisivel(x) || x.closest('#main')) return;
+        var t = (x.getAttribute('aria-label') || x.getAttribute('title') || (x.getAttribute('data-icon') ? 'ícone ' + x.getAttribute('data-icon') : '') || (x.textContent || '').trim()).slice(0, 30);
+        if (t && !vist[t]) { vist[t] = 1; vis.push(t); }
+      });
+      return '<br><span style="font-size:11px;color:#667">Botões na tela: ' + esc(vis.slice(0, 25).join(' · ') || 'nenhum') + '</span>';
+    } catch (e) { return ''; }
+  }
   function waEsperar(fn, ms) { return new Promise(function (ok) { var t0 = Date.now(); (function v() { var r = fn(); if (r || Date.now() - t0 > ms) ok(r || null); else setTimeout(v, 150); })(); }); }
   function waEscrever(inp, txt) {
     inp.focus();
@@ -874,11 +894,17 @@
     if (String(c.nome || '').trim() === nomeFull.trim()) { dizer('📱 No WhatsApp já está com esse nome.'); return; }
     var bt = waBotao(/adicionar aos contatos|add to contacts/i, $('#main'));
     if (!bt) {
-      var cab = $('#main header'); var alvo = cab && (cab.querySelector('span[title]') || cab);
-      if (alvo) alvo.click();
-      bt = await waEsperar(function () { return waBotao(/^\s*(editar( contato)?|edit( contact)?)\s*$/i) || waBotao(/editar contato|edit contact/i) || waBotao(/adicionar (aos )?contatos?|add (to )?contacts?|novo contato|new contact/i); }, 2500);
+      // 4.13 - A pedido do Vitor ("pq não salva no whats?"): abre os "Dados do contato" pelo botão do cabeçalho (não pelo span) e procura o
+      // Editar também pelo ícone do lápis (no WhatsApp novo o botão não tem texto)
+      bt = waEditarBotao();
+      if (!bt) {
+        var cab = $('#main header'); var alvo = null;
+        if (cab) { var tt = cab.querySelector('span[title],span[dir="auto"]'); alvo = (tt && tt.closest('[role="button"],[tabindex]')) || cab.querySelector('[role="button"]') || tt || cab; }
+        if (alvo) { try { alvo.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); alvo.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); } catch (e) { } alvo.click(); }
+        bt = await waEsperar(waEditarBotao, 4000);
+      }
     }
-    if (!bt) { dizer('📱 Não achei o "Editar contato" do WhatsApp — o nome está copiado: abra os dados do contato → Editar e cole (Ctrl+V).'); return; }
+    if (!bt) { dizer('📱 Não achei o "Editar contato" do WhatsApp — o nome está copiado: abra os dados do contato → Editar e cole (Ctrl+V).' + waDiag()); return; }
     bt.click();
     var inps = await waEsperar(function () { var l = Array.prototype.filter.call(document.querySelectorAll('input[type="text"],input:not([type]),div[contenteditable="true"]'), function (x) { return waFora(x) && waVisivel(x) && !x.closest('#main'); }); return l.length ? l : null; }, 2500);
     if (!inps) { dizer('📱 Abri o contato no WhatsApp, mas não achei o campo do nome — cole o nome (já copiado).'); return; }

@@ -2300,6 +2300,10 @@
   PARA TRATORES 000074, do backup): pílula no cabeçalho do painel ao lado da versão (`.pfwa-con`: verde ● Conectado / laranja Dê F5 no PF ou nesta aba / vermelho PF fechado; clique
   = confere) + bolinha no "PF" da barra de cima (`html[data-pfwa-con]`); `conChecar` a cada 10 s e ao voltar pra aba → `{t:'pfStatus'}` no fundo.js (acharPF). `pfExtNomeMatcher`
   tira a sigla de UF solta do fim/meio dos pedaços ("TRACKPECAS PR" → "TRACKPECAS"). Captura `docs/referencias/whatsapp-menu/feito-conectado.png`.
+- v115.2622 ("mas como eu vejo os dados reais" — lista de clientes do Vitor com os 150 fictícios DEMO… misturados): filtro 🏢 Reais | 🎭 Fictícios | Todos no topo da
+  lista de clientes (`cadRenderClientes`, `window._clieOrig`, padrão Reais; só aparece quando tem os dois). Junto (dados, sem código): Código JBoss de 148 clientes preenchido pelo
+  CNPJ da planilha "Listagem de Entidades" do JBoss (151 clientes, cópia antes em `backup_clientes_20261110`) + 3 cadastrados (000199 MAXI 748, 000200 OPCAO 2656, 000201 LIGIA
+  8470, soDono); o 1427 que estava na CARDANS ITAIPU (fictícia da demo) saiu.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

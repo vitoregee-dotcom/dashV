@@ -301,6 +301,7 @@
       ['📄', 'Selo na mensagem', 'A mensagem do cliente que tem códigos ganha um selinho laranja "📄 3" no canto. Clique nele: aparecem os códigos com quantidade e saldo e o botão "Criar cotação no PF". Só cria se você clicar. Depois de criada, o selo fica verde ✓.'],
       ['💡', 'Ofertas', 'Quando você oferece algo e o cliente responde, o PF pergunta o que ele achou e guarda na ficha. Se for oferecer de novo, ele avisa "você já ofereceu".'],
       ['👋', 'Saudação de espera', 'Se o cliente fica X minutos sem resposta (você escolhe), a extensão manda UMA mensagem como se fosse você, de acordo com o que ele mandou ("já vou ver esses códigos", "vi a foto", "vou ouvir aqui"…). Só no horário escolhido, uma vez por conversa a cada N horas e com limite por hora. Vem desligada: ⚙️ → Mensagens automáticas. A conversa fica com a etiqueta "👋 … responda" até você responder.'],
+      ['📱', 'Mudar pelo WhatsApp', 'Em ⚙️ → Mensagens automáticas ligue "Mudar pelo WhatsApp" e ponha o número do seu celular pessoal. Dele (ou da conversa com você mesmo) mande "pf reunião até 15h", "pf ausente 2h", "pf férias até 20/11 Carlos 11 98765-4321", "pf voltei", "pf saudação 5 min" ou "pf status". O computador com este WhatsApp aberto faz e responde ✅ quando você não estiver mexendo nele. "pf" de outro número é ignorado.'],
       ['🗓️', 'Meu status (reunião, ausente, férias)', 'Em ⚙️ → Mensagens automáticas escolha Em reunião / Ausente / Férias e até quando (nas férias, quem atende no seu lugar). Cada cliente que chamar recebe UMA mensagem avisando, a qualquer hora. No "até" volta sozinho pra Disponível. Enquanto estiver fora, aparece no cabeçalho do painel.'],
       ['📌', 'Vou verificar', 'Se você escrever "deixa eu ver / vou verificar / já te retorno", o PF cria uma pendência sozinho (com desfazer).'],
       ['📇', 'Código que não está no PF', 'Se o nome no WhatsApp tem um código entre parênteses que não existe no PF, aparece "Cadastrar no PF" já com o código.']]],
@@ -384,6 +385,8 @@
     if (ac === 'autoTog') { AUTO[arg] = !AUTO[arg]; autoGravar(); pinta(); return; }
     if (ac === 'autoModo') { autoModoSet(arg); config = 'auto'; abrirPainel(); pinta(); return; } // 4.0 - 🗓️ meu status
     if (ac === 'autoEstilo') { AUTO.estilo = arg; autoGravar(); pinta(); return; }
+    if (ac === 'cmdAutorizar') { if (contatoAt && contatoAt.nome) { AUTO.cmdNomes = (AUTO.cmdNomes || []).concat([contatoAt.nome]); if (contatoAt.tel && (AUTO.cmdQuem || []).indexOf(contatoAt.tel) < 0) AUTO.cmdQuem = (AUTO.cmdQuem || []).concat([contatoAt.tel]); AUTO.cmdOn = true; autoGravar(); } pinta(); return; }
+    if (ac === 'cmdTirar') { AUTO.cmdNomes = (AUTO.cmdNomes || []).filter(function (n) { return n !== arg; }); autoGravar(); pinta(); return; }
     if (ac === 'svAbrir') { if (svAberto) { svAberto = false; SV.style.display = 'none'; } else svAbrir(); return; } // 2.7
     if (ac === 'svFechar') { svAberto = false; SV.style.display = 'none'; return; }
     if (ac === 'svUsar') { svUsar(arg); return; }
@@ -1409,6 +1412,7 @@
     // 4.1 - A pedido do Vitor ("não responder a cada msg do cliente… o Watidy manda a msg de ausência um monte de vezes, isso é irritante"):
     // já mandou QUALQUER mensagem automática nessa conversa e você ainda não respondeu = não manda mais nada (nem ausência, nem saudação).
     if (autoPend[c.nome]) return false;
+    if (cmdAutorizado(c.nome, c.tel)) return false; // 4.2 - seu celular pessoal / conversa com você mesmo nunca recebe mensagem automática
     var k = autoChave(c);
     if (aus) { var per = aus + '|' + (AUTO.ausDesde || ''); if (autoAusEnv[k] === per) return false; }
     else { var u = autoEnv[k]; if (u && Date.now() - u < (+AUTO.horas || 4) * 3600000) return false; }
@@ -1525,6 +1529,7 @@
     var A = AUTO, inp = 'class="au-in"', aus = autoAusente(), nomeEx = contatoAt ? contatoAt.nome : 'Carlos - Trackpeças';
     var ex = function (f) { var l = []; for (var i = 0; i < 3; i++) { var t = f(); if (l.indexOf(t) < 0) l.push(t); } return l.map(function (t) { return '<div class="au-exl">“' + esc(t) + '”</div>'; }).join(''); };
     var h = '<div class="pfwa-ajtop"><b>👋 Mensagens automáticas</b><span class="pfwa-link" data-acao="autoVoltar">‹ voltar</span></div>';
+    h += htmlCmd(); // 4.2 - 📱 mudar pelo WhatsApp
     // 🗓️ Meu status
     h += '<div class="au-sec"><b>🗓️ Meu status agora</b><div class="au-modos">' + Object.keys(AUTO_MODOS).map(function (m) { return '<span data-acao="autoModo" data-arg="' + m + '" class="' + ((aus || 'normal') === m ? 'on' : '') + '">' + AUTO_MODOS[m][0] + ' ' + AUTO_MODOS[m][1] + '</span>'; }).join('') + '</div>';
     if (aus) {
@@ -1556,6 +1561,8 @@
   }
   function autoCampo(el) {
     var k = el.getAttribute('data-au'), v = el.value;
+    if (k === 'cmdQuem') { AUTO.cmdQuem = v.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); autoGravar(); return; }
+    if (k === 'cmdEu') { AUTO.cmdEu = !!el.checked; autoGravar(); return; }
     if (k === 'frases') AUTO.frases = v.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
     else if (k.indexOf('ausTxt.') === 0) { AUTO.ausTxt = AUTO.ausTxt || {}; AUTO.ausTxt[k.slice(7)] = v.trim(); }
     else if (k === 'min' || k === 'horas' || k === 'porHora') AUTO[k] = Math.max(1, +v || AUTO_PADRAO[k]);
@@ -1565,6 +1572,139 @@
   }
   document.addEventListener('change', function (e) { if (e.target && e.target.getAttribute && e.target.getAttribute('data-au')) autoCampo(e.target); }, true);
 
+  // ═══ 📱 COMANDOS PELO WHATSAPP (4.2) ═══
+  // A pedido do Vitor ("preciso poder ajustar essas coisas enviando um whatsapp" + "mandando msg de outro cel, exemplo do meu pessoal"):
+  // mensagem que começa com "pf" vinda de um número AUTORIZADO (ou da conversa com você mesmo) muda o status / a saudação.
+  // A extensão lê a última mensagem dessas conversas na lista (sem abrir), faz o que pediu e responde "✅ …" quando você não está mexendo no WhatsApp.
+  // Mensagem "pf …" de qualquer outro número é ignorada. Os autorizados nunca recebem mensagem automática.
+  var cmdFeitos = {}, cmdResp = [];
+  chrome.storage.local.get(['cmdFeitos', 'cmdResp'], function (s) { cmdFeitos = s.cmdFeitos || {}; cmdResp = s.cmdResp || []; });
+  function cmdGravar() { var ks = Object.keys(cmdFeitos); if (ks.length > 200) ks.sort(function (a, b) { return cmdFeitos[a] - cmdFeitos[b]; }).slice(0, ks.length - 200).forEach(function (k) { delete cmdFeitos[k]; }); chrome.storage.local.set({ cmdFeitos: cmdFeitos, cmdResp: cmdResp.slice(-20) }); }
+  function cmdDig(s) { return String(s || '').replace(/\D/g, ''); }
+  // 55 + DDD + (9) + 8 dígitos → DDD + 8 dígitos (o WhatsApp às vezes guarda sem o 9 da frente)
+  function cmdNormTel(d) { d = cmdDig(d); if (d.length >= 12 && d.indexOf('55') === 0) d = d.slice(2); if (d.length === 11 && d.charAt(2) === '9') d = d.slice(0, 2) + d.slice(3); return d; }
+  function cmdEhVoce(nome) { return /\((voc[eê]|you)\)\s*$/i.test(nome || '') || /^(voc[eê]|you)$/i.test(String(nome || '').trim()); }
+  // a conversa é de um autorizado? (número com 8+ dígitos batendo o final, ou o nome exatamente como está salvo no WhatsApp)
+  function cmdAutorizado(nome, tel) {
+    if (!AUTO.cmdOn) return false;
+    if (AUTO.cmdEu !== false && cmdEhVoce(nome)) return true;
+    if ((AUTO.cmdNomes || []).indexOf(String(nome || '').trim()) >= 0) return true; // conversa autorizada pelo botão / nome aprendido do número
+    var t = cmdDig(tel || (/^[+\d\s()\-]{8,}$/.test(nome || '') ? nome : ''));
+    return (AUTO.cmdQuem || []).some(function (q) {
+      q = String(q || '').trim(); if (!q) return false;
+      var d = cmdDig(q);
+      if (d.length >= 8) { var nt = cmdNormTel(t), nd = cmdNormTel(d); if (nt.length < 8 || nt.slice(-8) !== nd.slice(-8)) return false; return nt.length < 10 || nd.length < 10 || nt.slice(0, 2) === nd.slice(0, 2); }
+      return String(nome || '').trim().toLowerCase() === q.toLowerCase();
+    });
+  }
+  function cmdSemAcento(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+  function cmdIso(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2) + 'T' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  // "até 15h" / "15:30" / "1h" / "30 min" / "2 horas" / "até 20/11" / "dia 20"
+  function cmdAte(t, ferias) {
+    var m, d = new Date();
+    if ((m = t.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/))) {
+      var y = m[3] ? (+m[3] < 100 ? 2000 + (+m[3]) : +m[3]) : d.getFullYear(); var x = new Date(y, +m[2] - 1, +m[1], 8, 0, 0, 0); if (!m[3] && x.getTime() < Date.now() - 86400000) x.setFullYear(y + 1); return { ate: x, resto: t.replace(m[0], ' ') };
+    }
+    if ((m = t.match(/(?:ate\s+(?:o\s+)?)?dia\s+(\d{1,2})\b/))) { var x2 = new Date(d.getFullYear(), d.getMonth(), +m[1], 8, 0, 0, 0); if (x2.getTime() < Date.now()) x2.setMonth(x2.getMonth() + 1); return { ate: x2, resto: t.replace(m[0], ' ') }; }
+    if ((m = t.match(/(\d+(?:[.,]\d+)?)\s*(h\b|hr|hora|horas|min\b|mins|minuto|minutos|d\b|dia|dias)/))) {
+      var n = parseFloat(m[1].replace(',', '.')), u = m[2], x3 = new Date();
+      if (/^d/.test(u)) { x3.setDate(x3.getDate() + Math.round(n)); x3.setHours(8, 0, 0, 0); } else x3 = new Date(Date.now() + n * (/^m/.test(u) ? 60000 : 3600000));
+      if (!/ate/.test(t.slice(0, t.indexOf(m[0])).slice(-6)) || /min|hora|hr|dia/.test(u)) return { ate: x3, resto: t.replace(m[0], ' ') };
+    }
+    if ((m = t.match(/(\d{1,2})(?:[:h](\d{2}))?\s*h?\b/)) && /ate|as|às/.test(t)) {
+      var x4 = new Date(); x4.setHours(+m[1], m[2] ? +m[2] : 0, 0, 0); if (x4.getTime() < Date.now()) x4.setDate(x4.getDate() + 1); return { ate: x4, resto: t.replace(m[0], ' ') };
+    }
+    return { ate: null, resto: t };
+  }
+  function cmdStatusTxt() {
+    var aus = autoAusente(), m = AUTO_MODOS[aus || 'normal'];
+    var s = m[0] + ' ' + m[1] + (aus && AUTO.ate ? ' até ' + (aus === 'ferias' ? autoDataBR(AUTO.ate) : autoDataBR(AUTO.ate) + ' ' + autoHoraBR(AUTO.ate)) : '');
+    if (aus === 'ferias' && AUTO.subst) s += ' · atende: ' + AUTO.subst + (AUTO.substTel ? ' ' + AUTO.substTel : '');
+    s += '\n👋 Saudação de espera: ' + (AUTO.on ? 'ligada, ' + AUTO.min + ' min, ' + AUTO.ini + '–' + AUTO.fim : 'desligada');
+    return s;
+  }
+  var CMD_AJUDA = 'Comandos (comece com pf):\npf reunião até 15h · pf reunião 1h\npf ausente até 17h\npf férias até 20/11 Carlos 11 98765-4321\npf voltei\npf saudação liga · pf saudação desliga · pf saudação 5 min\npf status';
+  function cmdExecutar(txt) {
+    var t = cmdSemAcento(txt).replace(/^\s*pf[\s:,.-]+/, '').trim();
+    if (!t || /^(ajuda|help|\?|comandos)/.test(t)) return CMD_AJUDA;
+    if (/^status|^como (esta|ta)/.test(t)) return '📋 ' + cmdStatusTxt();
+    if (/^(voltei|volta|disponivel|cheguei|online|normal)/.test(t)) { autoModoSet('normal'); return '✅ Voltei: 🟢 Disponível. A mensagem de ausência parou.'; }
+    var modo = /^reuni/.test(t) ? 'reuniao' : /^(ausente|fora|saindo|sai)/.test(t) ? 'ausente' : /^ferias/.test(t) ? 'ferias' : '';
+    if (modo) {
+      var orig = String(txt || '').replace(/^\s*pf[\s:,.-]+/i, '');
+      var a = cmdAte(t.replace(/^\S+\s*/, ''), modo === 'ferias');
+      autoModoSet(modo);
+      if (a.ate) AUTO.ate = cmdIso(a.ate);
+      if (modo === 'ferias') {
+        var tel = (orig.match(/\(?\d{2}\)?\s*9?\d{4}[-\s]?\d{4}/) || [''])[0];
+        var nomeS = orig.replace(/^\S+\s*/, '').replace(/\d{1,2}\/\d{1,2}(\/\d{2,4})?/g, ' ').replace(tel, ' ').replace(/(^|\s)(at[eé]|dia|o|a|com|fala|falar|com|atende|quem|volto|no|na|ele|ela)(?=\s|$)/gi, ' ').replace(/(^|\s)(at[eé]|dia|o|a|com|fala|falar|atende|quem|volto|no|na|ele|ela)(?=\s|$)/gi, ' ').replace(/[^A-Za-zÀ-ÿ\s]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (nomeS) AUTO.subst = nomeS.split(' ').slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); }).join(' ');
+        if (tel) AUTO.substTel = tel.trim();
+      }
+      AUTO.ausDesde = Date.now(); autoGravar(); try { autoStatusPill(); } catch (e) { }
+      return '✅ Ok: ' + cmdStatusTxt().split('\n')[0] + '\nCada cliente que chamar recebe UMA mensagem avisando. Pra voltar: pf voltei';
+    }
+    if (/^sauda/.test(t)) {
+      var mm = t.match(/(\d+)\s*min/) || t.match(/\b(\d{1,3})\b/);
+      if (/desl|off|para|nao/.test(t)) AUTO.on = false; else AUTO.on = true;
+      if (mm && AUTO.on) AUTO.min = Math.max(1, +mm[1]);
+      autoGravar();
+      return '✅ Saudação de espera ' + (AUTO.on ? 'ligada: ' + AUTO.min + ' min sem resposta, ' + AUTO.ini + '–' + AUTO.fim : 'desligada') + '.';
+    }
+    return '🤔 Não entendi "' + String(txt || '').trim().slice(0, 60) + '".\n' + CMD_AJUDA;
+  }
+  // texto da última mensagem que aparece embaixo do nome na lista
+  function cmdPreview(row, nome) {
+    var ts = Array.prototype.map.call(row.querySelectorAll('span[title]'), function (e) { return (e.getAttribute('title') || '').trim(); }).filter(function (x) { return x && x !== nome; });
+    var p = ts.length ? ts[ts.length - 1] : '';
+    if (!p) { var ls = (row.innerText || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean); p = ls.find(function (x) { return /^((voc[eê]|you):\s*)?pf\b/i.test(x); }) || ''; }
+    return p.replace(/^(voc[eê]|you):\s*/i, '').trim();
+  }
+  async function cmdTick() {
+    if (!AUTO.cmdOn) return;
+    // a lista só mostra o NOME salvo: quando a conversa do número autorizado está aberta, aprende o nome dela
+    try { var ca = contatoAtual(); if (ca && !ca.grupo && ca.tel && ca.nome && (AUTO.cmdNomes || []).indexOf(ca.nome) < 0 && (AUTO.cmdQuem || []).some(function (q) { var d = cmdNormTel(q), t = cmdNormTel(ca.tel); return d.length >= 8 && t.slice(-8) === d.slice(-8); })) { AUTO.cmdNomes = (AUTO.cmdNomes || []).concat([ca.nome]); autoGravar(); } } catch (e) { }
+    linhasLista().forEach(function (L) {
+      if (!cmdAutorizado(L.nome, L.tel)) return;
+      var p = cmdPreview(L.el, L.nome); if (!/^pf\b/i.test(p)) return;
+      var hm = ''; L.el.querySelectorAll('span,div').forEach(function (e) { if (!hm && e.children.length === 0 && /^\d{1,2}:\d{2}$/.test((e.textContent || '').trim())) hm = (e.textContent || '').trim(); });
+      var k = L.nome + '|' + p + '|' + hm; if (cmdFeitos[k]) return;
+      // só vale comando novo (até 12 h): na 1ª vez que a extensão vê a conversa, o que já estava lá não é executado de novo
+      var t = horaFolha(L.el); if (t && Date.now() - t > 12 * 3600000) { cmdFeitos[k] = Date.now(); cmdGravar(); return; }
+      cmdFeitos[k] = Date.now();
+      var r = cmdExecutar(p);
+      cmdResp.push({ nome: L.nome, txt: r, ts: Date.now(), cmd: p });
+      cmdGravar(); try { pinta(); } catch (e) { }
+    });
+    // responde quando você não está mexendo no WhatsApp (ou se a conversa já está aberta)
+    var pend = cmdResp.filter(function (x) { return !x.ok; }); if (!pend.length || autoOcup) return;
+    var x = pend[0], aberta = contatoAt && contatoAt.nome === x.nome;
+    if (!aberta && Date.now() - autoUltMexeu < 30000) return;
+    if (Date.now() - x.ts > 12 * 3600000) { x.ok = 1; cmdGravar(); return; }
+    autoOcup = true;
+    try {
+      var antes = contatoAt ? contatoAt.nome : '';
+      if (!aberta) { var row = linhaDoNome(x.nome); if (!row) return; clicar(row); if (!(await esperar(function () { var c = contatoAtual(); return c && c.nome === x.nome ? 1 : null; }, 4000))) return; await dormir(600); }
+      var cx = caixaTexto(); if (!cx || (cx.innerText || '').trim()) return;
+      if (!escreverNaCaixa(x.txt)) return;
+      var btn = await esperar(botaoEnviar, 3000); if (!btn) return;
+      await dormir(500); (botaoEnviar() || btn).click();
+      if (await esperar(function () { var b = caixaTexto(); return b && !(b.innerText || '').trim() ? 1 : null; }, 8000)) { x.ok = 1; cmdGravar(); }
+      if (!aberta && antes) { var vt = linhaDoNome(antes); if (vt) clicar(vt); }
+    } finally { autoOcup = false; }
+  }
+  setInterval(function () { cmdTick().catch(function (e) { console.warn('PF cmd', e); }); }, 8000);
+  function htmlCmd() {
+    var A = AUTO, ult = cmdResp.slice(-3).reverse();
+    return '<div class="au-sec"><div class="pfwa-cfgl" data-acao="autoTog" data-arg="cmdOn"><span class="pfwa-cfgi">📱</span><div><b>Mudar pelo WhatsApp</b><br><small>Do seu celular pessoal (ou na conversa com você mesmo), mande "pf reunião até 15h", "pf férias até 20/11 Carlos 11 98765-4321", "pf voltei", "pf status"… O computador com este WhatsApp aberto faz e responde ✅.</small></div><span class="pfwa-sw' + (A.cmdOn ? ' on' : '') + '"><i></i></span></div>' +
+      ((contatoAt && !contatoAt.grupo && !cmdAutorizado(contatoAt.nome, contatoAt.tel)) ? '<div style="margin:6px 0 8px"><button class="au-bt" data-acao="cmdAutorizar">➕ Autorizar esta conversa (' + esc(contatoAt.nome) + ')</button> <small style="color:#607080">abra a conversa do seu celular pessoal e clique</small></div>' : '') +
+      (A.cmdOn ? '<div class="au-fr"><small>Números (ou contato como está salvo neste WhatsApp) que podem mandar comando — um por linha. Mensagem "pf …" de outro número é ignorada.</small><textarea data-au="cmdQuem" rows="2" placeholder="(11) 98888-7777">' + esc((A.cmdQuem || []).join('\n')) + '</textarea>' +
+        ((A.cmdNomes || []).length ? '<div class="au-ok">✅ Autorizadas: ' + (A.cmdNomes || []).map(function (n) { return esc(n) + ' <span class="pfwa-link" data-acao="cmdTirar" data-arg="' + esc(n) + '">✕</span>'; }).join(' · ') + '</div>' : '') +
+        '<label class="au-ck"><input type="checkbox" data-au="cmdEu"' + (A.cmdEu !== false ? ' checked' : '') + '> também na conversa comigo mesmo (Você)</label></div>' +
+        '<div class="au-st">' + esc(CMD_AJUDA).replace(/\n/g, '<br>') + '</div>' +
+        (ult.length ? '<div class="pfwa-bloco"><div class="pfwa-bt">Últimos comandos</div>' + ult.map(function (u) { return '<div class="pfwa-it"><b>' + esc(u.cmd) + '</b> <small>' + esc(new Date(u.ts).toLocaleString('pt-BR').slice(0, 17)) + (u.ok ? ' · respondido' : ' · vai responder quando você parar de mexer') + '</small><br><small>' + esc(u.txt.split('\n')[0]) + '</small></div>'; }).join('') + '</div>' : '') : '') +
+      '</div>';
+  }
   processarEnvio();
   setInterval(function () { vigiar().catch(function (e) { console.warn('PF', e); }); try { carregarSituacoes(); badgesRender(); aplicarFiltro(); } catch (e) { } }, 1500);
   window.addEventListener('resize', posicionar);

@@ -2361,6 +2361,11 @@
   (mudar o "até" não reenvia). Testado: cliente mandando mais 3 mensagens seguidas = continua 1 automática.
 - v115.2634 BUG ("de novo eu estava na ficha e veio pra cá sozinho", já na 2632): o `cadPullSupabase` (sincronização automática) e o `cadSyncManual` redesenhavam Cadastros (`cadGoTab`)
   e só poupavam a tela com o cursor DENTRO de um campo — ficha aberta sem foco voltava pra lista. `pfCadFichaAberta()` (#prodCodigo/#clieCodigo/#clieCnpj/#fornRazao/#fornCnpj/#transpRazao/#funcNome no #cadBody) segura o redesenho.
+- v115.2635 **📱 Mudar pelo WhatsApp** (extensão **4.2**; Vitor: "preciso poder ajustar essas coisas enviando um whatsapp" + "mandando msg de outro cel, exemplo do meu pessoal"; capturas `docs/referencias/whatsapp-menu/feito-comando-*.png`):
+  ⚙️ → Mensagens automáticas → 📱 Mudar pelo WhatsApp (`AUTO.cmdOn`, `cmdQuem` números/nomes, `cmdNomes` conversas autorizadas, `cmdEu` conversa com você mesmo). A lista do WhatsApp só mostra o NOME salvo →
+  botão "➕ Autorizar esta conversa" (`cmdAutorizar`) ou o número digitado aprende o nome quando a conversa é aberta (`cmdNormTel`: tira 55 e o 9). `cmdTick` (8 s) lê a prévia da última mensagem na lista
+  (`cmdPreview`, sem abrir): "pf …" de autorizado → `cmdExecutar` (reunião/ausente/férias + até `cmdAte`: 15h, 15:30, 1h, 30 min, 20/11, dia 20; férias tira substituto e telefone; voltei; saudação liga/desliga/N min;
+  status; ajuda) → resposta "✅ …" na mesma conversa quando você está parado 30 s (abre, responde, volta). Dedup `cmdFeitos` (conversa|texto|hora); só comando de até 12 h. Autorizados nunca recebem mensagem automática.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

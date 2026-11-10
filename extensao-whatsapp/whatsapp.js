@@ -237,6 +237,7 @@
     ['etq', '🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome da lista: cliente / fornecedor do PF, cotação aberta, mapa, sem resposta.'],
     ['bots', '📄', 'Botões do PF ao lado das mensagens', 'A coluna (A) ou barra (D) com Cotar, Saldo, Ficha, Lembrete, Prontas…'],
     ['aviso', '🔔', 'Aviso de pedido de cotação', 'A bolinha laranja com o número de códigos no botão 📄 quando o cliente manda códigos.'],
+    ['barra', '⚡', 'Respostas rápidas com "/"', 'Digitar / no começo da caixa de texto abre as respostas rápidas (o botão ⚡ continua funcionando).'],
     ['salvar', '👤', 'Botão Salvar contato', 'O botão verde ao lado do nome da conversa.'],
     ['ofertas', '💡', 'Guardar ofertas e respostas', 'Quando você oferece algo, o cartão pra salvar a oferta e a resposta do cliente no CRM.'],
     ['ja', '⚠️', '"Você já ofereceu" enquanto digita', 'Aviso em cima da caixa de texto quando você vai oferecer algo que já ofereceu.'],
@@ -280,7 +281,9 @@
       ['📦', 'Saldo', 'Selecione um código na conversa e clique: mostra o saldo de cada marca.'],
       ['🤝', 'Ficha', 'Abre a ficha do cliente no PF (CRM).'],
       ['⏰', 'Lembrete', 'Marca uma próxima ação (aparece no ☀️ Meu dia do PF).'],
-      ['⚡', 'Prontas', 'Respostas prontas pra mandar com um clique.'],
+      ['⚡', 'Respostas rápidas', 'Clique no ⚡ (ou digite / na caixa de texto, ex.: /banco): aparecem as respostas deste cliente e os seus Atalhos de Texto do PF, já com o nome dele, a empresa, a cidade… trocados. Escolha (↑ ↓ e Enter) e o texto vai pra caixa — você confere e manda.'],
+      ['🔤', 'Variáveis', 'No atalho de texto do PF, escreva {saudacao}, {nome}, {empresa}, {cidade}, {cnpj}, {codigo}, {condicao}, {cotacao}, {vendedor}… e o PF troca pelos dados do cliente da conversa. "🔤 Variáveis" na lista mostra todas e o valor de cada uma.'],
+      ['➕', 'Salvar como resposta', 'Escreveu uma mensagem boa? Na lista ⚡, "Salvar o que escrevi como resposta" guarda nos Atalhos de Texto do PF (o nome do cliente vira {nome}, pra servir pra todos).'],
       ['🤖', 'Assistente', 'Abre as regras do Assistente de Vendas desse cliente (margem, marca que não cota, avisos).'],
       ['📤', 'PDF', 'Abre a cotação no PF e baixa o PDF pra você anexar.'],
       ['🗂️', 'Quadro de vendas', 'Na coluna da esquerda: abre no PF o quadro com as cotações em colunas (cotando, proposta enviada, negociando, fechou). O cartão abre a conversa.'],
@@ -399,7 +402,7 @@
     if (ac === 'b-ficha') { if (resp && resp.k) msg({ t: 'acao', acao: 'ficha', arg: resp.k, focar: true }); else irAba('cli'); return; }
     if (ac === 'b-assist') { if (resp && resp.k) msg({ t: 'acao', acao: 'assistente', arg: resp.k, focar: true }); else irAba('cli'); return; } // 2.3
     if (ac === 'b-lemb') { irAba('cli'); setTimeout(function () { var i = P.querySelector('.pfwa-lemb-d'); if (i) i.focus(); }, 50); return; }
-    if (ac === 'b-prontas') { irAba('cli'); setTimeout(function () { var el = P.querySelector('.pfwa-prontas'); if (el) el.scrollIntoView({ block: 'center' }); }, 50); return; }
+    if (ac === 'b-prontas') { if (rrAberto) rrFechar(); else rrAbrir('', false); return; } // 3.7 - ⚡ respostas rápidas
     if (ac === 'b-pdf' || ac === 'pdf') { if (!cot || !cot.itens.length) { irAba('cot'); await cotar(); } if (cot && cot.itens.length) abrirCot(true); return; }
     if (ac === 'abrirCot') { abrirCot(false); return; }
     if (ac === 'escrever' || ac === 'pronta') {
@@ -1049,6 +1052,135 @@
     RAIL.innerHTML = rail.map(function (r) { return '<span data-acao="irTela" data-arg="' + r[0] + '" title="' + r[2] + '">' + r[1] + '</span>'; }).join('');
     badgesRender(); aplicarFiltro();
   }
+
+  // ═══ ⚡ RESPOSTAS RÁPIDAS (3.7) ═══
+  // ⚡ (botão do PF) ou "/" no começo da caixa de texto abre a lista: as prontas deste cliente + os ATALHOS DE TEXTO do PF, com as
+  // variáveis ({nome}, {empresa}, {cidade}…) já trocadas pelos dados do cliente da conversa. Escolher = o texto vai pra caixa; VOCÊ manda.
+  var rrAuto = true, RR = null, rrAberto = false, rrSlash = false, rrDados = null, rrChave = '', rrTs = 0, rrSel = 0, rrQ = '', rrModo = '', rrLista = [];
+  function rrEl() { if (!RR) { RR = document.createElement('div'); RR.id = 'pfwa-rr'; document.body.appendChild(RR); RR.addEventListener('click', rrClique); RR.addEventListener('input', rrInput); RR.addEventListener('keydown', rrTecla); } return RR; }
+  function rrPos() {
+    if (!RR || !rrAberto) return; var main = $('#main'); if (!main) { rrFechar(); return; }
+    var r = main.getBoundingClientRect(), foot = main.querySelector('footer'), fh = foot ? foot.getBoundingClientRect().height : 62;
+    RR.style.left = (r.left + 16) + 'px'; RR.style.width = Math.min(560, Math.max(320, r.width - 32)) + 'px';
+    RR.style.bottom = (window.innerHeight - r.bottom + fh + 8) + 'px'; RR.style.maxHeight = Math.max(240, r.height - fh - 120) + 'px';
+  }
+  async function rrCarregar(forcar) {
+    var ch = ultimo;
+    if (!forcar && rrDados && rrChave === ch && Date.now() - rrTs < 20000) return;
+    var r = await msg({ t: 'acao', acao: 'respostas', arg: { k: resp && resp.k, nome: contatoAt && contatoAt.nome, tel: contatoAt && contatoAt.tel, contato: resp && resp.contato } });
+    if (ch !== ultimo) return;
+    rrDados = r && r.ok ? r : { erro: (r && r.erro) || 'semPF' }; rrChave = ch; rrTs = Date.now();
+  }
+  async function rrAbrir(q, slash) {
+    if (!contatoAt) return; rrEl(); rrAberto = true; rrSlash = !!slash; rrQ = q || ''; rrSel = 0; rrModo = ''; rrAuto = true;
+    if (!rrDados || rrChave !== ultimo) { RR.style.display = 'flex'; RR.innerHTML = '<div class="rr-cab"><b>⚡ Respostas rápidas</b></div><div class="rr-nada">Carregando do PF…</div>'; rrPos(); }
+    await rrCarregar(); if (!rrAberto) return; rrPinta();
+    if (!rrSlash) { var i = RR.querySelector('.rr-q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
+  }
+  function rrFechar() { rrAberto = false; rrSlash = false; rrModo = ''; if (RR) RR.style.display = 'none'; }
+  function rrNorm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+  function rrFiltrar() {
+    var out = [], q = rrNorm(rrQ).trim().split(/\s+/).filter(Boolean);
+    ((rrDados && rrDados.grupos) || []).forEach(function (g) {
+      var it = (g.itens || []).filter(function (x) { var a = rrNorm(x.t + ' ' + x.txt); return q.every(function (w) { return a.indexOf(w) >= 0; }); });
+      if (q.length) { var nt = function (x) { var a = rrNorm(x.t); return q.every(function (w) { return a.indexOf(w) >= 0; }) ? 0 : 1; }; it = it.map(function (x, i) { x._nt = nt(x); return [x._nt, i, x]; }).sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; }).map(function (y) { return y[2]; }); }
+      out.push({ t: g.t, vazio: g.vazio, itens: it });
+    });
+    return out;
+  }
+  function rrPinta() {
+    if (!RR || !rrAberto) return; RR.style.display = 'flex';
+    var D = rrDados || {}, h = '<div class="rr-cab"><b>⚡ Respostas rápidas</b>' + (D.cli ? '<small>com os dados de ' + esc(D.cli) + '</small>' : '<small>sem cliente do PF nesta conversa</small>') +
+      '<span class="rr-lk" data-rr="vars" title="Ver as variáveis e o valor delas nesta conversa">🔤 Variáveis</span><span class="rr-x" data-rr="fechar" title="Fechar (Esc)">✕</span></div>';
+    if (D.erro) { RR.innerHTML = h + '<div class="rr-nada">' + (D.erro === 'pfF5' ? 'Dê F5 na aba do PartsFlow.' : 'Abra o PartsFlow numa aba deste Chrome.') + '</div>'; rrPos(); return; }
+    if (rrModo === 'vars') {
+      h += '<div class="rr-corpo"><div class="rr-nada" style="text-align:left">Escreva a variável no atalho de texto (no PF) e ela é trocada pelo dado do cliente na hora de usar. Clique numa pra pôr <b>o valor</b> na caixa.</div>' +
+        (D.vars || []).map(function (v) { return '<div class="rr-var' + (v.v ? '' : ' rr-vazia') + '" data-rr="var" data-v="' + esc(v.v) + '"><code>{' + esc(v.k) + '}</code><span>' + esc(v.d) + '</span><b>' + (v.v ? esc(v.v) : '— sem dado') + '</b></div>'; }).join('') + '</div>' +
+        '<div class="rr-rod"><span class="rr-lk" data-rr="voltar">‹ Voltar pras respostas</span></div>';
+      RR.innerHTML = h; rrPos(); return;
+    }
+    if (rrModo === 'salvar') {
+      var cx = caixaTexto(), tx = cx ? (cx.innerText || '').trim() : '';
+      h += '<div class="rr-corpo"><div class="rr-sv"><label>Nome da resposta<input class="rr-svn" placeholder="ex.: Dados bancários, Prazo de entrega…"></label>' +
+        '<div class="rr-svt">' + (tx ? esc(tx) : '<i>Escreva a mensagem na caixa do WhatsApp primeiro.</i>') + '</div>' +
+        '<label class="rr-svc"><input type="checkbox" class="rr-svtr" checked> trocar o nome do cliente, da empresa e a saudação por {nome}, {empresa} e {saudacao} (serve pra todos)</label>' +
+        '<div class="rr-svst"></div></div></div><div class="rr-rod"><span class="rr-lk" data-rr="voltar">‹ Voltar</span><button data-rr="svOk"' + (tx ? '' : ' disabled') + '>💾 Salvar no PF</button></div>';
+      RR.innerHTML = h; rrPos(); var n = RR.querySelector('.rr-svn'); if (n) n.focus(); return;
+    }
+    if (!rrSlash) h += '<input class="rr-q" placeholder="Procurar resposta…" value="' + esc(rrQ) + '">';
+    else h += '<div class="rr-dica">Procurando: <b>/' + esc(rrQ) + '</b> · ↑ ↓ escolhe · Enter põe na caixa · Esc fecha</div>';
+    var G = rrFiltrar(); rrLista = [];
+    if (rrAuto && rrQ) { var _f = []; G.forEach(function (g) { _f = _f.concat(g.itens); }); var _j = _f.findIndex(function (x) { return x._nt === 0; }); rrSel = _j > 0 ? _j : 0; }
+    h += '<div class="rr-corpo">';
+    G.forEach(function (g) {
+      h += '<div class="rr-gt">' + esc(g.t) + '</div>';
+      if (!g.itens.length) { h += '<div class="rr-nada">' + esc(rrQ ? 'Nada com esse nome.' : (g.vazio || 'nenhuma')) + '</div>'; return; }
+      g.itens.forEach(function (x) {
+        var i = rrLista.length; rrLista.push(x);
+        h += '<div class="rr-it' + (i === rrSel ? ' on' : '') + (x.form ? ' rr-form' : '') + '" data-rr="usar" data-i="' + i + '"><b>' + esc(x.t) + '</b>' +
+          (x.falta && x.falta.length ? '<span class="rr-falta" title="Esse cliente não tem esse dado no cadastro — sai em branco">⚠ sem ' + esc(x.falta.join(', ')) + '</span>' : '') +
+          (x.form ? '<span class="rr-falta">📝 abre no PF</span>' : '') + '<small>' + esc(x.txt) + '</small></div>';
+      });
+    });
+    h += '</div><div class="rr-rod"><span class="rr-lk" data-rr="salvar" title="Pega o que está escrito na caixa e guarda como atalho de texto do PF">➕ Salvar o que escrevi como resposta</span><span class="rr-lk" data-rr="pf" title="Ferramentas → Atalhos de Texto">✏️ Editar no PF</span></div>';
+    RR.innerHTML = h; rrPos();
+    var on = RR.querySelector('.rr-it.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+  }
+  function rrPor(texto) {
+    var cx = caixaTexto(); if (!cx) return false;
+    if (rrSlash) { cx.focus(); try { document.execCommand('selectAll', false, null); } catch (e) { } }
+    return escreverNaCaixa(texto);
+  }
+  async function rrUsar(i) {
+    var x = rrLista[i]; if (!x) return;
+    if (x.form) { msg({ t: 'acao', acao: 'rrForm', arg: x.id, focar: true }); rrFechar(); return; }
+    var ok = rrPor(x.txt); rrFechar();
+    if (ok) msg({ t: 'acao', acao: 'rrUsou', arg: x.id });
+  }
+  async function rrClique(e) {
+    var el = e.target.closest('[data-rr]'); if (!el) return; var a = el.getAttribute('data-rr');
+    e.preventDefault(); e.stopPropagation();
+    if (a === 'fechar') { rrFechar(); return; }
+    if (a === 'usar') { rrUsar(+el.getAttribute('data-i')); return; }
+    if (a === 'vars') { rrModo = rrModo === 'vars' ? '' : 'vars'; rrPinta(); return; }
+    if (a === 'voltar') { rrModo = ''; rrPinta(); return; }
+    if (a === 'var') { var v = el.getAttribute('data-v'); if (v) { rrSlash = false; escreverNaCaixa(v); } return; }
+    if (a === 'salvar') { rrSlash = false; rrModo = 'salvar'; rrPinta(); return; }
+    if (a === 'pf') { msg({ t: 'acao', acao: 'irTela', arg: { tela: 'atalhos' }, focar: true }); rrFechar(); return; }
+    if (a === 'svOk') {
+      var n = (RR.querySelector('.rr-svn') || {}).value || '', st = RR.querySelector('.rr-svst'), cx = caixaTexto(), tx = cx ? (cx.innerText || '').trim() : '';
+      if (!n.trim()) { st.textContent = 'Dê um nome pra resposta.'; RR.querySelector('.rr-svn').focus(); return; }
+      if (!tx) { st.textContent = 'A caixa do WhatsApp está vazia.'; return; }
+      el.disabled = true; st.textContent = 'Salvando…';
+      var r = await msg({ t: 'acao', acao: 'rrSalvar', arg: { nome: n.trim(), texto: tx, trocar: !!(RR.querySelector('.rr-svtr') || {}).checked, k: resp && resp.k, contato: contatoAt && contatoAt.nome } });
+      if (r && r.ok) { st.innerHTML = '✔ Salvo nos Atalhos de Texto do PF como <b>' + esc(n.trim()) + '</b>:<br><small>' + esc(r.texto || '') + '</small>'; rrDados = null; setTimeout(function () { if (rrModo === 'salvar') { rrModo = ''; rrCarregar(true).then(rrPinta); } }, 2200); }
+      else { el.disabled = false; st.textContent = 'Não deu — abra o PartsFlow numa aba.'; }
+    }
+  }
+  function rrInput(e) { if (e.target.classList.contains('rr-q')) { rrQ = e.target.value; rrSel = 0; rrAuto = true; var p = e.target.selectionStart; rrPinta(); var i = RR.querySelector('.rr-q'); if (i) { i.focus(); i.setSelectionRange(p, p); } } }
+  function rrMover(d) { rrAuto = false; if (!rrLista.length) return; rrSel = (rrSel + d + rrLista.length) % rrLista.length; rrPinta(); if (!rrSlash) { var i = RR.querySelector('.rr-q'); if (i) i.focus(); } }
+  function rrTecla(e) {
+    if (!e.target.classList.contains('rr-q')) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); rrMover(1); } else if (e.key === 'ArrowUp') { e.preventDefault(); rrMover(-1); }
+    else if (e.key === 'Enter') { e.preventDefault(); rrUsar(rrSel); } else if (e.key === 'Escape') { e.preventDefault(); rrFechar(); }
+  }
+  // "/" no começo da caixa do WhatsApp
+  document.addEventListener('input', function (e) {
+    if (CFG.barra === false || !e.target || !e.target.closest || !e.target.closest('#main footer')) return;
+    var cx = caixaTexto(); if (!cx) return; var t = (cx.innerText || '').replace(/\n$/, '');
+    var m = t.match(/^\/([^\n\/]{0,30})$/);
+    if (m) { if (rrAberto && rrSlash) { rrQ = m[1]; rrSel = 0; rrAuto = true; rrPinta(); } else rrAbrir(m[1], true); }
+    else if (rrAberto && rrSlash) rrFechar();
+  }, true);
+  document.addEventListener('keydown', function (e) {
+    if (!rrAberto) return;
+    if (e.key === 'Escape') { rrFechar(); e.preventDefault(); e.stopPropagation(); return; }
+    if (!rrSlash || !e.target || !e.target.closest || !e.target.closest('#main footer')) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); rrMover(e.key === 'ArrowDown' ? 1 : -1); }
+    else if (e.key === 'Enter' || e.key === 'Tab') { if (rrLista.length) { e.preventDefault(); e.stopPropagation(); rrUsar(rrSel); } }
+  }, true);
+  document.addEventListener('mousedown', function (e) { if (rrAberto && RR && !RR.contains(e.target) && !(e.target.closest && e.target.closest('#pfwa-bots,#main footer'))) rrFechar(); }, true);
+  setInterval(function () { if (rrAberto) { if (!contatoAt || rrChave !== ultimo) { rrFechar(); rrDados = null; } else rrPos(); } }, 700);
 
   processarEnvio();
   setInterval(function () { vigiar().catch(function (e) { console.warn('PF', e); }); try { carregarSituacoes(); badgesRender(); aplicarFiltro(); } catch (e) { } }, 1500);

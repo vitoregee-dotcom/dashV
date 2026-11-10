@@ -2345,6 +2345,14 @@
   há ≥ min (e < 3 h, caixa vazia) → frase sorteada (`autoTexto`; {nome} = contato do PF ou a pessoa de "Pessoa - Empresa", nome de empresa sozinho = sem nome) → envia e confere. Com `abrir` ligado e você parado
   1 min: abre até 3 conversas não lidas da lista com hora ≥ min (`autoCandidatas`), manda e volta pra conversa de antes. Etiqueta "👋 saudação enviada · responda" na lista (`autoPend`/`autoBadges`) até você
   mandar outra mensagem; acao `autoSaud` grava "👋 Saudação automática: …" no CRM do cliente. Hora da mensagem = `[HH:MM, DD/MM/AAAA]` do data-pre-plain-text (`msgQuando`). Falta validar no WhatsApp real.
+- v115.2631 **🗓️ Meu status + mensagens naturais** (extensão **4.0**; Vitor: "a msg quero mais humanizada, como se eu tivesse mandado" + "deixa uma de ausência também, reunião, ausente, férias"; capturas
+  `docs/referencias/whatsapp-menu/feito-msg-natural.png` / `feito-status-ferias.png` / `feito-ferias-enviada.png`): ⚙️ → 👋 Mensagens automáticas. Saudação de espera com estilo `estilo` ✨ natural (padrão:
+  `autoNatural` = abertura variada `autoAbertura` (às vezes sem nome) + frase pelo que o cliente mandou `autoContexto` — códigos/foto/áudio/preço/prazo/pergunta, lido do bloco desde a sua última msg em
+  `ultimaMsg` (foto/áudio sem texto contam; hora pelo data-pre-plain-text ou pela hora da folha) — sem repetir a última `autoUlt`, espera 1,5–4 s "lendo" + tempo de "digitando") ou ✍️ minhas frases.
+  **Meu status** `AUTO.modo` normal/reuniao/ausente/ferias (`AUTO_MODOS`, `autoModoSet`: `ate` padrão +1 h / +2 h / +7 dias, `ausDesde`; férias com `subst`/`substTel`; `ausMin` 1 min; texto próprio
+  `ausTxt[modo]` com {saudacao}{nome}{volta}{substituto}): manda UMA vez por conversa no período (`autoAusEnv` = modo|ate|ausDesde), a QUALQUER hora (ignora horário/liga), abre as outras conversas sozinho
+  quando você está parado; no `ate` volta pra Disponível (`autoAusente`). Pílula `.pfwa-stpill` no cabeçalho do painel; etiqueta "🏖️ avisei que tô fora · responda"; CRM "🗓️ Aviso de ausência (modo)".
+  Pedido do Vitor (próximo): mudar o status mandando WhatsApp ("preciso poder ajustar essas coisas enviando um whatsapp") — proposta: comandos na conversa com você mesmo.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

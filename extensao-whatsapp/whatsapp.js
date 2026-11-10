@@ -431,6 +431,7 @@
     if (ac === 'svFechar') { svAberto = false; SV.style.display = 'none'; return; }
     if (ac === 'svUsar') { svUsar(arg); return; }
     if (ac === 'svGrupo') { svGrupoSet(arg); return; } // 4.7
+    if (ac === 'svGrupoNovo') { svGrupoNovo(); return; } // 4.15
     if (ac === 'svSalvar') { svSalvar(b); return; }
     if (ac === 'svCriar') { svSalvar(b, true); return; }
     if (ac === 'svCadAbrir') { if (svK) msg({ t: 'acao', acao: 'irTela', arg: { tela: 'cadcliK', k: svK } }); return; }
@@ -785,8 +786,26 @@
   function svCodBase(n) { var m = String(n || '').match(/\(\s*(\d{2,8})\s*\)/); return m ? m[1] : ''; }
   // 4.7 - A pedido do Vitor ("coloca pra eu escolher o grupo do cliente, já pra vir com o grupo pro cadastro, ex. linha amarela")
   var SV_GRUPOS = [['amarela', 'Linha Amarela', '#E6B800'], ['agricola', 'Linha Agrícola', '#27AE60'], ['energia', 'Energia', '#1a1a1a'], ['rodoviario', 'Rodoviário', '#C0392B'], ['maritimo', 'Marítimo', '#7B3FC4'], ['portuario', 'Portuário', '#2E86DE']];
-  var svGrupo = '';
-  function svGrupoSet(g) { svGrupo = svGrupo === g ? '' : g; Array.prototype.forEach.call(SV.querySelectorAll('.sv-g'), function (x) { x.classList.toggle('on', x.getAttribute('data-g') === svGrupo); }); }
+  // 4.15 - A pedido do Vitor ("preciso poder selecionar mais de um grupo e até criar outro"): multi-seleção + criar grupo (guardado neste navegador).
+  var SV_GRUPOS_EXTRA = [];
+  try { chrome.storage.local.get(['svGruposExtra'], function (r) { if (r && Array.isArray(r.svGruposExtra)) SV_GRUPOS_EXTRA = r.svGruposExtra; }); } catch (e) { }
+  var svGrupos = [];
+  function svGruposTodos() { return SV_GRUPOS.concat(SV_GRUPOS_EXTRA); }
+  function svGruposRowHtml() {
+    return svGruposTodos().map(function (g) { return '<span class="sv-g' + (svGrupos.indexOf(g[0]) >= 0 ? ' on' : '') + '" data-acao="svGrupo" data-arg="' + g[0] + '" data-g="' + g[0] + '" style="--c:' + g[2] + '"><i></i>' + esc(g[1]) + '</span>'; }).join('') +
+      '<span class="sv-g sv-gnovo" data-acao="svGrupoNovo" title="Criar um grupo novo">➕ grupo</span>';
+  }
+  function svGruposRender() { var r = SV && SV.querySelector('.sv-gr'); if (r) r.innerHTML = svGruposRowHtml(); }
+  function svGrupoSet(g) { var i = svGrupos.indexOf(g); if (i >= 0) svGrupos.splice(i, 1); else svGrupos.push(g); svGruposRender(); }
+  function svGrupoNovo() {
+    var nome = (prompt('Nome do grupo novo:') || '').trim(); if (!nome) return;
+    if (svGruposTodos().some(function (g) { return g[1].toUpperCase() === nome.toUpperCase(); })) { var jg = svGruposTodos().find(function (g) { return g[1].toUpperCase() === nome.toUpperCase(); }); if (jg && svGrupos.indexOf(jg[0]) < 0) svGrupos.push(jg[0]); svGruposRender(); return; }
+    var cores = ['#E67E22', '#16A085', '#8E44AD', '#2C3E50', '#D35400', '#2980B9', '#C0392B'];
+    var id = 'g_' + Date.now().toString(36);
+    SV_GRUPOS_EXTRA.push([id, nome, cores[SV_GRUPOS_EXTRA.length % cores.length]]);
+    try { chrome.storage.local.set({ svGruposExtra: SV_GRUPOS_EXTRA }); } catch (e) { }
+    svGrupos.push(id); svGruposRender();
+  }
   function svMontar() {
     var n = (SV.querySelector('.sv-nome') || {}).value || '', e = (SV.querySelector('.sv-emp') || {}).value || '', c = (SV.querySelector('.sv-cod') || {}).value || '';
     return [n.trim(), e.trim() ? ' - ' + e.trim() : '', c.trim() ? ' (' + c.trim().replace(/\D/g, '') + ')' : ''].join('').trim();
@@ -794,6 +813,7 @@
   function svPrev() { var p = SV && SV.querySelector('.sv-prev'); if (p) p.textContent = svMontar() || '—'; }
   function svAbrir(cnpjPre) { // 4.4 - cnpjPre = CNPJ pra já preencher (veio da conversa)
     var c = contatoAt; if (!c || c.grupo) return;
+    svGrupos = []; // 4.15 - começa sem grupo marcado
     var r = resp && resp.achou && resp.tipo === 'cliente' ? resp : null;
     svK = r ? r.k : ''; svSug = [];
     var nome = svNomeBase(c.nome) || (r && r.contato) || '', emp = svEmpBase(c.nome) || (r ? r.titulo : ''), cod = svCodBase(c.nome) || (r && r.cod) || '';
@@ -805,13 +825,13 @@
       '<label>CARGO<input class="sv-cargo" value="' + esc((r && r.cargo) || '') + '" placeholder="Ex.: Compras, Dono, Mecânico" list="pfwa-sv-cargos"></label>' +
       '<datalist id="pfwa-sv-cargos"><option>Compras<option>Comprador<option>Dono<option>Sócio<option>Gerente<option>Financeiro<option>Mecânico<option>Encarregado<option>Vendedor<option>Balconista</datalist>' +
       '<label>CÓDIGO NO JBOSS<input class="sv-cod" value="' + esc(cod) + '" placeholder="Ex.: 12662" inputmode="numeric"></label>' +
-      '<div class="sv-gl">GRUPO DO CLIENTE</div><div class="sv-gr">' + SV_GRUPOS.map(function (g) { return '<span class="sv-g" data-acao="svGrupo" data-arg="' + g[0] + '" data-g="' + g[0] + '" style="--c:' + g[2] + '"><i></i>' + g[1] + '</span>'; }).join('') + '</div>' +
+      '<div class="sv-gl">GRUPO DO CLIENTE <span style="font-weight:600;text-transform:none;color:#8a9ab0">(pode escolher mais de um)</span></div><div class="sv-gr">' + svGruposRowHtml() + '</div>' +
       '<label>CNPJ <span style="font-weight:600;text-transform:none">(cliente novo entra como pré-cadastro 🌱)</span><input class="sv-cnpj" value="' + esc(fmtCnpj(cnpjPre || '')) + '" placeholder="00.000.000/0000-00" inputmode="numeric"></label>' +
       '<div class="sv-pv">Vai ficar: <b class="sv-prev"></b></div>' +
       '<div class="sv-k">' + (svK && r && r.titulo ? '🔗 ligado a <b>' + esc(r.titulo) + '</b>' : '') + '</div>' +
       '<div class="sv-bts"><button class="sv-ok" data-acao="svSalvar">💾 Salvar no PF</button><button class="sv-wa" data-acao="svWa" title="Só renomeia/salva o contato no WhatsApp (e no celular) — nada vai pro PF">📱 Só no WhatsApp</button></div>' +
       '<div class="sv-st"></div>';
-    svGrupo = ''; SV.style.display = 'block'; svAberto = true; svPos(); svPrev();
+    SV.style.display = 'block'; svAberto = true; svPos(); svPrev();
     ['sv-nome', 'sv-emp', 'sv-cod'].forEach(function (k) { var i = SV.querySelector('.' + k); if (i) i.oninput = function () { svPrev(); if (k === 'sv-emp' || (k === 'sv-cod' && !svK)) { if (k === 'sv-emp') { svK = ''; SV.querySelector('.sv-k').innerHTML = ''; } clearTimeout(svT); svT = setTimeout(function () { svBuscar(i.value); }, 250); } }; });
     var cnI = SV.querySelector('.sv-cnpj'); if (cnI) cnI.oninput = function () { var d = cnI.value.replace(/\D/g, '').slice(0, 14); cnI.value = d.length === 14 ? d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') : d; };
     var f = SV.querySelector(nome ? '.sv-emp' : '.sv-nome'); if (f) f.focus();
@@ -838,7 +858,8 @@
     var txt = b.textContent; b.disabled = true; b.textContent = 'Salvando…';
     var cn = v('sv-cnpj').replace(/\D/g, ''); if (cn && cn.length !== 14 && cn.length !== 11) { flash(b, 'CNPJ incompleto'); b.disabled = false; b.textContent = txt; return; }
     if (cn) b.textContent = 'Buscando o CNPJ…';
-    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: svGrupo } });
+    var _gs = svGrupos.map(function (id) { var g = svGruposTodos().find(function (x) { return x[0] === id; }); return g && /^g_/.test(id) ? g[1] : id; }).filter(Boolean); // 4.15 - grupo base = chave; grupo criado = o nome
+    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: _gs[0] || '', grupos: _gs } });
     b.disabled = false; b.textContent = txt;
     var st = SV.querySelector('.sv-st');
     if (r && r.ok) {
@@ -1362,11 +1383,10 @@
     var liga = CFG.selo !== false && avisoLigado && contatoAt && !contatoAt.grupo;
     var els = Array.prototype.slice.call(document.querySelectorAll('#main [data-pre-plain-text]')).slice(-40);
     var txt = function (el) { var tx = el.querySelector('.selectable-text'); return ((tx ? tx.innerText : el.innerText) || '').replace(/📄\s*\d+\+?|✓ cot\./g, '').trim(); };
-    // blocos = mensagens seguidas do cliente (até a próxima sua); o selo vai na última do bloco e lê o pedido inteiro
-    var blocos = [], cur = null;
-    els.forEach(function (el) { if (el.closest('.message-out')) { cur = null; return; } if (!cur) { cur = []; blocos.push(cur); } cur.push(el); });
-    var alvo = {};
-    if (liga) blocos.forEach(function (b) { var t = b.map(txt).join('\n'); var n = spContaCods(t); if (n) alvo[blocos.indexOf(b)] = { el: b[b.length - 1], t: t, n: n }; });
+    // 4.15 - A pedido do Vitor ("não to achando esse número que ele encontrou 13X32"): o selo lia o BLOCO inteiro de mensagens
+    // do cliente e puxava código de outra mensagem. Agora lê SÓ a mensagem onde o selo está (o código tem que estar nela).
+    var alvo = [];
+    if (liga) els.forEach(function (el) { if (el.closest('.message-out')) return; var t = txt(el); var n = spContaCods(t); if (n) alvo.push({ el: el, t: t, n: n }); });
     els.forEach(function (el) { var s = el.querySelector(':scope > .pfwa-selo'); if (s && !Object.keys(alvo).some(function (k) { return alvo[k].el === el; })) s.remove(); });
     Object.keys(alvo).forEach(function (k) {
       var A = alvo[k], el = A.el, t = A.t, n = A.n;

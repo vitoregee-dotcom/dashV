@@ -253,7 +253,7 @@
       h += '<div class="pfwa-cfgl" data-acao="cfgTog" data-arg="' + x[0] + '"><span class="pfwa-cfgi">' + x[1] + '</span><div><b>' + esc(x[2]) + '</b><br><small>' + esc(x[3]) + '</small></div>' +
         '<span class="pfwa-sw' + (on ? ' on' : '') + '"><i></i></span></div>';
     });
-    h += '<div class="pfwa-cfgl" data-acao="autoAbrir"><span class="pfwa-cfgi">👋</span><div><b>Saudação automática</b><br><small>' + (AUTO.on ? 'Ligada · ' + esc(AUTO.min) + ' min sem resposta · ' + esc(AUTO.ini) + '–' + esc(AUTO.fim) : 'Desligada') + ' — clique pra ajustar</small></div><span class="pfwa-link">ajustar ›</span></div>';
+    h += '<div class="pfwa-cfgl" data-acao="autoAbrir"><span class="pfwa-cfgi">👋</span><div><b>Mensagens automáticas</b><br><small>' + (autoAusente() ? AUTO_MODOS[autoAusente()][0] + ' ' + AUTO_MODOS[autoAusente()][1] + ' · ' : '') + 'Saudação de espera ' + (AUTO.on ? 'ligada · ' + esc(AUTO.min) + ' min · ' + esc(AUTO.ini) + '–' + esc(AUTO.fim) : 'desligada') + ' — clique pra ajustar</small></div><span class="pfwa-link">ajustar ›</span></div>';
     return h;
   }
   function cfgTog(k) {
@@ -300,7 +300,8 @@
       ['🔔', 'Pedido de cotação', 'Quando o cliente manda códigos, aparece uma bolinha laranja com o número de códigos no botão 📄 do PF (ao lado das mensagens). Clique nela pra cotar. Pra desligar: ⚙️ Configurações → Aviso de pedido de cotação, ou o botão direito na bolinha.'],
       ['📄', 'Selo na mensagem', 'A mensagem do cliente que tem códigos ganha um selinho laranja "📄 3" no canto. Clique nele: aparecem os códigos com quantidade e saldo e o botão "Criar cotação no PF". Só cria se você clicar. Depois de criada, o selo fica verde ✓.'],
       ['💡', 'Ofertas', 'Quando você oferece algo e o cliente responde, o PF pergunta o que ele achou e guarda na ficha. Se for oferecer de novo, ele avisa "você já ofereceu".'],
-      ['👋', 'Saudação automática', 'Se o cliente fica X minutos sem resposta (você escolhe), a extensão manda UMA frase de espera sorteada das suas ("já te respondo"). Só no horário escolhido, uma vez por conversa a cada N horas e com limite por hora. Vem desligada: ⚙️ Configurações → Saudação automática. A conversa fica com a etiqueta "👋 saudação enviada · responda" até você responder.'],
+      ['👋', 'Saudação de espera', 'Se o cliente fica X minutos sem resposta (você escolhe), a extensão manda UMA mensagem como se fosse você, de acordo com o que ele mandou ("já vou ver esses códigos", "vi a foto", "vou ouvir aqui"…). Só no horário escolhido, uma vez por conversa a cada N horas e com limite por hora. Vem desligada: ⚙️ → Mensagens automáticas. A conversa fica com a etiqueta "👋 … responda" até você responder.'],
+      ['🗓️', 'Meu status (reunião, ausente, férias)', 'Em ⚙️ → Mensagens automáticas escolha Em reunião / Ausente / Férias e até quando (nas férias, quem atende no seu lugar). Cada cliente que chamar recebe UMA mensagem avisando, a qualquer hora. No "até" volta sozinho pra Disponível. Enquanto estiver fora, aparece no cabeçalho do painel.'],
       ['📌', 'Vou verificar', 'Se você escrever "deixa eu ver / vou verificar / já te retorno", o PF cria uma pendência sozinho (com desfazer).'],
       ['📇', 'Código que não está no PF', 'Se o nome no WhatsApp tem um código entre parênteses que não existe no PF, aparece "Cadastrar no PF" já com o código.']]],
     ['Embaixo do painel', [
@@ -378,9 +379,11 @@
     if (ac === 'aba') { ajuda = false; config = false; irAba(arg); return; }
     if (ac === 'config') { config = !config; ajuda = false; abrirPainel(); pinta(); return; }
     if (ac === 'cfgTog') { cfgTog(arg); return; }
-    if (ac === 'autoAbrir') { config = 'auto'; pinta(); return; } // 3.9 - 👋 saudação automática
+    if (ac === 'autoAbrir') { config = 'auto'; abrirPainel(); pinta(); return; } // 3.9 - 👋 saudação automática
     if (ac === 'autoVoltar') { config = true; pinta(); return; }
     if (ac === 'autoTog') { AUTO[arg] = !AUTO[arg]; autoGravar(); pinta(); return; }
+    if (ac === 'autoModo') { autoModoSet(arg); config = 'auto'; abrirPainel(); pinta(); return; } // 4.0 - 🗓️ meu status
+    if (ac === 'autoEstilo') { AUTO.estilo = arg; autoGravar(); pinta(); return; }
     if (ac === 'svAbrir') { if (svAberto) { svAberto = false; SV.style.display = 'none'; } else svAbrir(); return; } // 2.7
     if (ac === 'svFechar') { svAberto = false; SV.style.display = 'none'; return; }
     if (ac === 'svUsar') { svUsar(arg); return; }
@@ -1276,24 +1279,30 @@
   document.addEventListener('scroll', function () { spPos(); }, true);
   setInterval(function () { try { selosVigiar(); } catch (e) { } }, 1500);
 
-  // ═══ 👋 SAUDAÇÃO AUTOMÁTICA (3.9) ═══
-  // A pedido do Vitor ("se eu não responder em 3 min pode mandar alguma msg. mas quero configurável"): o cliente mandou mensagem e você não respondeu
-  // em X minutos → a extensão manda UMA frase de espera (sorteada das suas), só no horário escolhido, uma vez por conversa a cada N horas e com teto
-  // por hora. Vem DESLIGADA; liga e ajusta em ⚙️ Configurações → 👋 Saudação automática. Única função da extensão que manda sozinha.
+  // ═══ 👋 SAUDAÇÃO AUTOMÁTICA (3.9) + 🗓️ MEU STATUS (4.0) ═══
+  // 3.9 - A pedido do Vitor ("se eu não responder em 3 min pode mandar alguma msg. mas quero configurável"): o cliente ficou X minutos sem resposta →
+  // UMA mensagem de espera, só no horário escolhido, uma vez por conversa a cada N horas e com teto por hora. Liga em ⚙️ → 👋 Saudação automática.
+  // 4.0 - A pedido do Vitor ("a msg quero mais humanizada, como se eu tivesse mandado" + "deixa uma de ausência também, pra quando eu tiver em reunião,
+  // ou ausente, ou de férias"): o jeito ✨ Natural monta a frase pelo que o CLIENTE mandou (códigos → "já vou ver esses códigos", foto → "vi a foto",
+  // áudio → "vou ouvir aqui", preço → "já te passo o valor"…), varia a saudação, às vezes sem nome, sem repetir a última, e espera alguns segundos
+  // "digitando" antes de mandar. 🗓️ Meu status: Disponível / Em reunião / Ausente / Férias (até quando + quem atende) → manda a mensagem de ausência
+  // UMA vez por conversa no período, a qualquer hora; quando o "até" passa, volta sozinho pra Disponível.
   var AUTO_PADRAO = {
     on: false, min: 3, ini: '08:00', fim: '18:00', dias: 'semana', quem: 'clientes', abrir: false, horas: 4, porHora: 15,
-    frases: ['{saudacao}, {nome}! Tô terminando um atendimento e já te respondo 🙂',
-      '{saudacao}, {nome}! Recebi sua mensagem, em instantes te retorno.',
-      'Oi, {nome}! Já vi aqui, só um minutinho que já te respondo.',
-      '{saudacao}, {nome}! Tô verificando aqui e já falo com você.']
+    estilo: 'natural',
+    frases: ['{saudacao}, {nome}! Tô terminando um atendimento e já te respondo',
+      '{saudacao}, {nome}! Recebi aqui, em instantes te retorno.',
+      'Oi, {nome}! Já vi aqui, só um minutinho que já te respondo.'],
+    modo: 'normal', ate: '', subst: '', substTel: '', ausMin: 1, ausTxt: { reuniao: '', ausente: '', ferias: '' }
   };
-  var AUTO = JSON.parse(JSON.stringify(AUTO_PADRAO)), autoEnv = {}, autoHist = [], autoPend = {}, autoOcup = false, autoUltMexeu = Date.now();
-  chrome.storage.local.get(['auto', 'autoEnv', 'autoHist', 'autoPend'], function (s) {
+  var AUTO = JSON.parse(JSON.stringify(AUTO_PADRAO)), autoEnv = {}, autoHist = [], autoPend = {}, autoOcup = false, autoUltMexeu = Date.now(), autoUlt = {}, autoAusEnv = {};
+  chrome.storage.local.get(['auto', 'autoEnv', 'autoHist', 'autoPend', 'autoUlt', 'autoAusEnv'], function (s) {
     if (s.auto) for (var k in s.auto) AUTO[k] = s.auto[k];
-    autoEnv = s.autoEnv || {}; autoHist = s.autoHist || []; autoPend = s.autoPend || {};
+    if (!AUTO.ausTxt) AUTO.ausTxt = { reuniao: '', ausente: '', ferias: '' };
+    autoEnv = s.autoEnv || {}; autoHist = s.autoHist || []; autoPend = s.autoPend || {}; autoUlt = s.autoUlt || {}; autoAusEnv = s.autoAusEnv || {};
   });
   ['mousemove', 'keydown', 'mousedown', 'wheel'].forEach(function (t) { document.addEventListener(t, function () { autoUltMexeu = Date.now(); }, true); });
-  function autoGravar() { chrome.storage.local.set({ auto: AUTO, autoEnv: autoEnv, autoHist: autoHist.slice(-60), autoPend: autoPend }); }
+  function autoGravar() { chrome.storage.local.set({ auto: AUTO, autoEnv: autoEnv, autoHist: autoHist.slice(-60), autoPend: autoPend, autoUlt: autoUlt, autoAusEnv: autoAusEnv }); }
   function autoHM(s) { var m = String(s || '').match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : 0; }
   function autoNoHorario(d) {
     d = d || new Date(); var dw = d.getDay();
@@ -1302,18 +1311,71 @@
     var m = d.getHours() * 60 + d.getMinutes(), a = autoHM(AUTO.ini), b = autoHM(AUTO.fim);
     return a <= b ? (m >= a && m < b) : (m >= a || m < b);
   }
+  // status de ausência valendo agora? (o "até" que passou volta pra Disponível)
+  function autoAusente() {
+    if (!AUTO.modo || AUTO.modo === 'normal') return '';
+    if (AUTO.ate) { var t = new Date(AUTO.ate).getTime(); if (t && Date.now() > t) { AUTO.modo = 'normal'; AUTO.ate = ''; autoGravar(); try { pinta(); } catch (e) { } return ''; } }
+    return AUTO.modo;
+  }
+  var AUTO_MODOS = { normal: ['🟢', 'Disponível'], reuniao: ['📅', 'Em reunião'], ausente: ['🚶', 'Ausente'], ferias: ['🏖️', 'Férias'] };
+  function autoSorteia(l, evita) { var c = l.filter(function (x) { return x !== evita; }); if (!c.length) c = l; return c[Math.floor(Math.random() * c.length)]; }
   function autoSaudacao() { var h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; }
   function autoPrimeiroNome(n) {
     // só usa nome de PESSOA: o contato do cadastro (PF) ou o 1º pedaço de "Pessoa - Empresa"; nome de empresa sozinho = sem nome
     var b = '';
     if (resp && contatoAt && contatoAt.nome === n && resp.contato) b = resp.contato;
-    else if (svPartes(n).length >= 2) b = svNomeBase(n); b = String(b || '').replace(/[^A-Za-zÀ-ÿ\s'-]/g, ' ').trim().split(/\s+/)[0] || '';
+    else if (svPartes(n).length >= 2) b = svNomeBase(n);
+    b = String(b || '').replace(/[^A-Za-zÀ-ÿ\s'-]/g, ' ').trim().split(/\s+/)[0] || '';
     if (b.length < 2) return ''; return b.charAt(0).toUpperCase() + b.slice(1).toLowerCase();
   }
-  function autoTexto(nome) {
+  function autoCap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
+  // abertura "Bom dia, Carlos!" / "Opa, boa tarde" / "Oi Carlos" — varia, às vezes sem nome
+  function autoAbertura(nm) {
+    var s = autoSaudacao(), sl = s.toLowerCase(), comNome = nm && Math.random() < 0.7;
+    var l = comNome ? [s + ', ' + nm + '!', s + ' ' + nm + '!', 'Opa, ' + sl + ' ' + nm + '!', 'Oi ' + nm + ', ' + sl + '!', 'Olá ' + nm + '!', s + ', ' + nm + ', tudo bem?']
+      : [s + '!', 'Opa, ' + sl + '!', 'Oi, ' + sl + '!', s + ', tudo bem?', 'Olá!'];
+    return autoSorteia(l);
+  }
+  function autoContexto(u) {
+    var t = (u && u.bloco) || '', ncod = 0;
+    (t.match(COD_RE) || []).forEach(function (tk) { if (tk.replace(/\D/g, '').length >= 4 && !/^\d{1,2}[\/.:]\d{2}/.test(tk)) ncod++; });
+    if (u && u.audio) return ['vou ouvir aqui e já te respondo', 'já escuto seu áudio e te falo', 'só um minutinho que já ouço aqui'];
+    if (u && u.foto) return ['vi a foto, vou verificar aqui e já te falo', 'recebi a foto, já vou ver aqui', 'deixa eu ver a foto direitinho e já te respondo'];
+    if (ncod >= 2) return ['já vou ver esses códigos aqui', 'vou conferir esses itens no estoque e já te passo', 'já tô vendo esses códigos, um minutinho', 'vou levantar esses itens aqui e já te retorno'];
+    if (ncod === 1) return ['já vou ver esse código aqui', 'vou conferir esse item e já te falo', 'deixa eu ver esse aqui no estoque'];
+    if (/pre[cç]o|valor|quanto|or[cç]amento|cota/i.test(t)) return ['já te passo o valor', 'vou ver o preço aqui e te falo', 'já levanto o valor e te retorno'];
+    if (/prazo|chega|entrega|previs|transport|nota|nf\b|boleto|pedido/i.test(t)) return ['vou verificar aqui e já te dou um retorno', 'deixa eu confirmar aqui e já te falo', 'já vejo isso pra você'];
+    if (/\?/.test(t)) return ['já te respondo', 'deixa eu ver aqui e já te falo', 'vou verificar e já te retorno'];
+    return ['tô finalizando um atendimento aqui e já falo com você', 'só um minutinho que já te respondo', 'já te respondo', 'tô terminando uma cotação aqui e já falo com você'];
+  }
+  function autoNatural(nome, u) {
+    var nm = autoPrimeiroNome(nome), ab = autoAbertura(nm), ct = autoSorteia(autoContexto(u));
+    var fim = autoSorteia(['', '', '', ' 👍', ' 🙏', '!']);
+    return (ab + ' ' + autoCap(ct) + fim).replace(/!!$/, '!').replace(/\?\s+([a-zà-ú])/, function (m, c) { return '? ' + c.toUpperCase(); });
+  }
+  function autoDataBR(s) { var d = new Date(s); if (!s || isNaN(d)) return ''; return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2); }
+  function autoHoraBR(s) { var d = new Date(s); if (!s || isNaN(d)) return ''; var h = d.getHours(), m = d.getMinutes(); return h + 'h' + (m ? ('0' + m).slice(-2) : ''); }
+  function autoAusTexto(nome, modo) {
+    var nm = autoPrimeiroNome(nome), ab = autoAbertura(nm), proprio = String((AUTO.ausTxt || {})[modo] || '').trim();
+    var sub = String(AUTO.subst || '').trim(), tel = String(AUTO.substTel || '').trim(), quem = sub ? (sub + (tel ? ' no ' + tel : '')) : '';
+    var hoje = AUTO.ate && new Date(AUTO.ate).toDateString() === new Date().toDateString();
+    var volta = AUTO.ate ? (hoje ? 'lá pelas ' + autoHoraBR(AUTO.ate) : 'dia ' + autoDataBR(AUTO.ate)) : '';
+    if (proprio) return proprio.replace(/\{saudacao\}/gi, autoSaudacao()).replace(/\{nome\}/gi, nm).replace(/\{volta\}/gi, volta).replace(/\{substituto\}/gi, quem).replace(/\s+([,.!?])/g, '$1').replace(/,\s*!/g, '!');
+    var l;
+    if (modo === 'reuniao') l = ['tô em reunião agora' + (volta ? ', saio ' + volta : '') + ' e já te respondo', 'tô numa reunião, assim que sair' + (volta ? ' (' + volta + ')' : '') + ' te respondo', 'tô em reunião, mas já vi sua mensagem. Assim que terminar falo com você'];
+    else if (modo === 'ferias') l = ['tô de férias' + (AUTO.ate ? ' até ' + autoDataBR(AUTO.ate) : '') + (quem ? '. Pra cotação e pedido fala com o ' + quem + ', ele vai te atender' : ', assim que voltar te respondo'), 'tô de férias' + (AUTO.ate ? ', volto dia ' + autoDataBR(AUTO.ate) : '') + (quem ? '. Enquanto isso o ' + quem + ' te atende, pode chamar ele' : '. Assim que voltar falo com você')];
+    else l = ['no momento tô fora' + (volta ? ', volto ' + volta : '') + ', mas assim que voltar te respondo', 'tô ausente agora' + (volta ? ' (volto ' + volta + ')' : '') + ', já já te respondo', 'saí rapidinho, assim que voltar falo com você'];
+    return (ab + ' ' + autoCap(autoSorteia(l))).replace(/\s+([,.!?])/g, '$1');
+  }
+  function autoTextoMinhas(nome) {
     var fs = (AUTO.frases || []).map(function (f) { return String(f || '').trim(); }).filter(Boolean); if (!fs.length) fs = AUTO_PADRAO.frases;
     var f = fs[Math.floor(Math.random() * fs.length)], nm = autoPrimeiroNome(nome);
     return f.replace(/\{saudacao\}/gi, autoSaudacao()).replace(/\{nome\}/gi, nm || '\u0000').replace(/[ \t]*,?[ \t]*\u0000/g, '').replace(/ +([,.!?])/g, '$1').replace(/^[,\s]+/, '').trim();
+  }
+  function autoTexto(nome, u, modo) {
+    var ult = autoUlt[nome] || '', t = '', i = 0;
+    do { t = modo ? autoAusTexto(nome, modo) : (AUTO.estilo === 'minhas' ? autoTextoMinhas(nome) : autoNatural(nome, u)); i++; } while (t === ult && i < 6);
+    return t;
   }
   // hora da mensagem pelo [14:30, 10/11/2026] do WhatsApp
   function msgQuando(el) {
@@ -1322,15 +1384,31 @@
     var d = m[6] ? new Date(+m[6], +m[5] - 1, +m[4], h, +m[2]) : new Date(); if (!m[6]) d.setHours(h, +m[2], 0, 0);
     var t = d.getTime(); if (t > Date.now() + 60000) t -= 86400000; return t;
   }
+  function horaFolha(el) {
+    var hm = null; el.querySelectorAll('span,div').forEach(function (e) { if (hm == null && e.children.length === 0 && /^\d{1,2}:\d{2}$/.test((e.textContent || '').trim())) hm = (e.textContent || '').trim(); });
+    if (!hm) return 0; var d = new Date(); d.setHours(+hm.split(':')[0], +hm.split(':')[1], 0, 0); var t = d.getTime(); if (t > Date.now() + 60000) t -= 86400000; return t;
+  }
+  // última mensagem da conversa (inclui foto/áudio sem texto) + o "bloco" que o cliente mandou desde a sua última
   function ultimaMsg() {
-    var els = document.querySelectorAll('#main [data-pre-plain-text]'); if (!els.length) return null;
-    var el = els[els.length - 1], tx = el.querySelector('.selectable-text');
-    return { eu: !!el.closest('.message-out'), t: msgQuando(el), txt: ((tx ? tx.innerText : el.innerText) || '').trim() };
+    var els = Array.prototype.slice.call(document.querySelectorAll('#main .message-in, #main .message-out')).filter(function (e) { return !e.parentElement.closest('.message-in, .message-out'); });
+    if (!els.length) return null;
+    var el = els[els.length - 1], eu = el.classList.contains('message-out');
+    var pp = el.querySelector('[data-pre-plain-text]'), tx = el.querySelector('.selectable-text');
+    var t = pp ? msgQuando(pp) : horaFolha(el);
+    var bloco = [], foto = false, audio = false;
+    for (var i = els.length - 1; i >= 0 && !els[i].classList.contains('message-out'); i--) {
+      var e = els[i], s = e.querySelector('.selectable-text'); if (s) bloco.unshift((s.innerText || '').trim());
+      if (!foto) e.querySelectorAll('img').forEach(function (im) { var src = im.getAttribute('src') || ''; if (/^(blob|data):/.test(src) && (im.naturalWidth || im.width || 0) >= 80) foto = true; });
+      if (!audio && e.querySelector('audio,[data-icon^="audio"],[data-icon*="ptt"],[aria-label*="áudio"],[aria-label*="voice"]')) audio = true;
+    }
+    return { eu: eu, t: t, txt: ((tx ? tx.innerText : '') || '').trim(), bloco: bloco.join('\n'), foto: foto, audio: audio };
   }
   function autoChave(c) { return (c.tel || '') + '|' + c.nome; }
-  function autoPodeConv(c) {
+  function autoPodeConv(c, aus) {
     if (!c || c.grupo) return false;
-    var u = autoEnv[autoChave(c)]; if (u && Date.now() - u < (+AUTO.horas || 4) * 3600000) return false;
+    var k = autoChave(c);
+    if (aus) { var per = aus + '|' + (AUTO.ate || '') + '|' + (AUTO.ausDesde || ''); if (autoAusEnv[k] === per) return false; }
+    else { var u = autoEnv[k]; if (u && Date.now() - u < (+AUTO.horas || 4) * 3600000) return false; }
     var h1 = Date.now() - 3600000; autoHist = autoHist.filter(function (t) { return t > h1; });
     return autoHist.length < (+AUTO.porHora || 15);
   }
@@ -1340,48 +1418,56 @@
     var r = await msg({ t: 'acao', acao: 'situacoes', arg: { lista: [{ nome: c.nome, tel: c.tel || '' }] } });
     return !!(r && r.sit && r.sit[c.nome] && r.sit[c.nome].tipo === 'cliente');
   }
+  function autoMarcarFeito(c, aus) { var k = autoChave(c); if (aus) autoAusEnv[k] = aus + '|' + (AUTO.ate || '') + '|' + (AUTO.ausDesde || ''); else autoEnv[k] = Date.now(); autoGravar(); }
   // manda na conversa ABERTA se a última mensagem é do cliente e está sem resposta há X min
   async function autoNaAberta() {
-    var c = contatoAtual(); if (!autoPodeConv(c)) return false;
+    var aus = autoAusente();
+    var c = contatoAtual(); if (!autoPodeConv(c, aus)) return false;
     var u = ultimaMsg(); if (!u || u.eu || !u.t) return false;
-    if (Date.now() - u.t < (+AUTO.min || 3) * 60000) return false;
-    if (Date.now() - u.t > 3 * 3600000) return false; // mensagem velha: não é hora de "já te respondo"
+    var espera = aus ? (+AUTO.ausMin || 1) : (+AUTO.min || 3);
+    if (Date.now() - u.t < espera * 60000) return false;
+    if (Date.now() - u.t > (aus ? 12 : 3) * 3600000) return false; // mensagem velha
+    if (aus && AUTO.ausDesde && u.t < AUTO.ausDesde - 10 * 60000) return false; // chegou antes de você sair
     var cx = caixaTexto(); if (!cx || (cx.innerText || '').trim()) return false; // você está escrevendo
-    if (!(await autoEhCliente(c))) { autoEnv[autoChave(c)] = Date.now(); autoGravar(); return false; }
-    var txt = autoTexto(c.nome);
+    if (!(await autoEhCliente(c))) { autoMarcarFeito(c, aus); return false; }
+    var txt = autoTexto(c.nome, u, aus);
+    await dormir(1500 + Math.random() * 2500); // "lendo"
+    cx = caixaTexto(); if (!cx || (cx.innerText || '').trim() || (contatoAtual() || {}).nome !== c.nome) return false;
     if (!escreverNaCaixa(txt)) return false;
     var btn = await esperar(botaoEnviar, 3000); if (!btn) return false;
-    await dormir(400 + Math.random() * 700); (botaoEnviar() || btn).click();
+    await dormir(Math.min(6000, 900 + txt.length * 45 + Math.random() * 900)); // "digitando…"
+    if ((contatoAtual() || {}).nome !== c.nome) return false;
+    (botaoEnviar() || btn).click();
     var ok = await esperar(function () { var x = caixaTexto(); return x && !(x.innerText || '').trim() ? 1 : null; }, 8000);
     if (!ok) return false;
-    autoEnv[autoChave(c)] = Date.now(); autoHist.push(Date.now()); autoPend[c.nome] = { ts: Date.now(), txt: txt };
+    autoMarcarFeito(c, aus); autoHist.push(Date.now()); autoUlt[c.nome] = txt; autoPend[c.nome] = { ts: Date.now(), txt: txt, aus: aus || '' };
     autoHist = autoHist.slice(-60); autoGravar();
-    msg({ t: 'acao', acao: 'autoSaud', arg: { nome: c.nome, tel: c.tel || '', texto: txt } });
+    msg({ t: 'acao', acao: 'autoSaud', arg: { nome: c.nome, tel: c.tel || '', texto: txt, modo: aus || '' } });
     try { autoBadges(); } catch (e) { }
     return true;
   }
-  // conversas da lista com mensagem não lida há X min (só com "pode abrir a conversa sozinho" e você parado há 1 min)
-  function autoCandidatas() {
-    var hoje = new Date(), out = [];
+  // conversas da lista com mensagem não lida há X min
+  function autoCandidatas(aus) {
+    var out = [], espera = aus ? (+AUTO.ausMin || 1) : (+AUTO.min || 3);
     linhasLista().forEach(function (L) {
       if (!L.unread || autoPend[L.nome]) return;
-      var hm = null; L.el.querySelectorAll('span,div').forEach(function (e) { if (hm == null && e.children.length === 0 && /^\d{1,2}:\d{2}$/.test((e.textContent || '').trim())) hm = (e.textContent || '').trim(); });
-      if (!hm) return;
-      var d = new Date(hoje); d.setHours(+hm.split(':')[0], +hm.split(':')[1], 0, 0); var t = d.getTime(); if (t > Date.now() + 60000) return;
-      var idade = Date.now() - t; if (idade < (+AUTO.min || 3) * 60000 || idade > 3 * 3600000) return;
-      var u = autoEnv[(L.tel || '') + '|' + L.nome]; if (u && Date.now() - u < (+AUTO.horas || 4) * 3600000) return;
+      var t = horaFolha(L.el); if (!t) return;
+      var idade = Date.now() - t; if (idade < espera * 60000 || idade > (aus ? 12 : 3) * 3600000) return;
+      if (!autoPodeConv({ nome: L.nome, tel: L.tel }, aus)) return;
       out.push(L);
     });
     return out;
   }
   async function autoTick() {
-    if (!AUTO.on || autoOcup || !autoNoHorario()) return;
+    var aus = autoAusente();
+    if (autoOcup) return;
+    if (!aus && (!AUTO.on || !autoNoHorario())) return; // ausência vale a qualquer hora
     try { var sL = await chrome.storage.local.get(['lote']); if (sL.lote && !sL.lote.fim) return; } catch (e) { }
     autoOcup = true;
     try {
       if (contatoAt && await autoNaAberta()) return;
-      if (!AUTO.abrir || Date.now() - autoUltMexeu < 60000) return;
-      var cand = autoCandidatas(); if (!cand.length) return;
+      if (!(AUTO.abrir || aus) || Date.now() - autoUltMexeu < 60000) return; // ausente: abre as outras conversas sozinho (você não está mexendo)
+      var cand = autoCandidatas(aus); if (!cand.length) return;
       var antes = contatoAt ? contatoAt.nome : '';
       for (var i = 0; i < cand.length && i < 3; i++) {
         if (Date.now() - autoUltMexeu < 60000) break; // você voltou a mexer: para
@@ -1390,12 +1476,12 @@
         if (!ab) continue;
         await dormir(800);
         var foi = await autoNaAberta();
-        if (!foi) { var c0 = contatoAtual(); if (c0) { autoEnv[autoChave(c0)] = Date.now(); autoGravar(); } }
+        if (!foi) { var c0 = contatoAtual(); var u0 = ultimaMsg(); if (c0 && u0 && u0.eu) autoMarcarFeito(c0, aus); }
       }
       if (antes) { var vt = linhaDoNome(antes); if (vt) clicar(vt); }
     } finally { autoOcup = false; }
   }
-  // você respondeu de verdade → sai do "🤖 aguardando você"
+  // você respondeu de verdade → sai do "👋 aguardando você"
   function autoPendVigiar() {
     var c = contatoAt; if (!c || !autoPend[c.nome]) return;
     var u = ultimaMsg(); if (u && u.eu && u.txt && u.txt !== autoPend[c.nome].txt) { delete autoPend[c.nome]; autoGravar(); }
@@ -1406,36 +1492,73 @@
     Object.keys(autoPend).forEach(function (n) {
       var row = linhaDoNome(n); if (!row || row.querySelector('.pfwa-autob')) return;
       var ne = row.querySelector('span[title]'); if (!ne) return;
-      var b = document.createElement('span'); b.className = 'pfwa-autob'; b.textContent = '👋 saudação enviada · responda';
+      var b = document.createElement('span'); b.className = 'pfwa-autob'; b.textContent = autoPend[n].aus ? AUTO_MODOS[autoPend[n].aus][0] + ' avisei que tô fora · responda' : '👋 saudação enviada · responda';
       b.title = 'A extensão mandou: "' + autoPend[n].txt + '" — some quando você responder';
       (ne.parentElement || row).appendChild(b);
     });
   }
-  setInterval(function () { try { autoPendVigiar(); autoBadges(); } catch (e) { } autoTick().catch(function (e) { console.warn('PF auto', e); }); }, 15000);
+  // pílula do status no cabeçalho do painel (clique = ajustar)
+  function autoStatusPill() {
+    var cab = P && P.querySelector('.pfwa-cabt'); if (!cab) return;
+    var el = cab.querySelector('.pfwa-stpill'), aus = autoAusente();
+    if (!aus) { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement('span'); el.className = 'pfwa-stpill'; el.setAttribute('data-acao', 'autoAbrir'); cab.insertBefore(el, cab.querySelector('.pfwa-cabsub')); }
+    var tx = AUTO_MODOS[aus][0] + ' ' + AUTO_MODOS[aus][1] + (AUTO.ate ? ' até ' + (aus === 'ferias' ? autoDataBR(AUTO.ate) : autoHoraBR(AUTO.ate)) : '');
+    if (el.textContent !== tx) { el.textContent = tx; el.title = 'Mensagem de ausência ligada — clique pra mudar ou voltar pra Disponível'; }
+  }
+  setInterval(function () { try { autoPendVigiar(); autoBadges(); autoStatusPill(); } catch (e) { } autoTick().catch(function (e) { console.warn('PF auto', e); }); }, 15000);
+  setTimeout(function () { try { autoStatusPill(); } catch (e) { } }, 2500);
 
+  function autoModoSet(m) {
+    AUTO.modo = m; AUTO.ausDesde = m === 'normal' ? 0 : Date.now();
+    if (m === 'normal') AUTO.ate = '';
+    else if (!AUTO.ate || new Date(AUTO.ate).getTime() < Date.now()) {
+      var d = new Date(); if (m === 'reuniao') d.setHours(d.getHours() + 1); else if (m === 'ausente') d.setHours(d.getHours() + 2); else { d.setDate(d.getDate() + 7); d.setHours(8, 0, 0, 0); }
+      AUTO.ate = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2) + 'T' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    }
+    autoGravar(); try { autoStatusPill(); } catch (e) { }
+  }
   function htmlAuto() {
-    var A = AUTO, inp = 'class="au-in"';
-    var envs = Object.keys(autoPend).map(function (n) { return { n: n, ts: autoPend[n].ts, txt: autoPend[n].txt }; }).sort(function (a, b) { return b.ts - a.ts; }).slice(0, 5);
-    return '<div class="pfwa-ajtop"><b>👋 Saudação automática</b><span class="pfwa-link" data-acao="autoVoltar">‹ voltar</span></div>' +
-      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="on"><span class="pfwa-cfgi">👋</span><div><b>Ligada</b><br><small>Manda UMA frase de espera quando o cliente fica sem resposta. É a única coisa que a extensão manda sozinha.</small></div><span class="pfwa-sw' + (A.on ? ' on' : '') + '"><i></i></span></div>' +
+    var A = AUTO, inp = 'class="au-in"', aus = autoAusente(), nomeEx = contatoAt ? contatoAt.nome : 'Carlos - Trackpeças';
+    var ex = function (f) { var l = []; for (var i = 0; i < 3; i++) { var t = f(); if (l.indexOf(t) < 0) l.push(t); } return l.map(function (t) { return '<div class="au-exl">“' + esc(t) + '”</div>'; }).join(''); };
+    var h = '<div class="pfwa-ajtop"><b>👋 Mensagens automáticas</b><span class="pfwa-link" data-acao="autoVoltar">‹ voltar</span></div>';
+    // 🗓️ Meu status
+    h += '<div class="au-sec"><b>🗓️ Meu status agora</b><div class="au-modos">' + Object.keys(AUTO_MODOS).map(function (m) { return '<span data-acao="autoModo" data-arg="' + m + '" class="' + ((aus || 'normal') === m ? 'on' : '') + '">' + AUTO_MODOS[m][0] + ' ' + AUTO_MODOS[m][1] + '</span>'; }).join('') + '</div>';
+    if (aus) {
+      h += '<div class="au-g"><label>Até<input type="datetime-local" data-au="ate" value="' + esc(A.ate) + '" ' + inp + '></label>' +
+        (aus === 'ferias' ? '<label>Quem atende<input type="text" data-au="subst" value="' + esc(A.subst) + '" placeholder="ex.: Carlos" ' + inp + '></label><label>Telefone dele<input type="text" data-au="substTel" value="' + esc(A.substTel) + '" placeholder="(11) 9…" ' + inp + '></label>' : '') +
+        '<label>Responder depois de<input type="number" min="0" max="60" data-au="ausMin" value="' + esc(A.ausMin) + '" ' + inp + '> min</label></div>' +
+        '<div class="au-fr"><small>Mensagem própria (deixe vazio pra o PF variar sozinho · use {saudacao} {nome} {volta}' + (aus === 'ferias' ? ' {substituto}' : '') + ')</small><textarea data-au="ausTxt.' + aus + '" rows="2">' + esc((A.ausTxt || {})[aus] || '') + '</textarea></div>' +
+        '<div class="au-ex">Vai sair algo assim:' + ex(function () { return autoTexto(nomeEx, null, aus); }) + '</div>' +
+        '<div class="au-st">Manda UMA vez pra cada conversa enquanto você estiver ' + esc(AUTO_MODOS[aus][1].toLowerCase()) + ', a qualquer hora, e abre as conversas que chegarem sozinho (se você não estiver mexendo no WhatsApp). No "até" volta sozinho pra 🟢 Disponível.</div>';
+    }
+    h += '</div>';
+    // 👋 Saudação de espera
+    h += '<div class="au-sec"><div class="pfwa-cfgl" data-acao="autoTog" data-arg="on"><span class="pfwa-cfgi">👋</span><div><b>Saudação de espera</b><br><small>Quando você está disponível mas o cliente fica X minutos sem resposta, manda uma mensagem como se fosse você.</small></div><span class="pfwa-sw' + (A.on ? ' on' : '') + '"><i></i></span></div>' +
       '<div class="au-g"><label>Sem resposta há<input type="number" min="1" max="120" data-au="min" value="' + esc(A.min) + '" ' + inp + '> min</label>' +
       '<label>Das<input type="time" data-au="ini" value="' + esc(A.ini) + '" ' + inp + '> às<input type="time" data-au="fim" value="' + esc(A.fim) + '" ' + inp + '></label>' +
       '<label>Dias<select data-au="dias" ' + inp + '><option value="semana"' + (A.dias === 'semana' ? ' selected' : '') + '>segunda a sexta</option><option value="sabado"' + (A.dias === 'sabado' ? ' selected' : '') + '>segunda a sábado</option><option value="todos"' + (A.dias === 'todos' ? ' selected' : '') + '>todos os dias</option></select></label>' +
       '<label>Pra quem<select data-au="quem" ' + inp + '><option value="clientes"' + (A.quem === 'clientes' ? ' selected' : '') + '>só clientes do PF</option><option value="todos"' + (A.quem === 'todos' ? ' selected' : '') + '>todos (menos grupos)</option></select></label>' +
       '<label>Não repetir na conversa por<input type="number" min="1" max="72" data-au="horas" value="' + esc(A.horas) + '" ' + inp + '> h</label>' +
       '<label>No máximo<input type="number" min="1" max="100" data-au="porHora" value="' + esc(A.porHora) + '" ' + inp + '> por hora</label></div>' +
-      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="abrir"><span class="pfwa-cfgi">📂</span><div><b>Também nas outras conversas</b><br><small>Se você ficar 1 min sem mexer no WhatsApp, a extensão abre a conversa que está esperando, manda a frase e volta pra que você estava. Desligado = só na conversa aberta.</small></div><span class="pfwa-sw' + (A.abrir ? ' on' : '') + '"><i></i></span></div>' +
-      '<div class="au-fr"><b>Frases</b> <small>(uma por linha · a extensão sorteia uma · use {saudacao} e {nome})</small><textarea data-au="frases" rows="5">' + esc((A.frases || []).join('\n')) + '</textarea>' +
-      '<div class="au-ex">Exemplo agora: <i>' + esc(autoTexto(contatoAt ? contatoAt.nome : 'Alessandro - Trackpeças')) + '</i></div></div>' +
-      '<div class="au-st">' + (A.on ? (autoNoHorario() ? '🟢 Ligada e dentro do horário.' : '🟡 Ligada, mas fora do horário agora.') : '⚪ Desligada.') + ' A conversa que recebeu a frase ganha a etiqueta "👋 saudação enviada · responda" até você responder.</div>' +
-      (envs.length ? '<div class="pfwa-bloco"><div class="pfwa-bt">Esperando você responder</div>' + envs.map(function (e) { return '<div class="pfwa-it"><b>' + esc(e.n) + '</b><br><small>' + esc(new Date(e.ts).toLocaleString('pt-BR').slice(0, 17)) + ' · "' + esc(e.txt) + '"</small></div>'; }).join('') + '</div>' : '');
+      '<div class="au-modos au-est"><span data-acao="autoEstilo" data-arg="natural" class="' + (A.estilo !== 'minhas' ? 'on' : '') + '">✨ Natural (varia sozinho)</span><span data-acao="autoEstilo" data-arg="minhas" class="' + (A.estilo === 'minhas' ? 'on' : '') + '">✍️ Minhas frases</span></div>' +
+      (A.estilo === 'minhas' ? '<div class="au-fr"><small>Uma por linha · a extensão sorteia · use {saudacao} e {nome}</small><textarea data-au="frases" rows="4">' + esc((A.frases || []).join('\n')) + '</textarea></div>'
+        : '<div class="au-fr"><small>O PF lê o que o cliente mandou e responde de acordo: códigos → "já vou ver esses códigos", foto → "vi a foto", áudio → "vou ouvir aqui", preço → "já te passo o valor". Varia a saudação, às vezes sem nome, não repete a última, e espera uns segundos "digitando".</small></div>') +
+      '<div class="au-ex">Vai sair algo assim:' + ex(function () { return autoTexto(nomeEx, { bloco: '5-280X\n2654407 2 de cada' }, ''); }) + '</div>' +
+      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="abrir"><span class="pfwa-cfgi">📂</span><div><b>Também nas outras conversas</b><br><small>Se você ficar 1 min sem mexer no WhatsApp, a extensão abre a conversa que está esperando, manda e volta pra que você estava. Desligado = só na conversa aberta.</small></div><span class="pfwa-sw' + (A.abrir ? ' on' : '') + '"><i></i></span></div>' +
+      '<div class="au-st">' + (A.on ? (autoNoHorario() ? '🟢 Ligada e dentro do horário.' : '🟡 Ligada, mas fora do horário agora.') : '⚪ Desligada.') + ' A conversa que recebeu a mensagem ganha a etiqueta "👋 … responda" até você responder.</div></div>';
+    var envs = Object.keys(autoPend).map(function (n) { return { n: n, ts: autoPend[n].ts, txt: autoPend[n].txt }; }).sort(function (a, b) { return b.ts - a.ts; }).slice(0, 5);
+    if (envs.length) h += '<div class="pfwa-bloco"><div class="pfwa-bt">Esperando você responder</div>' + envs.map(function (e) { return '<div class="pfwa-it"><b>' + esc(e.n) + '</b><br><small>' + esc(new Date(e.ts).toLocaleString('pt-BR').slice(0, 17)) + ' · "' + esc(e.txt) + '"</small></div>'; }).join('') + '</div>';
+    return h;
   }
   function autoCampo(el) {
     var k = el.getAttribute('data-au'), v = el.value;
     if (k === 'frases') AUTO.frases = v.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+    else if (k.indexOf('ausTxt.') === 0) { AUTO.ausTxt = AUTO.ausTxt || {}; AUTO.ausTxt[k.slice(7)] = v.trim(); }
     else if (k === 'min' || k === 'horas' || k === 'porHora') AUTO[k] = Math.max(1, +v || AUTO_PADRAO[k]);
+    else if (k === 'ausMin') AUTO[k] = Math.max(0, +v || 0);
     else AUTO[k] = v;
-    autoGravar();
+    autoGravar(); if (k === 'ate') try { autoStatusPill(); } catch (e) { }
   }
   document.addEventListener('change', function (e) { if (e.target && e.target.getAttribute && e.target.getAttribute('data-au')) autoCampo(e.target); }, true);
 

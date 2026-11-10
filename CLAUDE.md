@@ -2366,6 +2366,10 @@
   botão "➕ Autorizar esta conversa" (`cmdAutorizar`) ou o número digitado aprende o nome quando a conversa é aberta (`cmdNormTel`: tira 55 e o 9). `cmdTick` (8 s) lê a prévia da última mensagem na lista
   (`cmdPreview`, sem abrir): "pf …" de autorizado → `cmdExecutar` (reunião/ausente/férias + até `cmdAte`: 15h, 15:30, 1h, 30 min, 20/11, dia 20; férias tira substituto e telefone; voltei; saudação liga/desliga/N min;
   status; ajuda) → resposta "✅ …" na mesma conversa quando você está parado 30 s (abre, responde, volta). Dedup `cmdFeitos` (conversa|texto|hora); só comando de até 12 h. Autorizados nunca recebem mensagem automática.
+- v115.2636 ("quero uma opção de abrir o item também no catálogo, pq quero inserir essas informações" — card do Alt+B + print do site da Sorocard): botão "🔩 Abrir no catálogo (Componentes Cardan)" embaixo
+  do ✏️ Cadastro no card do Alt+B (`pfItemCardAbrirCardan`; `pfItemCardCcAcha` acha a peça pelo código ou por conversão/equivalente/similar, só letras+números) → Área Técnica › Componentes Cardan na família
+  filtrada no código (`ccBuscaGeralAbrir`), onde fica o 📋 Colar print de aplicação. Sem a peça lá = "Procurar no catálogo" (busca geral, `maqCcAbrir`). Extensão **4.3** ("com o botão direito eu desligo, mas como
+  ligo de volta?"): botão direito no 📄 da coluna/barra liga E desliga o aviso de cotação (avisinho ao lado), title diz quando está desligado.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

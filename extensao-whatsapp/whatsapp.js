@@ -253,6 +253,7 @@
       h += '<div class="pfwa-cfgl" data-acao="cfgTog" data-arg="' + x[0] + '"><span class="pfwa-cfgi">' + x[1] + '</span><div><b>' + esc(x[2]) + '</b><br><small>' + esc(x[3]) + '</small></div>' +
         '<span class="pfwa-sw' + (on ? ' on' : '') + '"><i></i></span></div>';
     });
+    h += '<div class="pfwa-cfgl" data-acao="autoAbrir"><span class="pfwa-cfgi">👋</span><div><b>Saudação automática</b><br><small>' + (AUTO.on ? 'Ligada · ' + esc(AUTO.min) + ' min sem resposta · ' + esc(AUTO.ini) + '–' + esc(AUTO.fim) : 'Desligada') + ' — clique pra ajustar</small></div><span class="pfwa-link">ajustar ›</span></div>';
     return h;
   }
   function cfgTog(k) {
@@ -299,6 +300,7 @@
       ['🔔', 'Pedido de cotação', 'Quando o cliente manda códigos, aparece uma bolinha laranja com o número de códigos no botão 📄 do PF (ao lado das mensagens). Clique nela pra cotar. Pra desligar: ⚙️ Configurações → Aviso de pedido de cotação, ou o botão direito na bolinha.'],
       ['📄', 'Selo na mensagem', 'A mensagem do cliente que tem códigos ganha um selinho laranja "📄 3" no canto. Clique nele: aparecem os códigos com quantidade e saldo e o botão "Criar cotação no PF". Só cria se você clicar. Depois de criada, o selo fica verde ✓.'],
       ['💡', 'Ofertas', 'Quando você oferece algo e o cliente responde, o PF pergunta o que ele achou e guarda na ficha. Se for oferecer de novo, ele avisa "você já ofereceu".'],
+      ['👋', 'Saudação automática', 'Se o cliente fica X minutos sem resposta (você escolhe), a extensão manda UMA frase de espera sorteada das suas ("já te respondo"). Só no horário escolhido, uma vez por conversa a cada N horas e com limite por hora. Vem desligada: ⚙️ Configurações → Saudação automática. A conversa fica com a etiqueta "👋 saudação enviada · responda" até você responder.'],
       ['📌', 'Vou verificar', 'Se você escrever "deixa eu ver / vou verificar / já te retorno", o PF cria uma pendência sozinho (com desfazer).'],
       ['📇', 'Código que não está no PF', 'Se o nome no WhatsApp tem um código entre parênteses que não existe no PF, aparece "Cadastrar no PF" já com o código.']]],
     ['Embaixo do painel', [
@@ -376,6 +378,9 @@
     if (ac === 'aba') { ajuda = false; config = false; irAba(arg); return; }
     if (ac === 'config') { config = !config; ajuda = false; abrirPainel(); pinta(); return; }
     if (ac === 'cfgTog') { cfgTog(arg); return; }
+    if (ac === 'autoAbrir') { config = 'auto'; pinta(); return; } // 3.9 - 👋 saudação automática
+    if (ac === 'autoVoltar') { config = true; pinta(); return; }
+    if (ac === 'autoTog') { AUTO[arg] = !AUTO[arg]; autoGravar(); pinta(); return; }
     if (ac === 'svAbrir') { if (svAberto) { svAberto = false; SV.style.display = 'none'; } else svAbrir(); return; } // 2.7
     if (ac === 'svFechar') { svAberto = false; SV.style.display = 'none'; return; }
     if (ac === 'svUsar') { svUsar(arg); return; }
@@ -636,6 +641,7 @@
     // 2.1 - código do WhatsApp (entre parênteses) que não existe no PF: avisa pra cadastrar com o mesmo código
     var banner = (resp && resp.codFalta) ? '<div class="pfwa-codf">📇 Código <b>' + esc(resp.codFalta) + '</b> (do WhatsApp) não está no PF. Cadastre o cliente com esse mesmo código.<button data-acao="cadcli" data-arg="' + esc(resp.codFalta) + '">➕ Cadastrar no PF</button></div>' : '';
     if (ajuda) { c.innerHTML = htmlAjuda(); return; }
+    if (config === 'auto') { c.innerHTML = htmlAuto(); return; }
     if (config) { c.innerHTML = htmlConfig(); return; }
     c.innerHTML = banner + (v || (aba === 'cot' ? htmlCot() : aba === 'cli' ? htmlCli() : aba === 'hist' ? htmlHist() : htmlPecas()));
     var ta = c.querySelector('.pfwa-resp'); if (ta) ta.oninput = function () { if (cot) cot.resposta = ta.value; };
@@ -1269,6 +1275,169 @@
   document.addEventListener('mousedown', function (e) { if (SP && SP.style.display === 'block' && !SP.contains(e.target) && !(e.target.closest && e.target.closest('.pfwa-selo'))) spFechar(); }, true);
   document.addEventListener('scroll', function () { spPos(); }, true);
   setInterval(function () { try { selosVigiar(); } catch (e) { } }, 1500);
+
+  // ═══ 👋 SAUDAÇÃO AUTOMÁTICA (3.9) ═══
+  // A pedido do Vitor ("se eu não responder em 3 min pode mandar alguma msg. mas quero configurável"): o cliente mandou mensagem e você não respondeu
+  // em X minutos → a extensão manda UMA frase de espera (sorteada das suas), só no horário escolhido, uma vez por conversa a cada N horas e com teto
+  // por hora. Vem DESLIGADA; liga e ajusta em ⚙️ Configurações → 👋 Saudação automática. Única função da extensão que manda sozinha.
+  var AUTO_PADRAO = {
+    on: false, min: 3, ini: '08:00', fim: '18:00', dias: 'semana', quem: 'clientes', abrir: false, horas: 4, porHora: 15,
+    frases: ['{saudacao}, {nome}! Tô terminando um atendimento e já te respondo 🙂',
+      '{saudacao}, {nome}! Recebi sua mensagem, em instantes te retorno.',
+      'Oi, {nome}! Já vi aqui, só um minutinho que já te respondo.',
+      '{saudacao}, {nome}! Tô verificando aqui e já falo com você.']
+  };
+  var AUTO = JSON.parse(JSON.stringify(AUTO_PADRAO)), autoEnv = {}, autoHist = [], autoPend = {}, autoOcup = false, autoUltMexeu = Date.now();
+  chrome.storage.local.get(['auto', 'autoEnv', 'autoHist', 'autoPend'], function (s) {
+    if (s.auto) for (var k in s.auto) AUTO[k] = s.auto[k];
+    autoEnv = s.autoEnv || {}; autoHist = s.autoHist || []; autoPend = s.autoPend || {};
+  });
+  ['mousemove', 'keydown', 'mousedown', 'wheel'].forEach(function (t) { document.addEventListener(t, function () { autoUltMexeu = Date.now(); }, true); });
+  function autoGravar() { chrome.storage.local.set({ auto: AUTO, autoEnv: autoEnv, autoHist: autoHist.slice(-60), autoPend: autoPend }); }
+  function autoHM(s) { var m = String(s || '').match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : 0; }
+  function autoNoHorario(d) {
+    d = d || new Date(); var dw = d.getDay();
+    if (AUTO.dias === 'semana' && (dw === 0 || dw === 6)) return false;
+    if (AUTO.dias === 'sabado' && dw === 0) return false;
+    var m = d.getHours() * 60 + d.getMinutes(), a = autoHM(AUTO.ini), b = autoHM(AUTO.fim);
+    return a <= b ? (m >= a && m < b) : (m >= a || m < b);
+  }
+  function autoSaudacao() { var h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; }
+  function autoPrimeiroNome(n) {
+    // só usa nome de PESSOA: o contato do cadastro (PF) ou o 1º pedaço de "Pessoa - Empresa"; nome de empresa sozinho = sem nome
+    var b = '';
+    if (resp && contatoAt && contatoAt.nome === n && resp.contato) b = resp.contato;
+    else if (svPartes(n).length >= 2) b = svNomeBase(n); b = String(b || '').replace(/[^A-Za-zÀ-ÿ\s'-]/g, ' ').trim().split(/\s+/)[0] || '';
+    if (b.length < 2) return ''; return b.charAt(0).toUpperCase() + b.slice(1).toLowerCase();
+  }
+  function autoTexto(nome) {
+    var fs = (AUTO.frases || []).map(function (f) { return String(f || '').trim(); }).filter(Boolean); if (!fs.length) fs = AUTO_PADRAO.frases;
+    var f = fs[Math.floor(Math.random() * fs.length)], nm = autoPrimeiroNome(nome);
+    return f.replace(/\{saudacao\}/gi, autoSaudacao()).replace(/\{nome\}/gi, nm || '\u0000').replace(/[ \t]*,?[ \t]*\u0000/g, '').replace(/ +([,.!?])/g, '$1').replace(/^[,\s]+/, '').trim();
+  }
+  // hora da mensagem pelo [14:30, 10/11/2026] do WhatsApp
+  function msgQuando(el) {
+    var a = el.getAttribute('data-pre-plain-text') || '', m = a.match(/\[(\d{1,2}):(\d{2})(?:\s*([AP]M))?(?:,\s*(\d{1,2})\/(\d{1,2})\/(\d{4}))?/i);
+    if (!m) return 0; var h = +m[1]; if (m[3]) { if (/pm/i.test(m[3]) && h < 12) h += 12; if (/am/i.test(m[3]) && h === 12) h = 0; }
+    var d = m[6] ? new Date(+m[6], +m[5] - 1, +m[4], h, +m[2]) : new Date(); if (!m[6]) d.setHours(h, +m[2], 0, 0);
+    var t = d.getTime(); if (t > Date.now() + 60000) t -= 86400000; return t;
+  }
+  function ultimaMsg() {
+    var els = document.querySelectorAll('#main [data-pre-plain-text]'); if (!els.length) return null;
+    var el = els[els.length - 1], tx = el.querySelector('.selectable-text');
+    return { eu: !!el.closest('.message-out'), t: msgQuando(el), txt: ((tx ? tx.innerText : el.innerText) || '').trim() };
+  }
+  function autoChave(c) { return (c.tel || '') + '|' + c.nome; }
+  function autoPodeConv(c) {
+    if (!c || c.grupo) return false;
+    var u = autoEnv[autoChave(c)]; if (u && Date.now() - u < (+AUTO.horas || 4) * 3600000) return false;
+    var h1 = Date.now() - 3600000; autoHist = autoHist.filter(function (t) { return t > h1; });
+    return autoHist.length < (+AUTO.porHora || 15);
+  }
+  async function autoEhCliente(c) {
+    if (AUTO.quem !== 'clientes') return true;
+    if (resp && contatoAt && contatoAt.nome === c.nome && resp.tipo) return resp.tipo === 'cliente';
+    var r = await msg({ t: 'acao', acao: 'situacoes', arg: { lista: [{ nome: c.nome, tel: c.tel || '' }] } });
+    return !!(r && r.sit && r.sit[c.nome] && r.sit[c.nome].tipo === 'cliente');
+  }
+  // manda na conversa ABERTA se a última mensagem é do cliente e está sem resposta há X min
+  async function autoNaAberta() {
+    var c = contatoAtual(); if (!autoPodeConv(c)) return false;
+    var u = ultimaMsg(); if (!u || u.eu || !u.t) return false;
+    if (Date.now() - u.t < (+AUTO.min || 3) * 60000) return false;
+    if (Date.now() - u.t > 3 * 3600000) return false; // mensagem velha: não é hora de "já te respondo"
+    var cx = caixaTexto(); if (!cx || (cx.innerText || '').trim()) return false; // você está escrevendo
+    if (!(await autoEhCliente(c))) { autoEnv[autoChave(c)] = Date.now(); autoGravar(); return false; }
+    var txt = autoTexto(c.nome);
+    if (!escreverNaCaixa(txt)) return false;
+    var btn = await esperar(botaoEnviar, 3000); if (!btn) return false;
+    await dormir(400 + Math.random() * 700); (botaoEnviar() || btn).click();
+    var ok = await esperar(function () { var x = caixaTexto(); return x && !(x.innerText || '').trim() ? 1 : null; }, 8000);
+    if (!ok) return false;
+    autoEnv[autoChave(c)] = Date.now(); autoHist.push(Date.now()); autoPend[c.nome] = { ts: Date.now(), txt: txt };
+    autoHist = autoHist.slice(-60); autoGravar();
+    msg({ t: 'acao', acao: 'autoSaud', arg: { nome: c.nome, tel: c.tel || '', texto: txt } });
+    try { autoBadges(); } catch (e) { }
+    return true;
+  }
+  // conversas da lista com mensagem não lida há X min (só com "pode abrir a conversa sozinho" e você parado há 1 min)
+  function autoCandidatas() {
+    var hoje = new Date(), out = [];
+    linhasLista().forEach(function (L) {
+      if (!L.unread || autoPend[L.nome]) return;
+      var hm = null; L.el.querySelectorAll('span,div').forEach(function (e) { if (hm == null && e.children.length === 0 && /^\d{1,2}:\d{2}$/.test((e.textContent || '').trim())) hm = (e.textContent || '').trim(); });
+      if (!hm) return;
+      var d = new Date(hoje); d.setHours(+hm.split(':')[0], +hm.split(':')[1], 0, 0); var t = d.getTime(); if (t > Date.now() + 60000) return;
+      var idade = Date.now() - t; if (idade < (+AUTO.min || 3) * 60000 || idade > 3 * 3600000) return;
+      var u = autoEnv[(L.tel || '') + '|' + L.nome]; if (u && Date.now() - u < (+AUTO.horas || 4) * 3600000) return;
+      out.push(L);
+    });
+    return out;
+  }
+  async function autoTick() {
+    if (!AUTO.on || autoOcup || !autoNoHorario()) return;
+    try { var sL = await chrome.storage.local.get(['lote']); if (sL.lote && !sL.lote.fim) return; } catch (e) { }
+    autoOcup = true;
+    try {
+      if (contatoAt && await autoNaAberta()) return;
+      if (!AUTO.abrir || Date.now() - autoUltMexeu < 60000) return;
+      var cand = autoCandidatas(); if (!cand.length) return;
+      var antes = contatoAt ? contatoAt.nome : '';
+      for (var i = 0; i < cand.length && i < 3; i++) {
+        if (Date.now() - autoUltMexeu < 60000) break; // você voltou a mexer: para
+        clicar(cand[i].el);
+        var ab = await esperar(function () { var c = contatoAtual(); return c && c.nome === cand[i].nome ? c : null; }, 4000);
+        if (!ab) continue;
+        await dormir(800);
+        var foi = await autoNaAberta();
+        if (!foi) { var c0 = contatoAtual(); if (c0) { autoEnv[autoChave(c0)] = Date.now(); autoGravar(); } }
+      }
+      if (antes) { var vt = linhaDoNome(antes); if (vt) clicar(vt); }
+    } finally { autoOcup = false; }
+  }
+  // você respondeu de verdade → sai do "🤖 aguardando você"
+  function autoPendVigiar() {
+    var c = contatoAt; if (!c || !autoPend[c.nome]) return;
+    var u = ultimaMsg(); if (u && u.eu && u.txt && u.txt !== autoPend[c.nome].txt) { delete autoPend[c.nome]; autoGravar(); }
+  }
+  function autoBadges() {
+    var pane = $('#pane-side'); if (!pane) return;
+    pane.querySelectorAll('.pfwa-autob').forEach(function (b) { var row = b.closest('[role="listitem"],[role="row"]'); var ne = row && row.querySelector('span[title]'); if (!ne || !autoPend[(ne.getAttribute('title') || '').trim()]) b.remove(); });
+    Object.keys(autoPend).forEach(function (n) {
+      var row = linhaDoNome(n); if (!row || row.querySelector('.pfwa-autob')) return;
+      var ne = row.querySelector('span[title]'); if (!ne) return;
+      var b = document.createElement('span'); b.className = 'pfwa-autob'; b.textContent = '👋 saudação enviada · responda';
+      b.title = 'A extensão mandou: "' + autoPend[n].txt + '" — some quando você responder';
+      (ne.parentElement || row).appendChild(b);
+    });
+  }
+  setInterval(function () { try { autoPendVigiar(); autoBadges(); } catch (e) { } autoTick().catch(function (e) { console.warn('PF auto', e); }); }, 15000);
+
+  function htmlAuto() {
+    var A = AUTO, inp = 'class="au-in"';
+    var envs = Object.keys(autoPend).map(function (n) { return { n: n, ts: autoPend[n].ts, txt: autoPend[n].txt }; }).sort(function (a, b) { return b.ts - a.ts; }).slice(0, 5);
+    return '<div class="pfwa-ajtop"><b>👋 Saudação automática</b><span class="pfwa-link" data-acao="autoVoltar">‹ voltar</span></div>' +
+      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="on"><span class="pfwa-cfgi">👋</span><div><b>Ligada</b><br><small>Manda UMA frase de espera quando o cliente fica sem resposta. É a única coisa que a extensão manda sozinha.</small></div><span class="pfwa-sw' + (A.on ? ' on' : '') + '"><i></i></span></div>' +
+      '<div class="au-g"><label>Sem resposta há<input type="number" min="1" max="120" data-au="min" value="' + esc(A.min) + '" ' + inp + '> min</label>' +
+      '<label>Das<input type="time" data-au="ini" value="' + esc(A.ini) + '" ' + inp + '> às<input type="time" data-au="fim" value="' + esc(A.fim) + '" ' + inp + '></label>' +
+      '<label>Dias<select data-au="dias" ' + inp + '><option value="semana"' + (A.dias === 'semana' ? ' selected' : '') + '>segunda a sexta</option><option value="sabado"' + (A.dias === 'sabado' ? ' selected' : '') + '>segunda a sábado</option><option value="todos"' + (A.dias === 'todos' ? ' selected' : '') + '>todos os dias</option></select></label>' +
+      '<label>Pra quem<select data-au="quem" ' + inp + '><option value="clientes"' + (A.quem === 'clientes' ? ' selected' : '') + '>só clientes do PF</option><option value="todos"' + (A.quem === 'todos' ? ' selected' : '') + '>todos (menos grupos)</option></select></label>' +
+      '<label>Não repetir na conversa por<input type="number" min="1" max="72" data-au="horas" value="' + esc(A.horas) + '" ' + inp + '> h</label>' +
+      '<label>No máximo<input type="number" min="1" max="100" data-au="porHora" value="' + esc(A.porHora) + '" ' + inp + '> por hora</label></div>' +
+      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="abrir"><span class="pfwa-cfgi">📂</span><div><b>Também nas outras conversas</b><br><small>Se você ficar 1 min sem mexer no WhatsApp, a extensão abre a conversa que está esperando, manda a frase e volta pra que você estava. Desligado = só na conversa aberta.</small></div><span class="pfwa-sw' + (A.abrir ? ' on' : '') + '"><i></i></span></div>' +
+      '<div class="au-fr"><b>Frases</b> <small>(uma por linha · a extensão sorteia uma · use {saudacao} e {nome})</small><textarea data-au="frases" rows="5">' + esc((A.frases || []).join('\n')) + '</textarea>' +
+      '<div class="au-ex">Exemplo agora: <i>' + esc(autoTexto(contatoAt ? contatoAt.nome : 'Alessandro - Trackpeças')) + '</i></div></div>' +
+      '<div class="au-st">' + (A.on ? (autoNoHorario() ? '🟢 Ligada e dentro do horário.' : '🟡 Ligada, mas fora do horário agora.') : '⚪ Desligada.') + ' A conversa que recebeu a frase ganha a etiqueta "👋 saudação enviada · responda" até você responder.</div>' +
+      (envs.length ? '<div class="pfwa-bloco"><div class="pfwa-bt">Esperando você responder</div>' + envs.map(function (e) { return '<div class="pfwa-it"><b>' + esc(e.n) + '</b><br><small>' + esc(new Date(e.ts).toLocaleString('pt-BR').slice(0, 17)) + ' · "' + esc(e.txt) + '"</small></div>'; }).join('') + '</div>' : '');
+  }
+  function autoCampo(el) {
+    var k = el.getAttribute('data-au'), v = el.value;
+    if (k === 'frases') AUTO.frases = v.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+    else if (k === 'min' || k === 'horas' || k === 'porHora') AUTO[k] = Math.max(1, +v || AUTO_PADRAO[k]);
+    else AUTO[k] = v;
+    autoGravar();
+  }
+  document.addEventListener('change', function (e) { if (e.target && e.target.getAttribute && e.target.getAttribute('data-au')) autoCampo(e.target); }, true);
 
   processarEnvio();
   setInterval(function () { vigiar().catch(function (e) { console.warn('PF', e); }); try { carregarSituacoes(); badgesRender(); aplicarFiltro(); } catch (e) { } }, 1500);

@@ -2312,6 +2312,10 @@
   código com 4+ dígitos → fica só o código). 2) `pfExtCotar`: não achou no estoque → `pfItemCardCcAcha(cod)` (código/conversão/equivalente/similar nos Componentes Cardan, só
   letras+números) — se o código do catálogo tiver estoque, usa o preço; senão reconhece a peça (`o.cardan`, descrição do catálogo) e responde "— vou verificar o prazo" (antes "não
   localizei"). `pfItemCardCcAcha` agora devolve também `desc`. Palavra nova de tipo → acrescentar no regex do `pfExtLerPedido`.
+- v115.2639 + extensão **4.4** (Vitor: "o CNPJ virou item da cotação — inclusive bugado" + "cliente sem cadastro mas tem CNPJ, não deveria perguntar pra cadastrar?"): 1) `pfExtLerPedido`
+  ignora CNPJ (`00.000.000/0000-00`) e CPF mascarado — não viram item. 2) Extensão: quando o contato NÃO está no PF e o cliente mandou um CNPJ na conversa (`cnpjNaConversa`), a aba Cliente
+  mostra "➕ Cadastrar no PF" (`data-acao="svCnpj"`) que abre o 👤 Salvar contato com o CNPJ já preenchido → `pfExtSalvarContatoCnpj` (pré-cadastro 🌱 com dados da Receita). Testado no
+  simulador (contato "cnpj" novo) + leitura do PF. `PF_EXT_VER_NOVA`='4.4', zip refeito. Captura `docs/referencias/whatsapp-menu/feito-cadastrar-cnpj.png`.
 - v115.2624 ("esses não são os dados reais… via de regra eu sempre vejo os dados reais e os outros os fictícios; coloca um botão pra eu ver o modo fictício se eu quiser"):
   pro dono as listas "só demo" (`PF_MODO_DEMO_TODAS`=so: cotações, pedidos, títulos, clientes, CRM, avisos) escondem `demo:true` na leitura (`pfDonoSemDemo`/`pfDonoSemDemoFiltrar`,
   no getItem e pfRawGetItem); gravação da tela dele devolve os demo:true do navegador (`pfDonoSemDemoGravar`, setItem e pfRawSetItem); o push lê cru; as ferramentas da demo

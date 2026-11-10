@@ -301,6 +301,9 @@
       ['📣', 'Disparo pelo PF', 'No PF, Vendas → 📣 Disparo pelo WhatsApp: escolhe a lista (o que chegou, uma marca, um grupo, os sumidos ou uma etiqueta), escreve a mensagem com {nome} e a extensão manda uma por uma, no ritmo que você escolher por hora. Quem já recebeu a mesma oferta fica de fora.'],
       ['👤', 'Salvar contato', 'Botão verde ao lado do nome da conversa: escreve o nome, a empresa (procura nos clientes do PF) e o código do JBoss — vira "Fulano - Empresa (código)". Salva no PF e, se o número não está salvo, abre o "Adicionar aos contatos" do WhatsApp com o nome. Tem também o CARGO e o CNPJ (CNPJ que ainda não é cliente = entra no PF como pré-cadastro 🌱 com os dados da Receita); se a empresa ainda não está no PF, aparece “➕ Criar cliente no PF”, que já cria o cadastro com esse contato.'],
       ['↕️', 'Mudar o PF de altura', 'Segure e arraste a coluna de botões do PF (ou o "PF" minimizado) pra cima ou pra baixo. Fica guardado.'],
+      ['🧠', 'Entender com IA', 'Na aba Cotação: quando o cliente pede pelo NOME da peça ("kit de vedação da 28000, transmissão e conversor"), a IA separa peça, quantidade e máquina e o PF procura nas Aplicações e no estoque. Confira antes de mandar.'],
+      ['📝', 'Resumir a conversa', 'Na aba Cliente: a IA escreve o que o cliente pediu e a próxima ação. Você corrige e grava na ficha do CRM (e no ☀️ Meu dia).'],
+      ['📥', 'Resposta do fornecedor', 'Na conversa de um fornecedor com mapa esperando preço: "Lançar a resposta dele no mapa" junta o que ele mandou (texto e fotos) e abre o mapa já lido. Confira e aperte Lançar.'],
       ['📞', 'Buscar números que faltam', 'Abre cada conversa dos contatos salvos sem número e pega o telefone. Clique de novo pra parar.']]]
   ];
   function htmlAjuda() {
@@ -437,10 +440,72 @@
     if (ac === 'stX') { ST.style.display = 'none'; return; }
     if (ac === 'vfDesfazer') { if (vfR) msg({ t: 'acao', acao: 'verificarDesfazer', arg: vfR.id }); vfR = null; pintaVf(); return; }
     if (ac === 'vfX') { vfR = null; pintaVf(); return; }
+    if (ac === 'cotarIA') { irAba('cot'); cotarIA(); return; }
+    if (ac === 'resumir') { resumir(); return; }
+    if (ac === 'resumoX') { resumoR = null; pintaCorpo(); return; }
+    if (ac === 'resumoGravar') {
+      var tx = (P.querySelector('.pfwa-res-t') || {}).value || '', dt = (P.querySelector('.pfwa-res-d') || {}).value || '', px = (P.querySelector('.pfwa-res-p') || {}).value || '';
+      if (!tx.trim() || !resp || !resp.k) return;
+      b.disabled = true; b.textContent = 'Gravando…';
+      var g1 = await msg({ t: 'acao', acao: 'registrar', arg: { k: resp.k, texto: '📝 Resumo (IA): ' + tx.trim() } });
+      if (px.trim() && dt) await msg({ t: 'acao', acao: 'lembrete', arg: { k: resp.k, data: dt, texto: px.trim() } });
+      if (g1 && g1.ok) { resumoR = null; pintaCorpo(); } else { b.disabled = false; flash(b, 'Não deu — abra o PF'); }
+      return;
+    }
+    if (ac === 'respForn') {
+      var pr = String(arg || '').split('|'), col = respFornColher();
+      if (!col.texto && !col.imgs.length) { flash(b, 'Não achei resposta dele nesta conversa'); return; }
+      b.disabled = true; b.textContent = 'Lendo a conversa…';
+      var ims = []; for (var ii = 0; ii < col.imgs.length; ii++) { var du = await urlParaDataUrl(col.imgs[ii]); if (du) ims.push(du); }
+      await msg({ t: 'acao', acao: 'respForn', focar: true, arg: { mapa: pr[0], fid: pr[1], texto: col.texto, imgs: ims } });
+      b.disabled = false; flash(b, '✔ Abri no PF — confira e lance');
+      return;
+    }
     msg({ t: 'acao', acao: ac, arg: arg, focar: true });
   }
   function flash(b, t) { var o = b.textContent; b.textContent = t; setTimeout(function () { b.textContent = o; }, 2200); }
 
+  // 3.6 - 🤖 IA: resumo pra ficha, pedido solto e resposta do fornecedor → mapa
+  var resumoR = null, resumindo = false;
+  async function cotarIA() {
+    if (cotando) return; cotando = true; cotErro = ''; cot = null; pintaCorpo();
+    var r = await msg({ t: 'acao', acao: 'cotarIA', arg: { k: resp && resp.k, contato: resp && resp.contato, msgs: lerMensagens() } });
+    cotando = false;
+    if (!r || r.erro) cotErro = r && r.erro === 'ia' ? 'A IA não respondeu: ' + (r.msg || '') : r && r.erro === 'semResposta' ? 'A IA demorou demais. Tente de novo.' : 'O PF não respondeu. Dê F5 na aba do PartsFlow.';
+    else cot = r;
+    pintaCorpo();
+  }
+  async function resumir() {
+    if (resumindo) return; resumindo = true; resumoR = null; pintaCorpo();
+    var r = await msg({ t: 'acao', acao: 'resumir', arg: { k: resp && resp.k, contato: resp && resp.contato, msgs: lerMensagens() } });
+    resumindo = false; resumoR = r && r.ok ? r : { erro: (r && (r.erro === 'semResposta' ? 'A IA demorou demais. Tente de novo.' : r.erro)) || 'O PF não respondeu.' };
+    pintaCorpo();
+  }
+  function resumoHtml(r) {
+    if (!r || !r.k) return '';
+    if (resumindo) return '<div class="pfwa-bloco"><div class="pfwa-bt">📝 Resumo da conversa</div><div class="pfwa-nada">Lendo a conversa…</div></div>';
+    if (!resumoR) return '<div class="pfwa-bloco"><button class="pfwa-btn pfwa-verde" data-acao="resumir">📝 Resumir a conversa com IA</button><div class="pfwa-nada" style="margin-top:4px">A IA lê esta conversa e escreve o que o cliente pediu e a próxima ação. Você confere e grava na ficha.</div></div>';
+    if (resumoR.erro) return '<div class="pfwa-bloco"><div class="pfwa-bt">📝 Resumo da conversa</div><div class="pfwa-nada">Não deu: ' + esc(resumoR.erro) + '</div><button class="pfwa-btn" data-acao="resumir">Tentar de novo</button></div>';
+    var d = new Date(Date.now() + (resumoR.dias || 1) * 86400000), iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    return '<div class="pfwa-bloco"><div class="pfwa-bt">📝 Resumo da conversa (confira antes de gravar)</div>' +
+      '<textarea class="pfwa-res-t" style="min-height:76px">' + esc(resumoR.resumo || '') + '</textarea>' +
+      '<div class="pfwa-bt" style="margin-top:6px">⏰ Próxima ação</div><div style="display:flex;gap:6px"><input type="date" class="pfwa-res-d" value="' + iso + '"><input class="pfwa-res-p" value="' + esc(resumoR.proxima || '') + '" placeholder="(sem próxima ação)"></div>' +
+      '<div class="pfwa-bots" style="margin-top:6px"><button class="pfwa-verde" data-acao="resumoGravar">✔ Gravar na ficha</button><button data-acao="resumir">🔁 Refazer</button><button data-acao="resumoX">✕</button></div></div>';
+  }
+  function respFornColher() {
+    var bolhas = Array.prototype.slice.call(document.querySelectorAll('#main .message-in, #main .message-out'));
+    var ult = -1; bolhas.forEach(function (b, i) { if (b.classList.contains('message-out')) ult = i; });
+    var deles = bolhas.slice(ult + 1).filter(function (b) { return b.classList.contains('message-in'); });
+    if (!deles.length) deles = bolhas.filter(function (b) { return b.classList.contains('message-in'); }).slice(-8);
+    var texto = deles.map(function (b) { var tx = b.querySelector('.selectable-text'); return ((tx ? tx.innerText : '') || '').trim(); }).filter(Boolean).join('\n');
+    if (!texto && !bolhas.length) texto = lerMensagens().filter(function (m) { return !m.eu; }).slice(-8).map(function (m) { return m.t; }).join('\n');
+    var imgs = []; deles.forEach(function (b) { b.querySelectorAll('img').forEach(function (im) { var s = im.getAttribute('src') || ''; if ((/^blob:/.test(s) || /^data:image/.test(s)) && (im.naturalWidth || im.width) >= 120 && imgs.length < 4) imgs.push(s); }); });
+    return { texto: texto, imgs: imgs };
+  }
+  async function urlParaDataUrl(u) {
+    if (/^data:/.test(u)) return u;
+    try { var bl = await (await fetch(u)).blob(); return await new Promise(function (ok) { var fr = new FileReader(); fr.onload = function () { ok(fr.result); }; fr.onerror = function () { ok(null); }; fr.readAsDataURL(bl); }); } catch (e) { return null; }
+  }
   async function cotar() {
     if (cotando) return; cotando = true; cotErro = ''; cot = null; pintaCorpo();
     var r = await msg({ t: 'acao', acao: 'cotar', arg: { k: resp && resp.k, contato: resp && resp.contato, msgs: lerMensagens() } });
@@ -517,9 +582,9 @@
     else if (r && !r.erro && !r.grupo) h += '<div class="pfwa-sub" style="margin-bottom:6px">⚠ Contato fora do cadastro — preço com a margem padrão (SP).</div>';
     if (cotando) return h + '<div class="pfwa-vazio">Lendo a conversa e buscando saldo e preço…</div>';
     if (cotErro) return h + '<div class="pfwa-vazio">' + esc(cotErro) + '</div>';
-    if (!cot) return h + '<div class="pfwa-vazio">O PF lê os códigos e a quantidade que o cliente mandou nesta conversa, mostra saldo e preço e escreve a resposta.<br><br><button class="pfwa-btn pfwa-lar" data-acao="cotar">📄 Cotar no PF</button></div>';
-    if (!cot.itens.length) return h + '<div class="pfwa-vazio">Não achei códigos nas últimas mensagens do cliente.<br><small>Selecione um código e use 📦 Saldo, ou mande pelo PF.</small><br><br><button class="pfwa-btn" data-acao="cotar">🔁 Ler de novo</button></div>';
-    h += '<div class="pfwa-cotinfo">' + cot.itens.length + ' código' + (cot.itens.length > 1 ? 's' : '') + (cot.geral ? ' · ' + cot.geral + ' de cada' : '') + (cot.margem != null ? ' · margem ' + cot.margem + '% · ' + esc(cot.uf) : '') + ' <span data-acao="cotar" class="pfwa-link">🔁 ler de novo</span></div>';
+    if (!cot) return h + '<div class="pfwa-vazio">O PF lê os códigos e a quantidade que o cliente mandou nesta conversa, mostra saldo e preço e escreve a resposta.<br><br><button class="pfwa-btn pfwa-lar" data-acao="cotar">📄 Cotar no PF</button> <button class="pfwa-btn" data-acao="cotarIA" title="Pra quando o cliente pede pelo nome da peça">🧠 Entender com IA</button></div>';
+    if (!cot.itens.length) return h + '<div class="pfwa-vazio">Não achei códigos nas últimas mensagens do cliente.<br><small>Se ele pediu pelo nome da peça ("kit de vedação da 28000"), use 🧠 Entender com IA.</small><br><br><button class="pfwa-btn pfwa-lar" data-acao="cotarIA">🧠 Entender com IA</button> <button class="pfwa-btn" data-acao="cotar">🔁 Ler de novo</button></div>';
+    h += '<div class="pfwa-cotinfo">' + cot.itens.length + ' código' + (cot.itens.length > 1 ? 's' : '') + (cot.geral ? ' · ' + cot.geral + ' de cada' : '') + (cot.margem != null ? ' · margem ' + cot.margem + '% · ' + esc(cot.uf) : '') + ' <span data-acao="cotar" class="pfwa-link">🔁 ler de novo</span> <span data-acao="cotarIA" class="pfwa-link">🧠 entender com IA</span>' + (cot.ia ? ' <small>(lido pela IA — confira)</small>' : '') + '</div>';
     h += '<table class="pfwa-tab"><tr><th>Código</th><th>Qtd</th><th>Saldo</th><th>Unit.</th><th></th></tr>';
     cot.itens.forEach(function (o, i) {
       var sl = !o.achou ? '<span class="no">não achei</span>' : !(o.saldo > 0) ? '<span class="no">✖ 0</span>' : o.saldo < o.qtd ? '<span class="mid">◐ ' + o.saldo + '</span>' : '<span class="ok">✔ ' + o.saldo + '</span>';
@@ -535,6 +600,7 @@
     var r = resp, h = cabCliente(r);
     if (!r || !r.achou) return '<div class="pfwa-vazio">Esse contato <b>não está no PF</b>.<br><small>Procurei pelo telefone' + (r && r.nome ? ' e pelo nome' : '') + ' nos clientes e fornecedores.</small></div>';
     h += avisosHtml(r, false); // 2.3 - avisos do cliente (os mesmos da cotação)
+    if (r.tipo === 'cliente') h += resumoHtml(r); // 3.6 - 📝 resumo com IA
     (r.linhas || []).forEach(function (l) { h += '<div class="pfwa-lin"><span>' + esc(l.ic) + '</span><div><b>' + esc(l.t) + '</b>' + (l.d ? '<br><small>' + esc(l.d) + '</small>' : '') + '</div></div>'; });
     if (r.ofertas) h += bloco(r.ofertas);
     if (r.botoes && r.botoes.length) h += '<div class="pfwa-bots">' + r.botoes.map(function (b) { return '<button data-acao="' + esc(b.acao) + '" data-arg="' + esc(b.arg || '') + '">' + esc(b.rot) + '</button>'; }).join('') + '</div>';

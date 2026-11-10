@@ -26,7 +26,8 @@
       var rid = 'r' + Date.now() + Math.random().toString(36).slice(2, 7);
       pend[rid] = send;
       window.postMessage({ pfExt: 'req', rid: rid, m: m }, '*');
-      setTimeout(function () { if (pend[rid]) { delete pend[rid]; send({ erro: 'semResposta' }); } }, 10000);
+      var lim = (m.acao === 'resumir' || m.acao === 'cotarIA') ? 90000 : 10000; // 3.6 - a IA demora mais
+      setTimeout(function () { if (pend[rid]) { delete pend[rid]; send({ erro: 'semResposta' }); } }, lim);
       return true;
     }
   });

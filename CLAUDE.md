@@ -2320,6 +2320,13 @@
   der pra desligar. Captura `docs/referencias/whatsapp-menu/feito-config.png`.
 - v115.2626 (extensão **3.5**; "esse PF aí, desbloqueia pra eu poder colocar ele pra cima ou pra baixo"): a coluna/barra de botões do PF e o "PF" minimizado se arrastam
   na vertical (`botsArrastoLigar`, pointerdown/move/up; 5 px = arrasto e engole o clique), presos dentro da conversa; altura guardada por visual em `chrome.storage.local.botsDy` {A,D}.
+- v115.2627 **🤖 IA no WhatsApp** (extensão **3.6**; revisão do Watidy, item IA — "do 1 ao 3, o 4 deixa pra depois"; o 4 = melhorar o texto antes de mandar, guardado):
+  1) 📥 resposta do fornecedor → mapa: botão "📥 Lançar a resposta dele no mapa N" no cartão do fornecedor (`pfExtCardForn` → `R.botoes`, arg mapaId|fid); a extensão junta
+  as mensagens dele depois da sua última (`respFornColher`: texto + até 4 fotos blob→dataURL) → `pfExtRespForn` abre o mapa no passo 2 (`mapaAbrirDaListaSeguro`), `pfRespFornAbrir(fid)`,
+  põe texto/fotos e já roda o `pfRespFornLer` — o Lançar continua manual. 2) 📝 Resumir a conversa (aba Cliente, `resumoHtml`): `pfExtResumir` (IA → {resumo,proxima,dias}) → você edita
+  e "✔ Gravar na ficha" (registrar + lembrete). 3) 🧠 Entender com IA (aba Cotação): `pfExtCotarIA` (IA lista {codigo,descricao,qtd,onde}; sem código procura em `aplicBuscar(onde)`
+  filtrando pela descrição, senão `pfOfertaBuscarProdutos`) → `pfExtCotar({itensDiretos})` (o pfExtCotar aceita a lista pronta), `cot.ia`. ponte.js espera 90 s pra resumir/cotarIA.
+  Capturas `docs/referencias/whatsapp-menu/feito-resumo-ia.png` / `feito-cotar-ia.png`. Foto da resposta no WhatsApp real: lida por blob (não testado no real); PDF do fornecedor ainda não.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

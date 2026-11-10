@@ -715,7 +715,7 @@
   function telaPorCima() {
     var vw = window.innerWidth, vh = window.innerHeight;
     var dl = document.querySelectorAll('[role="dialog"],[aria-modal="true"],[data-animate-media-viewer],[data-testid*="media-viewer"],[data-testid*="document-viewer"]');
-    for (var i = 0; i < dl.length; i++) { var d = dl[i]; if (d.closest(MEUS)) continue; var q = d.getBoundingClientRect(); if (q.width > vw * 0.4 && q.height > vh * 0.4) return true; }
+    for (var i = 0; i < dl.length; i++) { var d = dl[i]; if (d.closest(MEUS)) continue; var q = d.getBoundingClientRect(); if (q.width > Math.min(280, vw * 0.4) && q.height > vh * 0.4) return true; } // 4.11 - janela "Encaminhar mensagem" (~490 px) ficava com o PF por cima
     // 4.4 - BUG (Vitor: PDF/documento aberto no WhatsApp — "Exibido por Adobe Acrobat" — ficava com os ícones do PF por cima): o leitor de PDF
     // é um <embed>/<iframe>/<object>, não img/vídeo/canvas. Agora também conta esses, grandes e fora da conversa e da lista.
     var md = document.querySelectorAll('img,video,canvas,embed,iframe,object');

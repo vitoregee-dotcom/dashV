@@ -261,7 +261,7 @@
   var config = false, CFG = { bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true };
   var CFG_LISTA = [
     ['menu', '🧭', 'Menu do PF em volta do WhatsApp', 'Barra de filtros em cima (Clientes, Fornecedores, Cotação aberta…) e a coluna de atalhos à esquerda.'],
-    ['etq', '🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome da lista: cliente / fornecedor do PF, cotação aberta, mapa, sem resposta.'],
+    ['etq', '🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome da lista: cidade e grupo do cliente, fornecedor do PF, cotação aberta, mapa.'],
     ['bots', '📄', 'Botões do PF ao lado das mensagens', 'A coluna (A) ou barra (D) com Cotar, Saldo, Ficha, Lembrete, Prontas…'],
     ['aviso', '🔔', 'Aviso de pedido de cotação', 'A bolinha laranja com o número de códigos no botão 📄 quando o cliente manda códigos.'],
     ['selo', '📄', 'Selo no balão da mensagem', 'O selinho "📄 N" no canto da mensagem do cliente que tem códigos. Clique = ver os códigos e criar a cotação no PF.'],
@@ -302,7 +302,7 @@
       ['🟢', 'Conectado ao PF', 'Do lado da versão, lá em cima: verde "● Conectado ao PF" = tudo certo · laranja "Dê F5 no PF" = a aba do PF está aberta mas parou de responder · vermelho "PF fechado" = abra o PartsFlow. Clique nele pra conferir na hora. A bolinha também aparece no "PF" da barra de cima.'],
       ['🔁', 'Atualizou a extensão?', 'Depois de instalar uma versão nova, recarregue a aba do WhatsApp e a do PF (F5).']]],
     ['Em cima e do lado esquerdo', [
-      ['🔎', 'Barra de filtros', 'Clientes, Fornecedores, etiquetas do WhatsApp, cotação aberta e sem resposta. Clique pra deixar só essas conversas na lista; clique de novo pra ver tudo.'],
+      ['🔎', 'Barra de filtros', 'Clientes, Fornecedores, etiquetas do WhatsApp e cotação aberta. Clique pra deixar só essas conversas na lista; clique de novo pra ver tudo.'],
       ['🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome: se é cliente ou fornecedor do PF, cotação aberta, mapa esperando preço.'],
       ['⚙️', 'Menu do PF', 'A chave "Menu do PF" liga/desliga a barra. "azul / discreta" troca a cor.']]],
     ['Botões ao lado da conversa', [
@@ -1131,7 +1131,7 @@
         if (s.cot) chips.push('<span class="cli">📄 cot. ' + esc(s.cot) + '</span>');
       }
       else if (s.tipo === 'fornecedor') chips.push('<span class="forn">🏭 fornecedor' + (s.mapa ? ' · mapa ' + esc(s.mapa) : '') + '</span>');
-      if (x.unread) chips.push('<span class="sem">⏳ sem resposta</span>');
+      // 4.12 - A pedido do Vitor ("se só repete, não precisa dela"): a etiqueta "⏳ sem resposta" era só a bolinha de não lida do próprio WhatsApp — saiu.
       var b = host.querySelector(':scope > .pfwa-rowb');
       if (!chips.length) { if (b) b.remove(); return; }
       var html = chips.join('');
@@ -1147,7 +1147,7 @@
       if (menuFiltro === 'cliente') ok = s.tipo === 'cliente';
       else if (menuFiltro === 'fornecedor') ok = s.tipo === 'fornecedor';
       else if (menuFiltro === 'cot') ok = !!s.cot;
-      else if (menuFiltro === 'semresp') ok = x.unread;
+      else if (menuFiltro === 'semresp') ok = true; // 4.12 - filtro saiu (quem tinha ele salvo vê tudo)
       else if (menuFiltro.indexOf('etq:') === 0) ok = x.etqs.indexOf(menuFiltro.slice(4)) >= 0;
       x.el.style.display = ok ? '' : 'none';
     });
@@ -1171,7 +1171,7 @@
     var pill = function (k, txt, n) { return '<span class="pfm-pill' + (menuFiltro === k ? ' on' : '') + '" data-acao="menuFiltro" data-arg="' + esc(k) + '">' + txt + (n != null ? ' <b>' + n + '</b>' : '') + '</span>'; };
     var h = '<span class="pfm-logo">PF</span>' + pill('', 'Tudo') + pill('cliente', '🤝 Clientes', nC) + pill('fornecedor', '🏭 Fornecedores', nF);
     etqTop.forEach(function (e) { h += pill('etq:' + e, esc(e), etqN[e]); });
-    h += pill('cot', '📄 Cotação aberta', nCot) + pill('semresp', '⏳ Sem resposta', nSem);
+    h += pill('cot', '📄 Cotação aberta', nCot);
     h += '<span class="pfm-dir"><span class="pfm-cor"><i data-acao="menuCor" data-arg="azul" class="' + (menuCor !== 'discreta' ? 'on' : '') + '">azul</i><i data-acao="menuCor" data-arg="discreta" class="' + (menuCor === 'discreta' ? 'on' : '') + '">discreta</i></span><span class="pfm-tog" data-acao="menuTog" title="Desligar o Menu do PF">Menu do PF <span class="pfm-sw"></span></span></span>';
     MENU.innerHTML = h;
     var rail = [['vendas', '📄', 'Cotações'], ['kanban', '🗂️', 'Quadro de vendas'], ['mesa', '🛒', 'Mesa do comprador'], ['home', '🏠', 'Início do PF'], ['ext', '🧩', 'PartsFlow no WhatsApp']];

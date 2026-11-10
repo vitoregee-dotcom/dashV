@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2623</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2624</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2623</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2624</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -17062,7 +17062,7 @@ function pfDemoCotSemApagados(raw){
 function pfRawGetItem(key){
   if(PF_IDB_KEYS.indexOf(key)>=0){var _v=_pfMemCache.hasOwnProperty(key)?_pfMemCache[key]:null;
     if(key==='partsflow_cotacoes_v1')_v=pfDemoCotSemApagados(_v); // v115.2259
-    if(PF_MODO_DEMO_TODAS[key])_v=pfModoDemoFiltrarRaw(key,_v);
+    if(PF_MODO_DEMO_TODAS[key]){_v=pfModoDemoFiltrarRaw(key,_v);if(typeof pfDonoSemDemoFiltrar==='function')_v=pfDonoSemDemoFiltrar(key,_v);} // v115.2624
     return (window.PF_SO_DONO_KEYS&&PF_SO_DONO_KEYS[key])?pfSoDonoFiltrar(key,_v):_v;}
   return localStorage.getItem(key);
 }
@@ -17441,15 +17441,45 @@ function pfSoDonoGravar(key,value,realRaw){
     return (String(value).indexOf(PF_COMPRESS_MARK)===0&&typeof pfCompress==='function')?pfCompress(txt):txt;
   }catch(e){return value;}
 }
+// v115.2624 - A pedido do Vitor ("esses não são os dados reais… via de regra eu sempre vejo os dados reais e os outros usuários os fictícios;
+// coloca um botão pra eu ver o modo fictício se eu quiser"): pro dono (vitoregee@gmail.com) as listas "só demo" (cotações, pedidos, títulos,
+// clientes, CRM, avisos) escondem os itens demo:true na LEITURA. Ver os fictícios = "👁 ver fictício" na pílula da demonstração (o Ver como os outros).
+// Gravação da TELA do dono devolve os demo:true que estavam no navegador (senão a lista dele apagaria os fictícios dos outros); as ferramentas
+// da demonstração (gerar, apagar, contar — window._pfDemoTool) e a sync enxergam tudo.
+var _pfDonoSemDemoMemo={};
+function pfDonoSemDemo(){try{return pfSoDonoEu()&&!(window._pfDemoTool>0)&&!(typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo());}catch(e){return false;}}
+function pfDonoSemDemoFiltrar(key,raw){
+  if(raw==null||PF_MODO_DEMO_TODAS[key]!=='so'||!pfDonoSemDemo())return raw;
+  var m=_pfDonoSemDemoMemo[key];if(m&&m.raw===raw)return m.out;
+  var out=raw;
+  try{var txt=(typeof pfDecompress==='function')?pfDecompress(raw):raw;
+    if(txt&&txt.indexOf('"demo":true')>=0){var v=JSON.parse(txt);if(Array.isArray(v))out=JSON.stringify(v.filter(function(x){return !(x&&x.demo);}));}
+  }catch(e){out=raw;}
+  _pfDonoSemDemoMemo[key]={raw:raw,out:out};return out;
+}
+function pfDonoSemDemoGravar(key,value,realRaw){
+  try{
+    if(PF_MODO_DEMO_TODAS[key]!=='so'||!pfDonoSemDemo()||window._pfPullGravando>0||realRaw==null)return value;
+    var rt=(typeof pfDecompress==='function')?pfDecompress(realRaw):realRaw;if(!rt||rt.indexOf('"demo":true')<0)return value;
+    var real=JSON.parse(rt);if(!Array.isArray(real))return value;
+    var dm=real.filter(function(x){return x&&x.demo;});if(!dm.length)return value;
+    var v=JSON.parse(pfDecompress(String(value)));if(!Array.isArray(v))return value;
+    var ch=function(x){return (x&&typeof x==='object'&&x.id!=null)?'id:'+x.id:'j:'+JSON.stringify(x);};
+    var ja={};v.forEach(function(x){ja[ch(x)]=1;});
+    var falta=dm.filter(function(x){return !ja[ch(x)];});if(!falta.length)return value;
+    var txt=JSON.stringify(v.concat(falta));
+    return (String(value).indexOf(PF_COMPRESS_MARK)===0&&typeof pfCompress==='function')?pfCompress(txt):txt;
+  }catch(e){return value;}
+}
 Storage.prototype.setItem=function(k,v){if(this===window.localStorage&&PF_MODO_DEMO_TODAS[k]==='nada'&&pfModoDemoAtivo()){pfModoDemoSombraGravar(k,String(v));return;}
-  if(this===window.localStorage&&PF_MODO_DEMO_TODAS[k]==='so')v=pfModoDemoSoGravar(k,v);
+  if(this===window.localStorage&&PF_MODO_DEMO_TODAS[k]==='so'){v=pfModoDemoSoGravar(k,v);v=pfDonoSemDemoGravar(k,v,_pfLsGetOrig.call(this,k));}
   if(this===window.localStorage&&PF_SO_DONO_KEYS[k])v=pfSoDonoGravar(k,v,_pfLsGetOrig.call(this,k));
   return _pfLsSetOrig.call(this,k,v);};
-Storage.prototype.getItem=function(k){var v=_pfLsGetOrig.call(this,k);if(this===window.localStorage&&PF_MODO_DEMO_TODAS[k])v=pfModoDemoFiltrarRaw(k,v);return (this===window.localStorage&&PF_SO_DONO_KEYS[k])?pfSoDonoFiltrar(k,v):v;};
+Storage.prototype.getItem=function(k){var v=_pfLsGetOrig.call(this,k);if(this===window.localStorage&&PF_MODO_DEMO_TODAS[k]){v=pfModoDemoFiltrarRaw(k,v);v=pfDonoSemDemoFiltrar(k,v);}return (this===window.localStorage&&PF_SO_DONO_KEYS[k])?pfSoDonoFiltrar(k,v):v;};
 function pfRawSetItem(key, value){
   if(PF_MODO_DEMO_TODAS[key]==='nada'&&pfModoDemoAtivo()){pfModoDemoSombraGravar(key,value);return true;} // v115.2280
   if(PF_IDB_KEYS.indexOf(key)>=0){
-    if(PF_MODO_DEMO_TODAS[key]==='so')value=pfModoDemoSoGravar(key,value); // v115.2284 (no localStorage o setItem já faz)
+    if(PF_MODO_DEMO_TODAS[key]==='so'){value=pfModoDemoSoGravar(key,value);if(typeof pfDonoSemDemoGravar==='function')value=pfDonoSemDemoGravar(key,value,_pfMemCache.hasOwnProperty(key)?_pfMemCache[key]:null);} // v115.2284 / v115.2624
     if(window.PF_SO_DONO_KEYS&&PF_SO_DONO_KEYS[key])value=pfSoDonoGravar(key,value,_pfMemCache.hasOwnProperty(key)?_pfMemCache[key]:null); // v115.2614
     _pfMemCache[key]=value;
     clearTimeout(_pfIdbWriteTimers[key]);
@@ -40829,7 +40859,7 @@ async function pfSyncPush(keys){
     // localStorage com o merge, pra não voltar a divergir no próximo push).
     var resultados = await Promise.all(keys.map(async function(chave){
       var raw=pfRawGetItem(chave);
-      if(_pfDemoPush&&PF_MODO_DEMO_TODAS[chave]==='so')raw=(PF_IDB_KEYS.indexOf(chave)>=0)?(_pfMemCache.hasOwnProperty(chave)?_pfMemCache[chave]:null):_pfLsGetOrig.call(localStorage,chave); // v115.2304 - sem o filtro da tela
+      if((_pfDemoPush||(typeof pfDonoSemDemo==='function'&&pfDonoSemDemo()))&&PF_MODO_DEMO_TODAS[chave]==='so')raw=(PF_IDB_KEYS.indexOf(chave)>=0)?(_pfMemCache.hasOwnProperty(chave)?_pfMemCache[chave]:null):_pfLsGetOrig.call(localStorage,chave); // v115.2304 - sem o filtro da tela
       if(raw===null){
         console.log('pfSyncPush: ' + chave + ' não encontrado localmente');
         return null;
@@ -58752,7 +58782,7 @@ function pfModoDemoVigiar(){
       selo.textContent=_ver?'👁 Vendo como os outros · voltar':'🎭 Demo ligada';selo.title=_ver?'Você está vendo como os outros — clique pra voltar aos dados reais (só neste navegador)':'Demonstração LIGADA pros outros — clique pra abrir Dados de demonstração (desligar)';
       selo.onclick=_ver?function(ev){ev.stopPropagation();pfModoDemoVerSet(false);}:function(ev){ev.stopPropagation();pfNavigate('ferramentas');setTimeout(function(){if(typeof ferrAbrirTab==='function')ferrAbrirTab('🎭','Dados de demonstração',ferrDadosDemo);},80);};
       // v115.2327 - A pedido do Vitor ("não está aqui" — procurou o Ver como os outros no selo do topo): botão branco DENTRO do selo vermelho.
-      if(!_ver){var _b=document.createElement('span');_b.textContent='👁 ver';_b.title='Ver a mesma tela que os outros usuários veem (só neste navegador)';
+      if(!_ver){var _b=document.createElement('span');_b.textContent='👁 ver fictício';_b.title='Você vê só os dados reais. Clique pra ver os fictícios — a mesma tela que os outros usuários veem (só neste navegador)';
         _b.style.cssText='background:#fff;color:#C0392B;padding:1px 7px;border-radius:9px;font:800 10.5px Inter,sans-serif;cursor:pointer';
         _b.onclick=function(ev){ev.stopPropagation();pfModoDemoVerSet(true);};selo.appendChild(_b);}
       var _vb=document.getElementById('pfVersionBadge');if(_vb&&_vb.parentNode)_vb.parentNode.insertBefore(selo,_vb.nextSibling);else{selo.style.position='fixed';selo.style.left='12px';selo.style.bottom='4px';selo.style.zIndex='61';document.body.appendChild(selo);}}
@@ -59161,6 +59191,13 @@ function pfDemoHistorico(ref){
     C=window._pfDemoHist={t:Date.now(),m:m};}
   return C.m[String(ref||'').trim().toUpperCase()]||[];
 }
+// v115.2624 - ferramentas da demonstração enxergam os itens demo:true mesmo com o filtro do dono (window._pfDemoTool)
+document.addEventListener('DOMContentLoaded',function(){['pfDemoGerar','pfDemoApagar','pfModoDemoSet','pfDemoContagem','pfDemoGerarListas','pfDemoApagarListas'].forEach(function(n){
+  var f=window[n];if(typeof f!=='function'||f._pfDemoTool)return;
+  var w=function(){window._pfDemoTool=(window._pfDemoTool||0)+1;var r;
+    try{r=f.apply(this,arguments);}catch(e){window._pfDemoTool--;throw e;}
+    if(r&&typeof r.then==='function'){r.then(function(){window._pfDemoTool--;},function(){window._pfDemoTool--;});}else window._pfDemoTool--;return r;};
+  w._pfDemoTool=1;window[n]=w;});});
 function pfDemoApagar(auto){
   var k=pfDemoContagem();
   if(!auto&&!confirm('Apagar os dados de demonstração?\n\n'+k.c+' clientes, '+k.p+' pedidos, '+k.q+' cotações e '+k.t+' títulos marcados como 🎭 demonstração.\nNada real é apagado.'))return;
@@ -75677,7 +75714,7 @@ function pfExtBaixarZip(){
 function pfExtBaixarZipSimples(){var a=document.createElement('a');a.href=PF_EXT_ZIP;a.download='partsflow-whatsapp.zip';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();},200);}
 // v115.2601 - A pedido do Vitor ("tá atualizada a extensão?" — estava na 1.5 com a 1.9 publicada): versão mais nova = a do manifest.
 // Subiu a "version" do extensao-whatsapp/manifest.json → subir aqui também.
-var PF_EXT_VER_NOVA='3.2'; // v115.2606 - estava 1.9 com o manifest já na 2.2
+var PF_EXT_VER_NOVA='3.3'; // v115.2606 - estava 1.9 com o manifest já na 2.2
 function pfExtVerMenor(a,b){a=String(a||'0').split('.').map(Number);b=String(b||'0').split('.').map(Number);for(var i=0;i<Math.max(a.length,b.length);i++){var x=a[i]||0,y=b[i]||0;if(x!==y)return x<y;}return false;}
 function pfExtInstalarAbrir(){
   var tem=pfExtTem(),li=function(n,t){return '<div style="display:flex;gap:10px;margin:8px 0"><span style="flex:0 0 24px;height:24px;border-radius:50%;background:#1F4E79;color:#fff;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center">'+n+'</span><div style="font-size:13px;line-height:1.5">'+t+'</div></div>';};

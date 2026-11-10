@@ -954,9 +954,18 @@
       return waFora(x) && waVisivel(x) && !x.closest('#main') && /^\s*(adicionar|add)\s*$/i.test(t) && !/lista|list/i.test(t);
     });
     if (b) return b;
-    // 3) ícone de adicionar contato (bonequinho+) ou lápis que NÃO seja o das anotações
-    var ics = document.querySelectorAll('span[data-icon*="contact-add"],span[data-icon*="add-user"],span[data-icon*="person-add"],span[data-icon*="edit"],span[data-icon*="pencil"]');
-    for (var i = 0; i < ics.length; i++) { var x = ics[i]; if (!waFora(x) || !waVisivel(x) || x.closest('#main') || waEhNota(x)) continue; return x.closest('button,[role="button"]') || x; }
+    // 3) o lápis "Editar contato" fica no CABEÇALHO do painel "Dados do contato" (o mais ALTO da tela); o das anotações fica lá embaixo (waEhNota).
+    // 4.17 - print do GIL (contato salvo): pega o lápis/ícone de editar mais alto, nunca o das notas.
+    var cands = [];
+    Array.prototype.forEach.call(document.querySelectorAll('button,[role="button"],span[data-icon*="contact-add"],span[data-icon*="add-user"],span[data-icon*="person-add"],span[data-icon*="edit"],span[data-icon*="pencil"]'), function (x) {
+      if (!waFora(x) || !waVisivel(x) || x.closest('#main') || waEhNota(x)) return;
+      var inner = x.querySelector('[data-icon]');
+      var ic = (x.getAttribute('data-icon') || (inner ? inner.getAttribute('data-icon') : '') || '');
+      var lab = ((x.getAttribute('aria-label') || '') + ' ' + (x.getAttribute('title') || '')).toLowerCase();
+      if (!(/pencil|edit|contact-add|add-user|person-add/.test(ic) || /editar|edit/.test(lab))) return;
+      cands.push({ el: x.closest('button,[role="button"]') || x, top: x.getBoundingClientRect().top });
+    });
+    if (cands.length) { cands.sort(function (a, c) { return a.top - c.top; }); return cands[0].el; }
     return null;
   }
   // 4.13 - quando não acha, lista os botões que estão aparecendo fora da conversa (pro Vitor mandar print e a gente acertar)

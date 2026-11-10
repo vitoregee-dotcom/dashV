@@ -2339,6 +2339,12 @@
   capturas `feito-selo*.png`): a bolinha do botão 📄 continua e o ÚLTIMO balão de cada sequência de mensagens do cliente com códigos (`selosVigiar`: blocos até a próxima mensagem sua, regra `spContaCods` = 2+ códigos ou 1 + cota/preço/tem)
   ganha o selinho laranja "📄 N" (`.pfwa-selo`, dentro do `[data-pre-plain-text]`). Clique = janelinha `#pfwa-sp` (acao `cotar` só com as mensagens do bloco: código × qtd e saldo) + "Criar cotação no PF" (acao `abrirCot`) e "ver no painel ›".
   Nada é criado sem o clique; criada = selo verde ✓ cot. (`sessionStorage pfwa_sp_feitos`, hash conversa+texto). Desliga em ⚙️ (`selo` no CFG_LISTA) ou com o aviso de cotação. Falta validar a posição do selo no WhatsApp real.
+- v115.2630 **👋 Saudação automática** (extensão **3.9**; Vitor: "se eu não responder em 3 min pode mandar alguma msg. mas quero configurável"; capturas `docs/referencias/whatsapp-menu/feito-saudacao-*.png`):
+  ⚙️ Configurações → 👋 Saudação automática (`htmlAuto`, `config='auto'`), VEM DESLIGADA. Config por navegador `chrome.storage.local.auto` (`AUTO_PADRAO`: min 3, 08:00–18:00, segunda a sexta, só clientes do PF,
+  não repetir por 4 h, máx 15/h, `abrir` desligado, 4 frases com {saudacao}/{nome}). `autoTick` (15 s, fora do horário/lote de disparo não roda): conversa ABERTA com a última mensagem do cliente
+  há ≥ min (e < 3 h, caixa vazia) → frase sorteada (`autoTexto`; {nome} = contato do PF ou a pessoa de "Pessoa - Empresa", nome de empresa sozinho = sem nome) → envia e confere. Com `abrir` ligado e você parado
+  1 min: abre até 3 conversas não lidas da lista com hora ≥ min (`autoCandidatas`), manda e volta pra conversa de antes. Etiqueta "👋 saudação enviada · responda" na lista (`autoPend`/`autoBadges`) até você
+  mandar outra mensagem; acao `autoSaud` grava "👋 Saudação automática: …" no CRM do cliente. Hora da mensagem = `[HH:MM, DD/MM/AAAA]` do data-pre-plain-text (`msgQuando`). Falta validar no WhatsApp real.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

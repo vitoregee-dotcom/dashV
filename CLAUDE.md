@@ -2359,6 +2359,8 @@
 - v115.2633 (extensão **4.1**; Vitor: "cuidado na msg automática de ausência, pra não responder a cada msg do cliente… o Watidy manda um monte de vezes, isso é irritante"): `autoPodeConv` não manda NADA
   automático numa conversa que já recebeu uma mensagem automática e você ainda não respondeu (`autoPend`) — ausência e saudação de espera juntas = 1 mensagem só; o período da ausência é `modo|ausDesde`
   (mudar o "até" não reenvia). Testado: cliente mandando mais 3 mensagens seguidas = continua 1 automática.
+- v115.2634 BUG ("de novo eu estava na ficha e veio pra cá sozinho", já na 2632): o `cadPullSupabase` (sincronização automática) e o `cadSyncManual` redesenhavam Cadastros (`cadGoTab`)
+  e só poupavam a tela com o cursor DENTRO de um campo — ficha aberta sem foco voltava pra lista. `pfCadFichaAberta()` (#prodCodigo/#clieCodigo/#clieCnpj/#fornRazao/#fornCnpj/#transpRazao/#funcNome no #cadBody) segura o redesenho.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

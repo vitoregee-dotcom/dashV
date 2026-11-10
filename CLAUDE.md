@@ -2421,6 +2421,8 @@
   do CABEÇALHO do painel "Dados do contato" (ao lado do Fechar), NÃO o das anotações lá embaixo. `waEditarBotao` passo 3 agora junta os ícones de lápis/editar (fora `#main` e
   fora do das notas `waEhNota`) e pega o **mais ALTO da tela** (`getBoundingClientRect().top` menor = o do cabeçalho); também casa aria-label "Editar"/"Edit". Seletores ainda
   **não validados no WhatsApp real**. `PF_EXT_VER_NOVA`='4.17', zip refeito.
+- v115.2658 ("coloca um botão de copiar aqui… pra colar no JBoss" — card da família dos Componentes Cardan, ex.: 3-53-451): 📋 `ccBgCopiarHtml` (o mesmo da busca geral,
+  copia o código SEM espaço, `event.stopPropagation` não abre o item) ao lado do código no cabeçalho do card (`ccRender`); copia o código mostrado (Spicer quando tem cadastro Spicer, senão `rec.codigo`).
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

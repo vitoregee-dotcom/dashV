@@ -187,7 +187,7 @@
     if (numRodando) { numParar = true; b.textContent = 'Parando…'; return; }
     var est = (await chrome.storage.local.get(['numEstado'])).numEstado;
     var r = await msg({ t: 'acao', acao: 'contatosSemTel' });
-    if (!r || r.erro || !Array.isArray(r.nomes)) { flash(b, r && r.erro === 'semPF' ? 'Abra o PF numa aba deste Chrome' : 'Atualize o PF (F5) — versão nova'); return; }
+    if (!r || r.erro || !Array.isArray(r.nomes)) { flash(b, r && r.erro === 'semPF' ? 'Abra o PF numa aba deste Chrome' : r && r.erro === 'pfF5' ? 'Dê F5 na aba do PartsFlow' : 'Atualize o PF (F5) — versão nova'); return; }
     var nomes = r.nomes;
     if (!nomes.length) { if (st) st.textContent = '✔ Todos os contatos já têm número'; chrome.storage.local.remove('numEstado'); return; }
     // continua de onde parou: tira os que já foram tentados nesta rodada
@@ -380,7 +380,7 @@
     if (cotando) return; cotando = true; cotErro = ''; cot = null; pintaCorpo();
     var r = await msg({ t: 'acao', acao: 'cotar', arg: { k: resp && resp.k, contato: resp && resp.contato, msgs: lerMensagens() } });
     cotando = false;
-    if (!r || r.erro) { cotErro = r && r.erro === 'semPF' ? 'Abra o PartsFlow numa aba deste Chrome (já logado).' : 'O PF não respondeu. Dê F5 na aba do PartsFlow.'; }
+    if (!r || r.erro) { cotErro = r && r.erro === 'semPF' ? 'Abra o PartsFlow numa aba deste Chrome (já logado).' : r && r.erro === 'pfF5' ? 'Dê F5 na aba do PartsFlow (a extensão foi atualizada depois que ele abriu).' : 'O PF não respondeu. Dê F5 na aba do PartsFlow.'; }
     else cot = r;
     pintaCorpo();
   }
@@ -423,6 +423,7 @@
     if (!contatoAt) return '<div class="pfwa-vazio">Abra uma conversa pra ver o que o PF sabe desse contato.</div>';
     if (!r) return '<div class="pfwa-vazio">Procurando no PF…</div>';
     if (r.erro === 'semPF') return '<div class="pfwa-vazio">Abra o <b>PartsFlow</b> numa aba deste Chrome (já logado) pra ver quem é esse contato.</div>';
+    if (r.erro === 'pfF5') return '<div class="pfwa-vazio">A aba do <b>PartsFlow</b> está aberta, mas não respondeu.<br><b>Dê F5 nela</b> (a extensão foi atualizada depois que ela abriu) e volte aqui.</div>';
     if (r.erro === 'recarregar') return '<div class="pfwa-vazio">A extensão foi atualizada — aperte <b>F5</b> nesta aba.</div>';
     if (r.erro) return '<div class="pfwa-vazio">O PF não respondeu. Dê <b>F5</b> na aba do PartsFlow.</div>';
     if (r.grupo) return '<div class="pfwa-vazio">Conversa em grupo.</div>';

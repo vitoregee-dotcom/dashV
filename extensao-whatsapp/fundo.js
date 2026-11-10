@@ -11,13 +11,23 @@ function ler(k) { return chrome.storage.local.get(k); }
 async function tabExiste(id) { if (!id) return false; try { await chrome.tabs.get(id); return true; } catch (e) { return false; } }
 
 // acha a aba do PartsFlow (a última que se apresentou, senão pergunta pra cada aba possível)
+// 3.1 - BUG ("Abra o PartsFlow" com a aba do PF aberta): a aba guardada podia estar com a ponte MORTA (extensão atualizada/recarregada
+// depois que o PF abriu → o ponte.js antigo não responde mais) e o fundo devolvia "semPF" sem procurar de novo. Agora: confere com ping;
+// aba do PF que não responde ganha o ponte.js de novo (chrome.scripting) e, se nem assim, avisa "dê F5 na aba do PF" (erro 'pfF5').
+async function pingPF(id) { try { var r = await chrome.tabs.sendMessage(id, { t: 'ping' }); return !!(r && r.pf); } catch (e) { return false; } }
+async function reinjetar(id) { try { await chrome.scripting.executeScript({ target: { tabId: id }, files: ['ponte.js'] }); await new Promise(function (ok) { setTimeout(ok, 400); }); return await pingPF(id); } catch (e) { return false; } }
+var _pfTemAba = false;
 async function acharPF() {
+  _pfTemAba = false;
   var s = await ler(['pfTab']);
-  if (await tabExiste(s.pfTab)) return s.pfTab;
+  if (await tabExiste(s.pfTab) && await pingPF(s.pfTab)) return s.pfTab;
   var tabs = [];
   try { tabs = await chrome.tabs.query({ url: PF_URLS }); } catch (e) { }
-  for (var i = 0; i < tabs.length; i++) {
-    try { var r = await chrome.tabs.sendMessage(tabs[i].id, { t: 'ping' }); if (r && r.pf) { await guardar({ pfTab: tabs[i].id }); return tabs[i].id; } } catch (e) { }
+  for (var i = 0; i < tabs.length; i++) { if (await pingPF(tabs[i].id)) { await guardar({ pfTab: tabs[i].id }); return tabs[i].id; } }
+  for (var j = 0; j < tabs.length; j++) {
+    if (!/partsflow/i.test(tabs[j].title || '') && !/dashV/i.test(tabs[j].url || '')) continue;
+    _pfTemAba = true;
+    if (await reinjetar(tabs[j].id)) { await guardar({ pfTab: tabs[j].id }); return tabs[j].id; }
   }
   return null;
 }
@@ -109,9 +119,9 @@ chrome.runtime.onMessage.addListener(function (m, sender, send) {
   if (m.t === 'quem' || m.t === 'acao') {
     (async function () {
       var id = await acharPF();
-      if (!id) { send({ erro: 'semPF' }); return; }
+      if (!id) { send({ erro: _pfTemAba ? 'pfF5' : 'semPF' }); return; }
       if (m.t === 'acao' && m.focar) { try { var t = await chrome.tabs.update(id, { active: true }); await chrome.windows.update(t.windowId, { focused: true }); } catch (e) { } }
-      try { send(await chrome.tabs.sendMessage(id, m)); } catch (e) { send({ erro: 'semPF' }); }
+      try { send(await chrome.tabs.sendMessage(id, m)); } catch (e) { await guardar({ pfTab: null }); send({ erro: 'pfF5' }); }
     })();
     return true;
   }

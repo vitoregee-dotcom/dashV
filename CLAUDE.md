@@ -2293,6 +2293,9 @@
   busca na BrasilAPI/cnpj.ws (`pfExtCnpjDados`: razão, fantasia, cidade, UF, endereço, e-mail, telefone) e cria o cliente com **`prospect:true`** (+ Código JBoss, contato com cargo,
   `criadoDe:'whatsapp'`), sem dados da Receita usa a empresa digitada. Selo "🌱 PROSPECT" na lista de clientes e caixinha "🌱 Pré-cadastro (prospect)" no cadastro (desmarcar e
   salvar = cliente completo; `cadSalvarClienteV2` grava `prospect`).
+- v115.2620 BUG (extensão **3.1**; print: painel "Abra o PartsFlow numa aba deste Chrome" COM a aba do PF aberta): a aba guardada (`pfTab`) tinha a ponte MORTA (extensão
+  atualizada depois que o PF abriu) e o `fundo.js` devolvia `semPF` sem procurar de novo. Agora `acharPF` confere com `pingPF`; aba do PF (título PartsFlow / url dashV) que não
+  responde ganha o `ponte.js` de novo por `chrome.scripting` (permissão nova "scripting") e, se nem assim, o painel diz "Dê F5 na aba do PartsFlow" (erro `pfF5`).
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

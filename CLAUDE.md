@@ -2304,6 +2304,9 @@
   lista de clientes (`cadRenderClientes`, `window._clieOrig`, padrão Reais; só aparece quando tem os dois). Junto (dados, sem código): Código JBoss de 148 clientes preenchido pelo
   CNPJ da planilha "Listagem de Entidades" do JBoss (151 clientes, cópia antes em `backup_clientes_20261110`) + 3 cadastrados (000199 MAXI 748, 000200 OPCAO 2656, 000201 LIGIA
   8470, soDono); o 1427 que estava na CARDANS ITAIPU (fictícia da demo) saiu.
+- v115.2623 BUGs do painel do WhatsApp ("NÃO ACHOU O CLIENTE E NÃO RECONHECEU A QUANTIDADE" — "Alessandro - Trackpeças (1750) PR", mensagens "02-148933A1"/"04-87457092"):
+  1) o `pfExtQuem` tinha cópia própria dos pedaços do nome sem tirar a UF → agora usa `pfExtNomeMatcher(nome).pedacos`. 2) `pfExtLerPedido`: quantidade grudada com traço
+  na frente do código ("04-87457092" = 4 × 87457092) quando começa com 0 e o resto tem 5+ letras/números, ou o resto tem 7+; código de cardan (5-12018X, 2-70-59, 6.5-40-191) fica inteiro.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

@@ -229,8 +229,44 @@
   // 2.4 - ❓ Ajuda "Como funciona" (pedido do Vitor: explicar cada função em linguagem simples pros outros usuários).
   // FUNÇÃO NOVA NA EXTENSÃO → acrescentar uma linha aqui.
   var ajuda = false;
+  // 3.4 - ⚙️ Configurações (A pedido do Vitor: "coloca botão de eu ligar ou desligar essas configurações. igual no Watidy"):
+  // cada função da extensão liga/desliga aqui; guardado por navegador (chrome.storage.local 'cfg'). Menu e aviso de cotação usam as chaves que já existiam.
+  var config = false, CFG = { bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true };
+  var CFG_LISTA = [
+    ['menu', '🧭', 'Menu do PF em volta do WhatsApp', 'Barra de filtros em cima (Clientes, Fornecedores, Cotação aberta…) e a coluna de atalhos à esquerda.'],
+    ['etq', '🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome da lista: cliente / fornecedor do PF, cotação aberta, mapa, sem resposta.'],
+    ['bots', '📄', 'Botões do PF ao lado das mensagens', 'A coluna (A) ou barra (D) com Cotar, Saldo, Ficha, Lembrete, Prontas…'],
+    ['aviso', '🔔', 'Aviso de pedido de cotação', 'A bolinha laranja com o número de códigos no botão 📄 quando o cliente manda códigos.'],
+    ['salvar', '👤', 'Botão Salvar contato', 'O botão verde ao lado do nome da conversa.'],
+    ['ofertas', '💡', 'Guardar ofertas e respostas', 'Quando você oferece algo, o cartão pra salvar a oferta e a resposta do cliente no CRM.'],
+    ['ja', '⚠️', '"Você já ofereceu" enquanto digita', 'Aviso em cima da caixa de texto quando você vai oferecer algo que já ofereceu.'],
+    ['verif', '📌', 'Anotar "vou verificar" sozinho', 'Quando você escreve "vou verificar / já te retorno", vira pendência e próxima ação no PF.']];
+  function cfgOn(k) { return k === 'menu' ? menuLig : k === 'aviso' ? avisoLigado : CFG[k] !== false; }
+  chrome.storage.local.get(['cfg'], function (s) { if (s.cfg) for (var k in s.cfg) CFG[k] = s.cfg[k]; });
+  function htmlConfig() {
+    var h = '<div class="pfwa-ajtop"><b>⚙️ Configurações</b><span class="pfwa-link" data-acao="config">✕ fechar</span></div>' +
+      '<div class="pfwa-nada" style="margin:4px 0 8px">Ligue só o que você usa. Vale pra este navegador.</div>';
+    CFG_LISTA.forEach(function (x) {
+      var on = cfgOn(x[0]);
+      h += '<div class="pfwa-cfgl" data-acao="cfgTog" data-arg="' + x[0] + '"><span class="pfwa-cfgi">' + x[1] + '</span><div><b>' + esc(x[2]) + '</b><br><small>' + esc(x[3]) + '</small></div>' +
+        '<span class="pfwa-sw' + (on ? ' on' : '') + '"><i></i></span></div>';
+    });
+    return h;
+  }
+  function cfgTog(k) {
+    if (k === 'menu') { menuLig = !menuLig; chrome.storage.local.set({ menuLig: menuLig }); pintarMenu(); }
+    else if (k === 'aviso') { avisoLigado = !avisoLigado; chrome.storage.local.set({ avisoLigado: avisoLigado }); try { marcaCot(); } catch (e) { } }
+    else { CFG[k] = !cfgOn(k); chrome.storage.local.set({ cfg: CFG }); }
+    if (k === 'etq') try { badgesRender(); } catch (e) { }
+    if (k === 'ofertas' && !CFG.ofertas) try { ofPend = []; pintaOferta(); } catch (e) { }
+    if (k === 'ja' && !CFG.ja) try { jaR = null; pintaJa(); } catch (e) { }
+    if (k === 'verif' && !CFG.verif) try { vfR = null; pintaVf(); } catch (e) { }
+    try { posicionar(); } catch (e) { }
+    pinta();
+  }
   var AJUDA = [
     ['Comece por aqui', [
+      ['⚙️', 'Configurações', 'A engrenagem no cabeçalho do painel liga e desliga cada função da extensão (menu, etiquetas, botões, avisos, salvar contato, ofertas…).'],
       ['🧩', 'O que é', 'O PartsFlow (PF) aparece aqui do lado do WhatsApp e mostra quem é o contato, o que ele compra e o que está em aberto. Ele só LÊ e ESCREVE NA CAIXA — quem aperta Enter é sempre você.'],
       ['🔌', 'Precisa do PF aberto', 'Deixe uma aba do PartsFlow aberta (já logado) neste mesmo Chrome — pode ser em outra janela. Se aparecer "O PF não respondeu", dê F5 na aba do PartsFlow.'],
       ['🟢', 'Conectado ao PF', 'Do lado da versão, lá em cima: verde "● Conectado ao PF" = tudo certo · laranja "Dê F5 no PF" = a aba do PF está aberta mas parou de responder · vermelho "PF fechado" = abra o PartsFlow. Clique nele pra conferir na hora. A bolinha também aparece no "PF" da barra de cima.'],
@@ -256,7 +292,7 @@
       ['🕘', 'Histórico', 'Cotações abertas, últimos pedidos e o que você já ofereceu.'],
       ['📦', 'Peças', 'Saldo de um código e o que o cliente mais compra.']]],
     ['O PF avisa sozinho', [
-      ['🔔', 'Pedido de cotação', 'Quando o cliente manda códigos, aparece uma bolinha laranja com o número de códigos no botão 📄 do PF (ao lado das mensagens). Clique nela pra cotar. Pra desligar: o sino 🔔 no cabeçalho do painel (vira 🔕) ou o botão direito na bolinha.'],
+      ['🔔', 'Pedido de cotação', 'Quando o cliente manda códigos, aparece uma bolinha laranja com o número de códigos no botão 📄 do PF (ao lado das mensagens). Clique nela pra cotar. Pra desligar: ⚙️ Configurações → Aviso de pedido de cotação, ou o botão direito na bolinha.'],
       ['💡', 'Ofertas', 'Quando você oferece algo e o cliente responde, o PF pergunta o que ele achou e guarda na ficha. Se for oferecer de novo, ele avisa "você já ofereceu".'],
       ['📌', 'Vou verificar', 'Se você escrever "deixa eu ver / vou verificar / já te retorno", o PF cria uma pendência sozinho (com desfazer).'],
       ['📇', 'Código que não está no PF', 'Se o nome no WhatsApp tem um código entre parênteses que não existe no PF, aparece "Cadastrar no PF" já com o código.']]],
@@ -278,7 +314,7 @@
     if (P) return;
     P = document.createElement('div'); P.id = 'pfwa';
     P.innerHTML = '<div class="pfwa-aba" title="PartsFlow">PF</div><div class="pfwa-caixa"><div class="pfwa-cab">' + logoSvg('#fff', '#0F1F35') +
-      '<div class="pfwa-cabt"><b>PartsFlow</b><span class="pfwa-ver">' + (VER ? 'v' + VER : '') + '</span><span class="pfwa-con" data-acao="conexao" title="Ligação com o PartsFlow">…</span><small class="pfwa-cabsub"></small></div><i class="pfwa-ajd" data-acao="ajuda" title="Como funciona cada coisa">❓</i><i class="pfwa-sino" data-acao="sino" title="Avisar quando o cliente manda códigos de cotação">🔔</i><span class="pfwa-vis" title="Onde ficam os botões do PF: A = coluna ao lado das mensagens · D = barra embaixo"><i data-vis="A">A</i><i data-vis="D">D</i></span><span class="pfwa-x" title="Recolher">›</span></div>' +
+      '<div class="pfwa-cabt"><b>PartsFlow</b><span class="pfwa-ver">' + (VER ? 'v' + VER : '') + '</span><span class="pfwa-con" data-acao="conexao" title="Ligação com o PartsFlow">…</span><small class="pfwa-cabsub"></small></div><i class="pfwa-ajd" data-acao="config" title="Configurações — ligar e desligar cada função">⚙️</i><i class="pfwa-ajd" data-acao="ajuda" title="Como funciona cada coisa">❓</i><span class="pfwa-vis" title="Onde ficam os botões do PF: A = coluna ao lado das mensagens · D = barra embaixo"><i data-vis="A">A</i><i data-vis="D">D</i></span><span class="pfwa-x" title="Recolher">›</span></div>' +
       '<div class="pfwa-lote"></div><div class="pfwa-tabs"></div><div class="pfwa-corpo"></div>'+
       '<div class="pfwa-rod"><button data-acao="importar" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button><button data-acao="numeros" class="pfwa-num" title="Abre cada conversa dos contatos salvos sem número, lê o número e grava no PF (só lê, não manda nada). Clique de novo pra parar.">📞 Buscar números que faltam</button><span class="pfwa-rodst"></span></div></div>';
     document.body.appendChild(P);
@@ -304,7 +340,9 @@
   async function clique(e) {
     var b = e.target.closest('[data-acao]'); if (!b) return;
     var ac = b.getAttribute('data-acao'), arg = b.getAttribute('data-arg') || '';
-    if (ac === 'aba') { ajuda = false; irAba(arg); return; }
+    if (ac === 'aba') { ajuda = false; config = false; irAba(arg); return; }
+    if (ac === 'config') { config = !config; ajuda = false; abrirPainel(); pinta(); return; }
+    if (ac === 'cfgTog') { cfgTog(arg); return; }
     if (ac === 'svAbrir') { if (svAberto) { svAberto = false; SV.style.display = 'none'; } else svAbrir(); return; } // 2.7
     if (ac === 'svFechar') { svAberto = false; SV.style.display = 'none'; return; }
     if (ac === 'svUsar') { svUsar(arg); return; }
@@ -313,7 +351,7 @@
     if (ac === 'svCadAbrir') { if (svK) msg({ t: 'acao', acao: 'irTela', arg: { tela: 'cadcliK', k: svK } }); return; }
     if (ac === 'svWa') { svWa(); return; }
     if (ac === 'conexao') { conPintar(''); conChecar(); return; }
-    if (ac === 'ajuda') { ajuda = !ajuda; abrirPainel(); pinta(); return; }
+    if (ac === 'ajuda') { ajuda = !ajuda; config = false; abrirPainel(); pinta(); return; }
     if (ac === 'sino') { avisoLigado = !avisoLigado; chrome.storage.local.set({ avisoLigado: avisoLigado }); pinta(); marcaCot(); if (!avisoLigado && AV) AV.style.display = 'none'; else vigiar(); return; }
     if (ac === 'botsToggle') { botsMin = !botsMin; chrome.storage.local.set({ botsMin: botsMin }); posicionar(); return; }
     if (ac === 'numeros') { buscarNumeros(b); return; }
@@ -502,6 +540,7 @@
     // 2.1 - código do WhatsApp (entre parênteses) que não existe no PF: avisa pra cadastrar com o mesmo código
     var banner = (resp && resp.codFalta) ? '<div class="pfwa-codf">📇 Código <b>' + esc(resp.codFalta) + '</b> (do WhatsApp) não está no PF. Cadastre o cliente com esse mesmo código.<button data-acao="cadcli" data-arg="' + esc(resp.codFalta) + '">➕ Cadastrar no PF</button></div>' : '';
     if (ajuda) { c.innerHTML = htmlAjuda(); return; }
+    if (config) { c.innerHTML = htmlConfig(); return; }
     c.innerHTML = banner + (v || (aba === 'cot' ? htmlCot() : aba === 'cli' ? htmlCli() : aba === 'hist' ? htmlHist() : htmlPecas()));
     var ta = c.querySelector('.pfwa-resp'); if (ta) ta.oninput = function () { if (cot) cot.resposta = ta.value; };
     var si = c.querySelector('.pfwa-saldo-in'); if (si) si.onkeydown = function (e) { if (e.key === 'Enter') buscarSaldo(si.value); };
@@ -573,7 +612,7 @@
   function nomeEl() { var h = $('#main header'); return h ? (h.querySelector('span[dir="auto"][title]') || h.querySelector('span[dir="auto"]')) : null; }
   function svPos() {
     if (!SVB) return; var c = contatoAt, el = nomeEl();
-    if (!c || c.grupo || !el || document.documentElement.classList.contains('pfwa-coberto')) { SVB.style.display = 'none'; if (SV) SV.style.display = 'none'; svAberto = false; return; }
+    if (!CFG.salvar || !c || c.grupo || !el || document.documentElement.classList.contains('pfwa-coberto')) { SVB.style.display = 'none'; if (SV) SV.style.display = 'none'; svAberto = false; return; }
     var r = el.getBoundingClientRect(); if (!r.width) { SVB.style.display = 'none'; return; }
     SVB.style.display = 'flex'; SVB.style.left = Math.round(r.right + 8) + 'px'; SVB.style.top = Math.round(r.top + r.height / 2 - 13) + 'px';
     SVB.title = (resp && resp.achou && resp.tipo === 'cliente') ? 'Salvar / acertar este contato (' + (resp.titulo || '') + ')' : 'Salvar este contato no PF';
@@ -674,7 +713,7 @@
     var main = $('#main'); if (!B) return;
     if (!main || !contatoAt) { B.style.display = 'none'; if (AV) AV.style.display = 'none'; if (OF) OF.style.display = 'none'; if (JA) JA.style.display = 'none'; if (VF) VF.style.display = 'none'; return; }
     var r = main.getBoundingClientRect(), foot = main.querySelector('footer'), fh = foot ? foot.getBoundingClientRect().height : 62, hd = main.querySelector('header'), hh = hd ? hd.getBoundingClientRect().height : 60;
-    B.className = (visual === 'D' ? 'pfwa-barra' : 'pfwa-coluna') + (botsMin ? ' pfwa-min' : ''); B.style.display = 'flex';
+    B.className = (visual === 'D' ? 'pfwa-barra' : 'pfwa-coluna') + (botsMin ? ' pfwa-min' : ''); B.style.display = CFG.bots ? 'flex' : 'none';
     if (botsMin) { B.innerHTML = '<span data-acao="botsToggle" class="pri pfwa-botspf" title="Mostrar os bot\u00f5es do PF">PF</span>'; }
     else { var tog = '<span data-acao="botsToggle" class="pfwa-botsx" title="Esconder os bot\u00f5es do PF">' + (visual === 'D' ? '\u2039' : '\u2013') + '</span>'; B.innerHTML = tog + BOTOES.map(function (b, i) { return '<span data-acao="b-' + b[0] + '" class="' + (i === 0 ? 'pri' : '') + '" title="' + b[2] + '">' + b[1] + (visual === 'D' ? ' ' + b[2] : '') + '</span>'; }).join(''); }
     marcaCot();
@@ -722,7 +761,7 @@
   // Você ofereceu algo (peça, família, marca) e o cliente respondeu → cartão pra salvar a resposta na ficha (1 clique).
   var RESP = [['quer', '👍', 'Quer'], ['pensa', '🤔', 'Vai pensar'], ['agoranao', '👎', 'Agora não'], ['caro', '💲', 'Achou caro'], ['naousa', '🚫', 'Não usa'], ['outro', '🏷️', 'Compra de outro']];
   async function ofertasVigiar() {
-    if (!resp || resp.tipo !== 'cliente' || !resp.k || !contatoAt || contatoAt.grupo) { if (ofPend.length) { ofPend = []; pintaOferta(); } return; }
+    if (!CFG.ofertas || !resp || resp.tipo !== 'cliente' || !resp.k || !contatoAt || contatoAt.grupo) { if (ofPend.length) { ofPend = []; pintaOferta(); } return; }
     var ms = lerMensagens(); var sig = ultimo + '|' + ms.length + '|' + (ms.length ? ms[ms.length - 1].t.slice(-60) : '');
     if (sig === ofSig) return; ofSig = sig;
     var ch = ultimo;
@@ -750,7 +789,7 @@
   async function digitandoVigiar() {
     var cx = caixaTexto(); var t = cx ? (cx.innerText || '').trim() : '';
     if (t === digAnt) return; digAnt = t;
-    if (t.length < 4 || !resp || resp.tipo !== 'cliente' || !resp.k) { jaR = null; pintaJa(); return; }
+    if (!CFG.ja || t.length < 4 || !resp || resp.tipo !== 'cliente' || !resp.k) { jaR = null; pintaJa(); return; }
     var r = await msg({ t: 'acao', acao: 'ofertaChecar', arg: { k: resp.k, texto: t } });
     if (t !== digAnt) return; jaR = r && r.ja && r.ja.length ? r : null; pintaJa();
   }
@@ -766,7 +805,7 @@
   // Quando a ÚLTIMA mensagem que VOCÊ mandou é uma frase de "vou verificar / deixa eu ver no catálogo / vou checar com o fornecedor",
   // o PF cria sozinho uma pendência (cliente + o que ele pediu + códigos) e aparece um cartão "📌 Anotei — desfazer".
   async function verificarVigiar() {
-    if (!contatoAt || contatoAt.grupo) { if (vfR) { vfR = null; pintaVf(); } return; }
+    if (!CFG.verif || !contatoAt || contatoAt.grupo) { if (vfR) { vfR = null; pintaVf(); } return; }
     var ms = lerMensagens(); if (!ms.length) return;
     var last = ms[ms.length - 1];
     if (!last.eu || !VERIF_RE.test(last.t)) return;
@@ -860,7 +899,7 @@
   }
   function badgesRender() {
     var pane = $('#pane-side');
-    if (!menuLig || !pane) { document.querySelectorAll('.pfwa-rowb').forEach(function (e) { e.remove(); }); return; }
+    if (!menuLig || !CFG.etq || !pane) { document.querySelectorAll('.pfwa-rowb').forEach(function (e) { e.remove(); }); return; }
     linhasLista().forEach(function (x) {
       var host = x.el.querySelector('span[title]'); if (!host) return; host = host.parentElement; if (!host) return;
       // só a situação do PF — a etiqueta do WhatsApp o próprio WhatsApp já mostra na linha (não duplicar)

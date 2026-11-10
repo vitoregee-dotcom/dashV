@@ -2314,6 +2314,10 @@
   da demonstração (= Ver como os outros). Extensão **3.3** ("isso aqui no meio da tela não está legal… e coloca um jeito de desligar"): o aviso largo "O PF achou um pedido de cotação"
   saiu — virou bolinha laranja com o nº de códigos no botão 📄 da coluna/barra do PF (`marcaCot`, `.pfwa-temcot`); desligar = 🔔 do cabeçalho ou botão direito na bolinha.
   Captura `docs/referencias/whatsapp-menu/feito-bolinha-cot.png`.
+- v115.2625 **⚙️ Configurações da extensão** (extensão **3.4**; "coloca botão de eu ligar ou desligar essas configurações. igual no Watidy"): engrenagem no cabeçalho do
+  painel (o 🔔 saiu de lá) → `htmlConfig`/`cfgTog`, liga/desliga por navegador: Menu do PF (`menuLig`), Etiquetas nas conversas, Botões do PF, Aviso de cotação (`avisoLigado`),
+  Salvar contato, Guardar ofertas, "Você já ofereceu", Anotar "vou verificar" (`CFG` em `chrome.storage.local.cfg`, `CFG_LISTA`). **Função nova na extensão → linha no CFG_LISTA** se
+  der pra desligar. Captura `docs/referencias/whatsapp-menu/feito-config.png`.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

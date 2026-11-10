@@ -300,6 +300,7 @@
       ['📥', 'Importar meus contatos', 'Lê a lista de conversas e traz pro PF (você escolhe quem entra).'],
       ['📣', 'Disparo pelo PF', 'No PF, Vendas → 📣 Disparo pelo WhatsApp: escolhe a lista (o que chegou, uma marca, um grupo, os sumidos ou uma etiqueta), escreve a mensagem com {nome} e a extensão manda uma por uma, no ritmo que você escolher por hora. Quem já recebeu a mesma oferta fica de fora.'],
       ['👤', 'Salvar contato', 'Botão verde ao lado do nome da conversa: escreve o nome, a empresa (procura nos clientes do PF) e o código do JBoss — vira "Fulano - Empresa (código)". Salva no PF e, se o número não está salvo, abre o "Adicionar aos contatos" do WhatsApp com o nome. Tem também o CARGO e o CNPJ (CNPJ que ainda não é cliente = entra no PF como pré-cadastro 🌱 com os dados da Receita); se a empresa ainda não está no PF, aparece “➕ Criar cliente no PF”, que já cria o cadastro com esse contato.'],
+      ['↕️', 'Mudar o PF de altura', 'Segure e arraste a coluna de botões do PF (ou o "PF" minimizado) pra cima ou pra baixo. Fica guardado.'],
       ['📞', 'Buscar números que faltam', 'Abre cada conversa dos contatos salvos sem número e pega o telefone. Clique de novo pra parar.']]]
   ];
   function htmlAjuda() {
@@ -318,7 +319,7 @@
       '<div class="pfwa-lote"></div><div class="pfwa-tabs"></div><div class="pfwa-corpo"></div>'+
       '<div class="pfwa-rod"><button data-acao="importar" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button><button data-acao="numeros" class="pfwa-num" title="Abre cada conversa dos contatos salvos sem número, lê o número e grava no PF (só lê, não manda nada). Clique de novo pra parar.">📞 Buscar números que faltam</button><span class="pfwa-rodst"></span></div></div>';
     document.body.appendChild(P);
-    B = document.createElement('div'); B.id = 'pfwa-bots'; document.body.appendChild(B);
+    B = document.createElement('div'); B.id = 'pfwa-bots'; document.body.appendChild(B); botsArrastoLigar();
     AV = document.createElement('div'); AV.id = 'pfwa-aviso'; document.body.appendChild(AV);
     OF = document.createElement('div'); OF.id = 'pfwa-of'; document.body.appendChild(OF);
     JA = document.createElement('div'); JA.id = 'pfwa-ja'; document.body.appendChild(JA);
@@ -337,6 +338,30 @@
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && svAberto && SV) { svAberto = false; SV.style.display = 'none'; e.stopPropagation(); } }, true);
   function abrirPainel() { if (!aberto) { aberto = true; chrome.storage.local.set({ painelAberto: true }); } }
   function irAba(a) { aba = a; abrirPainel(); pinta(); }
+  var botsDy = { A: 0, D: 0 }, botsArr = null, botsArrastou = 0;
+  chrome.storage.local.get(['botsDy'], function (s) { if (s.botsDy && typeof s.botsDy === 'object') botsDy = { A: +s.botsDy.A || 0, D: +s.botsDy.D || 0 }; });
+  function botsArrastoLigar() {
+    if (!B || B._pfArr) return; B._pfArr = 1;
+    B.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0) return;
+      botsArr = { y0: e.clientY, dy0: botsDy[visual] || 0, mov: false };
+    });
+    window.addEventListener('pointermove', function (e) {
+      if (!botsArr) return; var d = e.clientY - botsArr.y0;
+      if (!botsArr.mov && Math.abs(d) < 5) return;
+      botsArr.mov = true; document.documentElement.classList.add('pfwa-arrastando');
+      var tp = Math.max(B._pfMin, Math.min(B._pfMax, B._pfBase + botsArr.dy0 + d));
+      botsDy[visual] = tp - B._pfBase; B.style.top = tp + 'px';
+      e.preventDefault();
+    });
+    window.addEventListener('pointerup', function () {
+      if (!botsArr) return; var mov = botsArr.mov; botsArr = null;
+      document.documentElement.classList.remove('pfwa-arrastando');
+      if (mov) { botsArrastou = Date.now(); chrome.storage.local.set({ botsDy: botsDy }); }
+    });
+    // arrastou = não é clique (não abre/fecha nem cota)
+    B.addEventListener('click', function (e) { if (Date.now() - botsArrastou < 400) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+  }
   async function clique(e) {
     var b = e.target.closest('[data-acao]'); if (!b) return;
     var ac = b.getAttribute('data-acao'), arg = b.getAttribute('data-arg') || '';
@@ -717,8 +742,13 @@
     if (botsMin) { B.innerHTML = '<span data-acao="botsToggle" class="pri pfwa-botspf" title="Mostrar os bot\u00f5es do PF">PF</span>'; }
     else { var tog = '<span data-acao="botsToggle" class="pfwa-botsx" title="Esconder os bot\u00f5es do PF">' + (visual === 'D' ? '\u2039' : '\u2013') + '</span>'; B.innerHTML = tog + BOTOES.map(function (b, i) { return '<span data-acao="b-' + b[0] + '" class="' + (i === 0 ? 'pri' : '') + '" title="' + b[2] + '">' + b[1] + (visual === 'D' ? ' ' + b[2] : '') + '</span>'; }).join(''); }
     marcaCot();
-    if (visual === 'D') { B.style.left = (r.left + r.width / 2) + 'px'; B.style.top = (r.bottom - fh - 58) + 'px'; }
-    else { B.style.left = (r.left + 12) + 'px'; B.style.top = (r.top + hh + 70) + 'px'; }
+    // 3.5 - A pedido do Vitor ("esse PF aí, desbloqueia pra eu poder colocar ele pra cima ou pra baixo"): arrastar a coluna/barra (ou o PF minimizado)
+    // muda a altura; guardada por navegador (chrome.storage.local botsDy) e presa dentro da conversa.
+    var baseTop = visual === 'D' ? (r.bottom - fh - 58) : (r.top + hh + 70);
+    var bh = B.getBoundingClientRect().height || 40, minT = r.top + hh + 6, maxT = r.bottom - fh - bh - 6;
+    var tp = Math.max(minT, Math.min(maxT, baseTop + (botsDy[visual] || 0)));
+    B.style.left = (visual === 'D' ? (r.left + r.width / 2) : (r.left + 12)) + 'px'; B.style.top = tp + 'px';
+    B._pfBase = baseTop; B._pfMin = minT; B._pfMax = maxT;
     if (AV) { AV.style.left = (r.left + 70) + 'px'; AV.style.width = Math.max(260, r.width - 140) + 'px'; AV.style.top = (r.top + hh + 10) + 'px'; }
     if (OF) { OF.style.left = (r.left + 70) + 'px'; OF.style.width = Math.max(300, Math.min(560, r.width - 140)) + 'px'; OF.style.top = (r.top + hh + (AV && AV.style.display === 'flex' ? 64 : 10)) + 'px'; }
     if (JA) { JA.style.left = (r.left + 16) + 'px'; JA.style.width = Math.max(300, r.width - 32) + 'px'; JA.style.bottom = (window.innerHeight - r.bottom + fh + 8) + 'px'; }

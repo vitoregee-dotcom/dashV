@@ -2357,6 +2357,7 @@
   capturas `feito-selo*.png`): a bolinha do botão 📄 continua e o ÚLTIMO balão de cada sequência de mensagens do cliente com códigos (`selosVigiar`: blocos até a próxima mensagem sua, regra `spContaCods` = 2+ códigos ou 1 + cota/preço/tem)
   ganha o selinho laranja "📄 N" (`.pfwa-selo`, dentro do `[data-pre-plain-text]`). Clique = janelinha `#pfwa-sp` (acao `cotar` só com as mensagens do bloco: código × qtd e saldo) + "Criar cotação no PF" (acao `abrirCot`) e "ver no painel ›".
   Nada é criado sem o clique; criada = selo verde ✓ cot. (`sessionStorage pfwa_sp_feitos`, hash conversa+texto). Desliga em ⚙️ (`selo` no CFG_LISTA) ou com o aviso de cotação. Falta validar a posição do selo no WhatsApp real.
+  v115.2642 + extensão **4.6** ("o balãozinho tampar o horário atrapalha"): o `.pfwa-selo` saiu do canto inferior DIREITO (onde fica a hora da mensagem) pro canto inferior ESQUERDO (`left:-6px;right:auto`). `PF_EXT_VER_NOVA`='4.6', zip refeito.
 - v115.2630 **👋 Saudação automática** (extensão **3.9**; Vitor: "se eu não responder em 3 min pode mandar alguma msg. mas quero configurável"; capturas `docs/referencias/whatsapp-menu/feito-saudacao-*.png`):
   ⚙️ Configurações → 👋 Saudação automática (`htmlAuto`, `config='auto'`), VEM DESLIGADA. Config por navegador `chrome.storage.local.auto` (`AUTO_PADRAO`: min 3, 08:00–18:00, segunda a sexta, só clientes do PF,
   não repetir por 4 h, máx 15/h, `abrir` desligado, 4 frases com {saudacao}/{nome}). `autoTick` (15 s, fora do horário/lote de disparo não roda): conversa ABERTA com a última mensagem do cliente

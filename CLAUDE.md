@@ -2318,6 +2318,8 @@
   painel (o 🔔 saiu de lá) → `htmlConfig`/`cfgTog`, liga/desliga por navegador: Menu do PF (`menuLig`), Etiquetas nas conversas, Botões do PF, Aviso de cotação (`avisoLigado`),
   Salvar contato, Guardar ofertas, "Você já ofereceu", Anotar "vou verificar" (`CFG` em `chrome.storage.local.cfg`, `CFG_LISTA`). **Função nova na extensão → linha no CFG_LISTA** se
   der pra desligar. Captura `docs/referencias/whatsapp-menu/feito-config.png`.
+- v115.2626 (extensão **3.5**; "esse PF aí, desbloqueia pra eu poder colocar ele pra cima ou pra baixo"): a coluna/barra de botões do PF e o "PF" minimizado se arrastam
+  na vertical (`botsArrastoLigar`, pointerdown/move/up; 5 px = arrasto e engole o clique), presos dentro da conversa; altura guardada por visual em `chrome.storage.local.botsDy` {A,D}.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

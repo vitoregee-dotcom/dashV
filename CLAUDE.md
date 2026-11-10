@@ -2423,6 +2423,14 @@
   **não validados no WhatsApp real**. `PF_EXT_VER_NOVA`='4.17', zip refeito.
 - v115.2658 ("coloca um botão de copiar aqui… pra colar no JBoss" — card da família dos Componentes Cardan, ex.: 3-53-451): 📋 `ccBgCopiarHtml` (o mesmo da busca geral,
   copia o código SEM espaço, `event.stopPropagation` não abre o item) ao lado do código no cabeçalho do card (`ccRender`); copia o código mostrado (Spicer quando tem cadastro Spicer, senão `rec.codigo`).
+- v115.2659 **📥 Importar vendas do ERP** (Vitor mandou o relatório "Vendas por Vendedor" do JBoss em PDF: "consegue fazer a órbita funcionar com isso?"): a Órbita/Painel/CRM/Gestão
+  montam pelos pedidos de venda (`partsflow_pedidos_venda_v1`); o relatório é a lista de pedidos por cliente que faltava. Card **Ferramentas → 📥 Importar vendas do ERP**
+  (`ferrImportVendasErp`/`pfVErpAbrir`, só `pfEhGestorOuAcima`): sobe o PDF (pdf.js, agrupa por Y) ou cola o texto → `pfVErpParse` (regex por linha: nº | dd/mm/aaaa | cód | razão |
+  valor BR | %; pula cabeçalhos/Total/página; seção "Vendedor: X" e "(DEVOLUÇÕES)" = negativos) → casa o cliente pelo **Código JBoss** (`pfVErpAcharCad`: codJboss sem zeros à
+  esquerda, senão razão-prefixo única) → prévia (nº pedidos, soma, clientes casados/novos, por vendedor, devoluções NÃO entram) → `pfVErpGravar` grava 1 pedido por linha
+  {numero:'ERP-<nº>', erpNum, origem:'erp', data ISO, clienteRazao (do cadastro se casou), vendedorNome/Email (por nome no FUNC_KEY), itens:[{venda:valor,qtd:1}] — o ERP só traz o
+  total, não os itens}. Idempotente por `erpNum` (não duplica). Testado: o PDF do Vitor = 1324 vendas R$ 3.115.575,89 + 12 devoluções −10.030,70 (bate o Total Geral). **Aviso: com
+  "👁 ver fictício" ligado não grava no real.** Parser validado local (pdftotext + regex idêntico ao JS). PF_FUNCOES ganhou a linha. PENDENTE: export com ITENS (pra margem/peça por pedido) e importação recorrente.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

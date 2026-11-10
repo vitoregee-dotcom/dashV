@@ -2405,6 +2405,7 @@
   (no 👤 Salvar contato): `svGrupos` virou array (multi-seleção), chip "➕ grupo" cria grupo novo (guardado neste navegador em `chrome.storage.svGruposExtra`). O PF guarda `cad.grupos`
   (array) + `cad.grupo` = 1º grupo BASE (Dashboard/Órbita continuam pelo grupo único; grupo criado é guardado como texto, sem cor no PF por enquanto — lista compartilhada fica pra depois).
   `PF_EXT_VER_NOVA`='4.15', zip refeito. Obs.: o "📱 Só no WhatsApp" não renomear é a mesma coisa da v2651 (seletores do WhatsApp real ainda sendo acertados).
+- v115.2655 Leitor de Peças ("qnd eu altero aqui o código não fica mais amarelo para salvar a alteração para as próximas vezes"): código mexido na revisão = linha amarela + "💾 vai lembrar: X → Y (grava ao Copiar/Baixar)" (`lpCodEditado`/`lpNotaHtml`). As correções guardadas em `lp_exemplos_v1` (até 400, uma por código lido) viram REGRA: o mesmo código lido de novo já entra corrigido em qualquer leitura (`lpCorrecoesIdx` no `lpMergeItens`, `it._aprendido`/`it._corr`, selo "🧠 corrigido como da última vez"); voltar à mão pro código lido = esquece a correção. Antes a correção só ia de exemplo pro pedido à IA (não valia pra planilha/texto).
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

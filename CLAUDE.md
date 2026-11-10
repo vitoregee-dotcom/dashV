@@ -2327,6 +2327,14 @@
   e "✔ Gravar na ficha" (registrar + lembrete). 3) 🧠 Entender com IA (aba Cotação): `pfExtCotarIA` (IA lista {codigo,descricao,qtd,onde}; sem código procura em `aplicBuscar(onde)`
   filtrando pela descrição, senão `pfOfertaBuscarProdutos`) → `pfExtCotar({itensDiretos})` (o pfExtCotar aceita a lista pronta), `cot.ia`. ponte.js espera 90 s pra resumir/cotarIA.
   Capturas `docs/referencias/whatsapp-menu/feito-resumo-ia.png` / `feito-cotar-ia.png`. Foto da resposta no WhatsApp real: lida por blob (não testado no real); PDF do fornecedor ainda não.
+- v115.2628 **⚡ Respostas rápidas + 🔤 variáveis no WhatsApp** (extensão **3.7**; revisão do Watidy, itens 1+2 — "vamos no que vc recomendou e sempre adaptando as funções ao pf";
+  capturas `docs/referencias/whatsapp-menu/feito-respostas*.png` / `feito-variaveis.png`): NÃO é lista nova — as respostas são os **Atalhos de Texto** do PF (`pfAtalhosFerramentas`,
+  versão `whats||conteudo`, ordenados pelo uso `pf_rr_uso` neste navegador) + as prontas do cliente (`pfCrmProntas`, com a saudação da hora). Extensão: ⚡ da coluna ou "/" no começo da
+  caixa (`rrAbrir`, lista `#pfwa-rr`, ↑ ↓ Enter/Tab, Esc; nome que bate vem primeiro; "/xxx" é trocado pelo texto) → acao `respostas` → `pfRrLista`. Variáveis `PF_RR_VARS` + `pfRrVarsDe(c,
+  nomeContato)` / `pfRrAplicar(txt,V)` (vazia some sem deixar "Olá , "; `falta` = selo "⚠ sem cnpj"; marcadores antigos {{RAZAO_CLIENTE}}… via `PF_RR_ANTIGOS`). "🔤 Variáveis" mostra o valor
+  de cada uma na conversa; "➕ Salvar o que escrevi como resposta" → `pfRrSalvar` (atalho novo `de:'whatsapp'`; nome/empresa/saudação/nº da cotação viram variável). Atalho com formulário
+  (frete) = "📝 abre no PF" (acao `rrForm`). 📣 Disparo usa as mesmas variáveis (`pfDispTexto`); editor do atalho lista as variáveis. Config `barra` (CFG_LISTA) desliga o "/".
+  Decisões pendentes mostradas em `docs/referencias/whatsapp-decisoes/previa.png`: aviso de cotação (hoje / A grifar / B selo / C faixa) e cotação interna (A sozinho / B 1 clique).
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

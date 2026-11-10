@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2626</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2627</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2626</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2627</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -75013,6 +75013,7 @@ function pfExtCardForn(f,ct,pelo){
   var ocs=[];try{ocs=(ocLoad()||[]).filter(function(o){return o&&!o.del&&(o.status==='enviada'||o.status==='parcial')&&pfBuscaN((o.forn&&o.forn.nome)||'')===pfBuscaN(nm);});}catch(e){}
   R.hist.push({tit:'📄 Ordens de compra esperando chegar',vazio:'nenhuma',itens:ocs.slice(0,6).map(function(o){return {t:o.num+' · '+(o.itens||[]).length+' ite'+((o.itens||[]).length!==1?'ns':'m'),d:o.prevEm?'previsão '+new Date(o.prevEm).toLocaleDateString('pt-BR'):'',acao:'oc',arg:o.id};})});
   if(maps.length)R.linhas.push({ic:'🗂️',t:maps.length+' mapa'+(maps.length>1?'s':'')+' esperando preço dele'});
+  maps.slice(0,3).forEach(function(m){R.botoes.push({rot:'📥 Lançar a resposta dele no mapa '+(m.num||''),acao:'respForn',arg:m.id+'|'+f.id});}); // v115.2627
   if(ocs.length)R.linhas.push({ic:'📄',t:ocs.length+' ordem'+(ocs.length>1?'s':'')+' de compra em aberto'});
   return R;}
 // ── ler o pedido nas mensagens ──
@@ -75053,7 +75054,7 @@ function pfExtMargemDe(c){var mg=null;
 function pfExtPreco(c,custo){var antes=window._venda,uf=(c&&c.cad&&c.cad.estado)||'SP';
   try{window._venda={cliente:c?(c.razao||c.nome):'',uf:uf};return vendasCalcVenda(custo,uf,pfExtMargemDe(c||{}));}catch(e){return 0;}finally{window._venda=antes;}}
 function pfExtCotar(a){
-  var P=pfExtLerPedido(a.msgs),c=a.k?pfExtClienteCad(a.k):null,lin=[],tot=0,nOk=0;
+  var P=a.itensDiretos?{itens:a.itensDiretos,geral:null,pede:true}:pfExtLerPedido(a.msgs),c=a.k?pfExtClienteCad(a.k):null,lin=[],tot=0,nOk=0; // v115.2627 - itensDiretos = lista que a IA montou
   var antes=window._venda;
   P.itens.forEach(function(x){
     var r={ficha:null};try{window._venda={cliente:c?(c.razao||c.nome):''};r=vendasEscolherFichaResumo(x.cod,'');}catch(e){}finally{window._venda=antes;}
@@ -75156,10 +75157,77 @@ function pfExtVerificarDesfazer(id){
   try{var pe=(pfCrmLoad()||[]).find(function(e){return e.id==='crm_wa_'+id;});if(pe&&pe.k)pfCrmAdd({k:pe.k,tipo:'feito',ref:'crm_wa_'+id});}catch(e){}
   return {ok:true};
 }
+// ══════════════════════════════════════════════════════════════
+// v115.2627 - 🤖 IA NO WHATSAPP (revisão do Watidy, item IA — Vitor escolheu "do 1 ao 3, o 4 deixa pra depois"):
+//  1) 📥 Resposta do fornecedor → mapa: na conversa do fornecedor, "📥 Lançar a resposta dele no mapa N" junta o que ele mandou depois da sua
+//     última mensagem (texto + fotos/prints) e abre a 📥 Resposta do fornecedor do mapa já preenchida e lida (pfRespFornAbrir/pfRespFornLer).
+//     Nada grava sem você conferir e apertar "Lançar no mapa".
+//  2) 📝 Resumir a conversa (pfExtResumir): o que o cliente pediu + próxima ação → você confere e grava na ficha do CRM / Meu dia.
+//  3) 🧠 Entender pedido solto (pfExtCotarIA): "kit de vedação da 28000, transmissão e conversor" → a IA separa peça/quantidade/máquina e o
+//     PF procura nas Aplicações (máquina/série) e no estoque pela descrição; a lista volta pro painel igual ao Cotar no PF.
+function pfExtDataUrlFile(du,i){try{var m=String(du).match(/^data:([^;]+);base64,(.*)$/);if(!m)return null;var b=atob(m[2]),a=new Uint8Array(b.length);
+  for(var j=0;j<b.length;j++)a[j]=b.charCodeAt(j);return new File([a],'whatsapp-'+(i+1)+'.'+((m[1].split('/')[1]||'jpg').replace('jpeg','jpg')),{type:m[1]});}catch(e){return null;}}
+async function pfExtRespForn(a){
+  if(!a||!a.mapa||!a.fid)return;
+  try{pfNavigate('mapa');}catch(e){}
+  await new Promise(function(r){setTimeout(r,250);});
+  try{await mapaAbrirDaListaSeguro(a.mapa,2);}catch(e){pfAlert('Não consegui abrir esse mapa.');return;}
+  await new Promise(function(r){setTimeout(r,450);});
+  pfRespFornAbrir(a.fid);
+  if(!window._pfRf)return;
+  var t=document.getElementById('pfRfTxt');if(t&&a.texto){t.value=a.texto;window._pfRf.texto=a.texto;}
+  (a.imgs||[]).forEach(function(du,i){var f=pfExtDataUrlFile(du,i);if(f)pfRfAddArquivo(f);});
+  if(!a.texto&&!(a.imgs||[]).length)return;
+  var b=Array.prototype.find.call(document.querySelectorAll('#pfRfJan button'),function(x){return /pfRespFornLer/.test(x.getAttribute('onclick')||'');});
+  if(b)pfRespFornLer(b);
+}
+function pfExtConversaTxt(msgs,nome){return (msgs||[]).slice(-40).map(function(m){return (m.eu?'Vendedor':'Cliente'+(nome?' ('+nome+')':''))+': '+String(m.t||'').slice(0,600);}).join('\n');}
+function pfExtJson(txt){try{var m=String(txt||'').match(/[\[{][\s\S]*[\]}]/);return JSON.parse(m?m[0]:txt);}catch(e){return null;}}
+async function pfExtResumir(a){
+  try{
+    var c=a&&a.k?pfExtClienteCad(a.k):null;
+    var p='Você é assistente de um vendedor de autopeças (linha pesada, agrícola e caminhões). Leia a conversa de WhatsApp abaixo e devolva SÓ um JSON:\n'+
+      '{"resumo":"2 a 4 frases curtas: o que o cliente pediu ou quis saber, o que foi combinado e o que ficou pendente (cite códigos, quantidades, máquina e prazos se tiver)",'+
+      '"proxima":"a próxima ação do vendedor em uma frase (ex.: mandar preço do kit; cobrar a resposta da cotação 1234) ou vazio",'+
+      '"dias":número de dias até a próxima ação (0 = hoje, 1 = amanhã)}\n'+
+      'Escreva em português simples, sem inventar nada que não esteja na conversa.\n\nCONVERSA:\n'+pfExtConversaTxt(a&&a.msgs,a&&a.contato);
+    var r=await _anthropicAsk(p,700,'Resumo da conversa (WhatsApp)'),j=pfExtJson(r)||{};
+    return {ok:true,resumo:String(j.resumo||'').trim(),proxima:String(j.proxima||'').trim(),dias:Math.max(0,Math.min(60,parseInt(j.dias,10)||1)),cliente:c?(c.razao||c.nome):''};
+  }catch(e){return {ok:false,erro:String(e&&e.message||e)};}
+}
+async function pfExtCotarIA(a){
+  try{
+    var p='Você ajuda um vendedor de autopeças (linha pesada, agrícola e caminhões). Leia as mensagens do CLIENTE abaixo e liste as peças que ele quer. Devolva SÓ um JSON array:\n'+
+      '[{"codigo":"código da peça se ele escreveu (senão vazio)","descricao":"o nome da peça em português, curto (ex.: KIT DE VEDACAO, RETENTOR, CRUZETA)","qtd":número (1 se não disse),'+
+      '"onde":"máquina / componente / modelo / série citados pra essa peça (ex.: TRANSMISSAO 28000, CASE W20, EIXO DIANTEIRO 176/413) ou vazio"}]\n'+
+      'Se ele pediu a mesma peça pra dois lugares (ex.: transmissão e conversor), faça uma linha pra cada. Ignore saudações. Não invente código.\n\nMENSAGENS:\n'+
+      (a&&a.msgs||[]).filter(function(m){return !m.eu;}).slice(-20).map(function(m){return '- '+String(m.t||'').slice(0,500);}).join('\n');
+    var r=await _anthropicAsk(p,1200,'Entender pedido (WhatsApp)'),L=pfExtJson(r);if(!Array.isArray(L))L=[];
+    var itens=[],notas=[];
+    L.slice(0,25).forEach(function(x){
+      var q=Math.max(1,parseInt(x&&x.qtd,10)||1),cod=String(x&&x.codigo||'').trim().toUpperCase(),desc=String(x&&x.descricao||'').trim().toUpperCase(),onde=String(x&&x.onde||'').trim();
+      if(cod){itens.push({cod:cod,qtd:q,lin:desc+(onde?' · '+onde:'')});return;}
+      if(!desc)return;
+      var cand=[];
+      if(onde){try{var ws=desc.split(/\s+/).filter(function(w){return w.length>=4;}).slice(0,2).join(' ');
+        var termos=[onde].concat(onde.split(/[,;\/]| E /i).map(function(s){return s.trim();}).filter(function(s){return s.length>=3;}));
+        termos.some(function(tm){var ap=aplicBuscar(tm)||[];ap.forEach(function(ap1){var d=ap1.desc||ap1.descricao||'';
+          if(ap1.codigo&&(!ws||pfBuscaPalavras(d,ws)))cand.push({cod:String(ap1.codigo),desc:d});});return cand.length>0;});}catch(e){}}
+      if(!cand.length){try{(pfOfertaBuscarProdutos(desc)||[]).forEach(function(o){cand.push({cod:o.codigo,desc:o.desc});});}catch(e){}}
+      var vis={},cs=cand.filter(function(c0){var k=pfBuscaAN(c0.cod);if(vis[k])return false;vis[k]=1;return true;});
+      if(cs.length){itens.push({cod:cs[0].cod.toUpperCase(),qtd:q,lin:'🧠 '+desc+(onde?' · '+onde:'')+(cs.length>1?' · também: '+cs.slice(1,4).map(function(c0){return c0.cod;}).join(', '):'')});}
+      else{itens.push({cod:desc+(onde?' ('+onde+')':''),qtd:q,lin:'🧠 não achei no PF'});notas.push(desc);}
+    });
+    var R=pfExtCotar({k:a&&a.k,contato:a&&a.contato,msgs:[],itensDiretos:itens});R.ia=true;R.iaLidos=L.length;return R;
+  }catch(e){return {erro:'ia',msg:String(e&&e.message||e),itens:[]};}
+}
 function pfExtAcao(acao,arg){
   if(acao==='registrar'){if(!arg||!arg.k||!arg.texto)return {ok:false};pfCrmAdd({k:arg.k,tipo:'whats',texto:arg.texto,para:'WhatsApp'});return {ok:true};}
   if(acao==='lembrete'){if(!arg||!arg.k||!arg.data)return {ok:false};pfCrmAdd({k:arg.k,tipo:'prox',data:arg.data,texto:arg.texto||''});return {ok:true};}
   if(acao==='cotar')return pfExtCotar(arg||{});
+  if(acao==='cotarIA')return pfExtCotarIA(arg||{}); // v115.2627 - 🧠 pedido solto
+  if(acao==='resumir')return pfExtResumir(arg||{}); // v115.2627 - 📝 resumo pra ficha
+  if(acao==='respForn'){setTimeout(function(){pfExtRespForn(arg||{}).catch(function(e){console.warn('respForn',e);});},50);return {ok:true};} // v115.2627
   if(acao==='ofertasConversa')return pfOfConversa(arg&&arg.k,arg&&arg.msgs); // v115.2596 - 💡 ofertas e respostas
   if(acao==='ofertaSalvar')return pfOfSalvar(arg||{});
   if(acao==='ofertaChecar')return pfOfChecar(arg&&arg.k,arg&&arg.texto);
@@ -75714,7 +75782,7 @@ function pfExtBaixarZip(){
 function pfExtBaixarZipSimples(){var a=document.createElement('a');a.href=PF_EXT_ZIP;a.download='partsflow-whatsapp.zip';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();},200);}
 // v115.2601 - A pedido do Vitor ("tá atualizada a extensão?" — estava na 1.5 com a 1.9 publicada): versão mais nova = a do manifest.
 // Subiu a "version" do extensao-whatsapp/manifest.json → subir aqui também.
-var PF_EXT_VER_NOVA='3.5'; // v115.2606 - estava 1.9 com o manifest já na 2.2
+var PF_EXT_VER_NOVA='3.6'; // v115.2606 - estava 1.9 com o manifest já na 2.2
 function pfExtVerMenor(a,b){a=String(a||'0').split('.').map(Number);b=String(b||'0').split('.').map(Number);for(var i=0;i<Math.max(a.length,b.length);i++){var x=a[i]||0,y=b[i]||0;if(x!==y)return x<y;}return false;}
 function pfExtInstalarAbrir(){
   var tem=pfExtTem(),li=function(n,t){return '<div style="display:flex;gap:10px;margin:8px 0"><span style="flex:0 0 24px;height:24px;border-radius:50%;background:#1F4E79;color:#fff;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center">'+n+'</span><div style="font-size:13px;line-height:1.5">'+t+'</div></div>';};

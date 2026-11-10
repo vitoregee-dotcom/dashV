@@ -2356,6 +2356,9 @@
 - v115.2632 BUG ("fui colar um print de uma foto na ficha do item e fechou a janela e veio pra cá"): o invólucro `cadSalvarProdutoV2=function(idx)` (seção "APLICAÇÕES NO FORM DE PRODUTO")
   jogava fora o `opts` → o salvar automático ao colar/anexar foto (`{silencioso:true}`) virava o salvar COMPLETO (`cadVoltarDeProduto`). Agora passa o opts. Junto: as aplicações da tela eram gravadas no
   ÚLTIMO produto da lista (não no aberto) e o salvar montava o produto só com os campos da tela (perdia `aplicacoesCatalogo`, `kitsQueContem`…) — agora grava no produto editado e devolve os campos que a tela não mostra.
+- v115.2633 (extensão **4.1**; Vitor: "cuidado na msg automática de ausência, pra não responder a cada msg do cliente… o Watidy manda um monte de vezes, isso é irritante"): `autoPodeConv` não manda NADA
+  automático numa conversa que já recebeu uma mensagem automática e você ainda não respondeu (`autoPend`) — ausência e saudação de espera juntas = 1 mensagem só; o período da ausência é `modo|ausDesde`
+  (mudar o "até" não reenvia). Testado: cliente mandando mais 3 mensagens seguidas = continua 1 automática.
 - **Combinado em 09/11/2026 (revisão das ferramentas do Watidy, uma por uma):**
   · ~~**Menu em volta do WhatsApp Web = versão A**~~ **FEITO v115.2603** (ver nota acima).
   · ~~**1 Quadro (Kanban) AUTOMÁTICO**~~ **FEITO v115.2610**: colunas Novo contato → Cotando → Proposta enviada → Negociando → Fechou/Perdeu montadas pelo PF (cotação/PDF/pedido/vendas perdidas);

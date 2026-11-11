@@ -2423,6 +2423,10 @@
 - v115.2669 + extensão **4.25** (Vitor, print do "Odair Cardans": "muda a posição do grupo, pra não comer a prévia da msg… mude SÓ a do grupo, tipo linha amarela, agrícola" → prévia aprovada):
   na lista de conversas (`badgesRender`) o GRUPO saiu da linha da mensagem e desce pra linha 3 (à esquerda, `.pfwa-rowgp`, `gh`); a 📍 cidade continua na linha da mensagem (`.pfwa-rowln` = só `txt` = cidade);
   o tipo fica à direita da linha 3 (`.pfwa-rowtp`). Faixa de cor do grupo segue na esquerda. Conversa SEM 3ª linha (`!L3s.length`) = grupo volta pra linha da mensagem (`txtFull`), pra não sumir. `rowLimpar` tira `.pfwa-rowgp`; `sig` inclui `gh`. Não validado no WhatsApp real.
+- v115.2670 + extensão **4.26** (Vitor, no 👤 Salvar contato: "se eu colocar concessionária, quero colocar a Marca. exemplo esse é Massey" → "classificar, inclusive pro PF"; prévia aprovada): ao marcar
+  🏛 Concessionária aparece a linha **MARCA DA CONCESSIONÁRIA** (chips multi-seleção `SV_MARCAS` + ➕ marca digitada; `svConcMarcas`, `svMarcaRender`/`svMarcaSet`/`svMarcaNova`, revelada no `svTipoSet`/`svAbrir`). Vai no
+  `salvarContato` (arg `concMarcas`) → `pfExtTipoAplicar(cad,t,concMarcas)` grava `cad.concMarcas` (substitui; só quando t==='conc'). A etiqueta da conversa já mostra "🏛 Concessionária MARCA" (`tpc`/`pfRevInfo`). `R.concMarcas`
+  no painel pré-marca as marcas atuais. `PF_CONC_MARCAS` ganhou as agrícolas (Massey Ferguson, John Deere, Valtra, Case IH, Agrale, Yanmar…). Marca de concessionária nova → `SV_MARCAS` (extensão) + `PF_CONC_MARCAS` (PF).
 - v115.2657 + extensão **4.17** (Vitor: "perdão, eu tinha pegado errado" — print do GIL - Gm Silva cardans, contato SALVO): o lápis de editar o nome de um contato salvo é o
   do CABEÇALHO do painel "Dados do contato" (ao lado do Fechar), NÃO o das anotações lá embaixo. `waEditarBotao` passo 3 agora junta os ícones de lápis/editar (fora `#main` e
   fora do das notas `waEhNota`) e pega o **mais ALTO da tela** (`getBoundingClientRect().top` menor = o do cabeçalho); também casa aria-label "Editar"/"Edit". Seletores ainda

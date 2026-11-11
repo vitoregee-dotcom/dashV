@@ -567,6 +567,8 @@
     if (ac === 'svUsar') { svUsar(arg); return; }
     if (ac === 'svGrupo') { svGrupoSet(arg); return; } // 4.7
     if (ac === 'svTipo') { svTipoSet(arg); return; } // 4.24
+    if (ac === 'svMarca') { svMarcaSet(arg); return; } // 4.26 - marca da concessionária
+    if (ac === 'svMarcaNova') { svMarcaNova(); return; } // 4.26
     if (ac === 'svGrupoNovo') { svGrupoNovo(); return; } // 4.15
     if (ac === 'svSalvar') { svSalvar(b); return; }
     if (ac === 'svCriar') { svSalvar(b, true); return; }
@@ -975,7 +977,18 @@
   // 4.24 - A pedido do Vitor: TIPO DO CLIENTE (revenda / consumidor / concessionária / serviço) também é salvo no cadastro do PF
   var SV_TIPOS = [['revenda', '🏪 Revenda'], ['consumo', '👤 Consumidor'], ['conc', '🏛 Concessionária'], ['servico', '🔧 Serviço / oficina']], svTipo = '';
   function svTipoRowHtml() { return SV_TIPOS.map(function (t) { return '<span class="sv-g' + (svTipo === t[0] ? ' on' : '') + '" data-acao="svTipo" data-arg="' + t[0] + '" style="--c:#1F4E79">' + esc(t[1]) + '</span>'; }).join(''); }
-  function svTipoSet(t) { svTipo = svTipo === t ? '' : t; var r = SV && SV.querySelector('.sv-tp'); if (r) r.innerHTML = svTipoRowHtml(); }
+  // 4.26 - A pedido do Vitor ("se eu colocar concessionária, quero colocar a Marca. exemplo esse é Massey"): marca da concessionária (vai pro cad.concMarcas do PF). Pode mais de uma.
+  var SV_MARCAS = ['Massey Ferguson', 'John Deere', 'Valtra', 'Case IH', 'New Holland', 'Case', 'Caterpillar', 'JCB', 'Komatsu', 'Hyundai', 'Volvo CE', 'XCMG', 'Agrale', 'Yanmar'], svConcMarcas = [];
+  function svMarcaRowHtml() {
+    var lista = SV_MARCAS.slice();
+    svConcMarcas.forEach(function (m) { if (lista.indexOf(m) < 0) lista.push(m); }); // marca digitada à mão que não está na lista
+    return lista.map(function (m) { return '<span class="sv-g' + (svConcMarcas.indexOf(m) >= 0 ? ' on' : '') + '" data-acao="svMarca" data-arg="' + esc(m) + '" style="--c:#1F4E79">' + esc(m) + '</span>'; }).join('') +
+      '<span class="sv-g sv-gnovo" data-acao="svMarcaNova" title="Outra marca">➕ marca</span>';
+  }
+  function svMarcaRender() { var r = SV && SV.querySelector('.sv-marca'); if (r) r.innerHTML = svTipo === 'conc' ? ('<div class="sv-gl">MARCA DA CONCESSIONÁRIA <span style="font-weight:600;text-transform:none;color:#8a9ab0">(pode escolher mais de uma)</span></div><div class="sv-gr">' + svMarcaRowHtml() + '</div>') : ''; }
+  function svMarcaSet(m) { var i = svConcMarcas.indexOf(m); if (i >= 0) svConcMarcas.splice(i, 1); else svConcMarcas.push(m); svMarcaRender(); }
+  function svMarcaNova() { var nome = (prompt('Marca da concessionária:') || '').trim(); if (!nome) return; if (svConcMarcas.indexOf(nome) < 0) svConcMarcas.push(nome); svMarcaRender(); }
+  function svTipoSet(t) { svTipo = svTipo === t ? '' : t; var r = SV && SV.querySelector('.sv-tp'); if (r) r.innerHTML = svTipoRowHtml(); svMarcaRender(); }
   function svGrupoSet(g) { var i = svGrupos.indexOf(g); if (i >= 0) svGrupos.splice(i, 1); else svGrupos.push(g); svGruposRender(); }
   function svGrupoNovo() {
     var nome = (prompt('Nome do grupo novo:') || '').trim(); if (!nome) return;
@@ -996,6 +1009,7 @@
     svGrupos = []; // 4.15 - começa sem grupo marcado
     var r = resp && resp.achou && resp.tipo === 'cliente' ? resp : null;
     svTipo = (r && r.tipoCli) || ''; // 4.24 - já vem com o tipo do cadastro
+    svConcMarcas = (r && r.concMarcas && r.concMarcas.length) ? r.concMarcas.slice() : []; // 4.26 - marcas da concessionária já cadastradas
     svK = r ? r.k : ''; svSug = [];
     var nome = svNomeBase(c.nome) || (r && r.contato) || '', emp = svEmpBase(c.nome) || (r ? r.titulo : ''), cod = svCodBase(c.nome) || (r && r.cod) || '';
     var semNum = /^[+\d\s()\-]{8,}$/.test(c.nome || '');
@@ -1007,13 +1021,14 @@
       '<datalist id="pfwa-sv-cargos"><option>Compras<option>Comprador<option>Dono<option>Sócio<option>Gerente<option>Financeiro<option>Mecânico<option>Encarregado<option>Vendedor<option>Balconista</datalist>' +
       '<label>CÓDIGO NO JBOSS<input class="sv-cod" value="' + esc(cod) + '" placeholder="Ex.: 12662" inputmode="numeric"></label>' +
       '<div class="sv-gl">TIPO DO CLIENTE</div><div class="sv-gr sv-tp">' + svTipoRowHtml() + '</div>' + // 4.24
+      '<div class="sv-marca"></div>' + // 4.26 - marca da concessionária (só quando o tipo é Concessionária)
       '<div class="sv-gl">GRUPO DO CLIENTE <span style="font-weight:600;text-transform:none;color:#8a9ab0">(pode escolher mais de um)</span></div><div class="sv-gr">' + svGruposRowHtml() + '</div>' +
       '<label>CNPJ <span style="font-weight:600;text-transform:none">(cliente novo entra como pré-cadastro 🌱)</span><input class="sv-cnpj" value="' + esc(fmtCnpj(cnpjPre || '')) + '" placeholder="00.000.000/0000-00" inputmode="numeric"></label>' +
       '<div class="sv-pv">Vai ficar: <b class="sv-prev"></b></div>' +
       '<div class="sv-k">' + (svK && r && r.titulo ? '🔗 ligado a <b>' + esc(r.titulo) + '</b>' : '') + '</div>' +
       '<div class="sv-bts"><button class="sv-ok" data-acao="svSalvar">💾 Salvar no PF</button><button class="sv-wa" data-acao="svWa" title="Só renomeia/salva o contato no WhatsApp (e no celular) — nada vai pro PF">📱 Só no WhatsApp</button></div>' +
       '<div class="sv-st"></div>';
-    SV.style.display = 'block'; svAberto = true; svPos(); svPrev();
+    SV.style.display = 'block'; svAberto = true; svPos(); svPrev(); svMarcaRender(); // 4.26 - mostra a marca se já vier Concessionária
     ['sv-nome', 'sv-emp', 'sv-cod'].forEach(function (k) { var i = SV.querySelector('.' + k); if (i) i.oninput = function () { svPrev(); if (k === 'sv-emp' || (k === 'sv-cod' && !svK)) { if (k === 'sv-emp') { svK = ''; SV.querySelector('.sv-k').innerHTML = ''; } clearTimeout(svT); svT = setTimeout(function () { svBuscar(i.value); }, 250); } }; });
     var cnI = SV.querySelector('.sv-cnpj'); if (cnI) cnI.oninput = function () { var d = cnI.value.replace(/\D/g, '').slice(0, 14); cnI.value = d.length === 14 ? d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') : d; };
     var f = SV.querySelector(nome ? '.sv-emp' : '.sv-nome'); if (f) f.focus();
@@ -1041,7 +1056,7 @@
     var cn = v('sv-cnpj').replace(/\D/g, ''); if (cn && cn.length !== 14 && cn.length !== 11) { flash(b, 'CNPJ incompleto'); b.disabled = false; b.textContent = txt; return; }
     if (cn) b.textContent = 'Buscando o CNPJ…';
     var _gs = svGrupos.map(function (id) { var g = svGruposTodos().find(function (x) { return x[0] === id; }); return g && /^g_/.test(id) ? g[1] : id; }).filter(Boolean); // 4.15 - grupo base = chave; grupo criado = o nome
-    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: _gs[0] || '', grupos: _gs, tipoCli: svTipo } });
+    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: _gs[0] || '', grupos: _gs, tipoCli: svTipo, concMarcas: svTipo === 'conc' ? svConcMarcas : [] } }); // 4.26 - marca da concessionária
     b.disabled = false; b.textContent = txt;
     var st = SV.querySelector('.sv-st');
     if (r && r.ok) {

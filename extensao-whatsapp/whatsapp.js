@@ -561,6 +561,7 @@
     if (ac === 'autoTog') { AUTO[arg] = !AUTO[arg]; autoGravar(); pinta(); return; }
     if (ac === 'autoModo') { autoModoSet(arg); config = 'auto'; abrirPainel(); pinta(); return; } // 4.0 - 🗓️ meu status
     if (ac === 'autoEstilo') { AUTO.estilo = arg; autoGravar(); pinta(); return; }
+    if (ac === 'autoQuando') { AUTO.quando = arg; autoGravar(); pinta(); return; } // 4.27 - quando mandar a saudação de espera
     if (ac === 'cmdAutorizar') { if (contatoAt && contatoAt.nome) { AUTO.cmdNomes = (AUTO.cmdNomes || []).concat([contatoAt.nome]); if (contatoAt.tel && (AUTO.cmdQuem || []).indexOf(contatoAt.tel) < 0) AUTO.cmdQuem = (AUTO.cmdQuem || []).concat([contatoAt.tel]); AUTO.cmdOn = true; autoGravar(); } pinta(); return; }
     if (ac === 'cmdTirar') { AUTO.cmdNomes = (AUTO.cmdNomes || []).filter(function (n) { return n !== arg; }); autoGravar(); pinta(); return; }
     if (ac === 'svAbrir') { if (svAberto) { svAberto = false; SV.style.display = 'none'; } else svAbrir(); return; } // 2.7
@@ -1804,7 +1805,9 @@
     frases: ['{saudacao}, {nome}! Tô terminando um atendimento e já te respondo',
       '{saudacao}, {nome}! Recebi aqui, em instantes te retorno.',
       'Oi, {nome}! Já vi aqui, só um minutinho que já te respondo.'],
-    modo: 'normal', ate: '', subst: '', substTel: '', ausMin: 1, ausTxt: { reuniao: '', ausente: '', ferias: '' }
+    modo: 'normal', ate: '', subst: '', substTel: '', ausMin: 1, ausTxt: { reuniao: '', ausente: '', ferias: '' },
+    // 4.27 - A pedido do Vitor: quando mandar a saudação de espera, chamar pelo nome / começar com saudação, e deixar a conversa não lida depois
+    quando: 'sempre', chamarNome: true, comSaud: true, naoLida: true
   };
   var AUTO = JSON.parse(JSON.stringify(AUTO_PADRAO)), autoEnv = {}, autoHist = [], autoPend = {}, autoOcup = false, autoUltMexeu = Date.now(), autoUlt = {}, autoAusEnv = {};
   chrome.storage.local.get(['auto', 'autoEnv', 'autoHist', 'autoPend', 'autoUlt', 'autoAusEnv'], function (s) {
@@ -1842,7 +1845,7 @@
   function autoCap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
   // abertura "Bom dia, Carlos!" / "Opa, boa tarde" / "Oi Carlos" — varia, às vezes sem nome
   function autoAbertura(nm) {
-    var s = autoSaudacao(), sl = s.toLowerCase(), comNome = nm && Math.random() < 0.7;
+    var s = autoSaudacao(), sl = s.toLowerCase(), comNome = nm && AUTO.chamarNome !== false && Math.random() < 0.7;
     var l = comNome ? [s + ', ' + nm + '!', s + ' ' + nm + '!', 'Opa, ' + sl + ' ' + nm + '!', 'Oi ' + nm + ', ' + sl + '!', 'Olá ' + nm + '!', s + ', ' + nm + ', tudo bem?']
       : [s + '!', 'Opa, ' + sl + '!', 'Oi, ' + sl + '!', s + ', tudo bem?', 'Olá!'];
     return autoSorteia(l);
@@ -1881,6 +1884,13 @@
   function autoTextoMinhas(nome) {
     var fs = (AUTO.frases || []).map(function (f) { return String(f || '').trim(); }).filter(Boolean); if (!fs.length) fs = AUTO_PADRAO.frases;
     var f = fs[Math.floor(Math.random() * fs.length)], nm = autoPrimeiroNome(nome);
+    // 4.27 - sem precisar digitar {nome}/{saudacao}: liga/desliga põe o nome e/ou a saudação na frente da frase
+    var temS = /\{saudacao\}/i.test(f), temN = /\{nome\}/i.test(f);
+    var saud = (AUTO.comSaud !== false && !temS) ? autoSaudacao() : '';
+    var chama = (AUTO.chamarNome !== false && !temN && nm) ? nm : '';
+    if (saud && chama) f = saud + ', ' + chama + '! ' + f;
+    else if (saud) f = saud + '! ' + f;
+    else if (chama) f = chama + ', ' + f.charAt(0).toLowerCase() + f.slice(1);
     return f.replace(/\{saudacao\}/gi, autoSaudacao()).replace(/\{nome\}/gi, nm || '\u0000').replace(/[ \t]*,?[ \t]*\u0000/g, '').replace(/ +([,.!?])/g, '$1').replace(/^[,\s]+/, '').trim();
   }
   function autoTexto(nome, u, modo) {
@@ -1934,11 +1944,50 @@
     return !!(r && r.sit && r.sit[c.nome] && r.sit[c.nome].tipo === 'cliente');
   }
   function autoMarcarFeito(c, aus) { var k = autoChave(c); if (aus) autoAusEnv[k] = aus + '|' + (AUTO.ausDesde || ''); else autoEnv[k] = Date.now(); autoGravar(); }
+  // 4.27 - "📩 só na 1ª vez do dia": você já mandou alguma mensagem pra esse cliente hoje?
+  function autoFaleiHoje() {
+    var d0 = new Date(); d0.setHours(0, 0, 0, 0); var ini = d0.getTime();
+    var outs = document.querySelectorAll('#main .message-out');
+    for (var i = outs.length - 1; i >= 0; i--) {
+      var pp = outs[i].querySelector('[data-pre-plain-text]');
+      var t = pp ? msgQuando(pp) : horaFolha(outs[i]);
+      if (t && t >= ini) return true;
+    }
+    return false;
+  }
+  // 4.27 - item de menu do WhatsApp pelo texto (ex.: "Marcar como não lida")
+  function autoMenuItem(txts) {
+    var achou = null;
+    document.querySelectorAll('[role="menuitem"],[role="button"],li,div[role="row"]').forEach(function (el) {
+      if (achou || !el.offsetParent) return;
+      if (el.querySelector && el.querySelector('[role="menuitem"]')) return; // pega o mais interno
+      var t = cmdSemAcento((el.textContent || '').trim());
+      if (!t || t.length > 40) return;
+      if (txts.some(function (x) { return t === x || t.indexOf(x) >= 0; })) achou = el;
+    });
+    return achou;
+  }
+  // 4.27 - A pedido do Vitor: depois de responder automático, deixa a conversa NÃO LIDA (bolinha verde) pra ele lembrar de dar o retorno de verdade
+  async function autoMarcarNaoLida(nome) {
+    try {
+      var row = linhaDoNome(nome); if (!row) return;
+      row.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      await dormir(300);
+      var bt = row.querySelector('[aria-label*="enu"],[aria-label*="Mais"],span[data-icon="down"],span[data-icon*="chevron"],span[data-icon*="down"]');
+      if (!bt) bt = row.querySelector('button,[role="button"]');
+      if (!bt) return;
+      clicarEl(bt);
+      var item = await esperar(function () { return autoMenuItem(['marcar como nao lida', 'marcar como nao lidas', 'mark as unread']); }, 2500);
+      if (item) clicarEl(item);
+      else document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    } catch (e) { }
+  }
   // manda na conversa ABERTA se a última mensagem é do cliente e está sem resposta há X min
   async function autoNaAberta() {
     var aus = autoAusente();
     var c = contatoAtual(); if (!autoPodeConv(c, aus)) return false;
     var u = ultimaMsg(); if (!u || u.eu || !u.t) return false;
+    if (!aus && AUTO.quando === 'primeira' && autoFaleiHoje()) return false; // 4.27 - só na 1ª vez que ele falar no dia
     var espera = aus ? (+AUTO.ausMin || 1) : (+AUTO.min || 3);
     if (Date.now() - u.t < espera * 60000) return false;
     if (Date.now() - u.t > (aus ? 12 : 3) * 3600000) return false; // mensagem velha
@@ -1959,6 +2008,7 @@
     autoHist = autoHist.slice(-60); autoGravar();
     msg({ t: 'acao', acao: 'autoSaud', arg: { nome: c.nome, tel: c.tel || '', texto: txt, modo: aus || '' } });
     try { autoBadges(); } catch (e) { }
+    if (AUTO.naoLida !== false) { await dormir(600); await autoMarcarNaoLida(c.nome); } // 4.27 - deixa como não lida pra você lembrar de responder
     return true;
   }
   // conversas da lista com mensagem não lida há X min
@@ -2060,7 +2110,15 @@
       '<div class="au-modos au-est"><span data-acao="autoEstilo" data-arg="natural" class="' + (A.estilo !== 'minhas' ? 'on' : '') + '">✨ Natural (varia sozinho)</span><span data-acao="autoEstilo" data-arg="minhas" class="' + (A.estilo === 'minhas' ? 'on' : '') + '">✍️ Minhas frases</span></div>' +
       (A.estilo === 'minhas' ? '<div class="au-fr"><small>Uma por linha · a extensão sorteia · use {saudacao} e {nome}</small><textarea data-au="frases" rows="4">' + esc((A.frases || []).join('\n')) + '</textarea></div>'
         : '<div class="au-fr"><small>O PF lê o que o cliente mandou e responde de acordo: códigos → "já vou ver esses códigos", foto → "vi a foto", áudio → "vou ouvir aqui", preço → "já te passo o valor". Varia a saudação, às vezes sem nome, não repete a última, e espera uns segundos "digitando".</small></div>') +
+      // 4.27 - chamar pelo nome / começar com saudação (vale pra "Minhas frases" sem precisar digitar {nome}/{saudacao})
+      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="chamarNome"><span class="pfwa-cfgi">👤</span><div><b>Chamar o cliente pelo nome</b><br><small>Põe o nome na frente quando dá pra saber. Você não precisa digitar {nome} nas frases.</small></div><span class="pfwa-sw' + (A.chamarNome !== false ? ' on' : '') + '"><i></i></span></div>' +
+      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="comSaud"><span class="pfwa-cfgi">🕐</span><div><b>Começar com "Bom dia/Boa tarde"</b><br><small>Puxa a saudação da hora pra frente da sua frase.</small></div><span class="pfwa-sw' + (A.comSaud !== false ? ' on' : '') + '"><i></i></span></div>' +
       '<div class="au-ex">Vai sair algo assim:' + ex(function () { return autoTexto(nomeEx, { bloco: '5-280X\n2654407 2 de cada' }, ''); }) + '</div>' +
+      // 4.27 - QUANDO MANDAR: sempre × só na 1ª vez do dia
+      '<div class="au-modos au-est"><span data-acao="autoQuando" data-arg="sempre" class="' + (A.quando !== 'primeira' ? 'on' : '') + '">🔁 Sempre que eu não responder</span><span data-acao="autoQuando" data-arg="primeira" class="' + (A.quando === 'primeira' ? 'on' : '') + '">📩 Só na 1ª vez do dia</span></div>' +
+      '<div class="au-st" style="margin-top:4px">📩 = se você já falou com esse cliente hoje, a saudação não é mandada de novo.</div>' +
+      // 4.27 - deixar a conversa como não lida depois do automático
+      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="naoLida"><span class="pfwa-cfgi">🔵</span><div><b>Deixar a conversa como NÃO LIDA depois</b><br><small>Depois de responder sozinho, marca a conversa como não lida — ela sobe na lista com a bolinha verde pra você lembrar de dar o retorno de verdade.</small></div><span class="pfwa-sw' + (A.naoLida !== false ? ' on' : '') + '"><i></i></span></div>' +
       '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="abrir"><span class="pfwa-cfgi">📂</span><div><b>Também nas outras conversas</b><br><small>Se você ficar 1 min sem mexer no WhatsApp, a extensão abre a conversa que está esperando, manda e volta pra que você estava. Desligado = só na conversa aberta.</small></div><span class="pfwa-sw' + (A.abrir ? ' on' : '') + '"><i></i></span></div>' +
       '<div class="au-st">' + (A.on ? (autoNoHorario() ? '🟢 Ligada e dentro do horário.' : '🟡 Ligada, mas fora do horário agora.') : '⚪ Desligada.') + ' A conversa que recebeu a mensagem ganha a etiqueta "👋 … responda" até você responder.</div></div>';
     var envs = Object.keys(autoPend).map(function (n) { return { n: n, ts: autoPend[n].ts, txt: autoPend[n].txt }; }).sort(function (a, b) { return b.ts - a.ts; }).slice(0, 5);

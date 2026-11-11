@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2673</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2674</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2673</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2674</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -72070,7 +72070,9 @@ function vendasItemPrazo(it){if(!it)return '';if(it.prazoTxt)return String(it.pr
   return 'A CONSULTAR';}
 function vendasMoedaBR(n){return (Number(n)||0).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
 function pfVendasPdfClienteDados(){
-  var itens=(window._venda.itens||[]).filter(function(it){return it._pdfCliente;});
+  // v115.2674 - pré-pedido = só os itens marcados pro PV (caixinha PV), na ordem da cotação
+  var _pre=!!window._vendasDocPre,_sel=window._vendasSelPV||{};
+  var itens=(window._venda.itens||[]).filter(function(it,i){return _pre?(!!_sel[i]&&!it.pvNumero):it._pdfCliente;});
   if(!itens.length)return null;
   var v=window._venda,modo=vendasPdfCodModo(v);
   var cliente=v.cliente?(v.cliente.razao||v.cliente.fantasia||''):'';
@@ -72081,9 +72083,10 @@ function pfVendasPdfClienteDados(){
     var q=it.qtd||1,totalLinha=(venda||0)*q,r=vendasItemValores(it,venda||0);
     totalGeral+=totalLinha;totIpi+=r.ipiV*q;totSt+=r.stV*q;
     return {codigo:modo==='desenho'?vendasDesenhoTxt(vendasDesenhoRef(it)):(it.codigo||''),desc:it.desc||'-',marca:it.marca||'-',qtd:q,venda:venda||0,total:totalLinha,
-      ipi:r.ipiV,st:r.stV,totalImp:(r.final||0)*q,prazo:vendasItemPrazo(it),info:vendasItemInfo(it)};
+      ipi:r.ipiV,st:r.stV,totalImp:(r.final||0)*q,prazo:vendasItemPrazo(it),info:vendasItemInfo(it),
+      codCli:(_pre&&it.codigoOriginal&&pfBuscaAN(it.codigoOriginal)!==pfBuscaAN(it.codigo||''))?it.codigoOriginal:'',pediu:_pre&&it.marcaPedidaFalta?it.marcaPedidaWa:''};
   });
-  return {v:v,cliente:cliente,itens:linhas,totalGeral:totalGeral,totIpi:totIpi,totSt:totSt,totalLiq:totalGeral+totIpi+totSt,obs:String(v.obsCli||'').trim(),modo:modo};
+  return {v:v,cliente:cliente,itens:linhas,totalGeral:totalGeral,totIpi:totIpi,totSt:totSt,totalLiq:totalGeral+totIpi+totSt,obs:String(v.obsCli||'').trim(),modo:modo,pre:_pre};
 }
 function pfVendasPdfToggleMenu(){
   var m=document.getElementById('pfVendasPdfMenu');if(!m)return;
@@ -72097,7 +72100,8 @@ function pfVendasPdfClienteMontarHtmlDoc(dados){
   var linhasHtml=dados.itens.map(function(it,i){
     var im=/^IMEDIATO$/.test(it.prazo);
     return '<tr style="background:'+(i%2?'#F7F9FC':'#fff')+'">'+
-      '<td style="'+td+(dados.modo==='desenho'?'font-weight:700;':'font-family:monospace;')+'">'+pfEscHtml(it.codigo||(dados.modo==='desenho'?'—':''))+'</td>'+
+      '<td style="'+td+(dados.modo==='desenho'?'font-weight:700;':'font-family:monospace;')+'">'+(dados.pre?'<span style="color:#8a9ab0;font-family:Arial">'+(i+1)+'.</span> ':'')+pfEscHtml(it.codigo||(dados.modo==='desenho'?'—':''))+
+        (it.codCli?'<div style="font-size:9px;color:#8a5a00;font-family:Arial">cliente pediu '+pfEscHtml(it.codCli)+'</div>':'')+(it.pediu?'<div style="font-size:9px;color:#b3261e;font-family:Arial">⚠ pediu '+pfEscHtml(it.pediu)+'</div>':'')+'</td>'+
       '<td style="'+td+'">'+pfEscHtml(it.desc)+(it.info?'<div style="font-size:9.5px;color:#5a6b80;margin-top:3px;line-height:1.35">'+pfEscHtml(it.info)+'</div>':'')+'</td>'+
       '<td style="'+td+'text-align:center">'+pfEscHtml(it.marca)+'</td>'+
       '<td style="'+td+'text-align:center">'+it.qtd+'</td>'+
@@ -72111,12 +72115,13 @@ function pfVendasPdfClienteMontarHtmlDoc(dados){
   var tl=function(a,b,forte){return '<tr><td style="padding:3px 8px;font-size:'+(forte?'14px;font-weight:800;color:#1F4E79;border-top:2px solid #1F4E79;padding-top:6px':'11.5px;color:#1a2332')+'">'+a+'</td><td style="padding:3px 8px;text-align:right;white-space:nowrap;font-size:'+(forte?'14px;font-weight:800;color:#1F4E79;border-top:2px solid #1F4E79;padding-top:6px':'11.5px;color:#1a2332')+'">R$ '+M(b)+'</td></tr>';};
   return '<div id="pfVendasPdfDocTemp" style="width:780px;font-family:Arial,sans-serif;padding:24px;background:#fff;color:#1a2332">'+
     '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #FF6B6B;padding-bottom:12px;margin-bottom:16px">'+
-      '<div style="font-size:20px;font-weight:800;color:#1F4E79">PartsFlow <span style="font-weight:400;color:#5a6b80;font-size:13px">| Cotação</span></div>'+
+      '<div style="font-size:20px;font-weight:800;color:#1F4E79">PartsFlow <span style="font-weight:400;color:#5a6b80;font-size:13px">| '+(dados.pre?'<b style="color:#C0601A">Pré-pedido · conferência</b>':'Cotação')+'</span></div>'+
       '<div style="font-size:11px;color:#8a9ab0;text-align:right">'+new Date().toLocaleDateString('pt-BR')+'<br>Nº '+(v.num||v.nr||'—')+'</div>'+
     '</div>'+
     '<div style="font-size:12px;color:#5a6b80;margin-bottom:16px">'+
       '<b>Cliente:</b> '+pfEscHtml(dados.cliente)+' &nbsp; <b>Condição:</b> '+pfEscHtml(v.condicao||'-')+' &nbsp; <b>Comprador:</b> '+pfEscHtml(v.comprador||'-')+
     '</div>'+
+    (dados.pre?'<div style="font-size:11.5px;color:#7a4a10;background:#FFF4E5;border:1px solid #F3C98B;border-radius:6px;padding:8px 10px;margin:-6px 0 14px">📋 Só os <b>'+dados.itens.length+' itens marcados pro PV</b> — ainda NÃO é pedido. Confira código, marca e quantidade e combine com o cliente: <b>condição de pagamento</b> ______________ &nbsp; <b>entrega</b> ______________</div>':'')+
     '<table style="width:100%;border-collapse:collapse">'+
       '<thead><tr style="background:#FF6B6B">'+th(dados.modo==='desenho'?'DESENHO · Nº':'CÓDIGO')+th('DESCRIÇÃO')+th('MARCA','center')+th('QTD','center')+th('PRAZO','center')+th('UNIT.','right')+
         (temImp?th('IPI','right')+th('ST','right'):'')+th('TOTAL','right')+
@@ -72135,7 +72140,7 @@ async function pfVendasPdfClienteGerarPDF(modo){
   temp.style.cssText='position:fixed;left:-9999px;top:0';
   temp.innerHTML=pfVendasPdfClienteMontarHtmlDoc(dados);
   document.body.appendChild(temp);
-  var filename='cotacao-'+(dados.v.num||dados.v.nr||'cliente')+'.pdf'; // v115.2344 - o nº que o vendedor vê (#1523), não o id interno
+  var filename=(dados.pre?'pre-pedido-':'cotacao-')+(dados.v.num||dados.v.nr||'cliente')+'.pdf'; // v115.2344 - o nº que o vendedor vê (#1523), não o id interno
   try{
     if(typeof pfCarregarHtml2Pdf==='function')await pfCarregarHtml2Pdf();
     var blob=await html2pdf().set({margin:0,filename:filename,html2canvas:{scale:2,scrollX:0,scrollY:0},jsPDF:{unit:'pt',format:'a4'},pagebreak:{mode:['css','legacy']}}).from(document.getElementById('pfVendasPdfDocTemp')).outputPdf('blob');
@@ -72245,6 +72250,15 @@ async function vendasPdfEmail(){
   window.location.href='mailto:'+encodeURIComponent(vendasPdfEmailDoCliente())+'?subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(corpo);
   pfAlert('📎 O PDF foi baixado em Downloads — é só anexar no e-mail que abriu.');
 }
+// v115.2674 - A pedido do Vitor ("uma opção de visualizar pré-pedido, mais pra conferência… no pré-pedido eu veria só os que estão selecionados PV"):
+// o mesmo documento do PDF, só com os itens marcados pro PV, título "Pré-pedido · conferência" e espaço pra condição e entrega. Não gera pedido.
+async function vendasPrePedidoVer(){
+  var v=window._venda,sel=window._vendasSelPV||{};if(!v||!(v.itens||[]).length){pfAlert('Adicione itens na cotação antes.');return;}
+  var n=(v.itens||[]).filter(function(it,i){return !!sel[i]&&!it.pvNumero;}).length;
+  if(!n){pfAlert('Nenhum item marcado pro PV. Marque a caixinha PV dos itens que vão no pedido e abra o pré-pedido de novo.');return;}
+  window._vendasDocPre=true;
+  try{await pfVendasPdfClienteGerarPDF('visualizar');}finally{window._vendasDocPre=false;}
+}
 function vendasPdfMenuFechar(){var m=document.getElementById('vendasPdfMenuPop');if(m)m.remove();document.removeEventListener('mousedown',window._vendasPdfMenuFora,true);}
 function vendasPdfMenu(ancora){
   if(document.getElementById('vendasPdfMenuPop')){vendasPdfMenuFechar();return;}
@@ -72253,6 +72267,7 @@ function vendasPdfMenu(ancora){
   m.style.cssText='position:fixed;top:'+(r.bottom+6)+'px;right:'+Math.max(8,window.innerWidth-r.right)+'px;background:#fff;border:1px solid #d5dce5;border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.18);z-index:100001;min-width:230px;overflow:hidden;font-size:13px';
   var op=function(ic,txt,fn,sub){return '<div onclick="vendasPdfMenuFechar();'+fn+'" style="padding:9px 14px;cursor:pointer;color:#1a2332;border-top:1px solid #f0f4f8;display:flex;gap:10px;align-items:baseline" onmouseover="this.style.background=\'#F4F7FB\'" onmouseout="this.style.background=\'\'"><span style="width:18px">'+ic+'</span><span>'+txt+(sub?'<div style="font-size:11.5px;color:#8a9ab0">'+sub+'</div>':'')+'</span></div>';};
   m.innerHTML=op('👁','Visualizar',"vendasPdfRapido('visualizar')")+
+    op('📋','Ver pré-pedido',"vendasPrePedidoVer()",'só os itens marcados pro PV · pra conferir antes do pedido')+
     op('✉','Enviar por e-mail',"vendasPdfRapido('email')",'baixa o PDF e abre o e-mail pro cliente')+
     op('💬','Copiar texto pro WhatsApp',"vendasPdfRapido('whats')")+
     op('☑','Escolher itens do PDF…','pfVendasPdfClienteAbrir()','marcas, só com saldo, só a mais barata')+
@@ -74278,7 +74293,7 @@ async function vendasLerArquivo(input){
       if(mt.startsWith('image/')){var rl=(typeof lpImgLimitar==='function')?await lpImgLimitar('data:'+mt+';base64,'+b64,7900):null;if(rl){mt=rl.mt;b64=rl.b64;}parts.push({type:'image',source:{type:'base64',media_type:mt,data:b64}});} // v115.2344 - imagem > 8000 px
       else{parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});}
     }
-    parts.push({type:'text',text:'Extraia os itens desta lista. Retorne APENAS JSON: [{"codigo":"","qtd":1}]. APENAS o JSON.'});
+    parts.push({type:'text',text:'Extraia os itens desta lista, NA MESMA ORDEM em que aparecem no documento (linha por linha, de cima pra baixo; não agrupe nem ordene). Retorne APENAS JSON: [{"codigo":"","qtd":1}]. APENAS o JSON.'}); // v115.2674 - ordem do pedido do cliente
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:pfAnthropicHeaders(apiKey),
       // v115.2344 - BUG (varredura): max_tokens 1000 cortava listas grandes (uns 40 itens) e a leitura dava erro de JSON; e erro da IA
@@ -75442,7 +75457,8 @@ function pfExtAtualizarCot(cx,its){
     try{if(typeof vendasUndoMarcar==='function')vendasUndoMarcar();}catch(e){}
     var usados={},sel={},nQ=0,nNovo=0,N=function(x){return pfBuscaAN(x||'');},M=function(it){return pfBuscaN(it.marcaInterna||it.marca||'').trim();};
     var mesmoCod=function(nv,ex){var cs=[N(nv.codigo),N(nv.codigoOriginal)].filter(Boolean);return cs.indexOf(N(ex.codigo))>=0||cs.indexOf(N(ex.codigoOriginal))>=0;};
-    var aplicar=function(nv,idx){var ex=v.itens[idx];if((+ex.qtd||0)!==(+nv.qtd||1)){ex.qtdAntesWa=ex.qtd;ex.qtd=+nv.qtd||1;nQ++;}
+    var ordPed=[]; // v115.2674 - ordem em que o cliente mandou
+    var aplicar=function(nv,idx){ordPed.push([idx,its.indexOf(nv)]);var ex=v.itens[idx];if((+ex.qtd||0)!==(+nv.qtd||1)){ex.qtdAntesWa=ex.qtd;ex.qtd=+nv.qtd||1;nQ++;}
       if(nv.marcaPedidaWa){ex.marcaPedidaWa=nv.marcaPedidaWa;ex.marcaPedidaFalta=!!nv.marcaPedidaFalta;}usados[idx]=1;sel[idx]=true;};
     var resto=[],nTroca=0;
     // 1º: mesmo código e mesma marca
@@ -75455,8 +75471,15 @@ function pfExtAtualizarCot(cx,its){
         if(!pfExtMarcaBate(era,nv.marcaInterna||nv.marca)){ex.marcaTrocadaWa=era;['codigo','marca','desc'].forEach(function(f){if(nv[f]!=null&&nv[f]!=='')ex[f]=nv[f];});ex.marcaInterna=nv.marcaInterna||nv.marca||'';ex.saldo=nv.saldo;ex.custo=nv.custo;
           delete ex.vendaOverride;delete ex.custoOverride;nTroca++;}
         aplicar(nv,idx);}
-      else{nv.waNovo=true;v.itens.push(nv);var ni=v.itens.length-1;usados[ni]=1;sel[ni]=true;nNovo++;}});
+      else{nv.waNovo=true;v.itens.push(nv);var ni=v.itens.length-1;usados[ni]=1;sel[ni]=true;nNovo++;ordPed.push([ni,its.indexOf(nv)]);}});
     var nDes=0;v.itens.forEach(function(ex,i){if(!usados[i]&&ex&&!ex.pvNumero)nDes++;});
+    // v115.2674 - A pedido do Vitor ("quando eu puxar o pedido, preciso que venha na mesma ordem que o cliente mandou… fica melhor pra conferência"):
+    // os itens do pedido sobem na ordem da mensagem; os que estavam na cotação e ele não pediu ficam embaixo, desmarcados.
+    try{var _pos={};ordPed.forEach(function(pr){if(_pos[pr[0]]==null)_pos[pr[0]]=pr[1];});
+      var _ix=v.itens.map(function(x,i){return i;});
+      _ix.sort(function(a,b){var pa=_pos[a],pb=_pos[b];if(pa!=null&&pb!=null)return pa-pb;if(pa!=null)return -1;if(pb!=null)return 1;return a-b;});
+      var _sel2={};v.itens=_ix.map(function(i,k){if(sel[i])_sel2[k]=true;return v.itens[i];});sel=_sel2;
+      window._vendasSel={};}catch(eOrd){console.warn('ordem do pedido',eOrd);}
     window._vendasSelPV=sel;
     try{vendasRefresh();}catch(e){console.warn(e);}
     try{vendasAtualizarPVBtn();}catch(e){}

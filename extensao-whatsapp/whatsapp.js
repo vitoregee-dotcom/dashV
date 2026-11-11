@@ -1383,7 +1383,9 @@
       var tel = /^[+\d][\d\s()\-]{7,}$/.test(nome) ? nome.replace(/\D/g, '') : '';
       var etqs = []; r.querySelectorAll('[aria-label]').forEach(function (e) { var a = (e.getAttribute('aria-label') || '').trim(); var m = a.match(/^(?:Etiqueta|Label)[:\s]+(.+)$/i); if (m) { var t = m[1].trim(); if (t && etqs.indexOf(t) < 0) etqs.push(t); } });
       var unread = !!r.querySelector('[aria-label*="ão lida"],[aria-label*="ão lidas"],[aria-label*="nread"]');
-      out.push({ el: r, nome: nome, tel: tel, etqs: etqs, unread: unread });
+      // 4.22 - hora da última mensagem (10:02 / Ontem / quinta / 05/11/2026) → o PF guarda o último contato do cliente
+      var hora = ''; (r.innerText || '').split('\n').some(function (t) { t = t.trim(); if (/^(\d{1,2}:\d{2}|ontem|yesterday|domingo|segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|sunday|monday|tuesday|wednesday|thursday|friday|saturday|\d{1,2}\/\d{1,2}\/\d{2,4})(\b|$)/i.test(t) && t.length <= 22) { hora = t; return true; } return false; });
+      out.push({ el: r, nome: nome, tel: tel, etqs: etqs, unread: unread, hora: hora });
     });
     return out;
   }
@@ -1394,7 +1396,7 @@
       var ls = linhasLista(); var sig = ls.map(function (x) { return x.nome; }).join('|');
       if (sig === sitSig && Object.keys(sitCache).length) { pintarMenu(); return; }
       sitSig = sig;
-      msg({ t: 'acao', acao: 'situacoes', arg: { lista: ls.map(function (x) { return { nome: x.nome, tel: x.tel }; }) } }).then(function (r) { if (r && r.sit) sitCache = r.sit; pintarMenu(); });
+      msg({ t: 'acao', acao: 'situacoes', arg: { lista: ls.map(function (x) { return { nome: x.nome, tel: x.tel, hora: x.hora }; }) } }).then(function (r) { if (r && r.sit) sitCache = r.sit; pintarMenu(); });
     }, 500);
   }
   // 4.21 - A pedido do Vitor (prévia E1, docs/referencias/whatsapp-etiquetas-lista/previa5): cliente do PF = faixa da cor do grupo na esquerda,

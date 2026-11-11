@@ -452,6 +452,8 @@
       ['⚙️', 'Menu do PF', 'A chave "Menu do PF" liga/desliga a barra. "azul / discreta" troca a cor.']]],
     ['Botões ao lado da conversa', [
       ['📄', 'Cotar no PF', 'Lê os códigos e quantidades que o cliente mandou depois da sua última mensagem (se ele mandar mais, vai somando; pedido antigo = clique no selo 📄 do balão), mostra saldo e preço (com a margem dele) e monta a resposta. "Pôr na conversa" escreve na caixa; você confere e manda.'],
+      ['🏷️', 'Marca e quantidade do pedido', 'Quando o cliente escreve a marca ("5-275x 03pcs spicer c/graxeira", "01pc spicer 01pc TX"), cada marca vira um item com a quantidade dele. "c/graxeira" procura a cruzeta com graxeira (ex.: 5-275X → 5-275XS). Marca que não temos aparece em vermelho com as marcas que temos embaixo — clique numa pra trocar.'],
+      ['🔄', 'Atualizar a cotação que já existe', 'Se você já cotou pra esse cliente nos últimos 3 dias, o "Criar cotação no PF" pergunta se atualiza aquela cotação: as quantidades viram as do pedido, os preços que você passou ficam e os itens pedidos já vêm marcados pro Pedido de Venda.'],
       ['📦', 'Saldo', 'Selecione um código na conversa e clique: mostra o saldo de cada marca.'],
       ['🤝', 'Ficha', 'Abre a ficha do cliente no PF (CRM).'],
       ['💡', 'Sugestões pra oferecer', 'Aba Cliente: até 3 coisas que clientes parecidos compram e ele não (🔎 peças, 💬 Oferecer escreve uma frase pronta na caixa, 🚫 = não tem demanda). Aba Cotação: o que costuma ir junto com as peças pedidas, com ➕ Pôr na cotação.'],
@@ -619,6 +621,7 @@
       cot.itens.push({ cod: jx.cod, qtd: 1, achou: jx.achou, desc: jx.desc, marca: jx.marca, saldo: jx.saldo, preco: jx.preco });
       cot.junto.splice(+arg, 1); refazResposta(); pintaCorpo(); return;
     }
+    if (ac === 'sugMarca') { sugMarcaUsar(arg); return; } // 4.28
     if (ac === 'tirar') { if (cot) { cot.itens.splice(+arg, 1); refazResposta(); pintaCorpo(); } return; }
     if (ac === 'saldoBusca') { var i2 = P.querySelector('.pfwa-saldo-in'); buscarSaldo(i2 ? i2.value : ''); return; }
     if (ac === 'fechaAviso') { avisoFechado = ultimo; pintaAviso(0); return; }
@@ -730,7 +733,7 @@
     var ls = cot.itens.map(function (o) {
       if (!o.achou) return o.cod + ' — não localizei, pode confirmar o código?';
       if (!(o.saldo > 0)) return o.cod + ' — ' + o.desc + ' — vou verificar o prazo';
-      var q = Math.min(o.saldo, o.qtd); tot += q * o.preco; return o.cod + ' — ' + o.desc + ' — ' + q + ' un' + (q < o.qtd ? ' (tenho ' + o.saldo + ')' : '') + ' — ' + reais(o.preco) + ' un';
+      var q = Math.min(o.saldo, o.qtd), mk = o.marcaPed ? ' ' + o.marca + (o.marcaOk ? '' : ' (não temos ' + o.marcaPed + ')') : ''; tot += q * o.preco; return o.cod + mk + ' — ' + o.desc + ' — ' + q + ' un' + (q < o.qtd ? ' (tenho ' + o.saldo + ')' : '') + ' — ' + reais(o.preco) + ' un';
     });
     cot.total = Math.round(tot * 100) / 100;
     var p = cot.resposta.split('\nSegue:\n'); var ini = p.length > 1 ? p[0] : ('Olá' + (nome ? ' ' + nome : '') + '!');
@@ -739,7 +742,7 @@
   }
   function abrirCot(pdf) {
     if (!cot) return;
-    msg({ t: 'acao', acao: 'abrirCot', focar: true, arg: { k: resp && resp.k, pdf: !!pdf, itens: cot.itens.filter(function (o) { return o.cod; }).map(function (o) { return { cod: o.cod, qtd: o.qtd, marca: o.marca, desc: o.desc }; }) } });
+    msg({ t: 'acao', acao: 'abrirCot', focar: true, arg: { k: resp && resp.k, pdf: !!pdf, itens: cot.itens.filter(function (o) { return o.cod; }).map(function (o) { return { cod: o.cod, qtd: o.qtd, marca: o.marca, desc: o.desc, marcaPed: o.marcaPed, marcaOk: o.marcaOk, codCli: o.codCli }; }) } });
   }
   async function buscarSaldo(cod) { cod = String(cod || '').trim(); if (!cod) return; saldoR = { cod: cod, carregando: 1 }; pintaCorpo(); var r = await msg({ t: 'acao', acao: 'saldo', arg: cod }); saldoR = r && !r.erro ? r : { cod: cod, erro: 1 }; pintaCorpo(); }
 
@@ -787,6 +790,23 @@
     h += '<button class="pfwa-btn" data-acao="assistente" data-arg="' + esc(r.k || '') + '">🤖 ' + (r.nRegras ? 'Ver as regras do Assistente' : 'Criar regra no Assistente') + '</button></div>';
     return h;
   }
+  // 4.28 - A pedido do Vitor ("o cliente já informou as marcas… caso algum item não tenha a marca, o sistema sugere uma embaixo" + "se ele pedir albarus e
+  // não tiver, a gente oferece as marcas que tiver"): marca pedida em cada linha e, quando não temos, as marcas que temos pra escolher.
+  function marcaPedHtml(o, i) {
+    if (!o.marcaPed) return '';
+    if (o.marcaOk) return '<div class="pfwa-mp ok">✔ pediu ' + esc(o.marcaPed) + (o.trocou ? ' · você escolheu ' + esc(o.marca) : '') + '</div>';
+    var h = '<div class="pfwa-mp no">✖ pediu ' + esc(o.marcaPed) + ' — não temos' + (o.achou && o.marca ? ' · entrou ' + esc(o.marca) : '') + '</div>';
+    var sg = (o.sug || []);
+    if (sg.length) h += '<div class="pfwa-mps">↳ temos: ' + sg.map(function (x, j) { return '<span class="pfwa-mpc' + (x.saldo > 0 ? '' : ' z') + '" data-acao="sugMarca" data-arg="' + i + '|' + j + '" title="Usar ' + esc(x.marca) + ' ' + esc(x.cod) + '">' + esc(x.marca) + (x.cod && x.cod !== o.cod ? ' ' + esc(x.cod) : '') + ' · ' + (x.saldo > 0 ? x.saldo : 'sem saldo') + (x.preco > 0 ? ' · ' + reais(x.preco) : '') + '</span>'; }).join(' ') + '</div>';
+    return h;
+  }
+  function sugMarcaUsar(arg) {
+    if (!cot) return; var p = String(arg || '').split('|'), o = cot.itens[+p[0]], x = o && o.sug && o.sug[+p[1]]; if (!x) return;
+    var antes = { marca: o.marca, cod: o.cod, saldo: o.saldo, preco: o.preco, desc: o.desc };
+    o.marca = x.marca; o.cod = x.cod || o.cod; o.saldo = x.saldo; o.preco = x.preco; if (x.desc) o.desc = x.desc; o.achou = true; o.marcaOk = true; o.trocou = true;
+    o.sug = o.sug.filter(function (y) { return y !== x; }); if (antes.marca) o.sug.unshift({ marca: antes.marca, cod: antes.cod, saldo: antes.saldo, preco: antes.preco, desc: antes.desc });
+    refazResposta(); pintaCorpo();
+  }
   function htmlCot() {
     var r = resp, h = '';
     if (r && r.achou) h += cabCliente(r) + avisosHtml(r, true);
@@ -799,7 +819,7 @@
     h += '<table class="pfwa-tab"><tr><th>Código</th><th>Qtd</th><th>Saldo</th><th>Unit.</th><th></th></tr>';
     cot.itens.forEach(function (o, i) {
       var sl = !o.achou ? '<span class="no">não achei</span>' : !(o.saldo > 0) ? '<span class="no">✖ 0</span>' : o.saldo < o.qtd ? '<span class="mid">◐ ' + o.saldo + '</span>' : '<span class="ok">✔ ' + o.saldo + '</span>';
-      h += '<tr><td><b>' + esc(o.cod) + '</b>' + (o.desc ? '<br><small>' + esc(o.desc) + (o.marca ? ' · ' + esc(o.marca) : '') + '</small>' : '') + '</td><td>' + o.qtd + '</td><td>' + sl + '</td><td>' + (o.preco > 0 ? reais(o.preco) : '—') + '</td><td><span data-acao="tirar" data-arg="' + i + '" title="Tirar da cotação" class="pfwa-tirar">✕</span></td></tr>';
+      h += '<tr><td><b>' + esc(o.cod) + '</b>' + (o.desc ? '<br><small>' + esc(o.desc) + (o.marca ? ' · ' + esc(o.marca) : '') + '</small>' : '') + marcaPedHtml(o, i) + '</td><td>' + o.qtd + '</td><td>' + sl + '</td><td>' + (o.preco > 0 ? reais(o.preco) : '—') + '</td><td><span data-acao="tirar" data-arg="' + i + '" title="Tirar da cotação" class="pfwa-tirar">✕</span></td></tr>';
     });
     h += '</table><div class="pfwa-tot"><span>Total (com saldo)</span><span>' + reais(cot.total) + '</span></div>';
     if (CFG.sug !== false) h += juntoHtml(); // 4.20 - 💡 quem leva isso também leva
@@ -1745,7 +1765,8 @@
     if (!its.length) { SP.innerHTML = h + '<div class="sp-nada">Não achei código de peça aqui.</div>'; spPos(); return; }
     h += '<div class="sp-l">' + its.map(function (o) {
       var cor = !o.achou ? '#b0bccb' : o.saldo > 0 ? '#2E7D32' : '#C0392B', st = !o.achou ? 'não localizei' : o.saldo > 0 ? 'saldo ' + o.saldo : 'sem saldo';
-      return '<div><i style="background:' + cor + '"></i><b>' + esc(o.cod) + '</b> × ' + (o.qtd || 1) + '<small>' + esc(st) + '</small></div>';
+      var mk = o.marcaPed ? (o.marcaOk ? ' ' + o.marcaPed : ' <span style="color:#C0392B">sem ' + esc(o.marcaPed) + (o.marca ? ' → ' + esc(o.marca) : '') + '</span>') : (o.marca ? ' ' + o.marca : ''); // 4.28
+      return '<div><i style="background:' + cor + '"></i><b>' + esc(o.cod) + '</b> × ' + (o.qtd || 1) + '<small>' + (o.marcaPed && !o.marcaOk ? mk : esc(mk)) + ' · ' + esc(st) + '</small></div>';
     }).join('') + '</div>';
     var feito = !!spFeitos[s._h];
     h += '<div class="sp-b"><button data-sp="criar">' + (feito ? '📄 Criar de novo no PF' : '📄 Criar cotação no PF') + '</button><span class="sp-lk" data-sp="painel">ver no painel ›</span></div>' +
@@ -1759,7 +1780,7 @@
     if (a === 'painel') { if (spR && !spR.erro) { cot = spR; cotErro = ''; } spFechar(); irAba('cot'); return; }
     if (a === 'criar') {
       var s = spMsg, r = spR; if (!s || !r) return;
-      msg({ t: 'acao', acao: 'abrirCot', focar: true, arg: { k: resp && resp.k, itens: (r.itens || []).filter(function (o) { return o.cod; }).map(function (o) { return { cod: o.cod, qtd: o.qtd, marca: o.marca, desc: o.desc }; }) } });
+      msg({ t: 'acao', acao: 'abrirCot', focar: true, arg: { k: resp && resp.k, itens: (r.itens || []).filter(function (o) { return o.cod; }).map(function (o) { return { cod: o.cod, qtd: o.qtd, marca: o.marca, desc: o.desc, marcaPed: o.marcaPed, marcaOk: o.marcaOk, codCli: o.codCli }; }) } });
       spFeitos[s._h] = Date.now(); try { sessionStorage.setItem('pfwa_sp_feitos', JSON.stringify(spFeitos)); } catch (er) { }
       s._f = null; spFechar(); selosVigiar();
     }

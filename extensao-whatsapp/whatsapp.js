@@ -169,16 +169,19 @@
   }
   function audToast(t) { var d = document.createElement('div'); d.textContent = t; d.style.cssText = 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:2147483600;background:#1c2940;color:#fff;font:600 13px Inter,Segoe UI,sans-serif;padding:9px 14px;border-radius:9px;box-shadow:0 6px 20px rgba(0,0,0,.3);max-width:80vw'; document.body.appendChild(d); setTimeout(function () { d.remove(); }, 2600); }
   function audEsperar(fn, ms) { return new Promise(function (ok) { var t0 = Date.now(); (function v() { var r = fn(); if (r || Date.now() - t0 > ms) ok(r || null); else setTimeout(v, 150); })(); }); }
+  // 4.23 - o áudio do WhatsApp toca fora da página: o audio-main.js (mundo da página) avisa o endereço de cada áudio que toca
+  var audUlt = null; document.addEventListener('pfwa-aud', function (e) { if (e && e.detail) audUlt = { src: String(e.detail), t: Date.now() }; });
   async function audDoBalao(b) {
     var blob = function () { var as = b.querySelectorAll('audio'); for (var i = 0; i < as.length; i++) if (as[i].src && /^blob:/.test(as[i].src)) return as[i]; return null; };
     var a = blob(); if (a) return a;
     // sem o áudio carregado: aperta o ▶ dele, pega o áudio que começou a tocar e pausa na hora
     var play = b.querySelector('button[aria-label*="eproduzir" i], button[aria-label*="play" i], [data-icon="audio-play"]');
     var bt = play ? (play.closest('button,[role="button"]') || play) : null; if (!bt) return null;
-    var antes = Array.prototype.slice.call(document.querySelectorAll('audio'));
+    var antes = Array.prototype.slice.call(document.querySelectorAll('audio')), t0 = Date.now();
     bt.click();
-    a = await audEsperar(function () { var x = blob(); if (x) return x; var all = document.querySelectorAll('audio'); for (var i = 0; i < all.length; i++) { var y = all[i]; if (y.src && /^blob:/.test(y.src) && (!y.paused || antes.indexOf(y) < 0)) return y; } return null; }, 5000);
-    if (a) { try { a.pause(); a.currentTime = 0; } catch (e) { } }
+    a = await audEsperar(function () { if (audUlt && audUlt.t >= t0) return { src: audUlt.src, solto: 1 }; var x = blob(); if (x) return x; var all = document.querySelectorAll('audio'); for (var i = 0; i < all.length; i++) { var y = all[i]; if (y.src && /^blob:/.test(y.src) && (!y.paused || antes.indexOf(y) < 0)) return y; } return null; }, 8000);
+    if (a && a.solto) { try { document.dispatchEvent(new CustomEvent('pfwa-aud-pausar')); } catch (e) { } }
+    else if (a) { try { a.pause(); a.currentTime = 0; } catch (e) { } }
     return a;
   }
   async function audDescrever(b, d) {
@@ -196,6 +199,7 @@
   async function transcreverUltimoAudio() {
     audioMsg('🎤 Lendo o áudio…');
     var el = ultimoAudioEl();
+    if ((!el || !el.src || !/^blob:/.test(el.src)) && audUlt && Date.now() - audUlt.t < 600000) el = { src: audUlt.src }; // 4.23 - o último que tocou
     if (!el || !el.src || !/^blob:/.test(el.src)) { audioMsg('Não achei áudio carregado nesta conversa. Toque no ▶ do áudio uma vez pra carregar e clique de novo.'); return; }
     var d;
     try { d = await blobUrlDataUrl(el.src); } catch (e) { audioMsg('Não consegui pegar o áudio (' + ((e && e.message) || '') + '). Toque no ▶ e tente de novo.'); return; }

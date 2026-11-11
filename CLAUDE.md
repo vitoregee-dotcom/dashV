@@ -2420,6 +2420,9 @@
 - v115.2668 (Vitor: "pq não tem essa chave lá nas minhas chaves do PF?"): a chave de transcrição entrou no cofre **🔑 Minhas Chaves** (`PF_CHAVES_CAMPOS` campo `sttKey`), igual à Anthropic. Dois sentidos no
   `ferrChavesRenderDesbloqueado`: chave só na janelinha (`pf_stt_cfg_v1`, por navegador) aparece no cofre; chave vinda do cofre (sincronizada de outro aparelho) já ativa no runtime. `ferrChavesSalvar` espelha
   `sttKey`→`pfSttCfgSet({chave})`. A janelinha (`pfSttCfgAbrir`) continua, com aviso de que a chave também fica em Minhas Chaves (lá criptografada e sincronizada). Chave de serviço externo nova → mesmo padrão.
+- v115.2669 + extensão **4.25** (Vitor, print do "Odair Cardans": "muda a posição do grupo, pra não comer a prévia da msg… mude SÓ a do grupo, tipo linha amarela, agrícola" → prévia aprovada):
+  na lista de conversas (`badgesRender`) o GRUPO saiu da linha da mensagem e desce pra linha 3 (à esquerda, `.pfwa-rowgp`, `gh`); a 📍 cidade continua na linha da mensagem (`.pfwa-rowln` = só `txt` = cidade);
+  o tipo fica à direita da linha 3 (`.pfwa-rowtp`). Faixa de cor do grupo segue na esquerda. Conversa SEM 3ª linha (`!L3s.length`) = grupo volta pra linha da mensagem (`txtFull`), pra não sumir. `rowLimpar` tira `.pfwa-rowgp`; `sig` inclui `gh`. Não validado no WhatsApp real.
 - v115.2657 + extensão **4.17** (Vitor: "perdão, eu tinha pegado errado" — print do GIL - Gm Silva cardans, contato SALVO): o lápis de editar o nome de um contato salvo é o
   do CABEÇALHO do painel "Dados do contato" (ao lado do Fechar), NÃO o das anotações lá embaixo. `waEditarBotao` passo 3 agora junta os ícones de lápis/editar (fora `#main` e
   fora do das notas `waEhNota`) e pega o **mais ALTO da tela** (`getBoundingClientRect().top` menor = o do cabeçalho); também casa aria-label "Editar"/"Edit". Seletores ainda

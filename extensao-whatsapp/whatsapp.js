@@ -1518,15 +1518,13 @@
         L3s.forEach(function (L) { Array.prototype.forEach.call(L.children, function (c) { c.setAttribute('data-pfwa-esc', '1'); c.style.display = 'none'; }); });
         if (gh) { var g3 = document.createElement('span'); g3.className = 'pfwa-rowgp'; g3.innerHTML = gh; L3.appendChild(g3); } // v115.2669 - grupo à esquerda da linha 3
         if (tp) { var t3 = document.createElement('span'); t3.className = 'pfwa-rowtp'; t3.textContent = tp; try { if (prev) t3.style.setProperty('color', getComputedStyle(prev).color, 'important'); } catch (e) { } L3.appendChild(t3); }
-      } else if (s.tipo === 'cliente' && (gh || tp)) {
-        // v115.2679 - A pedido do Vitor ("o grupo ficou do lado comendo a prévia; quero igual da Nathalia, embaixo"): conversa SEM 3ª linha nativa
-        // → cria a NOSSA linha embaixo da mensagem com o grupo e o tipo (antes o grupo ia pra linha da mensagem e o tipo só pro tooltip, invisível).
-        var col2 = prev ? ancComum(tit, prev) : (tit.parentElement), alvo = col2 || tit.parentElement;
-        var own = document.createElement('div'); own.className = 'pfwa-rowown';
-        if (gh) { var go = document.createElement('span'); go.className = 'pfwa-rowgp'; go.innerHTML = gh; own.appendChild(go); }
-        if (tp) { var to = document.createElement('span'); to.className = 'pfwa-rowtp'; to.textContent = tp; try { if (prev) to.style.setProperty('color', getComputedStyle(prev).color, 'important'); } catch (e) { } own.appendChild(to); }
-        if (own.children.length && alvo) alvo.appendChild(own);
-      } else if (tp) { r.setAttribute('title', tp); }
+      } else {
+        // v115.2682 - REVERTE a 3ª linha própria da 2679 (a `.pfwa-rowown` transbordava por cima da conversa de cima — no WhatsApp real a linha
+        // tem altura fixa e só tem 3ª linha quando a conversa tem etiqueta do WhatsApp). Conversa SEM etiqueta → mostra SÓ o grupo como etiqueta
+        // curta na linha da mensagem (cidade e tipo vão pro tooltip), sem inventar linha nova nem amontoar.
+        if (gh && ln && s.tipo === 'cliente') ln.innerHTML = gh;
+        r.setAttribute('title', [s.cid ? '📍 ' + [s.cid, s.uf].filter(Boolean).join('-') : '', tp].filter(Boolean).join(' · '));
+      }
     });
   }
   function aplicarFiltro() {

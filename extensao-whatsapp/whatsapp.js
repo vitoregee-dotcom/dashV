@@ -566,6 +566,7 @@
     if (ac === 'svFechar') { svAberto = false; SV.style.display = 'none'; return; }
     if (ac === 'svUsar') { svUsar(arg); return; }
     if (ac === 'svGrupo') { svGrupoSet(arg); return; } // 4.7
+    if (ac === 'svTipo') { svTipoSet(arg); return; } // 4.24
     if (ac === 'svGrupoNovo') { svGrupoNovo(); return; } // 4.15
     if (ac === 'svSalvar') { svSalvar(b); return; }
     if (ac === 'svCriar') { svSalvar(b, true); return; }
@@ -971,6 +972,10 @@
       '<span class="sv-g sv-gnovo" data-acao="svGrupoNovo" title="Criar um grupo novo">➕ grupo</span>';
   }
   function svGruposRender() { var r = SV && SV.querySelector('.sv-gr'); if (r) r.innerHTML = svGruposRowHtml(); }
+  // 4.24 - A pedido do Vitor: TIPO DO CLIENTE (revenda / consumidor / concessionária / serviço) também é salvo no cadastro do PF
+  var SV_TIPOS = [['revenda', '🏪 Revenda'], ['consumo', '👤 Consumidor'], ['conc', '🏛 Concessionária'], ['servico', '🔧 Serviço / oficina']], svTipo = '';
+  function svTipoRowHtml() { return SV_TIPOS.map(function (t) { return '<span class="sv-g' + (svTipo === t[0] ? ' on' : '') + '" data-acao="svTipo" data-arg="' + t[0] + '" style="--c:#1F4E79">' + esc(t[1]) + '</span>'; }).join(''); }
+  function svTipoSet(t) { svTipo = svTipo === t ? '' : t; var r = SV && SV.querySelector('.sv-tp'); if (r) r.innerHTML = svTipoRowHtml(); }
   function svGrupoSet(g) { var i = svGrupos.indexOf(g); if (i >= 0) svGrupos.splice(i, 1); else svGrupos.push(g); svGruposRender(); }
   function svGrupoNovo() {
     var nome = (prompt('Nome do grupo novo:') || '').trim(); if (!nome) return;
@@ -990,6 +995,7 @@
     var c = contatoAt; if (!c || c.grupo) return;
     svGrupos = []; // 4.15 - começa sem grupo marcado
     var r = resp && resp.achou && resp.tipo === 'cliente' ? resp : null;
+    svTipo = (r && r.tipoCli) || ''; // 4.24 - já vem com o tipo do cadastro
     svK = r ? r.k : ''; svSug = [];
     var nome = svNomeBase(c.nome) || (r && r.contato) || '', emp = svEmpBase(c.nome) || (r ? r.titulo : ''), cod = svCodBase(c.nome) || (r && r.cod) || '';
     var semNum = /^[+\d\s()\-]{8,}$/.test(c.nome || '');
@@ -1000,6 +1006,7 @@
       '<label>CARGO<input class="sv-cargo" value="' + esc((r && r.cargo) || '') + '" placeholder="Ex.: Compras, Dono, Mecânico" list="pfwa-sv-cargos"></label>' +
       '<datalist id="pfwa-sv-cargos"><option>Compras<option>Comprador<option>Dono<option>Sócio<option>Gerente<option>Financeiro<option>Mecânico<option>Encarregado<option>Vendedor<option>Balconista</datalist>' +
       '<label>CÓDIGO NO JBOSS<input class="sv-cod" value="' + esc(cod) + '" placeholder="Ex.: 12662" inputmode="numeric"></label>' +
+      '<div class="sv-gl">TIPO DO CLIENTE</div><div class="sv-gr sv-tp">' + svTipoRowHtml() + '</div>' + // 4.24
       '<div class="sv-gl">GRUPO DO CLIENTE <span style="font-weight:600;text-transform:none;color:#8a9ab0">(pode escolher mais de um)</span></div><div class="sv-gr">' + svGruposRowHtml() + '</div>' +
       '<label>CNPJ <span style="font-weight:600;text-transform:none">(cliente novo entra como pré-cadastro 🌱)</span><input class="sv-cnpj" value="' + esc(fmtCnpj(cnpjPre || '')) + '" placeholder="00.000.000/0000-00" inputmode="numeric"></label>' +
       '<div class="sv-pv">Vai ficar: <b class="sv-prev"></b></div>' +
@@ -1034,7 +1041,7 @@
     var cn = v('sv-cnpj').replace(/\D/g, ''); if (cn && cn.length !== 14 && cn.length !== 11) { flash(b, 'CNPJ incompleto'); b.disabled = false; b.textContent = txt; return; }
     if (cn) b.textContent = 'Buscando o CNPJ…';
     var _gs = svGrupos.map(function (id) { var g = svGruposTodos().find(function (x) { return x[0] === id; }); return g && /^g_/.test(id) ? g[1] : id; }).filter(Boolean); // 4.15 - grupo base = chave; grupo criado = o nome
-    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: _gs[0] || '', grupos: _gs } });
+    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: _gs[0] || '', grupos: _gs, tipoCli: svTipo } });
     b.disabled = false; b.textContent = txt;
     var st = SV.querySelector('.sv-st');
     if (r && r.ok) {
@@ -1441,6 +1448,7 @@
       }
       // linha 2: antes da bolinha de não lidas
       var ln = document.createElement('span'); ln.className = 'pfwa-rowln'; ln.innerHTML = txt;
+      try { ln.style.setProperty('color', getComputedStyle(tit).color, 'important'); } catch (e) { } // 4.24 - mesma cor do nome (forte no tema claro e no escuro)
       var unr = r.querySelector('[aria-label*="ão lida"],[aria-label*="ão lidas"],[aria-label*="nread"]');
       if (prev) {
         var anc = ancComum(tit, prev), L2 = anc ? filhoQueTem(anc, prev) : null;
@@ -1449,14 +1457,16 @@
         else prev.parentNode.insertBefore(ln, prev.nextSibling);
       } else { var h = tit.parentElement; h.appendChild(ln); }
       // linha 3: tipo no lugar da etiqueta do WhatsApp
-      var etq = r.querySelector('[aria-label^="Etiqueta"],[aria-label^="Label"]');
-      if (s.tipo === 'cliente' && CFG.waEtqOff !== false && etq) {
-        var a3 = ancComum(tit, etq), L3 = a3 ? filhoQueTem(a3, etq) : null;
-        if (L3 && !L3.contains(tit) && !(prev && L3.contains(prev))) {
-          Array.prototype.forEach.call(L3.children, function (c) { c.setAttribute('data-pfwa-esc', '1'); c.style.display = 'none'; });
-          if (!L3.children.length) { etq.setAttribute('data-pfwa-esc', '1'); etq.style.display = 'none'; }
-          if (tp) { var t3 = document.createElement('span'); t3.className = 'pfwa-rowtp'; t3.textContent = tp; L3.appendChild(t3); }
-        }
+      // 4.24 - BUG (print do Tiago - Maximus: "ainda está aparecendo a etiqueta do whats"): no WhatsApp de verdade a etiqueta NÃO tem aria-label
+      // "Etiqueta…". Agora a linha 3 = toda linha da conversa que vem DEPOIS da linha da mensagem (no mesmo bloco do nome).
+      var L3s = [];
+      if (prev) { var anc3 = ancComum(tit, prev), L2b = anc3 ? filhoQueTem(anc3, prev) : null, achouL2 = false;
+        if (anc3 && L2b) Array.prototype.forEach.call(anc3.children, function (ch) { if (ch === L2b) { achouL2 = true; return; } if (achouL2 && !ch.classList.contains('pfwa-rowbar')) L3s.push(ch); }); }
+      if (!L3s.length) { var etq = r.querySelector('[aria-label^="Etiqueta"],[aria-label^="Label"]'); if (etq) { var a3 = ancComum(tit, etq), L3x = a3 ? filhoQueTem(a3, etq) : null; if (L3x && !L3x.contains(tit) && !(prev && L3x.contains(prev))) L3s.push(L3x); } }
+      if (s.tipo === 'cliente' && CFG.waEtqOff !== false && L3s.length) {
+        var L3 = L3s[0];
+        L3s.forEach(function (L) { Array.prototype.forEach.call(L.children, function (c) { c.setAttribute('data-pfwa-esc', '1'); c.style.display = 'none'; }); });
+        if (tp) { var t3 = document.createElement('span'); t3.className = 'pfwa-rowtp'; t3.textContent = tp; try { if (prev) t3.style.setProperty('color', getComputedStyle(prev).color, 'important'); } catch (e) { } L3.appendChild(t3); }
       } else if (tp) r.setAttribute('title', tp);
     });
   }

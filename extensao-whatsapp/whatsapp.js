@@ -381,11 +381,11 @@
   }
 
   // ═══ 3) PAINEL + BOTÕES ═══
-  var P = null, B = null, AV = null, ultimo = '', aberto = true, visual = 'A', aba = 'cot', resp = null, cot = null, cotErro = '', cotando = false, saldoR = null, statusLote = '', contatoAt = null, avisoFechado = '', avisoLigado = true, botsMin = false;
+  var P = null, B = null, AV = null, ultimo = '', aberto = false, visual = 'A', aba = 'cot', resp = null, cot = null, cotErro = '', cotando = false, saldoR = null, statusLote = '', contatoAt = null, avisoFechado = '', avisoLigado = true, botsMin = false; // 4.32 - A pedido do Vitor: o painel vem OCULTO por padrão (clica no "PF" da borda pra abrir)
   // 1.8 - 💡 ofertas e respostas + ⚠ já ofereci + 📢 status
   var OF = null, JA = null, ST = null, ofPend = [], ofSig = '', ofSel = {}, ofIgn = {}, digAnt = '', jaR = null, jaFechado = '';
   // 2.0 - Menu do PF em volta do WhatsApp (barra de cima + coluna de ícones + etiquetas por conversa)
-  var MENU = null, RAIL = null, menuLig = true, menuCor = 'azul', menuFiltro = '', sitCache = {}, sitSig = '', sitTimer = null;
+  var MENU = null, RAIL = null, menuLig = true, menuCor = 'discreta', menuFiltro = '', sitCache = {}, sitSig = '', sitTimer = null; // 4.32 - A pedido do Vitor: o Menu do PF vem no modo DISCRETO por padrão
   // 2.2 - 📌 "vou verificar depois" → pendência automática (com desfazer)
   var VF = null, vfR = null, vfSig = '';
   var VERIF_RE = /\bvou (anotar|verificar|conferir|checar|ver\b|dar uma (olhada|conferida)|confirmar|olhar|pesquisar|te retornar|te dar)|deixa eu (ver|verificar|conferir|checar|dar uma olhada|olhar)|preciso (verificar|conferir|ver no|checar)|j[aá] (te )?(retorno|verifico|confiro)|vou (te )?(retornar|dar) (o|um|a)/i;

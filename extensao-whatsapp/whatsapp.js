@@ -1417,7 +1417,7 @@
   function filhoQueTem(anc, el) { var x = el; while (x && x.parentElement !== anc) x = x.parentElement; return x; }
   function ancComum(a, b) { var x = a; while (x && !x.contains(b)) x = x.parentElement; return x; }
   function rowLimpar(r) {
-    r.querySelectorAll('.pfwa-rowb,.pfwa-rowbar,.pfwa-rowln,.pfwa-rowtp').forEach(function (e) { e.remove(); });
+    r.querySelectorAll('.pfwa-rowb,.pfwa-rowbar,.pfwa-rowln,.pfwa-rowtp,.pfwa-rowgp').forEach(function (e) { e.remove(); });
     r.querySelectorAll('[data-pfwa-esc]').forEach(function (e) { e.style.display = ''; e.removeAttribute('data-pfwa-esc'); });
   }
   function badgesRender() {
@@ -1428,16 +1428,19 @@
       var tit = r.querySelector('span[title]'); if (!tit) return;
       var sps = r.querySelectorAll('span[title]'), prev = null;
       for (var i = 0; i < sps.length; i++) if (sps[i] !== tit && !tit.contains(sps[i]) && !sps[i].closest('.pfwa-rowln,.pfwa-rowtp')) { prev = sps[i]; break; }
-      var txt = '', bar = '', tp = '';
+      var txt = '', txtFull = '', bar = '', tp = '', gh = '';
       if (s.tipo === 'cliente') {
         var gl = (s.gcs && s.gcs.length) ? s.gcs : (s.grupo ? [{ l: s.grupo, c: s.gCor, t: s.gTxt }] : []);
         var lugar = [s.cid, s.uf].filter(Boolean).join('-');
-        var gh = gl.map(function (g) { return '<b style="color:' + esc(g.t && g.t !== '#fff' && g.t !== '#FFFFFF' ? g.t : (g.c || '#1F4E79')) + '">' + esc(String(g.l).replace(/^linha\s+/i, 'L. ')) + '</b>'; }).join(' ');
-        txt = [gh, lugar ? '📍 ' + esc(lugar) : ''].filter(Boolean).join(' <i>·</i> ') || '🤝 cliente do PF';
+        gh = gl.map(function (g) { return '<b style="color:' + esc(g.t && g.t !== '#fff' && g.t !== '#FFFFFF' ? g.t : (g.c || '#1F4E79')) + '">' + esc(String(g.l).replace(/^linha\s+/i, 'L. ')) + '</b>'; }).join(' ');
+        var cityHtml = lugar ? '📍 ' + esc(lugar) : '';
+        // 4.25 / v115.2669 - A pedido do Vitor ("mude somente essa do grupo… linha amarela, agrícola"): o GRUPO desce pra linha 3 (não espreme a prévia da mensagem); a 📍 cidade continua na linha da mensagem.
+        txt = cityHtml || '🤝 cliente do PF';
+        txtFull = [gh, cityHtml].filter(Boolean).join(' <i>·</i> ') || '🤝 cliente do PF';
         if (gl.length) { var n = gl.length, st = gl.map(function (g, k) { return (g.c || '#1F4E79') + ' ' + (k * 100 / n) + '% ' + ((k + 1) * 100 / n) + '%'; }).join(','); bar = 'linear-gradient(to bottom,' + st + ')'; }
         tp = s.tpc || '';
-      } else if (s.tipo === 'fornecedor') txt = '🏭 fornecedor' + (s.mapa ? ' · mapa ' + esc(s.mapa) : '');
-      var sig = txt + '|' + bar + '|' + tp + '|' + (CFG.waEtqOff !== false ? 1 : 0) + '|' + (x.unread ? 1 : 0);
+      } else if (s.tipo === 'fornecedor') { txt = '🏭 fornecedor' + (s.mapa ? ' · mapa ' + esc(s.mapa) : ''); txtFull = txt; }
+      var sig = txt + '|' + gh + '|' + bar + '|' + tp + '|' + (CFG.waEtqOff !== false ? 1 : 0) + '|' + (x.unread ? 1 : 0);
       if (r.getAttribute('data-pfwa-sig') === sig && (!txt || r.querySelector('.pfwa-rowln'))) return;
       rowLimpar(r); r.setAttribute('data-pfwa-sig', sig); r.removeAttribute('title');
       if (!txt) return;
@@ -1466,8 +1469,13 @@
       if (s.tipo === 'cliente' && CFG.waEtqOff !== false && L3s.length) {
         var L3 = L3s[0];
         L3s.forEach(function (L) { Array.prototype.forEach.call(L.children, function (c) { c.setAttribute('data-pfwa-esc', '1'); c.style.display = 'none'; }); });
+        if (gh) { var g3 = document.createElement('span'); g3.className = 'pfwa-rowgp'; g3.innerHTML = gh; L3.appendChild(g3); } // v115.2669 - grupo à esquerda da linha 3
         if (tp) { var t3 = document.createElement('span'); t3.className = 'pfwa-rowtp'; t3.textContent = tp; try { if (prev) t3.style.setProperty('color', getComputedStyle(prev).color, 'important'); } catch (e) { } L3.appendChild(t3); }
-      } else if (tp) r.setAttribute('title', tp);
+      } else {
+        // v115.2669 - conversa sem uma 3ª linha: o grupo volta pra linha da mensagem (como antes), pra não sumir
+        if (gh && ln && s.tipo === 'cliente') ln.innerHTML = txtFull;
+        if (tp) r.setAttribute('title', tp);
+      }
     });
   }
   function aplicarFiltro() {

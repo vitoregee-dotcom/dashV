@@ -2417,6 +2417,9 @@
   navegador — como a chave da IA), config em `pfSttCfgAbrir` (abre pela própria caixa do áudio → ⚙️, ou acao `sttConfig`). `pfExtTranscreverAudio` monta FormData (file+model+language
   pt) e chama `/audio/transcriptions` com Bearer. Resultado numa caixinha flutuante (`#pfwa-audio`): "💬 Pôr na conversa" (`escreverNaCaixa`) + 📋 Copiar. Sem chave = avisa + ⚙️.
   **FALTA validar:** CORS do Groq/OpenAI direto do navegador (github.io) — se bloquear, pôr um atalho no servidor (Edge Function). `PF_EXT_VER_NOVA`='4.16', zip refeito.
+- v115.2668 (Vitor: "pq não tem essa chave lá nas minhas chaves do PF?"): a chave de transcrição entrou no cofre **🔑 Minhas Chaves** (`PF_CHAVES_CAMPOS` campo `sttKey`), igual à Anthropic. Dois sentidos no
+  `ferrChavesRenderDesbloqueado`: chave só na janelinha (`pf_stt_cfg_v1`, por navegador) aparece no cofre; chave vinda do cofre (sincronizada de outro aparelho) já ativa no runtime. `ferrChavesSalvar` espelha
+  `sttKey`→`pfSttCfgSet({chave})`. A janelinha (`pfSttCfgAbrir`) continua, com aviso de que a chave também fica em Minhas Chaves (lá criptografada e sincronizada). Chave de serviço externo nova → mesmo padrão.
 - v115.2657 + extensão **4.17** (Vitor: "perdão, eu tinha pegado errado" — print do GIL - Gm Silva cardans, contato SALVO): o lápis de editar o nome de um contato salvo é o
   do CABEÇALHO do painel "Dados do contato" (ao lado do Fechar), NÃO o das anotações lá embaixo. `waEditarBotao` passo 3 agora junta os ícones de lápis/editar (fora `#main` e
   fora do das notas `waEhNota`) e pega o **mais ALTO da tela** (`getBoundingClientRect().top` menor = o do cabeçalho); também casa aria-label "Editar"/"Edit". Seletores ainda

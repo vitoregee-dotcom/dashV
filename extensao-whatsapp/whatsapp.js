@@ -973,7 +973,8 @@
     return svGruposTodos().map(function (g) { return '<span class="sv-g' + (svGrupos.indexOf(g[0]) >= 0 ? ' on' : '') + '" data-acao="svGrupo" data-arg="' + g[0] + '" data-g="' + g[0] + '" style="--c:' + g[2] + '"><i></i>' + esc(g[1]) + '</span>'; }).join('') +
       '<span class="sv-g sv-gnovo" data-acao="svGrupoNovo" title="Criar um grupo novo">➕ grupo</span>';
   }
-  function svGruposRender() { var r = SV && SV.querySelector('.sv-gr'); if (r) r.innerHTML = svGruposRowHtml(); }
+  function svGruposRender() { var r = SV && SV.querySelector('.sv-grp'); // 4.27 - BUG: '.sv-gr' pegava a linha do TIPO (desde a 4.24)
+    if (r) r.innerHTML = svGruposRowHtml(); }
   // 4.24 - A pedido do Vitor: TIPO DO CLIENTE (revenda / consumidor / concessionária / serviço) também é salvo no cadastro do PF
   var SV_TIPOS = [['revenda', '🏪 Revenda'], ['consumo', '👤 Consumidor'], ['conc', '🏛 Concessionária'], ['servico', '🔧 Serviço / oficina']], svTipo = '';
   function svTipoRowHtml() { return SV_TIPOS.map(function (t) { return '<span class="sv-g' + (svTipo === t[0] ? ' on' : '') + '" data-acao="svTipo" data-arg="' + t[0] + '" style="--c:#1F4E79">' + esc(t[1]) + '</span>'; }).join(''); }
@@ -1011,6 +1012,7 @@
     svTipo = (r && r.tipoCli) || ''; // 4.24 - já vem com o tipo do cadastro
     svConcMarcas = (r && r.concMarcas && r.concMarcas.length) ? r.concMarcas.slice() : []; // 4.26 - marcas da concessionária já cadastradas
     svK = r ? r.k : ''; svSug = [];
+    if (r && r.grupos) r.grupos.forEach(function (g) { var id = svGrupoIdDoNome(g); if (id && svGrupos.indexOf(id) < 0) svGrupos.push(id); }); // 4.27 - grupos do cadastro já marcados
     var nome = svNomeBase(c.nome) || (r && r.contato) || '', emp = svEmpBase(c.nome) || (r ? r.titulo : ''), cod = svCodBase(c.nome) || (r && r.cod) || '';
     var semNum = /^[+\d\s()\-]{8,}$/.test(c.nome || '');
     SV.innerHTML = '<div class="sv-cab"><b>👤 Salvar contato</b><span class="sv-x" data-acao="svFechar" title="Fechar">✕</span></div>' +
@@ -1022,7 +1024,7 @@
       '<label>CÓDIGO NO JBOSS<input class="sv-cod" value="' + esc(cod) + '" placeholder="Ex.: 12662" inputmode="numeric"></label>' +
       '<div class="sv-gl">TIPO DO CLIENTE</div><div class="sv-gr sv-tp">' + svTipoRowHtml() + '</div>' + // 4.24
       '<div class="sv-marca"></div>' + // 4.26 - marca da concessionária (só quando o tipo é Concessionária)
-      '<div class="sv-gl">GRUPO DO CLIENTE <span style="font-weight:600;text-transform:none;color:#8a9ab0">(pode escolher mais de um)</span></div><div class="sv-gr">' + svGruposRowHtml() + '</div>' +
+      '<div class="sv-gl">GRUPO DO CLIENTE <span style="font-weight:600;text-transform:none;color:#8a9ab0">(pode escolher mais de um)</span></div><div class="sv-gr sv-grp">' + svGruposRowHtml() + '</div>' +
       '<label>CNPJ <span style="font-weight:600;text-transform:none">(cliente novo entra como pré-cadastro 🌱)</span><input class="sv-cnpj" value="' + esc(fmtCnpj(cnpjPre || '')) + '" placeholder="00.000.000/0000-00" inputmode="numeric"></label>' +
       '<div class="sv-pv">Vai ficar: <b class="sv-prev"></b></div>' +
       '<div class="sv-k">' + (svK && r && r.titulo ? '🔗 ligado a <b>' + esc(r.titulo) + '</b>' : '') + '</div>' +
@@ -1040,8 +1042,17 @@
     svSug = (r && r.l) || [];
     box.innerHTML = svSug.map(function (s, i) { return '<div class="sv-it" data-acao="svUsar" data-arg="' + i + '"><b>' + esc(s.razao) + '</b><small>' + esc([s.codigo ? 'cód. ' + s.codigo : '', s.cidade].filter(Boolean).join(' · ')) + '</small></div>'; }).join('');
   }
+  // 4.27 - A pedido do Vitor ("não puxou as etiquetas que já tinha de outro contato… o certo seria já vir preenchido"): ao ligar numa empresa do PF,
+  // tipo, grupos e marcas da concessionária do cadastro já vêm marcados (soma com o que você já tinha marcado aqui).
+  function svGrupoIdDoNome(g) { g = String(g || '').trim(); if (!g) return ''; var t = svGruposTodos(), f = t.find(function (x) { return x[0] === g || x[1].toUpperCase() === g.toUpperCase(); });
+    if (f) return f[0]; var id = 'g_' + g.toLowerCase().replace(/[^a-z0-9]+/g, '_'); SV_GRUPOS_EXTRA.push([id, g, '#607080']); try { chrome.storage.local.set({ svGruposExtra: SV_GRUPOS_EXTRA }); } catch (e) { } return id; }
+  function svAplicarCad(inf) { if (!inf) return;
+    (inf.grupos || []).forEach(function (g) { var id = svGrupoIdDoNome(g); if (id && svGrupos.indexOf(id) < 0) svGrupos.push(id); });
+    if (inf.tipoCli && !svTipo) svTipo = inf.tipoCli;
+    (inf.concMarcas || []).forEach(function (m) { if (svConcMarcas.indexOf(m) < 0) svConcMarcas.push(m); });
+    svGruposRender(); var r = SV && SV.querySelector('.sv-tp'); if (r) r.innerHTML = svTipoRowHtml(); try { svMarcaRender(); } catch (e) { } }
   function svUsar(i) {
-    var s = svSug[+i]; if (!s) return; svK = s.k;
+    var s = svSug[+i]; if (!s) return; svK = s.k; svAplicarCad(s);
     var e = SV.querySelector('.sv-emp'); if (e) e.value = s.curto || s.razao;
     var c = SV.querySelector('.sv-cod'); if (c && !c.value && s.codigo) c.value = String(s.codigo).replace(/^0+/, '');
     SV.querySelector('.sv-sug').innerHTML = ''; SV.querySelector('.sv-k').innerHTML = '🔗 ligado a <b>' + esc(s.razao) + '</b>'; svPrev();

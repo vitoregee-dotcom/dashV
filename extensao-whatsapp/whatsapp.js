@@ -1001,13 +1001,42 @@
       return 'ok';
     } catch (e) { return 'nao'; }
   }
+  // 4.18 - A pedido do Vitor (print do ⋮ da conversa: "ele ainda não salva aqui"): o "Adicionar aos contatos" do número NÃO salvo mora no
+  // menu ⋮ (Mais opções) do cabeçalho da conversa. Abre o ⋮ e clica no item; sem o item (contato já salvo) fecha o menu e segue o caminho antigo.
+  function waMenuItem(re) {
+    var best = null, bw = 1e9;
+    Array.prototype.forEach.call(document.querySelectorAll('li,[role="menuitem"],[role="button"],[role="option"],div[aria-label],span[dir]'), function (x) {
+      if (!waVisivel(x) || x.closest('#pfwa,#pfwa-sv,#pfwa-menu,#pfwa-rail,#pfwa-bots,#pane-side')) return;
+      var t = ((x.getAttribute('aria-label') || '') + ' ' + (x.textContent || '')).trim();
+      if (!re.test(t) || t.length > 60) return;
+      var w = x.getBoundingClientRect().width * x.getBoundingClientRect().height; if (w < bw) { bw = w; best = x; }
+    });
+    return best ? (best.closest('li,[role="menuitem"],[role="button"],[role="option"]') || best) : null;
+  }
+  function waClicar(x) { try { ['pointerdown', 'mousedown', 'pointerup', 'mouseup'].forEach(function (k) { x.dispatchEvent(new MouseEvent(k, { bubbles: true })); }); } catch (e) { } x.click(); }
+  async function waPeloMenuMais() {
+    var hd = $('#main header'); if (!hd) return null;
+    var mais = Array.prototype.find.call(hd.querySelectorAll('button,[role="button"],span[data-icon]'), function (x) {
+      var ic = x.getAttribute('data-icon') || ((x.querySelector('[data-icon]') || {}).getAttribute ? (x.querySelector('[data-icon]') ? x.querySelector('[data-icon]').getAttribute('data-icon') : '') : '');
+      var lab = (x.getAttribute('aria-label') || '') + ' ' + (x.getAttribute('title') || '');
+      return /mais op|more op|^\s*menu\s*$/i.test(lab) || /^menu$|more-refreshed|kebab|menu-refreshed/.test(ic || '');
+    });
+    if (!mais) return null;
+    mais = mais.closest('button,[role="button"]') || mais;
+    waClicar(mais);
+    var it = await waEsperar(function () { return waMenuItem(/^\s*(adicionar aos contatos|add to contacts|editar contato|edit contact)\s*$/i); }, 1500);
+    if (!it) { try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true })); } catch (e) { } return null; }
+    waClicar(it); return 'ok';
+  }
   async function waSalvarNome(nomeFull, st) {
     var c = contatoAt; if (!c || !nomeFull) return;
     var dizer = function (h) { if (st) st.innerHTML += '<br>' + h; };
     try { navigator.clipboard.writeText(nomeFull); } catch (e) { }
     if (String(c.nome || '').trim() === nomeFull.trim()) { dizer('📱 No WhatsApp já está com esse nome.'); return; }
     var bt = waBotao(/adicionar aos contatos|add to contacts/i, $('#main'));
-    if (!bt) {
+    var peloMenu = false;
+    if (!bt) { if (await waPeloMenuMais()) peloMenu = true; }
+    if (!bt && !peloMenu) {
       // 4.13 - A pedido do Vitor ("pq não salva no whats?"): abre os "Dados do contato" pelo botão do cabeçalho (não pelo span) e procura o
       // Editar também pelo ícone do lápis (no WhatsApp novo o botão não tem texto)
       bt = waEditarBotao();
@@ -1018,8 +1047,8 @@
         bt = await waEsperar(waEditarBotao, 4000);
       }
     }
-    if (!bt) { dizer('📱 Não achei o "Editar contato" do WhatsApp — o nome está copiado: abra os dados do contato → Editar e cole (Ctrl+V).' + waDiag()); return; }
-    bt.click();
+    if (!bt && !peloMenu) { dizer('📱 Não achei o "Editar contato" do WhatsApp — o nome está copiado: abra os dados do contato → Editar e cole (Ctrl+V).' + waDiag()); return; }
+    if (bt) bt.click();
     var inps = await waEsperar(function () { var l = Array.prototype.filter.call(document.querySelectorAll('input[type="text"],input:not([type]),div[contenteditable="true"]'), function (x) { return waFora(x) && waVisivel(x) && !x.closest('#main'); }); return l.length ? l : null; }, 2500);
     if (!inps) { dizer('📱 Abri o contato no WhatsApp, mas não achei o campo do nome — cole o nome (já copiado).'); return; }
     waEscrever(inps[0], nomeFull);

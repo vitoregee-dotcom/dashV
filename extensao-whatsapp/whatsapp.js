@@ -394,7 +394,7 @@
   var ajuda = false;
   // 3.4 - ⚙️ Configurações (A pedido do Vitor: "coloca botão de eu ligar ou desligar essas configurações. igual no Watidy"):
   // cada função da extensão liga/desliga aqui; guardado por navegador (chrome.storage.local 'cfg'). Menu e aviso de cotação usam as chaves que já existiam.
-  var config = false, CFG = { bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true, audio: true, audioBotoes: false };
+  var config = false, CFG = { bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true, audio: true, audioBotoes: false, sug: true };
   var CFG_LISTA = [
     ['menu', '🧭', 'Menu do PF em volta do WhatsApp', 'Barra de grupos em cima (Linha Amarela, Linha Agrícola…) e a coluna de atalhos à esquerda.'],
     ['etq', '🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome da lista: cidade e grupo do cliente, fornecedor do PF, cotação aberta, mapa.'],
@@ -405,6 +405,7 @@
     ['salvar', '👤', 'Botão Salvar contato', 'O botão verde ao lado do nome da conversa.'],
     ['ofertas', '💡', 'Guardar ofertas e respostas', 'Quando você oferece algo, o cartão pra salvar a oferta e a resposta do cliente no CRM.'],
     ['ja', '⚠️', '"Você já ofereceu" enquanto digita', 'Aviso em cima da caixa de texto quando você vai oferecer algo que já ofereceu.'],
+    ['sug', '💡', 'Sugestões pra oferecer', 'Na aba Cliente: o que clientes parecidos compram e ele não. Na aba Cotação: o que costuma ir junto com as peças pedidas.'],
     ['audio', '🎤', 'Descrever áudios', 'Embaixo de cada áudio aparece "📝 Descrever este áudio". Clique e a descrição (o que a pessoa falou) aparece ali mesmo. O 🎤 da coluna liga/desliga.'],
     ['audioBotoes', '💬', 'Botões na descrição do áudio', 'Mostra Pôr na conversa, Copiar e Cotar no PF embaixo da descrição. Vem desligado.'],
     ['verif', '📌', 'Anotar "vou verificar" sozinho', 'Quando você escreve "vou verificar / já te retorno", vira pendência e próxima ação no PF.']];
@@ -448,6 +449,7 @@
       ['📄', 'Cotar no PF', 'Lê os códigos e quantidades que o cliente mandou depois da sua última mensagem (se ele mandar mais, vai somando; pedido antigo = clique no selo 📄 do balão), mostra saldo e preço (com a margem dele) e monta a resposta. "Pôr na conversa" escreve na caixa; você confere e manda.'],
       ['📦', 'Saldo', 'Selecione um código na conversa e clique: mostra o saldo de cada marca.'],
       ['🤝', 'Ficha', 'Abre a ficha do cliente no PF (CRM).'],
+      ['💡', 'Sugestões pra oferecer', 'Aba Cliente: até 3 coisas que clientes parecidos compram e ele não (🔎 peças, 💬 Oferecer escreve uma frase pronta na caixa, 🚫 = não tem demanda). Aba Cotação: o que costuma ir junto com as peças pedidas, com ➕ Pôr na cotação.'],
       ['🎤', 'Descrever áudios', 'Embaixo de cada áudio aparece "📝 Descrever este áudio": clique e o texto do que a pessoa falou aparece ali mesmo. O 🎤 da coluna liga/desliga. Botões Pôr na conversa/Copiar/Cotar: ligue em ⚙️. Precisa da chave do serviço de transcrição (configura no PF, uma vez só).'],
       ['⏰', 'Lembrete', 'Marca uma próxima ação (aparece no ☀️ Meu dia do PF).'],
       ['⚡', 'Respostas rápidas', 'Clique no ⚡ (ou digite / na caixa de texto, ex.: /banco): aparecem as respostas deste cliente e os seus Atalhos de Texto do PF, já com o nome dele, a empresa, a cidade… trocados. Escolha (↑ ↓ e Enter) e o texto vai pra caixa — você confere e manda.'],
@@ -595,6 +597,19 @@
       if (!t) return; var ok = escreverNaCaixa(t);
       if (ac === 'escrever' && ok && resp && resp.k) msg({ t: 'acao', acao: 'registrar', arg: { k: resp.k, texto: 'Cotação pelo WhatsApp: ' + cot.itens.length + ' código(s), ' + reais(cot.total) } });
       flash(b, ok ? '✔ Está na caixa — confira e aperte Enter' : 'Abra a conversa primeiro'); return;
+    }
+    if (ac === 'sugOferecer' || ac === 'sugPecas' || ac === 'sugSemDem') {
+      var sx = resp && resp.sug && resp.sug[+arg]; if (!sx) return;
+      var sa = { k: resp.k, tp: sx.tp, key: sx.key };
+      if (ac === 'sugPecas') { msg({ t: 'acao', acao: 'sugPecas', focar: true, arg: sa }); return; }
+      if (ac === 'sugSemDem') { msg({ t: 'acao', acao: 'sugSemDem', arg: sa }); resp.sug.splice(+arg, 1); pintaCorpo(); return; }
+      var nm = (resp.contato || '').split(' ')[0]; var fr = (nm ? sx.frase.replace(/^Aproveitando:/, 'Aproveitando, ' + nm + ':') : sx.frase);
+      escreverNaCaixa(fr); sa.msg = fr; msg({ t: 'acao', acao: 'sugOfereci', arg: sa }); return;
+    }
+    if (ac === 'juntoAdd') {
+      var jx = cot && cot.junto && cot.junto[+arg]; if (!jx) return;
+      cot.itens.push({ cod: jx.cod, qtd: 1, achou: jx.achou, desc: jx.desc, marca: jx.marca, saldo: jx.saldo, preco: jx.preco });
+      cot.junto.splice(+arg, 1); refazResposta(); pintaCorpo(); return;
     }
     if (ac === 'tirar') { if (cot) { cot.itens.splice(+arg, 1); refazResposta(); pintaCorpo(); } return; }
     if (ac === 'saldoBusca') { var i2 = P.querySelector('.pfwa-saldo-in'); buscarSaldo(i2 ? i2.value : ''); return; }
@@ -779,10 +794,34 @@
       h += '<tr><td><b>' + esc(o.cod) + '</b>' + (o.desc ? '<br><small>' + esc(o.desc) + (o.marca ? ' · ' + esc(o.marca) : '') + '</small>' : '') + '</td><td>' + o.qtd + '</td><td>' + sl + '</td><td>' + (o.preco > 0 ? reais(o.preco) : '—') + '</td><td><span data-acao="tirar" data-arg="' + i + '" title="Tirar da cotação" class="pfwa-tirar">✕</span></td></tr>';
     });
     h += '</table><div class="pfwa-tot"><span>Total (com saldo)</span><span>' + reais(cot.total) + '</span></div>';
+    if (CFG.sug !== false) h += juntoHtml(); // 4.20 - 💡 quem leva isso também leva
     h += '<div class="pfwa-bt" style="margin-top:10px">💬 Resposta (dá pra mexer antes)</div><textarea class="pfwa-resp">' + esc(cot.resposta) + '</textarea>';
     h += '<div class="pfwa-bots"><button data-acao="escrever" class="pfwa-verde">💬 Pôr na conversa</button><button data-acao="abrirCot">📄 Abrir a cotação no PF</button><button data-acao="pdf" class="pfwa-laranja">📤 PDF</button></div>';
     h += '<div class="pfwa-nada" style="margin-top:6px">"Pôr na conversa" escreve na caixa do WhatsApp — você confere e aperta Enter. O PDF abre a cotação no PF e baixa o arquivo pra anexar.</div>';
     return h;
+  }
+  // 4.20 - A pedido do Vitor ("aqui no whats também pode aparecer aquelas dicas… do perfil do cliente… coisas que outros clientes do mesmo perfil consomem e ele não" → C):
+  // aba Cliente = 💡 Pra oferecer (vem do 🚫 Não compra da ficha); aba Cotação = 💡 o que costuma ir junto com as peças pedidas. Nada é mandado sozinho.
+  function sugHtml(r) {
+    var l = r.sug || []; if (!l.length) return '';
+    var h = '<div class="pfwa-bloco pfwa-sug"><div class="pfwa-bt">💡 Pra oferecer · clientes parecidos compram, ele não</div>';
+    l.forEach(function (x, i) {
+      h += '<div class="pfwa-sugl"><div class="pfwa-sugt"><b>' + esc(x.titulo) + '</b><small>' + esc(x.d) + '</small></div><div class="pfwa-sugb">' +
+        '<span data-acao="sugPecas" data-arg="' + i + '" title="Quais peças os parecidos levam (abre no PF)">🔎 peças</span>' +
+        '<span data-acao="sugOferecer" data-arg="' + i + '" class="v" title="Escreve uma frase pronta na caixa — você edita e manda">💬 Oferecer</span>' +
+        '<span data-acao="sugSemDem" data-arg="' + i + '" title="Ele disse que não tem demanda: sai da lista por 6 meses">🚫</span></div></div>';
+    });
+    return h + '<div class="pfwa-nada" style="margin-top:4px">💬 Oferecer escreve na caixa (você manda) e guarda em 💡 Já ofereci.</div></div>';
+  }
+  function juntoHtml() {
+    var l = (cot && cot.junto) || []; if (!l.length) return '';
+    var h = '<div class="pfwa-bloco pfwa-sug"><div class="pfwa-bt">💡 Quem leva essas peças costuma levar junto</div>';
+    l.forEach(function (x, i) {
+      var sl = !x.achou ? 'sem cadastro' : x.saldo > 0 ? 'saldo ' + x.saldo : 'sem saldo';
+      h += '<div class="pfwa-sugl"><div class="pfwa-sugt"><b>' + esc(x.cod) + (x.desc ? ' · ' + esc(x.desc) : '') + '</b><small>' + esc(x.d) + ' · ' + sl + (x.preco > 0 ? ' · ' + reais(x.preco) : '') + '</small></div>' +
+        '<div class="pfwa-sugb"><span data-acao="juntoAdd" data-arg="' + i + '" class="v">➕ Pôr na cotação</span></div></div>';
+    });
+    return h + '</div>';
   }
   function htmlCli() {
     var r = resp, h = cabCliente(r);
@@ -794,6 +833,7 @@
         + '</div>';
     }
     h += avisosHtml(r, false); // 2.3 - avisos do cliente (os mesmos da cotação)
+    if (r.tipo === 'cliente' && CFG.sug !== false) h += sugHtml(r); // 4.20 - 💡 pra oferecer
     if (r.tipo === 'cliente') h += resumoHtml(r); // 3.6 - 📝 resumo com IA
     (r.linhas || []).forEach(function (l) { h += '<div class="pfwa-lin"><span>' + esc(l.ic) + '</span><div><b>' + esc(l.t) + '</b>' + (l.d ? '<br><small>' + esc(l.d) + '</small>' : '') + '</div></div>'; });
     if (r.ofertas) h += bloco(r.ofertas);

@@ -394,7 +394,7 @@
   var ajuda = false;
   // 3.4 - ⚙️ Configurações (A pedido do Vitor: "coloca botão de eu ligar ou desligar essas configurações. igual no Watidy"):
   // cada função da extensão liga/desliga aqui; guardado por navegador (chrome.storage.local 'cfg'). Menu e aviso de cotação usam as chaves que já existiam.
-  var config = false, CFG = { bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true, audio: true, audioBotoes: false, sug: true };
+  var config = false, CFG = { bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true, audio: true, audioBotoes: false, sug: true, waEtqOff: true };
   var CFG_LISTA = [
     ['menu', '🧭', 'Menu do PF em volta do WhatsApp', 'Barra de grupos em cima (Linha Amarela, Linha Agrícola…) e a coluna de atalhos à esquerda.'],
     ['etq', '🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome da lista: cidade e grupo do cliente, fornecedor do PF, cotação aberta, mapa.'],
@@ -405,6 +405,7 @@
     ['salvar', '👤', 'Botão Salvar contato', 'O botão verde ao lado do nome da conversa.'],
     ['ofertas', '💡', 'Guardar ofertas e respostas', 'Quando você oferece algo, o cartão pra salvar a oferta e a resposta do cliente no CRM.'],
     ['ja', '⚠️', '"Você já ofereceu" enquanto digita', 'Aviso em cima da caixa de texto quando você vai oferecer algo que já ofereceu.'],
+    ['waEtqOff', '🏷️', 'Esconder etiquetas do WhatsApp', 'Nas conversas de clientes do PF, a etiqueta do WhatsApp dá lugar ao tipo do cliente (Revenda, Consumidor…). Desligado = as etiquetas do WhatsApp continuam aparecendo.'],
     ['sug', '💡', 'Sugestões pra oferecer', 'Na aba Cliente: o que clientes parecidos compram e ele não. Na aba Cotação: o que costuma ir junto com as peças pedidas.'],
     ['audio', '🎤', 'Descrever áudios', 'Embaixo de cada áudio aparece "📝 Descrever este áudio". Clique e a descrição (o que a pessoa falou) aparece ali mesmo. O 🎤 da coluna liga/desliga.'],
     ['audioBotoes', '💬', 'Botões na descrição do áudio', 'Mostra Pôr na conversa, Copiar e Cotar no PF embaixo da descrição. Vem desligado.'],
@@ -1396,29 +1397,61 @@
       msg({ t: 'acao', acao: 'situacoes', arg: { lista: ls.map(function (x) { return { nome: x.nome, tel: x.tel }; }) } }).then(function (r) { if (r && r.sit) sitCache = r.sit; pintarMenu(); });
     }, 500);
   }
+  // 4.21 - A pedido do Vitor (prévia E1, docs/referencias/whatsapp-etiquetas-lista/previa5): cliente do PF = faixa da cor do grupo na esquerda,
+  // "GRUPO · 📍 Cidade-UF" no fim da linha da mensagem (antes da bolinha de não lidas) e o tipo (Revenda/Consumidor/Serviço/Concessionária)
+  // na linha da etiqueta do WhatsApp, que some (⚙️ "Esconder etiquetas do WhatsApp"). A linha da conversa tem altura fixa no WhatsApp:
+  // sem etiqueta do WhatsApp, o tipo vai só no title da linha. O "📄 cot. N" saiu.
+  function filhoQueTem(anc, el) { var x = el; while (x && x.parentElement !== anc) x = x.parentElement; return x; }
+  function ancComum(a, b) { var x = a; while (x && !x.contains(b)) x = x.parentElement; return x; }
+  function rowLimpar(r) {
+    r.querySelectorAll('.pfwa-rowb,.pfwa-rowbar,.pfwa-rowln,.pfwa-rowtp').forEach(function (e) { e.remove(); });
+    r.querySelectorAll('[data-pfwa-esc]').forEach(function (e) { e.style.display = ''; e.removeAttribute('data-pfwa-esc'); });
+  }
   function badgesRender() {
     var pane = $('#pane-side');
-    if (!menuLig || !CFG.etq || !pane) { document.querySelectorAll('.pfwa-rowb').forEach(function (e) { e.remove(); }); return; }
+    if (!menuLig || !CFG.etq || !pane) { if (pane) pane.querySelectorAll('[role="listitem"],div[role="row"]').forEach(rowLimpar); return; }
     linhasLista().forEach(function (x) {
-      var host = x.el.querySelector('span[title]'); if (!host) return; host = host.parentElement; if (!host) return;
-      // só a situação do PF — a etiqueta do WhatsApp o próprio WhatsApp já mostra na linha (não duplicar)
-      var s = sitCache[x.nome] || {}, chips = [];
-      // 4.10 - A pedido do Vitor ("ao invés de mostrar cliente, prefiro cidade-estado e grupo")
+      var r = x.el, s = sitCache[x.nome] || {};
+      var tit = r.querySelector('span[title]'); if (!tit) return;
+      var sps = r.querySelectorAll('span[title]'), prev = null;
+      for (var i = 0; i < sps.length; i++) if (sps[i] !== tit && !tit.contains(sps[i]) && !sps[i].closest('.pfwa-rowln,.pfwa-rowtp')) { prev = sps[i]; break; }
+      var txt = '', bar = '', tp = '';
       if (s.tipo === 'cliente') {
-        var lugar = [s.cid, s.uf].filter(Boolean).join(' - ');
-        if (lugar || s.grupo) {
-          if (lugar) chips.push('<span class="cli">📍 ' + esc(lugar) + '</span>');
-          if (s.grupo) chips.push('<span style="background:' + esc(s.gCor || '#E8F1FB') + ';color:' + esc(s.gTxt || '#1F4E79') + '">' + esc(s.grupo) + '</span>');
-        } else chips.push('<span class="cli">🤝 cliente</span>');
-        if (s.cot) chips.push('<span class="cli">📄 cot. ' + esc(s.cot) + '</span>');
+        var gl = (s.gcs && s.gcs.length) ? s.gcs : (s.grupo ? [{ l: s.grupo, c: s.gCor, t: s.gTxt }] : []);
+        var lugar = [s.cid, s.uf].filter(Boolean).join('-');
+        var gh = gl.map(function (g) { return '<b style="color:' + esc(g.t && g.t !== '#fff' && g.t !== '#FFFFFF' ? g.t : (g.c || '#1F4E79')) + '">' + esc(String(g.l).replace(/^linha\s+/i, 'L. ')) + '</b>'; }).join(' ');
+        txt = [gh, lugar ? '📍 ' + esc(lugar) : ''].filter(Boolean).join(' <i>·</i> ') || '🤝 cliente do PF';
+        if (gl.length) { var n = gl.length, st = gl.map(function (g, k) { return (g.c || '#1F4E79') + ' ' + (k * 100 / n) + '% ' + ((k + 1) * 100 / n) + '%'; }).join(','); bar = 'linear-gradient(to bottom,' + st + ')'; }
+        tp = s.tpc || '';
+      } else if (s.tipo === 'fornecedor') txt = '🏭 fornecedor' + (s.mapa ? ' · mapa ' + esc(s.mapa) : '');
+      var sig = txt + '|' + bar + '|' + tp + '|' + (CFG.waEtqOff !== false ? 1 : 0) + '|' + (x.unread ? 1 : 0);
+      if (r.getAttribute('data-pfwa-sig') === sig && (!txt || r.querySelector('.pfwa-rowln'))) return;
+      rowLimpar(r); r.setAttribute('data-pfwa-sig', sig); r.removeAttribute('title');
+      if (!txt) return;
+      // faixa da cor
+      if (bar) {
+        if (getComputedStyle(r).position === 'static') r.style.position = 'relative';
+        var fb = document.createElement('div'); fb.className = 'pfwa-rowbar'; fb.style.background = bar; r.appendChild(fb);
       }
-      else if (s.tipo === 'fornecedor') chips.push('<span class="forn">🏭 fornecedor' + (s.mapa ? ' · mapa ' + esc(s.mapa) : '') + '</span>');
-      // 4.12 - A pedido do Vitor ("se só repete, não precisa dela"): a etiqueta "⏳ sem resposta" era só a bolinha de não lida do próprio WhatsApp — saiu.
-      var b = host.querySelector(':scope > .pfwa-rowb');
-      if (!chips.length) { if (b) b.remove(); return; }
-      var html = chips.join('');
-      if (!b) { b = document.createElement('div'); b.className = 'pfwa-rowb'; host.appendChild(b); }
-      if (b.getAttribute('data-h') !== html) { b.innerHTML = html; b.setAttribute('data-h', html); }
+      // linha 2: antes da bolinha de não lidas
+      var ln = document.createElement('span'); ln.className = 'pfwa-rowln'; ln.innerHTML = txt;
+      var unr = r.querySelector('[aria-label*="ão lida"],[aria-label*="ão lidas"],[aria-label*="nread"]');
+      if (prev) {
+        var anc = ancComum(tit, prev), L2 = anc ? filhoQueTem(anc, prev) : null;
+        if (L2 && unr && L2.contains(unr) && L2 !== unr) { var u = filhoQueTem(L2, unr); var uu = u; while (uu && uu.parentElement && uu.parentElement !== L2 && uu.parentElement.children.length === 1) uu = uu.parentElement; L2.insertBefore(ln, u); }
+        else if (L2 && L2 !== prev) L2.appendChild(ln);
+        else prev.parentNode.insertBefore(ln, prev.nextSibling);
+      } else { var h = tit.parentElement; h.appendChild(ln); }
+      // linha 3: tipo no lugar da etiqueta do WhatsApp
+      var etq = r.querySelector('[aria-label^="Etiqueta"],[aria-label^="Label"]');
+      if (s.tipo === 'cliente' && CFG.waEtqOff !== false && etq) {
+        var a3 = ancComum(tit, etq), L3 = a3 ? filhoQueTem(a3, etq) : null;
+        if (L3 && !L3.contains(tit) && !(prev && L3.contains(prev))) {
+          Array.prototype.forEach.call(L3.children, function (c) { c.setAttribute('data-pfwa-esc', '1'); c.style.display = 'none'; });
+          if (!L3.children.length) { etq.setAttribute('data-pfwa-esc', '1'); etq.style.display = 'none'; }
+          if (tp) { var t3 = document.createElement('span'); t3.className = 'pfwa-rowtp'; t3.textContent = tp; L3.appendChild(t3); }
+        }
+      } else if (tp) r.setAttribute('title', tp);
     });
   }
   function aplicarFiltro() {

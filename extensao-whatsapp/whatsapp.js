@@ -1711,10 +1711,17 @@
   var SP = null, spMsg = null, spR = null, spFeitos = {};
   try { spFeitos = JSON.parse(sessionStorage.getItem('pfwa_sp_feitos') || '{}') || {}; } catch (e) { spFeitos = {}; }
   function spHash(s) { s = String(s || ''); var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h.toString(36); }
-  function spContaCods(t) {
-    var n = 0; (String(t || '').match(COD_RE) || []).forEach(function (tk) { if (tk.replace(/\D/g, '').length >= 4 && !/^\d{1,2}[\/.:]\d{2}/.test(tk)) n++; });
-    var pede = /\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo)/i.test(t);
-    return n >= 2 || (n >= 1 && pede) ? n : 0;
+  // 4.30 - A pedido do Vitor ("cadê as etiquetinhas laranja que lê os códigos?" — "81220600" sozinho numa mensagem, depois de "Ve se tem tambem"):
+  // a regra pedia 2+ códigos ou 1 código + palavra de pedido (tem/preço/cota…) NA MESMA mensagem. Agora 1 código também vale quando a mensagem
+  // é curta (só o código, ou código + nome da peça: "CAR47700 RETENTOR") ou quando a mensagem dele logo antes pede ("Ve se tem também").
+  // NF da compra ("Nf131074", "nota 1234") não conta como código.
+  function spContaCods(t, antesPede) {
+    t = String(t || '');
+    var n = 0; (t.match(COD_RE) || []).forEach(function (tk) { if (tk.replace(/\D/g, '').length >= 4 && !/^\d{1,2}[\/.:]\d{2}/.test(tk) && !/^n\.?f\.?[-\s]?\d/i.test(tk)) n++; });
+    if (/\b(nf|nota|nfe|n\.f\.?)\s*[:nº°.-]*\s*\d/i.test(t) && n <= 1) n = 0;
+    var pede = /\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo|manda|precis)/i.test(t);
+    var curto = t.trim().split(/\s+/).filter(Boolean).length <= 4;
+    return n >= 2 || (n >= 1 && (pede || curto || antesPede)) ? n : 0;
   }
   function selosVigiar() {
     var liga = CFG.selo !== false && avisoLigado && contatoAt && !contatoAt.grupo;
@@ -1723,7 +1730,8 @@
     // 4.15 - A pedido do Vitor ("não to achando esse número que ele encontrou 13X32"): o selo lia o BLOCO inteiro de mensagens
     // do cliente e puxava código de outra mensagem. Agora lê SÓ a mensagem onde o selo está (o código tem que estar nela).
     var alvo = [];
-    if (liga) els.forEach(function (el) { if (el.closest('.message-out')) return; var t = txt(el); var n = spContaCods(t); if (n) alvo.push({ el: el, t: t, n: n }); });
+    var antPede = false; // 4.30 - a mensagem do cliente logo antes pedia ("Ve se tem também")
+    if (liga) els.forEach(function (el) { if (el.closest('.message-out')) { antPede = false; return; } var t = txt(el); var n = spContaCods(t, antPede); if (n) alvo.push({ el: el, t: t, n: n }); antPede = /\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo|manda|precis)/i.test(t) && !n; });
     els.forEach(function (el) { var s = el.querySelector(':scope > .pfwa-selo'); if (s && !Object.keys(alvo).some(function (k) { return alvo[k].el === el; })) s.remove(); });
     Object.keys(alvo).forEach(function (k) {
       var A = alvo[k], el = A.el, t = A.t, n = A.n;

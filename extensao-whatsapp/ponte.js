@@ -3,6 +3,8 @@
 // e traz as perguntas do painel do WhatsApp ("quem é esse número?") pro PF responder.
 (function () {
   'use strict';
+  // 4.29 - não instala 2x na mesma aba (o fundo.js reinjeta quando o ping falha; com as 2 vivas cada pedido chegava em dobro no PF)
+  if (window.__pfPonteOk) return; window.__pfPonteOk = true;
   var V = chrome.runtime.getManifest().version;
   var pend = {};
   document.documentElement.setAttribute('data-pf-ext', V);

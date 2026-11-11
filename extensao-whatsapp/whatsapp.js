@@ -1464,7 +1464,7 @@
   function filhoQueTem(anc, el) { var x = el; while (x && x.parentElement !== anc) x = x.parentElement; return x; }
   function ancComum(a, b) { var x = a; while (x && !x.contains(b)) x = x.parentElement; return x; }
   function rowLimpar(r) {
-    r.querySelectorAll('.pfwa-rowb,.pfwa-rowbar,.pfwa-rowln,.pfwa-rowtp,.pfwa-rowgp').forEach(function (e) { e.remove(); });
+    r.querySelectorAll('.pfwa-rowb,.pfwa-rowbar,.pfwa-rowln,.pfwa-rowtp,.pfwa-rowgp,.pfwa-rowown').forEach(function (e) { e.remove(); });
     r.querySelectorAll('[data-pfwa-esc]').forEach(function (e) { e.style.display = ''; e.removeAttribute('data-pfwa-esc'); });
   }
   function badgesRender() {
@@ -1518,11 +1518,15 @@
         L3s.forEach(function (L) { Array.prototype.forEach.call(L.children, function (c) { c.setAttribute('data-pfwa-esc', '1'); c.style.display = 'none'; }); });
         if (gh) { var g3 = document.createElement('span'); g3.className = 'pfwa-rowgp'; g3.innerHTML = gh; L3.appendChild(g3); } // v115.2669 - grupo à esquerda da linha 3
         if (tp) { var t3 = document.createElement('span'); t3.className = 'pfwa-rowtp'; t3.textContent = tp; try { if (prev) t3.style.setProperty('color', getComputedStyle(prev).color, 'important'); } catch (e) { } L3.appendChild(t3); }
-      } else {
-        // v115.2669 - conversa sem uma 3ª linha: o grupo volta pra linha da mensagem (como antes), pra não sumir
-        if (gh && ln && s.tipo === 'cliente') ln.innerHTML = txtFull;
-        if (tp) r.setAttribute('title', tp);
-      }
+      } else if (s.tipo === 'cliente' && (gh || tp)) {
+        // v115.2679 - A pedido do Vitor ("o grupo ficou do lado comendo a prévia; quero igual da Nathalia, embaixo"): conversa SEM 3ª linha nativa
+        // → cria a NOSSA linha embaixo da mensagem com o grupo e o tipo (antes o grupo ia pra linha da mensagem e o tipo só pro tooltip, invisível).
+        var col2 = prev ? ancComum(tit, prev) : (tit.parentElement), alvo = col2 || tit.parentElement;
+        var own = document.createElement('div'); own.className = 'pfwa-rowown';
+        if (gh) { var go = document.createElement('span'); go.className = 'pfwa-rowgp'; go.innerHTML = gh; own.appendChild(go); }
+        if (tp) { var to = document.createElement('span'); to.className = 'pfwa-rowtp'; to.textContent = tp; try { if (prev) to.style.setProperty('color', getComputedStyle(prev).color, 'important'); } catch (e) { } own.appendChild(to); }
+        if (own.children.length && alvo) alvo.appendChild(own);
+      } else if (tp) { r.setAttribute('title', tp); }
     });
   }
   function aplicarFiltro() {

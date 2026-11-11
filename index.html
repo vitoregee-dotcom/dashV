@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2664</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2665</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2664</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2665</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -22336,13 +22336,18 @@ function pfInfoItemPorCodigo(cod){
   if(!cod) return null;
   try{
     var dados=ccLoad();
+    // v115.2665 - o código PRÓPRIO vem antes do similar/substitui de outro item (5-515X abria a HCZ274, que só cita a 5-515X)
+    var _cu0=cod.toUpperCase();
+    for(var ch0 in CC_NOME_SINGULAR){var l0=dados[ch0];if(!l0)continue;for(var i0=0;i0<l0.length;i0++){var it0=l0[i0];if(it0&&String(it0.codigo||'').trim().toUpperCase()===_cu0){var eq0=it0.substitui||it0.similar;
+      return {familia:CC_NOME_SINGULAR[ch0],famKey:ch0,item:it0,irmaos:eq0?l0.filter(function(o){return o&&o.codigo!==it0.codigo&&(o.substitui||o.similar)===eq0;}):[]};}}}
     for(var chave in CC_NOME_SINGULAR){
       var lista=dados[chave];
       if(!lista) continue;
       for(var i=0;i<lista.length;i++){
         var it=lista[i];
         if(!it) continue;
-        if(it.codigo===cod || it.similar===cod || it.substitui===cod){
+        var _cu=cod.toUpperCase(); // v115.2665 - sem diferenciar maiúscula (5-515x = 5-515X)
+        if(String(it.codigo||'').trim().toUpperCase()===_cu || String(it.similar||'').trim().toUpperCase()===_cu || String(it.substitui||'').trim().toUpperCase()===_cu){
           // v115.1040 - Junto do item achado, já traz os "irmãos" -- outros
           // cadastros na MESMA família que são a mesma peça física em
           // catálogo diferente (batem pelo mesmo código equivalente).
@@ -99558,6 +99563,13 @@ function pfItemCardBuscar(){
   var cod=(inp.value||'').trim();
   if(!cod)return;
   var achou=pfItemCardBuscarExecutar(cod);
+  // v115.2665 - A pedido do Vitor ("pq aqui não encontrou a 5-515x? e alb5-515x"): o Alt+B só achava o código ESCRITO IGUAL. Agora, sem achar,
+  // procura só letras+números (sem traço/espaço/maiúscula) em Produtos (código e conversões), Componentes Cardan (código, similar, substitui,
+  // conversões, equivalentes) e na planilha; e, com 4+ caracteres, também os códigos que COMEÇAM com o digitado (5-515 → 5-515X).
+  // 1 achado = abre direto; vários = lista pra escolher.
+  if(!achou){var _sol=[];try{_sol=pfAltbAchados(cod);}catch(e){console.warn('pfAltbAchados',e);}
+    if(_sol.length===1){achou=pfItemCardBuscarExecutar(_sol[0].cod,_sol[0].marca);}
+    else if(_sol.length>1){var _m=document.getElementById('pfItemCardBuscaMsg');if(_m){_m.innerHTML=pfAltbAchadosHtml(_sol,cod);var _bx=document.getElementById('pfItemCardBusca');if(_bx)_bx.style.width='480px';}return;}}
   if(!achou){
     var msg=document.getElementById('pfItemCardBuscaMsg');
     // v115.2515 - máquina / série de componente quando não é código de peça
@@ -99570,6 +99582,35 @@ function pfItemCardBuscar(){
 // docs/referencias/altb-maquina/, escolheu B "o completo"): quando o texto não é código de peça, a busca mostra as MÁQUINAS que batem (nome/modelo/série,
 // só letras e números: W-20 = W20) — "abrir ›" = página da máquina (maqAbrirMaquina) — e as SÉRIES DE COMPONENTE dessas máquinas + as séries cujo
 // modelo/série batem — "ver peças ›" = lista de peças da série (pfIntercAbrirSerie).
+function pfAltbAchados(cod){
+  var N=function(x){return String(x||'').toUpperCase().replace(/[^A-Z0-9]/g,'');},T=N(cod);if(T.length<3)return [];
+  var pre=T.length>=4,res=[],vis={};
+  var add=function(c,marca,desc,de,nivel){c=String(c||'').trim();if(!c)return;var k=c.toUpperCase()+'|'+String(marca||'').toUpperCase();if(vis[k])return;vis[k]=1;res.push({cod:c,marca:marca||'',desc:desc||'',de:de||'',nv:nivel});};
+  var nv=function(x){var n=N(x);if(!n)return 0;if(n===T)return 2;if(pre&&n.indexOf(T)===0)return 1;return 0;};
+  // Produtos
+  try{(cadLoad(PROD_KEY||'cad_produtos_v1')||[]).forEach(function(p){if(!p||p.del)return;var a=nv(p.codigo);if(a){add(p.codigo,p.marca,p.descricao,'',a);return;}
+    (p.conversoes||[]).some(function(c){var b=nv(c&&(c.ref||c.codigo));if(b){add(p.codigo,p.marca,p.descricao,'conversão '+(c.ref||c.codigo)+(c.linha?' ('+c.linha+')':''),b);return true;}return false;});});}catch(e){}
+  // Componentes Cardan
+  try{var D=ccLoad()||{};Object.keys(D).forEach(function(fam){var arr=D[fam];if(!Array.isArray(arr))return;var fn=(typeof CC_NOME_SINGULAR!=='undefined'&&CC_NOME_SINGULAR[fam])||fam;
+    arr.forEach(function(it){if(!it||!it.codigo)return;var a=nv(it.codigo);if(a){add(it.codigo,it.linha,it.descricao||fn,'',a);return;}
+      var outros=[].concat([it.similar,it.substitui],(it.conversoes||[]).map(function(c){return c&&(c.ref||c.codigo);}),(it.equivalentesExtra||[]).map(function(c){return c&&c.codigo;}));
+      outros.some(function(o){var b=nv(o);if(b){add(it.codigo,it.linha,it.descricao||fn,'achado por '+o,b);return true;}return false;});});});}catch(e){}
+  // Planilha do estoque
+  try{var rows=[];if(typeof tabs!=='undefined'&&tabs&&tabs.length)tabs.forEach(function(t){if(t&&t.allItems&&t.allItems.length)rows=rows.concat(t.allItems);});
+    if(!rows.length&&typeof allItems!=='undefined'&&allItems&&allItems.length)rows=allItems;
+    for(var i=0;i<rows.length&&res.length<60;i++){var x=rows[i],r=(x.ref||x.Ref||x.REF||x.codigo||x.Codigo||x.CODIGO||'');var a=nv(r);if(a)add(r,x.marca||x.Marca||x.MARCA||'',x.desc||x.Desc||x.DESC||x.descricao||'','',a);}}catch(e){}
+  // igual (sem traço/espaço) vem antes do "começa com"; igual sozinho = só os iguais
+  var iguais=res.filter(function(r){return r.nv===2;});
+  if(iguais.length){var proprios=iguais.filter(function(r){return !r.de;});if(proprios.length)iguais=proprios;var cods={};iguais.forEach(function(r){cods[N(r.cod)]=1;});return Object.keys(cods).length===1?[iguais[0]]:iguais.slice(0,20);}
+  return res.sort(function(a,b){return a.cod.length-b.cod.length||a.cod.localeCompare(b.cod);}).slice(0,20);
+}
+function pfAltbAchadosHtml(l,cod){
+  var it='display:flex;gap:10px;align-items:center;padding:7px 10px;border:1px solid #e3e8ef;border-radius:9px;margin-bottom:6px;cursor:pointer;background:#fff;color:#1A2B3C';
+  return '<div style="color:#607080;font-size:13px;margin:4px 0 6px">Nenhum código igual a <b>'+pfEscHtml(cod)+'</b> — achei estes parecidos:</div><div style="max-height:min(56vh,520px);overflow:auto">'+
+    l.map(function(r){return '<div onclick="pfItemCardBuscarExecutar(\''+pfEscHtml(pfEscJs(r.cod))+'\',\''+pfEscHtml(pfEscJs(r.marca))+'\')" style="'+it+'"><div style="min-width:0;flex:1"><div style="font-weight:800;color:#1F4E79;font-size:14px">'+pfEscHtml(r.cod)+
+      (r.marca?' <span style="font-size:11px;font-weight:700;color:#607080">'+pfEscHtml(r.marca)+'</span>':'')+'</div><div style="font-size:12px;color:#607080;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+pfEscHtml([r.desc,r.de].filter(Boolean).join(' · '))+'</div></div>'+
+      '<span style="font-size:12px;font-weight:700;color:#1F4E79;white-space:nowrap">abrir ›</span></div>';}).join('')+'</div>';
+}
 function pfAltbMaqHtml(termo){var T=maqAN(termo);if(T.length<2)return '';var I=maqIndice();
   var maqs=I.lista.filter(function(x){var n=maqAN(x.nome),m=maqAN(x.modelo);if(n.indexOf(T)>=0||m.indexOf(T)>=0)return true;return (x.series||[]).some(function(s){return maqAN(s)===T;});});
   maqs.sort(function(a,b){var A=maqAN(a.modelo),B=maqAN(b.modelo),pa=A===T?0:A.indexOf(T)===0?1:2,pb=B===T?0:B.indexOf(T)===0?1:2;return pa-pb||A.length-B.length||a.nome.localeCompare(b.nome);});

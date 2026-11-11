@@ -125,6 +125,74 @@
         '<button data-aud="copy" style="border:1px solid #cfd8e3;background:#f4f7fb;border-radius:7px;padding:6px 10px;cursor:pointer">📋 Copiar</button>' +
       '</div></div>';
   }
+  // 4.19 - A pedido do Vitor ("embaixo de cada áudio deve ter algo que eu acione para descrever aquele áudio" + "os botões de pôr na conversa,
+  // deixa como opção… por regra desativado. quero só clicar para descrever e aparece a caixa da descrição"): cada áudio da conversa ganha
+  // "📝 Descrever este áudio"; a descrição aparece embaixo dele. Botões (Pôr na conversa/Copiar/Cotar) só com a opção ligada em ⚙️.
+  var AUD_SEL = '#main audio, #main [data-icon="audio-play"], #main [data-icon="audio-pause"], #main [data-icon*="ptt"], #main button[aria-label*="voz" i], #main button[aria-label*="voice" i], #main [aria-label*="mensagem de voz" i], #main [aria-label*="voice message" i]';
+  function audBalao(x) {
+    var row = x.closest('.message-in, .message-out') || x.closest('[data-id]'); if (!row) return null;
+    var main = $('#main'), lim = (main ? main.getBoundingClientRect().width : 900) * 0.72, p = x, best = null;
+    while (p && p !== row) { var w = p.getBoundingClientRect().width; if (w > 120 && w < lim) best = p; p = p.parentElement; }
+    return best || row;
+  }
+  function audVigiar(forcar) {
+    var liga = CFG.audio !== false && !!contatoAt;
+    var vistos = [];
+    if (liga) Array.prototype.forEach.call(document.querySelectorAll(AUD_SEL), function (x) {
+      if (x.closest('.pfwa-audx')) return;
+      var b = audBalao(x); if (!b || vistos.indexOf(b) >= 0) return; vistos.push(b);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('#main .pfwa-audx'), function (d) { if (vistos.indexOf(d.parentElement) < 0) d.remove(); });
+    vistos.forEach(function (b) {
+      var d = b.querySelector(':scope > .pfwa-audx');
+      if (!d) { d = document.createElement('div'); d.className = 'pfwa-audx'; b.appendChild(d); d.addEventListener('click', audClique); }
+      if (forcar || !d._st) audPinta(b, d);
+    });
+  }
+  function audPinta(b, d) {
+    var st = b._pfAud || { st: 'idle' }; d._st = st.st + '|' + (CFG.audioBotoes ? 1 : 0);
+    if (st.st === 'idle') { d.innerHTML = '<span class="pfwa-audchip" data-aud2="ler">📝 Descrever este áudio</span>'; return; }
+    if (st.st === 'lendo') { d.innerHTML = '<span class="pfwa-audchip lendo">⏳ Descrevendo…</span>'; return; }
+    if (st.st === 'erro') { d.innerHTML = '<div class="pfwa-auddesc erro">' + esc(st.txt) + '<div class="pfwa-audbt">' + (st.cfg ? '<span data-aud2="cfg">⚙️ Configurar a chave</span>' : '') + '<span data-aud2="ler">↻ Tentar de novo</span></div></div>'; return; }
+    d.innerHTML = '<div class="pfwa-auddesc"><span class="pfwa-audx-x" data-aud2="fechar" title="Esconder">✕</span><b>📝 Descrição:</b> ' + esc(st.txt) +
+      (CFG.audioBotoes ? '<div class="pfwa-audbt"><span data-aud2="por">💬 Pôr na conversa</span><span data-aud2="copy">📋 Copiar</span><span data-aud2="cot">📄 Cotar no PF</span></div>' : '') + '</div>';
+  }
+  function audClique(e) {
+    var el = e.target.closest('[data-aud2]'); if (!el) return; e.preventDefault(); e.stopPropagation();
+    var d = e.currentTarget, b = d.parentElement, a = el.getAttribute('data-aud2'), st = b._pfAud || {};
+    if (a === 'ler') { audDescrever(b, d); return; }
+    if (a === 'cfg') { msg({ t: 'acao', acao: 'sttConfig', focar: true }); return; }
+    if (a === 'fechar') { b._pfAud = { st: 'idle' }; audPinta(b, d); return; }
+    if (a === 'por') { escreverNaCaixa(st.txt || ''); return; }
+    if (a === 'copy') { try { navigator.clipboard.writeText(st.txt || ''); el.textContent = '✓ copiado'; } catch (er) { } return; }
+    if (a === 'cot') { msg({ t: 'acao', acao: 'cotar', arg: { k: resp && resp.k, contato: resp && resp.contato, msgs: [{ t: st.txt || '', eu: false }] } }).then(function (r) { if (r && !r.erro) { cot = r; cotErro = ''; } irAba('cot'); }); return; }
+  }
+  function audToast(t) { var d = document.createElement('div'); d.textContent = t; d.style.cssText = 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:2147483600;background:#1c2940;color:#fff;font:600 13px Inter,Segoe UI,sans-serif;padding:9px 14px;border-radius:9px;box-shadow:0 6px 20px rgba(0,0,0,.3);max-width:80vw'; document.body.appendChild(d); setTimeout(function () { d.remove(); }, 2600); }
+  function audEsperar(fn, ms) { return new Promise(function (ok) { var t0 = Date.now(); (function v() { var r = fn(); if (r || Date.now() - t0 > ms) ok(r || null); else setTimeout(v, 150); })(); }); }
+  async function audDoBalao(b) {
+    var blob = function () { var as = b.querySelectorAll('audio'); for (var i = 0; i < as.length; i++) if (as[i].src && /^blob:/.test(as[i].src)) return as[i]; return null; };
+    var a = blob(); if (a) return a;
+    // sem o áudio carregado: aperta o ▶ dele, pega o áudio que começou a tocar e pausa na hora
+    var play = b.querySelector('button[aria-label*="eproduzir" i], button[aria-label*="play" i], [data-icon="audio-play"]');
+    var bt = play ? (play.closest('button,[role="button"]') || play) : null; if (!bt) return null;
+    var antes = Array.prototype.slice.call(document.querySelectorAll('audio'));
+    bt.click();
+    a = await audEsperar(function () { var x = blob(); if (x) return x; var all = document.querySelectorAll('audio'); for (var i = 0; i < all.length; i++) { var y = all[i]; if (y.src && /^blob:/.test(y.src) && (!y.paused || antes.indexOf(y) < 0)) return y; } return null; }, 5000);
+    if (a) { try { a.pause(); a.currentTime = 0; } catch (e) { } }
+    return a;
+  }
+  async function audDescrever(b, d) {
+    b._pfAud = { st: 'lendo' }; audPinta(b, d);
+    var falha = function (t, cfg) { b._pfAud = { st: 'erro', txt: t, cfg: !!cfg }; if (d.isConnected) audPinta(b, d); };
+    var el = await audDoBalao(b);
+    if (!el) { falha('Não consegui carregar este áudio. Toque no ▶ dele uma vez e clique de novo.'); return; }
+    var dd; try { dd = await blobUrlDataUrl(el.src); } catch (e) { falha('Não consegui pegar o áudio. Toque no ▶ e tente de novo.'); return; }
+    var r = await msg({ t: 'acao', acao: 'transcreverAudio', arg: { dataUrl: dd.dataUrl } });
+    if (!r) { falha('Abra o PartsFlow numa aba deste Chrome.'); return; }
+    if (r.erro) { falha(r.msg || 'Não deu pra descrever o áudio.', r.erro === 'sem_chave'); return; }
+    b._pfAud = { st: 'ok', txt: r.texto || '(não reconheci fala no áudio)' }; if (d.isConnected) audPinta(b, d);
+  }
+  setInterval(function () { try { audVigiar(); } catch (e) { } }, 1500);
   async function transcreverUltimoAudio() {
     audioMsg('🎤 Lendo o áudio…');
     var el = ultimoAudioEl();
@@ -326,9 +394,9 @@
   var ajuda = false;
   // 3.4 - ⚙️ Configurações (A pedido do Vitor: "coloca botão de eu ligar ou desligar essas configurações. igual no Watidy"):
   // cada função da extensão liga/desliga aqui; guardado por navegador (chrome.storage.local 'cfg'). Menu e aviso de cotação usam as chaves que já existiam.
-  var config = false, CFG = { bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true };
+  var config = false, CFG = { bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true, audio: true, audioBotoes: false };
   var CFG_LISTA = [
-    ['menu', '🧭', 'Menu do PF em volta do WhatsApp', 'Barra de filtros em cima (Clientes, Fornecedores, Cotação aberta…) e a coluna de atalhos à esquerda.'],
+    ['menu', '🧭', 'Menu do PF em volta do WhatsApp', 'Barra de grupos em cima (Linha Amarela, Linha Agrícola…) e a coluna de atalhos à esquerda.'],
     ['etq', '🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome da lista: cidade e grupo do cliente, fornecedor do PF, cotação aberta, mapa.'],
     ['bots', '📄', 'Botões do PF ao lado das mensagens', 'A coluna (A) ou barra (D) com Cotar, Saldo, Ficha, Lembrete, Prontas…'],
     ['aviso', '🔔', 'Aviso de pedido de cotação', 'A bolinha laranja com o número de códigos no botão 📄 quando o cliente manda códigos.'],
@@ -337,6 +405,8 @@
     ['salvar', '👤', 'Botão Salvar contato', 'O botão verde ao lado do nome da conversa.'],
     ['ofertas', '💡', 'Guardar ofertas e respostas', 'Quando você oferece algo, o cartão pra salvar a oferta e a resposta do cliente no CRM.'],
     ['ja', '⚠️', '"Você já ofereceu" enquanto digita', 'Aviso em cima da caixa de texto quando você vai oferecer algo que já ofereceu.'],
+    ['audio', '🎤', 'Descrever áudios', 'Embaixo de cada áudio aparece "📝 Descrever este áudio". Clique e a descrição (o que a pessoa falou) aparece ali mesmo. O 🎤 da coluna liga/desliga.'],
+    ['audioBotoes', '💬', 'Botões na descrição do áudio', 'Mostra Pôr na conversa, Copiar e Cotar no PF embaixo da descrição. Vem desligado.'],
     ['verif', '📌', 'Anotar "vou verificar" sozinho', 'Quando você escreve "vou verificar / já te retorno", vira pendência e próxima ação no PF.']];
   function cfgOn(k) { return k === 'menu' ? menuLig : k === 'aviso' ? avisoLigado : CFG[k] !== false; }
   chrome.storage.local.get(['cfg'], function (s) { if (s.cfg) for (var k in s.cfg) CFG[k] = s.cfg[k]; });
@@ -359,6 +429,7 @@
     if (k === 'ofertas' && !CFG.ofertas) try { ofPend = []; pintaOferta(); } catch (e) { }
     if (k === 'ja' && !CFG.ja) try { jaR = null; pintaJa(); } catch (e) { }
     if (k === 'verif' && !CFG.verif) try { vfR = null; pintaVf(); } catch (e) { }
+    if (k === 'audio' || k === 'audioBotoes') try { audVigiar(true); } catch (e) { }
     try { posicionar(); } catch (e) { }
     pinta();
   }
@@ -377,7 +448,7 @@
       ['📄', 'Cotar no PF', 'Lê os códigos e quantidades que o cliente mandou depois da sua última mensagem (se ele mandar mais, vai somando; pedido antigo = clique no selo 📄 do balão), mostra saldo e preço (com a margem dele) e monta a resposta. "Pôr na conversa" escreve na caixa; você confere e manda.'],
       ['📦', 'Saldo', 'Selecione um código na conversa e clique: mostra o saldo de cada marca.'],
       ['🤝', 'Ficha', 'Abre a ficha do cliente no PF (CRM).'],
-      ['🎤', 'Descrever áudio', 'Transcreve o último áudio da conversa (texto do que o cliente falou). Toque no ▶ do áudio uma vez pra carregar e clique no 🎤. Precisa da chave do serviço de transcrição (configura no PF, uma vez só). "Pôr na conversa" escreve o texto na caixa.'],
+      ['🎤', 'Descrever áudios', 'Embaixo de cada áudio aparece "📝 Descrever este áudio": clique e o texto do que a pessoa falou aparece ali mesmo. O 🎤 da coluna liga/desliga. Botões Pôr na conversa/Copiar/Cotar: ligue em ⚙️. Precisa da chave do serviço de transcrição (configura no PF, uma vez só).'],
       ['⏰', 'Lembrete', 'Marca uma próxima ação (aparece no ☀️ Meu dia do PF).'],
       ['⚡', 'Respostas rápidas', 'Clique no ⚡ (ou digite / na caixa de texto, ex.: /banco): aparecem as respostas deste cliente e os seus Atalhos de Texto do PF, já com o nome dele, a empresa, a cidade… trocados. Escolha (↑ ↓ e Enter) e o texto vai pra caixa — você confere e manda.'],
       ['🔤', 'Variáveis', 'No atalho de texto do PF, escreva {saudacao}, {nome}, {empresa}, {cidade}, {cnpj}, {codigo}, {condicao}, {cotacao}, {vendedor}… e o PF troca pelos dados do cliente da conversa. "🔤 Variáveis" na lista mostra todas e o valor de cada uma.'],
@@ -514,7 +585,8 @@
     if (ac === 'b-ficha') { if (resp && resp.k) msg({ t: 'acao', acao: 'ficha', arg: resp.k, focar: true }); else irAba('cli'); return; }
     if (ac === 'b-assist') { if (resp && resp.k) msg({ t: 'acao', acao: 'assistente', arg: resp.k, focar: true }); else irAba('cli'); return; } // 2.3
     if (ac === 'b-lemb') { irAba('cli'); setTimeout(function () { var i = P.querySelector('.pfwa-lemb-d'); if (i) i.focus(); }, 50); return; }
-    if (ac === 'b-audio') { transcreverUltimoAudio(); return; } // 4.16 - 🎤 descrever áudio
+    // 4.19 - A pedido do Vitor ("o botão de descrever o áudio deve servir só pra ligar ou desligar a opção"): 🎤 liga/desliga o "📝 Descrever" embaixo de cada áudio.
+    if (ac === 'b-audio') { CFG.audio = CFG.audio === false; chrome.storage.local.set({ cfg: CFG }); try { audVigiar(true); posicionar(); } catch (e) { } audToast(CFG.audio ? '🎤 Descrever áudios LIGADO — clique em "📝 Descrever este áudio" embaixo de cada áudio' : '🎤 Descrever áudios desligado'); return; }
     if (ac === 'b-prontas') { if (rrAberto) rrFechar(); else rrAbrir('', false); return; } // 3.7 - ⚡ respostas rápidas
     if (ac === 'b-pdf' || ac === 'pdf') { if (!cot || !cot.itens.length) { irAba('cot'); await cotar(); } if (cot && cot.itens.length) abrirCot(true); return; }
     if (ac === 'abrirCot') { abrirCot(false); return; }
@@ -1096,7 +1168,7 @@
     var r = main.getBoundingClientRect(), foot = main.querySelector('footer'), fh = foot ? foot.getBoundingClientRect().height : 62, hd = main.querySelector('header'), hh = hd ? hd.getBoundingClientRect().height : 60;
     B.className = (visual === 'D' ? 'pfwa-barra' : 'pfwa-coluna') + (botsMin ? ' pfwa-min' : ''); B.style.display = CFG.bots ? 'flex' : 'none';
     if (botsMin) { B.innerHTML = '<span data-acao="botsToggle" class="pri pfwa-botspf" title="Mostrar os bot\u00f5es do PF">PF</span>'; }
-    else { var tog = '<span data-acao="botsToggle" class="pfwa-botsx" title="Esconder os bot\u00f5es do PF">' + (visual === 'D' ? '\u2039' : '\u2013') + '</span>'; B.innerHTML = tog + BOTOES.map(function (b, i) { return '<span data-acao="b-' + b[0] + '" class="' + (i === 0 ? 'pri' : '') + '" title="' + b[2] + '">' + b[1] + (visual === 'D' ? ' ' + b[2] : '') + '</span>'; }).join(''); }
+    else { var tog = '<span data-acao="botsToggle" class="pfwa-botsx" title="Esconder os bot\u00f5es do PF">' + (visual === 'D' ? '\u2039' : '\u2013') + '</span>'; B.innerHTML = tog + BOTOES.map(function (b, i) { var off = b[0] === 'audio' && CFG.audio === false; var tt = b[0] === 'audio' ? ('Descrever áudios: ' + (off ? 'DESLIGADO — clique pra ligar' : 'ligado — clique pra desligar')) : b[2]; return '<span data-acao="b-' + b[0] + '" class="' + (i === 0 ? 'pri' : '') + (off ? ' pfwa-boff' : '') + '" title="' + tt + '">' + b[1] + (visual === 'D' ? ' ' + b[2] : '') + '</span>'; }).join(''); }
     marcaCot();
     // 3.5 - A pedido do Vitor ("esse PF aí, desbloqueia pra eu poder colocar ele pra cima ou pra baixo"): arrastar a coluna/barra (ou o PF minimizado)
     // muda a altura; guardada por navegador (chrome.storage.local botsDy) e presa dentro da conversa.
@@ -1260,6 +1332,7 @@
   // coluna de ícones à esquerda (atalhos do PF) e etiquetas embaixo de cada conversa. Tudo some com o "Menu do PF" desligado.
   var PFM_CORES = ['#FDE68A', '#BFDBFE', '#BBF7D0', '#FBCFE8', '#DDD6FE', '#FED7AA', '#C7D2FE', '#A7F3D0'];
   function etqCor(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return PFM_CORES[h % PFM_CORES.length]; }
+  function audGruposDe(s) { var g = Array.isArray(s.grupos) && s.grupos.length ? s.grupos : (s.grupo ? [s.grupo] : []); return g.filter(function (x, i) { return x && g.indexOf(x) === i; }); }
   function linhasLista() {
     var pane = $('#pane-side'); if (!pane) return [];
     var rows = pane.querySelectorAll('[role="listitem"]'); if (!rows.length) rows = pane.querySelectorAll('div[role="row"]');
@@ -1310,10 +1383,12 @@
   }
   function aplicarFiltro() {
     var rows = document.querySelectorAll('#pane-side [role="listitem"]');
-    if (!menuLig || !menuFiltro) { rows.forEach(function (r) { r.style.display = ''; }); return; }
+    if (!menuLig || !(menuFiltro.indexOf('g:') === 0 || menuFiltro === 'semg')) { rows.forEach(function (r) { r.style.display = ''; }); return; }
     linhasLista().forEach(function (x) {
       var s = sitCache[x.nome] || {}, ok = false;
-      if (menuFiltro === 'cliente') ok = s.tipo === 'cliente';
+      if (menuFiltro.indexOf('g:') === 0) ok = s.tipo === 'cliente' && audGruposDe(s).indexOf(menuFiltro.slice(2)) >= 0;
+      else if (menuFiltro === 'semg') ok = s.tipo === 'cliente' && !audGruposDe(s).length;
+      else if (menuFiltro === 'cliente') ok = s.tipo === 'cliente';
       else if (menuFiltro === 'fornecedor') ok = s.tipo === 'fornecedor';
       else if (menuFiltro === 'cot') ok = !!s.cot;
       else if (menuFiltro === 'semresp') ok = true; // 4.12 - filtro saiu (quem tinha ele salvo vê tudo)
@@ -1334,13 +1409,22 @@
     MENU.className = (menuCor === 'discreta' ? 'pfwa-disc' : ''); MENU.style.display = 'flex';
     MENU.style.right = root.classList.contains('pfwa-aberto') ? '380px' : '0';
     RAIL.style.display = 'flex';
+    // 4.19 - A pedido do Vitor ("ao invés desses filtros, vamos deixar os grupos. Linha amarela, etc"): a barra mostra os GRUPOS dos clientes
+    // (do cadastro no PF) + "Sem grupo" (cliente sem grupo marcado). Clicar = só as conversas daquele grupo.
+    var gN = {}, gCor = {}, nSemG = 0;
+    linhasLista().forEach(function (x) { var s = sitCache[x.nome] || {}; if (s.tipo !== 'cliente') return; var gs = audGruposDe(s); if (!gs.length) { nSemG++; return; } gs.forEach(function (g) { gN[g] = (gN[g] || 0) + 1; if (s.gCor && g === s.grupo) gCor[g] = s.gCor; }); });
+    var ordem = svGruposTodos().map(function (g) { return g[1]; }); svGruposTodos().forEach(function (g) { if (g[2] && !gCor[g[1]]) gCor[g[1]] = g[2]; });
+    var gKeys = Object.keys(gN).sort(function (a, b) { var ia = ordem.indexOf(a), ib = ordem.indexOf(b); ia = ia < 0 ? 99 : ia; ib = ib < 0 ? 99 : ib; return ia - ib || gN[b] - gN[a]; });
+    var pillG = function (k, txt, n, cor) { return '<span class="pfm-pill' + (menuFiltro === k ? ' on' : '') + '" data-acao="menuFiltro" data-arg="' + esc(k) + '">' + (cor ? '<i class="pfm-dot" style="background:' + esc(cor) + '"></i>' : '') + txt + ' <b>' + n + '</b></span>'; };
+    var hG = '<span class="pfm-logo">PF</span>' + '<span class="pfm-pill' + (menuFiltro.indexOf('g:') !== 0 && menuFiltro !== 'semg' ? ' on' : '') + '" data-acao="menuFiltro" data-arg="">Tudo</span>';
+    gKeys.forEach(function (g) { hG += pillG('g:' + g, esc(g), gN[g], gCor[g]); });
+    if (nSemG) hG += pillG('semg', '❔ Sem grupo', nSemG, '');
+    if (!gKeys.length && !nSemG) hG += '<span class="pfm-vazio">Nenhum cliente do PF nesta lista ainda</span>';
     var ls = linhasLista(), nC = 0, nF = 0, nCot = 0, nSem = 0, etqN = {};
     ls.forEach(function (x) { var s = sitCache[x.nome] || {}; if (s.tipo === 'cliente') nC++; else if (s.tipo === 'fornecedor') nF++; if (s.cot) nCot++; if (x.unread) nSem++; x.etqs.forEach(function (e) { etqN[e] = (etqN[e] || 0) + 1; }); });
     var etqTop = Object.keys(etqN).sort(function (a, b) { return etqN[b] - etqN[a]; }).slice(0, 5);
     var pill = function (k, txt, n) { return '<span class="pfm-pill' + (menuFiltro === k ? ' on' : '') + '" data-acao="menuFiltro" data-arg="' + esc(k) + '">' + txt + (n != null ? ' <b>' + n + '</b>' : '') + '</span>'; };
-    var h = '<span class="pfm-logo">PF</span>' + pill('', 'Tudo') + pill('cliente', '🤝 Clientes', nC) + pill('fornecedor', '🏭 Fornecedores', nF);
-    etqTop.forEach(function (e) { h += pill('etq:' + e, esc(e), etqN[e]); });
-    h += pill('cot', '📄 Cotação aberta', nCot);
+    var h = hG; // a barra antiga (Clientes/Fornecedores/etiquetas/Cotação aberta) saiu na 4.19
     h += '<span class="pfm-dir"><span class="pfm-cor"><i data-acao="menuCor" data-arg="azul" class="' + (menuCor !== 'discreta' ? 'on' : '') + '">azul</i><i data-acao="menuCor" data-arg="discreta" class="' + (menuCor === 'discreta' ? 'on' : '') + '">discreta</i></span><span class="pfm-tog" data-acao="menuTog" title="Desligar o Menu do PF">Menu do PF <span class="pfm-sw"></span></span></span>';
     MENU.innerHTML = h;
     var rail = [['vendas', '📄', 'Cotações'], ['kanban', '🗂️', 'Quadro de vendas'], ['mesa', '🛒', 'Mesa do comprador'], ['home', '🏠', 'Início do PF'], ['ext', '🧩', 'PartsFlow no WhatsApp']];

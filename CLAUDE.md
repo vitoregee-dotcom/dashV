@@ -2548,3 +2548,15 @@
 - v115.2707 + extensão **4.46** BUG ("só mandou pra esse contato quando eu abri a msg… pq eu tava com a janela aberta"): o "📂 Também nas outras conversas" só abria a conversa
   esperando depois de 1 min SEM MEXER o mouse no WhatsApp (mousemove contava) — trabalhando nele, nunca acontecia. Agora `autoLivre()`: 20 s sem digitar/clicar (`autoUltAcao`:
   keydown/mousedown/paste/input; mouse e rolar não contam) + caixa vazia, ou WhatsApp em outra aba (`document.hidden`). Não testado no WhatsApp real.
+- v115.2708 + extensão **4.47** (prévia `docs/referencias/whatsapp-automaticas/previa.png` aprovada): **mensagens automáticas** — ⏰ AVISOS PROGRAMADOS `AUTO.avisos`
+  [{id,ic,nome,on,dias semana|sabado|fds|todos,ini,fim,txt}] (padrão Almoço 12–13 / Fora do expediente 18–08 / Fim de semana, todos desligados; `autoAvisoAtual`: com 2 valendo
+  ganha o de horário MAIS CURTO; status manual (reunião/ausente/férias) passa na frente; `autoAusente` devolve 'av:<id>', `autoInfo`/`autoDesde`/`autoPer` = ícone/nome/período;
+  1 mensagem por conversa por período); ☀️ `saud1a` (sem "bom dia" se já falou hoje — `autoVars`/`autoAbertura(nm,sOk,tom)`); ✋ `trava30` (não manda se você escreveu nos
+  últimos 30 min, `autoEscreviRecente`, só na saudação de espera); 🎩 INTIMIDADE formal/normal/próximo por PESSOA (`pfContatosWhats_v1.intim`, `pfExtIntimDe`/`pfExtIntimSet`; vem
+  no `quem` e no `situacoes`; marca no 👤 Salvar contato `svIntim` com sugestão pela conversa `svIntSug` ou no botão direito) → `autoTom`/`autoContexto(u,tom)`, frases por tom
+  `AUTO.frasesTom`; `AUTO.nunca` = conversas que nunca recebem automática. **🖱️ BOTÃO DIREITO** (permissão `contextMenus`, `fundo.js` `cmCriar`/`cmVis`; o whatsapp.js avisa
+  onde foi o clique `cmAvisar`/`cmQual` e faz a ação `cmExec`): seleção = 🔎 Ver no PF (Alt+B) / ➕ Pôr na cotação de hoje / 📄 Cotar só esse; mensagem = Cotar / Lembrete /
+  Salvar como resposta rápida / Anotar na ficha / Lançar no mapa (fornecedor); imagem = 🤖 Ler com IA e cotar (`pfExtCotarImg`, PF_PED_PROMPT) / Lançar no mapa; conversa = Abrir
+  ficha (`fichaNome`) / Trocar grupo/tipo / Intimidade / 🔕 liga-desliga automática. **🔎 Alt+B no WhatsApp** (`abAbrir`/`#pfwa-ab` → `pfExtAltB`: códigos do texto selecionado
+  pelo `pfExtLerPedido`, marcas com saldo e preço do cliente, Componentes Cardan, 🔗 Monta com clicável → `ccAbrirDoLink`; Abrir no PF = Alt+B do PF). **➕ Pôr na cotação de hoje**
+  (`pfExtCotHoje`): cotação do cliente aberta na tela > a dele criada HOJE > nova. Simulador: `window.__pfOnMsg` simula o clique do menu.

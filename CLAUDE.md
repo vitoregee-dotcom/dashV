@@ -2577,3 +2577,8 @@
   (código, similar, substitui, conversões, equivalentes) e no cadastro de produtos (`pfParecidosIdx`, 60 s) — 1 caractere trocado/a mais/a menos, 2 invertidos, X/XS/sem X,
   ALB (`pfParecidosComo`); "é esse" = busca geral com o código (ou Alt+B fora do Cardan). WhatsApp: item não achado no 📄 Cotar traz `o.parecidos` → chips "🔍 seria:"
   (`parecHtml`/`parecUsar`) e a resposta vira "não localizei, não seria o X?".
+- v115.2710 BUG (pedido no WhatsApp "3-40-1571tx / 250-53-11tx / 3-28-537 tx / 3-28-537 albarus": "TX puxou no código, mas é a marca"): 1) sufixo da MARCA grudado no fim de código
+  de cardan com traço = marca (`PF_COD_SUFIXOS` [{s:'TX'}] + `pfCodSufixo`: base com traço, começando com número, 3+ dígitos — 5-280X/3-3-1601KX1 não mudam). No WhatsApp
+  (`pfExtLerPedido`: código sem o TX + `codCli` + `marcaPed` TX) e na cotação (`vendasAdicionarItem`: só quando o código COM o TX não existe no estoque; fica só a ficha da marca TX
+  se tiver). 2) marca escrita logo DEPOIS do código sem quantidade ("3-28-537 tx" e "3-28-537 albarus") vira `marcaPed` e cada marca é um item (`pfExtMarcaConhecida`:
+  `PF_EXT_MARCAS_FIXAS` + `pfOfMarcas`; antes o 2º era jogado fora como repetido). Sufixo novo → linha no `PF_COD_SUFIXOS`.

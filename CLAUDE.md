@@ -2597,3 +2597,9 @@
   sem grupo/tipo —, o PF de mentira GUARDA o que o 👤 Salvar contato manda (`SIT_DIN`, a lista passa a mostrar) e o menu do WhatsApp Business (setinha ⌄ da conversa →
   "Etiquetar conversa" → janela com as etiquetas → Salvar, `simMenuEtq`/`simDlgEtq`). Teste de ponta a ponta (`t2713.js` no scratchpad): antes "🤝 cliente do PF";
   depois de salvar Revenda + L. Amarela a extensão põe a etiqueta "Cliente PF" e a 3ª linha mostra "● L. Amarela · 🏪 Revenda". No WhatsApp REAL o menu pode ser diferente.
+- v115.2715 BUGs (prints da RS Tork: "tá exibindo uma que excluí" + "2 cotações 45" + "leu TX no código" SPL250-1TX + "mandei o pedido e não atualizou as quantidades"):
+  1) excluir cotação na lista tirava pelo NÚMERO (apagava as duas #45) e sem marca → a sync trazia de volta. Agora `pfCotExcluir(c)` grava o id em
+  **`pfCotacoesApagadas_v1`** (lista que só cresce, 3 listas da sync) e a LEITURA esconde (`pfCotSemExcluidas`, dentro do `pfDemoCotSemApagados` no pfRawGetItem).
+  2) número repetido (2 aparelhos pegam o mesmo nº): `pfCotNumDupArrumar` (no começo do `vendasAtualizarLista`) dá o próximo nº pra mais NOVA (`numAntes` guarda o antigo).
+  3) `pfCodSufixo` aceita base começando com SPL (SPL250-1TX = TX SPL250-1) e `pfExtFichasDo` procura SPL250-1X / SPL-250-1X. 4) `pfExtLerPedido`: quantidade solta
+  na linha com 1 código só ("02 2055005", "2055005 - 2", "2055005 (2)"); "dia 14", horas, R$ e decimais não contam. "04pcs albarus" sozinho na linha de baixo continua sem código (já era assim).

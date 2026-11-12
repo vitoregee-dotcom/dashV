@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2686</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2687</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2686</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2687</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -51453,13 +51453,14 @@ function pfVpAnalisar(ini,fim){
     var ps=pedSet[String(q.num)]||{};
     ordem.forEach(function(gk){
       var alts=grupos[gk],vendidos=alts.filter(function(it){return it.pvNumero||ps[pfAlimNorm(it.codigo)+'|'+pfVpMarca(it)];});
-      var cross=!vendidos.length&&pfVpCreditou(pedDatas,gk,t,janela); // v115.2685 - a venda saiu por OUTRA cotação do cliente dentro da janela
+      var fechada=!!q.fechadaEm; // v115.2687 - fechada por pedido combinado = conta como vendida (não perdida)
+      var cross=!vendidos.length&&!fechada&&pfVpCreditou(pedDatas,gk,t,janela); // v115.2685 - a venda saiu por OUTRA cotação do cliente dentro da janela
       var marcas=[];alts.forEach(function(it){var m=pfVpMarca(it);if(marcas.indexOf(m)<0)marcas.push(m);});
       var perfil=pfVpPerfil(x,gk,marcas,q.num);
-      var st=(vendidos.length||cross)?'vendido':((!q._pcFech&&agora-t<janela*D)?'aberto':'perdido');
+      var st=(vendidos.length||cross||fechada)?'vendido':((!q._pcFech&&agora-t<janela*D)?'aberto':'perdido');
       var mot=st==='aberto'?{marcas:marcas,m:'',como:'auto',semSaldo:alts.every(pfVpSemSaldo)}:pfVpMotivo(q,gk,alts,vendidos,perfil);
       var qtd=Number(alts[0].qtd)||1,vals=alts.map(function(it){return pfVpPreco(it,q)*(Number(it.qtd)||qtd);}).filter(function(v){return v>0;});
-      var valor=vendidos.length?vendidos.reduce(function(s,it){return s+pfVpPreco(it,q)*(Number(it.qtd)||1);},0):(cross?0:(vals.length?Math.min.apply(null,vals):0)); // v115.2685 - cross = venda já contada noutra cotação → não soma valor
+      var valor=vendidos.length?vendidos.reduce(function(s,it){return s+pfVpPreco(it,q)*(Number(it.qtd)||1);},0):((cross||fechada)?0:(vals.length?Math.min.apply(null,vals):0)); // v115.2685/2687 - cross/fechada = venda já contada noutra cotação → não soma valor
       rows.push({q:q,x:x,gk:gk,alts:alts,vendidos:vendidos,cross:cross,perfil:perfil,st:st,mot:mot,valor:valor,vend:vend,vNome:vNome,t:t,
         cod:alts[0].codigoOriginal||alts[0].codigo,desc:alts[0].desc||''});
     });
@@ -64117,7 +64118,7 @@ function pcMontarDados(){
   // v115.2086 - BUG (print do Vitor: cliente com 1 pedido e "0 de 3 cotações fecharam"): só contava como fechada a
   // cotação com dataPedido gravado nela; agora também a que tem pedido de venda apontando pra ela (cotacaoNum).
   var numsComPedido={};peds.forEach(function(p){if(p.cotacaoNum!=null)numsComPedido[String(p.cotacaoNum)]=1;});
-  cots.forEach(function(c){c._pcFech=!!c.dataPedido||!!numsComPedido[String(c.num)];var x=achar(c.cliente,c.clienteObj);if(x)x.cots.push(c);});
+  cots.forEach(function(c){c._pcFech=!!c.dataPedido||!!c.fechadaEm||!!numsComPedido[String(c.num)];var x=achar(c.cliente,c.clienteObj);if(x)x.cots.push(c);}); // v115.2687 - fechadaEm = fechada por pedido combinado
   peds.forEach(function(p){var x=achar(p.clienteRazao,null);if(x){x.peds.push(p);if(!x.vendEmail&&!x.cad&&p.vendedorEmail)x.vendEmail=p.vendedorEmail.toLowerCase();}});
   return Object.keys(clientes).map(function(k){return clientes[k];});
 }
@@ -66064,7 +66065,7 @@ function pfNcCotas(c){
     var ps=pedSet[String(q.num)]||{},grupos={},ordem=[];
     q.itens.forEach(function(it){var gk=pfVpGk(it);if(!gk)return;if(!grupos[gk]){grupos[gk]=[];ordem.push(gk);}grupos[gk].push(it);});
     ordem.forEach(function(gk){var alts=grupos[gk],vendidos=alts.filter(function(it){return it.pvNumero||ps[pfAlimNorm(it.codigo)+'|'+pfVpMarca(it)];});
-      var vendeu=vendidos.length>0||pfVpCreditou(pedDatas,gk,t,janela); // v115.2685 - vendeu por esta ou por outra cotação dentro da janela
+      var vendeu=vendidos.length>0||!!q.fechadaEm||pfVpCreditou(pedDatas,gk,t,janela); // v115.2685/2687 - vendeu por esta, por outra cotação na janela, ou fechada por pedido combinado
       var mot='';if(!vendeu){try{var mm=[];alts.forEach(function(it){var m=pfVpMarca(it);if(mm.indexOf(m)<0)mm.push(m);});
         mot=pfVpMotivo(q,gk,alts,vendidos,pfVpPerfil(c,gk,mm,q.num)).m||'sem';}catch(e){mot='sem';}}
       var vals=alts.map(function(it){return pfVpPreco(it,q)*(Number(it.qtd)||1);}).filter(function(v){return v>0;}),val=vals.length?Math.min.apply(null,vals):0;
@@ -75521,6 +75522,44 @@ function pfExtAtuPerguntar(cx,its,a,c){
   var ov=pfNcJanela('pfExtAtuJan','📄 Pedido do WhatsApp',(c.razao||c.nome||''),corpo,460);ov.style.zIndex='100060';
   document.getElementById('pfExtAtuSim').onclick=function(){pfNcFechar('pfExtAtuJan');pfExtAtualizarCot(cx,its);};
   document.getElementById('pfExtAtuNova').onclick=function(){pfNcFechar('pfExtAtuJan');var b=Object.assign({},a,{nova:true});pfExtAbrirCot(b);};}
+// v115.2687 - A pedido do Vitor ("alguém cotou comigo de manhã, outra pessoa manda o pedido; não quero duplicar cotação sem fechamento; pergunta se considero as
+// recentes como fechadas"): TODAS as cotações recentes do cliente (janela 2/5 dias por tipo, pfVpJanelaDe) com itens deste pedido, não só uma.
+function pfExtCotsRecentes(c,its){
+  var cs=[];try{cs=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]');}catch(e){}
+  var rz=pfBuscaAN(c.razao||c.nome||''),cod=String((c.cad&&c.cad.codigo)||'').replace(/^0+/,'');
+  var janela=(typeof pfVpJanelaDe==='function')?pfVpJanelaDe(c):PF_EXT_ATU_DIAS,lim=Date.now()-janela*86400000;
+  var cods={};(its||[]).forEach(function(it){[it.codigo,it.codigoOriginal].forEach(function(z){var k=pfBuscaAN(z||"");if(k)cods[k]=1;});});
+  var cand=cs.filter(function(x){if(!x||x.del||x.demo||x.fechadaEm||!(x.itens||[]).length)return false;
+    var t=new Date(x.tsMod||x.data||0).getTime(),t0=new Date(x.data||0).getTime();if(Math.max(t||0,t0||0)<lim)return false;
+    var o=x.clienteObj||{},bate=(cod&&String(o.codigo||'').replace(/^0+/,'')===cod)||(rz&&(pfBuscaAN(x.cliente||'')===rz||pfBuscaAN(o.razao||'')===rz));if(!bate)return false;
+    if(x.itens.every(function(i){return i&&i.pvNumero;}))return false;
+    return x.itens.some(function(i){return i&&(cods[pfBuscaAN(i.codigo)]||cods[pfBuscaAN(i.codigoOriginal)]);});});
+  cand.sort(function(a,b){return new Date(b.data||0)-new Date(a.data||0);});
+  return cand;}
+// v115.2687 - "fechar as antigas": marca as cotações como fechadas por este pedido (fechadaEm) — o _pcFech passa a contar elas como fechadas (não sem-fechamento/perdida)
+function pfExtFecharCots(nums){
+  if(!nums||!nums.length)return 0;var n=0;
+  try{var cs=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]'),ag=new Date().toISOString();
+    cs.forEach(function(x){if(x&&nums.indexOf(x.num)>=0&&!x.fechadaEm){x.fechadaEm=ag;x.fechadaRef={motivo:'pedido combinado'};x.tsMod=Date.now();n++;}});
+    if(n){pfSafeSetItem('partsflow_cotacoes_v1',JSON.stringify(cs));if(typeof pfSyncPush==='function')pfSyncPush(['partsflow_cotacoes_v1']);}
+  }catch(e){console.warn('pfExtFecharCots',e);}
+  return n;}
+function pfExtRecentesPerguntar(cxs,its,a,c){
+  var um=cxs.length===1,prim=cxs[0],nums=cxs.map(function(x){return x.num;});
+  var lista=cxs.map(function(x){var d=new Date(x.data||Date.now()),hj=new Date().toDateString()===d.toDateString();
+    return '<li style="margin:2px 0">nº <b>'+pfEscHtml(String(x.num||''))+'</b> · '+(hj?'hoje':('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2))+' · '+(x.itens||[]).length+' itens</li>';}).join('');
+  var corpo='<div style="font-size:14px;line-height:1.5;color:#1a2332">Esse cliente já tem '+(um?'uma cotação recente':cxs.length+' cotações recentes')+' com itens deste pedido:</div>'+
+    '<ul style="margin:8px 0 10px 18px;font-size:13px;color:#1a2332;padding-left:4px">'+lista+'</ul>'+
+    '<div style="font-size:13px;color:#667;margin-bottom:10px">Pra não duplicar cotação sem fechamento:</div>'+
+    '<div style="display:flex;flex-direction:column;gap:8px">'+
+      '<button class="pfBtn pfBtnVerde" id="pfExtRecAtu" style="justify-content:flex-start">✔ Atualizar a '+(um?'nº '+pfEscHtml(String(prim.num)):'mais recente (nº '+pfEscHtml(String(prim.num))+')')+'</button>'+
+      '<button class="pfBtn pfBtnAzul" id="pfExtRecFechar" style="justify-content:flex-start">➕ Criar nova e fechar '+(um?'a nº '+pfEscHtml(String(prim.num)):'as '+cxs.length+' antigas')+'</button>'+
+      '<button class="pfBtn pfBtnClaro" id="pfExtRecNova" style="justify-content:flex-start">Criar nova sem vincular</button>'+
+    '</div>';
+  var ov=pfNcJanela('pfExtAtuJan','📄 Pedido do cliente',(c.razao||c.nome||''),corpo,470);if(ov)ov.style.zIndex='100060';
+  document.getElementById('pfExtRecAtu').onclick=function(){pfNcFechar('pfExtAtuJan');pfExtAtualizarCot(prim,its);};
+  document.getElementById('pfExtRecFechar').onclick=function(){pfNcFechar('pfExtAtuJan');try{pfExtAbrirCot(Object.assign({},a,{nova:true}));}catch(e){}var n=pfExtFecharCots(nums);try{pfChToast('Cotação nova criada · '+n+' cotação'+(n>1?'ões':'')+' antiga'+(n>1?'s':'')+' marcada'+(n>1?'s':'')+' como fechada'+(n>1?'s':'')+' por este pedido');}catch(e){}};
+  document.getElementById('pfExtRecNova').onclick=function(){pfNcFechar('pfExtAtuJan');try{pfExtAbrirCot(Object.assign({},a,{nova:true}));}catch(e){}};}
 function pfExtAtualizarCot(cx,its){
   try{if(typeof pfCrmFechar==='function')pfCrmFechar();}catch(e){}
   try{pfNavigate('vendas');}catch(e){}
@@ -75573,8 +75612,8 @@ function pfExtAbrirCot(a){var c=a.k?pfExtClienteCad(a.k):null;
     return it;});
   // v115.2673 - A pedido do Vitor ("se vier de uma cotação que eu já tenha feito pro cliente… entrar na mesma cotação, ajustar as quantidades e deixar os itens
   // selecionados pra PV" + "3 dias atrás"): cotação desse cliente de até PF_EXT_ATU_DIAS dias com algum dos códigos → pergunta se atualiza.
-  if(c&&!a.nova){var _cx=null;try{_cx=pfExtCotRecente(c,its);}catch(e){console.warn('pfExtCotRecente',e);}
-    if(_cx){pfExtAtuPerguntar(_cx,its,a,c);return {ok:true,perguntou:true};}}
+  if(c&&!a.nova){var _cxs=[];try{_cxs=pfExtCotsRecentes(c,its);}catch(e){console.warn('pfExtCotsRecentes',e);} // v115.2687 - janela 2/5 + todas as recentes + "fechar as antigas"
+    if(_cxs.length){pfExtRecentesPerguntar(_cxs,its,a,c);return {ok:true,perguntou:true};}}
   try{if(typeof pfCrmFechar==='function')pfCrmFechar();}catch(e){}
   vendasAbrirModal({itens:its,margem:(typeof pfVendasMargemPadraoLoad==='function'?pfVendasMargemPadraoLoad():21),uf:(c&&c.cad&&c.cad.estado)||'SP',origem:'whatsapp'});
   if(c&&c.cad)setTimeout(function(){try{window._vendasClienteMatches=[c.cad];vendasSelecionarCliente(0);}catch(e){console.warn(e);}

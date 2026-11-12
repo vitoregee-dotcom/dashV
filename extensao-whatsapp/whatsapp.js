@@ -410,13 +410,12 @@
     ['salvar', '👤', 'Botão Salvar contato', 'O botão verde ao lado do nome da conversa.'],
     ['ofertas', '💡', 'Guardar ofertas e respostas', 'Quando você oferece algo, o cartão pra salvar a oferta e a resposta do cliente no CRM.'],
     ['ja', '⚠️', '"Você já ofereceu" enquanto digita', 'Aviso em cima da caixa de texto quando você vai oferecer algo que já ofereceu.'],
-    ['waEtqOff', '🏷️', 'Esconder etiquetas do WhatsApp', 'Nas conversas de clientes do PF, a etiqueta do WhatsApp dá lugar ao tipo do cliente (Revenda, Consumidor…). Desligado = as etiquetas do WhatsApp continuam aparecendo.'],
     ['sug', '💡', 'Sugestões pra oferecer', 'Na aba Cliente: o que clientes parecidos compram e ele não. Na aba Cotação: o que costuma ir junto com as peças pedidas.'],
     ['audio', '🎤', 'Descrever áudios', 'Embaixo de cada áudio aparece "📝 Descrever este áudio". Clique e a descrição (o que a pessoa falou) aparece ali mesmo. O 🎤 da coluna liga/desliga.'],
     ['audioBotoes', '💬', 'Botões na descrição do áudio', 'Mostra Pôr na conversa, Copiar e Cotar no PF embaixo da descrição. Vem desligado.'],
     ['verif', '📌', 'Anotar "vou verificar" sozinho', 'Quando você escreve "vou verificar / já te retorno", vira pendência e próxima ação no PF.']];
   function cfgOn(k) { return k === 'menu' ? menuLig : k === 'aviso' ? avisoLigado : CFG[k] !== false; }
-  chrome.storage.local.get(['cfg'], function (s) { if (s.cfg) for (var k in s.cfg) CFG[k] = s.cfg[k]; });
+  chrome.storage.local.get(['cfg'], function (s) { if (s.cfg) for (var k in s.cfg) CFG[k] = s.cfg[k]; CFG.waEtqOff = true; }); // 4.42 - A pedido do Vitor ("quero sempre a etiqueta do whats escondida")
   function htmlConfig() {
     var h = '<div class="pfwa-ajtop"><b>⚙️ Configurações</b><span class="pfwa-link" data-acao="config">✕ fechar</span></div>' +
       '<div class="pfwa-nada" style="margin:4px 0 8px">Ligue só o que você usa. Vale pra este navegador.</div>';
@@ -1120,7 +1119,7 @@
       sitSig = ''; try { carregarSituacoes(); } catch (e) { }
       // 4.7 - A pedido do Vitor ("quando eu salvar aqui, tem que salvar o contato no WhatsApp também, do jeito que coloquei no nome"): já abre o
       // salvar/editar contato do próprio WhatsApp com o nome montado e aperta Salvar.
-      if (!criar) waSalvarNome(nomeFull, st);
+      if (!criar) Promise.resolve(waSalvarNome(nomeFull, st)).then(function () { return dormir(900); }).then(function () { if (r.k) return waEtiquetar([nomeFull, c.nome], st); }).catch(function () { });
     }
     else st.textContent = 'Não deu — abra o PartsFlow numa aba.';
   }
@@ -1219,6 +1218,43 @@
     var it = await waEsperar(function () { return waMenuItem(/^\s*(adicionar aos contatos|add to contacts|editar contato|edit contact)\s*$/i); }, 1500);
     if (!it) { try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true })); } catch (e) { } return null; }
     waClicar(it); return 'ok';
+  }
+  // 4.42 - A pedido do Vitor (prévia: grupo embaixo da mensagem, cidade à direita, tipo embaixo — "tente"): o WhatsApp só dá a 3ª linha pra conversa COM
+  // etiqueta dele. Ao salvar um cliente pelo 👤, a extensão põe a etiqueta (padrão "Cliente PF", criada uma vez no WhatsApp Business) na conversa; a etiqueta
+  // fica escondida e a 3ª linha mostra grupo + tipo. Sem achar o menu/etiqueta, só avisa (nada quebra).
+  var WA_ETQ = 'Cliente PF'; chrome.storage.local.get(['waEtqNome'], function (x) { if (x && x.waEtqNome) WA_ETQ = x.waEtqNome; });
+  function waN(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+  async function waEtiquetar(nomes, st) {
+    var aviso = function (h) { try { if (st) st.innerHTML += '<br>' + h; } catch (e) { } };
+    try {
+      var row = null; (nomes || []).some(function (n) { row = n ? linhaDoNome(n) : null; return !!row; });
+      if (!row) { aviso('🏷️ Não achei a conversa na lista pra pôr a etiqueta.'); return false; }
+      if (row.querySelector('[aria-label^="Etiqueta"],[aria-label^="Label"]') && waN(row.textContent).indexOf(waN(WA_ETQ)) >= 0) return true;
+      row.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); await dormir(300);
+      var bt = row.querySelector('[aria-label*="enu"],[aria-label*="Mais"],span[data-icon="down"],span[data-icon*="chevron"],span[data-icon*="down"]');
+      if (bt) clicarEl(bt); else row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window }));
+      var item = await esperar(function () { return autoMenuItem(['etiquetar conversa', 'etiquetar', 'label chat', 'adicionar etiqueta', 'etiquetas']); }, 2500);
+      if (!item) { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); aviso('🏷️ Não achei "Etiquetar conversa" no menu — a etiqueta só existe no WhatsApp Business.'); return false; }
+      clicarEl(item);
+      var alvo = waN(WA_ETQ);
+      var lin = await esperar(function () {
+        var achou = null;
+        document.querySelectorAll('[role="dialog"] [role="button"],[role="dialog"] li,[role="dialog"] label,[role="dialog"] [role="checkbox"],[data-animate-modal-body] div').forEach(function (el) {
+          if (achou || !el.offsetParent) return; var t = waN(el.textContent); if (t && t.length <= 40 && (t === alvo || t.indexOf(alvo) >= 0)) achou = el;
+        });
+        return achou;
+      }, 2500);
+      if (!lin) { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); aviso('🏷️ Crie uma vez no WhatsApp a etiqueta <b>' + esc(WA_ETQ) + '</b> (Configurações › Ferramentas comerciais › Etiquetas) — depois ela entra sozinha.'); return false; }
+      var cb = lin.querySelector('input[type="checkbox"],[role="checkbox"],[aria-checked]') || lin.closest('[role="checkbox"],[aria-checked]');
+      var marcado = cb && (cb.checked || cb.getAttribute('aria-checked') === 'true');
+      if (!marcado) clicarEl(cb || lin);
+      await dormir(250);
+      var salvar = null;
+      document.querySelectorAll('[role="dialog"] button,[role="dialog"] [role="button"],[data-animate-modal-body] button').forEach(function (b) { if (salvar || !b.offsetParent) return; var t = waN(b.textContent || b.getAttribute('aria-label')); if (/^(salvar|save|ok|concluir|confirmar)$/.test(t) || b.querySelector('span[data-icon*="checkmark"]')) salvar = b; });
+      if (salvar) clicarEl(salvar); else document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      aviso('🏷️ Etiqueta <b>' + esc(WA_ETQ) + '</b> posta (fica escondida — abre a 3ª linha com grupo e tipo).');
+      return true;
+    } catch (e) { aviso('🏷️ Não deu pra pôr a etiqueta: ' + esc(String(e && e.message || e))); return false; }
   }
   async function waSalvarNome(nomeFull, st) {
     var c = contatoAt; if (!c || !nomeFull) return;
@@ -2046,18 +2082,29 @@
     var t = d.getTime(); if (t > Date.now() + 60000) t -= 86400000; return t;
   }
   function horaFolha(el) {
-    var hm = null; el.querySelectorAll('span,div').forEach(function (e) { if (hm == null && e.children.length === 0 && /^\d{1,2}:\d{2}$/.test((e.textContent || '').trim())) hm = (e.textContent || '').trim(); });
+    var hm = null; el.querySelectorAll('span,div').forEach(function (e) { if (hm != null || e.children.length) return; var x = (e.textContent || '').replace(/[^\d:]/g, ''); if (/^\d{1,2}:\d{2}$/.test(x) && (e.textContent || '').trim().length <= 12) hm = x; }); // 4.42 - aceita caracteres invisíveis em volta da hora
     if (!hm) return 0; var d = new Date(); d.setHours(+hm.split(':')[0], +hm.split(':')[1], 0, 0); var t = d.getTime(); if (t > Date.now() + 60000) t -= 86400000; return t;
   }
   // última mensagem da conversa (inclui foto/áudio sem texto) + o "bloco" que o cliente mandou desde a sua última
-  function ultimaMsg() {
+  // 4.42 - BUG (Vitor: "veja pq não foi a msg" — 🧪 Testar dizia "não achei a última mensagem na tela" com o "Bom dia 10:28" aparecendo): as mensagens
+  // eram procuradas só pela classe .message-in/.message-out. Agora também pela linha [data-id] do WhatsApp (true_… = sua, false_… = do cliente) e a hora
+  // aceita o texto da hora com caracteres invisíveis; o 🧪 diz o que achou.
+  function msgLinhas() {
     var els = Array.prototype.slice.call(document.querySelectorAll('#main .message-in, #main .message-out')).filter(function (e) { return !e.parentElement.closest('.message-in, .message-out'); });
-    if (!els.length) return null;
-    var el = els[els.length - 1], eu = el.classList.contains('message-out');
-    var pp = el.querySelector('[data-pre-plain-text]'), tx = el.querySelector('.selectable-text');
-    var t = pp ? msgQuando(pp) : horaFolha(el);
+    if (els.length) return els;
+    return Array.prototype.slice.call(document.querySelectorAll('#main [data-id]')).filter(function (e) { return /^(true|false)_/.test(e.getAttribute('data-id') || '') && !(e.parentElement && e.parentElement.closest('[data-id]')); });
+  }
+  function msgEhMinha(el) { if (el.classList.contains('message-out') || el.querySelector('.message-out')) return true; if (el.classList.contains('message-in') || el.querySelector('.message-in')) return false; var d = el.getAttribute('data-id') || ((el.closest('[data-id]') || el.querySelector('[data-id]') || { getAttribute: function () { return ''; } }).getAttribute('data-id')) || ''; return /^true_/.test(d); }
+  var _ultDiag = '';
+  function ultimaMsg() {
+    var els = msgLinhas();
+    if (!els.length) { _ultDiag = 'nenhuma mensagem achada na conversa'; return null; }
+    var el = els[els.length - 1], eu = msgEhMinha(el);
+    var pp = el.querySelector('[data-pre-plain-text]') || (el.getAttribute('data-pre-plain-text') ? el : null), tx = el.querySelector('.selectable-text');
+    var t = pp ? msgQuando(pp) : 0; if (!t) t = horaFolha(el);
+    _ultDiag = els.length + ' mensagens · última ' + (eu ? 'SUA' : 'do cliente') + ' · hora ' + (t ? new Date(t).toTimeString().slice(0, 5) : 'NÃO ACHADA');
     var bloco = [], foto = false, audio = false;
-    for (var i = els.length - 1; i >= 0 && !els[i].classList.contains('message-out'); i--) {
+    for (var i = els.length - 1; i >= 0 && !msgEhMinha(els[i]); i--) {
       var e = els[i], s = e.querySelector('.selectable-text'); if (s) bloco.unshift((s.innerText || '').trim());
       if (!foto) e.querySelectorAll('img').forEach(function (im) { var src = im.getAttribute('src') || ''; if (/^(blob|data):/.test(src) && (im.naturalWidth || im.width || 0) >= 80) foto = true; });
       if (!audio && e.querySelector('audio,[data-icon^="audio"],[data-icon*="ptt"],[aria-label*="áudio"],[aria-label*="voice"]')) audio = true;
@@ -2165,7 +2212,7 @@
       add(autoNoHorario(), 'Dentro do horário e do dia', autoNoHorario() ? ('agora: ' + AUTO.ini + '–' + AUTO.fim) : ('agora está FORA do horário (' + AUTO.ini + '–' + AUTO.fim + ') ou do dia escolhido'));
     } else add(true, 'Status: ' + AUTO_MODOS[aus][1], 'manda a qualquer hora');
     var u = ultimaMsg();
-    add(!!(u && !u.eu && u.t), 'A última mensagem é do CLIENTE', (u && u.eu) ? 'a última foi SUA — ele precisa ter mandado a última' : ((!u || !u.t) ? 'não achei a última mensagem na tela' : ''));
+    add(!!(u && !u.eu && u.t), 'A última mensagem é do CLIENTE', (u && u.eu) ? 'a última foi SUA — ele precisa ter mandado a última' : ((!u || !u.t) ? 'não achei a última mensagem na tela (' + _ultDiag + ')' : ''));
     if (u && u.t) {
       var espera = aus ? (+AUTO.ausMin || 1) : (+AUTO.min || 3), falta = espera * 60000 - (Date.now() - u.t);
       add(falta <= 0, 'Já passou os ' + espera + ' min de espera', falta > 0 ? ('ele mandou agora há pouco — falta ' + Math.ceil(falta / 60000) + ' min') : '');

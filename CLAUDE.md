@@ -2523,3 +2523,8 @@
   gravação interna (conversa enviada, etiqueta) mudava o `AUTO.ts` e subia pro PF — agora o ts só muda quando a CONFIG muda (`autoJ`/`autoUltJ`) e só sobe pro PF depois de ler a do PF (`autoCfgPend`);
   3) comparação usa a data da config (`r.cfg.ts`), não a hora em que o PF gravou; o PF não troca por uma mais velha; 4) textarea grava enquanto digita (input, 700 ms). PF: `pfWhatsAutoCfg_v1` junta
   usuário por usuário na sync (`pfMergeSyncValue` + cópia do worker), o mais novo de cada um vence.
+- v115.2702 + extensão **4.42**: 1) BUG ("veja pq não foi a msg" — 🧪 Testar: "não achei a última mensagem na tela" com o "Bom dia 10:28" aparecendo): `ultimaMsg` só achava `.message-in/.message-out`;
+  agora `msgLinhas` cai pras linhas `[data-id]` (true_ = sua, false_ = do cliente, `msgEhMinha`), a hora aceita caracteres invisíveis (`horaFolha`) e o 🧪 mostra o que achou (`_ultDiag`). Testado no simulador
+  com e sem as classes. 2) ("tente. quero sempre a etiqueta do whats escondida"): `CFG.waEtqOff` sempre true (saiu do ⚙️). Ao salvar cliente pelo 👤, depois do `waSalvarNome`, `waEtiquetar` põe a
+  etiqueta do WhatsApp Business `WA_ETQ` (padrão "Cliente PF", chrome.storage `waEtqNome`) — menu da conversa → "Etiquetar conversa" → marca → Salvar — pra o WhatsApp abrir a 3ª linha (grupo + tipo).
+  Sem a etiqueta criada no WhatsApp = avisa pra criar 1x. **Seletores do menu/diálogo de etiqueta NÃO testados no WhatsApp real** (o simulador não tem).

@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2695</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2696</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2695</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2696</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -75939,6 +75939,43 @@ function pfRrLista(a){
   return {ok:true,grupos:grupos,vars:vars,cli:c?(c.razao||c.nome):''};
 }
 function pfRrUsou(id){if(!id)return {ok:true};var u=pfRrUso();u[id]=(u[id]||0)+1;try{localStorage.setItem('pf_rr_uso',JSON.stringify(u));}catch(e){}return {ok:true};}
+// v115.2696 - A pedido do Vitor ("quando o cliente pedir algo q tiver na msg rapida, a extensão identifique, apareça aquela etiqueta parecida com a q
+// identifica código, pra eu clicar e já enviar"): a extensão manda a última mensagem do cliente; o PF acha os Atalhos de Texto que combinam (pelos
+// gatilhos do atalho ou, quando vazio, pelas palavras do nome + sinônimos comuns) e devolve a resposta pronta (com as variáveis do cliente aplicadas).
+var PF_RR_SIN={ // chave (aparece no nome do atalho) → palavras que o cliente usa
+  'endereco':['endereco','onde fica','onde voces fica','onde voce fica','localizacao','retirada','retirar','onde e','onde que','mapa','como chego'],
+  'pix':['pix','chave pix','dados bancarios','dados pra pagar','conta pra pagar','deposito','transferencia','como pago','como pagar','forma de pagamento','formas de pagamento'],
+  'banco':['dados bancarios','deposito','transferencia','conta'],
+  'horario':['horario','que horas','abre','fecha','funcionamento','ate que horas','atendimento'],
+  'prazo':['prazo','quando chega','quando fica pronto','previsao','quanto tempo','demora'],
+  'frete':['frete','transportadora','envio','enviar','mandar','entrega','entregar'],
+  'catalogo':['catalogo','catalogos','tabela','lista de precos'],
+  'garantia':['garantia','defeito','devolucao','devolver','troca','rma']};
+var PF_RR_STOP=['PARA','COM','SEM','DOS','DAS','DES','UMA','QUE','POR','PRA','PRO','CLIENTE','MENSAGEM','TEXTO','ATALHO','NOVO','NOVA'];
+function pfRrNorm(s){try{return typeof pfBuscaN==='function'?pfBuscaN(s):String(s||'').toUpperCase();}catch(e){return String(s||'').toUpperCase();}}
+function pfRrGatilhosDe(x){
+  var g=[];if(x&&Array.isArray(x.gatilhos))x.gatilhos.forEach(function(s){if(s)g.push(String(s));});
+  var nomeN=pfRrNorm(x&&x.nome||'');
+  nomeN.split(/[^A-Z0-9]+/).forEach(function(w){if(w.length>=4&&PF_RR_STOP.indexOf(w)<0)g.push(w);});
+  Object.keys(PF_RR_SIN).forEach(function(k){if(nomeN.indexOf(pfRrNorm(k))>=0)PF_RR_SIN[k].forEach(function(s){g.push(s);});});
+  var seen={},out=[];g.forEach(function(s){var n=pfRrNorm(s);if(n&&!seen[n]){seen[n]=1;out.push(s);}});return out;}
+function pfRrBate(tN,g){var gn=pfRrNorm(g);if(!gn)return 0;
+  if(gn.indexOf(' ')>=0)return tN.indexOf(gn)>=0?gn.replace(/\s/g,'').length:0;
+  var re=new RegExp('(^|[^A-Z0-9])'+gn.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'([^A-Z0-9]|$)');
+  return re.test(tN)?gn.length:0;}
+function pfRrAchar(a){
+  a=a||{};var texto=String(a.texto||'');if(!texto.trim())return {ok:true,l:[]};
+  var tN=pfRrNorm(texto),c=null;try{if(a.k)c=pfExtClientes().find(function(x){return x.k===a.k;})||null;}catch(e){}
+  var V=pfRrVarsDe(c,a.contato||a.nome||''),at=[];try{at=pfAtalhosTextoLoad()||[];}catch(e){}
+  var out=[];
+  at.forEach(function(x){
+    if(!x||x.tipo!=='texto'||!(x.whats||x.conteudo)||x.formQuestionario)return;
+    var gats=pfRrGatilhosDe(x);if(!gats.length)return;
+    var score=0,hit='';gats.forEach(function(g){var s=pfRrBate(tN,g);if(s>score){score=s;hit=g;}});
+    if(score>=3){var r=pfRrAplicar(x.whats||x.conteudo,V);out.push({id:x.id,nome:x.nome||'(sem nome)',txt:r.txt,falta:r.falta,score:score,hit:hit});}
+  });
+  out.sort(function(a,b){return b.score-a.score;});
+  return {ok:true,l:out.slice(0,4),cli:c?(c.razao||c.nome):''};}
 // "➕ Salvar como resposta": vira atalho de texto do PF (com a versão WhatsApp = o texto); o nome do cliente/empresa e a saudação viram variável
 function pfRrSalvar(a){
   a=a||{};var nome=String(a.nome||'').trim(),t=String(a.texto||'').trim();
@@ -75957,6 +75994,8 @@ function pfRrSalvar(a){
 }
 function pfExtAcao(acao,arg){
   if(acao==='respostas')return pfRrLista(arg||{}); // v115.2628 - ⚡ respostas rápidas
+  if(acao==='respRapidaAchar')return pfRrAchar(arg||{}); // v115.2696 - ⚡ a extensão manda a msg do cliente, o PF acha os atalhos que combinam
+  if(acao==='rrUsou')return pfRrUsou(arg&&arg.id); // v115.2696 - conta o uso do atalho
   // v115.2693 - A pedido do Vitor ("coloquei minhas frases ontem e hoje sumiu"): a config da saudação/status da extensão fica só no navegador e some ao
   // atualizar a extensão. Agora é guardada no PF (sincronizada), POR USUÁRIO — a extensão salva aqui e recarrega daqui, então sobrevive a reinstalar/atualizar.
   if(acao==='autoCfgSalvar'){try{var _em=(typeof sbUser!=='undefined'&&sbUser&&sbUser.email||'').toLowerCase();if(_em&&arg){var _o=JSON.parse(pfSafeGetItem('pfWhatsAutoCfg_v1')||'{}')||{};_o.por=_o.por||{};_o.por[_em]={cfg:arg,ts:Date.now()};_o.ts=Date.now();pfSafeSetItem('pfWhatsAutoCfg_v1',JSON.stringify(_o));if(typeof pfSyncPush==='function')pfSyncPush(['pfWhatsAutoCfg_v1']);}}catch(e){}return {ok:true};}
@@ -76655,7 +76694,7 @@ function pfExtBaixarZip(){
 function pfExtBaixarZipSimples(){var a=document.createElement('a');a.href=PF_EXT_ZIP;a.download='partsflow-whatsapp.zip';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();},200);}
 // v115.2601 - A pedido do Vitor ("tá atualizada a extensão?" — estava na 1.5 com a 1.9 publicada): versão mais nova = a do manifest.
 // Subiu a "version" do extensao-whatsapp/manifest.json → subir aqui também.
-var PF_EXT_VER_NOVA='4.37'; // v115.2695 - manifest 4.37
+var PF_EXT_VER_NOVA='4.38'; // v115.2696 - manifest 4.38
 function pfExtVerMenor(a,b){a=String(a||'0').split('.').map(Number);b=String(b||'0').split('.').map(Number);for(var i=0;i<Math.max(a.length,b.length);i++){var x=a[i]||0,y=b[i]||0;if(x!==y)return x<y;}return false;}
 function pfExtInstalarAbrir(){
   var tem=pfExtTem(),li=function(n,t){return '<div style="display:flex;gap:10px;margin:8px 0"><span style="flex:0 0 24px;height:24px;border-radius:50%;background:#1F4E79;color:#fff;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center">'+n+'</span><div style="font-size:13px;line-height:1.5">'+t+'</div></div>';};

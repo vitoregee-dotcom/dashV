@@ -1658,12 +1658,15 @@
         // v115.2699 - A pedido do Vitor (print do WhatsApp real: "nomes montoados"): a 3ª linha CRIADA (.pfwa-row3) transbordava em cima da conversa de baixo —
         // a linha da lista do WhatsApp tem ALTURA FIXA (mesma lição da v115.2682). Sem a linha da etiqueta nativa NÃO cria linha: o grupo vai curto na linha
         // da mensagem (no lugar da cidade) e cidade + tipo ficam no title.
-        else if (gh && ln) { ln.innerHTML = gh; r.setAttribute('title', [s.cid ? '📍 ' + [s.cid, s.uf].filter(Boolean).join('-') : '', tp].filter(Boolean).join(' · ')); }
+        // 4.50 / v115.2713 - A pedido do Vitor (print do Juninho - Adipel: "ainda não está salvando" — marcou Revenda e só aparecia o grupo): sem a 3ª linha o
+        // TIPO ia só no title (invisível). Agora vai junto do grupo na linha da mensagem, curto ("● L. Amarela · 🏪 Revenda").
+        else if (!gh && tp && ln && !L3) { ln.innerHTML = (txt && txt.indexOf('📍') === 0 ? txt + '<span class="pfwa-gsep">·</span>' : '') + '<span class="pfwa-gnm">' + esc(tp) + '</span>'; }
+        else if (gh && ln) { ln.innerHTML = gh + (tp ? '<span class="pfwa-gsep">·</span><span class="pfwa-gnm">' + esc(tp) + '</span>' : ''); r.setAttribute('title', [s.cid ? '📍 ' + [s.cid, s.uf].filter(Boolean).join('-') : '', tp].filter(Boolean).join(' · ')); }
         if (alvo) {
           if (gh) { var g3 = document.createElement('span'); g3.className = 'pfwa-rowgp'; g3.innerHTML = gh; alvo.appendChild(g3); }
           if (tp) { var t3 = document.createElement('span'); t3.className = 'pfwa-rowtp'; t3.textContent = tp; try { if (prev) t3.style.setProperty('color', getComputedStyle(prev).color, 'important'); } catch (e) { } alvo.appendChild(t3); }
           r.setAttribute('title', [s.cid ? '📍 ' + [s.cid, s.uf].filter(Boolean).join('-') : '', tp].filter(Boolean).join(' · '));
-        } else { if (gh && ln) ln.innerHTML = gh; } // sem coluna (caso raro) → cai pra linha da mensagem
+        } else { if (gh && ln) ln.innerHTML = gh + (tp ? '<span class="pfwa-gsep">·</span><span class="pfwa-gnm">' + esc(tp) + '</span>' : ''); } // sem coluna (caso raro) → cai pra linha da mensagem
       }
     });
   }

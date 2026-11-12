@@ -2590,3 +2590,6 @@
 - v115.2712 **📈 Relatório de quantidade de cotações — IDEIA ANOTADA** (Vitor, 12/11: "anota aí… relatório de quantidades de cotações, horários que tem mais cotações,
   dias, meses… não sei onde vai ainda, mas precisa ter"): linha no `PF_FUNC_IDEIAS` (💡 Ideias pro futuro). NÃO feito. Base já existe: cotações em `partsflow_cotacoes_v1`
   (`data` = criação, `atendenteEmail`, `clienteObj`, `tempoAtivoSeg`). Lugar a decidir (Gestão / Ferramentas / Painel de Clientes) → mostrar prévia antes.
+- v115.2713 + extensão **4.50** BUG (print do Juninho - Adipel: "ainda não está salvando" — marcou Revenda + L. Amarela e na lista só aparecia o grupo): conversa SEM a linha
+  da etiqueta nativa (a `waEtiquetar` não conseguiu pôr a "Cliente PF") mostrava só o grupo e o TIPO ia pro title (invisível). Agora a linha da mensagem mostra
+  "● L. Amarela · 🏪 Revenda" (só tipo = cidade · tipo); cidade continua no title. Os dados já estavam gravados no PF.

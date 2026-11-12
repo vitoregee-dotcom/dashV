@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2698</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2715</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2698</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2715</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -17046,7 +17046,30 @@ function pfDecompress(str){
 // o padrão "item apagado que volta sozinho". Pedidos/títulos já filtram na leitura (pfDemoFiltrar); cotações não. Agora a
 // LEITURA das cotações esconde as de lote apagado (e demo sem lote), seja qual for a cópia que a sync trouxer.
 var _pfDemoCotMemo={raw:null,ap:'',out:null};
+// v115.2715 - A pedido do Vitor ("tá exibindo uma que excluí"): excluir cotação tirava da lista pelo NÚMERO e não deixava marca — a sync trazia de
+// volta (e apagava as duas #45). Agora o id vai pra pfCotacoesApagadas_v1 (lista que só cresce, sincronizada) e a LEITURA esconde.
+var PF_COT_APAG_KEY='pfCotacoesApagadas_v1';
+function pfCotApagadas(){try{var l=JSON.parse(localStorage.getItem(PF_COT_APAG_KEY)||'[]');return Array.isArray(l)?l:[];}catch(e){return [];}}
+var _pfCotApagMemo={raw:null,ap:'',out:null};
+function pfCotSemExcluidas(raw){
+  try{if(raw==null)return raw;var ap=pfCotApagadas();if(!ap.length)return raw;var apS=ap.join(',');
+    if(_pfCotApagMemo.raw===raw&&_pfCotApagMemo.ap===apS)return _pfCotApagMemo.out;
+    var out=raw,txt=(typeof pfDecompress==='function')?pfDecompress(raw):raw,l=JSON.parse(txt),m={};ap.forEach(function(x){m[x]=1;});
+    if(Array.isArray(l)){var f=l.filter(function(c){return !(c&&((c.id&&m[c.id])||(!c.id&&m['n:'+c.num])));});if(f.length!==l.length)out=JSON.stringify(f);}
+    _pfCotApagMemo={raw:raw,ap:apS,out:out};return out;}catch(e){return raw;}}
+function pfCotExcluir(c){if(!c)return;var ap=pfCotApagadas(),k=c.id||('n:'+c.num);if(ap.indexOf(k)<0)ap.push(k);localStorage.setItem(PF_COT_APAG_KEY,JSON.stringify(ap));
+  try{var K='partsflow_cotacoes_v1',cs=JSON.parse(pfSafeGetItem(K)||'[]');cs=cs.filter(function(x){return !(x&&(c.id?x.id===c.id:(!x.id&&x.num===c.num)));});pfSafeSetItem(K,JSON.stringify(cs));}catch(e){}
+  try{if(typeof pfSyncPush==='function')pfSyncPush([PF_COT_APAG_KEY,'partsflow_cotacoes_v1']);}catch(e){}}
+// v115.2715 - A pedido do Vitor ("exibindo 2 cotações 45"): dois aparelhos pegaram o mesmo número (numeração local). A mais NOVA ganha o próximo número
+// (o antigo fica em numAntes) — abrir/excluir/atualizar pelo número deixa de pegar a errada.
+function pfCotNumDupArrumar(){try{var K='partsflow_cotacoes_v1',cs=JSON.parse(pfSafeGetItem(K)||'[]'),por={},max=0,maxD=900000,mud=0;
+  cs.forEach(function(c){if(!c||c.num==null)return;if(c.demo){if(+c.num>maxD)maxD=+c.num;}else if(+c.num>max)max=+c.num;(por[c.num]=por[c.num]||[]).push(c);});
+  Object.keys(por).forEach(function(n){var l=por[n];if(l.length<2)return;l.sort(function(a,b){return (new Date(a.data||0)-new Date(b.data||0))||String(a.id||'').localeCompare(String(b.id||''));});
+    for(var i=1;i<l.length;i++){var c=l[i];if(c.id&&l[0].id===c.id)continue;c.numAntes=+n;c.num=c.demo?++maxD:++max;c.tsMod=Date.now();mud++;
+      try{if(window._venda&&window._venda.nr&&window._venda.nr===c.id)window._venda.num=c.num;}catch(e){}}});
+  if(mud){pfSafeSetItem(K,JSON.stringify(cs));try{if(typeof pfSyncPush==='function')pfSyncPush([K]);}catch(e){}}return mud;}catch(e){return 0;}}
 function pfDemoCotSemApagados(raw){
+  raw=pfCotSemExcluidas(raw);
   try{
     if(raw==null||raw.indexOf('"demo":true')<0)return raw;
     var ap=(typeof pfDemoLotesApagados==='function')?pfDemoLotesApagados():[],apS=ap.join(',');
@@ -28205,6 +28228,13 @@ var PF_COD_PREFIXOS=[{p:'CAR',marca:'CARRARO'}];
 function pfCodPrefixo(cod){cod=String(cod||'').toUpperCase().trim();
   for(var i=0;i<PF_COD_PREFIXOS.length;i++){var r=PF_COD_PREFIXOS[i],m=cod.match(new RegExp('^'+r.p+'[\\s.\\-]?(\\d{4,}[A-Z0-9]*)$'));if(m)return {cod:m[1],marca:r.marca,orig:cod};}
   return null;}
+// v115.2710 - A pedido do Vitor (pedido no WhatsApp "3-40-1571tx / 250-53-11tx": "TX puxou no código, mas é a marca"): sufixo da MARCA grudado no fim
+// de código de cardan (com traço) — 3-40-1571TX = TX COMPONENTES 3-40-1571. Só quando a base tem traço e número (código Spicer/TX). Sufixo novo → linha aqui.
+var PF_COD_SUFIXOS=[{s:'TX',marca:'TX'}];
+function pfCodSufixo(cod){cod=String(cod||'').toUpperCase().trim();
+  for(var i=0;i<PF_COD_SUFIXOS.length;i++){var r=PF_COD_SUFIXOS[i],m=cod.match(new RegExp('^(.*\\d[A-Z]{0,3}?)[\\s\\-]?'+r.s+'$'));
+    if(m&&/-/.test(m[1])&&/^(\d|SPL)/.test(m[1])&&m[1].replace(/\D/g,'').length>=3)return {cod:m[1].replace(/[\s\-]+$/,''),marca:r.marca,orig:cod};}
+  return null;}
 function lpApplyRuleCase(cod){
   cod=(cod||'').toString().trim().toUpperCase().replace(/\s+/g,'');
   if(lpEhCodCardan(cod))return cod; // v115.2559 - cardan: fica como veio
@@ -37541,6 +37571,10 @@ cadFormForn = function(data, idx){
   // ── Linhas Especialidade ──
   var lopts = (typeof getLinhasOpts==='function') ? getLinhasOpts() : linhasOpts;
   html += '<div style="margin-top:18px">';
+  html += '<div style="font-size:12px;font-weight:800;color:var(--pf-fx-marca,#1F4E79);margin-bottom:3px">🏭 Trabalha com (tipo de produto)</div>'; // v115.2709
+  html += '<div style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0);margin-bottom:8px">O Mapa de Compras já liga este fornecedor nos itens desses tipos (ex.: Filtros)</div>';
+  html += renderChipsDrag(pfTiposProdLista(), d.tiposProd||[], 'fornTiposProd', '#B45309');
+  html += '</div><div style="margin-top:18px">';
   html += '<div style="font-size:12px;font-weight:800;color:var(--pf-fx-marca,#1F4E79);margin-bottom:3px">🎯 Linhas Especialidade</div>';
   html += '<div style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0);margin-bottom:8px">Core business — onde este fornecedor é referência e tem estoque garantido</div>';
   html += renderChipsDrag(lopts, d.linhasEsp||[], 'fornLinhasEsp', '#1F4E79');
@@ -37686,6 +37720,7 @@ function cadSalvarFornV2(idx){
   var linhasEsp = Array.from(document.querySelectorAll('input[name=fornLinhasEsp]:checked')).map(function(e){return e.value;});
   var linhasSec = Array.from(document.querySelectorAll('input[name=fornLinhasSec]:checked')).map(function(e){return e.value;});
   var marcasTrab = Array.from(document.querySelectorAll('input[name=fornMarcasTrab]:checked')).map(function(e){return e.value;});
+  var tiposProd = Array.from(document.querySelectorAll('input[name=fornTiposProd]:checked')).map(function(e){return e.value;}); // v115.2709
   var produtos = Array.from(document.querySelectorAll('input[name=fornProdutos]:checked')).map(function(e){return e.value;});
   var tiposProduto = Array.from(document.querySelectorAll('input[name=fornTiposProduto]:checked')).map(function(e){return e.value;});
   var contatos = (typeof cadGetContatos==='function') ? cadGetContatos() : [];
@@ -37706,7 +37741,7 @@ function cadSalvarFornV2(idx){
     abrangencia:document.getElementById('fornAbrang').value||'',
     linhas:linhasEsp.concat(linhasSec),
     linhasEsp:linhasEsp, linhasSec:linhasSec,
-    marcasTrab:marcasTrab,
+    marcasTrab:marcasTrab, tiposProd:tiposProd,
     produtos:produtos,
     tiposProduto:tiposProduto,
     contatos: contatos,
@@ -40090,6 +40125,7 @@ function mapaFornPainelHtml(d){
     h+='<div style="font-size:12px;color:#8a9ab0;padding:8px 0">'+(d.N?'Nenhum fornecedor escolhido ainda.':'Nenhum item com prazo NÃO IM. selecionado.')+'</div>';
   }
   h+=d.usados.map(lin).join('');
+  h+=pfMapaTipoPainelHtml(); // v115.2709 - 🏭 sugeridos pelo tipo de produto
   if(d.sug.length){
     h+='<div style="font-size:10px;font-weight:700;color:#8a9ab0;margin:10px 0 0;letter-spacing:.4px">SUGERIDOS PELA MARCA/LINHA</div>';
     h+=d.sug.map(lin).join('');
@@ -40147,9 +40183,11 @@ mapaStep1 = function(el){
       marcasTrab: f.marcasTrab || [],
       linhasEsp: f.linhasEsp || [],
       linhasSec: f.linhasSec || [],
-      linhas: f.linhas || []
+      linhas: f.linhas || [],
+      tiposProd: f.tiposProd || [] // v115.2709
     };
   });
+  pfMapaTipoAutoLigar(); // v115.2709 - liga os fornecedores do tipo do produto (1x por item)
   var flist = cotFornecedores;
   var nSel = mapaItens.filter(function(i){return i.sel!==false;}).length;
 
@@ -40300,7 +40338,7 @@ mapaStep1 = function(el){
         _falta.map(function(nm){return _chip(nm,'#FDECEA','#C0392B','text-decoration:line-through');}).join('');
       if(!_celF)_celF='<span style="color:#8a9ab0">—</span>';
     } else _celF='<span style="color:'+_corF+'">'+pfEscHtml(_txtF)+'</span>';
-    html += '<td style="padding:6px 8px;font-size:11px;line-height:1.5">'+_celF+(isNaoIm&&fs.length?orphanBadge:'')+'</td>';
+    html += '<td style="padding:6px 8px;font-size:11px;line-height:1.5">'+pfMapaTipoTagHtml(item)+_celF+(isNaoIm&&fs.length?orphanBadge:'')+'</td>';
     html += '<td style="padding:8px;text-align:center" onclick="event.stopPropagation()"><input type="checkbox" '+(solicitacoes[solKey(item.ref,item.marca)]?'checked':'')+' onchange="toggleSolicitacao(\''+pfEscJs(item.ref)+'\',\''+pfEscJs(item.marca||'')+'\')" title="Já solicitei esse item ao fornecedor -- desmarca sozinho quando o saldo aumentar (chegou). Mesma marcação do Dashboard." style="width:15px;height:15px;accent-color:#1F4E79"></td>';
     html += '<td style="padding:8px;text-align:center" onclick="event.stopPropagation()"><button onclick="mapaItens.splice('+i+',1);mapaGoStep(1);" style="background:none;border:none;color:#C00000;cursor:pointer;font-size:15px">×</button></td>';
     html += '</tr>';
@@ -40717,7 +40755,7 @@ var PF_SYNC_KEYS = ['desc_substituicoes_v1', 'pfPecaGrupos_v1', 'pfCotCabPrefs_v
   'cc_desenhos_v1', // v115.2021 - desenho de cada família (Área Técnica), trocado pelo admin
   'rel_decisoes_v1', // v115.2030 - respostas às sugestões de relacionamento (cotados juntos)
   'rel_regras_v1', // v115.2030 - regras que filtram as ligações vindas de catálogo
-  'pfVendasRegrasV2', 'pfKanban_v1', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfPecasMaq_v1', 'pfIconeCor', 'pfEmojiTroca_v1', 'pfCardsOcultosTodos', 'pfOrigLinhas_v1', 'pfContasPagar_v1', 'pfFinCfg_v1', 'pfGestaoAcesso_v1', 'pfOrdensCompra_v1', 'pfContatosWhats_v1','pfWhatsAutoCfg_v1', 'pfComprasCfg_v1', 'pfChamadosCfg_v1', 'pfFuncLiberados', 'pfPerfilCfg', 'pfVendasPerdCfg', 'pfCobrarCfg_v1', 'pfWhatsContato_v1', 'pfGestaoMetas_v1', 'pfGestaoGrupos_v1', 'pfMargemMinMarca_v1', 'pfLibExcecoes_v1', 'pfKits_v1', 'pfMaqSerieComp_v1', 'pfMaqCompConf_v1', 'pfMarcaMidia_v1', 'pfVideos_v1', 'pfModoDemo', 'pfDemoDados_v1', 'pfDemoAtividade_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', // v115.2304 pfDemoAtividade_v1 (o que fizeram na demonstração) // v115.2111 - margem por perfil // v115.2058 - regras geral/cliente do Assistente de Vendas (+ v115.2062 etiquetas da cotação)
+  'pfVendasRegrasV2', 'pfKanban_v1', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfPecasMaq_v1', 'pfIconeCor', 'pfEmojiTroca_v1', 'pfCardsOcultosTodos', 'pfOrigLinhas_v1', 'pfContasPagar_v1', 'pfFinCfg_v1', 'pfGestaoAcesso_v1', 'pfOrdensCompra_v1', 'pfContatosWhats_v1','pfWhatsAutoCfg_v1','pfCotacoesApagadas_v1', 'pfComprasCfg_v1', 'pfChamadosCfg_v1', 'pfFuncLiberados', 'pfPerfilCfg', 'pfVendasPerdCfg', 'pfCobrarCfg_v1', 'pfWhatsContato_v1', 'pfGestaoMetas_v1', 'pfGestaoGrupos_v1', 'pfMargemMinMarca_v1', 'pfLibExcecoes_v1', 'pfKits_v1', 'pfMaqSerieComp_v1', 'pfMaqCompConf_v1', 'pfMarcaMidia_v1', 'pfVideos_v1', 'pfModoDemo', 'pfDemoDados_v1', 'pfDemoAtividade_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', // v115.2304 pfDemoAtividade_v1 (o que fizeram na demonstração) // v115.2111 - margem por perfil // v115.2058 - regras geral/cliente do Assistente de Vendas (+ v115.2062 etiquetas da cotação)
   'partsflow_pedidos_venda_v1',
   'venda_rascunho_v1',
   'imp_preview_cache_v1',
@@ -41383,6 +41421,11 @@ function pfMergeSyncValue(localRaw, remoteRaw, chave){
   // v115.2107 - BUG (Vitor: "mesmo abrindo as notificações ainda fica mostrando o número"): marcação de lido/visto é
   // por aviso -- junta chave a chave (maior data / união), senão um aparelho nunca recebia o que foi lido no outro.
   if(chave==='componentes_cardan_v1'&&typeof local==='object'&&typeof remote==='object'&&!Array.isArray(local)&&!Array.isArray(remote))return JSON.stringify(pfMergeCardanObj(local,remote)); // v115.2504
+  if(chave==='pfWhatsAutoCfg_v1'&&typeof local==='object'&&typeof remote==='object'&&!Array.isArray(local)&&!Array.isArray(remote)){ // v115.2701 - config da extensão: usuário por usuário, a mais nova de cada um vence
+    var oW={por:{},ts:Math.max(local.ts||0,remote.ts||0)},lw=local.por||{},rw=remote.por||{};
+    Object.keys(rw).concat(Object.keys(lw)).forEach(function(k){var a=lw[k],b=rw[k];oW.por[k]=!a?b:!b?a:((+(a.ts||0))>=(+(b.ts||0))?a:b);});
+    return JSON.stringify(oW);
+  }
   if(chave==='pfCatEnv_v1'&&typeof local==='object'&&typeof remote==='object'&&!Array.isArray(local)&&!Array.isArray(remote)){ // v115.2396 - catálogo por catálogo
     var oC={por:{},del:Object.assign({},remote.del||{},local.del||{}),base:(local.ts||0)>=(remote.ts||0)?local.base:remote.base,ts:Math.max(local.ts||0,remote.ts||0)};
     Object.keys(remote.del||{}).forEach(function(k){if(local.del&&local.del[k])oC.del[k]=Math.max(local.del[k],remote.del[k]);});
@@ -41466,6 +41509,11 @@ function _pfMergeWorkerCodigo(){
 "    return JSON.stringify(Object.keys(porId).map(function(k){ return porId[k]; }));\n"+
 "  }\n"+
 "  if(chave==='componentes_cardan_v1'&&typeof local==='object'&&typeof remote==='object'&&!Array.isArray(local)&&!Array.isArray(remote))return JSON.stringify(pfMergeCardanObj(local,remote));\n"+
+"  if(chave==='pfWhatsAutoCfg_v1'&&typeof local==='object'&&typeof remote==='object'&&!Array.isArray(local)&&!Array.isArray(remote)){\n"+
+"    var oW={por:{},ts:Math.max(local.ts||0,remote.ts||0)},lw=local.por||{},rw=remote.por||{};\n"+
+"    Object.keys(rw).concat(Object.keys(lw)).forEach(function(k){var a=lw[k],b=rw[k];oW.por[k]=!a?b:!b?a:((+(a.ts||0))>=(+(b.ts||0))?a:b);});\n"+
+"    return JSON.stringify(oW);\n"+
+"  }\n"+
 "  if(chave==='pfCatEnv_v1'&&typeof local==='object'&&typeof remote==='object'&&!Array.isArray(local)&&!Array.isArray(remote)){\n"+
 "    var oC={por:{},del:Object.assign({},remote.del||{},local.del||{}),base:(local.ts||0)>=(remote.ts||0)?local.base:remote.base,ts:Math.max(local.ts||0,remote.ts||0)};\n"+
 "    Object.keys(remote.del||{}).forEach(function(k){if(local.del&&local.del[k])oC.del[k]=Math.max(local.del[k],remote.del[k]);});\n"+
@@ -41607,7 +41655,7 @@ async function pfSafeSetItemAsync(key,value){
 // de dado único da empresa (tudo, exceto os 2 logs de atividade por
 // usuário -- esses fazem sentido continuar por conta) passam a usar o
 // mesmo ID fixo. Isso fecha a causa raiz de uma vez.
-var PF_CATALOGO_UNICO_KEYS = ['desc_substituicoes_v1', 'pfKanban_v1', 'pfPecaGrupos_v1', 'catpdf_traducoes_v1', 'componentes_cardan_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfPecasMaq_v1', 'pfIconeCor', 'pfEmojiTroca_v1', 'pfCardsOcultosTodos', 'pfOrigLinhas_v1', 'pfContasPagar_v1', 'pfFinCfg_v1', 'pfGestaoAcesso_v1', 'pfOrdensCompra_v1', 'pfComprasCfg_v1', 'pfChamadosCfg_v1', 'pfFuncLiberados', 'pfPerfilCfg', 'pfVendasPerdCfg', 'pfCobrarCfg_v1', 'pfWhatsContato_v1', 'pfGestaoMetas_v1', 'pfGestaoGrupos_v1', 'pfMargemMinMarca_v1', 'pfLibExcecoes_v1', 'pfKits_v1', 'pfMaqSerieComp_v1', 'pfMaqCompConf_v1', 'pfMarcaMidia_v1', 'pfVideos_v1', 'pfModoDemo', 'pfDemoDados_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'retentores_v1', 'mapas_lista_v1', 'cc_vinculos_estoque_v1', 'pfContatosWhats_v1','pfWhatsAutoCfg_v1',
+var PF_CATALOGO_UNICO_KEYS = ['desc_substituicoes_v1', 'pfKanban_v1', 'pfPecaGrupos_v1', 'catpdf_traducoes_v1', 'componentes_cardan_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfPecasMaq_v1', 'pfIconeCor', 'pfEmojiTroca_v1', 'pfCardsOcultosTodos', 'pfOrigLinhas_v1', 'pfContasPagar_v1', 'pfFinCfg_v1', 'pfGestaoAcesso_v1', 'pfOrdensCompra_v1', 'pfComprasCfg_v1', 'pfChamadosCfg_v1', 'pfFuncLiberados', 'pfPerfilCfg', 'pfVendasPerdCfg', 'pfCobrarCfg_v1', 'pfWhatsContato_v1', 'pfGestaoMetas_v1', 'pfGestaoGrupos_v1', 'pfMargemMinMarca_v1', 'pfLibExcecoes_v1', 'pfKits_v1', 'pfMaqSerieComp_v1', 'pfMaqCompConf_v1', 'pfMarcaMidia_v1', 'pfVideos_v1', 'pfModoDemo', 'pfDemoDados_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'retentores_v1', 'mapas_lista_v1', 'cc_vinculos_estoque_v1', 'pfContatosWhats_v1','pfWhatsAutoCfg_v1','pfCotacoesApagadas_v1',
   // v115.1987 - A pedido do Vitor ("cotação deve ser compartilhada com
   // todos"): cotações deixam de ser por conta -- todo mundo lê e grava a
   // mesma lista (linha do MY_USER_ID, que já tinha todas as cotações).
@@ -41687,7 +41735,7 @@ async function pfSyncPull(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   try{
     // Chaves compartilhadas entre usuários — puxar de TODOS os usuários
-    var sharedKeys = ['desc_substituicoes_v1', 'pfKanban_v1', 'pfPecaGrupos_v1', 'catpdf_traducoes_v1', 'partsflow_cotacoes_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfPecasMaq_v1', 'pfIconeCor', 'pfEmojiTroca_v1', 'pfCardsOcultosTodos', 'pfOrigLinhas_v1', 'pfContasPagar_v1', 'pfFinCfg_v1', 'pfGestaoAcesso_v1', 'pfOrdensCompra_v1', 'pfComprasCfg_v1', 'pfChamadosCfg_v1', 'pfFuncLiberados', 'pfPerfilCfg', 'pfVendasPerdCfg', 'pfCobrarCfg_v1', 'pfWhatsContato_v1', 'pfGestaoMetas_v1', 'pfGestaoGrupos_v1', 'pfMargemMinMarca_v1', 'pfLibExcecoes_v1', 'pfKits_v1', 'pfMaqSerieComp_v1', 'pfMaqCompConf_v1', 'pfMarcaMidia_v1', 'pfVideos_v1', 'pfModoDemo', 'pfDemoDados_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'lp_regras_v1_deletados', 'lp_exemplos_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'cc_vinculos_estoque_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'pfNoticiasMarcasAtualizadoEm', 'pfNoticiasMarcasHistorico', 'timken_interchange_v1', 'pfComprasAtivos', 'pfAtalhosFerramentas', 'pfIconOverrides', 'pfTemaCores', 'pfCotacoesNaoLidas', 'pfMapaComercialSede', 'pfMapaPinsCores', 'pf_transp_mapa_v1', 'pfChegadasConf', 'pfContatosWhats_v1','pfWhatsAutoCfg_v1'];
+    var sharedKeys = ['desc_substituicoes_v1', 'pfKanban_v1', 'pfPecaGrupos_v1', 'catpdf_traducoes_v1', 'partsflow_cotacoes_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfPecasMaq_v1', 'pfIconeCor', 'pfEmojiTroca_v1', 'pfCardsOcultosTodos', 'pfOrigLinhas_v1', 'pfContasPagar_v1', 'pfFinCfg_v1', 'pfGestaoAcesso_v1', 'pfOrdensCompra_v1', 'pfComprasCfg_v1', 'pfChamadosCfg_v1', 'pfFuncLiberados', 'pfPerfilCfg', 'pfVendasPerdCfg', 'pfCobrarCfg_v1', 'pfWhatsContato_v1', 'pfGestaoMetas_v1', 'pfGestaoGrupos_v1', 'pfMargemMinMarca_v1', 'pfLibExcecoes_v1', 'pfKits_v1', 'pfMaqSerieComp_v1', 'pfMaqCompConf_v1', 'pfMarcaMidia_v1', 'pfVideos_v1', 'pfModoDemo', 'pfDemoDados_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'lp_regras_v1_deletados', 'lp_exemplos_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'cc_vinculos_estoque_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'pfNoticiasMarcasAtualizadoEm', 'pfNoticiasMarcasHistorico', 'timken_interchange_v1', 'pfComprasAtivos', 'pfAtalhosFerramentas', 'pfIconOverrides', 'pfTemaCores', 'pfCotacoesNaoLidas', 'pfMapaComercialSede', 'pfMapaPinsCores', 'pf_transp_mapa_v1', 'pfChegadasConf', 'pfContatosWhats_v1','pfWhatsAutoCfg_v1','pfCotacoesApagadas_v1'];
     // v115.1219 - BUG corrigido (a pedido do Vitor, e-mails duplicados do
     // mesmo item em horários próximos): pfComprasEventos/pfFaturadosEventos/
     // pfChegadasEventos/pfSolicitadosEventos são LOGS (uma entrada por
@@ -48257,6 +48305,15 @@ function ferrCotTempo(){
 var PF_FUNC_AREAS=[['vendas','🛒','Vendas e cotação'],['clientes','🤝','Clientes e CRM'],['compras','🛍️','Compras e estoque'],['tecnica','🔧','Área Técnica'],
   ['cadastros','🗂️','Cadastros'],['ferramentas','🧰','Ferramentas'],['logistica','🚚','Logística'],['avisos','🔔','Avisos'],['sistema','⌨️','Atalhos e sistema'],['dono','👑','Só do Vitor']];
 var PF_FUNCOES=[
+  // v115.2698 - A pedido do Vitor ("da uma olhada no que fiz por outra conta"): funções feitas na outra conta que faltavam no "O que o sistema faz".
+  {a:'vendas',i:'🧾',n:'Ler pedido do cliente',o:'Na cotação, lê o pedido que o cliente mandou (print, PDF ou texto colado): código, quantidade e marca de cada peça, na ordem dele. Atualiza a cotação aberta (quantidades, marcas e marca o PV) ou abre como cotação nova. Se o cliente tem outras cotações recentes com essas peças, pergunta se atualiza a mais nova ou fecha as antigas.',p:'Transformar o pedido do cliente em pedido no sistema sem digitar peça por peça e sem deixar cotação repetida em aberto.',w:'Cotação → 🧾 Ler pedido (barra dos itens)',v:'115.2687'},
+  {a:'vendas',i:'⚙️',n:'Regras só desta cotação',o:'Regras que valem só numa cotação e você liga quando precisa: cotar só a(s) marca(s) X, não cotar a marca Y, só itens com saldo, sempre a mais barata e uma margem só pra ela. Valem ao adicionar itens (código, colar print, Subir lista, Série/modelo) junto com as do Assistente, e dá pra reaplicar nos itens que já estão na lista.',p:'Atender um pedido especial do cliente sem mexer nas regras dele.',w:'Cotação → barra azul → ⚙️ Regras desta cotação',v:'2709',ir:'vendas:cotacoes'},
+  {a:'vendas',i:'🔀',n:'Trazer outras marcas',o:'Botão direito num item da cotação → as outras marcas do mesmo código que você tem entram logo embaixo dele (só as que ainda não estão na cotação, com saldo primeiro), respeitando as regras.',p:'Mostrar opções de marca e preço pro cliente num clique.',w:'Cotação → botão direito no item → 🔀 Trazer outras marcas',v:'2709',ir:'vendas:cotacoes'},
+  {a:'vendas',i:'⇄',n:'Trazer itens de outra cotação',o:'Escolhe outra cotação (as do mesmo cliente primeiro), marca os itens e eles saem de lá e entram nesta. Se o preço lá for diferente do daqui, avisa e você escolhe qual vale; item que já existe aqui soma a quantidade. Na cotação de origem fica registrado pra qual foram.',p:'Juntar pedidos do mesmo cliente sem redigitar.',w:'Cotação → barra dos itens → ⇄ Trazer de outra cotação',v:'2709',ir:'vendas:cotacoes'},
+  {a:'vendas',i:'📋',n:'Regras em vigor na cotação',o:'Mostra num lugar só tudo o que está valendo pro cliente da cotação: regras do Assistente de Vendas, margem usada, margem mínima da marca e desconto máximo, exceções (promoção, lote, cliente), prazo da venda perdida, ofertas e avisos. Cada parte tem "ajustar" pro gestor.',p:'O vendedor saber por que o preço ou o aviso saiu daquele jeito, sem procurar em várias telas.',w:'Cotação → 📋 Regras (barra azul)',v:'115.2688'},
+  {a:'vendas',i:'📄',n:'Pré-pedido',o:'Documento de conferência só com os itens marcados pro pedido (PV), com o número da linha, a marca que o cliente pediu, condição de pagamento, entrega, transportadora e comprador.',p:'Conferir com o cliente o que vai virar pedido antes de gerar o pedido de venda.',w:'Cotação → ▾ do PDF → 📋 Ver pré-pedido',v:'115.2691'},
+  {a:'vendas',i:'👋',n:'Mensagens automáticas no WhatsApp',o:'Na extensão do PF: saudação de espera quando você demora pra responder (com nome e bom dia/boa tarde, só na 1ª vez do dia se quiser, e a conversa fica como não lida pra lembrar do retorno) e aviso de reunião/ausente/férias, mandado uma vez só por conversa. Dá pra mudar o status mandando um WhatsApp de outro celular ("pf férias até 20/11"). A configuração fica guardada no PF e tem um botão pra testar na conversa aberta.',p:'O cliente não ficar sem resposta enquanto você está ocupado, sem mandar mensagem repetida.',w:'WhatsApp Web → painel do PF → ⚙️ → 👋 Mensagens automáticas',v:'115.2694'},
+  {a:'vendas',i:'👤',n:'Salvar contato pelo WhatsApp',o:'Botão ao lado do nome da conversa: salva o contato no PF e no WhatsApp (nome, empresa, código JBoss, cargo, CNPJ) e já classifica o cliente — tipo (revenda, consumo, serviço, concessionária e a marca dela), grupos, "Gueri" e "Faturar por SP". Na lista de conversas aparecem cidade, grupo, tipo e esses selos.',p:'Cadastrar e classificar o cliente na hora em que ele chama, sem sair do WhatsApp.',w:'WhatsApp Web → bolinha 👤+ ao lado do nome',v:'115.2697'},
   {a:'vendas',i:'💡',n:'Sugestões pra oferecer no WhatsApp',o:'No painel do PF dentro do WhatsApp: na aba Cliente, até 3 coisas que clientes parecidos compram e esse cliente não; na aba Cotação, as peças que costumam ir junto com as que ele está pedindo.',p:'Lembrar de oferecer o que ele ainda não compra de você e vender o que vai junto, sem precisar pensar na hora.',w:'WhatsApp Web → painel do PF → abas Cliente e Cotação (liga/desliga em ⚙️)',v:'115.2662'},
   {a:'vendas',i:'🔤',n:'Prefixo da marca no código (CAR = Carraro)',o:'Quando o cliente manda o código com as letras da marca grudadas na frente (CAR47700), o sistema entende que é o 47700 da Carraro.',p:'Achar a peça certa sem ter que apagar o prefixo na mão — o código que o cliente mandou fica guardado na linha.',w:'Cotação (digitar o código), WhatsApp (📄 Cotar no PF) e Leitor de Peças',v:'115.2677',ir:'vendas:cotacoes'},
   {a:'vendas',i:'🏷️',n:'Pedido do WhatsApp com marca e quantidade',o:'Lê o pedido que o cliente mandou com a marca e a quantidade de cada peça ("03pcs spicer", "01pc spicer 01pc TX", "c/graxeira") e monta a cotação com as marcas que ele pediu. Marca que não temos aparece com as marcas que temos pra escolher. Se ele já tinha cotação dos últimos 3 dias, pergunta se atualiza ela.',p:'Montar o pedido do cliente em segundos, sem trocar marca por engano e sem refazer a cotação que você já passou — as quantidades mudam, o preço fica e os itens já vêm marcados pro Pedido de Venda.',w:'WhatsApp → 📄 Cotar no PF ou o selo 📄 do balão → Criar cotação no PF (precisa da extensão)',v:'115.2673',ir:'js:pfExtInstalarAbrir()'},
@@ -48266,6 +48323,7 @@ var PF_FUNCOES=[
   {a:'clientes',i:'💰',n:'Crédito do cliente',o:'Saldo de crédito de cada cliente (ex.: envio errado), que não vence, com extrato de quem lançou e usou.',p:'Abater o crédito numa cotação sem passar do preço mínimo e mandar pro cliente o texto ou a imagem "tinha · abateu · ainda tem".',w:'Ficha do cliente (CRM), caixa de avisos da cotação e painel do WhatsApp',v:'115.2609',ir:''},
   {a:'vendas',i:'💡',n:'Ofertas e respostas do cliente',o:'O PF guarda o que você ofereceu pra cada cliente e o que ele respondeu.',p:'Quando você oferece algo no WhatsApp (uma peça, uma família como óleo ou filtro, ou uma marca) e o cliente responde, aparece um cartão pra marcar a resposta com 1 clique (quer, vai pensar, agora não, achou caro, não usa, compra de outro). Enquanto você digita uma oferta, avisa se já ofereceu isso antes e o que ele disse — pra não repetir. Também conta o que foi oferecido pelo 📣 Chegou, pelo 💬 Perguntei e pelo 💡 Ofereça também da cotação. "Vai pensar" vira próxima ação no Meu dia.',w:'WhatsApp Web (extensão) · ficha do CRM → 💡 Ofertas e respostas · avisos e etiquetas da cotação',v:'2596',ir:'js:pfExtInstalarAbrir()'},
   {a:'vendas',i:'📢',n:'Status do WhatsApp',o:'Monta a imagem do Status do WhatsApp e coloca no WhatsApp Web pra você.',p:'Escolha 📣 o que chegou no estoque, ⭐ peças em destaque (com ou sem preço) ou ✍ um texto. O PF desenha a imagem com a sua cor e rodapé, e a extensão abre o Status, coloca a imagem e a legenda — você só confere e publica. Sem a extensão, baixe ou copie a imagem.',w:'Ferramentas → 📢 Status do WhatsApp · 📣 Chegou → Postar no Status',v:'2596',ir:'js:pfStAbrir()'},
+  {a:'compras',i:'🏭',n:'Fornecedores por tipo de produto',o:'No cadastro do fornecedor você marca com o que ele trabalha (Filtros, Rolamentos, Cardan, Vedação…). No Mapa de Compras cada item ganha o tipo pela descrição e os fornecedores daquele tipo já entram ligados nele; o painel mostra os sugeridos por tipo pra ligar/desligar.',p:'Mandar os filtros só pra quem vende filtro, sem escolher item por item.',w:'Cadastros → Fornecedor → 🏭 Trabalha com · Mapa de Compras → painel Fornecedores do mapa',v:'2709',ir:'tela:mapa'},
   {a:'compras',i:'💬',n:'PartsFlow no WhatsApp (extensão)',o:'Extensão do Chrome que liga o PF ao WhatsApp Web.',p:'No WhatsApp Web aparece um painel do PF com abas (Cotação, Cliente, Histórico, Peças). Em "Cotar no PF" o sistema lê os códigos e a quantidade que o cliente mandou, mostra saldo e preço desse cliente e já escreve a resposta; abre a cotação no PF com tudo dentro. No Mapa de Compras manda a cotação pra todos os fornecedores pelo WhatsApp de uma vez. Os botões podem ficar em coluna (A) ou numa barra embaixo (D), cada um escolhe. Também importa seus contatos do WhatsApp Web (nome, número e etiqueta) pro PF, casando com o cadastro — use o botão 📥 Importar meus contatos no painel. Dá pra ligar/desligar o aviso "achei um pedido de cotação" no 🔔 do topo do painel, e minimizar a coluna de botões num só "PF". A versão da extensão aparece no cabeçalho do painel. Tem um 🧪 Simulador (WhatsApp de mentira) pra ver a cara da extensão sem instalar. 🧩 Menu do PF (liga/desliga): uma barra em cima do WhatsApp com filtros (Clientes, Fornecedores, etiquetas, Cotação aberta, Sem resposta — clicar filtra a lista), uma coluna de atalhos do PF à esquerda, e embaixo de cada conversa uma etiqueta dizendo se é cliente/fornecedor e se tem cotação ou mapa aberto. Nas cores azul ou discreta.',w:'Ferramentas → 🧩 PartsFlow no WhatsApp (card) — baixar/atualizar, importar contatos e 🧪 simulador',v:'2603',ir:'js:pfExtInstalarAbrir()'},
   {a:'cadastros',i:'📘',n:'Nomes padrão das peças',o:'Cada peça tem um nome só no sistema, não importa o fabricante (ex.: O-RING, ANEL O e ANELLO OR viram ANEL ORING). A lista mostra os jeitos de escrever de cada nome e quantas peças ainda estão com outro nome; catálogo novo já chega com o nome padrão e sugere quando é parecido.',p:'Fichas organizadas e fáceis de achar, sem 10 nomes pra mesma peça.',w:'Cadastros → Substituições de Descrição → 📘 Nomes padrão (e no ✏️ Arrumar descrições do catálogo)',v:'2428',ir:'js:pfNpAbrir()'},
   {a:'avisos',i:'📖',n:'História das marcas no banner',o:'Na tela inicial, no meio das notícias, aparecem histórias reais das marcas do setor (Caterpillar, Komatsu, Dana/Spicer, Perkins…), com logo, linha do tempo, a marca no Brasil e as fontes.',p:'Conhecer a origem das marcas e ter assunto com o cliente.',w:'Tela inicial → banner Destaques do setor (clique pra ler tudo)',v:'2345',ir:'tela:home'},
@@ -48349,6 +48407,7 @@ var PF_FUNCOES=[
   {a:'tecnica',i:'🧰',n:'Peças por máquina',o:'Filtros, material rodante, pinos e buchas de cada máquina, com saldo; cola print ou planilha pra preencher.',p:'Cotar manutenção de uma máquina em segundos.',w:'Área Técnica → Máquinas → Peças de manutenção',v:'2310',ir:'at:Máquinas'},
   {a:'tecnica',i:'🌐',n:'Ficha técnica em inglês traduzida',o:'Cola o texto do catálogo CAT em inglês e o sistema separa modelo, categoria, série e motor.',p:'Cadastrar máquina rápido.',w:'Máquinas → ficha técnica',v:'2315',ir:'at:Máquinas'},
   {a:'tecnica',i:'⚙️',n:'Componentes Cardan',o:'Cadastro de cruzetas, ponteiras, flanges, luvas… com medidas, fotos, desenho, equivalentes e aplicação. As peças Spicer têm as medidas do catálogo da Spicer, inclusive o Ø do copo da cruzeta nas flanges, garfos, luvas e terminais.',p:'Achar a peça cardan por código, veículo ou medida (ex.: flange pra cruzeta de copo 59).',w:'Área Técnica → Componentes Cardan',v:'115.2601',ir:'at:Componentes Cardan'},
+  {a:'tecnica',i:'🔍',n:'Códigos parecidos',o:'Quando o código não é achado (ou você desconfia), mostra os códigos que existem e são quase iguais: 1 caractere trocado, a mais ou a menos, dois invertidos, com/sem X ou XS, com/sem ALB. Procura no Cardan, conversões, equivalentes e no cadastro de produtos. Também aparece no 📄 Cotar do WhatsApp.',p:'Descobrir que o cliente passou o código errado (3-3-5571X em vez de 3-3-6571X).',w:'Componentes Cardan → busca → 🔍 Códigos parecidos',v:'2709',ir:'at:Componentes Cardan'},
   {a:'tecnica',i:'🔎',n:'Busca geral do cardan',o:'Busca por código (de qualquer marca), veículo ou "monta com", com tabela de medidas por tipo, foto e 📋 copiar código.',p:'Identificar a peça e o equivalente na hora.',w:'Componentes Cardan → busca',v:'2318',ir:'at:Componentes Cardan'},
   {a:'tecnica',i:'📖',n:'Códigos Spicer',o:'Decifra o código Spicer (série, tipo) e avisa quando o código é LNG e não Spicer.',p:'Entender o que é a peça só pelo código.',w:'Componentes Cardan → 📖 Códigos Spicer',v:'2139',ir:'js:pfSpicerAbrir()'},
   {a:'tecnica',i:'📥',n:'Atualização Spicer',o:'Lê o folheto de novidades da Spicer e atualiza o cadastro.',p:'Manter o cardan em dia com a fábrica.',w:'Componentes Cardan → faixa 📥 Atualização Spicer',v:'2225',ir:'at:Componentes Cardan'},
@@ -48379,7 +48438,7 @@ var PF_FUNCOES=[
   {a:'ferramentas',i:'🔗',n:'Reconciliar Códigos',o:'Cliente e fornecedor com o mesmo CNPJ e códigos diferentes.',p:'Juntar cadastro duplicado.',w:'Ferramentas → Reconciliar Códigos',v:'',ir:'ferr:Reconciliar Códigos'},
   {a:'ferramentas',i:'🎨',n:'Card de Promoção',o:'Monta imagem de promoção (fundo + itens + preço) em PNG.',p:'Divulgar promoção no WhatsApp/Instagram.',w:'Ferramentas → Card de Promoção',v:'',ir:'ferr:Card de Promoção'},
   {a:'ferramentas',i:'📎',n:'Atalhos de Texto',o:'Textos prontos (endereço, documentos, frete…) pra copiar; alguns preenchem com a ficha do cliente.',p:'Responder rápido no WhatsApp e e-mail.',w:'Ferramentas → Atalhos de Texto',v:'',ir:'ferr:Atalhos de Texto'},
-  {a:'ferramentas',i:'⚡',n:'Respostas rápidas no WhatsApp',o:'No WhatsApp Web (extensão do PF), o ⚡ ou digitar / na caixa de texto lista as respostas do cliente e os seus Atalhos de Texto, já com nome, empresa, cidade e cotação dele trocados. Dá pra salvar uma mensagem como resposta nova.',p:'Responder rápido sem copiar e colar, com os dados certos de cada cliente.',w:'WhatsApp Web → ⚡ ou / · variáveis {nome} {empresa} {cidade}… no atalho de texto',v:'115.2628',ir:'ferr:Atalhos de Texto'},
+  {a:'ferramentas',i:'⚡',n:'Respostas rápidas no WhatsApp',o:'No WhatsApp Web (extensão do PF), o ⚡ ou digitar / na caixa de texto lista as respostas do cliente e os seus Atalhos de Texto, já com nome, empresa, cidade e cotação dele trocados. Dá pra salvar uma mensagem como resposta nova. Quando o cliente pergunta algo que já tem resposta pronta (endereço, PIX, horário…), aparece um ⚡ roxo no balão dele: clique, confira e mande.',p:'Responder rápido sem copiar e colar, com os dados certos de cada cliente.',w:'WhatsApp Web → ⚡ ou / · ⚡ no balão do cliente · variáveis {nome} {empresa} {cidade}… no atalho de texto',v:'115.2696',ir:'ferr:Atalhos de Texto'},
   {a:'ferramentas',i:'🚚',n:'Cotação de frete',o:'Formulário de cotação de frete com volume e peso.',p:'Pedir frete com tudo preenchido.',w:'Atalhos de Texto → frete',v:'2206',ir:'ferr:Atalhos de Texto'},
   {a:'ferramentas',i:'🔔',n:'Histórico de Avisos',o:'Avisos de oportunidade anteriores.',p:'Rever o que foi avisado.',w:'Ferramentas → Histórico de Avisos',v:'',ir:'ferr:Histórico de Avisos'},
   {a:'ferramentas',i:'✂️',n:'Remover Fundo de Foto',o:'Tira o fundo de qualquer foto.',p:'Foto de peça limpa pro catálogo/promo.',w:'Ferramentas → Remover Fundo de Foto',v:'',ir:'ferr:Remover Fundo de Foto'},
@@ -48461,6 +48520,7 @@ var PF_FUNC_DET={
   'Barra de notificações':{x:'Cada tipo é um log compartilhado só-acrescenta (PF_AVISOS_LOG_KEYS), cada usuário escolhe quais quer; tudo que avisa vai pra ela.'}
 };
 var PF_FUNC_IDEIAS=[
+  {i:'📈',n:'Relatório de quantidade de cotações',o:'Quantas cotações foram feitas e QUANDO: horários do dia com mais cotações, dias da semana, dias do mês e meses do ano (gráficos de pico), por vendedor e por tipo de cliente.',s:'Pedido do Vitor (12/11/2026): "precisa ter" — ainda sem lugar definido (Gestão, Ferramentas ou Painel de Clientes)'},
   {i:'🏆',n:'Quiz das marcas com prêmios',o:'Perguntas sobre a história das marcas (já escritas, 3 por marca) aparecem pro vendedor; quem acerta ganha pontos que viram prêmios.',s:'Combinado pra depois (pedido do Vitor, 17/10/2026)'},
   {i:'📺',n:'TVs do estoque',o:'TV 1 = fila de pedidos ao estoque (medida, foto, saldo, amostra) com tempo esperando; TV 2 = pedidos A separar → Separado → Faturado. Celular do estoque marca.',s:'Prévias aprovadas — falta decidir andamento (ERP ou celular) e som'},
   {i:'🧾',n:'Itens cotados sem cadastro',o:'Registrar todo item cotado sem ficha; quando for cadastrado, avisar "foi cotado N vezes por X clientes".',s:'Ideia'},
@@ -54273,13 +54333,14 @@ function vendasRenderCotacao(el){
     '<button onclick="vendasViewModoSet(\'tabela\')" title="Visualização em tabela" style="padding:4px 10px;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;background:'+(vendasViewModo()==='tabela'?'#fff':'transparent')+';color:'+(vendasViewModo()==='tabela'?'#1F4E79':'#8a9ab0')+'">▦ Tabela</button>'+
     '<button onclick="vendasViewModoSet(\'duas\')" title="Cada item em 2 linhas: código do cliente e principal, marca do cliente e interna, último preço desse cliente e total -- cabe no iPad sem arrastar pro lado" style="padding:4px 10px;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;background:'+(vendasViewModo()==='duas'?'#fff':'transparent')+';color:'+(vendasViewModo()==='duas'?'#1F4E79':'#8a9ab0')+'">▤ 2 linhas</button>'+ // v115.2140
     '<button onclick="vendasViewModoSet(\'compacta\')" title="Visualização em lista compacta" style="padding:4px 10px;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;background:'+(window._vendasViewModo==='compacta'?'#fff':'transparent')+';color:'+(window._vendasViewModo==='compacta'?'#1F4E79':'#8a9ab0')+'">☰ Compacta</button>'+
-    '</div>'+vendasInfoBtnHtml()+vendasAntesPedidoBtnHtml()+ // v115.2489 / v115.2675
+    '</div>'+vendasInfoBtnHtml()+vendasAntesPedidoBtnHtml()+vendasTrazerBtnHtml()+ /* v115.2709 */ // v115.2489 / v115.2675
     // v115.2075 - A pedido do Vitor ("desnecessário"): saiu a dica "arraste as colunas" e o botão etiquetas (foi pro ⋮ Mais ações)
     (vendasViewModo()==='tabela'?(
 
     '<button onclick="vendasItemColReorderResetar()" title="Volta as colunas pra ordem original" style="font-size:10px;color:var(--pf-fx-textoSuave,#8a9ab0);background:none;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:5px;padding:2px 7px;cursor:pointer">↺ ordem padrão</button>'):vendasViewModo()==='duas'?'<button onclick="vendas2ColPadrao()" title="Volta todas as larguras de coluna ao padrão" style="font-size:10px;color:var(--pf-fx-textoSuave,#8a9ab0);background:none;border:1px solid var(--pf-fx-bordaClara,#e0e8f0);border-radius:5px;padding:2px 7px;cursor:pointer">↺ larguras</button>':'')+ // v115.2144
     '</div>'+
     '</div>'+
+    '<div id="vendasRegrasCotBox">'+pfCotRegrasFaixaHtml(v)+'</div>'+ // v115.2709 - ⚙️ regras desta cotação / ⇄ itens que foram pra outra
     '<div id="vendasRegrasBox">'+(typeof pfVR2FaixaCotacaoHtml==='function'?pfVR2FaixaCotacaoHtml(v):'')+'</div>'+ // v115.2058 - regras em vigor / fichas que não subiram
     '<div id="vendasRelSugBox"></div>'+ // v115.2030 - sugestão "cotados juntos"
     '<div id="vendasLibBox"></div>'+ // v115.2456 - 🔓 preço fora da regra → pedir liberação
@@ -54550,12 +54611,15 @@ function vendasAdicionarItem(){
   var codDigitado=cod;
   // v115.2677 - CAR47700 → 47700 (Carraro), só quando o código com o CAR não existe no estoque; o código do cliente fica como ele mandou
   var _px=pfCodPrefixo(cod);if(_px){var _jaPx=[];try{_jaPx=vendasBuscarItem(cod,{semEquiv:true,silencioso:true})||[];}catch(e){}if(!_jaPx.length)cod=_px.cod;}
+  var _sxMarca=''; // v115.2710 - 3-40-1571TX = marca TX, código 3-40-1571 (só quando o código com o TX não existe no estoque)
+  var _sx=_px?null:pfCodSufixo(cod);if(_sx){var _jaSx=[];try{_jaSx=vendasBuscarItem(cod,{semEquiv:true,silencioso:true})||[];}catch(e){}if(!_jaSx.length){cod=_sx.cod;_sxMarca=_sx.marca;}}
   var codPrincipal=null;
   // v115.2445 - conjunto de rolamento (tabela Meritor): o cliente manda o nº Meritor e precisa ir o CONJUNTO (cone + capa), nunca só um
   if(!window._vendasConjPular){var cjS=vendasConjuntoDe(cod);if(cjS){vendasConjuntoDigitado(cjS,cod,qtd);codEl.value='';if(qtdEl)qtdEl.value='1';
     setTimeout(function(){var el=document.getElementById('vendasCodInput');if(el)el.focus();},50);return;}}
   window._vendasConjPular=false;
   var items=vendasBuscarItem(cod);
+  if(_sxMarca&&items&&items.length){var _soSx=items.filter(function(x){try{return pfExtMarcaBate(x.marca,_sxMarca);}catch(e){return false;}});if(_soSx.length)items=_soSx;} // v115.2710 - só a marca do sufixo
   if(!items||!items.length){
     // não achou direto - procura nas conversões dos produtos cadastrados
     var produtos=cadLoad(PROD_KEY);
@@ -55027,6 +55091,7 @@ function vendasEtiquetasHtml(it,i,nRel,nMonta,nSubst){
   if(it.marcaTrocadaWa)al+='<span title="Na cotação estava '+pfEscHtml(it.marcaTrocadaWa)+' — o cliente pediu outra marca no pedido; o preço voltou a sair pela margem" style="display:inline-block;font-size:10.5px;font-weight:800;border-radius:5px;padding:1px 6px;background:#FFF4E5;color:#9A4A00;margin:2px 3px 0 0">↺ era '+pfEscHtml(it.marcaTrocadaWa)+'</span>';
   if(it.waNovo)al+='<span title="Estava no pedido do cliente e não na cotação" style="display:inline-block;font-size:10.5px;font-weight:800;border-radius:5px;padding:1px 6px;background:#E3F2FD;color:#1565C0;margin:2px 3px 0 0">🆕 veio no pedido</span>';
   if(it.qtdAntesWa!=null)inf+='<span title="Quantidade mudou com o pedido do WhatsApp" style="display:inline-block;font-size:10.5px;font-weight:700;border-radius:5px;padding:1px 6px;background:#FFF4E5;color:#9A6B00;margin:2px 3px 0 0">qtd era '+pfEscHtml(String(it.qtdAntesWa))+'</span>';
+  try{inf+=pfCotEtqNovasHtml(it);}catch(eNv){} // v115.2709 - ↳ outra marca / ⇄ veio da #N
   if(typeof pfCatEnvEtqHtml==='function')try{inf+=pfCatEnvEtqHtml(it);}catch(eCat){} // v115.2181 - 📖 catálogo / 🧰 kit
   try{inf+=pfAlimKitEtqHtml(it,prod);}catch(eKit){}
   try{al+=pfOfEtqItem(it);}catch(eOf){} // v115.2596 - 💡 já ofereceu essa peça pra esse cliente
@@ -58135,6 +58200,288 @@ function vendasRmasItem(i){
   pfOverlayFecharAoClicarFora(ov,function(){ov.remove();});
   document.body.appendChild(ov);
 }
+// ===== v115.2709 - A pedido do Vitor (prévia docs/referencias/cotacao-ideias-1211/ aprovada: "manda bala q vou testar") =====
+// Remapeia as marcações (Selecionar / Pedido de Venda) quando itens entram ou saem do meio da lista.
+function pfCotSelRemap(fn){['_vendasSel','_vendasSelPV'].forEach(function(k){var s=window[k];if(!s)return;var n={};Object.keys(s).forEach(function(i){if(!s[i])return;var j=fn(+i);if(j!=null&&j>=0)n[j]=s[i];});window[k]=n;});}
+function pfCotEsc(s){return pfEscHtml(String(s==null?'':s));}
+function pfCotMoeda(n){n=+n||0;return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function pfCotPrecoDe(it,uf,margem){var cu=it.custoOverride!=null?it.custoOverride:it.custo;return it.vendaOverride!=null?(+it.vendaOverride||0):(cu?vendasCalcVenda(cu,uf||'SP',margem||21):0);}
+
+// ⚙️ 1) Regras só desta cotação ("COTAR SÓ MARCA X, ETC" — liga quando precisa). Guardadas em v.regrasCot; valem dentro do pfVR2Aplicar
+// (código, colar print, Subir lista, Série/modelo) junto com as do 🤖 Assistente.
+function pfCotRegras(v){v=v||window._venda;var r=(v&&v.regrasCot)||{};return {so:(r.so||[]).slice(),soOn:!!r.soOn,bloq:(r.bloq||[]).slice(),bloqOn:!!r.bloqOn,saldo:!!r.saldo,barato:!!r.barato,margemOn:!!r.margemOn,margem:(r.margem!=null&&r.margem!=='')?+r.margem:null,margemAntes:r.margemAntes};}
+function pfCotRegrasN(v){var r=pfCotRegras(v);return (r.soOn&&r.so.length?1:0)+(r.bloqOn&&r.bloq.length?1:0)+(r.saldo?1:0)+(r.barato?1:0)+(r.margemOn&&r.margem!=null?1:0);}
+function pfCotRegrasTxt(v){var r=pfCotRegras(v),l=[];if(r.soOn&&r.so.length)l.push('só '+r.so.join('/'));if(r.bloqOn&&r.bloq.length)l.push('sem '+r.bloq.join('/'));if(r.saldo)l.push('só com saldo');if(r.barato)l.push('sempre a mais barata');if(r.margemOn&&r.margem!=null)l.push('margem '+r.margem+'%');return l;}
+function pfCotRegraMarca(it,lista){try{return pfVR2MarcaBate(it.marca,lista)||(!!it.marcaInterna&&pfVR2MarcaBate(it.marcaInterna,lista));}catch(e){return false;}}
+function pfCotRegrasBtnHtml(){var n=pfCotRegrasN();return '⚙️ Regras desta cotação'+(n?' ('+n+')':'');}
+function pfCotRegrasFaixaHtml(v){
+  v=v||window._venda;if(!v)return '';var h='',l=pfCotRegrasTxt(v);
+  if(l.length)h+='<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 8px;padding:7px 12px;background:#FFF6D6;border:1px solid #F0D27A;border-radius:10px;font-size:12.5px;color:#5c4400">'+
+    '<span>⚙️ <b>Regras desta cotação:</b> '+pfCotEsc(l.join(' · '))+'</span><span style="flex:1"></span>'+
+    '<a href="#" onclick="event.preventDefault();pfCotRegrasAbrir()" style="color:#1F4E79;font-weight:700">mudar</a>'+
+    '<a href="#" onclick="event.preventDefault();pfCotRegrasDesligar()" style="color:#9a2a1e;font-weight:700">desligar</a>'+
+    '<a href="#" onclick="event.preventDefault();pfCotRegrasReaplicar()" style="color:#1F4E79;font-weight:700">reaplicar nos itens já na lista</a></div>';
+  var tr=(v.transferidos||[]);if(tr.length){var por={};tr.forEach(function(t){var k=t.para||'?';por[k]=(por[k]||0)+1;});
+    h+='<div style="margin:0 0 8px;padding:6px 12px;background:#EEF4FB;border:1px solid #C9DAEE;border-radius:10px;font-size:12px;color:#12365e">⇄ '+Object.keys(por).map(function(k){return '<b>'+por[k]+'</b> item(ns) foram pra cotação <b>#'+pfCotEsc(k)+'</b>';}).join(' · ')+'</div>';}
+  return h;
+}
+function pfCotRegrasFaixaRender(){var b=document.getElementById('vendasRegrasCotBox');if(b)b.innerHTML=pfCotRegrasFaixaHtml();}
+function pfCotRegrasSet(patch){
+  var v=window._venda;if(!v)return;var r=Object.assign({},v.regrasCot||{},patch||{});
+  if('margemOn' in patch||'margem' in patch){
+    if(r.margemOn&&r.margem!=null&&r.margem!==''&&!isNaN(+r.margem)){if(r.margemAntes==null)r.margemAntes=v.margem;v.margem=+r.margem;}
+    else if(!r.margemOn&&r.margemAntes!=null){v.margem=r.margemAntes;delete r.margemAntes;}
+  }
+  v.regrasCot=r;
+  try{vendasRenderTabs();}catch(e){try{vendasRefresh();}catch(e2){}}
+  try{vendasAutoSalvarDebounced();}catch(e){}
+  if(document.getElementById('pfCotRegJan'))pfCotRegrasAbrir(true);
+}
+function pfCotRegrasDesligar(){var v=window._venda;if(!v)return;var r=pfCotRegras(v);pfCotRegrasSet({soOn:false,bloqOn:false,saldo:false,barato:false,margemOn:false});pfChToast('⚙️ Regras desta cotação desligadas');}
+function pfCotRegrasMarcaAdd(campo,inp){var m=String((inp&&inp.value)||'').trim().toUpperCase();if(!m)return;var r=pfCotRegras(),l=r[campo]||[];if(l.indexOf(m)<0)l.push(m);var p={};p[campo]=l;p[campo==='so'?'soOn':'bloqOn']=true;pfCotRegrasSet(p);}
+function pfCotRegrasMarcaTirar(campo,m){var r=pfCotRegras(),p={};p[campo]=(r[campo]||[]).filter(function(x){return x!==m;});pfCotRegrasSet(p);}
+function pfCotRegrasAbrir(redesenha){
+  var v=window._venda;if(!v){pfAlert('Abra uma cotação primeiro.');return;}
+  var r=pfCotRegras(v);
+  var sw=function(on,js){return '<span role="button" onclick="'+js+'" style="width:36px;height:20px;border-radius:12px;background:'+(on?'#25A35A':'#CFD6DF')+';position:relative;flex:none;cursor:pointer;display:inline-block"><i style="position:absolute;top:2px;left:'+(on?'18':'2')+'px;width:16px;height:16px;border-radius:50%;background:#fff"></i></span>';};
+  var marcas=[];try{marcas=pfOfMarcas()||[];}catch(e){}(v.itens||[]).forEach(function(it){[it.marca,it.marcaInterna].forEach(function(m){m=String(m||'').trim().toUpperCase();if(m&&marcas.indexOf(m)<0)marcas.push(m);});});
+  var dl='<datalist id="pfCotRegDl">'+marcas.slice(0,400).map(function(m){return '<option value="'+pfCotEsc(m)+'">';}).join('')+'</datalist>';
+  var chips=function(campo){return (r[campo]||[]).map(function(m){return '<span style="display:inline-flex;align-items:center;gap:4px;border:1.5px solid #1F4E79;background:#1F4E79;color:#fff;border-radius:999px;padding:2px 4px 2px 10px;font-size:11.5px;font-weight:700;margin:2px">'+pfCotEsc(m)+'<span role="button" onclick="pfCotRegrasMarcaTirar(\''+campo+'\',\''+pfEscHtml(pfEscJs(m))+'\')" title="Tirar" style="cursor:pointer;background:rgba(255,255,255,.25);border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:11px">×</span></span>';}).join('')+
+    '<input list="pfCotRegDl" placeholder="+ marca (Enter)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();pfCotRegrasMarcaAdd(\''+campo+'\',this);}" onchange="pfCotRegrasMarcaAdd(\''+campo+'\',this)" style="border:1.5px dashed #9fb3c8;border-radius:999px;padding:3px 10px;font-size:11.5px;width:150px;margin:2px">';};
+  var L=function(tit,sub,on,js,extra){return '<div style="display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid #eef1f5"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">'+tit+'</div>'+(sub?'<div style="font-size:11.5px;color:#5b6b80;margin-top:1px">'+sub+'</div>':'')+(extra?'<div style="margin-top:5px">'+extra+'</div>':'')+'</div>'+sw(on,js)+'</div>';};
+  var corpo='<div style="font-size:12px;color:#5b6b80;margin-bottom:6px">Valem <b>só nesta cotação</b> — ligue quando precisar. Funcionam ao adicionar itens (código, colar print, Subir lista, Série/modelo), junto com as do 🤖 Assistente. Ficam gravadas na cotação.</div>'+dl+
+    L('Cotar só a(s) marca(s)','as outras marcas do mesmo código não sobem',r.soOn&&r.so.length,'pfCotRegrasSet({soOn:'+!(r.soOn&&r.so.length)+'})',chips('so'))+
+    L('Não cotar a marca','',r.bloqOn&&r.bloq.length,'pfCotRegrasSet({bloqOn:'+!(r.bloqOn&&r.bloq.length)+'})',chips('bloq'))+
+    L('Só itens com saldo','ficha sem estoque não sobe',r.saldo,'pfCotRegrasSet({saldo:'+!r.saldo+'})')+
+    L('Sempre a mais barata','de várias marcas do mesmo código, sobe só a de menor custo (com saldo primeiro)',r.barato,'pfCotRegrasSet({barato:'+!r.barato+'})')+
+    L('Margem desta cotação','troca a margem só aqui; desligar volta a de antes'+(r.margemAntes!=null?' ('+r.margemAntes+'%)':''),r.margemOn&&r.margem!=null,'pfCotRegrasSet({margemOn:'+!(r.margemOn&&r.margem!=null)+'})',
+      '<input type="number" step="0.5" value="'+(r.margem!=null?r.margem:(v.margem||21))+'" onchange="pfCotRegrasSet({margem:this.value,margemOn:true})" style="width:80px;padding:4px 8px;border:1.5px solid #cfd8e3;border-radius:7px;font-size:12.5px"> %')+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap">'+
+      (pfCotRegrasN(v)?'<button class="pfBtn pfBtnClaro" onclick="pfCotRegrasDesligar()">Desligar todas</button><button class="pfBtn pfBtnAzul" onclick="pfCotRegrasReaplicar()">Reaplicar nos itens já na lista</button>':'')+
+      '<button class="pfBtn pfBtnVerde" onclick="pfNcFechar(\'pfCotRegJan\')">Pronto</button></div>';
+  var ov=pfNcJanela('pfCotRegJan','⚙️ Regras só desta cotação',(v.num?'Cotação #'+v.num:'Cotação nova')+((v.cliente&&v.cliente.razao)?' · '+v.cliente.razao:''),corpo,520);
+  if(ov)ov.style.zIndex='100045';
+}
+function pfCotRegrasReaplicar(){
+  var v=window._venda;if(!v||!pfCotRegrasN(v)){pfChToast('Nenhuma regra desta cotação ligada');return;}
+  var r=pfCotRegras(v),tirar={};
+  (v.itens||[]).forEach(function(it,i){if(it.pvNumero)return;
+    if(r.soOn&&r.so.length&&!pfCotRegraMarca(it,r.so))tirar[i]='só '+r.so.join('/');
+    else if(r.bloqOn&&r.bloq.length&&pfCotRegraMarca(it,r.bloq))tirar[i]='marca bloqueada';
+    else if(r.saldo&&!((+it.saldo||0)>0))tirar[i]='sem saldo';});
+  if(r.barato){var g={};(v.itens||[]).forEach(function(it,i){if(it.pvNumero||tirar[i])return;var k=pfBuscaAN(it.codigoOriginal||it.codigo);(g[k]=g[k]||[]).push(i);});
+    Object.keys(g).forEach(function(k){var l=g[k];if(l.length<2)return;var cs=l.filter(function(i){return (+v.itens[i].saldo||0)>0;}),base=cs.length?cs:l;
+      var cu=function(i){var it=v.itens[i];return +(it.custoOverride!=null?it.custoOverride:it.custo)||Infinity;};var fica=base.slice().sort(function(a,b){return cu(a)-cu(b);})[0];
+      l.forEach(function(i){if(i!==fica)tirar[i]='não é a mais barata';});});}
+  var idx=Object.keys(tirar).map(Number);
+  if(!idx.length){pfChToast('✔ Os itens da lista já seguem as regras desta cotação');return;}
+  var lista=idx.slice(0,12).map(function(i){var it=v.itens[i];return '• '+(it.codigo||'')+' '+(it.marca||'')+' — '+tirar[i];}).join('\n')+(idx.length>12?'\n… e mais '+(idx.length-12):'');
+  pfConfirm('Tirar '+idx.length+' item(ns) que não seguem as regras desta cotação?\n\n'+lista+'\n\n(↶ Desfazer traz de volta)',function(){
+    var novo=[],mapa={};(v.itens||[]).forEach(function(it,i){if(tirar[i])return;mapa[i]=novo.length;novo.push(it);});
+    v.itens=novo;pfCotSelRemap(function(i){return mapa[i]!=null?mapa[i]:null;});window._vendasItemAtivo=null;
+    vendasRefresh();try{vendasAutoSalvarDebounced();}catch(e){}pfChToast('Tirei '+idx.length+' item(ns)');
+  },'Tirar '+idx.length);
+}
+
+// 🔀 4) Botão direito no item → Trazer outras marcas: as outras fichas do MESMO código entram logo abaixo dele (só marcas que ainda não estão
+// na cotação, com saldo primeiro). Vale o "não cotar marca X" do Assistente e as regras desta cotação.
+function vendasOutrasMarcasDe(i){
+  var v=window._venda,it=v&&v.itens&&v.itens[i];if(!it)return [];
+  var cod=String(it.codigo||'').trim();if(!cod)return [];var cl=pfBuscaAN(cod),its=[];
+  try{its=(vendasBuscarItem(cod,{semEquiv:true,silencioso:true})||[]).slice();}catch(e){its=[];}
+  its=its.filter(function(x){return pfBuscaAN(x._refExemplo||cod)===cl;});
+  var ja={};(v.itens||[]).forEach(function(x){if(pfBuscaAN(x.codigo)===cl){ja[pfBuscaN(x.marcaInterna||x.marca)]=1;ja[pfBuscaN(x.marca)]=1;}});
+  its=its.filter(function(x){return !ja[pfBuscaN(x.marca)];});
+  var bl=[];try{var ctx=pfVR2RegrasDoContexto(v.cliente);ctx.gerais.concat(ctx.cliente).forEach(function(rg){if(rg.tipo==='bloquear_marca')bl=bl.concat(rg.marcas||[]);});}catch(e){}
+  var rc=pfCotRegras(v);if(rc.bloqOn)bl=bl.concat(rc.bloq);
+  its=its.filter(function(x){if(bl.length&&pfCotRegraMarca(x,bl))return false;if(rc.soOn&&rc.so.length&&!pfCotRegraMarca(x,rc.so))return false;if(rc.saldo&&!((+x.saldo||0)>0))return false;return true;});
+  its.sort(function(a,b){var sa=(+a.saldo||0)>0?0:1,sb=(+b.saldo||0)>0?0:1;return sa-sb||((+a.custo||Infinity)-(+b.custo||Infinity));});
+  return its;
+}
+function vendasTrazerOutrasMarcas(i){
+  var v=window._venda,it=v&&v.itens&&v.itens[i];if(!it)return;
+  var its=vendasOutrasMarcasDe(i);
+  if(!its.length){pfChToast('Não tem outra marca do '+(it.codigo||'')+' no estoque (fora as que já estão na cotação)');return;}
+  var cod=String(it.codigo||'').trim();
+  var novos=its.map(function(f){var n=vendasItemDaFicha(cod,f,it.desc,'');n.codigoOriginal=it.codigoOriginal||it.codigo;n.qtd=it.qtd||1;n.outraMarca={de:it.marcaInterna||it.marca||''};return n;});
+  Array.prototype.splice.apply(v.itens,[i+1,0].concat(novos));
+  pfCotSelRemap(function(k){return k>i?k+novos.length:k;});
+  window._vendasItemAtivo=i+novos.length;
+  vendasRefresh();try{vendasAutoSalvarDebounced();}catch(e){}
+  pfChToast('🔀 '+novos.length+' marca(s) a mais embaixo do '+cod+': '+novos.map(function(n){return n.marcaInterna||n.marca;}).join(', '));
+}
+function vendasOutrasMarcasMenuHtml(i,_opM){var n=0;try{n=vendasOutrasMarcasDe(i).length;}catch(e){}
+  return _opM('vendasTrazerOutrasMarcas('+i+')','🔀 Trazer outras marcas '+(n?'<b style="color:#1F4E79">('+n+')</b>':'<span style="color:#8a9ab0;font-size:11px">(nenhuma)</span>'));}
+function pfCotEtqNovasHtml(it){var h='',st='display:inline-block;font-size:10.5px;font-weight:800;border-radius:5px;padding:1px 6px;margin:2px 3px 0 0;';
+  if(it.outraMarca)h+='<span title="Outra marca do mesmo código (trazida pelo botão direito no item'+(it.outraMarca.de?' de '+pfCotEsc(it.outraMarca.de):'')+')" style="'+st+'background:#E8F0FB;color:#1F4E79">↳ outra marca</span>';
+  if(it.veioDe)h+='<span title="Trazido da cotação #'+pfCotEsc(it.veioDe.num)+'" style="'+st+'background:#EEF4FB;color:#12365e">⇄ veio da #'+pfCotEsc(it.veioDe.num)+'</span>';
+  return h;}
+
+// ⇄ 3) Trazer itens de outra cotação: escolho a cotação, marco os itens e eles SAEM de lá e entram aqui (fica "→ foi pra #N" na de origem).
+// Preço diferente lá × aqui = aviso com "usar o de lá / manter o daqui". Mesmo código + marca aqui = soma a quantidade.
+function vendasTrazerBtnHtml(){var v=window._venda;if(!v||v.pvEdit)return '';
+  return '<button onclick="pfTrazAbrir()" title="Traz itens de outra cotação pra esta (eles saem de lá)" style="padding:4px 10px;border:1px solid #b9d2ee;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;background:#E8F1FB;color:#1F4E79;white-space:nowrap">⇄ Trazer de outra cotação</button>';}
+function pfTrazCots(){var C='partsflow_cotacoes_v1',l=[];try{l=JSON.parse(pfSafeGetItem(C)||'[]')||[];}catch(e){}return l;}
+function pfTrazMesmoCli(c,v){var a=v&&v.cliente;if(!a||!c)return false;var o=c.clienteObj||{};
+  if(a.codigo&&o.codigo&&String(a.codigo)===String(o.codigo))return true;var ra=pfBuscaAN(a.razao||''),rc=pfBuscaAN(o.razao||c.cliente||'');return !!ra&&ra===rc;}
+function pfTrazAbrir(){var v=window._venda;if(!v){pfAlert('Abra uma cotação primeiro.');return;}window._pfTraz={orig:null,q:'',sel:{},esc:{}};pfTrazRender();}
+function pfTrazRender(){
+  var v=window._venda,S=window._pfTraz;if(!v||!S)return;var corpo;
+  if(!S.orig){
+    var l=pfTrazCots().filter(function(c){return c&&!c.demoApagado&&(c.id||c.num)&&!(v.nr&&c.id===v.nr)&&!(v.num&&c.num===v.num&&!c.id)&&(c.itens||[]).some(function(it){return !it.pvNumero;});});
+    var q=pfBuscaN(S.q||'');
+    if(q)l=l.filter(function(c){return String(c.num||'').indexOf(q)>=0||pfBuscaN((c.clienteObj&&c.clienteObj.razao)||c.cliente||'').indexOf(q)>=0;});
+    l.forEach(function(c){c._mc=pfTrazMesmoCli(c,v)?1:0;c._t=+(c.tsMod||Date.parse(c.data||0)||0);});
+    l.sort(function(a,b){return b._mc-a._mc||b._t-a._t;});
+    corpo='<input id="pfTrazQ" value="'+pfCotEsc(S.q)+'" placeholder="Buscar pelo nº ou cliente…" oninput="window._pfTraz.q=this.value;clearTimeout(window._pfTrazT);window._pfTrazT=setTimeout(function(){pfTrazRender();var e=document.getElementById(\'pfTrazQ\');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},250)" style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #cfd8e3;border-radius:8px;font-size:13px;margin-bottom:8px">'+
+      (l.length?'<table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr style="background:#1c2940;color:#fff"><th style="padding:6px;text-align:left">Cotação</th><th style="padding:6px;text-align:left">Cliente</th><th style="padding:6px">Itens</th><th style="padding:6px">Data</th></tr>'+
+        l.slice(0,60).map(function(c){var n=(c.itens||[]).filter(function(it){return !it.pvNumero;}).length,d=c.tsMod||c.data;
+          return '<tr onclick="window._pfTraz.orig=\''+pfEscHtml(pfEscJs(c.id||('n:'+c.num)))+'\';pfTrazRender()" style="cursor:pointer;border-bottom:1px solid #eef1f5'+(c._mc?';background:#F3FAF5':'')+'" onmouseover="this.style.background=\'#F5F8FC\'" onmouseout="this.style.background=\''+(c._mc?'#F3FAF5':'')+'\'">'+
+            '<td style="padding:6px;font-weight:800">#'+pfCotEsc(c.num||'?')+(c._mc?' <span style="font-size:10px;color:#1d7a43;font-weight:700">mesmo cliente</span>':'')+'</td><td style="padding:6px">'+pfCotEsc((c.clienteObj&&c.clienteObj.razao)||c.cliente||'—')+'</td><td style="padding:6px;text-align:center">'+n+'</td><td style="padding:6px;text-align:center;white-space:nowrap">'+(d?new Date(d).toLocaleDateString('pt-BR'):'')+'</td></tr>';}).join('')+'</table>'
+      :'<div style="padding:12px;color:#8a9ab0">Nenhuma cotação com itens pra trazer.</div>');
+  } else {
+    var c=pfTrazCots().find(function(x){return (x.id||('n:'+x.num))===S.orig;});if(!c){S.orig=null;return pfTrazRender();}
+    var ufL=c.uf||'SP',mL=c.margem||21,nSel=0,nDif=0;
+    var linhas=(c.itens||[]).map(function(it,i){
+      var pv=!!it.pvNumero,la=pfCotPrecoDe(it,ufL,mL),j=(v.itens||[]).findIndex(function(x){return pfBuscaAN(x.codigo)===pfBuscaAN(it.codigo)&&pfBuscaN(x.marcaInterna||x.marca)===pfBuscaN(it.marcaInterna||it.marca);});
+      var aqui=j>=0?pfCotPrecoDe(v.itens[j],v.uf,v.margem):(it.vendaOverride!=null?la:pfCotPrecoDe(Object.assign({},it,{vendaOverride:null}),v.uf,v.margem));
+      var dif=la>0&&aqui>0&&Math.abs(la-aqui)>=0.01,sel=!pv&&!!S.sel[i],esc=S.esc[i]||'la';if(sel){nSel++;if(dif)nDif++;}
+      return '<tr style="border-bottom:1px solid #eef1f5'+(pv?';opacity:.45':'')+(sel&&dif?';background:#FFF8E6':'')+'">'+
+        '<td style="padding:6px;text-align:center">'+(pv?'<span title="Já foi pro pedido '+pfCotEsc(it.pvNumero)+'">✓</span>':'<input type="checkbox" '+(sel?'checked':'')+' onchange="window._pfTraz.sel['+i+']=this.checked;pfTrazRender()" style="width:16px;height:16px;cursor:pointer">')+'</td>'+
+        '<td style="padding:6px"><b>'+pfCotEsc(it.codigo||'')+'</b> · '+pfCotEsc(it.marca||'')+'<div style="font-size:11px;color:#8a9ab0">'+pfCotEsc(String(it.desc||'').slice(0,60))+'</div></td>'+
+        '<td style="padding:6px;text-align:center">'+pfCotEsc(it.qtd||1)+'</td>'+
+        '<td style="padding:6px;text-align:right;white-space:nowrap">'+(la?pfCotMoeda(la):'—')+'</td>'+
+        '<td style="padding:6px;white-space:nowrap">'+(j>=0?'<span style="font-size:11px;color:#1d7a43">já tem aqui (soma qtd)</span><br>':'')+(dif?'<span style="display:inline-block;font-size:10.5px;font-weight:800;border-radius:5px;padding:1px 6px;background:#FDECEA;color:#9a2a1e">⚠ aqui '+pfCotMoeda(aqui)+'</span>'+
+          (sel?'<div style="margin-top:3px"><span role="button" onclick="window._pfTraz.esc['+i+']=\'la\';pfTrazRender()" style="cursor:pointer;display:inline-block;border:1.5px solid '+(esc==='la'?'#1F4E79':'#cfd6df')+';background:'+(esc==='la'?'#1F4E79':'#fff')+';color:'+(esc==='la'?'#fff':'#1a2332')+';border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700;margin-right:3px">usar o de lá</span><span role="button" onclick="window._pfTraz.esc['+i+']=\'aqui\';pfTrazRender()" style="cursor:pointer;display:inline-block;border:1.5px solid '+(esc==='aqui'?'#1F4E79':'#cfd6df')+';background:'+(esc==='aqui'?'#1F4E79':'#fff')+';color:'+(esc==='aqui'?'#fff':'#1a2332')+';border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700">manter o daqui</span></div>':''):(j<0?'<span style="color:#8a9ab0">—</span>':''))+'</td></tr>';}).join('');
+    var nLivre=(c.itens||[]).filter(function(it){return !it.pvNumero;}).length;
+    corpo='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><button class="pfBtn pfBtnClaro" onclick="window._pfTraz.orig=null;window._pfTraz.sel={};pfTrazRender()">← Outra cotação</button>'+
+      '<div style="flex:1;font-size:12.5px"><b>Cotação #'+pfCotEsc(c.num||'?')+'</b> · '+pfCotEsc((c.clienteObj&&c.clienteObj.razao)||c.cliente||'')+'</div>'+
+      '<a href="#" onclick="event.preventDefault();var S=window._pfTraz;var c2=pfTrazCots().find(function(x){return (x.id||(\'n:\'+x.num))===S.orig;});(c2.itens||[]).forEach(function(it,i){if(!it.pvNumero)S.sel[i]=true;});pfTrazRender()" style="font-size:12px;color:#1F4E79;font-weight:700">marcar todos ('+nLivre+')</a></div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr style="background:#1c2940;color:#fff"><th style="padding:6px"></th><th style="padding:6px;text-align:left">Item</th><th style="padding:6px">Qtd</th><th style="padding:6px;text-align:right">Preço lá</th><th style="padding:6px;text-align:left">Aqui'+(v.num?' (#'+pfCotEsc(v.num)+')':'')+'</th></tr>'+linhas+'</table>'+
+      (nDif?'<div style="margin-top:8px;background:#FFF6D6;border:1px solid #F0D27A;border-radius:8px;padding:7px 10px;font-size:12.5px">⚠ <b>'+nDif+' item(ns) com preço diferente</b> — escolha em cada um "usar o de lá" ou "manter o daqui".</div>':'')+
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button class="pfBtn pfBtnClaro" onclick="pfNcFechar(\'pfTrazJan\')">Cancelar</button><button class="pfBtn pfBtnVerde" '+(nSel?'':'disabled style="opacity:.5"')+' onclick="pfTrazTrazer()">Trazer '+nSel+' item(ns) (saem da #'+pfCotEsc(c.num||'?')+')</button></div>';
+  }
+  var ov=pfNcJanela('pfTrazJan','⇄ Trazer itens de outra cotação',S.orig?'Os itens marcados saem de lá e entram aqui':'Escolha a cotação (as do mesmo cliente primeiro)',corpo,760);
+  if(ov)ov.style.zIndex='100045';
+}
+async function pfTrazTrazer(){
+  var v=window._venda,S=window._pfTraz;if(!v||!S||!S.orig)return;
+  var cots=pfTrazCots(),ci=cots.findIndex(function(x){return (x.id||('n:'+x.num))===S.orig;});if(ci<0)return;
+  var c=cots[ci],ufL=c.uf||'SP',mL=c.margem||21,idx=Object.keys(S.sel).filter(function(i){return S.sel[i]&&c.itens[i]&&!c.itens[i].pvNumero;}).map(Number);
+  if(!idx.length)return;
+  if(!v.itens)v.itens=[];var vem=[],soma=0,novos=0;
+  idx.forEach(function(i){
+    var it=c.itens[i],la=pfCotPrecoDe(it,ufL,mL),esc=S.esc[i]||'la';
+    var j=v.itens.findIndex(function(x){return pfBuscaAN(x.codigo)===pfBuscaAN(it.codigo)&&pfBuscaN(x.marcaInterna||x.marca)===pfBuscaN(it.marcaInterna||it.marca);});
+    if(j>=0){var a=v.itens[j],aq=pfCotPrecoDe(a,v.uf,v.margem);a.qtd=(+a.qtd||1)+(+it.qtd||1);if(esc==='la'&&la>0&&Math.abs(la-aq)>=0.01)a.vendaOverride=la;a.veioDe={num:c.num,em:Date.now()};soma++;}
+    else{var n=JSON.parse(JSON.stringify(it));delete n.pvNumero;n.veioDe={num:c.num,em:Date.now()};
+      var aq2=pfCotPrecoDe(Object.assign({},n,{vendaOverride:null}),v.uf,v.margem);
+      if(esc==='la'){if(la>0&&Math.abs(la-aq2)>=0.01)n.vendaOverride=la;}else delete n.vendaOverride;
+      v.itens.push(n);novos++;}
+    vem.push({cod:it.codigo||'',marca:it.marca||'',qtd:+it.qtd||1});
+  });
+  vendasRefresh();
+  try{await vendasSalvarCotacaoReal({semHistorico:true});}catch(e){}
+  cots=pfTrazCots();ci=cots.findIndex(function(x){return (x.id||('n:'+x.num))===S.orig;});
+  if(ci>=0){c=cots[ci];var fica=(c.itens||[]).filter(function(it,i){return idx.indexOf(i)<0;});c.itens=fica;
+    c.transferidos=(c.transferidos||[]).concat(vem.map(function(x){return Object.assign(x,{para:v.num||'nova',em:Date.now()});}));
+    c.total=fica.reduce(function(s,it){return s+pfCotPrecoDe(it,c.uf||'SP',c.margem||21)*(+it.qtd||1);},0);c.tsMod=Date.now();
+    pfSafeSetItem('partsflow_cotacoes_v1',JSON.stringify(cots));
+    try{Object.keys(window._vendasTabs||{}).forEach(function(k){var t=window._vendasTabs[k];if(t&&t.venda&&t.venda!==v&&((c.id&&t.venda.nr===c.id)||(!c.id&&t.venda.num===c.num))){t.venda.itens=fica.map(function(x){return Object.assign({},x);});t.venda.transferidos=c.transferidos;}});}catch(e){}
+    try{if(typeof pfSyncPush==='function')pfSyncPush();}catch(e){}}
+  pfNcFechar('pfTrazJan');try{vendasAutoSalvarDebounced();}catch(e){}
+  pfChToast('⇄ '+idx.length+' item(ns) da #'+(c.num||'?')+(novos?' · '+novos+' novo(s)':'')+(soma?' · '+soma+' somado(s)':''));
+}
+
+// 🏭 2) Fornecedores por tipo de produto no Mapa: o fornecedor diz no cadastro com o que trabalha (Filtros, Rolamentos…, as mesmas famílias do PF);
+// o tipo do item vem da descrição; o painel do mapa mostra os sugeridos por tipo e o mapa já liga esses fornecedores nos itens daquele tipo (1x por item).
+function pfTiposProdLista(){try{return PF_NC_FAMILIAS.map(function(f){return f[0];});}catch(e){return [];}}
+function pfMapaTipoItem(it){if(!it)return '';var k=String(it.desc||'')+'|'+(it.marca||'');var C=window._pfMapaTipoC=window._pfMapaTipoC||{};if(C[k]!=null)return C[k];
+  var t='';try{t=pfNcFamilia({desc:it.desc||'',marca:it.marca||''});}catch(e){}if(pfTiposProdLista().indexOf(t)<0)t='';C[k]=t;return t;}
+function pfFornTipos(f){return (f&&f.tiposProd)||[];}
+function pfMapaFornPorTipo(){var por={};(typeof cotFornecedores!=='undefined'?cotFornecedores:[]).forEach(function(f){pfFornTipos(f).forEach(function(t){(por[t]=por[t]||[]).push(f);});});return por;}
+function pfMapaTipoAutoLigar(){
+  try{if(typeof mapaItens==='undefined'||!mapaItens.length)return;var por=pfMapaFornPorTipo();if(!Object.keys(por).length)return;var mudou=false;
+    mapaItens.forEach(function(it){if(it.tipoAuto)return;it.tipoAuto=1;var t=pfMapaTipoItem(it);if(!t||!por[t])return;var k=it.ref+'||'+(it.marca||'');
+      var arr=mapaFornSelecionados[k]=mapaFornSelecionados[k]||[];por[t].forEach(function(f){if(arr.indexOf(f.id)<0){arr.push(f.id);mudou=true;}});});
+    if(mudou){pfSafeSetItem('_mapaDados_fornSel',JSON.stringify(mapaFornSelecionados));if(typeof mapaSalvarEstado==='function')mapaSalvarEstado();}
+  }catch(e){console.warn('pfMapaTipoAutoLigar',e);}
+}
+function pfMapaTipoPainelHtml(){
+  try{var rel=mapaItens.filter(function(it){return it.sel!==false&&pfPrazoNaoIm(it.prazo);});var por=pfMapaFornPorTipo(),grupos={};
+    rel.forEach(function(it){var t=pfMapaTipoItem(it);if(t&&por[t])(grupos[t]=grupos[t]||[]).push(it);});
+    var ts=Object.keys(grupos);if(!ts.length)return '';
+    var h='<div style="font-size:10px;font-weight:700;color:#8a9ab0;margin:10px 0 0;letter-spacing:.4px">SUGERIDOS PELO TIPO DE PRODUTO</div>';
+    ts.forEach(function(t){var its=grupos[t];h+='<div style="font-size:11.5px;font-weight:800;color:#1a2332;margin:6px 0 0">'+pfCotEsc(t.charAt(0)+t.slice(1).toLowerCase())+' <span style="font-weight:400;color:#8a9ab0">('+its.length+' ite'+(its.length>1?'ns':'m')+')</span></div>';
+      por[t].forEach(function(f){var n=its.filter(function(it){return (mapaFornSelecionados[it.ref+'||'+(it.marca||'')]||[]).indexOf(f.id)>=0;}).length,on=n===its.length,parc=n>0&&!on;
+        var cor=on?'#1F4E79':(parc?'#D97706':'#CBD5E1'),pos=n?'right:2px':'left:2px';
+        h+='<div onclick="pfMapaTipoToggle(\''+pfEscJs(f.id)+'\',\''+pfEscJs(t)+'\')" style="display:flex;align-items:center;gap:9px;padding:7px 0;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f4f8">'+
+          '<span style="width:32px;height:18px;border-radius:9px;background:'+cor+';position:relative;flex-shrink:0"><span style="position:absolute;top:2px;'+pos+';width:14px;height:14px;border-radius:50%;background:#fff"></span></span>'+
+          '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1a2332">'+pfCotEsc(f.fantasia||f.nome||f.razao||'')+'</span><span style="font-size:11px;color:#8a9ab0">'+n+'/'+its.length+'</span></div>';});});
+    return h;}catch(e){return '';}
+}
+function pfMapaTipoToggle(fid,t){
+  var its=mapaItens.filter(function(it){return pfMapaTipoItem(it)===t;}),tem=its.some(function(it){return (mapaFornSelecionados[it.ref+'||'+(it.marca||'')]||[]).indexOf(fid)>=0;});
+  its.forEach(function(it){var k=it.ref+'||'+(it.marca||''),arr=mapaFornSelecionados[k]=mapaFornSelecionados[k]||[],p=arr.indexOf(fid);if(tem){if(p>=0)arr.splice(p,1);}else if(p<0)arr.push(fid);});
+  pfSafeSetItem('_mapaDados_fornSel',JSON.stringify(mapaFornSelecionados));if(typeof mapaSalvarEstado==='function')mapaSalvarEstado();mapaRender();
+}
+function pfMapaTipoTagHtml(it){var t=pfMapaTipoItem(it);if(!t)return '';return '<span title="Tipo do produto (pela descrição)" style="display:inline-block;font-size:10px;font-weight:800;border-radius:5px;padding:1px 6px;margin:1px 4px 1px 0;background:#FFF4E5;color:#7a4a10">'+pfCotEsc(t.charAt(0)+t.slice(1).toLowerCase())+'</span>';}
+
+// 🔍 5) Códigos parecidos: o cliente pode ter digitado errado (3-3-5571X em vez de 3-3-6571X). Procura no Cardan (código, similar, substitui,
+// conversões, equivalentes) e no cadastro de produtos códigos com 1 caractere trocado / a mais / a menos, dois invertidos, X/XS/sem X e ALB na frente.
+function pfParecidosIdx(){
+  var C=window._pfParecIdx;if(C&&Date.now()-C.t<60000)return C.l;var l=[],vis={};
+  var add=function(cod,info){var n=pfBuscaAN(cod);if(n.length<3)return;var k=n+'|'+info.fam+'|'+info.cod;if(vis[k])return;vis[k]=1;l.push({n:n,cod:String(cod),fam:info.fam,principal:info.cod,marca:info.marca,desc:info.desc,cc:info.cc});};
+  try{var D=ccLoad()||{};Object.keys(D).forEach(function(fam){var arr=D[fam];if(!Array.isArray(arr))return;arr.forEach(function(it){if(!it)return;
+    var info={fam:fam,cod:it.codigo,marca:it.linha||'',desc:it.descricao||(CC_NOME_SINGULAR[fam]||fam),cc:1};
+    add(it.codigo,info);[it.similar,it.substitui].forEach(function(x){if(x)add(x,info);});
+    (it.conversoes||[]).forEach(function(c){var x=c&&(c.ref||c.codigo||c);if(x&&typeof x==='string')add(x,info);});
+    (it.equivalentesExtra||[]).forEach(function(c){if(c&&c.codigo)add(c.codigo,Object.assign({},info,{marca:c.marca||info.marca}));});});});}catch(e){}
+  try{(cadLoad(PROD_KEY)||[]).forEach(function(p){if(!p||!p.codigo)return;var info={fam:'',cod:p.codigo,marca:p.marca||p.linha||'',desc:p.descricaoResumida||p.descricao||'',cc:0};add(p.codigo,info);
+    (p.conversoes||[]).forEach(function(c){var x=c&&(c.ref||c.codigo);if(x)add(x,info);});});}catch(e){}
+  window._pfParecIdx={t:Date.now(),l:l};return l;
+}
+function pfParecidosBase(n){return n.replace(/^ALB/,'').replace(/XS$|X$/,'');}
+function pfParecidosComo(q,n){
+  if(q===n)return null;
+  var bq=pfParecidosBase(q),bn=pfParecidosBase(n);
+  if(bq&&bq===bn){if(/^ALB/.test(q)!==/^ALB/.test(n))return {p:0,t:(/^ALB/.test(n)?'com ALB na frente':'sem o ALB')};return {p:0,t:(/XS$/.test(n)?'com XS no fim':/X$/.test(n)?'com X no fim':'sem o X/XS')};}
+  var a=bq,b=bn;if(Math.abs(a.length-b.length)>1||a.length<3)return null;
+  if(a.length===b.length){var d=[];for(var i=0;i<a.length;i++)if(a[i]!==b[i])d.push(i);
+    if(d.length===1)return {p:1,t:'1 caractere trocado ('+a[d[0]]+'→'+b[d[0]]+')'};
+    if(d.length===2&&d[1]===d[0]+1&&a[d[0]]===b[d[1]]&&a[d[1]]===b[d[0]])return {p:2,t:'2 caracteres invertidos ('+a[d[0]]+a[d[1]]+'→'+b[d[0]]+b[d[1]]+')'};return null;}
+  var lo=a.length<b.length?a:b,hi=a.length<b.length?b:a;for(var k=0;k<hi.length;k++){if(hi.slice(0,k)+hi.slice(k+1)===lo)return {p:3,t:(a.length<b.length?'1 caractere a mais ('+hi[k]+')':'1 caractere a menos ('+hi[k]+')')};}
+  return null;
+}
+function pfParecidos(cod,lim){
+  var q=pfBuscaAN(cod);if(q.length<3)return [];var out=[],vis={};
+  pfParecidosIdx().forEach(function(x){var r=pfParecidosComo(q,x.n);if(!r)return;var k=x.n+'|'+x.principal;if(vis[k])return;vis[k]=1;out.push(Object.assign({como:r.t,p:r.p},x));});
+  out.forEach(function(x){x.saldo=null;try{x.saldo=pfCatEnvSaldo(x.cod);if(x.saldo==null&&x.principal!==x.cod)x.saldo=pfCatEnvSaldo(x.principal);}catch(e){}});
+  out.sort(function(a,b){return a.p-b.p||((b.saldo||0)>0)-((a.saldo||0)>0)||a.cod.localeCompare(b.cod);});
+  return out.slice(0,lim||30);
+}
+function pfParecidosAbrir(cod){
+  cod=String(cod||window._ccBuscaGeralTxt||'').trim();
+  var l=pfParecidos(cod,40);
+  var corpo='<div style="font-size:12.5px;color:#5b6b80;margin-bottom:8px">Você digitou <b style="font-family:monospace;color:#1a2332">'+pfCotEsc(cod)+'</b>. Pode ser que o cliente tenha passado errado — esses códigos existem e são quase iguais:</div>'+
+    (l.length?'<table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr style="background:#1c2940;color:#fff"><th style="padding:6px;text-align:left">Você quis dizer?</th><th style="padding:6px;text-align:left">O que muda</th><th style="padding:6px;text-align:left">Peça</th><th style="padding:6px"></th></tr>'+
+      l.map(function(x,i){var fam=x.fam?(CC_NOME_SINGULAR[x.fam]||x.fam):'Cadastro de produtos';
+        return '<tr style="border-bottom:1px solid #eef1f5'+(i===0?';background:#EAF6EE':'')+'"><td style="padding:6px;white-space:nowrap"><b style="font-family:monospace">'+pfCotEsc(x.cod)+'</b>'+ccBgCopiarHtml(x.cod,true)+(x.principal&&pfBuscaAN(x.principal)!==x.n?'<div style="font-size:10.5px;color:#8a9ab0">= '+pfCotEsc(x.principal)+'</div>':'')+'</td>'+
+          '<td style="padding:6px">'+pfCotEsc(x.como)+'</td>'+
+          '<td style="padding:6px">'+pfCotEsc(fam)+(x.marca?' · '+pfCotEsc(x.marca):'')+' · '+(x.saldo>0?'<b style="color:#1d7a43">saldo '+x.saldo+'</b>':'<span style="color:#8a9ab0">sem saldo</span>')+(x.desc&&!x.cc?'<div style="font-size:10.5px;color:#8a9ab0">'+pfCotEsc(String(x.desc).slice(0,50))+'</div>':'')+'</td>'+
+          '<td style="padding:6px;text-align:right;white-space:nowrap"><button class="pfBtn '+(i===0?'pfBtnVerde':'pfBtnClaro')+'" style="min-height:0;padding:4px 10px;font-size:12px" onclick="pfParecidosEsse(\''+pfEscHtml(pfEscJs(x.fam))+'\',\''+pfEscHtml(pfEscJs(x.principal||x.cod))+'\',\''+pfEscHtml(pfEscJs(x.cod))+'\')">é esse</button></td></tr>';}).join('')+'</table>'+
+      '<div style="font-size:11.5px;color:#5b6b80;margin-top:8px">Dica: dá pra perguntar pro cliente "não seria o '+pfCotEsc(l[0].cod)+'?" 📋 copia o código.</div>'
+    :'<div style="padding:14px;color:#8a9ab0">Não achei nenhum código parecido (1 caractere trocado, a mais, a menos, invertido, X/XS ou ALB).</div>');
+  var ov=pfNcJanela('ccParecJan','🔍 Códigos parecidos','procura no Cardan, conversões, equivalentes e no cadastro de produtos',corpo,720);
+  if(ov)ov.style.zIndex='100060';
+}
+function pfParecidosEsse(fam,principal,cod){
+  pfNcFechar('ccParecJan');
+  if(fam){if(document.getElementById('ccBuscaGeralInp')){var e=document.getElementById('ccBuscaGeralInp');e.value=cod;ccBuscaGeralExecutar(cod);}else{try{ccAbrirDoLink(fam,principal);}catch(e2){}}return;}
+  setTimeout(function(){try{pfItemCardBuscaAbrir();var _i=document.getElementById('pfItemCardBuscaInput');if(_i){_i.value=cod;pfItemCardBuscar();}}catch(e){}},60);
+}
+function pfParecidosBtnHtml(vazio){return '<button class="pfBtn '+(vazio?'pfBtnAzul':'pfBtnClaro')+'" onclick="pfParecidosAbrir()" title="O cliente pode ter passado o código errado: mostra os códigos quase iguais que existem" style="font-size:12px;padding:5px 12px;min-height:0;margin:6px 0 2px'+(vazio?';box-shadow:0 0 0 3px #ffd54a':'')+'">🔍 Códigos parecidos</button>';}
+
 function vendasAbrirMenuLinha(e,i){
   e.preventDefault();
   var old=document.getElementById('vendasMenuLinha');
@@ -58149,6 +58496,7 @@ function vendasAbrirMenuLinha(e,i){
   var _opM=function(fn,txt,cor){return '<div onclick="document.getElementById(\'vendasMenuLinha\').remove();'+fn+'" style="padding:9px 14px;font-size:13px;color:'+(cor||'var(--pf-fx-textoEscuro,#1a2332)')+';cursor:pointer;border-top:1px solid var(--pf-fx-fundoSuave,#f0f4f8)" onmouseover="this.style.background=\'#F7F9FC\'" onmouseout="this.style.background=\'\'">'+txt+'</div>';};
   var _topoM='<div style="padding:7px 14px;font-size:11.5px;font-weight:700;color:#8a9ab0;background:#F7F9FC">'+pfEscHtml(_itM.codigo||'')+' · '+pfEscHtml(_itM.marca||'')+'</div>'+
     _opM('vendasVerCadastroItem(\''+pfEscHtml(pfEscJs(_itM.codigo||''))+'\',\''+pfEscHtml(pfEscJs(_itM.desc||''))+'\')','📋 Ficha do item')+
+    vendasOutrasMarcasMenuHtml(i,_opM)+ // v115.2709 - 🔀 trazer outras marcas
     _opM('vendasAbrirRelacionados('+i+')','🔗 Relacionados'+(_nRelM?' <b style="color:#E67E22">('+_nRelM+')</b>':''))+
     (function(){var n=0;try{n=rmaDoCodigo(_itM.codigo).length;}catch(eR){}return _opM('vendasRmasItem('+i+')','🔄 RMAs deste item'+(n?' <b style="color:#C0392B">('+n+')</b>':' <span style="color:#8a9ab0;font-size:11px">(nenhum)</span>'));})()+ // v115.2152
     (_negM?_opM('vendasEnviarMapa('+i+')','📍 Enviar ao Mapa de Compras','#C00000'):'')+
@@ -66530,7 +66878,7 @@ function pfNcJanela(id,titulo,sub,corpo,largura){
     '<div data-pfnc-corpo style="overflow:auto;padding:12px 16px">'+corpo+'</div></div>';
   var md=false;ov.onmousedown=function(e){md=e.target===ov;};ov.onclick=function(e){if(md&&e.target===ov)pfNcFechar(id);};
   document.body.appendChild(ov);
-  var esc=function(e){if(e.key!=='Escape')return;var top=document.querySelectorAll('#pfNcMapa,#pfNcPecas,#pfOrigJan,#pfFpJan,#pfMdJan,#maqAplJan,#pfMdPrazoJan,#ccMontJan,#pfEmoJan,#pfExtJan,#pfImpCont,#pfStJan,#pfCredJan,#pfDispJan');if(top[top.length-1]!==ov)return;e.stopImmediatePropagation();e.preventDefault();pfNcFechar(id);};
+  var esc=function(e){if(e.key!=='Escape')return;var top=document.querySelectorAll('#pfNcMapa,#pfNcPecas,#pfOrigJan,#pfFpJan,#pfMdJan,#maqAplJan,#pfMdPrazoJan,#ccMontJan,#pfEmoJan,#pfExtJan,#pfImpCont,#pfStJan,#pfCredJan,#pfDispJan,#pfCotRegJan,#pfTrazJan,#ccParecJan');if(top[top.length-1]!==ov)return;e.stopImmediatePropagation();e.preventDefault();pfNcFechar(id);};
   ov._esc=esc;document.addEventListener('keydown',esc,true);return ov;
 }
 function pfNcFechar(id){var o=document.getElementById(id);if(!o)return;if(o._esc)document.removeEventListener('keydown',o._esc,true);o.remove();}
@@ -71575,6 +71923,13 @@ function pfVR2Aplicar(codDigitado,items,cliente){
       if(fixa.length)tirar(res.filter(function(it){return fixa.indexOf(it)<0;}),r,motivo);
     }
   });
+  // v115.2709 - ⚙️ regras só desta cotação (v.regrasCot) valem junto com as do Assistente
+  try{var _rc=window._venda&&pfCotRegrasN(window._venda)?pfCotRegras(window._venda):null;if(_rc){var _R={escopo:'cotacao'},_m='regra desta cotação: ';
+    if(_rc.soOn&&_rc.so.length)tirar(res.filter(function(it){return !pfCotRegraMarca(it,_rc.so);}),_R,_m+'só '+_rc.so.join('/'));
+    if(_rc.bloqOn&&_rc.bloq.length)tirar(res.filter(function(it){return pfCotRegraMarca(it,_rc.bloq);}),_R,_m+'não cotar '+_rc.bloq.join('/'));
+    if(_rc.saldo)tirar(res.filter(function(it){return pfVR2Saldo(it)<=0;}),_R,_m+'só com saldo');
+    if(_rc.barato&&res.length>1){var _cs=res.filter(function(it){return pfVR2Saldo(it)>0;}),_bt=(_cs.length?_cs:res).slice().sort(function(a,b){return pfVR2Custo(a)-pfVR2Custo(b);})[0];tirar(res.filter(function(it){return it!==_bt;}),_R,_m+'sempre a mais barata');}
+  }}catch(eRC){}
   if(pfVR2EnxutaAtiva()&&res.length>1){
     var comSaldo=res.filter(function(it){return pfVR2Saldo(it)>0;});
     if(comSaldo.length&&comSaldo.length<res.length){
@@ -72411,7 +72766,7 @@ function vendasAbrirModal(cx){
   // Use cotação num as tab ID, or 'nova' for new
   var tabId=cx._tabId||(cx.num?String(cx.num):'nova_'+Date.now()); // v115.2060 - _tabId: aba já montada (pedido em edição)
   if(!window._vendasTabs[tabId]){
-    var venda={num:cx.num||null,nr:cx.id||cx.nr,cliente:cx.clienteObj,uf:cx.uf||(cx.clienteObj&&cx.clienteObj.estado)||'SP',margem:cx.margem||(typeof pfVendasMargemPadraoLoad==='function'?pfVendasMargemPadraoLoad():30),condicao:cx.condicao,comprador:cx.comprador,pdfCod:cx.pdfCod||'',obsCli:cx.obsCli||'',antesPedidoWa:cx.antesPedidoWa||null,itens:(cx.itens||[]).map(function(i){return Object.assign({},i);})};
+    var venda={num:cx.num||null,nr:cx.id||cx.nr,cliente:cx.clienteObj,uf:cx.uf||(cx.clienteObj&&cx.clienteObj.estado)||'SP',margem:cx.margem||(typeof pfVendasMargemPadraoLoad==='function'?pfVendasMargemPadraoLoad():30),condicao:cx.condicao,comprador:cx.comprador,pdfCod:cx.pdfCod||'',obsCli:cx.obsCli||'',antesPedidoWa:cx.antesPedidoWa||null,regrasCot:cx.regrasCot||null,transferidos:cx.transferidos||null,itens:(cx.itens||[]).map(function(i){return Object.assign({},i);})};
     var label=(cx.clienteObj&&(cx.clienteObj.fantasia||cx.clienteObj.razao))||cx.cliente||'Nova';
     if(label.length>18)label=label.substring(0,18)+'…';
     window._vendasTabs[tabId]={venda:venda,label:label,num:cx.num||'Nova'};
@@ -72650,7 +73005,9 @@ function vendasRenderTabs(){
   atalCot.style.cssText=tourCot.style.cssText;atalCot.onclick=function(){pfCotAtalhosAbrir();};
   var regrasCot=document.createElement('button');regrasCot.textContent='📋 Regras';regrasCot.title='Todas as regras valendo pra este cliente/cotação'; // v115.2688
   regrasCot.style.cssText=tourCot.style.cssText;regrasCot.onclick=function(){pfRegrasAbrir();};
-  ctrl.appendChild(iaBtn);ctrl.appendChild(pdfGrupo);if(!isMin){ctrl.appendChild(ajudaCot);ctrl.appendChild(tourCot);ctrl.appendChild(atalCot);ctrl.appendChild(regrasCot);}ctrl.appendChild(sepJan);ctrl.appendChild(minBtn);ctrl.appendChild(maxBtn);ctrl.appendChild(closeAll); // v115.2271 - ESC saiu (vai no balão do ✕)
+  var regrasEsta=document.createElement('button');regrasEsta.textContent=pfCotRegrasBtnHtml();regrasEsta.title='Regras que valem SÓ nesta cotação (cotar só marca X, só com saldo…)'; // v115.2709
+  regrasEsta.style.cssText=tourCot.style.cssText+(pfCotRegrasN()?';background:#FFD54A;color:#3d3000;border-color:#FFD54A':'');regrasEsta.onclick=function(){pfCotRegrasAbrir();};
+  ctrl.appendChild(iaBtn);ctrl.appendChild(pdfGrupo);if(!isMin){ctrl.appendChild(ajudaCot);ctrl.appendChild(tourCot);ctrl.appendChild(atalCot);ctrl.appendChild(regrasCot);ctrl.appendChild(regrasEsta);}ctrl.appendChild(sepJan);ctrl.appendChild(minBtn);ctrl.appendChild(maxBtn);ctrl.appendChild(closeAll); // v115.2271 - ESC saiu (vai no balão do ✕)
   tabBar.appendChild(ctrl);
   box.appendChild(tabBar);
 
@@ -73390,6 +73747,7 @@ function vendasZebraCores(){
 }
 function vendasAtualizarLista(){
   var COTS_KEY='partsflow_cotacoes_v1';
+  try{pfCotNumDupArrumar();}catch(e){} // v115.2715
   var cots=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');
   // v115.2082 - cotação -> pedidos de venda que saíram dela (sinaliza mesmo se a cotação perdeu a dataPedido)
   var _pvPorCot={};
@@ -73595,7 +73953,7 @@ function vendasAtualizarLista(){
     tdAct.appendChild(actWrap);
     (function(nn){
       bv.onclick=function(e){e.stopPropagation();var cs=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');var cx=cs.find(function(x){return x.num===nn;});if(cx)vendasAbrirModal(cx);};
-      bd.onclick=function(e){e.stopPropagation();pfConfirm('Excluir a cotação #'+nn+'?',function(){var cs=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');cs=cs.filter(function(x){return x.num!==nn;});pfSafeSetItem(COTS_KEY,JSON.stringify(cs));if(window._vendasSelected===nn){window._vendasSelected=null;}vendasAtualizarLista();},'Excluir');};
+      bd.onclick=function(e){e.stopPropagation();pfConfirm('Excluir a cotação #'+nn+'?',function(){var cs=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');var cx=cs.find(function(x){return x.num===nn;});pfCotExcluir(cx);if(window._vendasSelected===nn){window._vendasSelected=null;}vendasAtualizarLista();},'Excluir');}; // v115.2715 - pelo id, com marca (não volta na sync)
       tr.onclick=function(){
         var now=Date.now();
         if(window._vendasLastTapNum===nn && (now-(window._vendasLastTapTime||0))<450){
@@ -74244,10 +74602,10 @@ async function vendasSalvarCotacaoReal(opts){
   if(idxExistente>=0&&opts.aoFechar){
     // v115.2344 - BUG (varredura): só ABRIR e fechar uma cotação regravava tudo (data de hoje, quem abriu virava o atendente e o
     // histórico de preços ganhava registros repetidos). Ao fechar, sem nada mudado, não grava.
-    try{var _a=cots[idxExistente]||{};var _k=function(o){return JSON.stringify([o.itens||[],(o.clienteObj&&(o.clienteObj.codigo||o.clienteObj.razao))||o.cliente||'',o.uf||'',+o.margem||0,o.condicao||'',o.comprador||'',o.obsCli||'',!!o.antesPedidoWa]);};
-      if(_k(_a)===_k({itens:v.itens,clienteObj:v.cliente,uf:v.uf,margem:v.margem,condicao:v.condicao,comprador:v.comprador,obsCli:v.obsCli,antesPedidoWa:v.antesPedidoWa})&&!v._tempoNovoSeg&&!(v.pdfEm&&v.pdfEm!==_a.pdfEm)){v.num=num;return {num:num,idxExistente:idxExistente,semMudanca:true};}}catch(eK){}
+    try{var _a=cots[idxExistente]||{};var _k=function(o){return JSON.stringify([o.itens||[],(o.clienteObj&&(o.clienteObj.codigo||o.clienteObj.razao))||o.cliente||'',o.uf||'',+o.margem||0,o.condicao||'',o.comprador||'',o.obsCli||'',!!o.antesPedidoWa,JSON.stringify(o.regrasCot||null)]);};
+      if(_k(_a)===_k({itens:v.itens,clienteObj:v.cliente,uf:v.uf,margem:v.margem,condicao:v.condicao,comprador:v.comprador,obsCli:v.obsCli,antesPedidoWa:v.antesPedidoWa,regrasCot:v.regrasCot})&&!v._tempoNovoSeg&&!(v.pdfEm&&v.pdfEm!==_a.pdfEm)){v.num=num;return {num:num,idxExistente:idxExistente,semMudanca:true};}}catch(eK){}
   }
-  var cot={num:num,id:v.nr,data:new Date().toISOString(),atendenteEmail:(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||'',atendenteNome:(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)||'',/* v115.2087 - quem atendeu (Painel/Órbita do gestor) */cliente:v.cliente?v.cliente.razao:'',clienteObj:v.cliente||null,uf:v.uf||'SP',margem:v.margem||30,condicao:v.condicao||'',comprador:v.comprador||'',pdfCod:v.pdfCod||'',obsCli:v.obsCli||'',antesPedidoWa:v.antesPedidoWa||null,itens:(v.itens||[]).slice(),total:(v.itens||[]).reduce(function(s,it){
+  var cot={num:num,id:v.nr,data:new Date().toISOString(),atendenteEmail:(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||'',atendenteNome:(typeof sbProfile!=='undefined'&&sbProfile&&sbProfile.nome)||'',/* v115.2087 - quem atendeu (Painel/Órbita do gestor) */cliente:v.cliente?v.cliente.razao:'',clienteObj:v.cliente||null,uf:v.uf||'SP',margem:v.margem||30,condicao:v.condicao||'',comprador:v.comprador||'',pdfCod:v.pdfCod||'',obsCli:v.obsCli||'',antesPedidoWa:v.antesPedidoWa||null,regrasCot:v.regrasCot||null,itens:(v.itens||[]).slice(),total:(v.itens||[]).reduce(function(s,it){
     var custo=it.custoOverride!=null?it.custoOverride:it.custo;
     var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf||'SP',v.margem||30):0);
     return s+(venda||0)*(it.qtd||1);
@@ -75250,7 +75608,8 @@ function pfExtProgresso(lote){if(!lote)return;
       pfChToast('💬 WhatsApp: '+ok+' enviada'+(ok!==1?'s':'')+(er?' · '+er+' com problema':''));}});}
 // ── perguntas do painel ──
 function pfExtResponder(m){
-  if(m.t==='quem')return pfExtQuem(m.tel,m.nome);
+  // v115.2708 - o painel também recebe o grau de intimidade do contato (tom das mensagens automáticas)
+  if(m.t==='quem'){var _q=pfExtQuem(m.tel,m.nome);try{if(_q&&typeof _q==='object'&&typeof _q.then!=='function')_q.intim=pfExtIntimDe(m.nome,m.tel);}catch(e){}return _q;}
   if(m.t==='acao')return pfExtAcao(m.acao,m.arg);
   return {erro:'?'};}
 function pfExtClientes(){var c=window._pfExtCliCache;if(c&&Date.now()-c.ts<30000)return c.l;var l=[];try{l=pcMontarDados();}catch(e){}
@@ -75276,13 +75635,13 @@ function pfExtQuem(tel,nome){
   // como o pfExtNomeMatcher já tira (v115.2621) → agora os pedaços vêm dele.
   var pedacos=[];try{pedacos=pfExtNomeMatcher(nome).pedacos;}catch(e){pedacos=nN.replace(/\(\s*\d+\s*\)/g,' ').split(/\s*[-–—|\/:·•]\s*|\s{2,}/).map(function(s){return s.trim();}).filter(function(s){return s.length>=4;});}
   var cls=pfExtClientes(),achou=null,contato=null,pelo='';
-  if(tN.length>=8)cls.some(function(c){if(!c.cad)return false;var cs=[];try{cs=pfCrmContatos(c.cad);}catch(e){}
+  try{var _lk=pfExtLigadoK(nome,tel);if(_lk){achou=cls.find(function(c){return c.k===_lk;})||null;if(achou){pelo='contato salvo';try{contato=(pfCrmContatos(achou.cad)||[]).find(function(o){return tN.length>=8&&pfExtTelBate(o.tel,tN);})||null;}catch(e){}}}}catch(e){} // v115.2700
+  if(!achou&&tN.length>=8)cls.some(function(c){if(!c.cad)return false;var cs=[];try{cs=pfCrmContatos(c.cad);}catch(e){}
     var x=cs.find(function(o){return pfExtTelBate(o.tel,tN);});if(x){achou=c;contato=x;pelo='';return true;}return false;});
   // v115.2591 - A pedido do Vitor ("abre mas sem o nome do cliente" — contato "Dener - Triangulo Locacoes (7840) (13468)"): o código do cliente
   // entre parênteses no nome do WhatsApp era jogado fora. Agora cada número entre parênteses é procurado como CÓDIGO do cadastro (o que existir vale).
   if(!achou){var cods=(String(nome||'').match(/\(\s*\d{2,8}\s*\)/g)||[]).map(function(x){return x.replace(/\D/g,'');});
-    cods.some(function(cd){return cls.some(function(c){
-      if(pfExtCodBate(c.cad,cd)||c.k==='c:'+cd){achou=c;pelo='código '+cd;return true;}return false;});});}
+    var _pc=pfExtPorCodigo(cls,cods);if(_pc){achou=_pc.c;pelo='código '+_pc.cd;}} // v115.2700 - Código JBoss antes do código do PF
   var forn=null,fcont=null;
   var fl=[];try{fl=cadLoad(FORN_KEY)||[];}catch(e){}
   var telsF=function(f){var a=[f.whatsapp,f.telefone,f.tel,f.celular];(f.contatos||[]).forEach(function(o){a.push(o.whatsapp,o.tel,o.telefone,o.celular);});return a;};
@@ -75395,11 +75754,16 @@ function pfExtLerPedido(msgs){
       var _prs=pfExtMarcasDaLinha(lin),_grax=/c\s*\/\s*grax|com\s+grax/i.test(lin)?true:(/s\s*\/\s*grax|sem\s+grax/i.test(lin)?false:null);
       var toks=lin.match(/[A-Za-z0-9][A-Za-z0-9.\-\/]{2,}[A-Za-z0-9]/g)||[];
       var qL=null,mq=lin.match(/(?:\bqtd\.?\s*:?\s*|(?:^|\s)x\s*)(\d{1,4})(?![\w.\-\/])|(?:^|\s)(\d{1,4})\s*(?:x|un|und|unid|unidades?|p[çc]s?|pe[çc]as?)(?![\w\-\/])/i);if(mq)qL=+(mq[1]||mq[2]); // v115.2612 - "5-438x" não é 438 unidades (número colado no código não é quantidade)
+      // v115.2715 - A pedido do Vitor ("mandei o pedido e não atualizou as quantidades"): "02 2055005", "2055005 - 2", "2055005 (2)" = quantidade solta na linha.
+      // Só quando a linha tem UM código (4+ dígitos) e o número solto tem até 3 dígitos.
+      if(qL==null){var _cods=toks.filter(function(t){return t.replace(/\D/g,'').length>=4;});
+        if(_cods.length===1){var _r=' '+lin+' ';_r=_r.split(_cods[0]).join(' ').replace(/\bdias?\s+\d{1,2}\b/gi,' ').replace(/R\$\s*[\d.,]+/gi,' ').replace(/\d+[.,:\/]\d+/g,' ').replace(/\d+\s*(?:%|h\b|hs\b|min)/gi,' ');var _mq=_r.match(/(?:^|[\s(\-–:=])0*(\d{1,3})\s*(?:\)|$|\s)/);if(_mq&&+_mq[1]>0)qL=+_mq[1];}}
       toks.forEach(function(tok){
         // v115.2638 - A pedido do Vitor ("não entendeu o código das peças de cardan"): palavra do tipo colada no código (LUVA03541X2, CRUZETA512278X) -> tira a palavra, fica só o código.
         var mTipo=tok.match(/^(LUVA|CRUZETA|PONTEIRA|PONTUVA|FLANGE|GARFO|TERMINAL|CARDAN)[\s.\-]*([0-9][A-Za-z0-9.\-\/]*)$/i);
         if(mTipo&&mTipo[2].replace(/\D/g,'').length>=4)tok=mTipo[2];
         var _px=pfCodPrefixo(tok),pxCli='',pxMarca='';if(_px){pxCli=_px.orig;pxMarca=_px.marca;tok=_px.cod;} // v115.2677 - CAR47700 = Carraro 47700
+        else{var _sx=pfCodSufixo(tok);if(_sx){pxCli=_sx.orig;pxMarca=_sx.marca;tok=_sx.cod;}} // v115.2710 - 3-40-1571TX = TX 3-40-1571
         var d=tok.replace(/\D/g,'');if(d.length<4)return;
         if(/^\d{1,2}[\/.]\d{1,2}([\/.]\d{2,4})?$/.test(tok))return; // data
         if(/^\d{1,2}:\d{2}$/.test(tok))return;
@@ -75414,15 +75778,12 @@ function pfExtLerPedido(msgs){
         if(mT){var resto=mT[2].replace(/[^A-Za-z0-9]/g,''),pre=mT[1];if(+pre>0&&((pre.charAt(0)==='0'&&resto.length>=5)||resto.length>=7)&&!/-/.test(mT[2])){qT=+pre;tok=mT[2];}}
         // v115.2650 - mesma regra da cotação: letra + até 5 dígitos completa com zeros até 6 (D55252 = D055252)
         var mLz=tok.toUpperCase().match(/^([A-Z])(\d{1,5})$/);if(mLz){var nz=mLz[2];while(nz.length<6)nz='0'+nz;tok=mLz[1]+nz;}
-        // v115.2698 - A pedido do Vitor ("está lendo TX no código, sendo que é marca"): marca "TX" colada no fim do código (SPL250-1TX) = separa a marca
-        var marcaGrud='',codCliGrud='',mGrud=tok.toUpperCase().match(/^(.+?[0-9X])(TX)$/);
-        if(mGrud&&mGrud[1].replace(/\D/g,'').length>=3){codCliGrud=tok.toUpperCase();tok=mGrud[1];marcaGrud='TX';}
         var n=tok.toUpperCase().replace(/[.\-\/]/g,'');
         if(_prs.length){_prs.forEach(function(pr){var kk=n+'|'+pr.m;if(vis[kk])return;vis[kk]=1;it.push({cod:tok.toUpperCase(),qtd:pr.q,marcaPed:pr.m,grax:_grax,lin:lin.trim().slice(0,80)});});return;} // v115.2673
-        if(vis[n])return;vis[n]=1;
-        var _o={cod:tok.toUpperCase(),qtd:qT||qL,grax:_grax,lin:lin.trim().slice(0,80)};if(pxCli){_o.codCli=pxCli;_o.marcaPed=pxMarca;}
-        if(marcaGrud&&!_o.marcaPed){_o.marcaPed=marcaGrud;_o.codCli=codCliGrud;} // v115.2698 - TX colado = marca
-        it.push(_o);
+        // v115.2710 - marca escrita logo DEPOIS do código, sem quantidade ("3-28-537 tx" / "3-28-537 albarus" = 2 itens, cada um com a marca dele)
+        if(!pxMarca&&lin.indexOf(tok)>=0){var _dep=lin.slice(lin.indexOf(tok)+tok.length).match(/^\s+([A-Za-zÀ-ú][A-Za-zÀ-ú0-9&\-]{1,})/);if(_dep&&pfExtMarcaConhecida(_dep[1]))pxMarca=_dep[1].toUpperCase();}
+        var _kv=n+(pxMarca?'|'+pfExtMarcaFam(pxMarca):'');if(vis[_kv])return;vis[_kv]=1;
+        var _o={cod:tok.toUpperCase(),qtd:qT||qL,grax:_grax,lin:lin.trim().slice(0,80)};if(pxCli)_o.codCli=pxCli;if(pxMarca)_o.marcaPed=pxMarca;it.push(_o);
       });
     });
   });
@@ -75445,6 +75806,10 @@ function pfExtMarcasDaLinha(lin){var out=[],re=/(?:^|[\s,;(])0*(\d{1,4})\s*(?:p[
     if(w2&&/^(COMPONENTES|ROLAMENTOS|FILTROS|FILTER|DO\s*BRASIL|BRASIL|PARTS|HD)$/.test(w2))w+=' '+w2; // "TX COMPONENTES", "MANN FILTER"
     out.push({q:q,m:w});}
   return out;}
+// v115.2710 - marca conhecida (pra ler "3-28-537 tx" sem quantidade): as que aparecem nas cotações/pedidos + as de cardan
+var PF_EXT_MARCAS_FIXAS=['SPICER','ALBARUS','TX','DANA','LNG','MERITOR','STAHL','SOROCARD','REI','EATON','ZF','CARRARO','PERKINS','MAHLE','MANN','TECFIL','WEGA','FLEETGUARD','SKF','FAG','NSK','NTN','TIMKEN'];
+function pfExtMarcaConhecida(w){var u=pfBuscaN(w||'').trim();if(u.length<2||(typeof PF_EXT_MARCA_STOP!=='undefined'&&PF_EXT_MARCA_STOP.test(u)))return false;
+  if(PF_EXT_MARCAS_FIXAS.indexOf(u)>=0)return true;try{return (pfOfMarcas()||[]).some(function(m){return m===u||m.indexOf(u+' ')===0;});}catch(e){return false;}}
 // v115.2680 - A pedido do Vitor ("nas cruzetas, Albarus é a mesma coisa que Spicer"): a marca ALBARUS (e ALBARUS-R) conta como SPICER no match do pedido.
 function pfExtMarcaFam(m){var u=pfBuscaN(m||'').trim();if(/^ALBARUS/.test(u))return 'SPICER';return u;}
 function pfExtMarcaBate(fm,pedida){var a=pfExtMarcaFam(fm),b=pfExtMarcaFam(pedida);if(!a||!b)return false;
@@ -75457,6 +75822,8 @@ function pfExtFichasDo(cod,grax){var l=[],seen={},add=function(c){c=String(c||''
   var base=String(cod||'').trim().toUpperCase();
   if(/XS?$/.test(base)||/^ALB/.test(base)){var semAlb=base.replace(/^ALB[\s.\-]?/,''),nu=semAlb.replace(/XS?$/,'');
     [semAlb,nu,nu+'X',nu+'XS','ALB'+nu,'ALB'+nu+'X','ALB'+nu+'XS'].forEach(add);}
+  // v115.2715 - SPL250-1TX = TX SPL250-1 → no estoque é SPL250-1X / SPL-250-1X
+  var mSpl=base.match(/^SPL[\s\-]?(\d{2,3})[\s\-]?(\d{1,3})$/);if(mSpl)['SPL'+mSpl[1]+'-'+mSpl[2]+'X','SPL-'+mSpl[1]+'-'+mSpl[2]+'X','SPL'+mSpl[1]+'-'+mSpl[2]+'XS','SPL-'+mSpl[1]+'-'+mSpl[2]+'XS'].forEach(add);
   if(grax===true&&/X$/i.test(cod))add(cod+'S');if(grax===false&&/XS$/i.test(cod))add(cod.replace(/S$/i,''));
   if(!l.length&&/^0+\d/.test(cod))add(cod.replace(/^0+/,''));
   return l;}
@@ -75500,12 +75867,13 @@ function pfExtCotar(a){
     var o={cod:x.cod,qtd:x.qtd,achou:!!f||!!ccA,cardan:!f&&!!ccA,desc:f?(f.desc||''):(ccA?(ccA.desc||'peça de cardan'):''),marca:f?(f.marca||''):'',saldo:saldo,preco:Math.round(preco*100)/100,lin:x.lin};
     if(x.marcaPed){o.marcaPed=x.marcaPed;o.marcaOk=!!(_fp&&_fp.ok);o.sug=(_fp&&_fp.sug)||[];} // v115.2673
     if(x.grax!=null)o.grax=x.grax;if(x.codCli)o.codCli=x.codCli;
+    if(!o.achou){try{o.parecidos=pfParecidos(x.cod,4).map(function(p){return {cod:p.cod,como:p.como,marca:p.marca||'',saldo:p.saldo||0};});}catch(e){}} // v115.2709 - 🔍 código quase igual (o cliente pode ter digitado errado)
     if(f&&preco>0&&saldo>0){var q=Math.min(saldo,x.qtd);tot+=q*o.preco;nOk++;}
     lin.push(o);});
   var fmt=function(v){return 'R$ '+(+v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
   var nome=(a.contato||'').split(' ')[0];
   var txt=(typeof pfSaudar==='function'?pfSaudar(nome):'Olá!')+'\nSegue:\n'+lin.map(function(o){
-    if(!o.achou)return o.cod+' — não localizei, pode confirmar o código?';
+    if(!o.achou)return o.cod+' — não localizei'+(o.perg?', não seria o '+o.perg+'?':', pode confirmar o código?');
     if(!(o.saldo>0))return o.cod+' — '+o.desc+' — vou verificar o prazo';
     var q=Math.min(o.saldo,o.qtd),_mk=o.marcaPed?' '+o.marca+(o.marcaOk?'':' (não temos '+o.marcaPed+')'):'';return o.cod+_mk+' — '+o.desc+' — '+q+' un'+(q<o.qtd?' (tenho '+o.saldo+')':'')+' — '+fmt(o.preco)+' un';
   }).join('\n')+(tot?'\n\nTotal: '+fmt(tot):'')+'\n\n'+(typeof pfFechoCordial==='function'?pfFechoCordial():'Obrigado!');
@@ -75747,13 +76115,82 @@ function pfExtNomeMatcher(nome){
       pares.some(function(pp){return aW.indexOf(' '+pp+' ')>=0;});};
   return {pedacos:pedacos,bate:bate};
 }
+// v115.2700 - BUG (Vitor: "rogerio e celso. não está salvando os grupos… entenda o motivo"): o 👤 Salvar contato gravava o grupo no cliente
+// escolhido, mas a lista de conversas achava o cliente por OUTRO caminho (telefone ligado antes a outro cadastro, ou o "(636)" do nome batendo com o
+// CÓDIGO DO PF 000636 de outra empresa em vez do Código JBoss) → mostrava outro cadastro, sem o grupo. Agora: 1) a ligação que você gravou no Salvar
+// contato (pelo telefone, senão pelo nome) manda; 2) número entre parênteses procura primeiro o Código JBoss em TODOS os clientes e só depois o código do PF.
+// v115.2705 - BUG ("do Celso ainda não tá salvando" — conversa "Celso Durante - MG da Costa (636) SP"): o 👤 gravava o nome NOVO montado ("… (636)") e, quando o
+// WhatsApp não renomeava, a lista (que mostra o nome antigo) não reconhecia a ligação e caía no "(636)" de OUTRO cadastro. Agora o contato guarda também o nome
+// que o WhatsApp mostra (nomeWa) e a comparação ignora espaço/acento/pontuação.
+function pfExtNomeAN(s){try{return typeof pfBuscaAN==='function'?pfBuscaAN(s):String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}catch(e){return '';}}
+// v115.2708 - A pedido do Vitor ("classificar o grau de intimidade com o contato, para a extensão definir o tom da formalidade da msg"; prévia
+// docs/referencias/whatsapp-automaticas/): 🎩 formal / 🙂 normal / 🤝 próximo, gravado NA PESSOA (contato do WhatsApp em pfContatosWhats_v1), não na empresa.
+function pfExtIntimDe(nome,tel){try{var tN=pfExtTel(tel),nU=pfExtNomeAN(nome),l=pfExtContatosRaw()||[],best='',bs=-1;
+  l.forEach(function(x){if(!x||x.del||!x.intim)return;var ok=(tN.length>=8&&x.tel&&pfExtTelBate(x.tel,tN))?2:(nU&&(pfExtNomeAN(x.nome)===nU||(x.nomeWa&&pfExtNomeAN(x.nomeWa)===nU))?1:0);if(!ok)return;var sc=ok*1e13+(+x.tsMod||0);if(sc>bs){bs=sc;best=x.intim;}});
+  return best;}catch(e){return '';}}
+function pfExtIntimSet(a){a=a||{};var nome=String(a.nome||'').trim();if(!nome)return {ok:false};
+  var tN=pfExtTel(a.tel||''),nU=pfExtNomeAN(nome),l=pfExtContatosRaw();if(!Array.isArray(l))l=[];var ag=Date.now(),n=0,niv=String(a.nivel||'');
+  l.forEach(function(x){if(!x||x.del)return;if((tN.length>=8&&x.tel&&pfExtTelBate(x.tel,tN))||(nU&&(pfExtNomeAN(x.nome)===nU||(x.nomeWa&&pfExtNomeAN(x.nomeWa)===nU)))){x.intim=niv;x.tsMod=ag;n++;}});
+  if(!n){var ak=null;try{ak=pfExtAcharK(nome,a.tel||'');}catch(e){}
+    l.push({id:'w'+ag.toString(36)+Math.random().toString(36).slice(2,6),nome:nome,nomeWa:nome,tel:tN,etqs:[],clienteK:ak&&ak.tipo==='cliente'?ak.k:'',clienteNome:ak&&ak.tipo==='cliente'?ak.titulo:'',intim:niv,criadoEm:ag,tsMod:ag,de:'intim'});}
+  pfExtContatosSave(l);return {ok:true};}
+// v115.2708 - A pedido do Vitor ("dá pra colocar o atalho do Alt+B? e se na frase tiver mais coisa, puxar só o código" + "isso vai ser bom pra entrar no catálogo
+// dos componentes, que já vejo os monta com"): cartão da peça dentro do WhatsApp — códigos lidos do texto selecionado (mesma leitura do pedido), marcas com saldo
+// e preço desse cliente, Componentes Cardan e o 🔗 Monta com.
+function pfExtAltB(a){a=a||{};var P=null;try{P=pfExtLerPedido([{t:String(a.texto||''),eu:false}]);}catch(e){}
+  var its=((P&&P.itens)||[]).slice(0,6);
+  if(!its.length){var raw=(String(a.texto||'').trim().split(/\s+/)[0]||'').replace(/[^\w.\-\/]/g,'');if(raw)its=[{cod:raw.toUpperCase(),qtd:1}];}
+  var c=null;try{c=a.k?pfExtClienteCad(a.k):null;}catch(e){}
+  return {ok:true,itens:its.map(function(x){var orig=String(x.cod||'').toUpperCase(),cod=orig,fl=[];
+    try{fl=vendasBuscarItem(cod,{semEquiv:true,silencioso:true})||[];}catch(e){}
+    if(!fl.length){try{var so=pfAltbAchados(cod)||[];if(so.length){cod=String(so[0].cod).toUpperCase();fl=vendasBuscarItem(cod,{semEquiv:true,silencioso:true})||[];}}catch(e){}}
+    var marcas=fl.map(function(f){var cu=parseFloat(f.custo)||0;return {marca:f.marca||'',saldo:parseFloat(f.saldo)||0,preco:cu>0?Math.round(pfExtPreco(c,cu)*100)/100:0,desc:f.desc||''};}).sort(function(p,q){return q.saldo-p.saldo;});
+    var cc=null;try{cc=pfItemCardCcAcha(cod)||(cod!==orig?pfItemCardCcAcha(orig):null);}catch(e){}
+    var mc=[];try{mc=pfItemCardMcLista(cod)||[];}catch(e){}
+    return {cod:cod,codCli:cod!==orig?orig:(x.codCli||''),qtd:x.qtd||1,marcaPed:x.marcaPed||'',desc:(marcas[0]&&marcas[0].desc)||(cc&&cc.desc)||'',marcas:marcas.slice(0,6),
+      cc:cc?{fam:cc.fam,cod:cc.cod,desc:cc.desc}:null,nMc:mc.length,
+      mc:mc.slice(0,12).map(function(r){var it=r.item||{},cd=String(it.codigo||''),sd=null;try{sd=pfCatEnvSaldo(cd);}catch(e){}return {cod:cd,fam:r.familia||'',famK:r.familiaChave||'',desc:it.descricao||'',saldo:sd};})};})};}
+// v115.2708 - "➕ Pôr na cotação" do WhatsApp (A pedido do Vitor: "já aberta no dia de hoje!"): cotação desse cliente aberta na tela agora > a dele criada HOJE > nova.
+function pfExtCotHoje(a){a=a||{};var its=a.itens;
+  if(!its||!its.length){var P=null;try{P=pfExtLerPedido([{t:String(a.texto||''),eu:false}]);}catch(e){}its=((P&&P.itens)||[]).map(function(x){return {cod:x.cod,qtd:x.qtd,marca:'',marcaPed:x.marcaPed||'',codCli:x.codCli||''};});}
+  if(!its.length){var raw=(String(a.texto||'').trim().split(/\s+/)[0]||'').replace(/[^\w.\-\/]/g,'').toUpperCase();if(raw)its=[{cod:raw,qtd:1}];}
+  if(!its.length)return {ok:false,msg:'Não achei código no que você selecionou'};
+  var c=null;try{c=a.k?pfExtClienteCad(a.k):null;}catch(e){}
+  var novos=function(){return its.map(function(x){var r={ficha:null};try{r=vendasEscolherFichaResumo(x.cod,x.marca||'');}catch(e){}var it=vendasItemDaFicha(x.cod,r.ficha,x.desc||'',x.marca||'');it.qtd=Math.max(1,+x.qtd||1);if(x.codCli)it.codigoOriginal=x.codCli;return it;});};
+  var bate=function(q){if(!c||!q)return false;var rz=pfBuscaAN(c.razao||c.nome||''),cd=String((c.cad&&c.cad.codigo)||'').replace(/^0+/,''),o=(q.cliente&&typeof q.cliente==='object'?q.cliente:null)||q.clienteObj||{};
+    return !!((cd&&String(o.codigo||'').replace(/^0+/,'')===cd)||(rz&&(pfBuscaAN(typeof q.cliente==='string'?q.cliente:'')===rz||pfBuscaAN(o.razao||'')===rz)));};
+  var juntar=function(){var vv=window._venda;if(!vv||!vv.itens)return 0;try{if(typeof vendasUndoMarcar==='function')vendasUndoMarcar();}catch(e){}var n=0;
+    novos().forEach(function(nv){var ex=vv.itens.find(function(i){return i&&!i.pvNumero&&pfBuscaAN(i.codigo)===pfBuscaAN(nv.codigo)&&String(i.marcaInterna||i.marca||'')===String(nv.marcaInterna||nv.marca||'');});
+      if(ex)ex.qtd=nv.qtd;else{nv.waNovo=true;vv.itens.push(nv);}n++;});
+    try{vendasRefresh();}catch(e){}try{vendasAutoSalvarDebounced();}catch(e){}return n;};
+  var v=window._venda,md=document.getElementById('vendasModal');
+  if(v&&md&&md.style.display!=='none'&&md.offsetParent!==null&&bate(v)){var n0=juntar();pfChToast('➕ '+n0+' item'+(n0>1?'s':'')+' na cotação nº '+(v.num||'aberta'));return {ok:true,onde:'aberta'};}
+  if(c){var cs=[];try{cs=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]');}catch(e){}var hj=new Date().toDateString();
+    var cx=cs.filter(function(q){return q&&!q.del&&!q.demo&&!q.fechadaEm&&new Date(q.data||0).toDateString()===hj&&bate(q)&&!((q.itens||[]).length&&q.itens.every(function(i){return i&&i.pvNumero;}));}).sort(function(p,q){return new Date(q.data||0)-new Date(p.data||0);})[0];
+    if(cx){try{if(typeof pfCrmFechar==='function')pfCrmFechar();}catch(e){}try{pfNavigate('vendas');}catch(e){}
+      setTimeout(function(){try{vendasAbrirModal(cx);}catch(e){pfAlert('Não consegui abrir a cotação nº '+cx.num+'.');return;}var n1=juntar();pfChToast('➕ '+n1+' item'+(n1>1?'s':'')+' na cotação nº '+cx.num+' (de hoje)');},250);
+      return {ok:true,onde:'hoje',num:cx.num};}}
+  setTimeout(function(){try{pfExtAbrirCot({k:a.k,nova:true,itens:its.map(function(x){return {cod:x.cod,qtd:x.qtd,marca:x.marca||'',marcaPed:x.marcaPed||'',codCli:x.codCli||''};})});}catch(e){console.warn('cotHoje',e);}},50);
+  return {ok:true,onde:'nova'};}
+// v115.2708 - 🤖 Ler com IA e cotar (botão direito numa foto/print do WhatsApp): a IA transcreve o pedido e o PF lê igual a uma mensagem
+async function pfExtCotarImg(a){try{a=a||{};if(!a.img)return {erro:'img',msg:'não consegui pegar a imagem'};
+  var bl=await (await fetch(a.img)).blob(),f=new File([bl],'print.'+(((bl.type||'').split('/')[1])||'png'),{type:bl.type||'image/png'});
+  var texto=await _anthropicReadDoc(f,PF_PED_PROMPT,'pedido do cliente (WhatsApp)');
+  var R=pfExtCotar({k:a.k,contato:a.contato,msgs:String(texto||'').split('\n').map(function(t){return {t:t,eu:false};})});R.ia=true;return R;
+}catch(e){return {erro:'ia',msg:String(e&&e.message||e)};}}
+function pfExtLigadoK(nome,tel){try{var tN=pfExtTel(tel),nU=pfExtNomeAN(nome),l=JSON.parse(pfSafeGetItem(PF_EXT_CONT_KEY)||'[]')||[],best=null,bs=-1;
+  l.forEach(function(x){if(!x||x.del||!x.clienteK)return;var ok=(tN.length>=8&&x.tel&&pfExtTelBate(x.tel,tN))?2:(nU&&(pfExtNomeAN(x.nome)===nU||(x.nomeWa&&pfExtNomeAN(x.nomeWa)===nU))?1:0);if(!ok)return;var sc=ok*1e13+(+x.tsMod||+x.criadoEm||0);if(sc>bs){bs=sc;best=x.clienteK;}});
+  return best||'';}catch(e){return '';}}
+function pfExtPorCodigo(cls,cods){for(var pass=0;pass<2;pass++){for(var i=0;i<cods.length;i++){var cd0=String(cods[i]).replace(/\D/g,'').replace(/^0+/,'');if(!cd0)continue;
+  var c=cls.find(function(x){if(!x.cad)return false;var v=pass===0?x.cad.codJboss:x.cad.codigo;return String(v||'').replace(/\D/g,'').replace(/^0+/,'')===cd0;});if(c)return {c:c,cd:cods[i]};}}return null;}
 function pfExtAcharK(nome,tel){
   try{
     var tN=pfExtTel(tel),cls=pfExtClientes(),fl=[];try{fl=cadLoad(FORN_KEY)||[];}catch(e){}
+    try{var _lk=pfExtLigadoK(nome,tel);if(_lk){var _lc=cls.find(function(c){return c.k===_lk;});if(_lc)return {tipo:'cliente',k:_lc.k,titulo:_lc.razao||_lc.nome,c:_lc};}}catch(e){} // v115.2700
     var N=function(s){return typeof pfBuscaN==='function'?pfBuscaN(s||''):String(s||'').toUpperCase();};
     if(tN.length>=8){var ac=null;cls.some(function(c){if(!c.cad)return false;var cs=[];try{cs=pfCrmContatos(c.cad);}catch(e){}if(cs.find(function(o){return pfExtTelBate(o.tel,tN);})){ac=c;return true;}return false;});if(ac)return {tipo:'cliente',k:ac.k,titulo:ac.razao||ac.nome,c:ac};}
     var cods=(String(nome||'').match(/\(\s*\d{2,8}\s*\)/g)||[]).map(function(x){return x.replace(/\D/g,'');});
-    for(var ci=0;ci<cods.length;ci++){var cd0=cods[ci].replace(/^0+/,'');var cc=cls.find(function(c){return pfExtCodBate(c.cad,cd0)||c.k==='c:'+cods[ci];});if(cc)return {tipo:'cliente',k:cc.k,titulo:cc.razao||cc.nome,c:cc};}
+    var _pc=pfExtPorCodigo(cls,cods);if(_pc)return {tipo:'cliente',k:_pc.c.k,titulo:_pc.c.razao||_pc.c.nome,c:_pc.c}; // v115.2700 - Código JBoss antes do código do PF
     if(tN.length>=8){var ff=null;fl.some(function(f){if(!f||f.del)return false;var a=[f.whatsapp,f.telefone,f.tel,f.celular];(f.contatos||[]).forEach(function(o){a.push(o.whatsapp,o.tel,o.telefone,o.celular);});if(a.some(function(x){return pfExtTelBate(x,tN);})){ff=f;return true;}return false;});if(ff)return {tipo:'fornecedor',titulo:ff.fantasia||ff.nome||ff.razao};}
     // v115.2676 - BUG ("classifiquei como serviço esse Rogerio, mas não apareceu aqui"): o nome "Rogerio - Pecas ZF" não bate com a razão TRACKMAX… e a conversa
     // não mostra o telefone — mas o 👤 Salvar contato gravou esse nome ligado ao cliente. Agora o nome salvo no PF (pfContatosWhats_v1) manda.
@@ -75772,7 +76209,7 @@ function pfExtSituacaoDe(nome,tel){
     var cad=(m.c&&m.c.cad)||{},gi=null;try{gi=typeof pfGrupoInfo==='function'?pfGrupoInfo(cad.grupo):null;}catch(e){}
     // v115.2663 - etiqueta E1 da lista: tipo do cliente e cor de cada grupo
     var tpc='';try{var ri=typeof pfRevInfo==='function'?pfRevInfo(cad):null,tp=pfTipoCli(cad);if(ri&&ri.conc)tpc='🏛 Concessionária'+(ri.concMarcas.length?' '+ri.concMarcas.join('/'):'');else if(tp==='revenda')tpc='🏪 Revenda';else if(tp==='consumo')tpc='👤 Consumidor';else if(tp==='servico')tpc='🔧 Serviço / oficina';}catch(e){}
-    var gcs=[];try{(Array.isArray(cad.grupos)&&cad.grupos.length?cad.grupos:(cad.grupo?[cad.grupo]:[])).forEach(function(g){var x=typeof pfGrupoInfo==='function'?pfGrupoInfo(g):null;if(x&&x.label)gcs.push({l:x.label,c:x.cor,t:x.txt});});}catch(e){}
+    var gcs=[];try{(Array.isArray(cad.grupos)&&cad.grupos.length?cad.grupos:(cad.grupo?[cad.grupo]:[])).forEach(function(g){var x=typeof pfGrupoInfo==='function'?pfGrupoInfo(g):null;if(x&&x.label)gcs.push({l:x.label,c:x.cor,t:x.txt});else if(String(g||'').trim())gcs.push({l:String(g).trim(),c:'#7A869A',t:'#fff'});}); /* v115.2700 - grupo criado na extensão também aparece (cinza) */}catch(e){}
     return {tipo:'cliente',gueri:!!cad.gueri,fatSp:!!cad.fatSp,tpc:tpc,gcs:gcs,k:m.k,titulo:m.titulo,cot:cot,cid:String(cad.cidade||'').trim().toLowerCase().replace(/(^|[\s'-])(\S)/g,function(x,a,b){return a+b.toUpperCase();}).replace(/\b(De|Da|Do|Das|Dos|E)\b/g,function(x){return x.toLowerCase();}),uf:String(cad.estado||cad.uf||'').trim().toUpperCase(),grupo:gi?gi.label:'',gCor:gi?gi.cor:'',gTxt:gi?gi.txt:'',grupos:(function(){var L=Array.isArray(cad.grupos)&&cad.grupos.length?cad.grupos:(cad.grupo?[cad.grupo]:[]);return L.map(function(g){try{var x=typeof pfGrupoInfo==='function'?pfGrupoInfo(g):null;return x&&x.label?x.label:String(g||'');}catch(e){return String(g||'');}}).filter(Boolean);})()};} // v115.2661 - A pedido do Vitor ("vamos deixar os grupos. Linha amarela, etc"): grupos = todos os grupos do cliente (barra de grupos da extensão)
   var mapa='';try{var ms=pfMsMapas().filter(function(x){return (x.falta||[]).indexOf(m.titulo)>=0;});if(ms.length)mapa=String(ms[0].num||'');}catch(e){}
   return {tipo:'fornecedor',titulo:m.titulo,mapa:mapa};
@@ -75948,7 +76385,7 @@ function pfRrUsou(id){if(!id)return {ok:true};var u=pfRrUso();u[id]=(u[id]||0)+1
 // identifica código, pra eu clicar e já enviar"): a extensão manda a última mensagem do cliente; o PF acha os Atalhos de Texto que combinam (pelos
 // gatilhos do atalho ou, quando vazio, pelas palavras do nome + sinônimos comuns) e devolve a resposta pronta (com as variáveis do cliente aplicadas).
 var PF_RR_SIN={ // chave (aparece no nome do atalho) → palavras que o cliente usa
-  'endereco':['endereco','onde fica','onde voces fica','onde voce fica','localizacao','retirada','retirar','onde e','onde que','mapa','como chego'],
+  'endereco':['endereco','onde fica','onde voces fica','onde voce fica','onde voces ficam','localizacao','qual o endereco','mapa','como chego'], // v115.2704 - tirei "retirar/onde é" ("vai retirar" + "chave pix" puxava o endereço)
   'pix':['pix','chave pix','dados bancarios','dados pra pagar','conta pra pagar','deposito','transferencia','como pago','como pagar','forma de pagamento','formas de pagamento'],
   'banco':['dados bancarios','deposito','transferencia','conta'],
   'horario':['horario','que horas','abre','fecha','funcionamento','ate que horas','atendimento'],
@@ -75960,6 +76397,7 @@ var PF_RR_STOP=['PARA','COM','SEM','DOS','DAS','DES','UMA','QUE','POR','PRA','PR
 function pfRrNorm(s){try{return typeof pfBuscaN==='function'?pfBuscaN(s):String(s||'').toUpperCase();}catch(e){return String(s||'').toUpperCase();}}
 function pfRrGatilhosDe(x){
   var g=[];if(x&&Array.isArray(x.gatilhos))x.gatilhos.forEach(function(s){if(s)g.push(String(s));});
+  if(g.length)return g; // v115.2704 - o Vitor escreveu as palavras → vale só o que ele escreveu
   var nomeN=pfRrNorm(x&&x.nome||'');
   nomeN.split(/[^A-Z0-9]+/).forEach(function(w){if(w.length>=4&&PF_RR_STOP.indexOf(w)<0)g.push(w);});
   Object.keys(PF_RR_SIN).forEach(function(k){if(nomeN.indexOf(pfRrNorm(k))>=0)PF_RR_SIN[k].forEach(function(s){g.push(s);});});
@@ -76003,7 +76441,7 @@ function pfExtAcao(acao,arg){
   if(acao==='rrUsou')return pfRrUsou(arg&&arg.id); // v115.2696 - conta o uso do atalho
   // v115.2693 - A pedido do Vitor ("coloquei minhas frases ontem e hoje sumiu"): a config da saudação/status da extensão fica só no navegador e some ao
   // atualizar a extensão. Agora é guardada no PF (sincronizada), POR USUÁRIO — a extensão salva aqui e recarrega daqui, então sobrevive a reinstalar/atualizar.
-  if(acao==='autoCfgSalvar'){try{var _em=(typeof sbUser!=='undefined'&&sbUser&&sbUser.email||'').toLowerCase();if(_em&&arg){var _o=JSON.parse(pfSafeGetItem('pfWhatsAutoCfg_v1')||'{}')||{};_o.por=_o.por||{};_o.por[_em]={cfg:arg,ts:Date.now()};_o.ts=Date.now();pfSafeSetItem('pfWhatsAutoCfg_v1',JSON.stringify(_o));if(typeof pfSyncPush==='function')pfSyncPush(['pfWhatsAutoCfg_v1']);}}catch(e){}return {ok:true};}
+  if(acao==='autoCfgSalvar'){try{var _em=(typeof sbUser!=='undefined'&&sbUser&&sbUser.email||'').toLowerCase();if(_em&&arg){var _o=JSON.parse(pfSafeGetItem('pfWhatsAutoCfg_v1')||'{}')||{};_o.por=_o.por||{};var _ta=+(arg.ts||0)||Date.now(),_ex=_o.por[_em];if(_ex&&(+(_ex.ts||0))>_ta)return {ok:true,velha:true};_o.por[_em]={cfg:arg,ts:_ta};/* v115.2701 - data da config, a mais velha não substitui */_o.ts=Date.now();pfSafeSetItem('pfWhatsAutoCfg_v1',JSON.stringify(_o));if(typeof pfSyncPush==='function')pfSyncPush(['pfWhatsAutoCfg_v1']);}}catch(e){}return {ok:true};}
   if(acao==='autoCfgLer'){try{var _em2=(typeof sbUser!=='undefined'&&sbUser&&sbUser.email||'').toLowerCase(),_o2=JSON.parse(pfSafeGetItem('pfWhatsAutoCfg_v1')||'{}')||{},_r=_o2.por&&_o2.por[_em2];return {ok:true,cfg:_r?_r.cfg:null,ts:_r?_r.ts:0};}catch(e){return {ok:true,cfg:null,ts:0};}}
   // v115.2630 - 👋 saudação automática: a extensão avisa o que mandou → fica na ficha do cliente
   if(acao==='autoSaud'){try{var _k=pfExtAcharK(arg&&arg.nome,arg&&arg.tel);var _kk=_k&&(_k.k||_k);if(typeof _kk==='string'&&/^[cr]:/.test(_kk))pfCrmAdd({k:_kk,tipo:'whats',texto:(arg.modo?'🗓️ Aviso de ausência ('+arg.modo+'): ':'👋 Saudação automática: ')+String(arg.texto||''),para:'WhatsApp'});}catch(e){}return {ok:true};}
@@ -76034,7 +76472,16 @@ function pfExtAcao(acao,arg){
   if(acao==='importarContatos'){setTimeout(function(){try{pfExtImportarAbrir((arg&&arg.lista)||[]);}catch(e){console.warn('importarContatos',e);}},50);return {ok:true};}
   // v115.2603 - Menu do PF em volta do WhatsApp: a extensão manda a lista de conversas visíveis (nome+tel) e o PF diz, em lote,
   // quem é cliente/fornecedor e se tem cotação/mapa aberto → etiquetas embaixo de cada conversa e contadores na barra de cima.
-  if(acao==='situacoes'){var o={},_wc=[];((arg&&arg.lista)||[]).slice(0,150).forEach(function(x){try{o[x.nome]=pfExtSituacaoDe(x.nome,x.tel||'');if(o[x.nome].tipo==='cliente'&&o[x.nome].k&&x.hora)_wc.push([o[x.nome].k,x.hora]);}catch(e){o[x.nome]={tipo:''};}});
+  if(acao==='intimSet')return pfExtIntimSet(arg||{}); // v115.2708
+  // v115.2708 - 🖱️ botão direito / 🔎 Alt+B no WhatsApp
+  if(acao==='altb')return pfExtAltB(arg||{});
+  if(acao==='cotHoje')return pfExtCotHoje(arg||{});
+  if(acao==='cotarImg')return pfExtCotarImg(arg||{});
+  if(acao==='fichaNome'){var _fk=null;try{_fk=pfExtAcharK(arg&&arg.nome,'');}catch(e){}if(!_fk||_fk.tipo!=='cliente')return {ok:false};setTimeout(function(){try{pfCrmAbrir(_fk.k);}catch(e){console.warn(e);}},50);return {ok:true};}
+  if(acao==='altbPF'){setTimeout(function(){try{pfItemCardBuscaAbrir();var _i=document.getElementById('pfItemCardBuscaInput');if(_i){_i.value=String(arg&&arg.cod||'');pfItemCardBuscar();}}catch(e){console.warn('altbPF',e);}},80);return {ok:true};}
+  if(acao==='ccAbrir'){setTimeout(function(){try{pfItemCardAbrirCardan(String(arg&&arg.cod||''));}catch(e){console.warn('ccAbrir',e);}},80);return {ok:true};}
+  if(acao==='ccAbrirFam'){setTimeout(function(){try{ccAbrirDoLink(arg.fam,arg.cod);}catch(e){console.warn('ccAbrirFam',e);}},80);return {ok:true};}
+  if(acao==='situacoes'){var o={},_wc=[];((arg&&arg.lista)||[]).slice(0,150).forEach(function(x){try{o[x.nome]=pfExtSituacaoDe(x.nome,x.tel||'');try{var _it=pfExtIntimDe(x.nome,x.tel||'');if(_it)o[x.nome].intim=_it;}catch(e){}if(o[x.nome].tipo==='cliente'&&o[x.nome].k&&x.hora)_wc.push([o[x.nome].k,x.hora]);}catch(e){o[x.nome]={tipo:''};}});
     try{if(_wc.length)pfWhatsContatoGravar(_wc);}catch(e){}return {ok:true,sit:o};}
   if(acao==='irTela'){setTimeout(function(){try{pfExtIrTela(arg);}catch(e){console.warn('irTela',e);}},50);return {ok:true};}
   if(acao==='cadcli'){setTimeout(function(){try{pfExtIrTela({tela:'cadcli',cod:arg});}catch(e){console.warn('cadcli',e);}},50);return {ok:true};}
@@ -76612,9 +77059,10 @@ function pfExtSalvarContato(a){
   // pelo mesmo comparador do painel (pfExtAcharK: código, pedaço do nome, 2 palavras seguidas).
   if(!cli&&!a.criar){[a.nomeWa,a.emp,nome].some(function(t){if(!t)return false;var ak=pfExtAcharK(t,'');if(ak&&ak.tipo==='cliente'&&ak.c){cli=ak.c;return true;}return false;});}
   var l=pfExtContatosRaw();if(!Array.isArray(l))l=[];
-  var ex=l.find(function(c){return c&&!c.del&&((tel&&c.tel&&pfExtTelBate(c.tel,tel))||(!tel&&a.nomeWa&&String(c.nome||'').toUpperCase()===String(a.nomeWa).toUpperCase()));});
-  if(ex){ex.nome=nome;if(tel)ex.tel=tel;if(cli){ex.clienteK=cli.k;ex.clienteNome=cli.razao||cli.nome;}if(a.cod)ex.codJboss=String(a.cod).replace(/\D/g,'');ex.tsMod=agora;}
-  else l.push({id:'w'+agora.toString(36)+Math.random().toString(36).slice(2,6),nome:nome,tel:tel,etqs:[],clienteK:cli?cli.k:'',clienteNome:cli?(cli.razao||cli.nome):'',codJboss:String(a.cod||'').replace(/\D/g,''),criadoEm:agora,por:eu,tsMod:agora,de:'salvar'});
+  var _waAN=pfExtNomeAN(a.nomeWa); // v115.2705
+  var ex=l.find(function(c){return c&&!c.del&&((tel&&c.tel&&pfExtTelBate(c.tel,tel))||(!tel&&_waAN&&(pfExtNomeAN(c.nome)===_waAN||pfExtNomeAN(c.nomeWa)===_waAN)));});
+  if(ex){if(a.intim)ex.intim=String(a.intim);ex.nome=nome;if(a.nomeWa)ex.nomeWa=String(a.nomeWa);if(tel)ex.tel=tel;if(cli){ex.clienteK=cli.k;ex.clienteNome=cli.razao||cli.nome;}if(a.cod)ex.codJboss=String(a.cod).replace(/\D/g,'');ex.tsMod=agora;}
+  else l.push({id:'w'+agora.toString(36)+Math.random().toString(36).slice(2,6),nome:nome,nomeWa:String(a.nomeWa||''),intim:String(a.intim||''),tel:tel,etqs:[],clienteK:cli?cli.k:'',clienteNome:cli?(cli.razao||cli.nome):'',codJboss:String(a.cod||'').replace(/\D/g,''),criadoEm:agora,por:eu,tsMod:agora,de:'salvar'});
   pfExtContatosSave(l);
   var noCad='';
   if(cli&&a.cod){try{var _cj=String(a.cod).replace(/\D/g,''),_cl=cadLoad(CLIE_KEY)||[],_cc=_cl.find(function(c){return c&&!c.del&&'c:'+String(c.codigo||c.razao||'').toUpperCase()===cli.k;});
@@ -76701,7 +77149,7 @@ function pfExtBaixarZip(){
 function pfExtBaixarZipSimples(){var a=document.createElement('a');a.href=PF_EXT_ZIP;a.download='partsflow-whatsapp.zip';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();},200);}
 // v115.2601 - A pedido do Vitor ("tá atualizada a extensão?" — estava na 1.5 com a 1.9 publicada): versão mais nova = a do manifest.
 // Subiu a "version" do extensao-whatsapp/manifest.json → subir aqui também.
-var PF_EXT_VER_NOVA='4.40'; // v115.2698 - manifest 4.40
+var PF_EXT_VER_NOVA='4.50'; // v115.2713 - manifest 4.50
 function pfExtVerMenor(a,b){a=String(a||'0').split('.').map(Number);b=String(b||'0').split('.').map(Number);for(var i=0;i<Math.max(a.length,b.length);i++){var x=a[i]||0,y=b[i]||0;if(x!==y)return x<y;}return false;}
 function pfExtInstalarAbrir(){
   var tem=pfExtTem(),li=function(n,t){return '<div style="display:flex;gap:10px;margin:8px 0"><span style="flex:0 0 24px;height:24px;border-radius:50%;background:#1F4E79;color:#fff;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center">'+n+'</span><div style="font-size:13px;line-height:1.5">'+t+'</div></div>';};
@@ -78692,14 +79140,16 @@ function ferrAtalhosTextoNovoTexto(){
   // v115.1908 - checkbox "gera link de formulário pro cliente".
   var formularioClienteEl=document.getElementById('atalhoNovoFormularioCliente');
   var formularioCliente=formularioClienteEl?formularioClienteEl.checked:false;
+  var gatEl=document.getElementById('atalhoNovoGatilhos'); // v115.2704 - ⚡ palavras do cliente
+  var gatilhos=gatEl?String(gatEl.value||'').split(/[,;\n]+/).map(function(x){return x.trim();}).filter(Boolean):[];
   var lista=pfAtalhosTextoLoad();
   var editandoId=window._pfAtalhoEditandoId;
   if(editandoId){
     var idx=lista.findIndex(function(a){return a.id===editandoId;});
-    if(idx>=0)lista[idx]={id:editandoId,nome:nome,tipo:'texto',conteudo:conteudo,whats:whats,formQuestionario:formQuestionario,formularioCliente:formularioCliente,ts:Date.now()};
+    if(idx>=0)lista[idx]={id:editandoId,nome:nome,tipo:'texto',conteudo:conteudo,whats:whats,formQuestionario:formQuestionario,formularioCliente:formularioCliente,gatilhos:gatilhos,ts:Date.now()};
     window._pfAtalhoEditandoId=null;
   }else{
-    lista.push({id:'at_'+Date.now(),nome:nome,tipo:'texto',conteudo:conteudo,whats:whats,formQuestionario:formQuestionario,formularioCliente:formularioCliente,ts:Date.now()});
+    lista.push({id:'at_'+Date.now(),nome:nome,tipo:'texto',conteudo:conteudo,whats:whats,formQuestionario:formQuestionario,formularioCliente:formularioCliente,gatilhos:gatilhos,ts:Date.now()});
   }
   pfAtalhosTextoSalvar(lista);
   ferrAtalhosTexto();
@@ -78876,6 +79326,10 @@ function ferrAtalhosTexto(){
         '</div>'+
         '<textarea id="atalhoNovoWhats" placeholder="Deixe em branco pra usar o texto simples também no WhatsApp, ou clique em Gerar com IA acima..." style="width:100%;min-height:80px;padding:8px 10px;border:1px solid var(--pf-sidebar-border);border-radius:6px;margin-bottom:4px;box-sizing:border-box;font-family:inherit">'+(itemEditando?pfEscHtml(itemEditando.whats||''):'')+'</textarea>'+
         '<div id="atalhoWhatsStatus" style="font-size:11px;color:var(--pf-text-muted);margin-bottom:8px"></div>'+
+        // v115.2704 - A pedido do Vitor ("cliente falou pix e apareceu endereço… onde eu configuro?"): palavras que, ditas pelo cliente no WhatsApp,
+        // fazem a extensão sugerir este atalho (⚡ no balão). Vazio = o PF adivinha pelo nome do atalho.
+        '<label style="font-size:11px;font-weight:700;color:var(--pf-text-muted)">⚡ Quando o cliente disser no WhatsApp (separe por vírgula)</label>'+
+        '<input id="atalhoNovoGatilhos" value="'+(itemEditando&&Array.isArray(itemEditando.gatilhos)?pfEscHtml(itemEditando.gatilhos.join(', ')):'')+'" placeholder="Ex.: pix, chave pix, dados bancários — vazio = o PF usa o nome do atalho" style="width:100%;padding:8px 10px;border:1px solid var(--pf-sidebar-border);border-radius:6px;margin:3px 0 10px;box-sizing:border-box;font-family:inherit">'+
         // v115.1505 - A pedido do Vitor ("Cotação de Frete... antes de ser
         // copiado, abre uma janela me perguntando..."): checkbox pra
         // marcar um atalho de texto como "formulário" -- ao clicar pra
@@ -83900,8 +84354,9 @@ function ccBuscaGeralExecutar(txt){
     var _fams=[];_L.forEach(function(r){if(_fams.indexOf(r.fam)<0)_fams.push(r.fam);});
     h=_L.length?ccBgCols2Html()+_secs.map(function(sx){return '<div style="font-size:10.5px;font-weight:700;color:'+sx[2]+';margin:12px 0 0;border-top:2px solid '+sx[2]+';padding-top:4px">'+sx[0]+' — '+sx[1].length+'</div>'+ccBgDetPorTipo(sx[1]);}).join(''):''; // v115.2318 - B: tabela POR TIPO de peça
   }
+  var _vazio=!h; // v115.2709 - 🔍 códigos parecidos (destacado quando não acha nada)
   if(!h)h='<div style="font-size:12px;color:var(--pf-text-muted);margin-top:8px">'+(modo==='tudo'?'Nada encontrado em nenhuma família.':'Nada nesse tipo — veja os outros botões.')+'</div>';
-  box.innerHTML=pfSpicerDicaHtml(txt)+barra+'<div style="max-height:'+(ccBgDetLigado()?'max(360px,60vh)':'360px')+';overflow-y:auto;margin-top:4px">'+h+'</div>'; // v115.2318 - tabela por tipo precisa de mais altura // v115.2139 - lê o código Spicer digitado
+  box.innerHTML=pfSpicerDicaHtml(txt)+barra+pfParecidosBtnHtml(_vazio&&modo==='tudo')+'<div style="max-height:'+(ccBgDetLigado()?'max(360px,60vh)':'360px')+';overflow-y:auto;margin-top:4px">'+h+'</div>'; // v115.2318 - tabela por tipo precisa de mais altura // v115.2139 - lê o código Spicer digitado
 }
 // v115.2319 - A pedido do Vitor (print da busca "5-153" → Monta com: "coloca algo que quando eu clicar copia o código da peça, pra colar
 // na internet ou no catálogo de algum fabricante"): 📋 do lado do código (lista e tabela) copia o código e mostra "✓ copiado" — não abre a peça.
@@ -103395,7 +103850,7 @@ async function pfCotRapidaAdicionarCotacaoHoje(){
   var cx;
   if(st.cotacaoExistente){
     var c=st.cotacaoExistente;
-    cx={num:c.num,id:c.id,clienteObj:c.clienteObj,uf:c.uf,margem:c.margem,condicao:c.condicao,comprador:c.comprador,obsCli:c.obsCli||'',antesPedidoWa:c.antesPedidoWa||null,itens:c.itens};
+    cx={num:c.num,id:c.id,clienteObj:c.clienteObj,uf:c.uf,margem:c.margem,condicao:c.condicao,comprador:c.comprador,obsCli:c.obsCli||'',antesPedidoWa:c.antesPedidoWa||null,regrasCot:c.regrasCot||null,transferidos:c.transferidos||null,itens:c.itens};
   } else {
     cx={};
   }

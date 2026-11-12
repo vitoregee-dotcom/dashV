@@ -1559,7 +1559,10 @@
         if (col && lineMsg) { var depois = false; Array.prototype.forEach.call(col.children, function (ch) { if (ch === lineMsg) { depois = true; return; } if (depois && !L3 && !ch.classList.contains('pfwa-rowbar') && !ch.classList.contains('pfwa-row3')) L3 = ch; }); }
         var alvo = null;
         if (L3) { Array.prototype.forEach.call(L3.children, function (c) { c.setAttribute('data-pfwa-esc', '1'); c.style.display = 'none'; }); alvo = L3; L3.classList.add('pfwa-row3u'); }
-        else if (col) { alvo = document.createElement('div'); alvo.className = 'pfwa-row3'; col.appendChild(alvo); }
+        // v115.2699 - A pedido do Vitor (print do WhatsApp real: "nomes montoados"): a 3ª linha CRIADA (.pfwa-row3) transbordava em cima da conversa de baixo —
+        // a linha da lista do WhatsApp tem ALTURA FIXA (mesma lição da v115.2682). Sem a linha da etiqueta nativa NÃO cria linha: o grupo vai curto na linha
+        // da mensagem (no lugar da cidade) e cidade + tipo ficam no title.
+        else if (gh && ln) { ln.innerHTML = gh; r.setAttribute('title', [s.cid ? '📍 ' + [s.cid, s.uf].filter(Boolean).join('-') : '', tp].filter(Boolean).join(' · ')); }
         if (alvo) {
           if (gh) { var g3 = document.createElement('span'); g3.className = 'pfwa-rowgp'; g3.innerHTML = gh; alvo.appendChild(g3); }
           if (tp) { var t3 = document.createElement('span'); t3.className = 'pfwa-rowtp'; t3.textContent = tp; try { if (prev) t3.style.setProperty('color', getComputedStyle(prev).color, 'important'); } catch (e) { } alvo.appendChild(t3); }

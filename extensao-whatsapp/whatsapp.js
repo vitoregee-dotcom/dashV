@@ -1603,6 +1603,12 @@
       var sig = txt + '|' + gh + '|' + bar + '|' + tp + '|' + (s.gueri ? 'G' : '') + (s.fatSp ? 'F' : '') + '|' + (CFG.waEtqOff !== false ? 1 : 0) + '|' + (x.unread ? 1 : 0);
       if (r.getAttribute('data-pfwa-sig') === sig && (!txt || r.querySelector('.pfwa-rowln'))) return;
       rowLimpar(r); r.setAttribute('data-pfwa-sig', sig); r.removeAttribute('title');
+      // 4.49 - A pedido do Vitor ("está com as etiquetas do whats" — cliente SEM grupo/tipo e conversas fora do PF ainda mostravam a etiqueta "CARDAN"):
+      // a linha da etiqueta nativa (a que vem DEPOIS da linha da mensagem) fica escondida em TODA conversa, não só na de cliente com grupo.
+      if (CFG.waEtqOff !== false) { try {
+        var anc0 = prev || r.querySelector('[aria-label*="ão lida"],[aria-label*="nread"]'), col0 = anc0 ? ancComum(tit, anc0) : null, lm0 = (col0 && anc0) ? filhoQueTem(col0, anc0) : null;
+        if (col0 && lm0) { var dep0 = false; Array.prototype.forEach.call(col0.children, function (ch) { if (ch === lm0) { dep0 = true; return; } if (dep0 && !ch.classList.contains('pfwa-rowbar') && !ch.classList.contains('pfwa-row3')) Array.prototype.forEach.call(ch.children, function (c) { if (String(c.className || '').indexOf('pfwa-') === 0) return; c.setAttribute('data-pfwa-esc', '1'); c.style.display = 'none'; }); }); }
+      } catch (e) { } }
       if (!txt) return;
       // 4.37 / v115.2695 - A pedido do Vitor ("selo pra marcar cliente q compra com nf baixa… deixa a escrita Gueri"): chip "Gueri" ao lado do nome
       if (s.tipo === 'cliente' && s.gueri && tit.parentNode) { var gz = document.createElement('span'); gz.className = 'pfwa-gueri'; gz.textContent = 'Gueri'; gz.title = 'Compra com NF baixa'; tit.parentNode.insertBefore(gz, tit.nextSibling); }
@@ -1952,6 +1958,11 @@
     s.textContent = '⚡'; s.title = L.length === 1 ? ('Resposta rápida: ' + L[0].nome + ' — clique pra enviar') : (L.length + ' respostas rápidas combinam — clique');
     s._L = L; s._t = t;
     s.onclick = function (ev) { ev.preventDefault(); ev.stopPropagation(); rr2Abrir(s); };
+    // 4.49 - A pedido do Vitor ("quando vou clicar, abre os emojis"): o ⚡ ficava em cima do balão, no lugar onde o WhatsApp mostra o botão de reagir.
+    // Agora fica do lado de FORA, embaixo, logo depois do selo 📄 (quando tem), e o clique não chega no WhatsApp.
+    var sp = el.querySelector(':scope > .pfwa-selo');
+    s.style.left = sp ? ('calc(100% + ' + (10 + sp.offsetWidth) + 'px)') : '';
+    if (!s._pfIso) { s._pfIso = 1; ['pointerdown', 'mousedown', 'mouseup', 'pointerup', 'mouseover', 'mouseenter'].forEach(function (tp) { s.addEventListener(tp, function (ev) { ev.stopPropagation(); }, false); }); }
   }
   function rr2El() { if (!RR2) { RR2 = document.createElement('div'); RR2.id = 'pfwa-rr2'; document.body.appendChild(RR2); RR2.addEventListener('click', rr2Clique); } return RR2; }
   function rr2Fechar() { if (RR2) RR2.style.display = 'none'; rr2Msg = null; rr2L = null; }

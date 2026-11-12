@@ -447,7 +447,7 @@
       h += '<div class="pfwa-cfgl" data-acao="cfgTog" data-arg="' + x[0] + '"><span class="pfwa-cfgi">' + x[1] + '</span><div><b>' + esc(x[2]) + '</b><br><small>' + esc(x[3]) + '</small></div>' +
         '<span class="pfwa-sw' + (on ? ' on' : '') + '"><i></i></span></div>';
     });
-    h += '<div class="pfwa-cfgl" data-acao="autoAbrir"><span class="pfwa-cfgi">👋</span><div><b>Mensagens automáticas</b><br><small>' + (autoAusente() ? AUTO_MODOS[autoAusente()][0] + ' ' + AUTO_MODOS[autoAusente()][1] + ' · ' : '') + 'Saudação de espera ' + (AUTO.on ? 'ligada · ' + esc(AUTO.min) + ' min · ' + esc(AUTO.ini) + '–' + esc(AUTO.fim) : 'desligada') + ' — clique pra ajustar</small></div><span class="pfwa-link">ajustar ›</span></div>';
+    h += '<div class="pfwa-cfgl" data-acao="autoAbrir"><span class="pfwa-cfgi">👋</span><div><b>Mensagens automáticas</b><br><small>' + (autoAusente() ? autoInfo(autoAusente()).join(' ') + ' · ' : '') + 'Saudação de espera ' + (AUTO.on ? 'ligada · ' + esc(AUTO.min) + ' min · ' + esc(AUTO.ini) + '–' + esc(AUTO.fim) : 'desligada') + ' — clique pra ajustar</small></div><span class="pfwa-link">ajustar ›</span></div>';
     // 4.37 - A pedido do Vitor ("não precisa mais desses botões né?"): saíram do rodapé, ficam aqui pra usar quando precisar
     h += '<div class="pfwa-bt" style="margin-top:12px">📇 Contatos</div>' +
       '<div class="pfwa-cfgbtns"><button data-acao="importar" class="pfwa-cfgb verde" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button>' +
@@ -473,6 +473,11 @@
       ['🔌', 'Precisa do PF aberto', 'Deixe uma aba do PartsFlow aberta (já logado) neste mesmo Chrome — pode ser em outra janela. Se aparecer "O PF não respondeu", dê F5 na aba do PartsFlow.'],
       ['🟢', 'Conectado ao PF', 'Do lado da versão, lá em cima: verde "● Conectado ao PF" = tudo certo · laranja "Dê F5 no PF" = a aba do PF está aberta mas parou de responder · vermelho "PF fechado" = abra o PartsFlow. Clique nele pra conferir na hora. A bolinha também aparece no "PF" da barra de cima.'],
       ['🔁', 'Atualizou a extensão?', 'Depois de instalar uma versão nova, recarregue a aba do WhatsApp e a do PF (F5).']]],
+    ['Botão direito e Alt+B', [
+      ['🖱️', 'Botão direito', 'Clique com o botão direito no WhatsApp → 🧩 PartsFlow. Em código selecionado: Ver no PF, Pôr na cotação de hoje, Cotar só esse. Numa mensagem: Cotar, Lembrete, Salvar como resposta rápida, Anotar na ficha (e Lançar no mapa, se for fornecedor). Numa foto: Ler com IA e cotar. Numa conversa da lista: Abrir ficha, Trocar grupo/tipo, Grau de intimidade, liga/desliga a mensagem automática.'],
+      ['🔎', 'Alt+B', 'Selecione o código na mensagem (pode ser a frase inteira — o PF puxa só os códigos) e aperte Alt+B: aparece o cartão com descrição, marcas, saldo, preço desse cliente, 🔗 Monta com e o botão do catálogo dos Componentes Cardan. Sem nada selecionado, abre uma caixinha pra digitar o código.'],
+      ['➕', 'Pôr na cotação de hoje', 'Entra na cotação desse cliente que está aberta no PF ou que foi aberta HOJE; se não tiver, cria uma nova.'],
+      ['🎩', 'Grau de intimidade', 'Formal, Normal ou Próximo — muda o tom das mensagens automáticas pra essa pessoa (marque no 👤 Salvar contato ou no botão direito na conversa).']]],
     ['Em cima e do lado esquerdo', [
       ['🔎', 'Barra de filtros', 'Clientes, Fornecedores, etiquetas do WhatsApp e cotação aberta. Clique pra deixar só essas conversas na lista; clique de novo pra ver tudo.'],
       ['🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome: se é cliente ou fornecedor do PF, cotação aberta, mapa esperando preço.'],
@@ -585,7 +590,11 @@
     if (ac === 'cfgTog') { cfgTog(arg); return; }
     if (ac === 'autoAbrir') { config = 'auto'; abrirPainel(); pinta(); return; } // 3.9 - 👋 saudação automática
     if (ac === 'autoVoltar') { config = true; pinta(); return; }
-    if (ac === 'autoTog') { AUTO[arg] = !AUTO[arg]; autoGravar(); pinta(); return; }
+    if (ac === 'autoTog') { AUTO[arg] = (arg === 'saud1a' || arg === 'trava30') ? AUTO[arg] === false : !AUTO[arg]; autoGravar(); pinta(); return; }
+    if (ac === 'autoAvTog') { var _av = (AUTO.avisos || [])[+arg]; if (_av) { _av.on = !_av.on; autoGravar(); pinta(); try { autoStatusPill(); } catch (e) { } } return; } // 4.47
+    if (ac === 'autoAvDel') { var _ad = (AUTO.avisos || [])[+arg]; if (_ad && confirm('Apagar o aviso "' + _ad.nome + '"?')) { AUTO.avisos.splice(+arg, 1); autoGravar(); pinta(); } return; }
+    if (ac === 'autoAvNovo') { AUTO.avisos = AUTO.avisos || []; AUTO.avisos.push({ id: 'a' + Date.now().toString(36), ic: '⏰', nome: 'Novo aviso', on: false, dias: 'semana', ini: '12:00', fim: '13:00', txt: '' }); autoGravar(); pinta(); return; }
+    if (ac === 'svInt') { svIntim = arg; var _ir = SV && SV.querySelector('.sv-int'); if (_ir) _ir.innerHTML = svIntRowHtml(); var _is = SV && SV.querySelector('.sv-intsug'); if (_is) _is.remove(); return; } // 4.47
     if (ac === 'autoModo') { autoModoSet(arg); config = 'auto'; abrirPainel(); pinta(); return; } // 4.0 - 🗓️ meu status
     if (ac === 'autoEstilo') { AUTO.estilo = arg; autoGravar(); pinta(); return; }
     if (ac === 'autoQuando') { AUTO.quando = arg; autoGravar(); pinta(); return; } // 4.27 - quando mandar a saudação de espera
@@ -1030,6 +1039,19 @@
   function svGruposRender() { var r = SV && SV.querySelector('.sv-grp'); // 4.27 - BUG: '.sv-gr' pegava a linha do TIPO (desde a 4.24)
     if (r) r.innerHTML = svGruposRowHtml(); }
   // 4.24 - A pedido do Vitor: TIPO DO CLIENTE (revenda / consumidor / concessionária / serviço) também é salvo no cadastro do PF
+  // 4.47 - grau de intimidade com a pessoa → tom das mensagens automáticas
+  var SV_INT = [['formal', '🎩 Formal'], ['normal', '🙂 Normal'], ['proximo', '🤝 Próximo']], svIntim = '';
+  function svIntRowHtml() { return SV_INT.map(function (t) { return '<span class="sv-g' + (svIntim === t[0] ? ' on' : '') + '" data-acao="svInt" data-arg="' + t[0] + '" style="--c:#7B4FA0">' + esc(t[1]) + '</span>'; }).join(''); }
+  function svIntSug() {
+    var eu = []; try { eu = lerMensagens().filter(function (m) { return m.eu; }).map(function (m) { return m.t; }); } catch (e) { }
+    var t = eu.join(' \n ').toLowerCase(), pr = t.match(/\b(mano|irm[aã]o|parceir\w*|meu amigo|fala|tmj|blz|beleza|valeu|kkk+|top)\b/g), fo = t.match(/\b(sr\.?|sra\.?|senhor|senhora|prezad\w*|cordialmente|atenciosamente)\b/g);
+    var u = function (l) { var v = {}; return (l || []).filter(function (x) { if (v[x]) return false; v[x] = 1; return true; }).slice(0, 3).map(function (x) { return '"' + x + '"'; }).join(', '); };
+    if (fo && fo.length >= (pr ? pr.length : 0)) return { n: 'formal', p: u(fo) };
+    if (pr && pr.length >= 2) return { n: 'proximo', p: u(pr) };
+    return null;
+  }
+  function svIntSugHtml() { if (svIntim) return ''; var g = svIntSug(); if (!g) return ''; var l = SV_INT.find(function (x) { return x[0] === g.n; });
+    return '<div class="sv-intsug">💡 Sugestão: <b>' + esc(l[1]) + '</b> — vocês usam ' + esc(g.p) + ' <span class="sv-lk" data-acao="svInt" data-arg="' + g.n + '">usar</span></div>'; }
   var SV_TIPOS = [['revenda', '🏪 Revenda'], ['consumo', '👤 Consumidor'], ['conc', '🏛 Concessionária'], ['servico', '🔧 Serviço / oficina']], svTipo = '', svGueri = false, svFatSp = false;
   function svTipoRowHtml() { return SV_TIPOS.map(function (t) { return '<span class="sv-g' + (svTipo === t[0] ? ' on' : '') + '" data-acao="svTipo" data-arg="' + t[0] + '" style="--c:#1F4E79">' + esc(t[1]) + '</span>'; }).join(''); }
   // 4.26 - A pedido do Vitor ("se eu colocar concessionária, quero colocar a Marca. exemplo esse é Massey"): marca da concessionária (vai pro cad.concMarcas do PF). Pode mais de uma.
@@ -1067,7 +1089,7 @@
     svGueri = !!(r && r.gueri); // 4.37 / v115.2695 - selo Gueri (NF baixa) já vem marcado se o cadastro tiver
     svFatSp = !!(r && r.fatSp); // 4.39 / v115.2697 - selo Faturar por SP
     svConcMarcas = (r && r.concMarcas && r.concMarcas.length) ? r.concMarcas.slice() : []; // 4.26 - marcas da concessionária já cadastradas
-    svK = r ? r.k : ''; svSug = [];
+    svK = r ? r.k : ''; svSug = []; svIntim = (resp && resp.intim) || ''; // 4.47
     if (r && r.grupos) r.grupos.forEach(function (g) { var id = svGrupoIdDoNome(g); if (id && svGrupos.indexOf(id) < 0) svGrupos.push(id); }); // 4.27 - grupos do cadastro já marcados
     var nome = svNomeBase(c.nome) || (r && r.contato) || '', emp = svEmpBase(c.nome) || (r ? r.titulo : ''), cod = svCodBase(c.nome) || (r && r.cod) || '';
     var semNum = /^[+\d\s()\-]{8,}$/.test(c.nome || '');
@@ -1079,6 +1101,7 @@
       '<datalist id="pfwa-sv-cargos"><option>Compras<option>Comprador<option>Dono<option>Sócio<option>Gerente<option>Financeiro<option>Mecânico<option>Encarregado<option>Vendedor<option>Balconista</datalist>' +
       '<label>CÓDIGO NO JBOSS<input class="sv-cod" value="' + esc(cod) + '" placeholder="Ex.: 12662" inputmode="numeric"></label>' +
       '<div class="sv-gl">TIPO DO CLIENTE</div><div class="sv-gr sv-tp">' + svTipoRowHtml() + '</div>' + // 4.24
+      '<div class="sv-gl">INTIMIDADE COM ESSA PESSOA <span style="font-weight:600;text-transform:none;color:#8a9ab0">(tom das mensagens automáticas)</span></div><div class="sv-gr sv-int">' + svIntRowHtml() + '</div>' + svIntSugHtml() + // 4.47
       '<div class="sv-marca"></div>' + // 4.26 - marca da concessionária (só quando o tipo é Concessionária)
       '<div class="sv-gl">GRUPO DO CLIENTE <span style="font-weight:600;text-transform:none;color:#8a9ab0">(pode escolher mais de um)</span></div><div class="sv-gr sv-grp">' + svGruposRowHtml() + '</div>' +
       '<div class="sv-gr sv-gueri"><span class="sv-g' + (svGueri ? ' on' : '') + '" data-acao="svGueri" style="--c:#c0392b">💳 Gueri (compra com NF baixa)</span>' + // 4.37 / v115.2695
@@ -1128,10 +1151,11 @@
     var cn = v('sv-cnpj').replace(/\D/g, ''); if (cn && cn.length !== 14 && cn.length !== 11) { flash(b, 'CNPJ incompleto'); b.disabled = false; b.textContent = txt; return; }
     if (cn) b.textContent = 'Buscando o CNPJ…';
     var _gs = svGrupos.map(function (id) { var g = svGruposTodos().find(function (x) { return x[0] === id; }); return g && /^g_/.test(id) ? g[1] : id; }).filter(Boolean); // 4.15 - grupo base = chave; grupo criado = o nome
-    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: _gs[0] || '', grupos: _gs, tipoCli: svTipo, concMarcas: svTipo === 'conc' ? svConcMarcas : [], gueri: svGueri, fatSp: svFatSp } }); // 4.26 - marca da concessionária · 4.37 Gueri · 4.39 Fat. SP
+    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: _gs[0] || '', grupos: _gs, tipoCli: svTipo, concMarcas: svTipo === 'conc' ? svConcMarcas : [], gueri: svGueri, fatSp: svFatSp, intim: svIntim } }); // 4.26 - marca da concessionária · 4.37 Gueri · 4.39 Fat. SP
     b.disabled = false; b.textContent = txt;
     var st = SV.querySelector('.sv-st');
     if (r && r.ok) {
+      if (svIntim) { if (resp) resp.intim = svIntim; if (sitCache && sitCache[c.nome]) sitCache[c.nome].intim = svIntim; } // 4.47
       if (r.k && r.cli) { svK = r.k; SV.querySelector('.sv-k').innerHTML = '🔗 ligado a <b>' + esc(r.cli) + '</b>'; }
       st.innerHTML = r.cli ? ('✔ Salvo · ' + (r.prospect ? '🌱 pré-cadastro <b>' + esc(r.cli) + '</b> criado no PF' + (r.base ? ' (dados da Receita)' : '') + ' com o contato' : r.cnpjJa ? 'esse CNPJ já era de <b>' + esc(r.cli) + '</b> — contato salvo lá' : r.novo ? 'cliente <b>' + esc(r.cli) + '</b> criado no PF com o contato' : 'contato' + (v('sv-cargo') ? ' (' + esc(v('sv-cargo')) + ')' : '') + ' no cadastro de <b>' + esc(r.cli) + '</b>') + '. <span class="sv-lk" data-acao="svCadAbrir">abrir o cadastro ›</span>')
         : v('sv-emp').trim() ? ('✔ Salvo no PF. <span style="color:#9A6B00">A empresa não está no PF.</span><br><button class="sv-ok sv-cria" data-acao="svCriar">➕ Criar cliente "' + esc(v('sv-emp').trim()) + '" no PF</button>')
@@ -1979,7 +2003,14 @@
       'Oi, {nome}! Já vi aqui, só um minutinho que já te respondo.'],
     modo: 'normal', ate: '', subst: '', substTel: '', ausMin: 1, ausTxt: { reuniao: '', ausente: '', ferias: '' },
     // 4.27 - A pedido do Vitor: quando mandar a saudação de espera, chamar pelo nome / começar com saudação, e deixar a conversa não lida depois
-    quando: 'sempre', chamarNome: true, comSaud: true, naoLida: true
+    quando: 'sempre', chamarNome: true, comSaud: true, naoLida: true,
+    // 4.47 - A pedido do Vitor (prévia docs/referencias/whatsapp-automaticas/): "bom dia" só na 1ª conversa do dia, não mandar se eu escrevi há < 30 min,
+    // frases por tom (intimidade), conversas que nunca recebem automática e AVISOS PROGRAMADOS (almoço, fora do expediente…), vários ao mesmo tempo.
+    saud1a: true, trava30: true, frasesTom: { formal: [], proximo: [] }, nunca: [],
+    avisos: [
+      { id: 'almoco', ic: '🍽️', nome: 'Almoço', on: false, dias: 'semana', ini: '12:00', fim: '13:00', txt: '' },
+      { id: 'fora', ic: '🌙', nome: 'Fora do expediente', on: false, dias: 'semana', ini: '18:00', fim: '08:00', txt: '' },
+      { id: 'fds', ic: '🏝️', nome: 'Fim de semana', on: false, dias: 'fds', ini: '00:00', fim: '23:59', txt: '' }]
   };
   var AUTO = JSON.parse(JSON.stringify(AUTO_PADRAO)), autoEnv = {}, autoHist = [], autoPend = {}, autoOcup = false, autoUltMexeu = Date.now(), autoUlt = {}, autoAusEnv = {};
   var autoCarregado = false, autoGravarDepois = false, autoUltJ = '';
@@ -2034,13 +2065,56 @@
     var m = d.getHours() * 60 + d.getMinutes(), a = autoHM(AUTO.ini), b = autoHM(AUTO.fim);
     return a <= b ? (m >= a && m < b) : (m >= a || m < b);
   }
-  // status de ausência valendo agora? (o "até" que passou volta pra Disponível)
+  function autoDiaOk(dias, d) { var dw = d.getDay(); if (dias === 'semana') return dw >= 1 && dw <= 5; if (dias === 'sabado') return dw >= 1 && dw <= 6; if (dias === 'fds') return dw === 0 || dw === 6; return true; }
+  // 4.47 - aviso programado valendo agora; com 2 valendo juntos, ganha o de horário MAIS CURTO (o almoço passa na frente do expediente)
+  function autoAvisoAtual(d) {
+    d = d || new Date(); var m = d.getHours() * 60 + d.getMinutes(), best = null, bd = 1e9;
+    (AUTO.avisos || []).forEach(function (a) {
+      if (!a || !a.on) return; var ia = autoHM(a.ini), fa = autoHM(a.fim); if (ia === fa) return;
+      var den = ia < fa ? (m >= ia && m < fa) : (m >= ia || m < fa); if (!den || !autoDiaOk(a.dias, d)) return;
+      var du = (fa - ia + 1440) % 1440; if (du < bd) { bd = du; best = a; }
+    });
+    return best;
+  }
+  function autoAvisoIni(a, d) { d = d || new Date(); var m = d.getHours() * 60 + d.getMinutes(), ia = autoHM(a.ini), fa = autoHM(a.fim), x = new Date(d); x.setHours(Math.floor(ia / 60), ia % 60, 0, 0); if (ia > fa && m < fa) x.setDate(x.getDate() - 1); return x.getTime(); }
+  function autoAvisoFim(a, d) { return autoAvisoIni(a, d) + ((autoHM(a.fim) - autoHM(a.ini) + 1440) % 1440) * 60000; }
+  function autoAvisoDe(aus) { if (!aus || String(aus).indexOf('av:') !== 0) return null; var id = String(aus).slice(3); return (AUTO.avisos || []).find(function (a) { return a && a.id === id; }) || null; }
+  // status de ausência valendo agora? Status que você liga na hora (o "até" que passou volta pra Disponível) > aviso programado ('av:<id>')
   function autoAusente() {
-    if (!AUTO.modo || AUTO.modo === 'normal') return '';
-    if (AUTO.ate) { var t = new Date(AUTO.ate).getTime(); if (t && Date.now() > t) { AUTO.modo = 'normal'; AUTO.ate = ''; autoGravar(); try { pinta(); } catch (e) { } return ''; } }
-    return AUTO.modo;
+    if (AUTO.modo && AUTO.modo !== 'normal') {
+      if (AUTO.ate) { var t = new Date(AUTO.ate).getTime(); if (t && Date.now() > t) { AUTO.modo = 'normal'; AUTO.ate = ''; autoGravar(); try { pinta(); } catch (e) { } } }
+      if (AUTO.modo && AUTO.modo !== 'normal') return AUTO.modo;
+    }
+    var a = autoAvisoAtual(); return a ? 'av:' + a.id : '';
   }
   var AUTO_MODOS = { normal: ['🟢', 'Disponível'], reuniao: ['📅', 'Em reunião'], ausente: ['🚶', 'Ausente'], ferias: ['🏖️', 'Férias'] };
+  function autoInfo(aus) { var a = autoAvisoDe(aus); if (a) return [a.ic || '⏰', a.nome || 'Aviso']; return AUTO_MODOS[aus || 'normal'] || AUTO_MODOS.normal; }
+  function autoDesde(aus) { var a = autoAvisoDe(aus); return a ? autoAvisoIni(a) : (AUTO.ausDesde || 0); }
+  function autoPer(aus) { return aus + '|' + (autoDesde(aus) || ''); }
+  // 4.47 - grau de intimidade do contato (marcado no 👤 Salvar contato ou no botão direito) → tom da mensagem
+  function autoTomDe(nome) {
+    try { if (resp && contatoAt && contatoAt.nome === nome && resp.intim) return resp.intim; var x = sitCache && sitCache[nome]; return (x && x.intim) || 'normal'; } catch (e) { return 'normal'; }
+  }
+  function autoTom(t, tom) {
+    t = String(t || '');
+    if (tom !== 'formal') return t;
+    t = t.replace(/\bt[ôo]\b/g, 'estou').replace(/\bT[ôo]\b/g, 'Estou').replace(/\bpra\b/g, 'para').replace(/\bPra\b/g, 'Para').replace(/\bjá já\b/gi, 'em breve').replace(/\brapidinho\b/gi, 'um momento')
+      .replace(/^(Opa|Oi),?\s*/i, '').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]\uFE0F?/gu, '').replace(/\s{2,}/g, ' ').trim();
+    if (/[A-Za-zÀ-ÿ0-9]$/.test(t)) t += '.';
+    return autoCap(t);
+  }
+  // troca {saudacao} {nome} {volta} {substituto}; sem saudação (já falaram hoje) a saudação some sem deixar vírgula sobrando
+  function autoVars(t, nm, volta, quem, sOk) {
+    t = String(t || '').replace(/\{saudacao\}/gi, sOk === false ? '\u0001' : autoSaudacao()).replace(/\{nome\}/gi, nm || '\u0002').replace(/\{volta\}/gi, volta || '').replace(/\{substituto\}/gi, quem || '');
+    t = t.replace(/\u0001[ \t]*,?[ \t]*/g, '').replace(/[ \t]*,?[ \t]*\u0002/g, '').replace(/\s+([,.!?])/g, '$1').replace(/,\s*!/g, '!').replace(/^[,!\s]+/, '').trim();
+    return autoCap(t);
+  }
+  // você escreveu nesta conversa nos últimos X minutos? (aí a saudação de espera fica quieta)
+  function autoEscreviRecente(min) {
+    var lim = Date.now() - min * 60000, outs = msgLinhas().filter(function (b) { return minhaEl(b); });
+    for (var i = outs.length - 1; i >= 0 && i >= outs.length - 3; i--) { var pp = outs[i].querySelector('[data-pre-plain-text]'), t = pp ? msgQuando(pp) : horaFolha(outs[i]); if (t && t >= lim) return true; }
+    return false;
+  }
   function autoSorteia(l, evita) { var c = l.filter(function (x) { return x !== evita; }); if (!c.length) c = l; return c[Math.floor(Math.random() * c.length)]; }
   function autoSaudacao() { var h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; }
   function autoPrimeiroNome(n) {
@@ -2053,15 +2127,28 @@
   }
   function autoCap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
   // abertura "Bom dia, Carlos!" / "Opa, boa tarde" / "Oi Carlos" — varia, às vezes sem nome
-  function autoAbertura(nm) {
-    var s = autoSaudacao(), sl = s.toLowerCase(), comNome = nm && AUTO.chamarNome !== false && Math.random() < 0.7;
-    var l = comNome ? [s + ', ' + nm + '!', s + ' ' + nm + '!', 'Opa, ' + sl + ' ' + nm + '!', 'Oi ' + nm + ', ' + sl + '!', 'Olá ' + nm + '!', s + ', ' + nm + ', tudo bem?']
-      : [s + '!', 'Opa, ' + sl + '!', 'Oi, ' + sl + '!', s + ', tudo bem?', 'Olá!'];
+  // 4.47 - sOk=false = já falaram hoje (sem "bom dia"); tom = formal / normal / proximo
+  function autoAbertura(nm, sOk, tom) {
+    var s = autoSaudacao(), sl = s.toLowerCase(), semS = sOk === false, comNome = nm && AUTO.chamarNome !== false && (tom === 'formal' || Math.random() < 0.7), l;
+    if (tom === 'formal') l = semS ? (comNome ? [nm + ',', 'Olá, ' + nm + '.'] : ['Olá.']) : (comNome ? [s + ', ' + nm + '.', s + ', ' + nm + ', tudo bem?', 'Olá, ' + nm + ', ' + sl + '.'] : [s + '.', 'Olá, ' + sl + '.']);
+    else if (tom === 'proximo') l = semS ? (comNome ? ['Fala ' + nm + '!', 'Opa ' + nm + '!', 'E aí ' + nm + '!', nm + ','] : ['Opa!', 'Fala!', 'E aí!']) : (comNome ? ['Opa ' + nm + ', ' + sl + '!', 'Fala ' + nm + ', ' + sl + '!', 'E aí ' + nm + ', ' + sl + '!', s + ' ' + nm + '!'] : ['Opa, ' + sl + '!', 'Fala, ' + sl + '!', s + '!']);
+    else l = semS ? (comNome ? [nm + ',', 'Oi ' + nm + '!', 'Opa ' + nm + '!'] : ['Oi!', 'Opa!'])
+      : (comNome ? [s + ', ' + nm + '!', s + ' ' + nm + '!', 'Opa, ' + sl + ' ' + nm + '!', 'Oi ' + nm + ', ' + sl + '!', 'Olá ' + nm + '!', s + ', ' + nm + ', tudo bem?']
+        : [s + '!', 'Opa, ' + sl + '!', 'Oi, ' + sl + '!', s + ', tudo bem?', 'Olá!']);
     return autoSorteia(l);
   }
-  function autoContexto(u) {
+  function autoJunta(ab, ct) { return ab ? ab + ' ' + (/,$/.test(ab) ? ct : autoCap(ct)) : autoCap(ct); }
+  function autoContexto(u, tom) {
     var t = (u && u.bloco) || '', ncod = 0;
     (t.match(COD_RE) || []).forEach(function (tk) { if (tk.replace(/\D/g, '').length >= 4 && !/^\d{1,2}[\/.:]\d{2}/.test(tk)) ncod++; });
+    if (tom === 'formal') { // 4.47 - tom formal: sem gíria
+      if (u && u.audio) return ['vou ouvir seu áudio e retorno em instantes'];
+      if (u && u.foto) return ['recebi a imagem, vou verificar e retorno em seguida'];
+      if (ncod >= 2) return ['vou verificar esses códigos e retorno em instantes', 'estou levantando esses itens e retorno em seguida'];
+      if (ncod === 1) return ['vou verificar esse código e retorno em instantes'];
+      if (/pre[cç]o|valor|quanto|or[cç]amento|cota/i.test(t)) return ['vou verificar o valor e retorno em seguida'];
+      return ['estou finalizando um atendimento e retorno em instantes', 'recebi sua mensagem e retorno em seguida', 'já verifico para você e retorno em instantes'];
+    }
     if (u && u.audio) return ['vou ouvir aqui e já te respondo', 'já escuto seu áudio e te falo', 'só um minutinho que já ouço aqui'];
     if (u && u.foto) return ['vi a foto, vou verificar aqui e já te falo', 'recebi a foto, já vou ver aqui', 'deixa eu ver a foto direitinho e já te respondo'];
     if (ncod >= 2) return ['já vou ver esses códigos aqui', 'vou conferir esses itens no estoque e já te passo', 'já tô vendo esses códigos, um minutinho', 'vou levantar esses itens aqui e já te retorno'];
@@ -2071,40 +2158,51 @@
     if (/\?/.test(t)) return ['já te respondo', 'deixa eu ver aqui e já te falo', 'vou verificar e já te retorno'];
     return ['tô finalizando um atendimento aqui e já falo com você', 'só um minutinho que já te respondo', 'já te respondo', 'tô terminando uma cotação aqui e já falo com você'];
   }
-  function autoNatural(nome, u) {
-    var nm = autoPrimeiroNome(nome), ab = autoAbertura(nm), ct = autoSorteia(autoContexto(u));
-    var fim = autoSorteia(['', '', '', ' 👍', ' 🙏', '!']);
-    return (ab + ' ' + autoCap(ct) + fim).replace(/!!$/, '!').replace(/\?\s+([a-zà-ú])/, function (m, c) { return '? ' + c.toUpperCase(); });
+  function autoNatural(nome, u, sOk, tom) {
+    var nm = autoPrimeiroNome(nome), ab = autoAbertura(nm, sOk, tom), ct = autoSorteia(autoContexto(u, tom));
+    var fim = tom === 'formal' ? '.' : tom === 'proximo' ? autoSorteia(['', ' 👍', ' 🙏', '!', ' 😉']) : autoSorteia(['', '', '', ' 👍', ' 🙏', '!']);
+    return (autoJunta(ab, ct) + fim).replace(/!!$/, '!').replace(/\?\s+([a-zà-ú])/, function (m, c) { return '? ' + c.toUpperCase(); });
   }
   function autoDataBR(s) { var d = new Date(s); if (!s || isNaN(d)) return ''; return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2); }
   function autoHoraBR(s) { var d = new Date(s); if (!s || isNaN(d)) return ''; var h = d.getHours(), m = d.getMinutes(); return h + 'h' + (m ? ('0' + m).slice(-2) : ''); }
-  function autoAusTexto(nome, modo) {
-    var nm = autoPrimeiroNome(nome), ab = autoAbertura(nm), proprio = String((AUTO.ausTxt || {})[modo] || '').trim();
+  function autoAusTexto(nome, modo, sOk, tom) {
+    var av = autoAvisoDe(modo), nm = autoPrimeiroNome(nome), ab = autoAbertura(nm, sOk, tom), proprio = String(av ? (av.txt || '') : ((AUTO.ausTxt || {})[modo] || '')).trim();
     var sub = String(AUTO.subst || '').trim(), tel = String(AUTO.substTel || '').trim(), quem = sub ? (sub + (tel ? ' no ' + tel : '')) : '';
-    var hoje = AUTO.ate && new Date(AUTO.ate).toDateString() === new Date().toDateString();
-    var volta = AUTO.ate ? (hoje ? 'lá pelas ' + autoHoraBR(AUTO.ate) : 'dia ' + autoDataBR(AUTO.ate)) : '';
-    if (proprio) return proprio.replace(/\{saudacao\}/gi, autoSaudacao()).replace(/\{nome\}/gi, nm).replace(/\{volta\}/gi, volta).replace(/\{substituto\}/gi, quem).replace(/\s+([,.!?])/g, '$1').replace(/,\s*!/g, '!');
+    var volta = '';
+    if (av) { var fT = autoAvisoFim(av), d0 = new Date(); d0.setHours(0, 0, 0, 0); var d1 = new Date(fT); d1.setHours(0, 0, 0, 0); var dd = Math.round((d1 - d0) / 86400000);
+      volta = (dd <= 0 ? 'às ' : dd === 1 ? 'amanhã às ' : 'dia ' + autoDataBR(fT) + ' às ') + autoHoraBR(fT); }
+    else { var hoje = AUTO.ate && new Date(AUTO.ate).toDateString() === new Date().toDateString(); volta = AUTO.ate ? (hoje ? 'lá pelas ' + autoHoraBR(AUTO.ate) : 'dia ' + autoDataBR(AUTO.ate)) : ''; }
+    if (proprio) return autoTom(autoVars(proprio, nm, volta, quem, sOk), tom);
     var l;
+    if (av) { // 4.47 - avisos programados
+      if (av.id === 'almoco' || /almo/i.test(av.nome)) l = ['tô no almoço agora, volto ' + volta + ' e já te respondo', 'saí pro almoço, ' + volta + ' tô de volta e te respondo', 'tô no horário de almoço, ' + volta + ' já te respondo'];
+      else if (av.dias === 'fds' || /fim de semana/i.test(av.nome)) l = ['hoje não estamos atendendo, ' + volta + ' te respondo', 'no fim de semana a gente não atende, mas ' + volta + ' já te respondo'];
+      else if (/expediente|fora|noite/i.test(av.nome + ' ' + av.id)) l = ['nosso atendimento já encerrou por hoje, ' + volta + ' te respondo', 'já estamos fora do horário, ' + volta + ' te retorno', 'o expediente já acabou, ' + volta + ' já te respondo'];
+      else l = ['no momento tô fora, volto ' + volta + ' e já te respondo'];
+      return autoTom(autoJunta(ab, autoSorteia(l)).replace(/\s+([,.!?])/g, '$1'), tom);
+    }
     if (modo === 'reuniao') l = ['tô em reunião agora' + (volta ? ', saio ' + volta : '') + ' e já te respondo', 'tô numa reunião, assim que sair' + (volta ? ' (' + volta + ')' : '') + ' te respondo', 'tô em reunião, mas já vi sua mensagem. Assim que terminar falo com você'];
     else if (modo === 'ferias') l = ['tô de férias' + (AUTO.ate ? ' até ' + autoDataBR(AUTO.ate) : '') + (quem ? '. Pra cotação e pedido fala com o ' + quem + ', ele vai te atender' : ', assim que voltar te respondo'), 'tô de férias' + (AUTO.ate ? ', volto dia ' + autoDataBR(AUTO.ate) : '') + (quem ? '. Enquanto isso o ' + quem + ' te atende, pode chamar ele' : '. Assim que voltar falo com você')];
     else l = ['no momento tô fora' + (volta ? ', volto ' + volta : '') + ', mas assim que voltar te respondo', 'tô ausente agora' + (volta ? ' (volto ' + volta + ')' : '') + ', já já te respondo', 'saí rapidinho, assim que voltar falo com você'];
-    return (ab + ' ' + autoCap(autoSorteia(l))).replace(/\s+([,.!?])/g, '$1');
+    return autoTom(autoJunta(ab, autoSorteia(l)).replace(/\s+([,.!?])/g, '$1'), tom);
   }
-  function autoTextoMinhas(nome) {
+  function autoTextoMinhas(nome, sOk, tom) {
     var fs = (AUTO.frases || []).map(function (f) { return String(f || '').trim(); }).filter(Boolean); if (!fs.length) fs = AUTO_PADRAO.frases;
+    var ft = ((AUTO.frasesTom || {})[tom] || []).map(function (f) { return String(f || '').trim(); }).filter(Boolean); if (ft.length) fs = ft; // 4.47 - frases do tom
     var f = fs[Math.floor(Math.random() * fs.length)], nm = autoPrimeiroNome(nome);
     // 4.27 - sem precisar digitar {nome}/{saudacao}: liga/desliga põe o nome e/ou a saudação na frente da frase
     var temS = /\{saudacao\}/i.test(f), temN = /\{nome\}/i.test(f);
-    var saud = (AUTO.comSaud !== false && !temS) ? autoSaudacao() : '';
+    var saud = (AUTO.comSaud !== false && !temS && sOk !== false) ? autoSaudacao() : ''; // 4.47 - já falaram hoje = sem saudação
     var chama = (AUTO.chamarNome !== false && !temN && nm) ? nm : '';
     if (saud && chama) f = saud + ', ' + chama + '! ' + f;
     else if (saud) f = saud + '! ' + f;
     else if (chama) f = chama + ', ' + f.charAt(0).toLowerCase() + f.slice(1);
-    return f.replace(/\{saudacao\}/gi, autoSaudacao()).replace(/\{nome\}/gi, nm || '\u0000').replace(/[ \t]*,?[ \t]*\u0000/g, '').replace(/ +([,.!?])/g, '$1').replace(/^[,\s]+/, '').trim();
+    return autoTom(autoVars(f, nm, '', '', sOk), tom);
   }
-  function autoTexto(nome, u, modo) {
+  function autoTexto(nome, u, modo, tomForca) {
     var ult = autoUlt[nome] || '', t = '', i = 0;
-    do { t = modo ? autoAusTexto(nome, modo) : (AUTO.estilo === 'minhas' ? autoTextoMinhas(nome) : autoNatural(nome, u)); i++; } while (t === ult && i < 6);
+    var sOk = !(AUTO.saud1a !== false && autoFaleiHoje()), tom = tomForca || autoTomDe(nome); // 4.47
+    do { t = modo ? autoAusTexto(nome, modo, sOk, tom) : (AUTO.estilo === 'minhas' ? autoTextoMinhas(nome, sOk, tom) : autoNatural(nome, u, sOk, tom)); i++; } while (t === ult && i < 6);
     return t;
   }
   // hora da mensagem pelo [14:30, 10/11/2026] do WhatsApp
@@ -2172,9 +2270,10 @@
     // 4.1 - A pedido do Vitor ("não responder a cada msg do cliente… o Watidy manda a msg de ausência um monte de vezes, isso é irritante"):
     // já mandou QUALQUER mensagem automática nessa conversa e você ainda não respondeu = não manda mais nada (nem ausência, nem saudação).
     if (autoPend[c.nome]) return false;
+    if ((AUTO.nunca || []).indexOf(c.nome) >= 0) return false; // 4.47 - marcado no botão direito: nunca mandar automática pra essa conversa
     if (cmdAutorizado(c.nome, c.tel)) return false; // 4.2 - seu celular pessoal / conversa com você mesmo nunca recebe mensagem automática
     var k = autoChave(c);
-    if (aus) { var per = aus + '|' + (AUTO.ausDesde || ''); if (autoAusEnv[k] === per) return false; }
+    if (aus) { var per = autoPer(aus); if (autoAusEnv[k] === per) return false; }
     else { var u = autoEnv[k]; if (u && Date.now() - u < (+AUTO.horas || 4) * 3600000) return false; }
     var h1 = Date.now() - 3600000; autoHist = autoHist.filter(function (t) { return t > h1; });
     return autoHist.length < (+AUTO.porHora || 15);
@@ -2185,7 +2284,7 @@
     var r = await msg({ t: 'acao', acao: 'situacoes', arg: { lista: [{ nome: c.nome, tel: c.tel || '' }] } });
     return !!(r && r.sit && r.sit[c.nome] && r.sit[c.nome].tipo === 'cliente');
   }
-  function autoMarcarFeito(c, aus) { var k = autoChave(c); if (aus) autoAusEnv[k] = aus + '|' + (AUTO.ausDesde || ''); else autoEnv[k] = Date.now(); autoGravar(); }
+  function autoMarcarFeito(c, aus) { var k = autoChave(c); if (aus) autoAusEnv[k] = autoPer(aus); else autoEnv[k] = Date.now(); autoGravar(); }
   // 4.27 - "📩 só na 1ª vez do dia": você já mandou alguma mensagem pra esse cliente hoje?
   function autoFaleiHoje() {
     var d0 = new Date(); d0.setHours(0, 0, 0, 0); var ini = d0.getTime();
@@ -2235,7 +2334,8 @@
       var espera = aus ? (+AUTO.ausMin || 1) : (+AUTO.min || 3);
       if (Date.now() - u.t < espera * 60000) return false;
       if (Date.now() - u.t > (aus ? 12 : 3) * 3600000) return false; // mensagem velha
-      if (aus && AUTO.ausDesde && u.t < AUTO.ausDesde - 10 * 60000) return false; // chegou antes de você sair
+      if (aus && autoDesde(aus) && u.t < autoDesde(aus) - 10 * 60000) return false; // chegou antes de você sair (ou antes do aviso começar)
+      if (!aus && AUTO.trava30 !== false && autoEscreviRecente(30)) return false; // 4.47 - você estava conversando com ele há pouco
     }
     var cx = caixaTexto(); if (!cx || (cx.innerText || '').trim()) return false; // você está escrevendo
     if (!force && !(await autoEhCliente(c))) { autoMarcarFeito(c, aus); return false; }
@@ -2266,7 +2366,7 @@
     if (!aus) {
       add(!!AUTO.on, 'Saudação de espera LIGADA', AUTO.on ? '' : 'Ligue o 👋 "Saudação de espera" lá em cima.');
       add(autoNoHorario(), 'Dentro do horário e do dia', autoNoHorario() ? ('agora: ' + AUTO.ini + '–' + AUTO.fim) : ('agora está FORA do horário (' + AUTO.ini + '–' + AUTO.fim + ') ou do dia escolhido'));
-    } else add(true, 'Status: ' + AUTO_MODOS[aus][1], 'manda a qualquer hora');
+    } else add(true, 'Status: ' + autoInfo(aus)[1], 'manda a qualquer hora');
     var u = ultimaMsg();
     add(!!(u && !u.eu && u.t), 'A última mensagem é do CLIENTE', (u && u.eu) ? 'a última foi SUA — ele precisa ter mandado a última' : ((!u || !u.t) ? 'não achei a última mensagem na tela (' + _ultDiag + ')' : ''));
     if (u && u.t) {
@@ -2274,6 +2374,8 @@
       add(falta <= 0, 'Já passou os ' + espera + ' min de espera', falta > 0 ? ('ele mandou agora há pouco — falta ' + Math.ceil(falta / 60000) + ' min') : '');
     }
     if (!aus && AUTO.quando === 'primeira') add(!autoFaleiHoje(), 'Só na 1ª vez do dia', autoFaleiHoje() ? 'você JÁ falou com esse cliente hoje → não manda de novo. Pra testar, troque pra "🔁 Sempre que eu não responder".' : '');
+    if (!aus && AUTO.trava30 !== false) add(!autoEscreviRecente(30), 'Você não escreveu nos últimos 30 min', autoEscreviRecente(30) ? 'você estava conversando com ele há pouco → a extensão fica quieta (dá pra desligar essa trava)' : '');
+    if ((AUTO.nunca || []).indexOf(c.nome) >= 0) add(false, 'Conversa liberada pra automática', 'você marcou "🔕 Não mandar automática pra esse" (botão direito na conversa)');
     add(!autoPend[c.nome], 'Ainda não mandei automática aqui', autoPend[c.nome] ? 'já mandei uma e você ainda não respondeu (só volta quando você responder)' : '');
     add(!cmdAutorizado(c.nome, c.tel), 'Não é sua conversa pessoal/autorizada', cmdAutorizado(c.nome, c.tel) ? 'essa conversa é a sua/autorizada a dar comando → nunca recebe automática' : '');
     var cx = caixaTexto(); add(!(cx && (cx.innerText || '').trim()), 'Caixa de texto vazia', (cx && (cx.innerText || '').trim()) ? 'tem texto digitado na caixa' : '');
@@ -2337,7 +2439,7 @@
     Object.keys(autoPend).forEach(function (n) {
       var row = linhaDoNome(n); if (!row || row.querySelector('.pfwa-autob')) return;
       var ne = row.querySelector('span[title]'); if (!ne) return;
-      var b = document.createElement('span'); b.className = 'pfwa-autob'; b.textContent = autoPend[n].aus ? AUTO_MODOS[autoPend[n].aus][0] + ' avisei que tô fora · responda' : '👋 saudação enviada · responda';
+      var b = document.createElement('span'); b.className = 'pfwa-autob'; b.textContent = autoPend[n].aus ? autoInfo(autoPend[n].aus)[0] + ' avisei que tô fora · responda' : '👋 saudação enviada · responda';
       b.title = 'A extensão mandou: "' + autoPend[n].txt + '" — some quando você responder';
       (ne.parentElement || row).appendChild(b);
     });
@@ -2348,10 +2450,155 @@
     var el = cab.querySelector('.pfwa-stpill'), aus = autoAusente();
     if (!aus) { if (el) el.remove(); return; }
     if (!el) { el = document.createElement('span'); el.className = 'pfwa-stpill'; el.setAttribute('data-acao', 'autoAbrir'); cab.insertBefore(el, cab.querySelector('.pfwa-cabsub')); }
-    var tx = AUTO_MODOS[aus][0] + ' ' + AUTO_MODOS[aus][1] + (AUTO.ate ? ' até ' + (aus === 'ferias' ? autoDataBR(AUTO.ate) : autoHoraBR(AUTO.ate)) : '');
+    var _av = autoAvisoDe(aus), tx = autoInfo(aus).join(' ') + (_av ? ' até ' + autoHoraBR(autoAvisoFim(_av)) : AUTO.ate ? ' até ' + (aus === 'ferias' ? autoDataBR(AUTO.ate) : autoHoraBR(AUTO.ate)) : '');
     if (el.textContent !== tx) { el.textContent = tx; el.title = 'Mensagem de ausência ligada — clique pra mudar ou voltar pra Disponível'; }
   }
   setInterval(function () { try { autoPendVigiar(); autoBadges(); autoStatusPill(); } catch (e) { } autoTick().catch(function (e) { console.warn('PF auto', e); }); }, 15000);
+
+  // ═══ 4.47 🖱️ BOTÃO DIREITO + 🔎 Alt+B (A pedido do Vitor: "gostei de todas as dicas, pode colocar" + "o alt+b coloca no botão direito também"
+  // + "isso vai ser bom pra entrar no catálogo dos componentes, que já vejo os monta com" + "pôr na cotação = a já aberta no dia de hoje") ═══
+  var cmAlvo = {};
+  function cmQual(t) {
+    var r = { tipo: 'outro', forn: false, nome: '' }; if (!t || !t.closest) return r;
+    var row = t.closest('#pane-side [role="listitem"], #pane-side div[role="row"]');
+    if (row) { var ne = row.querySelector('span[title]'); r.tipo = 'conv'; r.nome = ne ? (ne.getAttribute('title') || '').trim() : ''; r.row = row; return r; }
+    if (t.closest('#main') && !t.closest('footer') && !t.closest('header') && !t.closest(MEUS)) {
+      var b = bolhaDe(t), main = t.closest('#main');
+      if (b && b !== main && b.querySelector && (b.querySelector('[data-pre-plain-text], .selectable-text, img') || b.getAttribute('data-pre-plain-text'))) { r.tipo = 'msg'; r.b = b; r.forn = !!(resp && resp.tipo === 'fornecedor'); }
+    }
+    return r;
+  }
+  function cmAvisar(e) {
+    try { var q = cmQual(e.target); cmAlvo = q; var sel = String(window.getSelection() || '').trim();
+      chrome.runtime.sendMessage({ t: 'cmCtx', tipo: q.tipo, forn: q.forn, sel: !!sel, img: !!(e.target && e.target.tagName === 'IMG') }, function () { void chrome.runtime.lastError; }); } catch (x) { }
+  }
+  document.addEventListener('mousedown', function (e) { if (e.button === 2) cmAvisar(e); }, true);
+  document.addEventListener('contextmenu', cmAvisar, true);
+  function cmTxt(b) { if (!b) return ''; var tx = b.querySelector('.selectable-text'); return String((tx ? tx.innerText : b.innerText) || '').trim(); }
+  function cmToast(t) { try { audToast(t); } catch (e) { } }
+  async function cotarTxt(t) {
+    t = String(t || '').trim(); if (!t) return; irAba('cot'); if (cotando) return;
+    cotando = true; cotErro = ''; cot = null; pintaCorpo();
+    var r = await msg({ t: 'acao', acao: 'cotar', arg: { k: resp && resp.k, contato: resp && resp.contato, msgs: [{ t: t, eu: false }] } });
+    cotando = false; if (!r || r.erro) cotErro = 'O PF não respondeu. Dê F5 na aba do PartsFlow.'; else cot = r; pintaCorpo();
+  }
+  async function cotHoje(t, itens) {
+    var r = await msg({ t: 'acao', acao: 'cotHoje', focar: true, arg: { k: resp && resp.k, contato: resp && resp.contato, texto: String(t || ''), itens: itens || null } });
+    if (!r || r.erro) cmToast('O PF não respondeu — dê F5 na aba do PartsFlow');
+    else if (r.ok === false) cmToast(r.msg || 'Não achei código no que você selecionou');
+  }
+  chrome.runtime.onMessage.addListener(function (m, s, send) {
+    if (!m || m.t !== 'cmClick') return;
+    cmExec(m.id, m.sel || '', m.src || '').catch(function (e) { console.warn('PF botão direito', e); });
+    send({ ok: 1 });
+  });
+  async function cmExec(id, sel, src) {
+    var A = cmAlvo || {};
+    if (id === 'sel_ver') { abAbrir(sel); return; }
+    if (id === 'sel_cot') { cotHoje(sel); return; }
+    if (id === 'sel_cotar') { cotarTxt(sel); return; }
+    if (/^msg_/.test(id) && !A.b) { cmToast('Clique com o botão direito em cima da mensagem'); return; }
+    if (id === 'msg_cotar') { cotarTxt(cmTxt(A.b)); return; }
+    if (id === 'msg_lemb') {
+      if (!resp || !resp.k) { cmToast('Lembrete na ficha: essa conversa precisa ser de um cliente do PF'); return; }
+      irAba('cli'); var tx0 = cmTxt(A.b).replace(/\s*\d{1,2}:\d{2}\s*$/, '').slice(0, 140);
+      setTimeout(function () { var t = P && P.querySelector('.pfwa-lemb-t'); if (t) t.value = tx0; var d = P && P.querySelector('.pfwa-lemb-d'); if (d) { d.focus(); try { d.showPicker(); } catch (e) { } } }, 300); return;
+    }
+    if (id === 'msg_rr') {
+      var tx = cmTxt(A.b).replace(/\s*\d{1,2}:\d{2}\s*$/, ''); var nome = prompt('Nome da resposta rápida (ex.: Endereço, PIX):', ''); if (!nome) return;
+      var r1 = await msg({ t: 'acao', acao: 'rrSalvar', arg: { nome: nome, texto: tx, trocar: true, k: resp && resp.k, contato: resp && resp.contato } });
+      cmToast(r1 && r1.ok ? '💾 Resposta rápida "' + nome + '" salva nos Atalhos de Texto do PF' : 'Não deu — abra o PF'); return;
+    }
+    if (id === 'msg_nota') {
+      if (!resp || !resp.k) { cmToast('Essa conversa não é de um cliente do PF'); return; }
+      var r2 = await msg({ t: 'acao', acao: 'registrar', arg: { k: resp.k, texto: '📝 ' + cmTxt(A.b).replace(/\s*\d{1,2}:\d{2}\s*$/, '') } });
+      cmToast(r2 && r2.ok ? '📝 Anotado na ficha do cliente' : 'Não deu — abra o PF'); return;
+    }
+    if (id === 'msg_mapa' || id === 'img_mapa') {
+      var bt = ((resp && resp.botoes) || []).find(function (x) { return x && x.acao === 'respForn'; });
+      if (!bt) { cmToast('Abra a conversa de um fornecedor que tem mapa esperando resposta'); return; }
+      var pr = String(bt.arg || '').split('|'), ims = [], texto = A.b ? cmTxt(A.b) : '';
+      if (src) { var du = await urlParaDataUrl(src); if (du) ims.push(du); }
+      else if (A.b) { var imgs = A.b.querySelectorAll('img'); for (var i = 0; i < imgs.length && ims.length < 4; i++) { var sr = imgs[i].getAttribute('src') || ''; if ((/^blob:|^data:image/.test(sr)) && (imgs[i].naturalWidth || imgs[i].width) >= 120) { var d2 = await urlParaDataUrl(sr); if (d2) ims.push(d2); } } }
+      await msg({ t: 'acao', acao: 'respForn', focar: true, arg: { mapa: pr[0], fid: pr[1], texto: texto, imgs: ims } });
+      cmToast('✔ Abri no PF — confira e lance'); return;
+    }
+    if (id === 'img_ia') {
+      if (!src) return; irAba('cot'); if (cotando) return; cotando = true; cot = null; cotErro = ''; pintaCorpo();
+      var du2 = await urlParaDataUrl(src);
+      var r3 = await msg({ t: 'acao', acao: 'cotarImg', arg: { img: du2, k: resp && resp.k, contato: resp && resp.contato } });
+      cotando = false; if (!r3 || r3.erro) cotErro = 'Não consegui ler a imagem' + (r3 && r3.msg ? ': ' + r3.msg : ''); else cot = r3; pintaCorpo(); return;
+    }
+    if (/^cv_/.test(id) && !A.nome) { cmToast('Clique com o botão direito em cima da conversa na lista'); return; }
+    if (id === 'cv_ficha') { var r5 = await msg({ t: 'acao', acao: 'fichaNome', focar: true, arg: { nome: A.nome } }); if (r5 && r5.ok === false) cmToast('Não achei esse cliente no PF'); return; }
+    if (id === 'cv_grupo') {
+      if (A.row) clicar(A.row);
+      var ab = await esperar(function () { var c = contatoAtual(); return c && c.nome === A.nome ? c : null; }, 4000); if (!ab) return;
+      await dormir(1500); svAbrir(); return;
+    }
+    if (/^cv_int_/.test(id)) {
+      var niv = id.slice(7), r4 = await msg({ t: 'acao', acao: 'intimSet', arg: { nome: A.nome, nivel: niv } });
+      if (sitCache[A.nome]) sitCache[A.nome].intim = niv; else sitCache[A.nome] = { tipo: '', intim: niv };
+      if (resp && contatoAt && contatoAt.nome === A.nome) resp.intim = niv;
+      cmToast(r4 && r4.ok ? A.nome + ' → ' + ({ formal: '🎩 Formal', normal: '🙂 Normal', proximo: '🤝 Próximo' })[niv] : 'Não deu — abra o PF'); return;
+    }
+    if (id === 'cv_nunca') {
+      AUTO.nunca = AUTO.nunca || []; var ix = AUTO.nunca.indexOf(A.nome);
+      if (ix >= 0) { AUTO.nunca.splice(ix, 1); cmToast('🔔 ' + A.nome + ' volta a receber mensagem automática'); }
+      else { AUTO.nunca.push(A.nome); cmToast('🔕 ' + A.nome + ' não recebe mais mensagem automática'); }
+      autoGravar(); return;
+    }
+  }
+  // 🔎 Alt+B: cartão da peça dentro do WhatsApp
+  var AB = null, abR = null;
+  function abEl() { if (!AB) { AB = document.createElement('div'); AB.id = 'pfwa-ab'; document.body.appendChild(AB); AB.addEventListener('click', abClique); } return AB; }
+  document.addEventListener('keydown', function (e) {
+    if (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyB') { e.preventDefault(); e.stopPropagation(); abAbrir(String(window.getSelection() || '').trim()); return; }
+    if (e.key === 'Escape' && AB && AB.style.display === 'block') { AB.style.display = 'none'; e.stopPropagation(); }
+  }, true);
+  var AB_CAB = '<div class="ab-cab"><b>🔎 PartsFlow</b><span class="ab-x" data-ab="x" title="Fechar (Esc)">✕</span></div>';
+  async function abAbrir(texto) {
+    var el = abEl(); el.style.display = 'block';
+    if (!texto) {
+      el.innerHTML = AB_CAB + '<div class="ab-q"><input class="ab-in" placeholder="Código da peça (ex.: 5-515X)"><button data-ab="buscar">🔎</button></div><div class="ab-dica">Dica: selecione o código na mensagem e aperte <b>Alt+B</b> (ou botão direito → 🧩 PartsFlow → Ver no PF).</div>';
+      var i = el.querySelector('.ab-in'); i.focus(); i.onkeydown = function (ev) { if (ev.key === 'Enter') abAbrir(i.value.trim()); ev.stopPropagation(); }; return;
+    }
+    el.innerHTML = AB_CAB + '<div class="ab-car">Procurando no PF…</div>';
+    var r = await msg({ t: 'acao', acao: 'altb', arg: { texto: texto, k: resp && resp.k } });
+    abR = r; abPinta(texto);
+  }
+  function abPinta(texto) {
+    var el = abEl(), r = abR;
+    if (!r || r.erro) { el.innerHTML = AB_CAB + '<div class="ab-car">' + (r && r.erro === 'semPF' ? 'Abra o PartsFlow numa aba deste Chrome.' : 'O PF não respondeu. Dê F5 na aba do PartsFlow.') + '</div>'; return; }
+    if (!r.itens || !r.itens.length) { el.innerHTML = AB_CAB + '<div class="ab-car">Não achei código em "' + esc(String(texto || '').slice(0, 60)) + '".</div>'; return; }
+    el.innerHTML = AB_CAB + '<div class="ab-corpo">' + r.itens.map(function (x, i) {
+      var tem = x.marcas && x.marcas.length;
+      var h = '<div class="ab-it"><div class="ab-cod"><b>' + esc(x.cod) + '</b>' + (x.qtd > 1 ? ' <span class="ab-q2">× ' + esc(x.qtd) + '</span>' : '') + '<span class="ab-cp" data-ab="copiar" data-c="' + esc(x.cod) + '" title="Copiar o código">📋</span>' +
+        (x.codCli ? ' <small>(achado por ' + esc(x.codCli) + ')</small>' : '') + '</div>' +
+        (x.desc ? '<div class="ab-desc">' + esc(x.desc) + '</div>' : '') +
+        (tem ? x.marcas.map(function (m) { return '<div class="ab-mar ' + (m.saldo > 0 ? 'ok' : 'zero') + '"><span>' + esc(m.marca || '—') + '</span><span>' + (m.saldo > 0 ? 'saldo ' + esc(m.saldo) : 'sem saldo') + '</span><b>' + (m.preco ? reais(m.preco) : '') + '</b></div>'; }).join('')
+          : '<div class="ab-nada">' + (x.cc ? 'Não está no estoque — está no catálogo dos Componentes Cardan.' : 'Não achei no PF.') + '</div>');
+      if (x.cc) h += '<div class="ab-cc">🔩 Componentes Cardan · ' + esc(x.cc.fam) + (x.cc.cod && x.cc.cod !== x.cod ? ' · ' + esc(x.cc.cod) : '') + '</div>';
+      if (x.mc && x.mc.length) h += '<div class="ab-mct">🔗 Monta com (' + esc(x.nMc) + ')</div>' + x.mc.map(function (m) {
+        return '<div class="ab-mc" data-ab="mc" data-f="' + esc(m.famK) + '" data-c="' + esc(m.cod) + '" title="Abrir no catálogo"><b>' + esc(m.cod) + '</b><span>' + esc(m.fam) + '</span>' +
+          (m.saldo == null ? '<i class="z">sem cadastro</i>' : m.saldo > 0 ? '<i class="s">saldo ' + esc(m.saldo) + '</i>' : '<i class="z">sem saldo</i>') + '</div>'; }).join('');
+      h += '<div class="ab-bts"><button class="v" data-ab="cot" data-i="' + i + '">➕ Pôr na cotação</button><button data-ab="pf" data-c="' + esc(x.cod) + '">Abrir no PF ›</button>' +
+        (x.cc || (x.mc && x.mc.length) ? '<button data-ab="cat" data-c="' + esc(x.cod) + '">🔩 Catálogo</button>' : '') + '</div></div>';
+      return h;
+    }).join('') + '</div>';
+  }
+  function abClique(e) {
+    var el = e.target.closest('[data-ab]'); if (!el) return; e.preventDefault(); e.stopPropagation();
+    var a = el.getAttribute('data-ab'), c = el.getAttribute('data-c') || '';
+    if (a === 'x') { AB.style.display = 'none'; return; }
+    if (a === 'buscar') { var i = AB.querySelector('.ab-in'); abAbrir(i ? i.value.trim() : ''); return; }
+    if (a === 'copiar') { try { navigator.clipboard.writeText(c.replace(/\s+/g, '')); el.textContent = '✓'; setTimeout(function () { el.textContent = '📋'; }, 1500); } catch (er) { } return; }
+    if (a === 'cot') { var x = abR && abR.itens && abR.itens[+el.getAttribute('data-i')]; if (!x) return; var m0 = (x.marcas || []).find(function (m) { return m.saldo > 0; }) || (x.marcas || [])[0];
+      cotHoje('', [{ cod: x.cod, qtd: x.qtd || 1, marca: m0 ? m0.marca : '', marcaPed: x.marcaPed || '', codCli: x.codCli || '' }]); el.textContent = '✔ Mandei pro PF'; return; }
+    if (a === 'pf') { msg({ t: 'acao', acao: 'altbPF', focar: true, arg: { cod: c } }); return; }
+    if (a === 'cat') { msg({ t: 'acao', acao: 'ccAbrir', focar: true, arg: { cod: c } }); return; }
+    if (a === 'mc') { msg({ t: 'acao', acao: 'ccAbrirFam', focar: true, arg: { fam: el.getAttribute('data-f'), cod: c } }); return; }
+  }
   setTimeout(function () { try { autoStatusPill(); } catch (e) { } }, 2500);
 
   function autoModoSet(m) {
@@ -2377,7 +2624,7 @@
     return h + '</div>';
   }
   function htmlAuto() {
-    var A = AUTO, inp = 'class="au-in"', aus = autoAusente(), nomeEx = contatoAt ? contatoAt.nome : 'Carlos - Trackpeças';
+    var A = AUTO, inp = 'class="au-in"', aus = (autoAusente(), (AUTO.modo && AUTO.modo !== 'normal') ? AUTO.modo : ''), nomeEx = contatoAt ? contatoAt.nome : 'Carlos - Trackpeças';
     var ex = function (f) { var l = []; for (var i = 0; i < 3; i++) { var t = f(); if (l.indexOf(t) < 0) l.push(t); } return l.map(function (t) { return '<div class="au-exl">“' + esc(t) + '”</div>'; }).join(''); };
     var h = '<div class="pfwa-ajtop"><b>👋 Mensagens automáticas</b><span class="pfwa-link" data-acao="autoVoltar">‹ voltar</span></div>';
     h += htmlCmd(); // 4.2 - 📱 mudar pelo WhatsApp
@@ -2392,6 +2639,7 @@
         '<div class="au-st">Manda UMA vez só pra cada conversa enquanto você estiver ' + esc(AUTO_MODOS[aus][1].toLowerCase()) + ' — se o cliente continuar mandando mensagem, não repete. A qualquer hora, e abre as conversas que chegarem sozinho (se você não estiver mexendo no WhatsApp). No "até" volta sozinho pra 🟢 Disponível.</div>';
     }
     h += '</div>';
+    h += autoAvisosHtml(nomeEx, ex); // 4.47 - ⏰ avisos programados
     // 👋 Saudação de espera
     h += '<div class="au-sec"><div class="pfwa-cfgl" data-acao="autoTog" data-arg="on"><span class="pfwa-cfgi">👋</span><div><b>Saudação de espera</b><br><small>Quando você está disponível mas o cliente fica X minutos sem resposta, manda uma mensagem como se fosse você.</small></div><span class="pfwa-sw' + (A.on ? ' on' : '') + '"><i></i></span></div>' +
       '<div class="au-g"><label>Sem resposta há<input type="number" min="1" max="120" data-au="min" value="' + esc(A.min) + '" ' + inp + '> min</label>' +
@@ -2405,13 +2653,16 @@
         : '<div class="au-fr"><small>O PF lê o que o cliente mandou e responde de acordo: códigos → "já vou ver esses códigos", foto → "vi a foto", áudio → "vou ouvir aqui", preço → "já te passo o valor". Varia a saudação, às vezes sem nome, não repete a última, e espera uns segundos "digitando".</small></div>') +
       // 4.27 - chamar pelo nome / começar com saudação (vale pra "Minhas frases" sem precisar digitar {nome}/{saudacao})
       '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="chamarNome"><span class="pfwa-cfgi">👤</span><div><b>Chamar o cliente pelo nome</b><br><small>Põe o nome na frente quando dá pra saber. Você não precisa digitar {nome} nas frases.</small></div><span class="pfwa-sw' + (A.chamarNome !== false ? ' on' : '') + '"><i></i></span></div>' +
+      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="saud1a"><span class="pfwa-cfgi">☀️</span><div><b>"Bom dia/Boa tarde" só na 1ª conversa do dia</b><br><small>Já falou com esse cliente hoje? A frase vai sem o "bom dia" ("João, só finalizando um processo aqui e já te chamo").</small></div><span class="pfwa-sw' + (A.saud1a !== false ? ' on' : '') + '"><i></i></span></div>' +
       '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="comSaud"><span class="pfwa-cfgi">🕐</span><div><b>Começar com "Bom dia/Boa tarde"</b><br><small>Puxa a saudação da hora pra frente da sua frase.</small></div><span class="pfwa-sw' + (A.comSaud !== false ? ' on' : '') + '"><i></i></span></div>' +
       '<div class="au-ex">Vai sair algo assim:' + ex(function () { return autoTexto(nomeEx, { bloco: '5-280X\n2654407 2 de cada' }, ''); }) + '</div>' +
+      autoTomHtml(nomeEx) + // 4.47 - 🎩 tom por intimidade
       // 4.27 - QUANDO MANDAR: sempre × só na 1ª vez do dia
       '<div class="au-modos au-est"><span data-acao="autoQuando" data-arg="sempre" class="' + (A.quando !== 'primeira' ? 'on' : '') + '">🔁 Sempre que eu não responder</span><span data-acao="autoQuando" data-arg="primeira" class="' + (A.quando === 'primeira' ? 'on' : '') + '">📩 Só na 1ª vez do dia</span></div>' +
       '<div class="au-st" style="margin-top:4px">📩 = se você já falou com esse cliente hoje, a saudação não é mandada de novo.</div>' +
       // 4.27 - deixar a conversa como não lida depois do automático
       '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="naoLida"><span class="pfwa-cfgi">🔵</span><div><b>Deixar a conversa como NÃO LIDA depois</b><br><small>Depois de responder sozinho, marca a conversa como não lida — ela sobe na lista com a bolinha verde pra você lembrar de dar o retorno de verdade.</small></div><span class="pfwa-sw' + (A.naoLida !== false ? ' on' : '') + '"><i></i></span></div>' +
+      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="trava30"><span class="pfwa-cfgi">✋</span><div><b>Não mandar se eu escrevi nos últimos 30 min</b><br><small>Você estava conversando com ele há pouco = a extensão fica quieta.</small></div><span class="pfwa-sw' + (A.trava30 !== false ? ' on' : '') + '"><i></i></span></div>' +
       '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="abrir"><span class="pfwa-cfgi">📂</span><div><b>Também nas outras conversas</b><br><small>Quando você fica 20 s sem digitar nem clicar no WhatsApp (ou ele está em outra aba), a extensão abre a conversa que está esperando, manda e volta pra que você estava. Desligado = só na conversa aberta.</small></div><span class="pfwa-sw' + (A.abrir ? ' on' : '') + '"><i></i></span></div>' +
       // 4.34 - A pedido do Vitor: aviso claro quando está desligado (a saudação só vai pra conversa aberta)
       (!A.abrir ? '<div class="au-st" style="background:#FFF4E5;border:1px solid #F3C98B;color:#7a4a10">⚠️ Está <b>desligado</b>: a saudação só vai pra conversa que estiver <b>ABERTA</b>. Ligue acima pra mandar também pras outras conversas da lista (deixe o WhatsApp ~1 min parado).</div>' : '') +
@@ -2423,10 +2674,38 @@
     if (envs.length) h += '<div class="pfwa-bloco"><div class="pfwa-bt">Esperando você responder</div>' + envs.map(function (e) { return '<div class="pfwa-it"><b>' + esc(e.n) + '</b><br><small>' + esc(new Date(e.ts).toLocaleString('pt-BR').slice(0, 17)) + ' · "' + esc(e.txt) + '"</small></div>'; }).join('') + '</div>';
     return h;
   }
+  // 4.47 - ⏰ avisos programados (vários ao mesmo tempo)
+  var AUTO_DIAS = [['semana', 'segunda a sexta'], ['sabado', 'segunda a sábado'], ['fds', 'sábado e domingo'], ['todos', 'todos os dias']];
+  function autoAvisosHtml(nomeEx, ex) {
+    var ag = autoAvisoAtual(), manual = AUTO.modo && AUTO.modo !== 'normal';
+    var h = '<div class="au-sec"><b>⏰ Avisos programados</b><div class="au-st" style="margin:3px 0 6px">Ligam e desligam sozinhos no horário. Com dois valendo juntos, vale o de horário <b>mais curto</b> (o 🍽️ almoço passa na frente do 🌙 expediente). O status de cima (reunião, férias) passa na frente de todos. Cada conversa recebe UMA mensagem por período, até você responder.</div>';
+    (AUTO.avisos || []).forEach(function (a, i) {
+      var vale = ag && ag.id === a.id && !manual;
+      h += '<div class="au-av' + (vale ? ' vale' : '') + (a.on ? '' : ' off') + '"><div class="au-avt"><input data-au="av.' + i + '.ic" value="' + esc(a.ic || '') + '" class="au-in au-avic"><input data-au="av.' + i + '.nome" value="' + esc(a.nome || '') + '" class="au-in au-avn">' +
+        (vale ? '<span class="au-vale">valendo agora</span>' : '') + '<span class="pfwa-sw' + (a.on ? ' on' : '') + '" data-acao="autoAvTog" data-arg="' + i + '"><i></i></span></div>' +
+        '<div class="au-g"><label>Dias<select data-au="av.' + i + '.dias" class="au-in">' + AUTO_DIAS.map(function (d) { return '<option value="' + d[0] + '"' + (a.dias === d[0] ? ' selected' : '') + '>' + d[1] + '</option>'; }).join('') + '</select></label>' +
+        '<label>Das<input type="time" data-au="av.' + i + '.ini" value="' + esc(a.ini || '') + '" class="au-in"> às<input type="time" data-au="av.' + i + '.fim" value="' + esc(a.fim || '') + '" class="au-in"></label></div>' +
+        '<div class="au-fr"><small>Mensagem (vazio = o PF varia sozinho · use {saudacao} {nome} {volta})</small><textarea data-au="av.' + i + '.txt" rows="2">' + esc(a.txt || '') + '</textarea></div>' +
+        (a.on ? '<div class="au-ex">Vai sair algo assim:' + ex(function () { return autoTexto(nomeEx, null, 'av:' + a.id); }) + '</div>' : '') +
+        '<span class="pfwa-link au-avdel" data-acao="autoAvDel" data-arg="' + i + '">🗑 apagar este aviso</span></div>';
+    });
+    return h + '<button class="pfwa-btn" data-acao="autoAvNovo">➕ Novo aviso</button></div>';
+  }
+  // 4.47 - 🎩 tom por intimidade
+  function autoTomHtml(nomeEx) {
+    var mi = AUTO.estilo === 'minhas', ft = AUTO.frasesTom || {};
+    var exT = function (tom) { return '“' + esc(autoTexto(nomeEx, { bloco: 'oi, tem o 5-280X?' }, '', tom)) + '”'; };
+    return '<div class="au-fr"><small><b>🎩 Tom por intimidade</b> — cada contato tem um grau (marque no 👤 Salvar contato ou com o botão direito na conversa). Sem marcar = Normal.</small>' +
+      '<div class="au-tom"><b>🎩 Formal</b> ' + exT('formal') + '</div><div class="au-tom"><b>🙂 Normal</b> ' + exT('normal') + '</div><div class="au-tom"><b>🤝 Próximo</b> ' + exT('proximo') + '</div>' +
+      (mi ? '<small>Suas frases pros contatos 🎩 formais (uma por linha · vazio = usa as de cima com o tom formal)</small><textarea data-au="frasesTom.formal" rows="2">' + esc((ft.formal || []).join('\n')) + '</textarea>' +
+        '<small>Suas frases pros contatos 🤝 próximos</small><textarea data-au="frasesTom.proximo" rows="2">' + esc((ft.proximo || []).join('\n')) + '</textarea>' : '') + '</div>';
+  }
   function autoCampo(el) {
     var k = el.getAttribute('data-au'), v = el.value;
     if (k === 'cmdQuem') { AUTO.cmdQuem = v.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); autoGravar(); return; }
     if (k === 'cmdEu') { AUTO.cmdEu = !!el.checked; autoGravar(); return; }
+    if (k.indexOf('av.') === 0) { var pp = k.split('.'), av = (AUTO.avisos || [])[+pp[1]]; if (av) av[pp[2]] = v; autoGravar(); try { autoStatusPill(); } catch (e) { } return; } // 4.47
+    if (k.indexOf('frasesTom.') === 0) { AUTO.frasesTom = AUTO.frasesTom || {}; AUTO.frasesTom[k.slice(10)] = v.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); autoGravar(); return; }
     if (k === 'frases') AUTO.frases = v.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
     else if (k.indexOf('ausTxt.') === 0) { AUTO.ausTxt = AUTO.ausTxt || {}; AUTO.ausTxt[k.slice(7)] = v.trim(); }
     else if (k === 'min' || k === 'horas' || k === 'porHora') AUTO[k] = Math.max(1, +v || AUTO_PADRAO[k]);
@@ -2484,7 +2763,7 @@
     return { ate: null, resto: t };
   }
   function cmdStatusTxt() {
-    var aus = autoAusente(), m = AUTO_MODOS[aus || 'normal'];
+    var aus = autoAusente(), m = autoInfo(aus);
     var s = m[0] + ' ' + m[1] + (aus && AUTO.ate ? ' até ' + (aus === 'ferias' ? autoDataBR(AUTO.ate) : autoDataBR(AUTO.ate) + ' ' + autoHoraBR(AUTO.ate)) : '');
     if (aus === 'ferias' && AUTO.subst) s += ' · atende: ' + AUTO.subst + (AUTO.substTel ? ' ' + AUTO.substTel : '');
     s += '\n👋 Saudação de espera: ' + (AUTO.on ? 'ligada, ' + AUTO.min + ' min, ' + AUTO.ini + '–' + AUTO.fim : 'desligada');

@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2707</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2708</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2707</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2708</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -75266,7 +75266,8 @@ function pfExtProgresso(lote){if(!lote)return;
       pfChToast('💬 WhatsApp: '+ok+' enviada'+(ok!==1?'s':'')+(er?' · '+er+' com problema':''));}});}
 // ── perguntas do painel ──
 function pfExtResponder(m){
-  if(m.t==='quem')return pfExtQuem(m.tel,m.nome);
+  // v115.2708 - o painel também recebe o grau de intimidade do contato (tom das mensagens automáticas)
+  if(m.t==='quem'){var _q=pfExtQuem(m.tel,m.nome);try{if(_q&&typeof _q==='object'&&typeof _q.then!=='function')_q.intim=pfExtIntimDe(m.nome,m.tel);}catch(e){}return _q;}
   if(m.t==='acao')return pfExtAcao(m.acao,m.arg);
   return {erro:'?'};}
 function pfExtClientes(){var c=window._pfExtCliCache;if(c&&Date.now()-c.ts<30000)return c.l;var l=[];try{l=pcMontarDados();}catch(e){}
@@ -75766,6 +75767,61 @@ function pfExtNomeMatcher(nome){
 // WhatsApp não renomeava, a lista (que mostra o nome antigo) não reconhecia a ligação e caía no "(636)" de OUTRO cadastro. Agora o contato guarda também o nome
 // que o WhatsApp mostra (nomeWa) e a comparação ignora espaço/acento/pontuação.
 function pfExtNomeAN(s){try{return typeof pfBuscaAN==='function'?pfBuscaAN(s):String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}catch(e){return '';}}
+// v115.2708 - A pedido do Vitor ("classificar o grau de intimidade com o contato, para a extensão definir o tom da formalidade da msg"; prévia
+// docs/referencias/whatsapp-automaticas/): 🎩 formal / 🙂 normal / 🤝 próximo, gravado NA PESSOA (contato do WhatsApp em pfContatosWhats_v1), não na empresa.
+function pfExtIntimDe(nome,tel){try{var tN=pfExtTel(tel),nU=pfExtNomeAN(nome),l=pfExtContatosRaw()||[],best='',bs=-1;
+  l.forEach(function(x){if(!x||x.del||!x.intim)return;var ok=(tN.length>=8&&x.tel&&pfExtTelBate(x.tel,tN))?2:(nU&&(pfExtNomeAN(x.nome)===nU||(x.nomeWa&&pfExtNomeAN(x.nomeWa)===nU))?1:0);if(!ok)return;var sc=ok*1e13+(+x.tsMod||0);if(sc>bs){bs=sc;best=x.intim;}});
+  return best;}catch(e){return '';}}
+function pfExtIntimSet(a){a=a||{};var nome=String(a.nome||'').trim();if(!nome)return {ok:false};
+  var tN=pfExtTel(a.tel||''),nU=pfExtNomeAN(nome),l=pfExtContatosRaw();if(!Array.isArray(l))l=[];var ag=Date.now(),n=0,niv=String(a.nivel||'');
+  l.forEach(function(x){if(!x||x.del)return;if((tN.length>=8&&x.tel&&pfExtTelBate(x.tel,tN))||(nU&&(pfExtNomeAN(x.nome)===nU||(x.nomeWa&&pfExtNomeAN(x.nomeWa)===nU)))){x.intim=niv;x.tsMod=ag;n++;}});
+  if(!n){var ak=null;try{ak=pfExtAcharK(nome,a.tel||'');}catch(e){}
+    l.push({id:'w'+ag.toString(36)+Math.random().toString(36).slice(2,6),nome:nome,nomeWa:nome,tel:tN,etqs:[],clienteK:ak&&ak.tipo==='cliente'?ak.k:'',clienteNome:ak&&ak.tipo==='cliente'?ak.titulo:'',intim:niv,criadoEm:ag,tsMod:ag,de:'intim'});}
+  pfExtContatosSave(l);return {ok:true};}
+// v115.2708 - A pedido do Vitor ("dá pra colocar o atalho do Alt+B? e se na frase tiver mais coisa, puxar só o código" + "isso vai ser bom pra entrar no catálogo
+// dos componentes, que já vejo os monta com"): cartão da peça dentro do WhatsApp — códigos lidos do texto selecionado (mesma leitura do pedido), marcas com saldo
+// e preço desse cliente, Componentes Cardan e o 🔗 Monta com.
+function pfExtAltB(a){a=a||{};var P=null;try{P=pfExtLerPedido([{t:String(a.texto||''),eu:false}]);}catch(e){}
+  var its=((P&&P.itens)||[]).slice(0,6);
+  if(!its.length){var raw=(String(a.texto||'').trim().split(/\s+/)[0]||'').replace(/[^\w.\-\/]/g,'');if(raw)its=[{cod:raw.toUpperCase(),qtd:1}];}
+  var c=null;try{c=a.k?pfExtClienteCad(a.k):null;}catch(e){}
+  return {ok:true,itens:its.map(function(x){var orig=String(x.cod||'').toUpperCase(),cod=orig,fl=[];
+    try{fl=vendasBuscarItem(cod,{semEquiv:true,silencioso:true})||[];}catch(e){}
+    if(!fl.length){try{var so=pfAltbAchados(cod)||[];if(so.length){cod=String(so[0].cod).toUpperCase();fl=vendasBuscarItem(cod,{semEquiv:true,silencioso:true})||[];}}catch(e){}}
+    var marcas=fl.map(function(f){var cu=parseFloat(f.custo)||0;return {marca:f.marca||'',saldo:parseFloat(f.saldo)||0,preco:cu>0?Math.round(pfExtPreco(c,cu)*100)/100:0,desc:f.desc||''};}).sort(function(p,q){return q.saldo-p.saldo;});
+    var cc=null;try{cc=pfItemCardCcAcha(cod)||(cod!==orig?pfItemCardCcAcha(orig):null);}catch(e){}
+    var mc=[];try{mc=pfItemCardMcLista(cod)||[];}catch(e){}
+    return {cod:cod,codCli:cod!==orig?orig:(x.codCli||''),qtd:x.qtd||1,marcaPed:x.marcaPed||'',desc:(marcas[0]&&marcas[0].desc)||(cc&&cc.desc)||'',marcas:marcas.slice(0,6),
+      cc:cc?{fam:cc.fam,cod:cc.cod,desc:cc.desc}:null,nMc:mc.length,
+      mc:mc.slice(0,12).map(function(r){var it=r.item||{},cd=String(it.codigo||''),sd=null;try{sd=pfCatEnvSaldo(cd);}catch(e){}return {cod:cd,fam:r.familia||'',famK:r.familiaChave||'',desc:it.descricao||'',saldo:sd};})};})};}
+// v115.2708 - "➕ Pôr na cotação" do WhatsApp (A pedido do Vitor: "já aberta no dia de hoje!"): cotação desse cliente aberta na tela agora > a dele criada HOJE > nova.
+function pfExtCotHoje(a){a=a||{};var its=a.itens;
+  if(!its||!its.length){var P=null;try{P=pfExtLerPedido([{t:String(a.texto||''),eu:false}]);}catch(e){}its=((P&&P.itens)||[]).map(function(x){return {cod:x.cod,qtd:x.qtd,marca:'',marcaPed:x.marcaPed||'',codCli:x.codCli||''};});}
+  if(!its.length){var raw=(String(a.texto||'').trim().split(/\s+/)[0]||'').replace(/[^\w.\-\/]/g,'').toUpperCase();if(raw)its=[{cod:raw,qtd:1}];}
+  if(!its.length)return {ok:false,msg:'Não achei código no que você selecionou'};
+  var c=null;try{c=a.k?pfExtClienteCad(a.k):null;}catch(e){}
+  var novos=function(){return its.map(function(x){var r={ficha:null};try{r=vendasEscolherFichaResumo(x.cod,x.marca||'');}catch(e){}var it=vendasItemDaFicha(x.cod,r.ficha,x.desc||'',x.marca||'');it.qtd=Math.max(1,+x.qtd||1);if(x.codCli)it.codigoOriginal=x.codCli;return it;});};
+  var bate=function(q){if(!c||!q)return false;var rz=pfBuscaAN(c.razao||c.nome||''),cd=String((c.cad&&c.cad.codigo)||'').replace(/^0+/,''),o=(q.cliente&&typeof q.cliente==='object'?q.cliente:null)||q.clienteObj||{};
+    return !!((cd&&String(o.codigo||'').replace(/^0+/,'')===cd)||(rz&&(pfBuscaAN(typeof q.cliente==='string'?q.cliente:'')===rz||pfBuscaAN(o.razao||'')===rz)));};
+  var juntar=function(){var vv=window._venda;if(!vv||!vv.itens)return 0;try{if(typeof vendasUndoMarcar==='function')vendasUndoMarcar();}catch(e){}var n=0;
+    novos().forEach(function(nv){var ex=vv.itens.find(function(i){return i&&!i.pvNumero&&pfBuscaAN(i.codigo)===pfBuscaAN(nv.codigo)&&String(i.marcaInterna||i.marca||'')===String(nv.marcaInterna||nv.marca||'');});
+      if(ex)ex.qtd=nv.qtd;else{nv.waNovo=true;vv.itens.push(nv);}n++;});
+    try{vendasRefresh();}catch(e){}try{vendasAutoSalvarDebounced();}catch(e){}return n;};
+  var v=window._venda,md=document.getElementById('vendasModal');
+  if(v&&md&&md.style.display!=='none'&&md.offsetParent!==null&&bate(v)){var n0=juntar();pfChToast('➕ '+n0+' item'+(n0>1?'s':'')+' na cotação nº '+(v.num||'aberta'));return {ok:true,onde:'aberta'};}
+  if(c){var cs=[];try{cs=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]');}catch(e){}var hj=new Date().toDateString();
+    var cx=cs.filter(function(q){return q&&!q.del&&!q.demo&&!q.fechadaEm&&new Date(q.data||0).toDateString()===hj&&bate(q)&&!((q.itens||[]).length&&q.itens.every(function(i){return i&&i.pvNumero;}));}).sort(function(p,q){return new Date(q.data||0)-new Date(p.data||0);})[0];
+    if(cx){try{if(typeof pfCrmFechar==='function')pfCrmFechar();}catch(e){}try{pfNavigate('vendas');}catch(e){}
+      setTimeout(function(){try{vendasAbrirModal(cx);}catch(e){pfAlert('Não consegui abrir a cotação nº '+cx.num+'.');return;}var n1=juntar();pfChToast('➕ '+n1+' item'+(n1>1?'s':'')+' na cotação nº '+cx.num+' (de hoje)');},250);
+      return {ok:true,onde:'hoje',num:cx.num};}}
+  setTimeout(function(){try{pfExtAbrirCot({k:a.k,nova:true,itens:its.map(function(x){return {cod:x.cod,qtd:x.qtd,marca:x.marca||'',marcaPed:x.marcaPed||'',codCli:x.codCli||''};})});}catch(e){console.warn('cotHoje',e);}},50);
+  return {ok:true,onde:'nova'};}
+// v115.2708 - 🤖 Ler com IA e cotar (botão direito numa foto/print do WhatsApp): a IA transcreve o pedido e o PF lê igual a uma mensagem
+async function pfExtCotarImg(a){try{a=a||{};if(!a.img)return {erro:'img',msg:'não consegui pegar a imagem'};
+  var bl=await (await fetch(a.img)).blob(),f=new File([bl],'print.'+(((bl.type||'').split('/')[1])||'png'),{type:bl.type||'image/png'});
+  var texto=await _anthropicReadDoc(f,PF_PED_PROMPT,'pedido do cliente (WhatsApp)');
+  var R=pfExtCotar({k:a.k,contato:a.contato,msgs:String(texto||'').split('\n').map(function(t){return {t:t,eu:false};})});R.ia=true;return R;
+}catch(e){return {erro:'ia',msg:String(e&&e.message||e)};}}
 function pfExtLigadoK(nome,tel){try{var tN=pfExtTel(tel),nU=pfExtNomeAN(nome),l=JSON.parse(pfSafeGetItem(PF_EXT_CONT_KEY)||'[]')||[],best=null,bs=-1;
   l.forEach(function(x){if(!x||x.del||!x.clienteK)return;var ok=(tN.length>=8&&x.tel&&pfExtTelBate(x.tel,tN))?2:(nU&&(pfExtNomeAN(x.nome)===nU||(x.nomeWa&&pfExtNomeAN(x.nomeWa)===nU))?1:0);if(!ok)return;var sc=ok*1e13+(+x.tsMod||+x.criadoEm||0);if(sc>bs){bs=sc;best=x.clienteK;}});
   return best||'';}catch(e){return '';}}
@@ -76060,7 +76116,16 @@ function pfExtAcao(acao,arg){
   if(acao==='importarContatos'){setTimeout(function(){try{pfExtImportarAbrir((arg&&arg.lista)||[]);}catch(e){console.warn('importarContatos',e);}},50);return {ok:true};}
   // v115.2603 - Menu do PF em volta do WhatsApp: a extensão manda a lista de conversas visíveis (nome+tel) e o PF diz, em lote,
   // quem é cliente/fornecedor e se tem cotação/mapa aberto → etiquetas embaixo de cada conversa e contadores na barra de cima.
-  if(acao==='situacoes'){var o={},_wc=[];((arg&&arg.lista)||[]).slice(0,150).forEach(function(x){try{o[x.nome]=pfExtSituacaoDe(x.nome,x.tel||'');if(o[x.nome].tipo==='cliente'&&o[x.nome].k&&x.hora)_wc.push([o[x.nome].k,x.hora]);}catch(e){o[x.nome]={tipo:''};}});
+  if(acao==='intimSet')return pfExtIntimSet(arg||{}); // v115.2708
+  // v115.2708 - 🖱️ botão direito / 🔎 Alt+B no WhatsApp
+  if(acao==='altb')return pfExtAltB(arg||{});
+  if(acao==='cotHoje')return pfExtCotHoje(arg||{});
+  if(acao==='cotarImg')return pfExtCotarImg(arg||{});
+  if(acao==='fichaNome'){var _fk=null;try{_fk=pfExtAcharK(arg&&arg.nome,'');}catch(e){}if(!_fk||_fk.tipo!=='cliente')return {ok:false};setTimeout(function(){try{pfCrmAbrir(_fk.k);}catch(e){console.warn(e);}},50);return {ok:true};}
+  if(acao==='altbPF'){setTimeout(function(){try{pfItemCardBuscaAbrir();var _i=document.getElementById('pfItemCardBuscaInput');if(_i){_i.value=String(arg&&arg.cod||'');pfItemCardBuscar();}}catch(e){console.warn('altbPF',e);}},80);return {ok:true};}
+  if(acao==='ccAbrir'){setTimeout(function(){try{pfItemCardAbrirCardan(String(arg&&arg.cod||''));}catch(e){console.warn('ccAbrir',e);}},80);return {ok:true};}
+  if(acao==='ccAbrirFam'){setTimeout(function(){try{ccAbrirDoLink(arg.fam,arg.cod);}catch(e){console.warn('ccAbrirFam',e);}},80);return {ok:true};}
+  if(acao==='situacoes'){var o={},_wc=[];((arg&&arg.lista)||[]).slice(0,150).forEach(function(x){try{o[x.nome]=pfExtSituacaoDe(x.nome,x.tel||'');try{var _it=pfExtIntimDe(x.nome,x.tel||'');if(_it)o[x.nome].intim=_it;}catch(e){}if(o[x.nome].tipo==='cliente'&&o[x.nome].k&&x.hora)_wc.push([o[x.nome].k,x.hora]);}catch(e){o[x.nome]={tipo:''};}});
     try{if(_wc.length)pfWhatsContatoGravar(_wc);}catch(e){}return {ok:true,sit:o};}
   if(acao==='irTela'){setTimeout(function(){try{pfExtIrTela(arg);}catch(e){console.warn('irTela',e);}},50);return {ok:true};}
   if(acao==='cadcli'){setTimeout(function(){try{pfExtIrTela({tela:'cadcli',cod:arg});}catch(e){console.warn('cadcli',e);}},50);return {ok:true};}
@@ -76640,8 +76705,8 @@ function pfExtSalvarContato(a){
   var l=pfExtContatosRaw();if(!Array.isArray(l))l=[];
   var _waAN=pfExtNomeAN(a.nomeWa); // v115.2705
   var ex=l.find(function(c){return c&&!c.del&&((tel&&c.tel&&pfExtTelBate(c.tel,tel))||(!tel&&_waAN&&(pfExtNomeAN(c.nome)===_waAN||pfExtNomeAN(c.nomeWa)===_waAN)));});
-  if(ex){ex.nome=nome;if(a.nomeWa)ex.nomeWa=String(a.nomeWa);if(tel)ex.tel=tel;if(cli){ex.clienteK=cli.k;ex.clienteNome=cli.razao||cli.nome;}if(a.cod)ex.codJboss=String(a.cod).replace(/\D/g,'');ex.tsMod=agora;}
-  else l.push({id:'w'+agora.toString(36)+Math.random().toString(36).slice(2,6),nome:nome,nomeWa:String(a.nomeWa||''),tel:tel,etqs:[],clienteK:cli?cli.k:'',clienteNome:cli?(cli.razao||cli.nome):'',codJboss:String(a.cod||'').replace(/\D/g,''),criadoEm:agora,por:eu,tsMod:agora,de:'salvar'});
+  if(ex){if(a.intim)ex.intim=String(a.intim);ex.nome=nome;if(a.nomeWa)ex.nomeWa=String(a.nomeWa);if(tel)ex.tel=tel;if(cli){ex.clienteK=cli.k;ex.clienteNome=cli.razao||cli.nome;}if(a.cod)ex.codJboss=String(a.cod).replace(/\D/g,'');ex.tsMod=agora;}
+  else l.push({id:'w'+agora.toString(36)+Math.random().toString(36).slice(2,6),nome:nome,nomeWa:String(a.nomeWa||''),intim:String(a.intim||''),tel:tel,etqs:[],clienteK:cli?cli.k:'',clienteNome:cli?(cli.razao||cli.nome):'',codJboss:String(a.cod||'').replace(/\D/g,''),criadoEm:agora,por:eu,tsMod:agora,de:'salvar'});
   pfExtContatosSave(l);
   var noCad='';
   if(cli&&a.cod){try{var _cj=String(a.cod).replace(/\D/g,''),_cl=cadLoad(CLIE_KEY)||[],_cc=_cl.find(function(c){return c&&!c.del&&'c:'+String(c.codigo||c.razao||'').toUpperCase()===cli.k;});
@@ -76728,7 +76793,7 @@ function pfExtBaixarZip(){
 function pfExtBaixarZipSimples(){var a=document.createElement('a');a.href=PF_EXT_ZIP;a.download='partsflow-whatsapp.zip';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();},200);}
 // v115.2601 - A pedido do Vitor ("tá atualizada a extensão?" — estava na 1.5 com a 1.9 publicada): versão mais nova = a do manifest.
 // Subiu a "version" do extensao-whatsapp/manifest.json → subir aqui também.
-var PF_EXT_VER_NOVA='4.46'; // v115.2707 - manifest 4.46
+var PF_EXT_VER_NOVA='4.47'; // v115.2708 - manifest 4.47
 function pfExtVerMenor(a,b){a=String(a||'0').split('.').map(Number);b=String(b||'0').split('.').map(Number);for(var i=0;i<Math.max(a.length,b.length);i++){var x=a[i]||0,y=b[i]||0;if(x!==y)return x<y;}return false;}
 function pfExtInstalarAbrir(){
   var tem=pfExtTem(),li=function(n,t){return '<div style="display:flex;gap:10px;margin:8px 0"><span style="flex:0 0 24px;height:24px;border-radius:50%;background:#1F4E79;color:#fff;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center">'+n+'</span><div style="font-size:13px;line-height:1.5">'+t+'</div></div>';};

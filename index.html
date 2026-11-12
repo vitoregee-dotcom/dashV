@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2709</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2710</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2709</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2710</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -28204,6 +28204,13 @@ var PF_LP_CARDAN_PROMPT=' IMPORTANTE -- codigos de COMPONENTES CARDAN tem hifen 
 var PF_COD_PREFIXOS=[{p:'CAR',marca:'CARRARO'}];
 function pfCodPrefixo(cod){cod=String(cod||'').toUpperCase().trim();
   for(var i=0;i<PF_COD_PREFIXOS.length;i++){var r=PF_COD_PREFIXOS[i],m=cod.match(new RegExp('^'+r.p+'[\\s.\\-]?(\\d{4,}[A-Z0-9]*)$'));if(m)return {cod:m[1],marca:r.marca,orig:cod};}
+  return null;}
+// v115.2710 - A pedido do Vitor (pedido no WhatsApp "3-40-1571tx / 250-53-11tx": "TX puxou no código, mas é a marca"): sufixo da MARCA grudado no fim
+// de código de cardan (com traço) — 3-40-1571TX = TX COMPONENTES 3-40-1571. Só quando a base tem traço e número (código Spicer/TX). Sufixo novo → linha aqui.
+var PF_COD_SUFIXOS=[{s:'TX',marca:'TX'}];
+function pfCodSufixo(cod){cod=String(cod||'').toUpperCase().trim();
+  for(var i=0;i<PF_COD_SUFIXOS.length;i++){var r=PF_COD_SUFIXOS[i],m=cod.match(new RegExp('^(.*\\d[A-Z]{0,3}?)[\\s\\-]?'+r.s+'$'));
+    if(m&&/-/.test(m[1])&&/^\d/.test(m[1])&&m[1].replace(/\D/g,'').length>=3)return {cod:m[1].replace(/[\s\-]+$/,''),marca:r.marca,orig:cod};}
   return null;}
 function lpApplyRuleCase(cod){
   cod=(cod||'').toString().trim().toUpperCase().replace(/\s+/g,'');
@@ -54580,12 +54587,15 @@ function vendasAdicionarItem(){
   var codDigitado=cod;
   // v115.2677 - CAR47700 → 47700 (Carraro), só quando o código com o CAR não existe no estoque; o código do cliente fica como ele mandou
   var _px=pfCodPrefixo(cod);if(_px){var _jaPx=[];try{_jaPx=vendasBuscarItem(cod,{semEquiv:true,silencioso:true})||[];}catch(e){}if(!_jaPx.length)cod=_px.cod;}
+  var _sxMarca=''; // v115.2710 - 3-40-1571TX = marca TX, código 3-40-1571 (só quando o código com o TX não existe no estoque)
+  var _sx=_px?null:pfCodSufixo(cod);if(_sx){var _jaSx=[];try{_jaSx=vendasBuscarItem(cod,{semEquiv:true,silencioso:true})||[];}catch(e){}if(!_jaSx.length){cod=_sx.cod;_sxMarca=_sx.marca;}}
   var codPrincipal=null;
   // v115.2445 - conjunto de rolamento (tabela Meritor): o cliente manda o nº Meritor e precisa ir o CONJUNTO (cone + capa), nunca só um
   if(!window._vendasConjPular){var cjS=vendasConjuntoDe(cod);if(cjS){vendasConjuntoDigitado(cjS,cod,qtd);codEl.value='';if(qtdEl)qtdEl.value='1';
     setTimeout(function(){var el=document.getElementById('vendasCodInput');if(el)el.focus();},50);return;}}
   window._vendasConjPular=false;
   var items=vendasBuscarItem(cod);
+  if(_sxMarca&&items&&items.length){var _soSx=items.filter(function(x){try{return pfExtMarcaBate(x.marca,_sxMarca);}catch(e){return false;}});if(_soSx.length)items=_soSx;} // v115.2710 - só a marca do sufixo
   if(!items||!items.length){
     // não achou direto - procura nas conversões dos produtos cadastrados
     var produtos=cadLoad(PROD_KEY);
@@ -75724,6 +75734,7 @@ function pfExtLerPedido(msgs){
         var mTipo=tok.match(/^(LUVA|CRUZETA|PONTEIRA|PONTUVA|FLANGE|GARFO|TERMINAL|CARDAN)[\s.\-]*([0-9][A-Za-z0-9.\-\/]*)$/i);
         if(mTipo&&mTipo[2].replace(/\D/g,'').length>=4)tok=mTipo[2];
         var _px=pfCodPrefixo(tok),pxCli='',pxMarca='';if(_px){pxCli=_px.orig;pxMarca=_px.marca;tok=_px.cod;} // v115.2677 - CAR47700 = Carraro 47700
+        else{var _sx=pfCodSufixo(tok);if(_sx){pxCli=_sx.orig;pxMarca=_sx.marca;tok=_sx.cod;}} // v115.2710 - 3-40-1571TX = TX 3-40-1571
         var d=tok.replace(/\D/g,'');if(d.length<4)return;
         if(/^\d{1,2}[\/.]\d{1,2}([\/.]\d{2,4})?$/.test(tok))return; // data
         if(/^\d{1,2}:\d{2}$/.test(tok))return;
@@ -75740,8 +75751,10 @@ function pfExtLerPedido(msgs){
         var mLz=tok.toUpperCase().match(/^([A-Z])(\d{1,5})$/);if(mLz){var nz=mLz[2];while(nz.length<6)nz='0'+nz;tok=mLz[1]+nz;}
         var n=tok.toUpperCase().replace(/[.\-\/]/g,'');
         if(_prs.length){_prs.forEach(function(pr){var kk=n+'|'+pr.m;if(vis[kk])return;vis[kk]=1;it.push({cod:tok.toUpperCase(),qtd:pr.q,marcaPed:pr.m,grax:_grax,lin:lin.trim().slice(0,80)});});return;} // v115.2673
-        if(vis[n])return;vis[n]=1;
-        var _o={cod:tok.toUpperCase(),qtd:qT||qL,grax:_grax,lin:lin.trim().slice(0,80)};if(pxCli){_o.codCli=pxCli;_o.marcaPed=pxMarca;}it.push(_o);
+        // v115.2710 - marca escrita logo DEPOIS do código, sem quantidade ("3-28-537 tx" / "3-28-537 albarus" = 2 itens, cada um com a marca dele)
+        if(!pxMarca&&lin.indexOf(tok)>=0){var _dep=lin.slice(lin.indexOf(tok)+tok.length).match(/^\s+([A-Za-zÀ-ú][A-Za-zÀ-ú0-9&\-]{1,})/);if(_dep&&pfExtMarcaConhecida(_dep[1]))pxMarca=_dep[1].toUpperCase();}
+        var _kv=n+(pxMarca?'|'+pfExtMarcaFam(pxMarca):'');if(vis[_kv])return;vis[_kv]=1;
+        var _o={cod:tok.toUpperCase(),qtd:qT||qL,grax:_grax,lin:lin.trim().slice(0,80)};if(pxCli)_o.codCli=pxCli;if(pxMarca)_o.marcaPed=pxMarca;it.push(_o);
       });
     });
   });
@@ -75764,6 +75777,10 @@ function pfExtMarcasDaLinha(lin){var out=[],re=/(?:^|[\s,;(])0*(\d{1,4})\s*(?:p[
     if(w2&&/^(COMPONENTES|ROLAMENTOS|FILTROS|FILTER|DO\s*BRASIL|BRASIL|PARTS|HD)$/.test(w2))w+=' '+w2; // "TX COMPONENTES", "MANN FILTER"
     out.push({q:q,m:w});}
   return out;}
+// v115.2710 - marca conhecida (pra ler "3-28-537 tx" sem quantidade): as que aparecem nas cotações/pedidos + as de cardan
+var PF_EXT_MARCAS_FIXAS=['SPICER','ALBARUS','TX','DANA','LNG','MERITOR','STAHL','SOROCARD','REI','EATON','ZF','CARRARO','PERKINS','MAHLE','MANN','TECFIL','WEGA','FLEETGUARD','SKF','FAG','NSK','NTN','TIMKEN'];
+function pfExtMarcaConhecida(w){var u=pfBuscaN(w||'').trim();if(u.length<2||(typeof PF_EXT_MARCA_STOP!=='undefined'&&PF_EXT_MARCA_STOP.test(u)))return false;
+  if(PF_EXT_MARCAS_FIXAS.indexOf(u)>=0)return true;try{return (pfOfMarcas()||[]).some(function(m){return m===u||m.indexOf(u+' ')===0;});}catch(e){return false;}}
 // v115.2680 - A pedido do Vitor ("nas cruzetas, Albarus é a mesma coisa que Spicer"): a marca ALBARUS (e ALBARUS-R) conta como SPICER no match do pedido.
 function pfExtMarcaFam(m){var u=pfBuscaN(m||'').trim();if(/^ALBARUS/.test(u))return 'SPICER';return u;}
 function pfExtMarcaBate(fm,pedida){var a=pfExtMarcaFam(fm),b=pfExtMarcaFam(pedida);if(!a||!b)return false;

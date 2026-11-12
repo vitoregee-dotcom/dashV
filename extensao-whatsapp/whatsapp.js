@@ -662,6 +662,7 @@
       cot.junto.splice(+arg, 1); refazResposta(); pintaCorpo(); return;
     }
     if (ac === 'sugMarca') { sugMarcaUsar(arg); return; } // 4.28
+    if (ac === 'parec') { parecUsar(arg); return; } // 4.48
     if (ac === 'tirar') { if (cot) { cot.itens.splice(+arg, 1); refazResposta(); pintaCorpo(); } return; }
     if (ac === 'saldoBusca') { var i2 = P.querySelector('.pfwa-saldo-in'); buscarSaldo(i2 ? i2.value : ''); return; }
     if (ac === 'fechaAviso') { avisoFechado = ultimo; pintaAviso(0); return; }
@@ -771,7 +772,7 @@
   function refazResposta() {
     if (!cot) return; var nome = (resp && resp.contato || '').split(' ')[0], tot = 0;
     var ls = cot.itens.map(function (o) {
-      if (!o.achou) return o.cod + ' — não localizei, pode confirmar o código?';
+      if (!o.achou) return o.cod + ' — não localizei' + (o.perg ? ', não seria o ' + o.perg + '?' : ', pode confirmar o código?');
       if (!(o.saldo > 0)) return o.cod + ' — ' + o.desc + ' — vou verificar o prazo';
       var q = Math.min(o.saldo, o.qtd), mk = o.marcaPed ? ' ' + o.marca + (o.marcaOk ? '' : ' (não temos ' + o.marcaPed + ')') : ''; tot += q * o.preco; return o.cod + mk + ' — ' + o.desc + ' — ' + q + ' un' + (q < o.qtd ? ' (tenho ' + o.saldo + ')' : '') + ' — ' + reais(o.preco) + ' un';
     });
@@ -843,6 +844,12 @@
     if (sg.length) h += '<div class="pfwa-mps">↳ temos: ' + sg.map(function (x, j) { return '<span class="pfwa-mpc' + (x.saldo > 0 ? '' : ' z') + '" data-acao="sugMarca" data-arg="' + i + '|' + j + '" title="Usar ' + esc(x.marca) + ' ' + esc(x.cod) + '">' + esc(x.marca) + (x.cod && x.cod !== o.cod ? ' ' + esc(x.cod) : '') + ' · ' + (x.saldo > 0 ? x.saldo : 'sem saldo') + (x.preco > 0 ? ' · ' + reais(x.preco) : '') + '</span>'; }).join(' ') + '</div>';
     return h;
   }
+  // 4.48 - 🔍 código quase igual: o cliente pode ter digitado errado (3-3-5571X → 3-3-6571X). Clicar = a resposta pergunta "não seria o X?"
+  function parecHtml(o, i) {
+    if (o.achou || !(o.parecidos || []).length) return '';
+    return '<div class="pfwa-mps">🔍 seria: ' + o.parecidos.map(function (x, j) { return '<span class="pfwa-mpc' + (x.saldo > 0 ? '' : ' z') + (o.perg === x.cod ? ' on' : '') + '" data-acao="parec" data-arg="' + i + '|' + j + '" title="' + esc(x.como) + (x.marca ? ' · ' + esc(x.marca) : '') + (x.saldo > 0 ? ' · saldo ' + x.saldo : ' · sem saldo') + ' — clique pra perguntar ao cliente">' + esc(x.cod) + '</span>'; }).join(' ') + '</div>';
+  }
+  function parecUsar(arg) { if (!cot) return; var p = String(arg || '').split('|'), o = cot.itens[+p[0]], x = o && o.parecidos && o.parecidos[+p[1]]; if (!x) return; o.perg = o.perg === x.cod ? '' : x.cod; refazResposta(); pintaCorpo(); }
   function sugMarcaUsar(arg) {
     if (!cot) return; var p = String(arg || '').split('|'), o = cot.itens[+p[0]], x = o && o.sug && o.sug[+p[1]]; if (!x) return;
     var antes = { marca: o.marca, cod: o.cod, saldo: o.saldo, preco: o.preco, desc: o.desc };
@@ -862,7 +869,7 @@
     h += '<table class="pfwa-tab"><tr><th>Código</th><th>Qtd</th><th>Saldo</th><th>Unit.</th><th></th></tr>';
     cot.itens.forEach(function (o, i) {
       var sl = !o.achou ? '<span class="no">não achei</span>' : !(o.saldo > 0) ? '<span class="no">✖ 0</span>' : o.saldo < o.qtd ? '<span class="mid">◐ ' + o.saldo + '</span>' : '<span class="ok">✔ ' + o.saldo + '</span>';
-      h += '<tr><td><b>' + esc(o.cod) + '</b>' + (o.desc ? '<br><small>' + esc(o.desc) + (o.marca ? ' · ' + esc(o.marca) : '') + '</small>' : '') + marcaPedHtml(o, i) + '</td><td>' + o.qtd + '</td><td>' + sl + '</td><td>' + (o.preco > 0 ? reais(o.preco) : '—') + '</td><td><span data-acao="tirar" data-arg="' + i + '" title="Tirar da cotação" class="pfwa-tirar">✕</span></td></tr>';
+      h += '<tr><td><b>' + esc(o.cod) + '</b>' + (o.desc ? '<br><small>' + esc(o.desc) + (o.marca ? ' · ' + esc(o.marca) : '') + '</small>' : '') + marcaPedHtml(o, i) + parecHtml(o, i) + '</td><td>' + o.qtd + '</td><td>' + sl + '</td><td>' + (o.preco > 0 ? reais(o.preco) : '—') + '</td><td><span data-acao="tirar" data-arg="' + i + '" title="Tirar da cotação" class="pfwa-tirar">✕</span></td></tr>';
     });
     h += '</table><div class="pfwa-tot"><span>Total (com saldo)</span><span>' + reais(cot.total) + '</span></div>';
     if (CFG.sug !== false) h += juntoHtml(); // 4.20 - 💡 quem leva isso também leva

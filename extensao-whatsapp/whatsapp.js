@@ -1990,6 +1990,16 @@
     autoCarregado = true; autoUltJ = autoJ(); if (autoGravarDepois) { autoGravarDepois = false; autoGravar(); }
   });
   ['mousemove', 'keydown', 'mousedown', 'wheel'].forEach(function (t) { document.addEventListener(t, function () { autoUltMexeu = Date.now(); }, true); });
+  // 4.46 - BUG (Vitor: "só mandou pra esse contato quando eu abri a msg… mandou pq eu tava com a janela aberta"): as outras conversas só recebiam se você ficasse
+  // 1 min SEM MEXER o mouse no WhatsApp — trabalhando nele, nunca acontecia. Agora conta só digitar/clicar (mexer o mouse/rolar não conta): 20 s sem digitar
+  // nem clicar e a caixa vazia (ou o WhatsApp em outra aba) = abre a conversa que está esperando, manda e volta.
+  var autoUltAcao = 0;
+  ['keydown', 'mousedown', 'paste', 'input'].forEach(function (t) { document.addEventListener(t, function (e) { if (e && e.isTrusted === false) return; autoUltAcao = Date.now(); }, true); });
+  function autoLivre() {
+    if (document.hidden) return true;
+    if (Date.now() - autoUltAcao < 20000) return false;
+    var cx = caixaTexto(); return !(cx && (cx.innerText || '').trim());
+  }
   // 4.41 - BUG (Vitor: "de novo não fica gravado as msg q coloco"): 1) o autoGravar podia rodar ANTES de a config guardada carregar e gravava o PADRÃO
   // por cima (no navegador e no PF); 2) qualquer gravação interna (conversa enviada, etiqueta) marcava a config como "mais nova" e subia pro PF. Agora só
   // grava depois de carregar, a data da config só muda quando a CONFIG muda, e só sobe pro PF depois de ler a do PF (a mais nova vence).
@@ -2301,11 +2311,11 @@
     autoOcup = true;
     try {
       if (contatoAt && await autoNaAberta()) return;
-      if (!(AUTO.abrir || aus) || Date.now() - autoUltMexeu < 60000) return; // ausente: abre as outras conversas sozinho (você não está mexendo)
+      if (!(AUTO.abrir || aus) || !autoLivre()) return; // 4.46 - 20 s sem digitar/clicar (ou WhatsApp em outra aba)
       var cand = autoCandidatas(aus); if (!cand.length) return;
       var antes = contatoAt ? contatoAt.nome : '';
       for (var i = 0; i < cand.length && i < 3; i++) {
-        if (Date.now() - autoUltMexeu < 60000) break; // você voltou a mexer: para
+        if (!document.hidden && Date.now() - autoUltAcao < 20000) break; // 4.46 - você voltou a digitar/clicar: para
         clicar(cand[i].el);
         var ab = await esperar(function () { var c = contatoAtual(); return c && c.nome === cand[i].nome ? c : null; }, 4000);
         if (!ab) continue;
@@ -2402,7 +2412,7 @@
       '<div class="au-st" style="margin-top:4px">📩 = se você já falou com esse cliente hoje, a saudação não é mandada de novo.</div>' +
       // 4.27 - deixar a conversa como não lida depois do automático
       '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="naoLida"><span class="pfwa-cfgi">🔵</span><div><b>Deixar a conversa como NÃO LIDA depois</b><br><small>Depois de responder sozinho, marca a conversa como não lida — ela sobe na lista com a bolinha verde pra você lembrar de dar o retorno de verdade.</small></div><span class="pfwa-sw' + (A.naoLida !== false ? ' on' : '') + '"><i></i></span></div>' +
-      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="abrir"><span class="pfwa-cfgi">📂</span><div><b>Também nas outras conversas</b><br><small>Se você ficar 1 min sem mexer no WhatsApp, a extensão abre a conversa que está esperando, manda e volta pra que você estava. Desligado = só na conversa aberta.</small></div><span class="pfwa-sw' + (A.abrir ? ' on' : '') + '"><i></i></span></div>' +
+      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="abrir"><span class="pfwa-cfgi">📂</span><div><b>Também nas outras conversas</b><br><small>Quando você fica 20 s sem digitar nem clicar no WhatsApp (ou ele está em outra aba), a extensão abre a conversa que está esperando, manda e volta pra que você estava. Desligado = só na conversa aberta.</small></div><span class="pfwa-sw' + (A.abrir ? ' on' : '') + '"><i></i></span></div>' +
       // 4.34 - A pedido do Vitor: aviso claro quando está desligado (a saudação só vai pra conversa aberta)
       (!A.abrir ? '<div class="au-st" style="background:#FFF4E5;border:1px solid #F3C98B;color:#7a4a10">⚠️ Está <b>desligado</b>: a saudação só vai pra conversa que estiver <b>ABERTA</b>. Ligue acima pra mandar também pras outras conversas da lista (deixe o WhatsApp ~1 min parado).</div>' : '') +
       '<div class="au-st">' + (A.on ? (autoNoHorario() ? '🟢 Ligada e dentro do horário.' : '🟡 Ligada, mas fora do horário agora.') : '⚪ Desligada.') + ' A conversa que recebeu a mensagem ganha a etiqueta "👋 … responda" até você responder.</div>' +

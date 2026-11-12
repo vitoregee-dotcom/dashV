@@ -2582,3 +2582,8 @@
   (`pfExtLerPedido`: código sem o TX + `codCli` + `marcaPed` TX) e na cotação (`vendasAdicionarItem`: só quando o código COM o TX não existe no estoque; fica só a ficha da marca TX
   se tiver). 2) marca escrita logo DEPOIS do código sem quantidade ("3-28-537 tx" e "3-28-537 albarus") vira `marcaPed` e cada marca é um item (`pfExtMarcaConhecida`:
   `PF_EXT_MARCAS_FIXAS` + `pfOfMarcas`; antes o 2º era jogado fora como repetido). Sufixo novo → linha no `PF_COD_SUFIXOS`.
+- v115.2711 + extensão **4.49** (prints do WhatsApp real): 1) ("não ficou bom ali, quando vou clicar abre os emojis") o selo ⚡ da resposta rápida ficava em cima do balão,
+  onde o WhatsApp mostra o botão de reagir — agora fica do lado de FORA, embaixo (`bottom:4px`, z 30), logo depois do selo 📄 quando tem (`left` pela largura dele), e
+  pointerdown/mousedown/mouseover param nele (não chegam no WhatsApp). 2) ("está com as etiquetas do whats" — RS Tork, cliente sem grupo/tipo, com "CARDAN"): a linha da
+  etiqueta nativa só era escondida em cliente com grupo ou tipo; agora o `badgesRender` esconde a linha que vem depois da mensagem em TODA conversa (cliente, fornecedor
+  e contato fora do PF), logo depois do `rowLimpar`.

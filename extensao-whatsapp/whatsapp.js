@@ -398,13 +398,14 @@
   var ajuda = false;
   // 3.4 - ⚙️ Configurações (A pedido do Vitor: "coloca botão de eu ligar ou desligar essas configurações. igual no Watidy"):
   // cada função da extensão liga/desliga aqui; guardado por navegador (chrome.storage.local 'cfg'). Menu e aviso de cotação usam as chaves que já existiam.
-  var config = false, CFG = { bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true, audio: true, audioBotoes: false, sug: true, waEtqOff: true };
+  var config = false, CFG = { bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true, audio: true, audioBotoes: false, sug: true, waEtqOff: true, rrselo: true };
   var CFG_LISTA = [
     ['menu', '🧭', 'Menu do PF em volta do WhatsApp', 'Barra de grupos em cima (Linha Amarela, Linha Agrícola…) e a coluna de atalhos à esquerda.'],
     ['etq', '🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome da lista: cidade e grupo do cliente, fornecedor do PF, cotação aberta, mapa.'],
     ['bots', '📄', 'Botões do PF ao lado das mensagens', 'A coluna (A) ou barra (D) com Cotar, Saldo, Ficha, Lembrete, Prontas…'],
     ['aviso', '🔔', 'Aviso de pedido de cotação', 'A bolinha laranja com o número de códigos no botão 📄 quando o cliente manda códigos.'],
     ['selo', '📄', 'Selo no balão da mensagem', 'O selinho "📄 N" no canto da mensagem do cliente que tem códigos. Clique = ver os códigos e criar a cotação no PF.'],
+    ['rrselo', '⚡', 'Resposta rápida no balão', 'Quando o cliente pergunta algo que você tem como resposta rápida (endereço, PIX, horário…), aparece o ⚡ no balão. Clique = ver a resposta e enviar.'],
     ['barra', '⚡', 'Respostas rápidas com "/"', 'Digitar / no começo da caixa de texto abre as respostas rápidas (o botão ⚡ continua funcionando).'],
     ['salvar', '👤', 'Botão Salvar contato', 'O botão verde ao lado do nome da conversa.'],
     ['ofertas', '💡', 'Guardar ofertas e respostas', 'Quando você oferece algo, o cartão pra salvar a oferta e a resposta do cliente no CRM.'],
@@ -929,7 +930,7 @@
   }
   // 1.9 - BUG (Vitor: foto aberta em tela cheia ficava com o aviso e o botão "PF" por cima): se alguma coisa do WhatsApp cobre a conversa
   // (foto, vídeo, documento, janela), esconde os avisos e os botões da extensão até fechar.
-  var MEUS = '#pfwa-sp,.pfwa-selo,#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st,#pfwa-vf,#pfwa-menu,#pfwa-rail,#pfwa-svb,#pfwa-sv';
+  var MEUS = '#pfwa-sp,.pfwa-selo,#pfwa-rr2,.pfwa-rrselo,#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st,#pfwa-vf,#pfwa-menu,#pfwa-rail,#pfwa-svb,#pfwa-sv';
   // 2.8 - BUG (Vitor: documento/PDF aberto no WhatsApp ainda ficava com o aviso e o "PF" por cima): o visualizador do WhatsApp nem sempre
   // aparece no elementsFromPoint (partes com pointer-events:none). Agora também conta janela aberta (dialog/aria-modal) e imagem/vídeo/canvas
   // GRANDE fora da conversa e da lista (foto, documento, vídeo em tela cheia).
@@ -1824,6 +1825,73 @@
   document.addEventListener('mousedown', function (e) { if (SP && SP.style.display === 'block' && !SP.contains(e.target) && !(e.target.closest && e.target.closest('.pfwa-selo'))) spFechar(); }, true);
   document.addEventListener('scroll', function () { spPos(); }, true);
   setInterval(function () { try { selosVigiar(); } catch (e) { } }, 1500);
+
+  // ═══ ⚡ RESPOSTA RÁPIDA NO BALÃO (4.38) ═══
+  // 4.38 / v115.2696 - A pedido do Vitor ("quando o cliente pedir algo q tiver na msg rapida, a extensão identifique, apareça aquela etiqueta parecida
+  // com a q identifica código, pra eu clicar e já enviar"): a extensão manda a ÚLTIMA mensagem do cliente pro PF (respRapidaAchar), que acha os Atalhos
+  // de Texto que combinam (pelos gatilhos/nome). Casou = selo ⚡ no balão; clicar abre a resposta pronta pra Enviar agora ou pôr na caixa.
+  var RR2 = null, rr2Msg = null, rr2L = null, rrCache = {}, rrUlt = '';
+  function rrUltimoIn() { var els = document.querySelectorAll('#main [data-pre-plain-text]'); for (var i = els.length - 1; i >= 0; i--) { if (!els[i].closest('.message-out')) return els[i]; } return null; }
+  function rrTxt(el) { var tx = el.querySelector('.selectable-text'); return ((tx ? tx.innerText : el.innerText) || '').replace(/📄\s*\d+\+?|✓ cot\.|⚡/g, '').trim(); }
+  async function rrVigiar() {
+    var liga = CFG.rrselo !== false && contatoAt && !contatoAt.grupo && (!resp || resp.tipo !== 'fornecedor');
+    document.querySelectorAll('#main .pfwa-rrselo').forEach(function (s) { if (!liga || !s.closest('[data-pre-plain-text]') || rrUltimoIn() !== s.closest('[data-pre-plain-text]')) s.remove(); });
+    if (!liga) { if (RR2 && RR2.style.display === 'block') rr2Fechar(); return; }
+    var el = rrUltimoIn(); if (!el) return;
+    var t = rrTxt(el); if (t.length < 3) return;
+    var h = ultimo + '|' + t;
+    if (h !== rrUlt) {
+      rrUlt = h;
+      if (!(h in rrCache)) { try { var r = await msg({ t: 'acao', acao: 'respRapidaAchar', arg: { k: resp && resp.k, contato: resp && resp.contato, texto: t } }); rrCache[h] = (r && r.l) || []; } catch (e) { rrCache[h] = []; } }
+    }
+    var L = rrCache[h] || [];
+    if (!L.length) { var sx = el.querySelector(':scope > .pfwa-rrselo'); if (sx) sx.remove(); return; }
+    var s = el.querySelector(':scope > .pfwa-rrselo');
+    if (!s) { s = document.createElement('span'); s.className = 'pfwa-rrselo'; if (getComputedStyle(el).position === 'static') el.style.position = 'relative'; el.appendChild(s); }
+    s.textContent = '⚡'; s.title = L.length === 1 ? ('Resposta rápida: ' + L[0].nome + ' — clique pra enviar') : (L.length + ' respostas rápidas combinam — clique');
+    s._L = L; s._t = t;
+    s.onclick = function (ev) { ev.preventDefault(); ev.stopPropagation(); rr2Abrir(s); };
+  }
+  function rr2El() { if (!RR2) { RR2 = document.createElement('div'); RR2.id = 'pfwa-rr2'; document.body.appendChild(RR2); RR2.addEventListener('click', rr2Clique); } return RR2; }
+  function rr2Fechar() { if (RR2) RR2.style.display = 'none'; rr2Msg = null; rr2L = null; }
+  function rr2Pos() {
+    if (!RR2 || !rr2Msg || RR2.style.display === 'none') return;
+    if (!document.body.contains(rr2Msg)) { rr2Fechar(); return; }
+    var r = rr2Msg.getBoundingClientRect(), w = 320, hh = RR2.offsetHeight || 170;
+    var bal = rr2Msg.parentElement ? rr2Msg.parentElement.getBoundingClientRect() : r, left = Math.min(window.innerWidth - w - 10, Math.max(10, bal.left));
+    var top = r.bottom + 6; if (top + hh > window.innerHeight - 10) top = Math.max(10, r.top - hh - 6);
+    RR2.style.left = left + 'px'; RR2.style.top = top + 'px';
+  }
+  function rr2Abrir(s) {
+    rr2El(); rr2Msg = s; rr2L = s._L || []; RR2.style.display = 'block';
+    var h = '<div class="rr2-cab"><b>⚡ Resposta rápida</b><span class="rr2-x" data-rr="x" title="Fechar (Esc)">✕</span></div>';
+    h += rr2L.map(function (o, i) {
+      return '<div class="rr2-it"><div class="rr2-nm">' + esc(o.nome) + (o.falta && o.falta.length ? ' <span class="rr2-fl">⚠ falta ' + esc(o.falta.join(', ')) + '</span>' : '') + '</div>' +
+        '<div class="rr2-tx">' + esc(o.txt) + '</div>' +
+        '<div class="rr2-b"><button class="rr2-cx" data-rr="cx" data-i="' + i + '">✍️ Pôr na caixa (conferir)</button><button class="rr2-env" data-rr="env" data-i="' + i + '" title="Escreve e já envia">📤 Enviar</button></div></div>';
+    }).join('');
+    RR2.innerHTML = h; rr2Pos();
+  }
+  function rr2Clique(e) {
+    var el = e.target.closest('[data-rr]'); if (!el) return; var a = el.getAttribute('data-rr');
+    e.preventDefault(); e.stopPropagation();
+    if (a === 'x') { rr2Fechar(); return; }
+    var o = rr2L[+el.getAttribute('data-i')]; if (!o) return;
+    if (a === 'cx') { escreverNaCaixa(o.txt); rr2Fechar(); return; }
+    if (a === 'env') { rr2Enviar(o); }
+  }
+  async function rr2Enviar(o) {
+    if (!escreverNaCaixa(o.txt)) { flash2('Não consegui escrever na caixa'); return; }
+    var btn = await esperar(botaoEnviar, 3000); if (!btn) { flash2('Escrevi na caixa — aperte enviar'); rr2Fechar(); return; }
+    await dormir(250); (botaoEnviar() || btn).click();
+    try { msg({ t: 'acao', acao: 'rrUsou', arg: { id: o.id } }); } catch (e) { }
+    rr2Fechar();
+  }
+  function flash2(t) { try { if (RR2) { var d = document.createElement('div'); d.className = 'rr2-flash'; d.textContent = t; RR2.appendChild(d); setTimeout(function () { d.remove(); }, 2500); } } catch (e) { } }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && RR2 && RR2.style.display === 'block') { rr2Fechar(); e.stopPropagation(); } }, true);
+  document.addEventListener('mousedown', function (e) { if (RR2 && RR2.style.display === 'block' && !RR2.contains(e.target) && !(e.target.closest && e.target.closest('.pfwa-rrselo'))) rr2Fechar(); }, true);
+  document.addEventListener('scroll', function () { rr2Pos(); }, true);
+  setInterval(function () { rrVigiar().catch(function (e) { }); }, 1800);
 
   // ═══ 👋 SAUDAÇÃO AUTOMÁTICA (3.9) + 🗓️ MEU STATUS (4.0) ═══
   // 3.9 - A pedido do Vitor ("se eu não responder em 3 min pode mandar alguma msg. mas quero configurável"): o cliente ficou X minutos sem resposta →

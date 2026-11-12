@@ -425,6 +425,10 @@
         '<span class="pfwa-sw' + (on ? ' on' : '') + '"><i></i></span></div>';
     });
     h += '<div class="pfwa-cfgl" data-acao="autoAbrir"><span class="pfwa-cfgi">👋</span><div><b>Mensagens automáticas</b><br><small>' + (autoAusente() ? AUTO_MODOS[autoAusente()][0] + ' ' + AUTO_MODOS[autoAusente()][1] + ' · ' : '') + 'Saudação de espera ' + (AUTO.on ? 'ligada · ' + esc(AUTO.min) + ' min · ' + esc(AUTO.ini) + '–' + esc(AUTO.fim) : 'desligada') + ' — clique pra ajustar</small></div><span class="pfwa-link">ajustar ›</span></div>';
+    // 4.37 - A pedido do Vitor ("não precisa mais desses botões né?"): saíram do rodapé, ficam aqui pra usar quando precisar
+    h += '<div class="pfwa-bt" style="margin-top:12px">📇 Contatos</div>' +
+      '<div class="pfwa-cfgbtns"><button data-acao="importar" class="pfwa-cfgb verde" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button>' +
+      '<button data-acao="numeros" class="pfwa-cfgb pfwa-num" title="Abre cada conversa dos contatos salvos sem número, lê o número e grava no PF (só lê, não manda nada). Clique de novo pra parar.">' + (numRodando ? '⏸ Parar' : '📞 Buscar números que faltam') + '</button></div>';
     return h;
   }
   function cfgTog(k) {
@@ -505,7 +509,7 @@
     P.innerHTML = '<div class="pfwa-aba" title="PartsFlow">PF</div><div class="pfwa-caixa"><div class="pfwa-cab">' + logoSvg('#fff', '#0F1F35') +
       '<div class="pfwa-cabt"><b>PartsFlow</b><span class="pfwa-ver">' + (VER ? 'v' + VER : '') + '</span><span class="pfwa-con" data-acao="conexao" title="Ligação com o PartsFlow">…</span><small class="pfwa-cabsub"></small></div><i class="pfwa-ajd" data-acao="config" title="Configurações — ligar e desligar cada função">⚙️</i><i class="pfwa-ajd" data-acao="ajuda" title="Como funciona cada coisa">❓</i><span class="pfwa-vis" title="Onde ficam os botões do PF: A = coluna ao lado das mensagens · D = barra embaixo"><i data-vis="A">A</i><i data-vis="D">D</i></span><span class="pfwa-x" title="Recolher">›</span></div>' +
       '<div class="pfwa-lote"></div><div class="pfwa-tabs"></div><div class="pfwa-corpo"></div>'+
-      '<div class="pfwa-rod"><button data-acao="importar" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button><button data-acao="numeros" class="pfwa-num" title="Abre cada conversa dos contatos salvos sem número, lê o número e grava no PF (só lê, não manda nada). Clique de novo pra parar.">📞 Buscar números que faltam</button><span class="pfwa-rodst"></span></div></div>';
+      '<div class="pfwa-rod pfwa-rod-vazio"><span class="pfwa-rodst"></span></div></div>';
     document.body.appendChild(P);
     B = document.createElement('div'); B.id = 'pfwa-bots'; document.body.appendChild(B); botsArrastoLigar();
     AV = document.createElement('div'); AV.id = 'pfwa-aviso'; document.body.appendChild(AV);
@@ -562,6 +566,7 @@
     if (ac === 'autoModo') { autoModoSet(arg); config = 'auto'; abrirPainel(); pinta(); return; } // 4.0 - 🗓️ meu status
     if (ac === 'autoEstilo') { AUTO.estilo = arg; autoGravar(); pinta(); return; }
     if (ac === 'autoQuando') { AUTO.quando = arg; autoGravar(); pinta(); return; } // 4.27 - quando mandar a saudação de espera
+    if (ac === 'autoTestar') { autoTestar(); return; } // 4.37 - 🧪 testar na conversa aberta
     if (ac === 'cmdAutorizar') { if (contatoAt && contatoAt.nome) { AUTO.cmdNomes = (AUTO.cmdNomes || []).concat([contatoAt.nome]); if (contatoAt.tel && (AUTO.cmdQuem || []).indexOf(contatoAt.tel) < 0) AUTO.cmdQuem = (AUTO.cmdQuem || []).concat([contatoAt.tel]); AUTO.cmdOn = true; autoGravar(); } pinta(); return; }
     if (ac === 'cmdTirar') { AUTO.cmdNomes = (AUTO.cmdNomes || []).filter(function (n) { return n !== arg; }); autoGravar(); pinta(); return; }
     if (ac === 'svAbrir') { if (svAberto) { svAberto = false; SV.style.display = 'none'; } else svAbrir(); return; } // 2.7
@@ -2001,17 +2006,20 @@
     } catch (e) { }
   }
   // manda na conversa ABERTA se a última mensagem é do cliente e está sem resposta há X min
-  async function autoNaAberta() {
+  async function autoNaAberta(force) {
     var aus = autoAusente();
-    var c = contatoAtual(); if (!autoPodeConv(c, aus)) return false;
+    var c = contatoAtual(); if (!c || c.grupo) return false;
+    if (!force && !autoPodeConv(c, aus)) return false; // 4.37 - force (🧪 Testar) pula os travamentos de tempo/limite/horário
     var u = ultimaMsg(); if (!u || u.eu || !u.t) return false;
-    if (!aus && AUTO.quando === 'primeira' && autoFaleiHoje()) return false; // 4.27 - só na 1ª vez que ele falar no dia
-    var espera = aus ? (+AUTO.ausMin || 1) : (+AUTO.min || 3);
-    if (Date.now() - u.t < espera * 60000) return false;
-    if (Date.now() - u.t > (aus ? 12 : 3) * 3600000) return false; // mensagem velha
-    if (aus && AUTO.ausDesde && u.t < AUTO.ausDesde - 10 * 60000) return false; // chegou antes de você sair
+    if (!force) {
+      if (!aus && AUTO.quando === 'primeira' && autoFaleiHoje()) return false; // 4.27 - só na 1ª vez que ele falar no dia
+      var espera = aus ? (+AUTO.ausMin || 1) : (+AUTO.min || 3);
+      if (Date.now() - u.t < espera * 60000) return false;
+      if (Date.now() - u.t > (aus ? 12 : 3) * 3600000) return false; // mensagem velha
+      if (aus && AUTO.ausDesde && u.t < AUTO.ausDesde - 10 * 60000) return false; // chegou antes de você sair
+    }
     var cx = caixaTexto(); if (!cx || (cx.innerText || '').trim()) return false; // você está escrevendo
-    if (!(await autoEhCliente(c))) { autoMarcarFeito(c, aus); return false; }
+    if (!force && !(await autoEhCliente(c))) { autoMarcarFeito(c, aus); return false; }
     var txt = autoTexto(c.nome, u, aus);
     await dormir(1500 + Math.random() * 2500); // "lendo"
     cx = caixaTexto(); if (!cx || (cx.innerText || '').trim() || (contatoAtual() || {}).nome !== c.nome) return false;
@@ -2028,6 +2036,40 @@
     try { autoBadges(); } catch (e) { }
     if (AUTO.naoLida !== false) { await dormir(600); await autoMarcarNaoLida(c.nome); } // 4.27 - deixa como não lida pra você lembrar de responder
     return true;
+  }
+  // 4.37 - A pedido do Vitor ("pq não funciona? não ta mandando a msg automatica"): diz exatamente qual regra barra o envio na conversa ABERTA
+  function autoDiag() {
+    var L = [], aus = autoAusente(), c = contatoAtual();
+    function add(ok, t, d) { L.push({ ok: ok, t: t, d: d || '' }); }
+    if (!c) { add(false, 'Abra uma conversa', 'Abra a conversa de um cliente pra eu testar.'); return L; }
+    add(!c.grupo, 'Conversa aberta: ' + c.nome, c.grupo ? 'É um grupo — grupos não recebem.' : '');
+    if (!aus) {
+      add(!!AUTO.on, 'Saudação de espera LIGADA', AUTO.on ? '' : 'Ligue o 👋 "Saudação de espera" lá em cima.');
+      add(autoNoHorario(), 'Dentro do horário e do dia', autoNoHorario() ? ('agora: ' + AUTO.ini + '–' + AUTO.fim) : ('agora está FORA do horário (' + AUTO.ini + '–' + AUTO.fim + ') ou do dia escolhido'));
+    } else add(true, 'Status: ' + AUTO_MODOS[aus][1], 'manda a qualquer hora');
+    var u = ultimaMsg();
+    add(!!(u && !u.eu && u.t), 'A última mensagem é do CLIENTE', (u && u.eu) ? 'a última foi SUA — ele precisa ter mandado a última' : ((!u || !u.t) ? 'não achei a última mensagem na tela' : ''));
+    if (u && u.t) {
+      var espera = aus ? (+AUTO.ausMin || 1) : (+AUTO.min || 3), falta = espera * 60000 - (Date.now() - u.t);
+      add(falta <= 0, 'Já passou os ' + espera + ' min de espera', falta > 0 ? ('ele mandou agora há pouco — falta ' + Math.ceil(falta / 60000) + ' min') : '');
+    }
+    if (!aus && AUTO.quando === 'primeira') add(!autoFaleiHoje(), 'Só na 1ª vez do dia', autoFaleiHoje() ? 'você JÁ falou com esse cliente hoje → não manda de novo. Pra testar, troque pra "🔁 Sempre que eu não responder".' : '');
+    add(!autoPend[c.nome], 'Ainda não mandei automática aqui', autoPend[c.nome] ? 'já mandei uma e você ainda não respondeu (só volta quando você responder)' : '');
+    add(!cmdAutorizado(c.nome, c.tel), 'Não é sua conversa pessoal/autorizada', cmdAutorizado(c.nome, c.tel) ? 'essa conversa é a sua/autorizada a dar comando → nunca recebe automática' : '');
+    var cx = caixaTexto(); add(!(cx && (cx.innerText || '').trim()), 'Caixa de texto vazia', (cx && (cx.innerText || '').trim()) ? 'tem texto digitado na caixa' : '');
+    if (!aus && AUTO.quem === 'clientes') add(null, 'É cliente do PF', 'só manda pra cliente cadastrado no PF (confere na hora). Pra testar com qualquer um, mude "Pra quem" → "todos".');
+    return L;
+  }
+  var autoTestR = null, autoTestando = false;
+  async function autoTestar() {
+    if (autoTestando) return; autoTestando = true;
+    autoTestR = { carregando: true }; try { pinta(); } catch (e) { }
+    try {
+      var ok = await autoNaAberta(true); // 🧪 força: pula tempo/1ª vez/horário/limite, mas respeita "é cliente do PF" só quando quem=clientes? (força pula)
+      var c = contatoAtual();
+      autoTestR = { ok: ok, nome: c ? c.nome : '', diag: autoDiag() };
+    } catch (e) { autoTestR = { erro: String(e && e.message || e), diag: autoDiag() }; }
+    autoTestando = false; try { pinta(); } catch (e) { }
   }
   // conversas da lista com mensagem não lida há X min
   function autoCandidatas(aus) {
@@ -2101,6 +2143,19 @@
     }
     autoGravar(); try { autoStatusPill(); } catch (e) { }
   }
+  function autoTestHtml() {
+    var R = autoTestR; if (!R) return '';
+    if (R.carregando) return '<div class="au-testr">⏳ testando…</div>';
+    var h = '<div class="au-testr">';
+    if (R.erro) h += '<div class="au-tx bad">⚠️ erro: ' + esc(R.erro) + '</div>';
+    else if (R.ok) h += '<div class="au-tx ok"><b>✅ Mandou a mensagem de teste pra ' + esc(R.nome) + '!</b> Se não apareceu na conversa, me avise.</div>';
+    else h += '<div class="au-tx bad"><b>❌ Não mandou.</b> Olha o que está barrando:</div>';
+    (R.diag || []).forEach(function (d) {
+      var ic = d.ok === null ? '➖' : (d.ok ? '✅' : '⛔');
+      h += '<div class="au-tl ' + (d.ok === false ? 'bad' : '') + '">' + ic + ' <b>' + esc(d.t) + '</b>' + (d.d ? ' <span>— ' + esc(d.d) + '</span>' : '') + '</div>';
+    });
+    return h + '</div>';
+  }
   function htmlAuto() {
     var A = AUTO, inp = 'class="au-in"', aus = autoAusente(), nomeEx = contatoAt ? contatoAt.nome : 'Carlos - Trackpeças';
     var ex = function (f) { var l = []; for (var i = 0; i < 3; i++) { var t = f(); if (l.indexOf(t) < 0) l.push(t); } return l.map(function (t) { return '<div class="au-exl">“' + esc(t) + '”</div>'; }).join(''); };
@@ -2140,7 +2195,10 @@
       '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="abrir"><span class="pfwa-cfgi">📂</span><div><b>Também nas outras conversas</b><br><small>Se você ficar 1 min sem mexer no WhatsApp, a extensão abre a conversa que está esperando, manda e volta pra que você estava. Desligado = só na conversa aberta.</small></div><span class="pfwa-sw' + (A.abrir ? ' on' : '') + '"><i></i></span></div>' +
       // 4.34 - A pedido do Vitor: aviso claro quando está desligado (a saudação só vai pra conversa aberta)
       (!A.abrir ? '<div class="au-st" style="background:#FFF4E5;border:1px solid #F3C98B;color:#7a4a10">⚠️ Está <b>desligado</b>: a saudação só vai pra conversa que estiver <b>ABERTA</b>. Ligue acima pra mandar também pras outras conversas da lista (deixe o WhatsApp ~1 min parado).</div>' : '') +
-      '<div class="au-st">' + (A.on ? (autoNoHorario() ? '🟢 Ligada e dentro do horário.' : '🟡 Ligada, mas fora do horário agora.') : '⚪ Desligada.') + ' A conversa que recebeu a mensagem ganha a etiqueta "👋 … responda" até você responder.</div></div>';
+      '<div class="au-st">' + (A.on ? (autoNoHorario() ? '🟢 Ligada e dentro do horário.' : '🟡 Ligada, mas fora do horário agora.') : '⚪ Desligada.') + ' A conversa que recebeu a mensagem ganha a etiqueta "👋 … responda" até você responder.</div>' +
+      // 4.37 - 🧪 Testar na conversa aberta: diz por que não mandou e deixa forçar o envio pra ver funcionando
+      '<div class="au-test"><button data-acao="autoTestar" class="au-testb">🧪 Testar na conversa aberta</button>' +
+      '<small>Abra a conversa de um cliente e clique — eu digo exatamente o que está barrando e mando a mensagem de teste.</small>' + autoTestHtml() + '</div></div>';
     var envs = Object.keys(autoPend).map(function (n) { return { n: n, ts: autoPend[n].ts, txt: autoPend[n].txt }; }).sort(function (a, b) { return b.ts - a.ts; }).slice(0, 5);
     if (envs.length) h += '<div class="pfwa-bloco"><div class="pfwa-bt">Esperando você responder</div>' + envs.map(function (e) { return '<div class="pfwa-it"><b>' + esc(e.n) + '</b><br><small>' + esc(new Date(e.ts).toLocaleString('pt-BR').slice(0, 17)) + ' · "' + esc(e.txt) + '"</small></div>'; }).join('') + '</div>';
     return h;

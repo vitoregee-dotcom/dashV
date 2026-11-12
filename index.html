@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2684</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2685</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2684</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2685</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -51386,8 +51386,14 @@ function vendasRender(){
 var PF_VP_MOT={preco:['💲','Preço','#1F4E79'],marca:['🏷️','Preferência de marca','#6A2C8C'],saldo:['📦','Sem saldo / prazo','#E8590C'],
   tecnica:['🔧','Indicação técnica','#0D7377'],nao:['❌','Não comprou nada','#C0392B'],sem:['❔','Sem motivo','#8a94a3'],dele:['✔','Levou a marca dele','#1d6b35']};
 var PF_VP_ABERTO_DIAS=7;
+var PF_VP_DIAS_REV=2,PF_VP_DIAS_FINAL=5; // v115.2685 - A pedido do Vitor: dias pra a cotação "valer" (virar venda, não perdida) por tipo de cliente — revenda / cliente final
 function pfVpCfg(){var o={};try{o=JSON.parse(localStorage.getItem('pfVendasPerdCfg')||'{}')||{};}catch(e){}
-  return {perguntar:o.perguntar!==false,naoLevou:o.naoLevou!==false,sempre:!!o.sempre,ts:o.ts||0};}
+  return {perguntar:o.perguntar!==false,naoLevou:o.naoLevou!==false,sempre:!!o.sempre,diasRev:+o.diasRev>0?+o.diasRev:PF_VP_DIAS_REV,diasFinal:+o.diasFinal>0?+o.diasFinal:PF_VP_DIAS_FINAL,ts:o.ts||0};}
+// v115.2685 - janela (dias) pra creditar a cotação ao pedido, por tipo (revenda = REVENDEDOR/concessionária = diasRev; cliente final = consumo/serviço/sem tipo = diasFinal)
+function pfVpJanelaDe(c,cfg){cfg=cfg||pfVpCfg();var tp='';try{tp=pfTipoCli(c&&c.cad);}catch(e){}return tp==='revenda'?cfg.diasRev:cfg.diasFinal;}
+// v115.2685 - datas dos pedidos do cliente por código (gk), e crédito CRUZADO: a cotação vale se o cliente comprou o mesmo código num pedido dentro da janela (ex.: juntou vários pedidos num só)
+function pfVpPedDatas(c){var m={};((c&&c.peds)||[]).forEach(function(p){var pd=new Date(p.data||p.dataPedido||p.ts||0).getTime();if(isNaN(pd))return;(p.itens||[]).forEach(function(it){var g=pfVpGk(it);if(!g)return;(m[g]=m[g]||[]).push(pd);});});return m;}
+function pfVpCreditou(pedDatas,gk,t,janela){var ds=pedDatas&&pedDatas[gk];if(!ds)return false;var D=86400000;return ds.some(function(pd){return pd>=t-D&&pd<=t+janela*D;});}
 function pfVpMarca(it){return String((it&&(it.marcaInterna||it.marca))||'').toUpperCase().trim();}
 function pfVpGk(it){return pfAlimNorm((it&&(it.codigoOriginal||it.codigo))||'');}
 function pfVpSemSaldo(it){return it.saldo==null||isNaN(Number(it.saldo))||Number(it.saldo)<=0;}
@@ -51434,10 +51440,12 @@ function pfVpMotivo(q,gk,alts,vendidos,perfil){
 // todas as peças cotadas no período (por cliente, com o perfil dele)
 function pfVpAnalisar(ini,fim){
   var lista=pcMontarDados(),peds=(typeof pvLoad==='function')?pvLoad():[],agora=Date.now(),D=86400000;
+  var cfg=pfVpCfg(); // v115.2685
   var pedSet={};peds.forEach(function(p){if(p.cotacaoNum==null)return;var s=pedSet[String(p.cotacaoNum)]=pedSet[String(p.cotacaoNum)]||{};
     (p.itens||[]).forEach(function(it){s[pfAlimNorm(it.codigo)+'|'+pfVpMarca(it)]=1;});});
   var rows=[];
-  lista.forEach(function(x){(x.cots||[]).forEach(function(q){
+  lista.forEach(function(x){var janela=pfVpJanelaDe(x,cfg),pedDatas=pfVpPedDatas(x); // v115.2685 - janela por tipo + datas dos pedidos do cliente pro crédito cruzado
+  (x.cots||[]).forEach(function(q){
     var t=new Date(q.data).getTime();if(isNaN(t)||t<ini||t>=fim||!q.itens||!q.itens.length)return;
     var vend=String(q.atendenteEmail||'').toLowerCase(),vNome=q.atendenteNome||(vend?pcNomeVendedor(vend):'')||q.vendedorInterno||'(sem vendedor)';
     var grupos={},ordem=[];
@@ -51445,13 +51453,14 @@ function pfVpAnalisar(ini,fim){
     var ps=pedSet[String(q.num)]||{};
     ordem.forEach(function(gk){
       var alts=grupos[gk],vendidos=alts.filter(function(it){return it.pvNumero||ps[pfAlimNorm(it.codigo)+'|'+pfVpMarca(it)];});
+      var cross=!vendidos.length&&pfVpCreditou(pedDatas,gk,t,janela); // v115.2685 - a venda saiu por OUTRA cotação do cliente dentro da janela
       var marcas=[];alts.forEach(function(it){var m=pfVpMarca(it);if(marcas.indexOf(m)<0)marcas.push(m);});
       var perfil=pfVpPerfil(x,gk,marcas,q.num);
-      var st=vendidos.length?'vendido':((!q._pcFech&&agora-t<PF_VP_ABERTO_DIAS*D)?'aberto':'perdido');
+      var st=(vendidos.length||cross)?'vendido':((!q._pcFech&&agora-t<janela*D)?'aberto':'perdido');
       var mot=st==='aberto'?{marcas:marcas,m:'',como:'auto',semSaldo:alts.every(pfVpSemSaldo)}:pfVpMotivo(q,gk,alts,vendidos,perfil);
       var qtd=Number(alts[0].qtd)||1,vals=alts.map(function(it){return pfVpPreco(it,q)*(Number(it.qtd)||qtd);}).filter(function(v){return v>0;});
-      var valor=vendidos.length?vendidos.reduce(function(s,it){return s+pfVpPreco(it,q)*(Number(it.qtd)||1);},0):(vals.length?Math.min.apply(null,vals):0);
-      rows.push({q:q,x:x,gk:gk,alts:alts,vendidos:vendidos,perfil:perfil,st:st,mot:mot,valor:valor,vend:vend,vNome:vNome,t:t,
+      var valor=vendidos.length?vendidos.reduce(function(s,it){return s+pfVpPreco(it,q)*(Number(it.qtd)||1);},0):(cross?0:(vals.length?Math.min.apply(null,vals):0)); // v115.2685 - cross = venda já contada noutra cotação → não soma valor
+      rows.push({q:q,x:x,gk:gk,alts:alts,vendidos:vendidos,cross:cross,perfil:perfil,st:st,mot:mot,valor:valor,vend:vend,vNome:vNome,t:t,
         cod:alts[0].codigoOriginal||alts[0].codigo,desc:alts[0].desc||''});
     });
   });});
@@ -51548,7 +51557,7 @@ function pfVpRender(el){
       box('Por que perdemos ou trocou de marca',barras)+box('📦 Mais perdidos por falta de saldo <span style="font-size:11px;color:#778;font-weight:600">— quem comprar primeiro</span>',fsH)+'</div>'+
     '<div style="margin-top:14px">'+box(F.f==='perdidos'?'❌ Peças perdidas':F.f==='saldo'?'📦 Perdidas por falta de saldo':F.f==='trocou'?'🔀 Levou outra marca (não a que costuma)':F.f==='sem'?'❔ Sem motivo (o sistema não soube e ninguém respondeu)':'🔀 Cotou 2+ marcas ou perdeu: o que o cliente levou e por quê',lstH)+'</div>'+
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:14px;margin-top:14px">'+box('👤 Por vendedor',pvH)+box('🏷️ Marcas que mais perdem pra outra',parH)+'</div>'+
-    '<div style="background:#EEF4FB;border-left:4px solid #1F4E79;border-radius:6px;padding:8px 12px;font-size:12px;color:#1a2332;margin-top:14px">Como conta: as marcas cotadas pro mesmo código contam como 1 peça — levou qualquer uma = vendida. Cotação sem pedido há menos de '+PF_VP_ABERTO_DIAS+' dias fica "em aberto". O saldo é o de quando o item entrou na cotação. "Costuma comprar" = a marca que o cliente mais comprou dessa peça (ou entre as marcas cotadas), sem contar esta cotação.</div>';
+    '<div style="background:#EEF4FB;border-left:4px solid #1F4E79;border-radius:6px;padding:8px 12px;font-size:12px;color:#1a2332;margin-top:14px">Como conta: as marcas cotadas pro mesmo código contam como 1 peça — levou qualquer uma = vendida. Cotação sem pedido fica "em aberto" por '+pfVpCfg().diasRev+' dias (revenda) / '+pfVpCfg().diasFinal+' dias (cliente final) — passou disso sem pedido = perdida. Se o cliente comprar o mesmo código em OUTRA cotação dentro da janela, a cotação conta como vendida (pedido combinado). O saldo é o de quando o item entrou na cotação. "Costuma comprar" = a marca que o cliente mais comprou dessa peça (ou entre as marcas cotadas), sem contar esta cotação.</div>';
   window._vpRowsUlt=lst;
 }
 function pfVpRedesenhar(){var c=document.getElementById('vendasMainContent');if(c&&window._vendasMainTab==='perdidas')pfVpRender(c);}
@@ -51572,11 +51581,16 @@ function pfVpCfgAbrir(){
       ck('vpC1',c.perguntar,'Perguntar o motivo quando o sistema não souber','Ao gerar o pedido: cliente sem perfil, ou levou uma marca que não é a dele e também não é a mais barata.')+
       ck('vpC2',c.naoLevou,'Também quando o cliente não levou nada de uma peça cotada','Uma pergunta só por cotação, junto com a outra.')+
       ck('vpC3',c.sempre,'Perguntar sempre que tiver 2+ marcas','Mesmo quando o perfil já explica.')+
-      '<div style="font-size:12px;color:#667;margin-top:6px">Quando o cliente já tem marca preferida (comprou a mesma peça 2+ vezes ou 4+ itens da marca), o sistema decide sozinho e não pergunta.</div></div>'+
+      '<div style="font-size:12px;color:#667;margin-top:6px">Quando o cliente já tem marca preferida (comprou a mesma peça 2+ vezes ou 4+ itens da marca), o sistema decide sozinho e não pergunta.</div>'+
+      // v115.2685 - dias pra a cotação valer como venda, por tipo de cliente (gestor configura)
+      '<div style="border-top:1px solid #eef1f5;margin-top:12px;padding-top:12px"><div style="font-weight:800;font-size:13px;color:#1a2332;margin-bottom:4px">⏱️ Dias pra a cotação valer como venda</div>'+
+      '<div style="font-size:12px;color:#667;margin-bottom:8px">Se o pedido sair dentro desse prazo depois da cotação, ela conta como <b>vendida</b> — mesmo que o pedido saia de outra cotação (pedido combinado). Passou disso sem pedido = <b>perdida</b>.</div>'+
+      '<div style="display:flex;gap:18px;flex-wrap:wrap"><label style="font-size:13px;color:#1a2332">Revenda / concessionária <input type="number" id="vpDR" min="0" value="'+c.diasRev+'" style="width:58px;padding:5px 7px;border:1px solid #cfd8e3;border-radius:6px;margin-left:4px"> dias</label>'+
+      '<label style="font-size:13px;color:#1a2332">Cliente final (consumo / serviço) <input type="number" id="vpDF" min="0" value="'+c.diasFinal+'" style="width:58px;padding:5px 7px;border:1px solid #cfd8e3;border-radius:6px;margin-left:4px"> dias</label></div></div></div>'+
     '<div style="padding:10px 16px;border-top:1px solid #e6ebf2;display:flex;gap:8px;justify-content:flex-end"><button class="pfBtn pfBtnClaro" data-c>Cancelar</button><button class="pfBtn pfBtnVerde" data-s>Gravar</button></div></div>';
   ov.addEventListener('mousedown',function(e){ov._ini=e.target===ov;});ov.addEventListener('click',function(e){if(e.target===ov&&ov._ini)fechar();});
   ov.querySelector('[data-x]').onclick=fechar;ov.querySelector('[data-c]').onclick=fechar;
-  ov.querySelector('[data-s]').onclick=function(){var n={perguntar:ov.querySelector('#vpC1').checked,naoLevou:ov.querySelector('#vpC2').checked,sempre:ov.querySelector('#vpC3').checked,ts:Date.now()};
+  ov.querySelector('[data-s]').onclick=function(){var n={perguntar:ov.querySelector('#vpC1').checked,naoLevou:ov.querySelector('#vpC2').checked,sempre:ov.querySelector('#vpC3').checked,diasRev:Math.max(0,parseInt(ov.querySelector('#vpDR').value,10)||PF_VP_DIAS_REV),diasFinal:Math.max(0,parseInt(ov.querySelector('#vpDF').value,10)||PF_VP_DIAS_FINAL),ts:Date.now()};
     try{localStorage.setItem('pfVendasPerdCfg',JSON.stringify(n));}catch(e){}if(typeof pfSyncPush==='function')try{pfSyncPush(['pfVendasPerdCfg']);}catch(e){}fechar();};
   document.body.appendChild(ov);
 }
@@ -66043,15 +66057,17 @@ function pfNcCotas(c){
     (p.itens||[]).forEach(function(it){s[pfAlimNorm(it.codigo)+'|'+pfVpMarca(it)]=1;});});
   var add=function(tp,key,q,vend,val,mot){if(!key)return;var o=out[tp][key]=out[tp][key]||{key:key,n:0,nv:0,v:0,cots:{},mot:{}};
     o.n++;if(vend)o.nv++;else o.v+=val;o.cots[q.num]=1;if(!vend&&mot)o.mot[mot]=(o.mot[mot]||0)+1;};
+  var janela=pfVpJanelaDe(c),pedDatas=pfVpPedDatas(c); // v115.2685 - janela por tipo + crédito cruzado, igual às Vendas Perdidas
   (c.cots||[]).forEach(function(q){var t=new Date(q.data).getTime();if(isNaN(t)||t<a12||!q.itens||!q.itens.length)return;
-    if(!q._pcFech&&agora-t<PF_VP_ABERTO_DIAS*D)return; // ainda em aberto
+    if(!q._pcFech&&agora-t<janela*D)return; // ainda em aberto (janela por tipo de cliente)
     var ps=pedSet[String(q.num)]||{},grupos={},ordem=[];
     q.itens.forEach(function(it){var gk=pfVpGk(it);if(!gk)return;if(!grupos[gk]){grupos[gk]=[];ordem.push(gk);}grupos[gk].push(it);});
     ordem.forEach(function(gk){var alts=grupos[gk],vendidos=alts.filter(function(it){return it.pvNumero||ps[pfAlimNorm(it.codigo)+'|'+pfVpMarca(it)];});
-      var mot='';if(!vendidos.length){try{var mm=[];alts.forEach(function(it){var m=pfVpMarca(it);if(mm.indexOf(m)<0)mm.push(m);});
+      var vendeu=vendidos.length>0||pfVpCreditou(pedDatas,gk,t,janela); // v115.2685 - vendeu por esta ou por outra cotação dentro da janela
+      var mot='';if(!vendeu){try{var mm=[];alts.forEach(function(it){var m=pfVpMarca(it);if(mm.indexOf(m)<0)mm.push(m);});
         mot=pfVpMotivo(q,gk,alts,vendidos,pfVpPerfil(c,gk,mm,q.num)).m||'sem';}catch(e){mot='sem';}}
       var vals=alts.map(function(it){return pfVpPreco(it,q)*(Number(it.qtd)||1);}).filter(function(v){return v>0;}),val=vals.length?Math.min.apply(null,vals):0;
-      var ks=pfNcChaves(alts[0],famIdx);add('fam',ks.fam,q,vendidos.length>0,val,mot);add('lin',ks.lin,q,vendidos.length>0,val,mot);
+      var ks=pfNcChaves(alts[0],famIdx);add('fam',ks.fam,q,vendeu,val,mot);add('lin',ks.lin,q,vendeu,val,mot);
       var mfeito={};alts.forEach(function(it){var m=pfVpMarca(it);if(!m||mfeito[m])return;mfeito[m]=1;
         var vend=vendidos.some(function(x){return pfVpMarca(x)===m;});add('mar',m,q,vend,vend?0:pfVpPreco(it,q)*(Number(it.qtd)||1),vend?'':(mot||'sem'));});});});
   return out;

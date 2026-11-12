@@ -2513,3 +2513,8 @@
 - v115.2699 + extensão **4.40** BUG (print do WhatsApp real: "nomes montoados" — CARDAN CAXIAS em cima do RS Tork): a `.pfwa-row3` criada pela 2697 transbordava, igual à 2679/2682.
   Conversa SEM a linha da etiqueta nativa NÃO ganha linha nova: grupo curto na linha da mensagem (`ln.innerHTML = gh`), cidade + tipo no title. Com etiqueta nativa continua
   reaproveitando a linha dela (`.pfwa-row3u`). **2ª vez: NUNCA criar linha na lista de conversas do WhatsApp.**
+- v115.2700 BUG (print: "rogerio e celso. não está salvando os grupos… entenda o motivo"): o grupo ERA gravado, mas no cadastro escolhido no 👤 Salvar contato; a lista
+  achava o cliente por outro caminho e mostrava outro cadastro. Causas: 1) o "(636)" do nome do WhatsApp batia também com o CÓDIGO DO PF 000636 (outra empresa) antes do
+  Código JBoss — `pfExtPorCodigo` procura o codJboss em TODOS os clientes e só depois o código do PF; 2) telefone/nome ligado antes a outro cadastro ganhava da ligação
+  gravada — `pfExtLigadoK` (pfContatosWhats_v1: telefone, senão nome exato, mais novo) agora vem PRIMEIRO no `pfExtAcharK` e no `pfExtQuem`; 3) grupo CRIADO na extensão
+  ("➕ grupo", guardado como texto) não aparecia na etiqueta (`gcs` só aceitava os 6 grupos base) — agora entra em cinza. Etiqueta na linha da mensagem sem etiqueta nativa = limitação da 2699.

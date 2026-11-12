@@ -2560,3 +2560,20 @@
   ficha (`fichaNome`) / Trocar grupo/tipo / Intimidade / 🔕 liga-desliga automática. **🔎 Alt+B no WhatsApp** (`abAbrir`/`#pfwa-ab` → `pfExtAltB`: códigos do texto selecionado
   pelo `pfExtLerPedido`, marcas com saldo e preço do cliente, Componentes Cardan, 🔗 Monta com clicável → `ccAbrirDoLink`; Abrir no PF = Alt+B do PF). **➕ Pôr na cotação de hoje**
   (`pfExtCotHoje`): cotação do cliente aberta na tela > a dele criada HOJE > nova. Simulador: `window.__pfOnMsg` simula o clique do menu.
+- v115.2709 + extensão **4.48** (prévia `docs/referencias/cotacao-ideias-1211/` aprovada: "manda bala q vou testar"; bloco antes do `vendasAbrirMenuLinha`):
+  **⚙️ Regras só desta cotação** — botão na barra azul (amarelo quando tem regra ligada) → `pfCotRegrasAbrir` (`pfCotRegJan`): só marca(s) / não cotar marca / só com saldo /
+  sempre a mais barata / margem desta cotação (`v.margem` troca e volta pra `margemAntes` ao desligar). Guardadas em `v.regrasCot` (vai no salvar/abrir da cotação) e aplicadas
+  DENTRO do `pfVR2Aplicar` (antes da cotação enxuta) — valem onde o Assistente vale. Faixa amarela `#vendasRegrasCotBox` (`pfCotRegrasFaixaHtml`: mudar / desligar /
+  reaplicar `pfCotRegrasReaplicar`, que tira com confirmação os itens que não seguem). **🔀 Trazer outras marcas** — botão direito no item (`vendasOutrasMarcasMenuHtml`) →
+  `vendasTrazerOutrasMarcas(i)`: fichas do MESMO código (só letras+números) de marcas que não estão na cotação, com saldo primeiro, tirando bloqueio do Assistente e regras
+  da cotação; entram logo abaixo (`it.outraMarca`, etiqueta "↳ outra marca"); `pfCotSelRemap` acerta as marcações de Selecionar/PV. **⇄ Trazer de outra cotação** — botão
+  na barra dos itens (`vendasTrazerBtnHtml`) → `pfTrazAbrir`/`pfTrazRender` (`pfTrazJan`; mesmo cliente primeiro, busca por nº/cliente; item já em pedido não sai) →
+  `pfTrazTrazer`: mesmo código+marca aqui = soma qtd; preço diferente = "usar o de lá" (vendaOverride) / "manter o daqui"; salva esta (pra ter o nº) e tira da origem
+  gravando `c.transferidos` [{cod,marca,qtd,para,em}] (faixa "⇄ N itens foram pra #X" na de origem) + aba aberta da origem. Etiqueta "⇄ veio da #N" (`it.veioDe`).
+  **🏭 Fornecedores por tipo de produto** — cadastro do fornecedor ganhou "🏭 Trabalha com" (`tiposProd`, chips = `PF_NC_FAMILIAS`); Mapa: tipo do item `pfMapaTipoItem`
+  (descrição → família), `pfMapaTipoAutoLigar` (no `mapaStep1`, 1x por item `it.tipoAuto`) liga os fornecedores do tipo; painel "SUGERIDOS PELO TIPO DE PRODUTO"
+  (`pfMapaTipoPainelHtml`, toggle `pfMapaTipoToggle` só nos itens daquele tipo); etiqueta do tipo na coluna Fornecedores. **🔍 Códigos parecidos** — botão na busca geral
+  dos Componentes Cardan (`pfParecidosBtnHtml`, azul com contorno amarelo quando não achou nada) → `pfParecidosAbrir` (`ccParecJan`): `pfParecidos(cod)` procura no Cardan
+  (código, similar, substitui, conversões, equivalentes) e no cadastro de produtos (`pfParecidosIdx`, 60 s) — 1 caractere trocado/a mais/a menos, 2 invertidos, X/XS/sem X,
+  ALB (`pfParecidosComo`); "é esse" = busca geral com o código (ou Alt+B fora do Cardan). WhatsApp: item não achado no 📄 Cotar traz `o.parecidos` → chips "🔍 seria:"
+  (`parecHtml`/`parecUsar`) e a resposta vira "não localizei, não seria o X?".

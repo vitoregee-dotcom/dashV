@@ -2587,3 +2587,6 @@
   pointerdown/mousedown/mouseover param nele (não chegam no WhatsApp). 2) ("está com as etiquetas do whats" — RS Tork, cliente sem grupo/tipo, com "CARDAN"): a linha da
   etiqueta nativa só era escondida em cliente com grupo ou tipo; agora o `badgesRender` esconde a linha que vem depois da mensagem em TODA conversa (cliente, fornecedor
   e contato fora do PF), logo depois do `rowLimpar`.
+- v115.2712 **📈 Relatório de quantidade de cotações — IDEIA ANOTADA** (Vitor, 12/11: "anota aí… relatório de quantidades de cotações, horários que tem mais cotações,
+  dias, meses… não sei onde vai ainda, mas precisa ter"): linha no `PF_FUNC_IDEIAS` (💡 Ideias pro futuro). NÃO feito. Base já existe: cotações em `partsflow_cotacoes_v1`
+  (`data` = criação, `atendenteEmail`, `clienteObj`, `tempoAtivoSeg`). Lugar a decidir (Gestão / Ferramentas / Painel de Clientes) → mostrar prévia antes.

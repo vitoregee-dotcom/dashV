@@ -2593,3 +2593,7 @@
 - v115.2713 + extensão **4.50** BUG (print do Juninho - Adipel: "ainda não está salvando" — marcou Revenda + L. Amarela e na lista só aparecia o grupo): conversa SEM a linha
   da etiqueta nativa (a `waEtiquetar` não conseguiu pôr a "Cliente PF") mostrava só o grupo e o TIPO ia pro title (invisível). Agora a linha da mensagem mostra
   "● L. Amarela · 🏪 Revenda" (só tipo = cidade · tipo); cidade continua no title. Os dados já estavam gravados no PF.
+- v115.2714 (Vitor: "testa direito isso aí, pra eu não perder tempo"): simulador ganhou o caso do Juninho - Adipel (266) — cliente do PF sem etiqueta do WhatsApp e
+  sem grupo/tipo —, o PF de mentira GUARDA o que o 👤 Salvar contato manda (`SIT_DIN`, a lista passa a mostrar) e o menu do WhatsApp Business (setinha ⌄ da conversa →
+  "Etiquetar conversa" → janela com as etiquetas → Salvar, `simMenuEtq`/`simDlgEtq`). Teste de ponta a ponta (`t2713.js` no scratchpad): antes "🤝 cliente do PF";
+  depois de salvar Revenda + L. Amarela a extensão põe a etiqueta "Cliente PF" e a 3ª linha mostra "● L. Amarela · 🏪 Revenda". No WhatsApp REAL o menu pode ser diferente.

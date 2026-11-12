@@ -2528,3 +2528,9 @@
   com e sem as classes. 2) ("tente. quero sempre a etiqueta do whats escondida"): `CFG.waEtqOff` sempre true (saiu do ⚙️). Ao salvar cliente pelo 👤, depois do `waSalvarNome`, `waEtiquetar` põe a
   etiqueta do WhatsApp Business `WA_ETQ` (padrão "Cliente PF", chrome.storage `waEtqNome`) — menu da conversa → "Etiquetar conversa" → marca → Salvar — pra o WhatsApp abrir a 3ª linha (grupo + tipo).
   Sem a etiqueta criada no WhatsApp = avisa pra criar 1x. **Seletores do menu/diálogo de etiqueta NÃO testados no WhatsApp real** (o simulador não tem).
+- v115.2703 + extensão **4.43** BUG (print do 🧪 Testar com a 4.42 instalada: "nenhuma mensagem achada na conversa"; e o selo 📄 aparecia nas mensagens DO VITOR): o WhatsApp
+  de hoje não tem `.message-in/.message-out` nem `data-id` true_/false_ nas mensagens — a extensão achava que tudo era do cliente. Agora `msgLinhas` cai pras linhas
+  `#main [role="row"]` com hora/texto e `minhaEl(el)` (usado no lerMensagens/msgsPedido, selo 📄, ⚡ resposta rápida, resposta do fornecedor, "1ª vez do dia") decide
+  "é minha" por: classe > data-id de MENSAGEM (`true_…@…_id`; o id da CONVERSA no cabeçalho, sem o _final, era pego por engano) > ✓/✓✓ (`MSG_TICK`) > balão do lado
+  direito do `#main`. Antes (print do mesmo dia): o Vitor estava rodando uma extensão ANTIGA (cabeçalho sem v/⚙️/❓, painel aberto, etiqueta do WhatsApp aparecendo,
+  botões por cima do PDF) — remover todas em chrome://extensions e carregar a pasta nova.

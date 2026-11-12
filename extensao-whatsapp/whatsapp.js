@@ -130,7 +130,7 @@
   // "📝 Descrever este áudio"; a descrição aparece embaixo dele. Botões (Pôr na conversa/Copiar/Cotar) só com a opção ligada em ⚙️.
   var AUD_SEL = '#main audio, #main [data-icon="audio-play"], #main [data-icon="audio-pause"], #main [data-icon*="ptt"], #main button[aria-label*="voz" i], #main button[aria-label*="voice" i], #main [aria-label*="mensagem de voz" i], #main [aria-label*="voice message" i]';
   function audBalao(x) {
-    var row = x.closest('.message-in, .message-out') || x.closest('[data-id]'); if (!row) return null;
+    var row = x.closest('.message-in, .message-out') || x.closest('[data-id]') || x.closest('[role="row"]'); if (!row) return null;
     var main = $('#main'), lim = (main ? main.getBoundingClientRect().width : 900) * 0.72, p = x, best = null;
     while (p && p !== row) { var w = p.getBoundingClientRect().width; if (w > 120 && w < lim) best = p; p = p.parentElement; }
     return best || row;
@@ -215,7 +215,7 @@
     var out = [], els = document.querySelectorAll('#main [data-pre-plain-text]');
     els.forEach(function (el) {
       var tx = el.querySelector('.selectable-text'); var t = (tx ? tx.innerText : el.innerText) || '';
-      out.push({ t: t.trim(), eu: !!el.closest('.message-out') });
+      out.push({ t: t.trim(), eu: minhaEl(el) }); // 4.43
     });
     if (!out.length) { // jeito antigo / reserva
       document.querySelectorAll('#main .message-in, #main .message-out').forEach(function (el) { var tx = el.querySelector('.selectable-text'); out.push({ t: ((tx ? tx.innerText : '') || '').trim(), eu: el.classList.contains('message-out') }); });
@@ -715,10 +715,10 @@
       '<div class="pfwa-bots" style="margin-top:6px"><button class="pfwa-verde" data-acao="resumoGravar">✔ Gravar na ficha</button><button data-acao="resumir">🔁 Refazer</button><button data-acao="resumoX">✕</button></div></div>';
   }
   function respFornColher() {
-    var bolhas = Array.prototype.slice.call(document.querySelectorAll('#main .message-in, #main .message-out'));
-    var ult = -1; bolhas.forEach(function (b, i) { if (b.classList.contains('message-out')) ult = i; });
-    var deles = bolhas.slice(ult + 1).filter(function (b) { return b.classList.contains('message-in'); });
-    if (!deles.length) deles = bolhas.filter(function (b) { return b.classList.contains('message-in'); }).slice(-8);
+    var bolhas = msgLinhas(); // 4.43
+    var ult = -1; bolhas.forEach(function (b, i) { if (minhaEl(b)) ult = i; });
+    var deles = bolhas.slice(ult + 1).filter(function (b) { return !minhaEl(b); });
+    if (!deles.length) deles = bolhas.filter(function (b) { return !minhaEl(b); }).slice(-8);
     var texto = deles.map(function (b) { var tx = b.querySelector('.selectable-text'); return ((tx ? tx.innerText : '') || '').trim(); }).filter(Boolean).join('\n');
     if (!texto && !bolhas.length) texto = lerMensagens().filter(function (m) { return !m.eu; }).slice(-8).map(function (m) { return m.t; }).join('\n');
     var imgs = []; deles.forEach(function (b) { b.querySelectorAll('img').forEach(function (im) { var s = im.getAttribute('src') || ''; if ((/^blob:/.test(s) || /^data:image/.test(s)) && (im.naturalWidth || im.width) >= 120 && imgs.length < 4) imgs.push(s); }); });
@@ -1806,7 +1806,7 @@
     // 4.15 - A pedido do Vitor ("não to achando esse número que ele encontrou 13X32"): o selo lia o BLOCO inteiro de mensagens
     // do cliente e puxava código de outra mensagem. Agora lê SÓ a mensagem onde o selo está (o código tem que estar nela).
     var alvo = [];
-    if (liga) els.forEach(function (el) { if (el.closest('.message-out')) return; var t = txt(el); var n = spContaCods(t); if (n) alvo.push({ el: el, t: t, n: n }); });
+    if (liga) els.forEach(function (el) { if (minhaEl(el)) return; var t = txt(el); var n = spContaCods(t); if (n) alvo.push({ el: el, t: t, n: n }); });
     els.forEach(function (el) { var s = el.querySelector(':scope > .pfwa-selo'); if (s && !Object.keys(alvo).some(function (k) { return alvo[k].el === el; })) s.remove(); });
     Object.keys(alvo).forEach(function (k) {
       var A = alvo[k], el = A.el, t = A.t, n = A.n;
@@ -1878,7 +1878,7 @@
   // com a q identifica código, pra eu clicar e já enviar"): a extensão manda a ÚLTIMA mensagem do cliente pro PF (respRapidaAchar), que acha os Atalhos
   // de Texto que combinam (pelos gatilhos/nome). Casou = selo ⚡ no balão; clicar abre a resposta pronta pra Enviar agora ou pôr na caixa.
   var RR2 = null, rr2Msg = null, rr2L = null, rrCache = {}, rrUlt = '';
-  function rrUltimoIn() { var els = document.querySelectorAll('#main [data-pre-plain-text]'); for (var i = els.length - 1; i >= 0; i--) { if (!els[i].closest('.message-out')) return els[i]; } return null; }
+  function rrUltimoIn() { var els = document.querySelectorAll('#main [data-pre-plain-text]'); for (var i = els.length - 1; i >= 0; i--) { if (!minhaEl(els[i])) return els[i]; } return null; }
   function rrTxt(el) { var tx = el.querySelector('.selectable-text'); return ((tx ? tx.innerText : el.innerText) || '').replace(/📄\s*\d+\+?|✓ cot\.|⚡/g, '').trim(); }
   async function rrVigiar() {
     var liga = CFG.rrselo !== false && contatoAt && !contatoAt.grupo && (!resp || resp.tipo !== 'fornecedor');
@@ -2089,12 +2089,34 @@
   // 4.42 - BUG (Vitor: "veja pq não foi a msg" — 🧪 Testar dizia "não achei a última mensagem na tela" com o "Bom dia 10:28" aparecendo): as mensagens
   // eram procuradas só pela classe .message-in/.message-out. Agora também pela linha [data-id] do WhatsApp (true_… = sua, false_… = do cliente) e a hora
   // aceita o texto da hora com caracteres invisíveis; o 🧪 diz o que achou.
+  // 4.43 - BUG (Vitor, print do 🧪 Testar: "nenhuma mensagem achada na conversa"): o WhatsApp de hoje não tem mais .message-in/.message-out nem
+  // data-id "true_/false_" — e a extensão achava que TODA mensagem era do cliente (o selo 📄 aparecia até nas suas). Agora a mensagem é a linha da
+  // conversa ([role="row"]) com hora, e "é minha" = tem o ✓/✓✓ de enviada ou o balão está do lado DIREITO da conversa.
+  function bolhaDe(el) { return (el && (el.closest('.message-in, .message-out') || el.closest('[role="row"]') || el.closest('[data-id]'))) || el; }
+  var MSG_TICK = '[data-icon^="msg-dblcheck"],[data-icon^="msg-check"],[data-icon="msg-time"],[data-icon*="dblcheck"],[data-icon*="tick"],[aria-label*=" Lida" i],[aria-label*="Entregue" i],[aria-label*="Enviada" i],[aria-label*="Pendente" i],[aria-label*=" Read" i],[aria-label*="Delivered" i],[aria-label*=" Sent" i]';
+  function minhaEl(el) {
+    if (!el) return false;
+    if (el.closest('.message-out')) return true; if (el.closest('.message-in')) return false;
+    var b = bolhaDe(el);
+    if (b.querySelector('.message-out') || b.classList.contains('message-out')) return true; if (b.querySelector('.message-in') || b.classList.contains('message-in')) return false;
+    var dd = b.getAttribute('data-id') || ((b.closest('[data-id]:not(header [data-id])') || b.querySelector('[data-id]') || { getAttribute: function () { return ''; } }).getAttribute('data-id')) || ''; if (!/^(true|false)_[^_]*@[^_]*_./.test(dd)) dd = '';
+    if (/^true_/.test(dd)) return true; if (/^false_/.test(dd)) return false;
+    if (b.querySelector(MSG_TICK)) return true;
+    var main = $('#main'), alvo = b.querySelector('[data-pre-plain-text]') || b.querySelector('.selectable-text') || b.querySelector('img,audio,[data-icon*="ptt"]');
+    if (main && alvo) { var m = main.getBoundingClientRect(), r = alvo.getBoundingClientRect(); if (r.width) return (r.left - m.left) > (m.right - r.right) + 20; }
+    return false;
+  }
   function msgLinhas() {
     var els = Array.prototype.slice.call(document.querySelectorAll('#main .message-in, #main .message-out')).filter(function (e) { return !e.parentElement.closest('.message-in, .message-out'); });
     if (els.length) return els;
-    return Array.prototype.slice.call(document.querySelectorAll('#main [data-id]')).filter(function (e) { return /^(true|false)_/.test(e.getAttribute('data-id') || '') && !(e.parentElement && e.parentElement.closest('[data-id]')); });
+    els = Array.prototype.slice.call(document.querySelectorAll('#main [data-id]')).filter(function (e) { return /^(true|false)_[^_]*@[^_]*_./.test(e.getAttribute('data-id') || '') && !e.closest('header') && !(e.parentElement && e.parentElement.closest('[data-id]')); }); // id da MENSAGEM (o da conversa no cabeçalho não tem o _final)
+    if (els.length) return els;
+    els = Array.prototype.slice.call(document.querySelectorAll('#main [role="row"]')).filter(function (e) { return !(e.parentElement && e.parentElement.closest('[role="row"]')) && !e.closest(MEUS) && (e.querySelector('[data-pre-plain-text]') || horaFolha(e)); });
+    if (els.length) return els;
+    var vis = []; document.querySelectorAll('#main [data-pre-plain-text]').forEach(function (x) { var b = bolhaDe(x); if (vis.indexOf(b) < 0) vis.push(b); });
+    return vis;
   }
-  function msgEhMinha(el) { if (el.classList.contains('message-out') || el.querySelector('.message-out')) return true; if (el.classList.contains('message-in') || el.querySelector('.message-in')) return false; var d = el.getAttribute('data-id') || ((el.closest('[data-id]') || el.querySelector('[data-id]') || { getAttribute: function () { return ''; } }).getAttribute('data-id')) || ''; return /^true_/.test(d); }
+  function msgEhMinha(el) { return minhaEl(el); }
   var _ultDiag = '';
   function ultimaMsg() {
     var els = msgLinhas();
@@ -2134,7 +2156,7 @@
   // 4.27 - "📩 só na 1ª vez do dia": você já mandou alguma mensagem pra esse cliente hoje?
   function autoFaleiHoje() {
     var d0 = new Date(); d0.setHours(0, 0, 0, 0); var ini = d0.getTime();
-    var outs = document.querySelectorAll('#main .message-out');
+    var outs = msgLinhas().filter(function (b) { return minhaEl(b); }); // 4.43
     for (var i = outs.length - 1; i >= 0; i--) {
       var pp = outs[i].querySelector('[data-pre-plain-text]');
       var t = pp ? msgQuando(pp) : horaFolha(outs[i]);

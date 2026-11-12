@@ -1821,7 +1821,20 @@
     autoEnv = s.autoEnv || {}; autoHist = s.autoHist || []; autoPend = s.autoPend || {}; autoUlt = s.autoUlt || {}; autoAusEnv = s.autoAusEnv || {};
   });
   ['mousemove', 'keydown', 'mousedown', 'wheel'].forEach(function (t) { document.addEventListener(t, function () { autoUltMexeu = Date.now(); }, true); });
-  function autoGravar() { chrome.storage.local.set({ auto: AUTO, autoEnv: autoEnv, autoHist: autoHist.slice(-60), autoPend: autoPend, autoUlt: autoUlt, autoAusEnv: autoAusEnv }); }
+  function autoGravar() { AUTO.ts = Date.now(); chrome.storage.local.set({ auto: AUTO, autoEnv: autoEnv, autoHist: autoHist.slice(-60), autoPend: autoPend, autoUlt: autoUlt, autoAusEnv: autoAusEnv }); autoCfgPush(); }
+  // 4.35 - A pedido do Vitor ("coloquei minhas frases ontem e hoje sumiu"): a config fica só no navegador e some ao atualizar a extensão. Agora
+  // também é guardada no PF (sincronizada, por usuário): a extensão salva lá e recarrega de lá, então sobrevive a reinstalar/atualizar a extensão.
+  var autoCfgT = null, autoCfgLido = false;
+  function autoCfgPush() { clearTimeout(autoCfgT); autoCfgT = setTimeout(function () { try { msg({ t: 'acao', acao: 'autoCfgSalvar', arg: AUTO }); } catch (e) { } }, 1500); }
+  async function autoCfgCarregar() {
+    if (autoCfgLido) return;
+    try {
+      var r = await msg({ t: 'acao', acao: 'autoCfgLer' });
+      if (r && r.ok && r.cfg && (r.ts || 0) > (AUTO.ts || 0)) { for (var k in r.cfg) AUTO[k] = r.cfg[k]; if (!AUTO.ausTxt) AUTO.ausTxt = { reuniao: '', ausente: '', ferias: '' }; chrome.storage.local.set({ auto: AUTO }); autoCfgLido = true; try { pinta(); autoStatusPill(); } catch (e) { } }
+      else if (r && r.ok) autoCfgLido = true;
+    } catch (e) { }
+  }
+  setTimeout(autoCfgCarregar, 3500); setTimeout(autoCfgCarregar, 9000); setTimeout(autoCfgCarregar, 20000);
   function autoHM(s) { var m = String(s || '').match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : 0; }
   function autoNoHorario(d) {
     d = d || new Date(); var dw = d.getDay();

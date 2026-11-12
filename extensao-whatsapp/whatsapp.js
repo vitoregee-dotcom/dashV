@@ -576,7 +576,8 @@
     if (ac === 'svUsar') { svUsar(arg); return; }
     if (ac === 'svGrupo') { svGrupoSet(arg); return; } // 4.7
     if (ac === 'svTipo') { svTipoSet(arg); return; } // 4.24
-    if (ac === 'svGueri') { svGueri = !svGueri; var _gr = SV && SV.querySelector('.sv-gueri .sv-g'); if (_gr) _gr.classList.toggle('on', svGueri); return; } // 4.37 - selo Gueri
+    if (ac === 'svGueri') { svGueri = !svGueri; var _gr = SV && SV.querySelector('.sv-gueri [data-acao="svGueri"]'); if (_gr) _gr.classList.toggle('on', svGueri); return; } // 4.37 - selo Gueri
+    if (ac === 'svFatSp') { svFatSp = !svFatSp; var _fs = SV && SV.querySelector('.sv-gueri [data-acao="svFatSp"]'); if (_fs) _fs.classList.toggle('on', svFatSp); return; } // 4.39 - selo Faturar por SP
     if (ac === 'svMarca') { svMarcaSet(arg); return; } // 4.26 - marca da concessionária
     if (ac === 'svMarcaNova') { svMarcaNova(); return; } // 4.26
     if (ac === 'svGrupoNovo') { svGrupoNovo(); return; } // 4.15
@@ -1007,7 +1008,7 @@
   function svGruposRender() { var r = SV && SV.querySelector('.sv-grp'); // 4.27 - BUG: '.sv-gr' pegava a linha do TIPO (desde a 4.24)
     if (r) r.innerHTML = svGruposRowHtml(); }
   // 4.24 - A pedido do Vitor: TIPO DO CLIENTE (revenda / consumidor / concessionária / serviço) também é salvo no cadastro do PF
-  var SV_TIPOS = [['revenda', '🏪 Revenda'], ['consumo', '👤 Consumidor'], ['conc', '🏛 Concessionária'], ['servico', '🔧 Serviço / oficina']], svTipo = '', svGueri = false;
+  var SV_TIPOS = [['revenda', '🏪 Revenda'], ['consumo', '👤 Consumidor'], ['conc', '🏛 Concessionária'], ['servico', '🔧 Serviço / oficina']], svTipo = '', svGueri = false, svFatSp = false;
   function svTipoRowHtml() { return SV_TIPOS.map(function (t) { return '<span class="sv-g' + (svTipo === t[0] ? ' on' : '') + '" data-acao="svTipo" data-arg="' + t[0] + '" style="--c:#1F4E79">' + esc(t[1]) + '</span>'; }).join(''); }
   // 4.26 - A pedido do Vitor ("se eu colocar concessionária, quero colocar a Marca. exemplo esse é Massey"): marca da concessionária (vai pro cad.concMarcas do PF). Pode mais de uma.
   var SV_MARCAS = ['Massey Ferguson', 'John Deere', 'Valtra', 'Case IH', 'New Holland', 'Case', 'Caterpillar', 'JCB', 'Komatsu', 'Hyundai', 'Volvo CE', 'XCMG', 'Agrale', 'Yanmar'], svConcMarcas = [];
@@ -1042,6 +1043,7 @@
     var r = resp && resp.achou && resp.tipo === 'cliente' ? resp : null;
     svTipo = (r && r.tipoCli) || ''; // 4.24 - já vem com o tipo do cadastro
     svGueri = !!(r && r.gueri); // 4.37 / v115.2695 - selo Gueri (NF baixa) já vem marcado se o cadastro tiver
+    svFatSp = !!(r && r.fatSp); // 4.39 / v115.2697 - selo Faturar por SP
     svConcMarcas = (r && r.concMarcas && r.concMarcas.length) ? r.concMarcas.slice() : []; // 4.26 - marcas da concessionária já cadastradas
     svK = r ? r.k : ''; svSug = [];
     if (r && r.grupos) r.grupos.forEach(function (g) { var id = svGrupoIdDoNome(g); if (id && svGrupos.indexOf(id) < 0) svGrupos.push(id); }); // 4.27 - grupos do cadastro já marcados
@@ -1057,7 +1059,8 @@
       '<div class="sv-gl">TIPO DO CLIENTE</div><div class="sv-gr sv-tp">' + svTipoRowHtml() + '</div>' + // 4.24
       '<div class="sv-marca"></div>' + // 4.26 - marca da concessionária (só quando o tipo é Concessionária)
       '<div class="sv-gl">GRUPO DO CLIENTE <span style="font-weight:600;text-transform:none;color:#8a9ab0">(pode escolher mais de um)</span></div><div class="sv-gr sv-grp">' + svGruposRowHtml() + '</div>' +
-      '<div class="sv-gr sv-gueri"><span class="sv-g' + (svGueri ? ' on' : '') + '" data-acao="svGueri" style="--c:#c0392b">💳 Gueri (compra com NF baixa)</span></div>' + // 4.37 / v115.2695
+      '<div class="sv-gr sv-gueri"><span class="sv-g' + (svGueri ? ' on' : '') + '" data-acao="svGueri" style="--c:#c0392b">💳 Gueri (compra com NF baixa)</span>' + // 4.37 / v115.2695
+      '<span class="sv-g' + (svFatSp ? ' on' : '') + '" data-acao="svFatSp" style="--c:#1F4E79">🧾 Faturar por SP</span></div>' + // 4.39 / v115.2697
 
       '<label>CNPJ <span style="font-weight:600;text-transform:none">(cliente novo entra como pré-cadastro 🌱)</span><input class="sv-cnpj" value="' + esc(fmtCnpj(cnpjPre || '')) + '" placeholder="00.000.000/0000-00" inputmode="numeric"></label>' +
       '<div class="sv-pv">Vai ficar: <b class="sv-prev"></b></div>' +
@@ -1083,7 +1086,8 @@
   function svAplicarCad(inf) { if (!inf) return;
     (inf.grupos || []).forEach(function (g) { var id = svGrupoIdDoNome(g); if (id && svGrupos.indexOf(id) < 0) svGrupos.push(id); });
     if (inf.tipoCli && !svTipo) svTipo = inf.tipoCli;
-    if (inf.gueri) { svGueri = true; var _gr = SV && SV.querySelector('.sv-gueri .sv-g'); if (_gr) _gr.classList.add('on'); } // 4.37 - Gueri do cadastro já marcado
+    if (inf.gueri) { svGueri = true; var _gr = SV && SV.querySelector('.sv-gueri [data-acao="svGueri"]'); if (_gr) _gr.classList.add('on'); } // 4.37 - Gueri do cadastro já marcado
+    if (inf.fatSp) { svFatSp = true; var _fs = SV && SV.querySelector('.sv-gueri [data-acao="svFatSp"]'); if (_fs) _fs.classList.add('on'); } // 4.39 - Fat. SP do cadastro
     (inf.concMarcas || []).forEach(function (m) { if (svConcMarcas.indexOf(m) < 0) svConcMarcas.push(m); });
     svGruposRender(); var r = SV && SV.querySelector('.sv-tp'); if (r) r.innerHTML = svTipoRowHtml(); try { svMarcaRender(); } catch (e) { } }
   function svUsar(i) {
@@ -1102,7 +1106,7 @@
     var cn = v('sv-cnpj').replace(/\D/g, ''); if (cn && cn.length !== 14 && cn.length !== 11) { flash(b, 'CNPJ incompleto'); b.disabled = false; b.textContent = txt; return; }
     if (cn) b.textContent = 'Buscando o CNPJ…';
     var _gs = svGrupos.map(function (id) { var g = svGruposTodos().find(function (x) { return x[0] === id; }); return g && /^g_/.test(id) ? g[1] : id; }).filter(Boolean); // 4.15 - grupo base = chave; grupo criado = o nome
-    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: _gs[0] || '', grupos: _gs, tipoCli: svTipo, concMarcas: svTipo === 'conc' ? svConcMarcas : [], gueri: svGueri } }); // 4.26 - marca da concessionária · 4.37 Gueri
+    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: _gs[0] || '', grupos: _gs, tipoCli: svTipo, concMarcas: svTipo === 'conc' ? svConcMarcas : [], gueri: svGueri, fatSp: svFatSp } }); // 4.26 - marca da concessionária · 4.37 Gueri · 4.39 Fat. SP
     b.disabled = false; b.textContent = txt;
     var st = SV.querySelector('.sv-st');
     if (r && r.ok) {
@@ -1111,6 +1115,9 @@
         : v('sv-emp').trim() ? ('✔ Salvo no PF. <span style="color:#9A6B00">A empresa não está no PF.</span><br><button class="sv-ok sv-cria" data-acao="svCriar">➕ Criar cliente "' + esc(v('sv-emp').trim()) + '" no PF</button>')
         : '✔ Salvo no PF (sem empresa — escreva a empresa pra ligar a um cliente).';
       ultimo = '';
+      // v115.2697 - BUG (Vitor: "tô mudando o grupo e colocando revenda mas não tá gravando"): a lista só re-perguntava as situações quando a lista
+      // de NOMES mudava — como o nome é o mesmo, o grupo/tipo novo não aparecia. Agora força re-perguntar ao PF depois de salvar.
+      sitSig = ''; try { carregarSituacoes(); } catch (e) { }
       // 4.7 - A pedido do Vitor ("quando eu salvar aqui, tem que salvar o contato no WhatsApp também, do jeito que coloquei no nome"): já abre o
       // salvar/editar contato do próprio WhatsApp com o nome montado e aperta Salvar.
       if (!criar) waSalvarNome(nomeFull, st);
@@ -1478,7 +1485,8 @@
   function filhoQueTem(anc, el) { var x = el; while (x && x.parentElement !== anc) x = x.parentElement; return x; }
   function ancComum(a, b) { var x = a; while (x && !x.contains(b)) x = x.parentElement; return x; }
   function rowLimpar(r) {
-    r.querySelectorAll('.pfwa-rowb,.pfwa-rowbar,.pfwa-rowln,.pfwa-rowtp,.pfwa-rowgp,.pfwa-rowown,.pfwa-gueri').forEach(function (e) { e.remove(); });
+    r.querySelectorAll('.pfwa-rowb,.pfwa-rowbar,.pfwa-rowln,.pfwa-rowtp,.pfwa-rowgp,.pfwa-rowown,.pfwa-gueri,.pfwa-fatsp,.pfwa-row3').forEach(function (e) { e.remove(); });
+    r.querySelectorAll('.pfwa-row3u').forEach(function (e) { e.classList.remove('pfwa-row3u'); }); // v115.2697 - a linha da etiqueta nativa volta ao normal
     r.querySelectorAll('[data-pfwa-esc]').forEach(function (e) { e.style.display = ''; e.removeAttribute('data-pfwa-esc'); });
   }
   function badgesRender() {
@@ -1502,12 +1510,14 @@
         if (gl.length) { var n = gl.length, st = gl.map(function (g, k) { return (g.c || '#1F4E79') + ' ' + (k * 100 / n) + '% ' + ((k + 1) * 100 / n) + '%'; }).join(','); bar = 'linear-gradient(to bottom,' + st + ')'; }
         tp = s.tpc || '';
       } else if (s.tipo === 'fornecedor') { txt = '🏭 fornecedor' + (s.mapa ? ' · mapa ' + esc(s.mapa) : ''); txtFull = txt; }
-      var sig = txt + '|' + gh + '|' + bar + '|' + tp + '|' + (s.gueri ? 'G' : '') + '|' + (CFG.waEtqOff !== false ? 1 : 0) + '|' + (x.unread ? 1 : 0);
+      var sig = txt + '|' + gh + '|' + bar + '|' + tp + '|' + (s.gueri ? 'G' : '') + (s.fatSp ? 'F' : '') + '|' + (CFG.waEtqOff !== false ? 1 : 0) + '|' + (x.unread ? 1 : 0);
       if (r.getAttribute('data-pfwa-sig') === sig && (!txt || r.querySelector('.pfwa-rowln'))) return;
       rowLimpar(r); r.setAttribute('data-pfwa-sig', sig); r.removeAttribute('title');
       if (!txt) return;
       // 4.37 / v115.2695 - A pedido do Vitor ("selo pra marcar cliente q compra com nf baixa… deixa a escrita Gueri"): chip "Gueri" ao lado do nome
       if (s.tipo === 'cliente' && s.gueri && tit.parentNode) { var gz = document.createElement('span'); gz.className = 'pfwa-gueri'; gz.textContent = 'Gueri'; gz.title = 'Compra com NF baixa'; tit.parentNode.insertBefore(gz, tit.nextSibling); }
+      // 4.39 / v115.2697 - A pedido do Vitor ("coloca um selo de Faturar por SP pra eu colocar no cliente"): chip "Fat. SP" ao lado do nome
+      if (s.tipo === 'cliente' && s.fatSp && tit.parentNode) { var fz = document.createElement('span'); fz.className = 'pfwa-fatsp'; fz.textContent = 'Fat. SP'; fz.title = 'Faturar por SP (matriz)'; var apos = tit.parentNode.querySelector('.pfwa-gueri') || tit; tit.parentNode.insertBefore(fz, apos.nextSibling); }
       // 4.37 - esconde a etiqueta NATIVA do WhatsApp de forma independente da estrutura: chip com cor de fundo inline, depois do nome, curto (a linha 3 abaixo é a via principal; isto é a rede de segurança)
       if (s.tipo === 'cliente' && CFG.waEtqOff !== false) { try {
         r.querySelectorAll('span,div').forEach(function (el) {
@@ -1539,24 +1549,22 @@
         else if (L2 && L2 !== prev) L2.appendChild(ln);
         else prev.parentNode.insertBefore(ln, prev.nextSibling);
       } else { var h = tit.parentElement; h.appendChild(ln); }
-      // linha 3: tipo no lugar da etiqueta do WhatsApp
-      // 4.24 - BUG (print do Tiago - Maximus: "ainda está aparecendo a etiqueta do whats"): no WhatsApp de verdade a etiqueta NÃO tem aria-label
-      // "Etiqueta…". Agora a linha 3 = toda linha da conversa que vem DEPOIS da linha da mensagem (no mesmo bloco do nome).
-      var L3s = [];
-      if (prev) { var anc3 = ancComum(tit, prev), L2b = anc3 ? filhoQueTem(anc3, prev) : null, achouL2 = false;
-        if (anc3 && L2b) Array.prototype.forEach.call(anc3.children, function (ch) { if (ch === L2b) { achouL2 = true; return; } if (achouL2 && !ch.classList.contains('pfwa-rowbar')) L3s.push(ch); }); }
-      if (!L3s.length) { var etq = r.querySelector('[aria-label^="Etiqueta"],[aria-label^="Label"]'); if (etq) { var a3 = ancComum(tit, etq), L3x = a3 ? filhoQueTem(a3, etq) : null; if (L3x && !L3x.contains(tit) && !(prev && L3x.contains(prev))) L3s.push(L3x); } }
-      if (s.tipo === 'cliente' && CFG.waEtqOff !== false && L3s.length) {
-        var L3 = L3s[0];
-        L3s.forEach(function (L) { Array.prototype.forEach.call(L.children, function (c) { c.setAttribute('data-pfwa-esc', '1'); c.style.display = 'none'; }); });
-        if (gh) { var g3 = document.createElement('span'); g3.className = 'pfwa-rowgp'; g3.innerHTML = gh; L3.appendChild(g3); } // v115.2669 - grupo à esquerda da linha 3
-        if (tp) { var t3 = document.createElement('span'); t3.className = 'pfwa-rowtp'; t3.textContent = tp; try { if (prev) t3.style.setProperty('color', getComputedStyle(prev).color, 'important'); } catch (e) { } L3.appendChild(t3); }
-      } else {
-        // v115.2682 - REVERTE a 3ª linha própria da 2679 (a `.pfwa-rowown` transbordava por cima da conversa de cima — no WhatsApp real a linha
-        // tem altura fixa e só tem 3ª linha quando a conversa tem etiqueta do WhatsApp). Conversa SEM etiqueta → mostra SÓ o grupo como etiqueta
-        // curta na linha da mensagem (cidade e tipo vão pro tooltip), sem inventar linha nova nem amontoar.
-        if (gh && ln && s.tipo === 'cliente') ln.innerHTML = gh;
-        r.setAttribute('title', [s.cid ? '📍 ' + [s.cid, s.uf].filter(Boolean).join('-') : '', tp].filter(Boolean).join(' · '));
+      // linha 3: grupo + tipo numa linha PRÓPRIA embaixo da mensagem — igual à conversa que já tem etiqueta do WhatsApp (a Geisa do print do Vitor).
+      // v115.2697 - A pedido do Vitor (print real: "único q tá certo é o da Geisa; Alisson o grupo tá no lugar errado"): TODO cliente ganha a 3ª linha
+      // DENTRO DA COLUNA DE CONTEÚDO (onde ficam o nome e a mensagem), então a conversa cresce pra 3 linhas como a Geisa, sem jogar o grupo na linha
+      // da mensagem. Quando a conversa já tem a etiqueta nativa do WhatsApp, reaproveita aquela linha (e esconde o conteúdo nativo).
+      if (s.tipo === 'cliente' && (gh || tp) && CFG.waEtqOff !== false) {
+        var anchor = prev || unr, col = anchor ? ancComum(tit, anchor) : (tit.parentElement && tit.parentElement.parentElement);
+        var lineMsg = (col && anchor) ? filhoQueTem(col, anchor) : null, L3 = null;
+        if (col && lineMsg) { var depois = false; Array.prototype.forEach.call(col.children, function (ch) { if (ch === lineMsg) { depois = true; return; } if (depois && !L3 && !ch.classList.contains('pfwa-rowbar') && !ch.classList.contains('pfwa-row3')) L3 = ch; }); }
+        var alvo = null;
+        if (L3) { Array.prototype.forEach.call(L3.children, function (c) { c.setAttribute('data-pfwa-esc', '1'); c.style.display = 'none'; }); alvo = L3; L3.classList.add('pfwa-row3u'); }
+        else if (col) { alvo = document.createElement('div'); alvo.className = 'pfwa-row3'; col.appendChild(alvo); }
+        if (alvo) {
+          if (gh) { var g3 = document.createElement('span'); g3.className = 'pfwa-rowgp'; g3.innerHTML = gh; alvo.appendChild(g3); }
+          if (tp) { var t3 = document.createElement('span'); t3.className = 'pfwa-rowtp'; t3.textContent = tp; try { if (prev) t3.style.setProperty('color', getComputedStyle(prev).color, 'important'); } catch (e) { } alvo.appendChild(t3); }
+          r.setAttribute('title', [s.cid ? '📍 ' + [s.cid, s.uf].filter(Boolean).join('-') : '', tp].filter(Boolean).join(' · '));
+        } else { if (gh && ln) ln.innerHTML = gh; } // sem coluna (caso raro) → cai pra linha da mensagem
       }
     });
   }

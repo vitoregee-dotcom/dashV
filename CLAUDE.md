@@ -2534,3 +2534,8 @@
   "é minha" por: classe > data-id de MENSAGEM (`true_…@…_id`; o id da CONVERSA no cabeçalho, sem o _final, era pego por engano) > ✓/✓✓ (`MSG_TICK`) > balão do lado
   direito do `#main`. Antes (print do mesmo dia): o Vitor estava rodando uma extensão ANTIGA (cabeçalho sem v/⚙️/❓, painel aberto, etiqueta do WhatsApp aparecendo,
   botões por cima do PDF) — remover todas em chrome://extensions e carregar a pasta nova.
+- v115.2704 + extensão **4.44** BUGs (prints do 🧪 Testar no WhatsApp real: "veio para a caixa isso e não enviou… a msg está errada" — texto 2x na caixa): 1) `escreverNaCaixa`
+  colava (paste) e, como o WhatsApp novo trata o colar DEPOIS, achava que não tinha entrado e escrevia de novo com insertText → agora insertText PRIMEIRO e só cola se não entrou
+  (nunca os dois). 2) não achava o botão de enviar → `botaoEnviar` procura também aria-label/ícone com "enviar/send" e `enviarAgora()` (botão ou Enter na caixa) na saudação, ⚡ resposta
+  rápida e respostas dos comandos. 3) ("cliente falou pix e apareceu endereço… onde eu configuro?"): editor do Atalho de Texto ganhou **"⚡ Quando o cliente disser no WhatsApp"**
+  (`atalhoNovoGatilhos` → `gatilhos[]`; com palavras escritas, `pfRrGatilhosDe` usa SÓ elas); sinônimos do endereço sem "retirar/onde é" ("vai retirar" puxava o endereço).

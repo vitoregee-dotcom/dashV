@@ -40,8 +40,18 @@
   function botaoEnviar() {
     var s = $('#main footer button[aria-label="Enviar"]') || $('#main footer button[aria-label="Send"]') ||
       $('#main footer [data-icon="send"]') || $('#main footer [data-icon="wds-ic-send-filled"]');
+    // 4.44 - BUG (Vitor: "veio para a caixa e não enviou"): o WhatsApp novo trocou o botão de enviar — procura também por aria-label/ícone que tenha "enviar/send"
+    if (!s) s = $('#main footer [aria-label*="Enviar" i]:not([aria-label*="áudio" i]):not([aria-label*="voz" i])') || $('#main footer [aria-label*="Send" i]:not([aria-label*="voice" i])') || $('#main footer [data-icon*="send"]');
     if (!s) return null;
     return s.closest('button') || s.closest('[role="button"]') || s;
+  }
+  // 4.44 - aperta enviar; sem achar o botão, manda o Enter na caixa (o WhatsApp envia no Enter)
+  function enviarAgora() {
+    var b = botaoEnviar(); if (b) { b.click(); return true; }
+    var cx = caixaTexto(); if (!cx) return false;
+    cx.focus();
+    ['keydown', 'keypress', 'keyup'].forEach(function (t) { cx.dispatchEvent(new KeyboardEvent(t, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true })); });
+    return true;
   }
   function dialogoInvalido() {
     var ds = document.querySelectorAll('[data-animate-modal-popup="true"],div[role="dialog"]');
@@ -73,13 +83,16 @@
   function reporta(a, ok, erro, parar) { msg({ t: 'resultado', id: a.id, ok: ok, erro: erro || '', parar: !!parar }); }
 
   // escreve na caixa de mensagem SEM mandar (a pessoa confere e aperta Enter)
+  // 4.44 - BUG (Vitor: "veio para a caixa isso… a msg está errada" — o texto entrava 2x): o WhatsApp novo trata o "colar" DEPOIS (assíncrono), a extensão
+  // achava que não tinha entrado e escrevia de novo com o insertText. Agora: insertText primeiro (entra na hora); só se não entrou, cola — e nunca os dois.
   function escreverNaCaixa(txt) {
     var cx = caixaTexto(); if (!cx) return false;
     cx.focus();
     var antes = cx.innerText || '';
+    try { document.execCommand('insertText', false, txt); } catch (e) { }
+    if ((cx.innerText || '') !== antes) return true;
     try { var dt = new DataTransfer(); dt.setData('text/plain', txt); cx.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); } catch (e) { }
-    if ((cx.innerText || '') === antes) { try { document.execCommand('insertText', false, txt); } catch (e) { } }
-    return (cx.innerText || '') !== antes;
+    return true; // o colar entra um instante depois — quem precisa conferir espera o botão de enviar
   }
 
   // ═══ 4.16 - 🎤 DESCREVER ÁUDIO ═══ pega o último áudio da conversa (blob do WhatsApp) e manda pro PF transcrever.
@@ -1929,8 +1942,8 @@
   }
   async function rr2Enviar(o) {
     if (!escreverNaCaixa(o.txt)) { flash2('Não consegui escrever na caixa'); return; }
-    var btn = await esperar(botaoEnviar, 3000); if (!btn) { flash2('Escrevi na caixa — aperte enviar'); rr2Fechar(); return; }
-    await dormir(250); (botaoEnviar() || btn).click();
+    if (!(await esperar(function () { var b = caixaTexto(); return b && (b.innerText || '').trim() ? 1 : null; }, 3000))) { flash2('Não consegui escrever na caixa'); return; }
+    await dormir(250); enviarAgora();
     try { msg({ t: 'acao', acao: 'rrUsou', arg: { id: o.id } }); } catch (e) { }
     rr2Fechar();
   }
@@ -2210,10 +2223,11 @@
     await dormir(1500 + Math.random() * 2500); // "lendo"
     cx = caixaTexto(); if (!cx || (cx.innerText || '').trim() || (contatoAtual() || {}).nome !== c.nome) return false;
     if (!escreverNaCaixa(txt)) return false;
-    var btn = await esperar(botaoEnviar, 3000); if (!btn) return false;
+    var temTxt = await esperar(function () { var x = caixaTexto(); return x && (x.innerText || '').trim() ? 1 : null; }, 3000); if (!temTxt) return false;
+    await esperar(botaoEnviar, 2000);
     await dormir(Math.min(6000, 900 + txt.length * 45 + Math.random() * 900)); // "digitando…"
     if ((contatoAtual() || {}).nome !== c.nome) return false;
-    (botaoEnviar() || btn).click();
+    enviarAgora(); // 4.44 - botão ou Enter
     var ok = await esperar(function () { var x = caixaTexto(); return x && !(x.innerText || '').trim() ? 1 : null; }, 8000);
     if (!ok) return false;
     autoMarcarFeito(c, aus); autoHist.push(Date.now()); autoUlt[c.nome] = txt; autoPend[c.nome] = { ts: Date.now(), txt: txt, aus: aus || '' };
@@ -2520,8 +2534,8 @@
       if (!aberta) { var row = linhaDoNome(x.nome); if (!row) return; clicar(row); if (!(await esperar(function () { var c = contatoAtual(); return c && c.nome === x.nome ? 1 : null; }, 4000))) return; await dormir(600); }
       var cx = caixaTexto(); if (!cx || (cx.innerText || '').trim()) return;
       if (!escreverNaCaixa(x.txt)) return;
-      var btn = await esperar(botaoEnviar, 3000); if (!btn) return;
-      await dormir(500); (botaoEnviar() || btn).click();
+      if (!(await esperar(function () { var b = caixaTexto(); return b && (b.innerText || '').trim() ? 1 : null; }, 3000))) return;
+      await dormir(500); enviarAgora();
       if (await esperar(function () { var b = caixaTexto(); return b && !(b.innerText || '').trim() ? 1 : null; }, 8000)) { x.ok = 1; cmdGravar(); }
       if (!aberta && antes) { var vt = linhaDoNome(antes); if (vt) clicar(vt); }
     } finally { autoOcup = false; }

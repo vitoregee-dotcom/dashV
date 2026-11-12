@@ -2545,3 +2545,6 @@
 - v115.2706 + extensão **4.45** BUG ("Bom dia, Fabio! Ja te chamoBom dia, Fabio! Ja te chamo" — a mesma frase 2x, não eram as 2 frases juntas): no WhatsApp de hoje o insertText também
   entra na caixa só um instante DEPOIS; a 4.44 achava que não tinha entrado e colava (paste) na hora → 2x. `escreverNaCaixa` agora espera 400 ms e só cola se a caixa continuar sem o
   texto. O 🧪 Testar usa a mesma trava da automática (`autoOcup`), pra não rodarem juntos. Testado no simulador imitando a demora (80 ms): frase 1x.
+- v115.2707 + extensão **4.46** BUG ("só mandou pra esse contato quando eu abri a msg… pq eu tava com a janela aberta"): o "📂 Também nas outras conversas" só abria a conversa
+  esperando depois de 1 min SEM MEXER o mouse no WhatsApp (mousemove contava) — trabalhando nele, nunca acontecia. Agora `autoLivre()`: 20 s sem digitar/clicar (`autoUltAcao`:
+  keydown/mousedown/paste/input; mouse e rolar não contam) + caixa vazia, ou WhatsApp em outra aba (`document.hidden`). Não testado no WhatsApp real.

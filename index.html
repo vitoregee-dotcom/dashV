@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2714</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2715</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2714</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2715</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -17046,7 +17046,30 @@ function pfDecompress(str){
 // o padrão "item apagado que volta sozinho". Pedidos/títulos já filtram na leitura (pfDemoFiltrar); cotações não. Agora a
 // LEITURA das cotações esconde as de lote apagado (e demo sem lote), seja qual for a cópia que a sync trouxer.
 var _pfDemoCotMemo={raw:null,ap:'',out:null};
+// v115.2715 - A pedido do Vitor ("tá exibindo uma que excluí"): excluir cotação tirava da lista pelo NÚMERO e não deixava marca — a sync trazia de
+// volta (e apagava as duas #45). Agora o id vai pra pfCotacoesApagadas_v1 (lista que só cresce, sincronizada) e a LEITURA esconde.
+var PF_COT_APAG_KEY='pfCotacoesApagadas_v1';
+function pfCotApagadas(){try{var l=JSON.parse(localStorage.getItem(PF_COT_APAG_KEY)||'[]');return Array.isArray(l)?l:[];}catch(e){return [];}}
+var _pfCotApagMemo={raw:null,ap:'',out:null};
+function pfCotSemExcluidas(raw){
+  try{if(raw==null)return raw;var ap=pfCotApagadas();if(!ap.length)return raw;var apS=ap.join(',');
+    if(_pfCotApagMemo.raw===raw&&_pfCotApagMemo.ap===apS)return _pfCotApagMemo.out;
+    var out=raw,txt=(typeof pfDecompress==='function')?pfDecompress(raw):raw,l=JSON.parse(txt),m={};ap.forEach(function(x){m[x]=1;});
+    if(Array.isArray(l)){var f=l.filter(function(c){return !(c&&((c.id&&m[c.id])||(!c.id&&m['n:'+c.num])));});if(f.length!==l.length)out=JSON.stringify(f);}
+    _pfCotApagMemo={raw:raw,ap:apS,out:out};return out;}catch(e){return raw;}}
+function pfCotExcluir(c){if(!c)return;var ap=pfCotApagadas(),k=c.id||('n:'+c.num);if(ap.indexOf(k)<0)ap.push(k);localStorage.setItem(PF_COT_APAG_KEY,JSON.stringify(ap));
+  try{var K='partsflow_cotacoes_v1',cs=JSON.parse(pfSafeGetItem(K)||'[]');cs=cs.filter(function(x){return !(x&&(c.id?x.id===c.id:(!x.id&&x.num===c.num)));});pfSafeSetItem(K,JSON.stringify(cs));}catch(e){}
+  try{if(typeof pfSyncPush==='function')pfSyncPush([PF_COT_APAG_KEY,'partsflow_cotacoes_v1']);}catch(e){}}
+// v115.2715 - A pedido do Vitor ("exibindo 2 cotações 45"): dois aparelhos pegaram o mesmo número (numeração local). A mais NOVA ganha o próximo número
+// (o antigo fica em numAntes) — abrir/excluir/atualizar pelo número deixa de pegar a errada.
+function pfCotNumDupArrumar(){try{var K='partsflow_cotacoes_v1',cs=JSON.parse(pfSafeGetItem(K)||'[]'),por={},max=0,maxD=900000,mud=0;
+  cs.forEach(function(c){if(!c||c.num==null)return;if(c.demo){if(+c.num>maxD)maxD=+c.num;}else if(+c.num>max)max=+c.num;(por[c.num]=por[c.num]||[]).push(c);});
+  Object.keys(por).forEach(function(n){var l=por[n];if(l.length<2)return;l.sort(function(a,b){return (new Date(a.data||0)-new Date(b.data||0))||String(a.id||'').localeCompare(String(b.id||''));});
+    for(var i=1;i<l.length;i++){var c=l[i];if(c.id&&l[0].id===c.id)continue;c.numAntes=+n;c.num=c.demo?++maxD:++max;c.tsMod=Date.now();mud++;
+      try{if(window._venda&&window._venda.nr&&window._venda.nr===c.id)window._venda.num=c.num;}catch(e){}}});
+  if(mud){pfSafeSetItem(K,JSON.stringify(cs));try{if(typeof pfSyncPush==='function')pfSyncPush([K]);}catch(e){}}return mud;}catch(e){return 0;}}
 function pfDemoCotSemApagados(raw){
+  raw=pfCotSemExcluidas(raw);
   try{
     if(raw==null||raw.indexOf('"demo":true')<0)return raw;
     var ap=(typeof pfDemoLotesApagados==='function')?pfDemoLotesApagados():[],apS=ap.join(',');
@@ -28210,7 +28233,7 @@ function pfCodPrefixo(cod){cod=String(cod||'').toUpperCase().trim();
 var PF_COD_SUFIXOS=[{s:'TX',marca:'TX'}];
 function pfCodSufixo(cod){cod=String(cod||'').toUpperCase().trim();
   for(var i=0;i<PF_COD_SUFIXOS.length;i++){var r=PF_COD_SUFIXOS[i],m=cod.match(new RegExp('^(.*\\d[A-Z]{0,3}?)[\\s\\-]?'+r.s+'$'));
-    if(m&&/-/.test(m[1])&&/^\d/.test(m[1])&&m[1].replace(/\D/g,'').length>=3)return {cod:m[1].replace(/[\s\-]+$/,''),marca:r.marca,orig:cod};}
+    if(m&&/-/.test(m[1])&&/^(\d|SPL)/.test(m[1])&&m[1].replace(/\D/g,'').length>=3)return {cod:m[1].replace(/[\s\-]+$/,''),marca:r.marca,orig:cod};}
   return null;}
 function lpApplyRuleCase(cod){
   cod=(cod||'').toString().trim().toUpperCase().replace(/\s+/g,'');
@@ -40732,7 +40755,7 @@ var PF_SYNC_KEYS = ['desc_substituicoes_v1', 'pfPecaGrupos_v1', 'pfCotCabPrefs_v
   'cc_desenhos_v1', // v115.2021 - desenho de cada família (Área Técnica), trocado pelo admin
   'rel_decisoes_v1', // v115.2030 - respostas às sugestões de relacionamento (cotados juntos)
   'rel_regras_v1', // v115.2030 - regras que filtram as ligações vindas de catálogo
-  'pfVendasRegrasV2', 'pfKanban_v1', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfPecasMaq_v1', 'pfIconeCor', 'pfEmojiTroca_v1', 'pfCardsOcultosTodos', 'pfOrigLinhas_v1', 'pfContasPagar_v1', 'pfFinCfg_v1', 'pfGestaoAcesso_v1', 'pfOrdensCompra_v1', 'pfContatosWhats_v1','pfWhatsAutoCfg_v1', 'pfComprasCfg_v1', 'pfChamadosCfg_v1', 'pfFuncLiberados', 'pfPerfilCfg', 'pfVendasPerdCfg', 'pfCobrarCfg_v1', 'pfWhatsContato_v1', 'pfGestaoMetas_v1', 'pfGestaoGrupos_v1', 'pfMargemMinMarca_v1', 'pfLibExcecoes_v1', 'pfKits_v1', 'pfMaqSerieComp_v1', 'pfMaqCompConf_v1', 'pfMarcaMidia_v1', 'pfVideos_v1', 'pfModoDemo', 'pfDemoDados_v1', 'pfDemoAtividade_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', // v115.2304 pfDemoAtividade_v1 (o que fizeram na demonstração) // v115.2111 - margem por perfil // v115.2058 - regras geral/cliente do Assistente de Vendas (+ v115.2062 etiquetas da cotação)
+  'pfVendasRegrasV2', 'pfKanban_v1', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfPecasMaq_v1', 'pfIconeCor', 'pfEmojiTroca_v1', 'pfCardsOcultosTodos', 'pfOrigLinhas_v1', 'pfContasPagar_v1', 'pfFinCfg_v1', 'pfGestaoAcesso_v1', 'pfOrdensCompra_v1', 'pfContatosWhats_v1','pfWhatsAutoCfg_v1','pfCotacoesApagadas_v1', 'pfComprasCfg_v1', 'pfChamadosCfg_v1', 'pfFuncLiberados', 'pfPerfilCfg', 'pfVendasPerdCfg', 'pfCobrarCfg_v1', 'pfWhatsContato_v1', 'pfGestaoMetas_v1', 'pfGestaoGrupos_v1', 'pfMargemMinMarca_v1', 'pfLibExcecoes_v1', 'pfKits_v1', 'pfMaqSerieComp_v1', 'pfMaqCompConf_v1', 'pfMarcaMidia_v1', 'pfVideos_v1', 'pfModoDemo', 'pfDemoDados_v1', 'pfDemoAtividade_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', // v115.2304 pfDemoAtividade_v1 (o que fizeram na demonstração) // v115.2111 - margem por perfil // v115.2058 - regras geral/cliente do Assistente de Vendas (+ v115.2062 etiquetas da cotação)
   'partsflow_pedidos_venda_v1',
   'venda_rascunho_v1',
   'imp_preview_cache_v1',
@@ -41632,7 +41655,7 @@ async function pfSafeSetItemAsync(key,value){
 // de dado único da empresa (tudo, exceto os 2 logs de atividade por
 // usuário -- esses fazem sentido continuar por conta) passam a usar o
 // mesmo ID fixo. Isso fecha a causa raiz de uma vez.
-var PF_CATALOGO_UNICO_KEYS = ['desc_substituicoes_v1', 'pfKanban_v1', 'pfPecaGrupos_v1', 'catpdf_traducoes_v1', 'componentes_cardan_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfPecasMaq_v1', 'pfIconeCor', 'pfEmojiTroca_v1', 'pfCardsOcultosTodos', 'pfOrigLinhas_v1', 'pfContasPagar_v1', 'pfFinCfg_v1', 'pfGestaoAcesso_v1', 'pfOrdensCompra_v1', 'pfComprasCfg_v1', 'pfChamadosCfg_v1', 'pfFuncLiberados', 'pfPerfilCfg', 'pfVendasPerdCfg', 'pfCobrarCfg_v1', 'pfWhatsContato_v1', 'pfGestaoMetas_v1', 'pfGestaoGrupos_v1', 'pfMargemMinMarca_v1', 'pfLibExcecoes_v1', 'pfKits_v1', 'pfMaqSerieComp_v1', 'pfMaqCompConf_v1', 'pfMarcaMidia_v1', 'pfVideos_v1', 'pfModoDemo', 'pfDemoDados_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'retentores_v1', 'mapas_lista_v1', 'cc_vinculos_estoque_v1', 'pfContatosWhats_v1','pfWhatsAutoCfg_v1',
+var PF_CATALOGO_UNICO_KEYS = ['desc_substituicoes_v1', 'pfKanban_v1', 'pfPecaGrupos_v1', 'catpdf_traducoes_v1', 'componentes_cardan_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfPecasMaq_v1', 'pfIconeCor', 'pfEmojiTroca_v1', 'pfCardsOcultosTodos', 'pfOrigLinhas_v1', 'pfContasPagar_v1', 'pfFinCfg_v1', 'pfGestaoAcesso_v1', 'pfOrdensCompra_v1', 'pfComprasCfg_v1', 'pfChamadosCfg_v1', 'pfFuncLiberados', 'pfPerfilCfg', 'pfVendasPerdCfg', 'pfCobrarCfg_v1', 'pfWhatsContato_v1', 'pfGestaoMetas_v1', 'pfGestaoGrupos_v1', 'pfMargemMinMarca_v1', 'pfLibExcecoes_v1', 'pfKits_v1', 'pfMaqSerieComp_v1', 'pfMaqCompConf_v1', 'pfMarcaMidia_v1', 'pfVideos_v1', 'pfModoDemo', 'pfDemoDados_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'retentores_v1', 'mapas_lista_v1', 'cc_vinculos_estoque_v1', 'pfContatosWhats_v1','pfWhatsAutoCfg_v1','pfCotacoesApagadas_v1',
   // v115.1987 - A pedido do Vitor ("cotação deve ser compartilhada com
   // todos"): cotações deixam de ser por conta -- todo mundo lê e grava a
   // mesma lista (linha do MY_USER_ID, que já tinha todas as cotações).
@@ -41712,7 +41735,7 @@ async function pfSyncPull(){
   if(typeof sbUser==='undefined'||!sbUser)return;
   try{
     // Chaves compartilhadas entre usuários — puxar de TODOS os usuários
-    var sharedKeys = ['desc_substituicoes_v1', 'pfKanban_v1', 'pfPecaGrupos_v1', 'catpdf_traducoes_v1', 'partsflow_cotacoes_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfPecasMaq_v1', 'pfIconeCor', 'pfEmojiTroca_v1', 'pfCardsOcultosTodos', 'pfOrigLinhas_v1', 'pfContasPagar_v1', 'pfFinCfg_v1', 'pfGestaoAcesso_v1', 'pfOrdensCompra_v1', 'pfComprasCfg_v1', 'pfChamadosCfg_v1', 'pfFuncLiberados', 'pfPerfilCfg', 'pfVendasPerdCfg', 'pfCobrarCfg_v1', 'pfWhatsContato_v1', 'pfGestaoMetas_v1', 'pfGestaoGrupos_v1', 'pfMargemMinMarca_v1', 'pfLibExcecoes_v1', 'pfKits_v1', 'pfMaqSerieComp_v1', 'pfMaqCompConf_v1', 'pfMarcaMidia_v1', 'pfVideos_v1', 'pfModoDemo', 'pfDemoDados_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'lp_regras_v1_deletados', 'lp_exemplos_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'cc_vinculos_estoque_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'pfNoticiasMarcasAtualizadoEm', 'pfNoticiasMarcasHistorico', 'timken_interchange_v1', 'pfComprasAtivos', 'pfAtalhosFerramentas', 'pfIconOverrides', 'pfTemaCores', 'pfCotacoesNaoLidas', 'pfMapaComercialSede', 'pfMapaPinsCores', 'pf_transp_mapa_v1', 'pfChegadasConf', 'pfContatosWhats_v1','pfWhatsAutoCfg_v1'];
+    var sharedKeys = ['desc_substituicoes_v1', 'pfKanban_v1', 'pfPecaGrupos_v1', 'catpdf_traducoes_v1', 'partsflow_cotacoes_v1', 'pfSolicNF_v1', 'cc_desenhos_v1', 'rel_decisoes_v1', 'rel_regras_v1', 'pfVendasRegrasV2', 'pfVendasCotEnxuta', 'pfCotEtiquetas', 'pfVendasMargemPerfis', 'pfVendasOfertas', 'pfGuiaGruposExtra', 'pfSpicerCodNotas', 'pfOrbCfg', 'pfOrbMarcas', 'pfPesquisas_v1', 'pfAplicDesenhos_v1', 'pfCatEnv_v1', 'pfCatPedidos_v1', 'pfLubModelos_v1', 'pfPecasMaq_v1', 'pfIconeCor', 'pfEmojiTroca_v1', 'pfCardsOcultosTodos', 'pfOrigLinhas_v1', 'pfContasPagar_v1', 'pfFinCfg_v1', 'pfGestaoAcesso_v1', 'pfOrdensCompra_v1', 'pfComprasCfg_v1', 'pfChamadosCfg_v1', 'pfFuncLiberados', 'pfPerfilCfg', 'pfVendasPerdCfg', 'pfCobrarCfg_v1', 'pfWhatsContato_v1', 'pfGestaoMetas_v1', 'pfGestaoGrupos_v1', 'pfMargemMinMarca_v1', 'pfLibExcecoes_v1', 'pfKits_v1', 'pfMaqSerieComp_v1', 'pfMaqCompConf_v1', 'pfMarcaMidia_v1', 'pfVideos_v1', 'pfModoDemo', 'pfDemoDados_v1', 'pfOrbImportancia', 'pfContasReceber_v1', 'pfDemoLotesApagados', 'cad_fornecedores_v1', 'cad_clientes_v1', 'cad_produtos_v1', 'prod_aplicacoes_v1', 'cad_solicitacoes_compras_v1', 'cad_regras_ia_v1', 'regras_ia_sugestoes_v1', 'lp_regras_v1', 'lp_regras_v1_deletados', 'lp_exemplos_v1', 'ia_uso_log_v1', 'pf_login_log_v1', 'cad_transportadoras_v1', 'cad_funcionarios_v1', 'ficha_tecnica_v1', 'medida_pecas_v1', 'componentes_cardan_v1', 'cc_vinculos_estoque_v1', 'ref_fabricantes_eixos_transmissoes_v1', 'candidatos_carraro_ficha_tecnica_v1', 'retentores_v1', 'pfNoticiasSetor', 'mapas_lista_v1', 'pfNoticiasSetorAtualizadoEm', 'pfNoticiasMarcasAtualizadoEm', 'pfNoticiasMarcasHistorico', 'timken_interchange_v1', 'pfComprasAtivos', 'pfAtalhosFerramentas', 'pfIconOverrides', 'pfTemaCores', 'pfCotacoesNaoLidas', 'pfMapaComercialSede', 'pfMapaPinsCores', 'pf_transp_mapa_v1', 'pfChegadasConf', 'pfContatosWhats_v1','pfWhatsAutoCfg_v1','pfCotacoesApagadas_v1'];
     // v115.1219 - BUG corrigido (a pedido do Vitor, e-mails duplicados do
     // mesmo item em horários próximos): pfComprasEventos/pfFaturadosEventos/
     // pfChegadasEventos/pfSolicitadosEventos são LOGS (uma entrada por
@@ -73724,6 +73747,7 @@ function vendasZebraCores(){
 }
 function vendasAtualizarLista(){
   var COTS_KEY='partsflow_cotacoes_v1';
+  try{pfCotNumDupArrumar();}catch(e){} // v115.2715
   var cots=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');
   // v115.2082 - cotação -> pedidos de venda que saíram dela (sinaliza mesmo se a cotação perdeu a dataPedido)
   var _pvPorCot={};
@@ -73929,7 +73953,7 @@ function vendasAtualizarLista(){
     tdAct.appendChild(actWrap);
     (function(nn){
       bv.onclick=function(e){e.stopPropagation();var cs=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');var cx=cs.find(function(x){return x.num===nn;});if(cx)vendasAbrirModal(cx);};
-      bd.onclick=function(e){e.stopPropagation();pfConfirm('Excluir a cotação #'+nn+'?',function(){var cs=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');cs=cs.filter(function(x){return x.num!==nn;});pfSafeSetItem(COTS_KEY,JSON.stringify(cs));if(window._vendasSelected===nn){window._vendasSelected=null;}vendasAtualizarLista();},'Excluir');};
+      bd.onclick=function(e){e.stopPropagation();pfConfirm('Excluir a cotação #'+nn+'?',function(){var cs=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');var cx=cs.find(function(x){return x.num===nn;});pfCotExcluir(cx);if(window._vendasSelected===nn){window._vendasSelected=null;}vendasAtualizarLista();},'Excluir');}; // v115.2715 - pelo id, com marca (não volta na sync)
       tr.onclick=function(){
         var now=Date.now();
         if(window._vendasLastTapNum===nn && (now-(window._vendasLastTapTime||0))<450){
@@ -75730,6 +75754,10 @@ function pfExtLerPedido(msgs){
       var _prs=pfExtMarcasDaLinha(lin),_grax=/c\s*\/\s*grax|com\s+grax/i.test(lin)?true:(/s\s*\/\s*grax|sem\s+grax/i.test(lin)?false:null);
       var toks=lin.match(/[A-Za-z0-9][A-Za-z0-9.\-\/]{2,}[A-Za-z0-9]/g)||[];
       var qL=null,mq=lin.match(/(?:\bqtd\.?\s*:?\s*|(?:^|\s)x\s*)(\d{1,4})(?![\w.\-\/])|(?:^|\s)(\d{1,4})\s*(?:x|un|und|unid|unidades?|p[çc]s?|pe[çc]as?)(?![\w\-\/])/i);if(mq)qL=+(mq[1]||mq[2]); // v115.2612 - "5-438x" não é 438 unidades (número colado no código não é quantidade)
+      // v115.2715 - A pedido do Vitor ("mandei o pedido e não atualizou as quantidades"): "02 2055005", "2055005 - 2", "2055005 (2)" = quantidade solta na linha.
+      // Só quando a linha tem UM código (4+ dígitos) e o número solto tem até 3 dígitos.
+      if(qL==null){var _cods=toks.filter(function(t){return t.replace(/\D/g,'').length>=4;});
+        if(_cods.length===1){var _r=' '+lin+' ';_r=_r.split(_cods[0]).join(' ').replace(/\bdias?\s+\d{1,2}\b/gi,' ').replace(/R\$\s*[\d.,]+/gi,' ').replace(/\d+[.,:\/]\d+/g,' ').replace(/\d+\s*(?:%|h\b|hs\b|min)/gi,' ');var _mq=_r.match(/(?:^|[\s(\-–:=])0*(\d{1,3})\s*(?:\)|$|\s)/);if(_mq&&+_mq[1]>0)qL=+_mq[1];}}
       toks.forEach(function(tok){
         // v115.2638 - A pedido do Vitor ("não entendeu o código das peças de cardan"): palavra do tipo colada no código (LUVA03541X2, CRUZETA512278X) -> tira a palavra, fica só o código.
         var mTipo=tok.match(/^(LUVA|CRUZETA|PONTEIRA|PONTUVA|FLANGE|GARFO|TERMINAL|CARDAN)[\s.\-]*([0-9][A-Za-z0-9.\-\/]*)$/i);
@@ -75794,6 +75822,8 @@ function pfExtFichasDo(cod,grax){var l=[],seen={},add=function(c){c=String(c||''
   var base=String(cod||'').trim().toUpperCase();
   if(/XS?$/.test(base)||/^ALB/.test(base)){var semAlb=base.replace(/^ALB[\s.\-]?/,''),nu=semAlb.replace(/XS?$/,'');
     [semAlb,nu,nu+'X',nu+'XS','ALB'+nu,'ALB'+nu+'X','ALB'+nu+'XS'].forEach(add);}
+  // v115.2715 - SPL250-1TX = TX SPL250-1 → no estoque é SPL250-1X / SPL-250-1X
+  var mSpl=base.match(/^SPL[\s\-]?(\d{2,3})[\s\-]?(\d{1,3})$/);if(mSpl)['SPL'+mSpl[1]+'-'+mSpl[2]+'X','SPL-'+mSpl[1]+'-'+mSpl[2]+'X','SPL'+mSpl[1]+'-'+mSpl[2]+'XS','SPL-'+mSpl[1]+'-'+mSpl[2]+'XS'].forEach(add);
   if(grax===true&&/X$/i.test(cod))add(cod+'S');if(grax===false&&/XS$/i.test(cod))add(cod.replace(/S$/i,''));
   if(!l.length&&/^0+\d/.test(cod))add(cod.replace(/^0+/,''));
   return l;}

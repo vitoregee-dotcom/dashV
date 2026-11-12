@@ -430,6 +430,10 @@
     h += '<div class="pfwa-bt" style="margin-top:12px">📇 Contatos</div>' +
       '<div class="pfwa-cfgbtns"><button data-acao="importar" class="pfwa-cfgb verde" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button>' +
       '<button data-acao="numeros" class="pfwa-cfgb pfwa-num" title="Abre cada conversa dos contatos salvos sem número, lê o número e grava no PF (só lê, não manda nada). Clique de novo pra parar.">' + (numRodando ? '⏸ Parar' : '📞 Buscar números que faltam') + '</button></div>';
+    // 4.40 - diagnóstico: copia a ESTRUTURA das linhas da lista (sem nome/dado de cliente) pra acertar onde a etiqueta de grupo encaixa
+    h += '<div class="pfwa-bt" style="margin-top:12px">🔧 Suporte</div>' +
+      '<div class="pfwa-nada" style="margin:2px 0 6px">Se a etiqueta de grupo fica no lugar errado, clique aqui e <b>cole no chat do Claude</b>. Copia só a estrutura (tags/classes), sem nome nem telefone.</div>' +
+      '<div class="pfwa-cfgbtns"><button data-acao="estrutura" class="pfwa-cfgb" style="background:#6a2e86">🔧 Copiar estrutura da lista</button></div>';
     return h;
   }
   function cfgTog(k) {
@@ -443,6 +447,47 @@
     if (k === 'audio' || k === 'audioBotoes') try { audVigiar(true); } catch (e) { }
     try { posicionar(); } catch (e) { }
     pinta();
+  }
+  // 4.40 - copia a ESTRUTURA das linhas da lista (sem nome/telefone), pra acertar onde a etiqueta de grupo encaixa
+  function copiarTextoWa(t) {
+    try { navigator.clipboard.writeText(t); return; } catch (e) { }
+    try { var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } catch (e) { }
+  }
+  function dumpEl(el, d, out) {
+    if (d > 9 || !el || el.nodeType !== 1) return;
+    var tag = el.tagName.toLowerCase();
+    var cls = (typeof el.className === 'string' && el.className.trim()) ? '.' + el.className.trim().split(/\s+/).slice(0, 4).join('.') : '';
+    var a = [];
+    ['role', 'data-icon'].forEach(function (k) { var v = el.getAttribute(k); if (v) a.push(k + '=' + v); });
+    var al = el.getAttribute('aria-label'); if (al) a.push('aria="' + al.slice(0, 24).replace(/\d+/g, 'N') + '"');
+    if (el.hasAttribute('title')) a.push('title');
+    var cs; try { cs = getComputedStyle(el); } catch (e) { cs = null; }
+    if (cs && (cs.display === 'flex' || cs.display === 'inline-flex')) a.push('flex:' + cs.flexDirection + '/' + cs.flexWrap);
+    else if (cs && cs.display) a.push(cs.display);
+    if (el.style && (el.style.backgroundColor || el.style.background)) a.push('bg-inline');
+    var direct = ''; Array.prototype.forEach.call(el.childNodes, function (n) { if (n.nodeType === 3 && n.textContent.trim()) direct += n.textContent.trim() + ' '; });
+    direct = direct.trim();
+    var tx = direct ? (/^\d{1,2}:\d{2}/.test(direct) ? ' "[hora]"' : ' "[txt' + direct.length + ']"') : '';
+    out.push('  '.repeat(d) + tag + cls + (a.length ? ' [' + a.join(' ') + ']' : '') + tx);
+    Array.prototype.forEach.call(el.children, function (c) { dumpEl(c, d + 1, out); });
+  }
+  function copiarEstrutura(btn) {
+    try {
+      var rows = Array.prototype.slice.call(document.querySelectorAll('#pane-side [role="listitem"]')).slice(0, 6);
+      if (!rows.length) { flash(btn, 'abra o WhatsApp com a lista de conversas'); return; }
+      var out = ['=== ESTRUTURA LISTA (ext ' + (VER || '?') + ') ==='];
+      rows.forEach(function (r, i) {
+        out.push('--- LINHA ' + (i + 1) +
+          (r.querySelector('.pfwa-row3') ? ' [row3-criada]' : '') +
+          (r.querySelector('.pfwa-row3u') ? ' [row3-nativa]' : '') +
+          (r.querySelector('.pfwa-rowgp') ? ' [rowgp]' : '') +
+          (r.querySelector('.pfwa-rowln') ? ' [rowln]' : '') +
+          (r.querySelector('.pfwa-rowtp') ? ' [rowtp]' : '') + ' ---');
+        dumpEl(r, 0, out);
+      });
+      copiarTextoWa(out.join('\n'));
+      flash(btn, '✔ Copiado! Cole no chat do Claude');
+    } catch (e) { flash(btn, 'erro: ' + (e && e.message)); }
   }
   var AJUDA = [
     ['Comece por aqui', [
@@ -590,6 +635,7 @@
     if (ac === 'sino') { avisoLigado = !avisoLigado; chrome.storage.local.set({ avisoLigado: avisoLigado }); pinta(); marcaCot(); if (!avisoLigado && AV) AV.style.display = 'none'; else vigiar(); return; }
     if (ac === 'botsToggle') { botsMin = !botsMin; chrome.storage.local.set({ botsMin: botsMin }); posicionar(); return; }
     if (ac === 'numeros') { buscarNumeros(b); return; }
+    if (ac === 'estrutura') { copiarEstrutura(b); return; } // 4.40 - diagnóstico da lista
     if (ac === 'importar') {
       var st = P.querySelector('.pfwa-rodst'), o0 = b.textContent;
       b.disabled = true; b.textContent = 'Lendo a lista…';

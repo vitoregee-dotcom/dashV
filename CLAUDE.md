@@ -2542,3 +2542,6 @@
 - v115.2705 BUG ("do Celso ainda não tá salvando" — conversa "Celso Durante - MG da Costa (636) SP", etiqueta só "cliente do PF"): o 👤 Salvar contato gravava o nome NOVO montado
   e, quando o WhatsApp não renomeava, a lista (com o nome antigo) não achava a ligação gravada e caía no "(636)" de outro cadastro (sem grupo/cidade). O contato agora guarda
   também `nomeWa` (o nome que o WhatsApp mostra) e `pfExtLigadoK`/o salvar comparam por `pfExtNomeAN` (só letras+números). Vale pra salvar de novo — o que já foi salvo antes não tem nomeWa.
+- v115.2706 + extensão **4.45** BUG ("Bom dia, Fabio! Ja te chamoBom dia, Fabio! Ja te chamo" — a mesma frase 2x, não eram as 2 frases juntas): no WhatsApp de hoje o insertText também
+  entra na caixa só um instante DEPOIS; a 4.44 achava que não tinha entrado e colava (paste) na hora → 2x. `escreverNaCaixa` agora espera 400 ms e só cola se a caixa continuar sem o
+  texto. O 🧪 Testar usa a mesma trava da automática (`autoOcup`), pra não rodarem juntos. Testado no simulador imitando a demora (80 ms): frase 1x.

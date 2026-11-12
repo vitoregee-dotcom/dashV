@@ -91,8 +91,18 @@
     var antes = cx.innerText || '';
     try { document.execCommand('insertText', false, txt); } catch (e) { }
     if ((cx.innerText || '') !== antes) return true;
-    try { var dt = new DataTransfer(); dt.setData('text/plain', txt); cx.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); } catch (e) { }
-    return true; // o colar entra um instante depois — quem precisa conferir espera o botão de enviar
+    // 4.45 - BUG (Vitor: "Bom dia, Fabio! Ja te chamoBom dia, Fabio! Ja te chamo"): no WhatsApp de hoje o insertText também entra só um instante DEPOIS — a 4.44 achava
+    // que não tinha entrado e colava de novo na hora. Agora espera e só cola se a caixa continuar sem o texto.
+    var alvo = String(txt || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    setTimeout(function () {
+      var c2 = caixaTexto(); if (!c2) return;
+      var agora = (c2.innerText || '').replace(/\s+/g, ' ');
+      if (alvo && agora.indexOf(alvo) >= 0) return;
+      if ((c2.innerText || '') !== antes) return;
+      c2.focus();
+      try { var dt = new DataTransfer(); dt.setData('text/plain', txt); c2.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); } catch (e) { }
+    }, 400);
+    return true; // entra um instante depois — quem precisa conferir espera o texto/botão de enviar
   }
 
   // ═══ 4.16 - 🎤 DESCREVER ÁUDIO ═══ pega o último áudio da conversa (blob do WhatsApp) e manda pro PF transcrever.
@@ -2262,14 +2272,14 @@
   }
   var autoTestR = null, autoTestando = false;
   async function autoTestar() {
-    if (autoTestando) return; autoTestando = true;
+    if (autoTestando || autoOcup) return; autoTestando = true; autoOcup = true; // 4.45 - não roda junto com a automática (texto em dobro)
     autoTestR = { carregando: true }; try { pinta(); } catch (e) { }
     try {
       var ok = await autoNaAberta(true); // 🧪 força: pula tempo/1ª vez/horário/limite, mas respeita "é cliente do PF" só quando quem=clientes? (força pula)
       var c = contatoAtual();
       autoTestR = { ok: ok, nome: c ? c.nome : '', diag: autoDiag() };
     } catch (e) { autoTestR = { erro: String(e && e.message || e), diag: autoDiag() }; }
-    autoTestando = false; try { pinta(); } catch (e) { }
+    autoTestando = false; autoOcup = false; try { pinta(); } catch (e) { }
   }
   // conversas da lista com mensagem não lida há X min
   function autoCandidatas(aus) {

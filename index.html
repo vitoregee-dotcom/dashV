@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2685</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2686</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2685</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2686</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -54261,6 +54261,7 @@ function vendasRenderCotacao(el){
       '<label title="Carregar arquivo: PDF, foto ou planilha do cliente" style="position:relative;height:42px;width:40px;border:1px solid #1F4E79;border-left:1px solid rgba(255,255,255,.3);border-radius:0 8px 8px 0;background:#1F4E79;color:#fff;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;box-shadow:none">⬆'+
       '<input type="file" id="vendasFileInput" accept="application/pdf,image/*,.md,.txt,text/markdown,text/plain,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0"></label>'+
     '</div>'+
+    '<button onclick="pfPedAbrir()" title="Ler um pedido do cliente (print/PDF/texto): ajusta quantidades, resolve as marcas (usa a que tem saldo) e marca o PV" style="height:42px;padding:0 13px;border:1.5px solid #1F4E79;border-radius:8px;background:#fff;color:#1F4E79;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;box-sizing:border-box">🧾 Ler pedido</button>'+
     '<span id="vendasUploadStatus" style="display:none;align-items:center;gap:6px;font-size:12px;color:var(--pf-fx-marca,#1F4E79);font-weight:600"><span style="display:inline-block;width:13px;height:13px;border:2px solid #d8e3ee;border-top-color:var(--pf-fx-marca,#1F4E79);border-radius:50%;animation:spin .7s linear infinite"></span>Lendo...</span>'+
     '</div>'+
     '</div></div>'+
@@ -75579,6 +75580,68 @@ function pfExtAbrirCot(a){var c=a.k?pfExtClienteCad(a.k):null;
   if(c&&c.cad)setTimeout(function(){try{window._vendasClienteMatches=[c.cad];vendasSelecionarCliente(0);}catch(e){console.warn(e);}
     if(a.pdf)setTimeout(function(){try{vendasPdfRapido('baixar');}catch(e){}},900);},200);
   return {ok:true};}
+// v115.2686 - A pedido do Vitor ("quero ler pedido por print/PDF dentro da cotação feita; o PF ajusta saldos, marcas e marca o PV"; prévia aprovada
+// docs/referencias/ler-pedido/): 🧾 Ler pedido do cliente — reaproveita o motor do pedido do WhatsApp (pfExtCotar lê código/qtd/marca/graxeira e resolve
+// a ficha com saldo, igual à extensão). Duas saídas: atualizar a cotação aberta (pfExtAtualizarCot) ou abrir como nova (pfExtAbrirCot, que já checa
+// cotação recente do cliente). Entra pelo botão "🧾 Ler pedido" na barra dos itens da cotação.
+var PF_PED_PROMPT='Isto é um pedido de autopeças de um cliente (print ou PDF). Liste TODOS os itens, UM POR LINHA, no formato: "<descrição curta> <código> <quantidade>pc <marca> [c/graxeira ou s/graxeira]". Mantenha o código EXATAMENTE como está (com traços e letras). Use a quantidade por unidade quando houver ("2x", "04pcs", "06 de cada"). Se a linha não disser a marca, deixe sem marca. Responda SÓ as linhas dos itens, sem cabeçalho, sem total e sem comentários.';
+function pfPedClienteDaCot(){
+  var v=window._venda||{};var o=(v.cliente&&typeof v.cliente==='object'?v.cliente:null)||v.clienteObj||null;
+  var raz=String((o&&o.razao)||(typeof v.cliente==='string'?v.cliente:'')||'').trim().toUpperCase(),cod=String((o&&o.codigo)||'').trim().toUpperCase();
+  if(!raz&&!cod)return null;
+  try{var cl=pfExtClientes();return cl.find(function(x){var xc=String((x.cad&&x.cad.codigo)||'').trim().toUpperCase(),xr=String(x.razao||'').trim().toUpperCase();return (cod&&xc===cod)||(raz&&(xr===raz||pfBuscaN(xr)===pfBuscaN(raz)));})||null;}catch(e){return null;}
+}
+function pfPedMarcarArquivo(nome){var el=document.getElementById('pfPedArqInfo');if(el){el.style.display='block';el.innerHTML='✔ '+pfEscHtml(nome)+' pronto — vai pela IA';}}
+function pfPedArquivo(input){var f=input&&input.files&&input.files[0];if(!f)return;window._pfPed=window._pfPed||{};window._pfPed.file=f;window._pfPed.texto='';var ta=document.getElementById('pfPedTa');if(ta)ta.value='';pfPedMarcarArquivo(f.name);}
+async function pfPedColar(){window._pfPed=window._pfPed||{};
+  try{var items=await navigator.clipboard.read();
+    for(var i=0;i<items.length;i++){var it=items[i],imgT=(it.types||[]).find(function(t){return /^image\//.test(t);});
+      if(imgT){var blob=await it.getType(imgT);window._pfPed.file=new File([blob],'print.png',{type:blob.type});pfPedMarcarArquivo('print colado');return;}}
+  }catch(e){}
+  try{var txt=await navigator.clipboard.readText();if(txt){var ta=document.getElementById('pfPedTa');if(ta)ta.value=txt;window._pfPed.texto=txt;window._pfPed.file=null;var inf=document.getElementById('pfPedArqInfo');if(inf)inf.style.display='none';}
+    else pfAlert('Nada na área de transferência. Copie o print/pedido antes.');}
+  catch(e2){pfAlert('Não consegui ler a área de transferência. Cole o texto no campo ou use Carregar arquivo.');}}
+// monta os itens de cotação a partir dos itens do pedido (mesmo jeito do pfExtAbrirCot), pra atualizar a cotação aberta
+function pfPedCotItens(ordItens){return (ordItens||[]).map(function(x){var r={ficha:null};
+    if(x.marcaPed&&x.marca){try{var _fl=vendasBuscarItem(x.cod,{semEquiv:true,silencioso:true})||[];r.ficha=_fl.find(function(f){return String(f.marca||'').toUpperCase()===String(x.marca).toUpperCase();})||null;}catch(e){}}
+    if(!r.ficha)try{r=vendasEscolherFichaResumo(x.cod,x.marca||'');}catch(e){}
+    var it=vendasItemDaFicha(x.cod,r.ficha,x.desc||'',x.marca||'');it.qtd=Math.max(1,+x.qtd||1);
+    if(x.codCli)it.codigoOriginal=x.codCli;if(x.marcaPed){it.marcaPedidaWa=x.marcaPed;if(x.marcaOk===false)it.marcaPedidaFalta=true;}
+    return it;});}
+async function pfPedProcessar(){
+  var o=window._pfPed||{},btn=document.getElementById('pfPedBtn');
+  var modo=(document.querySelector('input[name="pfPedModo"]:checked')||{}).value||'atualizar';
+  var cli=pfPedClienteDaCot(),k=cli?cli.k:null;
+  var texto=(document.getElementById('pfPedTa')||{}).value||o.texto||'';
+  if(!o.file&&!texto.trim()){pfAlert('Cole o print, carregue o arquivo ou cole o texto do pedido.');return;}
+  if(btn){btn.disabled=true;btn.textContent='Lendo…';}
+  try{
+    if(o.file){texto=await _anthropicReadDoc(o.file,PF_PED_PROMPT,'pedido do cliente');}
+  }catch(e){if(btn){btn.disabled=false;btn.textContent='📥 Ler e aplicar';}pfAlert('Não consegui ler o arquivo: '+(e&&e.message||e));return;}
+  if(!String(texto||'').trim()){if(btn){btn.disabled=false;btn.textContent='📥 Ler e aplicar';}pfAlert('Não achei itens no pedido.');return;}
+  var res=null;try{res=pfExtCotar({msgs:[texto],k:k});}catch(e){if(btn){btn.disabled=false;btn.textContent='📥 Ler e aplicar';}pfAlert('Erro ao ler o pedido: '+(e&&e.message||e));return;}
+  var itens=(res&&res.itens)||[];
+  if(!itens.length){if(btn){btn.disabled=false;btn.textContent='📥 Ler e aplicar';}pfAlert('Não reconheci nenhum item no pedido. Confira o texto.');return;}
+  pfNcFechar('pfPedJan');
+  if(modo==='nova'){try{pfExtAbrirCot({k:k,itens:itens});}catch(e){pfAlert('Erro: '+(e&&e.message||e));}}
+  else{var v=window._venda;try{pfExtAtualizarCot({num:v&&v.num,data:v&&v.data},pfPedCotItens(itens));}catch(e){pfAlert('Erro: '+(e&&e.message||e));}}
+}
+function pfPedAbrir(){
+  if(!window._venda){pfAlert('Abra uma cotação primeiro.');return;}
+  window._pfPed={file:null,texto:''};
+  var v=window._venda,sub=(typeof v.cliente==='object'&&v.cliente?(v.cliente.razao||v.cliente.fantasia||''):(typeof v.cliente==='string'?v.cliente:''))||'';
+  var corpo=''+
+    '<div style="font-size:12px;color:#60728a;font-weight:800;letter-spacing:.3px;margin-bottom:6px">COLE O PRINT, CARREGUE O ARQUIVO OU COLE O TEXTO</div>'+
+    '<div style="display:flex;gap:9px;margin-bottom:8px">'+pfBtnColarPrintHtml('📋 Colar print','pfPedColar()')+pfBtnCarregarArquivoHtml('⬆ Carregar arquivo','pfPedFile','application/pdf,image/*,.txt','pfPedArquivo(this)')+'</div>'+
+    '<div id="pfPedArqInfo" style="display:none;font-size:12px;color:#1a7a40;margin-bottom:6px"></div>'+
+    '<textarea id="pfPedTa" placeholder="Cole aqui o texto do pedido (um item por linha)…" style="width:100%;box-sizing:border-box;border:1.5px solid #d5dce5;border-radius:9px;padding:10px;font:13px -apple-system,Segoe UI;min-height:88px;resize:vertical;color:#1a2332"></textarea>'+
+    '<div style="font-size:12px;color:#60728a;font-weight:800;letter-spacing:.3px;margin:14px 0 6px">O QUE FAZER COM O PEDIDO</div>'+
+    '<label style="display:flex;gap:9px;align-items:flex-start;margin:6px 0;cursor:pointer;color:#1a2332"><input type="radio" name="pfPedModo" value="atualizar" checked style="margin-top:3px"><span><b>Atualizar esta cotação'+(v.num?' (nº '+pfEscHtml(String(v.num))+')':'')+'</b><br><span style="font-size:12px;color:#667">Ajusta quantidades, resolve as marcas (usa a que tem saldo quando a pedida não tem) e marca tudo no PV.</span></span></label>'+
+    '<label style="display:flex;gap:9px;align-items:flex-start;margin:6px 0;cursor:pointer;color:#1a2332"><input type="radio" name="pfPedModo" value="nova" style="margin-top:3px"><span><b>Abrir como cotação nova</b><br><span style="font-size:12px;color:#667">Pro cliente que junta itens de várias cotações num pedido só (o sistema avisa se achar cotação recente dele).</span></span></label>'+
+    '<div style="display:flex;justify-content:flex-end;gap:9px;margin-top:16px"><button class="pfBtn pfBtnClaro" onclick="pfNcFechar(\'pfPedJan\')">Cancelar</button><button class="pfBtn pfBtnVerde" id="pfPedBtn" onclick="pfPedProcessar()">📥 Ler e aplicar</button></div>';
+  var ov=pfNcJanela('pfPedJan','🧾 Ler pedido do cliente',sub,corpo,540);if(ov)ov.style.zIndex='100060';
+  try{ov.addEventListener('paste',function(e){var items=((e.clipboardData||{}).items)||[];for(var i=0;i<items.length;i++){if(/^image\//.test(items[i].type)){var f=items[i].getAsFile();if(f){window._pfPed.file=f;pfPedMarcarArquivo('print colado');e.preventDefault();return;}}}});}catch(e){}
+}
 function pfExtSaldo(cod){cod=String(cod||'').trim().toUpperCase();if(!cod)return {itens:[]};
   var its=[];try{its=vendasBuscarItem(cod,{semEquiv:true,silencioso:true})||[];}catch(e){}
   return {cod:cod,itens:its.slice(0,8).map(function(f){return {marca:f.marca||'',desc:f.desc||'',saldo:parseFloat(f.saldo)||0,cod:f._refExemplo||cod};})};}

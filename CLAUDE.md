@@ -2539,3 +2539,6 @@
   (nunca os dois). 2) não achava o botão de enviar → `botaoEnviar` procura também aria-label/ícone com "enviar/send" e `enviarAgora()` (botão ou Enter na caixa) na saudação, ⚡ resposta
   rápida e respostas dos comandos. 3) ("cliente falou pix e apareceu endereço… onde eu configuro?"): editor do Atalho de Texto ganhou **"⚡ Quando o cliente disser no WhatsApp"**
   (`atalhoNovoGatilhos` → `gatilhos[]`; com palavras escritas, `pfRrGatilhosDe` usa SÓ elas); sinônimos do endereço sem "retirar/onde é" ("vai retirar" puxava o endereço).
+- v115.2705 BUG ("do Celso ainda não tá salvando" — conversa "Celso Durante - MG da Costa (636) SP", etiqueta só "cliente do PF"): o 👤 Salvar contato gravava o nome NOVO montado
+  e, quando o WhatsApp não renomeava, a lista (com o nome antigo) não achava a ligação gravada e caía no "(636)" de outro cadastro (sem grupo/cidade). O contato agora guarda
+  também `nomeWa` (o nome que o WhatsApp mostra) e `pfExtLigadoK`/o salvar comparam por `pfExtNomeAN` (só letras+números). Vale pra salvar de novo — o que já foi salvo antes não tem nomeWa.

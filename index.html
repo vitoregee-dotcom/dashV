@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2687</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2688</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2687</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2688</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -71598,6 +71598,40 @@ function pfVR2MargemDoCliente(cli){
   if(!ms.length)return null;
   return parseFloat(ms.sort(function(a,b){return (b.ts||0)-(a.ts||0);})[0].valor);
 }
+// v115.2688 - A pedido do Vitor ("um lugar na cotação que mostra todas as regras que tem"; prévia aprovada docs/referencias/regras-vigor/): 📋 Regras em vigor —
+// junta num painel só tudo que está valendo pro cliente da cotação (Assistente, margem, margem mínima, exceções, venda perdida, ofertas, avisos). Só gestor ajusta.
+function pfRegrasAbrir(){
+  var v=window._venda;if(!v){pfAlert('Abra uma cotação primeiro.');return;}
+  var ger=(typeof pfEhGestorOuAcima==='function'&&pfEhGestorOuAcima());
+  var esc=function(s){return pfEscHtml(String(s==null?'':s));};
+  var L=function(ic,html,d){return '<div style="display:flex;gap:9px;align-items:flex-start;padding:5px 0;font-size:13px"><span style="width:18px;text-align:center;flex:none">'+ic+'</span><span style="flex:1;color:#1a2332">'+html+(d?'<div style="font-size:11.5px;color:#8696a0;margin-top:1px">'+d+'</div>':'')+'</span></div>';};
+  var secs=[],push=function(t,h,aj){if(h)secs.push({t:t,h:h,aj:aj});};
+  // 🤖 Assistente de Vendas
+  try{var ctx=pfVR2RegrasDoContexto(v.cliente),rr=(ctx.cliente||[]).concat(ctx.gerais||[]);
+    if(rr.length)push('🤖 Assistente de Vendas',rr.slice(0,14).map(function(r){return L(r.escopo==='cliente'?'👤':'🌐',pfVR2Descricao(r),r.escopo==='cliente'?'regra deste cliente':'regra geral');}).join(''),'pfVendasRegrasIAAbrirPainel({cliente:true})');
+  }catch(e){}
+  // 💲 Margem e preço
+  try{var mh='';if(v.margem!=null)mh+=L('📈','<b>Margem '+(+v.margem)+'%</b>','regra do Assistente › margem própria › perfil › geral');
+    var lc=pfLibCfg(),marcas=Object.keys(lc.por||{}),mmin=marcas.length?marcas.map(function(m){return esc(m)+' '+lc.por[m]+'%';}).slice(0,8).join(' · '):'';
+    mh+=L('🔓','<b>Margem mínima por marca</b>',(mmin?mmin+' · ':'')+'outras '+lc.padrao+'% · desconto máx. '+lc.descMax+'% do preço de tela');
+    push('💲 Margem e preço',mh,'pfLibCfgAbrir()');
+  }catch(e){}
+  // 🎯 Exceções ativas
+  try{var ag=Date.now(),ex=(pfLibExcLoad()||[]).filter(function(e2){if(!e2||e2.del)return false;var ini=e2.ini?new Date(e2.ini).getTime():0,fim=e2.fim?new Date(e2.fim).getTime():0;if(ini&&ini>ag)return false;if(fim&&fim<ag)return false;return true;});
+    if(ex.length)push('🎯 Exceções ativas',ex.slice(0,8).map(function(e2){var ic=e2.tipo==='lote'?'📦':e2.tipo==='cliente'?'👤':'🎉';var d=[e2.marca?'marca '+esc(e2.marca):'',e2.cod?'cód '+esc(e2.cod):'',e2.minPct!=null?'mín. '+e2.minPct+'%':'',e2.fim?'até '+new Date(e2.fim).toLocaleDateString('pt-BR'):''].filter(Boolean).join(' · ');return L(ic,'<b>'+esc(e2.nome||e2.tipo)+'</b>',d);}).join(''));
+  }catch(e){}
+  // ⏱️ Venda perdida
+  try{var vc=pfVpCfg();push('⏱️ Venda perdida / fechamento',L('📅','<b>Cotação vale por '+vc.diasRev+' dias (revenda) / '+vc.diasFinal+' dias (cliente final)</b>','passou disso sem pedido = perdida · crédito cruzado entre cotações ligado'),'pfVpCfgAbrir()');
+  }catch(e){}
+  // 💡 Ofertas
+  try{push('💡 Ofertas automáticas',L('🛢️','<b>Ofereça também ligado</b>','eixo → óleo · reforma de motor → aditivo/15W-40 · transmissão → óleo de transmissão'),'pfOfertasAbrir()');}catch(e){}
+  // 🔔 Avisos
+  try{push('🔔 Avisos',L('🔄','Aviso de <b>RMA</b> do item '+(pfVR2AvisoRmaAtivo()?'<span style="color:#1a7a40;font-weight:700">ligado</span>':'<span style="color:#8696a0">desligado</span>'),''));}catch(e){}
+  var corpo=secs.map(function(s){return '<div style="border-top:1px solid #eef1f5;padding:11px 0 7px"><div style="font-size:12px;font-weight:800;color:#60728a;letter-spacing:.3px;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between">'+s.t+(ger&&s.aj?'<button style="font-size:11px;padding:2px 8px;border:1px solid #cfe0f2;border-radius:6px;background:#f3f8fd;color:#1F4E79;font-weight:700;cursor:pointer" onclick="pfNcFechar(\'pfRegrasJan\');'+s.aj+'">⚙️ ajustar</button>':'')+'</div>'+s.h+'</div>';}).join('')||'<div style="padding:16px;color:#8696a0;font-size:13px">Nenhuma regra específica pra este cliente.</div>';
+  corpo+='<div style="font-size:11.5px;color:#8696a0;border-top:1px solid #eef1f5;padding-top:9px;margin-top:4px">'+(ger?'Cada "⚙️ ajustar" abre a tela de configuração.':'Só o gestor altera as regras; aqui você vê o que está valendo.')+'</div>';
+  var sub=(typeof v.cliente==='object'&&v.cliente?(v.cliente.razao||v.cliente.fantasia||''):(typeof v.cliente==='string'?v.cliente:''))||'';
+  var ov=pfNcJanela('pfRegrasJan','📋 Regras em vigor',sub,corpo,560);if(ov)ov.style.zIndex='100060';
+}
 // Faixa na cotação: regras em vigor + avisos livres + o que não subiu.
 function pfVR2FaixaCotacaoHtml(v){
   var cli=v&&v.cliente;
@@ -72610,7 +72644,9 @@ function vendasRenderTabs(){
   tourCot.onclick=function(){pfTourAbrir('cotacao');};
   var atalCot=document.createElement('button');atalCot.textContent='⌨️ Atalhos';atalCot.title='Ver as teclas de atalho da cotação'; // v115.2532
   atalCot.style.cssText=tourCot.style.cssText;atalCot.onclick=function(){pfCotAtalhosAbrir();};
-  ctrl.appendChild(iaBtn);ctrl.appendChild(pdfGrupo);if(!isMin){ctrl.appendChild(ajudaCot);ctrl.appendChild(tourCot);ctrl.appendChild(atalCot);}ctrl.appendChild(sepJan);ctrl.appendChild(minBtn);ctrl.appendChild(maxBtn);ctrl.appendChild(closeAll); // v115.2271 - ESC saiu (vai no balão do ✕)
+  var regrasCot=document.createElement('button');regrasCot.textContent='📋 Regras';regrasCot.title='Todas as regras valendo pra este cliente/cotação'; // v115.2688
+  regrasCot.style.cssText=tourCot.style.cssText;regrasCot.onclick=function(){pfRegrasAbrir();};
+  ctrl.appendChild(iaBtn);ctrl.appendChild(pdfGrupo);if(!isMin){ctrl.appendChild(ajudaCot);ctrl.appendChild(tourCot);ctrl.appendChild(atalCot);ctrl.appendChild(regrasCot);}ctrl.appendChild(sepJan);ctrl.appendChild(minBtn);ctrl.appendChild(maxBtn);ctrl.appendChild(closeAll); // v115.2271 - ESC saiu (vai no balão do ✕)
   tabBar.appendChild(ctrl);
   box.appendChild(tabBar);
 

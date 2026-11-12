@@ -40,18 +40,8 @@
   function botaoEnviar() {
     var s = $('#main footer button[aria-label="Enviar"]') || $('#main footer button[aria-label="Send"]') ||
       $('#main footer [data-icon="send"]') || $('#main footer [data-icon="wds-ic-send-filled"]');
-    // 4.44 - BUG (Vitor: "veio para a caixa e não enviou"): o WhatsApp novo trocou o botão de enviar — procura também por aria-label/ícone que tenha "enviar/send"
-    if (!s) s = $('#main footer [aria-label*="Enviar" i]:not([aria-label*="áudio" i]):not([aria-label*="voz" i])') || $('#main footer [aria-label*="Send" i]:not([aria-label*="voice" i])') || $('#main footer [data-icon*="send"]');
     if (!s) return null;
     return s.closest('button') || s.closest('[role="button"]') || s;
-  }
-  // 4.44 - aperta enviar; sem achar o botão, manda o Enter na caixa (o WhatsApp envia no Enter)
-  function enviarAgora() {
-    var b = botaoEnviar(); if (b) { b.click(); return true; }
-    var cx = caixaTexto(); if (!cx) return false;
-    cx.focus();
-    ['keydown', 'keypress', 'keyup'].forEach(function (t) { cx.dispatchEvent(new KeyboardEvent(t, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true })); });
-    return true;
   }
   function dialogoInvalido() {
     var ds = document.querySelectorAll('[data-animate-modal-popup="true"],div[role="dialog"]');
@@ -83,26 +73,13 @@
   function reporta(a, ok, erro, parar) { msg({ t: 'resultado', id: a.id, ok: ok, erro: erro || '', parar: !!parar }); }
 
   // escreve na caixa de mensagem SEM mandar (a pessoa confere e aperta Enter)
-  // 4.44 - BUG (Vitor: "veio para a caixa isso… a msg está errada" — o texto entrava 2x): o WhatsApp novo trata o "colar" DEPOIS (assíncrono), a extensão
-  // achava que não tinha entrado e escrevia de novo com o insertText. Agora: insertText primeiro (entra na hora); só se não entrou, cola — e nunca os dois.
   function escreverNaCaixa(txt) {
     var cx = caixaTexto(); if (!cx) return false;
     cx.focus();
     var antes = cx.innerText || '';
-    try { document.execCommand('insertText', false, txt); } catch (e) { }
-    if ((cx.innerText || '') !== antes) return true;
-    // 4.45 - BUG (Vitor: "Bom dia, Fabio! Ja te chamoBom dia, Fabio! Ja te chamo"): no WhatsApp de hoje o insertText também entra só um instante DEPOIS — a 4.44 achava
-    // que não tinha entrado e colava de novo na hora. Agora espera e só cola se a caixa continuar sem o texto.
-    var alvo = String(txt || '').replace(/\s+/g, ' ').trim().slice(0, 40);
-    setTimeout(function () {
-      var c2 = caixaTexto(); if (!c2) return;
-      var agora = (c2.innerText || '').replace(/\s+/g, ' ');
-      if (alvo && agora.indexOf(alvo) >= 0) return;
-      if ((c2.innerText || '') !== antes) return;
-      c2.focus();
-      try { var dt = new DataTransfer(); dt.setData('text/plain', txt); c2.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); } catch (e) { }
-    }, 400);
-    return true; // entra um instante depois — quem precisa conferir espera o texto/botão de enviar
+    try { var dt = new DataTransfer(); dt.setData('text/plain', txt); cx.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); } catch (e) { }
+    if ((cx.innerText || '') === antes) { try { document.execCommand('insertText', false, txt); } catch (e) { } }
+    return (cx.innerText || '') !== antes;
   }
 
   // ═══ 4.16 - 🎤 DESCREVER ÁUDIO ═══ pega o último áudio da conversa (blob do WhatsApp) e manda pro PF transcrever.
@@ -153,7 +130,7 @@
   // "📝 Descrever este áudio"; a descrição aparece embaixo dele. Botões (Pôr na conversa/Copiar/Cotar) só com a opção ligada em ⚙️.
   var AUD_SEL = '#main audio, #main [data-icon="audio-play"], #main [data-icon="audio-pause"], #main [data-icon*="ptt"], #main button[aria-label*="voz" i], #main button[aria-label*="voice" i], #main [aria-label*="mensagem de voz" i], #main [aria-label*="voice message" i]';
   function audBalao(x) {
-    var row = x.closest('.message-in, .message-out') || x.closest('[data-id]') || x.closest('[role="row"]'); if (!row) return null;
+    var row = x.closest('.message-in, .message-out') || x.closest('[data-id]'); if (!row) return null;
     var main = $('#main'), lim = (main ? main.getBoundingClientRect().width : 900) * 0.72, p = x, best = null;
     while (p && p !== row) { var w = p.getBoundingClientRect().width; if (w > 120 && w < lim) best = p; p = p.parentElement; }
     return best || row;
@@ -238,7 +215,7 @@
     var out = [], els = document.querySelectorAll('#main [data-pre-plain-text]');
     els.forEach(function (el) {
       var tx = el.querySelector('.selectable-text'); var t = (tx ? tx.innerText : el.innerText) || '';
-      out.push({ t: t.trim(), eu: minhaEl(el) }); // 4.43
+      out.push({ t: t.trim(), eu: !!el.closest('.message-out') });
     });
     if (!out.length) { // jeito antigo / reserva
       document.querySelectorAll('#main .message-in, #main .message-out').forEach(function (el) { var tx = el.querySelector('.selectable-text'); out.push({ t: ((tx ? tx.innerText : '') || '').trim(), eu: el.classList.contains('message-out') }); });
@@ -433,12 +410,13 @@
     ['salvar', '👤', 'Botão Salvar contato', 'O botão verde ao lado do nome da conversa.'],
     ['ofertas', '💡', 'Guardar ofertas e respostas', 'Quando você oferece algo, o cartão pra salvar a oferta e a resposta do cliente no CRM.'],
     ['ja', '⚠️', '"Você já ofereceu" enquanto digita', 'Aviso em cima da caixa de texto quando você vai oferecer algo que já ofereceu.'],
+    ['waEtqOff', '🏷️', 'Esconder etiquetas do WhatsApp', 'Nas conversas de clientes do PF, a etiqueta do WhatsApp dá lugar ao tipo do cliente (Revenda, Consumidor…). Desligado = as etiquetas do WhatsApp continuam aparecendo.'],
     ['sug', '💡', 'Sugestões pra oferecer', 'Na aba Cliente: o que clientes parecidos compram e ele não. Na aba Cotação: o que costuma ir junto com as peças pedidas.'],
     ['audio', '🎤', 'Descrever áudios', 'Embaixo de cada áudio aparece "📝 Descrever este áudio". Clique e a descrição (o que a pessoa falou) aparece ali mesmo. O 🎤 da coluna liga/desliga.'],
     ['audioBotoes', '💬', 'Botões na descrição do áudio', 'Mostra Pôr na conversa, Copiar e Cotar no PF embaixo da descrição. Vem desligado.'],
     ['verif', '📌', 'Anotar "vou verificar" sozinho', 'Quando você escreve "vou verificar / já te retorno", vira pendência e próxima ação no PF.']];
   function cfgOn(k) { return k === 'menu' ? menuLig : k === 'aviso' ? avisoLigado : CFG[k] !== false; }
-  chrome.storage.local.get(['cfg'], function (s) { if (s.cfg) for (var k in s.cfg) CFG[k] = s.cfg[k]; CFG.waEtqOff = true; }); // 4.42 - A pedido do Vitor ("quero sempre a etiqueta do whats escondida")
+  chrome.storage.local.get(['cfg'], function (s) { if (s.cfg) for (var k in s.cfg) CFG[k] = s.cfg[k]; });
   function htmlConfig() {
     var h = '<div class="pfwa-ajtop"><b>⚙️ Configurações</b><span class="pfwa-link" data-acao="config">✕ fechar</span></div>' +
       '<div class="pfwa-nada" style="margin:4px 0 8px">Ligue só o que você usa. Vale pra este navegador.</div>';
@@ -447,11 +425,15 @@
       h += '<div class="pfwa-cfgl" data-acao="cfgTog" data-arg="' + x[0] + '"><span class="pfwa-cfgi">' + x[1] + '</span><div><b>' + esc(x[2]) + '</b><br><small>' + esc(x[3]) + '</small></div>' +
         '<span class="pfwa-sw' + (on ? ' on' : '') + '"><i></i></span></div>';
     });
-    h += '<div class="pfwa-cfgl" data-acao="autoAbrir"><span class="pfwa-cfgi">👋</span><div><b>Mensagens automáticas</b><br><small>' + (autoAusente() ? autoInfo(autoAusente()).join(' ') + ' · ' : '') + 'Saudação de espera ' + (AUTO.on ? 'ligada · ' + esc(AUTO.min) + ' min · ' + esc(AUTO.ini) + '–' + esc(AUTO.fim) : 'desligada') + ' — clique pra ajustar</small></div><span class="pfwa-link">ajustar ›</span></div>';
+    h += '<div class="pfwa-cfgl" data-acao="autoAbrir"><span class="pfwa-cfgi">👋</span><div><b>Mensagens automáticas</b><br><small>' + (autoAusente() ? AUTO_MODOS[autoAusente()][0] + ' ' + AUTO_MODOS[autoAusente()][1] + ' · ' : '') + 'Saudação de espera ' + (AUTO.on ? 'ligada · ' + esc(AUTO.min) + ' min · ' + esc(AUTO.ini) + '–' + esc(AUTO.fim) : 'desligada') + ' — clique pra ajustar</small></div><span class="pfwa-link">ajustar ›</span></div>';
     // 4.37 - A pedido do Vitor ("não precisa mais desses botões né?"): saíram do rodapé, ficam aqui pra usar quando precisar
     h += '<div class="pfwa-bt" style="margin-top:12px">📇 Contatos</div>' +
       '<div class="pfwa-cfgbtns"><button data-acao="importar" class="pfwa-cfgb verde" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button>' +
       '<button data-acao="numeros" class="pfwa-cfgb pfwa-num" title="Abre cada conversa dos contatos salvos sem número, lê o número e grava no PF (só lê, não manda nada). Clique de novo pra parar.">' + (numRodando ? '⏸ Parar' : '📞 Buscar números que faltam') + '</button></div>';
+    // 4.40 - diagnóstico: copia a ESTRUTURA das linhas da lista (sem nome/dado de cliente) pra acertar onde a etiqueta de grupo encaixa
+    h += '<div class="pfwa-bt" style="margin-top:12px">🔧 Suporte</div>' +
+      '<div class="pfwa-nada" style="margin:2px 0 6px">Se a etiqueta de grupo fica no lugar errado, clique aqui e <b>cole no chat do Claude</b>. Copia só a estrutura (tags/classes), sem nome nem telefone.</div>' +
+      '<div class="pfwa-cfgbtns"><button data-acao="estrutura" class="pfwa-cfgb" style="background:#6a2e86">🔧 Copiar estrutura da lista</button></div>';
     return h;
   }
   function cfgTog(k) {
@@ -466,6 +448,47 @@
     try { posicionar(); } catch (e) { }
     pinta();
   }
+  // 4.40 - copia a ESTRUTURA das linhas da lista (sem nome/telefone), pra acertar onde a etiqueta de grupo encaixa
+  function copiarTextoWa(t) {
+    try { navigator.clipboard.writeText(t); return; } catch (e) { }
+    try { var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } catch (e) { }
+  }
+  function dumpEl(el, d, out) {
+    if (d > 9 || !el || el.nodeType !== 1) return;
+    var tag = el.tagName.toLowerCase();
+    var cls = (typeof el.className === 'string' && el.className.trim()) ? '.' + el.className.trim().split(/\s+/).slice(0, 4).join('.') : '';
+    var a = [];
+    ['role', 'data-icon'].forEach(function (k) { var v = el.getAttribute(k); if (v) a.push(k + '=' + v); });
+    var al = el.getAttribute('aria-label'); if (al) a.push('aria="' + al.slice(0, 24).replace(/\d+/g, 'N') + '"');
+    if (el.hasAttribute('title')) a.push('title');
+    var cs; try { cs = getComputedStyle(el); } catch (e) { cs = null; }
+    if (cs && (cs.display === 'flex' || cs.display === 'inline-flex')) a.push('flex:' + cs.flexDirection + '/' + cs.flexWrap);
+    else if (cs && cs.display) a.push(cs.display);
+    if (el.style && (el.style.backgroundColor || el.style.background)) a.push('bg-inline');
+    var direct = ''; Array.prototype.forEach.call(el.childNodes, function (n) { if (n.nodeType === 3 && n.textContent.trim()) direct += n.textContent.trim() + ' '; });
+    direct = direct.trim();
+    var tx = direct ? (/^\d{1,2}:\d{2}/.test(direct) ? ' "[hora]"' : ' "[txt' + direct.length + ']"') : '';
+    out.push('  '.repeat(d) + tag + cls + (a.length ? ' [' + a.join(' ') + ']' : '') + tx);
+    Array.prototype.forEach.call(el.children, function (c) { dumpEl(c, d + 1, out); });
+  }
+  function copiarEstrutura(btn) {
+    try {
+      var rows = Array.prototype.slice.call(document.querySelectorAll('#pane-side [role="listitem"]')).slice(0, 6);
+      if (!rows.length) { flash(btn, 'abra o WhatsApp com a lista de conversas'); return; }
+      var out = ['=== ESTRUTURA LISTA (ext ' + (VER || '?') + ') ==='];
+      rows.forEach(function (r, i) {
+        out.push('--- LINHA ' + (i + 1) +
+          (r.querySelector('.pfwa-row3') ? ' [row3-criada]' : '') +
+          (r.querySelector('.pfwa-row3u') ? ' [row3-nativa]' : '') +
+          (r.querySelector('.pfwa-rowgp') ? ' [rowgp]' : '') +
+          (r.querySelector('.pfwa-rowln') ? ' [rowln]' : '') +
+          (r.querySelector('.pfwa-rowtp') ? ' [rowtp]' : '') + ' ---');
+        dumpEl(r, 0, out);
+      });
+      copiarTextoWa(out.join('\n'));
+      flash(btn, '✔ Copiado! Cole no chat do Claude');
+    } catch (e) { flash(btn, 'erro: ' + (e && e.message)); }
+  }
   var AJUDA = [
     ['Comece por aqui', [
       ['⚙️', 'Configurações', 'A engrenagem no cabeçalho do painel liga e desliga cada função da extensão (menu, etiquetas, botões, avisos, salvar contato, ofertas…).'],
@@ -473,11 +496,6 @@
       ['🔌', 'Precisa do PF aberto', 'Deixe uma aba do PartsFlow aberta (já logado) neste mesmo Chrome — pode ser em outra janela. Se aparecer "O PF não respondeu", dê F5 na aba do PartsFlow.'],
       ['🟢', 'Conectado ao PF', 'Do lado da versão, lá em cima: verde "● Conectado ao PF" = tudo certo · laranja "Dê F5 no PF" = a aba do PF está aberta mas parou de responder · vermelho "PF fechado" = abra o PartsFlow. Clique nele pra conferir na hora. A bolinha também aparece no "PF" da barra de cima.'],
       ['🔁', 'Atualizou a extensão?', 'Depois de instalar uma versão nova, recarregue a aba do WhatsApp e a do PF (F5).']]],
-    ['Botão direito e Alt+B', [
-      ['🖱️', 'Botão direito', 'Clique com o botão direito no WhatsApp → 🧩 PartsFlow. Em código selecionado: Ver no PF, Pôr na cotação de hoje, Cotar só esse. Numa mensagem: Cotar, Lembrete, Salvar como resposta rápida, Anotar na ficha (e Lançar no mapa, se for fornecedor). Numa foto: Ler com IA e cotar. Numa conversa da lista: Abrir ficha, Trocar grupo/tipo, Grau de intimidade, liga/desliga a mensagem automática.'],
-      ['🔎', 'Alt+B', 'Selecione o código na mensagem (pode ser a frase inteira — o PF puxa só os códigos) e aperte Alt+B: aparece o cartão com descrição, marcas, saldo, preço desse cliente, 🔗 Monta com e o botão do catálogo dos Componentes Cardan. Sem nada selecionado, abre uma caixinha pra digitar o código.'],
-      ['➕', 'Pôr na cotação de hoje', 'Entra na cotação desse cliente que está aberta no PF ou que foi aberta HOJE; se não tiver, cria uma nova.'],
-      ['🎩', 'Grau de intimidade', 'Formal, Normal ou Próximo — muda o tom das mensagens automáticas pra essa pessoa (marque no 👤 Salvar contato ou no botão direito na conversa).']]],
     ['Em cima e do lado esquerdo', [
       ['🔎', 'Barra de filtros', 'Clientes, Fornecedores, etiquetas do WhatsApp e cotação aberta. Clique pra deixar só essas conversas na lista; clique de novo pra ver tudo.'],
       ['🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome: se é cliente ou fornecedor do PF, cotação aberta, mapa esperando preço.'],
@@ -590,11 +608,7 @@
     if (ac === 'cfgTog') { cfgTog(arg); return; }
     if (ac === 'autoAbrir') { config = 'auto'; abrirPainel(); pinta(); return; } // 3.9 - 👋 saudação automática
     if (ac === 'autoVoltar') { config = true; pinta(); return; }
-    if (ac === 'autoTog') { AUTO[arg] = (arg === 'saud1a' || arg === 'trava30') ? AUTO[arg] === false : !AUTO[arg]; autoGravar(); pinta(); return; }
-    if (ac === 'autoAvTog') { var _av = (AUTO.avisos || [])[+arg]; if (_av) { _av.on = !_av.on; autoGravar(); pinta(); try { autoStatusPill(); } catch (e) { } } return; } // 4.47
-    if (ac === 'autoAvDel') { var _ad = (AUTO.avisos || [])[+arg]; if (_ad && confirm('Apagar o aviso "' + _ad.nome + '"?')) { AUTO.avisos.splice(+arg, 1); autoGravar(); pinta(); } return; }
-    if (ac === 'autoAvNovo') { AUTO.avisos = AUTO.avisos || []; AUTO.avisos.push({ id: 'a' + Date.now().toString(36), ic: '⏰', nome: 'Novo aviso', on: false, dias: 'semana', ini: '12:00', fim: '13:00', txt: '' }); autoGravar(); pinta(); return; }
-    if (ac === 'svInt') { svIntim = arg; var _ir = SV && SV.querySelector('.sv-int'); if (_ir) _ir.innerHTML = svIntRowHtml(); var _is = SV && SV.querySelector('.sv-intsug'); if (_is) _is.remove(); return; } // 4.47
+    if (ac === 'autoTog') { AUTO[arg] = !AUTO[arg]; autoGravar(); pinta(); return; }
     if (ac === 'autoModo') { autoModoSet(arg); config = 'auto'; abrirPainel(); pinta(); return; } // 4.0 - 🗓️ meu status
     if (ac === 'autoEstilo') { AUTO.estilo = arg; autoGravar(); pinta(); return; }
     if (ac === 'autoQuando') { AUTO.quando = arg; autoGravar(); pinta(); return; } // 4.27 - quando mandar a saudação de espera
@@ -621,6 +635,7 @@
     if (ac === 'sino') { avisoLigado = !avisoLigado; chrome.storage.local.set({ avisoLigado: avisoLigado }); pinta(); marcaCot(); if (!avisoLigado && AV) AV.style.display = 'none'; else vigiar(); return; }
     if (ac === 'botsToggle') { botsMin = !botsMin; chrome.storage.local.set({ botsMin: botsMin }); posicionar(); return; }
     if (ac === 'numeros') { buscarNumeros(b); return; }
+    if (ac === 'estrutura') { copiarEstrutura(b); return; } // 4.40 - diagnóstico da lista
     if (ac === 'importar') {
       var st = P.querySelector('.pfwa-rodst'), o0 = b.textContent;
       b.disabled = true; b.textContent = 'Lendo a lista…';
@@ -662,7 +677,6 @@
       cot.junto.splice(+arg, 1); refazResposta(); pintaCorpo(); return;
     }
     if (ac === 'sugMarca') { sugMarcaUsar(arg); return; } // 4.28
-    if (ac === 'parec') { parecUsar(arg); return; } // 4.48
     if (ac === 'tirar') { if (cot) { cot.itens.splice(+arg, 1); refazResposta(); pintaCorpo(); } return; }
     if (ac === 'saldoBusca') { var i2 = P.querySelector('.pfwa-saldo-in'); buscarSaldo(i2 ? i2.value : ''); return; }
     if (ac === 'fechaAviso') { avisoFechado = ultimo; pintaAviso(0); return; }
@@ -748,10 +762,10 @@
       '<div class="pfwa-bots" style="margin-top:6px"><button class="pfwa-verde" data-acao="resumoGravar">✔ Gravar na ficha</button><button data-acao="resumir">🔁 Refazer</button><button data-acao="resumoX">✕</button></div></div>';
   }
   function respFornColher() {
-    var bolhas = msgLinhas(); // 4.43
-    var ult = -1; bolhas.forEach(function (b, i) { if (minhaEl(b)) ult = i; });
-    var deles = bolhas.slice(ult + 1).filter(function (b) { return !minhaEl(b); });
-    if (!deles.length) deles = bolhas.filter(function (b) { return !minhaEl(b); }).slice(-8);
+    var bolhas = Array.prototype.slice.call(document.querySelectorAll('#main .message-in, #main .message-out'));
+    var ult = -1; bolhas.forEach(function (b, i) { if (b.classList.contains('message-out')) ult = i; });
+    var deles = bolhas.slice(ult + 1).filter(function (b) { return b.classList.contains('message-in'); });
+    if (!deles.length) deles = bolhas.filter(function (b) { return b.classList.contains('message-in'); }).slice(-8);
     var texto = deles.map(function (b) { var tx = b.querySelector('.selectable-text'); return ((tx ? tx.innerText : '') || '').trim(); }).filter(Boolean).join('\n');
     if (!texto && !bolhas.length) texto = lerMensagens().filter(function (m) { return !m.eu; }).slice(-8).map(function (m) { return m.t; }).join('\n');
     var imgs = []; deles.forEach(function (b) { b.querySelectorAll('img').forEach(function (im) { var s = im.getAttribute('src') || ''; if ((/^blob:/.test(s) || /^data:image/.test(s)) && (im.naturalWidth || im.width) >= 120 && imgs.length < 4) imgs.push(s); }); });
@@ -772,7 +786,7 @@
   function refazResposta() {
     if (!cot) return; var nome = (resp && resp.contato || '').split(' ')[0], tot = 0;
     var ls = cot.itens.map(function (o) {
-      if (!o.achou) return o.cod + ' — não localizei' + (o.perg ? ', não seria o ' + o.perg + '?' : ', pode confirmar o código?');
+      if (!o.achou) return o.cod + ' — não localizei, pode confirmar o código?';
       if (!(o.saldo > 0)) return o.cod + ' — ' + o.desc + ' — vou verificar o prazo';
       var q = Math.min(o.saldo, o.qtd), mk = o.marcaPed ? ' ' + o.marca + (o.marcaOk ? '' : ' (não temos ' + o.marcaPed + ')') : ''; tot += q * o.preco; return o.cod + mk + ' — ' + o.desc + ' — ' + q + ' un' + (q < o.qtd ? ' (tenho ' + o.saldo + ')' : '') + ' — ' + reais(o.preco) + ' un';
     });
@@ -844,12 +858,6 @@
     if (sg.length) h += '<div class="pfwa-mps">↳ temos: ' + sg.map(function (x, j) { return '<span class="pfwa-mpc' + (x.saldo > 0 ? '' : ' z') + '" data-acao="sugMarca" data-arg="' + i + '|' + j + '" title="Usar ' + esc(x.marca) + ' ' + esc(x.cod) + '">' + esc(x.marca) + (x.cod && x.cod !== o.cod ? ' ' + esc(x.cod) : '') + ' · ' + (x.saldo > 0 ? x.saldo : 'sem saldo') + (x.preco > 0 ? ' · ' + reais(x.preco) : '') + '</span>'; }).join(' ') + '</div>';
     return h;
   }
-  // 4.48 - 🔍 código quase igual: o cliente pode ter digitado errado (3-3-5571X → 3-3-6571X). Clicar = a resposta pergunta "não seria o X?"
-  function parecHtml(o, i) {
-    if (o.achou || !(o.parecidos || []).length) return '';
-    return '<div class="pfwa-mps">🔍 seria: ' + o.parecidos.map(function (x, j) { return '<span class="pfwa-mpc' + (x.saldo > 0 ? '' : ' z') + (o.perg === x.cod ? ' on' : '') + '" data-acao="parec" data-arg="' + i + '|' + j + '" title="' + esc(x.como) + (x.marca ? ' · ' + esc(x.marca) : '') + (x.saldo > 0 ? ' · saldo ' + x.saldo : ' · sem saldo') + ' — clique pra perguntar ao cliente">' + esc(x.cod) + '</span>'; }).join(' ') + '</div>';
-  }
-  function parecUsar(arg) { if (!cot) return; var p = String(arg || '').split('|'), o = cot.itens[+p[0]], x = o && o.parecidos && o.parecidos[+p[1]]; if (!x) return; o.perg = o.perg === x.cod ? '' : x.cod; refazResposta(); pintaCorpo(); }
   function sugMarcaUsar(arg) {
     if (!cot) return; var p = String(arg || '').split('|'), o = cot.itens[+p[0]], x = o && o.sug && o.sug[+p[1]]; if (!x) return;
     var antes = { marca: o.marca, cod: o.cod, saldo: o.saldo, preco: o.preco, desc: o.desc };
@@ -869,7 +877,7 @@
     h += '<table class="pfwa-tab"><tr><th>Código</th><th>Qtd</th><th>Saldo</th><th>Unit.</th><th></th></tr>';
     cot.itens.forEach(function (o, i) {
       var sl = !o.achou ? '<span class="no">não achei</span>' : !(o.saldo > 0) ? '<span class="no">✖ 0</span>' : o.saldo < o.qtd ? '<span class="mid">◐ ' + o.saldo + '</span>' : '<span class="ok">✔ ' + o.saldo + '</span>';
-      h += '<tr><td><b>' + esc(o.cod) + '</b>' + (o.desc ? '<br><small>' + esc(o.desc) + (o.marca ? ' · ' + esc(o.marca) : '') + '</small>' : '') + marcaPedHtml(o, i) + parecHtml(o, i) + '</td><td>' + o.qtd + '</td><td>' + sl + '</td><td>' + (o.preco > 0 ? reais(o.preco) : '—') + '</td><td><span data-acao="tirar" data-arg="' + i + '" title="Tirar da cotação" class="pfwa-tirar">✕</span></td></tr>';
+      h += '<tr><td><b>' + esc(o.cod) + '</b>' + (o.desc ? '<br><small>' + esc(o.desc) + (o.marca ? ' · ' + esc(o.marca) : '') + '</small>' : '') + marcaPedHtml(o, i) + '</td><td>' + o.qtd + '</td><td>' + sl + '</td><td>' + (o.preco > 0 ? reais(o.preco) : '—') + '</td><td><span data-acao="tirar" data-arg="' + i + '" title="Tirar da cotação" class="pfwa-tirar">✕</span></td></tr>';
     });
     h += '</table><div class="pfwa-tot"><span>Total (com saldo)</span><span>' + reais(cot.total) + '</span></div>';
     if (CFG.sug !== false) h += juntoHtml(); // 4.20 - 💡 quem leva isso também leva
@@ -1046,19 +1054,6 @@
   function svGruposRender() { var r = SV && SV.querySelector('.sv-grp'); // 4.27 - BUG: '.sv-gr' pegava a linha do TIPO (desde a 4.24)
     if (r) r.innerHTML = svGruposRowHtml(); }
   // 4.24 - A pedido do Vitor: TIPO DO CLIENTE (revenda / consumidor / concessionária / serviço) também é salvo no cadastro do PF
-  // 4.47 - grau de intimidade com a pessoa → tom das mensagens automáticas
-  var SV_INT = [['formal', '🎩 Formal'], ['normal', '🙂 Normal'], ['proximo', '🤝 Próximo']], svIntim = '';
-  function svIntRowHtml() { return SV_INT.map(function (t) { return '<span class="sv-g' + (svIntim === t[0] ? ' on' : '') + '" data-acao="svInt" data-arg="' + t[0] + '" style="--c:#7B4FA0">' + esc(t[1]) + '</span>'; }).join(''); }
-  function svIntSug() {
-    var eu = []; try { eu = lerMensagens().filter(function (m) { return m.eu; }).map(function (m) { return m.t; }); } catch (e) { }
-    var t = eu.join(' \n ').toLowerCase(), pr = t.match(/\b(mano|irm[aã]o|parceir\w*|meu amigo|fala|tmj|blz|beleza|valeu|kkk+|top)\b/g), fo = t.match(/\b(sr\.?|sra\.?|senhor|senhora|prezad\w*|cordialmente|atenciosamente)\b/g);
-    var u = function (l) { var v = {}; return (l || []).filter(function (x) { if (v[x]) return false; v[x] = 1; return true; }).slice(0, 3).map(function (x) { return '"' + x + '"'; }).join(', '); };
-    if (fo && fo.length >= (pr ? pr.length : 0)) return { n: 'formal', p: u(fo) };
-    if (pr && pr.length >= 2) return { n: 'proximo', p: u(pr) };
-    return null;
-  }
-  function svIntSugHtml() { if (svIntim) return ''; var g = svIntSug(); if (!g) return ''; var l = SV_INT.find(function (x) { return x[0] === g.n; });
-    return '<div class="sv-intsug">💡 Sugestão: <b>' + esc(l[1]) + '</b> — vocês usam ' + esc(g.p) + ' <span class="sv-lk" data-acao="svInt" data-arg="' + g.n + '">usar</span></div>'; }
   var SV_TIPOS = [['revenda', '🏪 Revenda'], ['consumo', '👤 Consumidor'], ['conc', '🏛 Concessionária'], ['servico', '🔧 Serviço / oficina']], svTipo = '', svGueri = false, svFatSp = false;
   function svTipoRowHtml() { return SV_TIPOS.map(function (t) { return '<span class="sv-g' + (svTipo === t[0] ? ' on' : '') + '" data-acao="svTipo" data-arg="' + t[0] + '" style="--c:#1F4E79">' + esc(t[1]) + '</span>'; }).join(''); }
   // 4.26 - A pedido do Vitor ("se eu colocar concessionária, quero colocar a Marca. exemplo esse é Massey"): marca da concessionária (vai pro cad.concMarcas do PF). Pode mais de uma.
@@ -1096,7 +1091,7 @@
     svGueri = !!(r && r.gueri); // 4.37 / v115.2695 - selo Gueri (NF baixa) já vem marcado se o cadastro tiver
     svFatSp = !!(r && r.fatSp); // 4.39 / v115.2697 - selo Faturar por SP
     svConcMarcas = (r && r.concMarcas && r.concMarcas.length) ? r.concMarcas.slice() : []; // 4.26 - marcas da concessionária já cadastradas
-    svK = r ? r.k : ''; svSug = []; svIntim = (resp && resp.intim) || ''; // 4.47
+    svK = r ? r.k : ''; svSug = [];
     if (r && r.grupos) r.grupos.forEach(function (g) { var id = svGrupoIdDoNome(g); if (id && svGrupos.indexOf(id) < 0) svGrupos.push(id); }); // 4.27 - grupos do cadastro já marcados
     var nome = svNomeBase(c.nome) || (r && r.contato) || '', emp = svEmpBase(c.nome) || (r ? r.titulo : ''), cod = svCodBase(c.nome) || (r && r.cod) || '';
     var semNum = /^[+\d\s()\-]{8,}$/.test(c.nome || '');
@@ -1108,7 +1103,6 @@
       '<datalist id="pfwa-sv-cargos"><option>Compras<option>Comprador<option>Dono<option>Sócio<option>Gerente<option>Financeiro<option>Mecânico<option>Encarregado<option>Vendedor<option>Balconista</datalist>' +
       '<label>CÓDIGO NO JBOSS<input class="sv-cod" value="' + esc(cod) + '" placeholder="Ex.: 12662" inputmode="numeric"></label>' +
       '<div class="sv-gl">TIPO DO CLIENTE</div><div class="sv-gr sv-tp">' + svTipoRowHtml() + '</div>' + // 4.24
-      '<div class="sv-gl">INTIMIDADE COM ESSA PESSOA <span style="font-weight:600;text-transform:none;color:#8a9ab0">(tom das mensagens automáticas)</span></div><div class="sv-gr sv-int">' + svIntRowHtml() + '</div>' + svIntSugHtml() + // 4.47
       '<div class="sv-marca"></div>' + // 4.26 - marca da concessionária (só quando o tipo é Concessionária)
       '<div class="sv-gl">GRUPO DO CLIENTE <span style="font-weight:600;text-transform:none;color:#8a9ab0">(pode escolher mais de um)</span></div><div class="sv-gr sv-grp">' + svGruposRowHtml() + '</div>' +
       '<div class="sv-gr sv-gueri"><span class="sv-g' + (svGueri ? ' on' : '') + '" data-acao="svGueri" style="--c:#c0392b">💳 Gueri (compra com NF baixa)</span>' + // 4.37 / v115.2695
@@ -1158,11 +1152,10 @@
     var cn = v('sv-cnpj').replace(/\D/g, ''); if (cn && cn.length !== 14 && cn.length !== 11) { flash(b, 'CNPJ incompleto'); b.disabled = false; b.textContent = txt; return; }
     if (cn) b.textContent = 'Buscando o CNPJ…';
     var _gs = svGrupos.map(function (id) { var g = svGruposTodos().find(function (x) { return x[0] === id; }); return g && /^g_/.test(id) ? g[1] : id; }).filter(Boolean); // 4.15 - grupo base = chave; grupo criado = o nome
-    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: _gs[0] || '', grupos: _gs, tipoCli: svTipo, concMarcas: svTipo === 'conc' ? svConcMarcas : [], gueri: svGueri, fatSp: svFatSp, intim: svIntim } }); // 4.26 - marca da concessionária · 4.37 Gueri · 4.39 Fat. SP
+    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: _gs[0] || '', grupos: _gs, tipoCli: svTipo, concMarcas: svTipo === 'conc' ? svConcMarcas : [], gueri: svGueri, fatSp: svFatSp } }); // 4.26 - marca da concessionária · 4.37 Gueri · 4.39 Fat. SP
     b.disabled = false; b.textContent = txt;
     var st = SV.querySelector('.sv-st');
     if (r && r.ok) {
-      if (svIntim) { if (resp) resp.intim = svIntim; if (sitCache && sitCache[c.nome]) sitCache[c.nome].intim = svIntim; } // 4.47
       if (r.k && r.cli) { svK = r.k; SV.querySelector('.sv-k').innerHTML = '🔗 ligado a <b>' + esc(r.cli) + '</b>'; }
       st.innerHTML = r.cli ? ('✔ Salvo · ' + (r.prospect ? '🌱 pré-cadastro <b>' + esc(r.cli) + '</b> criado no PF' + (r.base ? ' (dados da Receita)' : '') + ' com o contato' : r.cnpjJa ? 'esse CNPJ já era de <b>' + esc(r.cli) + '</b> — contato salvo lá' : r.novo ? 'cliente <b>' + esc(r.cli) + '</b> criado no PF com o contato' : 'contato' + (v('sv-cargo') ? ' (' + esc(v('sv-cargo')) + ')' : '') + ' no cadastro de <b>' + esc(r.cli) + '</b>') + '. <span class="sv-lk" data-acao="svCadAbrir">abrir o cadastro ›</span>')
         : v('sv-emp').trim() ? ('✔ Salvo no PF. <span style="color:#9A6B00">A empresa não está no PF.</span><br><button class="sv-ok sv-cria" data-acao="svCriar">➕ Criar cliente "' + esc(v('sv-emp').trim()) + '" no PF</button>')
@@ -1173,7 +1166,7 @@
       sitSig = ''; try { carregarSituacoes(); } catch (e) { }
       // 4.7 - A pedido do Vitor ("quando eu salvar aqui, tem que salvar o contato no WhatsApp também, do jeito que coloquei no nome"): já abre o
       // salvar/editar contato do próprio WhatsApp com o nome montado e aperta Salvar.
-      if (!criar) Promise.resolve(waSalvarNome(nomeFull, st)).then(function () { return dormir(900); }).then(function () { if (r.k) return waEtiquetar([nomeFull, c.nome], st); }).catch(function () { });
+      if (!criar) waSalvarNome(nomeFull, st);
     }
     else st.textContent = 'Não deu — abra o PartsFlow numa aba.';
   }
@@ -1272,43 +1265,6 @@
     var it = await waEsperar(function () { return waMenuItem(/^\s*(adicionar aos contatos|add to contacts|editar contato|edit contact)\s*$/i); }, 1500);
     if (!it) { try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true })); } catch (e) { } return null; }
     waClicar(it); return 'ok';
-  }
-  // 4.42 - A pedido do Vitor (prévia: grupo embaixo da mensagem, cidade à direita, tipo embaixo — "tente"): o WhatsApp só dá a 3ª linha pra conversa COM
-  // etiqueta dele. Ao salvar um cliente pelo 👤, a extensão põe a etiqueta (padrão "Cliente PF", criada uma vez no WhatsApp Business) na conversa; a etiqueta
-  // fica escondida e a 3ª linha mostra grupo + tipo. Sem achar o menu/etiqueta, só avisa (nada quebra).
-  var WA_ETQ = 'Cliente PF'; chrome.storage.local.get(['waEtqNome'], function (x) { if (x && x.waEtqNome) WA_ETQ = x.waEtqNome; });
-  function waN(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
-  async function waEtiquetar(nomes, st) {
-    var aviso = function (h) { try { if (st) st.innerHTML += '<br>' + h; } catch (e) { } };
-    try {
-      var row = null; (nomes || []).some(function (n) { row = n ? linhaDoNome(n) : null; return !!row; });
-      if (!row) { aviso('🏷️ Não achei a conversa na lista pra pôr a etiqueta.'); return false; }
-      if (row.querySelector('[aria-label^="Etiqueta"],[aria-label^="Label"]') && waN(row.textContent).indexOf(waN(WA_ETQ)) >= 0) return true;
-      row.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); await dormir(300);
-      var bt = row.querySelector('[aria-label*="enu"],[aria-label*="Mais"],span[data-icon="down"],span[data-icon*="chevron"],span[data-icon*="down"]');
-      if (bt) clicarEl(bt); else row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, view: window }));
-      var item = await esperar(function () { return autoMenuItem(['etiquetar conversa', 'etiquetar', 'label chat', 'adicionar etiqueta', 'etiquetas']); }, 2500);
-      if (!item) { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); aviso('🏷️ Não achei "Etiquetar conversa" no menu — a etiqueta só existe no WhatsApp Business.'); return false; }
-      clicarEl(item);
-      var alvo = waN(WA_ETQ);
-      var lin = await esperar(function () {
-        var achou = null;
-        document.querySelectorAll('[role="dialog"] [role="button"],[role="dialog"] li,[role="dialog"] label,[role="dialog"] [role="checkbox"],[data-animate-modal-body] div').forEach(function (el) {
-          if (achou || !el.offsetParent) return; var t = waN(el.textContent); if (t && t.length <= 40 && (t === alvo || t.indexOf(alvo) >= 0)) achou = el;
-        });
-        return achou;
-      }, 2500);
-      if (!lin) { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); aviso('🏷️ Crie uma vez no WhatsApp a etiqueta <b>' + esc(WA_ETQ) + '</b> (Configurações › Ferramentas comerciais › Etiquetas) — depois ela entra sozinha.'); return false; }
-      var cb = lin.querySelector('input[type="checkbox"],[role="checkbox"],[aria-checked]') || lin.closest('[role="checkbox"],[aria-checked]');
-      var marcado = cb && (cb.checked || cb.getAttribute('aria-checked') === 'true');
-      if (!marcado) clicarEl(cb || lin);
-      await dormir(250);
-      var salvar = null;
-      document.querySelectorAll('[role="dialog"] button,[role="dialog"] [role="button"],[data-animate-modal-body] button').forEach(function (b) { if (salvar || !b.offsetParent) return; var t = waN(b.textContent || b.getAttribute('aria-label')); if (/^(salvar|save|ok|concluir|confirmar)$/.test(t) || b.querySelector('span[data-icon*="checkmark"]')) salvar = b; });
-      if (salvar) clicarEl(salvar); else document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      aviso('🏷️ Etiqueta <b>' + esc(WA_ETQ) + '</b> posta (fica escondida — abre a 3ª linha com grupo e tipo).');
-      return true;
-    } catch (e) { aviso('🏷️ Não deu pra pôr a etiqueta: ' + esc(String(e && e.message || e))); return false; }
   }
   async function waSalvarNome(nomeFull, st) {
     var c = contatoAt; if (!c || !nomeFull) return;
@@ -1603,12 +1559,6 @@
       var sig = txt + '|' + gh + '|' + bar + '|' + tp + '|' + (s.gueri ? 'G' : '') + (s.fatSp ? 'F' : '') + '|' + (CFG.waEtqOff !== false ? 1 : 0) + '|' + (x.unread ? 1 : 0);
       if (r.getAttribute('data-pfwa-sig') === sig && (!txt || r.querySelector('.pfwa-rowln'))) return;
       rowLimpar(r); r.setAttribute('data-pfwa-sig', sig); r.removeAttribute('title');
-      // 4.49 - A pedido do Vitor ("está com as etiquetas do whats" — cliente SEM grupo/tipo e conversas fora do PF ainda mostravam a etiqueta "CARDAN"):
-      // a linha da etiqueta nativa (a que vem DEPOIS da linha da mensagem) fica escondida em TODA conversa, não só na de cliente com grupo.
-      if (CFG.waEtqOff !== false) { try {
-        var anc0 = prev || r.querySelector('[aria-label*="ão lida"],[aria-label*="nread"]'), col0 = anc0 ? ancComum(tit, anc0) : null, lm0 = (col0 && anc0) ? filhoQueTem(col0, anc0) : null;
-        if (col0 && lm0) { var dep0 = false; Array.prototype.forEach.call(col0.children, function (ch) { if (ch === lm0) { dep0 = true; return; } if (dep0 && !ch.classList.contains('pfwa-rowbar') && !ch.classList.contains('pfwa-row3')) Array.prototype.forEach.call(ch.children, function (c) { if (String(c.className || '').indexOf('pfwa-') === 0) return; c.setAttribute('data-pfwa-esc', '1'); c.style.display = 'none'; }); }); }
-      } catch (e) { } }
       if (!txt) return;
       // 4.37 / v115.2695 - A pedido do Vitor ("selo pra marcar cliente q compra com nf baixa… deixa a escrita Gueri"): chip "Gueri" ao lado do nome
       if (s.tipo === 'cliente' && s.gueri && tit.parentNode) { var gz = document.createElement('span'); gz.className = 'pfwa-gueri'; gz.textContent = 'Gueri'; gz.title = 'Compra com NF baixa'; tit.parentNode.insertBefore(gz, tit.nextSibling); }
@@ -1655,18 +1605,12 @@
         if (col && lineMsg) { var depois = false; Array.prototype.forEach.call(col.children, function (ch) { if (ch === lineMsg) { depois = true; return; } if (depois && !L3 && !ch.classList.contains('pfwa-rowbar') && !ch.classList.contains('pfwa-row3')) L3 = ch; }); }
         var alvo = null;
         if (L3) { Array.prototype.forEach.call(L3.children, function (c) { c.setAttribute('data-pfwa-esc', '1'); c.style.display = 'none'; }); alvo = L3; L3.classList.add('pfwa-row3u'); }
-        // v115.2699 - A pedido do Vitor (print do WhatsApp real: "nomes montoados"): a 3ª linha CRIADA (.pfwa-row3) transbordava em cima da conversa de baixo —
-        // a linha da lista do WhatsApp tem ALTURA FIXA (mesma lição da v115.2682). Sem a linha da etiqueta nativa NÃO cria linha: o grupo vai curto na linha
-        // da mensagem (no lugar da cidade) e cidade + tipo ficam no title.
-        // 4.50 / v115.2713 - A pedido do Vitor (print do Juninho - Adipel: "ainda não está salvando" — marcou Revenda e só aparecia o grupo): sem a 3ª linha o
-        // TIPO ia só no title (invisível). Agora vai junto do grupo na linha da mensagem, curto ("● L. Amarela · 🏪 Revenda").
-        else if (!gh && tp && ln && !L3) { ln.innerHTML = (txt && txt.indexOf('📍') === 0 ? txt + '<span class="pfwa-gsep">·</span>' : '') + '<span class="pfwa-gnm">' + esc(tp) + '</span>'; }
-        else if (gh && ln) { ln.innerHTML = gh + (tp ? '<span class="pfwa-gsep">·</span><span class="pfwa-gnm">' + esc(tp) + '</span>' : ''); r.setAttribute('title', [s.cid ? '📍 ' + [s.cid, s.uf].filter(Boolean).join('-') : '', tp].filter(Boolean).join(' · ')); }
+        else if (col) { alvo = document.createElement('div'); alvo.className = 'pfwa-row3'; col.appendChild(alvo); }
         if (alvo) {
           if (gh) { var g3 = document.createElement('span'); g3.className = 'pfwa-rowgp'; g3.innerHTML = gh; alvo.appendChild(g3); }
           if (tp) { var t3 = document.createElement('span'); t3.className = 'pfwa-rowtp'; t3.textContent = tp; try { if (prev) t3.style.setProperty('color', getComputedStyle(prev).color, 'important'); } catch (e) { } alvo.appendChild(t3); }
           r.setAttribute('title', [s.cid ? '📍 ' + [s.cid, s.uf].filter(Boolean).join('-') : '', tp].filter(Boolean).join(' · '));
-        } else { if (gh && ln) ln.innerHTML = gh + (tp ? '<span class="pfwa-gsep">·</span><span class="pfwa-gnm">' + esc(tp) + '</span>' : ''); } // sem coluna (caso raro) → cai pra linha da mensagem
+        } else { if (gh && ln) ln.innerHTML = gh; } // sem coluna (caso raro) → cai pra linha da mensagem
       }
     });
   }
@@ -1869,7 +1813,7 @@
     // 4.15 - A pedido do Vitor ("não to achando esse número que ele encontrou 13X32"): o selo lia o BLOCO inteiro de mensagens
     // do cliente e puxava código de outra mensagem. Agora lê SÓ a mensagem onde o selo está (o código tem que estar nela).
     var alvo = [];
-    if (liga) els.forEach(function (el) { if (minhaEl(el)) return; var t = txt(el); var n = spContaCods(t); if (n) alvo.push({ el: el, t: t, n: n }); });
+    if (liga) els.forEach(function (el) { if (el.closest('.message-out')) return; var t = txt(el); var n = spContaCods(t); if (n) alvo.push({ el: el, t: t, n: n }); });
     els.forEach(function (el) { var s = el.querySelector(':scope > .pfwa-selo'); if (s && !Object.keys(alvo).some(function (k) { return alvo[k].el === el; })) s.remove(); });
     Object.keys(alvo).forEach(function (k) {
       var A = alvo[k], el = A.el, t = A.t, n = A.n;
@@ -1941,7 +1885,7 @@
   // com a q identifica código, pra eu clicar e já enviar"): a extensão manda a ÚLTIMA mensagem do cliente pro PF (respRapidaAchar), que acha os Atalhos
   // de Texto que combinam (pelos gatilhos/nome). Casou = selo ⚡ no balão; clicar abre a resposta pronta pra Enviar agora ou pôr na caixa.
   var RR2 = null, rr2Msg = null, rr2L = null, rrCache = {}, rrUlt = '';
-  function rrUltimoIn() { var els = document.querySelectorAll('#main [data-pre-plain-text]'); for (var i = els.length - 1; i >= 0; i--) { if (!minhaEl(els[i])) return els[i]; } return null; }
+  function rrUltimoIn() { var els = document.querySelectorAll('#main [data-pre-plain-text]'); for (var i = els.length - 1; i >= 0; i--) { if (!els[i].closest('.message-out')) return els[i]; } return null; }
   function rrTxt(el) { var tx = el.querySelector('.selectable-text'); return ((tx ? tx.innerText : el.innerText) || '').replace(/📄\s*\d+\+?|✓ cot\.|⚡/g, '').trim(); }
   async function rrVigiar() {
     var liga = CFG.rrselo !== false && contatoAt && !contatoAt.grupo && (!resp || resp.tipo !== 'fornecedor');
@@ -1961,11 +1905,6 @@
     s.textContent = '⚡'; s.title = L.length === 1 ? ('Resposta rápida: ' + L[0].nome + ' — clique pra enviar') : (L.length + ' respostas rápidas combinam — clique');
     s._L = L; s._t = t;
     s.onclick = function (ev) { ev.preventDefault(); ev.stopPropagation(); rr2Abrir(s); };
-    // 4.49 - A pedido do Vitor ("quando vou clicar, abre os emojis"): o ⚡ ficava em cima do balão, no lugar onde o WhatsApp mostra o botão de reagir.
-    // Agora fica do lado de FORA, embaixo, logo depois do selo 📄 (quando tem), e o clique não chega no WhatsApp.
-    var sp = el.querySelector(':scope > .pfwa-selo');
-    s.style.left = sp ? ('calc(100% + ' + (10 + sp.offsetWidth) + 'px)') : '';
-    if (!s._pfIso) { s._pfIso = 1; ['pointerdown', 'mousedown', 'mouseup', 'pointerup', 'mouseover', 'mouseenter'].forEach(function (tp) { s.addEventListener(tp, function (ev) { ev.stopPropagation(); }, false); }); }
   }
   function rr2El() { if (!RR2) { RR2 = document.createElement('div'); RR2.id = 'pfwa-rr2'; document.body.appendChild(RR2); RR2.addEventListener('click', rr2Clique); } return RR2; }
   function rr2Fechar() { if (RR2) RR2.style.display = 'none'; rr2Msg = null; rr2L = null; }
@@ -1997,8 +1936,8 @@
   }
   async function rr2Enviar(o) {
     if (!escreverNaCaixa(o.txt)) { flash2('Não consegui escrever na caixa'); return; }
-    if (!(await esperar(function () { var b = caixaTexto(); return b && (b.innerText || '').trim() ? 1 : null; }, 3000))) { flash2('Não consegui escrever na caixa'); return; }
-    await dormir(250); enviarAgora();
+    var btn = await esperar(botaoEnviar, 3000); if (!btn) { flash2('Escrevi na caixa — aperte enviar'); rr2Fechar(); return; }
+    await dormir(250); (botaoEnviar() || btn).click();
     try { msg({ t: 'acao', acao: 'rrUsou', arg: { id: o.id } }); } catch (e) { }
     rr2Fechar();
   }
@@ -2024,60 +1963,29 @@
       'Oi, {nome}! Já vi aqui, só um minutinho que já te respondo.'],
     modo: 'normal', ate: '', subst: '', substTel: '', ausMin: 1, ausTxt: { reuniao: '', ausente: '', ferias: '' },
     // 4.27 - A pedido do Vitor: quando mandar a saudação de espera, chamar pelo nome / começar com saudação, e deixar a conversa não lida depois
-    quando: 'sempre', chamarNome: true, comSaud: true, naoLida: true,
-    // 4.47 - A pedido do Vitor (prévia docs/referencias/whatsapp-automaticas/): "bom dia" só na 1ª conversa do dia, não mandar se eu escrevi há < 30 min,
-    // frases por tom (intimidade), conversas que nunca recebem automática e AVISOS PROGRAMADOS (almoço, fora do expediente…), vários ao mesmo tempo.
-    saud1a: true, trava30: true, frasesTom: { formal: [], proximo: [] }, nunca: [],
-    avisos: [
-      { id: 'almoco', ic: '🍽️', nome: 'Almoço', on: false, dias: 'semana', ini: '12:00', fim: '13:00', txt: '' },
-      { id: 'fora', ic: '🌙', nome: 'Fora do expediente', on: false, dias: 'semana', ini: '18:00', fim: '08:00', txt: '' },
-      { id: 'fds', ic: '🏝️', nome: 'Fim de semana', on: false, dias: 'fds', ini: '00:00', fim: '23:59', txt: '' }]
+    quando: 'sempre', chamarNome: true, comSaud: true, naoLida: true
   };
   var AUTO = JSON.parse(JSON.stringify(AUTO_PADRAO)), autoEnv = {}, autoHist = [], autoPend = {}, autoOcup = false, autoUltMexeu = Date.now(), autoUlt = {}, autoAusEnv = {};
-  var autoCarregado = false, autoGravarDepois = false, autoUltJ = '';
   chrome.storage.local.get(['auto', 'autoEnv', 'autoHist', 'autoPend', 'autoUlt', 'autoAusEnv'], function (s) {
     if (s.auto) for (var k in s.auto) AUTO[k] = s.auto[k];
     if (!AUTO.ausTxt) AUTO.ausTxt = { reuniao: '', ausente: '', ferias: '' };
     autoEnv = s.autoEnv || {}; autoHist = s.autoHist || []; autoPend = s.autoPend || {}; autoUlt = s.autoUlt || {}; autoAusEnv = s.autoAusEnv || {};
-    autoCarregado = true; autoUltJ = autoJ(); if (autoGravarDepois) { autoGravarDepois = false; autoGravar(); }
   });
   ['mousemove', 'keydown', 'mousedown', 'wheel'].forEach(function (t) { document.addEventListener(t, function () { autoUltMexeu = Date.now(); }, true); });
-  // 4.46 - BUG (Vitor: "só mandou pra esse contato quando eu abri a msg… mandou pq eu tava com a janela aberta"): as outras conversas só recebiam se você ficasse
-  // 1 min SEM MEXER o mouse no WhatsApp — trabalhando nele, nunca acontecia. Agora conta só digitar/clicar (mexer o mouse/rolar não conta): 20 s sem digitar
-  // nem clicar e a caixa vazia (ou o WhatsApp em outra aba) = abre a conversa que está esperando, manda e volta.
-  var autoUltAcao = 0;
-  ['keydown', 'mousedown', 'paste', 'input'].forEach(function (t) { document.addEventListener(t, function (e) { if (e && e.isTrusted === false) return; autoUltAcao = Date.now(); }, true); });
-  function autoLivre() {
-    if (document.hidden) return true;
-    if (Date.now() - autoUltAcao < 20000) return false;
-    var cx = caixaTexto(); return !(cx && (cx.innerText || '').trim());
-  }
-  // 4.41 - BUG (Vitor: "de novo não fica gravado as msg q coloco"): 1) o autoGravar podia rodar ANTES de a config guardada carregar e gravava o PADRÃO
-  // por cima (no navegador e no PF); 2) qualquer gravação interna (conversa enviada, etiqueta) marcava a config como "mais nova" e subia pro PF. Agora só
-  // grava depois de carregar, a data da config só muda quando a CONFIG muda, e só sobe pro PF depois de ler a do PF (a mais nova vence).
-  function autoJ() { try { var c = JSON.parse(JSON.stringify(AUTO)); delete c.ts; return JSON.stringify(c); } catch (e) { return ''; } }
-  function autoGravar() {
-    if (!autoCarregado) { autoGravarDepois = true; return; }
-    var j = autoJ(), mudou = j !== autoUltJ; if (mudou) { AUTO.ts = Date.now(); autoUltJ = j; }
-    chrome.storage.local.set({ auto: AUTO, autoEnv: autoEnv, autoHist: autoHist.slice(-60), autoPend: autoPend, autoUlt: autoUlt, autoAusEnv: autoAusEnv });
-    if (mudou) autoCfgPush();
-  }
+  function autoGravar() { AUTO.ts = Date.now(); chrome.storage.local.set({ auto: AUTO, autoEnv: autoEnv, autoHist: autoHist.slice(-60), autoPend: autoPend, autoUlt: autoUlt, autoAusEnv: autoAusEnv }); autoCfgPush(); }
   // 4.35 - A pedido do Vitor ("coloquei minhas frases ontem e hoje sumiu"): a config fica só no navegador e some ao atualizar a extensão. Agora
   // também é guardada no PF (sincronizada, por usuário): a extensão salva lá e recarrega de lá, então sobrevive a reinstalar/atualizar a extensão.
   var autoCfgT = null, autoCfgLido = false;
-  var autoCfgPend = false;
-  function autoCfgPush() { if (!autoCfgLido) { autoCfgPend = true; return; } clearTimeout(autoCfgT); autoCfgT = setTimeout(function () { try { msg({ t: 'acao', acao: 'autoCfgSalvar', arg: AUTO }); } catch (e) { } }, 1500); }
+  function autoCfgPush() { clearTimeout(autoCfgT); autoCfgT = setTimeout(function () { try { msg({ t: 'acao', acao: 'autoCfgSalvar', arg: AUTO }); } catch (e) { } }, 1500); }
   async function autoCfgCarregar() {
     if (autoCfgLido) return;
-    if (!autoCarregado) return; // 4.41 - espera a config guardada no navegador
     try {
       var r = await msg({ t: 'acao', acao: 'autoCfgLer' });
-      var tP = r && r.cfg ? (r.cfg.ts || r.ts || 0) : 0; // 4.41 - compara a data da CONFIG (não a hora em que o PF gravou)
-      if (r && r.ok && r.cfg && tP > (AUTO.ts || 0)) { for (var k in r.cfg) AUTO[k] = r.cfg[k]; if (!AUTO.ausTxt) AUTO.ausTxt = { reuniao: '', ausente: '', ferias: '' }; AUTO.ts = tP; autoUltJ = autoJ(); chrome.storage.local.set({ auto: AUTO }); autoCfgLido = true; autoCfgPend = false; try { pinta(); autoStatusPill(); } catch (e) { } }
-      else if (r && r.ok) { autoCfgLido = true; if ((AUTO.ts || 0) > tP && (autoCfgPend || r.cfg || AUTO.ts)) { autoCfgPend = false; autoCfgPush(); } }
+      if (r && r.ok && r.cfg && (r.ts || 0) > (AUTO.ts || 0)) { for (var k in r.cfg) AUTO[k] = r.cfg[k]; if (!AUTO.ausTxt) AUTO.ausTxt = { reuniao: '', ausente: '', ferias: '' }; chrome.storage.local.set({ auto: AUTO }); autoCfgLido = true; try { pinta(); autoStatusPill(); } catch (e) { } }
+      else if (r && r.ok) autoCfgLido = true;
     } catch (e) { }
   }
-  setTimeout(autoCfgCarregar, 3500); setTimeout(autoCfgCarregar, 9000); setTimeout(autoCfgCarregar, 20000); setTimeout(autoCfgCarregar, 45000);
+  setTimeout(autoCfgCarregar, 3500); setTimeout(autoCfgCarregar, 9000); setTimeout(autoCfgCarregar, 20000);
   function autoHM(s) { var m = String(s || '').match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : 0; }
   function autoNoHorario(d) {
     d = d || new Date(); var dw = d.getDay();
@@ -2086,56 +1994,13 @@
     var m = d.getHours() * 60 + d.getMinutes(), a = autoHM(AUTO.ini), b = autoHM(AUTO.fim);
     return a <= b ? (m >= a && m < b) : (m >= a || m < b);
   }
-  function autoDiaOk(dias, d) { var dw = d.getDay(); if (dias === 'semana') return dw >= 1 && dw <= 5; if (dias === 'sabado') return dw >= 1 && dw <= 6; if (dias === 'fds') return dw === 0 || dw === 6; return true; }
-  // 4.47 - aviso programado valendo agora; com 2 valendo juntos, ganha o de horário MAIS CURTO (o almoço passa na frente do expediente)
-  function autoAvisoAtual(d) {
-    d = d || new Date(); var m = d.getHours() * 60 + d.getMinutes(), best = null, bd = 1e9;
-    (AUTO.avisos || []).forEach(function (a) {
-      if (!a || !a.on) return; var ia = autoHM(a.ini), fa = autoHM(a.fim); if (ia === fa) return;
-      var den = ia < fa ? (m >= ia && m < fa) : (m >= ia || m < fa); if (!den || !autoDiaOk(a.dias, d)) return;
-      var du = (fa - ia + 1440) % 1440; if (du < bd) { bd = du; best = a; }
-    });
-    return best;
-  }
-  function autoAvisoIni(a, d) { d = d || new Date(); var m = d.getHours() * 60 + d.getMinutes(), ia = autoHM(a.ini), fa = autoHM(a.fim), x = new Date(d); x.setHours(Math.floor(ia / 60), ia % 60, 0, 0); if (ia > fa && m < fa) x.setDate(x.getDate() - 1); return x.getTime(); }
-  function autoAvisoFim(a, d) { return autoAvisoIni(a, d) + ((autoHM(a.fim) - autoHM(a.ini) + 1440) % 1440) * 60000; }
-  function autoAvisoDe(aus) { if (!aus || String(aus).indexOf('av:') !== 0) return null; var id = String(aus).slice(3); return (AUTO.avisos || []).find(function (a) { return a && a.id === id; }) || null; }
-  // status de ausência valendo agora? Status que você liga na hora (o "até" que passou volta pra Disponível) > aviso programado ('av:<id>')
+  // status de ausência valendo agora? (o "até" que passou volta pra Disponível)
   function autoAusente() {
-    if (AUTO.modo && AUTO.modo !== 'normal') {
-      if (AUTO.ate) { var t = new Date(AUTO.ate).getTime(); if (t && Date.now() > t) { AUTO.modo = 'normal'; AUTO.ate = ''; autoGravar(); try { pinta(); } catch (e) { } } }
-      if (AUTO.modo && AUTO.modo !== 'normal') return AUTO.modo;
-    }
-    var a = autoAvisoAtual(); return a ? 'av:' + a.id : '';
+    if (!AUTO.modo || AUTO.modo === 'normal') return '';
+    if (AUTO.ate) { var t = new Date(AUTO.ate).getTime(); if (t && Date.now() > t) { AUTO.modo = 'normal'; AUTO.ate = ''; autoGravar(); try { pinta(); } catch (e) { } return ''; } }
+    return AUTO.modo;
   }
   var AUTO_MODOS = { normal: ['🟢', 'Disponível'], reuniao: ['📅', 'Em reunião'], ausente: ['🚶', 'Ausente'], ferias: ['🏖️', 'Férias'] };
-  function autoInfo(aus) { var a = autoAvisoDe(aus); if (a) return [a.ic || '⏰', a.nome || 'Aviso']; return AUTO_MODOS[aus || 'normal'] || AUTO_MODOS.normal; }
-  function autoDesde(aus) { var a = autoAvisoDe(aus); return a ? autoAvisoIni(a) : (AUTO.ausDesde || 0); }
-  function autoPer(aus) { return aus + '|' + (autoDesde(aus) || ''); }
-  // 4.47 - grau de intimidade do contato (marcado no 👤 Salvar contato ou no botão direito) → tom da mensagem
-  function autoTomDe(nome) {
-    try { if (resp && contatoAt && contatoAt.nome === nome && resp.intim) return resp.intim; var x = sitCache && sitCache[nome]; return (x && x.intim) || 'normal'; } catch (e) { return 'normal'; }
-  }
-  function autoTom(t, tom) {
-    t = String(t || '');
-    if (tom !== 'formal') return t;
-    t = t.replace(/\bt[ôo]\b/g, 'estou').replace(/\bT[ôo]\b/g, 'Estou').replace(/\bpra\b/g, 'para').replace(/\bPra\b/g, 'Para').replace(/\bjá já\b/gi, 'em breve').replace(/\brapidinho\b/gi, 'um momento')
-      .replace(/^(Opa|Oi),?\s*/i, '').replace(/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]\uFE0F?/gu, '').replace(/\s{2,}/g, ' ').trim();
-    if (/[A-Za-zÀ-ÿ0-9]$/.test(t)) t += '.';
-    return autoCap(t);
-  }
-  // troca {saudacao} {nome} {volta} {substituto}; sem saudação (já falaram hoje) a saudação some sem deixar vírgula sobrando
-  function autoVars(t, nm, volta, quem, sOk) {
-    t = String(t || '').replace(/\{saudacao\}/gi, sOk === false ? '\u0001' : autoSaudacao()).replace(/\{nome\}/gi, nm || '\u0002').replace(/\{volta\}/gi, volta || '').replace(/\{substituto\}/gi, quem || '');
-    t = t.replace(/\u0001[ \t]*,?[ \t]*/g, '').replace(/[ \t]*,?[ \t]*\u0002/g, '').replace(/\s+([,.!?])/g, '$1').replace(/,\s*!/g, '!').replace(/^[,!\s]+/, '').trim();
-    return autoCap(t);
-  }
-  // você escreveu nesta conversa nos últimos X minutos? (aí a saudação de espera fica quieta)
-  function autoEscreviRecente(min) {
-    var lim = Date.now() - min * 60000, outs = msgLinhas().filter(function (b) { return minhaEl(b); });
-    for (var i = outs.length - 1; i >= 0 && i >= outs.length - 3; i--) { var pp = outs[i].querySelector('[data-pre-plain-text]'), t = pp ? msgQuando(pp) : horaFolha(outs[i]); if (t && t >= lim) return true; }
-    return false;
-  }
   function autoSorteia(l, evita) { var c = l.filter(function (x) { return x !== evita; }); if (!c.length) c = l; return c[Math.floor(Math.random() * c.length)]; }
   function autoSaudacao() { var h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; }
   function autoPrimeiroNome(n) {
@@ -2148,28 +2013,15 @@
   }
   function autoCap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
   // abertura "Bom dia, Carlos!" / "Opa, boa tarde" / "Oi Carlos" — varia, às vezes sem nome
-  // 4.47 - sOk=false = já falaram hoje (sem "bom dia"); tom = formal / normal / proximo
-  function autoAbertura(nm, sOk, tom) {
-    var s = autoSaudacao(), sl = s.toLowerCase(), semS = sOk === false, comNome = nm && AUTO.chamarNome !== false && (tom === 'formal' || Math.random() < 0.7), l;
-    if (tom === 'formal') l = semS ? (comNome ? [nm + ',', 'Olá, ' + nm + '.'] : ['Olá.']) : (comNome ? [s + ', ' + nm + '.', s + ', ' + nm + ', tudo bem?', 'Olá, ' + nm + ', ' + sl + '.'] : [s + '.', 'Olá, ' + sl + '.']);
-    else if (tom === 'proximo') l = semS ? (comNome ? ['Fala ' + nm + '!', 'Opa ' + nm + '!', 'E aí ' + nm + '!', nm + ','] : ['Opa!', 'Fala!', 'E aí!']) : (comNome ? ['Opa ' + nm + ', ' + sl + '!', 'Fala ' + nm + ', ' + sl + '!', 'E aí ' + nm + ', ' + sl + '!', s + ' ' + nm + '!'] : ['Opa, ' + sl + '!', 'Fala, ' + sl + '!', s + '!']);
-    else l = semS ? (comNome ? [nm + ',', 'Oi ' + nm + '!', 'Opa ' + nm + '!'] : ['Oi!', 'Opa!'])
-      : (comNome ? [s + ', ' + nm + '!', s + ' ' + nm + '!', 'Opa, ' + sl + ' ' + nm + '!', 'Oi ' + nm + ', ' + sl + '!', 'Olá ' + nm + '!', s + ', ' + nm + ', tudo bem?']
-        : [s + '!', 'Opa, ' + sl + '!', 'Oi, ' + sl + '!', s + ', tudo bem?', 'Olá!']);
+  function autoAbertura(nm) {
+    var s = autoSaudacao(), sl = s.toLowerCase(), comNome = nm && AUTO.chamarNome !== false && Math.random() < 0.7;
+    var l = comNome ? [s + ', ' + nm + '!', s + ' ' + nm + '!', 'Opa, ' + sl + ' ' + nm + '!', 'Oi ' + nm + ', ' + sl + '!', 'Olá ' + nm + '!', s + ', ' + nm + ', tudo bem?']
+      : [s + '!', 'Opa, ' + sl + '!', 'Oi, ' + sl + '!', s + ', tudo bem?', 'Olá!'];
     return autoSorteia(l);
   }
-  function autoJunta(ab, ct) { return ab ? ab + ' ' + (/,$/.test(ab) ? ct : autoCap(ct)) : autoCap(ct); }
-  function autoContexto(u, tom) {
+  function autoContexto(u) {
     var t = (u && u.bloco) || '', ncod = 0;
     (t.match(COD_RE) || []).forEach(function (tk) { if (tk.replace(/\D/g, '').length >= 4 && !/^\d{1,2}[\/.:]\d{2}/.test(tk)) ncod++; });
-    if (tom === 'formal') { // 4.47 - tom formal: sem gíria
-      if (u && u.audio) return ['vou ouvir seu áudio e retorno em instantes'];
-      if (u && u.foto) return ['recebi a imagem, vou verificar e retorno em seguida'];
-      if (ncod >= 2) return ['vou verificar esses códigos e retorno em instantes', 'estou levantando esses itens e retorno em seguida'];
-      if (ncod === 1) return ['vou verificar esse código e retorno em instantes'];
-      if (/pre[cç]o|valor|quanto|or[cç]amento|cota/i.test(t)) return ['vou verificar o valor e retorno em seguida'];
-      return ['estou finalizando um atendimento e retorno em instantes', 'recebi sua mensagem e retorno em seguida', 'já verifico para você e retorno em instantes'];
-    }
     if (u && u.audio) return ['vou ouvir aqui e já te respondo', 'já escuto seu áudio e te falo', 'só um minutinho que já ouço aqui'];
     if (u && u.foto) return ['vi a foto, vou verificar aqui e já te falo', 'recebi a foto, já vou ver aqui', 'deixa eu ver a foto direitinho e já te respondo'];
     if (ncod >= 2) return ['já vou ver esses códigos aqui', 'vou conferir esses itens no estoque e já te passo', 'já tô vendo esses códigos, um minutinho', 'vou levantar esses itens aqui e já te retorno'];
@@ -2179,51 +2031,40 @@
     if (/\?/.test(t)) return ['já te respondo', 'deixa eu ver aqui e já te falo', 'vou verificar e já te retorno'];
     return ['tô finalizando um atendimento aqui e já falo com você', 'só um minutinho que já te respondo', 'já te respondo', 'tô terminando uma cotação aqui e já falo com você'];
   }
-  function autoNatural(nome, u, sOk, tom) {
-    var nm = autoPrimeiroNome(nome), ab = autoAbertura(nm, sOk, tom), ct = autoSorteia(autoContexto(u, tom));
-    var fim = tom === 'formal' ? '.' : tom === 'proximo' ? autoSorteia(['', ' 👍', ' 🙏', '!', ' 😉']) : autoSorteia(['', '', '', ' 👍', ' 🙏', '!']);
-    return (autoJunta(ab, ct) + fim).replace(/!!$/, '!').replace(/\?\s+([a-zà-ú])/, function (m, c) { return '? ' + c.toUpperCase(); });
+  function autoNatural(nome, u) {
+    var nm = autoPrimeiroNome(nome), ab = autoAbertura(nm), ct = autoSorteia(autoContexto(u));
+    var fim = autoSorteia(['', '', '', ' 👍', ' 🙏', '!']);
+    return (ab + ' ' + autoCap(ct) + fim).replace(/!!$/, '!').replace(/\?\s+([a-zà-ú])/, function (m, c) { return '? ' + c.toUpperCase(); });
   }
   function autoDataBR(s) { var d = new Date(s); if (!s || isNaN(d)) return ''; return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2); }
   function autoHoraBR(s) { var d = new Date(s); if (!s || isNaN(d)) return ''; var h = d.getHours(), m = d.getMinutes(); return h + 'h' + (m ? ('0' + m).slice(-2) : ''); }
-  function autoAusTexto(nome, modo, sOk, tom) {
-    var av = autoAvisoDe(modo), nm = autoPrimeiroNome(nome), ab = autoAbertura(nm, sOk, tom), proprio = String(av ? (av.txt || '') : ((AUTO.ausTxt || {})[modo] || '')).trim();
+  function autoAusTexto(nome, modo) {
+    var nm = autoPrimeiroNome(nome), ab = autoAbertura(nm), proprio = String((AUTO.ausTxt || {})[modo] || '').trim();
     var sub = String(AUTO.subst || '').trim(), tel = String(AUTO.substTel || '').trim(), quem = sub ? (sub + (tel ? ' no ' + tel : '')) : '';
-    var volta = '';
-    if (av) { var fT = autoAvisoFim(av), d0 = new Date(); d0.setHours(0, 0, 0, 0); var d1 = new Date(fT); d1.setHours(0, 0, 0, 0); var dd = Math.round((d1 - d0) / 86400000);
-      volta = (dd <= 0 ? 'às ' : dd === 1 ? 'amanhã às ' : 'dia ' + autoDataBR(fT) + ' às ') + autoHoraBR(fT); }
-    else { var hoje = AUTO.ate && new Date(AUTO.ate).toDateString() === new Date().toDateString(); volta = AUTO.ate ? (hoje ? 'lá pelas ' + autoHoraBR(AUTO.ate) : 'dia ' + autoDataBR(AUTO.ate)) : ''; }
-    if (proprio) return autoTom(autoVars(proprio, nm, volta, quem, sOk), tom);
+    var hoje = AUTO.ate && new Date(AUTO.ate).toDateString() === new Date().toDateString();
+    var volta = AUTO.ate ? (hoje ? 'lá pelas ' + autoHoraBR(AUTO.ate) : 'dia ' + autoDataBR(AUTO.ate)) : '';
+    if (proprio) return proprio.replace(/\{saudacao\}/gi, autoSaudacao()).replace(/\{nome\}/gi, nm).replace(/\{volta\}/gi, volta).replace(/\{substituto\}/gi, quem).replace(/\s+([,.!?])/g, '$1').replace(/,\s*!/g, '!');
     var l;
-    if (av) { // 4.47 - avisos programados
-      if (av.id === 'almoco' || /almo/i.test(av.nome)) l = ['tô no almoço agora, volto ' + volta + ' e já te respondo', 'saí pro almoço, ' + volta + ' tô de volta e te respondo', 'tô no horário de almoço, ' + volta + ' já te respondo'];
-      else if (av.dias === 'fds' || /fim de semana/i.test(av.nome)) l = ['hoje não estamos atendendo, ' + volta + ' te respondo', 'no fim de semana a gente não atende, mas ' + volta + ' já te respondo'];
-      else if (/expediente|fora|noite/i.test(av.nome + ' ' + av.id)) l = ['nosso atendimento já encerrou por hoje, ' + volta + ' te respondo', 'já estamos fora do horário, ' + volta + ' te retorno', 'o expediente já acabou, ' + volta + ' já te respondo'];
-      else l = ['no momento tô fora, volto ' + volta + ' e já te respondo'];
-      return autoTom(autoJunta(ab, autoSorteia(l)).replace(/\s+([,.!?])/g, '$1'), tom);
-    }
     if (modo === 'reuniao') l = ['tô em reunião agora' + (volta ? ', saio ' + volta : '') + ' e já te respondo', 'tô numa reunião, assim que sair' + (volta ? ' (' + volta + ')' : '') + ' te respondo', 'tô em reunião, mas já vi sua mensagem. Assim que terminar falo com você'];
     else if (modo === 'ferias') l = ['tô de férias' + (AUTO.ate ? ' até ' + autoDataBR(AUTO.ate) : '') + (quem ? '. Pra cotação e pedido fala com o ' + quem + ', ele vai te atender' : ', assim que voltar te respondo'), 'tô de férias' + (AUTO.ate ? ', volto dia ' + autoDataBR(AUTO.ate) : '') + (quem ? '. Enquanto isso o ' + quem + ' te atende, pode chamar ele' : '. Assim que voltar falo com você')];
     else l = ['no momento tô fora' + (volta ? ', volto ' + volta : '') + ', mas assim que voltar te respondo', 'tô ausente agora' + (volta ? ' (volto ' + volta + ')' : '') + ', já já te respondo', 'saí rapidinho, assim que voltar falo com você'];
-    return autoTom(autoJunta(ab, autoSorteia(l)).replace(/\s+([,.!?])/g, '$1'), tom);
+    return (ab + ' ' + autoCap(autoSorteia(l))).replace(/\s+([,.!?])/g, '$1');
   }
-  function autoTextoMinhas(nome, sOk, tom) {
+  function autoTextoMinhas(nome) {
     var fs = (AUTO.frases || []).map(function (f) { return String(f || '').trim(); }).filter(Boolean); if (!fs.length) fs = AUTO_PADRAO.frases;
-    var ft = ((AUTO.frasesTom || {})[tom] || []).map(function (f) { return String(f || '').trim(); }).filter(Boolean); if (ft.length) fs = ft; // 4.47 - frases do tom
     var f = fs[Math.floor(Math.random() * fs.length)], nm = autoPrimeiroNome(nome);
     // 4.27 - sem precisar digitar {nome}/{saudacao}: liga/desliga põe o nome e/ou a saudação na frente da frase
     var temS = /\{saudacao\}/i.test(f), temN = /\{nome\}/i.test(f);
-    var saud = (AUTO.comSaud !== false && !temS && sOk !== false) ? autoSaudacao() : ''; // 4.47 - já falaram hoje = sem saudação
+    var saud = (AUTO.comSaud !== false && !temS) ? autoSaudacao() : '';
     var chama = (AUTO.chamarNome !== false && !temN && nm) ? nm : '';
     if (saud && chama) f = saud + ', ' + chama + '! ' + f;
     else if (saud) f = saud + '! ' + f;
     else if (chama) f = chama + ', ' + f.charAt(0).toLowerCase() + f.slice(1);
-    return autoTom(autoVars(f, nm, '', '', sOk), tom);
+    return f.replace(/\{saudacao\}/gi, autoSaudacao()).replace(/\{nome\}/gi, nm || '\u0000').replace(/[ \t]*,?[ \t]*\u0000/g, '').replace(/ +([,.!?])/g, '$1').replace(/^[,\s]+/, '').trim();
   }
-  function autoTexto(nome, u, modo, tomForca) {
+  function autoTexto(nome, u, modo) {
     var ult = autoUlt[nome] || '', t = '', i = 0;
-    var sOk = !(AUTO.saud1a !== false && autoFaleiHoje()), tom = tomForca || autoTomDe(nome); // 4.47
-    do { t = modo ? autoAusTexto(nome, modo, sOk, tom) : (AUTO.estilo === 'minhas' ? autoTextoMinhas(nome, sOk, tom) : autoNatural(nome, u, sOk, tom)); i++; } while (t === ult && i < 6);
+    do { t = modo ? autoAusTexto(nome, modo) : (AUTO.estilo === 'minhas' ? autoTextoMinhas(nome) : autoNatural(nome, u)); i++; } while (t === ult && i < 6);
     return t;
   }
   // hora da mensagem pelo [14:30, 10/11/2026] do WhatsApp
@@ -2234,51 +2075,18 @@
     var t = d.getTime(); if (t > Date.now() + 60000) t -= 86400000; return t;
   }
   function horaFolha(el) {
-    var hm = null; el.querySelectorAll('span,div').forEach(function (e) { if (hm != null || e.children.length) return; var x = (e.textContent || '').replace(/[^\d:]/g, ''); if (/^\d{1,2}:\d{2}$/.test(x) && (e.textContent || '').trim().length <= 12) hm = x; }); // 4.42 - aceita caracteres invisíveis em volta da hora
+    var hm = null; el.querySelectorAll('span,div').forEach(function (e) { if (hm == null && e.children.length === 0 && /^\d{1,2}:\d{2}$/.test((e.textContent || '').trim())) hm = (e.textContent || '').trim(); });
     if (!hm) return 0; var d = new Date(); d.setHours(+hm.split(':')[0], +hm.split(':')[1], 0, 0); var t = d.getTime(); if (t > Date.now() + 60000) t -= 86400000; return t;
   }
   // última mensagem da conversa (inclui foto/áudio sem texto) + o "bloco" que o cliente mandou desde a sua última
-  // 4.42 - BUG (Vitor: "veja pq não foi a msg" — 🧪 Testar dizia "não achei a última mensagem na tela" com o "Bom dia 10:28" aparecendo): as mensagens
-  // eram procuradas só pela classe .message-in/.message-out. Agora também pela linha [data-id] do WhatsApp (true_… = sua, false_… = do cliente) e a hora
-  // aceita o texto da hora com caracteres invisíveis; o 🧪 diz o que achou.
-  // 4.43 - BUG (Vitor, print do 🧪 Testar: "nenhuma mensagem achada na conversa"): o WhatsApp de hoje não tem mais .message-in/.message-out nem
-  // data-id "true_/false_" — e a extensão achava que TODA mensagem era do cliente (o selo 📄 aparecia até nas suas). Agora a mensagem é a linha da
-  // conversa ([role="row"]) com hora, e "é minha" = tem o ✓/✓✓ de enviada ou o balão está do lado DIREITO da conversa.
-  function bolhaDe(el) { return (el && (el.closest('.message-in, .message-out') || el.closest('[role="row"]') || el.closest('[data-id]'))) || el; }
-  var MSG_TICK = '[data-icon^="msg-dblcheck"],[data-icon^="msg-check"],[data-icon="msg-time"],[data-icon*="dblcheck"],[data-icon*="tick"],[aria-label*=" Lida" i],[aria-label*="Entregue" i],[aria-label*="Enviada" i],[aria-label*="Pendente" i],[aria-label*=" Read" i],[aria-label*="Delivered" i],[aria-label*=" Sent" i]';
-  function minhaEl(el) {
-    if (!el) return false;
-    if (el.closest('.message-out')) return true; if (el.closest('.message-in')) return false;
-    var b = bolhaDe(el);
-    if (b.querySelector('.message-out') || b.classList.contains('message-out')) return true; if (b.querySelector('.message-in') || b.classList.contains('message-in')) return false;
-    var dd = b.getAttribute('data-id') || ((b.closest('[data-id]:not(header [data-id])') || b.querySelector('[data-id]') || { getAttribute: function () { return ''; } }).getAttribute('data-id')) || ''; if (!/^(true|false)_[^_]*@[^_]*_./.test(dd)) dd = '';
-    if (/^true_/.test(dd)) return true; if (/^false_/.test(dd)) return false;
-    if (b.querySelector(MSG_TICK)) return true;
-    var main = $('#main'), alvo = b.querySelector('[data-pre-plain-text]') || b.querySelector('.selectable-text') || b.querySelector('img,audio,[data-icon*="ptt"]');
-    if (main && alvo) { var m = main.getBoundingClientRect(), r = alvo.getBoundingClientRect(); if (r.width) return (r.left - m.left) > (m.right - r.right) + 20; }
-    return false;
-  }
-  function msgLinhas() {
-    var els = Array.prototype.slice.call(document.querySelectorAll('#main .message-in, #main .message-out')).filter(function (e) { return !e.parentElement.closest('.message-in, .message-out'); });
-    if (els.length) return els;
-    els = Array.prototype.slice.call(document.querySelectorAll('#main [data-id]')).filter(function (e) { return /^(true|false)_[^_]*@[^_]*_./.test(e.getAttribute('data-id') || '') && !e.closest('header') && !(e.parentElement && e.parentElement.closest('[data-id]')); }); // id da MENSAGEM (o da conversa no cabeçalho não tem o _final)
-    if (els.length) return els;
-    els = Array.prototype.slice.call(document.querySelectorAll('#main [role="row"]')).filter(function (e) { return !(e.parentElement && e.parentElement.closest('[role="row"]')) && !e.closest(MEUS) && (e.querySelector('[data-pre-plain-text]') || horaFolha(e)); });
-    if (els.length) return els;
-    var vis = []; document.querySelectorAll('#main [data-pre-plain-text]').forEach(function (x) { var b = bolhaDe(x); if (vis.indexOf(b) < 0) vis.push(b); });
-    return vis;
-  }
-  function msgEhMinha(el) { return minhaEl(el); }
-  var _ultDiag = '';
   function ultimaMsg() {
-    var els = msgLinhas();
-    if (!els.length) { _ultDiag = 'nenhuma mensagem achada na conversa'; return null; }
-    var el = els[els.length - 1], eu = msgEhMinha(el);
-    var pp = el.querySelector('[data-pre-plain-text]') || (el.getAttribute('data-pre-plain-text') ? el : null), tx = el.querySelector('.selectable-text');
-    var t = pp ? msgQuando(pp) : 0; if (!t) t = horaFolha(el);
-    _ultDiag = els.length + ' mensagens · última ' + (eu ? 'SUA' : 'do cliente') + ' · hora ' + (t ? new Date(t).toTimeString().slice(0, 5) : 'NÃO ACHADA');
+    var els = Array.prototype.slice.call(document.querySelectorAll('#main .message-in, #main .message-out')).filter(function (e) { return !e.parentElement.closest('.message-in, .message-out'); });
+    if (!els.length) return null;
+    var el = els[els.length - 1], eu = el.classList.contains('message-out');
+    var pp = el.querySelector('[data-pre-plain-text]'), tx = el.querySelector('.selectable-text');
+    var t = pp ? msgQuando(pp) : horaFolha(el);
     var bloco = [], foto = false, audio = false;
-    for (var i = els.length - 1; i >= 0 && !msgEhMinha(els[i]); i--) {
+    for (var i = els.length - 1; i >= 0 && !els[i].classList.contains('message-out'); i--) {
       var e = els[i], s = e.querySelector('.selectable-text'); if (s) bloco.unshift((s.innerText || '').trim());
       if (!foto) e.querySelectorAll('img').forEach(function (im) { var src = im.getAttribute('src') || ''; if (/^(blob|data):/.test(src) && (im.naturalWidth || im.width || 0) >= 80) foto = true; });
       if (!audio && e.querySelector('audio,[data-icon^="audio"],[data-icon*="ptt"],[aria-label*="áudio"],[aria-label*="voice"]')) audio = true;
@@ -2291,10 +2099,9 @@
     // 4.1 - A pedido do Vitor ("não responder a cada msg do cliente… o Watidy manda a msg de ausência um monte de vezes, isso é irritante"):
     // já mandou QUALQUER mensagem automática nessa conversa e você ainda não respondeu = não manda mais nada (nem ausência, nem saudação).
     if (autoPend[c.nome]) return false;
-    if ((AUTO.nunca || []).indexOf(c.nome) >= 0) return false; // 4.47 - marcado no botão direito: nunca mandar automática pra essa conversa
     if (cmdAutorizado(c.nome, c.tel)) return false; // 4.2 - seu celular pessoal / conversa com você mesmo nunca recebe mensagem automática
     var k = autoChave(c);
-    if (aus) { var per = autoPer(aus); if (autoAusEnv[k] === per) return false; }
+    if (aus) { var per = aus + '|' + (AUTO.ausDesde || ''); if (autoAusEnv[k] === per) return false; }
     else { var u = autoEnv[k]; if (u && Date.now() - u < (+AUTO.horas || 4) * 3600000) return false; }
     var h1 = Date.now() - 3600000; autoHist = autoHist.filter(function (t) { return t > h1; });
     return autoHist.length < (+AUTO.porHora || 15);
@@ -2305,11 +2112,11 @@
     var r = await msg({ t: 'acao', acao: 'situacoes', arg: { lista: [{ nome: c.nome, tel: c.tel || '' }] } });
     return !!(r && r.sit && r.sit[c.nome] && r.sit[c.nome].tipo === 'cliente');
   }
-  function autoMarcarFeito(c, aus) { var k = autoChave(c); if (aus) autoAusEnv[k] = autoPer(aus); else autoEnv[k] = Date.now(); autoGravar(); }
+  function autoMarcarFeito(c, aus) { var k = autoChave(c); if (aus) autoAusEnv[k] = aus + '|' + (AUTO.ausDesde || ''); else autoEnv[k] = Date.now(); autoGravar(); }
   // 4.27 - "📩 só na 1ª vez do dia": você já mandou alguma mensagem pra esse cliente hoje?
   function autoFaleiHoje() {
     var d0 = new Date(); d0.setHours(0, 0, 0, 0); var ini = d0.getTime();
-    var outs = msgLinhas().filter(function (b) { return minhaEl(b); }); // 4.43
+    var outs = document.querySelectorAll('#main .message-out');
     for (var i = outs.length - 1; i >= 0; i--) {
       var pp = outs[i].querySelector('[data-pre-plain-text]');
       var t = pp ? msgQuando(pp) : horaFolha(outs[i]);
@@ -2355,8 +2162,7 @@
       var espera = aus ? (+AUTO.ausMin || 1) : (+AUTO.min || 3);
       if (Date.now() - u.t < espera * 60000) return false;
       if (Date.now() - u.t > (aus ? 12 : 3) * 3600000) return false; // mensagem velha
-      if (aus && autoDesde(aus) && u.t < autoDesde(aus) - 10 * 60000) return false; // chegou antes de você sair (ou antes do aviso começar)
-      if (!aus && AUTO.trava30 !== false && autoEscreviRecente(30)) return false; // 4.47 - você estava conversando com ele há pouco
+      if (aus && AUTO.ausDesde && u.t < AUTO.ausDesde - 10 * 60000) return false; // chegou antes de você sair
     }
     var cx = caixaTexto(); if (!cx || (cx.innerText || '').trim()) return false; // você está escrevendo
     if (!force && !(await autoEhCliente(c))) { autoMarcarFeito(c, aus); return false; }
@@ -2364,11 +2170,10 @@
     await dormir(1500 + Math.random() * 2500); // "lendo"
     cx = caixaTexto(); if (!cx || (cx.innerText || '').trim() || (contatoAtual() || {}).nome !== c.nome) return false;
     if (!escreverNaCaixa(txt)) return false;
-    var temTxt = await esperar(function () { var x = caixaTexto(); return x && (x.innerText || '').trim() ? 1 : null; }, 3000); if (!temTxt) return false;
-    await esperar(botaoEnviar, 2000);
+    var btn = await esperar(botaoEnviar, 3000); if (!btn) return false;
     await dormir(Math.min(6000, 900 + txt.length * 45 + Math.random() * 900)); // "digitando…"
     if ((contatoAtual() || {}).nome !== c.nome) return false;
-    enviarAgora(); // 4.44 - botão ou Enter
+    (botaoEnviar() || btn).click();
     var ok = await esperar(function () { var x = caixaTexto(); return x && !(x.innerText || '').trim() ? 1 : null; }, 8000);
     if (!ok) return false;
     autoMarcarFeito(c, aus); autoHist.push(Date.now()); autoUlt[c.nome] = txt; autoPend[c.nome] = { ts: Date.now(), txt: txt, aus: aus || '' };
@@ -2387,16 +2192,14 @@
     if (!aus) {
       add(!!AUTO.on, 'Saudação de espera LIGADA', AUTO.on ? '' : 'Ligue o 👋 "Saudação de espera" lá em cima.');
       add(autoNoHorario(), 'Dentro do horário e do dia', autoNoHorario() ? ('agora: ' + AUTO.ini + '–' + AUTO.fim) : ('agora está FORA do horário (' + AUTO.ini + '–' + AUTO.fim + ') ou do dia escolhido'));
-    } else add(true, 'Status: ' + autoInfo(aus)[1], 'manda a qualquer hora');
+    } else add(true, 'Status: ' + AUTO_MODOS[aus][1], 'manda a qualquer hora');
     var u = ultimaMsg();
-    add(!!(u && !u.eu && u.t), 'A última mensagem é do CLIENTE', (u && u.eu) ? 'a última foi SUA — ele precisa ter mandado a última' : ((!u || !u.t) ? 'não achei a última mensagem na tela (' + _ultDiag + ')' : ''));
+    add(!!(u && !u.eu && u.t), 'A última mensagem é do CLIENTE', (u && u.eu) ? 'a última foi SUA — ele precisa ter mandado a última' : ((!u || !u.t) ? 'não achei a última mensagem na tela' : ''));
     if (u && u.t) {
       var espera = aus ? (+AUTO.ausMin || 1) : (+AUTO.min || 3), falta = espera * 60000 - (Date.now() - u.t);
       add(falta <= 0, 'Já passou os ' + espera + ' min de espera', falta > 0 ? ('ele mandou agora há pouco — falta ' + Math.ceil(falta / 60000) + ' min') : '');
     }
     if (!aus && AUTO.quando === 'primeira') add(!autoFaleiHoje(), 'Só na 1ª vez do dia', autoFaleiHoje() ? 'você JÁ falou com esse cliente hoje → não manda de novo. Pra testar, troque pra "🔁 Sempre que eu não responder".' : '');
-    if (!aus && AUTO.trava30 !== false) add(!autoEscreviRecente(30), 'Você não escreveu nos últimos 30 min', autoEscreviRecente(30) ? 'você estava conversando com ele há pouco → a extensão fica quieta (dá pra desligar essa trava)' : '');
-    if ((AUTO.nunca || []).indexOf(c.nome) >= 0) add(false, 'Conversa liberada pra automática', 'você marcou "🔕 Não mandar automática pra esse" (botão direito na conversa)');
     add(!autoPend[c.nome], 'Ainda não mandei automática aqui', autoPend[c.nome] ? 'já mandei uma e você ainda não respondeu (só volta quando você responder)' : '');
     add(!cmdAutorizado(c.nome, c.tel), 'Não é sua conversa pessoal/autorizada', cmdAutorizado(c.nome, c.tel) ? 'essa conversa é a sua/autorizada a dar comando → nunca recebe automática' : '');
     var cx = caixaTexto(); add(!(cx && (cx.innerText || '').trim()), 'Caixa de texto vazia', (cx && (cx.innerText || '').trim()) ? 'tem texto digitado na caixa' : '');
@@ -2405,14 +2208,14 @@
   }
   var autoTestR = null, autoTestando = false;
   async function autoTestar() {
-    if (autoTestando || autoOcup) return; autoTestando = true; autoOcup = true; // 4.45 - não roda junto com a automática (texto em dobro)
+    if (autoTestando) return; autoTestando = true;
     autoTestR = { carregando: true }; try { pinta(); } catch (e) { }
     try {
       var ok = await autoNaAberta(true); // 🧪 força: pula tempo/1ª vez/horário/limite, mas respeita "é cliente do PF" só quando quem=clientes? (força pula)
       var c = contatoAtual();
       autoTestR = { ok: ok, nome: c ? c.nome : '', diag: autoDiag() };
     } catch (e) { autoTestR = { erro: String(e && e.message || e), diag: autoDiag() }; }
-    autoTestando = false; autoOcup = false; try { pinta(); } catch (e) { }
+    autoTestando = false; try { pinta(); } catch (e) { }
   }
   // conversas da lista com mensagem não lida há X min
   function autoCandidatas(aus) {
@@ -2434,11 +2237,11 @@
     autoOcup = true;
     try {
       if (contatoAt && await autoNaAberta()) return;
-      if (!(AUTO.abrir || aus) || !autoLivre()) return; // 4.46 - 20 s sem digitar/clicar (ou WhatsApp em outra aba)
+      if (!(AUTO.abrir || aus) || Date.now() - autoUltMexeu < 60000) return; // ausente: abre as outras conversas sozinho (você não está mexendo)
       var cand = autoCandidatas(aus); if (!cand.length) return;
       var antes = contatoAt ? contatoAt.nome : '';
       for (var i = 0; i < cand.length && i < 3; i++) {
-        if (!document.hidden && Date.now() - autoUltAcao < 20000) break; // 4.46 - você voltou a digitar/clicar: para
+        if (Date.now() - autoUltMexeu < 60000) break; // você voltou a mexer: para
         clicar(cand[i].el);
         var ab = await esperar(function () { var c = contatoAtual(); return c && c.nome === cand[i].nome ? c : null; }, 4000);
         if (!ab) continue;
@@ -2460,7 +2263,7 @@
     Object.keys(autoPend).forEach(function (n) {
       var row = linhaDoNome(n); if (!row || row.querySelector('.pfwa-autob')) return;
       var ne = row.querySelector('span[title]'); if (!ne) return;
-      var b = document.createElement('span'); b.className = 'pfwa-autob'; b.textContent = autoPend[n].aus ? autoInfo(autoPend[n].aus)[0] + ' avisei que tô fora · responda' : '👋 saudação enviada · responda';
+      var b = document.createElement('span'); b.className = 'pfwa-autob'; b.textContent = autoPend[n].aus ? AUTO_MODOS[autoPend[n].aus][0] + ' avisei que tô fora · responda' : '👋 saudação enviada · responda';
       b.title = 'A extensão mandou: "' + autoPend[n].txt + '" — some quando você responder';
       (ne.parentElement || row).appendChild(b);
     });
@@ -2471,155 +2274,10 @@
     var el = cab.querySelector('.pfwa-stpill'), aus = autoAusente();
     if (!aus) { if (el) el.remove(); return; }
     if (!el) { el = document.createElement('span'); el.className = 'pfwa-stpill'; el.setAttribute('data-acao', 'autoAbrir'); cab.insertBefore(el, cab.querySelector('.pfwa-cabsub')); }
-    var _av = autoAvisoDe(aus), tx = autoInfo(aus).join(' ') + (_av ? ' até ' + autoHoraBR(autoAvisoFim(_av)) : AUTO.ate ? ' até ' + (aus === 'ferias' ? autoDataBR(AUTO.ate) : autoHoraBR(AUTO.ate)) : '');
+    var tx = AUTO_MODOS[aus][0] + ' ' + AUTO_MODOS[aus][1] + (AUTO.ate ? ' até ' + (aus === 'ferias' ? autoDataBR(AUTO.ate) : autoHoraBR(AUTO.ate)) : '');
     if (el.textContent !== tx) { el.textContent = tx; el.title = 'Mensagem de ausência ligada — clique pra mudar ou voltar pra Disponível'; }
   }
   setInterval(function () { try { autoPendVigiar(); autoBadges(); autoStatusPill(); } catch (e) { } autoTick().catch(function (e) { console.warn('PF auto', e); }); }, 15000);
-
-  // ═══ 4.47 🖱️ BOTÃO DIREITO + 🔎 Alt+B (A pedido do Vitor: "gostei de todas as dicas, pode colocar" + "o alt+b coloca no botão direito também"
-  // + "isso vai ser bom pra entrar no catálogo dos componentes, que já vejo os monta com" + "pôr na cotação = a já aberta no dia de hoje") ═══
-  var cmAlvo = {};
-  function cmQual(t) {
-    var r = { tipo: 'outro', forn: false, nome: '' }; if (!t || !t.closest) return r;
-    var row = t.closest('#pane-side [role="listitem"], #pane-side div[role="row"]');
-    if (row) { var ne = row.querySelector('span[title]'); r.tipo = 'conv'; r.nome = ne ? (ne.getAttribute('title') || '').trim() : ''; r.row = row; return r; }
-    if (t.closest('#main') && !t.closest('footer') && !t.closest('header') && !t.closest(MEUS)) {
-      var b = bolhaDe(t), main = t.closest('#main');
-      if (b && b !== main && b.querySelector && (b.querySelector('[data-pre-plain-text], .selectable-text, img') || b.getAttribute('data-pre-plain-text'))) { r.tipo = 'msg'; r.b = b; r.forn = !!(resp && resp.tipo === 'fornecedor'); }
-    }
-    return r;
-  }
-  function cmAvisar(e) {
-    try { var q = cmQual(e.target); cmAlvo = q; var sel = String(window.getSelection() || '').trim();
-      chrome.runtime.sendMessage({ t: 'cmCtx', tipo: q.tipo, forn: q.forn, sel: !!sel, img: !!(e.target && e.target.tagName === 'IMG') }, function () { void chrome.runtime.lastError; }); } catch (x) { }
-  }
-  document.addEventListener('mousedown', function (e) { if (e.button === 2) cmAvisar(e); }, true);
-  document.addEventListener('contextmenu', cmAvisar, true);
-  function cmTxt(b) { if (!b) return ''; var tx = b.querySelector('.selectable-text'); return String((tx ? tx.innerText : b.innerText) || '').trim(); }
-  function cmToast(t) { try { audToast(t); } catch (e) { } }
-  async function cotarTxt(t) {
-    t = String(t || '').trim(); if (!t) return; irAba('cot'); if (cotando) return;
-    cotando = true; cotErro = ''; cot = null; pintaCorpo();
-    var r = await msg({ t: 'acao', acao: 'cotar', arg: { k: resp && resp.k, contato: resp && resp.contato, msgs: [{ t: t, eu: false }] } });
-    cotando = false; if (!r || r.erro) cotErro = 'O PF não respondeu. Dê F5 na aba do PartsFlow.'; else cot = r; pintaCorpo();
-  }
-  async function cotHoje(t, itens) {
-    var r = await msg({ t: 'acao', acao: 'cotHoje', focar: true, arg: { k: resp && resp.k, contato: resp && resp.contato, texto: String(t || ''), itens: itens || null } });
-    if (!r || r.erro) cmToast('O PF não respondeu — dê F5 na aba do PartsFlow');
-    else if (r.ok === false) cmToast(r.msg || 'Não achei código no que você selecionou');
-  }
-  chrome.runtime.onMessage.addListener(function (m, s, send) {
-    if (!m || m.t !== 'cmClick') return;
-    cmExec(m.id, m.sel || '', m.src || '').catch(function (e) { console.warn('PF botão direito', e); });
-    send({ ok: 1 });
-  });
-  async function cmExec(id, sel, src) {
-    var A = cmAlvo || {};
-    if (id === 'sel_ver') { abAbrir(sel); return; }
-    if (id === 'sel_cot') { cotHoje(sel); return; }
-    if (id === 'sel_cotar') { cotarTxt(sel); return; }
-    if (/^msg_/.test(id) && !A.b) { cmToast('Clique com o botão direito em cima da mensagem'); return; }
-    if (id === 'msg_cotar') { cotarTxt(cmTxt(A.b)); return; }
-    if (id === 'msg_lemb') {
-      if (!resp || !resp.k) { cmToast('Lembrete na ficha: essa conversa precisa ser de um cliente do PF'); return; }
-      irAba('cli'); var tx0 = cmTxt(A.b).replace(/\s*\d{1,2}:\d{2}\s*$/, '').slice(0, 140);
-      setTimeout(function () { var t = P && P.querySelector('.pfwa-lemb-t'); if (t) t.value = tx0; var d = P && P.querySelector('.pfwa-lemb-d'); if (d) { d.focus(); try { d.showPicker(); } catch (e) { } } }, 300); return;
-    }
-    if (id === 'msg_rr') {
-      var tx = cmTxt(A.b).replace(/\s*\d{1,2}:\d{2}\s*$/, ''); var nome = prompt('Nome da resposta rápida (ex.: Endereço, PIX):', ''); if (!nome) return;
-      var r1 = await msg({ t: 'acao', acao: 'rrSalvar', arg: { nome: nome, texto: tx, trocar: true, k: resp && resp.k, contato: resp && resp.contato } });
-      cmToast(r1 && r1.ok ? '💾 Resposta rápida "' + nome + '" salva nos Atalhos de Texto do PF' : 'Não deu — abra o PF'); return;
-    }
-    if (id === 'msg_nota') {
-      if (!resp || !resp.k) { cmToast('Essa conversa não é de um cliente do PF'); return; }
-      var r2 = await msg({ t: 'acao', acao: 'registrar', arg: { k: resp.k, texto: '📝 ' + cmTxt(A.b).replace(/\s*\d{1,2}:\d{2}\s*$/, '') } });
-      cmToast(r2 && r2.ok ? '📝 Anotado na ficha do cliente' : 'Não deu — abra o PF'); return;
-    }
-    if (id === 'msg_mapa' || id === 'img_mapa') {
-      var bt = ((resp && resp.botoes) || []).find(function (x) { return x && x.acao === 'respForn'; });
-      if (!bt) { cmToast('Abra a conversa de um fornecedor que tem mapa esperando resposta'); return; }
-      var pr = String(bt.arg || '').split('|'), ims = [], texto = A.b ? cmTxt(A.b) : '';
-      if (src) { var du = await urlParaDataUrl(src); if (du) ims.push(du); }
-      else if (A.b) { var imgs = A.b.querySelectorAll('img'); for (var i = 0; i < imgs.length && ims.length < 4; i++) { var sr = imgs[i].getAttribute('src') || ''; if ((/^blob:|^data:image/.test(sr)) && (imgs[i].naturalWidth || imgs[i].width) >= 120) { var d2 = await urlParaDataUrl(sr); if (d2) ims.push(d2); } } }
-      await msg({ t: 'acao', acao: 'respForn', focar: true, arg: { mapa: pr[0], fid: pr[1], texto: texto, imgs: ims } });
-      cmToast('✔ Abri no PF — confira e lance'); return;
-    }
-    if (id === 'img_ia') {
-      if (!src) return; irAba('cot'); if (cotando) return; cotando = true; cot = null; cotErro = ''; pintaCorpo();
-      var du2 = await urlParaDataUrl(src);
-      var r3 = await msg({ t: 'acao', acao: 'cotarImg', arg: { img: du2, k: resp && resp.k, contato: resp && resp.contato } });
-      cotando = false; if (!r3 || r3.erro) cotErro = 'Não consegui ler a imagem' + (r3 && r3.msg ? ': ' + r3.msg : ''); else cot = r3; pintaCorpo(); return;
-    }
-    if (/^cv_/.test(id) && !A.nome) { cmToast('Clique com o botão direito em cima da conversa na lista'); return; }
-    if (id === 'cv_ficha') { var r5 = await msg({ t: 'acao', acao: 'fichaNome', focar: true, arg: { nome: A.nome } }); if (r5 && r5.ok === false) cmToast('Não achei esse cliente no PF'); return; }
-    if (id === 'cv_grupo') {
-      if (A.row) clicar(A.row);
-      var ab = await esperar(function () { var c = contatoAtual(); return c && c.nome === A.nome ? c : null; }, 4000); if (!ab) return;
-      await dormir(1500); svAbrir(); return;
-    }
-    if (/^cv_int_/.test(id)) {
-      var niv = id.slice(7), r4 = await msg({ t: 'acao', acao: 'intimSet', arg: { nome: A.nome, nivel: niv } });
-      if (sitCache[A.nome]) sitCache[A.nome].intim = niv; else sitCache[A.nome] = { tipo: '', intim: niv };
-      if (resp && contatoAt && contatoAt.nome === A.nome) resp.intim = niv;
-      cmToast(r4 && r4.ok ? A.nome + ' → ' + ({ formal: '🎩 Formal', normal: '🙂 Normal', proximo: '🤝 Próximo' })[niv] : 'Não deu — abra o PF'); return;
-    }
-    if (id === 'cv_nunca') {
-      AUTO.nunca = AUTO.nunca || []; var ix = AUTO.nunca.indexOf(A.nome);
-      if (ix >= 0) { AUTO.nunca.splice(ix, 1); cmToast('🔔 ' + A.nome + ' volta a receber mensagem automática'); }
-      else { AUTO.nunca.push(A.nome); cmToast('🔕 ' + A.nome + ' não recebe mais mensagem automática'); }
-      autoGravar(); return;
-    }
-  }
-  // 🔎 Alt+B: cartão da peça dentro do WhatsApp
-  var AB = null, abR = null;
-  function abEl() { if (!AB) { AB = document.createElement('div'); AB.id = 'pfwa-ab'; document.body.appendChild(AB); AB.addEventListener('click', abClique); } return AB; }
-  document.addEventListener('keydown', function (e) {
-    if (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyB') { e.preventDefault(); e.stopPropagation(); abAbrir(String(window.getSelection() || '').trim()); return; }
-    if (e.key === 'Escape' && AB && AB.style.display === 'block') { AB.style.display = 'none'; e.stopPropagation(); }
-  }, true);
-  var AB_CAB = '<div class="ab-cab"><b>🔎 PartsFlow</b><span class="ab-x" data-ab="x" title="Fechar (Esc)">✕</span></div>';
-  async function abAbrir(texto) {
-    var el = abEl(); el.style.display = 'block';
-    if (!texto) {
-      el.innerHTML = AB_CAB + '<div class="ab-q"><input class="ab-in" placeholder="Código da peça (ex.: 5-515X)"><button data-ab="buscar">🔎</button></div><div class="ab-dica">Dica: selecione o código na mensagem e aperte <b>Alt+B</b> (ou botão direito → 🧩 PartsFlow → Ver no PF).</div>';
-      var i = el.querySelector('.ab-in'); i.focus(); i.onkeydown = function (ev) { if (ev.key === 'Enter') abAbrir(i.value.trim()); ev.stopPropagation(); }; return;
-    }
-    el.innerHTML = AB_CAB + '<div class="ab-car">Procurando no PF…</div>';
-    var r = await msg({ t: 'acao', acao: 'altb', arg: { texto: texto, k: resp && resp.k } });
-    abR = r; abPinta(texto);
-  }
-  function abPinta(texto) {
-    var el = abEl(), r = abR;
-    if (!r || r.erro) { el.innerHTML = AB_CAB + '<div class="ab-car">' + (r && r.erro === 'semPF' ? 'Abra o PartsFlow numa aba deste Chrome.' : 'O PF não respondeu. Dê F5 na aba do PartsFlow.') + '</div>'; return; }
-    if (!r.itens || !r.itens.length) { el.innerHTML = AB_CAB + '<div class="ab-car">Não achei código em "' + esc(String(texto || '').slice(0, 60)) + '".</div>'; return; }
-    el.innerHTML = AB_CAB + '<div class="ab-corpo">' + r.itens.map(function (x, i) {
-      var tem = x.marcas && x.marcas.length;
-      var h = '<div class="ab-it"><div class="ab-cod"><b>' + esc(x.cod) + '</b>' + (x.qtd > 1 ? ' <span class="ab-q2">× ' + esc(x.qtd) + '</span>' : '') + '<span class="ab-cp" data-ab="copiar" data-c="' + esc(x.cod) + '" title="Copiar o código">📋</span>' +
-        (x.codCli ? ' <small>(achado por ' + esc(x.codCli) + ')</small>' : '') + '</div>' +
-        (x.desc ? '<div class="ab-desc">' + esc(x.desc) + '</div>' : '') +
-        (tem ? x.marcas.map(function (m) { return '<div class="ab-mar ' + (m.saldo > 0 ? 'ok' : 'zero') + '"><span>' + esc(m.marca || '—') + '</span><span>' + (m.saldo > 0 ? 'saldo ' + esc(m.saldo) : 'sem saldo') + '</span><b>' + (m.preco ? reais(m.preco) : '') + '</b></div>'; }).join('')
-          : '<div class="ab-nada">' + (x.cc ? 'Não está no estoque — está no catálogo dos Componentes Cardan.' : 'Não achei no PF.') + '</div>');
-      if (x.cc) h += '<div class="ab-cc">🔩 Componentes Cardan · ' + esc(x.cc.fam) + (x.cc.cod && x.cc.cod !== x.cod ? ' · ' + esc(x.cc.cod) : '') + '</div>';
-      if (x.mc && x.mc.length) h += '<div class="ab-mct">🔗 Monta com (' + esc(x.nMc) + ')</div>' + x.mc.map(function (m) {
-        return '<div class="ab-mc" data-ab="mc" data-f="' + esc(m.famK) + '" data-c="' + esc(m.cod) + '" title="Abrir no catálogo"><b>' + esc(m.cod) + '</b><span>' + esc(m.fam) + '</span>' +
-          (m.saldo == null ? '<i class="z">sem cadastro</i>' : m.saldo > 0 ? '<i class="s">saldo ' + esc(m.saldo) + '</i>' : '<i class="z">sem saldo</i>') + '</div>'; }).join('');
-      h += '<div class="ab-bts"><button class="v" data-ab="cot" data-i="' + i + '">➕ Pôr na cotação</button><button data-ab="pf" data-c="' + esc(x.cod) + '">Abrir no PF ›</button>' +
-        (x.cc || (x.mc && x.mc.length) ? '<button data-ab="cat" data-c="' + esc(x.cod) + '">🔩 Catálogo</button>' : '') + '</div></div>';
-      return h;
-    }).join('') + '</div>';
-  }
-  function abClique(e) {
-    var el = e.target.closest('[data-ab]'); if (!el) return; e.preventDefault(); e.stopPropagation();
-    var a = el.getAttribute('data-ab'), c = el.getAttribute('data-c') || '';
-    if (a === 'x') { AB.style.display = 'none'; return; }
-    if (a === 'buscar') { var i = AB.querySelector('.ab-in'); abAbrir(i ? i.value.trim() : ''); return; }
-    if (a === 'copiar') { try { navigator.clipboard.writeText(c.replace(/\s+/g, '')); el.textContent = '✓'; setTimeout(function () { el.textContent = '📋'; }, 1500); } catch (er) { } return; }
-    if (a === 'cot') { var x = abR && abR.itens && abR.itens[+el.getAttribute('data-i')]; if (!x) return; var m0 = (x.marcas || []).find(function (m) { return m.saldo > 0; }) || (x.marcas || [])[0];
-      cotHoje('', [{ cod: x.cod, qtd: x.qtd || 1, marca: m0 ? m0.marca : '', marcaPed: x.marcaPed || '', codCli: x.codCli || '' }]); el.textContent = '✔ Mandei pro PF'; return; }
-    if (a === 'pf') { msg({ t: 'acao', acao: 'altbPF', focar: true, arg: { cod: c } }); return; }
-    if (a === 'cat') { msg({ t: 'acao', acao: 'ccAbrir', focar: true, arg: { cod: c } }); return; }
-    if (a === 'mc') { msg({ t: 'acao', acao: 'ccAbrirFam', focar: true, arg: { fam: el.getAttribute('data-f'), cod: c } }); return; }
-  }
   setTimeout(function () { try { autoStatusPill(); } catch (e) { } }, 2500);
 
   function autoModoSet(m) {
@@ -2645,7 +2303,7 @@
     return h + '</div>';
   }
   function htmlAuto() {
-    var A = AUTO, inp = 'class="au-in"', aus = (autoAusente(), (AUTO.modo && AUTO.modo !== 'normal') ? AUTO.modo : ''), nomeEx = contatoAt ? contatoAt.nome : 'Carlos - Trackpeças';
+    var A = AUTO, inp = 'class="au-in"', aus = autoAusente(), nomeEx = contatoAt ? contatoAt.nome : 'Carlos - Trackpeças';
     var ex = function (f) { var l = []; for (var i = 0; i < 3; i++) { var t = f(); if (l.indexOf(t) < 0) l.push(t); } return l.map(function (t) { return '<div class="au-exl">“' + esc(t) + '”</div>'; }).join(''); };
     var h = '<div class="pfwa-ajtop"><b>👋 Mensagens automáticas</b><span class="pfwa-link" data-acao="autoVoltar">‹ voltar</span></div>';
     h += htmlCmd(); // 4.2 - 📱 mudar pelo WhatsApp
@@ -2660,7 +2318,6 @@
         '<div class="au-st">Manda UMA vez só pra cada conversa enquanto você estiver ' + esc(AUTO_MODOS[aus][1].toLowerCase()) + ' — se o cliente continuar mandando mensagem, não repete. A qualquer hora, e abre as conversas que chegarem sozinho (se você não estiver mexendo no WhatsApp). No "até" volta sozinho pra 🟢 Disponível.</div>';
     }
     h += '</div>';
-    h += autoAvisosHtml(nomeEx, ex); // 4.47 - ⏰ avisos programados
     // 👋 Saudação de espera
     h += '<div class="au-sec"><div class="pfwa-cfgl" data-acao="autoTog" data-arg="on"><span class="pfwa-cfgi">👋</span><div><b>Saudação de espera</b><br><small>Quando você está disponível mas o cliente fica X minutos sem resposta, manda uma mensagem como se fosse você.</small></div><span class="pfwa-sw' + (A.on ? ' on' : '') + '"><i></i></span></div>' +
       '<div class="au-g"><label>Sem resposta há<input type="number" min="1" max="120" data-au="min" value="' + esc(A.min) + '" ' + inp + '> min</label>' +
@@ -2674,17 +2331,14 @@
         : '<div class="au-fr"><small>O PF lê o que o cliente mandou e responde de acordo: códigos → "já vou ver esses códigos", foto → "vi a foto", áudio → "vou ouvir aqui", preço → "já te passo o valor". Varia a saudação, às vezes sem nome, não repete a última, e espera uns segundos "digitando".</small></div>') +
       // 4.27 - chamar pelo nome / começar com saudação (vale pra "Minhas frases" sem precisar digitar {nome}/{saudacao})
       '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="chamarNome"><span class="pfwa-cfgi">👤</span><div><b>Chamar o cliente pelo nome</b><br><small>Põe o nome na frente quando dá pra saber. Você não precisa digitar {nome} nas frases.</small></div><span class="pfwa-sw' + (A.chamarNome !== false ? ' on' : '') + '"><i></i></span></div>' +
-      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="saud1a"><span class="pfwa-cfgi">☀️</span><div><b>"Bom dia/Boa tarde" só na 1ª conversa do dia</b><br><small>Já falou com esse cliente hoje? A frase vai sem o "bom dia" ("João, só finalizando um processo aqui e já te chamo").</small></div><span class="pfwa-sw' + (A.saud1a !== false ? ' on' : '') + '"><i></i></span></div>' +
       '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="comSaud"><span class="pfwa-cfgi">🕐</span><div><b>Começar com "Bom dia/Boa tarde"</b><br><small>Puxa a saudação da hora pra frente da sua frase.</small></div><span class="pfwa-sw' + (A.comSaud !== false ? ' on' : '') + '"><i></i></span></div>' +
       '<div class="au-ex">Vai sair algo assim:' + ex(function () { return autoTexto(nomeEx, { bloco: '5-280X\n2654407 2 de cada' }, ''); }) + '</div>' +
-      autoTomHtml(nomeEx) + // 4.47 - 🎩 tom por intimidade
       // 4.27 - QUANDO MANDAR: sempre × só na 1ª vez do dia
       '<div class="au-modos au-est"><span data-acao="autoQuando" data-arg="sempre" class="' + (A.quando !== 'primeira' ? 'on' : '') + '">🔁 Sempre que eu não responder</span><span data-acao="autoQuando" data-arg="primeira" class="' + (A.quando === 'primeira' ? 'on' : '') + '">📩 Só na 1ª vez do dia</span></div>' +
       '<div class="au-st" style="margin-top:4px">📩 = se você já falou com esse cliente hoje, a saudação não é mandada de novo.</div>' +
       // 4.27 - deixar a conversa como não lida depois do automático
       '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="naoLida"><span class="pfwa-cfgi">🔵</span><div><b>Deixar a conversa como NÃO LIDA depois</b><br><small>Depois de responder sozinho, marca a conversa como não lida — ela sobe na lista com a bolinha verde pra você lembrar de dar o retorno de verdade.</small></div><span class="pfwa-sw' + (A.naoLida !== false ? ' on' : '') + '"><i></i></span></div>' +
-      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="trava30"><span class="pfwa-cfgi">✋</span><div><b>Não mandar se eu escrevi nos últimos 30 min</b><br><small>Você estava conversando com ele há pouco = a extensão fica quieta.</small></div><span class="pfwa-sw' + (A.trava30 !== false ? ' on' : '') + '"><i></i></span></div>' +
-      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="abrir"><span class="pfwa-cfgi">📂</span><div><b>Também nas outras conversas</b><br><small>Quando você fica 20 s sem digitar nem clicar no WhatsApp (ou ele está em outra aba), a extensão abre a conversa que está esperando, manda e volta pra que você estava. Desligado = só na conversa aberta.</small></div><span class="pfwa-sw' + (A.abrir ? ' on' : '') + '"><i></i></span></div>' +
+      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="abrir"><span class="pfwa-cfgi">📂</span><div><b>Também nas outras conversas</b><br><small>Se você ficar 1 min sem mexer no WhatsApp, a extensão abre a conversa que está esperando, manda e volta pra que você estava. Desligado = só na conversa aberta.</small></div><span class="pfwa-sw' + (A.abrir ? ' on' : '') + '"><i></i></span></div>' +
       // 4.34 - A pedido do Vitor: aviso claro quando está desligado (a saudação só vai pra conversa aberta)
       (!A.abrir ? '<div class="au-st" style="background:#FFF4E5;border:1px solid #F3C98B;color:#7a4a10">⚠️ Está <b>desligado</b>: a saudação só vai pra conversa que estiver <b>ABERTA</b>. Ligue acima pra mandar também pras outras conversas da lista (deixe o WhatsApp ~1 min parado).</div>' : '') +
       '<div class="au-st">' + (A.on ? (autoNoHorario() ? '🟢 Ligada e dentro do horário.' : '🟡 Ligada, mas fora do horário agora.') : '⚪ Desligada.') + ' A conversa que recebeu a mensagem ganha a etiqueta "👋 … responda" até você responder.</div>' +
@@ -2695,38 +2349,10 @@
     if (envs.length) h += '<div class="pfwa-bloco"><div class="pfwa-bt">Esperando você responder</div>' + envs.map(function (e) { return '<div class="pfwa-it"><b>' + esc(e.n) + '</b><br><small>' + esc(new Date(e.ts).toLocaleString('pt-BR').slice(0, 17)) + ' · "' + esc(e.txt) + '"</small></div>'; }).join('') + '</div>';
     return h;
   }
-  // 4.47 - ⏰ avisos programados (vários ao mesmo tempo)
-  var AUTO_DIAS = [['semana', 'segunda a sexta'], ['sabado', 'segunda a sábado'], ['fds', 'sábado e domingo'], ['todos', 'todos os dias']];
-  function autoAvisosHtml(nomeEx, ex) {
-    var ag = autoAvisoAtual(), manual = AUTO.modo && AUTO.modo !== 'normal';
-    var h = '<div class="au-sec"><b>⏰ Avisos programados</b><div class="au-st" style="margin:3px 0 6px">Ligam e desligam sozinhos no horário. Com dois valendo juntos, vale o de horário <b>mais curto</b> (o 🍽️ almoço passa na frente do 🌙 expediente). O status de cima (reunião, férias) passa na frente de todos. Cada conversa recebe UMA mensagem por período, até você responder.</div>';
-    (AUTO.avisos || []).forEach(function (a, i) {
-      var vale = ag && ag.id === a.id && !manual;
-      h += '<div class="au-av' + (vale ? ' vale' : '') + (a.on ? '' : ' off') + '"><div class="au-avt"><input data-au="av.' + i + '.ic" value="' + esc(a.ic || '') + '" class="au-in au-avic"><input data-au="av.' + i + '.nome" value="' + esc(a.nome || '') + '" class="au-in au-avn">' +
-        (vale ? '<span class="au-vale">valendo agora</span>' : '') + '<span class="pfwa-sw' + (a.on ? ' on' : '') + '" data-acao="autoAvTog" data-arg="' + i + '"><i></i></span></div>' +
-        '<div class="au-g"><label>Dias<select data-au="av.' + i + '.dias" class="au-in">' + AUTO_DIAS.map(function (d) { return '<option value="' + d[0] + '"' + (a.dias === d[0] ? ' selected' : '') + '>' + d[1] + '</option>'; }).join('') + '</select></label>' +
-        '<label>Das<input type="time" data-au="av.' + i + '.ini" value="' + esc(a.ini || '') + '" class="au-in"> às<input type="time" data-au="av.' + i + '.fim" value="' + esc(a.fim || '') + '" class="au-in"></label></div>' +
-        '<div class="au-fr"><small>Mensagem (vazio = o PF varia sozinho · use {saudacao} {nome} {volta})</small><textarea data-au="av.' + i + '.txt" rows="2">' + esc(a.txt || '') + '</textarea></div>' +
-        (a.on ? '<div class="au-ex">Vai sair algo assim:' + ex(function () { return autoTexto(nomeEx, null, 'av:' + a.id); }) + '</div>' : '') +
-        '<span class="pfwa-link au-avdel" data-acao="autoAvDel" data-arg="' + i + '">🗑 apagar este aviso</span></div>';
-    });
-    return h + '<button class="pfwa-btn" data-acao="autoAvNovo">➕ Novo aviso</button></div>';
-  }
-  // 4.47 - 🎩 tom por intimidade
-  function autoTomHtml(nomeEx) {
-    var mi = AUTO.estilo === 'minhas', ft = AUTO.frasesTom || {};
-    var exT = function (tom) { return '“' + esc(autoTexto(nomeEx, { bloco: 'oi, tem o 5-280X?' }, '', tom)) + '”'; };
-    return '<div class="au-fr"><small><b>🎩 Tom por intimidade</b> — cada contato tem um grau (marque no 👤 Salvar contato ou com o botão direito na conversa). Sem marcar = Normal.</small>' +
-      '<div class="au-tom"><b>🎩 Formal</b> ' + exT('formal') + '</div><div class="au-tom"><b>🙂 Normal</b> ' + exT('normal') + '</div><div class="au-tom"><b>🤝 Próximo</b> ' + exT('proximo') + '</div>' +
-      (mi ? '<small>Suas frases pros contatos 🎩 formais (uma por linha · vazio = usa as de cima com o tom formal)</small><textarea data-au="frasesTom.formal" rows="2">' + esc((ft.formal || []).join('\n')) + '</textarea>' +
-        '<small>Suas frases pros contatos 🤝 próximos</small><textarea data-au="frasesTom.proximo" rows="2">' + esc((ft.proximo || []).join('\n')) + '</textarea>' : '') + '</div>';
-  }
   function autoCampo(el) {
     var k = el.getAttribute('data-au'), v = el.value;
     if (k === 'cmdQuem') { AUTO.cmdQuem = v.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); autoGravar(); return; }
     if (k === 'cmdEu') { AUTO.cmdEu = !!el.checked; autoGravar(); return; }
-    if (k.indexOf('av.') === 0) { var pp = k.split('.'), av = (AUTO.avisos || [])[+pp[1]]; if (av) av[pp[2]] = v; autoGravar(); try { autoStatusPill(); } catch (e) { } return; } // 4.47
-    if (k.indexOf('frasesTom.') === 0) { AUTO.frasesTom = AUTO.frasesTom || {}; AUTO.frasesTom[k.slice(10)] = v.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); autoGravar(); return; }
     if (k === 'frases') AUTO.frases = v.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
     else if (k.indexOf('ausTxt.') === 0) { AUTO.ausTxt = AUTO.ausTxt || {}; AUTO.ausTxt[k.slice(7)] = v.trim(); }
     else if (k === 'min' || k === 'horas' || k === 'porHora') AUTO[k] = Math.max(1, +v || AUTO_PADRAO[k]);
@@ -2735,9 +2361,6 @@
     autoGravar(); if (k === 'ate') try { autoStatusPill(); } catch (e) { }
   }
   document.addEventListener('change', function (e) { if (e.target && e.target.getAttribute && e.target.getAttribute('data-au')) autoCampo(e.target); }, true);
-  // 4.41 - textos (frases, mensagens de ausência) gravam enquanto você digita — antes só ao sair do campo; atualizar a página no meio perdia
-  var autoDigT = null;
-  document.addEventListener('input', function (e) { var el = e.target; if (!el || el.tagName !== 'TEXTAREA' || !el.getAttribute || !el.getAttribute('data-au')) return; clearTimeout(autoDigT); autoDigT = setTimeout(function () { try { autoCampo(el); } catch (x) { } }, 700); }, true);
 
   // ═══ 📱 COMANDOS PELO WHATSAPP (4.2) ═══
   // A pedido do Vitor ("preciso poder ajustar essas coisas enviando um whatsapp" + "mandando msg de outro cel, exemplo do meu pessoal"):
@@ -2784,7 +2407,7 @@
     return { ate: null, resto: t };
   }
   function cmdStatusTxt() {
-    var aus = autoAusente(), m = autoInfo(aus);
+    var aus = autoAusente(), m = AUTO_MODOS[aus || 'normal'];
     var s = m[0] + ' ' + m[1] + (aus && AUTO.ate ? ' até ' + (aus === 'ferias' ? autoDataBR(AUTO.ate) : autoDataBR(AUTO.ate) + ' ' + autoHoraBR(AUTO.ate)) : '');
     if (aus === 'ferias' && AUTO.subst) s += ' · atende: ' + AUTO.subst + (AUTO.substTel ? ' ' + AUTO.substTel : '');
     s += '\n👋 Saudação de espera: ' + (AUTO.on ? 'ligada, ' + AUTO.min + ' min, ' + AUTO.ini + '–' + AUTO.fim : 'desligada');
@@ -2854,8 +2477,8 @@
       if (!aberta) { var row = linhaDoNome(x.nome); if (!row) return; clicar(row); if (!(await esperar(function () { var c = contatoAtual(); return c && c.nome === x.nome ? 1 : null; }, 4000))) return; await dormir(600); }
       var cx = caixaTexto(); if (!cx || (cx.innerText || '').trim()) return;
       if (!escreverNaCaixa(x.txt)) return;
-      if (!(await esperar(function () { var b = caixaTexto(); return b && (b.innerText || '').trim() ? 1 : null; }, 3000))) return;
-      await dormir(500); enviarAgora();
+      var btn = await esperar(botaoEnviar, 3000); if (!btn) return;
+      await dormir(500); (botaoEnviar() || btn).click();
       if (await esperar(function () { var b = caixaTexto(); return b && !(b.innerText || '').trim() ? 1 : null; }, 8000)) { x.ok = 1; cmdGravar(); }
       if (!aberta && antes) { var vt = linhaDoNome(antes); if (vt) clicar(vt); }
     } finally { autoOcup = false; }

@@ -1923,26 +1923,40 @@
     quando: 'sempre', chamarNome: true, comSaud: true, naoLida: true
   };
   var AUTO = JSON.parse(JSON.stringify(AUTO_PADRAO)), autoEnv = {}, autoHist = [], autoPend = {}, autoOcup = false, autoUltMexeu = Date.now(), autoUlt = {}, autoAusEnv = {};
+  var autoCarregado = false, autoGravarDepois = false, autoUltJ = '';
   chrome.storage.local.get(['auto', 'autoEnv', 'autoHist', 'autoPend', 'autoUlt', 'autoAusEnv'], function (s) {
     if (s.auto) for (var k in s.auto) AUTO[k] = s.auto[k];
     if (!AUTO.ausTxt) AUTO.ausTxt = { reuniao: '', ausente: '', ferias: '' };
     autoEnv = s.autoEnv || {}; autoHist = s.autoHist || []; autoPend = s.autoPend || {}; autoUlt = s.autoUlt || {}; autoAusEnv = s.autoAusEnv || {};
+    autoCarregado = true; autoUltJ = autoJ(); if (autoGravarDepois) { autoGravarDepois = false; autoGravar(); }
   });
   ['mousemove', 'keydown', 'mousedown', 'wheel'].forEach(function (t) { document.addEventListener(t, function () { autoUltMexeu = Date.now(); }, true); });
-  function autoGravar() { AUTO.ts = Date.now(); chrome.storage.local.set({ auto: AUTO, autoEnv: autoEnv, autoHist: autoHist.slice(-60), autoPend: autoPend, autoUlt: autoUlt, autoAusEnv: autoAusEnv }); autoCfgPush(); }
+  // 4.41 - BUG (Vitor: "de novo não fica gravado as msg q coloco"): 1) o autoGravar podia rodar ANTES de a config guardada carregar e gravava o PADRÃO
+  // por cima (no navegador e no PF); 2) qualquer gravação interna (conversa enviada, etiqueta) marcava a config como "mais nova" e subia pro PF. Agora só
+  // grava depois de carregar, a data da config só muda quando a CONFIG muda, e só sobe pro PF depois de ler a do PF (a mais nova vence).
+  function autoJ() { try { var c = JSON.parse(JSON.stringify(AUTO)); delete c.ts; return JSON.stringify(c); } catch (e) { return ''; } }
+  function autoGravar() {
+    if (!autoCarregado) { autoGravarDepois = true; return; }
+    var j = autoJ(), mudou = j !== autoUltJ; if (mudou) { AUTO.ts = Date.now(); autoUltJ = j; }
+    chrome.storage.local.set({ auto: AUTO, autoEnv: autoEnv, autoHist: autoHist.slice(-60), autoPend: autoPend, autoUlt: autoUlt, autoAusEnv: autoAusEnv });
+    if (mudou) autoCfgPush();
+  }
   // 4.35 - A pedido do Vitor ("coloquei minhas frases ontem e hoje sumiu"): a config fica só no navegador e some ao atualizar a extensão. Agora
   // também é guardada no PF (sincronizada, por usuário): a extensão salva lá e recarrega de lá, então sobrevive a reinstalar/atualizar a extensão.
   var autoCfgT = null, autoCfgLido = false;
-  function autoCfgPush() { clearTimeout(autoCfgT); autoCfgT = setTimeout(function () { try { msg({ t: 'acao', acao: 'autoCfgSalvar', arg: AUTO }); } catch (e) { } }, 1500); }
+  var autoCfgPend = false;
+  function autoCfgPush() { if (!autoCfgLido) { autoCfgPend = true; return; } clearTimeout(autoCfgT); autoCfgT = setTimeout(function () { try { msg({ t: 'acao', acao: 'autoCfgSalvar', arg: AUTO }); } catch (e) { } }, 1500); }
   async function autoCfgCarregar() {
     if (autoCfgLido) return;
+    if (!autoCarregado) return; // 4.41 - espera a config guardada no navegador
     try {
       var r = await msg({ t: 'acao', acao: 'autoCfgLer' });
-      if (r && r.ok && r.cfg && (r.ts || 0) > (AUTO.ts || 0)) { for (var k in r.cfg) AUTO[k] = r.cfg[k]; if (!AUTO.ausTxt) AUTO.ausTxt = { reuniao: '', ausente: '', ferias: '' }; chrome.storage.local.set({ auto: AUTO }); autoCfgLido = true; try { pinta(); autoStatusPill(); } catch (e) { } }
-      else if (r && r.ok) autoCfgLido = true;
+      var tP = r && r.cfg ? (r.cfg.ts || r.ts || 0) : 0; // 4.41 - compara a data da CONFIG (não a hora em que o PF gravou)
+      if (r && r.ok && r.cfg && tP > (AUTO.ts || 0)) { for (var k in r.cfg) AUTO[k] = r.cfg[k]; if (!AUTO.ausTxt) AUTO.ausTxt = { reuniao: '', ausente: '', ferias: '' }; AUTO.ts = tP; autoUltJ = autoJ(); chrome.storage.local.set({ auto: AUTO }); autoCfgLido = true; autoCfgPend = false; try { pinta(); autoStatusPill(); } catch (e) { } }
+      else if (r && r.ok) { autoCfgLido = true; if ((AUTO.ts || 0) > tP && (autoCfgPend || r.cfg || AUTO.ts)) { autoCfgPend = false; autoCfgPush(); } }
     } catch (e) { }
   }
-  setTimeout(autoCfgCarregar, 3500); setTimeout(autoCfgCarregar, 9000); setTimeout(autoCfgCarregar, 20000);
+  setTimeout(autoCfgCarregar, 3500); setTimeout(autoCfgCarregar, 9000); setTimeout(autoCfgCarregar, 20000); setTimeout(autoCfgCarregar, 45000);
   function autoHM(s) { var m = String(s || '').match(/(\d{1,2}):(\d{2})/); return m ? (+m[1]) * 60 + (+m[2]) : 0; }
   function autoNoHorario(d) {
     d = d || new Date(); var dw = d.getDay();
@@ -2318,6 +2332,9 @@
     autoGravar(); if (k === 'ate') try { autoStatusPill(); } catch (e) { }
   }
   document.addEventListener('change', function (e) { if (e.target && e.target.getAttribute && e.target.getAttribute('data-au')) autoCampo(e.target); }, true);
+  // 4.41 - textos (frases, mensagens de ausência) gravam enquanto você digita — antes só ao sair do campo; atualizar a página no meio perdia
+  var autoDigT = null;
+  document.addEventListener('input', function (e) { var el = e.target; if (!el || el.tagName !== 'TEXTAREA' || !el.getAttribute || !el.getAttribute('data-au')) return; clearTimeout(autoDigT); autoDigT = setTimeout(function () { try { autoCampo(el); } catch (x) { } }, 700); }, true);
 
   // ═══ 📱 COMANDOS PELO WHATSAPP (4.2) ═══
   // A pedido do Vitor ("preciso poder ajustar essas coisas enviando um whatsapp" + "mandando msg de outro cel, exemplo do meu pessoal"):

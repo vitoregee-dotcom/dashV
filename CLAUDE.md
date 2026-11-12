@@ -2518,3 +2518,8 @@
   Código JBoss — `pfExtPorCodigo` procura o codJboss em TODOS os clientes e só depois o código do PF; 2) telefone/nome ligado antes a outro cadastro ganhava da ligação
   gravada — `pfExtLigadoK` (pfContatosWhats_v1: telefone, senão nome exato, mais novo) agora vem PRIMEIRO no `pfExtAcharK` e no `pfExtQuem`; 3) grupo CRIADO na extensão
   ("➕ grupo", guardado como texto) não aparecia na etiqueta (`gcs` só aceitava os 6 grupos base) — agora entra em cinza. Etiqueta na linha da mensagem sem etiqueta nativa = limitação da 2699.
+- v115.2701 + extensão **4.41** BUG ("de novo essa merda não fica gravado as msg q coloco… não sei se é qnd atualiza" — Minhas frases da saudação): 1) o `autoGravar` podia rodar ANTES de a
+  config do chrome.storage carregar e gravava o PADRÃO por cima (navegador e PF) — agora espera (`autoCarregado`/`autoGravarDepois`, declarados ANTES do `get`: no simulador o callback volta na hora); 2) toda
+  gravação interna (conversa enviada, etiqueta) mudava o `AUTO.ts` e subia pro PF — agora o ts só muda quando a CONFIG muda (`autoJ`/`autoUltJ`) e só sobe pro PF depois de ler a do PF (`autoCfgPend`);
+  3) comparação usa a data da config (`r.cfg.ts`), não a hora em que o PF gravou; o PF não troca por uma mais velha; 4) textarea grava enquanto digita (input, 700 ms). PF: `pfWhatsAutoCfg_v1` junta
+  usuário por usuário na sync (`pfMergeSyncValue` + cópia do worker), o mais novo de cada um vence.

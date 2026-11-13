@@ -3013,6 +3013,54 @@
       autoGravar(); return;
     }
   }
+  // 4.65 - A pedido do Vitor ("botão direito aqui não abre nada, só quando seleciona"): sem seleção o WhatsApp abre o MENU DELE
+  // (Responder, Copiar…) e o do Chrome não aparece — então as opções do PF entram dentro do menu do WhatsApp.
+  var wmT = 0;
+  document.addEventListener('contextmenu', function (e) {
+    try { if (String(window.getSelection() || '').trim()) return; var q = cmQual(e.target); if (q.tipo !== 'msg') return; wmT = Date.now(); wmProcurar(0); } catch (x) { }
+  }, true);
+  function wmMenu() {
+    var lbs = ['Responder', 'Reply', 'Copiar', 'Copy', 'Encaminhar', 'Forward'];
+    var els = document.querySelectorAll('li, [role="menuitem"], [role="button"], div[tabindex]');
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i]; if (el.closest('#pfwa-painel, #pfwa-menu, #pfwa-rail, #pfwa-bots') || (el.closest('#main') && !el.closest('[role="application"]'))) continue;
+      var t = String(el.innerText || '').trim(); if (lbs.indexOf(t) < 0) continue;
+      var r = el.getBoundingClientRect(); if (!r.width || !r.height) continue;
+      return el;
+    }
+    return null;
+  }
+  function wmProcurar(n) {
+    setTimeout(function () {
+      if (Date.now() - wmT > 2500) return; var it = wmMenu(); if (!it) { if (n < 15) wmProcurar(n + 1); return; }
+      var lista = it.parentElement; if (!lista || lista.querySelector('.pfwa-wm')) return; wmPor(lista, it);
+    }, n ? 60 : 30);
+  }
+  function wmPor(lista, modelo) {
+    var itens = [];
+    var forn = resp && resp.tipo === 'fornecedor', bt = ((resp && resp.botoes) || []).some(function (x) { return x && x.acao === 'respForn'; });
+    if (forn || bt) itens.push(['msg_mapa', '📥 Lançar no mapa (PF)']);
+    itens.push(['msg_cotar', '📄 Cotar no PF']);
+    if (resp && resp.k) { itens.push(['msg_nota', '📝 Anotar na ficha (PF)']); itens.push(['msg_lemb', '⏰ Lembrete (PF)']); }
+    itens.push(['msg_rr', '⚡ Salvar como resposta rápida (PF)']);
+    var sep = document.createElement('div'); sep.className = 'pfwa-wm'; sep.style.cssText = 'height:1px;background:rgba(127,127,127,.25);margin:4px 10px';
+    lista.appendChild(sep);
+    itens.forEach(function (x) {
+      var li = modelo.cloneNode(true); li.classList.add('pfwa-wm'); li.removeAttribute('aria-label'); li.removeAttribute('data-testid');
+      li.innerHTML = ''; li.style.cssText = (li.style.cssText || '') + ';display:flex;align-items:center;cursor:pointer';
+      var sp = document.createElement('span'); sp.textContent = x[1]; sp.style.cssText = 'padding:9px 16px;font-size:14.5px;white-space:nowrap;display:block;width:100%';
+      li.appendChild(sp);
+      li.addEventListener('mouseenter', function () { li.style.background = 'rgba(127,127,127,.12)'; });
+      li.addEventListener('mouseleave', function () { li.style.background = ''; });
+      var vai = function (ev) { ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation();
+        try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true })); } catch (e) { }
+        try { var ap = lista.closest('[role="application"]') || lista; if (document.body.contains(ap)) ap.style.display = 'none'; } catch (e) { }
+        cmExec(x[0], '', '').catch(function (e) { console.warn('PF menu', e); }); };
+      li.addEventListener('mousedown', function (ev) { ev.stopPropagation(); }, true);
+      li.addEventListener('click', vai, true);
+      lista.appendChild(li);
+    });
+  }
   // 🔎 Alt+B: cartão da peça dentro do WhatsApp
   var AB = null, abR = null;
   function abEl() { if (!AB) { AB = document.createElement('div'); AB.id = 'pfwa-ab'; document.body.appendChild(AB); AB.addEventListener('click', abClique); } return AB; }

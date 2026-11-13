@@ -731,6 +731,12 @@
     if (ac === 'svSalvar') { svSalvar(b); return; }
     if (ac === 'svCriar') { svSalvar(b, true); return; }
     if (ac === 'svCadAbrir') { if (svK) msg({ t: 'acao', acao: 'irTela', arg: { tela: 'cadcliK', k: svK } }); return; }
+    if (ac === 'svModo') { svModoSet(arg); return; } // 4.60 - 🤝 Cliente | 🏭 Fornecedor
+    if (ac === 'svFTipo') { var _ti = svFornTipos.indexOf(arg); if (_ti >= 0) svFornTipos.splice(_ti, 1); else svFornTipos.push(arg); svFornChipsRender(); return; } // 4.60
+    if (ac === 'svFLinha') { var _li = svFornLinhas.indexOf(arg); if (_li >= 0) svFornLinhas.splice(_li, 1); else svFornLinhas.push(arg); svFornChipsRender(); return; } // 4.60
+    if (ac === 'svFLinhaNova') { var _ln = (prompt('Linha / marca:') || '').trim().toUpperCase(); if (_ln) { if (SV_FORN_LINHAS.indexOf(_ln) < 0) SV_FORN_LINHAS.push(_ln); if (svFornLinhas.indexOf(_ln) < 0) svFornLinhas.push(_ln); svFornChipsRender(); } return; } // 4.60
+    if (ac === 'svUsarForn') { svUsarForn(arg); return; } // 4.60
+    if (ac === 'svFornAbrir') { if (svFornId) msg({ t: 'acao', acao: 'irTela', arg: { tela: 'cadforn', cod: svFornId } }); return; } // 4.60
     if (ac === 'svWa') { svWa(); return; }
     if (ac === 'conexao') { conPintar(''); conChecar(); return; }
     if (ac === 'ajuda') { ajuda = !ajuda; config = false; abrirPainel(); pinta(); return; }
@@ -1232,6 +1238,42 @@
     try { chrome.storage.local.set({ svGruposExtra: SV_GRUPOS_EXTRA }); } catch (e) { }
     svGrupos.push(id); svGruposRender();
   }
+  // 4.60 - A pedido do Vitor ("esse cliente é um fornecedor, como cadastro nos fornecedores? pro pessoal de compras… testes integrado com compras"):
+  // seletor 🤝 Cliente | 🏭 Fornecedor. Como fornecedor, grava no cad_fornecedores_v1 (razão + telefone + contato + 🏭 Trabalha com + linhas + CNPJ + Código JBoss).
+  // Vendas cadastra cliente (padrão); compras cadastra fornecedor.
+  var svModo = 'cliente', svFornId = '', svFornTipos = [], svFornLinhas = [], svSugF = [];
+  var SV_FORN_TIPOS = ['FILTROS', 'ÓLEOS E LUBRIFICANTES', 'CARDAN', 'ROLAMENTOS', 'VEDAÇÃO', 'MOTOR — INTERNOS', 'INJEÇÃO E COMBUSTÍVEL', 'ARREFECIMENTO', 'CORREIAS E TENSORES', 'TURBO', 'EMBREAGEM E FREIO', 'ENGRENAGENS E EIXOS', 'HIDRÁULICO', 'ELÉTRICA', 'FIXAÇÃO', 'BUCHAS E PINOS', 'MATERIAL RODANTE', 'FERRAMENTAS DE CORTE'];
+  var SV_FORN_LINHAS = ['NEW HOLLAND', 'VOLVO', 'CASE', 'CARRARO', 'CATERPILLAR', 'MASSEY', 'RANDON', 'VALTRA', 'AGRALE', 'JOHN DEERE', 'ALLISON', 'ATLAS COPCO', 'JCB', 'DANA/SPICER', 'TIMKEN', 'SKF', 'PARKER', 'BOSCH', 'ZF', 'OUTRAS'];
+  function svFornChipsHtml() {
+    return '<div class="sv-gl">🏭 TRABALHA COM <span style="font-weight:600;text-transform:none;color:#8a9ab0">(tipo de peça — o Mapa de Compras já sugere ele)</span></div>' +
+      '<div class="sv-gr sv-ftipo">' + SV_FORN_TIPOS.map(function (t) { return '<span class="sv-g' + (svFornTipos.indexOf(t) >= 0 ? ' on' : '') + '" data-acao="svFTipo" data-arg="' + esc(t) + '" style="--c:#B45309">' + esc(t) + '</span>'; }).join('') + '</div>' +
+      '<div class="sv-gl">🏷️ LINHAS / MARCAS <span style="font-weight:600;text-transform:none;color:#8a9ab0">(pode escolher mais de uma)</span></div>' +
+      '<div class="sv-gr sv-flinha">' + SV_FORN_LINHAS.map(function (l) { return '<span class="sv-g' + (svFornLinhas.indexOf(l) >= 0 ? ' on' : '') + '" data-acao="svFLinha" data-arg="' + esc(l) + '" style="--c:#1F4E79">' + esc(l) + '</span>'; }).join('') +
+      '<span class="sv-g sv-gnovo" data-acao="svFLinhaNova" title="Outra linha/marca">➕ linha</span></div>';
+  }
+  function svFornChipsRender() { var r = SV && SV.querySelector('.sv-fchips'); if (r) r.innerHTML = svFornChipsHtml(); }
+  function svModoSet(m) {
+    svModo = m; if (!SV) return;
+    SV.classList.toggle('sv-isforn', m === 'forn'); SV.classList.toggle('sv-iscli', m !== 'forn');
+    var tr = SV.querySelector('.sv-modo'); if (tr) tr.innerHTML = svModoRowHtml();
+    var lb = SV.querySelector('.sv-emplab'); if (lb) lb.textContent = m === 'forn' ? 'FORNECEDOR' : 'EMPRESA (cliente do PF)';
+    var em = SV.querySelector('.sv-emp'); if (em) em.placeholder = m === 'forn' ? 'Razão social do fornecedor' : 'Digite pra procurar no PF';
+    var cg = SV.querySelector('.sv-cargo'); if (cg && m === 'forn' && !cg.value.trim()) cg.value = 'Vendedor';
+    var fc = SV.querySelector('.sv-fchips'); if (fc) fc.innerHTML = m === 'forn' ? svFornChipsHtml() : '';
+    var k = SV.querySelector('.sv-k'); if (k) k.innerHTML = '';
+    svK = ''; svFornId = ''; var sg = SV.querySelector('.sv-sug'); if (sg) sg.innerHTML = '';
+  }
+  function svModoRowHtml() {
+    return ['cliente', 'forn'].map(function (m) {
+      return '<span class="sv-modobt' + (svModo === m ? ' on' : '') + '" data-acao="svModo" data-arg="' + m + '">' + (m === 'cliente' ? '🤝 Cliente' : '🏭 Fornecedor') + '</span>';
+    }).join('');
+  }
+  function svUsarForn(i) {
+    var s = svSugF[+i]; if (!s) return; svFornId = s.id;
+    var e = SV.querySelector('.sv-emp'); if (e) e.value = s.razao || s.curto || '';
+    var c = SV.querySelector('.sv-cod'); if (c && !c.value && s.codigo) c.value = String(s.codigo).replace(/^0+/, '');
+    SV.querySelector('.sv-sug').innerHTML = ''; SV.querySelector('.sv-k').innerHTML = '🔗 fornecedor <b>' + esc(s.razao) + '</b>'; svPrev();
+  }
   function svMontar() {
     var n = (SV.querySelector('.sv-nome') || {}).value || '', e = (SV.querySelector('.sv-emp') || {}).value || '', c = (SV.querySelector('.sv-cod') || {}).value || '';
     return [n.trim(), e.trim() ? ' - ' + e.trim() : '', c.trim() ? ' (' + c.trim().replace(/\D/g, '') + ')' : ''].join('').trim();
@@ -1240,6 +1282,8 @@
   function svAbrir(cnpjPre) { // 4.4 - cnpjPre = CNPJ pra já preencher (veio da conversa)
     var c = contatoAt; if (!c || c.grupo) return;
     svGrupos = []; svGrpMexeu = false; // 4.15 - começa sem grupo marcado
+    svFornId = ''; svFornTipos = []; svFornLinhas = []; svSugF = []; // 4.60
+    svModo = (resp && resp.tipo === 'fornecedor') ? 'forn' : 'cliente'; // 4.60 - vendas cadastra cliente (padrão); se a conversa já é fornecedor, começa em fornecedor
     var r = resp && resp.achou && resp.tipo === 'cliente' ? resp : null;
     svTipo = (r && r.tipoCli) || ''; // 4.24 - já vem com o tipo do cadastro
     svGueri = !!(r && r.gueri); // 4.37 / v115.2695 - selo Gueri (NF baixa) já vem marcado se o cadastro tiver
@@ -1249,33 +1293,45 @@
     var _rg = (r && r.grupos) || (resp && !resp.achou && resp.grupos) || null; /* 4.57 - contato com grupo (ex.: Triex) */ if (_rg) _rg.forEach(function (g) { var id = svGrupoIdDoNome(g); if (id && svGrupos.indexOf(id) < 0) svGrupos.push(id); }); // 4.27 - grupos do cadastro já marcados
     var nome = svNomeBase(c.nome) || (r && r.contato) || '', emp = svEmpBase(c.nome) || (r ? r.titulo : ''), cod = svCodBase(c.nome) || (r && r.cod) || '';
     var semNum = /^[+\d\s()\-]{8,}$/.test(c.nome || '');
+    SV.className = svModo === 'forn' ? 'sv-isforn' : 'sv-iscli'; // 4.60
     SV.innerHTML = '<div class="sv-cab"><b>👤 Salvar contato</b><span class="sv-x" data-acao="svFechar" title="Fechar">✕</span></div>' +
       '<div class="sv-tel">📱 ' + esc(c.tel ? fmtTel(c.tel) : 'número não aparece na conversa') + '</div>' +
+      '<div class="sv-modo">' + svModoRowHtml() + '</div>' + // 4.60 - 🤝 Cliente | 🏭 Fornecedor
       '<label>NOME DA PESSOA<input class="sv-nome" value="' + esc(nome) + '" placeholder="Ex.: Tiago"></label>' +
-      '<label>EMPRESA (cliente do PF)<input class="sv-emp" value="' + esc(emp) + '" placeholder="Digite pra procurar no PF" autocomplete="off"></label><div class="sv-sug"></div>' +
-      '<label>CARGO<input class="sv-cargo" value="' + esc((r && r.cargo) || '') + '" placeholder="Ex.: Compras, Dono, Mecânico" list="pfwa-sv-cargos"></label>' +
+      '<label><span class="sv-emplab">' + (svModo === 'forn' ? 'FORNECEDOR' : 'EMPRESA (cliente do PF)') + '</span><input class="sv-emp" value="' + esc(emp) + '" placeholder="' + (svModo === 'forn' ? 'Razão social do fornecedor' : 'Digite pra procurar no PF') + '" autocomplete="off"></label><div class="sv-sug"></div>' +
+      '<label>CARGO<input class="sv-cargo" value="' + esc((r && r.cargo) || (svModo === 'forn' ? 'Vendedor' : '')) + '" placeholder="Ex.: Compras, Dono, Mecânico" list="pfwa-sv-cargos"></label>' +
       '<datalist id="pfwa-sv-cargos"><option>Compras<option>Comprador<option>Dono<option>Sócio<option>Gerente<option>Financeiro<option>Mecânico<option>Encarregado<option>Vendedor<option>Balconista</datalist>' +
       '<label>CÓDIGO NO JBOSS<input class="sv-cod" value="' + esc(cod) + '" placeholder="Ex.: 12662" inputmode="numeric"></label>' +
+      // ── fornecedor: 🏭 Trabalha com + linhas ──
+      '<div class="sv-fchips sv-so-forn">' + (svModo === 'forn' ? svFornChipsHtml() : '') + '</div>' +
+      // ── cliente: tipo, intimidade, marca, grupo, gueri/fat.sp ──
+      '<div class="sv-so-cli">' +
       '<div class="sv-gl">TIPO DO CLIENTE</div><div class="sv-gr sv-tp">' + svTipoRowHtml() + '</div>' + // 4.24
       '<div class="sv-gl">INTIMIDADE COM ESSA PESSOA <span style="font-weight:600;text-transform:none;color:#8a9ab0">(tom das mensagens automáticas)</span></div><div class="sv-gr sv-int">' + svIntRowHtml() + '</div>' + svIntSugHtml() + // 4.47
       '<div class="sv-marca"></div>' + // 4.26 - marca da concessionária (só quando o tipo é Concessionária)
       '<div class="sv-gl">GRUPO DO CLIENTE <span style="font-weight:600;text-transform:none;color:#8a9ab0">(pode escolher mais de um)</span></div><div class="sv-gr sv-grp">' + svGruposRowHtml() + '</div>' +
       '<div class="sv-gr sv-gueri"><span class="sv-g' + (svGueri ? ' on' : '') + '" data-acao="svGueri" style="--c:#c0392b">💳 Gueri (compra com NF baixa)</span>' + // 4.37 / v115.2695
       '<span class="sv-g' + (svFatSp ? ' on' : '') + '" data-acao="svFatSp" style="--c:#1F4E79">🧾 Faturar por SP</span></div>' + // 4.39 / v115.2697
-
-      '<label>CNPJ <span style="font-weight:600;text-transform:none">(cliente novo entra como pré-cadastro 🌱)</span><input class="sv-cnpj" value="' + esc(fmtCnpj(cnpjPre || '')) + '" placeholder="00.000.000/0000-00" inputmode="numeric"></label>' +
+      '</div>' +
+      '<label>CNPJ <span class="sv-so-cli" style="font-weight:600;text-transform:none">(cliente novo entra como pré-cadastro 🌱)</span><input class="sv-cnpj" value="' + esc(fmtCnpj(cnpjPre || '')) + '" placeholder="00.000.000/0000-00" inputmode="numeric"></label>' +
       '<div class="sv-pv">Vai ficar: <b class="sv-prev"></b></div>' +
       '<div class="sv-k">' + (svK && r && r.titulo ? '🔗 ligado a <b>' + esc(r.titulo) + '</b>' : '') + '</div>' +
       '<div class="sv-bts"><button class="sv-ok" data-acao="svSalvar">💾 Salvar no PF</button><button class="sv-wa" data-acao="svWa" title="Só renomeia/salva o contato no WhatsApp (e no celular) — nada vai pro PF">📱 Só no WhatsApp</button></div>' +
       '<div class="sv-st"></div>';
     SV.style.display = 'block'; svAberto = true; svPos(); svPrev(); svMarcaRender(); // 4.26 - mostra a marca se já vier Concessionária
-    ['sv-nome', 'sv-emp', 'sv-cod'].forEach(function (k) { var i = SV.querySelector('.' + k); if (i) i.oninput = function () { svPrev(); if (k === 'sv-emp' || (k === 'sv-cod' && !svK)) { if (k === 'sv-emp') { svK = ''; SV.querySelector('.sv-k').innerHTML = ''; } clearTimeout(svT); svT = setTimeout(function () { svBuscar(i.value); }, 250); } }; });
+    ['sv-nome', 'sv-emp', 'sv-cod'].forEach(function (k) { var i = SV.querySelector('.' + k); if (i) i.oninput = function () { svPrev(); if (k === 'sv-emp' || (k === 'sv-cod' && !svK)) { if (k === 'sv-emp') { svK = ''; svFornId = ''; SV.querySelector('.sv-k').innerHTML = ''; } clearTimeout(svT); svT = setTimeout(function () { svBuscar(i.value); }, 250); } }; });
     var cnI = SV.querySelector('.sv-cnpj'); if (cnI) cnI.oninput = function () { var d = cnI.value.replace(/\D/g, '').slice(0, 14); cnI.value = d.length === 14 ? d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') : d; };
     var f = SV.querySelector(nome ? '.sv-emp' : '.sv-nome'); if (f) f.focus();
   }
   async function svBuscar(q) {
     var box = SV.querySelector('.sv-sug'); if (!box) return;
     if (String(q || '').trim().length < 3 && !/^\d{2,}$/.test(String(q || '').trim())) { box.innerHTML = ''; return; }
+    if (svModo === 'forn') { // 4.60 - procura fornecedor existente (evita duplicar)
+      var rf = await msg({ t: 'acao', acao: 'fornSugerir', arg: { q: q } });
+      svSugF = (rf && rf.l) || [];
+      box.innerHTML = svSugF.map(function (s, i) { return '<div class="sv-it" data-acao="svUsarForn" data-arg="' + i + '"><b>🏭 ' + esc(s.razao) + '</b><small>' + esc([s.codigo ? 'cód. ' + s.codigo : '', s.cidade].filter(Boolean).join(' · ')) + '</small></div>'; }).join('');
+      return;
+    }
     var r = await msg({ t: 'acao', acao: 'clientesSugerir', arg: { q: q } });
     svSug = (r && r.l) || [];
     box.innerHTML = svSug.map(function (s, i) { return '<div class="sv-it" data-acao="svUsar" data-arg="' + i + '"><b>' + esc(s.razao) + '</b><small>' + esc([s.codigo ? 'cód. ' + s.codigo : '', s.cidade].filter(Boolean).join(' · ')) + '</small></div>'; }).join('');
@@ -1302,6 +1358,7 @@
   async function svSalvar(b, criar) {
     var c = contatoAt; if (!c) return; var nomeFull = svMontar(); if (!nomeFull) { flash(b, 'Escreva o nome'); return; }
     var v = function (k) { return (SV.querySelector('.' + k) || {}).value || ''; };
+    if (svModo === 'forn') return svSalvarForn(b, c, nomeFull, v); // 4.60
     if (criar && !v('sv-emp').trim()) { flash(b, 'Escreva a empresa'); return; }
     var txt = b.textContent; b.disabled = true; b.textContent = 'Salvando…';
     var cn = v('sv-cnpj').replace(/\D/g, ''); if (cn && cn.length !== 14 && cn.length !== 11) { flash(b, 'CNPJ incompleto'); b.disabled = false; b.textContent = txt; return; }
@@ -1325,6 +1382,21 @@
       if (!criar) Promise.resolve(waSalvarNome(nomeFull, st)).then(function () { return dormir(900); }).then(function () { if (r.k) return waEtiquetar([nomeFull, c.nome], st); }).catch(function () { });
     }
     else st.textContent = 'Não deu — abra o PartsFlow numa aba.';
+  }
+  // 4.60 - grava como FORNECEDOR (cad_fornecedores_v1): razão + telefone + contato (cargo) + 🏭 Trabalha com + linhas + CNPJ + Código JBoss.
+  async function svSalvarForn(b, c, nomeFull, v) {
+    var razao = v('sv-emp').trim(); if (!razao) { flash(b, 'Escreva o fornecedor'); return; }
+    var cn = v('sv-cnpj').replace(/\D/g, ''); if (cn && cn.length !== 14 && cn.length !== 11) { flash(b, 'CNPJ incompleto'); return; }
+    var txt = b.textContent; b.disabled = true; b.textContent = 'Salvando…';
+    var r = await msg({ t: 'acao', acao: 'salvarFornecedor', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), razao: razao, cargo: v('sv-cargo'), cod: v('sv-cod'), cnpj: cn, fornId: svFornId, tipos: svFornTipos.slice(), linhas: svFornLinhas.slice() } });
+    b.disabled = false; b.textContent = txt;
+    var st = SV.querySelector('.sv-st');
+    if (r && r.ok) {
+      svFornId = r.id || svFornId;
+      st.innerHTML = '✔ ' + (r.novo ? 'Fornecedor <b>' + esc(r.forn) + '</b> criado no PF' + (r.codigo ? ' (cód. ' + esc(r.codigo) + ')' : '') : 'Contato salvo no fornecedor <b>' + esc(r.forn) + '</b>') + '. <span class="sv-lk" data-acao="svFornAbrir">abrir o cadastro ›</span>';
+      ultimo = ''; sitSig = ''; try { carregarSituacoes(); } catch (e) { }
+      Promise.resolve(waSalvarNome(nomeFull, st)).catch(function () { });
+    } else st.textContent = (r && r.msg) ? r.msg : 'Não deu — abra o PartsFlow numa aba.';
   }
   // 4.7 - salva/renomeia o contato no próprio WhatsApp: "Adicionar aos contatos" (número não salvo) ou abre os dados do contato → Editar;
   // escreve o nome (Nome = tudo, Sobrenome vazio) e aperta Salvar. O WhatsApp Web muda de cara de vez em quando — sem achar, avisa e deixa o nome copiado.

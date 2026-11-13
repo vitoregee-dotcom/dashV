@@ -2646,3 +2646,7 @@
   `grupos:[]` e o `pfExtSalvarContato` só gravava grupos com a lista cheia (`gs.length`). Agora a extensão manda `gruposMexeu` (`svGrpMexeu`, ligado no `svGrupoSet`, zerado no `svAbrir`)
   e o PF grava a lista vazia (tira os grupos) quando ele vem. Testado (`t2724.js`): L. Amarela → desmarcado = grupo vazio no cadastro e na etiqueta. Posição: a conversa SEM etiqueta
   nativa do WhatsApp não tem 3ª linha (altura fixa) → grupo/tipo ficam na linha da mensagem; a 3ª linha só aparece com a etiqueta "Cliente PF" criada no WhatsApp Business (`waEtiquetar`).
+- v115.2725 + extensão **4.56** (print do "Adicionar à lista" do WhatsApp: "agora na vdd é listas né?"): o WhatsApp Business trocou Etiquetas por LISTAS (botão "Adicionar à lista"
+  no cabeçalho da conversa, caixinhas + "Nova lista"). `waEtiquetar` tenta primeiro `waListaPeloCabecalho`: abre o botão, marca a lista "Cliente PF" (`waTxtExato` + `waCaixaDe`); sem
+  a lista, cria pelo "Nova lista" (campo dentro do `[role=dialog]`, botão "Criar lista") e marca. Sem o botão = jeito antigo (`waEtiquetarAntigo`, menu "Etiquetar conversa").
+  Simulador ganhou o "Adicionar à lista ▾" (`simListaPop`, `SIM_LISTAS`). Testado no simulador (cria a lista e a 3ª linha aparece); seletores do WhatsApp real não testados.

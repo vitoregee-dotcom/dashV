@@ -1103,7 +1103,9 @@
   function svMarcaSet(m) { var i = svConcMarcas.indexOf(m); if (i >= 0) svConcMarcas.splice(i, 1); else svConcMarcas.push(m); svMarcaRender(); }
   function svMarcaNova() { var nome = (prompt('Marca da concessionária:') || '').trim(); if (!nome) return; if (svConcMarcas.indexOf(nome) < 0) svConcMarcas.push(nome); svMarcaRender(); }
   function svTipoSet(t) { svTipo = svTipo === t ? '' : t; var r = SV && SV.querySelector('.sv-tp'); if (r) r.innerHTML = svTipoRowHtml(); svMarcaRender(); }
-  function svGrupoSet(g) { var i = svGrupos.indexOf(g); if (i >= 0) svGrupos.splice(i, 1); else svGrupos.push(g); svGruposRender(); }
+  // 4.55 - BUG (Vitor: "desmarquei, salvei, mas ainda continua aqui"): desmarcar TODOS os grupos mandava lista vazia e o PF ignorava. Agora avisa que você mexeu.
+  var svGrpMexeu = false;
+  function svGrupoSet(g) { svGrpMexeu = true; var i = svGrupos.indexOf(g); if (i >= 0) svGrupos.splice(i, 1); else svGrupos.push(g); svGruposRender(); }
   function svGrupoNovo() {
     var nome = (prompt('Nome do grupo novo:') || '').trim(); if (!nome) return;
     if (svGruposTodos().some(function (g) { return g[1].toUpperCase() === nome.toUpperCase(); })) { var jg = svGruposTodos().find(function (g) { return g[1].toUpperCase() === nome.toUpperCase(); }); if (jg && svGrupos.indexOf(jg[0]) < 0) svGrupos.push(jg[0]); svGruposRender(); return; }
@@ -1120,7 +1122,7 @@
   function svPrev() { var p = SV && SV.querySelector('.sv-prev'); if (p) p.textContent = svMontar() || '—'; }
   function svAbrir(cnpjPre) { // 4.4 - cnpjPre = CNPJ pra já preencher (veio da conversa)
     var c = contatoAt; if (!c || c.grupo) return;
-    svGrupos = []; // 4.15 - começa sem grupo marcado
+    svGrupos = []; svGrpMexeu = false; // 4.15 - começa sem grupo marcado
     var r = resp && resp.achou && resp.tipo === 'cliente' ? resp : null;
     svTipo = (r && r.tipoCli) || ''; // 4.24 - já vem com o tipo do cadastro
     svGueri = !!(r && r.gueri); // 4.37 / v115.2695 - selo Gueri (NF baixa) já vem marcado se o cadastro tiver
@@ -1188,7 +1190,7 @@
     var cn = v('sv-cnpj').replace(/\D/g, ''); if (cn && cn.length !== 14 && cn.length !== 11) { flash(b, 'CNPJ incompleto'); b.disabled = false; b.textContent = txt; return; }
     if (cn) b.textContent = 'Buscando o CNPJ…';
     var _gs = svGrupos.map(function (id) { var g = svGruposTodos().find(function (x) { return x[0] === id; }); return g && /^g_/.test(id) ? g[1] : id; }).filter(Boolean); // 4.15 - grupo base = chave; grupo criado = o nome
-    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: _gs[0] || '', grupos: _gs, tipoCli: svTipo, concMarcas: svTipo === 'conc' ? svConcMarcas : [], gueri: svGueri, fatSp: svFatSp, intim: svIntim } }); // 4.26 - marca da concessionária · 4.37 Gueri · 4.39 Fat. SP
+    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: _gs[0] || '', grupos: _gs, gruposMexeu: svGrpMexeu, tipoCli: svTipo, concMarcas: svTipo === 'conc' ? svConcMarcas : [], gueri: svGueri, fatSp: svFatSp, intim: svIntim } }); // 4.26 - marca da concessionária · 4.37 Gueri · 4.39 Fat. SP
     b.disabled = false; b.textContent = txt;
     var st = SV.querySelector('.sv-st');
     if (r && r.ok) {

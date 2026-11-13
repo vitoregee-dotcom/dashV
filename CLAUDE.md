@@ -2642,3 +2642,7 @@
 - v115.2723 ("vasculhe erros e procure ideias… me apresente amanhã"): varredura de código "engolido" por comentário na mesma linha + ~40 telas/janelas abertas com a demo
   (script `varre.js` no scratchpad). BUG: em Máquinas → Peças de manutenção o `if(!its.length&&tid==='outros')return;` estava dentro do comentário da v115.2314 (bloco "Outros (0)"
   vazio). Relatório com erros e 10 ideias em `docs/referencias/varredura-1311/relatorio.md`. **Ao comentar uma linha minificada, pular linha antes do código seguinte.**
+- v115.2724 + extensão **4.55** BUG (print do 👤 Salvar contato do Juninho - Adipel: "entrei, desmarquei, salvei, mas ainda continua aqui"): desmarcar TODOS os grupos mandava
+  `grupos:[]` e o `pfExtSalvarContato` só gravava grupos com a lista cheia (`gs.length`). Agora a extensão manda `gruposMexeu` (`svGrpMexeu`, ligado no `svGrupoSet`, zerado no `svAbrir`)
+  e o PF grava a lista vazia (tira os grupos) quando ele vem. Testado (`t2724.js`): L. Amarela → desmarcado = grupo vazio no cadastro e na etiqueta. Posição: a conversa SEM etiqueta
+  nativa do WhatsApp não tem 3ª linha (altura fixa) → grupo/tipo ficam na linha da mensagem; a 3ª linha só aparece com a etiqueta "Cliente PF" criada no WhatsApp Business (`waEtiquetar`).

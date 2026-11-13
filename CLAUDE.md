@@ -2682,3 +2682,4 @@
   é da lista INTEIRA (`grpContarTudo`: motor chatsTodos → acao `situacoes` em lotes de 150 → `grpTot` {n,semg,ts}, 9 s depois de abrir e a cada 5 min; "· todas as conversas" na barra).
   Sem motor = conta o que está carregado (title avisa). O filtro continua mostrando/escondendo só as conversas carregadas (o WhatsApp não desenha as outras).
   Obs.: esta ia ser a 2730/4.60, mas outra sessão publicou 2730/2731 ao mesmo tempo — **antes de publicar, `git fetch` e conferir a versão da `main`; NUNCA `merge -s ours` com a main que andou (apaga o trabalho dela).**
+- v115.2733 ("como eu altero a quantidade aqui no RMA? ao invés de 1 pç são 2"): no detalhe do RMA (`rmaVerDetalhe`) a Qtd de cada item virou campo → `rmaItemQtdSalvar(id,i,v)` (grava com ts novo, atualiza a lista).

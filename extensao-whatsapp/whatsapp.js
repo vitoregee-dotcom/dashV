@@ -1899,6 +1899,22 @@
     });
     return out;
   }
+  // 4.62 - conta os grupos na lista INTEIRA de conversas (motor), sem rolar nem abrir nada
+  var grpTot = null, grpTotRodando = false;
+  async function grpContarTudo() {
+    if (grpTotRodando || !menuLig || !motorOk) return; grpTotRodando = true;
+    try {
+      var r = await motor('chatsTodos', {}, 60000); if (!r || r.erro || !Array.isArray(r.l)) return;
+      var n = {}, semg = 0, l = r.l.filter(function (c) { return c.nome; });
+      for (var i = 0; i < l.length; i += 150) {
+        var sl = l.slice(i, i + 150), sx = await msg({ t: 'acao', acao: 'situacoes', arg: { lista: sl.map(function (c) { return { nome: c.nome, tel: c.tel || '' }; }) } });
+        if (!sx || !sx.sit) return;
+        sl.forEach(function (c) { var x = sx.sit[c.nome]; if (!x || (x.tipo !== 'cliente' && x.tipo !== 'contato')) return; var gs = audGruposDe(x); if (!gs.length) { if (x.tipo === 'cliente') semg++; return; } gs.forEach(function (g) { n[g] = (n[g] || 0) + 1; }); });
+      }
+      grpTot = { n: n, semg: semg, ts: Date.now() }; pintarMenu();
+    } catch (e) { } finally { grpTotRodando = false; }
+  }
+  setTimeout(function () { if (vivo()) grpContarTudo(); }, 9000); setInterval(function () { if (vivo()) grpContarTudo(); }, 300000);
   function carregarSituacoes() {
     if (!menuLig) return;
     clearTimeout(sitTimer);
@@ -2046,12 +2062,20 @@
     var gN = {}, gCor = {}, nSemG = 0;
     linhasLista().forEach(function (x) { var s = sitCache[x.nome] || {}; if (s.tipo !== 'cliente' && s.tipo !== 'contato') return; var gs = audGruposDe(s); if (!gs.length) { nSemG++; return; } gs.forEach(function (g) { gN[g] = (gN[g] || 0) + 1; if (s.gCor && g === s.grupo) gCor[g] = s.gCor; }); });
     var ordem = svGruposTodos().map(function (g) { return g[1]; }); svGruposTodos().forEach(function (g) { if (g[2] && !gCor[g[1]]) gCor[g[1]] = g[2]; });
+    // 4.62 - A pedido do Vitor ("aqui só mostra os que têm msg sem ler?… é que não tá aparecendo agrícola"): a barra contava só as conversas que o
+    // WhatsApp tinha desenhado na tela (~20). Agora TODOS os grupos aparecem sempre (zerado = apagado) e, com o motor ligado, o número é da lista
+    // INTEIRA de conversas (grpTot, refeito a cada 5 min por grpContarTudo); sem o motor continua sendo o que está carregado na tela.
+    var gTot = grpTot && grpTot.n ? grpTot : null;
+    if (gTot) { gN = {}; Object.keys(gTot.n).forEach(function (g) { gN[g] = gTot.n[g]; }); nSemG = gTot.semg || 0; }
+    ordem.forEach(function (g) { if (gN[g] == null) gN[g] = 0; });
     var gKeys = Object.keys(gN).sort(function (a, b) { var ia = ordem.indexOf(a), ib = ordem.indexOf(b); ia = ia < 0 ? 99 : ia; ib = ib < 0 ? 99 : ib; return ia - ib || gN[b] - gN[a]; });
-    var pillG = function (k, txt, n, cor) { return '<span class="pfm-pill' + (menuFiltro === k ? ' on' : '') + '" data-acao="menuFiltro" data-arg="' + esc(k) + '">' + (cor ? '<i class="pfm-dot" style="background:' + esc(cor) + '"></i>' : '') + txt + ' <b>' + n + '</b></span>'; };
+    var gTit = gTot ? 'em todas as suas conversas' : 'nas conversas carregadas na tela agora (ligue o motor pra contar todas)';
+    var pillG = function (k, txt, n, cor) { return '<span class="pfm-pill' + (menuFiltro === k ? ' on' : '') + '" data-acao="menuFiltro" data-arg="' + esc(k) + '" title="' + n + ' ' + gTit + '"' + (n ? '' : ' style="opacity:.45"') + '>' + (cor ? '<i class="pfm-dot" style="background:' + esc(cor) + '"></i>' : '') + txt + ' <b>' + n + '</b></span>'; };
     var hG = '<span class="pfm-logo">PF</span>' + '<span class="pfm-pill' + (menuFiltro.indexOf('g:') !== 0 && menuFiltro !== 'semg' ? ' on' : '') + '" data-acao="menuFiltro" data-arg="">Tudo</span>';
     gKeys.forEach(function (g) { hG += pillG('g:' + g, esc(g), gN[g], gCor[g]); });
     if (nSemG) hG += pillG('semg', '❔ Sem grupo', nSemG, '');
     if (!gKeys.length && !nSemG) hG += '<span class="pfm-vazio">Nenhum cliente do PF nesta lista ainda</span>';
+    if (gTot) hG += '<span class="pfm-vazio" title="Contado em todas as conversas pelo motor">· todas as conversas</span>';
     var ls = linhasLista(), nC = 0, nF = 0, nCot = 0, nSem = 0, etqN = {};
     ls.forEach(function (x) { var s = sitCache[x.nome] || {}; if (s.tipo === 'cliente') nC++; else if (s.tipo === 'fornecedor') nF++; if (s.cot) nCot++; if (x.unread) nSem++; x.etqs.forEach(function (e) { etqN[e] = (etqN[e] || 0) + 1; }); });
     var etqTop = Object.keys(etqN).sort(function (a, b) { return etqN[b] - etqN[a]; }).slice(0, 5);

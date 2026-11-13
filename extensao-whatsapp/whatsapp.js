@@ -376,6 +376,64 @@
   }
   // 4.57 - A pedido do Vitor ("vamos no 2. mas ai ele vai fz somente nos q não estão em lista?"): põe na lista "Cliente PF" só as conversas de cliente do PF
   // (ou contato com grupo) que NÃO têm a linha da lista do WhatsApp; pula as não lidas (abrir tira o "não lida"). Rola a lista toda; clique de novo = para.
+  // 4.58 - A pedido do Vitor ("no Watidy ele fazia em segundo plano… vamos fazer"): MOTOR por dentro do WhatsApp (motor.js + WA-JS, mundo da página).
+  // motor(op,arg) → resposta; motorOk = o motor está pronto. Sem motor, tudo volta pro jeito antigo (clicando na tela).
+  var motorSeq = 0, motorPend = {}, motorOk = false, motorVer = '';
+  window.addEventListener('message', function (e) { var d = e.data; if (e.source !== window || !d || d.__pfMotor !== 'res') return; var p = motorPend[d.id]; if (p) { delete motorPend[d.id]; p(d.r); } });
+  function motor(op, arg, ms) { return new Promise(function (res) { var id = ++motorSeq; motorPend[id] = res; window.postMessage({ __pfMotor: 'req', id: id, op: op, arg: arg || {} }, '*'); setTimeout(function () { if (motorPend[id]) { delete motorPend[id]; res({ erro: 'tempo' }); } }, ms || 15000); }); }
+  async function motorChecar() { var r = await motor('ping', {}, 2500); motorOk = !!(r && r.pronto); motorVer = (r && r.ver) || ''; return motorOk; }
+  setTimeout(motorChecar, 4000); setInterval(function () { if (vivo()) motorChecar(); }, 30000);
+  function motorSeloHtml() { return motorOk ? '<div class="pfwa-motor on">⚙️ Motor ligado — faz sem abrir as conversas</div>' : '<div class="pfwa-motor">⚙️ Motor desligado — fazendo pelo jeito antigo (abrindo as conversas)</div>'; }
+  // 4.58 - A pedido do Vitor ("não dá nem pra ver como está o processo… mostrar o percentual, a quantidade que falta"): barra de andamento padrão
+  function progSet(st, tit, feito, total, extra) {
+    if (!st) return;
+    var temT = total > 0, p = temT ? Math.min(100, Math.round(feito * 100 / total)) : 0;
+    st.innerHTML = '<div class="pfwa-prog"><div class="pfwa-progt"><b>' + tit + '</b>' + (temT ? '<span>' + p + '%</span>' : '') + '</div>' +
+      '<div class="pfwa-progb' + (temT ? '' : ' ind') + '"><i style="width:' + (temT ? p : 35) + '%"></i></div>' +
+      '<div class="pfwa-progs">' + (temT ? feito + ' de ' + total + ' · faltam ' + Math.max(0, total - feito) : 'preparando…') + (extra ? ' · ' + extra : '') + '</div></div>';
+  }
+  function progPct(st, tit, pct, extra) {
+    if (!st) return; pct = Math.max(0, Math.min(100, Math.round(pct)));
+    st.innerHTML = '<div class="pfwa-prog"><div class="pfwa-progt"><b>' + tit + '</b><span>' + pct + '%</span></div><div class="pfwa-progb"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="pfwa-progs">' + (extra || '') + '</div></div>';
+  }
+  async function listaMassaMotor(b, st) {
+    progSet(st, '🏷️ Lendo as conversas…', 0, 0);
+    var r = await motor('chatsTodos', {}, 60000); if (!r || r.erro || !Array.isArray(r.l)) return false;
+    var semLista = r.l.filter(function (c) { return !c.listas && c.nome; }), alvo = [];
+    for (var i = 0; i < semLista.length && !lmParar; i += 150) {
+      progSet(st, '🏷️ Conferindo quem é cliente do PF', i, semLista.length, alvo.length + ' clientes sem lista');
+      var sl = semLista.slice(i, i + 150), s = await msg({ t: 'acao', acao: 'situacoes', arg: { lista: sl.map(function (c) { return { nome: c.nome, tel: '' }; }) } });
+      sl.forEach(function (c) { var x = s && s.sit && s.sit[c.nome]; if (x && (x.tipo === 'cliente' || x.tipo === 'contato')) alvo.push(c); });
+    }
+    if (lmParar) { st.textContent = '⏸ Parado'; return true; }
+    if (!alvo.length) { st.textContent = '✔ Nenhum cliente sem lista — todos já estão em alguma'; return true; }
+    var lb = await motor('labelGarantir', { nome: WA_ETQ }, 20000);
+    if (!lb || lb.erro) { st.textContent = '⚠ Não consegui achar/criar a lista "' + WA_ETQ + '" (' + ((lb && lb.erro) || 'sem resposta') + '). Crie ela no WhatsApp ("Adicionar à lista" › Nova lista) e tente de novo.'; return true; }
+    var n = 0, err = 0;
+    for (var j = 0; j < alvo.length && !lmParar; j += 10) {
+      var lote = alvo.slice(j, j + 10), a = await motor('labelAdd', { ids: lote.map(function (c) { return c.id; }), labelId: lb.id }, 30000);
+      if (a && a.ok) n += lote.length; else err += lote.length;
+      progSet(st, '🏷️ Pondo na lista "' + WA_ETQ + '"', Math.min(j + 10, alvo.length), alvo.length, n + ' postas' + (err ? ' · ' + err + ' com erro' : ''));
+      await dormir(300);
+    }
+    sitSig = ''; try { carregarSituacoes(); } catch (e) { }
+    st.textContent = (lmParar ? '⏸ Parado · ' : '✔ Pronto · ') + n + ' conversa(s) postas na lista "' + WA_ETQ + '"' + (err ? ' · ' + err + ' com erro' : '') + ' (sem abrir nenhuma conversa)';
+    return true;
+  }
+  async function numerosMotor(b, st) {
+    progSet(st, '📞 Lendo os contatos do celular…', 0, 0);
+    var rc = await motor('contatos', {}, 180000); if (!rc || rc.erro || !Array.isArray(rc.l)) return false;
+    var com = rc.l.filter(function (c) { return c.tel; }), gravou = 0, noPf = 0;
+    for (var i = 0; i < com.length && !numParar; i += 200) {
+      var g = await msg({ t: 'acao', acao: 'contatosTelLote', arg: { lista: com.slice(i, i + 200).map(function (c) { return { nome: c.nome, tel: c.tel }; }) } });
+      if (g && g.erro) { st.textContent = g.erro === 'semPF' ? 'Abra o PF numa aba deste Chrome' : 'Dê F5 na aba do PartsFlow (versão nova)'; return true; }
+      gravou += (g && g.gravou) || 0; noPf += (g && g.semCad) || 0;
+      progSet(st, '📞 Passando os números pro PF', Math.min(i + 200, com.length), com.length, gravou + ' gravados');
+    }
+    st.textContent = (numParar ? '⏸ Parado · ' : '✔ Pronto · ') + gravou + ' número(s) gravados no PF · ' + com.length + ' contatos do celular com número' + (rc.l.length - com.length ? ' · ' + (rc.l.length - com.length) + ' sem número' : '');
+    return true;
+  }
   var lmRodando = false, lmParar = false;
   function temLinhaLista(r) {
     if (r.querySelector('.pfwa-row3u')) return true;
@@ -393,6 +451,7 @@
     if (lmRodando) { lmParar = true; b.textContent = 'Parando…'; return; }
     var pane = $('#pane-side'); if (!pane) { flash(b, 'Abra a lista de conversas'); return; }
     lmRodando = true; lmParar = false; b.textContent = '⏸ Parar';
+    if (motorOk || await motorChecar()) { var okM = false; try { okM = await listaMassaMotor(b, st); } catch (e) { } if (okM) { lmRodando = false; b.textContent = '🏷️ Pôr os clientes na lista Cliente PF'; return; } } // 4.58 - sem abrir as conversas
     var antes = contatoAt ? contatoAt.nome : '', feitos = {}, n = 0, pul = 0, erro = 0;
     pane.scrollTop = 0; await dormir(1500);
     for (var volta = 0; volta < 400 && !lmParar; volta++) {
@@ -402,7 +461,7 @@
         if (Math.abs(pane.scrollTop - t0) < 5) break; continue;
       }
       feitos[x.nome] = 1;
-      if (st) st.textContent = '🏷️ ' + x.nome + ' · ' + n + ' posta(s) na lista';
+      progPct(st, '🏷️ Pondo na lista "' + WA_ETQ + '"', pane.scrollTop * 100 / Math.max(1, pane.scrollHeight - pane.clientHeight), n + ' postas' + (erro ? ' · ' + erro + ' não deu' : '') + ' · agora: ' + esc(x.nome) + ' · % = quanto da lista já foi olhado'); // 4.58
       clicar(x.el);
       var ab = await esperar(function () { var c = contatoAtual(); return c && c.nome === x.nome ? c : null; }, 5000);
       if (!ab) { erro++; continue; }
@@ -419,6 +478,7 @@
   async function buscarNumeros(b) {
     var st = P.querySelector('.pfwa-rodst');
     if (numRodando) { numParar = true; b.textContent = 'Parando…'; return; }
+    if (motorOk || await motorChecar()) { numRodando = true; numParar = false; b.textContent = '⏸ Parar'; var okN = false; try { okN = await numerosMotor(b, st); } catch (e) { } numRodando = false; b.textContent = '📞 Buscar números que faltam'; if (okN) return; } // 4.58 - lê todos de uma vez, sem abrir conversa
     var est = (await chrome.storage.local.get(['numEstado'])).numEstado;
     var r = await msg({ t: 'acao', acao: 'contatosSemTel' });
     if (!r || r.erro || !Array.isArray(r.nomes)) { flash(b, r && r.erro === 'semPF' ? 'Abra o PF numa aba deste Chrome' : r && r.erro === 'pfF5' ? 'Dê F5 na aba do PartsFlow' : 'Atualize o PF (F5) — versão nova'); return; }
@@ -432,7 +492,7 @@
     var achou = (est && est.achou) || 0, n0 = nomes.length - falta.length;
     for (var i = 0; i < falta.length && !numParar; i++) {
       var nome = falta[i];
-      if (st) st.textContent = '📞 ' + (n0 + i + 1) + ' de ' + nomes.length + ' · ' + achou + ' número(s) achados';
+      progSet(st, '📞 Buscando números', n0 + i, nomes.length, achou + ' achados · agora: ' + esc(nome)); // 4.58
       var res = null; try { res = await numeroDe(nome); } catch (e) { res = { nao: 'erro' }; }
       if (res && res.erro) { if (st) st.textContent = res.erro; break; }
       if (res && res.tel) { var g = await msg({ t: 'acao', acao: 'contatoTel', arg: { nome: nome, tel: res.tel } }); if (g && g.gravou) achou++; }
@@ -494,7 +554,7 @@
     });
     h += '<div class="pfwa-cfgl" data-acao="autoAbrir"><span class="pfwa-cfgi">👋</span><div><b>Mensagens automáticas</b><br><small>' + (autoAusente() ? autoInfo(autoAusente()).join(' ') + ' · ' : '') + 'Saudação de espera ' + (AUTO.on ? 'ligada · ' + esc(AUTO.min) + ' min · ' + esc(AUTO.ini) + '–' + esc(AUTO.fim) : 'desligada') + ' — clique pra ajustar</small></div><span class="pfwa-link">ajustar ›</span></div>';
     // 4.37 - A pedido do Vitor ("não precisa mais desses botões né?"): saíram do rodapé, ficam aqui pra usar quando precisar
-    h += '<div class="pfwa-bt" style="margin-top:12px">📇 Contatos</div>' +
+    h += '<div class="pfwa-bt" style="margin-top:12px">📇 Contatos</div>' + motorSeloHtml() +
       '<div class="pfwa-cfgbtns"><button data-acao="importar" class="pfwa-cfgb verde" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button>' +
       '<button data-acao="listaMassa" class="pfwa-cfgb" title="Abre cada conversa de cliente do PF que ainda NÃO está em nenhuma lista do WhatsApp (pula as não lidas) e põe na lista Cliente PF — assim aparece a 3ª linha com grupo e tipo. Clique de novo pra parar.">' + (lmRodando ? '⏸ Parar' : '🏷️ Pôr os clientes na lista Cliente PF') + '</button>' +
       '<button data-acao="numeros" class="pfwa-cfgb pfwa-num" title="Abre cada conversa dos contatos salvos sem número, lê o número e grava no PF (só lê, não manda nada). Clique de novo pra parar.">' + (numRodando ? '⏸ Parar' : '📞 Buscar números que faltam') + '</button></div>';
@@ -673,9 +733,10 @@
     if (ac === 'importar') {
       var st = P.querySelector('.pfwa-rodst'), o0 = b.textContent;
       b.disabled = true; b.textContent = 'Lendo a lista…';
-      var res = await lerListaConversas(function (n) { if (st) st.textContent = n + ' lidos…'; });
+      var res = await lerListaConversas(function (n) { var pn = $('#pane-side'); progPct(st, '📥 Lendo a lista de conversas', pn ? pn.scrollTop * 100 / Math.max(1, pn.scrollHeight - pn.clientHeight) : 0, n + ' contatos lidos'); }); // 4.58
       b.disabled = false; b.textContent = o0;
       if (!res || res.erro) { if (st) st.textContent = ''; flash(b, (res && res.erro) || 'Não consegui ler'); return; }
+      if (motorOk || await motorChecar()) { try { progSet(st, '📞 Juntando os números dos contatos…', 0, 0); var rcI = await motor('contatos', {}, 120000), mapI = {}; (rcI && rcI.l || []).forEach(function (c) { if (c.tel) mapI[c.nome] = c.tel; }); res.lista.forEach(function (x) { if (!x.tel && mapI[x.nome]) x.tel = mapI[x.nome]; }); } catch (e) { } } // 4.58
       if (st) st.textContent = res.lista.length + ' contatos — abrindo o PF…';
       var r = await msg({ t: 'acao', acao: 'importarContatos', focar: true, arg: { lista: res.lista } });
       if (st) st.textContent = (r && r.ok) ? '✔ Confira a lista no PF' : 'Abra uma aba do PF primeiro';
@@ -2336,7 +2397,9 @@
     return autoCap(t);
   }
   // você escreveu nesta conversa nos últimos X minutos? (aí a saudação de espera fica quieta)
+  var _autoCtx = null; // 4.58 - conversa lida pelo motor (sem abrir): já falei hoje / escrevi há pouco
   function autoEscreviRecente(min) {
+    if (_autoCtx) return !!_autoCtx.escrevi;
     var lim = Date.now() - min * 60000, outs = msgLinhas().filter(function (b) { return minhaEl(b); });
     for (var i = outs.length - 1; i >= 0 && i >= outs.length - 3; i--) { var pp = outs[i].querySelector('[data-pre-plain-text]'), t = pp ? msgQuando(pp) : horaFolha(outs[i]); if (t && t >= lim) return true; }
     return false;
@@ -2527,6 +2590,7 @@
   function autoMarcarFeito(c, aus) { var k = autoChave(c); if (aus) autoAusEnv[k] = autoPer(aus); else autoEnv[k] = Date.now(); autoGravar(); }
   // 4.27 - "📩 só na 1ª vez do dia": você já mandou alguma mensagem pra esse cliente hoje?
   function autoFaleiHoje() {
+    if (_autoCtx) return !!_autoCtx.falei;
     var d0 = new Date(); d0.setHours(0, 0, 0, 0); var ini = d0.getTime();
     var outs = msgLinhas().filter(function (b) { return minhaEl(b); }); // 4.43
     for (var i = outs.length - 1; i >= 0; i--) {
@@ -2648,6 +2712,47 @@
     });
     return out;
   }
+  // 4.58 - A pedido do Vitor ("pq a msg automática não é feita assim hoje?"): com o motor ligado, lê as conversas não lidas, decide pelas mesmas regras e
+  // manda SEM abrir a conversa (nem atrapalha o que você está digitando); depois marca como não lida. Sem motor = o jeito antigo (abre, manda, volta).
+  async function autoMotorRodada(aus) {
+    var r = await motor('chats', {}, 20000); if (!r || r.erro || !Array.isArray(r.l)) { autoLog('⚠️ Motor sem resposta (' + ((r && r.erro) || '?') + ') — usando o jeito antigo'); return false; }
+    var espera = aus ? (+AUTO.ausMin || 1) : (+AUTO.min || 3), agora = Date.now(), atual = contatoAt ? contatoAt.nome : '', rej = [], cand = [];
+    r.l.forEach(function (c) {
+      if (!c.nome || c.nome === atual || autoPend[c.nome] || !c.t) return;
+      var idade = agora - c.t; if (idade < espera * 60000) { rej.push(c.nome + ' (chegou agora, espera ' + espera + ' min)'); return; }
+      if (idade > (aus ? 12 : 3) * 3600000) return;
+      if (!autoPodeConv({ nome: c.nome, tel: c.tel }, aus)) { rej.push(c.nome + ' (já mandei / limite)'); return; }
+      cand.push(c);
+    });
+    if (!cand.length) { autoLog(rej.length ? 'Nenhuma pra mandar agora: ' + rej.slice(0, 4).join(', ') : 'Nenhuma conversa não lida esperando'); return true; }
+    for (var i = 0; i < cand.length && i < 5; i++) {
+      var c = cand[i], cc = { nome: c.nome, tel: c.tel };
+      var m = await motor('msgs', { id: c.id, n: 25 }, 15000); if (!m || !Array.isArray(m.l) || !m.l.length) continue;
+      var L = m.l.slice().sort(function (a, b) { return a.t - b.t; }), last = L[L.length - 1];
+      if (last.eu) { autoMarcarFeito(cc, aus); continue; }
+      var bloco = [], foto = false, audio = false;
+      for (var j = L.length - 1; j >= 0 && !L[j].eu; j--) { if (L[j].txt) bloco.unshift(L[j].txt); if (/image|sticker|video/.test(L[j].tipo)) foto = true; if (/ptt|audio/.test(L[j].tipo)) audio = true; }
+      var u = { eu: false, t: last.t, txt: last.txt || '', bloco: bloco.join('\n'), foto: foto, audio: audio };
+      if (Date.now() - u.t < espera * 60000) continue;
+      if (aus && autoDesde(aus) && u.t < autoDesde(aus) - 600000) continue;
+      var d0 = new Date(); d0.setHours(0, 0, 0, 0);
+      var falei = L.some(function (x) { return x.eu && x.t >= d0.getTime(); }), escrevi = L.some(function (x) { return x.eu && x.t >= Date.now() - 1800000; });
+      if (!aus && AUTO.quando === 'primeira' && falei) { autoLog('➖ ' + c.nome + ': você já falou com ele hoje', 1); continue; }
+      if (!aus && AUTO.trava30 !== false && escrevi) continue;
+      if (!(await autoEhCliente(cc))) { autoMarcarFeito(cc, aus); continue; }
+      var txt; _autoCtx = { falei: falei, escrevi: escrevi }; try { txt = autoTexto(c.nome, u, aus); } finally { _autoCtx = null; }
+      await dormir(1500 + Math.random() * 2500); // "lendo"
+      var sr = await motor('enviar', { id: c.id, texto: txt }, 25000);
+      if (!sr || sr.erro) { autoLog('⚠️ Não mandei pra ' + c.nome + ': ' + ((sr && sr.erro) || 'sem resposta'), 1); continue; }
+      autoMarcarFeito(cc, aus); autoHist.push(Date.now()); autoUlt[c.nome] = txt; autoPend[c.nome] = { ts: Date.now(), txt: txt, aus: aus || '' };
+      autoHist = autoHist.slice(-60); autoGravar();
+      msg({ t: 'acao', acao: 'autoSaud', arg: { nome: c.nome, tel: c.tel || '', texto: txt, modo: aus || '' } });
+      if (AUTO.naoLida !== false) { await dormir(700); await motor('naoLida', { id: c.id }, 10000); }
+      autoLog('✅ Mandei pra ' + c.nome + ' (sem abrir a conversa)', 1);
+    }
+    try { autoBadges(); } catch (e) { }
+    return true;
+  }
   async function autoTick() {
     var aus = autoAusente();
     if (autoOcup) return;
@@ -2657,6 +2762,7 @@
     try {
       if (contatoAt && await autoNaAberta()) return;
       if (!(AUTO.abrir || aus)) return;
+      if (motorOk) { var okA = false; try { okA = await autoMotorRodada(aus); } catch (e) { autoLog('⚠️ Motor: ' + (e && e.message || e)); } if (okA) return; } // 4.58 - sem abrir as conversas
       var rej = [], cand = autoCandidatas(aus, rej);
       if (!cand.length) { autoLog(rej.length ? 'Nenhuma pra mandar agora: ' + rej.slice(0, 4).join(', ') : 'Nenhuma conversa não lida esperando'); return; }
       if (!autoLivre()) { autoLog('⏳ ' + cand.length + ' esperando — mando no 1º respiro (você está digitando/clicando)'); return; } // 4.53
@@ -2884,6 +2990,7 @@
     var A = AUTO, inp = 'class="au-in"', aus = (autoAusente(), (AUTO.modo && AUTO.modo !== 'normal') ? AUTO.modo : ''), nomeEx = contatoAt ? contatoAt.nome : 'Carlos - Trackpeças';
     var ex = function (f) { var l = []; for (var i = 0; i < 3; i++) { var t = f(); if (l.indexOf(t) < 0) l.push(t); } return l.map(function (t) { return '<div class="au-exl">“' + esc(t) + '”</div>'; }).join(''); };
     var h = '<div class="pfwa-ajtop"><b>👋 Mensagens automáticas</b><span class="pfwa-link" data-acao="autoVoltar">‹ voltar</span></div>';
+    h += motorSeloHtml(); // 4.58
     h += htmlCmd(); // 4.2 - 📱 mudar pelo WhatsApp
     // 🗓️ Meu status
     h += '<div class="au-sec"><b>🗓️ Meu status agora</b><div class="au-modos">' + Object.keys(AUTO_MODOS).map(function (m) { return '<span data-acao="autoModo" data-arg="' + m + '" class="' + ((aus || 'normal') === m ? 'on' : '') + '">' + AUTO_MODOS[m][0] + ' ' + AUTO_MODOS[m][1] + '</span>'; }).join('') + '</div>';

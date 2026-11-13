@@ -2658,3 +2658,13 @@
   → `pfExtSituacaoDe` devolve `tipo:'contato'` com grupos (lista, barra de grupos, filtro) e `pfExtQuem` traz os grupos pro 👤. Falta: Disparo por esses grupos de contato. 4) BUG "📱 Só no WhatsApp":
   escrevia num campo errado — agora espera a janela "Novo/Editar contato" (`waPainelContato`), acha Nome/Sobrenome pelo rótulo (`waCamposDe`), escreve e confere (`waEscreverConf`, cola se não
   pegou), liga o Sincronizar mesmo sem atributo (chave cinza à direita do texto) e aperta o ✓ redondo (`waSalvarBotao`). Simulador: ⋮ → Adicionar aos contatos → "Novo contato" igual ao print.
+- v115.2727 + extensão **4.58** **⚙️ MOTOR por dentro do WhatsApp** (Vitor: "no Watidy fazia em segundo plano… pq a msg automática não é feita assim?… puxar os números pro PF… vamos
+  nas que citei" + "não dá nem pra ver como está o processo… mostrar o percentual, a quantidade que falta"): `extensao-whatsapp/wppconnect-wa.js` (biblioteca pública WA-JS 4.7.2,
+  Apache-2.0, licença junto) + `motor.js`, os dois no mundo da página (manifest `world: MAIN`). O whatsapp.js fala com o motor por postMessage (`motor(op,arg)`, `motorChecar` a cada 30 s,
+  `motorOk`, selo `motorSeloHtml` em ⚙️ Contatos e nas Mensagens automáticas). Ops: ping, contatos (salvos no celular COM número, inclusive @lid via getPnLidEntry), chats (não lidas),
+  chatsTodos (com nº de listas), msgs, enviar (com "digitando"), naoLida, labelGarantir/labelAdd (lista "Cliente PF"). Usam o motor (sem abrir conversa), com o jeito antigo de reserva:
+  **mensagem automática** nas outras conversas (`autoMotorRodada`: mesmas regras; `_autoCtx` dá o "já falei hoje/escrevi há pouco" lido pelo motor), **🏷️ pôr na lista** (`listaMassaMotor`:
+  todas as conversas sem lista que o PF diz ser cliente/contato com grupo, inclusive não lidas), **📞 números** (`numerosMotor` → acao `contatosTelLote` → `pfExtContTelLote`, 1 gravação só)
+  e **📥 importar** (junta os números). **Barra de andamento padrão** `progSet(st,tit,feito,total,extra)` (% + "N de M · faltam X") / `progPct` (quando o total não se sabe = quanto da lista
+  já foi olhado), CSS `.pfwa-prog`. **Tarefa nova demorada na extensão → usar progSet.** Simulador tem um motor de mentira (`?motor=0` = sem motor). Testado só no simulador; o WA-JS no
+  WhatsApp real depende da versão do WhatsApp — se quebrar, o selo fica "Motor desligado" e tudo volta pro jeito antigo.

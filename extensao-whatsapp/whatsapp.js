@@ -384,6 +384,16 @@
   async function motorChecar() { var r = await motor('ping', {}, 2500); motorOk = !!(r && r.pronto); motorVer = (r && r.ver) || ''; return motorOk; }
   setTimeout(motorChecar, 4000); setInterval(function () { if (vivo()) motorChecar(); }, 30000);
   function motorSeloHtml() { return motorOk ? '<div class="pfwa-motor on">⚙️ Motor ligado — faz sem abrir as conversas</div>' : '<div class="pfwa-motor">⚙️ Motor desligado — fazendo pelo jeito antigo (abrindo as conversas)</div>'; }
+  // 4.59 - A pedido do Vitor ("some o resumo do trabalho. e nem dava pra ver direito. estava aparecendo cortado"): o andamento/resumo
+  // de Importar / Pôr na lista / Buscar números ficava no rodapé do painel (cortado embaixo e apagado quando a tela era redesenhada).
+  // Agora mora numa caixa só (TAREFA_EL) que fica logo embaixo dos botões em ⚙️ → 📇 Contatos, sobrevive aos redesenhos e o resumo final fica.
+  var TAREFA_EL = null;
+  function tarefaEl() { if (!TAREFA_EL) { TAREFA_EL = document.createElement('div'); TAREFA_EL.className = 'pfwa-tarefa'; } tarefaPor(); setTimeout(function () { try { TAREFA_EL.scrollIntoView({ block: 'nearest' }); } catch (e) { } }, 300); return TAREFA_EL; }
+  function tarefaPor() {
+    if (!TAREFA_EL || !P) return;
+    var lugar = P.querySelector('.pfwa-tarefa-lugar') || P.querySelector('.pfwa-rodst');
+    if (lugar && TAREFA_EL.parentNode !== lugar) lugar.appendChild(TAREFA_EL);
+  }
   // 4.58 - A pedido do Vitor ("não dá nem pra ver como está o processo… mostrar o percentual, a quantidade que falta"): barra de andamento padrão
   function progSet(st, tit, feito, total, extra) {
     if (!st) return;
@@ -447,7 +457,7 @@
     return tem;
   }
   async function listaMassa(b) {
-    var st = P.querySelector('.pfwa-rodst');
+    var st = tarefaEl();
     if (lmRodando) { lmParar = true; b.textContent = 'Parando…'; return; }
     var pane = $('#pane-side'); if (!pane) { flash(b, 'Abra a lista de conversas'); return; }
     lmRodando = true; lmParar = false; b.textContent = '⏸ Parar';
@@ -476,7 +486,7 @@
     if (st && !/⚠ Não achei/.test(st.textContent)) st.textContent = (lmParar ? '⏸ Parado · ' : '✔ Pronto · ') + n + ' conversa(s) postas na lista' + (erro ? ' · ' + erro + ' não deu' : '') + ' · as não lidas e as que já estavam em lista ficaram de fora';
   }
   async function buscarNumeros(b) {
-    var st = P.querySelector('.pfwa-rodst');
+    var st = tarefaEl();
     if (numRodando) { numParar = true; b.textContent = 'Parando…'; return; }
     if (motorOk || await motorChecar()) { numRodando = true; numParar = false; b.textContent = '⏸ Parar'; var okN = false; try { okN = await numerosMotor(b, st); } catch (e) { } numRodando = false; b.textContent = '📞 Buscar números que faltam'; if (okN) return; } // 4.58 - lê todos de uma vez, sem abrir conversa
     var est = (await chrome.storage.local.get(['numEstado'])).numEstado;
@@ -557,7 +567,7 @@
     h += '<div class="pfwa-bt" style="margin-top:12px">📇 Contatos</div>' + motorSeloHtml() +
       '<div class="pfwa-cfgbtns"><button data-acao="importar" class="pfwa-cfgb verde" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button>' +
       '<button data-acao="listaMassa" class="pfwa-cfgb" title="Abre cada conversa de cliente do PF que ainda NÃO está em nenhuma lista do WhatsApp (pula as não lidas) e põe na lista Cliente PF — assim aparece a 3ª linha com grupo e tipo. Clique de novo pra parar.">' + (lmRodando ? '⏸ Parar' : '🏷️ Pôr os clientes na lista Cliente PF') + '</button>' +
-      '<button data-acao="numeros" class="pfwa-cfgb pfwa-num" title="Abre cada conversa dos contatos salvos sem número, lê o número e grava no PF (só lê, não manda nada). Clique de novo pra parar.">' + (numRodando ? '⏸ Parar' : '📞 Buscar números que faltam') + '</button></div>';
+      '<button data-acao="numeros" class="pfwa-cfgb pfwa-num" title="Abre cada conversa dos contatos salvos sem número, lê o número e grava no PF (só lê, não manda nada). Clique de novo pra parar.">' + (numRodando ? '⏸ Parar' : '📞 Buscar números que faltam') + '</button></div><div class="pfwa-tarefa-lugar"></div>'; // 4.59 - andamento/resumo aqui
     return h;
   }
   function cfgTog(k) {
@@ -731,7 +741,7 @@
     if (ac === 'autoGrpModo') { AUTO.grpModo = arg; autoGravar(); pinta(); return; } // 4.57 - grupos que recebem automática
     if (ac === 'autoGrp') { var gl = AUTO.grpSel || (AUTO.grpSel = []), gi = gl.indexOf(arg); if (gi >= 0) gl.splice(gi, 1); else gl.push(arg); autoGravar(); pinta(); return; }
     if (ac === 'importar') {
-      var st = P.querySelector('.pfwa-rodst'), o0 = b.textContent;
+      var st = tarefaEl(), o0 = b.textContent;
       b.disabled = true; b.textContent = 'Lendo a lista…';
       var res = await lerListaConversas(function (n) { var pn = $('#pane-side'); progPct(st, '📥 Lendo a lista de conversas', pn ? pn.scrollTop * 100 / Math.max(1, pn.scrollHeight - pn.clientHeight) : 0, n + ' contatos lidos'); }); // 4.58
       b.disabled = false; b.textContent = o0;
@@ -1078,7 +1088,7 @@
     var banner = (resp && resp.codFalta) ? '<div class="pfwa-codf">📇 Código <b>' + esc(resp.codFalta) + '</b> (do WhatsApp) não está no PF. Cadastre o cliente com esse mesmo código.<button data-acao="cadcli" data-arg="' + esc(resp.codFalta) + '">➕ Cadastrar no PF</button></div>' : '';
     if (ajuda) { c.innerHTML = htmlAjuda(); return; }
     if (config === 'auto') { c.innerHTML = htmlAuto(); return; }
-    if (config) { c.innerHTML = htmlConfig(); return; }
+    if (config) { c.innerHTML = htmlConfig(); tarefaPor(); return; } // 4.59
     c.innerHTML = banner + (v || (aba === 'cot' ? htmlCot() : aba === 'cli' ? htmlCli() : aba === 'hist' ? htmlHist() : htmlPecas()));
     var ta = c.querySelector('.pfwa-resp'); if (ta) ta.oninput = function () { if (cot) cot.resposta = ta.value; };
     var si = c.querySelector('.pfwa-saldo-in'); if (si) si.onkeydown = function (e) { if (e.key === 'Enter') buscarSaldo(si.value); };

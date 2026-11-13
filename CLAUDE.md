@@ -2668,3 +2668,7 @@
   e **📥 importar** (junta os números). **Barra de andamento padrão** `progSet(st,tit,feito,total,extra)` (% + "N de M · faltam X") / `progPct` (quando o total não se sabe = quanto da lista
   já foi olhado), CSS `.pfwa-prog`. **Tarefa nova demorada na extensão → usar progSet.** Simulador tem um motor de mentira (`?motor=0` = sem motor). Testado só no simulador; o WA-JS no
   WhatsApp real depende da versão do WhatsApp — se quebrar, o selo fica "Motor desligado" e tudo volta pro jeito antigo.
+- v115.2728 + extensão **4.59** BUG (print do ⚙️ com a 4.57: "some o resumo do trabalho e nem dava pra ver direito, estava aparecendo cortado"): o andamento/resumo de Importar /
+  Pôr na lista / Buscar números ficava no rodapé do painel (cortado embaixo e apagado quando o painel era redesenhado). Agora é uma caixa só (`TAREFA_EL`, `tarefaEl`/`tarefaPor`) que
+  fica em ⚙️ → 📇 Contatos logo embaixo dos botões (`.pfwa-tarefa-lugar`, presa embaixo da área que rola — sticky — sempre à vista), sobrevive aos redesenhos e o resumo final fica.
+  Fora das Configurações ela volta pro rodapé. O Vitor ainda estava na 4.57 (sem o motor da 4.58).

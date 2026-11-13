@@ -24,11 +24,13 @@
   };
   function $(s, r) { return (r || document).querySelector(s); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-  function dormir(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  // 4.53 - A pedido do Vitor ("só manda se eu abrir a conversa… quero que mande se eu estiver em outra tela"): com o WhatsApp em outra aba/tela o Chrome
+  // segura os relógios da página (1 vez por minuto) e a extensão desistia de abrir a conversa. A espera agora é feita pelo fundo da extensão.
+  function dormir(ms) { return new Promise(function (r) { if (document.hidden) { try { chrome.runtime.sendMessage({ t: 'dormir', ms: ms }, function () { void chrome.runtime.lastError; r(); }); return; } catch (e) { } } setTimeout(r, ms); }); }
   function esperar(fn, ms) {
     return new Promise(function (res) {
       var t0 = Date.now();
-      (function loop() { var v = null; try { v = fn(); } catch (e) { } if (v) return res(v); if (Date.now() - t0 > ms) return res(null); setTimeout(loop, 400); })();
+      (function loop() { var v = null; try { v = fn(); } catch (e) { } if (v) return res(v); if (Date.now() - t0 > ms) return res(null); dormir(400).then(loop); })();
     });
   }
   function msg(m) { return new Promise(function (res) { try { chrome.runtime.sendMessage(m, function (r) { void chrome.runtime.lastError; res(r || null); }); } catch (e) { res({ erro: 'recarregar' }); } }); }
@@ -2051,12 +2053,19 @@
   // 1 min SEM MEXER o mouse no WhatsApp — trabalhando nele, nunca acontecia. Agora conta só digitar/clicar (mexer o mouse/rolar não conta): 20 s sem digitar
   // nem clicar e a caixa vazia (ou o WhatsApp em outra aba) = abre a conversa que está esperando, manda e volta.
   var autoUltAcao = 0;
-  ['keydown', 'mousedown', 'paste', 'input'].forEach(function (t) { document.addEventListener(t, function (e) { if (e && e.isTrusted === false) return; autoUltAcao = Date.now(); }, true); });
+  ['keydown', 'mousedown', 'paste'].forEach(function (t) { document.addEventListener(t, function (e) { if (e && e.isTrusted === false) return; autoUltAcao = Date.now(); }, true); });
+  // 4.53 - A pedido do Vitor ("quero que mande se eu estiver falando com outra pessoa, ou se estiver em outra tela"): antes esperava 20 s sem você digitar/clicar.
+  // Agora: WhatsApp em outra aba/janela/programa = na hora; você conversando com outra pessoa = no 1º respiro (3 s sem tecla/clique; 8 s se tem texto na caixa —
+  // o WhatsApp guarda o rascunho e a extensão volta pra sua conversa). Se você clicar/digitar no meio, ela para e volta.
   function autoLivre() {
     if (document.hidden) return true;
-    if (Date.now() - autoUltAcao < 20000) return false;
-    var cx = caixaTexto(); return !(cx && (cx.innerText || '').trim());
+    try { if (!document.hasFocus()) return true; } catch (e) { }
+    var cx = caixaTexto(), temTxt = !!(cx && (cx.innerText || '').trim());
+    return Date.now() - autoUltAcao >= (temTxt ? 8000 : 3000);
   }
+  // 4.53 - registro do que a extensão fez nas outras conversas (aparece na tela da saudação)
+  var autoLogL = [], autoLogUlt = '';
+  function autoLog(t, rep) { if (!rep && t === autoLogUlt) return; autoLogUlt = t; autoLogL.push({ h: Date.now(), t: t }); if (autoLogL.length > 12) autoLogL.shift(); }
   // 4.41 - BUG (Vitor: "de novo não fica gravado as msg q coloco"): 1) o autoGravar podia rodar ANTES de a config guardada carregar e gravava o PADRÃO
   // por cima (no navegador e no PF); 2) qualquer gravação interna (conversa enviada, etiqueta) marcava a config como "mais nova" e subia pro PF. Agora só
   // grava depois de carregar, a data da config só muda quando a CONFIG muda, e só sobe pro PF depois de ler a do PF (a mais nova vence).
@@ -2420,13 +2429,14 @@
     autoTestando = false; autoOcup = false; try { pinta(); } catch (e) { }
   }
   // conversas da lista com mensagem não lida há X min
-  function autoCandidatas(aus) {
+  function autoCandidatas(aus, rej) {
     var out = [], espera = aus ? (+AUTO.ausMin || 1) : (+AUTO.min || 3);
     linhasLista().forEach(function (L) {
       if (!L.unread || autoPend[L.nome]) return;
-      var t = horaFolha(L.el); if (!t) return;
-      var idade = Date.now() - t; if (idade < espera * 60000 || idade > (aus ? 12 : 3) * 3600000) return;
-      if (!autoPodeConv({ nome: L.nome, tel: L.tel }, aus)) return;
+      var t = horaFolha(L.el); if (!t) { if (rej) rej.push(L.nome + ' (não achei a hora)'); return; }
+      var idade = Date.now() - t; if (idade < espera * 60000) { if (rej) rej.push(L.nome + ' (chegou agora, espera ' + espera + ' min)'); return; }
+      if (idade > (aus ? 12 : 3) * 3600000) return;
+      if (!autoPodeConv({ nome: L.nome, tel: L.tel }, aus)) { if (rej) rej.push(L.nome + ' (já mandei / limite)'); return; }
       out.push(L);
     });
     return out;
@@ -2439,19 +2449,22 @@
     autoOcup = true;
     try {
       if (contatoAt && await autoNaAberta()) return;
-      if (!(AUTO.abrir || aus) || !autoLivre()) return; // 4.46 - 20 s sem digitar/clicar (ou WhatsApp em outra aba)
-      var cand = autoCandidatas(aus); if (!cand.length) return;
-      var antes = contatoAt ? contatoAt.nome : '';
+      if (!(AUTO.abrir || aus)) return;
+      var rej = [], cand = autoCandidatas(aus, rej);
+      if (!cand.length) { autoLog(rej.length ? 'Nenhuma pra mandar agora: ' + rej.slice(0, 4).join(', ') : 'Nenhuma conversa não lida esperando'); return; }
+      if (!autoLivre()) { autoLog('⏳ ' + cand.length + ' esperando — mando no 1º respiro (você está digitando/clicando)'); return; } // 4.53
+      var antes = contatoAt ? contatoAt.nome : '', t0 = autoUltAcao, oculto = document.hidden;
       for (var i = 0; i < cand.length && i < 3; i++) {
-        if (!document.hidden && Date.now() - autoUltAcao < 20000) break; // 4.46 - você voltou a digitar/clicar: para
+        if (autoUltAcao !== t0 && !document.hidden) { autoLog('✋ Parei: você voltou a mexer no WhatsApp', 1); break; } // 4.53 - você clicou/digitou no meio: para e volta
         clicar(cand[i].el);
-        var ab = await esperar(function () { var c = contatoAtual(); return c && c.nome === cand[i].nome ? c : null; }, 4000);
-        if (!ab) continue;
+        var ab = await esperar(function () { var c = contatoAtual(); return c && c.nome === cand[i].nome ? c : null; }, oculto ? 15000 : 4000);
+        if (!ab) { autoLog('⚠️ Não consegui abrir a conversa de ' + cand[i].nome, 1); continue; }
         await dormir(800);
         var foi = await autoNaAberta();
         if (!foi) { var c0 = contatoAtual(); var u0 = ultimaMsg(); if (c0 && u0 && u0.eu) autoMarcarFeito(c0, aus); }
+        autoLog((foi ? '✅ Mandei pra ' : '➖ Não mandei pra ') + cand[i].nome + (oculto ? ' (WhatsApp em outra tela)' : ''), 1);
       }
-      if (antes) { var vt = linhaDoNome(antes); if (vt) clicar(vt); }
+      if (antes) { var vt = linhaDoNome(antes); if (vt) { clicar(vt); if (autoUltAcao === t0) await dormir(500); var cxv = caixaTexto(); if (cxv && !document.hidden) try { cxv.focus(); } catch (e) { } } }
     } finally { autoOcup = false; }
   }
   // você respondeu de verdade → sai do "👋 aguardando você"
@@ -2596,7 +2609,8 @@
   function abPinta(texto) {
     var el = abEl(), r = abR;
     if (!r || r.erro) { el.innerHTML = AB_CAB + '<div class="ab-car">' + (r && r.erro === 'semPF' ? 'Abra o PartsFlow numa aba deste Chrome.' : 'O PF não respondeu. Dê F5 na aba do PartsFlow.') + '</div>'; return; }
-    if (!r.itens || !r.itens.length) { el.innerHTML = AB_CAB + '<div class="ab-car">Não achei código em "' + esc(String(texto || '').slice(0, 60)) + '".</div>'; return; }
+    if (!Array.isArray(r.itens)) { el.innerHTML = AB_CAB + '<div class="ab-car">' + esc(r.msg || 'O PF respondeu, mas não entendeu o pedido — a aba do PartsFlow está numa versão antiga.') + ' Dê F5 na aba do PartsFlow e tente de novo.</div>'; return; } // 4.53
+    if (!r.itens.length) { el.innerHTML = AB_CAB + '<div class="ab-car">Não achei código em "' + esc(String(texto || '').slice(0, 60)) + '".</div>'; return; }
     el.innerHTML = AB_CAB + '<div class="ab-corpo">' + r.itens.map(function (x, i) {
       var tem = x.marcas && x.marcas.length;
       var h = '<div class="ab-it"><div class="ab-cod"><b>' + esc(x.cod) + '</b>' + (x.qtd > 1 ? ' <span class="ab-q2">× ' + esc(x.qtd) + '</span>' : '') + '<span class="ab-cp" data-ab="copiar" data-c="' + esc(x.cod) + '" title="Copiar o código">📋</span>' +
@@ -2689,13 +2703,14 @@
       // 4.27 - deixar a conversa como não lida depois do automático
       '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="naoLida"><span class="pfwa-cfgi">🔵</span><div><b>Deixar a conversa como NÃO LIDA depois</b><br><small>Depois de responder sozinho, marca a conversa como não lida — ela sobe na lista com a bolinha verde pra você lembrar de dar o retorno de verdade.</small></div><span class="pfwa-sw' + (A.naoLida !== false ? ' on' : '') + '"><i></i></span></div>' +
       '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="trava30"><span class="pfwa-cfgi">✋</span><div><b>Não mandar se eu escrevi nos últimos 30 min</b><br><small>Você estava conversando com ele há pouco = a extensão fica quieta.</small></div><span class="pfwa-sw' + (A.trava30 !== false ? ' on' : '') + '"><i></i></span></div>' +
-      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="abrir"><span class="pfwa-cfgi">📂</span><div><b>Também nas outras conversas</b><br><small>Quando você fica 20 s sem digitar nem clicar no WhatsApp (ou ele está em outra aba), a extensão abre a conversa que está esperando, manda e volta pra que você estava. Desligado = só na conversa aberta.</small></div><span class="pfwa-sw' + (A.abrir ? ' on' : '') + '"><i></i></span></div>' +
+      '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="abrir"><span class="pfwa-cfgi">📂</span><div><b>Também nas outras conversas</b><br><small>Com o WhatsApp em outra tela/aba manda sozinho (pode levar até 1 min). Se você estiver conversando com outra pessoa, ela aproveita o 1º respiro (3 s sem digitar/clicar), abre a conversa que está esperando, manda e volta pra sua — o que você estava escrevendo fica guardado. Desligado = só na conversa aberta.</small></div><span class="pfwa-sw' + (A.abrir ? ' on' : '') + '"><i></i></span></div>' +
       // 4.34 - A pedido do Vitor: aviso claro quando está desligado (a saudação só vai pra conversa aberta)
       (!A.abrir ? '<div class="au-st" style="background:#FFF4E5;border:1px solid #F3C98B;color:#7a4a10">⚠️ Está <b>desligado</b>: a saudação só vai pra conversa que estiver <b>ABERTA</b>. Ligue acima pra mandar também pras outras conversas da lista (deixe o WhatsApp ~1 min parado).</div>' : '') +
       '<div class="au-st">' + (A.on ? (autoNoHorario() ? '🟢 Ligada e dentro do horário.' : '🟡 Ligada, mas fora do horário agora.') : '⚪ Desligada.') + ' A conversa que recebeu a mensagem ganha a etiqueta "👋 … responda" até você responder.</div>' +
       // 4.37 - 🧪 Testar na conversa aberta: diz por que não mandou e deixa forçar o envio pra ver funcionando
       '<div class="au-test"><button data-acao="autoTestar" class="au-testb">🧪 Testar na conversa aberta</button>' +
-      '<small>Abra a conversa de um cliente e clique — eu digo exatamente o que está barrando e mando a mensagem de teste.</small>' + autoTestHtml() + '</div></div>';
+      '<small>Abra a conversa de um cliente e clique — eu digo exatamente o que está barrando e mando a mensagem de teste.</small>' + autoTestHtml() + '</div>' +
+      (autoLogL.length ? '<div class="au-test"><b style="font-size:12px">📂 Outras conversas — o que aconteceu</b>' + autoLogL.slice().reverse().map(function (x) { return '<div class="au-tl"><span>' + new Date(x.h).toTimeString().slice(0, 5) + '</span> ' + esc(x.t) + '</div>'; }).join('') + '</div>' : '') + '</div>';
     var envs = Object.keys(autoPend).map(function (n) { return { n: n, ts: autoPend[n].ts, txt: autoPend[n].txt }; }).sort(function (a, b) { return b.ts - a.ts; }).slice(0, 5);
     if (envs.length) h += '<div class="pfwa-bloco"><div class="pfwa-bt">Esperando você responder</div>' + envs.map(function (e) { return '<div class="pfwa-it"><b>' + esc(e.n) + '</b><br><small>' + esc(new Date(e.ts).toLocaleString('pt-BR').slice(0, 17)) + ' · "' + esc(e.txt) + '"</small></div>'; }).join('') + '</div>';
     return h;

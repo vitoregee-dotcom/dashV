@@ -2617,3 +2617,8 @@
 - v115.2719 (print da janela 🧩 dizendo "não está instalada" no 🖥️ modo monitor, PF já na 2718 mas a extensão ainda era a antiga): extensão até a 4.51 só entra na página de FORA
   da moldura. `pfExtVersaoTopo()` lê o `data-pf-ext` da moldura (mesmo endereço) → a janela diz "⚠ A extensão 4.51 está instalada, mas no modo monitor só funciona a partir da 4.52…"
   e o link do Mapa vira "⚠ Atualizar a extensão pra 4.52". Com a 4.52 instalada, nada disso aparece.
+- v115.2720 (Vitor: "se uma empresa tiver mais de um contato, vai pra quem?" → "o ideal é quem estiver como vendedor no cadastro do fornecedor" + "se pegar o primeiro e-mail,
+  vai que é o e-mail da NF"): o mapa (e-mail e WhatsApp) vai pros contatos do fornecedor com cargo VENDEDOR/VENDAS (`pfFornVendedores`: /vend/ no cargo). E-mail = os dos vendedores
+  juntos (`pfFornEmailCot`, usado nos 4 lugares que montam o `cotFornecedores` e no `mapaEmail`); WhatsApp = 1 mensagem por vendedor com número, chamado pelo nome
+  (`pfMapaEnvDestinos`, `pfMapaEnvTexto(fid,nome)`); 2+ vendedores no e-mail = "pessoal do Comercial" (`pfFornNomeCot`). Sem vendedor marcado = e-mail/telefone principal, como antes.
+  A confirmação do "Mandar pra todos" lista "fornecedor → pessoa número". O estado da linha do mapa = o melhor entre os vendedores dele.

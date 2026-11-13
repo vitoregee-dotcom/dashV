@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2716</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2717</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2716</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2717</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -74726,6 +74726,13 @@ async function vendasColarTexto(){
   if(txt&&txt.trim())vendasProcessarTexto(txt.trim());
 }
 
+// v115.2717 - código lido de print/lista: tira o nome da peça na frente e junta "5 515X" = 5-515X
+function vendasCodDoPrint(cod){cod=String(cod||'').toUpperCase().replace(/\s+/g,' ').trim();
+  var m=cod.match(/^(GARFOS?|CRUZETAS?|PONTEIRAS?|PONTUVAS?|LUVAS?|TERMINAL|TERMINAIS|FLANGES?|CARDAN|COIFAS?|MANCAL|MANCAIS|ROLAMENTOS?|RETENTOR(?:ES)?|FILTROS?)\s*[:\-–]?\s*(.+)$/);
+  if(m&&/\d/.test(m[2]))cod=m[2].trim();
+  cod=cod.replace(/^(\d)\s+(\d{2,5}X[A-Z]{0,2})$/,'$1-$2');
+  if(/^[\d.\-]+[A-Z]{0,3}$/.test(cod.replace(/\s/g,''))&&/-/.test(cod))cod=cod.replace(/\s+/g,'');
+  return cod;}
 async function vendasLerArquivo(input){
   var files=Array.from(input.files);if(!files.length)return;
   var apiKey=localStorage.getItem('anthropic_key')||'';
@@ -74742,7 +74749,7 @@ async function vendasLerArquivo(input){
       if(mt.startsWith('image/')){var rl=(typeof lpImgLimitar==='function')?await lpImgLimitar('data:'+mt+';base64,'+b64,7900):null;if(rl){mt=rl.mt;b64=rl.b64;}parts.push({type:'image',source:{type:'base64',media_type:mt,data:b64}});} // v115.2344 - imagem > 8000 px
       else{parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});}
     }
-    parts.push({type:'text',text:'Extraia os itens desta lista, NA MESMA ORDEM em que aparecem no documento (linha por linha, de cima pra baixo; não agrupe nem ordene). Retorne APENAS JSON: [{"codigo":"","qtd":1}]. APENAS o JSON.'}); // v115.2674 - ordem do pedido do cliente
+    parts.push({type:'text',text:'Extraia os itens desta lista, NA MESMA ORDEM em que aparecem no documento (linha por linha, de cima pra baixo; não agrupe nem ordene). Em "codigo" vai SÓ o código da peça, sem o nome dela (ex.: "Garfo 90-28-27" → "90-28-27"; "Cruzeta 5 515x" → "5-515X"). Retorne APENAS JSON: [{"codigo":"","qtd":1}]. APENAS o JSON.'}); // v115.2674 - ordem do pedido do cliente
     var resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
       headers:pfAnthropicHeaders(apiKey),
       // v115.2344 - BUG (varredura): max_tokens 1000 cortava listas grandes (uns 40 itens) e a leitura dava erro de JSON; e erro da IA
@@ -74756,17 +74763,22 @@ async function vendasLerArquivo(input){
     var itens;try{itens=JSON.parse(txt);}catch(eJ){itens=[];var reI=/\{"codigo"[^}]*\}/g,om;while((om=reI.exec(txt))!==null){try{itens.push(JSON.parse(om[0]));}catch(e5){}}if(!itens.length)throw new Error('não consegui entender a resposta da IA. Tente de novo.');}
     var adicionados=0;
     itens.forEach(function(it){
-      var cod=(it.codigo||'').trim().toUpperCase();
+      // v115.2717 - A pedido do Vitor (print de conversa "Garfo 90-28-27 / Cruzeta 5 515x" carregou errado): a IA mandava o NOME da peça junto do código
+      // ("GARFO 90-28-27") e "5 515x" separado — nada era achado. Limpa como no pedido do WhatsApp e procura as variações de cruzeta (X/XS/ALB) e o TX no fim.
+      var cod=vendasCodDoPrint(it.codigo),codCli=cod,marcaPed='';
       var mm=cod.match(/^([A-Z])(\d{1,5})$/);
       if(mm){var n=mm[2];while(n.length<6)n='0'+n;cod=mm[1]+n;}
       var found=vendasBuscarItem(cod);
+      if(!(found&&found.length)){try{var _sx=pfCodSufixo(cod)||pfCodPrefixo(cod);if(_sx){var f2=vendasBuscarItem(_sx.cod);if(!(f2&&f2.length)&&typeof pfExtFichasDo==='function')f2=pfExtFichasDo(_sx.cod);if(f2&&f2.length){cod=_sx.cod;marcaPed=_sx.marca;var soM=f2.filter(function(f){return pfExtMarcaBate(f.marca,marcaPed);});found=soM.length?soM:f2;}}}catch(eSx){}}
+      if(!(found&&found.length)&&typeof pfExtFichasDo==='function'){try{var f3=pfExtFichasDo(cod);if(f3&&f3.length){found=f3;}}catch(eF){}}
       if(found&&found.length){
         found.forEach(function(f){
-          window._venda.itens.push({codigo:cod,qtd:it.qtd||1,desc:f.desc,marca:f.marca,saldo:f.saldo,custo:f.custo});
+          var cAch=String(f._codPf||cod).toUpperCase();
+          window._venda.itens.push({codigo:cAch,codigoOriginal:codCli,qtd:it.qtd||1,desc:f.desc,marca:f.marca,saldo:f.saldo,custo:f.custo});
           adicionados++;
         });
       } else {
-        window._venda.itens.push({codigo:cod,qtd:it.qtd||1,desc:'',marca:'',saldo:null,custo:null});
+        window._venda.itens.push({codigo:cod,codigoOriginal:codCli,qtd:it.qtd||1,desc:'',marca:'',saldo:null,custo:null});
         adicionados++;
       }
     });

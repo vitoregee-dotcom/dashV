@@ -431,6 +431,7 @@
     ['aviso', '🔔', 'Aviso de pedido de cotação', 'A bolinha laranja com o número de códigos no botão 📄 quando o cliente manda códigos.'],
     ['selo', '📄', 'Selo no balão da mensagem', 'O selinho "📄 N" no canto da mensagem do cliente que tem códigos. Clique = ver os códigos e criar a cotação no PF.'],
     ['rrselo', '⚡', 'Resposta rápida no balão', 'Quando o cliente pergunta algo que você tem como resposta rápida (endereço, PIX, horário…), aparece o ⚡ no balão. Clique = ver a resposta e enviar.'],
+    ['rfselo', '📥', 'Resposta do fornecedor no balão', 'Quando o fornecedor responde um mapa, aparece "📥 lançar no mapa" no balão dele e o PF avisa na barra de notificações. Clique = o PF lê o preço e o prazo e mostra pra você conferir.'],
     ['barra', '⚡', 'Respostas rápidas com "/"', 'Digitar / no começo da caixa de texto abre as respostas rápidas (o botão ⚡ continua funcionando).'],
     ['salvar', '👤', 'Botão Salvar contato', 'O botão verde ao lado do nome da conversa.'],
     ['ofertas', '💡', 'Guardar ofertas e respostas', 'Quando você oferece algo, o cartão pra salvar a oferta e a resposta do cliente no CRM.'],
@@ -709,15 +710,7 @@
       if (g1 && g1.ok) { resumoR = null; pintaCorpo(); } else { b.disabled = false; flash(b, 'Não deu — abra o PF'); }
       return;
     }
-    if (ac === 'respForn') {
-      var pr = String(arg || '').split('|'), col = respFornColher();
-      if (!col.texto && !col.imgs.length) { flash(b, 'Não achei resposta dele nesta conversa'); return; }
-      b.disabled = true; b.textContent = 'Lendo a conversa…';
-      var ims = []; for (var ii = 0; ii < col.imgs.length; ii++) { var du = await urlParaDataUrl(col.imgs[ii]); if (du) ims.push(du); }
-      await msg({ t: 'acao', acao: 'respForn', focar: true, arg: { mapa: pr[0], fid: pr[1], texto: col.texto, imgs: ims } });
-      b.disabled = false; flash(b, '✔ Abri no PF — confira e lance');
-      return;
-    }
+    if (ac === 'respForn') { await respFornIr(arg, b); return; }
     msg({ t: 'acao', acao: ac, arg: arg, focar: true });
   }
   function flash(b, t) { var o = b.textContent; b.textContent = t; setTimeout(function () { b.textContent = o; }, 2200); }
@@ -749,6 +742,38 @@
       '<div class="pfwa-bt" style="margin-top:6px">⏰ Próxima ação</div><div style="display:flex;gap:6px"><input type="date" class="pfwa-res-d" value="' + iso + '"><input class="pfwa-res-p" value="' + esc(resumoR.proxima || '') + '" placeholder="(sem próxima ação)"></div>' +
       '<div class="pfwa-bots" style="margin-top:6px"><button class="pfwa-verde" data-acao="resumoGravar">✔ Gravar na ficha</button><button data-acao="resumir">🔁 Refazer</button><button data-acao="resumoX">✕</button></div></div>';
   }
+  async function respFornIr(arg, b) {
+    var pr = String(arg || '').split('|'), col = respFornColher();
+    if (!col.texto && !col.imgs.length) { flash(b, 'Não achei resposta dele nesta conversa'); return; }
+    if (b.tagName === 'BUTTON') b.disabled = true; b.textContent = 'Lendo a conversa…';
+    var ims = []; for (var ii = 0; ii < col.imgs.length; ii++) { var du = await urlParaDataUrl(col.imgs[ii]); if (du) ims.push(du); }
+    await msg({ t: 'acao', acao: 'respForn', focar: true, arg: { mapa: pr[0], fid: pr[1], texto: col.texto, imgs: ims } });
+    if (b.tagName === 'BUTTON') b.disabled = false; flash(b, '✔ Abri no PF — confira e lance');
+  }
+  // 4.54 - A pedido do Vitor ("e quando ele responder, pra subir a cotação pro mapa precisa ser manual?"): fornecedor com mapa esperando respondeu =
+  // selo "📥 lançar no mapa" no balão dele (clique = o PF lê e mostra pra conferir) + aviso na barra do PF (abrindo a conversa ou vendo pela lista).
+  var rfAvisados = {};
+  function rfAvisar(mapa, fid, nome, chave) { if (!mapa || rfAvisados[chave]) return; rfAvisados[chave] = 1; msg({ t: 'acao', acao: 'fornRespondeu', arg: { mapa: mapa, fid: fid, nome: nome } }); }
+  function rfVigiar() {
+    var bt = ((resp && resp.botoes) || []).find(function (x) { return x && x.acao === 'respForn'; });
+    var liga = CFG.rfselo !== false && contatoAt && !contatoAt.grupo && resp && resp.tipo === 'fornecedor' && bt;
+    var el = null; if (liga) { var u = ultimaMsg(); if (u && !u.eu) el = rrUltimoIn(); }
+    document.querySelectorAll('#main .pfwa-rfselo').forEach(function (s) { if (!el || s.parentElement !== el) s.remove(); });
+    if (el) {
+      var num = (String(bt.rot || '').match(/mapa\s+(\S+)/i) || [])[1] || '';
+      var s = el.querySelector(':scope > .pfwa-rfselo');
+      if (!s) { s = document.createElement('span'); s.className = 'pfwa-rfselo'; if (getComputedStyle(el).position === 'static') el.style.position = 'relative'; el.appendChild(s);
+        ['pointerdown', 'mousedown', 'mouseup', 'pointerup', 'mouseover', 'mouseenter'].forEach(function (tp) { s.addEventListener(tp, function (ev) { ev.stopPropagation(); }, false); }); }
+      if (!s._ocup) s.textContent = '📥 lançar no mapa ' + num;
+      s.title = 'O fornecedor respondeu — clique: o PF lê a resposta (texto e fotos) e mostra o preço e o prazo de cada item pra você conferir antes de lançar no mapa';
+      var sp = el.querySelector(':scope > .pfwa-selo'); s.style.left = sp ? ('calc(100% + ' + (10 + sp.offsetWidth) + 'px)') : '';
+      s.onclick = function (ev) { ev.preventDefault(); ev.stopPropagation(); s._ocup = 1; respFornIr(bt.arg, s).then(function () { setTimeout(function () { s._ocup = 0; }, 2400); }); };
+      var pr = String(bt.arg).split('|'); rfAvisar(pr[0], pr[1], contatoAt.nome, contatoAt.nome + '|' + rrTxt(el).slice(0, 60));
+    }
+    // pela lista: conversa de fornecedor com mapa esperando e mensagem não lida = ele respondeu
+    if (CFG.rfselo !== false) linhasLista().forEach(function (x) { var st = sitCache[x.nome]; if (st && st.tipo === 'fornecedor' && st.mapaId && x.unread) rfAvisar(st.mapaId, st.fid || '', x.nome, x.nome + '|' + x.hora); });
+  }
+  setInterval(function () { try { rfVigiar(); } catch (e) { } }, 2500);
   function respFornColher() {
     var bolhas = msgLinhas(); // 4.43
     var ult = -1; bolhas.forEach(function (b, i) { if (minhaEl(b)) ult = i; });
@@ -971,7 +996,7 @@
   }
   // 1.9 - BUG (Vitor: foto aberta em tela cheia ficava com o aviso e o botão "PF" por cima): se alguma coisa do WhatsApp cobre a conversa
   // (foto, vídeo, documento, janela), esconde os avisos e os botões da extensão até fechar.
-  var MEUS = '#pfwa-sp,.pfwa-selo,#pfwa-rr2,.pfwa-rrselo,#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st,#pfwa-vf,#pfwa-menu,#pfwa-rail,#pfwa-svb,#pfwa-sv';
+  var MEUS = '#pfwa-sp,.pfwa-selo,.pfwa-rfselo,#pfwa-rr2,.pfwa-rrselo,#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st,#pfwa-vf,#pfwa-menu,#pfwa-rail,#pfwa-svb,#pfwa-sv';
   // 2.8 - BUG (Vitor: documento/PDF aberto no WhatsApp ainda ficava com o aviso e o "PF" por cima): o visualizador do WhatsApp nem sempre
   // aparece no elementsFromPoint (partes com pointer-events:none). Agora também conta janela aberta (dialog/aria-modal) e imagem/vídeo/canvas
   // GRANDE fora da conversa e da lista (foto, documento, vídeo em tela cheia).

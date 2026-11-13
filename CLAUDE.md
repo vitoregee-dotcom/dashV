@@ -2672,3 +2672,6 @@
   Pôr na lista / Buscar números ficava no rodapé do painel (cortado embaixo e apagado quando o painel era redesenhado). Agora é uma caixa só (`TAREFA_EL`, `tarefaEl`/`tarefaPor`) que
   fica em ⚙️ → 📇 Contatos logo embaixo dos botões (`.pfwa-tarefa-lugar`, presa embaixo da área que rola — sticky — sempre à vista), sobrevive aos redesenhos e o resumo final fica.
   Fora das Configurações ela volta pro rodapé. O Vitor ainda estava na 4.57 (sem o motor da 4.58).
+- v115.2729 BUG (print da cotação: "excluí uma marca da SPL 250 que estava em cima, e a TX estava selecionada… a seleção de PV foi para o 3-28-537"): as marcações de Sel./PV
+  (`_vendasSel`/`_vendasSelPV`) são guardadas pelo NÚMERO da linha e tirar um item não renumerava — a marca ia pra linha de baixo. Agora todo jeito de tirar item (✕ da linha nas
+  2 visões, tecla Delete, 🗑 Excluir selecionados) passa por `vendasItemTirar(i)` / remapeia com `pfCotSelRemap`: o item tirado perde a marca, os de baixo sobem com a deles.

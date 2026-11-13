@@ -1310,7 +1310,79 @@
   // fica escondida e a 3ª linha mostra grupo + tipo. Sem achar o menu/etiqueta, só avisa (nada quebra).
   var WA_ETQ = 'Cliente PF'; chrome.storage.local.get(['waEtqNome'], function (x) { if (x && x.waEtqNome) WA_ETQ = x.waEtqNome; });
   function waN(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+  // 4.56 - A pedido do Vitor (print: "agora na vdd é listas né?"): o WhatsApp Business trocou "Etiquetas" por LISTAS — botão "Adicionar à lista" no
+  // cabeçalho da conversa abre as listas com caixinha. Tenta esse caminho primeiro; sem a lista "Cliente PF", cria pelo "Nova lista". Depois o jeito antigo.
+  function waVisEl(el) { if (!el || !el.getClientRects().length) return false; var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }
+  function waForaNosso(el) { return !el.closest('#pfwa,#pfwa-sv,#pfwa-menu,#pfwa-rail,#pfwa-bots,#pane-side,#msgs'); }
+  function waTxtExato(alvo) {
+    var achou = null, area = 1e9;
+    document.querySelectorAll('span,div,label,li').forEach(function (el) {
+      if (!waVisEl(el) || !waForaNosso(el)) return;
+      if (waN(el.textContent) !== alvo) return;
+      var r = el.getBoundingClientRect(), a = r.width * r.height; if (a < area) { area = a; achou = el; }
+    });
+    return achou;
+  }
+  function waCaixaDe(el) {
+    var p = el;
+    for (var i = 0; i < 5 && p; i++, p = p.parentElement) {
+      var cb = p.querySelector('input[type="checkbox"],[role="checkbox"],[aria-checked]');
+      if (cb) return { cb: cb, lin: p };
+    }
+    return { cb: null, lin: el.closest('[role="button"],li,label') || el };
+  }
+  function waMarcado(cb) { return !!cb && (cb.checked === true || cb.getAttribute('aria-checked') === 'true'); }
+  function waBotaoTexto(re) {
+    var b = null;
+    document.querySelectorAll('button,[role="button"]').forEach(function (x) { if (b || !waVisEl(x) || !waForaNosso(x)) return; var t = waN((x.textContent || '') + ' ' + (x.getAttribute('aria-label') || '')); if (re.test(t)) b = x; });
+    return b;
+  }
+  function waEsc() { try { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true })); } catch (e) { } }
+  async function waListaPeloCabecalho(aviso) {
+    var hd = $('#main header'); if (!hd) return null;
+    var bt = Array.prototype.find.call(hd.querySelectorAll('button,[role="button"]'), function (x) { return /adicionar a lista|add to list|listas?$/.test(waN((x.textContent || '') + ' ' + (x.getAttribute('aria-label') || '') + ' ' + (x.getAttribute('title') || ''))); });
+    if (!bt) return null;
+    var alvo = waN(WA_ETQ);
+    clicarEl(bt);
+    var nova = await esperar(function () { return waTxtExato(alvo) || waTxtExato('nova lista') || waTxtExato('new list'); }, 2500);
+    if (!nova) { waEsc(); return null; }
+    var lin = waTxtExato(alvo);
+    if (!lin) {
+      // cria a lista "Cliente PF" uma vez
+      clicarEl(waTxtExato('nova lista') || waTxtExato('new list'));
+      var inp = await esperar(function () { var i = null; document.querySelectorAll('[role="dialog"] input[type="text"],[role="dialog"] input:not([type]),[role="dialog"] [contenteditable="true"],[data-animate-modal-body] input,[data-animate-modal-body] [contenteditable="true"]').forEach(function (x) { if (!i && waVisEl(x) && waForaNosso(x)) i = x; }); return i; }, 2500);
+      if (!inp) { waEsc(); aviso('🏷️ Não consegui criar a lista <b>' + esc(WA_ETQ) + '</b>. Crie uma vez no "Adicionar à lista" › Nova lista, com esse nome.'); return false; }
+      inp.focus();
+      if (inp.isContentEditable) document.execCommand('insertText', false, WA_ETQ);
+      else { var set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(inp, WA_ETQ); inp.dispatchEvent(new Event('input', { bubbles: true })); }
+      await dormir(300);
+      var ok = waBotaoTexto(/^(criar( lista)?|salvar|concluir|ok|confirmar|create( list)?|save|done)$/) || (function () { var b = null; document.querySelectorAll('span[data-icon*="checkmark"]').forEach(function (x) { if (!b && waVisEl(x)) b = x; }); return b; })();
+      if (ok) clicarEl(ok); else inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
+      await dormir(900);
+      lin = waTxtExato(alvo);
+      if (!lin) { // a janela fechou depois de criar: abre de novo
+        var bt2 = Array.prototype.find.call(($('#main header') || document).querySelectorAll('button,[role="button"]'), function (x) { return /adicionar a lista|add to list/.test(waN((x.textContent || '') + ' ' + (x.getAttribute('aria-label') || ''))); });
+        if (bt2) { clicarEl(bt2); lin = await esperar(function () { return waTxtExato(alvo); }, 2500); }
+      }
+      if (!lin) { waEsc(); aviso('🏷️ Criei a lista? Não achei <b>' + esc(WA_ETQ) + '</b> depois — confira no "Adicionar à lista".'); return false; }
+    }
+    var c = waCaixaDe(lin);
+    if (!waMarcado(c.cb)) clicarEl(c.cb || c.lin);
+    await dormir(350);
+    var salvar = waBotaoTexto(/^(salvar|save|concluir|done|ok|confirmar)$/);
+    if (salvar) clicarEl(salvar); else waEsc();
+    aviso('🏷️ Conversa posta na lista <b>' + esc(WA_ETQ) + '</b> (fica escondida — abre a 3ª linha com grupo e tipo).');
+    return true;
+  }
   async function waEtiquetar(nomes, st) {
+    var aviso = function (h) { try { if (st) st.innerHTML += '<br>' + h; } catch (e) { } };
+    try {
+      var lr = await waListaPeloCabecalho(aviso);
+      if (lr !== null) return lr;
+    } catch (e) { }
+    return waEtiquetarAntigo(nomes, st);
+  }
+  async function waEtiquetarAntigo(nomes, st) {
     var aviso = function (h) { try { if (st) st.innerHTML += '<br>' + h; } catch (e) { } };
     try {
       var row = null; (nomes || []).some(function (n) { row = n ? linhaDoNome(n) : null; return !!row; });

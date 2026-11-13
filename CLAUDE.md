@@ -2717,3 +2717,5 @@
   o cliente achado pelo nome vinha só dos pedidos/cotações (`pcMontarDados` com chave `r:RAZÃO`, SEM ficha no cadastro — ex.: pedidos importados do ERP) → grupo/tipo/contato não tinham
   onde gravar. `pfExtCadDoCli(cli,a,gPrim,gs)` (no `pfExtSalvarContato`): acha a ficha por chave / id / razão-fantasia (só letras+números) e, sem ficha, cria uma mínima (razão + Código JBoss
   do campo ou do "(636)" do nome, grupos, `criadoDe:'whatsapp'`); o contato passa a apontar pra chave da ficha (`c:<código>`).
+- v115.2743 + extensão **4.70** BUG ("esse filtro não tá funcionando" — barra de grupos do Menu do PF): a lista própria do filtro (`#pfwa-fl`, v4.69) tinha z-index 40 e no WhatsApp real ficava
+  POR BAIXO da lista dele; agora z-index 9990 (mesma camada do menu do PF, 9996+). Junto: prévia dos avisos discretos (📦/📌) em `docs/referencias/whatsapp-avisos-discretos/` — esperando o Vitor escolher A/B/C/D.

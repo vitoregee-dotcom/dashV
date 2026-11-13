@@ -2099,7 +2099,8 @@
     if (!FL) { FL = document.createElement('div'); FL.id = 'pfwa-fl'; document.body.appendChild(FL);
       FL.addEventListener('click', function (e) { var it = e.target.closest('[data-flnome]'); if (it) { flAbrir(it.getAttribute('data-flnome'), it.getAttribute('data-flid')); return; } if (e.target.closest('[data-flsair]')) { menuFiltro = ''; chrome.storage.local.set({ menuFiltro: '' }); pintarMenu(); } }); }
     var rc = pane.getBoundingClientRect();
-    FL.style.cssText = 'display:block;position:fixed;left:' + rc.left + 'px;top:' + rc.top + 'px;width:' + rc.width + 'px;height:' + rc.height + 'px;z-index:40';
+    // 4.70 - BUG (Vitor: 'esse filtro não tá funcionando'): z-index 40 ficava por baixo da lista do WhatsApp real; agora na camada do menu do PF
+    FL.style.cssText = 'display:block;position:fixed;left:' + rc.left + 'px;top:' + rc.top + 'px;width:' + rc.width + 'px;height:' + rc.height + 'px;z-index:9990';
     var vistos = {}, L = [];
     linhasLista().forEach(function (x) { var s = sitCache[x.nome]; vistos[x.nome] = 1; if (filtroBate(s, x)) L.push({ nome: x.nome, s: s || {}, hora: x.hora || '', unread: x.unread ? 1 : 0 }); });
     (grpLista || []).forEach(function (c) { if (vistos[c.nome]) return; vistos[c.nome] = 1; if (filtroBate(c.s)) L.push({ nome: c.nome, id: c.id, s: c.s, hora: '', unread: c.unread || 0 }); });

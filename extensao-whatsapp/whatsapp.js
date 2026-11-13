@@ -2976,7 +2976,7 @@
     }
     if (id === 'msg_mapa' || id === 'img_mapa') {
       var bt = ((resp && resp.botoes) || []).find(function (x) { return x && x.acao === 'respForn'; });
-      if (!bt) { cmToast('Abra a conversa de um fornecedor que tem mapa esperando resposta'); return; }
+      if (!bt) { cmToast(resp && resp.tipo === 'fornecedor' ? 'Esse fornecedor não tem mapa esperando resposta (o mapa precisa ter ele e estar criado — etapa 2 em diante)' : 'O PF não reconhece esta conversa como fornecedor — clique no 👤 ao lado do nome e salve como 🏭 Fornecedor'); return; }
       var pr = String(bt.arg || '').split('|'), ims = [], texto = A.b ? cmTxt(A.b) : '';
       if (src) { var du = await urlParaDataUrl(src); if (du) ims.push(du); }
       else if (A.b) { var imgs = A.b.querySelectorAll('img'); for (var i = 0; i < imgs.length && ims.length < 4; i++) { var sr = imgs[i].getAttribute('src') || ''; if ((/^blob:|^data:image/.test(sr)) && (imgs[i].naturalWidth || imgs[i].width) >= 120) { var d2 = await urlParaDataUrl(sr); if (d2) ims.push(d2); } } }

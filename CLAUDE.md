@@ -2622,3 +2622,11 @@
   juntos (`pfFornEmailCot`, usado nos 4 lugares que montam o `cotFornecedores` e no `mapaEmail`); WhatsApp = 1 mensagem por vendedor com número, chamado pelo nome
   (`pfMapaEnvDestinos`, `pfMapaEnvTexto(fid,nome)`); 2+ vendedores no e-mail = "pessoal do Comercial" (`pfFornNomeCot`). Sem vendedor marcado = e-mail/telefone principal, como antes.
   A confirmação do "Mandar pra todos" lista "fornecedor → pessoa número". O estado da linha do mapa = o melhor entre os vendedores dele.
+- v115.2721 + extensão **4.53** BUG ("essa merda nunca responde certo. só manda se eu abrir a conversa" + "quero que mande se eu estiver falando com outra pessoa, ou se estiver em outra
+  tela"): 1) o 📂 "Também nas outras conversas" esperava 20 s sem tecla/clique — conversando com outra pessoa nunca mandava. Agora `autoLivre`: WhatsApp em outra aba/janela/programa
+  (`document.hidden` / `!document.hasFocus()`) = manda; na tela = no 1º respiro (3 s sem tecla/clique; 8 s com texto na caixa — o WhatsApp guarda o rascunho); clicou/digitou no meio = para
+  e volta pra sua conversa (`t0`), 'input' saiu da contagem (o próprio envio contava). 2) Em outra tela o Chrome segura os relógios da aba (1x/min) e o `esperar` desistia de abrir a
+  conversa: `dormir` com a aba escondida espera pelo fundo da extensão (`{t:'dormir'}` no fundo.js) e `esperar` usa `dormir`. 3) Registro "📂 Outras conversas — o que aconteceu"
+  (`autoLog`) na tela da saudação: nenhuma esperando (com motivo por conversa: hora não achada, chegou agora, já mandei), esperando o respiro, mandei/não mandei, parei. Testado no
+  simulador (`t2721.js`/`t2721b.js`: digitando = espera; parou = manda pro Tork e volta pra BR Rolamentos; aba escondida = manda). Alt+B do WhatsApp: resposta sem lista de itens = "aba do
+  PF antiga, dê F5" (antes dizia "Não achei código" — o PF de hoje acha 5 515x = 5-515X, testado).

@@ -86,6 +86,8 @@ chrome.alarms.onAlarm.addListener(async function (a) {
 });
 
 chrome.runtime.onMessage.addListener(function (m, sender, send) {
+  // 4.53 - espera feita aqui (o Chrome quase para os relógios da aba do WhatsApp quando ela está em outra tela/aba)
+  if (m.t === 'dormir') { setTimeout(function () { try { send({ ok: 1 }); } catch (e) { } }, Math.min(+m.ms || 0, 20000)); return true; }
   // 3.2 - aviso de "conectado ao PF" no painel: o whatsapp.js pergunta de tempos em tempos
   if (m.t === 'pfStatus') { (async function () { var id = await acharPF(); send({ ok: !!id, temAba: _pfTemAba }); })(); return true; }
   if (m.t === 'souPF') { if (sender.tab) guardar({ pfTab: sender.tab.id }); send({ ok: 1 }); return; }

@@ -2686,3 +2686,6 @@
 - v115.2734 BUG (Kauê - MD Power salvo como fornecedor, mapa 0025 com a MD POWER, e o painel mostrava "TRIEX (pelo nome)" sem o 📥): o fornecedor escolhido no 👤 Salvar contato
   (`pfContatosWhats_v1.fornId`) não era usado pra reconhecer a conversa — sem número (@lid) caía na busca pelo nome. `pfExtLigadoForn(nome,tel)` (telefone, senão nome/nomeWa) agora manda no
   `pfExtQuem` e no `pfExtAcharK`; salvar como cliente apaga o fornId do contato e salvar como fornecedor apaga o clienteK. Mapas esperando o fornecedor casam pelo id (`pfMsMapas().faltaIds`), não só pelo nome.
+- v115.2735 + extensão **4.63** BUG (print do botão direito com texto selecionado na resposta do Kauê: "não aparece" o 📥 Lançar no mapa): o item só existia no menu de mensagem SEM seleção
+  (contexts page/link) e só aparecia quando a conversa já era reconhecida como fornecedor. Agora vale também com texto selecionado (`selection`) e aparece em toda mensagem; sem fornecedor ou sem
+  mapa esperando, o clique explica o que falta (salvar como 🏭 Fornecedor no 👤 / mapa criado com ele).

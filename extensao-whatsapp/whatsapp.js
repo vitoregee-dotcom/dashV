@@ -3135,17 +3135,25 @@
     var el = abEl(), r = abR;
     if (!r || r.erro) { el.innerHTML = AB_CAB + '<div class="ab-car">' + (r && r.erro === 'semPF' ? 'Abra o PartsFlow numa aba deste Chrome.' : 'O PF não respondeu. Dê F5 na aba do PartsFlow.') + '</div>'; return; }
     if (!Array.isArray(r.itens)) { el.innerHTML = AB_CAB + '<div class="ab-car">' + esc(r.msg || 'O PF respondeu, mas não entendeu o pedido — a aba do PartsFlow está numa versão antiga.') + ' Dê F5 na aba do PartsFlow e tente de novo.</div>'; return; } // 4.53
-    if (!r.itens.length) { el.innerHTML = AB_CAB + '<div class="ab-car">Não achei código em "' + esc(String(texto || '').slice(0, 60)) + '".</div>'; return; }
-    el.innerHTML = AB_CAB + '<div class="ab-corpo">' + r.itens.map(function (x, i) {
+    // 4.68 - A pedido do Vitor ("tudo que tiver no Alt+B do PF quero que tenha na extensão"): máquinas, componentes e códigos parecidos também
+    var ex = r.extras || {}, nEx = (ex.maqs || []).length + (ex.comps || []).length;
+    var itens = r.itens.filter(function (x) { return nEx === 0 || (x.marcas && x.marcas.length) || x.cc || (x.mc && x.mc.length) || (x.parec && x.parec.length); });
+    if (!itens.length && !nEx) { el.innerHTML = AB_CAB + '<div class="ab-car">Não achei código em "' + esc(String(texto || '').slice(0, 60)) + '".</div>'; return; }
+    var exH = '';
+    if ((ex.maqs || []).length) exH += '<div class="ab-mct">🚜 Máquinas (' + ex.maqs.length + ')</div>' + ex.maqs.map(function (m) { return '<div class="ab-mc" data-ab="maq" data-c="' + esc(m.chave) + '" title="Abrir a máquina no PF"><b>' + (m.rod ? '🚚 ' : '🚜 ') + esc(m.nome) + '</b><span>' + esc(m.sub || '') + '</span><i class="s">abrir ›</i></div>'; }).join('');
+    if ((ex.comps || []).length) exH += '<div class="ab-mct">⚙️ Componentes (' + ex.comps.length + ')</div>' + ex.comps.map(function (c) { return '<div class="ab-mc" data-ab="' + (c.gk ? 'serie' : 'maq') + '" data-c="' + esc(c.gk || c.maq) + '" title="' + (c.gk ? 'Ver as peças dessa série no PF' : 'Abrir a máquina no PF') + '"><b>' + esc(c.tit) + '</b><span>' + esc(c.sub || '') + '</span><i class="s">' + (c.gk ? 'ver peças ›' : 'abrir ›') + '</i></div>'; }).join('');
+    el.innerHTML = AB_CAB + '<div class="ab-corpo">' + (exH ? '<div class="ab-it">' + exH + '</div>' : '') + itens.map(function (x, i) {
+      i = r.itens.indexOf(x);
       var tem = x.marcas && x.marcas.length;
       var h = '<div class="ab-it"><div class="ab-cod"><b>' + esc(x.cod) + '</b>' + (x.qtd > 1 ? ' <span class="ab-q2">× ' + esc(x.qtd) + '</span>' : '') + '<span class="ab-cp" data-ab="copiar" data-c="' + esc(x.cod) + '" title="Copiar o código">📋</span>' +
         (x.codCli ? ' <small>(achado por ' + esc(x.codCli) + ')</small>' : '') + '</div>' +
         (x.desc ? '<div class="ab-desc">' + esc(x.desc) + '</div>' : '') +
         (tem ? x.marcas.map(function (m) { return '<div class="ab-mar ' + (m.saldo > 0 ? 'ok' : 'zero') + '"><span>' + esc(m.marca || '—') + '</span><span>' + (m.saldo > 0 ? 'saldo ' + esc(m.saldo) : 'sem saldo') + '</span><b>' + (m.preco ? reais(m.preco) : '') + '</b></div>'; }).join('')
-          : '<div class="ab-nada">' + (x.cc ? 'Não está no estoque — está no catálogo dos Componentes Cardan.' : 'Não achei no PF.') + '</div>');
+          : '<div class="ab-nada">' + (x.cc ? 'Não está no estoque — está no catálogo dos Componentes Cardan.' : (x.parec && x.parec.length ? 'Nenhum código igual — achei estes parecidos:' : 'Não achei no PF.')) + '</div>');
+      if (!tem && x.parec && x.parec.length) h += x.parec.map(function (p) { return '<div class="ab-mc" data-ab="par" data-c="' + esc(p.cod) + '" title="Ver esse código"><b>' + esc(p.cod) + '</b><span>' + esc([p.marca, p.desc, p.de].filter(Boolean).join(' · ')) + '</span><i class="s">ver ›</i></div>'; }).join('');
       if (x.cc) h += '<div class="ab-cc">🔩 Componentes Cardan · ' + esc(x.cc.fam) + (x.cc.cod && x.cc.cod !== x.cod ? ' · ' + esc(x.cc.cod) : '') + '</div>';
       if (x.mc && x.mc.length) h += '<div class="ab-mct">🔗 Monta com (' + esc(x.nMc) + ')</div>' + x.mc.map(function (m) {
-        return '<div class="ab-mc" data-ab="mc" data-f="' + esc(m.famK) + '" data-c="' + esc(m.cod) + '" title="Abrir no catálogo"><b>' + esc(m.cod) + '</b><span>' + esc(m.fam) + '</span>' +
+        return '<div class="ab-mc" data-ab="mc" data-f="' + esc(m.famK) + '" data-c="' + esc(m.cod) + '" title="Abrir no catálogo"><b>' + esc(m.cod) + '</b><span>' + esc(m.fam) + (m.outros && m.outros.length ? ' · também ' + esc(m.outros.join(', ')) : '') + '</span>' +
           (m.saldo == null ? '<i class="z">sem cadastro</i>' : m.saldo > 0 ? '<i class="s">saldo ' + esc(m.saldo) + '</i>' : '<i class="z">sem saldo</i>') + '</div>'; }).join('');
       h += '<div class="ab-bts"><button class="v" data-ab="cot" data-i="' + i + '">➕ Pôr na cotação</button><button data-ab="pf" data-c="' + esc(x.cod) + '">Abrir no PF ›</button>' +
         (x.cc || (x.mc && x.mc.length) ? '<button data-ab="cat" data-c="' + esc(x.cod) + '">🔩 Catálogo</button>' : '') + '</div></div>';
@@ -3163,6 +3171,9 @@
     if (a === 'pf') { msg({ t: 'acao', acao: 'altbPF', focar: true, arg: { cod: c } }); return; }
     if (a === 'cat') { msg({ t: 'acao', acao: 'ccAbrir', focar: true, arg: { cod: c } }); return; }
     if (a === 'mc') { msg({ t: 'acao', acao: 'ccAbrirFam', focar: true, arg: { fam: el.getAttribute('data-f'), cod: c } }); return; }
+    if (a === 'maq') { msg({ t: 'acao', acao: 'altbMaq', focar: true, arg: { chave: c } }); return; }
+    if (a === 'serie') { msg({ t: 'acao', acao: 'altbSerie', focar: true, arg: { gk: c } }); return; }
+    if (a === 'par') { abAbrir(c); return; }
   }
   setTimeout(function () { try { autoStatusPill(); } catch (e) { } }, 2500);
 

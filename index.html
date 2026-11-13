@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2741</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2742</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2741</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2742</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -77244,6 +77244,10 @@ function pfExtSalvarContato(a){
   // a empresa digitada tinha palavras a mais e o "1427" ainda não era Código JBoss de ninguém → "não está no PF". Agora tenta o nome inteiro do WhatsApp e a empresa
   // pelo mesmo comparador do painel (pfExtAcharK: código, pedaço do nome, 2 palavras seguidas).
   if(!cli&&!a.criar){[a.nomeWa,a.emp,nome].some(function(t){if(!t)return false;var ak=pfExtAcharK(t,'');if(ak&&ak.tipo==='cliente'&&ak.c){cli=ak.c;return true;}return false;});}
+  // v115.2742 - BUG ("tem alguma coisa nesse Celso que não deixa salvar as etiquetas" — "Celso Durante - MG da Costa (636) SP"): o cliente achado pelo nome vinha
+  // só dos pedidos/cotações (chave 'r:RAZÃO', SEM ficha no cadastro) — grupo/tipo/contato não tinham onde gravar e a etiqueta ficava "cliente do PF".
+  // Agora acha a ficha (código, id ou razão) e, se não existir, cria uma ficha mínima com a razão + Código JBoss; o contato passa a apontar pra ela.
+  if(cli){try{var _fc=pfExtCadDoCli(cli,a,gPrim,gs);if(_fc&&_fc.k)cli={k:_fc.k,razao:_fc.cad.razao,nome:_fc.cad.fantasia||_fc.cad.razao,cad:_fc.cad};}catch(e){console.warn('ficha do cliente',e);}}
   var l=pfExtContatosRaw();if(!Array.isArray(l))l=[];
   var _waAN=pfExtNomeAN(a.nomeWa); // v115.2705
   var ex=l.find(function(c){return c&&!c.del&&((tel&&c.tel&&pfExtTelBate(c.tel,tel))||(!tel&&_waAN&&(pfExtNomeAN(c.nome)===_waAN||pfExtNomeAN(c.nomeWa)===_waAN)));});
@@ -77275,6 +77279,18 @@ function pfExtSalvarContato(a){
   try{window._pfExtCliCache=null;}catch(e){}
   return {ok:true,cli:noCad||(cli&&novo?cli.razao:''),k:cli?cli.k:'',novo:novo};
 }
+function pfExtCadDoCli(cli,a,gPrim,gs){
+  var cl=cadLoad(CLIE_KEY)||[],kDe=function(c){return 'c:'+String(c.codigo||c.razao||'').toUpperCase();},RN=function(s){return pfExtNomeAN(s);};
+  var f=cl.find(function(c){return c&&!c.del&&kDe(c)===cli.k;});
+  if(!f&&cli.cad&&cli.cad.id)f=cl.find(function(c){return c&&!c.del&&c.id===cli.cad.id;});
+  if(!f&&cli.razao){var rn=RN(cli.razao);if(rn)f=cl.find(function(c){return c&&!c.del&&(RN(c.razao)===rn||RN(c.fantasia)===rn);});}
+  if(f)return {cad:f,k:kDe(f)};
+  var razao=String(cli.razao||cli.nome||'').trim().toUpperCase();if(!razao)return null;
+  var agora=Date.now(),cod=(typeof cadProximoCodigoCliente==='function')?cadProximoCodigoCliente():'';
+  var cj=String((a&&a.cod)||'').replace(/\D/g,'');if(!cj){var m=String((a&&a.nomeWa)||'').match(/\(\s*(\d{2,8})\s*\)/);if(m)cj=m[1];}
+  var n={id:'c_'+agora,codigo:cod,razao:razao,codJboss:cj,contatos:[],grupo:gPrim||'',grupos:gs||[],criadoDe:'whatsapp',criadoPor:(typeof pfVR2MeuEmail==='function'&&pfVR2MeuEmail())||'',criadoEm:agora,tsMod:agora};
+  cl.push(n);cadSave(CLIE_KEY,cl);window._pfExtCliCache=null;try{if(typeof pfSyncPush==='function')pfSyncPush([CLIE_KEY]);}catch(e){}
+  return {cad:n,k:kDe(n),novo:true};}
 function pfExtImpLigarCadastro(sel){
   var cli=null;try{cli=cadLoad(CLIE_KEY)||[];}catch(e){return 0;}
   var porK={};cli.forEach(function(c){if(!c||c.del)return;porK['c:'+String(c.codigo||c.razao||'').toUpperCase()]=c;});

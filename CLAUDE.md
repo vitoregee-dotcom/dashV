@@ -2713,3 +2713,7 @@
   3) **📦 Pedido a emitir** ("falei que segunda de manhã tirava o pedido e não foi nada pro PF" + cliente que manda "favor confirmar o pedidp / 3-r271123 50,62 / total 151,86"): palavras novas
   `PF_PE_MIM_2741` (tiro o pedido, emito o pedido…) e `PF_PE_CLI_2741` (confirmar o pedido, favor confirmar…), somadas 1x em quem já tinha lista salva (`o.v2741`); mensagem do cliente com cara de
   pedido (`peCaraDePedido`: PEDIDO/"pedidp" + código com valor, ou TOTAL com valor) também conta; dia da semana dito vira a data do lembrete (`pfPeData`: amanhã/segunda…sábado = próximo), texto "(segunda 16/11)".
+- v115.2742 BUG ("tem alguma coisa nesse Celso que não deixa salvar no PF as etiquetas… dá até uma bugada" — "Celso Durante - MG da Costa (636) SP", etiqueta só "cliente do PF"):
+  o cliente achado pelo nome vinha só dos pedidos/cotações (`pcMontarDados` com chave `r:RAZÃO`, SEM ficha no cadastro — ex.: pedidos importados do ERP) → grupo/tipo/contato não tinham
+  onde gravar. `pfExtCadDoCli(cli,a,gPrim,gs)` (no `pfExtSalvarContato`): acha a ficha por chave / id / razão-fantasia (só letras+números) e, sem ficha, cria uma mínima (razão + Código JBoss
+  do campo ou do "(636)" do nome, grupos, `criadoDe:'whatsapp'`); o contato passa a apontar pra chave da ficha (`c:<código>`).

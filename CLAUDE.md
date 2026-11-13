@@ -2683,3 +2683,6 @@
   Sem motor = conta o que está carregado (title avisa). O filtro continua mostrando/escondendo só as conversas carregadas (o WhatsApp não desenha as outras).
   Obs.: esta ia ser a 2730/4.60, mas outra sessão publicou 2730/2731 ao mesmo tempo — **antes de publicar, `git fetch` e conferir a versão da `main`; NUNCA `merge -s ours` com a main que andou (apaga o trabalho dela).**
 - v115.2733 ("como eu altero a quantidade aqui no RMA? ao invés de 1 pç são 2"): no detalhe do RMA (`rmaVerDetalhe`) a Qtd de cada item virou campo → `rmaItemQtdSalvar(id,i,v)` (grava com ts novo, atualiza a lista).
+- v115.2734 BUG (Kauê - MD Power salvo como fornecedor, mapa 0025 com a MD POWER, e o painel mostrava "TRIEX (pelo nome)" sem o 📥): o fornecedor escolhido no 👤 Salvar contato
+  (`pfContatosWhats_v1.fornId`) não era usado pra reconhecer a conversa — sem número (@lid) caía na busca pelo nome. `pfExtLigadoForn(nome,tel)` (telefone, senão nome/nomeWa) agora manda no
+  `pfExtQuem` e no `pfExtAcharK`; salvar como cliente apaga o fornId do contato e salvar como fornecedor apaga o clienteK. Mapas esperando o fornecedor casam pelo id (`pfMsMapas().faltaIds`), não só pelo nome.

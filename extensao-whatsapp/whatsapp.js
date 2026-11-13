@@ -2232,7 +2232,11 @@
   function selosVigiar() {
     var liga = CFG.selo !== false && avisoLigado && contatoAt && !contatoAt.grupo;
     var els = Array.prototype.slice.call(document.querySelectorAll('#main [data-pre-plain-text]')).slice(-40);
-    var txt = function (el) { var tx = el.querySelector('.selectable-text'); return ((tx ? tx.innerText : el.innerText) || '').replace(/📄\s*\d+\+?|✓ cot\./g, '').trim(); };
+    // 4.64 - A pedido do Vitor ("tá certo 2 tarjas laranjas?" — mensagem com lista "• 4212047 ou 1624393"): o WhatsApp põe um [data-pre-plain-text] dentro
+    // do outro em mensagem com lista/formatação; o selo saía em cada um. Fica só o de fora (e some o selo que já estava no de dentro).
+    els.forEach(function (el) { if (el.parentElement && el.parentElement.closest('[data-pre-plain-text]')) { var s0 = el.querySelector(':scope > .pfwa-selo'); if (s0) s0.remove(); } });
+    els = els.filter(function (el) { return !(el.parentElement && el.parentElement.closest('[data-pre-plain-text]')); });
+    var txt = function (el) { var txs = el.querySelectorAll('.selectable-text'), tx = txs[0]; if (txs.length > 1) return Array.prototype.map.call(txs, function (x) { return x.innerText || ''; }).join('\n').replace(/📄\s*\d+\+?|✓ cot\./g, '').trim(); return ((tx ? tx.innerText : el.innerText) || '').replace(/📄\s*\d+\+?|✓ cot\./g, '').trim(); };
     // 4.15 - A pedido do Vitor ("não to achando esse número que ele encontrou 13X32"): o selo lia o BLOCO inteiro de mensagens
     // do cliente e puxava código de outra mensagem. Agora lê SÓ a mensagem onde o selo está (o código tem que estar nela).
     var alvo = [];

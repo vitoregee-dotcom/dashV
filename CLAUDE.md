@@ -2689,3 +2689,5 @@
 - v115.2735 + extensão **4.63** BUG (print do botão direito com texto selecionado na resposta do Kauê: "não aparece" o 📥 Lançar no mapa): o item só existia no menu de mensagem SEM seleção
   (contexts page/link) e só aparecia quando a conversa já era reconhecida como fornecedor. Agora vale também com texto selecionado (`selection`) e aparece em toda mensagem; sem fornecedor ou sem
   mapa esperando, o clique explica o que falta (salvar como 🏭 Fornecedor no 👤 / mapa criado com ele).
+- v115.2736 + extensão **4.64** BUG ("tá certo 2 tarjas laranjas?" — mensagem com lista "• 4212047 ou 1624393" com 2 selos 📄 2): o WhatsApp põe um `[data-pre-plain-text]` dentro do
+  outro em mensagem com lista/formatação e o `selosVigiar` punha selo nos dois. Agora só o de FORA ganha selo (o de dentro é tirado) e o texto lido junta todas as partes (`.selectable-text`) da mensagem.

@@ -167,6 +167,10 @@ function respAcao(acao, arg) {
     SIT_DIN[arg.nomeWa] = { tipo: 'cliente', k: arg.k, tpc: TPN[arg.tipoCli] || '', gcs: gs, grupos: gs.map(function (g) { return g.l; }), gueri: !!arg.gueri, fatSp: !!arg.fatSp };
     setTimeout(function(){ toast('Salvo no PF: ' + arg.nome); }, 50); return { ok: true, cli: 'ADIPEL COMERCIO DE PECAS LTDA', k: arg.k };
   }
+  if (acao === 'salvarContato' && arg && !arg.k && !arg.cnpj && !arg.criar && (arg.grupos || []).length) { // v115.2726 - contato que não é cliente com grupo (ex.: Triex)
+    SIT_DIN[arg.nomeWa] = { tipo: 'contato', grupos: arg.grupos.slice(), gcs: arg.grupos.map(function (g) { return { l: g, c: '#7A869A', t: '#fff' }; }) };
+    setTimeout(function(){ toast('Salvo no PF: ' + arg.nome + ' · grupo ' + arg.grupos.join(', ')); }, 50); return { ok: true };
+  }
   if (acao === 'salvarContato') { setTimeout(function(){ toast('Salvo no PF: ' + arg.nome + (arg.cargo ? ' (' + arg.cargo + ')' : '')); }, 50); return arg.cnpj ? { ok: true, cli: 'EMPRESA DO CNPJ LTDA', k: 'c:PROSP', novo: true, prospect: true, base: true } : arg.criar ? { ok: true, cli: String(arg.emp).toUpperCase(), k: 'c:NOVO', novo: true } : { ok: true, cli: arg.k ? 'cliente escolhido' : '' }; }
   if (acao === 'contatosSemTel') return { ok: true, nomes: [], total: ORDEM.length };
   if (acao === 'contatoTel') return { ok: true, gravou: true };
@@ -278,12 +282,31 @@ function simListaPop(k) {
   setTimeout(function () { document.addEventListener('keydown', function f(ev) { if (ev.key === 'Escape') { m.remove(); document.removeEventListener('keydown', f); } }); }, 0);
 }
 document.addEventListener('click', function (ev) { if (ev.target && ev.target.id === 'simAddLista') simListaPop(CUR); });
+// v115.2726 - "⋮ → Adicionar aos contatos" → janela "Novo contato" igual ao print do Vitor (Nome/Sobrenome já vêm do WhatsApp, chave do Sincronizar SEM atributo, botão ✓ redondo sem texto)
+document.addEventListener('click', function (ev) {
+  if (ev.target && ev.target.id === 'simMais') { var m = document.createElement('div'); m.style.cssText = 'position:fixed;z-index:9000;right:200px;top:60px;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.25);font:14px sans-serif';
+    m.innerHTML = '<div role="button" style="padding:10px 18px">Dados do contato</div><div role="button" id="simAddCont" style="padding:10px 18px">Adicionar aos contatos</div>'; document.body.appendChild(m);
+    m.querySelector('#simAddCont').onclick = function () { m.remove(); simNovoContato(); }; }
+});
+function simNovoContato() {
+  var d = document.createElement('div'); d.id = 'simNC'; d.style.cssText = 'position:fixed;z-index:8000;right:0;top:0;bottom:0;width:420px;background:#fff;font:14px sans-serif;padding:20px;box-shadow:-4px 0 12px rgba(0,0,0,.1)';
+  d.innerHTML = '<div style="display:flex;gap:12px;align-items:center"><span data-icon="x">✕</span><div>Novo contato</div></div>' +
+    '<div style="margin-top:30px"><div style="color:#888;font-size:12px">Nome</div><input type="text" value="Thiago -" style="width:100%;border:0;border-bottom:1px solid #ccc;font-size:16px"></div>' +
+    '<div style="margin-top:20px"><div style="color:#888;font-size:12px">Sobrenome</div><input type="text" value="Silva" style="width:100%;border:0;border-bottom:1px solid #ccc;font-size:16px"></div>' +
+    '<div style="margin-top:20px"><input type="text" placeholder="Nome de usuário" style="width:100%;border:0;border-bottom:1px solid #ccc"></div>' +
+    '<div style="margin-top:20px"><input type="tel" value="11 97451-8615" style="width:100%;border:0;border-bottom:1px solid #ccc"></div>' +
+    '<div style="margin-top:20px;display:flex;align-items:center"><div style="flex:1"><div>Sincronizar contato com celular</div><div style="font-size:12px;color:#888">O contato será adicionado à lista de contatos do seu celular.</div></div><div id="simSw" style="width:40px;height:22px;border-radius:11px;background:rgb(200,200,200)"></div></div>' +
+    '<div style="position:absolute;bottom:30px;right:30px"><button style="width:52px;height:52px;border-radius:50%;background:#111;color:#fff;border:0"><span data-icon="checkmark">✓</span></button></div>';
+  document.body.appendChild(d);
+  d.querySelector('#simSw').onclick = function () { this.style.background = this.style.background.indexOf('200') >= 0 ? 'rgb(0,168,132)' : 'rgb(200,200,200)'; };
+  d.querySelector('button').onclick = function () { var i = d.querySelectorAll('input'); window.SIM_SALVO = { nome: i[0].value, sobre: i[1].value, sinc: d.querySelector('#simSw').style.background.indexOf('168') >= 0 }; d.remove(); };
+}
 function abrir(k) {
   CUR = k; var c = CONTATOS[k];
   var did = c.grupo ? 'grupo_1@g.us' : 'true_' + c.tel + '@c.us';
   var msgs = c.msgs.map(function (m, i) { if (m[0] === 'aud') return '<div class="message-in" data-id="false_' + (c.tel || 'g') + '@c.us_' + i + '"><div class="b" style="min-width:240px"><button aria-label="Reproduzir mensagem de voz" data-sim-play="1" style="background:#54656f;color:#fff;border:0;border-radius:50%;width:26px;height:26px">▶</button> <span style="color:#8696a0">〰〰〰〰〰〰 ' + m[1] + '</span></div></div>'; return '<div class="message-' + m[0] + '" data-id="false_' + (c.tel || 'g') + '@c.us_' + i + '"><div class="b copyable-text" data-pre-plain-text="[14:00] ' + c.nome + ': "><span class="selectable-text">' + m[1] + '</span></div></div>'; }).join('');
   document.getElementById('main').innerHTML =
-    '<header><div class="av">' + c.av + '</div><span dir="auto" title="' + c.nome + '" data-id="' + did + '">' + c.nome + '</span>' + (c.grupo ? '<span data-icon="default-group" style="margin-left:6px">👥</span>' : '') + '<button id="simAddLista" style="margin-left:auto;border:1px solid #ccc;border-radius:18px;padding:4px 12px;background:#fff">Adicionar à lista ▾</button></header>' +
+    '<header><div class="av">' + c.av + '</div><span dir="auto" title="' + c.nome + '" data-id="' + did + '">' + c.nome + '</span>' + (c.grupo ? '<span data-icon="default-group" style="margin-left:6px">👥</span>' : '') + '<button aria-label="Mais opções" id="simMais" style="margin-left:8px;border:0;background:none;font-size:18px">⋮</button><button id="simAddLista" style="margin-left:auto;border:1px solid #ccc;border-radius:18px;padding:4px 12px;background:#fff">Adicionar à lista ▾</button></header>' +
     '<div id="msgs">' + msgs + '</div>' +
     '<footer><button>😊</button><div class="cx" contenteditable="true" role="textbox"></div><button aria-label="Enviar">➤</button></footer>';
   document.querySelectorAll('#sim-bar [data-sim]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-sim') === k); });

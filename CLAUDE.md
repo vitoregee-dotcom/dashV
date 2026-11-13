@@ -2650,3 +2650,11 @@
   no cabeçalho da conversa, caixinhas + "Nova lista"). `waEtiquetar` tenta primeiro `waListaPeloCabecalho`: abre o botão, marca a lista "Cliente PF" (`waTxtExato` + `waCaixaDe`); sem
   a lista, cria pelo "Nova lista" (campo dentro do `[role=dialog]`, botão "Criar lista") e marca. Sem o botão = jeito antigo (`waEtiquetarAntigo`, menu "Etiquetar conversa").
   Simulador ganhou o "Adicionar à lista ▾" (`simListaPop`, `SIM_LISTAS`). Testado no simulador (cria a lista e a 3ª linha aparece); seletores do WhatsApp real não testados.
+- v115.2726 + extensão **4.57** (Vitor: "vamos no 2… só nos que não estão em lista?" + "na msg automática selecionar grupo pra responder ou não… pra testar antes de ativar… criar um grupo, ex.: Triex"
+  + print "salvar só no whats ainda não está salvando"): 1) ⚙️ → 📇 Contatos → **🏷️ Pôr os clientes na lista Cliente PF** (`listaMassa`): rola a lista e abre só as conversas de cliente (ou contato
+  com grupo) SEM a linha da lista (`temLinhaLista`) e já lidas (abrir tira o "não lida"), usa `waListaPeloCabecalho`, volta pra conversa de antes; clique de novo = para. 2) **Grupos na mensagem
+  automática**: `AUTO.grpModo` todos/so/menos + `AUTO.grpSel` (nomes), `autoGrpHtml` na tela da saudação, regra no `autoEhCliente` (vale saudação, status e avisos; "Só estes grupos" manda mesmo
+  pra quem não é cliente) + linha no 🧪 Testar. 3) **Grupo em contato que não é cliente** (ex.: Triex): `pfContatosWhats_v1` item ganha `grupos` (`pfExtSalvarContato`), `pfExtContGrupos`
+  → `pfExtSituacaoDe` devolve `tipo:'contato'` com grupos (lista, barra de grupos, filtro) e `pfExtQuem` traz os grupos pro 👤. Falta: Disparo por esses grupos de contato. 4) BUG "📱 Só no WhatsApp":
+  escrevia num campo errado — agora espera a janela "Novo/Editar contato" (`waPainelContato`), acha Nome/Sobrenome pelo rótulo (`waCamposDe`), escreve e confere (`waEscreverConf`, cola se não
+  pegou), liga o Sincronizar mesmo sem atributo (chave cinza à direita do texto) e aperta o ✓ redondo (`waSalvarBotao`). Simulador: ⋮ → Adicionar aos contatos → "Novo contato" igual ao print.

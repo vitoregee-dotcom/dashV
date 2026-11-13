@@ -3023,7 +3023,7 @@
     var lbs = ['Responder', 'Reply', 'Copiar', 'Copy', 'Encaminhar', 'Forward'];
     var els = document.querySelectorAll('li, [role="menuitem"], [role="button"], div[tabindex]');
     for (var i = 0; i < els.length; i++) {
-      var el = els[i]; if (el.closest('#pfwa-painel, #pfwa-menu, #pfwa-rail, #pfwa-bots') || (el.closest('#main') && !el.closest('[role="application"]'))) continue;
+      var el = els[i]; if (el.closest('#pfwa-painel, #pfwa-menu, #pfwa-rail, #pfwa-bots') || el.closest('#pane-side, [data-pre-plain-text], .message-in, .message-out, footer')) continue; // 4.66 - o menu pode estar dentro do #main; só fica fora o que é mensagem/lista
       var t = String(el.innerText || '').trim(); if (lbs.indexOf(t) < 0) continue;
       var r = el.getBoundingClientRect(); if (!r.width || !r.height) continue;
       return el;
@@ -3040,6 +3040,10 @@
     var itens = [];
     var forn = resp && resp.tipo === 'fornecedor', bt = ((resp && resp.botoes) || []).some(function (x) { return x && x.acao === 'respForn'; });
     if (forn || bt) itens.push(['msg_mapa', '📥 Lançar no mapa (PF)']);
+    // 4.66 - A pedido do Vitor ("imagem, eu consigo tbm já mandar para a cotação?"): foto = ler com IA e cotar
+    var imgSrc = '';
+    try { var A0 = cmAlvo || {}, ims0 = A0.b ? A0.b.querySelectorAll('img') : []; for (var k = 0; k < ims0.length; k++) { var s0 = ims0[k].getAttribute('src') || ''; if (/^blob:|^data:image/.test(s0) && (ims0[k].naturalWidth || ims0[k].width) >= 120) { imgSrc = s0; break; } } } catch (e) { }
+    if (imgSrc) itens.push(['img_ia', '🤖 Ler a foto com IA e cotar (PF)', imgSrc]);
     itens.push(['msg_cotar', '📄 Cotar no PF']);
     if (resp && resp.k) { itens.push(['msg_nota', '📝 Anotar na ficha (PF)']); itens.push(['msg_lemb', '⏰ Lembrete (PF)']); }
     itens.push(['msg_rr', '⚡ Salvar como resposta rápida (PF)']);
@@ -3055,7 +3059,7 @@
       var vai = function (ev) { ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation();
         try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true })); } catch (e) { }
         try { var ap = lista.closest('[role="application"]') || lista; if (document.body.contains(ap)) ap.style.display = 'none'; } catch (e) { }
-        cmExec(x[0], '', '').catch(function (e) { console.warn('PF menu', e); }); };
+        cmExec(x[0], '', x[2] || '').catch(function (e) { console.warn('PF menu', e); }); };
       li.addEventListener('mousedown', function (ev) { ev.stopPropagation(); }, true);
       li.addEventListener('click', vai, true);
       lista.appendChild(li);

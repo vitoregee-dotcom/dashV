@@ -2695,3 +2695,6 @@
   1) sem texto selecionado o WhatsApp abre o MENU DELE (Responder/Copiar…) e o do Chrome não aparece → `wmProcurar`/`wmPor` (whatsapp.js) acham esse menu (item Responder/Copiar/Encaminhar)
   logo depois do botão direito numa mensagem e acrescentam as opções do PF clonando o item: 📥 Lançar no mapa (conversa de fornecedor), 📄 Cotar no PF, 📝 Anotar na ficha / ⏰ Lembrete (cliente),
   ⚡ Salvar como resposta rápida → `cmExec`. Testado com um menu de mentira no simulador; falta o WhatsApp real. 2) `pfRespFornLancar`: linha SEM preço mas com prazo lança só o prazo (entrada preco 0).
+- v115.2738 + extensão **4.66** (print da foto "Segue pedido" da Geisa - Newton Cardans: "imagem, eu consigo tbm já mandar para a cotação?"): no menu do WhatsApp de uma mensagem com FOTO
+  entra "🤖 Ler a foto com IA e cotar (PF)" (`wmPor` pega o blob da foto do balão → `cmExec('img_ia')` → `pfExtCotarImg`, o resultado cai na aba Cotação do painel com "📄 Abrir a cotação no PF").
+  BUG junto: o `wmMenu` pulava o menu do WhatsApp quando ele ficava dentro do `#main` (por isso nada aparecia no print) — agora só pula o que é mensagem/lista/rodapé.

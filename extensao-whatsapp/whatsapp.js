@@ -525,6 +525,8 @@
   var MENU = null, RAIL = null, menuLig = true, menuCor = 'discreta', menuFiltro = '', sitCache = {}, sitSig = '', sitTimer = null; // 4.32 - A pedido do Vitor: o Menu do PF vem no modo DISCRETO por padrão
   // 2.2 - 📌 "vou verificar depois" → pendência automática (com desfazer)
   var VF = null, vfR = null, vfSig = '';
+  // 4.62 - 📦 Pedido a emitir (lembrete automático): config (palavras + liga-desliga) vem do PF (card "Ajustes da extensão do WhatsApp").
+  var PE = null, peR = null, peSig = '', peCfg = null, peCfgTs = 0, peReMim = null, peReCli = null;
   var VERIF_RE = /\bvou (anotar|verificar|conferir|checar|ver\b|dar uma (olhada|conferida)|confirmar|olhar|pesquisar|te retornar|te dar)|deixa eu (ver|verificar|conferir|checar|dar uma olhada|olhar)|preciso (verificar|conferir|ver no|checar)|j[aá] (te )?(retorno|verifico|confiro)|vou (te )?(retornar|dar) (o|um|a)/i;
   chrome.storage.local.get(['ofIgn'], function (s) { ofIgn = s.ofIgn || {}; });
   var BOTOES = [['cot', '📄', 'Cotar no PF'], ['saldo', '📦', 'Saldo'], ['ficha', '🤝', 'Ficha'], ['audio', '🎤', 'Descrever áudio'], ['lemb', '⏰', 'Lembrete'], ['prontas', '⚡', 'Prontas'], ['assist', '🤖', 'Assistente'], ['pdf', '📤', 'PDF']];
@@ -563,6 +565,7 @@
         '<span class="pfwa-sw' + (on ? ' on' : '') + '"><i></i></span></div>';
     });
     h += '<div class="pfwa-cfgl" data-acao="autoAbrir"><span class="pfwa-cfgi">👋</span><div><b>Mensagens automáticas</b><br><small>' + (autoAusente() ? autoInfo(autoAusente()).join(' ') + ' · ' : '') + 'Saudação de espera ' + (AUTO.on ? 'ligada · ' + esc(AUTO.min) + ' min · ' + esc(AUTO.ini) + '–' + esc(AUTO.fim) : 'desligada') + ' — clique pra ajustar</small></div><span class="pfwa-link">ajustar ›</span></div>';
+    h += '<div class="pfwa-cfgl" data-acao="extCfgAbrir"><span class="pfwa-cfgi">📦</span><div><b>Pedido a emitir</b><br><small>Lembrete automático pra não esquecer de emitir/mandar ("manda pra mim", "mando hoje"). As palavras e o liga/desliga ficam no PF.</small></div><span class="pfwa-link">ajustar no PF ›</span></div>'; // 4.62
     // 4.37 - A pedido do Vitor ("não precisa mais desses botões né?"): saíram do rodapé, ficam aqui pra usar quando precisar
     h += '<div class="pfwa-bt" style="margin-top:12px">📇 Contatos</div>' + motorSeloHtml() +
       '<div class="pfwa-cfgbtns"><button data-acao="importar" class="pfwa-cfgb verde" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button>' +
@@ -663,12 +666,13 @@
     MENU = document.createElement('div'); MENU.id = 'pfwa-menu'; document.body.appendChild(MENU);
     RAIL = document.createElement('div'); RAIL.id = 'pfwa-rail'; document.body.appendChild(RAIL);
     VF = document.createElement('div'); VF.id = 'pfwa-vf'; document.body.appendChild(VF);
+    PE = document.createElement('div'); PE.id = 'pfwa-pe'; document.body.appendChild(PE); // 4.62
     SVB = document.createElement('div'); SVB.id = 'pfwa-svb'; SVB.setAttribute('data-acao', 'svAbrir'); SVB.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6"/><path d="M19 8v6M16 11h6"/></svg>'; document.body.appendChild(SVB);
     SV = document.createElement('div'); SV.id = 'pfwa-sv'; document.body.appendChild(SV);
     P.querySelector('.pfwa-aba').onclick = function () { aberto = !aberto; chrome.storage.local.set({ painelAberto: aberto }); pinta(); };
     P.querySelector('.pfwa-x').onclick = function () { aberto = false; chrome.storage.local.set({ painelAberto: false }); pinta(); };
     P.querySelectorAll('[data-vis]').forEach(function (el) { el.onclick = function () { visual = el.getAttribute('data-vis'); chrome.storage.local.set({ visual: visual }); pinta(); }; });
-    [P, B, AV, OF, JA, ST, MENU, RAIL, VF, SVB, SV].forEach(function (el) { el.addEventListener('click', clique); });
+    [P, B, AV, OF, JA, ST, MENU, RAIL, VF, PE, SVB, SV].forEach(function (el) { el.addEventListener('click', clique); });
     chrome.storage.local.get(['painelAberto', 'visual', 'avisoLigado', 'botsMin', 'menuLig', 'menuCor', 'menuFiltro'], function (s) { if (s.painelAberto === false) aberto = false; if (s.visual === 'D' || s.visual === 'A') visual = s.visual; if (s.avisoLigado === false) avisoLigado = false; if (s.botsMin) botsMin = true; if (s.menuLig === false) menuLig = false; if (s.menuCor === 'discreta' || s.menuCor === 'azul') menuCor = s.menuCor; if (s.menuFiltro) menuFiltro = s.menuFiltro; pinta(); pintarMenu(); });
   }
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && svAberto && SV) { svAberto = false; SV.style.display = 'none'; e.stopPropagation(); } }, true);
@@ -822,6 +826,9 @@
     if (ac === 'stX') { ST.style.display = 'none'; return; }
     if (ac === 'vfDesfazer') { if (vfR) msg({ t: 'acao', acao: 'verificarDesfazer', arg: vfR.id }); vfR = null; pintaVf(); return; }
     if (ac === 'vfX') { vfR = null; pintaVf(); return; }
+    if (ac === 'peDesfazer') { if (peR) msg({ t: 'acao', acao: 'pedidoEmitirDesfazer', arg: peR.id }); peR = null; pintaPe(); return; } // 4.62
+    if (ac === 'peX') { peR = null; pintaPe(); return; }
+    if (ac === 'extCfgAbrir') { msg({ t: 'acao', acao: 'extCfgAbrir' }); return; } // 4.62 - abre o card de ajustes no PF
     if (ac === 'cotarIA') { irAba('cot'); cotarIA(); return; }
     if (ac === 'resumir') { resumir(); return; }
     if (ac === 'resumoX') { resumoR = null; pintaCorpo(); return; }
@@ -1715,7 +1722,7 @@
     svPos();
     marcarCoberta();
     var main = $('#main'); if (!B) return;
-    if (!main || !contatoAt) { B.style.display = 'none'; if (AV) AV.style.display = 'none'; if (OF) OF.style.display = 'none'; if (JA) JA.style.display = 'none'; if (VF) VF.style.display = 'none'; return; }
+    if (!main || !contatoAt) { B.style.display = 'none'; if (AV) AV.style.display = 'none'; if (OF) OF.style.display = 'none'; if (JA) JA.style.display = 'none'; if (VF) VF.style.display = 'none'; if (PE) PE.style.display = 'none'; return; }
     var r = main.getBoundingClientRect(), foot = main.querySelector('footer'), fh = foot ? foot.getBoundingClientRect().height : 62, hd = main.querySelector('header'), hh = hd ? hd.getBoundingClientRect().height : 60;
     B.className = (visual === 'D' ? 'pfwa-barra' : 'pfwa-coluna') + (botsMin ? ' pfwa-min' : ''); B.style.display = CFG.bots ? 'flex' : 'none';
     if (botsMin) { B.innerHTML = '<span data-acao="botsToggle" class="pri pfwa-botspf" title="Mostrar os bot\u00f5es do PF">PF</span>'; }
@@ -1732,6 +1739,7 @@
     if (OF) { OF.style.left = (r.left + 70) + 'px'; OF.style.width = Math.max(300, Math.min(560, r.width - 140)) + 'px'; OF.style.top = (r.top + hh + (AV && AV.style.display === 'flex' ? 64 : 10)) + 'px'; }
     if (JA) { JA.style.left = (r.left + 16) + 'px'; JA.style.width = Math.max(300, r.width - 32) + 'px'; JA.style.bottom = (window.innerHeight - r.bottom + fh + 8) + 'px'; }
     if (VF && VF.style.display === 'flex') { VF.style.left = (r.left + 16) + 'px'; VF.style.width = Math.max(300, r.width - 32) + 'px'; VF.style.bottom = (window.innerHeight - r.bottom + fh + 8 + (JA && JA.style.display === 'flex' ? 70 : 0)) + 'px'; }
+    if (PE && PE.style.display === 'flex') { PE.style.left = (r.left + 16) + 'px'; PE.style.width = Math.max(300, r.width - 32) + 'px'; PE.style.bottom = (window.innerHeight - r.bottom + fh + 8 + (JA && JA.style.display === 'flex' ? 70 : 0) + (VF && VF.style.display === 'flex' ? 70 : 0)) + 'px'; } // 4.62 - empilha acima do VF
   }
   function contatoAtual() {
     var main = $('#main'); if (!main) return null;
@@ -1755,8 +1763,8 @@
     posicionar();
     var nCod = c && !c.grupo ? pareceCotacao(msgsPedido()) : 0;
     statusVigiar();
-    if (chave === ultimo) { pintaAviso(nCod); ofertasVigiar(); digitandoVigiar(); verificarVigiar(); return; }
-    ultimo = chave; cot = null; cotErro = ''; saldoR = null; ofPend = []; ofSig = ''; jaR = null; digAnt = ''; jaFechado = ''; vfR = null; vfSig = ''; pintaOferta(); pintaJa(); pintaVf();
+    if (chave === ultimo) { pintaAviso(nCod); ofertasVigiar(); digitandoVigiar(); verificarVigiar(); pedidoVigiar(); return; }
+    ultimo = chave; cot = null; cotErro = ''; saldoR = null; ofPend = []; ofSig = ''; jaR = null; digAnt = ''; jaFechado = ''; vfR = null; vfSig = ''; peR = null; peSig = ''; pintaOferta(); pintaJa(); pintaVf(); pintaPe();
     if (!c) { resp = null; pinta(); pintaAviso(0); return; }
     if (c.grupo) { resp = { grupo: 1 }; pinta(); return; }
     resp = null; pinta();
@@ -1831,6 +1839,42 @@
     if (!vfR || !contatoAt) { VF.style.display = 'none'; return; }
     VF.style.display = 'flex';
     VF.innerHTML = '<span class="pfwa-vf-i">📌</span><div><b>Anotei pra você verificar</b><br><small>' + esc(vfR.resumo || '') + ' — vai pras Pendências, ☀️ Meu dia e ficha</small></div><button data-acao="vfDesfazer" data-arg="' + esc(vfR.id) + '">desfazer</button><span data-acao="vfX" class="pfwa-avx" title="Fechar">✕</span>';
+    posicionar();
+  }
+  // ═══ 📦 PEDIDO A EMITIR (4.62) ═══
+  // Config (palavras + liga/desliga + de quem) vem do PF (acao extCfg). Quando o cliente pede ("manda pra mim") ou você promete
+  // ("mando hoje"), o PF cria um lembrete pra hoje. Cartão verde "📦 Anotei pra emitir — desfazer" + contador na barra de cima.
+  function peNorm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+  function peMontaRe(arr) {
+    if (!arr || !arr.length) return null;
+    var ps = arr.map(function (w) { return peNorm(w).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'); }).filter(Boolean);
+    if (!ps.length) return null; try { return new RegExp('(^|[^a-z0-9])(' + ps.join('|') + ')([^a-z0-9]|$)', 'i'); } catch (e) { return null; }
+  }
+  async function peConfig() {
+    if (peCfg && Date.now() - peCfgTs < 60000) return peCfg;
+    try { var r = await msg({ t: 'acao', acao: 'extCfg' }); if (r && r.pedido) { peCfg = r.pedido; peReMim = peMontaRe(peCfg.palavrasMim); peReCli = peMontaRe(peCfg.palavrasCliente); peCfgTs = Date.now(); } } catch (e) { }
+    return peCfg;
+  }
+  async function pedidoVigiar() {
+    if (!contatoAt || contatoAt.grupo) { if (peR) { peR = null; pintaPe(); } return; }
+    var cfg = await peConfig(); if (!cfg || !cfg.ligado) { if (peR) { peR = null; pintaPe(); } return; }
+    var ms = lerMensagens(); if (!ms.length) return;
+    var last = ms[ms.length - 1], origem = '', gat = '';
+    if (last.eu) { if (cfg.deMim && peReMim && peReMim.test(peNorm(last.t))) { origem = 'mim'; gat = last.t; } }
+    else if (cfg.doCliente && peReCli) { for (var i = ms.length - 1; i >= 0 && i >= ms.length - 4; i--) { if (!ms[i].eu && peReCli.test(peNorm(ms[i].t))) { origem = 'cliente'; gat = ms[i].t; break; } } }
+    if (!origem) return;
+    var sig = ultimo + '|' + ms.length + '|' + origem + '|' + gat.slice(0, 60);
+    if (sig === peSig) return; peSig = sig;
+    var ch = ultimo;
+    var r = await msg({ t: 'acao', acao: 'pedidoEmitir', arg: { k: resp && resp.k, nome: contatoAt.nome, texto: gat, msgs: ms, origem: origem } });
+    if (ch !== ultimo || !r || !r.ok || r.jaTinha) return;
+    peR = r; pintaPe();
+  }
+  function pintaPe() {
+    if (!PE) return;
+    if (!peR || !contatoAt) { PE.style.display = 'none'; return; }
+    PE.style.display = 'flex';
+    PE.innerHTML = '<span class="pfwa-vf-i">📦</span><div><b>Anotei pra você emitir</b><br><small>' + esc(peR.resumo || 'o pedido') + (peR.amanha ? ' — pra amanhã' : '') + ' — vai pras Pendências e ☀️ Meu dia</small></div><button data-acao="peDesfazer" data-arg="' + esc(peR.id) + '">desfazer</button><span data-acao="peX" class="pfwa-avx" title="Fechar">✕</span>';
     posicionar();
   }
 
@@ -2015,11 +2059,13 @@
   }
   function aplicarFiltro() {
     var rows = document.querySelectorAll('#pane-side [role="listitem"]');
-    if (!menuLig || !(menuFiltro.indexOf('g:') === 0 || menuFiltro === 'semg')) { rows.forEach(function (r) { r.style.display = ''; }); return; }
+    if (!menuLig || !(menuFiltro.indexOf('g:') === 0 || menuFiltro === 'semg' || menuFiltro === 'emitir')) { rows.forEach(function (r) { r.style.display = ''; }); return; }
     linhasLista().forEach(function (x) {
       var s = sitCache[x.nome] || {}, ok = false;
       if (menuFiltro.indexOf('g:') === 0) ok = (s.tipo === 'cliente' || s.tipo === 'contato') && audGruposDe(s).indexOf(menuFiltro.slice(2)) >= 0;
       else if (menuFiltro === 'semg') ok = s.tipo === 'cliente' && !audGruposDe(s).length;
+      else if (menuFiltro === 'emitir') ok = !!s.emitir; // 4.62
+
       else if (menuFiltro === 'cliente') ok = s.tipo === 'cliente';
       else if (menuFiltro === 'fornecedor') ok = s.tipo === 'fornecedor';
       else if (menuFiltro === 'cot') ok = !!s.cot;
@@ -2051,7 +2097,9 @@
     var hG = '<span class="pfm-logo">PF</span>' + '<span class="pfm-pill' + (menuFiltro.indexOf('g:') !== 0 && menuFiltro !== 'semg' ? ' on' : '') + '" data-acao="menuFiltro" data-arg="">Tudo</span>';
     gKeys.forEach(function (g) { hG += pillG('g:' + g, esc(g), gN[g], gCor[g]); });
     if (nSemG) hG += pillG('semg', '❔ Sem grupo', nSemG, '');
-    if (!gKeys.length && !nSemG) hG += '<span class="pfm-vazio">Nenhum cliente do PF nesta lista ainda</span>';
+    var nEmit = 0; linhasLista().forEach(function (x) { var s = sitCache[x.nome] || {}; if (s.emitir) nEmit++; }); // 4.62 - 📦 a emitir
+    if (nEmit) hG += '<span class="pfm-pill pfm-emit' + (menuFiltro === 'emitir' ? ' on' : '') + '" data-acao="menuFiltro" data-arg="emitir" title="Pedidos que você precisa emitir/mandar">📦 a emitir <b>' + nEmit + '</b></span>';
+    if (!gKeys.length && !nSemG && !nEmit) hG += '<span class="pfm-vazio">Nenhum cliente do PF nesta lista ainda</span>';
     var ls = linhasLista(), nC = 0, nF = 0, nCot = 0, nSem = 0, etqN = {};
     ls.forEach(function (x) { var s = sitCache[x.nome] || {}; if (s.tipo === 'cliente') nC++; else if (s.tipo === 'fornecedor') nF++; if (s.cot) nCot++; if (x.unread) nSem++; x.etqs.forEach(function (e) { etqN[e] = (etqN[e] || 0) + 1; }); });
     var etqTop = Object.keys(etqN).sort(function (a, b) { return etqN[b] - etqN[a]; }).slice(0, 5);

@@ -2691,3 +2691,7 @@
   mapa esperando, o clique explica o que falta (salvar como 🏭 Fornecedor no 👤 / mapa criado com ele).
 - v115.2736 + extensão **4.64** BUG ("tá certo 2 tarjas laranjas?" — mensagem com lista "• 4212047 ou 1624393" com 2 selos 📄 2): o WhatsApp põe um `[data-pre-plain-text]` dentro do
   outro em mensagem com lista/formatação e o `selosVigiar` punha selo nos dois. Agora só o de FORA ganha selo (o de dentro é tirado) e o texto lido junta todas as partes (`.selectable-text`) da mensagem.
+- v115.2737 + extensão **4.65** (prints do Kauê - MD Power: "botão direito aqui não abre nada, só quando seleciona" + "chegou a ler mas não lançou o prazo… o preço eu pego do JBoss"):
+  1) sem texto selecionado o WhatsApp abre o MENU DELE (Responder/Copiar…) e o do Chrome não aparece → `wmProcurar`/`wmPor` (whatsapp.js) acham esse menu (item Responder/Copiar/Encaminhar)
+  logo depois do botão direito numa mensagem e acrescentam as opções do PF clonando o item: 📥 Lançar no mapa (conversa de fornecedor), 📄 Cotar no PF, 📝 Anotar na ficha / ⏰ Lembrete (cliente),
+  ⚡ Salvar como resposta rápida → `cmExec`. Testado com um menu de mentira no simulador; falta o WhatsApp real. 2) `pfRespFornLancar`: linha SEM preço mas com prazo lança só o prazo (entrada preco 0).

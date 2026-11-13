@@ -783,7 +783,7 @@
   }
   function abrirCot(pdf) {
     if (!cot) return;
-    msg({ t: 'acao', acao: 'abrirCot', focar: true, arg: { k: resp && resp.k, pdf: !!pdf, itens: cot.itens.filter(function (o) { return o.cod; }).map(function (o) { return { cod: o.cod, qtd: o.qtd, marca: o.marca, desc: o.desc, marcaPed: o.marcaPed, marcaOk: o.marcaOk, codCli: o.codCli }; }) } });
+    msg({ t: 'acao', acao: 'abrirCot', focar: true, arg: { k: resp && resp.k, pessoa: pessoaComprador(), pdf: !!pdf, itens: cot.itens.filter(function (o) { return o.cod; }).map(function (o) { return { cod: o.cod, qtd: o.qtd, marca: o.marca, desc: o.desc, marcaPed: o.marcaPed, marcaOk: o.marcaOk, codCli: o.codCli }; }) } });
   }
   async function buscarSaldo(cod) { cod = String(cod || '').trim(); if (!cod) return; saldoR = { cod: cod, carregando: 1 }; pintaCorpo(); var r = await msg({ t: 'acao', acao: 'saldo', arg: cod }); saldoR = r && !r.erro ? r : { cod: cod, erro: 1 }; pintaCorpo(); }
 
@@ -1030,6 +1030,9 @@
   // 2.9 - "P - Adailton - Cardan Brasil (1427) Cardan": a pessoa é o 1º pedaço com 3+ letras e a empresa é o ÚLTIMO pedaço (antes ia "Adailton - Cardan Brasil Cardan")
   function svPartes(n) { return String(n || '').replace(/\s*\(\s*\d+\s*\)\s*/g, ' ').trim().split(/\s+[-–—]\s+/).map(function (s) { return s.trim(); }).filter(Boolean); }
   function svNomeBase(n) { n = String(n || '').trim(); if (/^[+\d\s()\-]{8,}$/.test(n)) return ''; var p = svPartes(n); if (p.length > 2) { var q = p.slice(0, -1).filter(function (s) { return s.replace(/[^A-Za-zÀ-ú]/g, '').length >= 3; }); if (q.length) return q[0]; } return p[0] || ''; }
+  // 4.52 - A pedido do Vitor ("quando eu fizer uma cotação pelo whats, quero que puxe o nome do comprador e coloque na cotação"): só quando o nome da
+  // conversa tem pessoa + empresa ("Tiago - Maximus Cardans (12662)"); nome sozinho não vira comprador.
+  function pessoaComprador() { var n = (contatoAt && contatoAt.nome) || ''; return svPartes(n).length >= 2 ? svNomeBase(n) : ''; }
   function svEmpBase(n) { var p = svPartes(n); return p.length > 1 ? p[p.length - 1] : ''; }
   function svCodBase(n) { var m = String(n || '').match(/\(\s*(\d{2,8})\s*\)/); return m ? m[1] : ''; }
   // 4.7 - A pedido do Vitor ("coloca pra eu escolher o grupo do cliente, já pra vir com o grupo pro cadastro, ex. linha amarela")
@@ -1928,7 +1931,7 @@
     if (a === 'painel') { if (spR && !spR.erro) { cot = spR; cotErro = ''; } spFechar(); irAba('cot'); return; }
     if (a === 'criar') {
       var s = spMsg, r = spR; if (!s || !r) return;
-      msg({ t: 'acao', acao: 'abrirCot', focar: true, arg: { k: resp && resp.k, itens: (r.itens || []).filter(function (o) { return o.cod; }).map(function (o) { return { cod: o.cod, qtd: o.qtd, marca: o.marca, desc: o.desc, marcaPed: o.marcaPed, marcaOk: o.marcaOk, codCli: o.codCli }; }) } });
+      msg({ t: 'acao', acao: 'abrirCot', focar: true, arg: { k: resp && resp.k, pessoa: pessoaComprador(), itens: (r.itens || []).filter(function (o) { return o.cod; }).map(function (o) { return { cod: o.cod, qtd: o.qtd, marca: o.marca, desc: o.desc, marcaPed: o.marcaPed, marcaOk: o.marcaOk, codCli: o.codCli }; }) } });
       spFeitos[s._h] = Date.now(); try { sessionStorage.setItem('pfwa_sp_feitos', JSON.stringify(spFeitos)); } catch (er) { }
       s._f = null; spFechar(); selosVigiar();
     }
@@ -2506,7 +2509,7 @@
     cotando = false; if (!r || r.erro) cotErro = 'O PF não respondeu. Dê F5 na aba do PartsFlow.'; else cot = r; pintaCorpo();
   }
   async function cotHoje(t, itens) {
-    var r = await msg({ t: 'acao', acao: 'cotHoje', focar: true, arg: { k: resp && resp.k, contato: resp && resp.contato, texto: String(t || ''), itens: itens || null } });
+    var r = await msg({ t: 'acao', acao: 'cotHoje', focar: true, arg: { k: resp && resp.k, contato: resp && resp.contato, pessoa: pessoaComprador(), texto: String(t || ''), itens: itens || null } });
     if (!r || r.erro) cmToast('O PF não respondeu — dê F5 na aba do PartsFlow');
     else if (r.ok === false) cmToast(r.msg || 'Não achei código no que você selecionou');
   }

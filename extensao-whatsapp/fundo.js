@@ -15,7 +15,7 @@ async function tabExiste(id) { if (!id) return false; try { await chrome.tabs.ge
 // depois que o PF abriu → o ponte.js antigo não responde mais) e o fundo devolvia "semPF" sem procurar de novo. Agora: confere com ping;
 // aba do PF que não responde ganha o ponte.js de novo (chrome.scripting) e, se nem assim, avisa "dê F5 na aba do PF" (erro 'pfF5').
 async function pingPF(id) { try { var r = await chrome.tabs.sendMessage(id, { t: 'ping' }); return !!(r && r.pf); } catch (e) { return false; } }
-async function reinjetar(id) { try { await chrome.scripting.executeScript({ target: { tabId: id }, files: ['ponte.js'] }); await new Promise(function (ok) { setTimeout(ok, 400); }); return await pingPF(id); } catch (e) { return false; } }
+async function reinjetar(id) { try { await chrome.scripting.executeScript({ target: { tabId: id, allFrames: true }, files: ['ponte.js'] }); await new Promise(function (ok) { setTimeout(ok, 400); }); return await pingPF(id); } catch (e) { return false; } }
 var _pfTemAba = false;
 async function acharPF() {
   _pfTemAba = false;

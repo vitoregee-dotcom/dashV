@@ -735,6 +735,7 @@
     if (ac === 'svFTipo') { var _ti = svFornTipos.indexOf(arg); if (_ti >= 0) svFornTipos.splice(_ti, 1); else svFornTipos.push(arg); svFornChipsRender(); return; } // 4.60
     if (ac === 'svFLinha') { var _li = svFornLinhas.indexOf(arg); if (_li >= 0) svFornLinhas.splice(_li, 1); else svFornLinhas.push(arg); svFornChipsRender(); return; } // 4.60
     if (ac === 'svFLinhaNova') { var _ln = (prompt('Linha / marca:') || '').trim().toUpperCase(); if (_ln) { if (SV_FORN_LINHAS.indexOf(_ln) < 0) SV_FORN_LINHAS.push(_ln); if (svFornLinhas.indexOf(_ln) < 0) svFornLinhas.push(_ln); svFornChipsRender(); } return; } // 4.60
+    if (ac === 'svFTipoNova') { var _tn = (prompt('Tipo de produto (que não está na lista):') || '').trim().toUpperCase(); if (_tn) { if (SV_FORN_TIPOS.indexOf(_tn) < 0) SV_FORN_TIPOS.push(_tn); if (svFornTipos.indexOf(_tn) < 0) svFornTipos.push(_tn); svFornChipsRender(); } return; } // 4.61 - incluir produto fora da lista
     if (ac === 'svUsarForn') { svUsarForn(arg); return; } // 4.60
     if (ac === 'svFornAbrir') { if (svFornId) msg({ t: 'acao', acao: 'irTela', arg: { tela: 'cadforn', cod: svFornId } }); return; } // 4.60
     if (ac === 'svWa') { svWa(); return; }
@@ -1246,7 +1247,8 @@
   var SV_FORN_LINHAS = ['NEW HOLLAND', 'VOLVO', 'CASE', 'CARRARO', 'CATERPILLAR', 'MASSEY', 'RANDON', 'VALTRA', 'AGRALE', 'JOHN DEERE', 'ALLISON', 'ATLAS COPCO', 'JCB', 'DANA/SPICER', 'TIMKEN', 'SKF', 'PARKER', 'BOSCH', 'ZF', 'OUTRAS'];
   function svFornChipsHtml() {
     return '<div class="sv-gl">🏭 TRABALHA COM <span style="font-weight:600;text-transform:none;color:#8a9ab0">(tipo de peça — o Mapa de Compras já sugere ele)</span></div>' +
-      '<div class="sv-gr sv-ftipo">' + SV_FORN_TIPOS.map(function (t) { return '<span class="sv-g' + (svFornTipos.indexOf(t) >= 0 ? ' on' : '') + '" data-acao="svFTipo" data-arg="' + esc(t) + '" style="--c:#B45309">' + esc(t) + '</span>'; }).join('') + '</div>' +
+      '<div class="sv-gr sv-ftipo">' + SV_FORN_TIPOS.map(function (t) { return '<span class="sv-g' + (svFornTipos.indexOf(t) >= 0 ? ' on' : '') + '" data-acao="svFTipo" data-arg="' + esc(t) + '" style="--c:#B45309">' + esc(t) + '</span>'; }).join('') +
+      '<span class="sv-g sv-gnovo" data-acao="svFTipoNova" title="Outro tipo de produto que não está na lista">➕ produto</span></div>' + // 4.61
       '<div class="sv-gl">🏷️ LINHAS / MARCAS <span style="font-weight:600;text-transform:none;color:#8a9ab0">(pode escolher mais de uma)</span></div>' +
       '<div class="sv-gr sv-flinha">' + SV_FORN_LINHAS.map(function (l) { return '<span class="sv-g' + (svFornLinhas.indexOf(l) >= 0 ? ' on' : '') + '" data-acao="svFLinha" data-arg="' + esc(l) + '" style="--c:#1F4E79">' + esc(l) + '</span>'; }).join('') +
       '<span class="sv-g sv-gnovo" data-acao="svFLinhaNova" title="Outra linha/marca">➕ linha</span></div>';

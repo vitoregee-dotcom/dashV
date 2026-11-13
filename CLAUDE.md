@@ -2630,3 +2630,12 @@
   (`autoLog`) na tela da saudação: nenhuma esperando (com motivo por conversa: hora não achada, chegou agora, já mandei), esperando o respiro, mandei/não mandei, parei. Testado no
   simulador (`t2721.js`/`t2721b.js`: digitando = espera; parou = manda pro Tork e volta pra BR Rolamentos; aba escondida = manda). Alt+B do WhatsApp: resposta sem lista de itens = "aba do
   PF antiga, dê F5" (antes dizia "Não achei código" — o PF de hoje acha 5 515x = 5-515X, testado).
+- v115.2722 + extensão **4.54** ("faz o que tiver nas pendências"): 1) **💬 Mandar o mapa pelo WhatsApp com conferência e andamento** (prévia `docs/referencias/mapa-whats-todos/`
+  A+B; capturas `feito-conferencia.png`/`feito-andamento.png`): `pfMapaEnvWhatsTodos` abre a janela `pfMwJan` (`window._pfMw` {fase conf|prog, L:[{fid,fn,nome,tel,n,texto,sel,ja,sem,go,st}]},
+  `pfMwRender`): 1 linha por vendedor (`pfMapaEnvDestinos`) com caixinha, nº de itens (`pfRfItensDoForn`), telefone e "▸ ver mensagem"; quem já recebeu vem desmarcado, sem WhatsApp = aviso.
+  "💬 Mandar pra N" (`pfMwMandar` → `pfExtEnviarLote`, mais de 5 = `pausaSeg` 20) vira o andamento (barra, ✔ enviado / ⏳ mandando / na fila / ✖ não foi, ⏹ Parar `pfMwParar`,
+  Fechar continua). O 💬 de cada linha continua pelo `pfMapaEnvWhatsExt`. 2) **📥 resposta do fornecedor**: conversa de fornecedor com mapa esperando e a última mensagem DELE = selo azul
+  "📥 lançar no mapa N" no balão (`rfVigiar`, `.pfwa-rfselo`, clique = `respFornIr` → acao `respForn`, o mesmo do botão do cartão) + aviso na barra 🗂️ (acao `fornRespondeu` →
+  `pfFornRespAviso` → `pfMapaCotEventoAdd` tipo `whats`, id 'wa|mapa|fid|dia', porEmail vazio; também pela LISTA: fornecedor com mapa e mensagem não lida, `sitCache.mapaId/fid` vindos do
+  `pfExtSituacaoDe`). Liga/desliga ⚙️ `rfselo`. BUG junto: no `pfMapaCotEventoAdd` a conferência de aviso repetido estava DENTRO do comentário da v115.2510. 3) PF_FUNCOES: "Resposta rápida no
+  balão do WhatsApp" e "Mapa pelo WhatsApp". 4) Prévia do 📈 relatório de quantidade de cotações (aba nova da Gestão) em `docs/referencias/relatorio-cotacoes/previa.png` — esperando o Vitor.

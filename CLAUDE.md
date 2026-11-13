@@ -2675,3 +2675,7 @@
 - v115.2729 BUG (print da cotação: "excluí uma marca da SPL 250 que estava em cima, e a TX estava selecionada… a seleção de PV foi para o 3-28-537"): as marcações de Sel./PV
   (`_vendasSel`/`_vendasSelPV`) são guardadas pelo NÚMERO da linha e tirar um item não renumerava — a marca ia pra linha de baixo. Agora todo jeito de tirar item (✕ da linha nas
   2 visões, tecla Delete, 🗑 Excluir selecionados) passa por `vendasItemTirar(i)` / remapeia com `pfCotSelRemap`: o item tirado perde a marca, os de baixo sobem com a deles.
+- v115.2730 + extensão **4.60** ("aqui só mostra os que têm msg sem ler?… é que não tá aparecendo agrícola"): a barra de GRUPOS do Menu do PF contava só as conversas que o WhatsApp
+  tinha desenhado na tela (~20, a lista é virtualizada). Agora TODOS os grupos (`svGruposTodos`: base + criados) aparecem sempre (zerado = apagado) e, com o motor ligado, o número
+  é da lista INTEIRA (`grpContarTudo`: motor chatsTodos → acao `situacoes` em lotes de 150 → `grpTot` {n,semg,ts}, 9 s depois de abrir e a cada 5 min; "· todas as conversas" na barra).
+  Sem motor = conta o que está carregado (title avisa). O filtro continua escondendo/mostrando só as conversas carregadas (o WhatsApp não desenha as outras).

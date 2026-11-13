@@ -21,7 +21,12 @@
     } catch (err) { /* extensão recarregada: a página precisa de F5 */ }
   });
 
+  // 4.52 - A pedido do Vitor ("pq está mandando eu instalar a extensão de novo?" — modo monitor 🖥️): no modo monitor o PF roda DENTRO de um quadro (iframe);
+  // a ponte agora entra em todos os quadros (all_frames) e só o quadro que É o PF responde (a moldura de fora fica quieta).
+  function souApp() { return document.documentElement.getAttribute('data-pf-app') === '1'; }
   chrome.runtime.onMessage.addListener(function (m, s, send) {
+    if ((m.t === 'ping' || m.t === 'quem' || m.t === 'acao') && !souApp() && window.top !== window.self) return;
+    if ((m.t === 'ping' || m.t === 'quem' || m.t === 'acao') && !souApp() && document.querySelector('#pfMonFrame')) return;
     if (m.t === 'ping') { send({ pf: document.documentElement.getAttribute('data-pf-app') === '1' }); return; }
     if (m.t === 'progresso') { window.postMessage({ pfExt: 'progresso', lote: m.lote }, '*'); return; }
     if (m.t === 'quem' || m.t === 'acao') {

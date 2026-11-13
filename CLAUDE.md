@@ -2608,3 +2608,9 @@
   `vendasLerArquivo` usava o código da IA cru. Agora `vendasCodDoPrint` tira o nome da peça na frente (GARFO/CRUZETA/PONTEIRA/LUVA/TERMINAL/FLANGE/ROLAMENTO/RETENTOR/FILTRO…),
   junta "5 515X" = 5-515X; sem achar tenta o TX/CAR (`pfCodSufixo`/`pfCodPrefixo`) e as variações de cruzeta (`pfExtFichasDo`: X/XS/ALB); `codigoOriginal` = código do cliente.
   O pedido à IA diz pra mandar só o código. Teste com os 12 itens do print (IA e estoque de mentira, `t2717.js`): todos achados.
+- v115.2718 + extensão **4.52**: 1) BUG ("pq está mandando eu instalar a extensão de novo, pra enviar pelo whats?" — Mapa, etapa 2, no 🖥️ modo monitor): no modo monitor o PF roda
+  DENTRO de um iframe e a ponte (`ponte.js`) só entrava na página de fora → o PF nunca via o `data-pf-ext`. Manifest: ponte com **`all_frames: true`**; o `fundo.js` reinjeta com
+  `allFrames`; na ponte só o quadro que É o PF (`data-pf-app="1"`) responde ping/quem/acao (a moldura `#pfMonFrame` fica quieta). Testado com a extensão carregada (`t2718.js`): no
+  monitor o iframe tem ext=4.52 e `pfExtTem()` = true, e o `acharPF` do fundo acha a aba. 2) ("quando eu fizer uma cotação pelo whats, quero que puxe o nome do comprador e coloque
+  na cotação"): a extensão manda `pessoa` (`pessoaComprador()`: só quando o nome da conversa é "Pessoa - Empresa", = `svNomeBase`) no abrirCot e no cotHoje → `pfExtCompradorGuardar`
+  (3 min) → `pfExtCompradorAplicar` põe no COMPRADOR (maiúscula) da cotação DESSE cliente que abrir/atualizar (pfExtAbrirCot/pfExtAtualizarCot/pfExtCotHoje), só se estiver vazio.

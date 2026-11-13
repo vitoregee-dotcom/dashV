@@ -2614,3 +2614,6 @@
   monitor o iframe tem ext=4.52 e `pfExtTem()` = true, e o `acharPF` do fundo acha a aba. 2) ("quando eu fizer uma cotação pelo whats, quero que puxe o nome do comprador e coloque
   na cotação"): a extensão manda `pessoa` (`pessoaComprador()`: só quando o nome da conversa é "Pessoa - Empresa", = `svNomeBase`) no abrirCot e no cotHoje → `pfExtCompradorGuardar`
   (3 min) → `pfExtCompradorAplicar` põe no COMPRADOR (maiúscula) da cotação DESSE cliente que abrir/atualizar (pfExtAbrirCot/pfExtAtualizarCot/pfExtCotHoje), só se estiver vazio.
+- v115.2719 (print da janela 🧩 dizendo "não está instalada" no 🖥️ modo monitor, PF já na 2718 mas a extensão ainda era a antiga): extensão até a 4.51 só entra na página de FORA
+  da moldura. `pfExtVersaoTopo()` lê o `data-pf-ext` da moldura (mesmo endereço) → a janela diz "⚠ A extensão 4.51 está instalada, mas no modo monitor só funciona a partir da 4.52…"
+  e o link do Mapa vira "⚠ Atualizar a extensão pra 4.52". Com a 4.52 instalada, nada disso aparece.

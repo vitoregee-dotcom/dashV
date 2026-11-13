@@ -1855,13 +1855,20 @@
     try { var r = await msg({ t: 'acao', acao: 'extCfg' }); if (r && r.pedido) { peCfg = r.pedido; peReMim = peMontaRe(peCfg.palavrasMim); peReCli = peMontaRe(peCfg.palavrasCliente); peCfgTs = Date.now(); } } catch (e) { }
     return peCfg;
   }
+  // 4.69 - A pedido do Vitor ("tem cliente que costuma fazer o pedido do mesmo jeito… dá pra entender como pedido?"): "favor confirmar o pedido abaixo /
+  // 03 PC 53-484 PONTEIRA 173,28 / TOTAL 519,84" — palavra PEDIDO (aceita "pedidp") + linha com código + valor, ou TOTAL com valor = pedido do cliente.
+  function peCaraDePedido(t) {
+    var n = peNorm(t); if (!/\bped[i1]d[oop]?s?\b|\bpedid\w?\b/.test(n)) return false;
+    var temCod = /\b[a-z]{0,4}\d[\w]*[-./]\w+|\b\d{5,}\b/.test(n), temValor = /\d+,\d{2}\b/.test(n), temTotal = /\btotal\b[^\n]*\d+,\d{2}/.test(n);
+    return (temCod && temValor) || temTotal;
+  }
   async function pedidoVigiar() {
     if (!contatoAt || contatoAt.grupo) { if (peR) { peR = null; pintaPe(); } return; }
     var cfg = await peConfig(); if (!cfg || !cfg.ligado) { if (peR) { peR = null; pintaPe(); } return; }
     var ms = lerMensagens(); if (!ms.length) return;
     var last = ms[ms.length - 1], origem = '', gat = '';
     if (last.eu) { if (cfg.deMim && peReMim && peReMim.test(peNorm(last.t))) { origem = 'mim'; gat = last.t; } }
-    else if (cfg.doCliente && peReCli) { for (var i = ms.length - 1; i >= 0 && i >= ms.length - 4; i--) { if (!ms[i].eu && peReCli.test(peNorm(ms[i].t))) { origem = 'cliente'; gat = ms[i].t; break; } } }
+    else if (cfg.doCliente) { for (var i = ms.length - 1; i >= 0 && i >= ms.length - 4; i--) { if (!ms[i].eu && ((peReCli && peReCli.test(peNorm(ms[i].t))) || peCaraDePedido(ms[i].t))) { origem = 'cliente'; gat = ms[i].t; break; } } }
     if (!origem) return;
     var sig = ultimo + '|' + ms.length + '|' + origem + '|' + gat.slice(0, 60);
     if (sig === peSig) return; peSig = sig;
@@ -1874,7 +1881,7 @@
     if (!PE) return;
     if (!peR || !contatoAt) { PE.style.display = 'none'; return; }
     PE.style.display = 'flex';
-    PE.innerHTML = '<span class="pfwa-vf-i">📦</span><div><b>Anotei pra você emitir</b><br><small>' + esc(peR.resumo || 'o pedido') + (peR.amanha ? ' — pra amanhã' : '') + ' — vai pras Pendências e ☀️ Meu dia</small></div><button data-acao="peDesfazer" data-arg="' + esc(peR.id) + '">desfazer</button><span data-acao="peX" class="pfwa-avx" title="Fechar">✕</span>';
+    PE.innerHTML = '<span class="pfwa-vf-i">📦</span><div><b>Anotei pra você emitir</b><br><small>' + esc(peR.resumo || 'o pedido') + (peR.quando ? ' — pra ' + esc(peR.quando) : (peR.amanha ? ' — pra amanhã' : '')) + ' — vai pras Pendências e ☀️ Meu dia</small></div><button data-acao="peDesfazer" data-arg="' + esc(peR.id) + '">desfazer</button><span data-acao="peX" class="pfwa-avx" title="Fechar">✕</span>';
     posicionar();
   }
 
@@ -1944,18 +1951,18 @@
     return out;
   }
   // 4.62 - conta os grupos na lista INTEIRA de conversas (motor), sem rolar nem abrir nada
-  var grpTot = null, grpTotRodando = false;
+  var grpTot = null, grpTotRodando = false, grpLista = null; // 4.69 - grpLista = todas as conversas [{id,nome,unread,s}]
   async function grpContarTudo() {
     if (grpTotRodando || !menuLig || !motorOk) return; grpTotRodando = true;
     try {
       var r = await motor('chatsTodos', {}, 60000); if (!r || r.erro || !Array.isArray(r.l)) return;
-      var n = {}, semg = 0, l = r.l.filter(function (c) { return c.nome; });
+      var n = {}, semg = 0, l = r.l.filter(function (c) { return c.nome; }), gl = [];
       for (var i = 0; i < l.length; i += 150) {
         var sl = l.slice(i, i + 150), sx = await msg({ t: 'acao', acao: 'situacoes', arg: { lista: sl.map(function (c) { return { nome: c.nome, tel: c.tel || '' }; }) } });
         if (!sx || !sx.sit) return;
-        sl.forEach(function (c) { var x = sx.sit[c.nome]; if (!x || (x.tipo !== 'cliente' && x.tipo !== 'contato')) return; var gs = audGruposDe(x); if (!gs.length) { if (x.tipo === 'cliente') semg++; return; } gs.forEach(function (g) { n[g] = (n[g] || 0) + 1; }); });
+        sl.forEach(function (c) { var x = sx.sit[c.nome]; if (x) gl.push({ id: c.id, nome: c.nome, unread: c.unread || 0, s: x }); if (!x || (x.tipo !== 'cliente' && x.tipo !== 'contato')) return; var gs = audGruposDe(x); if (!gs.length) { if (x.tipo === 'cliente') semg++; return; } gs.forEach(function (g) { n[g] = (n[g] || 0) + 1; }); });
       }
-      grpTot = { n: n, semg: semg, ts: Date.now() }; pintarMenu();
+      grpTot = { n: n, semg: semg, ts: Date.now() }; grpLista = gl; pintarMenu();
     } catch (e) { } finally { grpTotRodando = false; }
   }
   setTimeout(function () { if (vivo()) grpContarTudo(); }, 9000); setInterval(function () { if (vivo()) grpContarTudo(); }, 300000);
@@ -2073,22 +2080,50 @@
       }
     });
   }
+  // 4.69 - A pedido do Vitor ("qnd eu mexo ali nos grupos tá ficando bugado"): a lista do WhatsApp é "virtual" (só desenha ~20 conversas,
+  // cada uma presa numa posição) — esconder linhas deixava buracos e a lista vazia. Agora o filtro NÃO mexe na lista do WhatsApp: abre uma
+  // lista NOSSA por cima dela (#pfwa-fl) com as conversas do grupo (todas, com o motor; sem ele, as que estão carregadas). Clique = abre a conversa.
+  function filtroBate(s, x) {
+    s = s || {};
+    if (menuFiltro.indexOf('g:') === 0) return (s.tipo === 'cliente' || s.tipo === 'contato') && audGruposDe(s).indexOf(menuFiltro.slice(2)) >= 0;
+    if (menuFiltro === 'semg') return s.tipo === 'cliente' && !audGruposDe(s).length;
+    if (menuFiltro === 'emitir') return !!s.emitir;
+    return true;
+  }
+  var FL = null, flSig = '';
   function aplicarFiltro() {
-    var rows = document.querySelectorAll('#pane-side [role="listitem"]');
-    if (!menuLig || !(menuFiltro.indexOf('g:') === 0 || menuFiltro === 'semg' || menuFiltro === 'emitir')) { rows.forEach(function (r) { r.style.display = ''; }); return; }
-    linhasLista().forEach(function (x) {
-      var s = sitCache[x.nome] || {}, ok = false;
-      if (menuFiltro.indexOf('g:') === 0) ok = (s.tipo === 'cliente' || s.tipo === 'contato') && audGruposDe(s).indexOf(menuFiltro.slice(2)) >= 0;
-      else if (menuFiltro === 'semg') ok = s.tipo === 'cliente' && !audGruposDe(s).length;
-      else if (menuFiltro === 'emitir') ok = !!s.emitir; // 4.62
-
-      else if (menuFiltro === 'cliente') ok = s.tipo === 'cliente';
-      else if (menuFiltro === 'fornecedor') ok = s.tipo === 'fornecedor';
-      else if (menuFiltro === 'cot') ok = !!s.cot;
-      else if (menuFiltro === 'semresp') ok = true; // 4.12 - filtro saiu (quem tinha ele salvo vê tudo)
-      else if (menuFiltro.indexOf('etq:') === 0) ok = x.etqs.indexOf(menuFiltro.slice(4)) >= 0;
-      x.el.style.display = ok ? '' : 'none';
-    });
+    document.querySelectorAll('#pane-side [role="listitem"]').forEach(function (r) { if (r.style.display === 'none') r.style.display = ''; });
+    var ativo = menuLig && (menuFiltro.indexOf('g:') === 0 || menuFiltro === 'semg' || menuFiltro === 'emitir');
+    var pane = $('#pane-side');
+    if (!ativo || !pane || document.documentElement.classList.contains('pfwa-coberto')) { if (FL) FL.style.display = 'none'; flSig = ''; return; }
+    if (!FL) { FL = document.createElement('div'); FL.id = 'pfwa-fl'; document.body.appendChild(FL);
+      FL.addEventListener('click', function (e) { var it = e.target.closest('[data-flnome]'); if (it) { flAbrir(it.getAttribute('data-flnome'), it.getAttribute('data-flid')); return; } if (e.target.closest('[data-flsair]')) { menuFiltro = ''; chrome.storage.local.set({ menuFiltro: '' }); pintarMenu(); } }); }
+    var rc = pane.getBoundingClientRect();
+    FL.style.cssText = 'display:block;position:fixed;left:' + rc.left + 'px;top:' + rc.top + 'px;width:' + rc.width + 'px;height:' + rc.height + 'px;z-index:40';
+    var vistos = {}, L = [];
+    linhasLista().forEach(function (x) { var s = sitCache[x.nome]; vistos[x.nome] = 1; if (filtroBate(s, x)) L.push({ nome: x.nome, s: s || {}, hora: x.hora || '', unread: x.unread ? 1 : 0 }); });
+    (grpLista || []).forEach(function (c) { if (vistos[c.nome]) return; vistos[c.nome] = 1; if (filtroBate(c.s)) L.push({ nome: c.nome, id: c.id, s: c.s, hora: '', unread: c.unread || 0 }); });
+    var titulo = menuFiltro === 'semg' ? 'Sem grupo' : menuFiltro === 'emitir' ? '📦 A emitir' : menuFiltro.slice(2);
+    var sig = titulo + '|' + L.map(function (x) { return x.nome + (x.unread ? '*' : '') + x.hora; }).join('|') + '|' + tituloConversa();
+    if (sig === flSig) return; flSig = sig;
+    var atual = tituloConversa();
+    var h = '<div class="pfwa-flcab"><b>' + esc(titulo) + '</b> <span>' + L.length + ' conversa(s)' + (grpLista ? '' : ' carregada(s) — ligue o motor pra ver todas') + '</span><span class="pfwa-flx" data-flsair="1" title="Mostrar todas as conversas">✕ ver todas</span></div>';
+    if (!L.length) h += '<div class="pfwa-flvz">Nenhuma conversa desse grupo' + (grpLista ? '' : ' na parte da lista que o WhatsApp carregou') + '.</div>';
+    L.forEach(function (x) { var s = x.s || {}, loc = [s.cid, s.uf].filter(Boolean).join('-'), gs = audGruposDe(s);
+      h += '<div class="pfwa-flit' + (x.nome === atual ? ' on' : '') + '" data-flnome="' + esc(x.nome) + '" data-flid="' + esc(x.id || '') + '">' +
+        '<div class="pfwa-flav">' + esc((x.nome || '?').trim().charAt(0).toUpperCase()) + '</div><div class="pfwa-flmid"><div class="pfwa-flnm">' + esc(x.nome) + '</div>' +
+        '<div class="pfwa-flsub">' + (loc ? '📍 ' + esc(loc) : '') + (gs.length ? (loc ? ' · ' : '') + esc(gs.join(', ')) : '') + (s.tpc ? ' · ' + esc(s.tpc) : '') + '</div></div>' +
+        '<div class="pfwa-flr">' + (x.hora ? '<small>' + esc(x.hora) + '</small>' : '') + (x.unread ? '<i>' + (x.unread > 1 ? x.unread : '') + '</i>' : '') + '</div></div>'; });
+    FL.innerHTML = h;
+  }
+  async function flAbrir(nome, id) {
+    if (id && motorOk) { try { var r = await motor('abrir', { id: id }, 8000); if (r && r.ok) { flSig = ''; return; } } catch (e) { } }
+    var lin = linhaDoNome(nome); if (lin) { clicar(lin); flSig = ''; return; }
+    var cx = caixaBusca(); if (!cx) return;
+    escreverBusca(cx, nome);
+    var l2 = await esperar(function () { return linhaDoNome(nome); }, 5000);
+    if (l2) clicar(l2);
+    await dormir(400); escreverBusca(cx, ''); flSig = '';
   }
   function pintarMenu() {
     if (!MENU) return;

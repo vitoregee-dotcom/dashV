@@ -48,6 +48,7 @@
       var r = await W().chat.sendTextMessage(a.id, a.texto, { createChat: false });
       return { ok: true, id: r && ser(r.id) };
     },
+    abrir: async function (a) { await W().chat.openChatBottom(a.id); return { ok: true }; }, // 4.69 - abrir conversa pela lista do filtro
     naoLida: async function (a) { await W().chat.markIsUnread(a.id); return { ok: true }; },
     // todas as conversas de pessoa, com quantas listas/etiquetas cada uma tem (pra pôr na lista "Cliente PF" só quem não tem nenhuma)
     chatsTodos: async function () {

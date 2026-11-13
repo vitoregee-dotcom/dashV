@@ -2705,3 +2705,11 @@
   sem gk do `maqCompLinhas`, só letras+números, "vai em" + abrir a máquina). 3) Extensão: `pfExtAltB` devolve `extras` (`pfAltbExtras`: máquinas + séries + componentes da ficha) e
   `parec` (vários parecidos); o `abPinta` mostra 🚜 Máquinas / ⚙️ Componentes / parecidos (acoes `altbMaq`/`altbSerie`, parecido = nova busca). 4) Monta com (`pfItemCardMcLista`):
   cada peça vira o código SPICER do mesmo card (`ccPontChave` + `ccPrioSpicer`), o código de outra marca vai em "também …"; Spicer primeiro dentro da família (PF e extensão).
+- v115.2741 + extensão **4.69**: 1) **💰 Crédito** ("como faz pra ver aquele resumo do crédito?" + "mudar a descrição aqui no extrato"): no extrato cada uso tem "resumo" (`pfCredVerResumo(id)`: o mesmo texto/imagem
+  de quando abateu, com o saldo de antes `e._antes` calculado no `pfCredDe`) e embaixo "📄 Resumo do saldo pra mandar pro cliente" (`pfCredVerResumo()`, `S.ult.soSaldo`: texto e imagem só com o saldo);
+  ✏️ = `pfCredEditar`/`pfCredEdGravar` → evento `ed` {ref,motivo} no `pfCreditoEventos` (só acrescenta, o último vale; `e._ed`). 2) BUG filtro de GRUPO no Menu do PF ("quando eu mexo nos grupos fica bugado"):
+  a lista do WhatsApp é virtual e esconder linhas deixava buracos/lista vazia. O filtro NÃO esconde mais linhas: abre lista própria `#pfwa-fl` por cima do `#pane-side` (`aplicarFiltro`/`filtroBate`,
+  conversas do grupo carregadas + todas do motor via `grpLista` guardada no `grpContarTudo`; "✕ ver todas"); clique = `flAbrir` (motor op nova `abrir` = `chat.openChatBottom`, senão a linha ou a pesquisa).
+  3) **📦 Pedido a emitir** ("falei que segunda de manhã tirava o pedido e não foi nada pro PF" + cliente que manda "favor confirmar o pedidp / 3-r271123 50,62 / total 151,86"): palavras novas
+  `PF_PE_MIM_2741` (tiro o pedido, emito o pedido…) e `PF_PE_CLI_2741` (confirmar o pedido, favor confirmar…), somadas 1x em quem já tinha lista salva (`o.v2741`); mensagem do cliente com cara de
+  pedido (`peCaraDePedido`: PEDIDO/"pedidp" + código com valor, ou TOTAL com valor) também conta; dia da semana dito vira a data do lembrete (`pfPeData`: amanhã/segunda…sábado = próximo), texto "(segunda 16/11)".

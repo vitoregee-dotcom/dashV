@@ -2639,3 +2639,6 @@
   `pfFornRespAviso` → `pfMapaCotEventoAdd` tipo `whats`, id 'wa|mapa|fid|dia', porEmail vazio; também pela LISTA: fornecedor com mapa e mensagem não lida, `sitCache.mapaId/fid` vindos do
   `pfExtSituacaoDe`). Liga/desliga ⚙️ `rfselo`. BUG junto: no `pfMapaCotEventoAdd` a conferência de aviso repetido estava DENTRO do comentário da v115.2510. 3) PF_FUNCOES: "Resposta rápida no
   balão do WhatsApp" e "Mapa pelo WhatsApp". 4) Prévia do 📈 relatório de quantidade de cotações (aba nova da Gestão) em `docs/referencias/relatorio-cotacoes/previa.png` — esperando o Vitor.
+- v115.2723 ("vasculhe erros e procure ideias… me apresente amanhã"): varredura de código "engolido" por comentário na mesma linha + ~40 telas/janelas abertas com a demo
+  (script `varre.js` no scratchpad). BUG: em Máquinas → Peças de manutenção o `if(!its.length&&tid==='outros')return;` estava dentro do comentário da v115.2314 (bloco "Outros (0)"
+  vazio). Relatório com erros e 10 ideias em `docs/referencias/varredura-1311/relatorio.md`. **Ao comentar uma linha minificada, pular linha antes do código seguinte.**

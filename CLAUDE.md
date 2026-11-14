@@ -2730,3 +2730,8 @@
 - v115.2745 + extensão **4.71** BUG ("pq não aparece dados do cliente aqui?" — painel "Abra o PartsFlow numa aba deste Chrome" com o selo ● Conectado, PF no 🖥️ modo monitor): o painel
   perguntava "quem é" ao PF UMA vez só, ao abrir a conversa; resposta vazia (PF ainda carregando) virava "semPF" e ficava presa até trocar de conversa. Agora resposta vazia = `semResposta`
   ("O PF não respondeu") e, com erro na tela, o tick pergunta de novo a cada 5 s (`window._pfwaQuemTent`, zera o `ultimo`). Testado no simulador com a 1ª resposta vazia.
+- v115.2746 + extensão **4.72** **avisos discretos 📦/📌** (Vitor: "algo mais discreto para esses avisos" → prévia `docs/referencias/whatsapp-avisos-discretos/previa2.png` → "b e d"; capturas `feito-selo.png`/`feito-contador.png`):
+  a faixa larga do 📦 Anotei pra emitir (`#pfwa-pe`) e do 📌 Anotei pra verificar (`#pfwa-vf`) SAIU. `pintaPe`/`pintaVf` agora chamam `anAdd(tipo,r,texto)` → lista por conversa `AN[ultimo]` (sessionStorage `pfwa_an`).
+  **B** = selo `.pfwa-anselo` (laranja 📦 emitir / verde 📌 verificar) na mensagem que gerou o lembrete (acha pelo texto `anNorm`, fica depois dos selos 📄/⚡/📥 na mesma linha);
+  **D** = contador `#pfwa-ancnt` (📦 N / 📌 N) logo depois do nome da conversa (depois do 👤+). Clique em qualquer um = `#pfwa-anpop` com o lembrete + desfazer (`pedidoEmitirDesfazer`/`verificarDesfazer`) / ok, entendi
+  (some da tela, o lembrete fica). `anVigiar` a cada 1,2 s. O lembrete continua indo pras Pendências da tela inicial e pro ☀️ Meu dia (Retornos combinados, data do dia). AJUDA ganhou a linha.

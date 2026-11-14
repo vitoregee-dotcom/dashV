@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2752</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2753</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2752</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2753</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -54886,6 +54886,21 @@ function pfCarraroTrocar(i){var v=window._venda,it=v&&v.itens&&v.itens[i];if(!it
   it.codigo=c;it.codigoOriginal=de;it.carraroConv={de:it.codigo===de?de:String(de),c:c,l:cr[0].l,outros:cr.slice(1).map(function(x){return x.c;})};it.carraroConv.de=de;
   if(f){it.desc=f.desc;it.marca=f.marca;it.marcaInterna=f.marca;it.saldo=f.saldo;it.custo=f.custo;}else{it.marca='CARRARO';it.marcaInterna='CARRARO';if(!it.desc)it.desc='PEÇA CARRARO (nº '+cr[0].l+' '+de+')';}
   vendasRefresh();try{vendasAutoSalvarDebounced();}catch(e){}}
+// v115.2753 - A pedido do Vitor ("a lógica está errada. o cliente passou 043132R1, já tem que automaticamente abrir o 130466. por isso tem código do cliente
+// e código"): item que entrou por print/lista/WhatsApp/outra cotação (sem passar pelo vendasAdicionarItem) ou antes da lista Carraro carregar ficava só com a
+// tarja "trocar". Agora todo item SEM ficha no estoque (sem saldo e sem marca interna) cujo código está na lista vira o nº Carraro sozinho no vendasRefresh
+// (CÓDIGO = Carraro, CÓD. CLIENTE = o que o cliente passou). Uma vez só por item (_carAuto) — se o vendedor voltar o código à mão, não troca de novo.
+function pfCarraroAutoTodos(){var v=window._venda;if(!v||!v.itens||!window._pfCarraroRev||v.pvEdit)return 0;var n=0;
+  v.itens.forEach(function(it){if(!it||it.pvNumero||it.carraroConv||it._carAuto)return;
+    if(!(it.saldo==null||it.saldo===''))return;if(it.marcaInterna)return;
+    var cr=pfCarraroDe(it.codigo);if(!cr||!cr.length)return;it._carAuto=1;
+    var de=it.codigoOriginal||it.codigo,c=String(cr[0].c).toUpperCase(),fs=[];try{fs=vendasBuscarItem(c,{semEquiv:true,silencioso:true})||[];}catch(e){}
+    var f=fs.find(function(x){return pfConvEhCarraro(x.marca);})||fs[0];
+    it.codigo=c;it.codigoOriginal=de;it.carraroConv={de:de,c:c,l:cr[0].l,outros:cr.slice(1).map(function(x){return x.c;})};
+    if(f){it.desc=f.desc;it.marca=f.marca;it.marcaInterna=f.marca;it.saldo=f.saldo;it.custo=f.custo;}else{it.marca='CARRARO';it.marcaInterna='CARRARO';if(!it.desc||it.desc==='—')it.desc='PEÇA CARRARO (nº '+cr[0].l+' '+de+')';}
+    n++;});
+  if(n){try{setTimeout(function(){try{vendasAutoSalvarDebounced();}catch(e){}},50);}catch(e){}}
+  return n;}
 function vendasInserirItensNaLista(cod, codDigitado, qtd, items){
   if(!window._venda.itens)window._venda.itens=[];
   var prodCad=cadLoad(PROD_KEY).find(function(p){return (p.codigo||'').toUpperCase()===cod;});
@@ -55627,7 +55642,8 @@ function vendasDescPadrao(v){
   try{if(!v||!v.itens||typeof substAplicarSeguro!=='function')return;
     v.itens.forEach(function(it){if(!it||it._dr)return;it._dr=1;var d=String(it.desc||'').trim();if(!d)return;var n=substAplicarSeguro(d);if(n&&n!==d.toUpperCase())it.desc=n;});}catch(e){}
 }
-function vendasRefresh(){
+function vendasRefresh(){try{pfCarraroAutoTodos();}catch(eCa){} // v115.2753
+
   vendasDescPadrao(window._venda); // v115.2400
   setTimeout(function(){try{vendasRelSugRender();}catch(e){}},0); // v115.2030
   setTimeout(function(){try{pfOfertaRender();}catch(e){}},0); // v115.2130

@@ -2749,3 +2749,6 @@
   procura nos 4 ancestrais do campo + filhos do body. Lista que não pode fechar → `data-pf-dd-fica`. Lista nova de busca já entra sozinha.
 - v115.2750 BUG ("mandei a cotação pela extensão e não foi com o nome do comprador" — José Vitor - Ricambi): o comprador da conversa só era posto na cotação em 0,9 s e 2,5 s
   depois do pedido; cotação que demorava pra abrir/escolher o cliente perdia o nome. `pfExtCompradorAgendar` (no pfExtAbrirCot/pfExtAtualizarCot/pfExtCotHoje) tenta a cada 0,6 s por até 20 s.
+- v115.2751 BUG (foto do pedido da Geisa - Newton Cardans: "pq leu errado?" + "SPL o pessoal nunca coloca -1X no final, mas tem — sempre pode considerar"): no `pfExtLerPedido`
+  a marca escrita no FIM da linha, depois da quantidade ("5-263 - 06 alb." / "4-28-307 - 02 spicer"), agora vale (antes só logo depois do código); "ALB" = ALBARUS (= SPICER no
+  `pfExtMarcaFam`); "SPL 250" junta em SPL250 e entra mesmo com 3 dígitos, e o `pfExtFichasDo` procura SPL250-1X / SPL-250-1X / SPL250-1XS / SPL250-1.

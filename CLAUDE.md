@@ -2752,3 +2752,7 @@
 - v115.2751 BUG (foto do pedido da Geisa - Newton Cardans: "pq leu errado?" + "SPL o pessoal nunca coloca -1X no final, mas tem — sempre pode considerar"): no `pfExtLerPedido`
   a marca escrita no FIM da linha, depois da quantidade ("5-263 - 06 alb." / "4-28-307 - 02 spicer"), agora vale (antes só logo depois do código); "ALB" = ALBARUS (= SPICER no
   `pfExtMarcaFam`); "SPL 250" junta em SPL250 e entra mesmo com 3 dígitos, e o `pfExtFichasDo` procura SPL250-1X / SPL-250-1X / SPL250-1XS / SPL250-1.
+- v115.2752 ✏️ Corrigir código / 🔍 Procurar parecidos (botão direito no item da cotação; print do 100522A1: "esse item tem A1 no final, preciso corrigir… checar novamente se tem com o código correto e subir a marca"):
+  `vendasCorrigirCodigo(i)` (janela `vendasCorrJan`, já sugere sem o A1/R1 do fim) → `vendasItemTrocarCodigo(i,novo,marca)`: procura no estoque (`vendasFichasDoCod` = vendasBuscarItem sem equivalência, senão `pfExtFichasDo`), escolhe a marca pedida > com saldo > mais barata e
+  troca código/descrição/marca/saldo/custo (preço volta pela margem; código do cliente fica em codigoOriginal; desfazer funciona); não achou = troca o código e abre os parecidos. `vendasParecidosItem(i)` (`vendasParecJan`):
+  variantes `vendasCodVariantes` (sem A1/R1 ou letra no fim, zero na frente, sem traço, X/XS/ALB, SPL→-1X) + `pfParecidos` + o código do cliente — só os que existem no estoque, cada marca vira botão (saldo). Menu = `vendasCorrMenuHtml`.

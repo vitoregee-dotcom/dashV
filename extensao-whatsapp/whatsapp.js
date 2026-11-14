@@ -595,6 +595,7 @@
     ['Botão direito e Alt+B', [
       ['🖱️', 'Botão direito', 'Clique com o botão direito no WhatsApp → 🧩 PartsFlow. Em código selecionado: Ver no PF, Pôr na cotação de hoje, Cotar só esse. Numa mensagem: Cotar, Lembrete, Salvar como resposta rápida, Anotar na ficha (e Lançar no mapa, se for fornecedor). Numa foto: Ler com IA e cotar. Numa conversa da lista: Abrir ficha, Trocar grupo/tipo, Grau de intimidade, liga/desliga a mensagem automática.'],
       ['🔎', 'Alt+B', 'Selecione o código na mensagem (pode ser a frase inteira — o PF puxa só os códigos) e aperte Alt+B: aparece o cartão com descrição, marcas, saldo, preço desse cliente, 🔗 Monta com e o botão do catálogo dos Componentes Cardan. Sem nada selecionado, abre uma caixinha pra digitar o código.'],
+      ['📦', 'Anotei pra emitir / verificar', 'Quando o cliente pede ("pode faturar") ou você promete ("mando hoje", "vou verificar"), o PF anota sozinho um lembrete. Aparece um seloinho 📦/📌 na mensagem e um número ao lado do nome da conversa; clique pra ver ou desfazer. O lembrete vai pras Pendências e pro ☀️ Meu dia.'],
       ['➕', 'Pôr na cotação de hoje', 'Entra na cotação desse cliente que está aberta no PF ou que foi aberta HOJE; se não tiver, cria uma nova.'],
       ['🎩', 'Grau de intimidade', 'Formal, Normal ou Próximo — muda o tom das mensagens automáticas pra essa pessoa (marque no 👤 Salvar contato ou no botão direito na conversa).']]],
     ['Em cima e do lado esquerdo', [
@@ -1127,7 +1128,7 @@
   }
   // 1.9 - BUG (Vitor: foto aberta em tela cheia ficava com o aviso e o botão "PF" por cima): se alguma coisa do WhatsApp cobre a conversa
   // (foto, vídeo, documento, janela), esconde os avisos e os botões da extensão até fechar.
-  var MEUS = '#pfwa-sp,.pfwa-selo,.pfwa-rfselo,#pfwa-rr2,.pfwa-rrselo,#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st,#pfwa-vf,#pfwa-menu,#pfwa-rail,#pfwa-svb,#pfwa-sv';
+  var MEUS = '#pfwa-sp,.pfwa-selo,.pfwa-rfselo,#pfwa-rr2,.pfwa-rrselo,#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st,#pfwa-vf,#pfwa-pe,.pfwa-anselo,#pfwa-ancnt,#pfwa-anpop,#pfwa-menu,#pfwa-rail,#pfwa-svb,#pfwa-sv';
   // 2.8 - BUG (Vitor: documento/PDF aberto no WhatsApp ainda ficava com o aviso e o "PF" por cima): o visualizador do WhatsApp nem sempre
   // aparece no elementsFromPoint (partes com pointer-events:none). Agora também conta janela aberta (dialog/aria-modal) e imagem/vídeo/canvas
   // GRANDE fora da conversa e da lista (foto, documento, vídeo em tela cheia).
@@ -1836,11 +1837,13 @@
     var r = await msg({ t: 'acao', acao: 'verificar', arg: { k: resp && resp.k, nome: contatoAt.nome, texto: last.t, msgs: ms } });
     if (ch !== ultimo || !r || !r.ok) return;
     if (r.jaTinha) { vfR = null; pintaVf(); return; }
-    vfR = r; pintaVf();
+    r._txt = last.t; vfR = r; pintaVf();
   }
   function pintaVf() {
     if (!VF) return;
-    if (!vfR || !contatoAt) { VF.style.display = 'none'; return; }
+    VF.style.display = 'none'; // 4.72 - faixa saiu: vira selo na mensagem + contador (B+D)
+    if (!vfR || !contatoAt) return;
+    anAdd('vf', vfR, vfR._txt || ''); return;
     VF.style.display = 'flex';
     VF.innerHTML = '<span class="pfwa-vf-i">📌</span><div><b>Anotei pra você verificar</b><br><small>' + esc(vfR.resumo || '') + ' — vai pras Pendências, ☀️ Meu dia e ficha</small></div><button data-acao="vfDesfazer" data-arg="' + esc(vfR.id) + '">desfazer</button><span data-acao="vfX" class="pfwa-avx" title="Fechar">✕</span>';
     posicionar();
@@ -1879,15 +1882,101 @@
     var ch = ultimo;
     var r = await msg({ t: 'acao', acao: 'pedidoEmitir', arg: { k: resp && resp.k, nome: contatoAt.nome, texto: gat, msgs: ms, origem: origem } });
     if (ch !== ultimo || !r || !r.ok || r.jaTinha) return;
-    peR = r; pintaPe();
+    r._txt = gat; peR = r; pintaPe();
   }
   function pintaPe() {
     if (!PE) return;
-    if (!peR || !contatoAt) { PE.style.display = 'none'; return; }
+    PE.style.display = 'none'; // 4.72 - faixa saiu: vira selo na mensagem + contador (B+D)
+    if (!peR || !contatoAt) return;
+    anAdd('pe', peR, peR._txt || ''); return;
     PE.style.display = 'flex';
     PE.innerHTML = '<span class="pfwa-vf-i">📦</span><div><b>Anotei pra você emitir</b><br><small>' + esc(peR.resumo || 'o pedido') + (peR.quando ? ' — pra ' + esc(peR.quando) : (peR.amanha ? ' — pra amanhã' : '')) + ' — vai pras Pendências e ☀️ Meu dia</small></div><button data-acao="peDesfazer" data-arg="' + esc(peR.id) + '">desfazer</button><span data-acao="peX" class="pfwa-avx" title="Fechar">✕</span>';
     posicionar();
   }
+
+  // ═══ 4.72 - A pedido do Vitor ("algo mais discreto para esses avisos" → prévia previa2.png → "b e d") ═══
+  // Os avisos 📦 "anotei pra emitir" e 📌 "anotei pra verificar" não são mais a faixa larga em cima da caixa:
+  // B = selo pequeno grudado na mensagem que virou lembrete (clique = detalhe + desfazer);
+  // D = contador 📦 N / 📌 N no cabeçalho da conversa, logo depois do nome (clique = lista da conversa com desfazer).
+  var AN = {}, ANPOP = null, ANCNT = null, anPopDe = null;
+  try { AN = JSON.parse(sessionStorage.getItem('pfwa_an') || '{}') || {}; } catch (e) { AN = {}; }
+  function anGrava() { try { sessionStorage.setItem('pfwa_an', JSON.stringify(AN)); } catch (e) { } }
+  function anNorm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+  function anAdd(tipo, r, texto) {
+    if (!r || !r.id || !ultimo) return;
+    var L = AN[ultimo] = AN[ultimo] || [];
+    if (L.some(function (x) { return x.id === r.id; })) return;
+    L.push({ tipo: tipo, id: r.id, snip: anNorm(texto).slice(0, 60), resumo: r.resumo || '', quando: r.quando || (r.amanha ? 'amanhã' : ''), t: Date.now() });
+    anGrava(); anVigiar();
+  }
+  function anTirar(id, desfazer) {
+    var L = AN[ultimo] || [], x = L.find(function (o) { return o.id === id; }); if (!x) return;
+    if (desfazer) msg({ t: 'acao', acao: x.tipo === 'pe' ? 'pedidoEmitirDesfazer' : 'verificarDesfazer', arg: id });
+    AN[ultimo] = L.filter(function (o) { return o.id !== id; }); if (!AN[ultimo].length) delete AN[ultimo];
+    anGrava(); anPopFechar(); anVigiar();
+  }
+  function anRotulo(x) { return x.tipo === 'pe' ? '📦 Anotei pra você emitir' : '📌 Anotei pra você verificar'; }
+  function anItemHtml(x) {
+    return '<div class="pfwa-an-it"><b>' + anRotulo(x) + '</b><small>' + esc(x.resumo || (x.tipo === 'pe' ? 'o pedido' : '')) + (x.quando ? ' — pra ' + esc(x.quando) : '') +
+      ' · está nas Pendências e no ☀️ Meu dia</small><div class="pfwa-an-bt"><a data-anacao="desf" data-anid="' + esc(x.id) + '">desfazer</a><a data-anacao="ok" data-anid="' + esc(x.id) + '" class="pfwa-an-ok">ok, entendi</a></div></div>';
+  }
+  function anPopFechar() { if (ANPOP) ANPOP.style.display = 'none'; anPopDe = null; }
+  function anPopAbrir(itens, ancora) {
+    if (!ANPOP) {
+      ANPOP = document.createElement('div'); ANPOP.id = 'pfwa-anpop'; document.body.appendChild(ANPOP);
+      ANPOP.addEventListener('click', function (ev) { var a = ev.target.closest('[data-anacao]'); if (!a) return; ev.preventDefault(); ev.stopPropagation(); anTirar(a.getAttribute('data-anid'), a.getAttribute('data-anacao') === 'desf'); });
+      document.addEventListener('mousedown', function (ev) { if (ANPOP && ANPOP.style.display !== 'none' && !ANPOP.contains(ev.target) && !(ev.target.closest && ev.target.closest('.pfwa-anselo,#pfwa-ancnt'))) anPopFechar(); }, true);
+    }
+    if (anPopDe === ancora && ANPOP.style.display !== 'none') { anPopFechar(); return; }
+    anPopDe = ancora;
+    ANPOP.innerHTML = itens.map(anItemHtml).join('');
+    ANPOP.style.display = 'block';
+    var r = ancora.getBoundingClientRect(), w = 260, h = ANPOP.offsetHeight;
+    var left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left)), top = r.bottom + 6;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6);
+    ANPOP.style.left = left + 'px'; ANPOP.style.top = top + 'px';
+  }
+  function anVigiar() {
+    var L = (contatoAt && !contatoAt.grupo && AN[ultimo]) || [];
+    // B · selo na mensagem
+    var els = Array.prototype.slice.call(document.querySelectorAll('#main [data-pre-plain-text]')).slice(-60).filter(function (el) { return !(el.parentElement && el.parentElement.closest('[data-pre-plain-text]')); });
+    var porEl = new Map();
+    L.forEach(function (x) {
+      if (!x.snip) return;
+      for (var i = els.length - 1; i >= 0; i--) {
+        var tx = els[i].querySelectorAll('.selectable-text'), t = Array.prototype.map.call(tx, function (z) { return z.innerText || ''; }).join(' ');
+        if (anNorm(t).indexOf(x.snip) >= 0) { var a = porEl.get(els[i]) || []; a.push(x); porEl.set(els[i], a); return; }
+      }
+    });
+    els.forEach(function (el) { var s = el.querySelector(':scope > .pfwa-anselo'); if (s && !porEl.has(el)) s.remove(); });
+    porEl.forEach(function (itens, el) {
+      var s = el.querySelector(':scope > .pfwa-anselo');
+      if (!s) { s = document.createElement('span'); s.className = 'pfwa-anselo'; if (getComputedStyle(el).position === 'static') el.style.position = 'relative'; el.appendChild(s);
+        ['pointerdown', 'mousedown', 'mouseover'].forEach(function (e) { s.addEventListener(e, function (ev) { ev.stopPropagation(); }); }); }
+      var temPe = itens.some(function (x) { return x.tipo === 'pe'; }), temVf = itens.some(function (x) { return x.tipo !== 'pe'; });
+      var txt = (temPe ? '📦 emitir' : '') + (temPe && temVf ? ' · ' : '') + (temVf ? '📌 verificar' : '');
+      if (s.textContent !== txt) s.textContent = txt;
+      s.classList.toggle('vf', !temPe);
+      s.title = itens.map(anRotulo).join(' · ') + ' — clique pra ver ou desfazer';
+      s.onclick = function (ev) { ev.preventDefault(); ev.stopPropagation(); anPopAbrir(itens, s); };
+      // fica na mesma linha dos outros selos (📄 / ⚡ / 📥), logo depois deles
+      var off = 6; Array.prototype.forEach.call(el.querySelectorAll(':scope > .pfwa-selo, :scope > .pfwa-rrselo, :scope > .pfwa-rfselo'), function (o) { if (o.offsetWidth) off += o.offsetWidth + 5; });
+      var lf = 'calc(100% + ' + off + 'px)'; if (s.style.left !== lf) s.style.left = lf;
+    });
+    // D · contador no cabeçalho
+    if (!ANCNT) { ANCNT = document.createElement('div'); ANCNT.id = 'pfwa-ancnt'; document.body.appendChild(ANCNT);
+      ANCNT.addEventListener('click', function (ev) { var L2 = AN[ultimo] || []; if (!L2.length) return; ev.preventDefault(); ev.stopPropagation(); anPopAbrir(L2, ANCNT); }); }
+    var nPe = L.filter(function (x) { return x.tipo === 'pe'; }).length, nVf = L.length - nPe, el = nomeEl();
+    if (!L.length || !el || document.documentElement.classList.contains('pfwa-coberto')) { ANCNT.style.display = 'none'; return; }
+    var r = el.getBoundingClientRect(); if (!r.width) { ANCNT.style.display = 'none'; return; }
+    var h = (nPe ? '<span class="pfwa-anc pe">📦<i>' + nPe + '</i></span>' : '') + (nVf ? '<span class="pfwa-anc vf">📌<i>' + nVf + '</i></span>' : '');
+    if (ANCNT.innerHTML !== h) ANCNT.innerHTML = h;
+    ANCNT.title = 'Anotado nesta conversa: ' + (nPe ? nPe + ' a emitir' : '') + (nPe && nVf ? ' · ' : '') + (nVf ? nVf + ' a verificar' : '') + ' — clique pra ver';
+    ANCNT.style.display = 'flex';
+    var x0 = (SVB && SVB.style.display !== 'none') ? r.right + 42 : r.right + 10;
+    ANCNT.style.left = Math.round(x0) + 'px'; ANCNT.style.top = Math.round(r.top + r.height / 2 - 14) + 'px';
+  }
+  setInterval(function () { try { anVigiar(); } catch (e) { } }, 1200);
 
   // ═══ 📢 STATUS (1.8) ═══
   // O PF manda a imagem; aqui abre Status → ＋ → coloca a imagem e a legenda e PARA (você confere e aperta enviar).

@@ -2719,3 +2719,11 @@
   do campo ou do "(636)" do nome, grupos, `criadoDe:'whatsapp'`); o contato passa a apontar pra chave da ficha (`c:<código>`).
 - v115.2743 + extensão **4.70** BUG ("esse filtro não tá funcionando" — barra de grupos do Menu do PF): a lista própria do filtro (`#pfwa-fl`, v4.69) tinha z-index 40 e no WhatsApp real ficava
   POR BAIXO da lista dele; agora z-index 9990 (mesma camada do menu do PF, 9996+). Junto: prévia dos avisos discretos (📦/📌) em `docs/referencias/whatsapp-avisos-discretos/` — esperando o Vitor escolher A/B/C/D.
+- v115.2744 **🔁 Listas de conversão — Carraro OM** (Vitor: "listas de conversões de números Carraro… jogar nos itens… a conversão precisa estar na ficha, pra na cotação aparecer
+  e do lado o código principal Carraro" + linhas: "case nas que tiverem letra no código; as outras New Holland"): PDF "Conversão Carraro OM" (código Carraro | nº da montadora | montadora) lido por
+  `scripts/catalogo-carraro/gerar_conversao_om.py` → `data/catalogos/carraro-conversao-om.json` {itens:{carraro:[[oem,linha]]}, cods:[todos os nº Carraro]} (+ PDF da parte 1). Linha = montadora
+  normalizada (`LINHA` no script; CASE/CNH com letra = CASE, só números = NEW HOLLAND; Claas-Renault → CLAAS; O&K que só repete o nº Carraro não vira conversão; célula com 2+ códigos separa).
+  Parte nova = rodar o script com TODOS os PDFs juntos. Cadastros → Importar Produtos → "🔁 Listas de conversão" (`PF_CONV_PRONTAS`, `pfConvProntasHtml`) → `pfConvImpAbrir` (`pfConvJan`,
+  `pfConvPlano`: ✅ ficha Carraro (marca contém CARRARO) ganha conversões / ⚠️ ficha em OUTRA marca desmarcada / 📦 no estoque sem ficha = cria ficha com a descrição da planilha (marcada se a
+  marca do estoque é Carraro) / ♻️ já tinha / ⬜ não temos) → `pfConvGravar` ({ref, linha, desc 'conversão Carraro OM'}, ficha Carraro com linha CARRARO, tsMod, pfSyncPush). `idLinha`: nº que está
+  na lista (`window._pfCarraroCods`, carregado 4 s depois de abrir) = CARRARO (a regra de formato não pega Carraro começando com 2/3). Cotação: conversão também bate só letras+números.

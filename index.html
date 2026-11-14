@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2747</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2748</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2747</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2748</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -44851,6 +44851,12 @@ async function pfConvCarregar(id){window._pfConvJson=window._pfConvJson||{};if(w
 // v115.2747 - Parte 2 deixou o json com ~1,9 MB: ao abrir o PF baixa só a lista de códigos (arquivo -codigos.json); o grande só no Ver o que entra
 function pfCarraroCodsCarregar(){fetch('data/catalogos/carraro-conversao-om-codigos.json').then(function(r){return r.json();}).then(function(d){var s=new Set();(d.cods||[]).forEach(function(c){s.add(pfConvN(c));});window._pfCarraroCods=s;}).catch(function(){});}
 setTimeout(pfCarraroCodsCarregar,4000);
+// v115.2748 - A pedido do Vitor ("pq na conversão nada dá número Carraro? se está em uma das listas" — 20G-22-31250 Komatsu / ER200402 John Deere na cotação
+// sem achar nada): a conversão só entrava na ficha depois do "Gravar nas fichas" e só em peça que JÁ tem ficha — 248167/200402 não têm ficha nem estoque
+// ("⬜ Não temos") e ficavam de fora. Agora a cotação consulta a lista Carraro direto: nº da montadora → nº Carraro (só letras+números).
+function pfCarraroRevCarregar(){if(window._pfCarraroRev)return;pfConvCarregar('carraro-conversao-om').then(function(d){var r={};Object.keys(d.itens||{}).forEach(function(c){(d.itens[c]||[]).forEach(function(x){var k=pfConvN(x[0]);if(k.length<4||k===pfConvN(c))return;var a=r[k]=r[k]||[];if(!a.some(function(y){return y.c===c;}))a.push({c:c,l:x[1]});});});window._pfCarraroRev=r;try{if(window._venda&&document.getElementById('vendasModal')&&typeof vendasRefresh==='function')vendasRefresh();}catch(e){}}).catch(function(){});}
+setTimeout(pfCarraroRevCarregar,8000);
+function pfCarraroDe(cod){var r=window._pfCarraroRev;if(!r)return null;var k=pfConvN(cod);return (k&&r[k])||null;}
 function pfConvEhCarraro(m){return /CARRARO/i.test(String(m||''));}
 function pfConvEstoque(cod){try{var rows=vendasTodasLinhas();if(!rows||!rows.length)return [];var ix=vendasBuscaIndiceGet(rows);return (ix.porRefExata[pfConvN(cod)]||[]).slice();}catch(e){return [];}}
 function pfConvRowMarca(r){return String(r.marca||r.Marca||r.MARCA||'').toUpperCase().trim();}
@@ -54750,6 +54756,9 @@ function vendasAdicionarItem(){
       if(items&&items.length)cod=codPrincipal;
     }
   }
+  var _carConv=null; // v115.2748 - nº da montadora que está na lista Carraro OM → vira o nº Carraro (com ou sem estoque)
+  if((!items||!items.length)&&!codPrincipal){var _cr=pfCarraroDe(cod);if(_cr&&_cr.length){_carConv={de:codDigitado,c:_cr[0].c,l:_cr[0].l,outros:_cr.slice(1).map(function(x){return x.c;})};
+    cod=String(_cr[0].c).toUpperCase();items=vendasBuscarItem(cod,{semEquiv:true,silencioso:true})||[];}}
   // v115.1122 - A pedido do Vitor: se algum item só bateu "com ressalva"
   // (equivalência de rolamento com diferença de construção -- gaiola,
   // vedação, folga etc.), não adiciona direto -- mostra um aviso rápido
@@ -54786,6 +54795,7 @@ function vendasAdicionarItem(){
     return;
   }
   vendasInserirItensNaLista(cod, codDigitado, qtd, items);
+  if(_carConv)pfCarraroMarcar(window._vendasItemAtivo,_carConv,(items||[]).length);
   codEl.value='';if(qtdEl)qtdEl.value='1';
   setTimeout(function(){var el=document.getElementById('vendasCodInput');if(el)el.focus();},50);
 }
@@ -54860,6 +54870,21 @@ function vendasEscolherAbrir(titulo,sub,ops){
   ov.querySelectorAll('[data-i]').forEach(function(b){b.onclick=function(){fechar();var o=ops[+b.getAttribute('data-i')];if(o&&o.fn)o.fn();};});
   document.body.appendChild(ov);setTimeout(function(){var b=ov.querySelector('[data-i="0"]');if(b)b.focus();},30);
 }
+// v115.2748 - item que veio da lista Carraro OM
+function pfCarraroMarcar(i,cc,nItens){try{var v=window._venda,n=Math.max(1,nItens||1);for(var j=i;j>i-n&&j>=0;j--){var it=v.itens[j];if(!it)continue;it.carraroConv=cc;
+  if(!it.marca)it.marca='CARRARO';if(!it.marcaInterna)it.marcaInterna='CARRARO';if(!it.desc)it.desc='PEÇA CARRARO (nº '+cc.l+' '+cc.de+')';}vendasRefresh();}catch(e){}}
+function pfCarraroEtqHtml(it,i){try{
+  if(it.carraroConv){var c=it.carraroConv;return '<span title="O cliente passou o nº '+pfEscHtml(c.l)+' '+pfEscHtml(c.de)+' — na lista de conversão da Carraro é o '+pfEscHtml(c.c)+(c.outros&&c.outros.length?' (também: '+pfEscHtml(c.outros.join(', '))+')':'')+'" style="display:inline-block;font-size:10.5px;font-weight:800;border-radius:5px;padding:1px 6px;background:#FFF0E6;color:#B34700;border:1px solid #F5C9A6;margin:1px 3px 1px 0">🔁 '+pfEscHtml(c.l)+' '+pfEscHtml(c.de)+' = CARRARO '+pfEscHtml(c.c)+'</span>';}
+  if(it.saldo!=null&&it.saldo!=='')return '';var cr=pfCarraroDe(it.codigo);if(!cr||!cr.length)return '';
+  return '<span onclick="event.stopPropagation();pfCarraroTrocar('+i+')" title="Esse nº está na lista de conversão da Carraro — clique pra trocar pelo nº Carraro" style="cursor:pointer;display:inline-block;font-size:10.5px;font-weight:800;border-radius:5px;padding:1px 6px;background:#E65C00;color:#fff;margin:1px 3px 1px 0">🔁 = CARRARO '+pfEscHtml(cr[0].c)+' · trocar</span>';
+}catch(e){return '';}}
+function pfCarraroTrocar(i){var v=window._venda,it=v&&v.itens&&v.itens[i];if(!it)return;var cr=pfCarraroDe(it.codigo);if(!cr||!cr.length)return;
+  try{if(typeof vendasUndoMarcar==='function')vendasUndoMarcar();}catch(e){}
+  var de=it.codigoOriginal||it.codigo,c=String(cr[0].c).toUpperCase(),fs=[];try{fs=vendasBuscarItem(c,{semEquiv:true,silencioso:true})||[];}catch(e){}
+  var f=fs.find(function(x){return pfConvEhCarraro(x.marca);})||fs[0];
+  it.codigo=c;it.codigoOriginal=de;it.carraroConv={de:it.codigo===de?de:String(de),c:c,l:cr[0].l,outros:cr.slice(1).map(function(x){return x.c;})};it.carraroConv.de=de;
+  if(f){it.desc=f.desc;it.marca=f.marca;it.marcaInterna=f.marca;it.saldo=f.saldo;it.custo=f.custo;}else{it.marca='CARRARO';it.marcaInterna='CARRARO';if(!it.desc)it.desc='PEÇA CARRARO (nº '+cr[0].l+' '+de+')';}
+  vendasRefresh();try{vendasAutoSalvarDebounced();}catch(e){}}
 function vendasInserirItensNaLista(cod, codDigitado, qtd, items){
   if(!window._venda.itens)window._venda.itens=[];
   var prodCad=cadLoad(PROD_KEY).find(function(p){return (p.codigo||'').toUpperCase()===cod;});
@@ -55203,6 +55228,7 @@ function vendasEtiquetasHtml(it,i,nRel,nMonta,nSubst){
   if(prod&&prod.doCatalogo&&!String(prod.ncm||'').trim())al+='<span onclick="event.stopPropagation();vendasVerCadastroItem(\''+pfEscHtml(pfEscJs(it.codigo||''))+'\',\''+pfEscHtml(pfEscJs(it.desc||''))+'\')" title="Ficha criada pelo catálogo ('+pfEscHtml(prod.doCatalogo.serie||'')+') — sem NCM e cadastro incompleto. Clique pra abrir a ficha." style="cursor:pointer;font-size:10.5px;font-weight:800;border-radius:8px;padding:1px 6px;margin-left:3px;background:#FFF3CD;color:#8a5a00;white-space:nowrap">⚠️ conferir</span>';
   // v115.2511 - a etiqueta 🗂️ do fornecedor saiu da descrição: fica na coluna STATUS (pfMdStatusHtml); a margem já está na coluna MARGEM
   try{var _cj=vendasConjEtqHtml(it);if(/⚠/.test(_cj))al+=_cj;else inf+=_cj;}catch(eCj){} // v115.2445 - 🔗 conjunto cone + capa
+  try{var _cc=pfCarraroEtqHtml(it,i);if(_cc){if(/trocar/.test(_cc))al+=_cc;else inf+=_cc;}}catch(eCc){} // v115.2748 - lista Carraro OM
   // v115.2673 - pedido do WhatsApp: marca que o cliente pediu e não temos / item que veio no pedido e não estava na cotação
   if(it.marcaPedidaWa&&it.marcaPedidaFalta)al+='<span title="O cliente pediu '+pfEscHtml(it.marcaPedidaWa)+' e não temos — entrou outra marca" style="display:inline-block;font-size:10.5px;font-weight:800;border-radius:5px;padding:1px 6px;background:#FDECEA;color:#9a2a1e;margin:2px 3px 0 0">⚠ pediu '+pfEscHtml(it.marcaPedidaWa)+'</span>';
   else if(it.marcaPedidaWa)inf+='<span title="Marca que o cliente pediu no WhatsApp" style="display:inline-block;font-size:10.5px;font-weight:800;border-radius:5px;padding:1px 6px;background:#EAF6EE;color:#1e6b3a;margin:2px 3px 0 0">✔ pediu '+pfEscHtml(it.marcaPedidaWa)+'</span>';

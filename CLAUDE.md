@@ -2739,3 +2739,8 @@
   (`gerar_conversao_om.py saída.json parte1.pdf parte2.pdf`): 31.852 nº Carraro, 28.018 com conversão, 54.415 conversões. Nomes do PDF → nome do PF no `LINHA` (AGCO - MASSEY FERGUSON/MF INDUSTRIAL → MASSEY,
   DAIMLER - BENZ → MERCEDES-BENZ, CIMM (MANITOU) → MANITOU…); o resto entra com o nome do PDF (BOBCAT, MANITOU, HYDREMA, SANDERSON…). O json grande ficou com 1,9 MB → o script grava também
   `carraro-conversao-om-codigos.json` (só os nº, 270 KB), que é o que o PF baixa ao abrir (`pfCarraroCodsCarregar`); o grande só no 🔁 Ver o que entra. Gravar nas fichas continua manual (Cadastros → Importar Produtos).
+- v115.2748 BUG ("pq na conversão nada dá número Carraro? se está em uma das listas" — 20G-22-31250 Komatsu / ER200402 John Deere na cotação sem nada): a conversão só
+  ia pra ficha no "Gravar nas fichas" e só em peça COM ficha — 248167/200402 não têm ficha nem estoque. Agora a cotação consulta a lista direto: `pfCarraroRevCarregar` (8 s depois de
+  abrir, índice reverso `window._pfCarraroRev` nº da montadora só letras+números → nº Carraro) + `pfCarraroDe`. No `vendasAdicionarItem`, sem estoque e sem conversão de ficha, o código vira o
+  nº Carraro (`it.carraroConv` {de,c,l,outros}, marca CARRARO; sem estoque = "PEÇA CARRARO (nº KOMATSU …)") e etiqueta "🔁 KOMATSU 20G-22-31250 = CARRARO 248167" (`pfCarraroEtqHtml`);
+  item que já estava na cotação sem saldo ganha "🔁 = CARRARO X · trocar" (`pfCarraroTrocar`).

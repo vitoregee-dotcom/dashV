@@ -2727,3 +2727,6 @@
   `pfConvPlano`: ✅ ficha Carraro (marca contém CARRARO) ganha conversões / ⚠️ ficha em OUTRA marca desmarcada / 📦 no estoque sem ficha = cria ficha com a descrição da planilha (marcada se a
   marca do estoque é Carraro) / ♻️ já tinha / ⬜ não temos) → `pfConvGravar` ({ref, linha, desc 'conversão Carraro OM'}, ficha Carraro com linha CARRARO, tsMod, pfSyncPush). `idLinha`: nº que está
   na lista (`window._pfCarraroCods`, carregado 4 s depois de abrir) = CARRARO (a regra de formato não pega Carraro começando com 2/3). Cotação: conversão também bate só letras+números.
+- v115.2745 + extensão **4.71** BUG ("pq não aparece dados do cliente aqui?" — painel "Abra o PartsFlow numa aba deste Chrome" com o selo ● Conectado, PF no 🖥️ modo monitor): o painel
+  perguntava "quem é" ao PF UMA vez só, ao abrir a conversa; resposta vazia (PF ainda carregando) virava "semPF" e ficava presa até trocar de conversa. Agora resposta vazia = `semResposta`
+  ("O PF não respondeu") e, com erro na tela, o tick pergunta de novo a cada 5 s (`window._pfwaQuemTent`, zera o `ultimo`). Testado no simulador com a 1ª resposta vazia.

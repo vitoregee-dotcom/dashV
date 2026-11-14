@@ -1763,13 +1763,17 @@
     posicionar();
     var nCod = c && !c.grupo ? pareceCotacao(msgsPedido()) : 0;
     statusVigiar();
+    // 4.71 - A pedido do Vitor ("pq não aparece dados do cliente aqui?" — painel "Abra o PartsFlow" com o selo ● Conectado): o painel perguntava "quem é" ao PF
+    // UMA vez só, ao abrir a conversa; se o PF ainda estava carregando (modo monitor recarrega por dentro), a resposta vinha vazia e ficava presa no erro.
+    // Agora, com erro na tela, pergunta de novo a cada 5 s até o PF responder.
+    if (chave === ultimo && resp && resp.erro && resp.erro !== 'recarregar' && Date.now() - (window._pfwaQuemTent || 0) > 5000) { window._pfwaQuemTent = Date.now(); ultimo = ''; }
     if (chave === ultimo) { pintaAviso(nCod); ofertasVigiar(); digitandoVigiar(); verificarVigiar(); pedidoVigiar(); return; }
     ultimo = chave; cot = null; cotErro = ''; saldoR = null; ofPend = []; ofSig = ''; jaR = null; digAnt = ''; jaFechado = ''; vfR = null; vfSig = ''; peR = null; peSig = ''; pintaOferta(); pintaJa(); pintaVf(); pintaPe();
     if (!c) { resp = null; pinta(); pintaAviso(0); return; }
     if (c.grupo) { resp = { grupo: 1 }; pinta(); return; }
     resp = null; pinta();
     var r = await msg({ t: 'quem', tel: c.tel, nome: c.nome });
-    if (chave !== ultimo) return; resp = r || { erro: 'semPF' };
+    if (chave !== ultimo) return; resp = r || { erro: 'semResposta' }; // 4.71 - resposta vazia não é "PF fechado" (o selo diz se está conectado)
     if (aba === 'cli' && resp.tipo !== 'cliente' && resp.tipo !== 'fornecedor') aba = 'cot';
     pinta(); pintaAviso(nCod); ofertasVigiar();
   }

@@ -2759,3 +2759,4 @@
 - v115.2753 BUG ("a lógica está errada. o cliente passou 043132R1, já tem que automaticamente abrir o 130466. por isso tem código do cliente e código" + "essa é a lógica da conversão"): item que entrou por print/lista/WhatsApp
   (sem passar pelo vendasAdicionarItem) ou antes de a lista Carraro carregar ficava só com a tarja "trocar". `pfCarraroAutoTodos` (começo do `vendasRefresh`): item sem ficha no estoque (saldo vazio e sem marcaInterna) cujo código está na
   lista vira o nº Carraro sozinho (CÓDIGO = Carraro, CÓD. CLIENTE = o do cliente, etiqueta 🔁), 1x por item (`_carAuto`). **Regra geral da conversão: o código do cliente vai pro CÓD. CLIENTE e o nosso entra sozinho no CÓDIGO.**
+- v115.2754 ("quando eu colocar corrigir tem que só corrigir. se eu ver que não tem ficha, aí eu vou nos parecidos"): o ✏️ Corrigir código (`vendasCorrigirCodigoOk`) NÃO abre mais os parecidos sozinho quando o código não está no estoque — só troca e avisa.

@@ -2760,3 +2760,7 @@
   (sem passar pelo vendasAdicionarItem) ou antes de a lista Carraro carregar ficava só com a tarja "trocar". `pfCarraroAutoTodos` (começo do `vendasRefresh`): item sem ficha no estoque (saldo vazio e sem marcaInterna) cujo código está na
   lista vira o nº Carraro sozinho (CÓDIGO = Carraro, CÓD. CLIENTE = o do cliente, etiqueta 🔁), 1x por item (`_carAuto`). **Regra geral da conversão: o código do cliente vai pro CÓD. CLIENTE e o nosso entra sozinho no CÓDIGO.**
 - v115.2754 ("quando eu colocar corrigir tem que só corrigir. se eu ver que não tem ficha, aí eu vou nos parecidos"): o ✏️ Corrigir código (`vendasCorrigirCodigoOk`) NÃO abre mais os parecidos sozinho quando o código não está no estoque — só troca e avisa.
+- v115.2755 **🔁 Conversões do item** ("um atalho pra mostrar as conversões do item. e com botão direito também"): Alt+X (keydown em captura, item ativo) / botão direito → `pfConvItemAbrir(i)` (`pfConvJan`):
+  `pfConvItemLista(it)` junta conversões das fichas (do código e do código do cliente), fichas que têm o código como conversão, Componentes Cardan e lista Carraro OM nos 2 sentidos
+  (`window._pfCarraroFwd` = inverso do `_pfCarraroRev`), com saldo, 📋 e "usar" (`vendasItemTrocarCodigo`). E ("esse tem conversão mas não aparece aqui na ficha" — 123726): a ficha do produto
+  (os 2 formulários) mostra embaixo das conversões as da lista Carraro ainda não gravadas (`pfConvFichaListaHtml`) com "➕ pôr na ficha" (`pfConvFichaPor`: preenche uma linha de conversão; grava no Salvar).

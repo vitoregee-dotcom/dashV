@@ -1,5 +1,6 @@
 # Gera data/catalogos/carraro-conversao-om.json a partir dos PDFs "Conversão Carraro OM" (texto, sem IA).
 # Uso: python3 gerar_conversao_om.py saida.json parte1.pdf [parte2.pdf ...]
+# v115.2747: também grava <saida>-codigos.json só com a lista de nº Carraro (o PF baixa ela ao abrir; o json grande só ao importar)
 # Cada linha do PDF = código Carraro | código da montadora (OEM) | montadora. Mesma peça pode ter várias montadoras.
 # Montadora que só repete o próprio nº Carraro ("<206833>", O&K) não vira conversão, mas o código entra na lista "cods"
 # (= o PF sabe que é número Carraro; a regra de formato do PF não reconhece Carraro começando com 2/3).
@@ -10,6 +11,9 @@ LINHA = {  # montadora do PDF -> linha do PF (nomes do LINHAS / MARCAS_PADRAO)
     'MCCORMICK': 'McCORMICK', 'VALTRA + VALMET': 'VALTRA', 'VALTRA': 'VALTRA', 'KOMATSU': 'KOMATSU',
     'VOLVO': 'VOLVO', 'IVECO': 'IVECO', 'LIEBHERR': 'LIEBHERR', 'LANDINI': 'LANDINI', 'DEUTZ': 'DEUTZ',
     'ANTONIO CARRARO': 'ANTONIO CARRARO', 'O&K ANTRIEBSTECHNIK': 'O&K',
+    # v115.2747 (Parte 2): nomes do PDF -> nome que o PF já usa
+    'AGCO - MASSEY FERGUSON': 'MASSEY', 'MF INDUSTRIAL': 'MASSEY', 'DAIMLER - BENZ': 'MERCEDES-BENZ', 'O&K (TEREX)': 'O&K',
+    'CIMM (MANITOU)': 'MANITOU', 'FIAT AUTO': 'FIAT', 'HYMAX (DEALER)': 'HYMAX',
 }
 
 def linhas(pdf):
@@ -46,6 +50,7 @@ def main():
            'fonte': [p.split('/')[-1] for p in pdfs], 'linhasPdf': n,
            'itens': itens, 'cods': sorted(cods)}
     json.dump(out, open(saida, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
+    json.dump({'cods': out['cods']}, open(saida.replace('.json', '-codigos.json'), 'w', encoding='utf-8'), separators=(',', ':'))
     print('linhas', n, 'códigos Carraro', len(cods), 'com conversão', len(itens), 'conversões', sum(len(v) for v in itens.values()))
     print(marcas.most_common())
 

@@ -2735,3 +2735,7 @@
   **B** = selo `.pfwa-anselo` (laranja 📦 emitir / verde 📌 verificar) na mensagem que gerou o lembrete (acha pelo texto `anNorm`, fica depois dos selos 📄/⚡/📥 na mesma linha);
   **D** = contador `#pfwa-ancnt` (📦 N / 📌 N) logo depois do nome da conversa (depois do 👤+). Clique em qualquer um = `#pfwa-anpop` com o lembrete + desfazer (`pedidoEmitirDesfazer`/`verificarDesfazer`) / ok, entendi
   (some da tela, o lembrete fica). `anVigiar` a cada 1,2 s. O lembrete continua indo pras Pendências da tela inicial e pro ☀️ Meu dia (Retornos combinados, data do dia). AJUDA ganhou a linha.
+- v115.2747 (Vitor mandou a Parte 2 da conversão Carraro OM, 963 páginas soltas: "se vira"): páginas juntadas em `data/catalogos/carraro-conversao-om-parte2.pdf` (pdfunite) e o json refeito com as 2 partes
+  (`gerar_conversao_om.py saída.json parte1.pdf parte2.pdf`): 31.852 nº Carraro, 28.018 com conversão, 54.415 conversões. Nomes do PDF → nome do PF no `LINHA` (AGCO - MASSEY FERGUSON/MF INDUSTRIAL → MASSEY,
+  DAIMLER - BENZ → MERCEDES-BENZ, CIMM (MANITOU) → MANITOU…); o resto entra com o nome do PDF (BOBCAT, MANITOU, HYDREMA, SANDERSON…). O json grande ficou com 1,9 MB → o script grava também
+  `carraro-conversao-om-codigos.json` (só os nº, 270 KB), que é o que o PF baixa ao abrir (`pfCarraroCodsCarregar`); o grande só no 🔁 Ver o que entra. Gravar nas fichas continua manual (Cadastros → Importar Produtos).

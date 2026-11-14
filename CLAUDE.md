@@ -2747,3 +2747,5 @@
 - v115.2749 ("qnd eu clicar fora dessas caixas de pesquisa, quero que elas fechem… todas do sistema"): regra GERAL (IIFE antes do v115.2136): guarda o último campo de texto (focusin) e, no
   pointerdown FORA dele e da lista, esconde (display none) a lista de sugestões logo embaixo dele — posição absoluta/fixa, topo até 40 px abaixo do campo, mesma faixa, com filhos, até 90% da tela;
   procura nos 4 ancestrais do campo + filhos do body. Lista que não pode fechar → `data-pf-dd-fica`. Lista nova de busca já entra sozinha.
+- v115.2750 BUG ("mandei a cotação pela extensão e não foi com o nome do comprador" — José Vitor - Ricambi): o comprador da conversa só era posto na cotação em 0,9 s e 2,5 s
+  depois do pedido; cotação que demorava pra abrir/escolher o cliente perdia o nome. `pfExtCompradorAgendar` (no pfExtAbrirCot/pfExtAtualizarCot/pfExtCotHoje) tenta a cada 0,6 s por até 20 s.

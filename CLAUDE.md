@@ -2776,3 +2776,6 @@
   cards → tela inicial (com a cotação aberta não mexe). O ← de Pedido de Venda e Painel de Clientes (`vendasVerCotacoes`) ia pra Cotações — agora pros cards. Gestão: o Esc não
   fechava porque o dock (z 60) contava como "janela por cima" (`_pfGeEsc` agora só conta z ≥ 9990 ou id …Ov/Jan/Modal). Varredura (Playwright): todas as abas de Vendas, Compras,
   Logística, Cadastros, Ferramentas, Área Técnica, Mapa Comercial, Dashboard, Solicitações, Mapa, Mesa, Gestão, Chamados e Quadro de vendas voltam/fecham com Esc.
+- v115.2759 BUG ("quando está com algum filtro na órbita não mostra a janelinha sobre o cliente quando coloca o cursor em cima?"): planeta apagado pelo filtro não respondia ao mouse
+  (2D: `alfa<0.5` fora do `pfOrbHover`; 3D: `pfOrb3DAcertar` só sprites com opacidade > 0,2) — e inativo pouco relevante fica clarinho, parece igual. Agora todos mostram o balão; com 2 encostados
+  o que passa no filtro ganha. Pedido junto (ainda NÃO feito, proposta): no balão, linha 💬 WhatsApp com quantas vezes o cliente chamou — hoje `pfWhatsContato_v1` só guarda o ÚLTIMO contato.

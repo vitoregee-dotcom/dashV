@@ -2784,4 +2784,6 @@
   (lista por id `k|dia|pessoa`, 3 listas da sync; `pfWdGravar`: pessoa = 1º pedaço do nome "Rodrigo - Empresa (123)" `pfWdPessoa`, cargo do contato salvo `pfWdCargo`, `cli`=1 quando a última era do
   cliente). `pfWdResumo(k,90)`: dias que chamou 30/90, último, 13 semanas, por pessoa. Órbita (`pfWdTipHtml` depois da Tendência), ficha do CRM (`pfWdFichaHtml`, antes do 💰 Crédito, lista
   completa) e Perfil (`pfWdPerfil`: dias que chamou no período × normal dele, só depois de ter histórico; ▲/▼ quando 1,5× / metade). Só conta a partir de 16/11/2026 ("contando desde").
+- v115.2761 ("coloca para ler excel também, caso a ficha do cliente esteja em excel" — 🧾 Preencher atalho com ficha do cliente dava "Could not process image"): o "📎 Escolher arquivo da ficha"
+  aceita .xlsx/.xls/.csv/.ods; planilha (`pfFichaEhPlanilha`) vira texto de todas as abas (`pfFichaPlanilhaTexto`, colunas " | ") e vai pro `_anthropicAsk` (não como imagem). PDF/foto continuam no `_anthropicReadDoc`.
 

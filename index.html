@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2760</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2761</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2760</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2761</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -78987,7 +78987,7 @@ window.ferrAtalhosTextoAbrirPreencher=function(id){
         // navigator.clipboard.read()).
         '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
         '<label style="flex:1;min-width:180px;padding:14px;border:2px dashed #cfd8e3;border-radius:8px;text-align:center;cursor:pointer;font-size:13px;color:#1F4E79;font-weight:700">'+
-          '📎 Escolher arquivo da ficha<input type="file" accept="image/*,.pdf" style="display:none" onchange="ferrAtalhosTextoPreencherAnalisar(\''+id+'\',this.files[0])">'+
+          '📎 Escolher arquivo da ficha<input type="file" accept="image/*,.pdf,.xlsx,.xls,.csv,.ods" style="display:none" onchange="ferrAtalhosTextoPreencherAnalisar(\''+id+'\',this.files[0])">'+
         '</label>'+
         '<button onclick="ferrAtalhosTextoPreencherColarPrint(\''+id+'\')" style="flex:1;min-width:180px;padding:14px;border:2px dashed #cfd8e3;border-radius:8px;text-align:center;cursor:pointer;font-size:13px;color:#1F4E79;font-weight:700;background:#fff">'+
           '📋 Colar print (Ctrl+V)'+
@@ -79036,6 +79036,16 @@ window.ferrAtalhosTextoPreencherColarPrint=function(id){
     pfAlert('Não consegui acessar a área de transferência. Tenta usar "Escolher arquivo" em vez disso, ou dá Ctrl+V direto nessa janela.');
   });
 };
+// v115.2761 - ficha do cliente em Excel/CSV: lê todas as abas e devolve o texto (só linhas com algo escrito)
+function pfFichaEhPlanilha(f){return (typeof pfEhPlanilha==='function'&&pfEhPlanilha(f))||/\.(csv|ods)$/i.test(f&&f.name||'')||/csv|opendocument\.spreadsheet/i.test(f&&f.type||'');}
+async function pfFichaPlanilhaTexto(file){
+  if(!window.XLSX)throw new Error('A leitura de Excel não carregou (sem internet?). Tenta de novo.');
+  var wb=window.XLSX.read(await file.arrayBuffer(),{type:'array'}),out=[];
+  wb.SheetNames.forEach(function(n){var rows=window.XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:'',raw:false})||[];
+    var ls=rows.map(function(r){return (r||[]).map(function(c){return String(c==null?'':c).replace(/\s+/g,' ').trim();}).filter(function(c){return c;}).join(' | ');}).filter(function(l){return l;});
+    if(ls.length)out.push((wb.SheetNames.length>1?'[Aba: '+n+']\n':'')+ls.join('\n'));});
+  var s=out.join('\n\n');if(!s.trim())throw new Error('A planilha está vazia.');
+  return s.length>60000?s.slice(0,60000):s;}
 window.ferrAtalhosTextoPreencherAnalisar=async function(id,file,jaConfirmou){
   if(!file)return;
   if(!jaConfirmou&&document.getElementById('ferrPreencherTexto')){ // v115.2230 - não apagar o preenchimento sem perguntar
@@ -79068,7 +79078,11 @@ window.ferrAtalhosTextoPreencherAnalisar=async function(id,file,jaConfirmou){
       'Antes de responder, revise o script preenchido campo por campo (INCLUSIVE as opções de múltipla escolha entre parênteses, tipo regime tributário) -- todo campo que ficou em branco/sem marcação PRECISA aparecer na lista "faltando", sem exceção. '+
       'SCRIPT ORIGINAL:\n\n'+(at.conteudo||'')+
       '\n\nRetorne SOMENTE um JSON, sem markdown, sem texto antes ou depois, no formato exato: {"preenchido":"<script inteiro, com quebras de linha reais, já preenchido>","faltando":["<rótulo do campo 1 que ficou sem informação>","<rótulo do campo 2>"]}';
-    var txt=await _anthropicReadDoc(file,prompt,'Preencher atalho com ficha do cliente');
+    // v115.2761 - A pedido do Vitor ("coloca para ler excel também, caso a ficha do cliente esteja em excel"): planilha vira texto (todas as abas)
+    // e vai pra IA como texto — mandar o Excel como imagem dava "Could not process image".
+    var txt;
+    if(pfFichaEhPlanilha(file)){var _pl=await pfFichaPlanilhaTexto(file);txt=await _anthropicAsk(prompt+'\n\nFICHA DO CLIENTE (veio em planilha; cada linha = uma linha da planilha, colunas separadas por " | "):\n\n'+_pl,4000,'Preencher atalho com ficha do cliente');}
+    else txt=await _anthropicReadDoc(file,prompt,'Preencher atalho com ficha do cliente');
     var limpo=txt.replace(/^```json\s*|```\s*$/g,'').trim();
     var obj=JSON.parse(limpo);
     window._ferrPreencherFaltando=obj.faltando||[];

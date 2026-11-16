@@ -2767,3 +2767,7 @@
 - v115.2756 + extensão **4.73** (print do Celso - MG da Costa: "N7134" sozinho e nada marcou — "preciso que leia a mesma regra que tem no leitor de peças"): o PF já lia
   N7134 = N007134 (letra + até 5 dígitos completa com zeros até 6, igual ao `lpApplyRuleCase`), mas a extensão só dava como pedido 2+ códigos ou 1 código + "cota/preço/tem".
   Agora mensagem que é SÓ código (`soCodigo`: 1–3 palavras, todas letra+números ou 5+ dígitos) conta como pedido no `pareceCotacao` (bolinha do 📄) e no `spContaCods` (selo 📄 no balão).
+- v115.2757 + extensão **4.74** (print do menu do WhatsApp num PDF "Peças para cotocao atualizada.pdf" da RS Tork: "não consegui mandar o PDF pra já ler e fazer a cotação no PF"): no menu do
+  WhatsApp (botão direito numa mensagem com PDF — `wmPor` acha "nome.pdf" ou "PDF •" no balão) entra "🤖 Ler o PDF com IA e cotar (PF)" → `cmExec('doc_ia')` → motor op nova **`midia`**
+  (`WPP.chat.getActiveChat` + `getMessages` + `downloadMedia`, acha pelo nome do arquivo, senão o último documento) → acao `cotarImg` com `nome`/`mime` → `pfExtCotarImg` lê como PDF
+  (`_anthropicReadDoc`) → aba Cotação do painel com "📄 Abrir a cotação no PF". Precisa do ⚙️ motor ligado; sem ele, avisa pra baixar e usar 📥 Subir lista. Não testado no WhatsApp real.

@@ -269,9 +269,15 @@
   }
   function fmtCnpj(d) { d = String(d || '').replace(/\D/g, ''); return d.length === 14 ? d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') : d; }
   var COD_RE = /[A-Za-z0-9][A-Za-z0-9.\-\/]{2,}[A-Za-z0-9]/g;
+  // 4.73 - A pedido do Vitor ("N7134" sozinho na mensagem e o PF nem marcou — "preciso que leia a mesma regra do Leitor de Peças"): mensagem que é SÓ
+  // código (1 a 3 palavras, todas com cara de código: letra+números ou 5+ dígitos) conta como pedido mesmo com 1 código só. A conversão (N7134 = N007134) é do PF.
+  function soCodigo(t) {
+    var w = String(t || '').trim().split(/[\s,;]+/).filter(Boolean); if (!w.length || w.length > 3) return false;
+    return w.every(function (x) { x = x.replace(/[.:!?]+$/, ''); var d = x.replace(/\D/g, ''); return d.length >= 3 && x.length <= 20 && (/[A-Za-z]/.test(x) ? /\d/.test(x) : d.length >= 5) && !/^\d{1,2}[\/.:]\d{2}/.test(x); });
+  }
   function pareceCotacao(ms) {
     var cli = ms.filter(function (m) { return !m.eu; }).slice(-15), n = 0, pede = false;
-    cli.forEach(function (m) { (m.t.match(COD_RE) || []).forEach(function (tk) { if (tk.replace(/\D/g, '').length >= 4 && !/^\d{1,2}[\/.:]\d{2}/.test(tk)) n++; }); if (/\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo)/i.test(m.t)) pede = true; });
+    cli.forEach(function (m) { if (soCodigo(m.t)) { pede = true; n += Math.max(1, (m.t.match(COD_RE) || []).length); return; } (m.t.match(COD_RE) || []).forEach(function (tk) { if (tk.replace(/\D/g, '').length >= 4 && !/^\d{1,2}[\/.:]\d{2}/.test(tk)) n++; }); if (/\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo)/i.test(m.t)) pede = true; });
     return n >= 2 || (n >= 1 && pede) ? n : 0;
   }
 
@@ -2403,7 +2409,8 @@
   function spHash(s) { s = String(s || ''); var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h.toString(36); }
   function spContaCods(t) {
     var n = 0; (String(t || '').match(COD_RE) || []).forEach(function (tk) { if (tk.replace(/\D/g, '').length >= 4 && !/^\d{1,2}[\/.:]\d{2}/.test(tk)) n++; });
-    var pede = /\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo)/i.test(t);
+    var pede = /\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo)/i.test(t) || soCodigo(t);
+    if (soCodigo(t) && !n) n = 1;
     return n >= 2 || (n >= 1 && pede) ? n : 0;
   }
   function selosVigiar() {

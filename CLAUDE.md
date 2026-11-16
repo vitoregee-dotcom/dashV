@@ -2764,3 +2764,6 @@
   `pfConvItemLista(it)` junta conversões das fichas (do código e do código do cliente), fichas que têm o código como conversão, Componentes Cardan e lista Carraro OM nos 2 sentidos
   (`window._pfCarraroFwd` = inverso do `_pfCarraroRev`), com saldo, 📋 e "usar" (`vendasItemTrocarCodigo`). E ("esse tem conversão mas não aparece aqui na ficha" — 123726): a ficha do produto
   (os 2 formulários) mostra embaixo das conversões as da lista Carraro ainda não gravadas (`pfConvFichaListaHtml`) com "➕ pôr na ficha" (`pfConvFichaPor`: preenche uma linha de conversão; grava no Salvar).
+- v115.2756 + extensão **4.73** (print do Celso - MG da Costa: "N7134" sozinho e nada marcou — "preciso que leia a mesma regra que tem no leitor de peças"): o PF já lia
+  N7134 = N007134 (letra + até 5 dígitos completa com zeros até 6, igual ao `lpApplyRuleCase`), mas a extensão só dava como pedido 2+ códigos ou 1 código + "cota/preço/tem".
+  Agora mensagem que é SÓ código (`soCodigo`: 1–3 palavras, todas letra+números ou 5+ dígitos) conta como pedido no `pareceCotacao` (bolinha do 📄) e no `spContaCods` (selo 📄 no balão).

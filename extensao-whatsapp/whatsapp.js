@@ -837,6 +837,7 @@
     if (ac === 'peX') { peR = null; pintaPe(); return; }
     if (ac === 'extCfgAbrir') { msg({ t: 'acao', acao: 'extCfgAbrir' }); return; } // 4.62 - abre o card de ajustes no PF
     if (ac === 'cotarIA') { irAba('cot'); cotarIA(); return; }
+    if (ac === 'lerDocCli') { var _dc = docCliAchar(); if (!_dc) return; cmAlvo = { b: _dc.b }; cmExec(_dc.tipo === 'pdf' ? 'doc_ia' : 'img_ia', '', _dc.tipo === 'pdf' ? (_dc.nome || '') : _dc.src); return; } // 4.76
     if (ac === 'resumir') { resumir(); return; }
     if (ac === 'resumoX') { resumoR = null; pintaCorpo(); return; }
     if (ac === 'resumoGravar') {
@@ -1029,6 +1030,7 @@
     if (cotando) return h + '<div class="pfwa-vazio">Lendo a conversa e buscando saldo e preço…</div>';
     if (cotErro) return h + '<div class="pfwa-vazio">' + esc(cotErro) + '</div>';
     if (!cot) return h + '<div class="pfwa-vazio">O PF lê os códigos e a quantidade que o cliente mandou nesta conversa, mostra saldo e preço e escreve a resposta.<br><br><button class="pfwa-btn pfwa-lar" data-acao="cotar">📄 Cotar no PF</button> <button class="pfwa-btn" data-acao="cotarIA" title="Pra quando o cliente pede pelo nome da peça">🧠 Entender com IA</button></div>';
+    if (!cot.itens.length) { var _da = docCliAchar(); if (_da) h += '<div class="pfwa-vazio" style="padding-bottom:4px"><b>O cliente mandou ' + (_da.tipo === 'pdf' ? 'o PDF <i>' + esc(_da.nome || '') + '</i>' : 'uma foto') + '</b> — os códigos devem estar nele.<br><button class="pfwa-btn pfwa-lar" data-acao="lerDocCli" style="margin-top:8px">🤖 Ler ' + (_da.tipo === 'pdf' ? 'o PDF' : 'a foto') + ' com IA e cotar</button></div>'; }
     if (!cot.itens.length) return h + '<div class="pfwa-vazio">Não achei códigos nas últimas mensagens do cliente.<br><small>Se ele pediu pelo nome da peça ("kit de vedação da 28000"), use 🧠 Entender com IA.</small><br><br><button class="pfwa-btn pfwa-lar" data-acao="cotarIA">🧠 Entender com IA</button> <button class="pfwa-btn" data-acao="cotar">🔁 Ler de novo</button></div>';
     h += '<div class="pfwa-cotinfo">' + cot.itens.length + ' código' + (cot.itens.length > 1 ? 's' : '') + (cot.geral ? ' · ' + cot.geral + ' de cada' : '') + (cot.margem != null ? ' · margem ' + cot.margem + '% · ' + esc(cot.uf) : '') + ' <span data-acao="cotar" class="pfwa-link">🔁 ler de novo</span> <span data-acao="cotarIA" class="pfwa-link">🧠 entender com IA</span>' + (cot.ia ? ' <small>(lido pela IA — confira)</small>' : '') + '</div>';
     h += '<table class="pfwa-tab"><tr><th>Código</th><th>Qtd</th><th>Saldo</th><th>Unit.</th><th></th></tr>';
@@ -1857,6 +1859,9 @@
   // ═══ 📦 PEDIDO A EMITIR (4.62) ═══
   // Config (palavras + liga/desliga + de quem) vem do PF (acao extCfg). Quando o cliente pede ("manda pra mim") ou você promete
   // ("mando hoje"), o PF cria um lembrete pra hoje. Cartão verde "📦 Anotei pra emitir — desfazer" + contador na barra de cima.
+  // 4.76 - A pedido do Vitor ("como faço para isso entrar no meu dia? combinei de mandar na quarta feira" — "te mando na quarta feira então"):
+  // promessa de mandar com dia marcado (hoje/amanhã/dia da semana/dia N) também vira lembrete, além das palavras da lista.
+  var PE_PROMESSA_RE = /(^|[^a-z])(te\s+|lhe\s+|vou\s+)?(mando|envio|emito|despacho|faturo|separo|entrego|mandar|enviar|despachar)\b[^.?!\n]{0,30}?\b(hoje|amanha|segunda|terca|quarta|quinta|sexta|sabado|dia\s+\d{1,2})\b/;
   function peNorm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
   function peMontaRe(arr) {
     if (!arr || !arr.length) return null;
@@ -1880,7 +1885,7 @@
     var cfg = await peConfig(); if (!cfg || !cfg.ligado) { if (peR) { peR = null; pintaPe(); } return; }
     var ms = lerMensagens(); if (!ms.length) return;
     var last = ms[ms.length - 1], origem = '', gat = '';
-    if (last.eu) { if (cfg.deMim && peReMim && peReMim.test(peNorm(last.t))) { origem = 'mim'; gat = last.t; } }
+    if (last.eu) { if (cfg.deMim && ((peReMim && peReMim.test(peNorm(last.t))) || PE_PROMESSA_RE.test(peNorm(last.t)))) { origem = 'mim'; gat = last.t; } }
     else if (cfg.doCliente) { for (var i = ms.length - 1; i >= 0 && i >= ms.length - 4; i--) { if (!ms[i].eu && ((peReCli && peReCli.test(peNorm(ms[i].t))) || peCaraDePedido(ms[i].t))) { origem = 'cliente'; gat = ms[i].t; break; } } }
     if (!origem) return;
     var sig = ultimo + '|' + ms.length + '|' + origem + '|' + gat.slice(0, 60);
@@ -2835,6 +2840,14 @@
     return vis;
   }
   function msgEhMinha(el) { return minhaEl(el); }
+  // 4.76 - A pedido do Vitor ("como não achou?" — o cliente mandou os códigos num PDF "Peças para cotação" e o painel só lia o texto):
+  // acha o último PDF ou foto que o cliente mandou, pro painel oferecer "🤖 Ler o PDF com IA e cotar" sem precisar do botão direito.
+  function docCliAchar() {
+    try { var els = msgLinhas(); for (var i = els.length - 1; i >= 0 && i >= els.length - 12; i--) { var b = els[i]; if (minhaEl(b)) continue;
+      var tb = String(b.innerText || ''), m = tb.match(/([^\n]+?\.pdf)\b/i); if (m) return { tipo: 'pdf', nome: m[1].trim(), b: b }; if (/\bPDF\b\s*[•·]/.test(tb)) return { tipo: 'pdf', nome: '', b: b };
+      var ims = b.querySelectorAll('img'); for (var k = 0; k < ims.length; k++) { var s = ims[k].getAttribute('src') || ''; if (/^blob:|^data:image/.test(s) && (ims[k].naturalWidth || ims[k].width) >= 120) return { tipo: 'img', src: s, b: b }; } } } catch (e) { }
+    return null;
+  }
   var _ultDiag = '';
   function ultimaMsg() {
     var els = msgLinhas();

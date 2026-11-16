@@ -2779,3 +2779,9 @@
 - v115.2759 BUG ("quando está com algum filtro na órbita não mostra a janelinha sobre o cliente quando coloca o cursor em cima?"): planeta apagado pelo filtro não respondia ao mouse
   (2D: `alfa<0.5` fora do `pfOrbHover`; 3D: `pfOrb3DAcertar` só sprites com opacidade > 0,2) — e inativo pouco relevante fica clarinho, parece igual. Agora todos mostram o balão; com 2 encostados
   o que passa no filtro ganha. Pedido junto (ainda NÃO feito, proposta): no balão, linha 💬 WhatsApp com quantas vezes o cliente chamou — hoje `pfWhatsContato_v1` só guarda o ÚLTIMO contato.
+- v115.2760 + extensão **4.75** **💬 WhatsApp no balão da Órbita, na ficha e no Perfil** (prévia `docs/referencias/orbita-whatsapp/` → "coloca o C" + "com o nome do contato" + "isso irá incluir no Perfil?";
+  capturas `feito-*.png`): a extensão manda `minha` (✓/✓✓ na prévia da conversa = última mensagem foi sua) no `situacoes`; o PF grava cada DIA de conversa de cliente em **`pfWhatsDias_v1`**
+  (lista por id `k|dia|pessoa`, 3 listas da sync; `pfWdGravar`: pessoa = 1º pedaço do nome "Rodrigo - Empresa (123)" `pfWdPessoa`, cargo do contato salvo `pfWdCargo`, `cli`=1 quando a última era do
+  cliente). `pfWdResumo(k,90)`: dias que chamou 30/90, último, 13 semanas, por pessoa. Órbita (`pfWdTipHtml` depois da Tendência), ficha do CRM (`pfWdFichaHtml`, antes do 💰 Crédito, lista
+  completa) e Perfil (`pfWdPerfil`: dias que chamou no período × normal dele, só depois de ter histórico; ▲/▼ quando 1,5× / metade). Só conta a partir de 16/11/2026 ("contando desde").
+

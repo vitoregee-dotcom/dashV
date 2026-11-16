@@ -2787,3 +2787,6 @@
 - v115.2761 ("coloca para ler excel também, caso a ficha do cliente esteja em excel" — 🧾 Preencher atalho com ficha do cliente dava "Could not process image"): o "📎 Escolher arquivo da ficha"
   aceita .xlsx/.xls/.csv/.ods; planilha (`pfFichaEhPlanilha`) vira texto de todas as abas (`pfFichaPlanilhaTexto`, colunas " | ") e vai pro `_anthropicAsk` (não como imagem). PDF/foto continuam no `_anthropicReadDoc`.
 
+- v115.2762 BUG ("cadê os cards da Área Técnica?" — tela em branco, só o título): fechar a aba Máquinas com uma máquina aberta (`pfAtFechar` → `ftVoltarCards` → `maqVoltar`)
+  redesenhava DENTRO da aba e em seguida apagava a aba, que era o próprio `#areaTecnicaBody` → a Área Técnica ficava sem corpo até recarregar. Agora `pfAtFechar` troca o corpo
+  por um vazio antes e chama `areaTecnicaRender`; `areaTecnicaRender` recria o `#areaTecnicaBody` se ele sumiu.

@@ -2771,3 +2771,8 @@
   WhatsApp (botão direito numa mensagem com PDF — `wmPor` acha "nome.pdf" ou "PDF •" no balão) entra "🤖 Ler o PDF com IA e cotar (PF)" → `cmExec('doc_ia')` → motor op nova **`midia`**
   (`WPP.chat.getActiveChat` + `getMessages` + `downloadMedia`, acha pelo nome do arquivo, senão o último documento) → acao `cotarImg` com `nome`/`mime` → `pfExtCotarImg` lê como PDF
   (`_anthropicReadDoc`) → aba Cotação do painel com "📄 Abrir a cotação no PF". Precisa do ⚙️ motor ligado; sem ele, avisa pra baixar e usar 📥 Subir lista. Não testado no WhatsApp real.
+- v115.2758 BUG (print de Vendas → Contas a Receber: "dei um esc, e não voltou pra tela anterior… revise mais lugares"): o Esc só voltava em tela com botão "← Voltar".
+  Esc geral (handler de teclado, antes do bloco Compras/Ferramentas/Cadastros): em Vendas, aba (Contas a Receber, Meu dia, Pesquisas, Portal, Vendas perdidas…) → cards de Vendas;
+  cards → tela inicial (com a cotação aberta não mexe). O ← de Pedido de Venda e Painel de Clientes (`vendasVerCotacoes`) ia pra Cotações — agora pros cards. Gestão: o Esc não
+  fechava porque o dock (z 60) contava como "janela por cima" (`_pfGeEsc` agora só conta z ≥ 9990 ou id …Ov/Jan/Modal). Varredura (Playwright): todas as abas de Vendas, Compras,
+  Logística, Cadastros, Ferramentas, Área Técnica, Mapa Comercial, Dashboard, Solicitações, Mapa, Mesa, Gestão, Chamados e Quadro de vendas voltam/fecham com Esc.

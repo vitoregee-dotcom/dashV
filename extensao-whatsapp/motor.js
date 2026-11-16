@@ -48,6 +48,19 @@
       var r = await W().chat.sendTextMessage(a.id, a.texto, { createChat: false });
       return { ok: true, id: r && ser(r.id) };
     },
+    // 4.74 - A pedido do Vitor ("não consegui mandar o PDF pra já ler e fazer a cotação no PF"): baixa o arquivo (PDF/foto) de uma
+    // mensagem da conversa aberta, sem abrir nada na tela. Acha pelo nome do arquivo; sem nome, o último documento.
+    midia: async function (a) {
+      var ch = W().chat.getActiveChat(); if (!ch) return { erro: 'semConversa' };
+      var l = await W().chat.getMessages(ser(ch.id), { count: 80 }), nm = String(a.nome || '').toLowerCase().trim();
+      var docs = (l || []).filter(function (m) { return /document|image/.test(m.type || ''); }), m = null;
+      if (nm) m = docs.slice().reverse().find(function (x) { var f = String(x.filename || x.caption || '').toLowerCase().trim(); return f && (f.indexOf(nm) >= 0 || nm.indexOf(f) >= 0); });
+      if (!m) m = docs.filter(function (x) { return x.type === 'document'; }).pop();
+      if (!m) return { erro: 'naoAchou' };
+      var bl = await W().chat.downloadMedia(ser(m.id)); if (!bl) return { erro: 'naoBaixou' };
+      var data = await new Promise(function (ok) { var fr = new FileReader(); fr.onload = function () { ok(fr.result); }; fr.onerror = function () { ok(null); }; fr.readAsDataURL(bl); });
+      return data ? { data: data, mime: m.mimetype || bl.type || '', nome: m.filename || '' } : { erro: 'naoBaixou' };
+    },
     abrir: async function (a) { await W().chat.openChatBottom(a.id); return { ok: true }; }, // 4.69 - abrir conversa pela lista do filtro
     naoLida: async function (a) { await W().chat.markIsUnread(a.id); return { ok: true }; },
     // todas as conversas de pessoa, com quantas listas/etiquetas cada uma tem (pra pôr na lista "Cliente PF" só quem não tem nenhuma)

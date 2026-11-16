@@ -3171,6 +3171,15 @@
       await msg({ t: 'acao', acao: 'respForn', focar: true, arg: { mapa: pr[0], fid: pr[1], texto: texto, imgs: ims } });
       cmToast('✔ Abri no PF — confira e lance'); return;
     }
+    if (id === 'doc_ia') {
+      if (!motorOk) await motorChecar();
+      if (!motorOk) { cmToast('Pra ler o PDF daqui o ⚙️ motor precisa estar ligado (recarregue o WhatsApp, F5). Ou baixe o PDF e use 📥 Subir lista na cotação do PF.'); return; }
+      irAba('cot'); if (cotando) return; cotando = true; cot = null; cotErro = ''; pintaCorpo();
+      var md = await motor('midia', { nome: src || '' }, 60000);
+      if (!md || md.erro || !md.data) { cotando = false; cotErro = 'Não consegui baixar o PDF' + (md && md.erro ? ' (' + md.erro + ')' : '') + ' — baixe e use 📥 Subir lista na cotação do PF'; pintaCorpo(); return; }
+      var r6 = await msg({ t: 'acao', acao: 'cotarImg', arg: { img: md.data, nome: md.nome, mime: md.mime, k: resp && resp.k, contato: resp && resp.contato } });
+      cotando = false; if (!r6 || r6.erro) cotErro = 'Não consegui ler o PDF' + (r6 && r6.msg ? ': ' + r6.msg : ''); else cot = r6; pintaCorpo(); return;
+    }
     if (id === 'img_ia') {
       if (!src) return; irAba('cot'); if (cotando) return; cotando = true; cot = null; cotErro = ''; pintaCorpo();
       var du2 = await urlParaDataUrl(src);
@@ -3228,6 +3237,10 @@
     var imgSrc = '';
     try { var A0 = cmAlvo || {}, ims0 = A0.b ? A0.b.querySelectorAll('img') : []; for (var k = 0; k < ims0.length; k++) { var s0 = ims0[k].getAttribute('src') || ''; if (/^blob:|^data:image/.test(s0) && (ims0[k].naturalWidth || ims0[k].width) >= 120) { imgSrc = s0; break; } } } catch (e) { }
     if (imgSrc) itens.push(['img_ia', '🤖 Ler a foto com IA e cotar (PF)', imgSrc]);
+    // 4.74 - A pedido do Vitor ("não consegui mandar o PDF pra já ler e fazer a cotação no PF"): mensagem com PDF = ler o PDF com IA e cotar
+    var docNome = '';
+    try { var tb = String((cmAlvo && cmAlvo.b && cmAlvo.b.innerText) || ''), md = tb.match(/([^\n]+?\.pdf)\b/i); if (md) docNome = md[1].trim(); else if (/\bPDF\b\s*[•·]/.test(tb)) docNome = '?'; } catch (e) { }
+    if (docNome) itens.push(['doc_ia', '🤖 Ler o PDF com IA e cotar (PF)', docNome === '?' ? '' : docNome]);
     itens.push(['msg_cotar', '📄 Cotar no PF']);
     if (resp && resp.k) { itens.push(['msg_nota', '📝 Anotar na ficha (PF)']); itens.push(['msg_lemb', '⏰ Lembrete (PF)']); }
     itens.push(['msg_rr', '⚡ Salvar como resposta rápida (PF)']);

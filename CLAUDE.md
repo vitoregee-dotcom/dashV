@@ -2919,3 +2919,8 @@
 - v115.2791 ("aqui pode exibir o numero da cotação e nome fantasia… nas abas tbm" — lista "Cotações abertas" do dock e abas da cotação com "Nova #Nova"): a aba guardava o nome/nº de
   quando abriu. `pfCotTabRot(t)` lê da cotação na hora (nº + fantasia, senão razão; "sem cliente") nas abas (`data-pfcottab`) e no flyout do dock; um relógio de 1,5 s atualiza o texto
   da aba quando a cotação ganha número no salvar automático (sem redesenhar a janela).
+- v115.2792 BUGs ("li esse print como novo, mas já tinha um cadastro… não pegou nenhuma informação" + "fui pelo botão de aplicação, mas também não pegou nada" — print do site da REI,
+  S671 GARFO, lista com 2 peças): 1) ➕ Cadastrar item com código que já existe só avisava "use o Colar print" e jogava tudo fora — agora pergunta "✔ Juntar no que já existe" → `ccNovoJuntar`
+  (preenche descrição/medidas vazias, soma especificações, aplicações, monta com e equivalentes sem repetir, foto se não tem; tsMod + pfSyncPush). 2) 📋 Colar print de aplicação: o pedido à IA diz
+  o código do card e explica o layout da REI (Nº Conversão/Substitui = equivalente, Aplicação "DAF Garfos" = montadora DAF, Especificações); resposta em LISTA de peças → fica a do código do card;
+  leitura vazia mostra "⚠ ver o que a IA respondeu" (`window._ccPrintAplBruto`).

@@ -2826,3 +2826,6 @@
   (`_pfGe.grafM`/`grafS`, cores `PF_GE_GRAF_CORES`, até 7 + Outros). `pfGeCotGeoHtml`: mapa sem biblioteca — os 5.571 municípios (`pfMunicipiosBrCarregar`) em pontinhos cinza desenham o país
   (ou só o estado filtrado) e cada cidade com cotação é uma bolinha (tamanho = nº, cor = % que virou pedido `pfGeCotFechaCor`) — desenhado depois pelo `pfGeCotMapaDesenhar`; + Por estado e
   Por cidade (top 15). Capturas `docs/referencias/relatorio-cotacoes/feito-grafico.png`/`feito-mapa*.png`.
+- v115.2769 ("não esqueça filtros por período e por usuário"): `pfGePer` ganhou `hoje`, `mes` (este mês, comparado com os mesmos dias do anterior), `mesAnt` e datas
+  escolhidas `c:AAAA-MM-DD:AAAA-MM-DD` (o "até" entra inteiro) — valem pra Gestão toda (seletor do topo tem Hoje/7 dias/Este mês/Mês passado). Na aba 📈 Cotações: barra
+  "📅 Período" (chips + de/até + OK `pfGeCotDatas`) e "👤 Usuário" virou select com os nomes (`pfGeCotFiltro('V',…)`). Gráfico com largura mínima 1200 (poucos dias não ficam gigantes).

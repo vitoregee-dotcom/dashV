@@ -2820,3 +2820,9 @@
   `_pfGe.cotT` = `pfGeCotTipo` revenda/consumo/servico/conc, `pfGeCotFiltro`), KPIs (total × período anterior, por dia útil, hora de pico, dia e mês mais cheios, % que virou pedido), mapa hora × dia
   da semana, por mês e dia do mês (sempre últimos 12 meses), por vendedor (cotações, % fecha, tempo médio) e por tipo de cliente. BUG junto: o `pfExtLerPedido` juntava "5-515X e 1333715" em
   E1333715 — "e" + número só junta quando E+número existe no estoque (E158960 continua).
+- v115.2768 **📈 Cotações: por estado/cidade, mapa e gráfico** (Vitor: "coloca por estado e cidade também, talvez com um mapa" + "cria um gráfico também, por dia, mês, vendedor, onde"):
+  `pfGeCotDados` conta por UF e cidade do cadastro do cliente (`pfGeCotUfCid`: estado/uf + cidade normalizada `pfNormalizarCidade`) e guarda as listas `R.l` (período) / `R.l12` (12 meses);
+  filtro de estado `_pfGe.cotUF` (clique no estado, chip "📍 MT ✕"). `pfGeCotGrafHtml`: barras SVG por dia (período de cima) ou por mês (12 meses), separadas por vendedor ou estado
+  (`_pfGe.grafM`/`grafS`, cores `PF_GE_GRAF_CORES`, até 7 + Outros). `pfGeCotGeoHtml`: mapa sem biblioteca — os 5.571 municípios (`pfMunicipiosBrCarregar`) em pontinhos cinza desenham o país
+  (ou só o estado filtrado) e cada cidade com cotação é uma bolinha (tamanho = nº, cor = % que virou pedido `pfGeCotFechaCor`) — desenhado depois pelo `pfGeCotMapaDesenhar`; + Por estado e
+  Por cidade (top 15). Capturas `docs/referencias/relatorio-cotacoes/feito-grafico.png`/`feito-mapa*.png`.

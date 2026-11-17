@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2776</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2777</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2776</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2777</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -43848,6 +43848,7 @@ cadFormProduto=function(data,idx){
   aplic.forEach(function(a,i){html+=prodAplicRow(a,i);});
   html+='</div>';
   html+='<button onclick="prodAddAplic()" style="background:none;border:1.5px dashed var(--pf-fx-marca,#1F4E79);color:var(--pf-fx-marca,#1F4E79);border-radius:8px;padding:5px 14px;cursor:pointer;font-size:12px;font-weight:600;margin-top:6px">+ Adicionar aplicação</button>';
+  html+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">'+pfBtnColarPrintHtml('',"pfAplPrintColar(pfAplOrigemForm())")+pfBtnCarregarArquivoHtml('','prodAplPrintInp','image/*,application/pdf',"pfAplPrintArquivo(this,pfAplOrigemForm())")+'<span style="font-size:11.5px;color:var(--pf-fx-textoSuave,#8a9ab0)">print do CAT SIS, catálogo ou plaqueta → a IA preenche a aplicação e já cadastra a máquina</span></div>'; // v115.2777
   html+='</div>';
   var div=document.createElement('div');div.innerHTML=html;
   var aplicSection=div.firstElementChild; // guarda a referência ANTES de mover pro DOM
@@ -43904,6 +43905,113 @@ function prodAplicRow(a,i){
     '</div>';
 }
 
+// v115.2777 - A pedido do Vitor (prints do CAT SIS "416E Backhoe Loader · CBD05534 · 3054C / C4.4 Engine" + ficha do RR60131: "aqui a aplicação, já coloca uma IA
+// pra ler o print e já add lá na ficha… do jeito mais fácil e rápido possível… aí a aplicação já cadastra lá também nas máquinas da área técnica" → "quero um sistema MONSTRO"):
+// 📋 Colar print / ⬆ Carregar arquivo em 🔧 Aplicações (ficha do produto) e no cabeçalho da página da máquina. A IA lê máquina (marca, modelo, tipo, nº de série, ano) e
+// componentes (motor/transmissão/eixos com fabricante, modelo e nº de série) → janela de conferência (pfAplPrintJan) → ✔ Gravar faz tudo de uma vez:
+//  · ficha da peça: linha da aplicação (componente · fabricante · modelo · veículo · fabricante do veículo) na tela + na lista de Aplicações (APLIC_KEY), que liga em 🚜 Máquinas;
+//  · 🚜 Máquinas: cria a máquina se não existe (ficha técnica mínima), põe o PREFIXO da série (CBD de CBD05534 — o nº inteiro é de uma máquina só, vai nas observações), o ano,
+//    a categoria e os componentes marcados nos campos VAZIOS da ficha técnica (nada é sobrescrito).
+var PF_APL_GRUPOS=['MOTOR','TRANSMISSÃO','EIXO DIANTEIRO','EIXO TRASEIRO','EIXO','COMPONENTES CARDAN','HIDRÁULICO','OUTRO'];
+var PF_APL_PROMPT='Esta imagem/PDF é uma tela de catálogo/sistema de peças (ex.: CAT SIS, Deere, CNH) ou uma plaqueta, mostrando a CONFIGURAÇÃO de uma máquina. '+
+  'Extraia a máquina e os componentes dela. Responda SOMENTE com JSON, sem markdown: '+
+  '{"maquina":{"marca":"fabricante da máquina (ex.: CATERPILLAR, CASE, JOHN DEERE)","modelo":"modelo SEM o tipo (ex.: 416E)","tipo_en":"tipo como está escrito (ex.: Backhoe Loader)",'+
+  '"tipo_pt":"tipo em português, maiúsculas (ex.: RETROESCAVADEIRA, PÁ CARREGADEIRA, ESCAVADEIRA, TRATOR, MOTONIVELADORA)","numero_serie":"nº de série completo da máquina","ano":"ano de fabricação (4 dígitos)"},'+
+  '"componentes":[{"grupo":"MOTOR | TRANSMISSÃO | EIXO DIANTEIRO | EIXO TRASEIRO | EIXO | HIDRÁULICO | OUTRO","fabricante":"fabricante do componente se aparecer, senão vazio",'+
+  '"modelo":"modelo do componente (ex.: 3054C). Se a mesma linha mostra dois modelos (ex.: \\"3054C Engine - Machine  C4.4 Engine - Machine\\"), faça UM item pra cada","numero_serie":"nº de série do componente se houver"}]}. '+
+  'Copie como está escrito; não invente. Campo que não aparece = vazio.';
+function pfAplPfx(ns){ns=String(ns||'').toUpperCase().replace(/[^A-Z0-9]/g,'');var m=ns.match(/^([A-Z0-9]{3})\d{5}$/);if(m)return m[1];m=ns.match(/^([A-Z]{2,4})\d{3,}$/);return m?m[1]:'';}
+function pfAplJson(t){return JSON.parse(String(t||'').replace(/```json|```/g,'').trim().replace(/^[^{]*/,'').replace(/[^}]*$/,''));}
+// origem: {cod, desc} (ficha do produto) ou {maq:chave} (página da máquina)
+async function pfAplPrintColar(origem){try{var its=await navigator.clipboard.read();for(var i=0;i<its.length;i++){var t=its[i].types.find(function(x){return x.indexOf('image')===0;});
+  if(t){var b=await its[i].getType(t);pfAplPrintLer(new File([b],'print.png',{type:t}),origem);return;}}}catch(e){}
+  pfAplPrintAbrir(origem,null,'Copie o print (ou use ⬆ Carregar arquivo) e aperte <b>Ctrl+V</b> aqui.');}
+function pfAplPrintArquivo(inp,origem){var f=inp&&inp.files&&inp.files[0];if(inp)inp.value='';if(f)pfAplPrintLer(f,origem);}
+function pfAplOrigemForm(){return {cod:((document.getElementById('prodCodigo')||{}).value||'').trim().toUpperCase(),desc:((document.getElementById('prodDescricao')||{}).value||'').trim().toUpperCase(),form:1};}
+async function pfAplPrintLer(file,origem){
+  pfAplPrintAbrir(origem,null,pfRoboHtml('notebook',22,'vertical-align:-6px;margin-right:4px')+'Lendo '+(file.type==='application/pdf'?'o PDF':'o print')+' com IA…');
+  try{var j=pfAplJson(await _anthropicReadDoc(file,PF_APL_PROMPT,'Aplicação da peça / configuração da máquina'));
+    var m=j.maquina||{},tipo=ftTipoTraduzir(m.tipo_en)||String(m.tipo_pt||'').toUpperCase().trim();
+    var marca=maqMarcaN(m.marca||'');
+    var D={marca:marca,modelo:String(m.modelo||'').toUpperCase().trim(),tipo:tipo,ns:String(m.numero_serie||'').toUpperCase().replace(/\s+/g,''),ano:String(m.ano||'').replace(/\D/g,'').slice(0,4)};
+    D.serie=pfAplPfx(D.ns);
+    D.comps=(j.componentes||[]).map(function(c){var g=String(c.grupo||'').toUpperCase().trim();if(PF_APL_GRUPOS.indexOf(g)<0)g=/MOTOR|ENGINE/.test(g)?'MOTOR':/TRANSM/.test(g)?'TRANSMISSÃO':'OUTRO';
+      var ns=String(c.numero_serie||'').toUpperCase().replace(/\s+/g,'');return {grupo:g,fab:maqMarcaN(c.fabricante||'')||marca,modelo:String(c.modelo||'').toUpperCase().replace(/\s+(ENGINE|MACHINE|-).*$/,'').trim(),ns:ns,pfx:pfAplPfx(ns),sel:true};})
+      .filter(function(c){return c.modelo;});
+    if(!D.modelo&&!D.comps.length){pfAplPrintAbrir(origem,null,'<span style="color:#C0392B">Não achei máquina nem componente nesse arquivo.</span>');return;}
+    if(origem&&origem.maq){var x=maqIndice().M[origem.maq];if(x){if(!D.marca)D.marca=x.marca;if(!D.modelo)D.modelo=x.modelo;}}
+    D.peca=0;pfAplPrintAbrir(origem,D);
+  }catch(e){pfAplPrintAbrir(origem,null,'<span style="color:#C0392B">Não consegui ler ('+pfEscHtml(e.message||e)+').</span>');}}
+function pfAplPrintAbrir(origem,D,msg){window._pfApl={o:origem||{},D:D};
+  var inp=function(k,v,ph,w){return '<input data-pfapl="'+k+'" value="'+pfEscHtml(v||'')+'" placeholder="'+ph+'" oninput="pfAplCampo(this)" style="flex:'+(w||1)+';min-width:0;padding:7px 9px;border:1.5px solid #dde3ea;border-radius:7px;font-size:13px;font-weight:700;color:#1a2332">';};
+  var lbl=function(t){return '<div style="font-size:10.5px;font-weight:800;color:#607080;letter-spacing:.4px;margin:10px 0 4px">'+t+'</div>';};
+  var h='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">'+pfBtnColarPrintHtml('',"pfAplPrintColar(window._pfApl.o)")+pfBtnCarregarArquivoHtml('','pfAplInp','image/*,application/pdf',"pfAplPrintArquivo(this,window._pfApl.o)")+'</div>';
+  if(msg)h+='<div style="padding:14px;border:1.5px dashed #c9d6e3;border-radius:10px;font-size:13.5px;color:#33465e;text-align:center">'+msg+'</div>';
+  if(D){var o=origem||{};
+    h+=lbl('🚜 MÁQUINA')+'<div style="display:flex;gap:6px">'+inp('marca',D.marca,'MARCA')+inp('modelo',D.modelo,'MODELO')+inp('tipo',D.tipo,'TIPO',1.4)+'</div>'+
+      '<div style="display:flex;gap:6px;margin-top:6px;align-items:center">'+inp('serie',D.serie,'SÉRIE (PREFIXO)')+inp('ano',D.ano,'ANO',0.6)+
+      '<span style="flex:1.4;font-size:11.5px;color:#607080">'+(D.ns?'nº da máquina <b>'+pfEscHtml(D.ns)+'</b> → vale pra todas a série <b>'+pfEscHtml(D.serie||'?')+'</b>':'')+'</span></div>';
+    var x=maqIndice().M[maqChave(D.marca,D.modelo)];
+    h+='<div style="font-size:12px;margin-top:6px;color:'+(x?'#1e8449':'#1F4E79')+';font-weight:700">'+(x?'✅ Essa máquina já está em Máquinas — só entra o que falta':'🆕 Máquina nova — vai ser criada em Máquinas')+'</div>';
+    h+=lbl('⚙️ COMPONENTES')+(D.comps.length?D.comps.map(function(c,i){
+      return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;padding:6px;border:1px solid #e3e8ef;border-radius:8px;background:'+(o.cod&&D.peca===i?'#FFF8E6':'#fff')+'">'+
+        '<input type="checkbox" '+(c.sel?'checked':'')+' title="Pôr na ficha técnica da máquina" onchange="pfAplComp('+i+',\'sel\',this.checked)" style="width:17px;height:17px">'+
+        '<select onchange="pfAplComp('+i+',\'grupo\',this.value)" style="padding:6px;border:1.5px solid #dde3ea;border-radius:7px;font-size:12.5px;font-weight:700">'+PF_APL_GRUPOS.map(function(g){return '<option'+(g===c.grupo?' selected':'')+'>'+g+'</option>';}).join('')+'</select>'+
+        '<input value="'+pfEscHtml(c.fab)+'" placeholder="FABRICANTE" oninput="pfAplComp('+i+',\'fab\',this.value.toUpperCase())" style="flex:1;min-width:0;padding:6px 8px;border:1.5px solid #dde3ea;border-radius:7px;font-size:12.5px">'+
+        '<input value="'+pfEscHtml(c.modelo)+'" placeholder="MODELO" oninput="pfAplComp('+i+',\'modelo\',this.value.toUpperCase())" style="flex:1;min-width:0;padding:6px 8px;border:1.5px solid #dde3ea;border-radius:7px;font-size:12.5px;font-weight:800">'+
+        (c.ns?'<span style="font-size:11px;color:#607080" title="nº de série deste componente">nº '+pfEscHtml(c.ns)+'</span>':'')+
+        (o.cod?'<label style="font-size:11.5px;font-weight:800;color:#B45309;white-space:nowrap;cursor:pointer"><input type="radio" name="pfAplPeca" '+(D.peca===i?'checked':'')+' onchange="pfAplPecaSet('+i+')"> a peça vai aqui</label>':'')+'</div>';}).join('')
+      :'<div style="color:#8a9ab0;font-size:12.5px">Nenhum componente no print.</div>')+
+      '<button type="button" onclick="pfAplCompAdd()" style="border:1.5px dashed #1F4E79;background:none;color:#1F4E79;border-radius:7px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-top:2px">+ componente</button>';
+    h+='<div style="margin-top:12px;font-size:12px;color:#33465e;background:#F4F8FC;border:1px solid #d6e3f0;border-radius:8px;padding:8px 10px;line-height:1.5"><b>✔ Gravar faz:</b><br>'+
+      (o.cod?'• na ficha da peça <b>'+pfEscHtml(o.cod)+'</b>: a aplicação no componente marcado com "a peça vai aqui", nesta máquina<br>':'')+
+      '• em 🚜 Máquinas: '+(x?'':'cria a máquina, ')+'série, ano, tipo e os componentes marcados <b>só nos campos vazios</b> da ficha técnica'+(D.ns?'<br>• o nº inteiro ('+pfEscHtml(D.ns)+') fica guardado na ficha técnica (página da máquina mostra)':'')+'</div>';
+  }
+  var ft='<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="pfBtn pfBtnClaro" onclick="pfNcFechar(\'pfAplPrintJan\')">Fechar</button>'+(D?'<button class="pfBtn pfBtnVerde" onclick="pfAplGravar()">✔ Gravar</button>':'')+'</div>';
+  var ov=pfNcJanela('pfAplPrintJan','📋 Aplicação pelo print',(origem&&origem.cod?'Peça '+pfEscHtml(origem.cod)+' · ':'')+'CAT SIS, catálogo, plaqueta…',h+ft,720);ov.style.zIndex=100065;
+  if(!ov._pfAplCola){ov._pfAplCola=1;ov.addEventListener('paste',function(e){if(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName))return;var it=(e.clipboardData&&e.clipboardData.items)||[];for(var i=0;i<it.length;i++){if(it[i].type.indexOf('image')===0){var f=it[i].getAsFile();if(f){e.preventDefault();pfAplPrintLer(f,window._pfApl.o);}return;}}});}
+}
+function pfAplCampo(el){var S=window._pfApl;if(!S||!S.D)return;var k=el.getAttribute('data-pfapl'),v=String(el.value||'').toUpperCase();S.D[k]=k==='marca'?v:v;}
+function pfAplComp(i,k,v){var S=window._pfApl;if(S&&S.D&&S.D.comps[i])S.D.comps[i][k]=v;}
+function pfAplPecaSet(i){var S=window._pfApl;if(S&&S.D){S.D.peca=i;pfAplPrintAbrir(S.o,S.D);}}
+function pfAplCompAdd(){var S=window._pfApl;if(!S||!S.D)return;S.D.comps.push({grupo:'MOTOR',fab:S.D.marca,modelo:'',ns:'',pfx:'',sel:true});pfAplPrintAbrir(S.o,S.D);}
+function pfAplGravar(){var S=window._pfApl;if(!S||!S.D)return;var D=S.D,o=S.o||{};
+  D.marca=maqMarcaN(D.marca);if(!D.marca||!D.modelo){pfAlert('Falta a marca e o modelo da máquina.');return;}
+  var feito=[];
+  // 1) 🚜 Máquinas — ficha técnica (só o que está vazio)
+  try{var list=ftLoad()||[],x=maqIndice().M[maqChave(D.marca,D.modelo)],rec=null;
+    if(x&&x.fichas.length){var id=x.fichas[0].id;rec=list.find(function(r){return r&&r.id===id;});}
+    var nova=!rec;if(nova){rec={id:'ft_'+Date.now(),linha:D.marca,modelo:D.modelo,categoria:D.tipo||'',serie:{v:'',ok:true},ano:{v:'',ok:true},criadoEm:new Date().toISOString(),criadoDe:'print'};list.push(rec);}
+    var V=function(c){return maqFtV(rec,c);},P=function(c,v){if(v&&!V(c)){rec[c]={v:v,ok:true};return true;}return false;};
+    if(D.tipo&&!rec.categoria)rec.categoria=D.tipo;
+    if(D.serie){var ss=ftSeriesSep(V('serie'));if(ss.indexOf(D.serie)<0){ss.push(D.serie);rec.serie={v:ss.join(', '),ok:true};feito.push('série '+D.serie);}}
+    if(P('ano',D.ano))feito.push('ano '+D.ano);
+    D.comps.forEach(function(c){if(!c.sel||!c.modelo)return;var F=MAQ_FT_COMPS.find(function(f){return f.g===c.grupo;});if(!F)return;
+      if(P(F.m,c.modelo)){P(F.f,c.fab);P(F.s,c.pfx);feito.push(c.grupo.toLowerCase()+' '+c.modelo);rec['_aplNovo_'+F.m]=1;}
+      else if(rec['_aplNovo_'+F.m]&&V(F.m).toUpperCase().indexOf(c.modelo)<0){rec[F.m]={v:V(F.m)+' / '+c.modelo,ok:true};feito.push('também '+c.modelo);} // 2 modelos do mesmo componente no print (3054C / C4.4)
+      else if(pmN(V(F.m))!==pmN(c.modelo)&&V(F.m).toUpperCase().indexOf(c.modelo)<0){/* já tem outro modelo: não troca */}});
+    var nsTxt=[D.ns?'máquina nº '+D.ns:'',D.comps.filter(function(c){return c.ns;}).map(function(c){return c.grupo.toLowerCase()+' '+c.modelo+' nº '+c.ns;}).join(', ')].filter(Boolean).join(' · ');
+    if(nsTxt){var ob=String(rec.doPrint||'');if(ob.indexOf(D.ns||nsTxt)<0)rec.doPrint=(ob?ob+' · ':'')+nsTxt;}
+    Object.keys(rec).forEach(function(k){if(k.indexOf('_aplNovo_')===0)delete rec[k];});ftSave(list);maqIdxLimpar();if(nova)feito.unshift('máquina '+D.marca+' '+D.modelo+' criada');
+  }catch(e){console.warn('pfAplGravar máquina',e);}
+  // 2) ficha da peça — aplicação no componente marcado
+  if(o.cod){var c=D.comps[D.peca]||{grupo:'',fab:'',modelo:''};
+    var a={equip:c.grupo||'',marca:c.fab||'',modelo:c.modelo||'',serie:'',veiculo:D.modelo,marcaVeiculo:D.marca};
+    try{var lista=aplicLoad()||[],N=function(s){return pmN(s);};
+      var ja=lista.some(function(b){return b&&pfAlimNorm(b.codigo)===pfAlimNorm(o.cod)&&N(b.equip)===N(a.equip)&&N(b.modelo)===N(a.modelo)&&N(b.veiculo).indexOf(N(D.modelo))>=0;});
+      if(!ja){lista.push({codigo:o.cod.replace(/\s+/g,''),desc:o.desc||'',qtd:1,marca:a.marca,modelo:a.modelo,serie:'',equip:a.equip,veiculo:a.veiculo,marcaVeiculo:a.marcaVeiculo,deprint:1,ts:Date.now()});aplicSave(lista);try{pfSyncPush();}catch(e){}}
+    }catch(e){console.warn('pfAplGravar aplic',e);}
+    if(o.form){var L=document.getElementById('prodAplicList');if(L){var linhas=[].slice.call(L.querySelectorAll('.prodAplicRow'));
+      var vazia=linhas.find(function(r){return ['.aplEquip','.aplMarca','.aplModelo','.aplVeiculo'].every(function(s){var e=r.querySelector(s);return !e||!String(e.value||'').trim();});});
+      var dup=linhas.some(function(r){var g=function(s){var e=r.querySelector(s);return e?N(e.value):'';};return g('.aplEquip')===N(a.equip)&&g('.aplModelo')===N(a.modelo)&&g('.aplVeiculo').indexOf(N(a.veiculo))>=0;});
+      if(!dup){var row=vazia;if(!row){var dv=document.createElement('div');dv.innerHTML=prodAplicRow(a,linhas.length);row=dv.firstElementChild;L.appendChild(row);}
+        else{var put=function(s,v){var e=row.querySelector(s);if(e)e.value=v;};put('.aplEquip',a.equip);put('.aplMarca',a.marca);put('.aplModelo',a.modelo);put('.aplVeiculo',a.veiculo);put('.aplMarcaVeiculo',a.marcaVeiculo);}
+        [].forEach.call(row.querySelectorAll('input'),function(e){if(e.value)e.style.background='#FFF8DC';});}}}
+    feito.push('aplicação na peça '+o.cod+(o.form?' (clique em 💾 Salvar na ficha)':''));
+  }
+  pfNcFechar('pfAplPrintJan');
+  try{if(o.maq&&typeof maqRerender==='function')maqRerender();}catch(e){}
+  pfChToast('✔ '+(feito.length?feito.join(' · '):'nada novo — já estava tudo lá'));}
 function prodAddAplic(){
   var list=document.getElementById('prodAplicList');if(!list)return;
   var div=document.createElement('div');
@@ -48434,6 +48542,7 @@ function ferrCotTempo(){
 var PF_FUNC_AREAS=[['vendas','🛒','Vendas e cotação'],['clientes','🤝','Clientes e CRM'],['compras','🛍️','Compras e estoque'],['tecnica','🔧','Área Técnica'],
   ['cadastros','🗂️','Cadastros'],['ferramentas','🧰','Ferramentas'],['logistica','🚚','Logística'],['avisos','🔔','Avisos'],['sistema','⌨️','Atalhos e sistema'],['dono','👑','Só do Vitor']];
 var PF_FUNCOES=[
+  {a:'cadastros',i:'📋',n:'Aplicação pelo print',o:'Cola o print do catálogo da montadora (CAT SIS e outros), de um catálogo ou da plaqueta e a IA lê a máquina (marca, modelo, tipo, série, ano) e os componentes (motor, transmissão, eixos). Você confere e grava.',p:'Cadastrar onde a peça vai em segundos: a aplicação entra na ficha da peça e a máquina já é criada ou completada em Máquinas, com série, ano e componentes.',w:'Ficha do produto → 🔧 Aplicações → 📋 Colar print / ⬆ Carregar arquivo · Máquinas → página da máquina → 📋 Colar print',v:'2777',ir:"at:Máquinas"},
   {a:'cadastros',i:'📄',n:'Data Sheet do produto',o:'A ficha técnica do fabricante (potência, medidas, peso, o que vem junto, garantia) e o PDF original, guardados no produto e no componente. Sobe o PDF ou o print e a IA preenche. Ao abrir a ficha do produto, ele já preenche o que está vazio: descrição resumida e completa, unidade, grupo e as observações com as especificações. Dá pra subir fotos e vídeos (ou link do YouTube) e mandar só as fotos pro cliente.',p:'Responder o cliente na hora e mandar o PDF certo pelo WhatsApp, sem procurar o arquivo.',w:'Ficha do produto → 📄 Data Sheet · Alt+B · etiqueta 📄 na cotação · 🚜 Máquinas (componente) · Ferramentas → 📄 Data Sheets',v:'2776',ir:"ferr:Data Sheets dos fabricantes"},
   {a:'vendas',i:'🧾',n:'Faturar por Matriz SP ou Filial SC',o:'Na cotação, escolhe se a nota sai pela Matriz SP ou pela Filial SC e já mostra o preço pela outra (pela SC o ICMS pra São Paulo é 12% em vez de 18%, então o preço fica uns 10% menor com a mesma margem).',p:'Cotar mais barato pros clientes que podem ser faturados pela filial, sem conta de cabeça.',w:'Cotação → faixa 🧾 Faturar por · Cadastro do cliente → Faturar por',v:'2770',ir:'vendas:cotacoes'},
   {a:'vendas',i:'📥',n:'Cotação do JBoss',o:'Sobe o print ou o PDF de uma cotação feita no JBoss e a IA transforma numa cotação do PF, com o mesmo preço, o cliente, o contato e o arquivo guardado.',p:'Acompanhar as cotações do JBoss junto com as do PF: elas aparecem no ☀️ Meu dia pra cobrar, mesmo item sem código (o PF sugere parecidos pela descrição).',w:'☀️ Meu dia, Vendas, barra das cotações (📥 JBOSS) e ficha do cliente → 📥 Cotação do JBoss',v:2763,ir:'vendas:meudia'},
@@ -104217,6 +104326,7 @@ function maqFichaHtml(x,completa){
       return '<div style="display:grid;grid-template-columns:200px 1fr;font-size:13px;border-top:1px solid #f2f4f7"><div style="padding:7px 12px;color:#5d6b7a;font-weight:700">'+p[1]+'</div><div style="padding:7px 12px;color:'+(v?(ok?'#1a2332':'#B7791F'):'#a0aab5')+'">'+(v?pfEscHtml(v)+(ok?'':' <span title="ainda não confirmado">?</span>'):'—')+'</div></div>';}).join('');
     return (x.fichas.length>1?'<div style="padding:7px 12px;background:#fbfcfe;font-size:12px;font-weight:800;color:#33465e;border-top:1px solid #eef2f6">'+pfEscHtml((r.linha||'')+' '+(r.modelo||''))+(maqFtV(r,'serie')?' · '+pfEscHtml(maqFtV(r,'serie')):'')+'</div>':'')+
       (rows||'<div style="padding:10px 12px;font-size:12.5px;color:#607080;border-top:1px solid #f2f4f7">Só o nome preenchido.</div>')+
+      (r.doPrint?'<div style="display:grid;grid-template-columns:200px 1fr;font-size:13px;border-top:1px solid #f2f4f7"><div style="padding:7px 12px;color:#5d6b7a;font-weight:700">Nº do print</div><div style="padding:7px 12px;color:#1a2332">'+pfEscHtml(r.doPrint)+'</div></div>':'')+ // v115.2777
       '<div style="display:flex;gap:8px;padding:8px 12px;border-top:1px solid #eef2f6"><button class="pfBtn pfBtnClaro" style="height:30px;font-size:12px" onclick="ftAbrirForm(\''+pfEscJs(r.id)+'\')">✏️ Editar ficha</button>'+
       '<button class="pfBtn pfBtnClaro" style="height:30px;font-size:12px" onclick="ftImprimirPlaquetas([\''+pfEscJs(r.id)+'\'])">🖨️ Plaqueta</button></div>';}).join('');
 }
@@ -104470,7 +104580,7 @@ function pfMaqCase428Ligar(){
     if(r)localStorage.setItem('pf_case428_2545','1');}catch(e){}}
 function maqPaginaHtml(x,I){
   var S=window._maq,ch=pfEscJs(x.chave),linhas=maqCompLinhas(x,I);
-  var h=maqCabHtml(maqIcone(x)+' '+pfEscHtml(x.nome),pfEscHtml(x.tipo||'')+(x.linha==='rod'?' · RODOVIÁRIO':'')+(x.series.length?' · série '+pfEscHtml(x.series.join(' · ')):''),'<button class="pfBtn pfBtnClaro" style="'+MAQ_BTN_CAB+';color:#B03A2E" title="Excluir esta máquina (fichas, ligações e peças de manutenção)" onclick="maqExcluirAbrir(\''+pfEscJs(x.chave)+'\')">🗑 Excluir</button>'+'<button class="pfBtn pfBtnAzul" style="'+MAQ_BTN_CAB+'" onclick="maqCopiarAbrir(\''+ch+'\')" title="Criar o card de outros modelos (ex.: 416F2, 420) já com a categoria, os fabricantes e os componentes desta máquina">📑 Copiar pra outros modelos</button>'+
+  var h=maqCabHtml(maqIcone(x)+' '+pfEscHtml(x.nome),pfEscHtml(x.tipo||'')+(x.linha==='rod'?' · RODOVIÁRIO':'')+(x.series.length?' · série '+pfEscHtml(x.series.join(' · ')):''),'<button class="pfBtn pfBtnEscuro" style="'+MAQ_BTN_CAB+'" title="Print do CAT SIS, catálogo ou plaqueta: a IA lê série, ano e componentes e preenche o que falta" onclick="pfAplPrintColar({maq:\''+pfEscJs(x.chave)+'\'})">📋 Colar print</button>'+'<button class="pfBtn pfBtnClaro" style="'+MAQ_BTN_CAB+';color:#B03A2E" title="Excluir esta máquina (fichas, ligações e peças de manutenção)" onclick="maqExcluirAbrir(\''+pfEscJs(x.chave)+'\')">🗑 Excluir</button>'+'<button class="pfBtn pfBtnAzul" style="'+MAQ_BTN_CAB+'" onclick="maqCopiarAbrir(\''+ch+'\')" title="Criar o card de outros modelos (ex.: 416F2, 420) já com a categoria, os fabricantes e os componentes desta máquina">📑 Copiar pra outros modelos</button>'+
     '<button class="pfBtn pfBtnVerde" style="'+MAQ_BTN_CAB+'" onclick="maqColocarPecas(\''+ch+'\')">➕ Colocar peças</button>'); // v115.2337 - 📑 copiar
   h+='<div style="background:#fff;border:1px solid #e3e9f0;border-radius:12px;margin-top:12px;overflow:hidden">'+
     '<div style="display:flex;gap:16px;padding:14px 16px;align-items:center;border-bottom:1px solid #e3e9f0"><div style="width:96px;height:66px;border-radius:10px;background:'+(x.linha==='rod'?'linear-gradient(135deg,#5b8fc7,#1F4E79)':'linear-gradient(135deg,#f3c94b,#d99b1a)')+';display:flex;align-items:center;justify-content:center;font-size:38px;flex-shrink:0">'+maqIcone(x)+'</div>'+

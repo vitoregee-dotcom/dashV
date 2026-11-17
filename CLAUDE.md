@@ -2864,3 +2864,9 @@
   = PNG na área de transferência pra colar na conversa), 🎞️ Fotos e vídeos (`pfDsMidiaAbrir`, janela `pfDsMidJan`: Colar print / Carregar arquivo (vários, imagem e vídeo até 50 MB) / Ctrl+V / arrastar →
   `pfDsMidiaSubir` em `ferramentas-arquivos/datasheets/<id>/`; link do YouTube `pfDsMidiaLinkAdd`; ✕ tira) e ➕ Novo Data Sheet. Vídeos em `d.videos` [{u|yt,nome}] (`pfDsVideosHtml`). Gravar = `pfDsGravarD`.
   Capturas `docs/referencias/data-sheet/feito-mandar-fotos.png` / `feito-fotos-videos.png`.
+- v115.2777 **📋 Aplicação pelo print** (prints do CAT SIS 416E/CBD05534/3054C·C4.4 + ficha do RR60131: "já coloca uma IA pra ler o print e já add na ficha… e cadastra nas máquinas" → "quero um sistema MONSTRO"):
+  📋 Colar print / ⬆ Carregar arquivo em 🔧 Aplicações da ficha do produto (`pfAplOrigemForm`) e no cabeçalho da página da máquina (`{maq:chave}`) → IA `PF_APL_PROMPT` (`pfAplPrintLer`: máquina marca/modelo/tipo_en→`ftTipoTraduzir`/nº série/ano +
+  componentes grupo/fabricante/modelo/nº) → janela `pfAplPrintJan` (editável, ✅ já existe / 🆕 nova, caixinha por componente, rádio "a peça vai aqui", Ctrl+V cola outro print) → `pfAplGravar`:
+  ficha técnica (cria mínima `criadoDe:'print'` se não existe; série = PREFIXO `pfAplPfx` CBD05534→CBD; ano, categoria e componentes só nos campos VAZIOS de `MAQ_FT_COMPS`, 2 modelos do mesmo grupo = "3054C / C4.4";
+  nº inteiro em `rec.doPrint`, mostrado na página da máquina "Nº do print") + aplicação em APLIC_KEY {codigo, equip, marca, modelo, veiculo, marcaVeiculo, deprint} (liga a peça na máquina; não duplica) + linha
+  na tela da ficha (amarela, grava no 💾 Salvar). Capturas `docs/referencias/aplicacao-print/feito-*.png`.

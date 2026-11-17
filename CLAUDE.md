@@ -2890,3 +2890,6 @@
   o 📦 Pedido a emitir só olhava a ÚLTIMA mensagem sua e as 4 últimas da conversa, e não tinha "despachar". Agora `pedidoVigiar` olha as suas 4 últimas do fim da conversa e as
   4 últimas do cliente nas 12 últimas mensagens; palavras novas `PF_PE_MIM_2782` (mando sim, despacho hoje…) / `PF_PE_CLI_2782` (despachar hoje, pode despachar, manda hoje…),
   somadas 1x em quem já tinha lista salva (`o.v2782`). `PF_EXT_VER_NOVA`='4.79', zip refeito.
+- v115.2783 + extensão **4.80** ("se tem 2 separados, qual a melhor maneira de mandar já os 2 pra cotação de uma vez?" — "2244536 - 01" e "1946725 - 01" em balões separados):
+  no `selosVigiar`, mensagens SEGUIDAS do cliente (sem mensagem sua no meio) com código viram UM selo só no último balão com código, lendo todas (+ as dele logo depois,
+  ex.: "Original Caterpillar") — "Criar cotação no PF" leva tudo. Uma só mensagem com código continua com o selo dela. `PF_EXT_VER_NOVA`='4.80', zip refeito.

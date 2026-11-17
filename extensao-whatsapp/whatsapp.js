@@ -2594,7 +2594,24 @@
     // 4.15 - A pedido do Vitor ("não to achando esse número que ele encontrou 13X32"): o selo lia o BLOCO inteiro de mensagens
     // do cliente e puxava código de outra mensagem. Agora lê SÓ a mensagem onde o selo está (o código tem que estar nela).
     var alvo = [];
-    if (liga) els.forEach(function (el) { if (minhaEl(el)) return; var t = txt(el); var n = spContaCods(t); if (n) alvo.push({ el: el, t: t, n: n }); });
+    // 4.80 - A pedido do Vitor ("se tem 2 separados, qual a melhor maneira de mandar já os 2 pra cotação de uma vez?" — cliente mandou "2244536 - 01" e
+    // "1946725 - 01" em mensagens separadas): mensagens SEGUIDAS do cliente (sem mensagem sua no meio) com código viram UM selo só, no último balão com código,
+    // lendo todas elas (+ as dele que vêm logo depois, ex.: "Original Caterpillar"). Mensagem sua no meio separa os pedidos.
+    var cruN = function (t) { var n = 0; (String(t || '').match(COD_RE) || []).forEach(function (tk) { if (tk.replace(/\D/g, '').length >= 4 && !/^\d{1,2}[\/.:]\d{2}/.test(tk)) n++; }); return n; };
+    if (liga) {
+      var runs = [], cur = [];
+      els.forEach(function (el) { if (minhaEl(el)) { if (cur.length) runs.push(cur); cur = []; return; } cur.push({ el: el, t: txt(el) }); });
+      if (cur.length) runs.push(cur);
+      runs.forEach(function (R) {
+        var com = R.filter(function (x) { return spContaCods(x.t) || cruN(x.t); });
+        var comCod = R.filter(function (x) { return spContaCods(x.t); });
+        if (com.length < 2) { comCod.forEach(function (x) { alvo.push({ el: x.el, t: x.t, n: spContaCods(x.t) }); }); return; }
+        var i0 = R.indexOf(com[0]), ult = com[com.length - 1];
+        var t = R.slice(i0).map(function (x) { return x.t; }).join('\n');
+        var n = spContaCods(t); if (!n) return;
+        alvo.push({ el: ult.el, t: t, n: com.length > n ? com.length : n, junto: com.length });
+      });
+    }
     els.forEach(function (el) { var s = el.querySelector(':scope > .pfwa-selo'); if (s && !Object.keys(alvo).some(function (k) { return alvo[k].el === el; })) s.remove(); });
     Object.keys(alvo).forEach(function (k) {
       var A = alvo[k], el = A.el, t = A.t, n = A.n;
@@ -2605,7 +2622,7 @@
       s._h = h; s._f = feito; s._t = t; s._n = n;
       s.classList.toggle('ok', feito);
       s.textContent = feito ? '✓ cot.' : '📄 ' + (n > 9 ? '9+' : n);
-      s.title = feito ? 'Você já criou a cotação deste pedido no PF — clique pra ver de novo' : 'O PF achou ' + n + ' código' + (n > 1 ? 's' : '') + ' neste pedido — clique pra ver e, se quiser, criar a cotação';
+      s.title = feito ? 'Você já criou a cotação deste pedido no PF — clique pra ver de novo' : 'O PF achou ' + n + ' código' + (n > 1 ? 's' : '') + (A.junto ? ' nas ' + A.junto + ' mensagens seguidas do cliente' : ' neste pedido') + ' — clique pra ver e, se quiser, criar a cotação';
       s.onclick = function (ev) { ev.preventDefault(); ev.stopPropagation(); spAbrir(s); };
     });
     if (!liga && SP && SP.style.display !== 'none') spFechar();

@@ -2815,3 +2815,8 @@
   na hora**: `materialVigiar` — sua mensagem com portfólio/catálogo/tabela/folheto… + mandar/enviar/segue (ou o cliente pedindo) → `pfExtMaterialDe` acha nos **Atalhos de Texto tipo arquivo** (nome/arquivo/
   gatilhos, `PF_MAT_SIN`) → "📎 Mandar X" → `pfExtMaterialArq` (baixa o arquivo, até 30 MB) → motor op **`enviarArq`** (`sendFileMessage`, documento/imagem) ou, sem motor, cola o arquivo na caixa (o
   WhatsApp abre a prévia). Sem arquivo cadastrado = botão "Abrir Atalhos de Texto" (acao `atalhosAbrir`). Config `frota`/`mat` no ⚙️. Testado no simulador e com as funções do PF (`t4.js`/`t5.js`/`t6.js`).
+- v115.2767 **📈 Relatório de cotações** (prévia `docs/referencias/relatorio-cotacoes/previa.png` → "faz o que tiver que fazer"; captura `feito.png`): aba nova **📈 Cotações** da Gestão
+  (`PF_GE_ABAS` 'cotacoes' → `pfGeCotHtml(d)`): conta as cotações pela data de criação no período de cima (`pfGeCotDados`: pcMontarDados; filtros vendedor `_pfGe.cotV` = atendenteEmail e tipo
+  `_pfGe.cotT` = `pfGeCotTipo` revenda/consumo/servico/conc, `pfGeCotFiltro`), KPIs (total × período anterior, por dia útil, hora de pico, dia e mês mais cheios, % que virou pedido), mapa hora × dia
+  da semana, por mês e dia do mês (sempre últimos 12 meses), por vendedor (cotações, % fecha, tempo médio) e por tipo de cliente. BUG junto: o `pfExtLerPedido` juntava "5-515X e 1333715" em
+  E1333715 — "e" + número só junta quando E+número existe no estoque (E158960 continua).

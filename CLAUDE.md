@@ -2884,3 +2884,5 @@
   `vendasItemColsFixar` (chamado no `vendasItemDistribuirLarguraSobra`) prende as últimas colunas (data-col 11/12/13, se forem as últimas) à direita com sticky quando a tabela não cabe; larguras do Vitor
   não mudam. 2) resumo "Itens 7 · Imediatos 10": `vendasResumoNums(v)` conta tudo por PEÇA (código do cliente, senão o nosso; imediata = alguma marca com saldo), total com o preço digitado e
   `vendasMoedaBR`; botões de negativos continuam pelas linhas sem saldo (`_negLinhas`). Varredura de ~90 telas com a demonstração: nenhum erro de JavaScript.
+- v115.2781 BUG (iPad em pé / tela estreita): a barra azul da cotação rola de lado e minimizar/maximizar/FECHAR ficavam fora da tela; a aba encolhia até 25 px (nome em cima do ↶ ↷).
+  Os 3 botões da janela + separador agora ficam num grupo PRESO à direita (`janGrupo`, sticky right:0, fundo azul) e as abas não encolhem (flex-shrink 0). Capturas no scratchpad.

@@ -2896,3 +2896,6 @@
 - v115.2784 BUG (print do 📄 Cotar no WhatsApp: 181199A4 "não achei" — está na lista Carraro OM = 134725): o `pfExtCotar` não consultava a lista de conversão Carraro (só a cotação,
   `vendasAdicionarItem`). Agora, sem achar no estoque nem nas conversões das fichas, procura no `pfCarraroDe`: nº Carraro com estoque = usa a ficha (código do cliente em `codCli`); sem estoque =
   `o.carConv` e a resposta diz "= CARRARO 134725, vou verificar o prazo"; marca pedida CARRARO conta como ✔. 87524409 não está em nenhuma das listas (continua "não localizei").
+- v115.2785 + extensão **4.81** BUG ("pq só achou um" — cliente mandou "PL-249=50pcs / PL-241=50pcs / JF-0026=15pcs", Tecfil/Wega): o `pfExtLerPedido` só aceitava código com 4+ números
+  e a quantidade grudada depois do "=" não era lida. Agora letras + traço + 3 números (PL-249) também é código (PF e extensão `ehCodTk`, selo 📄) e "=50pcs" / "=50" no fim da linha = quantidade.
+  Testado: PL-249 ×50, PL-241 ×50, JF-0026 ×15, selo 📄 3. `PF_EXT_VER_NOVA`='4.81', zip refeito.

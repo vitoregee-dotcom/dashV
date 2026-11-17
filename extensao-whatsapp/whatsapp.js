@@ -2602,7 +2602,21 @@
     var cruN = function (t) { var n = 0; (String(t || '').match(COD_RE) || []).forEach(function (tk) { if (ehCodTk(tk)) n++; }); return n; };
     if (liga) {
       var runs = [], cur = [];
-      els.forEach(function (el) { if (minhaEl(el)) { if (cur.length) runs.push(cur); cur = []; return; } cur.push({ el: el, t: txt(el) }); });
+      // 4.84 - A pedido do Vitor ("Mas agora puxa até o que eu ja tinha cotado né?"): mensagem SUA sem texto (foto/PDF da cotação do JBoss) não tem
+      // [data-pre-plain-text] e não separava os pedidos. Agora a sequência vem das LINHAS da conversa (msgLinhas): qualquer linha sua corta, e 1 h+
+      // entre duas mensagens do cliente também corta.
+      var seq = [], vistos = [];
+      try { msgLinhas().slice(-80).forEach(function (row) {
+        if (minhaEl(row)) { seq.push(null); return; }
+        var pps = row.matches && row.matches('[data-pre-plain-text]') ? [row] : Array.prototype.slice.call(row.querySelectorAll('[data-pre-plain-text]'));
+        pps.forEach(function (pp) { if (els.indexOf(pp) >= 0 && vistos.indexOf(pp) < 0) { vistos.push(pp); seq.push(pp); } });
+      }); } catch (e) { seq = []; }
+      els.forEach(function (el) { if (vistos.indexOf(el) < 0) seq.push(minhaEl(el) ? null : el); });
+      var tAnt = 0;
+      seq.forEach(function (el) { if (!el) { if (cur.length) runs.push(cur); cur = []; tAnt = 0; return; }
+        var tq = 0; try { tq = msgQuando(el) || 0; } catch (e) { }
+        if (tq && tAnt && tq - tAnt > 3600000 && cur.length) { runs.push(cur); cur = []; }
+        if (tq) tAnt = tq; cur.push({ el: el, t: txt(el) }); });
       if (cur.length) runs.push(cur);
       runs.forEach(function (R) {
         var com = R.filter(function (x) { return spContaCods(x.t) || cruN(x.t); });

@@ -2911,3 +2911,4 @@
   de cotar" (`rolVarConfirmarHtml`, pergunta `rolVarPerguntaTxt` escolhendo a marca, 📋/💬). Item posto pelo ➕ ganha `it.rolConfirmar` {txt,ok} → etiqueta de alerta "⚠ … confirmar com o fornecedor" (clique = ✔, `rolVarConfOk`).
   Sufixo novo descoberto → linha no `ROL_VAR_SUF`. 2) WhatsApp ("um botãozinho pra só criar a cotação e deixar minimizada" + "deixa as 2 opções"): no selo 📄 do balão, "⬇ Criar minimizada" ao lado do "Criar cotação no PF"
   → abrirCot com `minimizar` e sem foco → `pfExtAbrirCot` cria, salva e minimiza (`_vendasMinimized` + `vendasRenderTabs`). Captura `docs/referencias/whatsapp-menu/feito-criar-minimizada.png`.
+- v115.2789 ("sem precisar trazer o PF para frente, sabe?"): o "⬇ Criar minimizada" não faz mais a pergunta "atualizar a cotação recente?" (ela ficaria escondida no PF) — sempre cria uma nova, minimizada (`!a.minimizar` no `pfExtAbrirCot`).

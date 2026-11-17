@@ -2899,3 +2899,6 @@
 - v115.2785 + extensão **4.81** BUG ("pq só achou um" — cliente mandou "PL-249=50pcs / PL-241=50pcs / JF-0026=15pcs", Tecfil/Wega): o `pfExtLerPedido` só aceitava código com 4+ números
   e a quantidade grudada depois do "=" não era lida. Agora letras + traço + 3 números (PL-249) também é código (PF e extensão `ehCodTk`, selo 📄) e "=50pcs" / "=50" no fim da linha = quantidade.
   Testado: PL-249 ×50, PL-241 ×50, JF-0026 ×15, selo 📄 3. `PF_EXT_VER_NOVA`='4.81', zip refeito.
+- v115.2786 BUG ("pq não acha Sotreq aqui?" — Mapa → Fornecedores do mapa → + Adicionar): a janela "Incluir fornecedor(es) em todos os itens" (`mapaAbrirFornecedoresEmTodos`) e a de remover
+  mostravam e buscavam só pela RAZÃO SOCIAL — fornecedor cadastrado só com nome/fantasia aparecia "(sem nome)" e a busca não achava. Agora mostra razão > fantasia > nome e busca nos três + código.
+  A Sotreq (forn_1786130489075_b226c, 000053, CNPJ 34.151.100/0001-30, razão vazia) também está na lista `cad_fornecedores_deletados` — foi apagada do cadastro (perguntei ao Vitor se restaura).

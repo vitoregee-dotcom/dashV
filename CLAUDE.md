@@ -2905,3 +2905,9 @@
 - v115.2787 + extensão **4.82** ("aqui não manda pro PF com o preço da Triex?" — PDF/print da cotação do JBoss lido pelo 🤖 Ler com IA do WhatsApp virava pedido e o preço era recalculado): o `pfExtCotarImg`
   pede à IA pra dizer se é COTAÇÃO DA TRIEX (1ª linha TRIEX_JBOSS + JSON do `PF_JB_PROMPT`); se for, guarda em `window._pfExtJbPend` e devolve {jboss:true}; a extensão chama a acao `jbAbrir` (com foco no PF)
   → `pfExtJbAbrir` abre o 📥 Cotação do JBoss já lido (cliente da conversa, preço da Triex, entra no ☀️ Meu dia). Pedido de cliente continua igual.
+- v115.2788 + extensão **4.83**: 1) **sufixos dos rolamentos explicados** ("tô na dúvida se são de bronze mesmo… tenho medo de cotar errado" → opção B da prévia `docs/referencias/rolamento-variacoes/previa-sufixos.png`, captura
+  `feito-sufixos.png`): no 🔧 Quero com… cada código vem DESMONTADO (`rolVarPartes`/`rolVarPartesHtml`, dicionário por marca `ROL_VAR_SUF` — entrada com 4º item = pedaço que se divide em 2, ex. SKF ECM = EC + M;
+  cores `ROL_VAR_COR`: laranja gaiola, verde folga/precisão, azul interno, roxo vedação/trava/furo, cinza "?" = sem explicação) + coluna CERTEZA (✔ `ROL_VAR_FONTE` da marca / ❔ conferir) + caixa "✅ Confirmar antes
+  de cotar" (`rolVarConfirmarHtml`, pergunta `rolVarPerguntaTxt` escolhendo a marca, 📋/💬). Item posto pelo ➕ ganha `it.rolConfirmar` {txt,ok} → etiqueta de alerta "⚠ … confirmar com o fornecedor" (clique = ✔, `rolVarConfOk`).
+  Sufixo novo descoberto → linha no `ROL_VAR_SUF`. 2) WhatsApp ("um botãozinho pra só criar a cotação e deixar minimizada" + "deixa as 2 opções"): no selo 📄 do balão, "⬇ Criar minimizada" ao lado do "Criar cotação no PF"
+  → abrirCot com `minimizar` e sem foco → `pfExtAbrirCot` cria, salva e minimiza (`_vendasMinimized` + `vendasRenderTabs`). Captura `docs/referencias/whatsapp-menu/feito-criar-minimizada.png`.

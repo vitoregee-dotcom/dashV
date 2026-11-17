@@ -2859,3 +2859,8 @@
   NCM (se o data sheet tiver; "00000000" conta como vazio), grupo pelo tipo (`PF_DS_GRUPO_TIPO`) e as observações (especificações, vem com, garantia — 1x, marca "DATA SHEET DO FABRICANTE"), +
   `especificacoes`/`dsId`. Ao abrir a ficha (`pfDsFormBtnHtml` → `pfDsFormPuxar(true)`) os campos vazios já vêm em amarelo + aviso, o 💾 Salvar grava; botão "📥 Puxar dados do Data Sheet".
   O "📷 Pôr as fotos na ficha", a ficha criada pelo Data Sheet e o automático 1x por navegador (flag `pf_ds_fotos_2775`) gravam os dados juntos. Captura `docs/referencias/data-sheet/feito-ficha.png`.
+- v115.2776 (print da janela do Data Sheet: "opção de mandar só as fotos pro cliente" + "botão pra incluir o Data Sheet" + "um pra colocar fotos e também vídeos"): botões novos no `pfDsHtml`:
+  📷 Mandar só as fotos (`pfDsFotosEnviar`, janela `pfDsFotJan`: marca fotos/vídeos, 💬 WhatsApp com os LINKS `pfDsEnvWhats`, 🔗 copiar links, ⬇ Baixar as marcadas `pfDsEnvBaixar`, 📋 Copiar a foto `pfDsFotoCopiar`
+  = PNG na área de transferência pra colar na conversa), 🎞️ Fotos e vídeos (`pfDsMidiaAbrir`, janela `pfDsMidJan`: Colar print / Carregar arquivo (vários, imagem e vídeo até 50 MB) / Ctrl+V / arrastar →
+  `pfDsMidiaSubir` em `ferramentas-arquivos/datasheets/<id>/`; link do YouTube `pfDsMidiaLinkAdd`; ✕ tira) e ➕ Novo Data Sheet. Vídeos em `d.videos` [{u|yt,nome}] (`pfDsVideosHtml`). Gravar = `pfDsGravarD`.
+  Capturas `docs/referencias/data-sheet/feito-mandar-fotos.png` / `feito-fotos-videos.png`.

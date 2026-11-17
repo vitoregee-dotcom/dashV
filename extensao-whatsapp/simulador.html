@@ -94,7 +94,7 @@
 var CONTATOS = {
   cliente: {
     nome: 'Tork Lubrificantes (1906)', tel: '5565999990000', grupo: false, unread: 2, etq: 'Revenda', etqc: '#2DA44E', av: '🛢️',
-    msgs: [['in','bom dia, preciso cotar umas peças'],['in','1333715'],['in','1495240'],['in','2373800'],['in','06 de cada por favor'],['aud','0:18'],['in','e qual o endereço de vocês? me manda os dados do pix tbm']],
+    msgs: [['in','tenho uma case w20e parada aqui'],['in','bom dia, preciso cotar umas peças'],['in','1333715'],['in','1495240'],['in','2373800'],['in','06 de cada por favor'],['aud','0:18'],['in','e qual o endereço de vocês? me manda os dados do pix tbm']],
     card: { achou: true, tipo: 'cliente', pelo: '', k: 'c:1906', sug: [{ tp: 'fam', key: 'FILTROS', titulo: 'FILTROS', d: '78% das revendas compram · ele nunca comprou', frase: 'Aproveitando: vocês trabalham com filtros também? Temos linha completa com pronta entrega 👍' }, { tp: 'mar', key: 'TURBOLUB', titulo: 'Marca TURBOLUB', d: '52% das revendas compram · ▼ parou há 240 dias', frase: 'Aproveitando: vocês trabalham com a marca TURBOLUB também? Temos linha completa com pronta entrega 👍' }], titulo: 'TORK COMERCIO INDUSTRIA IMPORTACAO LTDA', sub: 'Vitor · compras',
       etqs: [ { t: 'Revenda' }, { t: '👤 vitor' } ],
       avisos: [ { ic: '⚠', t: 'R$ 2.340,00 vencido — 2 títulos, maior atraso 18 dias.', cor: 'v' }, { ic: '🗒', t: 'Anotação: só compra Spicer original — Vitor, 02/11/26', cor: 'z' }, { ic: '🤖', t: 'Regra do Assistente: margem 18% neste cliente', cor: 'a' } ], nRegras: 1,
@@ -155,6 +155,13 @@ var CUR = 'cliente';
 var MEM = {};
 function respQuem() { return JSON.parse(JSON.stringify(CONTATOS[CUR].card)); }
 function respAcao(acao, arg) {
+  // 4.78 - 🏷️ resposta curta / 🔔 Avise-me / 🚜 frota / 📎 portfólio
+  if (acao === 'lerCods') { var cs = (String(arg && arg.texto || '').match(/\b[A-Z]?\d[\dA-Z\-]{3,}\b/gi) || []); return { ok: true, cods: cs }; }
+  if (acao === 'aviseMe') { var cs2 = (String(arg && arg.texto || '').match(/\b[A-Z]?\d[\dA-Z\-]{3,}\b/gi) || []); window.__acoes = (window.__acoes || []).concat([{ acao: acao, arg: arg }]); return cs2.length ? { ok: true, cliente: 'TORK LUBRIFICANTES', itens: cs2.map(function (c) { return { cod: c, marca: 'FFT' }; }) } : { ok: false, msg: 'Não achei código nesse texto' }; }
+  if (acao === 'frotaDetectar') { var tx = (arg.msgs || []).map(function (m) { return m.t; }).join(' '); return /w20e/i.test(tx) ? { ok: true, cliente: 'TORK LUBRIFICANTES', l: [{ chave: 'CASE|W20E', marca: 'CASE', modelo: 'W20E', equip: 'PÁ CARREGADEIRA', forte: 2 }] } : { ok: true, l: [] }; }
+  if (acao === 'frotaPor' || acao === 'frotaNao' || acao === 'atalhosAbrir') { window.__acoes = (window.__acoes || []).concat([{ acao: acao, arg: arg }]); return { ok: true, tipo: 'Pá carregadeira' }; }
+  if (acao === 'materialDe') return /portf/i.test(String(arg && arg.texto || '')) ? { ok: true, palavra: 'portfólio', mats: [{ id: 'at_port', nome: 'Portfólio Triex 2026', arq: 'portfolio.pdf' }] } : { ok: true, mats: [] };
+  if (acao === 'materialArq') return { ok: true, data: 'data:application/pdf;base64,JVBERi0xLjQK', nome: 'Portfolio-Triex-2026.pdf', mime: 'application/pdf' };
   if (acao === 'sugPecas' || acao === 'sugSemDem' || acao === 'sugOfereci') { toast('(simulado) ' + acao + ' · ' + (arg && arg.key)); return { ok: true }; } // 4.20
   if (acao === 'transcreverAudio') return { ok: true, texto: 'Vitor, preciso de 2 retentores 12017575 e o kit do cubo da W20, tem pra hoje?' }; // 4.19
   if (acao === 'respRapidaAchar') { var tt = String(arg && arg.texto || '').toLowerCase(), L = []; // 4.38 - ⚡ resposta rápida
@@ -297,6 +304,7 @@ if (!/[?&]motor=0/.test(location.search)) window.addEventListener('message', fun
   else if (d.op === 'chatsTodos') r = { l: lista().map(function (k) { var c = CONTATOS[k]; return { id: k, nome: c.nome, listas: c.etq ? 1 : 0, unread: c.unread || 0 }; }) };
   else if (d.op === 'msgs') { var c = CONTATOS[A.id]; r = { l: (c ? c.msgs : []).map(function (m, i) { return { eu: m[0] === 'out', t: agora - 10 * 60000 + i, txt: m[0] === 'aud' ? '' : m[1], tipo: m[0] === 'aud' ? 'ptt' : 'chat' }; }) }; }
   else if (d.op === 'enviar') { var c2 = CONTATOS[A.id]; if (c2) { c2.msgs.push(['out', A.texto]); c2.unread = 0; window.SIM_ENVIADAS.push({ para: c2.nome, texto: A.texto }); painelLista(); if (CUR === A.id) abrir(A.id); } r = { ok: true }; }
+  else if (d.op === 'enviarArq') { var c4 = CONTATOS[CUR]; if (c4) { c4.msgs.push(['out', '📎 ' + A.nome]); window.SIM_ENVIADAS.push({ para: c4.nome, arq: A.nome }); abrir(CUR); } r = { ok: true }; }
   else if (d.op === 'naoLida') { var c3 = CONTATOS[A.id]; if (c3) { c3.unread = 1; painelLista(); } r = { ok: true }; }
   else if (d.op === 'labelGarantir') { if (SIM_LISTAS.indexOf(A.nome) < 0) SIM_LISTAS.push(A.nome); r = { id: A.nome }; }
   else if (d.op === 'labelAdd') { (A.ids || []).forEach(function (k) { if (CONTATOS[k] && !CONTATOS[k].etq) { CONTATOS[k].etq = A.labelId; CONTATOS[k].etqc = '#888'; } }); painelLista(); r = { ok: true }; }

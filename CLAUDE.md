@@ -2802,3 +2802,16 @@
   **Não testado no WhatsApp real:** o nome do arquivo no balão (seletor do documento) e a resposta da IA real (testado com IA simulada).
 - v115.2765 ("não to vendo o relatório"): o 💡 Ofertas e retorno também virou aba **💡 Ofertas** da Gestão (`PF_GE_ABAS` 'ofertas' → `<div id="pfOfRelBody">` + `pfOfRelRender` no fim do `pfGeRender`;
   o 📺 Apresentar sem janela põe a caixa da aba em tela cheia). Continua o card em Vendas. O relatório começa vazio — enche com o que for oferecido/mandado pelo WhatsApp (extensão 4.77) daqui pra frente.
+- v115.2766 + extensão **4.78** (Vitor: "quero uns botões aqui: NEGATIVO, SEM CADASTRO, ZEROU… botão direito inclusive em msg q eu mando… botão de avise-me… cliente consumidor me passar o modelo
+  de uma máquina ou componente, já perguntar se quero pôr na frota… falar que vou mandar um portfólio, já perguntar se pode mandar… agilidade"): 1) **🏷️ Resposta curta** — botão na coluna do PF
+  (`BOTOES` 'curta') abre `#pfwa-qk` (`qkAbrir`/`qkPinta`/`qkUsar`) com NEGATIVO / SEM CADASTRO / ZEROU (✏️ troca, `chrome.storage.local.qkPal`); texto selecionado antes do clique (`qkSelAntes`, mousedown
+  em captura no B) ou botão direito numa mensagem (acao `lerCods` → `pfExtLerCods`) = uma linha por código "5-515X - NEGATIVO" no fim da caixa. 2) **🔔 Avise-me** — botão 'avise' / botão direito
+  (`msg_avise`, `sel_avise`) → acao `aviseMe` → `pfExtAviseMe`: códigos do texto (seleção, mensagem ou o que o cliente mandou depois da sua última) → `meAvise_lista` no formato do `vendasEnviarAviseMe`,
+  ficha pela marca pedida senão a sem saldo, `origem:'whatsapp'`, nota no CRM; repetido = "já estava". 3) **Botão direito nas SUAS mensagens**: `wmMenu` reconhece também os itens do menu das suas
+  mensagens (Dados da mensagem, Reagir, Fixar, Apagar, Editar…); itens novos 🏷️/🔔 no menu do WhatsApp e no do Chrome (`fundo.js`). 4) **🚜 Máquina citada → frota**: `frotaVigiar` manda as mensagens
+  do cliente → `pfExtFrotaDetectar` (só quem NÃO é revenda/concessionária): modelo de máquina do `maqIndice().M` (com a marca no texto, ou modelo com letra+número único — só número precisa da marca;
+  `MAQ_MARCA_ALIAS` CAT/JD/MF…) ou componente do `.G` (com a marca ou palavra transmissão/eixo/motor… `PF_FR_COMP_RE`); código que existe no estoque não conta; já na frota ou "não é dele"
+  (`pf_frota_nao`, por navegador) fora. Cartão `#pfwa-ask` (`askPinta`/`askAcao`, fila) "✔ Pôr na frota" → `pfExtFrotaPor` (frotaLista + contador do tipo `frotaTipoAuto`, nota no CRM). 5) **📎 Portfólio
+  na hora**: `materialVigiar` — sua mensagem com portfólio/catálogo/tabela/folheto… + mandar/enviar/segue (ou o cliente pedindo) → `pfExtMaterialDe` acha nos **Atalhos de Texto tipo arquivo** (nome/arquivo/
+  gatilhos, `PF_MAT_SIN`) → "📎 Mandar X" → `pfExtMaterialArq` (baixa o arquivo, até 30 MB) → motor op **`enviarArq`** (`sendFileMessage`, documento/imagem) ou, sem motor, cola o arquivo na caixa (o
+  WhatsApp abre a prévia). Sem arquivo cadastrado = botão "Abrir Atalhos de Texto" (acao `atalhosAbrir`). Config `frota`/`mat` no ⚙️. Testado no simulador e com as funções do PF (`t4.js`/`t5.js`/`t6.js`).

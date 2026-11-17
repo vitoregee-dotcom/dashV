@@ -2835,3 +2835,7 @@
   `cad.fatSp` = SP, o selo da extensão acompanha) > SP. Faixa `#vendasFatBox` (`pfFatFaixaHtml`: Matriz SP | Filial SC, total por cada uma `pfFatTotais`, "usar" a mais barata; preço digitado
   não muda) e `pfFatSet`. Cadastro: select "🧾 Faturar por" (`clieFatPor`). PDF: linha "Faturamento: Triex Filial SC · CNPJ 00.609.213/0002-04" (`pfFatDocLinha`, `PF_FAT_ORIGENS`).
   Consumidor final dá o mesmo preço (DIFAL pela interna do destino). 2045005 (701,45) SP 21%: Matriz R$ 1.230,08 · Filial R$ 1.102,28. Captura `docs/referencias/faturar-por/feito.png`.
+- v115.2771 (Vitor: "esse Data Sheet, pra eu não esquecer"): ideia **📄 Data Sheet do produto** no `PF_FUNC_IDEIAS` (bloco na ficha do produto com especificações + o que vem junto + PDF
+  do fabricante, no Alt+B e na cotação com "mandar o PDF pro cliente"; IA preenche pelo PDF; "é um componente também" = liga no componente motor 1104A-44 em 🚜 Máquinas). 1º exemplo guardado: `data/datasheets/RR60131.pdf` (motor Perkins 1104A-44, MD Power — 56 kW/75 hp
+  @2200, aspirado, 4,4 L, 4 cil. em linha, 12 V, injeção mecânica Delphi, ordem 1-3-4-2, 768×597,6×769,6 mm, 291 kg, carcaça SAE 3, volante SAE 11,5, garantia 1 ano / 3 anos componentes principais).
+  Também anotada a **🗂️ Mesa de cada setor** (prévia `docs/referencias/mesa-setor/`, esperando ok + setor inicial). O "Relatório de quantidade de cotações" saiu das ideias (feito na 2767–2769).

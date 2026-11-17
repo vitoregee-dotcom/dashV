@@ -2020,8 +2020,10 @@
     var cfg = await peConfig(); if (!cfg || !cfg.ligado) { if (peR) { peR = null; pintaPe(); } return; }
     var ms = lerMensagens(); if (!ms.length) return;
     var last = ms[ms.length - 1], origem = '', gat = '';
-    if (last.eu) { if (cfg.deMim && ((peReMim && peReMim.test(peNorm(last.t))) || PE_PROMESSA_RE.test(peNorm(last.t)))) { origem = 'mim'; gat = last.t; } }
-    else if (cfg.doCliente) { for (var i = ms.length - 1; i >= 0 && i >= ms.length - 4; i--) { if (!ms[i].eu && ((peReCli && peReCli.test(peNorm(ms[i].t))) || peCaraDePedido(ms[i].t))) { origem = 'cliente'; gat = ms[i].t; break; } } }
+    // 4.79 - A pedido do Vitor ("não tinha que ir pro meu dia?" — cliente "Despachar hoje ok", você "Claro. mando sim", depois "Ótimo dia" + 🙏): olhava só a
+    // ÚLTIMA mensagem sua e as 4 últimas da conversa. Agora: as suas 4 últimas do fim da conversa e as 4 últimas do cliente nas 12 últimas mensagens.
+    if (cfg.deMim) { var nm = 0; for (var a = ms.length - 1; a >= 0 && a >= ms.length - 12 && nm < 4; a--) { if (!ms[a].eu) { if (nm) break; continue; } nm++; var ta = peNorm(ms[a].t); if ((peReMim && peReMim.test(ta)) || PE_PROMESSA_RE.test(ta)) { origem = 'mim'; gat = ms[a].t; break; } } }
+    if (!origem && cfg.doCliente) { var nc = 0; for (var i = ms.length - 1; i >= 0 && i >= ms.length - 12 && nc < 4; i--) { if (ms[i].eu) continue; nc++; if ((peReCli && peReCli.test(peNorm(ms[i].t))) || peCaraDePedido(ms[i].t)) { origem = 'cliente'; gat = ms[i].t; break; } } }
     // 4.77 - A pedido do Vitor ("algo mais automático"): promessa de MANDAR algo ("já te mando", "te envio a tabela", "te mando na quarta") ou o cliente
     // pedindo material ("me manda a tabela/foto/catálogo") vira 📨 lembrete de mandar (fecha sozinho quando você manda o arquivo/cotação/link). Só o que fala
     // de pedido/nota/faturar continua sendo 📦 emitir.

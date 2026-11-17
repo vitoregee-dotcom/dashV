@@ -2916,3 +2916,6 @@
   sua resposta sem texto (foto/PDF da cotação do JBoss) não tem `[data-pre-plain-text]` e não separava os pedidos da 4.80. O `selosVigiar` agora monta a sequência pelas
   LINHAS da conversa (`msgLinhas`): linha sua corta, e 1 h+ entre mensagens do cliente também corta. E "o 927" virava O000927: a regra "letra sozinha + número" trata
   o/a/e como palavra (só junta se o código existe no estoque).
+- v115.2791 ("aqui pode exibir o numero da cotação e nome fantasia… nas abas tbm" — lista "Cotações abertas" do dock e abas da cotação com "Nova #Nova"): a aba guardava o nome/nº de
+  quando abriu. `pfCotTabRot(t)` lê da cotação na hora (nº + fantasia, senão razão; "sem cliente") nas abas (`data-pfcottab`) e no flyout do dock; um relógio de 1,5 s atualiza o texto
+  da aba quando a cotação ganha número no salvar automático (sem redesenhar a janela).

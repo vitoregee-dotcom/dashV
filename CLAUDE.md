@@ -2902,3 +2902,6 @@
 - v115.2786 BUG ("pq não acha Sotreq aqui?" — Mapa → Fornecedores do mapa → + Adicionar): a janela "Incluir fornecedor(es) em todos os itens" (`mapaAbrirFornecedoresEmTodos`) e a de remover
   mostravam e buscavam só pela RAZÃO SOCIAL — fornecedor cadastrado só com nome/fantasia aparecia "(sem nome)" e a busca não achava. Agora mostra razão > fantasia > nome e busca nos três + código.
   A Sotreq (forn_1786130489075_b226c, 000053, CNPJ 34.151.100/0001-30, razão vazia) também está na lista `cad_fornecedores_deletados` — foi apagada do cadastro (perguntei ao Vitor se restaura).
+- v115.2787 + extensão **4.82** ("aqui não manda pro PF com o preço da Triex?" — PDF/print da cotação do JBoss lido pelo 🤖 Ler com IA do WhatsApp virava pedido e o preço era recalculado): o `pfExtCotarImg`
+  pede à IA pra dizer se é COTAÇÃO DA TRIEX (1ª linha TRIEX_JBOSS + JSON do `PF_JB_PROMPT`); se for, guarda em `window._pfExtJbPend` e devolve {jboss:true}; a extensão chama a acao `jbAbrir` (com foco no PF)
+  → `pfExtJbAbrir` abre o 📥 Cotação do JBoss já lido (cliente da conversa, preço da Triex, entra no ☀️ Meu dia). Pedido de cliente continua igual.

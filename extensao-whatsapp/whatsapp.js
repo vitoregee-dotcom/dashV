@@ -3379,13 +3379,13 @@
       var md = await motor('midia', { nome: src || '' }, 60000);
       if (!md || md.erro || !md.data) { cotando = false; cotErro = 'Não consegui baixar o PDF' + (md && md.erro ? ' (' + md.erro + ')' : '') + ' — baixe e use 📥 Subir lista na cotação do PF'; pintaCorpo(); return; }
       var r6 = await msg({ t: 'acao', acao: 'cotarImg', arg: { img: md.data, nome: md.nome, mime: md.mime, k: resp && resp.k, contato: resp && resp.contato } });
-      cotando = false; if (!r6 || r6.erro) cotErro = 'Não consegui ler o PDF' + (r6 && r6.msg ? ': ' + r6.msg : ''); else cot = r6; pintaCorpo(); return;
+      cotando = false; if (r6 && r6.jboss) { cotErro = ''; pintaCorpo(); await msg({ t: 'acao', acao: 'jbAbrir', focar: true, arg: {} }); cmToast('✔ É a cotação ' + (r6.num || '') + ' da Triex — abri no PF pra criar com o preço da Triex'); return; } if (!r6 || r6.erro) cotErro = 'Não consegui ler o PDF' + (r6 && r6.msg ? ': ' + r6.msg : ''); else cot = r6; pintaCorpo(); return;
     }
     if (id === 'img_ia') {
       if (!src) return; irAba('cot'); if (cotando) return; cotando = true; cot = null; cotErro = ''; pintaCorpo();
       var du2 = await urlParaDataUrl(src);
       var r3 = await msg({ t: 'acao', acao: 'cotarImg', arg: { img: du2, k: resp && resp.k, contato: resp && resp.contato } });
-      cotando = false; if (!r3 || r3.erro) cotErro = 'Não consegui ler a imagem' + (r3 && r3.msg ? ': ' + r3.msg : ''); else cot = r3; pintaCorpo(); return;
+      cotando = false; if (r3 && r3.jboss) { cotErro = ''; pintaCorpo(); await msg({ t: 'acao', acao: 'jbAbrir', focar: true, arg: {} }); cmToast('✔ É a cotação ' + (r3.num || '') + ' da Triex — abri no PF pra criar com o preço da Triex'); return; } if (!r3 || r3.erro) cotErro = 'Não consegui ler a imagem' + (r3 && r3.msg ? ': ' + r3.msg : ''); else cot = r3; pintaCorpo(); return;
     }
     if (/^cv_/.test(id) && !A.nome) { cmToast('Clique com o botão direito em cima da conversa na lista'); return; }
     if (id === 'cv_ficha') { var r5 = await msg({ t: 'acao', acao: 'fichaNome', focar: true, arg: { nome: A.nome } }); if (r5 && r5.ok === false) cmToast('Não achei esse cliente no PF'); return; }

@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2779</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2780</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2779</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2780</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -53675,7 +53675,25 @@ function vendasItemDistribuirLarguraSobra(){
   var disponivel=wrap.clientWidth;
   cols[idxDesc].style.width=Math.max(baseDescPx, disponivel-somaOutras)+'px';
   vendasItemAtualizarLarguraTabela();
+  try{vendasItemColsFixar();}catch(e){}
 }
+// v115.2780 - BUG antigo (lista de pendências: "colunas MARGEM/AÇÕES somem em telas de 1280"): em tela menor a tabela da cotação (soma das colunas, ~1.340 px)
+// passa da área visível e MARGEM/AÇÕES ficavam escondidas atrás da rolagem lateral. Não dá pra espremer (as larguras são do Vitor e têm mínimo pelo conteúdo):
+// quando a tabela não cabe, as últimas colunas (VENDA, MARGEM e AÇÕES, se forem as últimas) ficam PRESAS à direita (position:sticky) e o resto rola por baixo.
+function vendasItemColsFixar(){var tbl=document.getElementById('vendasItensTable');if(!tbl)return;var wrap=tbl.parentElement;if(!wrap)return;
+  var ths=[].slice.call(tbl.querySelectorAll('thead tr:first-child > th'));if(!ths.length)return;
+  var over=tbl.scrollWidth>wrap.clientWidth+2,fix=[];
+  for(var i=ths.length-1;i>=0&&fix.length<3;i--){var dc=ths[i].getAttribute('data-col');if(dc==='13'||dc==='12'||dc==='11'){if(getComputedStyle(ths[i]).display!=='none')fix.push(i);}else break;}
+  var limpar=function(c){if(c&&c._pfFix){c.style.position='';c.style.right='';c.style.zIndex='';c.style.boxShadow='';if(c._pfFixBg!=null)c.style.background=c._pfFixBg;c._pfFix=0;}};
+  var rows=[].slice.call(tbl.querySelectorAll('tr'));
+  rows.forEach(function(tr){[].slice.call(tr.children).forEach(limpar);});
+  if(!over||!fix.length)return;
+  var dir=0,pos={};fix.forEach(function(i){pos[i]=dir;dir+=ths[i].getBoundingClientRect().width;});
+  var primeiro=fix[fix.length-1];
+  rows.forEach(function(tr){var cs=tr.children;if(cs.length!==ths.length)return;var bgTr=getComputedStyle(tr).backgroundColor;
+    fix.forEach(function(i){var c=cs[i];if(!c)return;var bg=getComputedStyle(c).backgroundColor;if(!bg||bg==='rgba(0, 0, 0, 0)'||bg==='transparent')bg=(bgTr&&bgTr!=='rgba(0, 0, 0, 0)'&&bgTr!=='transparent')?bgTr:'var(--pf-card-bg,#fff)';
+      c._pfFixBg=c.style.background;c._pfFix=1;c.style.position='sticky';c.style.right=pos[i]+'px';c.style.zIndex=c.tagName==='TH'?'4':'2';c.style.background=bg;
+      if(i===primeiro)c.style.boxShadow='-6px 0 8px -6px rgba(0,0,0,.28)';});});}
 var _pfVendasResizeDebounce;
 window.addEventListener('resize',function(){
   clearTimeout(_pfVendasResizeDebounce);
@@ -54652,10 +54670,7 @@ function vendasRenderCotacao(el){
       '</tr>';
   }).join('');
 
-  var totalImed=(v.itens||[]).filter(function(it){return it.saldo>0;}).length;
-  var totalNeg=(v.itens||[]).filter(function(it){return it.saldo==null || it.saldo<=0;}).length;
-  var totalVal=(v.itens||[]).reduce(function(acc,it){return acc+(it.saldo>0&&it.custo?vendasCalcVenda(it.custo,v.uf,v.margem)*it.qtd:0);},0);
-  var codigosUnicos=Object.keys((v.itens||[]).reduce(function(m,it){m[(it.codigo||'').toUpperCase()]=1;return m;},{})).length;
+  var _rn=vendasResumoNums(v),totalImed=_rn.imed,totalNeg=_rn.neg,totalVal=_rn.val,codigosUnicos=_rn.itens,_negLinhas=(v.itens||[]).filter(function(it){return it.saldo==null||it.saldo<=0;}).length; // v115.2780 (botões de negativos continuam pelas LINHAS sem saldo)
 
   // v115.2059 - A pedido do Vitor ("quero uma tela cheia de informações pra me auxiliar, mas que não seja confusa"):
   // cabeçalho compacto -- cliente numa linha só (código, nome, cidade/UF, UF destino, condição, comprador e botões) e
@@ -54782,7 +54797,7 @@ function vendasRenderCotacao(el){
     '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--pf-fx-fundoSuave,#f0f4f8);display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start">'+
     (vendasSalvarPos()==='rodape'?'<span style="order:99;margin-left:auto">'+vendasSalvarBtnHtml()+'</span>':'')+
     '<button id="vendasEnviarPVBtn" onclick="pvCriarPedido()" style="display:none;background:var(--pf-fx-verde,#27AE60);border:none;border-radius:6px;padding:5px 10px;font-size:11px;color:#fff;font-weight:600;cursor:pointer;align-items:center;gap:4px">📦 Pedido de Venda</button>'+
-    (totalNeg>0?'<button onclick="vendasEnviarTodosNeg()" style="background:none;border:1px solid var(--pf-fx-vermelho,#C00000);border-radius:6px;padding:5px 10px;font-size:11px;color:var(--pf-fx-vermelho,#C00000);cursor:pointer">⚠️ Negativos→Mapa ('+totalNeg+')</button>':'')+
+    (_negLinhas>0?'<button onclick="vendasEnviarTodosNeg()" style="background:none;border:1px solid var(--pf-fx-vermelho,#C00000);border-radius:6px;padding:5px 10px;font-size:11px;color:var(--pf-fx-vermelho,#C00000);cursor:pointer">⚠️ Negativos→Mapa ('+totalNeg+')</button>':'')+
     // v115.1765 - A pedido do Vitor ("vamos agrupar os botões" -- mostrei
     // prévia, aprovou): Mapa/Mover/Excluir/Desconto geral/Revisar preços/
     // Zerar negativos/Remover duplicados viram um menu só ("⋮ Mais
@@ -54809,7 +54824,7 @@ function vendasRenderCotacao(el){
         '<div onclick="vendasFecharMaisAcoes();relSugestoesAbrir()" style="padding:9px 14px;font-size:13px;color:var(--pf-fx-textoEscuro,#1a2332);cursor:pointer;border-top:1px solid var(--pf-fx-fundoSuave,#f0f4f8)">💡 Sugestões de relacionamento</div>'+
         '<div onclick="pfChNovoDaCotacao()" style="padding:9px 14px;font-size:13px;color:var(--pf-fx-textoEscuro,#1a2332);cursor:pointer;border-top:1px solid var(--pf-fx-fundoSuave,#f0f4f8)">📨 Abrir chamado pra outro setor</div>'+ // v115.2491
         '<div onclick="vendasFecharMaisAcoes();pfOfertasAbrir()" style="padding:9px 14px;font-size:13px;color:var(--pf-fx-textoEscuro,#1a2332);cursor:pointer;border-top:1px solid var(--pf-fx-fundoSuave,#f0f4f8)">💡 Ofertas complementares</div>'+ // v115.2130 // v115.2030
-        (totalNeg>0?'<div onclick="vendasFecharMaisAcoes();vendasZerarNegativos()" style="padding:9px 14px;font-size:13px;color:var(--pf-fx-textoEscuro,#1a2332);cursor:pointer;border-top:1px solid var(--pf-fx-fundoSuave,#f0f4f8)">Zerar negativos</div>':'')+
+        (_negLinhas>0?'<div onclick="vendasFecharMaisAcoes();vendasZerarNegativos()" style="padding:9px 14px;font-size:13px;color:var(--pf-fx-textoEscuro,#1a2332);cursor:pointer;border-top:1px solid var(--pf-fx-fundoSuave,#f0f4f8)">Zerar negativos</div>':'')+
         // v115.1471 - A pedido do Vitor: remover itens duplicados da cotação
         // (mesma marca, código, preço de venda E quantidade -- os 4 iguais ao
         // mesmo tempo, não só o código repetido, já que o mesmo código pode
@@ -54831,10 +54846,10 @@ function vendasRenderCotacao(el){
       '</div>':'')+
     '</div>'+
     '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">'+
-    '<div style="background:#f7f8fc;border-radius:8px;padding:.75rem 1rem"><div style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0)">Itens</div><div style="font-size:20px;font-weight:500;color:var(--pf-fx-textoEscuro,#1a2332);margin-top:2px">'+codigosUnicos+'</div></div>'+
+    '<div style="background:#f7f8fc;border-radius:8px;padding:.75rem 1rem"><div style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0)">Itens</div><div id="vendasResumoItens" style="font-size:20px;font-weight:500;color:var(--pf-fx-textoEscuro,#1a2332);margin-top:2px">'+codigosUnicos+'</div></div>'+
     '<div style="background:#f7f8fc;border-radius:8px;padding:.75rem 1rem"><div style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0)">Imediatos</div><div id="vendasResumoImed" style="font-size:20px;font-weight:500;color:#166534;margin-top:2px">'+totalImed+'</div></div>'+
     '<div style="background:#f7f8fc;border-radius:8px;padding:.75rem 1rem"><div style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0)">Negativos</div><div id="vendasResumoNeg" style="font-size:20px;font-weight:500;color:var(--pf-fx-vermelho,#C00000);margin-top:2px">'+totalNeg+'</div></div>'+
-    '<div style="background:#f7f8fc;border-radius:8px;padding:.75rem 1rem"><div style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0)">Total venda</div><div id="vendasResumoVal" style="font-size:16px;font-weight:500;color:var(--pf-fx-marca,#1F4E79);margin-top:2px">R$ '+totalVal.toFixed(2).replace('.',',')+'</div></div>'+
+    '<div style="background:#f7f8fc;border-radius:8px;padding:.75rem 1rem"><div style="font-size:11px;color:var(--pf-fx-textoSuave,#8a9ab0)">Total venda</div><div id="vendasResumoVal" style="font-size:16px;font-weight:500;color:var(--pf-fx-marca,#1F4E79);margin-top:2px">R$ '+vendasMoedaBR(totalVal)+'</div></div>'+
     '</div>'+
     '<div id="vendasPdfInfoBox">'+vendasPdfInfoHtml(v)+'</div>'+ // v115.2530 - observações + informação dos itens (vão pro PDF do cliente)
     '</div>'+vendasPainelHtml()+'</div>'; // v115.2059 - fecha a coluna principal + painel lateral
@@ -55428,17 +55443,21 @@ function vendasAtualizarResumo(){
   var v=window._venda;
   if(!v||!v.itens)return;
   try{var _ib=document.getElementById('vendasPdfInfoLista');if(_ib)_ib.innerHTML=vendasPdfInfoItensHtml(v);}catch(eI){} // v115.2530
-  var totalImed=v.itens.filter(function(it){return it.saldo>0;}).length;
-  var totalNeg=v.itens.filter(function(it){return it.saldo==null||it.saldo<=0;}).length;
-  var totalVal=v.itens.reduce(function(acc,it){
-    var custo=it.custoOverride!=null?it.custoOverride:it.custo;
-    var venda=it.vendaOverride!=null?it.vendaOverride:(it.saldo>0&&custo?vendasCalcVenda(custo,v.uf,v.margem):0);
-    return acc+(it.saldo>0?(venda||0)*it.qtd:0);
-  },0);
-  var elImed=document.getElementById('vendasResumoImed');if(elImed)elImed.textContent=totalImed;
-  var elNeg=document.getElementById('vendasResumoNeg');if(elNeg)elNeg.textContent=totalNeg;
-  var elVal=document.getElementById('vendasResumoVal');if(elVal)elVal.textContent='R$ '+totalVal.toFixed(2).replace('.',',');
+  var R=vendasResumoNums(v);
+  var elImed=document.getElementById('vendasResumoImed');if(elImed)elImed.textContent=R.imed;
+  var elNeg=document.getElementById('vendasResumoNeg');if(elNeg)elNeg.textContent=R.neg;
+  var elIt=document.getElementById('vendasResumoItens');if(elIt)elIt.textContent=R.itens;
+  var elVal=document.getElementById('vendasResumoVal');if(elVal)elVal.textContent='R$ '+vendasMoedaBR(R.val);
 }
+// v115.2780 - BUG (resumo da cotação mostrava "Itens 7 · Imediatos 10"): "Itens" contava CÓDIGOS diferentes e Imediatos/Negativos contavam LINHAS — com o mesmo código
+// em 2 marcas os números não fechavam; e o desenho da tela somava o total sem o preço digitado à mão (só o 1º redesenho acertava). Agora uma conta só, por PEÇA
+// (código do cliente, senão o nosso): imediato = alguma marca da peça com saldo; total = linhas com saldo, com o preço digitado; valor com ponto de milhar.
+function vendasResumoNums(v){var its=(v&&v.itens)||[],pecas={};
+  its.forEach(function(it){var k=String(it.codigoOriginal||it.codigo||'').toUpperCase().replace(/\s+/g,'');if(!k)k='#'+Math.random();pecas[k]=pecas[k]||(it.saldo>0);if(it.saldo>0)pecas[k]=true;});
+  var ks=Object.keys(pecas),imed=ks.filter(function(k){return pecas[k];}).length;
+  var val=its.reduce(function(acc,it){if(!(it.saldo>0))return acc;var custo=it.custoOverride!=null?it.custoOverride:it.custo;
+    var venda=it.vendaOverride!=null?it.vendaOverride:(custo?vendasCalcVenda(custo,v.uf,v.margem):0);return acc+(venda||0)*(+it.qtd||0);},0);
+  return {itens:ks.length,imed:imed,neg:ks.length-imed,val:val};}
 // v115.2070 - A pedido do Vitor ("sempre que abrir essas janelas quero poder mover elas, pra ainda ver a tela de trás
 // -- em todo o sistema"): arrastar QUALQUER janela que abre por cima (modal) pela faixa de cima (título). Regra única,
 // sem mexer em cada tela: a "janela" é o filho direto de um fundo escuro fixo de tela cheia (padrão de todos os modais

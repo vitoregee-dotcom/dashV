@@ -2852,3 +2852,5 @@
   no `pfMsGfPassa`: família = `pfNcFamilia` pela descrição (`pfMsFamDe`), curva = a da planilha (`pfMsCurvaDe`, índice `pfMsCurvaIdx`), mapa só por fornecedor/urgente (`soForn`; `pfMsMapas` agora
   devolve `forns`). 🔥 urgente = casada/urgente · zerado/perdeu venda/Avise-me/acaba antes de chegar · mapa casado ou parado 3+ dias · ordem atrasada ou com item casado. O ⛶ de ampliar coluna (Mesa e
   Chamados) virou ícone desenhado `pfIcAmpliar()` — em alguns computadores aparecia um quadradinho vazio. Captura `docs/referencias/mesa-filtros/feito-geral.png`.
+- v115.2774 BUG ("aqui não tem foto?" — Alt+B do RR60131): o card vinha da planilha do estoque, que não tem foto. Sem foto, o `pfItemCardAbrir` usa a da ficha do produto no cadastro
+  (mesmo código, só letras+números) e, sem ela, a 1ª foto do 📄 Data Sheet (`pfDsDoCod` + `pfDsAbs`). Captura `docs/referencias/data-sheet/feito-altb.png`.

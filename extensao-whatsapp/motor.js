@@ -61,6 +61,13 @@
       var data = await new Promise(function (ok) { var fr = new FileReader(); fr.onload = function () { ok(fr.result); }; fr.onerror = function () { ok(null); }; fr.readAsDataURL(bl); });
       return data ? { data: data, mime: m.mimetype || bl.type || '', nome: m.filename || '' } : { erro: 'naoBaixou' };
     },
+    // 4.78 - 📎 mandar um arquivo (portfólio, catálogo…) na conversa aberta, direto
+    enviarArq: async function (a) {
+      var ch = W().chat.getActiveChat(); if (!ch) return { erro: 'semConversa' };
+      var tp = /^image\//.test(a.mime || '') ? 'image' : 'document';
+      await W().chat.sendFileMessage(ser(ch.id), a.data, { type: tp, filename: a.nome || 'arquivo', caption: a.legenda || '', createChat: false });
+      return { ok: true };
+    },
     abrir: async function (a) { await W().chat.openChatBottom(a.id); return { ok: true }; }, // 4.69 - abrir conversa pela lista do filtro
     naoLida: async function (a) { await W().chat.markIsUnread(a.id); return { ok: true }; },
     // todas as conversas de pessoa, com quantas listas/etiquetas cada uma tem (pra pôr na lista "Cliente PF" só quem não tem nenhuma)

@@ -540,7 +540,7 @@
   // ═══ 3) PAINEL + BOTÕES ═══
   var P = null, B = null, AV = null, ultimo = '', aberto = false, visual = 'A', aba = 'cot', resp = null, cot = null, cotErro = '', cotando = false, saldoR = null, statusLote = '', contatoAt = null, avisoFechado = '', avisoLigado = true, botsMin = false; // 4.32 - A pedido do Vitor: o painel vem OCULTO por padrão (clica no "PF" da borda pra abrir)
   // 1.8 - 💡 ofertas e respostas + ⚠ já ofereci + 📢 status
-  var OF = null, JA = null, ST = null, ofPend = [], ofSig = '', ofSel = {}, ofIgn = {}, digAnt = '', jaR = null, jaFechado = '';
+  var QK = null, ASK = null, askL = [], askSig = { fr: '', mat: '' }, askNao = {}, qkSelAntes = '', OF = null, JA = null, ST = null, ofPend = [], ofSig = '', ofSel = {}, ofIgn = {}, digAnt = '', jaR = null, jaFechado = '';
   // 2.0 - Menu do PF em volta do WhatsApp (barra de cima + coluna de ícones + etiquetas por conversa)
   var MENU = null, RAIL = null, menuLig = true, menuCor = 'discreta', menuFiltro = '', sitCache = {}, sitSig = '', sitTimer = null; // 4.32 - A pedido do Vitor: o Menu do PF vem no modo DISCRETO por padrão
   // 2.2 - 📌 "vou verificar depois" → pendência automática (com desfazer)
@@ -549,7 +549,7 @@
   var PE = null, peR = null, peSig = '', peCfg = null, peCfgTs = 0, peReMim = null, peReCli = null;
   var VERIF_RE = /\bvou (anotar|verificar|conferir|checar|ver\b|dar uma (olhada|conferida)|confirmar|olhar|pesquisar|te retornar|te dar)|deixa eu (ver|verificar|conferir|checar|dar uma olhada|olhar)|preciso (verificar|conferir|ver no|checar)|j[aá] (te )?(retorno|verifico|confiro)|vou (te )?(retornar|dar) (o|um|a)/i;
   chrome.storage.local.get(['ofIgn'], function (s) { ofIgn = s.ofIgn || {}; });
-  var BOTOES = [['cot', '📄', 'Cotar no PF'], ['saldo', '📦', 'Saldo'], ['ficha', '🤝', 'Ficha'], ['audio', '🎤', 'Descrever áudio'], ['lemb', '⏰', 'Lembrete'], ['prontas', '⚡', 'Prontas'], ['assist', '🤖', 'Assistente'], ['pdf', '📤', 'PDF']];
+  var BOTOES = [['cot', '📄', 'Cotar no PF'], ['curta', '🏷️', 'Resposta curta'], ['avise', '🔔', 'Avise-me'], ['saldo', '📦', 'Saldo'], ['ficha', '🤝', 'Ficha'], ['audio', '🎤', 'Descrever áudio'], ['lemb', '⏰', 'Lembrete'], ['prontas', '⚡', 'Prontas'], ['assist', '🤖', 'Assistente'], ['pdf', '📤', 'PDF']];
   function logoSvg(f, l) { return '<svg width="24" height="24" viewBox="0 0 40 40"><rect width="40" height="40" rx="10" fill="' + f + '"/><rect x="9" y="8" width="4" height="22" rx="1.5" fill="' + l + '"/><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="' + l + '" stroke-width="4" stroke-linecap="round"/><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="33" r="2" fill="#E67E22"/></svg>'; }
 
   // 2.4 - ❓ Ajuda "Como funciona" (pedido do Vitor: explicar cada função em linguagem simples pros outros usuários).
@@ -557,7 +557,7 @@
   var ajuda = false;
   // 3.4 - ⚙️ Configurações (A pedido do Vitor: "coloca botão de eu ligar ou desligar essas configurações. igual no Watidy"):
   // cada função da extensão liga/desliga aqui; guardado por navegador (chrome.storage.local 'cfg'). Menu e aviso de cotação usam as chaves que já existiam.
-  var config = false, CFG = { bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true, audio: true, audioBotoes: false, sug: true, waEtqOff: true, rrselo: true };
+  var config = false, CFG = { frota: true, mat: true, bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true, audio: true, audioBotoes: false, sug: true, waEtqOff: true, rrselo: true };
   var CFG_LISTA = [
     ['menu', '🧭', 'Menu do PF em volta do WhatsApp', 'Barra de grupos em cima (Linha Amarela, Linha Agrícola…) e a coluna de atalhos à esquerda.'],
     ['etq', '🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome da lista: cidade e grupo do cliente, fornecedor do PF, cotação aberta, mapa.'],
@@ -573,6 +573,8 @@
     ['sug', '💡', 'Sugestões pra oferecer', 'Na aba Cliente: o que clientes parecidos compram e ele não. Na aba Cotação: o que costuma ir junto com as peças pedidas.'],
     ['audio', '🎤', 'Descrever áudios', 'Embaixo de cada áudio aparece "📝 Descrever este áudio". Clique e a descrição (o que a pessoa falou) aparece ali mesmo. O 🎤 da coluna liga/desliga.'],
     ['audioBotoes', '💬', 'Botões na descrição do áudio', 'Mostra Pôr na conversa, Copiar e Cotar no PF embaixo da descrição. Vem desligado.'],
+    ['frota', '🚜', 'Máquina citada → frota do cliente', 'Quando o cliente (que não é revenda) fala o modelo de uma máquina ou componente, o PF pergunta se põe na frota dele.'],
+    ['mat', '📎', 'Mandar o portfólio na hora', 'Quando você escreve que vai mandar o portfólio/catálogo/tabela, o PF acha o arquivo nos Atalhos de Texto e pergunta se manda agora.'],
     ['verif', '📌', 'Anotar "vou verificar" sozinho', 'Quando você escreve "vou verificar / já te retorno", vira pendência e próxima ação no PF.']];
   function cfgOn(k) { return k === 'menu' ? menuLig : k === 'aviso' ? avisoLigado : CFG[k] !== false; }
   chrome.storage.local.get(['cfg'], function (s) { if (s.cfg) for (var k in s.cfg) CFG[k] = s.cfg[k]; CFG.waEtqOff = true; }); // 4.42 - A pedido do Vitor ("quero sempre a etiqueta do whats escondida")
@@ -612,6 +614,11 @@
       ['🔌', 'Precisa do PF aberto', 'Deixe uma aba do PartsFlow aberta (já logado) neste mesmo Chrome — pode ser em outra janela. Se aparecer "O PF não respondeu", dê F5 na aba do PartsFlow.'],
       ['🟢', 'Conectado ao PF', 'Do lado da versão, lá em cima: verde "● Conectado ao PF" = tudo certo · laranja "Dê F5 no PF" = a aba do PF está aberta mas parou de responder · vermelho "PF fechado" = abra o PartsFlow. Clique nele pra conferir na hora. A bolinha também aparece no "PF" da barra de cima.'],
       ['🔁', 'Atualizou a extensão?', 'Depois de instalar uma versão nova, recarregue a aba do WhatsApp e a do PF (F5).']]],
+    ['Novos (4.78)', [
+      ['🏷️', 'Resposta curta', 'Botão 🏷️ da coluna: NEGATIVO, SEM CADASTRO, ZEROU (dá pra trocar em ✏️). Selecione o código na mensagem antes e sai "5-515X - NEGATIVO". Pelo botão direito numa mensagem com códigos aparece um por código.'],
+      ['🔔', 'Avise-me', 'Botão 🔔 da coluna (ou botão direito na mensagem): os códigos selecionados — ou os que o cliente mandou — vão pro Avise-me do PF com o nome desse cliente.'],
+      ['🚜', 'Frota', 'Cliente que não é revenda citou o modelo de uma máquina ou componente (CASE W20E, transmissão 28000…)? Aparece "pôr na frota?" — um clique e está no cadastro dele.'],
+      ['📎', 'Portfólio na hora', 'Escreveu "vou te mandar nosso portfólio"? O PF acha o arquivo nos Atalhos de Texto (tipo arquivo) e pergunta se manda agora. Cadastre lá o portfólio, catálogo e tabela.']]],
     ['Botão direito e Alt+B', [
       ['🖱️', 'Botão direito', 'Clique com o botão direito no WhatsApp → 🧩 PartsFlow. Em código selecionado: Ver no PF, Pôr na cotação de hoje, Cotar só esse. Numa mensagem: Cotar, Lembrete, Salvar como resposta rápida, Anotar na ficha (e Lançar no mapa, se for fornecedor). Numa foto: Ler com IA e cotar. Numa conversa da lista: Abrir ficha, Trocar grupo/tipo, Grau de intimidade, liga/desliga a mensagem automática.'],
       ['🔎', 'Alt+B', 'Selecione o código na mensagem (pode ser a frase inteira — o PF puxa só os códigos) e aperte Alt+B: aparece o cartão com descrição, marcas, saldo, preço desse cliente, 🔗 Monta com e o botão do catálogo dos Componentes Cardan. Sem nada selecionado, abre uma caixinha pra digitar o código.'],
@@ -684,6 +691,9 @@
     B = document.createElement('div'); B.id = 'pfwa-bots'; document.body.appendChild(B); botsArrastoLigar();
     AV = document.createElement('div'); AV.id = 'pfwa-aviso'; document.body.appendChild(AV);
     OF = document.createElement('div'); OF.id = 'pfwa-of'; document.body.appendChild(OF);
+    QK = document.createElement('div'); QK.id = 'pfwa-qk'; document.body.appendChild(QK); // 4.78
+    ASK = document.createElement('div'); ASK.id = 'pfwa-ask'; document.body.appendChild(ASK);
+    B.addEventListener('mousedown', function () { qkSelAntes = String(window.getSelection() || '').trim(); }, true);
     JA = document.createElement('div'); JA.id = 'pfwa-ja'; document.body.appendChild(JA);
     ST = document.createElement('div'); ST.id = 'pfwa-st'; document.body.appendChild(ST);
     MENU = document.createElement('div'); MENU.id = 'pfwa-menu'; document.body.appendChild(MENU);
@@ -695,7 +705,7 @@
     P.querySelector('.pfwa-aba').onclick = function () { aberto = !aberto; chrome.storage.local.set({ painelAberto: aberto }); pinta(); };
     P.querySelector('.pfwa-x').onclick = function () { aberto = false; chrome.storage.local.set({ painelAberto: false }); pinta(); };
     P.querySelectorAll('[data-vis]').forEach(function (el) { el.onclick = function () { visual = el.getAttribute('data-vis'); chrome.storage.local.set({ visual: visual }); pinta(); }; });
-    [P, B, AV, OF, JA, ST, MENU, RAIL, VF, PE, SVB, SV].forEach(function (el) { el.addEventListener('click', clique); });
+    [P, B, AV, OF, JA, ST, MENU, RAIL, VF, PE, SVB, SV, QK, ASK].forEach(function (el) { el.addEventListener('click', clique); });
     chrome.storage.local.get(['painelAberto', 'visual', 'avisoLigado', 'botsMin', 'menuLig', 'menuCor', 'menuFiltro'], function (s) { if (s.painelAberto === false) aberto = false; if (s.visual === 'D' || s.visual === 'A') visual = s.visual; if (s.avisoLigado === false) avisoLigado = false; if (s.botsMin) botsMin = true; if (s.menuLig === false) menuLig = false; if (s.menuCor === 'discreta' || s.menuCor === 'azul') menuCor = s.menuCor; if (s.menuFiltro) menuFiltro = s.menuFiltro; pinta(); pintarMenu(); });
   }
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && svAberto && SV) { svAberto = false; SV.style.display = 'none'; e.stopPropagation(); } }, true);
@@ -786,6 +796,12 @@
       if (st) st.textContent = (r && r.ok) ? '✔ Confira a lista no PF' : 'Abra uma aba do PF primeiro';
       return;
     }
+    if (ac === 'b-curta') { qkAbrir(qkSelAntes ? [qkSelAntes] : null); return; } // 4.78
+    if (ac === 'b-avise') { aviseMe(qkSelAntes || msgsPedido().filter(function (m) { return !m.eu; }).map(function (m) { return m.t; }).join('\n')); return; }
+    if (ac === 'qk') { qkUsar(b.getAttribute('data-c') || '', arg); return; }
+    if (ac === 'qkEdit') { var nv = prompt('Respostas curtas (separe por vírgula):', qkPal.join(', ')); if (nv != null) { var l2 = nv.split(/[,;\n]+/).map(function (x) { return x.trim().toUpperCase(); }).filter(Boolean); if (l2.length) { qkPal = l2; chrome.storage.local.set({ qkPal: qkPal }); } qkPinta(); } return; }
+    if (ac === 'qkX') { QK.style.display = 'none'; return; }
+    if (ac === 'ask') { askAcao(+arg, b.getAttribute('data-o') || ''); return; }
     if (ac === 'b-cot' || ac === 'cotar') { irAba('cot'); cotar(); return; }
     if (ac === 'b-saldo') { var sel = String(window.getSelection() || '').trim(); irAba('pecas'); if (sel && sel.length < 30) { var i = P.querySelector('.pfwa-saldo-in'); if (i) i.value = sel; buscarSaldo(sel); } else setTimeout(function () { var i = P.querySelector('.pfwa-saldo-in'); if (i) i.focus(); }, 50); return; }
     if (ac === 'b-ficha') { if (resp && resp.k) msg({ t: 'acao', acao: 'ficha', arg: resp.k, focar: true }); else irAba('cli'); return; }
@@ -1761,6 +1777,8 @@
     B.style.left = (visual === 'D' ? (r.left + r.width / 2) : (r.left + 12)) + 'px'; B.style.top = tp + 'px';
     B._pfBase = baseTop; B._pfMin = minT; B._pfMax = maxT;
     if (AV) { AV.style.left = (r.left + 70) + 'px'; AV.style.width = Math.max(260, r.width - 140) + 'px'; AV.style.top = (r.top + hh + 10) + 'px'; }
+    if (QK && QK.style.display === 'block') { var bb = B.getBoundingClientRect(); QK.style.left = (visual === 'D' ? Math.max(r.left + 10, bb.left) : bb.right + 8) + 'px'; QK.style.top = (visual === 'D' ? Math.max(r.top + hh + 6, bb.top - QK.offsetHeight - 8) : Math.max(r.top + hh + 6, Math.min(bb.top, r.bottom - fh - QK.offsetHeight - 8))) + 'px'; }
+    if (ASK && ASK.style.display === 'block') { ASK.style.left = (r.left + 70) + 'px'; ASK.style.width = Math.max(300, Math.min(520, r.width - 140)) + 'px'; ASK.style.bottom = (window.innerHeight - r.bottom + fh + 10) + 'px'; }
     if (OF) { OF.style.left = (r.left + 70) + 'px'; OF.style.width = Math.max(300, Math.min(560, r.width - 140)) + 'px'; OF.style.top = (r.top + hh + (AV && AV.style.display === 'flex' ? 64 : 10)) + 'px'; }
     if (JA) { JA.style.left = (r.left + 16) + 'px'; JA.style.width = Math.max(300, r.width - 32) + 'px'; JA.style.bottom = (window.innerHeight - r.bottom + fh + 8) + 'px'; }
     if (VF && VF.style.display === 'flex') { VF.style.left = (r.left + 16) + 'px'; VF.style.width = Math.max(300, r.width - 32) + 'px'; VF.style.bottom = (window.innerHeight - r.bottom + fh + 8 + (JA && JA.style.display === 'flex' ? 70 : 0)) + 'px'; }
@@ -1792,8 +1810,8 @@
     // UMA vez só, ao abrir a conversa; se o PF ainda estava carregando (modo monitor recarrega por dentro), a resposta vinha vazia e ficava presa no erro.
     // Agora, com erro na tela, pergunta de novo a cada 5 s até o PF responder.
     if (chave === ultimo && resp && resp.erro && resp.erro !== 'recarregar' && Date.now() - (window._pfwaQuemTent || 0) > 5000) { window._pfwaQuemTent = Date.now(); ultimo = ''; }
-    if (chave === ultimo) { pintaAviso(nCod); ofertasVigiar(); digitandoVigiar(); verificarVigiar(); pedidoVigiar(); cumpridoVigiar(); return; }
-    ultimo = chave; cot = null; cotErro = ''; saldoR = null; ofPend = []; ofSig = ''; jaR = null; digAnt = ''; jaFechado = ''; vfR = null; vfSig = ''; peR = null; peSig = ''; pintaOferta(); pintaJa(); pintaVf(); pintaPe();
+    if (chave === ultimo) { pintaAviso(nCod); ofertasVigiar(); digitandoVigiar(); verificarVigiar(); pedidoVigiar(); cumpridoVigiar(); frotaVigiar(); materialVigiar(); return; }
+    ultimo = chave; cot = null; cotErro = ''; saldoR = null; ofPend = []; ofSig = ''; jaR = null; digAnt = ''; jaFechado = ''; vfR = null; vfSig = ''; peR = null; peSig = ''; askL = []; askSig = { fr: '', mat: '' }; if (QK) QK.style.display = 'none'; askPinta(); pintaOferta(); pintaJa(); pintaVf(); pintaPe();
     if (!c) { resp = null; pinta(); pintaAviso(0); return; }
     if (c.grupo) { resp = { grupo: 1 }; pinta(); return; }
     resp = null; pinta();
@@ -1803,6 +1821,104 @@
     pinta(); pintaAviso(nCod); ofertasVigiar();
   }
 
+  // ═══ 4.78 - A pedido do Vitor ("quero uns botões aqui: NEGATIVO, SEM CADASTRO, ZEROU… botão de avise-me… cliente consumidor passar o modelo
+  // de uma máquina ou componente, já perguntar se quero pôr na frota… falar que vou mandar o portfólio, já perguntar se pode mandar… agilidade") ═══
+  // 🏷️ RESPOSTA CURTA: o botão da coluna abre as palavras; com código selecionado (ou pelo botão direito numa mensagem com códigos) sai "COD - PALAVRA"
+  var qkPal = ['NEGATIVO', 'SEM CADASTRO', 'ZEROU'], qkCods = null;
+  chrome.storage.local.get(['qkPal'], function (s) { if (Array.isArray(s.qkPal) && s.qkPal.length) qkPal = s.qkPal; });
+  function qkAbrir(cods) { if (!QK) return; qkCods = cods && cods.length ? cods.map(function (c) { return String(c || '').trim().split(/\s+/)[0].slice(0, 30); }).filter(Boolean) : null; qkPinta(); }
+  function qkPinta() {
+    if (!QK) return;
+    var chips = function (c) { return qkPal.map(function (w) { return '<span data-acao="qk" data-c="' + esc(c) + '" data-arg="' + esc(w) + '" class="pfwa-qkc">' + esc(w) + '</span>'; }).join(''); };
+    QK.innerHTML = '<div class="pfwa-qkt"><b>🏷️ Resposta curta</b><span data-acao="qkEdit" class="pfwa-qke" title="Trocar as palavras">✏️</span><span data-acao="qkX" class="pfwa-qke" title="Fechar (Esc)">✕</span></div>' +
+      (qkCods ? qkCods.map(function (c) { return '<div class="pfwa-qkl"><b>' + esc(c) + '</b>' + chips(c) + '</div>'; }).join('') : '<div class="pfwa-qkl">' + chips('') + '</div><div class="pfwa-qkd">Dica: selecione o código na mensagem antes de clicar e sai "5-515X - NEGATIVO".</div>');
+    QK.style.display = 'block'; posicionar();
+  }
+  function qkUsar(cod, w) {
+    var cx = caixaTexto(); if (!cx) { audToast('Abra uma conversa'); return; }
+    var tem = (cx.innerText || '').trim().length > 0, linha = (cod ? cod + ' - ' : '') + w;
+    try { cx.focus(); var rg = document.createRange(); rg.selectNodeContents(cx); rg.collapse(false); var sl = window.getSelection(); sl.removeAllRanges(); sl.addRange(rg); } catch (e) { }
+    escreverNaCaixa((tem ? (cod ? '\n' : ' ') : '') + linha);
+    if (qkCods) { qkCods = qkCods.filter(function (c) { return c !== cod; }); if (!qkCods.length) QK.style.display = 'none'; else qkPinta(); }
+    else QK.style.display = 'none';
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && QK && QK.style.display === 'block') { QK.style.display = 'none'; e.stopPropagation(); } }, true);
+  document.addEventListener('mousedown', function (e) { if (QK && QK.style.display === 'block' && !e.target.closest('#pfwa-qk, #pfwa-bots, .pfwa-wm')) QK.style.display = 'none'; }, true);
+  // 🔔 AVISE-ME: códigos do texto (seleção, mensagem ou o que o cliente mandou) → Avise-me do PF com o cliente da conversa
+  async function aviseMe(texto) {
+    texto = String(texto || '').trim(); if (!texto) { audToast('Selecione o código (ou clique com o botão direito na mensagem)'); return; }
+    var r = await msg({ t: 'acao', acao: 'aviseMe', arg: { texto: texto, k: resp && resp.k, contato: (contatoAt && contatoAt.nome) || '', tel: (contatoAt && contatoAt.tel) || '' } });
+    if (!r || r.erro) { audToast('O PF não respondeu — dê F5 na aba do PartsFlow'); return; }
+    if (!r.ok) { audToast(r.msg || 'Não achei código'); return; }
+    var nov = (r.itens || []).filter(function (x) { return !x.ja; }), ja = (r.itens || []).filter(function (x) { return x.ja; });
+    audToast((nov.length ? '🔔 Avise-me: ' + nov.map(function (x) { return x.cod + (x.marca ? ' ' + x.marca : ''); }).join(', ') + (r.cliente ? ' — ' + r.cliente : '') : '') + (ja.length ? (nov.length ? ' · ' : '🔔 ') + ja.map(function (x) { return x.cod; }).join(', ') + ' já estava' : ''));
+  }
+  // 🚜 FROTA e 📎 PORTFÓLIO: cartão de pergunta em cima da caixa de texto (fila; um por vez)
+  function askPinta() {
+    if (!ASK) return; var q = askL[0];
+    if (!q || !contatoAt) { ASK.style.display = 'none'; return; }
+    var mais = askL.length > 1 ? ' <small>(+' + (askL.length - 1) + ')</small>' : '';
+    if (q.tipo === 'frota') ASK.innerHTML = '<div class="pfwa-askt">🚜 ' + (q.comp ? 'Componente' : 'Máquina') + ' citada: <b>' + esc([q.marca, q.modelo].filter(Boolean).join(' ')) + '</b>' + (q.equip ? ' <small>(' + esc(String(q.equip).toLowerCase()) + ')</small>' : '') + mais + '</div>' +
+      '<div class="pfwa-asks">Pôr na frota de ' + esc(q.cliente || 'esse cliente') + '?</div>' +
+      '<div class="pfwa-askb"><button data-acao="ask" data-arg="0" data-o="sim" class="ok">✔ Pôr na frota</button><button data-acao="ask" data-arg="0" data-o="nao">Não é dele</button><button data-acao="ask" data-arg="0" data-o="x">Agora não</button></div>';
+    else if (q.tipo === 'mat') ASK.innerHTML = '<div class="pfwa-askt">📎 Você falou em mandar ' + esc(q.palavra || 'o material') + mais + '</div>' +
+      (q.mats.length ? '<div class="pfwa-asks">Mando agora?</div><div class="pfwa-askb">' + q.mats.map(function (m, i) { return '<button data-acao="ask" data-arg="0" data-o="m' + i + '" class="ok">📎 Mandar ' + esc(m.nome) + '</button>'; }).join('') + '<button data-acao="ask" data-arg="0" data-o="x">Agora não</button></div>'
+        : '<div class="pfwa-asks">Não achei esse arquivo no PF. Cadastre em <b>Atalhos de Texto</b> (tipo arquivo, ex.: "Portfólio") e da próxima vez ele vai sozinho.</div><div class="pfwa-askb"><button data-acao="ask" data-arg="0" data-o="atalhos" class="ok">Abrir Atalhos de Texto</button><button data-acao="ask" data-arg="0" data-o="x">Fechar</button></div>');
+    ASK.style.display = 'block'; posicionar();
+  }
+  async function askAcao(i, o) {
+    var q = askL[i]; if (!q) return; askL.splice(i, 1);
+    if (q.tipo === 'frota') {
+      if (o === 'sim') { var r = await msg({ t: 'acao', acao: 'frotaPor', arg: { k: q.k, marca: q.marca, modelo: q.modelo, equip: q.equip } }); audToast(r && r.ok ? (r.ja ? 'Já estava na frota' : '🚜 ' + q.modelo + ' foi pra frota do cliente' + (r.tipo ? ' (' + r.tipo + ')' : '')) : ((r && r.msg) || 'Não deu — abra o PF')); }
+      else if (o === 'nao') msg({ t: 'acao', acao: 'frotaNao', arg: { k: q.k, chave: q.chave } });
+      askNao['fr|' + q.k + '|' + q.chave] = 1;
+    }
+    if (q.tipo === 'mat') {
+      if (o === 'atalhos') msg({ t: 'acao', acao: 'atalhosAbrir', focar: true, arg: {} });
+      else if (/^m\d$/.test(o)) materialMandar(q.mats[+o.slice(1)]);
+    }
+    askPinta();
+  }
+  async function frotaVigiar() {
+    if (!CFG.frota || !resp || resp.tipo !== 'cliente' || !resp.k || !contatoAt || contatoAt.grupo) return;
+    var ms = lerMensagens().filter(function (m) { return !m.eu; }).slice(-8); if (!ms.length) return;
+    var sig = ultimo + '|' + ms.length + '|' + (ms[ms.length - 1].t || '').slice(-60); if (sig === askSig.fr) return; askSig.fr = sig;
+    var ch = ultimo, r = await msg({ t: 'acao', acao: 'frotaDetectar', arg: { k: resp.k, msgs: ms } });
+    if (ch !== ultimo || !r || !Array.isArray(r.l)) return;
+    r.l.forEach(function (x) { if (askNao['fr|' + resp.k + '|' + x.chave] || askL.some(function (q) { return q.tipo === 'frota' && q.chave === x.chave; })) return;
+      askL.push({ tipo: 'frota', k: resp.k, chave: x.chave, marca: x.marca, modelo: x.modelo, equip: x.equip, comp: x.comp, cliente: r.cliente }); });
+    askPinta();
+  }
+  var MAT_RE = /(portf?i?olio|portifolio|catalogo|tabela|folheto|apresentacao|institucional|lancamento)/;
+  async function materialVigiar() {
+    if (!CFG.mat || !contatoAt || contatoAt.grupo) return;
+    var ms = lerMensagensDoc(); if (!ms.length) return; var last = ms[ms.length - 1], t = peNorm(last.t || '');
+    if (last.doc || !MAT_RE.test(t)) return;
+    var meu = last.eu && /(mand|envi|pass|encaminh|segue|sigo)/.test(t), pediu = !last.eu && PROM_CLI_RE.test(t);
+    if (!meu && !pediu) return;
+    var sig = ultimo + '|' + ms.length + '|' + t.slice(0, 80); if (sig === askSig.mat || askNao['mat|' + sig]) return; askSig.mat = sig; askNao['mat|' + sig] = 1;
+    var ch = ultimo, r = await msg({ t: 'acao', acao: 'materialDe', arg: { texto: last.t } });
+    if (ch !== ultimo || !r || !r.ok) return;
+    if (!r.mats.length && !meu) return; // o cliente pediu e não tem arquivo cadastrado: o 📨 lembrete já cuida
+    askL.push({ tipo: 'mat', mats: r.mats || [], palavra: r.palavra || 'o material' }); askPinta();
+  }
+  async function materialMandar(m) {
+    if (!m) return; audToast('📎 Pegando ' + m.nome + ' no PF…');
+    var r = await msg({ t: 'acao', acao: 'materialArq', arg: { id: m.id } });
+    if (!r || !r.ok || !r.data) { audToast((r && r.msg) || 'O PF não respondeu — dê F5 na aba do PartsFlow'); return; }
+    if (motorOk || await motorChecar()) {
+      var e = await motor('enviarArq', { data: r.data, nome: r.nome, mime: r.mime }, 120000);
+      if (e && e.ok) { audToast('✔ ' + r.nome + ' enviado'); return; }
+    }
+    // sem o motor: cola o arquivo na conversa — o WhatsApp abre a prévia e você aperta enviar
+    try {
+      var mm = String(r.data).match(/^data:([^;]+);base64,(.*)$/), bin = atob(mm[2]), u8 = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      var f = new File([u8], r.nome, { type: mm[1] }), dt = new DataTransfer(); dt.items.add(f);
+      var cx = caixaTexto(); if (!cx) throw new Error('sem caixa'); cx.focus();
+      cx.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+      audToast('📎 ' + r.nome + ' na conversa — confira e aperte enviar');
+    } catch (x) { audToast('Não consegui pôr o arquivo na conversa (' + (x.message || x) + ')'); }
+  }
   // ═══ 💡 OFERTAS (1.8) ═══
   // Você ofereceu algo (peça, família, marca) e o cliente respondeu → cartão pra salvar a resposta na ficha (1 clique).
   var RESP = [['quer', '👍', 'Quer'], ['pensa', '🤔', 'Vai pensar'], ['agoranao', '👎', 'Agora não'], ['caro', '💲', 'Achou caro'], ['naousa', '🚫', 'Não usa'], ['outro', '🏷️', 'Compra de outro']];
@@ -3205,8 +3321,12 @@
     if (id === 'sel_ver') { abAbrir(sel); return; }
     if (id === 'sel_cot') { cotHoje(sel); return; }
     if (id === 'sel_cotar') { cotarTxt(sel); return; }
+    if (id === 'sel_avise') { aviseMe(sel); return; } // 4.78
+    if (id === 'sel_curta') { qkAbrir([sel]); return; }
     if (/^msg_/.test(id) && !A.b) { cmToast('Clique com o botão direito em cima da mensagem'); return; }
     if (id === 'msg_cotar') { cotarTxt(cmTxt(A.b)); return; }
+    if (id === 'msg_avise') { aviseMe(cmTxt(A.b)); return; } // 4.78
+    if (id === 'msg_curta') { var rc = await msg({ t: 'acao', acao: 'lerCods', arg: { texto: cmTxt(A.b) } }); qkAbrir(rc && rc.cods && rc.cods.length ? rc.cods : null); return; }
     if (id === 'msg_lemb') {
       if (!resp || !resp.k) { cmToast('Lembrete na ficha: essa conversa precisa ser de um cliente do PF'); return; }
       irAba('cli'); var tx0 = cmTxt(A.b).replace(/\s*\d{1,2}:\d{2}\s*$/, '').slice(0, 140);
@@ -3273,7 +3393,7 @@
     try { if (String(window.getSelection() || '').trim()) return; var q = cmQual(e.target); if (q.tipo !== 'msg') return; wmT = Date.now(); wmProcurar(0); } catch (x) { }
   }, true);
   function wmMenu() {
-    var lbs = ['Responder', 'Reply', 'Copiar', 'Copy', 'Encaminhar', 'Forward'];
+    var lbs = ['Responder', 'Reply', 'Copiar', 'Copy', 'Encaminhar', 'Forward', 'Dados da mensagem', 'Message info', 'Reagir', 'React', 'Fixar', 'Pin', 'Favoritar', 'Star', 'Apagar', 'Delete', 'Editar', 'Edit']; // 4.78 - menu das SUAS mensagens também
     var els = document.querySelectorAll('li, [role="menuitem"], [role="button"], div[tabindex]');
     for (var i = 0; i < els.length; i++) {
       var el = els[i]; if (el.closest('#pfwa-painel, #pfwa-menu, #pfwa-rail, #pfwa-bots') || el.closest('#pane-side, [data-pre-plain-text], .message-in, .message-out, footer')) continue; // 4.66 - o menu pode estar dentro do #main; só fica fora o que é mensagem/lista
@@ -3302,6 +3422,8 @@
     try { var tb = String((cmAlvo && cmAlvo.b && cmAlvo.b.innerText) || ''), md = tb.match(/([^\n]+?\.pdf)\b/i); if (md) docNome = md[1].trim(); else if (/\bPDF\b\s*[•·]/.test(tb)) docNome = '?'; } catch (e) { }
     if (docNome) itens.push(['doc_ia', '🤖 Ler o PDF com IA e cotar (PF)', docNome === '?' ? '' : docNome]);
     itens.push(['msg_cotar', '📄 Cotar no PF']);
+    itens.push(['msg_curta', '🏷️ Resposta curta (NEGATIVO, ZEROU…)']); // 4.78
+    itens.push(['msg_avise', '🔔 Avise-me (PF)']);
     if (resp && resp.k) { itens.push(['msg_nota', '📝 Anotar na ficha (PF)']); itens.push(['msg_lemb', '⏰ Lembrete (PF)']); }
     itens.push(['msg_rr', '⚡ Salvar como resposta rápida (PF)']);
     var sep = document.createElement('div'); sep.className = 'pfwa-wm'; sep.style.cssText = 'height:1px;background:rgba(127,127,127,.25);margin:4px 10px';

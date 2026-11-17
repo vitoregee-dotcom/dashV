@@ -2912,3 +2912,7 @@
   Sufixo novo descoberto → linha no `ROL_VAR_SUF`. 2) WhatsApp ("um botãozinho pra só criar a cotação e deixar minimizada" + "deixa as 2 opções"): no selo 📄 do balão, "⬇ Criar minimizada" ao lado do "Criar cotação no PF"
   → abrirCot com `minimizar` e sem foco → `pfExtAbrirCot` cria, salva e minimiza (`_vendasMinimized` + `vendasRenderTabs`). Captura `docs/referencias/whatsapp-menu/feito-criar-minimizada.png`.
 - v115.2789 ("sem precisar trazer o PF para frente, sabe?"): o "⬇ Criar minimizada" não faz mais a pergunta "atualizar a cotação recente?" (ela ficaria escondida no PF) — sempre cria uma nova, minimizada (`!a.minimizar` no `pfExtAbrirCot`).
+- v115.2790 + extensão **4.84** BUG ("Mas agora puxa até o que eu ja tinha cotado né?" — selo 📄 da Meire - S.O.S Cardans juntava o 3-4-3091-1 de antes da sua resposta):
+  sua resposta sem texto (foto/PDF da cotação do JBoss) não tem `[data-pre-plain-text]` e não separava os pedidos da 4.80. O `selosVigiar` agora monta a sequência pelas
+  LINHAS da conversa (`msgLinhas`): linha sua corta, e 1 h+ entre mensagens do cliente também corta. E "o 927" virava O000927: a regra "letra sozinha + número" trata
+  o/a/e como palavra (só junta se o código existe no estoque).

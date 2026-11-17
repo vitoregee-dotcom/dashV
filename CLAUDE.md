@@ -2870,3 +2870,10 @@
   ficha técnica (cria mínima `criadoDe:'print'` se não existe; série = PREFIXO `pfAplPfx` CBD05534→CBD; ano, categoria e componentes só nos campos VAZIOS de `MAQ_FT_COMPS`, 2 modelos do mesmo grupo = "3054C / C4.4";
   nº inteiro em `rec.doPrint`, mostrado na página da máquina "Nº do print") + aplicação em APLIC_KEY {codigo, equip, marca, modelo, veiculo, marcaVeiculo, deprint} (liga a peça na máquina; não duplica) + linha
   na tela da ficha (amarela, grava no 💾 Salvar). Capturas `docs/referencias/aplicacao-print/feito-*.png`.
+- v115.2778 **🔧 Troca de motor — periféricos** (Vitor: "nessas ocasiões de motor, um lugar pra marcar as peças que o cliente precisará usar do motor antigo… alguns periféricos podem não ser
+  compatíveis… adaptações" + "cada aplicação dos motores tem essas peculiaridades"): lista compartilhada **`pfMotorTroca_v1`** (3 listas da sync + rótulo) [{id 'mt:<motor>|<maqChave>' ('' = 🌐 geral do motor),
+  motor (modelo do Data Sheet, ex. 1104A-44), cod, maq, maqNome, itens:[{n,st reap|adapt|novo,obs,cod}],tsMod,del}]. Janela `pfMtAbrir(motor,cod,maq,nome)`/`pfMtRender` (`pfMtJan`): chips Geral + máquinas onde o
+  motor tem aplicação (`pfMtMaqsDoMotor` pelos códigos do Data Sheet em APLIC_KEY) + "+ outra máquina"; itens com ♻️/🔧/✅ (`PF_MT_ST`), observação, código; sugestões `PF_MT_PERIF`; na máquina mostra os da geral
+  que valem ali ("marcar nesta máquina" troca). Lista final = máquina + geral (`pfMtItensEfetivos`) → 📋 Copiar / 💬 Mandar pro cliente (`pfMtTexto`, pfWhatsAbrir). Onde: bloco no Data Sheet do motor (`pfMtDsBlocoHtml`),
+  botão "🔧 troca de motor (N)" na linha do MOTOR da página da máquina (`pfMtMaqBtnHtml` → `pfMtDaMaq`: escolhe o motor novo se tiver mais de um), etiqueta "🔧 troca de motor · N a adaptar · confirmar" na
+  cotação e no Alt+B (embrulha `pfDsEtqHtml`/`pfDsAltbHtml`). Capturas `docs/referencias/troca-motor/`.

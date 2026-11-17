@@ -2829,3 +2829,9 @@
 - v115.2769 ("não esqueça filtros por período e por usuário"): `pfGePer` ganhou `hoje`, `mes` (este mês, comparado com os mesmos dias do anterior), `mesAnt` e datas
   escolhidas `c:AAAA-MM-DD:AAAA-MM-DD` (o "até" entra inteiro) — valem pra Gestão toda (seletor do topo tem Hoje/7 dias/Este mês/Mês passado). Na aba 📈 Cotações: barra
   "📅 Período" (chips + de/até + OK `pfGeCotDatas`) e "👤 Usuário" virou select com os nomes (`pfGeCotFiltro('V',…)`). Gráfico com largura mínima 1200 (poucos dias não ficam gigantes).
+- v115.2770 **🧾 Faturar por Matriz SP / Filial SC** (Vitor: "a maioria dos clientes de SP, geralmente os de cardan… só a nota sai de SC, as peças seguem por SP, transferidas só no fiscal"
+  → "vamos na sua"): ICMS de venda pela ORIGEM da nota `pfIcmsVenda(orig,uf)` (mesmo estado = interna SP 18% / SC 17% `PF_ICMS_INTERNO_ORIG`; SC→SP 12%; resto = `ICMS_SAIDA`) em
+  `vendasCalcVenda(custo,uf,margem,orig)` e `vendasPctDaVenda`. Origem `pfFatOrigem(v)` = `v.fatPor` (na cotação, salvo/aberto junto) > cadastro `pfFatDoCad` (`cad.fatPor` 'SC'/'SP';
+  `cad.fatSp` = SP, o selo da extensão acompanha) > SP. Faixa `#vendasFatBox` (`pfFatFaixaHtml`: Matriz SP | Filial SC, total por cada uma `pfFatTotais`, "usar" a mais barata; preço digitado
+  não muda) e `pfFatSet`. Cadastro: select "🧾 Faturar por" (`clieFatPor`). PDF: linha "Faturamento: Triex Filial SC · CNPJ 00.609.213/0002-04" (`pfFatDocLinha`, `PF_FAT_ORIGENS`).
+  Consumidor final dá o mesmo preço (DIFAL pela interna do destino). 2045005 (701,45) SP 21%: Matriz R$ 1.230,08 · Filial R$ 1.102,28. Captura `docs/referencias/faturar-por/feito.png`.

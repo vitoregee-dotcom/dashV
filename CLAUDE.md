@@ -2839,3 +2839,11 @@
   do fabricante, no Alt+B e na cotação com "mandar o PDF pro cliente"; IA preenche pelo PDF; "é um componente também" = liga no componente motor 1104A-44 em 🚜 Máquinas). 1º exemplo guardado: `data/datasheets/RR60131.pdf` (motor Perkins 1104A-44, MD Power — 56 kW/75 hp
   @2200, aspirado, 4,4 L, 4 cil. em linha, 12 V, injeção mecânica Delphi, ordem 1-3-4-2, 768×597,6×769,6 mm, 291 kg, carcaça SAE 3, volante SAE 11,5, garantia 1 ano / 3 anos componentes principais).
   Também anotada a **🗂️ Mesa de cada setor** (prévia `docs/referencias/mesa-setor/`, esperando ok + setor inicial). O "Relatório de quantidade de cotações" saiu das ideias (feito na 2767–2769).
+- v115.2772 **📄 Data Sheet do produto** (Vitor: "esse Data Sheet… é um componente também… já vamos colocar hoje" + "vamos aproveitar as fotos pra colocar na ficha também"): lista compartilhada
+  **`pfDataSheets_v1`** (3 listas da sync, por id, lápide `del`) + `PF_DS_PADRAO` (RR60131 = motor Perkins 1104A-44 MD Power, PDF `data/datasheets/RR60131.pdf`, 7 fotos tiradas do PDF em
+  `data/datasheets/RR60131-fotos/`). Data sheet = {titulo, cods[], marca, comp (modelo do componente), tipo, specs[[nome,valor]], vem[], garantia, pdf, pdfNome, fotos[]}. Acha por código (`pfDsDoCod`,
+  só letras+números) e por componente (`pfDsDoComp`: o modelo contido no texto). Janela `pfDsAbrir` (fotos, especificações, vem com, garantia; 📄 Abrir PDF, 💬 Mandar pro cliente `pfDsMandar` via
+  pfWhatsAbrir, 🔗 link, 📋 especificações, 📷 Pôr as fotos na ficha `pfDsFotosNaFicha` — sem ficha do código pergunta se cria; ✏️). Editor `pfDsEditar` (📋 Colar print / ⬆ arquivo / Ctrl+V → IA
+  `PF_DS_PROMPT` preenche os vazios; arquivo sobe em `ferramentas-arquivos/datasheets/`). Onde aparece: ficha do produto (`pfDsFormBtnHtml`), Alt+B (`pfDsAltbHtml`; sem data sheet = "📄 Pôr o Data Sheet"),
+  cotação (etiqueta 📄 data sheet em `vendasEtiquetasHtml`), 🚜 Máquinas no componente (`pfDsCompBtnHtml`) e Ferramentas → 📄 Data Sheets dos fabricantes (`pfDsListaAbrir`). 1x por navegador
+  `pfDsFotosAuto` põe as fotos dos prontos na ficha se ela existir. Capturas `docs/referencias/data-sheet/`. PENDENTE (Vitor, 17/11): pra quais MÁQUINAS o 1104A-44 vai.

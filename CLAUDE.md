@@ -2880,3 +2880,7 @@
 - v115.2779 ("essas coisas podemos colocar também na cotação, pra já sair pro cliente nas observações"): com a cotação aberta (`pfMtCotAberta`) a janela 🔧 Troca de motor tem
   "📝 Pôr nas observações da cotação" (`pfMtPorNaCot`): 1 linha `pfMtObsTexto` ("TROCA DE MOTOR PERKINS 1104A-44 NA CATERPILLAR 416E — PRECISA ADAPTAÇÃO: … [obs]. REAPROVEITA…", rótulo `pfMtObsRot`
   = marca + modelo do Data Sheet, sem distribuidor) no `v.obsCli` (sai no PDF/WhatsApp/pré-pedido); pôr de novo troca a linha. **`offsetParent` é null em elemento fixed — não usar pra saber se está visível.**
+- v115.2780 (pendências da varredura, feito à noite): 1) tela de 1280 px — a tabela da cotação (~1.340 px) passava da área e VENDA/MARGEM/AÇÕES ficavam atrás da rolagem lateral:
+  `vendasItemColsFixar` (chamado no `vendasItemDistribuirLarguraSobra`) prende as últimas colunas (data-col 11/12/13, se forem as últimas) à direita com sticky quando a tabela não cabe; larguras do Vitor
+  não mudam. 2) resumo "Itens 7 · Imediatos 10": `vendasResumoNums(v)` conta tudo por PEÇA (código do cliente, senão o nosso; imediata = alguma marca com saldo), total com o preço digitado e
+  `vendasMoedaBR`; botões de negativos continuam pelas linhas sem saldo (`_negLinhas`). Varredura de ~90 telas com a demonstração: nenhum erro de JavaScript.

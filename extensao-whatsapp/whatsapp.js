@@ -247,6 +247,20 @@
     }
     return out.filter(function (m) { return m.t; }).slice(-40);
   }
+  // 4.77 - A pedido do Vitor ("ofertas e materiais… ter um resumo do feedback do cliente"): mensagens NA ORDEM com o ARQUIVO mandado (portfólio,
+  // catálogo, tabela…) — o lerMensagens só vê texto. Usado pelas ofertas (o PF guarda o material enviado) e pelo lembrete que fecha sozinho.
+  var DOC_RE = /([^\n]+?\.(?:pdf|docx?|xlsx?|pptx?|csv))\b/i;
+  function lerMensagensDoc() {
+    var out = [];
+    try { msgLinhas().forEach(function (b) {
+      var tx = b.querySelectorAll('.selectable-text'), t = Array.prototype.map.call(tx, function (z) { return z.innerText || ''; }).join('\n').trim();
+      var m = String(b.innerText || '').match(DOC_RE), doc = m ? m[1].trim() : '';
+      if (doc && t && t.indexOf(doc) >= 0) doc = ''; // o nome está dentro do texto digitado = não é arquivo
+      if (t || doc) out.push({ t: t, doc: doc, eu: minhaEl(b) });
+    }); } catch (e) { }
+    if (!out.length) return lerMensagens();
+    return out.slice(-40);
+  }
   // 4.14 - A pedido do Vitor ("vi que puxou até de uns dias atrás… se o cliente for enviando mais, antes de eu cotar?"): o 📄 Cotar e a bolinha
   // leem só o PEDIDO ATUAL = tudo o que o cliente mandou depois da sua última mensagem (ele mandando mais, vai somando). A mensagem automática
   // (saudação/ausência) não conta como "sua". Se a última mensagem é sua, vale o último bloco do cliente antes dela. Pedido antigo = selo do balão.
@@ -633,10 +647,12 @@
     ['O PF avisa sozinho', [
       ['🔔', 'Pedido de cotação', 'Quando o cliente manda códigos, aparece uma bolinha laranja com o número de códigos no botão 📄 do PF (ao lado das mensagens). Clique nela pra cotar. Pra desligar ou ligar de novo: botão direito no 📄 (ou ⚙️ Configurações → Aviso de pedido de cotação).'],
       ['📄', 'Selo na mensagem', 'A mensagem do cliente que tem códigos ganha um selinho laranja "📄 3" no canto. Clique nele: aparecem os códigos com quantidade e saldo e o botão "Criar cotação no PF". Só cria se você clicar. Depois de criada, o selo fica verde ✓.'],
-      ['💡', 'Ofertas', 'Quando você oferece algo e o cliente responde, o PF pergunta o que ele achou e guarda na ficha. Se for oferecer de novo, ele avisa "você já ofereceu".'],
+      ['💡', 'Ofertas', 'Quando você oferece algo e o cliente responde, a IA lê a resposta, classifica (quer, vai pensar, caro, compra de outro…), resume em 1 linha e guarda na ficha sozinha (sem a chave da IA, aparece o cartão pra você marcar). Se for oferecer de novo, ele avisa "você já ofereceu".'],
       ['👋', 'Saudação de espera', 'Se o cliente fica X minutos sem resposta (você escolhe), a extensão manda UMA mensagem como se fosse você, de acordo com o que ele mandou ("já vou ver esses códigos", "vi a foto", "vou ouvir aqui"…). Só no horário escolhido, uma vez por conversa a cada N horas e com limite por hora. Vem desligada: ⚙️ → Mensagens automáticas. A conversa fica com a etiqueta "👋 … responda" até você responder.'],
       ['📱', 'Mudar pelo WhatsApp', 'Em ⚙️ → Mensagens automáticas ligue "Mudar pelo WhatsApp" e ponha o número do seu celular pessoal. Dele (ou da conversa com você mesmo) mande "pf reunião até 15h", "pf ausente 2h", "pf férias até 20/11 Carlos 11 98765-4321", "pf voltei", "pf saudação 5 min" ou "pf status". O computador com este WhatsApp aberto faz e responde ✅ quando você não estiver mexendo nele. "pf" de outro número é ignorado.'],
       ['🗓️', 'Meu status (reunião, ausente, férias)', 'Em ⚙️ → Mensagens automáticas escolha Em reunião / Ausente / Férias e até quando (nas férias, quem atende no seu lugar). Cada cliente que chamar recebe UMA mensagem avisando, a qualquer hora. No "até" volta sozinho pra Disponível. Enquanto estiver fora, aparece no cabeçalho do painel.'],
+      ['📨', 'Prometeu mandar', 'Escreveu "já te mando / te envio a tabela / te mando na quarta" ou o cliente pediu "me manda a tabela/foto": o PF anota um lembrete (hoje até 17h ou no dia combinado) e FECHA SOZINHO quando você manda o arquivo, a cotação ou o link na conversa. Passou da hora = aviso 📨 no PF.'],
+      ['📄', 'Material enviado', 'Mandou portfólio, catálogo, tabela ou folheto (arquivo)? O PF guarda que mandou e, quando o cliente responde, a IA resume o retorno e guarda na ficha. Relatório em Vendas → 💡 Ofertas e retorno.'],
       ['📌', 'Vou verificar', 'Se você escrever "deixa eu ver / vou verificar / já te retorno", o PF cria uma pendência sozinho (com desfazer).'],
       ['📇', 'Código que não está no PF', 'Se o nome no WhatsApp tem um código entre parênteses que não existe no PF, aparece "Cadastrar no PF" já com o código.']]],
     ['Embaixo do painel', [
@@ -1776,7 +1792,7 @@
     // UMA vez só, ao abrir a conversa; se o PF ainda estava carregando (modo monitor recarrega por dentro), a resposta vinha vazia e ficava presa no erro.
     // Agora, com erro na tela, pergunta de novo a cada 5 s até o PF responder.
     if (chave === ultimo && resp && resp.erro && resp.erro !== 'recarregar' && Date.now() - (window._pfwaQuemTent || 0) > 5000) { window._pfwaQuemTent = Date.now(); ultimo = ''; }
-    if (chave === ultimo) { pintaAviso(nCod); ofertasVigiar(); digitandoVigiar(); verificarVigiar(); pedidoVigiar(); return; }
+    if (chave === ultimo) { pintaAviso(nCod); ofertasVigiar(); digitandoVigiar(); verificarVigiar(); pedidoVigiar(); cumpridoVigiar(); return; }
     ultimo = chave; cot = null; cotErro = ''; saldoR = null; ofPend = []; ofSig = ''; jaR = null; digAnt = ''; jaFechado = ''; vfR = null; vfSig = ''; peR = null; peSig = ''; pintaOferta(); pintaJa(); pintaVf(); pintaPe();
     if (!c) { resp = null; pinta(); pintaAviso(0); return; }
     if (c.grupo) { resp = { grupo: 1 }; pinta(); return; }
@@ -1792,7 +1808,7 @@
   var RESP = [['quer', '👍', 'Quer'], ['pensa', '🤔', 'Vai pensar'], ['agoranao', '👎', 'Agora não'], ['caro', '💲', 'Achou caro'], ['naousa', '🚫', 'Não usa'], ['outro', '🏷️', 'Compra de outro']];
   async function ofertasVigiar() {
     if (!CFG.ofertas || !resp || resp.tipo !== 'cliente' || !resp.k || !contatoAt || contatoAt.grupo) { if (ofPend.length) { ofPend = []; pintaOferta(); } return; }
-    var ms = lerMensagens(); var sig = ultimo + '|' + ms.length + '|' + (ms.length ? ms[ms.length - 1].t.slice(-60) : '');
+    var ms = lerMensagensDoc(); var sig = ultimo + '|' + ms.length + '|' + (ms.length ? (ms[ms.length - 1].t || '').slice(-60) + (ms[ms.length - 1].doc || '') : ''); // 4.77 - com arquivo
     if (sig === ofSig) return; ofSig = sig;
     var ch = ultimo;
     var r = await msg({ t: 'acao', acao: 'ofertasConversa', arg: { k: resp.k, msgs: ms } });
@@ -1862,6 +1878,9 @@
   // 4.76 - A pedido do Vitor ("como faço para isso entrar no meu dia? combinei de mandar na quarta feira" — "te mando na quarta feira então"):
   // promessa de mandar com dia marcado (hoje/amanhã/dia da semana/dia N) também vira lembrete, além das palavras da lista.
   var PE_PROMESSA_RE = /(^|[^a-z])(te\s+|lhe\s+|vou\s+)?(mando|envio|emito|despacho|faturo|separo|entrego|mandar|enviar|despachar)\b[^.?!\n]{0,30}?\b(hoje|amanha|segunda|terca|quarta|quinta|sexta|sabado|dia\s+\d{1,2})\b/;
+  var PE_EMIT_RE = /pedid|\bnota\b|\bnf\b|fatur|emit|danfe|\bpv\b/; // 4.77 - fala de pedido/nota = 📦 emitir
+  var PROM_MIM_RE = /(^|[^a-z])(ja\s+te\s+(mando|envio|passo)|te\s+(mando|envio|passo|encaminho)|vou\s+te\s+(mandar|enviar|passar|encaminhar)|vou\s+(mandar|enviar|passar|encaminhar)|ja\s+(mando|envio|encaminho)|(mando|envio)\s+(ja|agora|daqui|em\s+seguida|logo)|daqui\s+a\s+pouco\s+(te\s+)?(mando|envio)|assim\s+que\s+(eu\s+)?(tiver|chegar|conseguir)[^.?!]{0,30}(mando|envio|passo))\b/;
+  var PROM_CLI_RE = /\b(me\s+)?(manda|mande|mandar|envia|envie|enviar|passa|passe|passar|encaminha)\s+(pra\s+mim\s+|pra\s+gente\s+)?(o|a|os|as|um|uma|seu|sua)?\s*(tabela|catalogo|catalogos|portfolio|portifolio|foto|fotos|orcamento|cotacao|preco|precos|lista|ficha|desenho|medida|medidas|video|link|folheto|material)\b/;
   function peNorm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
   function peMontaRe(arr) {
     if (!arr || !arr.length) return null;
@@ -1887,6 +1906,18 @@
     var last = ms[ms.length - 1], origem = '', gat = '';
     if (last.eu) { if (cfg.deMim && ((peReMim && peReMim.test(peNorm(last.t))) || PE_PROMESSA_RE.test(peNorm(last.t)))) { origem = 'mim'; gat = last.t; } }
     else if (cfg.doCliente) { for (var i = ms.length - 1; i >= 0 && i >= ms.length - 4; i--) { if (!ms[i].eu && ((peReCli && peReCli.test(peNorm(ms[i].t))) || peCaraDePedido(ms[i].t))) { origem = 'cliente'; gat = ms[i].t; break; } } }
+    // 4.77 - A pedido do Vitor ("algo mais automático"): promessa de MANDAR algo ("já te mando", "te envio a tabela", "te mando na quarta") ou o cliente
+    // pedindo material ("me manda a tabela/foto/catálogo") vira 📨 lembrete de mandar (fecha sozinho quando você manda o arquivo/cotação/link). Só o que fala
+    // de pedido/nota/faturar continua sendo 📦 emitir.
+    var pr = '', prT = '';
+    if (last.eu && cfg.deMim && !PE_EMIT_RE.test(peNorm(last.t)) && (PROM_MIM_RE.test(peNorm(last.t)) || (origem === 'mim'))) { pr = 'mim'; prT = last.t; }
+    else if (!last.eu && cfg.doCliente) { for (var j = ms.length - 1; j >= 0 && j >= ms.length - 4; j--) { if (!ms[j].eu && PROM_CLI_RE.test(peNorm(ms[j].t))) { pr = 'cliente'; prT = ms[j].t; break; } } }
+    if (pr) {
+      var sg = ultimo + '|' + ms.length + '|pr|' + prT.slice(0, 60); if (sg === peSig) return; peSig = sg; var chp = ultimo;
+      var rp = await msg({ t: 'acao', acao: 'promessa', arg: { k: resp && resp.k, nome: contatoAt.nome, texto: prT, origem: pr } });
+      if (chp !== ultimo || !rp || !rp.ok || rp.jaTinha) return;
+      anAdd('pr', rp, prT); return;
+    }
     if (!origem) return;
     var sig = ultimo + '|' + ms.length + '|' + origem + '|' + gat.slice(0, 60);
     if (sig === peSig) return; peSig = sig;
@@ -1922,14 +1953,14 @@
   }
   function anTirar(id, desfazer) {
     var L = AN[ultimo] || [], x = L.find(function (o) { return o.id === id; }); if (!x) return;
-    if (desfazer) msg({ t: 'acao', acao: x.tipo === 'pe' ? 'pedidoEmitirDesfazer' : 'verificarDesfazer', arg: id });
+    if (desfazer) msg({ t: 'acao', acao: x.tipo === 'pe' ? 'pedidoEmitirDesfazer' : x.tipo === 'pr' ? 'promessaDesfazer' : 'verificarDesfazer', arg: id });
     AN[ultimo] = L.filter(function (o) { return o.id !== id; }); if (!AN[ultimo].length) delete AN[ultimo];
     anGrava(); anPopFechar(); anVigiar();
   }
-  function anRotulo(x) { return x.tipo === 'pe' ? '📦 Anotei pra você emitir' : '📌 Anotei pra você verificar'; }
+  function anRotulo(x) { return x.tipo === 'pe' ? '📦 Anotei pra você emitir' : x.tipo === 'pr' ? '📨 Anotei pra você mandar pro cliente' : '📌 Anotei pra você verificar'; }
   function anItemHtml(x) {
     return '<div class="pfwa-an-it"><b>' + anRotulo(x) + '</b><small>' + esc(x.resumo || (x.tipo === 'pe' ? 'o pedido' : '')) + (x.quando ? ' — pra ' + esc(x.quando) : '') +
-      ' · está nas Pendências e no ☀️ Meu dia</small><div class="pfwa-an-bt"><a data-anacao="desf" data-anid="' + esc(x.id) + '">desfazer</a><a data-anacao="ok" data-anid="' + esc(x.id) + '" class="pfwa-an-ok">ok, entendi</a></div></div>';
+      (x.tipo === 'pr' ? ' · fecha sozinho quando você mandar o arquivo, a cotação ou o link' : ' · está nas Pendências e no ☀️ Meu dia') + '</small><div class="pfwa-an-bt"><a data-anacao="desf" data-anid="' + esc(x.id) + '">desfazer</a><a data-anacao="ok" data-anid="' + esc(x.id) + '" class="pfwa-an-ok">ok, entendi</a></div></div>';
   }
   function anPopFechar() { if (ANPOP) ANPOP.style.display = 'none'; anPopDe = null; }
   function anPopAbrir(itens, ancora) {
@@ -1964,8 +1995,8 @@
       var s = el.querySelector(':scope > .pfwa-anselo');
       if (!s) { s = document.createElement('span'); s.className = 'pfwa-anselo'; if (getComputedStyle(el).position === 'static') el.style.position = 'relative'; el.appendChild(s);
         ['pointerdown', 'mousedown', 'mouseover'].forEach(function (e) { s.addEventListener(e, function (ev) { ev.stopPropagation(); }); }); }
-      var temPe = itens.some(function (x) { return x.tipo === 'pe'; }), temVf = itens.some(function (x) { return x.tipo !== 'pe'; });
-      var txt = (temPe ? '📦 emitir' : '') + (temPe && temVf ? ' · ' : '') + (temVf ? '📌 verificar' : '');
+      var temPe = itens.some(function (x) { return x.tipo === 'pe'; }), temVf = itens.some(function (x) { return x.tipo === 'vf'; }), temPr = itens.some(function (x) { return x.tipo === 'pr'; });
+      var txt = [temPe ? '📦 emitir' : '', temPr ? '📨 mandar' : '', temVf ? '📌 verificar' : ''].filter(Boolean).join(' · ');
       if (s.textContent !== txt) s.textContent = txt;
       s.classList.toggle('vf', !temPe);
       s.title = itens.map(anRotulo).join(' · ') + ' — clique pra ver ou desfazer';
@@ -1977,17 +2008,31 @@
     // D · contador no cabeçalho
     if (!ANCNT) { ANCNT = document.createElement('div'); ANCNT.id = 'pfwa-ancnt'; document.body.appendChild(ANCNT);
       ANCNT.addEventListener('click', function (ev) { var L2 = AN[ultimo] || []; if (!L2.length) return; ev.preventDefault(); ev.stopPropagation(); anPopAbrir(L2, ANCNT); }); }
-    var nPe = L.filter(function (x) { return x.tipo === 'pe'; }).length, nVf = L.length - nPe, el = nomeEl();
+    var nPe = L.filter(function (x) { return x.tipo === 'pe'; }).length, nPr = L.filter(function (x) { return x.tipo === 'pr'; }).length, nVf = L.length - nPe - nPr, el = nomeEl();
     if (!L.length || !el || document.documentElement.classList.contains('pfwa-coberto')) { ANCNT.style.display = 'none'; return; }
     var r = el.getBoundingClientRect(); if (!r.width) { ANCNT.style.display = 'none'; return; }
-    var h = (nPe ? '<span class="pfwa-anc pe">📦<i>' + nPe + '</i></span>' : '') + (nVf ? '<span class="pfwa-anc vf">📌<i>' + nVf + '</i></span>' : '');
+    var h = (nPe ? '<span class="pfwa-anc pe">📦<i>' + nPe + '</i></span>' : '') + (nPr ? '<span class="pfwa-anc pe">📨<i>' + nPr + '</i></span>' : '') + (nVf ? '<span class="pfwa-anc vf">📌<i>' + nVf + '</i></span>' : '');
     if (ANCNT.innerHTML !== h) ANCNT.innerHTML = h;
-    ANCNT.title = 'Anotado nesta conversa: ' + (nPe ? nPe + ' a emitir' : '') + (nPe && nVf ? ' · ' : '') + (nVf ? nVf + ' a verificar' : '') + ' — clique pra ver';
+    ANCNT.title = 'Anotado nesta conversa: ' + [nPe ? nPe + ' a emitir' : '', nPr ? nPr + ' pra mandar' : '', nVf ? nVf + ' a verificar' : ''].filter(Boolean).join(' · ') + ' — clique pra ver';
     ANCNT.style.display = 'flex';
     var x0 = (SVB && SVB.style.display !== 'none') ? r.right + 42 : r.right + 10;
     ANCNT.style.left = Math.round(x0) + 'px'; ANCNT.style.top = Math.round(r.top + r.height / 2 - 14) + 'px';
   }
   setInterval(function () { try { anVigiar(); } catch (e) { } }, 1200);
+  // 4.77 - 📨 FECHA SOZINHO: VOCÊ mandou um arquivo, uma cotação (2+ R$) ou um link nessa conversa → o PF fecha os lembretes "mandar pro cliente"
+  // abertos dela (e o 📦 emitir, se o arquivo é pedido/nota).
+  var cumpSig = '';
+  async function cumpridoVigiar() {
+    if (!contatoAt || contatoAt.grupo) return;
+    var ms = lerMensagensDoc(); if (!ms.length) return; var last = ms[ms.length - 1];
+    if (!last.eu) return;
+    var t = last.t || '', ehEnvio = !!last.doc || (t.match(/R\$/g) || []).length >= 2 || /https?:\/\/\S+/i.test(t);
+    if (!ehEnvio) return;
+    var sig = ultimo + '|' + ms.length + '|' + (last.doc || '') + '|' + t.slice(0, 60); if (sig === cumpSig) return; cumpSig = sig;
+    var r = await msg({ t: 'acao', acao: 'promessaCumprida', arg: { k: resp && resp.k, nome: contatoAt.nome, doc: last.doc || '', texto: t.slice(0, 300) } });
+    if (!r || !r.fechou || !r.fechou.length) return;
+    var L = AN[ultimo] || []; AN[ultimo] = L.filter(function (x) { return r.fechou.indexOf(x.id) < 0; }); if (!AN[ultimo].length) delete AN[ultimo]; anGrava(); anVigiar();
+  }
 
   // ═══ 📢 STATUS (1.8) ═══
   // O PF manda a imagem; aqui abre Status → ＋ → coloca a imagem e a legenda e PARA (você confere e aperta enviar).

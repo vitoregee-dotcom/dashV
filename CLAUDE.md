@@ -2854,3 +2854,8 @@
   Chamados) virou ícone desenhado `pfIcAmpliar()` — em alguns computadores aparecia um quadradinho vazio. Captura `docs/referencias/mesa-filtros/feito-geral.png`.
 - v115.2774 BUG ("aqui não tem foto?" — Alt+B do RR60131): o card vinha da planilha do estoque, que não tem foto. Sem foto, o `pfItemCardAbrir` usa a da ficha do produto no cadastro
   (mesmo código, só letras+números) e, sem ela, a 1ª foto do 📄 Data Sheet (`pfDsDoCod` + `pfDsAbs`). Captura `docs/referencias/data-sheet/feito-altb.png`.
+- v115.2775 (print da ficha do RR60131 vazia: "não deveria vir mais informações do Data Sheet para a ficha? vamos aproveitar"): o Data Sheet preenche SÓ os campos VAZIOS da ficha do produto
+  (`pfDsFichaValores`/`pfDsFichaCompletar`): descrição resumida (TIPO + componente), descrição completa (tipo, marca, componente + cilindros, cilindrada, admissão, potência, tensão), unidade PÇ,
+  NCM (se o data sheet tiver; "00000000" conta como vazio), grupo pelo tipo (`PF_DS_GRUPO_TIPO`) e as observações (especificações, vem com, garantia — 1x, marca "DATA SHEET DO FABRICANTE"), +
+  `especificacoes`/`dsId`. Ao abrir a ficha (`pfDsFormBtnHtml` → `pfDsFormPuxar(true)`) os campos vazios já vêm em amarelo + aviso, o 💾 Salvar grava; botão "📥 Puxar dados do Data Sheet".
+  O "📷 Pôr as fotos na ficha", a ficha criada pelo Data Sheet e o automático 1x por navegador (flag `pf_ds_fotos_2775`) gravam os dados juntos. Captura `docs/referencias/data-sheet/feito-ficha.png`.

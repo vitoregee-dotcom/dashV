@@ -285,13 +285,15 @@
   var COD_RE = /[A-Za-z0-9][A-Za-z0-9.\-\/]{2,}[A-Za-z0-9]/g;
   // 4.73 - A pedido do Vitor ("N7134" sozinho na mensagem e o PF nem marcou — "preciso que leia a mesma regra do Leitor de Peças"): mensagem que é SÓ
   // código (1 a 3 palavras, todas com cara de código: letra+números ou 5+ dígitos) conta como pedido mesmo com 1 código só. A conversão (N7134 = N007134) é do PF.
+  // 4.81 - A pedido do Vitor ("pq só achou um" — PL-249=50pcs / PL-241=50pcs / JF-0026=15pcs): código com letras + traço + 3 números (PL-249) também conta.
+  function ehCodTk(tk) { tk = String(tk || ''); if (/^\d{1,2}[\/.:]\d{2}/.test(tk)) return false; var d = tk.replace(/\D/g, '').length; return d >= 4 || /^[A-Za-z]{1,4}[-.]?\d{3}[A-Za-z0-9]*$/.test(tk); }
   function soCodigo(t) {
     var w = String(t || '').trim().split(/[\s,;]+/).filter(Boolean); if (!w.length || w.length > 3) return false;
     return w.every(function (x) { x = x.replace(/[.:!?]+$/, ''); var d = x.replace(/\D/g, ''); return d.length >= 3 && x.length <= 20 && (/[A-Za-z]/.test(x) ? /\d/.test(x) : d.length >= 5) && !/^\d{1,2}[\/.:]\d{2}/.test(x); });
   }
   function pareceCotacao(ms) {
     var cli = ms.filter(function (m) { return !m.eu; }).slice(-15), n = 0, pede = false;
-    cli.forEach(function (m) { if (soCodigo(m.t)) { pede = true; n += Math.max(1, (m.t.match(COD_RE) || []).length); return; } (m.t.match(COD_RE) || []).forEach(function (tk) { if (tk.replace(/\D/g, '').length >= 4 && !/^\d{1,2}[\/.:]\d{2}/.test(tk)) n++; }); if (/\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo)/i.test(m.t)) pede = true; });
+    cli.forEach(function (m) { if (soCodigo(m.t)) { pede = true; n += Math.max(1, (m.t.match(COD_RE) || []).length); return; } (m.t.match(COD_RE) || []).forEach(function (tk) { if (ehCodTk(tk)) n++; }); if (/\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo)/i.test(m.t)) pede = true; });
     return n >= 2 || (n >= 1 && pede) ? n : 0;
   }
 
@@ -2578,7 +2580,7 @@
   try { spFeitos = JSON.parse(sessionStorage.getItem('pfwa_sp_feitos') || '{}') || {}; } catch (e) { spFeitos = {}; }
   function spHash(s) { s = String(s || ''); var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h.toString(36); }
   function spContaCods(t) {
-    var n = 0; (String(t || '').match(COD_RE) || []).forEach(function (tk) { if (tk.replace(/\D/g, '').length >= 4 && !/^\d{1,2}[\/.:]\d{2}/.test(tk)) n++; });
+    var n = 0; (String(t || '').match(COD_RE) || []).forEach(function (tk) { if (ehCodTk(tk)) n++; });
     var pede = /\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo)/i.test(t) || soCodigo(t);
     if (soCodigo(t) && !n) n = 1;
     return n >= 2 || (n >= 1 && pede) ? n : 0;
@@ -2597,7 +2599,7 @@
     // 4.80 - A pedido do Vitor ("se tem 2 separados, qual a melhor maneira de mandar já os 2 pra cotação de uma vez?" — cliente mandou "2244536 - 01" e
     // "1946725 - 01" em mensagens separadas): mensagens SEGUIDAS do cliente (sem mensagem sua no meio) com código viram UM selo só, no último balão com código,
     // lendo todas elas (+ as dele que vêm logo depois, ex.: "Original Caterpillar"). Mensagem sua no meio separa os pedidos.
-    var cruN = function (t) { var n = 0; (String(t || '').match(COD_RE) || []).forEach(function (tk) { if (tk.replace(/\D/g, '').length >= 4 && !/^\d{1,2}[\/.:]\d{2}/.test(tk)) n++; }); return n; };
+    var cruN = function (t) { var n = 0; (String(t || '').match(COD_RE) || []).forEach(function (tk) { if (ehCodTk(tk)) n++; }); return n; };
     if (liga) {
       var runs = [], cur = [];
       els.forEach(function (el) { if (minhaEl(el)) { if (cur.length) runs.push(cur); cur = []; return; } cur.push({ el: el, t: txt(el) }); });

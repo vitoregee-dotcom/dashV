@@ -3358,6 +3358,7 @@
     if (id === 'sel_cotar') { cotarTxt(sel); return; }
     if (id === 'sel_avise') { aviseMe(sel); return; } // 4.78
     if (id === 'sel_curta') { qkAbrir([sel]); return; }
+    if (id === 'sel_leitor' || id === 'msg_leitor') { var rl = await msg({ t: 'acao', acao: 'leitor', focar: true, arg: { texto: id === 'sel_leitor' ? sel : cmTxt(A.b) } }); cmToast(rl && rl.ok ? '📝 Mandei pro Leitor de Peças do PF' : 'Não deu — abra o PF'); return; } // 4.85
     if (/^msg_/.test(id) && !A.b) { cmToast('Clique com o botão direito em cima da mensagem'); return; }
     if (id === 'msg_cotar') { cotarTxt(cmTxt(A.b)); return; }
     if (id === 'msg_avise') { aviseMe(cmTxt(A.b)); return; } // 4.78
@@ -3457,6 +3458,7 @@
     try { var tb = String((cmAlvo && cmAlvo.b && cmAlvo.b.innerText) || ''), md = tb.match(/([^\n]+?\.pdf)\b/i); if (md) docNome = md[1].trim(); else if (/\bPDF\b\s*[•·]/.test(tb)) docNome = '?'; } catch (e) { }
     if (docNome) itens.push(['doc_ia', '🤖 Ler o PDF com IA e cotar (PF)', docNome === '?' ? '' : docNome]);
     itens.push(['msg_cotar', '📄 Cotar no PF']);
+    itens.push(['msg_leitor', '📝 Mandar pro Leitor de Peças (PF)']); // 4.85
     itens.push(['msg_curta', '🏷️ Resposta curta (NEGATIVO, ZEROU…)']); // 4.78
     itens.push(['msg_avise', '🔔 Avise-me (PF)']);
     if (resp && resp.k) { itens.push(['msg_nota', '📝 Anotar na ficha (PF)']); itens.push(['msg_lemb', '⏰ Lembrete (PF)']); }

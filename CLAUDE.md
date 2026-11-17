@@ -2924,3 +2924,5 @@
   (preenche descrição/medidas vazias, soma especificações, aplicações, monta com e equivalentes sem repetir, foto se não tem; tsMod + pfSyncPush). 2) 📋 Colar print de aplicação: o pedido à IA diz
   o código do card e explica o layout da REI (Nº Conversão/Substitui = equivalente, Aplicação "DAF Garfos" = montadora DAF, Especificações); resposta em LISTA de peças → fica a do código do card;
   leitura vazia mostra "⚠ ver o que a IA respondeu" (`window._ccPrintAplBruto`).
+- v115.2793 + extensão **4.85** ("vamos colocar no botão direito. opção de já enviar lá para o leitor de peça"): botão direito numa mensagem (menu do WhatsApp e do Chrome, também com texto
+  selecionado) → "📝 Mandar pro Leitor de Peças" (`msg_leitor`/`sel_leitor` → acao `leitor` com foco → `pfExtLeitor`: abre Ferramentas → Leitor de Peças, põe o texto no `#lpTexto` sem a hora do fim e chama `lpLerTexto`).

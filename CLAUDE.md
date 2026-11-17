@@ -2847,3 +2847,8 @@
   `PF_DS_PROMPT` preenche os vazios; arquivo sobe em `ferramentas-arquivos/datasheets/`). Onde aparece: ficha do produto (`pfDsFormBtnHtml`), Alt+B (`pfDsAltbHtml`; sem data sheet = "📄 Pôr o Data Sheet"),
   cotação (etiqueta 📄 data sheet em `vendasEtiquetasHtml`), 🚜 Máquinas no componente (`pfDsCompBtnHtml`) e Ferramentas → 📄 Data Sheets dos fabricantes (`pfDsListaAbrir`). 1x por navegador
   `pfDsFotosAuto` põe as fotos dos prontos na ficha se ela existir. Capturas `docs/referencias/data-sheet/`. PENDENTE (Vitor, 17/11): pra quais MÁQUINAS o 1104A-44 vai.
+- v115.2773 (print das 4 colunas da 🛒 Mesa: "era bom ter uns filtros: fornecedor, família, marca, curva, mais urgentes"): barra "Filtrar:" em cima das 4 colunas (`pfMsGfBarraHtml`,
+  estado `window._pfMs.gf` {forn,fam,marca,curva,urg}, `pfMsGfSet`; os números de cima continuam contando tudo). Cada item vira atributos (`pfMsGfSol`/`pfMsGfRep`/`pfMsGfMapa`/`pfMsGfOc`) e passa
+  no `pfMsGfPassa`: família = `pfNcFamilia` pela descrição (`pfMsFamDe`), curva = a da planilha (`pfMsCurvaDe`, índice `pfMsCurvaIdx`), mapa só por fornecedor/urgente (`soForn`; `pfMsMapas` agora
+  devolve `forns`). 🔥 urgente = casada/urgente · zerado/perdeu venda/Avise-me/acaba antes de chegar · mapa casado ou parado 3+ dias · ordem atrasada ou com item casado. O ⛶ de ampliar coluna (Mesa e
+  Chamados) virou ícone desenhado `pfIcAmpliar()` — em alguns computadores aparecia um quadradinho vazio. Captura `docs/referencias/mesa-filtros/feito-geral.png`.

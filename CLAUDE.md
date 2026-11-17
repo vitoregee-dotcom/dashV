@@ -2877,3 +2877,6 @@
   que valem ali ("marcar nesta máquina" troca). Lista final = máquina + geral (`pfMtItensEfetivos`) → 📋 Copiar / 💬 Mandar pro cliente (`pfMtTexto`, pfWhatsAbrir). Onde: bloco no Data Sheet do motor (`pfMtDsBlocoHtml`),
   botão "🔧 troca de motor (N)" na linha do MOTOR da página da máquina (`pfMtMaqBtnHtml` → `pfMtDaMaq`: escolhe o motor novo se tiver mais de um), etiqueta "🔧 troca de motor · N a adaptar · confirmar" na
   cotação e no Alt+B (embrulha `pfDsEtqHtml`/`pfDsAltbHtml`). Capturas `docs/referencias/troca-motor/`.
+- v115.2779 ("essas coisas podemos colocar também na cotação, pra já sair pro cliente nas observações"): com a cotação aberta (`pfMtCotAberta`) a janela 🔧 Troca de motor tem
+  "📝 Pôr nas observações da cotação" (`pfMtPorNaCot`): 1 linha `pfMtObsTexto` ("TROCA DE MOTOR PERKINS 1104A-44 NA CATERPILLAR 416E — PRECISA ADAPTAÇÃO: … [obs]. REAPROVEITA…", rótulo `pfMtObsRot`
+  = marca + modelo do Data Sheet, sem distribuidor) no `v.obsCli` (sai no PDF/WhatsApp/pré-pedido); pôr de novo troca a linha. **`offsetParent` é null em elemento fixed — não usar pra saber se está visível.**

@@ -2893,3 +2893,6 @@
 - v115.2783 + extensão **4.80** ("se tem 2 separados, qual a melhor maneira de mandar já os 2 pra cotação de uma vez?" — "2244536 - 01" e "1946725 - 01" em balões separados):
   no `selosVigiar`, mensagens SEGUIDAS do cliente (sem mensagem sua no meio) com código viram UM selo só no último balão com código, lendo todas (+ as dele logo depois,
   ex.: "Original Caterpillar") — "Criar cotação no PF" leva tudo. Uma só mensagem com código continua com o selo dela. `PF_EXT_VER_NOVA`='4.80', zip refeito.
+- v115.2784 BUG (print do 📄 Cotar no WhatsApp: 181199A4 "não achei" — está na lista Carraro OM = 134725): o `pfExtCotar` não consultava a lista de conversão Carraro (só a cotação,
+  `vendasAdicionarItem`). Agora, sem achar no estoque nem nas conversões das fichas, procura no `pfCarraroDe`: nº Carraro com estoque = usa a ficha (código do cliente em `codCli`); sem estoque =
+  `o.carConv` e a resposta diz "= CARRARO 134725, vou verificar o prazo"; marca pedida CARRARO conta como ✔. 87524409 não está em nenhuma das listas (continua "não localizei").

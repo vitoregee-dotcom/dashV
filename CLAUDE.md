@@ -2940,3 +2940,6 @@
 - v115.2798 BUG ("a cotação foi aberta. mas ficou com isso na frente" — cotação aberta pela extensão com a tela inicial atrás): o painel Timer/Pendências/Lembretes da tela inicial
   ficava por cima da cotação (a cotação é janela sobre a home, `currentView` continua 'home'). `pfPainelTarefasAtualizarVisibilidade` (roda a cada 1 s no `pfAvisosWatch`) esconde o painel
   com o `#vendasModal` aberto e não minimizado.
+- v115.2799 ("mandei uma cotação da Triex… bastante coisa poderia já ter preenchido, como forma de pgto, número de cotação"): no 🧾 Preencher atalho com ficha do cliente, o documento pode ser
+  uma COTAÇÃO/PEDIDO (Triex/JBoss ou do cliente): o pedido à IA pega os dados do CLIENTE dela (nunca os da Triex) e devolve `pedido` {cotacao,valor = Total Geral,condicao} → vai pro
+  `window._ferrCred` e já preenche Nº da cotação / Valor do pedido / Condição do "💳 Pedido pra análise de crédito" (`ferrAtalhosTextoPreencherAnalisar`).

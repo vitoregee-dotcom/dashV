@@ -2943,3 +2943,8 @@
 - v115.2799 ("mandei uma cotação da Triex… bastante coisa poderia já ter preenchido, como forma de pgto, número de cotação"): no 🧾 Preencher atalho com ficha do cliente, o documento pode ser
   uma COTAÇÃO/PEDIDO (Triex/JBoss ou do cliente): o pedido à IA pega os dados do CLIENTE dela (nunca os da Triex) e devolve `pedido` {cotacao,valor = Total Geral,condicao} → vai pro
   `window._ferrCred` e já preenche Nº da cotação / Valor do pedido / Condição do "💳 Pedido pra análise de crédito" (`ferrAtalhosTextoPreencherAnalisar`).
+- v115.2800 **⚙️ Quem recebe os e-mails** (Vitor: "nos cards que geram e-mail vamos colocar uma engrenagem… definir quem recebe… incluir ou excluir alguém"): ⚙️ no canto de baixo
+  dos cards (`pfEmailDestCardBtn` nos 2 `mkCard`, mapa título→id `PF_EMAIL_DEST_CARD`; só gestor+/admin `pfEmailDestPode`) → `pfEmailDestAbrir(id)` (janela `pfEmailDestJan`: PARA e CC com
+  ✕ / ➕ e-mail + nome, ↺ padrão). Config compartilhada **`pfEmailDest_v1`** {por:{id:{para:[{e,n}],cc:[{e,n}]}},ts} (3 listas da sync); padrão `PF_EMAIL_DEST_PADRAO`: trf Transferência,
+  ccc Carta de Correção (`pfCccDestAplicar` reescreve os CCC_*), cond Condição de Pgto, ajuste Ajuste de Saldo (EmailJS, 1 envio por destinatário), solic Solicitação de compra (as 2 janelas
+  do compras@), snf Solicitação de NF (continua no `__cfg` dela). Uso: `pfEmailDest(id)` / `pfEmailDestMailto(id,assunto)`. E-mail novo com destinatário fixo → entrada no PADRAO + no CARD.

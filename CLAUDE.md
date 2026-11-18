@@ -2937,3 +2937,6 @@
 - v115.2797 + extensão **4.88** (print do Ricambi: PDF "Pedido_014224triex.pdf" + "segue pedido" — "cliente me mandou um pedido. o PF já deveria fazer algo?"): 1) PDF com nome de pedido
   (`PE_DOC_PED_RE`: pedid / ordem de compra / OC 123 / PC 123) que o cliente mandou DEPOIS da sua última mensagem (`peDocPedidoCli`) = 📦 Pedido a emitir (`pedidoVigiar`, gat "📎 nome.pdf").
   2) Aba Cotação do painel: com PDF/foto do cliente, o "🤖 Ler o pedido/PDF com IA e montar a cotação" (acao `lerDocCli`) já aparece em cima, sem precisar clicar em Cotar antes.
+- v115.2798 BUG ("a cotação foi aberta. mas ficou com isso na frente" — cotação aberta pela extensão com a tela inicial atrás): o painel Timer/Pendências/Lembretes da tela inicial
+  ficava por cima da cotação (a cotação é janela sobre a home, `currentView` continua 'home'). `pfPainelTarefasAtualizarVisibilidade` (roda a cada 1 s no `pfAvisosWatch`) esconde o painel
+  com o `#vendasModal` aberto e não minimizado.

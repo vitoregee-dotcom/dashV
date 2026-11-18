@@ -2926,3 +2926,6 @@
   leitura vazia mostra "⚠ ver o que a IA respondeu" (`window._ccPrintAplBruto`).
 - v115.2793 + extensão **4.85** ("vamos colocar no botão direito. opção de já enviar lá para o leitor de peça"): botão direito numa mensagem (menu do WhatsApp e do Chrome, também com texto
   selecionado) → "📝 Mandar pro Leitor de Peças" (`msg_leitor`/`sel_leitor` → acao `leitor` com foco → `pfExtLeitor`: abre Ferramentas → Leitor de Peças, põe o texto no `#lpTexto` sem a hora do fim e chama `lpLerTexto`).
+- v115.2794 BUG ("pq apareceu 3 itens?" — WhatsApp "219000645 BOMBA CARRARO 135190"): o WhatsApp pinta o número como telefone e o texto vinha 2x (sozinho e na linha) → código repetido
+  sem marca não entra de novo (com marca completa o que entrou sem). E linha com 2 códigos em que o 2º vem logo depois de uma MARCA ("… CARRARO 135190") ou é o nº Carraro do 1º na lista
+  de conversão (`pfCarraroDe`) = a MESMA peça: fica o 2º com a marca, o 1º vira `codCli` (pós-passada no fim de cada linha do `pfExtLerPedido`).

@@ -2948,3 +2948,12 @@
   ✕ / ➕ e-mail + nome, ↺ padrão). Config compartilhada **`pfEmailDest_v1`** {por:{id:{para:[{e,n}],cc:[{e,n}]}},ts} (3 listas da sync); padrão `PF_EMAIL_DEST_PADRAO`: trf Transferência,
   ccc Carta de Correção (`pfCccDestAplicar` reescreve os CCC_*), cond Condição de Pgto, ajuste Ajuste de Saldo (EmailJS, 1 envio por destinatário), solic Solicitação de compra (as 2 janelas
   do compras@), snf Solicitação de NF (continua no `__cfg` dela). Uso: `pfEmailDest(id)` / `pfEmailDestMailto(id,assunto)`. E-mail novo com destinatário fixo → entrada no PADRAO + no CARD.
+- v115.2801 (pedido de compra da Geomaq 261079: "número de pedido é importante. E me mostrar o que está diferente da cotação para o pedido" + Cálculo NF: "aumenta os campos dos valores… fica cortado" + "segurar o item com o cursor e ele mudar de posição"):
+  1) 🧾 Ler pedido do cliente: arquivo (PDF/print) vai pela IA em JSON (`PF_PED_JSON_PROMPT` → `pfPedJsonLer`: numero, data, condicao, transportadora, obs, itens {codigo = NOSSO — coluna Cod.Forn / "(Cod.Cliente: X)" —,
+  codCliente, descricao, qtd, marca, preco}; falhou = jeito antigo `PF_PED_PROMPT`, que também ganhou a regra da coluna do nosso código) → texto pro motor `pfPedJsonTexto` (mesmo código repetido = 1 linha com a
+  qtd somada). Campo "Nº DO PEDIDO DO CLIENTE" na janela (`#pfPedNum`, manda sobre o lido). Pedido gravado na cotação **`v.pedidoCli`** {num,data,condicao,transp,obs,itens,em} (salvo/aberto/reaberto junto) por
+  `pfPedAnexar` (gancho no fim do `pfExtAtualizarCot`; cotação nova = espera a cotação abrir, 25 s). Comparação `pfPedDiff` / janela `pfPedDiffAbrir` (`pfPedDifJan`): qtd, preço (±0,5%), 2 preços no pedido, marca trocada,
+  não estava na cotação, não achei, condição ≠, "na cotação mas NÃO no pedido", totais; botões `pfPedUsarCond` / `pfPedUsarPrecos` (vendaOverride, desfazer volta). Aviso 🧾 na caixa de avisos (`pfPedAvisoCot`).
+  Pedido de Venda: `pedidoCliente` = nº; observação "PEDIDO DO CLIENTE Nº …" e transportadora pedida já escritas. **BUG junto:** "Atualizar esta cotação" passava só {num} e cotação criada na sessão (aba `nova_…`)
+  abria uma aba VAZIA — agora passa `_tabId`. Captura `docs/referencias/pedido-cliente/feito.png`. Ainda NÃO: o caminho do WhatsApp (pfExtCotarImg) não guarda o nº/preço.
+  2) Cálculo NF (`nfRenderTabela`): valores `white-space:nowrap` + min-width 96, campos de edição 100 px; linha arrastável (alça ⋮⋮, `nfArrIni`/`nfArrSobre`/`nfArrSoltar`/`nfArrFim`; as edições moram no item).

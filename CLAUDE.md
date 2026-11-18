@@ -2931,3 +2931,6 @@
   de conversão (`pfCarraroDe`) = a MESMA peça: fica o 2º com a marca, o 1º vira `codCli` (pós-passada no fim de cada linha do `pfExtLerPedido`).
 - v115.2795 + extensão **4.86** ("cadê o sem cadastro" — print do menu do botão direito com só "Resposta curta (NEGATIVO, ZEROU…)"): no menu do WhatsApp cada palavra da resposta curta
   (`qkPal`: NEGATIVO / SEM CADASTRO / ZEROU, editáveis no ✏️ da janelinha) vira item direto `msg_qk` → escreve "CÓDIGO - PALAVRA" pra cada código da mensagem (`lerCods`), sem abrir a janelinha.
+- v115.2796 + extensão **4.87** ("isso foi uma confirmação de pedido. na descrição do áudio" — áudio "deixa esse pedido lá no balcão… vou retirar"): o texto do 📝 Descrever este áudio
+  (`audDescrever` → `audPedido`) passa pelas mesmas regras do 📦 Pedido a emitir (palavras do cliente/suas, `peCaraDePedido`) + jeito falado novo `peConfirmaFalado` ("pedido" + deixa/separa/
+  retira/busca/fecha/fatura/emite/despacha, ou "vou retirar/buscar", "pode separar/fechar/faturar…", "confirmo" + pedido/peças/isso…) — vale também nas mensagens de texto. Lembrete com "🎤 " na frente.

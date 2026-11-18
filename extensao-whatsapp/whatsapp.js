@@ -219,6 +219,16 @@
     if (!r) { falha('Abra o PartsFlow numa aba deste Chrome.'); return; }
     if (r.erro) { falha(r.msg || 'Não deu pra descrever o áudio.', r.erro === 'sem_chave'); return; }
     b._pfAud = { st: 'ok', txt: r.texto || '(não reconheci fala no áudio)' }; if (d.isConnected) audPinta(b, d);
+    try { if (r.texto) audPedido(b, r.texto); } catch (e) { } // 4.87
+  }
+  // 4.87 - A pedido do Vitor ("isso foi uma confirmação de pedido. na descrição do áudio"): o que o áudio diz passa pelas mesmas regras do 📦 Pedido a emitir
+  async function audPedido(b, txt) {
+    if (!contatoAt || contatoAt.grupo) return; var cfg = await peConfig(); if (!cfg || !cfg.ligado) return;
+    var eu = false; try { eu = minhaEl(b); } catch (e) { }
+    var n = peNorm(txt), ok = eu ? (cfg.deMim && ((peReMim && peReMim.test(n)) || PE_PROMESSA_RE.test(n))) : (cfg.doCliente && ((peReCli && peReCli.test(n)) || peCaraDePedido(txt) || peConfirmaFalado(txt)));
+    if (!ok) return; var ch = ultimo, gat = '🎤 ' + txt;
+    var rr = await msg({ t: 'acao', acao: 'pedidoEmitir', arg: { k: resp && resp.k, nome: contatoAt.nome, texto: gat, msgs: lerMensagens(), origem: eu ? 'mim' : 'cliente' } });
+    if (ch !== ultimo || !rr || !rr.ok || rr.jaTinha) return; rr._txt = gat; peR = rr; pintaPe();
   }
   setInterval(function () { try { audVigiar(); } catch (e) { } }, 1500);
   async function transcreverUltimoAudio() {
@@ -2012,6 +2022,12 @@
   }
   // 4.69 - A pedido do Vitor ("tem cliente que costuma fazer o pedido do mesmo jeito… dá pra entender como pedido?"): "favor confirmar o pedido abaixo /
   // 03 PC 53-484 PONTEIRA 173,28 / TOTAL 519,84" — palavra PEDIDO (aceita "pedidp") + linha com código + valor, ou TOTAL com valor = pedido do cliente.
+  // 4.87 - A pedido do Vitor (áudio "deixa esse pedido lá no balcão… vou retirar": "isso foi uma confirmação de pedido"): jeito falado de confirmar.
+  function peConfirmaFalado(t) {
+    var n = peNorm(t);
+    if (/\bvou (retirar|buscar|pegar)\b|\b(pode|podem) (separar|fechar|faturar|tirar|emitir|mandar|despachar)\b|\bconfirm(o|ado|ada|ando|ar)\b/.test(n) && /\b(pedido|pecas?|material|nota|itens|cotacao|orcamento|isso|tudo)\b/.test(n)) return true;
+    return /\bpedido\b/.test(n) && /\b(deix\w*|separ\w*|retir\w*|busc\w*|fech\w*|fatur\w*|tir\w*|emit\w*|despach\w*)\b/.test(n);
+  }
   function peCaraDePedido(t) {
     var n = peNorm(t); if (!/\bped[i1]d[oop]?s?\b|\bpedid\w?\b/.test(n)) return false;
     var temCod = /\b[a-z]{0,4}\d[\w]*[-./]\w+|\b\d{5,}\b/.test(n), temValor = /\d+,\d{2}\b/.test(n), temTotal = /\btotal\b[^\n]*\d+,\d{2}/.test(n);
@@ -2025,7 +2041,7 @@
     // 4.79 - A pedido do Vitor ("não tinha que ir pro meu dia?" — cliente "Despachar hoje ok", você "Claro. mando sim", depois "Ótimo dia" + 🙏): olhava só a
     // ÚLTIMA mensagem sua e as 4 últimas da conversa. Agora: as suas 4 últimas do fim da conversa e as 4 últimas do cliente nas 12 últimas mensagens.
     if (cfg.deMim) { var nm = 0; for (var a = ms.length - 1; a >= 0 && a >= ms.length - 12 && nm < 4; a--) { if (!ms[a].eu) { if (nm) break; continue; } nm++; var ta = peNorm(ms[a].t); if ((peReMim && peReMim.test(ta)) || PE_PROMESSA_RE.test(ta)) { origem = 'mim'; gat = ms[a].t; break; } } }
-    if (!origem && cfg.doCliente) { var nc = 0; for (var i = ms.length - 1; i >= 0 && i >= ms.length - 12 && nc < 4; i--) { if (ms[i].eu) continue; nc++; if ((peReCli && peReCli.test(peNorm(ms[i].t))) || peCaraDePedido(ms[i].t)) { origem = 'cliente'; gat = ms[i].t; break; } } }
+    if (!origem && cfg.doCliente) { var nc = 0; for (var i = ms.length - 1; i >= 0 && i >= ms.length - 12 && nc < 4; i--) { if (ms[i].eu) continue; nc++; if ((peReCli && peReCli.test(peNorm(ms[i].t))) || peCaraDePedido(ms[i].t) || peConfirmaFalado(ms[i].t)) { origem = 'cliente'; gat = ms[i].t; break; } } }
     // 4.77 - A pedido do Vitor ("algo mais automático"): promessa de MANDAR algo ("já te mando", "te envio a tabela", "te mando na quarta") ou o cliente
     // pedindo material ("me manda a tabela/foto/catálogo") vira 📨 lembrete de mandar (fecha sozinho quando você manda o arquivo/cotação/link). Só o que fala
     // de pedido/nota/faturar continua sendo 📦 emitir.

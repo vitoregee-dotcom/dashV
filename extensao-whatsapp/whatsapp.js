@@ -3362,6 +3362,8 @@
     if (/^msg_/.test(id) && !A.b) { cmToast('Clique com o botão direito em cima da mensagem'); return; }
     if (id === 'msg_cotar') { cotarTxt(cmTxt(A.b)); return; }
     if (id === 'msg_avise') { aviseMe(cmTxt(A.b)); return; } // 4.78
+    if (id === 'msg_qk') { var w0 = String(src || '').trim(); if (!w0) return; var rq = await msg({ t: 'acao', acao: 'lerCods', arg: { texto: cmTxt(A.b) } }); var cq = (rq && rq.cods && rq.cods.length) ? rq.cods.map(function (c) { return String(c || '').trim().split(/\s+/)[0].slice(0, 30); }).filter(Boolean) : [];
+      if (!cq.length) { qkCods = null; qkUsar('', w0); return; } qkCods = null; cq.forEach(function (c, i) { setTimeout(function () { qkUsar(c, w0); }, i * 500); }); return; } // 4.86
     if (id === 'msg_curta') { var rc = await msg({ t: 'acao', acao: 'lerCods', arg: { texto: cmTxt(A.b) } }); qkAbrir(rc && rc.cods && rc.cods.length ? rc.cods : null); return; }
     if (id === 'msg_lemb') {
       if (!resp || !resp.k) { cmToast('Lembrete na ficha: essa conversa precisa ser de um cliente do PF'); return; }
@@ -3459,7 +3461,8 @@
     if (docNome) itens.push(['doc_ia', '🤖 Ler o PDF com IA e cotar (PF)', docNome === '?' ? '' : docNome]);
     itens.push(['msg_cotar', '📄 Cotar no PF']);
     itens.push(['msg_leitor', '📝 Mandar pro Leitor de Peças (PF)']); // 4.85
-    itens.push(['msg_curta', '🏷️ Resposta curta (NEGATIVO, ZEROU…)']); // 4.78
+    // 4.86 - A pedido do Vitor ("cadê o sem cadastro"): cada resposta curta direto no menu (NEGATIVO / SEM CADASTRO / ZEROU…), sem abrir a janelinha
+    qkPal.forEach(function (w) { itens.push(['msg_qk', '🏷️ ' + w, w]); });
     itens.push(['msg_avise', '🔔 Avise-me (PF)']);
     if (resp && resp.k) { itens.push(['msg_nota', '📝 Anotar na ficha (PF)']); itens.push(['msg_lemb', '⏰ Lembrete (PF)']); }
     itens.push(['msg_rr', '⚡ Salvar como resposta rápida (PF)']);

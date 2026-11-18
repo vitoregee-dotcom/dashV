@@ -2929,3 +2929,5 @@
 - v115.2794 BUG ("pq apareceu 3 itens?" — WhatsApp "219000645 BOMBA CARRARO 135190"): o WhatsApp pinta o número como telefone e o texto vinha 2x (sozinho e na linha) → código repetido
   sem marca não entra de novo (com marca completa o que entrou sem). E linha com 2 códigos em que o 2º vem logo depois de uma MARCA ("… CARRARO 135190") ou é o nº Carraro do 1º na lista
   de conversão (`pfCarraroDe`) = a MESMA peça: fica o 2º com a marca, o 1º vira `codCli` (pós-passada no fim de cada linha do `pfExtLerPedido`).
+- v115.2795 + extensão **4.86** ("cadê o sem cadastro" — print do menu do botão direito com só "Resposta curta (NEGATIVO, ZEROU…)"): no menu do WhatsApp cada palavra da resposta curta
+  (`qkPal`: NEGATIVO / SEM CADASTRO / ZEROU, editáveis no ✏️ da janelinha) vira item direto `msg_qk` → escreve "CÓDIGO - PALAVRA" pra cada código da mensagem (`lerCods`), sem abrir a janelinha.

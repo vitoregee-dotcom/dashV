@@ -1073,6 +1073,8 @@
     else if (r && !r.erro && !r.grupo) h += '<div class="pfwa-sub" style="margin-bottom:6px">⚠ Contato fora do cadastro — preço com a margem padrão (SP).</div>';
     if (cotando) return h + '<div class="pfwa-vazio">Lendo a conversa e buscando saldo e preço…</div>';
     if (cotErro) return h + '<div class="pfwa-vazio">' + esc(cotErro) + '</div>';
+    // 4.88 - A pedido do Vitor ("cliente me mandou um pedido [PDF]. o PF já deveria fazer algo?"): o botão de ler o PDF/foto já aparece, sem precisar clicar em Cotar antes
+    if (!cot) { var _d0 = docCliAchar(); if (_d0) { var _ehPed = _d0.tipo === 'pdf' && PE_DOC_PED_RE.test(_d0.nome || ''); h += '<div class="pfwa-vazio" style="padding-bottom:4px"><b>📎 O cliente mandou ' + (_d0.tipo === 'pdf' ? (_ehPed ? 'um PEDIDO em PDF' : 'um PDF') + ' <i>' + esc(_d0.nome || '') + '</i>' : 'uma foto') + '</b><br><button class="pfwa-btn pfwa-lar" data-acao="lerDocCli" style="margin-top:8px">🤖 Ler ' + (_d0.tipo === 'pdf' ? (_ehPed ? 'o pedido' : 'o PDF') : 'a foto') + ' com IA e montar a cotação</button></div>'; } }
     if (!cot) return h + '<div class="pfwa-vazio">O PF lê os códigos e a quantidade que o cliente mandou nesta conversa, mostra saldo e preço e escreve a resposta.<br><br><button class="pfwa-btn pfwa-lar" data-acao="cotar">📄 Cotar no PF</button> <button class="pfwa-btn" data-acao="cotarIA" title="Pra quando o cliente pede pelo nome da peça">🧠 Entender com IA</button></div>';
     if (!cot.itens.length) { var _da = docCliAchar(); if (_da) h += '<div class="pfwa-vazio" style="padding-bottom:4px"><b>O cliente mandou ' + (_da.tipo === 'pdf' ? 'o PDF <i>' + esc(_da.nome || '') + '</i>' : 'uma foto') + '</b> — os códigos devem estar nele.<br><button class="pfwa-btn pfwa-lar" data-acao="lerDocCli" style="margin-top:8px">🤖 Ler ' + (_da.tipo === 'pdf' ? 'o PDF' : 'a foto') + ' com IA e cotar</button></div>'; }
     if (!cot.itens.length) return h + '<div class="pfwa-vazio">Não achei códigos nas últimas mensagens do cliente.<br><small>Se ele pediu pelo nome da peça ("kit de vedação da 28000"), use 🧠 Entender com IA.</small><br><br><button class="pfwa-btn pfwa-lar" data-acao="cotarIA">🧠 Entender com IA</button> <button class="pfwa-btn" data-acao="cotar">🔁 Ler de novo</button></div>';
@@ -2028,6 +2030,12 @@
     if (/\bvou (retirar|buscar|pegar)\b|\b(pode|podem) (separar|fechar|faturar|tirar|emitir|mandar|despachar)\b|\bconfirm(o|ado|ada|ando|ar)\b/.test(n) && /\b(pedido|pecas?|material|nota|itens|cotacao|orcamento|isso|tudo)\b/.test(n)) return true;
     return /\bpedido\b/.test(n) && /\b(deix\w*|separ\w*|retir\w*|busc\w*|fech\w*|fatur\w*|tir\w*|emit\w*|despach\w*)\b/.test(n);
   }
+  // 4.88 - nome de arquivo que é pedido do cliente (Pedido_014224triex.pdf, OC 123, ordem de compra)
+  var PE_DOC_PED_RE = /pedid|ordem.?de.?compra|\boc[\s_-]*\d|\bpc[\s_-]*\d/i;
+  function peDocPedidoCli() { // PDF de pedido do cliente que chegou DEPOIS da sua última mensagem
+    try { var els = msgLinhas(); for (var i = els.length - 1; i >= 0 && i >= els.length - 12; i--) { var b = els[i]; if (minhaEl(b)) return null;
+      var m = String(b.innerText || '').match(/([^\n]+?\.pdf)\b/i); if (m && PE_DOC_PED_RE.test(m[1])) return m[1].trim(); } } catch (e) { } return null;
+  }
   function peCaraDePedido(t) {
     var n = peNorm(t); if (!/\bped[i1]d[oop]?s?\b|\bpedid\w?\b/.test(n)) return false;
     var temCod = /\b[a-z]{0,4}\d[\w]*[-./]\w+|\b\d{5,}\b/.test(n), temValor = /\d+,\d{2}\b/.test(n), temTotal = /\btotal\b[^\n]*\d+,\d{2}/.test(n);
@@ -2042,6 +2050,7 @@
     // ÚLTIMA mensagem sua e as 4 últimas da conversa. Agora: as suas 4 últimas do fim da conversa e as 4 últimas do cliente nas 12 últimas mensagens.
     if (cfg.deMim) { var nm = 0; for (var a = ms.length - 1; a >= 0 && a >= ms.length - 12 && nm < 4; a--) { if (!ms[a].eu) { if (nm) break; continue; } nm++; var ta = peNorm(ms[a].t); if ((peReMim && peReMim.test(ta)) || PE_PROMESSA_RE.test(ta)) { origem = 'mim'; gat = ms[a].t; break; } } }
     if (!origem && cfg.doCliente) { var nc = 0; for (var i = ms.length - 1; i >= 0 && i >= ms.length - 12 && nc < 4; i--) { if (ms[i].eu) continue; nc++; if ((peReCli && peReCli.test(peNorm(ms[i].t))) || peCaraDePedido(ms[i].t) || peConfirmaFalado(ms[i].t)) { origem = 'cliente'; gat = ms[i].t; break; } } }
+    if (!origem && cfg.doCliente) { var _pd = peDocPedidoCli(); if (_pd) { origem = 'cliente'; gat = '📎 ' + _pd; } } // 4.88 - PDF de pedido = pedido a emitir
     // 4.77 - A pedido do Vitor ("algo mais automático"): promessa de MANDAR algo ("já te mando", "te envio a tabela", "te mando na quarta") ou o cliente
     // pedindo material ("me manda a tabela/foto/catálogo") vira 📨 lembrete de mandar (fecha sozinho quando você manda o arquivo/cotação/link). Só o que fala
     // de pedido/nota/faturar continua sendo 📦 emitir.

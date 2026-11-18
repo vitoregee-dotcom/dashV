@@ -2957,3 +2957,8 @@
   Pedido de Venda: `pedidoCliente` = nº; observação "PEDIDO DO CLIENTE Nº …" e transportadora pedida já escritas. **BUG junto:** "Atualizar esta cotação" passava só {num} e cotação criada na sessão (aba `nova_…`)
   abria uma aba VAZIA — agora passa `_tabId`. Captura `docs/referencias/pedido-cliente/feito.png`. Ainda NÃO: o caminho do WhatsApp (pfExtCotarImg) não guarda o nº/preço.
   2) Cálculo NF (`nfRenderTabela`): valores `white-space:nowrap` + min-width 96, campos de edição 100 px; linha arrastável (alça ⋮⋮, `nfArrIni`/`nfArrSobre`/`nfArrSoltar`/`nfArrFim`; as edições moram no item).
+- v115.2802 ("quero. Mas coloque o nome intuitivo de pedido, pra eu não pensar que é de venda"): na tela vira **"Pedido de compra do cliente"** (botão "🧾 Pedido de compra do cliente" na barra dos itens,
+  janela, aviso, comparação "× cotação", obs do PV "PEDIDO DE COMPRA DO CLIENTE Nº…", PF_FUNCOES). **WhatsApp também**: `pfExtCotarImg` (botão direito no PDF/foto → Ler com IA) pede `PEDIDO_JSON` + o
+  `PF_PED_JSON_PROMPT` quando não é cotação da Triex → `pfPedJsonLer`/`pfPedJsonTexto`; com nº/preço/condição/transportadora guarda `window._pfPedPend` {P,wa:1,k} por 15 min → "📄 Abrir a cotação no PF"
+  (`pfExtAbrirCot` → `pfPedAnexarQuandoAbrir`, ou o gancho do `pfExtAtualizarCot`) põe o pedido na cotação e abre a comparação. `R.pedCompra` = nº (a extensão ainda não mostra).
+

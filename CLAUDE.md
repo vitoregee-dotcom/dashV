@@ -2934,3 +2934,6 @@
 - v115.2796 + extensão **4.87** ("isso foi uma confirmação de pedido. na descrição do áudio" — áudio "deixa esse pedido lá no balcão… vou retirar"): o texto do 📝 Descrever este áudio
   (`audDescrever` → `audPedido`) passa pelas mesmas regras do 📦 Pedido a emitir (palavras do cliente/suas, `peCaraDePedido`) + jeito falado novo `peConfirmaFalado` ("pedido" + deixa/separa/
   retira/busca/fecha/fatura/emite/despacha, ou "vou retirar/buscar", "pode separar/fechar/faturar…", "confirmo" + pedido/peças/isso…) — vale também nas mensagens de texto. Lembrete com "🎤 " na frente.
+- v115.2797 + extensão **4.88** (print do Ricambi: PDF "Pedido_014224triex.pdf" + "segue pedido" — "cliente me mandou um pedido. o PF já deveria fazer algo?"): 1) PDF com nome de pedido
+  (`PE_DOC_PED_RE`: pedid / ordem de compra / OC 123 / PC 123) que o cliente mandou DEPOIS da sua última mensagem (`peDocPedidoCli`) = 📦 Pedido a emitir (`pedidoVigiar`, gat "📎 nome.pdf").
+  2) Aba Cotação do painel: com PDF/foto do cliente, o "🤖 Ler o pedido/PDF com IA e montar a cotação" (acao `lerDocCli`) já aparece em cima, sem precisar clicar em Cotar antes.

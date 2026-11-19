@@ -2998,3 +2998,7 @@
 - v115.2812 ("o preço do concorrente vai aparecer parecido com a tabela de mapa?"): a janela 💰 Preços dos fornecedores (coluna FORN. / Alt+F, `pfFpCorpoHtml`) ganhou embaixo o bloco
   **⚔️ Preços dos concorrentes** (`pfFpConcHtml`: CONCORRENTES / MENOR / MAIOR / MÉDIA / ÚLTIMO + tabela DATA / CONCORRENTE / MARCA / PREÇO / CLIENTE QUE PASSOU / QUEM GUARDOU, mesmo filtro de
   período; "➕ Guardar preço do concorrente" = `pfFpConcNovo` → `pfPcDaCot`). Item sem preço de mapa mas com concorrente = botão ⚔️ N vermelho na coluna FORN. Captura `docs/referencias/preco-concorrente/feito-na-tabela-forn.png`.
+- v115.2813 + extensão **4.94** BUG ("aqui foi anotado para o meu dia? seria bom deixar um sinalzinho" — "E segunda faturo e te mando"): o 📦 Pedido a emitir só pegava a promessa com o
+  dia DEPOIS do verbo ("faturo segunda"). `PE_PROMESSA2_RE` (dia antes do verbo: "segunda faturo", "amanhã cedo te mando") + `pePromessa(n)` no `pedidoVigiar` e no 📦 do balão; o sinal
+  já existia (selo "📦 emitir" na mensagem + 📦 N ao lado do nome, v4.72). Simulador: contato "Rafael - Cardans Meira". Captura `docs/referencias/whatsapp-avisos-discretos/feito-segunda-faturo.png`.
+  Obs.: pedido a emitir NÃO vai pra 🛒 Mesa (é do comprador) — fica em Pendências e ☀️ Meu dia › Retornos combinados.

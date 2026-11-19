@@ -2977,3 +2977,11 @@
   gravado no "Monta com" escrito IGUAL (índice exato); o card usa o `pfInfoItemPorCodigo` (sem maiúscula/espaço). Agora `_acha(mc)` = índice exato > só letras+números (`ccNormCod`) > `pfInfoItemPorCodigo`.
 - v115.2809 ("se a ponteira é fixa ou deslizante deve estar na descrição"): a tabela MONTA COM do card dos Componentes Cardan e a lista 🔗 Monta com do Alt+B/extensão mostram
   "PONTEIRA FIXA"/"PONTEIRA DESLIZANTE" no lugar de "PONTEIRA" (`ccPontRotulo` no card e no `pfItemCardMcLista`).
+- v115.2810 + extensão **4.92** **🔗 Monta com no botão direito do WhatsApp** (prévia `docs/referencias/whatsapp-montacom/previa.png` → "top. pode ser!"): `sel_mc` (seleção) / `msg_mc`
+  (mensagem, também no menu do próprio WhatsApp) / botão "🔗 Marcar peças do Monta com ›" no Alt+B → `mcAbrir` (`#pfwa-mc`) → acao `montaCom` → `pfExtMontaCom`: códigos do texto
+  (`pfExtLerPedido`, sem achar = `pfAltbAchados`) → `pfItemCardMcLista` de todos sem repetir, por tipo (Spicer na frente), cada peça com as marcas do estoque (do código e dos "também", `esc` =
+  Spicer com saldo > com saldo > Spicer > 1ª). Marca as peças (marca/qtd, "incluir também" a peça base) → ➕ Pôr na cotação de hoje (`cotHoje` com itens), 💬 Pôr na conversa
+  (`escreverNaCaixa`), 📋 Copiar. Simulador com exemplo. E ("quando eu mandar do whats pro leitor, o que eu mandar de novo, inclua na mesma leitura e vá acrescentando"):
+  `pfExtLeitor` com a lista já com itens e envio anterior pelo WhatsApp em até 4 h (`window._lpWaTs`) chama `lpLerTextoReal` direto = soma sem perguntar (antes, com a lista em revisão,
+  a caixa `#lpTexto` não existia e nada acontecia); 1º envio com lista antiga continua perguntando Substituir/Adicionar.
+

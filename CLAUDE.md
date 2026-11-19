@@ -2962,3 +2962,6 @@
   `PF_PED_JSON_PROMPT` quando não é cotação da Triex → `pfPedJsonLer`/`pfPedJsonTexto`; com nº/preço/condição/transportadora guarda `window._pfPedPend` {P,wa:1,k} por 15 min → "📄 Abrir a cotação no PF"
   (`pfExtAbrirCot` → `pfPedAnexarQuandoAbrir`, ou o gancho do `pfExtAtualizarCot`) põe o pedido na cotação e abre a comparação. `R.pedCompra` = nº (a extensão ainda não mostra).
 
+- v115.2803 + extensão **4.89** BUG (painel do WhatsApp, "2-40-2521 · 🔍 seria: 2-40-1521": "o código estava errado. Selecionei, mas abriu a cotação com a errada"): o chip escolhido
+  (`o.perg`) só mudava a resposta. Agora `itensPF` (whatsapp.js) manda pro PF o código escolhido (marca dele, o digitado vira código do cliente) no "📄 Abrir a cotação no PF", no PDF e no selo;
+  chip escolhido mostra "✔" + "na cotação vai o X". Chips sem repetir o mesmo código (`pfExtCotar` junta por código, aparecia 4x). Botão "⬇ Criar minimizada" também no painel (acao `abrirCotMin`).

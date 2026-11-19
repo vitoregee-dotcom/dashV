@@ -824,6 +824,7 @@
     if (ac === 'b-prontas') { if (rrAberto) rrFechar(); else rrAbrir('', false); return; } // 3.7 - ⚡ respostas rápidas
     if (ac === 'b-pdf' || ac === 'pdf') { if (!cot || !cot.itens.length) { irAba('cot'); await cotar(); } if (cot && cot.itens.length) abrirCot(true); return; }
     if (ac === 'abrirCot') { abrirCot(false); return; }
+    if (ac === 'abrirCotMin') { abrirCot(false, true); return; } // 4.89 - criar minimizada pelo painel
     if (ac === 'escrever' || ac === 'pronta') {
       var t = ac === 'escrever' ? (P.querySelector('.pfwa-resp') || {}).value : ((resp && resp.prontas && resp.prontas[+arg]) || {}).txt;
       if (!t) return; var ok = escreverNaCaixa(t);
@@ -991,9 +992,19 @@
     var fim = cot.resposta.split('\n\n').slice(-1)[0];
     cot.resposta = ini + '\nSegue:\n' + ls.join('\n') + (tot ? '\n\nTotal: ' + reais(tot) : '') + '\n\n' + fim;
   }
-  function abrirCot(pdf) {
+  // 4.89 - A pedido do Vitor ("o código estava errado. Selecionei, mas abriu a cotação com a errada"): o "🔍 seria:" escolhido vai pro PF no lugar do código
+  // que o cliente digitou (o dele fica como código do cliente).
+  function itensPF(lista) {
+    return (lista || []).filter(function (o) { return o.cod; }).map(function (o) {
+      var x = o.perg ? (o.parecidos || []).filter(function (y) { return y.cod === o.perg; })[0] : null;
+      if (x) return { cod: x.cod, qtd: o.qtd, marca: x.marca || '', desc: '', marcaPed: o.marcaPed, marcaOk: false, codCli: o.codCli || o.cod };
+      return { cod: o.cod, qtd: o.qtd, marca: o.marca, desc: o.desc, marcaPed: o.marcaPed, marcaOk: o.marcaOk, codCli: o.codCli };
+    });
+  }
+  function abrirCot(pdf, min) {
     if (!cot) return;
-    msg({ t: 'acao', acao: 'abrirCot', focar: true, arg: { k: resp && resp.k, pessoa: pessoaComprador(), pdf: !!pdf, itens: cot.itens.filter(function (o) { return o.cod; }).map(function (o) { return { cod: o.cod, qtd: o.qtd, marca: o.marca, desc: o.desc, marcaPed: o.marcaPed, marcaOk: o.marcaOk, codCli: o.codCli }; }) } });
+    msg({ t: 'acao', acao: 'abrirCot', focar: !min, arg: { minimizar: !!min, k: resp && resp.k, pessoa: pessoaComprador(), pdf: !!pdf, itens: itensPF(cot.itens) } });
+    if (min) cmToast('✔ Cotação criada no PF (minimizada)');
   }
   async function buscarSaldo(cod) { cod = String(cod || '').trim(); if (!cod) return; saldoR = { cod: cod, carregando: 1 }; pintaCorpo(); var r = await msg({ t: 'acao', acao: 'saldo', arg: cod }); saldoR = r && !r.erro ? r : { cod: cod, erro: 1 }; pintaCorpo(); }
 
@@ -1057,7 +1068,7 @@
   // 4.48 - 🔍 código quase igual: o cliente pode ter digitado errado (3-3-5571X → 3-3-6571X). Clicar = a resposta pergunta "não seria o X?"
   function parecHtml(o, i) {
     if (o.achou || !(o.parecidos || []).length) return '';
-    return '<div class="pfwa-mps">🔍 seria: ' + o.parecidos.map(function (x, j) { return '<span class="pfwa-mpc' + (x.saldo > 0 ? '' : ' z') + (o.perg === x.cod ? ' on' : '') + '" data-acao="parec" data-arg="' + i + '|' + j + '" title="' + esc(x.como) + (x.marca ? ' · ' + esc(x.marca) : '') + (x.saldo > 0 ? ' · saldo ' + x.saldo : ' · sem saldo') + ' — clique pra perguntar ao cliente">' + esc(x.cod) + '</span>'; }).join(' ') + '</div>';
+    return '<div class="pfwa-mps">🔍 seria: ' + o.parecidos.map(function (x, j) { return '<span class="pfwa-mpc' + (x.saldo > 0 ? '' : ' z') + (o.perg === x.cod ? ' on' : '') + '" data-acao="parec" data-arg="' + i + '|' + j + '" title="' + esc(x.como) + (x.marca ? ' · ' + esc(x.marca) : '') + (x.saldo > 0 ? ' · saldo ' + x.saldo : ' · sem saldo') + ' — clique pra escolher: a resposta pergunta "não seria o X?" e a cotação no PF já entra com ele">' + (o.perg === x.cod ? '✔ ' : '') + esc(x.cod) + '</span>'; }).join(' ') + (o.perg ? '<div style="font-size:11px;color:#1F7A3A;margin-top:3px">✔ na cotação vai o ' + esc(o.perg) + ' (o ' + esc(o.cod) + ' fica como código do cliente)</div>' : '') + '</div>';
   }
   function parecUsar(arg) { if (!cot) return; var p = String(arg || '').split('|'), o = cot.itens[+p[0]], x = o && o.parecidos && o.parecidos[+p[1]]; if (!x) return; o.perg = o.perg === x.cod ? '' : x.cod; refazResposta(); pintaCorpo(); }
   function sugMarcaUsar(arg) {
@@ -1087,7 +1098,7 @@
     h += '</table><div class="pfwa-tot"><span>Total (com saldo)</span><span>' + reais(cot.total) + '</span></div>';
     if (CFG.sug !== false) h += juntoHtml(); // 4.20 - 💡 quem leva isso também leva
     h += '<div class="pfwa-bt" style="margin-top:10px">💬 Resposta (dá pra mexer antes)</div><textarea class="pfwa-resp">' + esc(cot.resposta) + '</textarea>';
-    h += '<div class="pfwa-bots"><button data-acao="escrever" class="pfwa-verde">💬 Pôr na conversa</button><button data-acao="abrirCot">📄 Abrir a cotação no PF</button><button data-acao="pdf" class="pfwa-laranja">📤 PDF</button></div>';
+    h += '<div class="pfwa-bots"><button data-acao="escrever" class="pfwa-verde">💬 Pôr na conversa</button><button data-acao="abrirCot">📄 Abrir a cotação no PF</button><button data-acao="abrirCotMin" title="Cria a cotação no PF e deixa ela minimizada lá (não troca de tela)">⬇ Criar minimizada</button><button data-acao="pdf" class="pfwa-laranja">📤 PDF</button></div>';
     h += '<div class="pfwa-nada" style="margin-top:6px">"Pôr na conversa" escreve na caixa do WhatsApp — você confere e aperta Enter. O PDF abre a cotação no PF e baixa o arquivo pra anexar.</div>';
     return h;
   }
@@ -2709,7 +2720,7 @@
     if (a === 'painel') { if (spR && !spR.erro) { cot = spR; cotErro = ''; } spFechar(); irAba('cot'); return; }
     if (a === 'criar' || a === 'min') {
       var s = spMsg, r = spR; if (!s || !r) return; var _min = a === 'min'; // 4.83 - criar minimizada (não traz o PF pra frente)
-      msg({ t: 'acao', acao: 'abrirCot', focar: !_min, arg: { minimizar: _min, k: resp && resp.k, pessoa: pessoaComprador(), itens: (r.itens || []).filter(function (o) { return o.cod; }).map(function (o) { return { cod: o.cod, qtd: o.qtd, marca: o.marca, desc: o.desc, marcaPed: o.marcaPed, marcaOk: o.marcaOk, codCli: o.codCli }; }) } });
+      msg({ t: 'acao', acao: 'abrirCot', focar: !_min, arg: { minimizar: _min, k: resp && resp.k, pessoa: pessoaComprador(), itens: itensPF(r.itens) } });
       spFeitos[s._h] = Date.now(); try { sessionStorage.setItem('pfwa_sp_feitos', JSON.stringify(spFeitos)); } catch (er) { }
       s._f = null; spFechar(); selosVigiar(); if (_min) cmToast('✔ Cotação criada no PF (minimizada)');
     }

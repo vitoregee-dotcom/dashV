@@ -2995,3 +2995,6 @@
   na cotação `pfPcEtqHtml` ("⚔️ ODAPEL R$ 2.200 · SPICER · data · cliente · cobrindo: margem X%") → `pfPcVer` (todos, com data, cliente, quem guardou, arquivo, 🗑). Extensão: `sel_pc`/`msg_pc`/
   `img_pc`/`doc_pc` (menu do Chrome e do WhatsApp) → `pcMandar`. Junto ("se já mandei o portfólio, vai me avisar com data?"): o cartão 📎 do material mostra "⚠ Você já mandou X pra ele
   em dd/mm (há N dias)" (`pfMatJaMandou` pelas ofertas/materiais do CRM; acao `materialDe` recebe `k`); o botão Mandar registra o envio (acao `materialEnviado` → `pfExtMaterialEnviado`, 1 por dia).
+- v115.2812 ("o preço do concorrente vai aparecer parecido com a tabela de mapa?"): a janela 💰 Preços dos fornecedores (coluna FORN. / Alt+F, `pfFpCorpoHtml`) ganhou embaixo o bloco
+  **⚔️ Preços dos concorrentes** (`pfFpConcHtml`: CONCORRENTES / MENOR / MAIOR / MÉDIA / ÚLTIMO + tabela DATA / CONCORRENTE / MARCA / PREÇO / CLIENTE QUE PASSOU / QUEM GUARDOU, mesmo filtro de
+  período; "➕ Guardar preço do concorrente" = `pfFpConcNovo` → `pfPcDaCot`). Item sem preço de mapa mas com concorrente = botão ⚔️ N vermelho na coluna FORN. Captura `docs/referencias/preco-concorrente/feito-na-tabela-forn.png`.

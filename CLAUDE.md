@@ -3002,3 +3002,8 @@
   dia DEPOIS do verbo ("faturo segunda"). `PE_PROMESSA2_RE` (dia antes do verbo: "segunda faturo", "amanhã cedo te mando") + `pePromessa(n)` no `pedidoVigiar` e no 📦 do balão; o sinal
   já existia (selo "📦 emitir" na mensagem + 📦 N ao lado do nome, v4.72). Simulador: contato "Rafael - Cardans Meira". Captura `docs/referencias/whatsapp-avisos-discretos/feito-segunda-faturo.png`.
   Obs.: pedido a emitir NÃO vai pra 🛒 Mesa (é do comprador) — fica em Pendências e ☀️ Meu dia › Retornos combinados.
+- v115.2814 **📦 Meus pedidos** (Vitor: "uma parte só pra pedidos… visualizar de forma dinâmica em qual etapa está… e pra não esquecer de faturar" → opção A da prévia `docs/referencias/meus-pedidos/`, capturas `feito-*.png`):
+  card em Vendas (`_meuspv`) → `pfMpAbrir` (tela `#pfMeusPed` z 10040, Esc; ▦ Quadro | ☰ Lista `pf_mp_modo`). `pfMpDados(vend)`: pedidos do `pvLoad` do vendedor (`vendedorEmail`; gestor escolhe, padrão = os dele) por `status`
+  (`PF_MP_COLS` emitir/aberto/separado/conferido/faturado/despachado — despachado só `PF_MP_DESP_DIAS`=7) + coluna 📝 A emitir = pendências `pp_emit_*` (só as do próprio usuário). Vermelho (`x.al`): lembrete de outro dia,
+  emitido parado > 48 h, separado > 24 h sem conferir, conferido > 4 h sem faturar. Faturado = "💬 avisar cliente" (`pfMpAvisar`: pfWhatsAbrir com o texto, grava `p.avisadoEm`+tsMod). Menu do cartão `pfMpMenu`
+  (ver pedido, ficha, cotação, `pfMpCobrarFat` copia o texto, `pfMpEmitido`). Faixa no ☀️ Meu dia `pfMpFaixaHtml(fv)` (só quando tem algo).

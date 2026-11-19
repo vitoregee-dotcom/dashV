@@ -225,7 +225,7 @@
   async function audPedido(b, txt) {
     if (!contatoAt || contatoAt.grupo) return; var cfg = await peConfig(); if (!cfg || !cfg.ligado) return;
     var eu = false; try { eu = minhaEl(b); } catch (e) { }
-    var n = peNorm(txt), ok = eu ? (cfg.deMim && ((peReMim && peReMim.test(n)) || PE_PROMESSA_RE.test(n))) : (cfg.doCliente && ((peReCli && peReCli.test(n)) || peCaraDePedido(txt) || peConfirmaFalado(txt)));
+    var n = peNorm(txt), ok = eu ? (cfg.deMim && ((peReMim && peReMim.test(n)) || pePromessa(n))) : (cfg.doCliente && ((peReCli && peReCli.test(n)) || peCaraDePedido(txt) || peConfirmaFalado(txt)));
     if (!ok) return; var ch = ultimo, gat = '🎤 ' + txt;
     var rr = await msg({ t: 'acao', acao: 'pedidoEmitir', arg: { k: resp && resp.k, nome: contatoAt.nome, texto: gat, msgs: lerMensagens(), origem: eu ? 'mim' : 'cliente' } });
     if (ch !== ultimo || !rr || !rr.ok || rr.jaTinha) return; rr._txt = gat; peR = rr; pintaPe();
@@ -2048,6 +2048,9 @@
   // 4.76 - A pedido do Vitor ("como faço para isso entrar no meu dia? combinei de mandar na quarta feira" — "te mando na quarta feira então"):
   // promessa de mandar com dia marcado (hoje/amanhã/dia da semana/dia N) também vira lembrete, além das palavras da lista.
   var PE_PROMESSA_RE = /(^|[^a-z])(te\s+|lhe\s+|vou\s+)?(mando|envio|emito|despacho|faturo|separo|entrego|mandar|enviar|despachar)\b[^.?!\n]{0,30}?\b(hoje|amanha|segunda|terca|quarta|quinta|sexta|sabado|dia\s+\d{1,2})\b/;
+  // 4.94 - A pedido do Vitor ("E segunda faturo e te mando" não foi pro Meu dia): o dia pode vir ANTES do verbo
+  var PE_PROMESSA2_RE = /(^|[^a-z])(hoje|amanha|segunda|terca|quarta|quinta|sexta|sabado|dia\s+\d{1,2})(\s+(cedo|de\s+manha|a\s+tarde|feira))?\b[^.?!\n]{0,20}?\b(eu\s+)?(te\s+|lhe\s+|ja\s+)?(mando|envio|emito|despacho|faturo|separo|entrego|tiro)\b/;
+  function pePromessa(n) { return PE_PROMESSA_RE.test(n) || PE_PROMESSA2_RE.test(n); }
   var PE_EMIT_RE = /pedid|\bnota\b|\bnf\b|fatur|emit|danfe|\bpv\b/; // 4.77 - fala de pedido/nota = 📦 emitir
   var PROM_MIM_RE = /(^|[^a-z])(ja\s+te\s+(mando|envio|passo)|te\s+(mando|envio|passo|encaminho)|vou\s+te\s+(mandar|enviar|passar|encaminhar)|vou\s+(mandar|enviar|passar|encaminhar)|ja\s+(mando|envio|encaminho)|(mando|envio)\s+(ja|agora|daqui|em\s+seguida|logo)|daqui\s+a\s+pouco\s+(te\s+)?(mando|envio)|assim\s+que\s+(eu\s+)?(tiver|chegar|conseguir)[^.?!]{0,30}(mando|envio|passo))\b/;
   var PROM_CLI_RE = /\b(me\s+)?(manda|mande|mandar|envia|envie|enviar|passa|passe|passar|encaminha)\s+(pra\s+mim\s+|pra\s+gente\s+)?(o|a|os|as|um|uma|seu|sua)?\s*(tabela|catalogo|catalogos|portfolio|portifolio|foto|fotos|orcamento|cotacao|preco|precos|lista|ficha|desenho|medida|medidas|video|link|folheto|material)\b/;
@@ -2088,7 +2091,7 @@
     var last = ms[ms.length - 1], origem = '', gat = '';
     // 4.79 - A pedido do Vitor ("não tinha que ir pro meu dia?" — cliente "Despachar hoje ok", você "Claro. mando sim", depois "Ótimo dia" + 🙏): olhava só a
     // ÚLTIMA mensagem sua e as 4 últimas da conversa. Agora: as suas 4 últimas do fim da conversa e as 4 últimas do cliente nas 12 últimas mensagens.
-    if (cfg.deMim) { var nm = 0; for (var a = ms.length - 1; a >= 0 && a >= ms.length - 12 && nm < 4; a--) { if (!ms[a].eu) { if (nm) break; continue; } nm++; var ta = peNorm(ms[a].t); if ((peReMim && peReMim.test(ta)) || PE_PROMESSA_RE.test(ta)) { origem = 'mim'; gat = ms[a].t; break; } } }
+    if (cfg.deMim) { var nm = 0; for (var a = ms.length - 1; a >= 0 && a >= ms.length - 12 && nm < 4; a--) { if (!ms[a].eu) { if (nm) break; continue; } nm++; var ta = peNorm(ms[a].t); if ((peReMim && peReMim.test(ta)) || pePromessa(ta)) { origem = 'mim'; gat = ms[a].t; break; } } }
     if (!origem && cfg.doCliente) { var nc = 0; for (var i = ms.length - 1; i >= 0 && i >= ms.length - 12 && nc < 4; i--) { if (ms[i].eu) continue; nc++; if ((peReCli && peReCli.test(peNorm(ms[i].t))) || peCaraDePedido(ms[i].t) || peConfirmaFalado(ms[i].t)) { origem = 'cliente'; gat = ms[i].t; break; } } }
     if (!origem && cfg.doCliente) { var _pd = peDocPedidoCli(); if (_pd) { origem = 'cliente'; gat = '📎 ' + _pd; } } // 4.88 - PDF de pedido = pedido a emitir
     // 4.77 - A pedido do Vitor ("algo mais automático"): promessa de MANDAR algo ("já te mando", "te envio a tabela", "te mando na quarta") ou o cliente

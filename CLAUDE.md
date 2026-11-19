@@ -3007,3 +3007,8 @@
   (`PF_MP_COLS` emitir/aberto/separado/conferido/faturado/despachado — despachado só `PF_MP_DESP_DIAS`=7) + coluna 📝 A emitir = pendências `pp_emit_*` (só as do próprio usuário). Vermelho (`x.al`): lembrete de outro dia,
   emitido parado > 48 h, separado > 24 h sem conferir, conferido > 4 h sem faturar. Faturado = "💬 avisar cliente" (`pfMpAvisar`: pfWhatsAbrir com o texto, grava `p.avisadoEm`+tsMod). Menu do cartão `pfMpMenu`
   (ver pedido, ficha, cotação, `pfMpCobrarFat` copia o texto, `pfMpEmitido`). Faixa no ☀️ Meu dia `pfMpFaixaHtml(fv)` (só quando tem algo).
+- v115.2815 + extensão **4.95** **📦 Meus pedidos na coluna da esquerda do WhatsApp** (prévia `docs/referencias/meus-pedidos/previa-extensao.png` → "gostei mais da esquerda"; capturas `feito-extensao*.png`):
+  embaixo dos ícones do `#pfwa-rail`, um anel por pedido (`.pfwa-mpw`/`.pfwa-mpr`, conic-gradient `--p` = etapa 0/20/40/60/80/100, `--c` = cor da etapa, vermelho piscando `.pfwa-mpal` = `x.al`), nº do pedido embaixo,
+  📝 = lembrete a emitir. A extensão pede `meusPedidos` a cada 60 s (`mpCarregar`) → `pfMpExt()` (cartões do `pfMpDados(eu)`, despachado só do último dia, vermelhos primeiro, `wa` = nome da conversa ligada ao
+  cliente no `pfContatosWhats_v1`). Mouse = cartão `#pfwa-mppop` (barra das etapas, aviso); clique = abre a conversa (`flAbrir` pelo `wa`, senão pela razão); 💬 Avisar o cliente (faturado) = `mpTexto` →
+  `pfMpTexto` (marca `avisadoEm`) e escreve na caixa (NÃO envia); 📄 Ver no PF (`mpVer`), 📋 Cobrar faturamento (copia), ✔ Já emiti (`mpEmitido`). Até 14 anéis + "+N" (irTela `meuspv`). Desliga em ⚙️ (`CFG.mp`).

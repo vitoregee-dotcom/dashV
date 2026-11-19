@@ -569,8 +569,9 @@
   var ajuda = false;
   // 3.4 - ⚙️ Configurações (A pedido do Vitor: "coloca botão de eu ligar ou desligar essas configurações. igual no Watidy"):
   // cada função da extensão liga/desliga aqui; guardado por navegador (chrome.storage.local 'cfg'). Menu e aviso de cotação usam as chaves que já existiam.
-  var config = false, CFG = { frota: true, mat: true, bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true, audio: true, audioBotoes: false, sug: true, waEtqOff: true, rrselo: true };
+  var config = false, CFG = { frota: true, mat: true, bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true, audio: true, audioBotoes: false, sug: true, waEtqOff: true, rrselo: true, mp: true };
   var CFG_LISTA = [
+    ['mp', '📦', 'Meus pedidos na coluna da esquerda', 'Um anel por pedido em andamento: enche conforme anda (emitido → despachado), vermelho = precisa de você. Mouse em cima mostra o pedido.'],
     ['menu', '🧭', 'Menu do PF em volta do WhatsApp', 'Barra de grupos em cima (Linha Amarela, Linha Agrícola…) e a coluna de atalhos à esquerda.'],
     ['etq', '🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome da lista: cidade e grupo do cliente, fornecedor do PF, cotação aberta, mapa.'],
     ['bots', '📄', 'Botões do PF ao lado das mensagens', 'A coluna (A) ou barra (D) com Cotar, Saldo, Ficha, Lembrete, Prontas…'],
@@ -755,6 +756,7 @@
   async function clique(e) {
     var b = e.target.closest('[data-acao]'); if (!b) return;
     var ac = b.getAttribute('data-acao'), arg = b.getAttribute('data-arg') || '';
+    if (ac === 'mpConv' || ac === 'mpVer' || ac === 'mpEmitido' || ac === 'mpCobrar' || ac === 'mpAvisar') { mpAcao(ac, arg); return; } // 4.95
     if (ac === 'aba') { ajuda = false; config = false; irAba(arg); return; }
     if (ac === 'config') { config = !config; ajuda = false; abrirPainel(); pinta(); return; }
     if (ac === 'cfgTog') { cfgTog(arg); return; }
@@ -2468,6 +2470,45 @@
     if (l2) clicar(l2);
     await dormir(400); escreverBusca(cx, ''); flSig = '';
   }
+  // ═══ 📦 MEUS PEDIDOS NA COLUNA (4.95) ═══ A pedido do Vitor ("um formato tipo o B, só que redondo… na coluna do lado esquerdo… q qnd passar o
+  // mouse em cima amplia… a etapa redonda em cima do ícone"): anel por pedido (pedido pelo PF a cada 60 s, acao meusPedidos). Anel enche pela etapa,
+  // vermelho piscando = precisa de você; mouse = cartão (#pfwa-mppop) com a barra das etapas e os botões; clique = abre a conversa do cliente.
+  var MP = [], MPPOP = null, mpTmr = 0;
+  async function mpCarregar() { if (CFG.mp === false) { MP = []; mpPintar(); return; } try { var r = await msg({ t: 'acao', acao: 'meusPedidos', arg: {} }); if (r && r.lista) { MP = r.lista; mpPintar(); } } catch (e) { } }
+  setTimeout(mpCarregar, 6000); setInterval(function () { if (vivo()) mpCarregar(); }, 60000);
+  function mpEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
+  function mpPintar() {
+    var wr = RAIL && RAIL.querySelector('.pfwa-mpw'); if (!wr) return;
+    if (CFG.mp === false || !MP.length) { wr.innerHTML = ''; return; }
+    wr.innerHTML = '<div class="pfwa-mpsep" title="Meus pedidos"></div>' + MP.slice(0, 14).map(function (x) {
+      return '<div class="pfwa-mpr' + (x.al ? ' pfwa-mpal' : '') + '" data-acao="mpConv" data-arg="' + mpEsc(x.id) + '" data-mp="' + mpEsc(x.id) + '" style="--p:' + (x.p || 0) + ';--c:' + x.cor + '"><i>' + x.ic + '</i><em>' + mpEsc(x.sel || '') + '</em></div>';
+    }).join('') + (MP.length > 14 ? '<div class="pfwa-mpmais" data-acao="irTela" data-arg="meuspv" title="Ver todos no PF">+' + (MP.length - 14) + '</div>' : '');
+  }
+  function mpPop(x, el) {
+    if (!MPPOP) { MPPOP = document.createElement('div'); MPPOP.id = 'pfwa-mppop'; document.body.appendChild(MPPOP); MPPOP.addEventListener('click', clique); MPPOP.addEventListener('mouseleave', function () { mpPopFechar(300); }); MPPOP.addEventListener('mouseenter', function () { clearTimeout(mpTmr); }); }
+    clearTimeout(mpTmr);
+    var et = ['emitido', 'separado', 'conferido', 'faturado', 'despach.'], ix = x.ix;
+    var bar = et.map(function (e, i) { var k = i < ix ? 'ok' : i === ix ? (x.al ? 'lt' : 'at') : ''; return '<span class="' + k + '"></span>'; }).join('');
+    var bt = function (a, t, g) { return '<b data-acao="' + a + '" data-arg="' + mpEsc(x.id) + '" class="' + (g ? 'g' : '') + '">' + t + '</b>'; };
+    MPPOP.innerHTML = '<div class="t">' + (x.num ? mpEsc(x.num) + ' · ' : '') + mpEsc(x.nome) + '</div><div class="s">' + mpEsc(x.det || '') + '</div>' +
+      (x.tipo === 'ped' ? '<div class="bar">' + bar + '</div><div class="lb">' + et.map(function (e) { return '<i>' + e + '</i>'; }).join('') + '</div>' : '') +
+      (x.aviso ? '<div class="av">⚠ ' + mpEsc(x.aviso) + '</div>' : '') +
+      '<div class="bt">' + (x.col === 'faturado' && !x.avisado ? bt('mpAvisar', '💬 Avisar o cliente', 1) : bt('mpConv', '💬 Abrir conversa')) + bt('mpVer', '📄 Ver no PF') + (x.col === 'conferido' ? bt('mpCobrar', '📋 Cobrar faturamento') : '') + (x.tipo === 'emit' ? bt('mpEmitido', '✔ Já emiti') : '') + '</div>';
+    var r = el.getBoundingClientRect(); MPPOP.style.display = 'block';
+    MPPOP.style.left = (r.right + 10) + 'px'; MPPOP.style.top = Math.max(8, Math.min(window.innerHeight - MPPOP.offsetHeight - 8, r.top - 10)) + 'px';
+  }
+  function mpPopFechar(ms) { clearTimeout(mpTmr); mpTmr = setTimeout(function () { if (MPPOP) MPPOP.style.display = 'none'; }, ms || 0); }
+  document.addEventListener('mouseover', function (e) { var el = e.target && e.target.closest && e.target.closest('.pfwa-mpr'); if (!el) return; var x = MP.find(function (y) { return y.id === el.getAttribute('data-mp'); }); if (x) mpPop(x, el); }, true);
+  document.addEventListener('mouseout', function (e) { var el = e.target && e.target.closest && e.target.closest('.pfwa-mpr'); if (el && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('#pfwa-mppop,.pfwa-mpr'))) mpPopFechar(350); }, true);
+  async function mpAbrirConversa(x) { if (!x) return false; var nm = x.wa || ''; if (nm) { await flAbrir(nm, x.waId || ''); return true; } if (x.nome) { await flAbrir(x.nome, ''); return true; } return false; }
+  async function mpAcao(ac, id) {
+    var x = MP.find(function (y) { return y.id === id; }); if (!x) return; mpPopFechar(0);
+    if (ac === 'mpConv') { await mpAbrirConversa(x); return; }
+    if (ac === 'mpVer') { msg({ t: 'acao', acao: 'mpVer', arg: { id: id }, focar: true }); return; }
+    if (ac === 'mpEmitido') { await msg({ t: 'acao', acao: 'mpEmitido', arg: { id: id } }); mpCarregar(); return; }
+    if (ac === 'mpCobrar') { var r = await msg({ t: 'acao', acao: 'mpTexto', arg: { id: id, tipo: 'cobrar' } }); if (r && r.txt) { try { await navigator.clipboard.writeText(r.txt); } catch (e) { } audToast('📋 Texto copiado — cole pro faturamento'); } return; }
+    if (ac === 'mpAvisar') { var r2 = await msg({ t: 'acao', acao: 'mpTexto', arg: { id: id, tipo: 'avisar' } }); if (!r2 || !r2.txt) return; await mpAbrirConversa(x); await dormir(900); escreverNaCaixa(r2.txt); audToast('💬 Mensagem na caixa — confira e envie'); mpCarregar(); return; }
+  }
   function pintarMenu() {
     if (!MENU) return;
     var root = document.documentElement;
@@ -2510,7 +2551,8 @@
     h += '<span class="pfm-dir"><span class="pfm-cor"><i data-acao="menuCor" data-arg="azul" class="' + (menuCor !== 'discreta' ? 'on' : '') + '">azul</i><i data-acao="menuCor" data-arg="discreta" class="' + (menuCor === 'discreta' ? 'on' : '') + '">discreta</i></span><span class="pfm-tog" data-acao="menuTog" title="Desligar o Menu do PF">Menu do PF <span class="pfm-sw"></span></span></span>';
     MENU.innerHTML = h;
     var rail = [['vendas', '📄', 'Cotações'], ['kanban', '🗂️', 'Quadro de vendas'], ['mesa', '🛒', 'Mesa do comprador'], ['home', '🏠', 'Início do PF'], ['ext', '🧩', 'PartsFlow no WhatsApp']];
-    RAIL.innerHTML = rail.map(function (r) { return '<span data-acao="irTela" data-arg="' + r[0] + '" title="' + r[2] + '">' + r[1] + '</span>'; }).join('');
+    RAIL.innerHTML = rail.map(function (r) { return '<span data-acao="irTela" data-arg="' + r[0] + '" title="' + r[2] + '">' + r[1] + '</span>'; }).join('') + '<div class="pfwa-mpw"></div>';
+    mpPintar();
     badgesRender(); aplicarFiltro();
   }
 

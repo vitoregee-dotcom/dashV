@@ -677,6 +677,9 @@
     ['Embaixo do painel', [
       ['📥', 'Importar meus contatos', 'Lê a lista de conversas e traz pro PF (você escolhe quem entra).'],
       ['📣', 'Disparo pelo PF', 'No PF, Vendas → 📣 Disparo pelo WhatsApp: escolhe a lista (o que chegou, uma marca, um grupo, os sumidos ou uma etiqueta), escreve a mensagem com {nome} e a extensão manda uma por uma, no ritmo que você escolher por hora. Quem já recebeu a mesma oferta fica de fora.'],
+      ['👔', 'Colega da empresa', 'No 👤 Salvar contato, escolha “👔 Colega” pra quem é daqui da empresa: fica guardado no PF, o botão fica roxo, aparece “👔 colega” na lista e ele nunca recebe mensagem automática nem entra nos avisos de cliente.'],
+      ['📦', 'Tem pedido pra enviar', 'Botão direito na conversa (na lista da esquerda) → “📦 Tem pedido pra enviar”: cria o lembrete nas Pendências (e no ☀️ Meu dia, se for cliente) e põe um 📦 ao lado do nome. Quando mandar, botão direito → “✔ Pedido enviado” tira a marca.'],
+      ['🏷️', 'Plaqueta pra Máquinas', 'Botão direito na FOTO de uma plaqueta → “🏷️ Mandar a plaqueta pra Máquinas”: o PF lê marca, modelo, série, ano e componentes, você confere e grava — a máquina é criada ou completada em 🚜 Máquinas, com a foto da plaqueta.'],
       ['👤', 'Salvar contato', 'Botão verde ao lado do nome da conversa: escreve o nome, a empresa (procura nos clientes do PF) e o código do JBoss — vira "Fulano - Empresa (código)". Salva no PF (o contato entra no cadastro do cliente, mesmo sem número) e já salva/renomeia o contato no WhatsApp com esse nome, com o "Sincronizar no telefone" ligado (vai pra agenda do celular também). Quer só no WhatsApp? “📱 Só no WhatsApp” renomeia/salva o contato lá (e no celular) sem gravar nada no PF. Tem também o GRUPO do cliente (Linha Amarela, Agrícola… — vai pro cadastro), o CARGO e o CNPJ (CNPJ que ainda não é cliente = entra no PF como pré-cadastro 🌱 com os dados da Receita); se a empresa ainda não está no PF, aparece “➕ Criar cliente no PF”, que já cria o cadastro com esse contato. E quando o contato não está no PF e o cliente mandou o CNPJ na conversa, a aba Cliente mostra “➕ Cadastrar no PF” já com esse CNPJ.'],
       ['↕️', 'Mudar o PF de altura', 'Segure e arraste a coluna de botões do PF (ou o "PF" minimizado) pra cima ou pra baixo. Fica guardado.'],
       ['🧠', 'Entender com IA', 'Na aba Cotação: quando o cliente pede pelo NOME da peça ("kit de vedação da 28000, transmissão e conversor"), a IA separa peça, quantidade e máquina e o PF procura nas Aplicações e no estoque. Confira antes de mandar.'],
@@ -1036,6 +1039,7 @@
     if (r.erro === 'recarregar') return '<div class="pfwa-vazio">A extensão foi atualizada — aperte <b>F5</b> nesta aba.</div>';
     if (r.erro) return '<div class="pfwa-vazio">O PF não respondeu. Dê <b>F5</b> na aba do PartsFlow.</div>';
     if (r.grupo) return '<div class="pfwa-vazio">Conversa em grupo.</div>';
+    if (r.tipo === 'colega') return '<div class="pfwa-vazio">👔 <b>' + esc(r.titulo || '') + '</b> é colega da empresa (' + esc(r.emp || 'Triex') + (r.cargo ? ' · ' + esc(r.cargo) : '') + ').<br>Não recebe mensagem automática e não entra nos avisos de cliente.<br><small>Pra mudar: clique no 👤 ao lado do nome.</small></div>'; // 4.91
     return '';
   }
   function cabCliente(r) {
@@ -1162,7 +1166,7 @@
   }
   function pintaCorpo() {
     if (!P) return; var c = P.querySelector('.pfwa-corpo'); if (!c) return;
-    var sub = P.querySelector('.pfwa-cabsub'); if (sub) sub.textContent = resp && resp.achou ? (resp.tipo === 'cliente' ? 'Cliente' : 'Fornecedor') + (resp.pelo ? ' (pelo ' + resp.pelo + ')' : '') : '';
+    var sub = P.querySelector('.pfwa-cabsub'); if (sub) sub.textContent = resp && resp.achou ? (resp.tipo === 'cliente' ? 'Cliente' : resp.tipo === 'colega' ? 'Colega da empresa' : 'Fornecedor') + (resp.pelo ? ' (pelo ' + resp.pelo + ')' : '') : '';
     var v = vazioHtml(); var foco = document.activeElement && P.contains(document.activeElement) ? document.activeElement.className : '';
     // 2.1 - código do WhatsApp (entre parênteses) que não existe no PF: avisa pra cadastrar com o mesmo código
     var banner = (resp && resp.codFalta) ? '<div class="pfwa-codf">📇 Código <b>' + esc(resp.codFalta) + '</b> (do WhatsApp) não está no PF. Cadastre o cliente com esse mesmo código.<button data-acao="cadcli" data-arg="' + esc(resp.codFalta) + '">➕ Cadastrar no PF</button></div>' : '';
@@ -1248,7 +1252,8 @@
     var r = el.getBoundingClientRect(); if (!r.width) { SVB.style.display = 'none'; return; }
     SVB.style.display = 'flex'; SVB.style.left = Math.round(r.right + 8) + 'px'; SVB.style.top = Math.round(r.top + r.height / 2 - 13) + 'px';
     SVB.title = (resp && resp.achou && resp.tipo === 'cliente') ? 'Salvar / acertar este contato (' + (resp.titulo || '') + ')' : 'Salvar este contato no PF';
-    SVB.classList.toggle('ok', !!(resp && resp.achou));
+    SVB.classList.toggle('ok', !!(resp && resp.achou && resp.tipo !== 'colega')); SVB.classList.toggle('col', !!(resp && resp.tipo === 'colega')); // 4.91 - colega = roxo
+    if (resp && resp.tipo === 'colega') SVB.title = '👔 Colega da empresa — clique pra mudar';
     if (SV && svAberto) { var tp = Math.round(r.bottom + 14); SV.style.left = Math.max(8, Math.min(window.innerWidth - 360, r.left)) + 'px'; SV.style.top = tp + 'px'; SV.style.maxHeight = Math.max(200, window.innerHeight - tp - 12) + 'px'; }
   }
   // 2.9 - "P - Adailton - Cardan Brasil (1427) Cardan": a pessoa é o 1º pedaço com 3+ letras e a empresa é o ÚLTIMO pedaço (antes ia "Adailton - Cardan Brasil Cardan")
@@ -1329,18 +1334,20 @@
   function svFornChipsRender() { var r = SV && SV.querySelector('.sv-fchips'); if (r) r.innerHTML = svFornChipsHtml(); }
   function svModoSet(m) {
     svModo = m; if (!SV) return;
-    SV.classList.toggle('sv-isforn', m === 'forn'); SV.classList.toggle('sv-iscli', m !== 'forn');
+    SV.classList.toggle('sv-isforn', m === 'forn'); SV.classList.toggle('sv-iscli', m === 'cliente'); SV.classList.toggle('sv-iscol', m === 'colega'); // 4.91 - 👔 colega
     var tr = SV.querySelector('.sv-modo'); if (tr) tr.innerHTML = svModoRowHtml();
-    var lb = SV.querySelector('.sv-emplab'); if (lb) lb.textContent = m === 'forn' ? 'FORNECEDOR' : 'EMPRESA (cliente do PF)';
-    var em = SV.querySelector('.sv-emp'); if (em) em.placeholder = m === 'forn' ? 'Razão social do fornecedor' : 'Digite pra procurar no PF';
+    var lb = SV.querySelector('.sv-emplab'); if (lb) lb.textContent = m === 'forn' ? 'FORNECEDOR' : m === 'colega' ? 'EMPRESA (a nossa)' : 'EMPRESA (cliente do PF)';
+    var em = SV.querySelector('.sv-emp'); if (em) { em.placeholder = m === 'forn' ? 'Razão social do fornecedor' : m === 'colega' ? 'Triex' : 'Digite pra procurar no PF'; if (m === 'colega') em.value = (resp && resp.tipo === 'colega' && resp.emp) || 'Triex'; }
+    var cg0 = SV.querySelector('.sv-cargo'); if (cg0) cg0.placeholder = m === 'colega' ? 'Ex.: Vendas, Compras, Estoque, Financeiro' : 'Ex.: Compras, Dono, Mecânico';
+    svPrev();
     var cg = SV.querySelector('.sv-cargo'); if (cg && m === 'forn' && !cg.value.trim()) cg.value = 'Vendedor';
     var fc = SV.querySelector('.sv-fchips'); if (fc) fc.innerHTML = m === 'forn' ? svFornChipsHtml() : '';
     var k = SV.querySelector('.sv-k'); if (k) k.innerHTML = '';
     svK = ''; svFornId = ''; var sg = SV.querySelector('.sv-sug'); if (sg) sg.innerHTML = '';
   }
   function svModoRowHtml() {
-    return ['cliente', 'forn'].map(function (m) {
-      return '<span class="sv-modobt' + (svModo === m ? ' on' : '') + '" data-acao="svModo" data-arg="' + m + '">' + (m === 'cliente' ? '🤝 Cliente' : '🏭 Fornecedor') + '</span>';
+    return ['cliente', 'forn', 'colega'].map(function (m) {
+      return '<span class="sv-modobt' + (svModo === m ? ' on' : '') + '" data-acao="svModo" data-arg="' + m + '"' + (m === 'colega' ? ' title="Pessoa daqui da empresa — não recebe mensagem automática e não entra nos avisos de cliente"' : '') + '>' + (m === 'cliente' ? '🤝 Cliente' : m === 'forn' ? '🏭 Fornecedor' : '👔 Colega') + '</span>';
     }).join('');
   }
   function svUsarForn(i) {
@@ -1350,7 +1357,9 @@
     SV.querySelector('.sv-sug').innerHTML = ''; SV.querySelector('.sv-k').innerHTML = '🔗 fornecedor <b>' + esc(s.razao) + '</b>'; svPrev();
   }
   function svMontar() {
-    var n = (SV.querySelector('.sv-nome') || {}).value || '', e = (SV.querySelector('.sv-emp') || {}).value || '', c = (SV.querySelector('.sv-cod') || {}).value || '';
+    var n = (SV.querySelector('.sv-nome') || {}).value || '', e = (SV.querySelector('.sv-emp') || {}).value || '', c = svModo === 'colega' ? '' : ((SV.querySelector('.sv-cod') || {}).value || '');
+    n = n.replace(/\s*[-–—]\s*$/, ''); // 4.91 - "Carlos Candis -" (traço sobrando) virava "Carlos Candis - - TRIEX"
+
     return [n.trim(), e.trim() ? ' - ' + e.trim() : '', c.trim() ? ' (' + c.trim().replace(/\D/g, '') + ')' : ''].join('').trim();
   }
   function svPrev() { var p = SV && SV.querySelector('.sv-prev'); if (p) p.textContent = svMontar() || '—'; }
@@ -1358,7 +1367,7 @@
     var c = contatoAt; if (!c || c.grupo) return;
     svGrupos = []; svGrpMexeu = false; // 4.15 - começa sem grupo marcado
     svFornId = ''; svFornTipos = []; svFornLinhas = []; svSugF = []; // 4.60
-    svModo = (resp && resp.tipo === 'fornecedor') ? 'forn' : 'cliente'; // 4.60 - vendas cadastra cliente (padrão); se a conversa já é fornecedor, começa em fornecedor
+    svModo = (resp && resp.tipo === 'fornecedor') ? 'forn' : (resp && resp.tipo === 'colega') ? 'colega' : 'cliente'; // 4.60 · 4.91 colega - vendas cadastra cliente (padrão); se a conversa já é fornecedor, começa em fornecedor
     var r = resp && resp.achou && resp.tipo === 'cliente' ? resp : null;
     svTipo = (r && r.tipoCli) || ''; // 4.24 - já vem com o tipo do cadastro
     svGueri = !!(r && r.gueri); // 4.37 / v115.2695 - selo Gueri (NF baixa) já vem marcado se o cadastro tiver
@@ -1368,15 +1377,16 @@
     var _rg = (r && r.grupos) || (resp && !resp.achou && resp.grupos) || null; /* 4.57 - contato com grupo (ex.: Triex) */ if (_rg) _rg.forEach(function (g) { var id = svGrupoIdDoNome(g); if (id && svGrupos.indexOf(id) < 0) svGrupos.push(id); }); // 4.27 - grupos do cadastro já marcados
     var nome = svNomeBase(c.nome) || (r && r.contato) || '', emp = svEmpBase(c.nome) || (r ? r.titulo : ''), cod = svCodBase(c.nome) || (r && r.cod) || '';
     var semNum = /^[+\d\s()\-]{8,}$/.test(c.nome || '');
-    SV.className = svModo === 'forn' ? 'sv-isforn' : 'sv-iscli'; // 4.60
+    SV.className = svModo === 'forn' ? 'sv-isforn' : svModo === 'colega' ? 'sv-iscol' : 'sv-iscli'; // 4.60 · 4.91
+    if (svModo === 'colega') { emp = (resp && resp.emp) || 'Triex'; }
     SV.innerHTML = '<div class="sv-cab"><b>👤 Salvar contato</b><span class="sv-x" data-acao="svFechar" title="Fechar">✕</span></div>' +
       '<div class="sv-tel">📱 ' + esc(c.tel ? fmtTel(c.tel) : 'número não aparece na conversa') + '</div>' +
       '<div class="sv-modo">' + svModoRowHtml() + '</div>' + // 4.60 - 🤝 Cliente | 🏭 Fornecedor
       '<label>NOME DA PESSOA<input class="sv-nome" value="' + esc(nome) + '" placeholder="Ex.: Tiago"></label>' +
       '<label><span class="sv-emplab">' + (svModo === 'forn' ? 'FORNECEDOR' : 'EMPRESA (cliente do PF)') + '</span><input class="sv-emp" value="' + esc(emp) + '" placeholder="' + (svModo === 'forn' ? 'Razão social do fornecedor' : 'Digite pra procurar no PF') + '" autocomplete="off"></label><div class="sv-sug"></div>' +
-      '<label>CARGO<input class="sv-cargo" value="' + esc((r && r.cargo) || (svModo === 'forn' ? 'Vendedor' : '')) + '" placeholder="Ex.: Compras, Dono, Mecânico" list="pfwa-sv-cargos"></label>' +
+      '<label>CARGO<input class="sv-cargo" value="' + esc((r && r.cargo) || (resp && resp.tipo === 'colega' && resp.cargo) || (svModo === 'forn' ? 'Vendedor' : '')) + '" placeholder="Ex.: Compras, Dono, Mecânico" list="pfwa-sv-cargos"></label>' +
       '<datalist id="pfwa-sv-cargos"><option>Compras<option>Comprador<option>Dono<option>Sócio<option>Gerente<option>Financeiro<option>Mecânico<option>Encarregado<option>Vendedor<option>Balconista</datalist>' +
-      '<label>CÓDIGO NO JBOSS<input class="sv-cod" value="' + esc(cod) + '" placeholder="Ex.: 12662" inputmode="numeric"></label>' +
+      '<label class="sv-so-nc">CÓDIGO NO JBOSS<input class="sv-cod" value="' + esc(cod) + '" placeholder="Ex.: 12662" inputmode="numeric"></label>' +
       // ── fornecedor: 🏭 Trabalha com + linhas ──
       '<div class="sv-fchips sv-so-forn">' + (svModo === 'forn' ? svFornChipsHtml() : '') + '</div>' +
       // ── cliente: tipo, intimidade, marca, grupo, gueri/fat.sp ──
@@ -1388,7 +1398,7 @@
       '<div class="sv-gr sv-gueri"><span class="sv-g' + (svGueri ? ' on' : '') + '" data-acao="svGueri" style="--c:#c0392b">💳 Gueri (compra com NF baixa)</span>' + // 4.37 / v115.2695
       '<span class="sv-g' + (svFatSp ? ' on' : '') + '" data-acao="svFatSp" style="--c:#1F4E79">🧾 Faturar por SP</span></div>' + // 4.39 / v115.2697
       '</div>' +
-      '<label>CNPJ <span class="sv-so-cli" style="font-weight:600;text-transform:none">(cliente novo entra como pré-cadastro 🌱)</span><input class="sv-cnpj" value="' + esc(fmtCnpj(cnpjPre || '')) + '" placeholder="00.000.000/0000-00" inputmode="numeric"></label>' +
+      '<label class="sv-so-nc">CNPJ <span class="sv-so-cli" style="font-weight:600;text-transform:none">(cliente novo entra como pré-cadastro 🌱)</span><input class="sv-cnpj" value="' + esc(fmtCnpj(cnpjPre || '')) + '" placeholder="00.000.000/0000-00" inputmode="numeric"></label>' +
       '<div class="sv-pv">Vai ficar: <b class="sv-prev"></b></div>' +
       '<div class="sv-k">' + (svK && r && r.titulo ? '🔗 ligado a <b>' + esc(r.titulo) + '</b>' : '') + '</div>' +
       '<div class="sv-bts"><button class="sv-ok" data-acao="svSalvar">💾 Salvar no PF</button><button class="sv-wa" data-acao="svWa" title="Só renomeia/salva o contato no WhatsApp (e no celular) — nada vai pro PF">📱 Só no WhatsApp</button></div>' +
@@ -1434,6 +1444,7 @@
     var c = contatoAt; if (!c) return; var nomeFull = svMontar(); if (!nomeFull) { flash(b, 'Escreva o nome'); return; }
     var v = function (k) { return (SV.querySelector('.' + k) || {}).value || ''; };
     if (svModo === 'forn') return svSalvarForn(b, c, nomeFull, v); // 4.60
+    if (svModo === 'colega') return svSalvarColega(b, c, nomeFull, v); // 4.91
     if (criar && !v('sv-emp').trim()) { flash(b, 'Escreva a empresa'); return; }
     var txt = b.textContent; b.disabled = true; b.textContent = 'Salvando…';
     var cn = v('sv-cnpj').replace(/\D/g, ''); if (cn && cn.length !== 14 && cn.length !== 11) { flash(b, 'CNPJ incompleto'); b.disabled = false; b.textContent = txt; return; }
@@ -1457,6 +1468,20 @@
       if (!criar) Promise.resolve(waSalvarNome(nomeFull, st)).then(function () { return dormir(900); }).then(function () { if (r.k) return waEtiquetar([nomeFull, c.nome], st); }).catch(function () { });
     }
     else st.textContent = 'Não deu — abra o PartsFlow numa aba.';
+  }
+  // 4.91 - A pedido do Vitor ("onde coloco se o contato for aqui da empresa?" → "quero o colega da empresa"): 👔 colega = não é cliente nem
+  // fornecedor; fica guardado no PF, não recebe mensagem automática e não entra nos avisos/ofertas/pedido a emitir.
+  async function svSalvarColega(b, c, nomeFull, v) {
+    var txt = b.textContent; b.disabled = true; b.textContent = 'Salvando…';
+    var r = await msg({ t: 'acao', acao: 'salvarColega', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), emp: v('sv-emp') } });
+    b.disabled = false; b.textContent = txt;
+    var st = SV.querySelector('.sv-st');
+    if (r && r.ok) {
+      st.innerHTML = '✔ Salvo como 👔 colega da empresa (' + esc(r.emp || 'Triex') + '). Ele não recebe mensagem automática.';
+      if (resp) { resp.tipo = 'colega'; resp.achou = true; } sitCache[c.nome] = { tipo: 'colega', cargo: v('sv-cargo'), emp: r.emp };
+      ultimo = ''; sitSig = ''; try { carregarSituacoes(); } catch (e) { }
+      Promise.resolve(waSalvarNome(nomeFull, st)).catch(function () { });
+    } else st.textContent = 'Não deu — abra o PartsFlow numa aba.';
   }
   // 4.60 - grava como FORNECEDOR (cad_fornecedores_v1): razão + telefone + contato (cargo) + 🏭 Trabalha com + linhas + CNPJ + Código JBoss.
   async function svSalvarForn(b, c, nomeFull, v) {
@@ -2290,7 +2315,7 @@
   function filhoQueTem(anc, el) { var x = el; while (x && x.parentElement !== anc) x = x.parentElement; return x; }
   function ancComum(a, b) { var x = a; while (x && !x.contains(b)) x = x.parentElement; return x; }
   function rowLimpar(r) {
-    r.querySelectorAll('.pfwa-rowb,.pfwa-rowbar,.pfwa-rowln,.pfwa-rowtp,.pfwa-rowgp,.pfwa-rowown,.pfwa-gueri,.pfwa-fatsp,.pfwa-row3').forEach(function (e) { e.remove(); });
+    r.querySelectorAll('.pfwa-rowb,.pfwa-rowbar,.pfwa-rowln,.pfwa-rowtp,.pfwa-rowgp,.pfwa-rowown,.pfwa-gueri,.pfwa-fatsp,.pfwa-row3,.pfwa-emch').forEach(function (e) { e.remove(); });
     r.querySelectorAll('.pfwa-row3u').forEach(function (e) { e.classList.remove('pfwa-row3u'); }); // v115.2697 - a linha da etiqueta nativa volta ao normal
     r.querySelectorAll('[data-pfwa-esc]').forEach(function (e) { e.style.display = ''; e.removeAttribute('data-pfwa-esc'); });
   }
@@ -2315,7 +2340,8 @@
         if (gl.length) { var n = gl.length, st = gl.map(function (g, k) { return (g.c || '#1F4E79') + ' ' + (k * 100 / n) + '% ' + ((k + 1) * 100 / n) + '%'; }).join(','); bar = 'linear-gradient(to bottom,' + st + ')'; }
         tp = s.tpc || '';
       } else if (s.tipo === 'fornecedor') { txt = '🏭 fornecedor' + (s.mapa ? ' · mapa ' + esc(s.mapa) : ''); txtFull = txt; }
-      var sig = txt + '|' + gh + '|' + bar + '|' + tp + '|' + (s.gueri ? 'G' : '') + (s.fatSp ? 'F' : '') + '|' + (CFG.waEtqOff !== false ? 1 : 0) + '|' + (x.unread ? 1 : 0);
+      else if (s.tipo === 'colega') { txt = '👔 colega' + (s.cargo ? ' · ' + esc(s.cargo) : ''); txtFull = txt; } // 4.91
+      var sig = txt + '|' + gh + '|' + bar + '|' + tp + '|' + (s.gueri ? 'G' : '') + (s.fatSp ? 'F' : '') + (s.emitir ? 'E' : '') + '|' + (CFG.waEtqOff !== false ? 1 : 0) + '|' + (x.unread ? 1 : 0);
       if (r.getAttribute('data-pfwa-sig') === sig && (!txt || r.querySelector('.pfwa-rowln'))) return;
       rowLimpar(r); r.setAttribute('data-pfwa-sig', sig); r.removeAttribute('title');
       // 4.49 - A pedido do Vitor ("está com as etiquetas do whats" — cliente SEM grupo/tipo e conversas fora do PF ainda mostravam a etiqueta "CARDAN"):
@@ -2324,6 +2350,8 @@
         var anc0 = prev || r.querySelector('[aria-label*="ão lida"],[aria-label*="nread"]'), col0 = anc0 ? ancComum(tit, anc0) : null, lm0 = (col0 && anc0) ? filhoQueTem(col0, anc0) : null;
         if (col0 && lm0) { var dep0 = false; Array.prototype.forEach.call(col0.children, function (ch) { if (ch === lm0) { dep0 = true; return; } if (dep0 && !ch.classList.contains('pfwa-rowbar') && !ch.classList.contains('pfwa-row3')) Array.prototype.forEach.call(ch.children, function (c) { if (String(c.className || '').indexOf('pfwa-') === 0) return; c.setAttribute('data-pfwa-esc', '1'); c.style.display = 'none'; }); }); }
       } catch (e) { } }
+      // 4.91 - A pedido do Vitor ("marcar que tem um pedido pro cliente pra ser enviado, pra eu não esquecer"): 📦 ao lado do nome enquanto tiver pedido pra mandar
+      if (s.emitir && tit.parentNode) { var ez = document.createElement('span'); ez.className = 'pfwa-emch'; ez.textContent = '📦'; ez.title = 'Tem pedido pra enviar — botão direito na conversa → ✔ Pedido enviado'; tit.parentNode.insertBefore(ez, tit.nextSibling); }
       if (!txt) return;
       // 4.37 / v115.2695 - A pedido do Vitor ("selo pra marcar cliente q compra com nf baixa… deixa a escrita Gueri"): chip "Gueri" ao lado do nome
       if (s.tipo === 'cliente' && s.gueri && tit.parentNode) { var gz = document.createElement('span'); gz.className = 'pfwa-gueri'; gz.textContent = 'Gueri'; gz.title = 'Compra com NF baixa'; tit.parentNode.insertBefore(gz, tit.nextSibling); }
@@ -3119,6 +3147,7 @@
   }
   function autoGrpBate(s) { var sel = AUTO.grpSel || []; return audGruposDe(s || {}).some(function (g) { return sel.indexOf(g) >= 0; }); }
   async function autoEhCliente(c) {
+    try { var s0 = await autoSitDe(c); if (s0 && s0.tipo === 'colega') return false; } catch (e) { } // 4.91 - 👔 colega nunca recebe automática
     var gm = AUTO.grpModo || 'todos';
     if (gm !== 'todos' && (AUTO.grpSel || []).length) {
       var sg = await autoSitDe(c), bate = autoGrpBate(sg);
@@ -3440,7 +3469,21 @@
       var r3 = await msg({ t: 'acao', acao: 'cotarImg', arg: { img: du2, k: resp && resp.k, contato: resp && resp.contato } });
       cotando = false; if (r3 && r3.jboss) { cotErro = ''; pintaCorpo(); await msg({ t: 'acao', acao: 'jbAbrir', focar: true, arg: {} }); cmToast('✔ É a cotação ' + (r3.num || '') + ' da Triex — abri no PF pra criar com o preço da Triex'); return; } if (!r3 || r3.erro) cotErro = 'Não consegui ler a imagem' + (r3 && r3.msg ? ': ' + r3.msg : ''); else cot = r3; pintaCorpo(); return;
     }
+    if (id === 'img_plaq') { // 4.91 - A pedido do Vitor ("botão direito na imagem… enviar a plaqueta para o PF, para Máquinas")
+      if (!src) { var im = A.b && A.b.querySelector('img'); src = im ? im.getAttribute('src') : ''; } if (!src) { cmToast('Clique com o botão direito em cima da foto'); return; }
+      cmToast('🏷️ Lendo a plaqueta no PF…'); var du3 = await urlParaDataUrl(src);
+      var rp = await msg({ t: 'acao', acao: 'plaqueta', focar: true, arg: { img: du3 } });
+      cmToast(rp && rp.ok ? '✔ Abri no PF — confira a máquina e clique em Gravar' : 'Não deu — ' + ((rp && rp.msg) || 'abra o PF')); return;
+    }
     if (/^cv_/.test(id) && !A.nome) { cmToast('Clique com o botão direito em cima da conversa na lista'); return; }
+    if (id === 'cv_ped' || id === 'cv_pedok') { // 4.91 - 📦 pedido pra enviar marcado à mão
+      var stc = sitCache[A.nome] || {}; var tira = id === 'cv_pedok' || (id === 'cv_ped' && stc.emitir && !A.forcaMarcar);
+      if (tira) { var ro = await msg({ t: 'acao', acao: 'pedidoEnviado', arg: { nome: A.nome } }); stc.emitir = false; cmToast(ro && ro.ok ? '✔ ' + A.nome + ' — pedido enviado, tirei o 📦' : 'Não deu — abra o PF'); }
+      else { var obs = prompt('📦 Pedido pra enviar — ' + A.nome + '\nObservação (opcional, ex.: nº do pedido, o que falta):', ''); if (obs === null) return;
+        var rm = await msg({ t: 'acao', acao: 'pedidoMarcar', arg: { nome: A.nome, obs: obs } }); stc.emitir = true;
+        cmToast(rm && rm.ok ? (rm.ja ? '📦 Já estava marcado' : '📦 Marcado: mandar o pedido de ' + (rm.titulo || A.nome) + (rm.cliente ? ' (Pendências e ☀️ Meu dia)' : ' (Pendências)')) : 'Não deu — abra o PF'); }
+      sitCache[A.nome] = stc; sitSig = ''; try { badgesRender(); carregarSituacoes(); } catch (e) { } return;
+    }
     if (id === 'cv_ficha') { var r5 = await msg({ t: 'acao', acao: 'fichaNome', focar: true, arg: { nome: A.nome } }); if (r5 && r5.ok === false) cmToast('Não achei esse cliente no PF'); return; }
     if (id === 'cv_grupo') {
       if (A.row) clicar(A.row);
@@ -3466,6 +3509,33 @@
   document.addEventListener('contextmenu', function (e) {
     try { if (String(window.getSelection() || '').trim()) return; var q = cmQual(e.target); if (q.tipo !== 'msg') return; wmT = Date.now(); wmProcurar(0); } catch (x) { }
   }, true);
+  // 4.91 - A pedido do Vitor (print do menu "Arquivar conversa / Silenciar / Fixar…"): botão direito na CONVERSA da lista abre o menu do WhatsApp —
+  // as opções do PF entram nele: 📦 Tem pedido pra enviar / ✔ Pedido enviado, 🤝 Abrir ficha, 🔕 mensagem automática.
+  var cvT = 0;
+  document.addEventListener('contextmenu', function (e) {
+    try { var q = cmQual(e.target); if (q.tipo !== 'conv') return; cvT = Date.now(); cvProcurar(0); } catch (x) { }
+  }, true);
+  function cvMenu() {
+    var lbs = ['Arquivar conversa', 'Archive chat', 'Silenciar notificações', 'Mute notifications', 'Fixar conversa', 'Pin chat', 'Desafixar conversa', 'Unpin chat', 'Marcar como não lida', 'Mark as unread', 'Marcar como lida', 'Mark as read', 'Apagar conversa', 'Delete chat', 'Limpar conversa', 'Clear chat', 'Bloquear', 'Block'];
+    var els = document.querySelectorAll('li, [role="menuitem"], [role="button"], div[tabindex]');
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i]; if (el.closest('#pfwa-painel, #pfwa-menu, #pfwa-rail, #pfwa-bots, #pane-side [role="listitem"]')) continue;
+      var t = String(el.innerText || '').trim(); if (lbs.indexOf(t) < 0) continue;
+      var r = el.getBoundingClientRect(); if (!r.width || !r.height) continue; return el;
+    }
+    return null;
+  }
+  function cvProcurar(n) {
+    setTimeout(function () {
+      if (Date.now() - cvT > 2500) return; var it = cvMenu(); if (!it) { if (n < 15) cvProcurar(n + 1); return; }
+      var lista = it.parentElement; if (!lista || lista.querySelector('.pfwa-wm')) return;
+      var A = cmAlvo || {}, st = sitCache[A.nome] || {}, its = [];
+      its.push(st.emitir ? ['cv_pedok', '✔ Pedido enviado (tirar o 📦)'] : ['cv_ped', '📦 Tem pedido pra enviar (PF)']);
+      if (st.tipo === 'cliente') its.push(['cv_ficha', '🤝 Abrir ficha do cliente (PF)']);
+      its.push(['cv_nunca', ((AUTO.nunca || []).indexOf(A.nome) >= 0 ? '🔔 Voltar a mandar mensagem automática' : '🔕 Não mandar mensagem automática')]);
+      wmPor(lista, it, its);
+    }, n ? 60 : 30);
+  }
   function wmMenu() {
     var lbs = ['Responder', 'Reply', 'Copiar', 'Copy', 'Encaminhar', 'Forward', 'Dados da mensagem', 'Message info', 'Reagir', 'React', 'Fixar', 'Pin', 'Favoritar', 'Star', 'Apagar', 'Delete', 'Editar', 'Edit']; // 4.78 - menu das SUAS mensagens também
     var els = document.querySelectorAll('li, [role="menuitem"], [role="button"], div[tabindex]');
@@ -3483,14 +3553,16 @@
       var lista = it.parentElement; if (!lista || lista.querySelector('.pfwa-wm')) return; wmPor(lista, it);
     }, n ? 60 : 30);
   }
-  function wmPor(lista, modelo) {
+  function wmPor(lista, modelo, fixos) {
     var itens = [];
+    if (fixos) itens = fixos; else { // 4.91 - menu da conversa (lista) manda os itens prontos
     var forn = resp && resp.tipo === 'fornecedor', bt = ((resp && resp.botoes) || []).some(function (x) { return x && x.acao === 'respForn'; });
     if (forn || bt) itens.push(['msg_mapa', '📥 Lançar no mapa (PF)']);
     // 4.66 - A pedido do Vitor ("imagem, eu consigo tbm já mandar para a cotação?"): foto = ler com IA e cotar
     var imgSrc = '';
     try { var A0 = cmAlvo || {}, ims0 = A0.b ? A0.b.querySelectorAll('img') : []; for (var k = 0; k < ims0.length; k++) { var s0 = ims0[k].getAttribute('src') || ''; if (/^blob:|^data:image/.test(s0) && (ims0[k].naturalWidth || ims0[k].width) >= 120) { imgSrc = s0; break; } } } catch (e) { }
     if (imgSrc) itens.push(['img_ia', '🤖 Ler a foto com IA e cotar (PF)', imgSrc]);
+    if (imgSrc) itens.push(['img_plaq', '🏷️ Mandar a plaqueta pra Máquinas (PF)', imgSrc]); // 4.91
     // 4.74 - A pedido do Vitor ("não consegui mandar o PDF pra já ler e fazer a cotação no PF"): mensagem com PDF = ler o PDF com IA e cotar
     var docNome = '';
     try { var tb = String((cmAlvo && cmAlvo.b && cmAlvo.b.innerText) || ''), md = tb.match(/([^\n]+?\.pdf)\b/i); if (md) docNome = md[1].trim(); else if (/\bPDF\b\s*[•·]/.test(tb)) docNome = '?'; } catch (e) { }
@@ -3502,6 +3574,7 @@
     itens.push(['msg_avise', '🔔 Avise-me (PF)']);
     if (resp && resp.k) { itens.push(['msg_nota', '📝 Anotar na ficha (PF)']); itens.push(['msg_lemb', '⏰ Lembrete (PF)']); }
     itens.push(['msg_rr', '⚡ Salvar como resposta rápida (PF)']);
+    }
     var sep = document.createElement('div'); sep.className = 'pfwa-wm'; sep.style.cssText = 'height:1px;background:rgba(127,127,127,.25);margin:4px 10px';
     lista.appendChild(sep);
     itens.forEach(function (x) {

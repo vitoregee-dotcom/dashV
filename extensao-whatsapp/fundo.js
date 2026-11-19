@@ -156,11 +156,13 @@ function cmCriar() {
       mk({ id: 'msg_curta', parentId: 'pf', title: '🏷️ Resposta curta (NEGATIVO, ZEROU…)', contexts: ['page', 'link'] });
       mk({ id: 'img_ia', parentId: 'pf', title: '🤖 Ler com IA e cotar', contexts: ['image'] });
       mk({ id: 'img_mapa', parentId: 'pf', title: '📥 Lançar no mapa (resposta do fornecedor)', contexts: ['image'] });
+      mk({ id: 'img_plaq', parentId: 'pf', title: '🏷️ Mandar a plaqueta pra Máquinas', contexts: ['image'] }); // 4.91
       mk({ id: 'msg_cotar', parentId: 'pf', title: '📄 Cotar esta mensagem', contexts: ['page', 'link'] });
       mk({ id: 'msg_lemb', parentId: 'pf', title: '⏰ Criar lembrete', contexts: ['page', 'link'] });
       mk({ id: 'msg_rr', parentId: 'pf', title: '💾 Salvar como resposta rápida', contexts: ['page', 'link'] });
       mk({ id: 'msg_nota', parentId: 'pf', title: '📝 Anotar na ficha do cliente', contexts: ['page', 'link'] });
       mk({ id: 'msg_mapa', parentId: 'pf', title: '📥 Lançar no mapa (resposta do fornecedor)', contexts: ['page', 'link', 'selection'] }); // 4.63 - também com texto selecionado
+      mk({ id: 'cv_ped', parentId: 'pf', title: '📦 Pedido pra enviar (marcar / tirar)', contexts: ['page', 'link'] }); // 4.91
       mk({ id: 'cv_ficha', parentId: 'pf', title: '🤝 Abrir ficha do cliente', contexts: ['page', 'link'] });
       mk({ id: 'cv_grupo', parentId: 'pf', title: '🏷️ Trocar grupo / tipo', contexts: ['page', 'link'] });
       mk({ id: 'cv_int', parentId: 'pf', title: '🎩 Grau de intimidade', contexts: ['page', 'link'] });
@@ -180,7 +182,7 @@ chrome.runtime.onMessage.addListener(function (m, sender, send) {
   cmVis('pf', m.sel || m.img || msgT || conv);
   ['msg_cotar', 'msg_lemb', 'msg_rr', 'msg_nota', 'msg_avise', 'msg_curta', 'msg_leitor'].forEach(function (id) { cmVis(id, msgT); });
   cmVis('msg_mapa', msgT); // 4.63 - A pedido do Vitor ("não aparece"): aparece em toda mensagem; sem fornecedor/mapa o clique explica o que falta
-  ['cv_ficha', 'cv_grupo', 'cv_int', 'cv_nunca'].forEach(function (id) { cmVis(id, conv); });
+  ['cv_ficha', 'cv_grupo', 'cv_int', 'cv_nunca', 'cv_ped'].forEach(function (id) { cmVis(id, conv); });
   send({ ok: 1 });
 });
 chrome.contextMenus.onClicked.addListener(function (info, tab) {

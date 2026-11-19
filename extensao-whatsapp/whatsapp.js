@@ -633,6 +633,7 @@
       ['📎', 'Portfólio na hora', 'Escreveu "vou te mandar nosso portfólio"? O PF acha o arquivo nos Atalhos de Texto (tipo arquivo) e pergunta se manda agora. Cadastre lá o portfólio, catálogo e tabela.']]],
     ['Botão direito e Alt+B', [
       ['🖱️', 'Botão direito', 'Clique com o botão direito no WhatsApp → 🧩 PartsFlow. Em código selecionado: Ver no PF, Pôr na cotação de hoje, Cotar só esse. Numa mensagem: Cotar, Lembrete, Salvar como resposta rápida, Anotar na ficha (e Lançar no mapa, se for fornecedor). Numa foto: Ler com IA e cotar. Numa conversa da lista: Abrir ficha, Trocar grupo/tipo, Grau de intimidade, liga/desliga a mensagem automática.'],
+      ['💲', 'Preço do concorrente', 'Cliente falou "tenho por 2.200 na Odapel"? Botão direito na mensagem → 💲 Preço do concorrente: o PF abre já com o concorrente, o preço, o cliente e as peças da última cotação dele — você confere e grava. Se ele mandou a cotação do concorrente (foto ou PDF), botão direito nela → 💲 Cotação do concorrente: a IA lê as peças e os preços. Depois aparece na cotação (⚔️ com a margem que sobraria se cobrir) e no Alt+B.'],
       ['🔗', 'Monta com', 'Selecione o código (ou clique com o botão direito na mensagem) → PartsFlow → 🔗 Monta com: aparecem as peças que montam com ele, por tipo e com o código Spicer na frente. Marque as que quer, escolha a marca e a quantidade e mande pra cotação de hoje, pra conversa (você confere e envia) ou copie. Também no botão "🔗 Marcar peças do Monta com" do Alt+B.'],
       ['🔎', 'Alt+B', 'Selecione o código na mensagem (pode ser a frase inteira — o PF puxa só os códigos) e aperte Alt+B: aparece o cartão com descrição, marcas, saldo, preço desse cliente, 🔗 Monta com e o botão do catálogo dos Componentes Cardan. Sem nada selecionado, abre uma caixinha pra digitar o código.'],
       ['📦', 'Anotei pra emitir / verificar', 'Quando o cliente pede ("pode faturar") ou você promete ("mando hoje", "vou verificar"), o PF anota sozinho um lembrete. Aparece um seloinho 📦/📌 na mensagem e um número ao lado do nome da conversa; clique pra ver ou desfazer. O lembrete vai pras Pendências e pro ☀️ Meu dia.'],
@@ -1913,6 +1914,7 @@
       '<div class="pfwa-asks">Pôr na frota de ' + esc(q.cliente || 'esse cliente') + '?</div>' +
       '<div class="pfwa-askb"><button data-acao="ask" data-arg="0" data-o="sim" class="ok">✔ Pôr na frota</button><button data-acao="ask" data-arg="0" data-o="nao">Não é dele</button><button data-acao="ask" data-arg="0" data-o="x">Agora não</button></div>';
     else if (q.tipo === 'mat') ASK.innerHTML = '<div class="pfwa-askt">📎 Você falou em mandar ' + esc(q.palavra || 'o material') + mais + '</div>' +
+      (q.ja ? '<div class="pfwa-asks" style="background:#FFF4E5;border-radius:6px;padding:4px 7px;color:#7a4a10;font-weight:700">⚠ Você já mandou ' + esc(q.ja.nome || q.palavra) + ' pra ele em ' + esc(q.ja.data) + ' (' + esc(q.ja.quando) + ')' + (q.ja.n > 1 ? ' · ' + q.ja.n + ' vezes' : '') + '</div>' : '') + // 4.93
       (q.mats.length ? '<div class="pfwa-asks">Mando agora?</div><div class="pfwa-askb">' + q.mats.map(function (m, i) { return '<button data-acao="ask" data-arg="0" data-o="m' + i + '" class="ok">📎 Mandar ' + esc(m.nome) + '</button>'; }).join('') + '<button data-acao="ask" data-arg="0" data-o="x">Agora não</button></div>'
         : '<div class="pfwa-asks">Não achei esse arquivo no PF. Cadastre em <b>Atalhos de Texto</b> (tipo arquivo, ex.: "Portfólio") e da próxima vez ele vai sozinho.</div><div class="pfwa-askb"><button data-acao="ask" data-arg="0" data-o="atalhos" class="ok">Abrir Atalhos de Texto</button><button data-acao="ask" data-arg="0" data-o="x">Fechar</button></div>');
     ASK.style.display = 'block'; posicionar();
@@ -1948,18 +1950,19 @@
     var meu = last.eu && /(mand|envi|pass|encaminh|segue|sigo)/.test(t), pediu = !last.eu && PROM_CLI_RE.test(t);
     if (!meu && !pediu) return;
     var sig = ultimo + '|' + ms.length + '|' + t.slice(0, 80); if (sig === askSig.mat || askNao['mat|' + sig]) return; askSig.mat = sig; askNao['mat|' + sig] = 1;
-    var ch = ultimo, r = await msg({ t: 'acao', acao: 'materialDe', arg: { texto: last.t } });
+    var ch = ultimo, r = await msg({ t: 'acao', acao: 'materialDe', arg: { texto: last.t, k: resp && resp.k } });
     if (ch !== ultimo || !r || !r.ok) return;
     if (!r.mats.length && !meu) return; // o cliente pediu e não tem arquivo cadastrado: o 📨 lembrete já cuida
-    askL.push({ tipo: 'mat', mats: r.mats || [], palavra: r.palavra || 'o material' }); askPinta();
+    askL.push({ tipo: 'mat', mats: r.mats || [], palavra: r.palavra || 'o material', ja: r.ja || null, k: resp && resp.k }); askPinta();
   }
   async function materialMandar(m) {
     if (!m) return; audToast('📎 Pegando ' + m.nome + ' no PF…');
     var r = await msg({ t: 'acao', acao: 'materialArq', arg: { id: m.id } });
     if (!r || !r.ok || !r.data) { audToast((r && r.msg) || 'O PF não respondeu — dê F5 na aba do PartsFlow'); return; }
+    var kM = resp && resp.k;
     if (motorOk || await motorChecar()) {
       var e = await motor('enviarArq', { data: r.data, nome: r.nome, mime: r.mime }, 120000);
-      if (e && e.ok) { audToast('✔ ' + r.nome + ' enviado'); return; }
+      if (e && e.ok) { audToast('✔ ' + r.nome + ' enviado'); if (kM) msg({ t: 'acao', acao: 'materialEnviado', arg: { id: m.id, k: kM, nome: r.nome } }); return; }
     }
     // sem o motor: cola o arquivo na conversa — o WhatsApp abre a prévia e você aperta enviar
     try {
@@ -1967,7 +1970,7 @@
       var f = new File([u8], r.nome, { type: mm[1] }), dt = new DataTransfer(); dt.items.add(f);
       var cx = caixaTexto(); if (!cx) throw new Error('sem caixa'); cx.focus();
       cx.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
-      audToast('📎 ' + r.nome + ' na conversa — confira e aperte enviar');
+      audToast('📎 ' + r.nome + ' na conversa — confira e aperte enviar'); if (kM) msg({ t: 'acao', acao: 'materialEnviado', arg: { id: m.id, k: kM, nome: r.nome } });
     } catch (x) { audToast('Não consegui pôr o arquivo na conversa (' + (x.message || x) + ')'); }
   }
   // ═══ 💡 OFERTAS (1.8) ═══
@@ -3417,10 +3420,17 @@
     cmExec(m.id, m.sel || '', m.src || '').catch(function (e) { console.warn('PF botão direito', e); });
     send({ ok: 1 });
   });
+  // 4.93 - 💲 preço do concorrente: o PF abre a janela já preenchida (concorrente, preço, peças da última cotação do cliente) — você confere e grava
+  async function pcMandar(a) {
+    a = a || {}; a.k = resp && resp.k; a.contato = (resp && resp.contato) || (typeof nomeConversa === 'function' ? nomeConversa() : '');
+    var r = await msg({ t: 'acao', acao: 'precoConc', focar: true, arg: a });
+    cmToast(r && r.ok ? '💲 Abri no PF — confira e grave' : 'Não deu — ' + ((r && r.msg) || 'abra o PF (F5)'));
+  }
   async function cmExec(id, sel, src) {
     var A = cmAlvo || {};
     if (id === 'sel_ver') { abAbrir(sel); return; }
     if (id === 'sel_mc') { mcAbrir(sel); return; } // 4.92
+    if (id === 'sel_pc') { pcMandar({ texto: sel }); return; } // 4.93 - 💲 preço do concorrente
     if (id === 'sel_cot') { cotHoje(sel); return; }
     if (id === 'sel_cotar') { cotarTxt(sel); return; }
     if (id === 'sel_avise') { aviseMe(sel); return; } // 4.78
@@ -3428,6 +3438,7 @@
     if (id === 'sel_leitor' || id === 'msg_leitor') { var rl = await msg({ t: 'acao', acao: 'leitor', focar: true, arg: { texto: id === 'sel_leitor' ? sel : cmTxt(A.b) } }); cmToast(rl && rl.ok ? '📝 Mandei pro Leitor de Peças do PF' : 'Não deu — abra o PF'); return; } // 4.85
     if (/^msg_/.test(id) && !A.b) { cmToast('Clique com o botão direito em cima da mensagem'); return; }
     if (id === 'msg_cotar') { cotarTxt(cmTxt(A.b)); return; }
+    if (id === 'msg_pc') { pcMandar({ texto: cmTxt(A.b) }); return; } // 4.93
     if (id === 'msg_mc') { mcAbrir(cmTxt(A.b).replace(/\s*\d{1,2}:\d{2}\s*$/, '')); return; } // 4.92
     if (id === 'msg_avise') { aviseMe(cmTxt(A.b)); return; } // 4.78
     if (id === 'msg_qk') { var w0 = String(src || '').trim(); if (!w0) return; var rq = await msg({ t: 'acao', acao: 'lerCods', arg: { texto: cmTxt(A.b) } }); var cq = (rq && rq.cods && rq.cods.length) ? rq.cods.map(function (c) { return String(c || '').trim().split(/\s+/)[0].slice(0, 30); }).filter(Boolean) : [];
@@ -3471,6 +3482,17 @@
       var du2 = await urlParaDataUrl(src);
       var r3 = await msg({ t: 'acao', acao: 'cotarImg', arg: { img: du2, k: resp && resp.k, contato: resp && resp.contato } });
       cotando = false; if (r3 && r3.jboss) { cotErro = ''; pintaCorpo(); await msg({ t: 'acao', acao: 'jbAbrir', focar: true, arg: {} }); cmToast('✔ É a cotação ' + (r3.num || '') + ' da Triex — abri no PF pra criar com o preço da Triex'); return; } if (!r3 || r3.erro) cotErro = 'Não consegui ler a imagem' + (r3 && r3.msg ? ': ' + r3.msg : ''); else cot = r3; pintaCorpo(); return;
+    }
+    if (id === 'img_pc') { // 4.93 - foto da cotação do concorrente que o cliente mandou
+      if (!src) { var imP = A.b && A.b.querySelector('img'); src = imP ? imP.getAttribute('src') : ''; } if (!src) { cmToast('Clique com o botão direito em cima da foto'); return; }
+      cmToast('💲 Lendo a cotação do concorrente no PF…'); var duP = await urlParaDataUrl(src); pcMandar({ img: duP }); return;
+    }
+    if (id === 'doc_pc') { // 4.93 - PDF da cotação do concorrente
+      if (!motorOk) await motorChecar();
+      if (!motorOk) { cmToast('Pra ler o PDF daqui o ⚙️ motor precisa estar ligado (F5 no WhatsApp). Ou baixe o PDF e use ⬆ Carregar arquivo no 💲 Preço do concorrente do PF.'); return; }
+      cmToast('💲 Baixando o PDF…'); var mdP = await motor('midia', { nome: src || '' }, 60000);
+      if (!mdP || mdP.erro || !mdP.data) { cmToast('Não consegui baixar o PDF — baixe e use ⬆ Carregar arquivo no PF'); return; }
+      pcMandar({ img: mdP.data, nome: mdP.nome, mime: mdP.mime }); return;
     }
     if (id === 'img_plaq') { // 4.91 - A pedido do Vitor ("botão direito na imagem… enviar a plaqueta para o PF, para Máquinas")
       if (!src) { var im = A.b && A.b.querySelector('img'); src = im ? im.getAttribute('src') : ''; } if (!src) { cmToast('Clique com o botão direito em cima da foto'); return; }
@@ -3572,6 +3594,9 @@
     if (docNome) itens.push(['doc_ia', '🤖 Ler o PDF com IA e cotar (PF)', docNome === '?' ? '' : docNome]);
     itens.push(['msg_cotar', '📄 Cotar no PF']);
     itens.push(['msg_mc', '🔗 Monta com (PF)']); // 4.92
+    itens.push(['msg_pc', '💲 Preço do concorrente (PF)']); // 4.93
+    if (imgSrc) itens.push(['img_pc', '💲 Cotação do concorrente (ler a foto) (PF)', imgSrc]);
+    if (docNome) itens.push(['doc_pc', '💲 Cotação do concorrente (ler o PDF) (PF)', docNome === '?' ? '' : docNome]);
     itens.push(['msg_leitor', '📝 Mandar pro Leitor de Peças (PF)']); // 4.85
     // 4.86 - A pedido do Vitor ("cadê o sem cadastro"): cada resposta curta direto no menu (NEGATIVO / SEM CADASTRO / ZEROU…), sem abrir a janelinha
     qkPal.forEach(function (w) { itens.push(['msg_qk', '🏷️ ' + w, w]); });

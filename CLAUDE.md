@@ -2985,3 +2985,13 @@
   `pfExtLeitor` com a lista já com itens e envio anterior pelo WhatsApp em até 4 h (`window._lpWaTs`) chama `lpLerTextoReal` direto = soma sem perguntar (antes, com a lista em revisão,
   a caixa `#lpTexto` não existia e nada acontecia); 1º envio com lista antiga continua perguntando Substituir/Adicionar.
 
+- v115.2811 + extensão **4.93** **💲 Preço do concorrente** (Vitor: "como está nossa parte de colocar o preço do concorrente?" → "bora. coloca data e quem foi o cliente" + "botão de subir
+  arquivo, caso o cliente envie a cotação"; capturas `docs/referencias/preco-concorrente/`): lista compartilhada **`pfPrecoConc_v1`** (3 listas da sync + rótulo, lápide `del`)
+  {id,cod,desc,marca,conc,preco,qtd,cliente,k,cot,data,obs,msg,de cot|whats|arquivo|altb,arq{path,nome},por,porNome,tsMod}. Janela `pfPcAbrir(o)`/`pfPcRender` (`pfPcJan`, z 100062, Esc/✕
+  perguntam se mexeu): CONCORRENTE (datalist `pfPcConcNomes`), CLIENTE QUE PASSOU, DATA, COTAÇÃO Nº, peças (código/descrição/marca dele/preço/qtd), observação; 📋 Colar print / ⬆ Carregar
+  arquivo / Ctrl+V = cotação do concorrente → IA `PF_PC_PROMPT` (`pfPcLerArquivo`, arquivo guardado em `cadastro-clientes/interno/precos-conc/`); chips com as peças da cotação (`pfPcChip`).
+  Entradas: botão direito no item da cotação (`pfPcDaCot`), Alt+B (`pfPcAltbHtml` → `pfPcDoAltb`), WhatsApp (acao `precoConc` → `pfExtPrecoConc`: texto lido por `pfPcLerTexto` — preço,
+  concorrente depois de na/no/da/pela…, marca, códigos sem confundir o preço —, peças da última cotação do cliente em 30 dias `pfPcUltCotDe`; foto/PDF → IA). Aparece: etiqueta de alerta
+  na cotação `pfPcEtqHtml` ("⚔️ ODAPEL R$ 2.200 · SPICER · data · cliente · cobrindo: margem X%") → `pfPcVer` (todos, com data, cliente, quem guardou, arquivo, 🗑). Extensão: `sel_pc`/`msg_pc`/
+  `img_pc`/`doc_pc` (menu do Chrome e do WhatsApp) → `pcMandar`. Junto ("se já mandei o portfólio, vai me avisar com data?"): o cartão 📎 do material mostra "⚠ Você já mandou X pra ele
+  em dd/mm (há N dias)" (`pfMatJaMandou` pelas ofertas/materiais do CRM; acao `materialDe` recebe `k`); o botão Mandar registra o envio (acao `materialEnviado` → `pfExtMaterialEnviado`, 1 por dia).

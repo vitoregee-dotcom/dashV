@@ -146,11 +146,13 @@ function cmCriar() {
       var mk = function (o) { o.documentUrlPatterns = D; try { chrome.contextMenus.create(o, function () { void chrome.runtime.lastError; }); } catch (e) { } };
       mk({ id: 'pf', title: '🧩 PartsFlow', contexts: ['selection', 'image', 'page', 'link'] });
       mk({ id: 'sel_ver', parentId: 'pf', title: '🔎 Ver no PF  (Alt+B)', contexts: ['selection'] });
+      mk({ id: 'sel_mc', parentId: 'pf', title: '🔗 Monta com', contexts: ['selection'] }); // 4.92
       mk({ id: 'sel_cot', parentId: 'pf', title: '➕ Pôr na cotação de hoje', contexts: ['selection'] });
       mk({ id: 'sel_cotar', parentId: 'pf', title: '📄 Cotar só esse', contexts: ['selection'] });
       mk({ id: 'sel_avise', parentId: 'pf', title: '🔔 Avise-me desse código', contexts: ['selection'] }); // 4.78
       mk({ id: 'sel_leitor', parentId: 'pf', title: '📝 Mandar pro Leitor de Peças', contexts: ['selection'] }); // 4.85
       mk({ id: 'msg_leitor', parentId: 'pf', title: '📝 Mandar pro Leitor de Peças', contexts: ['page', 'link'] });
+      mk({ id: 'msg_mc', parentId: 'pf', title: '🔗 Monta com (códigos da mensagem)', contexts: ['page', 'link'] }); // 4.92
       mk({ id: 'sel_curta', parentId: 'pf', title: '🏷️ Resposta curta (NEGATIVO, ZEROU…)', contexts: ['selection'] });
       mk({ id: 'msg_avise', parentId: 'pf', title: '🔔 Avise-me (códigos da mensagem)', contexts: ['page', 'link'] });
       mk({ id: 'msg_curta', parentId: 'pf', title: '🏷️ Resposta curta (NEGATIVO, ZEROU…)', contexts: ['page', 'link'] });
@@ -180,7 +182,7 @@ chrome.runtime.onMessage.addListener(function (m, sender, send) {
   if (!m || m.t !== 'cmCtx') return;
   var msgT = m.tipo === 'msg', conv = m.tipo === 'conv';
   cmVis('pf', m.sel || m.img || msgT || conv);
-  ['msg_cotar', 'msg_lemb', 'msg_rr', 'msg_nota', 'msg_avise', 'msg_curta', 'msg_leitor'].forEach(function (id) { cmVis(id, msgT); });
+  ['msg_cotar', 'msg_lemb', 'msg_rr', 'msg_nota', 'msg_avise', 'msg_curta', 'msg_leitor', 'msg_mc'].forEach(function (id) { cmVis(id, msgT); });
   cmVis('msg_mapa', msgT); // 4.63 - A pedido do Vitor ("não aparece"): aparece em toda mensagem; sem fornecedor/mapa o clique explica o que falta
   ['cv_ficha', 'cv_grupo', 'cv_int', 'cv_nunca', 'cv_ped'].forEach(function (id) { cmVis(id, conv); });
   send({ ok: 1 });

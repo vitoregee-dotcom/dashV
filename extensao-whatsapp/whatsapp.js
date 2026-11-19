@@ -633,6 +633,7 @@
       ['📎', 'Portfólio na hora', 'Escreveu "vou te mandar nosso portfólio"? O PF acha o arquivo nos Atalhos de Texto (tipo arquivo) e pergunta se manda agora. Cadastre lá o portfólio, catálogo e tabela.']]],
     ['Botão direito e Alt+B', [
       ['🖱️', 'Botão direito', 'Clique com o botão direito no WhatsApp → 🧩 PartsFlow. Em código selecionado: Ver no PF, Pôr na cotação de hoje, Cotar só esse. Numa mensagem: Cotar, Lembrete, Salvar como resposta rápida, Anotar na ficha (e Lançar no mapa, se for fornecedor). Numa foto: Ler com IA e cotar. Numa conversa da lista: Abrir ficha, Trocar grupo/tipo, Grau de intimidade, liga/desliga a mensagem automática.'],
+      ['🔗', 'Monta com', 'Selecione o código (ou clique com o botão direito na mensagem) → PartsFlow → 🔗 Monta com: aparecem as peças que montam com ele, por tipo e com o código Spicer na frente. Marque as que quer, escolha a marca e a quantidade e mande pra cotação de hoje, pra conversa (você confere e envia) ou copie. Também no botão "🔗 Marcar peças do Monta com" do Alt+B.'],
       ['🔎', 'Alt+B', 'Selecione o código na mensagem (pode ser a frase inteira — o PF puxa só os códigos) e aperte Alt+B: aparece o cartão com descrição, marcas, saldo, preço desse cliente, 🔗 Monta com e o botão do catálogo dos Componentes Cardan. Sem nada selecionado, abre uma caixinha pra digitar o código.'],
       ['📦', 'Anotei pra emitir / verificar', 'Quando o cliente pede ("pode faturar") ou você promete ("mando hoje", "vou verificar"), o PF anota sozinho um lembrete. Aparece um seloinho 📦/📌 na mensagem e um número ao lado do nome da conversa; clique pra ver ou desfazer. O lembrete vai pras Pendências e pro ☀️ Meu dia.'],
       ['➕', 'Pôr na cotação de hoje', 'Entra na cotação desse cliente que está aberta no PF ou que foi aberta HOJE; se não tiver, cria uma nova.'],
@@ -3419,6 +3420,7 @@
   async function cmExec(id, sel, src) {
     var A = cmAlvo || {};
     if (id === 'sel_ver') { abAbrir(sel); return; }
+    if (id === 'sel_mc') { mcAbrir(sel); return; } // 4.92
     if (id === 'sel_cot') { cotHoje(sel); return; }
     if (id === 'sel_cotar') { cotarTxt(sel); return; }
     if (id === 'sel_avise') { aviseMe(sel); return; } // 4.78
@@ -3426,6 +3428,7 @@
     if (id === 'sel_leitor' || id === 'msg_leitor') { var rl = await msg({ t: 'acao', acao: 'leitor', focar: true, arg: { texto: id === 'sel_leitor' ? sel : cmTxt(A.b) } }); cmToast(rl && rl.ok ? '📝 Mandei pro Leitor de Peças do PF' : 'Não deu — abra o PF'); return; } // 4.85
     if (/^msg_/.test(id) && !A.b) { cmToast('Clique com o botão direito em cima da mensagem'); return; }
     if (id === 'msg_cotar') { cotarTxt(cmTxt(A.b)); return; }
+    if (id === 'msg_mc') { mcAbrir(cmTxt(A.b).replace(/\s*\d{1,2}:\d{2}\s*$/, '')); return; } // 4.92
     if (id === 'msg_avise') { aviseMe(cmTxt(A.b)); return; } // 4.78
     if (id === 'msg_qk') { var w0 = String(src || '').trim(); if (!w0) return; var rq = await msg({ t: 'acao', acao: 'lerCods', arg: { texto: cmTxt(A.b) } }); var cq = (rq && rq.cods && rq.cods.length) ? rq.cods.map(function (c) { return String(c || '').trim().split(/\s+/)[0].slice(0, 30); }).filter(Boolean) : [];
       if (!cq.length) { qkCods = null; qkUsar('', w0); return; } qkCods = null; cq.forEach(function (c, i) { setTimeout(function () { qkUsar(c, w0); }, i * 500); }); return; } // 4.86
@@ -3568,6 +3571,7 @@
     try { var tb = String((cmAlvo && cmAlvo.b && cmAlvo.b.innerText) || ''), md = tb.match(/([^\n]+?\.pdf)\b/i); if (md) docNome = md[1].trim(); else if (/\bPDF\b\s*[•·]/.test(tb)) docNome = '?'; } catch (e) { }
     if (docNome) itens.push(['doc_ia', '🤖 Ler o PDF com IA e cotar (PF)', docNome === '?' ? '' : docNome]);
     itens.push(['msg_cotar', '📄 Cotar no PF']);
+    itens.push(['msg_mc', '🔗 Monta com (PF)']); // 4.92
     itens.push(['msg_leitor', '📝 Mandar pro Leitor de Peças (PF)']); // 4.85
     // 4.86 - A pedido do Vitor ("cadê o sem cadastro"): cada resposta curta direto no menu (NEGATIVO / SEM CADASTRO / ZEROU…), sem abrir a janelinha
     qkPal.forEach(function (w) { itens.push(['msg_qk', '🏷️ ' + w, w]); });
@@ -3592,6 +3596,72 @@
       li.addEventListener('click', vai, true);
       lista.appendChild(li);
     });
+  }
+  // ═══ 4.92 - 🔗 MONTA COM ═══ (A pedido do Vitor: "dá pra bolar um monta c/ aqui… que vou selecionando"; prévia docs/referencias/whatsapp-montacom/previa.png):
+  // botão direito no código (ou na mensagem) → janelinha com as peças que montam com ele, por tipo, Spicer na frente; vai marcando (marca e qtd) e manda
+  // pra cotação de hoje, pra caixa da conversa (você confere e envia) ou copia.
+  var MC = null, mcR = null, mcSel = {};
+  function mcEl() { if (!MC) { MC = document.createElement('div'); MC.id = 'pfwa-mc'; document.body.appendChild(MC); MC.addEventListener('click', mcClique); MC.addEventListener('change', mcMuda); MC.addEventListener('input', mcMuda);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && MC && MC.style.display === 'block') { e.stopPropagation(); e.preventDefault(); MC.style.display = 'none'; } }, true); } return MC; }
+  var MC_CAB = '<div class="mc-cab"><div>🔗 Monta com<small>peças que montam com o código selecionado</small></div><span class="mc-x" data-mc="x" title="Fechar (Esc)">✕</span></div>';
+  async function mcAbrir(t) {
+    t = String(t || '').trim(); var el = mcEl(); el.style.display = 'block';
+    if (!t) { el.innerHTML = MC_CAB + '<div class="mc-dica">Selecione o código na mensagem e clique com o botão direito → 🔗 Monta com.</div>'; return; }
+    el.innerHTML = MC_CAB + '<div class="mc-dica">Procurando no PF…</div>'; mcSel = {}; mcR = null;
+    var r = await msg({ t: 'acao', acao: 'montaCom', arg: { texto: t, k: resp && resp.k } });
+    if (!r || r.erro) { el.innerHTML = MC_CAB + '<div class="mc-dica">O PF não respondeu — dê F5 na aba do PartsFlow.</div>'; return; }
+    if (r.ok === false) { el.innerHTML = MC_CAB + '<div class="mc-dica">' + esc(r.msg || 'Não achei código') + '</div>'; return; }
+    mcR = r; mcPinta();
+  }
+  function mcLinhas() { var L = []; ((mcR && mcR.grupos) || []).forEach(function (g, gi) { g.itens.forEach(function (x, ii) { L.push({ k: gi + ':' + ii, x: x, g: g }); }); }); return L; }
+  function mcPinta() {
+    var el = mcEl(), r = mcR; if (!r) return;
+    var h = MC_CAB + '<div class="mc-pc">' + r.base.map(function (b, i) {
+      var sd = b.saldo == null ? '<i class="z">não está no estoque</i>' : b.saldo > 0 ? '<i class="s">saldo ' + esc(b.saldo) + '</i>' : '<i class="z">sem saldo</i>';
+      return '<div><b>' + esc(b.cod) + '</b>' + (b.desc ? ' · ' + esc(b.desc) : '') + (b.marca ? ' ' + esc(b.marca) : '') + ' ' + sd +
+        (b.saldo != null ? ' <label class="mc-inc"><input type="checkbox" data-mcb="' + i + '"' + (mcSel['b' + i] ? ' checked' : '') + '> incluir também</label>' : '') + '</div>'; }).join('') + '</div>';
+    if (!r.n) h += '<div class="mc-dica">Nenhuma peça cadastrada monta com ' + esc(r.base.map(function (b) { return b.cod; }).join(', ')) + ' nos Componentes Cardan.</div>';
+    (r.grupos || []).forEach(function (g, gi) {
+      h += '<div class="mc-fam">' + esc(String(g.fam).toUpperCase()) + ' (' + g.itens.length + ')</div>';
+      g.itens.forEach(function (x, ii) {
+        var k = gi + ':' + ii, s = mcSel[k], mi = s ? s.m : x.esc;
+        var sel = x.marcas.length ? '<select data-mcm="' + k + '">' + x.marcas.map(function (m, j) { return '<option value="' + j + '"' + (j === mi ? ' selected' : '') + '>' + esc((m.marca || '—') + ' · ' + m.saldo + (m.cod !== x.cod ? ' (' + m.cod + ')' : '')) + '</option>'; }).join('') + '</select>' : '<i class="z">sem cadastro</i>';
+        var m0 = x.marcas[mi], sdz = m0 && m0.saldo <= 0;
+        h += '<label class="mc-it' + (s ? ' sel' : '') + '"><input type="checkbox" data-mck="' + k + '"' + (s ? ' checked' : '') + '><b>' + esc(x.cod) + '</b><span class="d">' + esc(x.desc + (x.outros && x.outros.length ? ' · também ' + x.outros.join(', ') : '')) + '</span>' + sel +
+          (sdz ? '<i class="z">sem saldo</i>' : '') + '<input class="mc-q" type="number" min="1" data-mcq="' + k + '" value="' + esc(s ? s.q : 1) + '"></label>';
+      });
+    });
+    var nSel = Object.keys(mcSel).length, nPc = 0; Object.keys(mcSel).forEach(function (k) { nPc += +mcSel[k].q || 1; });
+    h += '<div class="mc-ft"><span>' + (nSel ? nSel + ' marcada' + (nSel > 1 ? 's' : '') + ' · ' + nPc + ' peça' + (nPc > 1 ? 's' : '') : 'Marque as peças que quer') + ' · marca = a que tem saldo (Spicer primeiro), dá pra trocar</span>' +
+      '<button class="v" data-mc="cot"' + (nSel ? '' : ' disabled') + '>➕ Pôr na cotação de hoje</button><button data-mc="conv"' + (nSel ? '' : ' disabled') + '>💬 Pôr na conversa</button><button data-mc="cop"' + (nSel ? '' : ' disabled') + '>📋 Copiar</button></div>';
+    var sc = el.querySelector('.mc-corpo'), top = sc ? sc.scrollTop : 0;
+    el.innerHTML = h.replace(MC_CAB, MC_CAB + '<div class="mc-corpo">').replace('<div class="mc-ft">', '</div><div class="mc-ft">');
+    var sc2 = el.querySelector('.mc-corpo'); if (sc2) sc2.scrollTop = top;
+  }
+  function mcMuda(e) {
+    var t = e.target, k;
+    if ((k = t.getAttribute('data-mck')) != null) { if (t.checked) { var x = mcLinhas().find(function (l) { return l.k === k; }); mcSel[k] = { m: x ? x.x.esc : 0, q: 1 }; } else delete mcSel[k]; mcPinta(); return; }
+    if ((k = t.getAttribute('data-mcb')) != null) { if (t.checked) mcSel['b' + k] = { q: 1, base: 1 }; else delete mcSel['b' + k]; mcPinta(); return; }
+    if ((k = t.getAttribute('data-mcm')) != null) { mcSel[k] = mcSel[k] || { q: 1 }; mcSel[k].m = +t.value; mcPinta(); return; }
+    if ((k = t.getAttribute('data-mcq')) != null && e.type === 'change') { var q = Math.max(1, parseInt(t.value) || 1); if (!mcSel[k]) { var x2 = mcLinhas().find(function (l) { return l.k === k; }); mcSel[k] = { m: x2 ? x2.x.esc : 0 }; } mcSel[k].q = q; mcPinta(); }
+  }
+  function mcEscolhidos() {
+    var out = [];
+    Object.keys(mcSel).forEach(function (k) { var s = mcSel[k];
+      if (s.base) { var b = mcR.base[+k.slice(1)]; if (b) out.push({ cod: b.cod, qtd: s.q || 1, marca: b.marca || '', desc: b.desc || '' }); return; }
+      var l = mcLinhas().find(function (z) { return z.k === k; }); if (!l) return; var m = l.x.marcas[s.m] || null;
+      out.push({ cod: m ? m.cod : l.x.cod, qtd: s.q || 1, marca: m ? m.marca : '', desc: l.x.desc || '' }); });
+    return out;
+  }
+  function mcClique(e) {
+    var el = e.target.closest('[data-mc]'); if (!el || el.disabled) return; e.preventDefault(); e.stopPropagation();
+    var a = el.getAttribute('data-mc');
+    if (a === 'x') { MC.style.display = 'none'; return; }
+    var L = mcEscolhidos(); if (!L.length) return;
+    var txt = L.map(function (x) { return (x.qtd > 1 ? x.qtd + ' - ' : '') + x.cod + (x.desc ? ' - ' + x.desc : '') + (x.marca ? ' - ' + x.marca : ''); }).join('\n');
+    if (a === 'cot') { cotHoje('', L.map(function (x) { return { cod: x.cod, qtd: x.qtd, marca: x.marca }; })); el.textContent = '✔ Mandei pro PF'; return; }
+    if (a === 'conv') { if (escreverNaCaixa(txt)) { MC.style.display = 'none'; cmToast('💬 Escrevi na caixa — confira e envie'); } else cmToast('Abra uma conversa primeiro'); return; }
+    if (a === 'cop') { try { navigator.clipboard.writeText(txt); el.textContent = '✓ Copiado'; setTimeout(function () { el.textContent = '📋 Copiar'; }, 1500); } catch (er) { } return; }
   }
   // 🔎 Alt+B: cartão da peça dentro do WhatsApp
   var AB = null, abR = null;
@@ -3635,6 +3705,7 @@
       if (x.mc && x.mc.length) h += '<div class="ab-mct">🔗 Monta com (' + esc(x.nMc) + ')</div>' + x.mc.map(function (m) {
         return '<div class="ab-mc" data-ab="mc" data-f="' + esc(m.famK) + '" data-c="' + esc(m.cod) + '" title="Abrir no catálogo"><b>' + esc(m.cod) + '</b><span>' + esc(m.fam) + (m.outros && m.outros.length ? ' · também ' + esc(m.outros.join(', ')) : '') + '</span>' +
           (m.saldo == null ? '<i class="z">sem cadastro</i>' : m.saldo > 0 ? '<i class="s">saldo ' + esc(m.saldo) + '</i>' : '<i class="z">sem saldo</i>') + '</div>'; }).join('');
+      if (x.mc && x.mc.length) h += '<div class="ab-bts"><button data-ab="mcsel" data-c="' + esc(x.cod) + '">🔗 Marcar peças do Monta com ›</button></div>'; // 4.92
       h += '<div class="ab-bts"><button class="v" data-ab="cot" data-i="' + i + '">➕ Pôr na cotação</button><button data-ab="pf" data-c="' + esc(x.cod) + '">Abrir no PF ›</button>' +
         (x.cc || (x.mc && x.mc.length) ? '<button data-ab="cat" data-c="' + esc(x.cod) + '">🔩 Catálogo</button>' : '') + '</div></div>';
       return h;
@@ -3654,6 +3725,7 @@
     if (a === 'maq') { msg({ t: 'acao', acao: 'altbMaq', focar: true, arg: { chave: c } }); return; }
     if (a === 'serie') { msg({ t: 'acao', acao: 'altbSerie', focar: true, arg: { gk: c } }); return; }
     if (a === 'par') { abAbrir(c); return; }
+    if (a === 'mcsel') { AB.style.display = 'none'; mcAbrir(c); return; } // 4.92
   }
   setTimeout(function () { try { autoStatusPill(); } catch (e) { } }, 2500);
 

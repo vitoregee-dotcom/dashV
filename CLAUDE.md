@@ -2975,3 +2975,5 @@
   Ideia anotada (lembrar o Vitor): **🪪 Cadastro pelo WhatsApp (abrir/reativar)** no PF_FUNC_IDEIAS — cartão igual ao do portfólio quando o cliente manda CNPJ.
 - v115.2808 BUG ("pq não mostra a luva aqui, sendo que está lá nos componentes?" — Alt+B/extensão do 5-515X, Monta com sem a luva 6-3-2651KX): o `ccMontaComBuscar` só achava o código
   gravado no "Monta com" escrito IGUAL (índice exato); o card usa o `pfInfoItemPorCodigo` (sem maiúscula/espaço). Agora `_acha(mc)` = índice exato > só letras+números (`ccNormCod`) > `pfInfoItemPorCodigo`.
+- v115.2809 ("se a ponteira é fixa ou deslizante deve estar na descrição"): a tabela MONTA COM do card dos Componentes Cardan e a lista 🔗 Monta com do Alt+B/extensão mostram
+  "PONTEIRA FIXA"/"PONTEIRA DESLIZANTE" no lugar de "PONTEIRA" (`ccPontRotulo` no card e no `pfItemCardMcLista`).

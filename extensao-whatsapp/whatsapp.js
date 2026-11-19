@@ -562,7 +562,7 @@
   var VERIF_RE = /\bvou (anotar|verificar|conferir|checar|ver\b|dar uma (olhada|conferida)|confirmar|olhar|pesquisar|te retornar|te dar)|deixa eu (ver|verificar|conferir|checar|dar uma olhada|olhar)|preciso (verificar|conferir|ver no|checar)|j[aá] (te )?(retorno|verifico|confiro)|vou (te )?(retornar|dar) (o|um|a)/i;
   chrome.storage.local.get(['ofIgn'], function (s) { ofIgn = s.ofIgn || {}; });
   var BOTOES = [['cot', '📄', 'Cotar no PF'], ['curta', '🏷️', 'Resposta curta'], ['avise', '🔔', 'Avise-me'], ['saldo', '📦', 'Saldo'], ['ficha', '🤝', 'Ficha'], ['audio', '🎤', 'Descrever áudio'], ['lemb', '⏰', 'Lembrete'], ['prontas', '⚡', 'Prontas'], ['assist', '🤖', 'Assistente'], ['pdf', '📤', 'PDF']];
-  function logoSvg(f, l) { return '<svg width="24" height="24" viewBox="0 0 40 40"><rect width="40" height="40" rx="10" fill="' + f + '"/><rect x="9" y="8" width="4" height="22" rx="1.5" fill="' + l + '"/><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="' + l + '" stroke-width="4" stroke-linecap="round"/><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="33" r="2" fill="#E67E22"/></svg>'; }
+  function logoSvg(f, l, px) { px = px || 24; return '<svg width="' + px + '" height="' + px + '" viewBox="0 0 40 40"><rect width="40" height="40" rx="10" fill="' + f + '"/><rect x="9" y="8" width="4" height="22" rx="1.5" fill="' + l + '"/><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="' + l + '" stroke-width="4" stroke-linecap="round"/><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="33" r="2" fill="#E67E22"/></svg>'; }
 
   // 2.4 - ❓ Ajuda "Como funciona" (pedido do Vitor: explicar cada função em linguagem simples pros outros usuários).
   // FUNÇÃO NOVA NA EXTENSÃO → acrescentar uma linha aqui.
@@ -1791,7 +1791,7 @@
     if (!main || !contatoAt) { B.style.display = 'none'; if (AV) AV.style.display = 'none'; if (OF) OF.style.display = 'none'; if (JA) JA.style.display = 'none'; if (VF) VF.style.display = 'none'; if (PE) PE.style.display = 'none'; return; }
     var r = main.getBoundingClientRect(), foot = main.querySelector('footer'), fh = foot ? foot.getBoundingClientRect().height : 62, hd = main.querySelector('header'), hh = hd ? hd.getBoundingClientRect().height : 60;
     B.className = (visual === 'D' ? 'pfwa-barra' : 'pfwa-coluna') + (botsMin ? ' pfwa-min' : ''); B.style.display = CFG.bots ? 'flex' : 'none';
-    if (botsMin) { B.innerHTML = '<span data-acao="botsToggle" class="pri pfwa-botspf" title="Mostrar os bot\u00f5es do PF">PF</span>'; }
+    if (botsMin) { B.innerHTML = '<span data-acao="botsToggle" class="pri pfwa-botspf" title="Mostrar os bot\u00f5es do PF">' + logoSvg('#fff', '#0F1F35', 42) + '</span>'; }
     else { var tog = '<span data-acao="botsToggle" class="pfwa-botsx" title="Esconder os bot\u00f5es do PF">' + (visual === 'D' ? '\u2039' : '\u2013') + '</span>'; B.innerHTML = tog + BOTOES.map(function (b, i) { var off = b[0] === 'audio' && CFG.audio === false; var tt = b[0] === 'audio' ? ('Descrever áudios: ' + (off ? 'DESLIGADO — clique pra ligar' : 'ligado — clique pra desligar')) : b[2]; return '<span data-acao="b-' + b[0] + '" class="' + (i === 0 ? 'pri' : '') + (off ? ' pfwa-boff' : '') + '" title="' + tt + '">' + b[1] + (visual === 'D' ? ' ' + b[2] : '') + '</span>'; }).join(''); }
     marcaCot();
     // 3.5 - A pedido do Vitor ("esse PF aí, desbloqueia pra eu poder colocar ele pra cima ou pra baixo"): arrastar a coluna/barra (ou o PF minimizado)

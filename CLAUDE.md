@@ -2965,3 +2965,4 @@
 - v115.2803 + extensão **4.89** BUG (painel do WhatsApp, "2-40-2521 · 🔍 seria: 2-40-1521": "o código estava errado. Selecionei, mas abriu a cotação com a errada"): o chip escolhido
   (`o.perg`) só mudava a resposta. Agora `itensPF` (whatsapp.js) manda pro PF o código escolhido (marca dele, o digitado vira código do cliente) no "📄 Abrir a cotação no PF", no PDF e no selo;
   chip escolhido mostra "✔" + "na cotação vai o X". Chips sem repetir o mesmo código (`pfExtCotar` junta por código, aparecia 4x). Botão "⬇ Criar minimizada" também no painel (acao `abrirCotMin`).
+- v115.2804 ("deixa sempre visível o 28 dias também" — 💳 Pedido pra análise de crédito do Preencher atalho): os botões de condição (`ferrPreencherCredChipsHtml`) sempre têm "28 dias" logo depois do À vista, qualquer que seja a faixa da tabela Triex.

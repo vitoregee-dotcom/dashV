@@ -3015,3 +3015,10 @@
 - v115.2816 ("deveria estar mais organizado isso aqui" — cartão do lembrete 📦 Emitir o pedido no anel do WhatsApp e no 📦 Meus pedidos): título = só o CLIENTE e embaixo
   "desde 16/11 · 4 peças: 254686A2 ×5 · 2852161 ×3…" (`pfMpEmitParse`: cliente = texto entre " — " e ": "/" ["; peças = códigos da mensagem do cliente com a qtd "05 UND"/"PÇ"/"X",
   sem valores; sem código na mensagem = o `cod` da pendência; `pfMpPecasTxt`). Só no PF (`pfMpDados`/`pfMpExt`), a extensão não mudou.
+- v115.2817 + extensão **4.96** **🎨 Ícones dos botões da coluna do PF no WhatsApp** (prévias `scratchpad` A/B/C/D → "gostei do A" → A1/A2/A3 → "os 3 fica legal" + "quando eu mudar o ícone lá, muda aqui também?"):
+  quadrado branco (A) com 3 jeitos de ícone, escolha POR NAVEGADOR em ⚙️ → 🎨 Ícones dos botões (`ICO_EST` em chrome.storage `icoEst`, padrão **azul**): `azul` = ícones redondos azul-marinho do PF,
+  `traco` = traço fino estilo WhatsApp (`ICO_SVG`), `cor` = ícones 3D coloridos do PF, `emoji` = o antigo (`icoHtml(k,emoji)`). Os PNG padrão moram na extensão (`extensao-whatsapp/icones/<estilo>-<botão>.png`,
+  64 px, `web_accessible_resources` — o WhatsApp não carrega imagem de outro site). Trocar o ícone de um botão = botão direito nele (menos o 📄, que liga/desliga o aviso) ou clicar na lista do ⚙️ →
+  acao `iconeEscolher` (com foco) → `pfExtIconeEscolher` → seletor de ícones do PF (`pfIconPickerAbrir('wa_<botão>')`, só admin) → fica no `pfIconOverrides` (compartilhado, vale pra todos) → a extensão
+  puxa (`icoPuxar`: 5 s depois de abrir, a cada 2 min e quando a janela volta ao foco) pela acao `extIcones` → `pfExtIcones` (cada troca vira data: 64 px, `pfExtIcoDataUrl`). Lista dos botões no PF = `PF_EXT_BOTOES`
+  (mesma ordem do `BOTOES` da extensão — botão novo, acrescentar nos dois + ícones nos 3 estilos). Visual D (barra) continua emoji + texto.

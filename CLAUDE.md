@@ -3022,3 +3022,9 @@
   acao `iconeEscolher` (com foco) → `pfExtIconeEscolher` → seletor de ícones do PF (`pfIconPickerAbrir('wa_<botão>')`, só admin) → fica no `pfIconOverrides` (compartilhado, vale pra todos) → a extensão
   puxa (`icoPuxar`: 5 s depois de abrir, a cada 2 min e quando a janela volta ao foco) pela acao `extIcones` → `pfExtIcones` (cada troca vira data: 64 px, `pfExtIcoDataUrl`). Lista dos botões no PF = `PF_EXT_BOTOES`
   (mesma ordem do `BOTOES` da extensão — botão novo, acrescentar nos dois + ícones nos 3 estilos). Visual D (barra) continua emoji + texto.
+- v115.2818 **🪐 Órbita mais limpa + logo do WhatsApp** (Vitor: "nossa órbita. precisamos melhorar. urgente" + "cor quero deixar por linhas mesmo" + "algo de acordo com o logo do whats";
+  prévia `scratchpad/orbcontato/previa2.png`): 2D mais alta (380–600 px + extra, era 200–380) e mais redonda (rx = ry×1,75, era 2,6); "30/60/90/180+ dias" em cima de cada faixa;
+  enfeites (anéis, placas da marca/concessionária, rastros, pontinho do "cotando", halo, ▲▼) só com **✨ Enfeites** ligado no 🔍 Filtros (`pfOrbEnfeites`/`pfOrbEnfeitesSet`, localStorage
+  `pf_orb_enfeites`; rastro ainda aparece no mouse); sem enfeites os nomes são dos 10 maiores em 12 meses. **`x.wa`** (no `pfOrbDados`): sit ≠ verde e último contato do `pfContatoRecente`
+  = WhatsApp nos últimos `PF_ORB_WA_DIAS`=30 → logo do WhatsApp no canto do planeta (`pfOrbWaImg` = pack 384; 3D `pfOrb3DTexWa`, sprite sem transparência) e chip "em contato" (filtro 'wa';
+  o chip 🔴 / filtro 'r' tiram os x.wa). Cor continua pela linha (grupo). Pendente combinado: lembrete semanal do relatório do JBoss e ler ~90 dias de conversa (pra x.wa valer antes de 16/11).

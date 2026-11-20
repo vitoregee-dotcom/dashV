@@ -562,6 +562,22 @@
   var VERIF_RE = /\bvou (anotar|verificar|conferir|checar|ver\b|dar uma (olhada|conferida)|confirmar|olhar|pesquisar|te retornar|te dar)|deixa eu (ver|verificar|conferir|checar|dar uma olhada|olhar)|preciso (verificar|conferir|ver no|checar)|j[aá] (te )?(retorno|verifico|confiro)|vou (te )?(retornar|dar) (o|um|a)/i;
   chrome.storage.local.get(['ofIgn'], function (s) { ofIgn = s.ofIgn || {}; });
   var BOTOES = [['cot', '📄', 'Cotar no PF'], ['curta', '🏷️', 'Resposta curta'], ['avise', '🔔', 'Avise-me'], ['saldo', '📦', 'Saldo'], ['ficha', '🤝', 'Ficha'], ['audio', '🎤', 'Descrever áudio'], ['lemb', '⏰', 'Lembrete'], ['prontas', '⚡', 'Prontas'], ['assist', '🤖', 'Assistente'], ['pdf', '📤', 'PDF']];
+  // 4.96 - A pedido do Vitor ("vamos melhorar esse estilo de ícone?" → "os 3 ficam legal" + "quando eu mudar o ícone lá, muda aqui também?"):
+  // os botões da coluna ganharam 3 jeitos de ícone (⚙️ Configurações → 🎨 Ícones dos botões, por navegador, padrão = azuis do PF):
+  // 'traco' = traço fino estilo WhatsApp, 'azul' = ícones redondos azul-marinho do PF, 'cor' = ícones coloridos do PF (+ 'emoji' = o antigo).
+  // Trocar o ícone de um botão = botão direito nele (ou ⚙️) → abre o seletor de ícones do PF; a escolha fica no pfIconOverrides ('wa_<botão>'),
+  // vale pra todo mundo e chega aqui como imagem (acao extIcones).
+  var ICO_EST = 'azul', ICO_TROCA = {};
+  var ICO_SVG = { cot: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>', curta: '<path d="M3 12V4h8l9 9-8 8z"/><circle cx="7.5" cy="8" r="1.3"/>', avise: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>', saldo: '<path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/>', ficha: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>', audio: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>', lemb: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M5 3 2 6M19 3l3 3"/>', prontas: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>', assist: '<rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9 17h6"/>', pdf: '<path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/>' };
+  var ICO_ESTILOS = [['azul', 'Azuis do PF'], ['traco', 'Traço (WhatsApp)'], ['cor', 'Coloridos do PF'], ['emoji', 'Emoji (antigo)']];
+  try { chrome.storage.local.get(['icoEst', 'icoTroca'], function (x) { if (x && x.icoEst) ICO_EST = x.icoEst; if (x && x.icoTroca) ICO_TROCA = x.icoTroca; try { posicionar(); } catch (e) { } }); } catch (e) { }
+  function icoHtml(k, emo, est) { est = est || ICO_EST; if (est === 'emoji' || !ICO_SVG[k]) return emo;
+    if (est === 'traco') return '<svg class="pfwa-ico" viewBox="0 0 24 24">' + ICO_SVG[k] + '</svg>';
+    var src = ICO_TROCA[k] || chrome.runtime.getURL('icones/' + est + '-' + k + '.png'); return '<img class="pfwa-icoimg" src="' + src + '" alt="">'; }
+  async function icoPuxar() { try { var r = await msg({ t: 'acao', acao: 'extIcones' }); if (r && r.por && typeof r.por === 'object') { var j = JSON.stringify(r.por); if (j !== JSON.stringify(ICO_TROCA)) { ICO_TROCA = r.por; chrome.storage.local.set({ icoTroca: ICO_TROCA }); try { posicionar(); } catch (e) { } if (config) pinta(); } } } catch (e) { } }
+  function icoEstSet(v) { ICO_EST = v; chrome.storage.local.set({ icoEst: v }); try { posicionar(); } catch (e) { } pinta(); }
+  function icoTrocar(k) { msg({ t: 'acao', acao: 'iconeEscolher', arg: { k: k }, focar: true }); }
+  setTimeout(icoPuxar, 5000); setInterval(function () { if (vivo()) icoPuxar(); }, 120000); window.addEventListener('focus', function () { if (vivo()) setTimeout(icoPuxar, 800); });
   function logoSvg(f, l, px) { px = px || 24; return '<svg width="' + px + '" height="' + px + '" viewBox="0 0 40 40"><rect width="40" height="40" rx="10" fill="' + f + '"/><rect x="9" y="8" width="4" height="22" rx="1.5" fill="' + l + '"/><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="' + l + '" stroke-width="4" stroke-linecap="round"/><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"/><circle cx="30" cy="33" r="2" fill="#E67E22"/></svg>'; }
 
   // 2.4 - ❓ Ajuda "Como funciona" (pedido do Vitor: explicar cada função em linguagem simples pros outros usuários).
@@ -600,6 +616,9 @@
         '<span class="pfwa-sw' + (on ? ' on' : '') + '"><i></i></span></div>';
     });
     h += '<div class="pfwa-cfgl" data-acao="autoAbrir"><span class="pfwa-cfgi">👋</span><div><b>Mensagens automáticas</b><br><small>' + (autoAusente() ? autoInfo(autoAusente()).join(' ') + ' · ' : '') + 'Saudação de espera ' + (AUTO.on ? 'ligada · ' + esc(AUTO.min) + ' min · ' + esc(AUTO.ini) + '–' + esc(AUTO.fim) : 'desligada') + ' — clique pra ajustar</small></div><span class="pfwa-link">ajustar ›</span></div>';
+    h += '<div class="pfwa-bt" style="margin-top:12px">🎨 Ícones dos botões</div><div class="pfwa-icoest">' + ICO_ESTILOS.map(function (e) { return '<span data-acao="icoEst" data-arg="' + e[0] + '" class="' + (ICO_EST === e[0] ? 'on' : '') + '">' + e[1] + '</span>'; }).join('') + '</div>' +
+      '<div class="pfwa-nada" style="margin:4px 0 6px">Clique num botão pra trocar o ícone dele (abre o seletor do PF — vale pra todo mundo). Também dá com o botão direito no botão da coluna.</div><div class="pfwa-icolista">' +
+      BOTOES.map(function (b) { return '<span data-acao="icoTrocar" data-arg="' + b[0] + '" title="Trocar o ícone de ' + esc(b[2]) + '">' + icoHtml(b[0], b[1], ICO_EST === 'emoji' ? 'azul' : ICO_EST) + '<small>' + esc(b[2]) + '</small></span>'; }).join('') + '</div>'; // 4.96
     h += '<div class="pfwa-cfgl" data-acao="extCfgAbrir"><span class="pfwa-cfgi">📦</span><div><b>Pedido a emitir</b><br><small>Lembrete automático pra não esquecer de emitir/mandar ("manda pra mim", "mando hoje"). As palavras e o liga/desliga ficam no PF.</small></div><span class="pfwa-link">ajustar no PF ›</span></div>'; // 4.62
     // 4.37 - A pedido do Vitor ("não precisa mais desses botões né?"): saíram do rodapé, ficam aqui pra usar quando precisar
     h += '<div class="pfwa-bt" style="margin-top:12px">📇 Contatos</div>' + motorSeloHtml() +
@@ -706,7 +725,7 @@
       '<div class="pfwa-lote"></div><div class="pfwa-tabs"></div><div class="pfwa-corpo"></div>'+
       '<div class="pfwa-rod pfwa-rod-vazio"><span class="pfwa-rodst"></span></div></div>';
     document.body.appendChild(P);
-    B = document.createElement('div'); B.id = 'pfwa-bots'; document.body.appendChild(B); botsArrastoLigar();
+    B = document.createElement('div'); B.id = 'pfwa-bots'; document.body.appendChild(B); botsArrastoLigar(); B.addEventListener('contextmenu', function (ev) { var sp = ev.target.closest && ev.target.closest('[data-acao^="b-"]'); if (!sp) return; var k = sp.getAttribute('data-acao').slice(2); if (k === 'cot') return; ev.preventDefault(); ev.stopPropagation(); icoTrocar(k); }); // 4.96 - botão direito = trocar o ícone no PF
     AV = document.createElement('div'); AV.id = 'pfwa-aviso'; document.body.appendChild(AV);
     OF = document.createElement('div'); OF.id = 'pfwa-of'; document.body.appendChild(OF);
     QK = document.createElement('div'); QK.id = 'pfwa-qk'; document.body.appendChild(QK); // 4.78
@@ -887,6 +906,8 @@
     if (ac === 'vfX') { vfR = null; pintaVf(); return; }
     if (ac === 'peDesfazer') { if (peR) msg({ t: 'acao', acao: 'pedidoEmitirDesfazer', arg: peR.id }); peR = null; pintaPe(); return; } // 4.62
     if (ac === 'peX') { peR = null; pintaPe(); return; }
+    if (ac === 'icoEst') { icoEstSet(arg); return; } // 4.96
+    if (ac === 'icoTrocar') { icoTrocar(arg); return; } // 4.96
     if (ac === 'extCfgAbrir') { msg({ t: 'acao', acao: 'extCfgAbrir' }); return; } // 4.62 - abre o card de ajustes no PF
     if (ac === 'cotarIA') { irAba('cot'); cotarIA(); return; }
     if (ac === 'lerDocCli') { var _dc = docCliAchar(); if (!_dc) return; cmAlvo = { b: _dc.b }; cmExec(_dc.tipo === 'pdf' ? 'doc_ia' : 'img_ia', '', _dc.tipo === 'pdf' ? (_dc.nome || '') : _dc.src); return; } // 4.76
@@ -1821,7 +1842,7 @@
     var r = main.getBoundingClientRect(), foot = main.querySelector('footer'), fh = foot ? foot.getBoundingClientRect().height : 62, hd = main.querySelector('header'), hh = hd ? hd.getBoundingClientRect().height : 60;
     B.className = (visual === 'D' ? 'pfwa-barra' : 'pfwa-coluna') + (botsMin ? ' pfwa-min' : ''); B.style.display = CFG.bots ? 'flex' : 'none';
     if (botsMin) { B.innerHTML = '<span data-acao="botsToggle" class="pri pfwa-botspf" title="Mostrar os bot\u00f5es do PF">' + logoSvg('#fff', '#0F1F35', 42) + '</span>'; }
-    else { var tog = '<span data-acao="botsToggle" class="pfwa-botsx" title="Esconder os bot\u00f5es do PF">' + (visual === 'D' ? '\u2039' : '\u2013') + '</span>'; B.innerHTML = tog + BOTOES.map(function (b, i) { var off = b[0] === 'audio' && CFG.audio === false; var tt = b[0] === 'audio' ? ('Descrever áudios: ' + (off ? 'DESLIGADO — clique pra ligar' : 'ligado — clique pra desligar')) : b[2]; return '<span data-acao="b-' + b[0] + '" class="' + (i === 0 ? 'pri' : '') + (off ? ' pfwa-boff' : '') + '" title="' + tt + '">' + b[1] + (visual === 'D' ? ' ' + b[2] : '') + '</span>'; }).join(''); }
+    else { var tog = '<span data-acao="botsToggle" class="pfwa-botsx" title="Esconder os bot\u00f5es do PF">' + (visual === 'D' ? '\u2039' : '\u2013') + '</span>'; B.innerHTML = tog + BOTOES.map(function (b, i) { var off = b[0] === 'audio' && CFG.audio === false; var tt = b[0] === 'audio' ? ('Descrever áudios: ' + (off ? 'DESLIGADO — clique pra ligar' : 'ligado — clique pra desligar')) : b[2]; return '<span data-acao="b-' + b[0] + '" class="' + (i === 0 ? 'pri' : '') + (off ? ' pfwa-boff' : '') + '" title="' + tt + (b[0] === 'cot' ? '' : ' · botão direito: trocar o ícone') + '">' + (visual === 'D' ? b[1] + ' ' + b[2] : icoHtml(b[0], b[1])) + '</span>'; }).join(''); }
     marcaCot();
     // 3.5 - A pedido do Vitor ("esse PF aí, desbloqueia pra eu poder colocar ele pra cima ou pra baixo"): arrastar a coluna/barra (ou o PF minimizado)
     // muda a altura; guardada por navegador (chrome.storage.local botsDy) e presa dentro da conversa.

@@ -3012,3 +3012,6 @@
   📝 = lembrete a emitir. A extensão pede `meusPedidos` a cada 60 s (`mpCarregar`) → `pfMpExt()` (cartões do `pfMpDados(eu)`, despachado só do último dia, vermelhos primeiro, `wa` = nome da conversa ligada ao
   cliente no `pfContatosWhats_v1`). Mouse = cartão `#pfwa-mppop` (barra das etapas, aviso); clique = abre a conversa (`flAbrir` pelo `wa`, senão pela razão); 💬 Avisar o cliente (faturado) = `mpTexto` →
   `pfMpTexto` (marca `avisadoEm`) e escreve na caixa (NÃO envia); 📄 Ver no PF (`mpVer`), 📋 Cobrar faturamento (copia), ✔ Já emiti (`mpEmitido`). Até 14 anéis + "+N" (irTela `meuspv`). Desliga em ⚙️ (`CFG.mp`).
+- v115.2816 ("deveria estar mais organizado isso aqui" — cartão do lembrete 📦 Emitir o pedido no anel do WhatsApp e no 📦 Meus pedidos): título = só o CLIENTE e embaixo
+  "desde 16/11 · 4 peças: 254686A2 ×5 · 2852161 ×3…" (`pfMpEmitParse`: cliente = texto entre " — " e ": "/" ["; peças = códigos da mensagem do cliente com a qtd "05 UND"/"PÇ"/"X",
+  sem valores; sem código na mensagem = o `cod` da pendência; `pfMpPecasTxt`). Só no PF (`pfMpDados`/`pfMpExt`), a extensão não mudou.

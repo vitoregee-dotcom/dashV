@@ -1297,8 +1297,32 @@
     }
     return false;
   }
+  // 5.3 - BUG (print do Aloisio: 👤+ e 🧭 6 em cima da lista "CARDAN ▾"): a pílula da lista tem fundo/borda mas o texto fica num span de dentro —
+  // o ponto testado caía no fundo dela e contava como livre. Agora tudo que está DENTRO do cabeçalho e é visível (texto, ícone, botão, fundo, borda)
+  // vira obstáculo pelo retângulo inteiro (menos os blocos que contêm o nome, que são largos).
+  var _pfwaObs = null, _pfwaObsT = 0;
+  function pfwaObstaculos() {
+    if (_pfwaObs && Date.now() - _pfwaObsT < 400) return _pfwaObs;
+    var R = [], hd = document.querySelector('#main header'), nome = nomeEl();
+    if (hd) {
+      var L = hd.querySelectorAll('*');
+      for (var i = 0; i < L.length; i++) {
+        var e = L[i];
+        if (nome && e.contains(nome) && e !== nome) continue;
+        if (e.closest(MEUS + ',.pfm-offchip')) continue;
+        var r = e.getBoundingClientRect(); if (r.width < 2 || r.height < 2) continue;
+        var obs = /^(IMG|SVG|CANVAS|VIDEO|BUTTON|INPUT|TEXTAREA)$/i.test(e.tagName) || /^(button|combobox|listbox)$/.test(e.getAttribute('role') || '') || e.hasAttribute('aria-haspopup');
+        if (!obs) for (var n = e.firstChild; n; n = n.nextSibling) if (n.nodeType === 3 && n.textContent.trim()) { obs = true; break; }
+        if (!obs) { var cs = getComputedStyle(e); if (cs.visibility === 'hidden' || cs.opacity === '0') continue;
+          var bg = cs.backgroundColor; obs = (bg && bg !== 'transparent' && !/rgba\([^)]*,\s*0\)$/.test(bg)) || parseFloat(cs.borderTopWidth) > 0 || parseFloat(cs.borderLeftWidth) > 0 || cs.backgroundImage !== 'none'; }
+        if (obs) R.push(r);
+      }
+    }
+    _pfwaObs = R; _pfwaObsT = Date.now(); return R;
+  }
   function pfwaCaixaLivre(x, y, w, h, ignora, outros) {
     for (var j = 0; j < outros.length; j++) { var o = outros[j]; if (x < o.right + 4 && x + w > o.left - 4 && y < o.bottom && y + h > o.top) return false; }
+    var ob = pfwaObstaculos(); for (var q = 0; q < ob.length; q++) { var b = ob[q]; if (x < b.right + 4 && x + w > b.left - 4 && y < b.bottom + 2 && y + h > b.top - 2) return false; }
     var cy = y + h / 2, pts = [[x - 3, cy], [x + w / 2, cy], [x + w + 3, cy], [x + 2, y + 3], [x + w - 2, y + h - 3], [x + w / 2, y + 3], [x + w / 2, y + h - 3]];
     for (var k = 0; k < pts.length; k++) if (pfwaOcupado(pts[k][0], pts[k][1], ignora)) return false;
     return true;

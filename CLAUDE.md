@@ -3108,3 +3108,9 @@
   (saudação, status/ausência e minhas frases), `autoTomDe` = intimidade marcada > tom aprendido > normal. 👤 Salvar contato: campo "COMO VOCÊ CHAMA ELE" (`.sv-apel` → `salvarContato.apelido` → contato `.apelido`),
   sugestão "💡 Você costuma chamar ele de X — usar" (`jeitoApSug`, `svApel`) e linha "🪞 Seu jeito com ele…" (`jeitoResumoHtml`). Liga/desliga: Mensagens automáticas → 🪞 Imitar o meu jeito (`AUTO.jeito`, padrão ligado).
   Testado no simulador: "Fala Lói, …, tmj" depois de 5 mensagens suas com "Fala Lói"/"tmj".
+- v115.2839 **➕ Incluir como conversão** (print do RLV-616 negativo: "coloque opção no botão direito de incluir como conversão. pq aí eu digito o código que eu quero incluir"; prévia
+  `docs/referencias/conversao-incluir/previa.png` → "manda bala"): botão direito no item da cotação (`vendasCorrMenuHtml`) → `vendasConvIncluir(i)` (janela `vendasConvIncJan`): código do cliente
+  (codigoOriginal||codigo) + campo NOSSO CÓDIGO com conferência ao digitar (`vendasConvIncPrevia`: fichas do cadastro + estoque `vendasFichasDoCod`, marcas/saldo/descrição) + LINHA opcional (sugere pelo `idLinha`).
+  `vendasConvIncluirOk`: conversão {ref, linha, desc "incluída na cotação N — cliente", por, em} em TODAS as fichas do nosso código (`vendasConvIncFichas`, só letras+números); sem ficha mas no estoque = cria a
+  ficha da marca com saldo (`criadoDe:'conversao-cotacao'`); não existe em lugar nenhum = avisa e não grava. cadSave + pfSyncPush, linha nova vai pro `pfAdicionarLinhaCustom`, e a linha da cotação troca
+  (`vendasItemTrocarCodigo`, código do cliente fica no CÓD. CLIENTE). Da próxima vez a cotação/WhatsApp já acha pela conversão da ficha.

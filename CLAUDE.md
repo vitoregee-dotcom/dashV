@@ -3043,3 +3043,9 @@
 - v115.2824 ("não dá pra otimizar esses espaços vazios?" — cabeçalho da Órbita numa tela de ~950 px): saiu a quebra de linha forçada antes do WHATSAPP (o grupo WhatsApp/Outros é
   `display:contents`) e os botões (Filtros/Resumo/⛶/2D-3D/?) foram pro FIM da fila (`order:9`, `margin-left:auto`, sem quebrar entre eles) — os chips correm juntos e os botões ocupam o fim
   da última linha, em vez de ficarem sozinhos numa linha com o lado esquerdo vazio. Captura `docs/referencias/orbita-espaco/feito.png`.
+- v115.2825 **🧭 Classificar linha e tipo dos clientes** (Vitor: "como classificar a linha dos meus clientes automaticamente?" → opção B da prévia `docs/referencias/classificar-linhas/`
+  + "o que tiver cardan no nome, pode colocar como rodoviário e serviço" + "tem a questão do tipo também"; captura `feito.png`): `pfClsAbrir` (janela `pfClsJan`) lista os clientes REAIS sem linha
+  ou sem tipo, com sugestão, certeza e porquê (`pfClsPistas`: CARDAN no nome = Rodoviário + Serviço 95% · Receita `cad.cnaeDesc` · `pfGrupoSugerido` · concessionária/distribui = Revenda ·
+  frota · % das compras pelo `PF_ORB_LINHA_RE` (menos de 5 pedidos pesa menos) · nome `PF_CLS_NOME_LINHA`/`PF_CLS_NOME_TIPO`); 2 linhas fortes = "as duas". Certeza alta (80%+) vem ✔;
+  `pfClsGravar` grava `grupos`/`grupo` e o tipo (`pfExtTipoAplicar`), só no que estava vazio (não troca o que já tem). 🏛 `pfClsReceita` busca o CNAE na BrasilAPI/cnpj.ws (até 60, 1,3 s cada,
+  `cnaeDesc`/`cnaeTentou`). Entradas: Órbita (botão depois do "Sem linha") e Cadastros → Clientes. Regra nova de nome → `PF_CLS_NOME_LINHA`/`PF_CLS_NOME_TIPO`.

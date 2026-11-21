@@ -3095,4 +3095,4 @@
   com lista (datalist) e o Chrome só mostra as opções que batem com o texto escrito. No modo Colega a lista é `pfwa-sv-cargos-col` (Vendedor, Vendedor externo, Compras, Estoque, Expedição,
   Recebimento, Logística, Motorista, Faturamento, Fiscal, Financeiro, Contas a Pagar/Receber, Cadastro, Gerência, Diretoria, RH, T.I., Marketing, Recepção, Facilities, Jurídico, Área técnica);
   clicar no campo já preenchido esvazia e mostra TODAS (o valor vai pro placeholder; sair sem escolher volta, listeners focusin/focusout em `.sv-cargo`). Ir de Fornecedor pra Colega tira o "Vendedor" padrão.
-  Cargo fora da lista continua podendo ser digitado. `PF_EXT_VER_NOVA`='5.2', zip refeito.
+  Cargo novo: é só digitar — ao salvar o colega ele entra na lista (`svCargoGuardar`, `chrome.storage.local.svCargosExtra`, por navegador). `PF_EXT_VER_NOVA`='5.2', zip refeito.

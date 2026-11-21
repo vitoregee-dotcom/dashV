@@ -1297,7 +1297,7 @@
   function svEmpBase(n) { var p = svPartes(n); return p.length > 1 ? p[p.length - 1] : ''; }
   function svCodBase(n) { var m = String(n || '').match(/\(\s*(\d{2,8})\s*\)/); return m ? m[1] : ''; }
   // 4.7 - A pedido do Vitor ("coloca pra eu escolher o grupo do cliente, já pra vir com o grupo pro cadastro, ex. linha amarela")
-  var SV_GRUPOS = [['amarela', 'Linha Amarela', '#E6B800'], ['agricola', 'Linha Agrícola', '#27AE60'], ['energia', 'Energia', '#1a1a1a'], ['rodoviario', 'Rodoviário', '#C0392B'], ['maritimo', 'Marítimo', '#7B3FC4'], ['portuario', 'Portuário', '#2E86DE']];
+  var SV_GRUPOS = [['amarela', 'Linha Amarela', '#E6B800'], ['agricola', 'Linha Agrícola', '#27AE60'], ['energia', 'Energia', '#1a1a1a'], ['rodoviario', 'Rodoviário', '#C0392B'], ['maritimo', 'Marítimo', '#7B3FC4'], ['portuario', 'Portuário', '#2E86DE'], ['retifica', 'Retífica', '#E67E22']];
   // 4.15 - A pedido do Vitor ("preciso poder selecionar mais de um grupo e até criar outro"): multi-seleção + criar grupo (guardado neste navegador).
   var SV_GRUPOS_EXTRA = [];
   try { chrome.storage.local.get(['svGruposExtra'], function (r) { if (r && Array.isArray(r.svGruposExtra)) SV_GRUPOS_EXTRA = r.svGruposExtra; }); } catch (e) { }

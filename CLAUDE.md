@@ -3084,3 +3084,8 @@
   (`pfCrmChaveDe` da razão) com data no dia do lembrete ou depois, feito no PF ou importado do JBoss (📥 Importar vendas do ERP) → `pfExtPedidoEmitirDesfazer`. 2) **🧹 Limpar**: link "🧹 limpar" na coluna
   📝 A emitir do 📦 Meus pedidos (`pfMpLimpar` → menu os de outros dias / todos, `pfMpLimparContar`/`pfMpLimparFazer`) e 🧹 no fim dos anéis da coluna do WhatsApp (`mpLimparPop`/`mpLimpar` → acao
   `mpLimpar` {modo contar|antigos|todos}). `PF_EXT_VER_NOVA`='5.0', zip refeito.
+- v115.2834 + extensão **5.1** BUG (print do cabeçalho da conversa: 👤+ e 🧭 8 em cima da lista "LINHA AMARELA ▾" e o chip "Menu do PF" em cima do título "WhatsApp" — "vamos evitar esses bugs"):
+  os selos do cabeçalho (👤+ `#pfwa-svb`, 📦/📌 `#pfwa-ancnt`, 🧭 `#pfwa-ccb`) agora procuram um lugar LIVRE (`pfwaLugar`/`pfwaPorNoLugar`: `pfwaCaixaLivre` testa pontos com
+  elementsFromPoint — botão, texto, ícone, foto do WhatsApp ou outro selo = ocupado; o botão do nome `[role=button]` não conta), andando pra direita a partir do nome; sem lugar
+  na linha, logo abaixo do cabeçalho. Menu desligado = chip menor "🧩 PF ▸" num canto livre da faixa de cima da lista (senão embaixo dela, `pfwaChipOffPos`, a cada 3 s).
+  **Selo novo posto por cima do WhatsApp → usar `pfwaPorNoLugar`, nunca posição fixa "logo depois do nome".** Testado no simulador com uma lista de mentira no cabeçalho.

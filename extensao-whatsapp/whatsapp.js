@@ -1288,7 +1288,50 @@
     SVB.classList.toggle('ok', !!(resp && resp.achou && resp.tipo !== 'colega')); SVB.classList.toggle('col', !!(resp && resp.tipo === 'colega')); // 4.91 - colega = roxo
     if (resp && resp.tipo === 'colega') SVB.title = '👔 Colega da empresa — clique pra mudar';
     if (SV && svAberto) { var tp = Math.round(r.bottom + 14); SV.style.left = Math.max(8, Math.min(window.innerWidth - 360, r.left)) + 'px'; SV.style.top = tp + 'px'; SV.style.maxHeight = Math.max(200, window.innerHeight - tp - 12) + 'px'; }
+    hdrArrumar();
   }
+  // 5.1 - A pedido do Vitor ("vamos evitar esses bugs" — 👤+ e 🧭 8 em cima do "● L. AMARELA ▾" do WhatsApp): os botões do PF no cabeçalho da conversa
+  // (👤+, 📦/📌 e 🧭) ficam em fila logo depois do nome e, se não couberem antes do próximo botão do WhatsApp (lista, ⋮, 🔍…), o NOME encolhe (com "…").
+  var _hdrEnc = null;
+  function hdrObstaculo(h, el, r) {
+    var lim = Infinity, meu = function (x) { return x.closest && x.closest(MEUS); };
+    h.querySelectorAll('button,[role="button"],[tabindex],[data-icon],[aria-label],span,div').forEach(function (x) {
+      if (x === el || x === _hdrSp || x.contains(el) || el.contains(x) || meu(x)) return;
+      var q = x.getBoundingClientRect(); if (!q.width || !q.height || q.width > 420) return;
+      if (q.left <= r.left + 10) return;
+      var ov = Math.min(q.bottom, r.bottom) - Math.max(q.top, r.top); if (ov < r.height * 0.5) return;
+      if (x.tagName === 'DIV' && x.children.length > 2) return;
+      if (q.left < lim) lim = q.left;
+    });
+    return lim;
+  }
+  var _hdrSp = null;
+  function hdrArrumar() {
+    try {
+      var el = nomeEl(), h = el && $('#main header');
+      var cs = [SVB, ANCNT, CCB].filter(function (x) { return x && x.style.display !== 'none' && x.offsetWidth; });
+      if (_hdrEnc && _hdrEnc !== el) { _hdrEnc.style.maxWidth = ''; _hdrEnc = null; }
+      if (!el || !h || !cs.length) { if (_hdrSp && _hdrSp.parentNode) _hdrSp.remove(); if (_hdrEnc) { _hdrEnc.style.maxWidth = ''; _hdrEnc = null; } return; }
+      var W = 0; cs.forEach(function (x) { W += x.offsetWidth + 8; });
+      // espaço guardado logo depois do nome: o que vem depois no cabeçalho (lista, ⋮…) anda pra direita
+      if (!_hdrSp) { _hdrSp = document.createElement('span'); _hdrSp.className = 'pfwa-hdrsp'; _hdrSp.setAttribute('aria-hidden', 'true'); }
+      if (el.nextSibling !== _hdrSp) el.parentNode.insertBefore(_hdrSp, el.nextSibling);
+      var wpx = W + 'px'; if (_hdrSp.style.width !== wpx) { _hdrSp.style.cssText = 'display:inline-block;flex:0 0 ' + wpx + ';width:' + wpx + ';min-width:' + wpx + ';height:1px;vertical-align:middle'; }
+      var r = el.getBoundingClientRect(), sr = _hdrSp.getBoundingClientRect(), lim = hdrObstaculo(h, el, r);
+      if (lim === Infinity) lim = Math.min(window.innerWidth - 8, h.getBoundingClientRect().right - 8);
+      var fim = sr.left + W, w = r.width;
+      if (fim > lim - 6) { // ainda não cabe: o nome encolhe (com "…")
+        var mw = Math.max(40, Math.floor(w - (fim - (lim - 6)))) + 'px';
+        if (el.style.maxWidth !== mw) { el.style.maxWidth = mw; el.style.overflow = 'hidden'; el.style.textOverflow = 'ellipsis'; el.style.whiteSpace = 'nowrap'; if (getComputedStyle(el).display === 'inline') el.style.display = 'inline-block'; el.style.verticalAlign = 'middle'; }
+        _hdrEnc = el;
+      } else if (_hdrEnc === el && fim < lim - 30) { // sobrou espaço: o nome volta a crescer
+        var mw2 = Math.floor(w + (lim - 6 - fim)); el.style.maxWidth = mw2 + 'px'; if (el.scrollWidth <= mw2) { el.style.maxWidth = ''; _hdrEnc = null; }
+      }
+      sr = _hdrSp.getBoundingClientRect(); var x = sr.left, mid = r.top + r.height / 2;
+      cs.forEach(function (c) { var l = Math.round(x) + 'px'; if (c.style.left !== l) c.style.left = l; x += c.offsetWidth + 8; });
+    } catch (e) { }
+  }
+  setInterval(function () { try { if (vivo()) hdrArrumar(); } catch (e) { } }, 500);
   // 2.9 - "P - Adailton - Cardan Brasil (1427) Cardan": a pessoa é o 1º pedaço com 3+ letras e a empresa é o ÚLTIMO pedaço (antes ia "Adailton - Cardan Brasil Cardan")
   function svPartes(n) { return String(n || '').replace(/\s*\(\s*\d+\s*\)\s*/g, ' ').trim().split(/\s+[-–—]\s+/).map(function (s) { return s.trim(); }).filter(Boolean); }
   function svNomeBase(n) { n = String(n || '').trim(); if (/^[+\d\s()\-]{8,}$/.test(n)) return ''; var p = svPartes(n); if (p.length > 2) { var q = p.slice(0, -1).filter(function (s) { return s.replace(/[^A-Za-zÀ-ú]/g, '').length >= 3; }); if (q.length) return q[0]; } return p[0] || ''; }
@@ -2243,6 +2286,7 @@
     ANCNT.style.display = 'flex';
     var x0 = (SVB && SVB.style.display !== 'none') ? r.right + 42 : r.right + 10;
     ANCNT.style.left = Math.round(x0) + 'px'; ANCNT.style.top = Math.round(r.top + r.height / 2 - 14) + 'px';
+    hdrArrumar();
   }
   setInterval(function () { try { anVigiar(); } catch (e) { } }, 1200);
   // ═══ 4.97 - A pedido do Vitor: 🧭 CONHECER O CLIENTE (prévias docs/referencias/conhecer-cliente/: "gostei da A e da C, mas gostei da parte de selecionar da B")
@@ -2283,7 +2327,7 @@
     if (CCB.innerHTML !== h) CCB.innerHTML = h;
     CCB.title = 'Conhecer o cliente: falta saber ' + n + ' coisa(s) — ' + CC.lista.slice(0, 3).map(function (q) { return q.t; }).join(' · ') + ' (clique pra responder)';
     var x0 = r.right + 10; if (SVB && SVB.style.display !== 'none') x0 = Math.max(x0, SVB.getBoundingClientRect().right + 8); if (ANCNT && ANCNT.style.display !== 'none') x0 = Math.max(x0, ANCNT.getBoundingClientRect().right + 8);
-    CCB.style.display = 'flex'; CCB.style.left = Math.round(x0) + 'px'; CCB.style.top = Math.round(r.top + r.height / 2 - 14) + 'px';
+    CCB.style.display = 'flex'; CCB.style.left = Math.round(x0) + 'px'; CCB.style.top = Math.round(r.top + r.height / 2 - 14) + 'px'; hdrArrumar();
     // calma: pisca + dica (1x por cliente por dia)
     var calma = ccCalma(), k = CC.k;
     if (calma && !CC.adiado && !ccFechado[ultimo] && (!ccLembrouHoje(k) || CCN.getAttribute('data-k') === k)) {
@@ -2671,6 +2715,26 @@
     if (ac === 'mpCobrar') { var r = await msg({ t: 'acao', acao: 'mpTexto', arg: { id: id, tipo: 'cobrar' } }); if (r && r.txt) { try { await navigator.clipboard.writeText(r.txt); } catch (e) { } audToast('📋 Texto copiado — cole pro faturamento'); } return; }
     if (ac === 'mpAvisar') { var r2 = await msg({ t: 'acao', acao: 'mpTexto', arg: { id: id, tipo: 'avisar' } }); if (!r2 || !r2.txt) return; await mpAbrirConversa(x); await dormir(900); escreverNaCaixa(r2.txt); audToast('💬 Mensagem na caixa — confira e envie'); mpCarregar(); return; }
   }
+  // 5.1 - o chip "Menu do PF" (menu desligado) ficava em cima do título "WhatsApp" e cortado pela coluna de ícones do WhatsApp:
+  // agora fica logo depois do título da lista de conversas (ou no começo da lista, sem o título).
+  var _offTit = null;
+  function offTitulo() {
+    if (_offTit && _offTit.isConnected && _offTit.getBoundingClientRect().width) return _offTit;
+    _offTit = null; var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), n;
+    while ((n = w.nextNode())) {
+      if (!/^\s*whats\s*app\b/i.test(n.nodeValue || '')) continue; var e = n.parentElement; if (!e || e.closest(MEUS) || e.closest('#main,#pane-side,#sim-bar')) continue;
+      var q = e.getBoundingClientRect(); if (!q.width || q.top < 0 || q.top > 140 || q.left > 700) continue; _offTit = e; break;
+    }
+    return _offTit;
+  }
+  function offChipPos() {
+    if (!MENU || !MENU.classList.contains('pfm-off')) return;
+    var side = document.querySelector('#side') || document.querySelector('#pane-side'), sr = side && side.getBoundingClientRect(), te = offTitulo(), t = null;
+    if (te) { var rg = document.createRange(); rg.selectNodeContents(te); t = rg.getBoundingClientRect(); if (!t.width) t = te.getBoundingClientRect(); }
+    var L = t ? t.right + 12 : (sr ? sr.left + 8 : 8), T = t ? t.top + t.height / 2 - 13 : 7;
+    MENU.style.left = Math.round(L) + 'px'; MENU.style.top = Math.round(T) + 'px';
+  }
+  setInterval(function () { try { if (vivo()) offChipPos(); } catch (e) { } }, 1500);
   function pintarMenu() {
     if (!MENU) return;
     var root = document.documentElement;
@@ -2678,10 +2742,10 @@
     root.classList.toggle('pfwa-menudisc', menuCor === 'discreta');
     if (!menuLig) {
       MENU.className = 'pfm-off'; MENU.style.right = 'auto'; MENU.style.display = 'flex';
-      MENU.innerHTML = '<span class="pfm-offchip" data-acao="menuTog" title="Ligar o Menu do PF">🧩 Menu do PF ▸</span>';
+      MENU.innerHTML = '<span class="pfm-offchip" data-acao="menuTog" title="Ligar o Menu do PF">🧩 PF ▸</span>'; offChipPos();
       RAIL.style.display = 'none'; badgesRender(); aplicarFiltro(); return;
     }
-    MENU.className = (menuCor === 'discreta' ? 'pfwa-disc' : ''); MENU.style.display = 'flex';
+    MENU.className = (menuCor === 'discreta' ? 'pfwa-disc' : ''); MENU.style.display = 'flex'; MENU.style.left = ''; MENU.style.top = ''; // 5.1 - tira a posição do chip desligado
     MENU.style.right = root.classList.contains('pfwa-aberto') ? '380px' : '0';
     RAIL.style.display = 'flex';
     // 4.19 - A pedido do Vitor ("ao invés desses filtros, vamos deixar os grupos. Linha amarela, etc"): a barra mostra os GRUPOS dos clientes

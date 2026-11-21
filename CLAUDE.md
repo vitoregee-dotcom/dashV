@@ -3084,3 +3084,8 @@
   (`pfCrmChaveDe` da razão) com data no dia do lembrete ou depois, feito no PF ou importado do JBoss (📥 Importar vendas do ERP) → `pfExtPedidoEmitirDesfazer`. 2) **🧹 Limpar**: link "🧹 limpar" na coluna
   📝 A emitir do 📦 Meus pedidos (`pfMpLimpar` → menu os de outros dias / todos, `pfMpLimparContar`/`pfMpLimparFazer`) e 🧹 no fim dos anéis da coluna do WhatsApp (`mpLimparPop`/`mpLimpar` → acao
   `mpLimpar` {modo contar|antigos|todos}). `PF_EXT_VER_NOVA`='5.0', zip refeito.
+- v115.2834 + extensão **5.1** BUG (print do cabeçalho da conversa: 👤+ e 🧭 8 em cima do "● L. AMARELA ▾" do WhatsApp + chip "do PF ▸" cortado em cima do título "WhatsApp" — "vamos evitar esses bugs"):
+  `hdrArrumar` (no fim do svPos/anVigiar/ccVigiar + a cada 500 ms): os botões do PF no cabeçalho (👤+ `#pfwa-svb`, 📦/📌 `#pfwa-ancnt`, 🧭 `#pfwa-ccb`) ficam em fila sobre um ESPAÇO guardado logo depois
+  do nome (`span.pfwa-hdrsp`, largura = soma dos botões) — o que vem depois no cabeçalho (lista, ⋮…) anda pra direita; se ainda bater no próximo botão do WhatsApp (`hdrObstaculo`), o NOME encolhe com "…"
+  (`_hdrEnc`, volta a crescer quando sobra espaço). Chip do menu desligado (`offChipPos`/`offTitulo`): logo depois do texto "WhatsApp" da lista de conversas (texto "🧩 PF ▸"); religar o menu limpa a posição.
+  **Botão novo do PF no cabeçalho da conversa → entrar na lista do `hdrArrumar` (nunca posição fixa solta).** Captura `docs/referencias/whatsapp-menu/feito-cabecalho-sem-sobrepor.png`.

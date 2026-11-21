@@ -1279,11 +1279,47 @@
   // oferece o "Adicionar aos contatos" do próprio WhatsApp (salva no celular) já com o nome.
   var SV = null, SVB = null, svAberto = false, svSug = [], svK = '', svT = null;
   function nomeEl() { var h = $('#main header'); return h ? (h.querySelector('span[dir="auto"][title]') || h.querySelector('span[dir="auto"]')) : null; }
+  // 5.1 - BUG (print do Vitor: "vamos evitar esses bugs" — o 👤+ e o 🧭 8 em cima da lista "LINHA AMARELA ▾" do cabeçalho da conversa e o chip
+  // "Menu do PF" em cima do título "WhatsApp"): antes cada selo ia SEMPRE logo depois do nome. Agora procura um lugar LIVRE (sem botão, texto,
+  // ícone ou foto do WhatsApp embaixo e sem outro selo do PF), andando pra direita; sem lugar na linha do nome, vai logo abaixo do cabeçalho.
+  // Selo novo posicionado por cima do WhatsApp → usar pfwaLugar.
+  var PFWA_SELOS_CAB = ['#pfwa-svb', '#pfwa-ancnt', '#pfwa-ccb'];
+  function pfwaOcupado(x, y, ignora) {
+    if (x < 0 || y < 0 || x > window.innerWidth - 1 || y > window.innerHeight - 1) return true;
+    var L = document.elementsFromPoint(x, y);
+    for (var i = 0; i < L.length; i++) {
+      var e = L[i]; if (e.closest && e.closest(MEUS + ',.pfm-offchip')) continue;
+      if (e === document.documentElement || e === document.body) return false;
+      var it = e.closest && e.closest('button,[role="button"],[role="combobox"],[role="listbox"],[aria-haspopup],a,input,textarea,[contenteditable="true"],img,svg,canvas,video');
+      if (it && !(ignora && it.contains(ignora))) return true;
+      for (var n = e.firstChild; n; n = n.nextSibling) if (n.nodeType === 3 && n.textContent.trim()) return true;
+      return false;
+    }
+    return false;
+  }
+  function pfwaCaixaLivre(x, y, w, h, ignora, outros) {
+    for (var j = 0; j < outros.length; j++) { var o = outros[j]; if (x < o.right + 4 && x + w > o.left - 4 && y < o.bottom && y + h > o.top) return false; }
+    var cy = y + h / 2, pts = [[x - 3, cy], [x + w / 2, cy], [x + w + 3, cy], [x + 2, y + 3], [x + w - 2, y + h - 3], [x + w / 2, y + 3], [x + w / 2, y + h - 3]];
+    for (var k = 0; k < pts.length; k++) if (pfwaOcupado(pts[k][0], pts[k][1], ignora)) return false;
+    return true;
+  }
+  // el = o selo; cola no nome da conversa (r = retângulo do nome). Devolve {x,y} ou null.
+  function pfwaLugar(el, r, w, h) {
+    var hd = document.querySelector('#main header'); if (!hd) return null;
+    var hr = hd.getBoundingClientRect(), nome = nomeEl(), info = nome && nome.closest('[role="button"]');
+    var outros = []; PFWA_SELOS_CAB.forEach(function (s) { var o = document.querySelector(s); if (o && o !== el && o.style.display !== 'none' && o.offsetWidth) outros.push(o.getBoundingClientRect()); });
+    var y = Math.round(r.top + r.height / 2 - h / 2), x;
+    for (x = Math.round(r.right + 8); x + w <= hr.right - 4; x += 6) if (pfwaCaixaLivre(x, y, w, h, info, outros)) return { x: x, y: y };
+    var y2 = Math.round(hr.bottom + 6); // sem lugar na linha: logo abaixo do cabeçalho, em cima das mensagens
+    for (x = Math.round(r.left); x + w <= hr.right - 4; x += 6) if (pfwaCaixaLivre(x, y2, w, h, null, outros)) return { x: x, y: y2 };
+    return { x: Math.round(r.left), y: y2 };
+  }
+  function pfwaPorNoLugar(el, r, w, h) { var p = pfwaLugar(el, r, w, h); if (!p) return false; el.style.left = p.x + 'px'; el.style.top = p.y + 'px'; return true; }
   function svPos() {
     if (!SVB) return; var c = contatoAt, el = nomeEl();
     if (!CFG.salvar || !c || c.grupo || !el || document.documentElement.classList.contains('pfwa-coberto')) { SVB.style.display = 'none'; if (SV) SV.style.display = 'none'; svAberto = false; return; }
     var r = el.getBoundingClientRect(); if (!r.width) { SVB.style.display = 'none'; return; }
-    SVB.style.display = 'flex'; SVB.style.left = Math.round(r.right + 8) + 'px'; SVB.style.top = Math.round(r.top + r.height / 2 - 13) + 'px';
+    SVB.style.display = 'flex'; pfwaPorNoLugar(SVB, r, 26, 26);
     SVB.title = (resp && resp.achou && resp.tipo === 'cliente') ? 'Salvar / acertar este contato (' + (resp.titulo || '') + ')' : 'Salvar este contato no PF';
     SVB.classList.toggle('ok', !!(resp && resp.achou && resp.tipo !== 'colega')); SVB.classList.toggle('col', !!(resp && resp.tipo === 'colega')); // 4.91 - colega = roxo
     if (resp && resp.tipo === 'colega') SVB.title = '👔 Colega da empresa — clique pra mudar';
@@ -2241,8 +2277,7 @@
     if (ANCNT.innerHTML !== h) ANCNT.innerHTML = h;
     ANCNT.title = 'Anotado nesta conversa: ' + [nPe ? nPe + ' a emitir' : '', nPr ? nPr + ' pra mandar' : '', nVf ? nVf + ' a verificar' : ''].filter(Boolean).join(' · ') + ' — clique pra ver';
     ANCNT.style.display = 'flex';
-    var x0 = (SVB && SVB.style.display !== 'none') ? r.right + 42 : r.right + 10;
-    ANCNT.style.left = Math.round(x0) + 'px'; ANCNT.style.top = Math.round(r.top + r.height / 2 - 14) + 'px';
+    pfwaPorNoLugar(ANCNT, r, ANCNT.offsetWidth || 40, 28);
   }
   setInterval(function () { try { anVigiar(); } catch (e) { } }, 1200);
   // ═══ 4.97 - A pedido do Vitor: 🧭 CONHECER O CLIENTE (prévias docs/referencias/conhecer-cliente/: "gostei da A e da C, mas gostei da parte de selecionar da B")
@@ -2282,8 +2317,7 @@
     var n = CC.lista.length, h = '🧭<i>' + n + '</i>';
     if (CCB.innerHTML !== h) CCB.innerHTML = h;
     CCB.title = 'Conhecer o cliente: falta saber ' + n + ' coisa(s) — ' + CC.lista.slice(0, 3).map(function (q) { return q.t; }).join(' · ') + ' (clique pra responder)';
-    var x0 = r.right + 10; if (SVB && SVB.style.display !== 'none') x0 = Math.max(x0, SVB.getBoundingClientRect().right + 8); if (ANCNT && ANCNT.style.display !== 'none') x0 = Math.max(x0, ANCNT.getBoundingClientRect().right + 8);
-    CCB.style.display = 'flex'; CCB.style.left = Math.round(x0) + 'px'; CCB.style.top = Math.round(r.top + r.height / 2 - 14) + 'px';
+    CCB.style.display = 'flex'; pfwaPorNoLugar(CCB, r, CCB.offsetWidth || 44, 26);
     // calma: pisca + dica (1x por cliente por dia)
     var calma = ccCalma(), k = CC.k;
     if (calma && !CC.adiado && !ccFechado[ultimo] && (!ccLembrouHoje(k) || CCN.getAttribute('data-k') === k)) {
@@ -2671,6 +2705,16 @@
     if (ac === 'mpCobrar') { var r = await msg({ t: 'acao', acao: 'mpTexto', arg: { id: id, tipo: 'cobrar' } }); if (r && r.txt) { try { await navigator.clipboard.writeText(r.txt); } catch (e) { } audToast('📋 Texto copiado — cole pro faturamento'); } return; }
     if (ac === 'mpAvisar') { var r2 = await msg({ t: 'acao', acao: 'mpTexto', arg: { id: id, tipo: 'avisar' } }); if (!r2 || !r2.txt) return; await mpAbrirConversa(x); await dormir(900); escreverNaCaixa(r2.txt); audToast('💬 Mensagem na caixa — confira e envie'); mpCarregar(); return; }
   }
+  // 5.1 - o chip do Menu desligado ficava em cima do título "WhatsApp": procura um canto livre na faixa de cima da lista (senão, embaixo dela)
+  function pfwaChipOffPos() {
+    if (!MENU || menuLig) return; var w = MENU.offsetWidth || 64, h = MENU.offsetHeight || 26, sd = document.querySelector('#side') || document.querySelector('#pane-side');
+    var sr = sd ? sd.getBoundingClientRect() : { left: 8, right: 360, top: 0, bottom: window.innerHeight };
+    var cands = [], x; for (x = Math.round(sr.right - w - 8); x >= sr.left + 4; x -= 6) cands.push([x, 6]);
+    for (x = Math.round(sr.left + 8); x + w <= sr.right - 4; x += 6) cands.push([x, Math.round(window.innerHeight - h - 8)]);
+    for (var i = 0; i < cands.length; i++) if (pfwaCaixaLivre(cands[i][0], cands[i][1], w, h, null, [])) { MENU.style.left = cands[i][0] + 'px'; MENU.style.top = cands[i][1] + 'px'; return; }
+    MENU.style.left = '8px'; MENU.style.top = Math.round(window.innerHeight - h - 8) + 'px';
+  }
+  setInterval(function () { try { pfwaChipOffPos(); } catch (e) { } }, 3000);
   function pintarMenu() {
     if (!MENU) return;
     var root = document.documentElement;
@@ -2678,10 +2722,10 @@
     root.classList.toggle('pfwa-menudisc', menuCor === 'discreta');
     if (!menuLig) {
       MENU.className = 'pfm-off'; MENU.style.right = 'auto'; MENU.style.display = 'flex';
-      MENU.innerHTML = '<span class="pfm-offchip" data-acao="menuTog" title="Ligar o Menu do PF">🧩 Menu do PF ▸</span>';
-      RAIL.style.display = 'none'; badgesRender(); aplicarFiltro(); return;
+      var offH = '<span class="pfm-offchip" data-acao="menuTog" title="Ligar o Menu do PF">🧩 PF ▸</span>'; if (MENU.innerHTML !== offH) MENU.innerHTML = offH;
+      pfwaChipOffPos(); RAIL.style.display = 'none'; badgesRender(); aplicarFiltro(); return;
     }
-    MENU.className = (menuCor === 'discreta' ? 'pfwa-disc' : ''); MENU.style.display = 'flex';
+    MENU.className = (menuCor === 'discreta' ? 'pfwa-disc' : ''); MENU.style.display = 'flex'; MENU.style.left = ''; MENU.style.top = '';
     MENU.style.right = root.classList.contains('pfwa-aberto') ? '380px' : '0';
     RAIL.style.display = 'flex';
     // 4.19 - A pedido do Vitor ("ao invés desses filtros, vamos deixar os grupos. Linha amarela, etc"): a barra mostra os GRUPOS dos clientes

@@ -3035,3 +3035,8 @@
   rodinha comum = rola a página; pinça (Ctrl/⌘ + rodinha) = zoom da órbita; órbita ampliada (⛶) = rodinha também; página já com zoom do navegador (`visualViewport.scale>1`) = deixa o navegador
   tirar o zoom. Listener de wheel em captura no document: pinça sobre o balão/cabeçalho dentro do `#pfOrbitaWrap` não dá zoom na página.
 - v115.2822 BUG ("o filtro das linhas está atrás da barra inferior. não consigo filtrar"): a legenda LINHA (`pfOrbLinhaLegHtml`) saiu de baixo do quadro da órbita (ficava atrás do dock) e foi pra cima, logo antes da faixa "Mostrando só"; o `pfOrbAjustarAltura` não desconta mais os 44 px dela.
+- v115.2823 **cabeçalho da Órbita no padrão (opção A)** (prévias `docs/referencias/orbita-padrao/` → "deixa o A mesmo" + "caixa de texto explicando o que são as informações" + "tudo bem claro e simples";
+  captura `feito.png`): tudo pílula branca igual (`pfOrbPil`, ligado = azul #1F4E79), botões quadrados iguais (`pfOrbBt`: 🔍 Filtros / 📊 Resumo / ampliar desenhado `pfIcAmpliar` / 2D|3D / ?),
+  rótulos `pfOrbRot` (SEM COMPRAR HÁ · WHATSAPP · OUTROS · LINHA); chips com nome ("↳ ainda cotando", "🔵 só cotam", "◎ potencial", "mostrar logo"); linhas = bolinha da cor; "↺ Ver tudo" saiu do
+  cabeçalho (fica na faixa "Mostrando só" e no 🔍 Filtros). Faixa do resumo com o nome escrito em cada número e CAIXA ESCURA explicando ao passar o mouse/tocar (`pfOrbInf`, CSS `pfOrbInfoCss`).
+  Info nova na Órbita → usar `pfOrbInf(texto, título, explicação)`.

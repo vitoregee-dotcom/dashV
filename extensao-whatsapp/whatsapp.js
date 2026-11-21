@@ -587,6 +587,7 @@
   // cada função da extensão liga/desliga aqui; guardado por navegador (chrome.storage.local 'cfg'). Menu e aviso de cotação usam as chaves que já existiam.
   var config = false, CFG = { frota: true, mat: true, bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true, audio: true, audioBotoes: false, sug: true, waEtqOff: true, rrselo: true, mp: true };
   var CFG_LISTA = [
+    ['cc', '🧭', 'Conhecer o cliente', 'Selo 🧭 ao lado do nome com o que ainda falta saber do cliente (tipo, linhas, frota, estoque…) e uma dica quando a conversa acalma. 1 clique grava no cadastro.'],
     ['mp', '📦', 'Meus pedidos na coluna da esquerda', 'Um anel por pedido em andamento: enche conforme anda (emitido → despachado), vermelho = precisa de você. Mouse em cima mostra o pedido.'],
     ['menu', '🧭', 'Menu do PF em volta do WhatsApp', 'Barra de grupos em cima (Linha Amarela, Linha Agrícola…) e a coluna de atalhos à esquerda.'],
     ['etq', '🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome da lista: cidade e grupo do cliente, fornecedor do PF, cotação aberta, mapa.'],
@@ -663,6 +664,10 @@
       ['🔎', 'Barra de filtros', 'Clientes, Fornecedores, etiquetas do WhatsApp e cotação aberta. Clique pra deixar só essas conversas na lista; clique de novo pra ver tudo.'],
       ['🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome: se é cliente ou fornecedor do PF, cotação aberta, mapa esperando preço.'],
       ['⚙️', 'Menu do PF', 'A chave "Menu do PF" liga/desliga a barra. "azul / discreta" troca a cor.']]],
+    ['Conhecer o cliente', [
+      ['🧭', 'O que falta saber', 'Ao lado do nome aparece 🧭 N = quantas coisas importantes ainda não sabemos desse cliente (tipo, linhas, quem decide, frota do consumidor, se a revenda tem estoque ou só venda casada, se tem oficina…). Clique: uma pergunta por vez — 1 clique na resposta grava no cadastro do PF. A resposta tracejada é a sugestão do PF.'],
+      ['💡', 'Bom momento pra perguntar', 'Quando a conversa acalma (2 min sem mensagem), o selo pisca e aparece uma dica em cima da caixa de digitar — só você vê. 1 vez por cliente por dia. 💬 Perguntar escreve a pergunta na caixa (você manda).'],
+      ['⚙️', 'Perguntas do gestor', 'O gestor cria perguntas próprias (ex.: "consome tal produto?") em 🧩 Ajustes da extensão no PF — aparecem aqui junto.']]],
     ['Botões ao lado da conversa', [
       ['📄', 'Cotar no PF', 'Lê os códigos e quantidades que o cliente mandou depois da sua última mensagem (se ele mandar mais, vai somando; pedido antigo = clique no selo 📄 do balão), mostra saldo e preço (com a margem dele) e monta a resposta. "Pôr na conversa" escreve na caixa; você confere e manda.'],
       ['🏷️', 'Marca e quantidade do pedido', 'Quando o cliente escreve a marca ("5-275x 03pcs spicer c/graxeira", "01pc spicer 01pc TX"), cada marca vira um item com a quantidade dele. "c/graxeira" procura a cruzeta com graxeira (ex.: 5-275X → 5-275XS). Marca que não temos aparece em vermelho com as marcas que temos embaixo — clique numa pra trocar.'],
@@ -793,6 +798,7 @@
     if (ac === 'cmdAutorizar') { if (contatoAt && contatoAt.nome) { AUTO.cmdNomes = (AUTO.cmdNomes || []).concat([contatoAt.nome]); if (contatoAt.tel && (AUTO.cmdQuem || []).indexOf(contatoAt.tel) < 0) AUTO.cmdQuem = (AUTO.cmdQuem || []).concat([contatoAt.tel]); AUTO.cmdOn = true; autoGravar(); } pinta(); return; }
     if (ac === 'cmdTirar') { AUTO.cmdNomes = (AUTO.cmdNomes || []).filter(function (n) { return n !== arg; }); autoGravar(); pinta(); return; }
     if (ac === 'svAbrir') { if (svAberto) { svAberto = false; SV.style.display = 'none'; } else svAbrir(); return; } // 2.7
+    if (ac === 'ccResponder') { var bl = P && P.querySelector('.pfwa-ccbl'); if (bl) ccAbrir(bl); return; } // 4.97
     if (ac === 'svCnpj') { svAbrir(arg); return; } // 4.4 - cadastrar já com o CNPJ da conversa
     if (ac === 'svFechar') { svAberto = false; SV.style.display = 'none'; return; }
     if (ac === 'svUsar') { svUsar(arg); return; }
@@ -1164,6 +1170,7 @@
         + '</div>';
     }
     h += avisosHtml(r, false); // 2.3 - avisos do cliente (os mesmos da cotação)
+    if (r.tipo === 'cliente' && CFG.cc !== false) h += ccBlocoHtml(); // 4.97 - 🧭 conhecer o cliente
     if (r.tipo === 'cliente' && CFG.sug !== false) h += sugHtml(r); // 4.20 - 💡 pra oferecer
     if (r.tipo === 'cliente') h += resumoHtml(r); // 3.6 - 📝 resumo com IA
     (r.linhas || []).forEach(function (l) { h += '<div class="pfwa-lin"><span>' + esc(l.ic) + '</span><div><b>' + esc(l.t) + '</b>' + (l.d ? '<br><small>' + esc(l.d) + '</small>' : '') + '</div></div>'; });
@@ -1222,7 +1229,7 @@
   }
   // 1.9 - BUG (Vitor: foto aberta em tela cheia ficava com o aviso e o botão "PF" por cima): se alguma coisa do WhatsApp cobre a conversa
   // (foto, vídeo, documento, janela), esconde os avisos e os botões da extensão até fechar.
-  var MEUS = '#pfwa-sp,.pfwa-selo,.pfwa-rfselo,#pfwa-rr2,.pfwa-rrselo,#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st,#pfwa-vf,#pfwa-pe,.pfwa-anselo,#pfwa-ancnt,#pfwa-anpop,#pfwa-menu,#pfwa-rail,#pfwa-svb,#pfwa-sv';
+  var MEUS = '#pfwa-ccb,#pfwa-ccn,#pfwa-ccp,#pfwa-sp,.pfwa-selo,.pfwa-rfselo,#pfwa-rr2,.pfwa-rrselo,#pfwa,#pfwa-bots,#pfwa-aviso,#pfwa-of,#pfwa-ja,#pfwa-st,#pfwa-vf,#pfwa-pe,.pfwa-anselo,#pfwa-ancnt,#pfwa-anpop,#pfwa-menu,#pfwa-rail,#pfwa-svb,#pfwa-sv';
   // 2.8 - BUG (Vitor: documento/PDF aberto no WhatsApp ainda ficava com o aviso e o "PF" por cima): o visualizador do WhatsApp nem sempre
   // aparece no elementsFromPoint (partes com pointer-events:none). Agora também conta janela aberta (dialog/aria-modal) e imagem/vídeo/canvas
   // GRANDE fora da conversa e da lista (foto, documento, vídeo em tela cheia).
@@ -2230,6 +2237,120 @@
     ANCNT.style.left = Math.round(x0) + 'px'; ANCNT.style.top = Math.round(r.top + r.height / 2 - 14) + 'px';
   }
   setInterval(function () { try { anVigiar(); } catch (e) { } }, 1200);
+  // ═══ 4.97 - A pedido do Vitor: 🧭 CONHECER O CLIENTE (prévias docs/referencias/conhecer-cliente/: "gostei da A e da C, mas gostei da parte de selecionar da B")
+  // A = selo 🧭 N ao lado do nome (pisca quando a conversa acalma) · C = dica amarela em cima da caixa de digitar, só você vê · clique = UMA pergunta por vez
+  // (chips com a resposta sugerida, 💬 Perguntar escreve na caixa, pular, depois, não mostrar mais). As perguntas e o que falta vêm do PF (acao conhecer).
+  var CC = null, ccKey = '', ccTs = 0, CCB = null, CCN = null, CCP = null, ccI = 0, ccMulti = [], ccFechado = {};
+  function ccDiaHoje() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  function ccLembrouHoje(k) { try { var o = JSON.parse(localStorage.getItem('pfwa_cc_dia') || '{}'); return o[k] === ccDiaHoje(); } catch (e) { return false; } }
+  function ccMarcaHoje(k) { try { var o = JSON.parse(localStorage.getItem('pfwa_cc_dia') || '{}'); o[k] = ccDiaHoje(); localStorage.setItem('pfwa_cc_dia', JSON.stringify(o)); } catch (e) { } }
+  async function ccCarregar(forca) {
+    if (CFG.cc === false || !resp || resp.tipo !== 'cliente' || !resp.k) { CC = null; return; }
+    if (!forca && ccKey === ultimo && Date.now() - ccTs < 60000) return;
+    ccKey = ultimo; ccTs = Date.now();
+    var r = await msg({ t: 'acao', acao: 'conhecer', arg: { k: resp.k, nome: contatoAt && contatoAt.nome, msgs: lerMensagens().slice(-12) } });
+    if (ccKey !== ultimo) return; CC = (r && r.lista) ? r : null; if (ccI >= ((CC && CC.lista.length) || 0)) ccI = 0;
+    if (aba === 'cli') pintaCorpo(); ccVigiar();
+  }
+  function ccCalma() {
+    var els = document.querySelectorAll('#main [data-pre-plain-text]'); if (!els.length) return false;
+    var temEle = false; for (var i = els.length - 1; i >= Math.max(0, els.length - 15); i--) { if (!minhaEl(els[i])) { temEle = true; break; } }
+    if (!temEle) return false;
+    var t = msgQuando(els[els.length - 1]) || horaFolha(els[els.length - 1]); if (!t) return false;
+    var dt = Date.now() - t; return dt >= 120000 && dt < 3 * 3600000;
+  }
+  function ccAtivo() { return CC && CC.lista && CC.lista.length && !CC.off && contatoAt && !contatoAt.grupo && resp && resp.k === CC.k && !document.documentElement.classList.contains('pfwa-coberto'); }
+  function ccVigiar() {
+    if (!CCB) {
+      CCB = document.createElement('div'); CCB.id = 'pfwa-ccb'; document.body.appendChild(CCB);
+      CCB.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); ccAbrir(CCB); });
+      CCN = document.createElement('div'); CCN.id = 'pfwa-ccn'; document.body.appendChild(CCN);
+      CCN.addEventListener('click', function (ev) { var a = ev.target.closest('[data-cc]'); if (!a) return; ev.preventDefault(); ev.stopPropagation(); var w = a.getAttribute('data-cc');
+        if (w === 'ver') ccAbrir(CCN); else if (w === 'depois') { ccFechado[ultimo] = 1; CCN.style.display = 'none'; } });
+    }
+    var el = nomeEl(), ok = ccAtivo() && el;
+    if (!ok) { CCB.style.display = 'none'; CCN.style.display = 'none'; if (CCP && !ccAtivo()) CCP.style.display = 'none'; return; }
+    var r = el.getBoundingClientRect(); if (!r.width) { CCB.style.display = 'none'; CCN.style.display = 'none'; return; }
+    var n = CC.lista.length, h = '🧭<i>' + n + '</i>';
+    if (CCB.innerHTML !== h) CCB.innerHTML = h;
+    CCB.title = 'Conhecer o cliente: falta saber ' + n + ' coisa(s) — ' + CC.lista.slice(0, 3).map(function (q) { return q.t; }).join(' · ') + ' (clique pra responder)';
+    var x0 = r.right + 10; if (SVB && SVB.style.display !== 'none') x0 = Math.max(x0, SVB.getBoundingClientRect().right + 8); if (ANCNT && ANCNT.style.display !== 'none') x0 = Math.max(x0, ANCNT.getBoundingClientRect().right + 8);
+    CCB.style.display = 'flex'; CCB.style.left = Math.round(x0) + 'px'; CCB.style.top = Math.round(r.top + r.height / 2 - 14) + 'px';
+    // calma: pisca + dica (1x por cliente por dia)
+    var calma = ccCalma(), k = CC.k;
+    if (calma && !CC.adiado && !ccFechado[ultimo] && (!ccLembrouHoje(k) || CCN.getAttribute('data-k') === k)) {
+      if (!ccLembrouHoje(k)) { ccMarcaHoje(k); CCB.classList.remove('pisca'); void CCB.offsetWidth; CCB.classList.add('pisca'); }
+      var q = CC.lista[0], foot = document.querySelector('#main footer'), fr = foot && foot.getBoundingClientRect(), mr = document.querySelector('#main') && document.querySelector('#main').getBoundingClientRect();
+      if (fr && mr && (!CCP || CCP.style.display === 'none')) {
+        var hh = '💡 Bom momento pra perguntar: <b>' + esc(q.t.replace(/\?$/, '')) + '?</b> <a data-cc="ver">ver</a> · <a data-cc="depois" class="d">depois</a>';
+        if (CCN.innerHTML !== hh) CCN.innerHTML = hh;
+        CCN.setAttribute('data-k', k); CCN.style.display = 'block';
+        CCN.style.left = Math.round(mr.left + mr.width / 2 - CCN.offsetWidth / 2) + 'px'; var tp0 = fr.top; ['#pfwa-ask', '#pfwa-of', '#pfwa-ja', '#pfwa-st'].forEach(function (sl) { var o = document.querySelector(sl); if (o && o.style.display !== 'none' && o.offsetWidth) tp0 = Math.min(tp0, o.getBoundingClientRect().top); }); CCN.style.top = Math.round(tp0 - CCN.offsetHeight - 10) + 'px'; /* não fica atrás dos cartões de cima da caixa */
+      } else if (CCP && CCP.style.display !== 'none') CCN.style.display = 'none';
+    } else CCN.style.display = 'none';
+  }
+  function ccFechar() { if (CCP) CCP.style.display = 'none'; }
+  function ccAbrir(ancora) {
+    if (!CCP) {
+      CCP = document.createElement('div'); CCP.id = 'pfwa-ccp'; document.body.appendChild(CCP);
+      CCP.addEventListener('click', ccClique);
+      CCP.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' && ev.target.matches('input')) { ev.preventDefault(); ccResp(ev.target.value); } ev.stopPropagation(); }, true);
+      document.addEventListener('mousedown', function (ev) { if (CCP && CCP.style.display !== 'none' && !CCP.contains(ev.target) && !(ev.target.closest && ev.target.closest('#pfwa-ccb,#pfwa-ccn,#pfwa .pfwa-ccbl'))) ccFechar(); }, true);
+    }
+    if (!CC || !CC.lista.length) return;
+    if (CCP.style.display !== 'none' && CCP._de === ancora) { ccFechar(); return; }
+    CCP._de = ancora; ccMulti = []; ccPinta();
+    CCP.style.display = 'block'; CCN.style.display = 'none';
+    var r = ancora.getBoundingClientRect(), w = CCP.offsetWidth, h = CCP.offsetHeight;
+    var left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left - 20)), top = r.bottom + 8;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 8);
+    CCP.style.left = left + 'px'; CCP.style.top = top + 'px';
+  }
+  function ccPinta() {
+    var L = CC.lista, q = L[ccI] || L[0]; if (!q) { ccFechar(); return; }
+    var h = '<div class="pfwa-cch"><b>🧭 Falta saber deste cliente</b><span>' + (ccI + 1) + ' de ' + L.length + ' · ' + (CC.pct || 0) + '% preenchido</span></div>';
+    h += '<div class="pfwa-ccq">' + esc(q.ic) + ' ' + esc(q.t) + (q.gestor ? ' <small>(do gestor)</small>' : '') + '</div>';
+    if (q.porque) h += '<div class="pfwa-ccw">sugestão porque: ' + esc(q.porque) + '</div>';
+    var ops = q.op.slice().sort(function (a, b) { return (q.sug.indexOf(b[0]) >= 0) - (q.sug.indexOf(a[0]) >= 0); });
+    h += '<div class="pfwa-ccops">' + ops.map(function (o) { var sg = q.sug.indexOf(o[0]) >= 0, on = ccMulti.indexOf(o[0]) >= 0;
+      return '<span class="pfwa-ccch' + (sg ? ' s' : '') + (on ? ' on' : '') + '" data-ccv="' + esc(o[0]) + '">' + esc(o[1]) + (sg && !/citou/.test(o[1]) ? ' · sugestão' : '') + '</span>'; }).join('') + '</div>';
+    if (q.texto || q.frota) h += '<input class="pfwa-ccin" placeholder="' + (q.frota ? 'marca e modelo, ex.: CASE W20E — Enter grava' : 'escreva e aperte Enter') + '">';
+    if (q.multi) h += '<button class="pfwa-btn pfwa-verde" data-ccacao="gravarMulti" style="margin-top:6px">✔ Gravar ' + (ccMulti.length ? '(' + ccMulti.length + ')' : '') + '</button>';
+    h += '<div class="pfwa-ccbt">' + (q.pg ? '<span data-ccacao="perguntar" class="g">💬 Perguntar</span>' : '') + (L.length > 1 ? '<span data-ccacao="pular">pular ›</span>' : '') +
+      '<span data-ccacao="depois" class="d">depois</span><span data-ccacao="off" class="d">não mostrar mais pra ele</span></div>';
+    CCP.innerHTML = h;
+  }
+  async function ccResp(v) {
+    var q = CC.lista[ccI]; if (!q || v == null || v === '' || (Array.isArray(v) && !v.length)) return;
+    var r = await msg({ t: 'acao', acao: 'conhecerResp', arg: { k: CC.k, id: q.id, v: v } });
+    if (r && r.ok === false) { audToast(r.msg || 'Não deu pra gravar'); return; }
+    audToast('✔ Gravado no cadastro: ' + q.t.replace(/\?$/, ''));
+    CC.lista.splice(ccI, 1); CC.pct = Math.min(100, (CC.pct || 0) + Math.round(100 / Math.max(1, CC.tot || 10))); ccMulti = [];
+    if (ccI >= CC.lista.length) ccI = 0;
+    if (!CC.lista.length) { ccFechar(); } else ccPinta();
+    ccVigiar(); if (aba === 'cli') pintaCorpo(); setTimeout(function () { ccCarregar(true); }, 1500);
+  }
+  function ccClique(ev) {
+    ev.stopPropagation(); var q = CC && CC.lista[ccI]; if (!q) return;
+    var c = ev.target.closest('[data-ccv]'); if (c) { var v = c.getAttribute('data-ccv');
+      if (q.multi) { var i = ccMulti.indexOf(v); if (i >= 0) ccMulti.splice(i, 1); else ccMulti.push(v); ccPinta(); } else ccResp(v); return; }
+    var a = ev.target.closest('[data-ccacao]'); if (!a) return; var w = a.getAttribute('data-ccacao');
+    if (w === 'gravarMulti') ccResp(ccMulti.slice());
+    else if (w === 'perguntar') { escreverNaCaixa(q.pg); ccFechar(); }
+    else if (w === 'pular') { ccI = (ccI + 1) % CC.lista.length; ccMulti = []; ccPinta(); }
+    else if (w === 'depois') { msg({ t: 'acao', acao: 'conhecerAdiar', arg: { k: CC.k } }); CC.adiado = true; ccFechado[ultimo] = 1; ccFechar(); ccVigiar(); }
+    else if (w === 'off') { msg({ t: 'acao', acao: 'conhecerOff', arg: { k: CC.k } }); CC.off = true; ccFechar(); ccVigiar(); }
+  }
+  function ccBlocoHtml() {
+    if (!CC || !CC.lista || !resp || resp.k !== CC.k) return '';
+    if (!CC.lista.length) return '<div class="pfwa-bloco pfwa-ccbl"><div class="pfwa-bt">🧭 Conhecer o cliente · ' + (CC.pct || 100) + '%</div><div class="pfwa-nada">✔ Já sabemos o que importa dele.</div></div>';
+    return '<div class="pfwa-bloco pfwa-ccbl"><div class="pfwa-bt">🧭 Conhecer o cliente · ' + (CC.pct || 0) + '% preenchido' + (CC.off ? ' · lembrete desligado' : '') + '</div>' +
+      '<div class="pfwa-ccbar"><b style="width:' + (CC.pct || 0) + '%"></b></div>' +
+      '<div class="pfwa-nada" style="margin:4px 0">Falta: ' + CC.lista.slice(0, 4).map(function (q) { return esc(q.t.replace(/\?$/, '')); }).join(' · ') + (CC.lista.length > 4 ? ' · +' + (CC.lista.length - 4) : '') + '</div>' +
+      '<button class="pfwa-btn" data-acao="ccResponder">Responder ›</button></div>';
+  }
+  setInterval(function () { try { if (!vivo()) return; ccCarregar(); ccVigiar(); } catch (e) { } }, 2000);
+
   // 4.77 - 📨 FECHA SOZINHO: VOCÊ mandou um arquivo, uma cotação (2+ R$) ou um link nessa conversa → o PF fecha os lembretes "mandar pro cliente"
   // abertos dela (e o 📦 emitir, se o arquivo é pedido/nota).
   var cumpSig = '';

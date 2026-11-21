@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2826</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2827</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2826</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2827</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -66151,9 +66151,20 @@ function pfClsMontar(){
     var cs=[];if(!temL)cs.push(r.lin.length?r.linCert:0);if(!temT)cs.push(r.tipo?r.tipoCert:0);r.cert=Math.min.apply(null,cs);
     r.nivel=r.cert>=80?'hi':(r.cert>0?'md':'lo');R.push(r);});
   R.sort(function(a,b){return b.cert-a.cert;});return R;}
-function pfClsAbrir(){var S=window._pfCls={f:'todos',busca:'',sel:{},R:pfClsMontar()};
+// v115.2827 - A pedido do Vitor ("o que tinha cardan no nome… eu não disse pra colocar rodoviário e serviço? nem era pra estarem aqui"): regra AUTOMÁTICA, sem conferir —
+// cliente real com CARDAN no nome (razão/fantasia) = linha Rodoviário (quando não tem linha) + tipo SERVIÇO (troca Revenda/Consumidor; concessionária fica; o antigo vai em tipoAntesCardan).
+function pfClsCardanAuto(){try{if(typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo())return 0;}catch(e){}
+  var l=[];try{l=cadLoad(CLIE_KEY)||[];}catch(e){return 0;}var n=0,agora=Date.now();
+  l.forEach(function(c){if(!pfClsReal(c))return;if(!/CARDAN/.test(pfClsN((c.razao||'')+' '+(c.fantasia||''))))return;var mud=false;
+    if(!pfOrbLinhasDe(c).length){c.grupos=['rodoviario'];c.grupo='rodoviario';mud=true;}
+    if(c.revPerfil!=='concessionaria'&&pfTipoCli(c)!=='servico'){if(c.tipo&&!c.tipoAntesCardan)c.tipoAntesCardan=c.tipo;if(pfExtTipoAplicar(c,'servico'))mud=true;}
+    if(mud){c.tsMod=agora;n++;}});
+  if(n){try{cadSave(CLIE_KEY,l);}catch(e){}try{if(typeof pfSyncPush==='function')setTimeout(pfSyncPush,800);}catch(e){}}
+  return n;}
+setTimeout(function(){try{if(typeof sbUser!=='undefined'&&sbUser&&((typeof pfEhGestorOuAcima==='function'&&pfEhGestorOuAcima())||(typeof pfEhVitorGmail==='function'&&pfEhVitorGmail())))pfClsCardanAuto();}catch(e){}},45000);
+function pfClsAbrir(){try{window._pfClsCardanN=pfClsCardanAuto();}catch(e){}var S=window._pfCls={f:'todos',busca:'',sel:{},R:pfClsMontar()};
   S.R.forEach(function(r){S.sel[r.id]={ok:r.nivel==='hi',lin:r.lin.slice(),tipo:r.tipo};});
-  pfNcJanela('pfClsJan','🧭 Classificar linha e tipo dos clientes','O PF sugere, você confere. Só grava o que estiver ✔.','<div id="pfClsCorpo"></div>',1180);pfClsRender();}
+  pfNcJanela('pfClsJan','🧭 Classificar linha e tipo dos clientes','O PF sugere, você confere. Só grava o que estiver ✔.'+(window._pfClsCardanN?' · ✅ '+window._pfClsCardanN+' com CARDAN no nome já foram gravados como Rodoviário + Serviço.':''),'<div id="pfClsCorpo"></div>',1180);pfClsRender();}
 function pfClsRender(){var S=window._pfCls,el=document.getElementById('pfClsCorpo');if(!S||!el)return;var R=S.R;
   var n={todos:R.length,hi:0,md:0,lo:0};R.forEach(function(r){n[r.nivel]++;});var nSel=R.filter(function(r){return S.sel[r.id].ok;}).length;
   var semCnae=R.filter(function(r){return !r.c.cnaeDesc&&String(r.c.cnpj||'').replace(/\D/g,'').length===14&&!r.c.cnaeTentou;}).length;

@@ -3059,3 +3059,5 @@
   nome/👤+/📦 (`ccVigiar`, 2 s), pisca 4x quando a conversa acalma (`ccCalma`: última mensagem há 2 min–3 h e cliente falou) 1x por cliente por dia (`pfwa_cc_dia`) + dica amarela `#pfwa-ccn` em cima da caixa
   (acima dos cartões `#pfwa-ask`/`#pfwa-of`); clique = `#pfwa-ccp` UMA pergunta por vez (chips, sugestão tracejada, multi com ✔ Gravar, campo texto/frota, 💬 Perguntar = `escreverNaCaixa(pg)`,
   pular/depois/não mostrar mais). Aba Cliente: bloco `ccBlocoHtml` com % e "Responder ›". Config `cc` no CFG_LISTA, AJUDA ganhou a seção. Pergunta fixa nova → linha no `PF_CC_PERG`.
+- v115.2827 BUG ("o que tinha cardan no nome… eu não disse pra colocar rodoviário e serviço? nem era pra estarem aqui"): a regra do CARDAN virou AUTOMÁTICA (`pfClsCardanAuto`, roda ao abrir o 🧭 Classificar e 45 s depois de abrir o PF pra gestor+/Vitor, fora do modo demonstração):
+  cliente real com CARDAN na razão/fantasia = linha Rodoviário (só se não tem linha) + tipo SERVIÇO (troca Revenda/Consumidor, antigo em `tipoAntesCardan`; concessionária fica) — não aparece mais na lista pra conferir.

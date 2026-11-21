@@ -3067,3 +3067,8 @@
 - v115.2829 + extensão **4.98** ("preciso criar um grupo de clientes que chama retífica" + "onde crio mesmo?"): grupo novo **Retífica** (laranja `#E67E22`, 🟠) no `PF_GRUPOS`
   (cadastro do cliente, Órbita, Gestão, Classificar) e no `SV_GRUPOS` da extensão (👤 Salvar contato e barra de grupos). 🧭 Classificar: RETIFIC no nome sugere Retífica (`PF_CLS_NOME_LINHA`).
   Grupo base novo = linha no PF_GRUPOS + no SV_GRUPOS (o "➕ grupo" da extensão só guarda no navegador, sem cor no PF).
+- v115.2830 + extensão **4.99** ("bom colocar um + lá no cadastro de clientes, pra poder criar por lá também, como tem nas linhas principais"): campo "+ Outro grupo… / + Adicionar"
+  embaixo dos chips de GRUPO do cadastro do cliente (`cadGrupoChipsHtml` → `cadGrupoNovoAdd`, Enter também; `cadGrupoBtnsHtml`) → `pfGrupoNovo(nome)` (nome igual = usa o que já existe; cor livre de
+  `PF_GRUPO_CORES`, k `g_<nome>`) na lista compartilhada **`pfGruposExtra_v1`** {lista:[{k,label,cor,txt,em,por,criadoEm,del}],ts} (3 listas da sync + rótulo) → `pfGruposExtraAplicar` põe no PRÓPRIO
+  `PF_GRUPOS` (vale em todo lugar: cadastro, Órbita, Gestão, Classificar; confere a cada 5 s). Extensão: grupos do PF chegam no `quem` (`gruposPF`) e na acao `gruposPF` (`SV_GRUPOS_PF`); o "➕ grupo" do
+  👤 Salvar contato agora cria no PF (acao `grupoNovo`) — sem PF, cai no jeito antigo só do navegador (`svGrupoNovoLocal`). Captura `docs/referencias/grupo-novo-feito.png`.

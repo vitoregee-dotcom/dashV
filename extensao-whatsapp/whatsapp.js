@@ -33,7 +33,7 @@
       (function loop() { var v = null; try { v = fn(); } catch (e) { } if (v) return res(v); if (Date.now() - t0 > ms) return res(null); dormir(400).then(loop); })();
     });
   }
-  function msg(m) { return new Promise(function (res) { try { chrome.runtime.sendMessage(m, function (r) { void chrome.runtime.lastError; res(r || null); }); } catch (e) { res({ erro: 'recarregar' }); } }); }
+  function msg(m) { return new Promise(function (res) { try { chrome.runtime.sendMessage(m, function (r) { void chrome.runtime.lastError; try { if (r && r.gruposPF && typeof svGruposPfSet === 'function') svGruposPfSet(r.gruposPF); } catch (e) { } res(r || null); }); } catch (e) { res({ erro: 'recarregar' }); } }); }
   function reais(v) { return 'R$ ' + (+v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   var VER = (function () { try { return chrome.runtime.getManifest().version; } catch (e) { return ''; } })();
 
@@ -1302,7 +1302,11 @@
   var SV_GRUPOS_EXTRA = [];
   try { chrome.storage.local.get(['svGruposExtra'], function (r) { if (r && Array.isArray(r.svGruposExtra)) SV_GRUPOS_EXTRA = r.svGruposExtra; }); } catch (e) { }
   var svGrupos = [];
-  function svGruposTodos() { return SV_GRUPOS.concat(SV_GRUPOS_EXTRA); }
+  // 4.99 - A pedido do Vitor: grupos criados no PF (cadastro de clientes → "+ Outro grupo") aparecem aqui; o ➕ grupo daqui grava no PF (vale pra todos).
+  var SV_GRUPOS_PF = [];
+  function svGruposPfSet(l) { if (Array.isArray(l)) SV_GRUPOS_PF = l.filter(function (g) { return g && g[0]; }); }
+  function svGruposTodos() { var vis = {}, out = []; SV_GRUPOS.concat(SV_GRUPOS_PF).concat(SV_GRUPOS_EXTRA).forEach(function (g) { var n = String(g[1] || '').toUpperCase(); if (vis[g[0]] || vis['n:' + n]) return; vis[g[0]] = 1; vis['n:' + n] = 1; out.push(g); }); return out; }
+  setTimeout(async function () { try { var r = await msg({ t: 'acao', acao: 'gruposPF' }); if (r && r.lista) svGruposPfSet(r.lista); } catch (e) { } }, 4000);
   function svGruposRowHtml() {
     return svGruposTodos().map(function (g) { return '<span class="sv-g' + (svGrupos.indexOf(g[0]) >= 0 ? ' on' : '') + '" data-acao="svGrupo" data-arg="' + g[0] + '" data-g="' + g[0] + '" style="--c:' + g[2] + '"><i></i>' + esc(g[1]) + '</span>'; }).join('') +
       '<span class="sv-g sv-gnovo" data-acao="svGrupoNovo" title="Criar um grupo novo">➕ grupo</span>';
@@ -1344,6 +1348,9 @@
     var nome = (prompt('Nome do grupo novo:') || '').trim(); if (!nome) return;
     if (svGruposTodos().some(function (g) { return g[1].toUpperCase() === nome.toUpperCase(); })) { var jg = svGruposTodos().find(function (g) { return g[1].toUpperCase() === nome.toUpperCase(); }); if (jg && svGrupos.indexOf(jg[0]) < 0) svGrupos.push(jg[0]); svGruposRender(); return; }
     var cores = ['#E67E22', '#16A085', '#8E44AD', '#2C3E50', '#D35400', '#2980B9', '#C0392B'];
+    msg({ t: 'acao', acao: 'grupoNovo', arg: { nome: nome } }).then(function (r) { if (r && r.k) { SV_GRUPOS_PF.push([r.k, r.label, r.cor]); if (svGrupos.indexOf(r.k) < 0) svGrupos.push(r.k); svGruposRender(); } else { svGrupoNovoLocal(nome, cores); } });
+  }
+  function svGrupoNovoLocal(nome, cores) {
     var id = 'g_' + Date.now().toString(36);
     SV_GRUPOS_EXTRA.push([id, nome, cores[SV_GRUPOS_EXTRA.length % cores.length]]);
     try { chrome.storage.local.set({ svGruposExtra: SV_GRUPOS_EXTRA }); } catch (e) { }

@@ -3034,3 +3034,4 @@
   Órbita era sempre zoom dela (a página não rolava = preso) e a pinça do trackpad em cima do BALÃO dava zoom na página inteira. `pfOrbWheelZoomOk(e)` (2D `cv.onwheel` e 3D `el.onwheel`):
   rodinha comum = rola a página; pinça (Ctrl/⌘ + rodinha) = zoom da órbita; órbita ampliada (⛶) = rodinha também; página já com zoom do navegador (`visualViewport.scale>1`) = deixa o navegador
   tirar o zoom. Listener de wheel em captura no document: pinça sobre o balão/cabeçalho dentro do `#pfOrbitaWrap` não dá zoom na página.
+- v115.2822 BUG ("o filtro das linhas está atrás da barra inferior. não consigo filtrar"): a legenda LINHA (`pfOrbLinhaLegHtml`) saiu de baixo do quadro da órbita (ficava atrás do dock) e foi pra cima, logo antes da faixa "Mostrando só"; o `pfOrbAjustarAltura` não desconta mais os 44 px dela.

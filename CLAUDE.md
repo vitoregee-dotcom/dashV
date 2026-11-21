@@ -3079,3 +3079,8 @@
   (`pfOrbPlanetaVivo2D`), anel de Saturno dourado nos maiores clientes (`x.top`, `pfOrbSaturno2D`), nome em plaquinha branca em cima (`pfOrbPlaca2D`). 3D: textura `pfOrb3DTexPlanetaVivo` (sprite r3*2.67,
   transparente), sol `pfOrb3DTexSol` (sprite 56), banda + tracejado + nome `pfOrb3DTexFaixa` por faixa, anel dourado em `x.top`, rótulos em plaquinha acima (`st.esp`). Cor nova de linha → `PF_ORB_VIVO`.
 - v115.2832 BUG (print do planeta da RS Tork no 3D: "o arco não passa por trás do planeta?"): no visual Espaço o planeta era sprite TRANSPARENTE (pro brilho) e não escondia a metade de trás do anel. Agora o planeta é sólido (alphaTest 0.5, depthWrite quando inteiro) e o brilho é uma 2ª camada (`grp.userData.glow`, renderOrder -1, opacidade acompanha o planeta). Captura `docs/referencias/orbita-gemini/feito-anel-atras.png`.
+- v115.2833 + extensão **5.0** ("o 2. mas preciso tbm limpar, já que os pedidos são emitidos no JBoss e um ou outro eu emito no PF" — coluna 📦 Meus pedidos do WhatsApp cheia de 📝 "!"):
+  os 📝 são lembretes "📦 emitir o pedido" (`pp_emit_*`) vencidos, não pedidos. 1) **fecha sozinho**: `pfMpAutoFechar(ps)` (dentro do `pfMpDados`, 1x a cada 30 s) — pedido do MESMO cliente
+  (`pfCrmChaveDe` da razão) com data no dia do lembrete ou depois, feito no PF ou importado do JBoss (📥 Importar vendas do ERP) → `pfExtPedidoEmitirDesfazer`. 2) **🧹 Limpar**: link "🧹 limpar" na coluna
+  📝 A emitir do 📦 Meus pedidos (`pfMpLimpar` → menu os de outros dias / todos, `pfMpLimparContar`/`pfMpLimparFazer`) e 🧹 no fim dos anéis da coluna do WhatsApp (`mpLimparPop`/`mpLimpar` → acao
+  `mpLimpar` {modo contar|antigos|todos}). `PF_EXT_VER_NOVA`='5.0', zip refeito.

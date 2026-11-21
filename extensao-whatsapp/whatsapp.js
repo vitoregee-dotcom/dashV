@@ -781,6 +781,7 @@
     var b = e.target.closest('[data-acao]'); if (!b) return;
     var ac = b.getAttribute('data-acao'), arg = b.getAttribute('data-arg') || '';
     if (ac === 'mpConv' || ac === 'mpVer' || ac === 'mpEmitido' || ac === 'mpCobrar' || ac === 'mpAvisar') { mpAcao(ac, arg); return; } // 4.95
+    if (ac === 'mpLimpar') { mpLimparPop(b); return; } if (ac === 'mpLimparA' || ac === 'mpLimparT') { mpLimpar(ac === 'mpLimparT' ? 'todos' : 'antigos'); return; } // 5.0
     if (ac === 'aba') { ajuda = false; config = false; irAba(arg); return; }
     if (ac === 'config') { config = !config; ajuda = false; abrirPainel(); pinta(); return; }
     if (ac === 'cfgTog') { cfgTog(arg); return; }
@@ -2631,8 +2632,20 @@
     if (CFG.mp === false || !MP.length) { wr.innerHTML = ''; return; }
     wr.innerHTML = '<div class="pfwa-mpsep" title="Meus pedidos"></div>' + MP.slice(0, 14).map(function (x) {
       return '<div class="pfwa-mpr' + (x.al ? ' pfwa-mpal' : '') + '" data-acao="mpConv" data-arg="' + mpEsc(x.id) + '" data-mp="' + mpEsc(x.id) + '" style="--p:' + (x.p || 0) + ';--c:' + x.cor + '"><i>' + x.ic + '</i><em>' + mpEsc(x.sel || '') + '</em></div>';
-    }).join('') + (MP.length > 14 ? '<div class="pfwa-mpmais" data-acao="irTela" data-arg="meuspv" title="Ver todos no PF">+' + (MP.length - 14) + '</div>' : '');
+    }).join('') + (MP.length > 14 ? '<div class="pfwa-mpmais" data-acao="irTela" data-arg="meuspv" title="Ver todos no PF">+' + (MP.length - 14) + '</div>' : '') +
+      (MP.some(function (x) { return x.tipo === 'emit'; }) ? '<div class="pfwa-mpmais pfwa-mplimpa" data-acao="mpLimpar" title="Limpar lembretes de emitir">🧹</div>' : '');
   }
+  // 5.0 - 🧹 limpar os lembretes "emitir o pedido" (os pedidos são emitidos no JBoss)
+  async function mpLimparPop(el) {
+    var c = await msg({ t: 'acao', acao: 'mpLimpar', arg: { modo: 'contar' } }); if (!c || !c.todos) { audToast('Nada pra limpar'); mpCarregar(); return; }
+    if (!MPPOP) { MPPOP = document.createElement('div'); MPPOP.id = 'pfwa-mppop'; document.body.appendChild(MPPOP); MPPOP.addEventListener('click', clique); MPPOP.addEventListener('mouseleave', function () { mpPopFechar(300); }); MPPOP.addEventListener('mouseenter', function () { clearTimeout(mpTmr); }); }
+    clearTimeout(mpTmr);
+    MPPOP.innerHTML = '<div class="t">🧹 Limpar lembretes de emitir</div><div class="s">Os pedidos são emitidos no JBoss — limpe o que já foi feito. Pedido que aparece no PF (ou importado do JBoss) fecha o lembrete sozinho.</div>' +
+      '<div class="bt">' + (c.antigos ? '<b data-acao="mpLimparA" class="g">Os de outros dias (' + c.antigos + ')</b>' : '') + '<b data-acao="mpLimparT">Todos (' + c.todos + ')</b></div>';
+    var r = (el || RAIL).getBoundingClientRect(); MPPOP.style.display = 'block';
+    MPPOP.style.left = (r.right + 10) + 'px'; MPPOP.style.top = Math.max(8, Math.min(window.innerHeight - MPPOP.offsetHeight - 8, r.top - 10)) + 'px';
+  }
+  async function mpLimpar(modo) { mpPopFechar(0); var r = await msg({ t: 'acao', acao: 'mpLimpar', arg: { modo: modo } }); audToast('🧹 ' + ((r && r.n) || 0) + ' lembrete(s) limpo(s)'); mpCarregar(); }
   function mpPop(x, el) {
     if (!MPPOP) { MPPOP = document.createElement('div'); MPPOP.id = 'pfwa-mppop'; document.body.appendChild(MPPOP); MPPOP.addEventListener('click', clique); MPPOP.addEventListener('mouseleave', function () { mpPopFechar(300); }); MPPOP.addEventListener('mouseenter', function () { clearTimeout(mpTmr); }); }
     clearTimeout(mpTmr);

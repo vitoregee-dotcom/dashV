@@ -3096,3 +3096,7 @@
   Recebimento, Logística, Motorista, Faturamento, Fiscal, Financeiro, Contas a Pagar/Receber, Cadastro, Gerência, Diretoria, RH, T.I., Marketing, Recepção, Facilities, Jurídico, Área técnica);
   clicar no campo já preenchido esvazia e mostra TODAS (o valor vai pro placeholder; sair sem escolher volta, listeners focusin/focusout em `.sv-cargo`). Ir de Fornecedor pra Colega tira o "Vendedor" padrão.
   Cargo novo: é só digitar — ao salvar o colega ele entra na lista (`svCargoGuardar`, `chrome.storage.local.svCargosExtra`, por navegador). `PF_EXT_VER_NOVA`='5.2', zip refeito.
+- v115.2837 + extensão **5.3** BUG (print do Aloisio: "dá pra evitar esses bugs?" — 👤+ e 🧭 6 em cima da pílula da lista "CARDAN ▾" do cabeçalho, mesmo com a 5.1): a pílula tem fundo/borda e o
+  texto fica num span de dentro, então o ponto testado caía no FUNDO dela e o `pfwaOcupado` dava livre. `pfwaObstaculos()` (cache 400 ms): todo elemento DENTRO do `#main header` (menos os que
+  contêm o nome) que tem texto próprio, é ícone/botão/role, ou tem fundo/borda/imagem de fundo vira obstáculo pelo retângulo inteiro; o `pfwaCaixaLivre` confere esses antes dos pontos. Testado no
+  simulador com uma pílula igual: selos foram pra depois dela, sem encostar.

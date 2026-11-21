@@ -3114,3 +3114,6 @@
   `vendasConvIncluirOk`: conversão {ref, linha, desc "incluída na cotação N — cliente", por, em} em TODAS as fichas do nosso código (`vendasConvIncFichas`, só letras+números); sem ficha mas no estoque = cria a
   ficha da marca com saldo (`criadoDe:'conversao-cotacao'`); não existe em lugar nenhum = avisa e não grava. cadSave + pfSyncPush, linha nova vai pro `pfAdicionarLinhaCustom`, e a linha da cotação troca
   (`vendasItemTrocarCodigo`, código do cliente fica no CÓD. CLIENTE). Da próxima vez a cotação/WhatsApp já acha pela conversão da ficha.
+- v115.2840 ("qnd ele já altera o código qnd inclui como conversão, ele puxa uma única ficha. quero que puxe todas"): depois que a conversão troca o código
+  (➕ Incluir como conversão / ✏️ Corrigir código → `vendasItemTrocarCodigo`, lista Carraro OM → `pfCarraroTrocar` e `pfCarraroAutoTodos`), `vendasConvTrazerTodas(i)` põe as OUTRAS
+  marcas do código novo logo embaixo (1 linha por ficha, mesma qtd, CÓD. CLIENTE e tarja 🔁; usa o `vendasOutrasMarcasDe` = sem repetir marca e respeitando Assistente/regras da cotação; remapeia Sel/PV).

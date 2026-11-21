@@ -3072,3 +3072,9 @@
   `PF_GRUPO_CORES`, k `g_<nome>`) na lista compartilhada **`pfGruposExtra_v1`** {lista:[{k,label,cor,txt,em,por,criadoEm,del}],ts} (3 listas da sync + rótulo) → `pfGruposExtraAplicar` põe no PRÓPRIO
   `PF_GRUPOS` (vale em todo lugar: cadastro, Órbita, Gestão, Classificar; confere a cada 5 s). Extensão: grupos do PF chegam no `quem` (`gruposPF`) e na acao `gruposPF` (`SV_GRUPOS_PF`); o "➕ grupo" do
   👤 Salvar contato agora cria no PF (acao `grupoNovo`) — sem PF, cai no jeito antigo só do navegador (`svGrupoNovoLocal`). Captura `docs/referencias/grupo-novo-feito.png`.
+- v115.2831 **🌌 Órbita visual Espaço** (modelo do Gemini → prévia `docs/referencias/orbita-gemini/previa-b.png`, cores "B" vivas, "coloca lá. vamo ver se melhora"; capturas `feito-2d.png`/`feito-3d.png`):
+  estilo **N** = novo padrão (`pfOrbEspaco`; `pfOrb3DEstilo` passa 1x por navegador pro N, flag `pf_orb_n2831`; A/B/C continuam no seletor "Visual", que agora aparece também no 2D).
+  Fundo = imagem gerada 1x por tema (`pfOrbFundoUrl`: degradê, estrelas, constelações, 2 satélites) no quadro (`pfOrbFundoAplicar`, chamado no `pfOrbIniciar` e `pfOrb3DIniciar`).
+  2D: faixas com banda suave + nome na curva (`pfOrbTextoCurva`), sol com coroa dourada e bola azul TRIEX (`pfOrbSol2D`), planeta na cor VIVA da linha (`PF_ORB_VIVO`/`pfOrbVivo`) com brilho
+  (`pfOrbPlanetaVivo2D`), anel de Saturno dourado nos maiores clientes (`x.top`, `pfOrbSaturno2D`), nome em plaquinha branca em cima (`pfOrbPlaca2D`). 3D: textura `pfOrb3DTexPlanetaVivo` (sprite r3*2.67,
+  transparente), sol `pfOrb3DTexSol` (sprite 56), banda + tracejado + nome `pfOrb3DTexFaixa` por faixa, anel dourado em `x.top`, rótulos em plaquinha acima (`st.esp`). Cor nova de linha → `PF_ORB_VIVO`.

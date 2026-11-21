@@ -1408,6 +1408,10 @@
       '<span class="sv-g sv-gnovo" data-acao="svFLinhaNova" title="Outra linha/marca">➕ linha</span></div>';
   }
   function svFornChipsRender() { var r = SV && SV.querySelector('.sv-fchips'); if (r) r.innerHTML = svFornChipsHtml(); }
+  // 5.2 - A pedido do Vitor ("meus colegas precisam ter outros cargos"): ao clicar no CARGO já preenchido, a lista mostra TODAS as opções
+  // (o Chrome só mostrava as que batem com o texto — com "Vendedor" escrito aparecia só Vendedor); sair sem escolher volta o que estava.
+  document.addEventListener('focusin', function (e) { var t = e.target; if (!t || !t.classList || !t.classList.contains('sv-cargo') || !t.value) return; t.dataset.old = t.value; t.placeholder = t.value; t.value = ''; }, true);
+  document.addEventListener('focusout', function (e) { var t = e.target; if (!t || !t.classList || !t.classList.contains('sv-cargo')) return; if (!t.value.trim() && t.dataset.old) t.value = t.dataset.old; delete t.dataset.old; try { svPrev(); } catch (x) { } }, true);
   function svModoSet(m) {
     svModo = m; if (!SV) return;
     SV.classList.toggle('sv-isforn', m === 'forn'); SV.classList.toggle('sv-iscli', m === 'cliente'); SV.classList.toggle('sv-iscol', m === 'colega'); // 4.91 - 👔 colega
@@ -1417,6 +1421,7 @@
     var cg0 = SV.querySelector('.sv-cargo'); if (cg0) cg0.placeholder = m === 'colega' ? 'Ex.: Vendas, Compras, Estoque, Financeiro' : 'Ex.: Compras, Dono, Mecânico';
     svPrev();
     var cg = SV.querySelector('.sv-cargo'); if (cg && m === 'forn' && !cg.value.trim()) cg.value = 'Vendedor';
+    if (cg) { cg.setAttribute('list', m === 'colega' ? 'pfwa-sv-cargos-col' : 'pfwa-sv-cargos'); if (m === 'colega' && cg.value === 'Vendedor' && !(resp && resp.tipo === 'colega')) cg.value = ''; } // 5.2 - 👔 colega = cargos da empresa
     var fc = SV.querySelector('.sv-fchips'); if (fc) fc.innerHTML = m === 'forn' ? svFornChipsHtml() : '';
     var k = SV.querySelector('.sv-k'); if (k) k.innerHTML = '';
     svK = ''; svFornId = ''; var sg = SV.querySelector('.sv-sug'); if (sg) sg.innerHTML = '';
@@ -1460,8 +1465,9 @@
       '<div class="sv-modo">' + svModoRowHtml() + '</div>' + // 4.60 - 🤝 Cliente | 🏭 Fornecedor
       '<label>NOME DA PESSOA<input class="sv-nome" value="' + esc(nome) + '" placeholder="Ex.: Tiago"></label>' +
       '<label><span class="sv-emplab">' + (svModo === 'forn' ? 'FORNECEDOR' : 'EMPRESA (cliente do PF)') + '</span><input class="sv-emp" value="' + esc(emp) + '" placeholder="' + (svModo === 'forn' ? 'Razão social do fornecedor' : 'Digite pra procurar no PF') + '" autocomplete="off"></label><div class="sv-sug"></div>' +
-      '<label>CARGO<input class="sv-cargo" value="' + esc((r && r.cargo) || (resp && resp.tipo === 'colega' && resp.cargo) || (svModo === 'forn' ? 'Vendedor' : '')) + '" placeholder="Ex.: Compras, Dono, Mecânico" list="pfwa-sv-cargos"></label>' +
+      '<label>CARGO<input class="sv-cargo" value="' + esc((r && r.cargo) || (resp && resp.tipo === 'colega' && resp.cargo) || (svModo === 'forn' ? 'Vendedor' : '')) + '" placeholder="Ex.: Compras, Dono, Mecânico" list="' + (svModo === 'colega' ? 'pfwa-sv-cargos-col' : 'pfwa-sv-cargos') + '"></label>' +
       '<datalist id="pfwa-sv-cargos"><option>Compras<option>Comprador<option>Dono<option>Sócio<option>Gerente<option>Financeiro<option>Mecânico<option>Encarregado<option>Vendedor<option>Balconista</datalist>' +
+      '<datalist id="pfwa-sv-cargos-col"><option>Vendedor<option>Vendedor externo<option>Vendas interno<option>Compras<option>Comprador<option>Estoque<option>Expedição<option>Recebimento<option>Logística<option>Motorista<option>Faturamento<option>Fiscal<option>Financeiro<option>Contas a Pagar<option>Contas a Receber<option>Cadastro<option>Gerência<option>Gerente de vendas<option>Diretoria<option>RH<option>T.I.<option>Marketing<option>Recepção<option>Facilities / Manutenção<option>Jurídico<option>Área técnica</datalist>' +
       '<label class="sv-so-nc">CÓDIGO NO JBOSS<input class="sv-cod" value="' + esc(cod) + '" placeholder="Ex.: 12662" inputmode="numeric"></label>' +
       // ── fornecedor: 🏭 Trabalha com + linhas ──
       '<div class="sv-fchips sv-so-forn">' + (svModo === 'forn' ? svFornChipsHtml() : '') + '</div>' +

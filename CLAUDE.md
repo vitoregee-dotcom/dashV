@@ -3091,3 +3091,8 @@
   **Selo novo posto por cima do WhatsApp → usar `pfwaPorNoLugar`, nunca posição fixa "logo depois do nome".** Testado no simulador com uma lista de mentira no cabeçalho.
 - v115.2835 ("ali não é pra lembrete, é pra pedidos emitidos já" — coluna de anéis do WhatsApp cheia de 📝 "!"): o `pfMpExt` (o que vai pra coluna 📦 Meus pedidos da extensão)
   tira os lembretes 📝 a emitir (`x.tipo==='emit'`) — lá só pedidos de verdade. Os lembretes continuam no 📦 Meus pedidos do PF (coluna 📝 A emitir, com 🧹 limpar). Extensão não mudou.
+- v115.2836 + extensão **5.2** ("meus colegas precisam ter outros cargos, pra depois eu ir colocando do pessoal" — 👤 Salvar contato em 👔 Colega só mostrava "Vendedor"): o CARGO é campo
+  com lista (datalist) e o Chrome só mostra as opções que batem com o texto escrito. No modo Colega a lista é `pfwa-sv-cargos-col` (Vendedor, Vendedor externo, Compras, Estoque, Expedição,
+  Recebimento, Logística, Motorista, Faturamento, Fiscal, Financeiro, Contas a Pagar/Receber, Cadastro, Gerência, Diretoria, RH, T.I., Marketing, Recepção, Facilities, Jurídico, Área técnica);
+  clicar no campo já preenchido esvazia e mostra TODAS (o valor vai pro placeholder; sair sem escolher volta, listeners focusin/focusout em `.sv-cargo`). Ir de Fornecedor pra Colega tira o "Vendedor" padrão.
+  Cargo fora da lista continua podendo ser digitado. `PF_EXT_VER_NOVA`='5.2', zip refeito.

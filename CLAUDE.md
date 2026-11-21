@@ -3040,3 +3040,6 @@
   rótulos `pfOrbRot` (SEM COMPRAR HÁ · WHATSAPP · OUTROS · LINHA); chips com nome ("↳ ainda cotando", "🔵 só cotam", "◎ potencial", "mostrar logo"); linhas = bolinha da cor; "↺ Ver tudo" saiu do
   cabeçalho (fica na faixa "Mostrando só" e no 🔍 Filtros). Faixa do resumo com o nome escrito em cada número e CAIXA ESCURA explicando ao passar o mouse/tocar (`pfOrbInf`, CSS `pfOrbInfoCss`).
   Info nova na Órbita → usar `pfOrbInf(texto, título, explicação)`.
+- v115.2824 ("não dá pra otimizar esses espaços vazios?" — cabeçalho da Órbita numa tela de ~950 px): saiu a quebra de linha forçada antes do WHATSAPP (o grupo WhatsApp/Outros é
+  `display:contents`) e os botões (Filtros/Resumo/⛶/2D-3D/?) foram pro FIM da fila (`order:9`, `margin-left:auto`, sem quebrar entre eles) — os chips correm juntos e os botões ocupam o fim
+  da última linha, em vez de ficarem sozinhos numa linha com o lado esquerdo vazio. Captura `docs/referencias/orbita-espaco/feito.png`.

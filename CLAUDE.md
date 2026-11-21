@@ -3089,3 +3089,5 @@
   elementsFromPoint — botão, texto, ícone, foto do WhatsApp ou outro selo = ocupado; o botão do nome `[role=button]` não conta), andando pra direita a partir do nome; sem lugar
   na linha, logo abaixo do cabeçalho. Menu desligado = chip menor "🧩 PF ▸" num canto livre da faixa de cima da lista (senão embaixo dela, `pfwaChipOffPos`, a cada 3 s).
   **Selo novo posto por cima do WhatsApp → usar `pfwaPorNoLugar`, nunca posição fixa "logo depois do nome".** Testado no simulador com uma lista de mentira no cabeçalho.
+- v115.2835 ("ali não é pra lembrete, é pra pedidos emitidos já" — coluna de anéis do WhatsApp cheia de 📝 "!"): o `pfMpExt` (o que vai pra coluna 📦 Meus pedidos da extensão)
+  tira os lembretes 📝 a emitir (`x.tipo==='emit'`) — lá só pedidos de verdade. Os lembretes continuam no 📦 Meus pedidos do PF (coluna 📝 A emitir, com 🧹 limpar). Extensão não mudou.

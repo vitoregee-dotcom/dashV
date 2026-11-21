@@ -3064,3 +3064,6 @@
 - v115.2828 **🧭 Cadastros completos por vendedor** (Vitor: "quero" — a % de cadastros completos na Gestão): card na aba 🛒 Vendas da Gestão (`pfGeCcHtml`, `id pfGeF_cc`, logo depois dos Vendedores).
   Foto de HOJE: clientes reais com compra/cotação em 12 meses (sem `conhecerOff`), por `vendEmail` do `pcMontarDados`; % = perguntas do 🧭 respondidas ÷ as que valem pro tipo (`pfCcPctCad`, leve, sem sugestões);
   colunas clientes / média / 100% / abaixo de 50% / o que mais falta; clique no vendedor abre os clientes (`pfGeCcAbrirV`, `_pfGeCcV`) → ficha do CRM. Cache 60 s `_pfGeCcCache`. Captura `docs/referencias/conhecer-cliente/feito-gestao.png`.
+- v115.2829 + extensão **4.98** ("preciso criar um grupo de clientes que chama retífica" + "onde crio mesmo?"): grupo novo **Retífica** (laranja `#E67E22`, 🟠) no `PF_GRUPOS`
+  (cadastro do cliente, Órbita, Gestão, Classificar) e no `SV_GRUPOS` da extensão (👤 Salvar contato e barra de grupos). 🧭 Classificar: RETIFIC no nome sugere Retífica (`PF_CLS_NOME_LINHA`).
+  Grupo base novo = linha no PF_GRUPOS + no SV_GRUPOS (o "➕ grupo" da extensão só guarda no navegador, sem cor no PF).

@@ -1408,15 +1408,25 @@
       '<span class="sv-g sv-gnovo" data-acao="svFLinhaNova" title="Outra linha/marca">➕ linha</span></div>';
   }
   function svFornChipsRender() { var r = SV && SV.querySelector('.sv-fchips'); if (r) r.innerHTML = svFornChipsHtml(); }
+  // 5.2 - A pedido do Vitor ("meus colegas precisam ter outros cargos"): ao clicar no CARGO já preenchido, a lista mostra TODAS as opções
+  // (o Chrome só mostrava as que batem com o texto — com "Vendedor" escrito aparecia só Vendedor); sair sem escolher volta o que estava.
+  document.addEventListener('focusin', function (e) { var t = e.target; if (!t || !t.classList || !t.classList.contains('sv-cargo') || !t.value) return; t.dataset.old = t.value; t.placeholder = t.value; t.value = ''; }, true);
+  document.addEventListener('focusout', function (e) { var t = e.target; if (!t || !t.classList || !t.classList.contains('sv-cargo')) return; if (!t.value.trim() && t.dataset.old) t.value = t.dataset.old; delete t.dataset.old; try { svPrev(); } catch (x) { } }, true);
+  // 5.2 - A pedido do Vitor ("ou opção pra eu ir inserindo"): cargo digitado que não está na lista entra nela ao salvar o colega (guardado neste navegador).
+  var SV_CARGOS_COL = ['Vendedor', 'Vendedor externo', 'Vendas interno', 'Compras', 'Comprador', 'Estoque', 'Expedição', 'Recebimento', 'Logística', 'Motorista', 'Faturamento', 'Fiscal', 'Financeiro', 'Contas a Pagar', 'Contas a Receber', 'Cadastro', 'Gerência', 'Gerente de vendas', 'Diretoria', 'RH', 'T.I.', 'Marketing', 'Recepção', 'Facilities / Manutenção', 'Jurídico', 'Área técnica'];
+  var svCargosExtra = []; try { chrome.storage.local.get(['svCargosExtra'], function (x) { svCargosExtra = (x && x.svCargosExtra) || []; }); } catch (e) { }
+  function svCargosCol() { return SV_CARGOS_COL.concat(svCargosExtra); }
+  function svCargoGuardar(c) { c = String(c || '').trim(); if (!c) return; var n = c.toLowerCase(); if (svCargosCol().some(function (x) { return x.toLowerCase() === n; })) return; svCargosExtra.push(c); try { chrome.storage.local.set({ svCargosExtra: svCargosExtra }); } catch (e) { } }
   function svModoSet(m) {
     svModo = m; if (!SV) return;
     SV.classList.toggle('sv-isforn', m === 'forn'); SV.classList.toggle('sv-iscli', m === 'cliente'); SV.classList.toggle('sv-iscol', m === 'colega'); // 4.91 - 👔 colega
     var tr = SV.querySelector('.sv-modo'); if (tr) tr.innerHTML = svModoRowHtml();
     var lb = SV.querySelector('.sv-emplab'); if (lb) lb.textContent = m === 'forn' ? 'FORNECEDOR' : m === 'colega' ? 'EMPRESA (a nossa)' : 'EMPRESA (cliente do PF)';
     var em = SV.querySelector('.sv-emp'); if (em) { em.placeholder = m === 'forn' ? 'Razão social do fornecedor' : m === 'colega' ? 'Triex' : 'Digite pra procurar no PF'; if (m === 'colega') em.value = (resp && resp.tipo === 'colega' && resp.emp) || 'Triex'; }
-    var cg0 = SV.querySelector('.sv-cargo'); if (cg0) cg0.placeholder = m === 'colega' ? 'Ex.: Vendas, Compras, Estoque, Financeiro' : 'Ex.: Compras, Dono, Mecânico';
+    var cg0 = SV.querySelector('.sv-cargo'); if (cg0) cg0.placeholder = m === 'colega' ? 'Escolha da lista ou digite um cargo novo' : 'Ex.: Compras, Dono, Mecânico';
     svPrev();
     var cg = SV.querySelector('.sv-cargo'); if (cg && m === 'forn' && !cg.value.trim()) cg.value = 'Vendedor';
+    if (cg) { cg.setAttribute('list', m === 'colega' ? 'pfwa-sv-cargos-col' : 'pfwa-sv-cargos'); if (m === 'colega' && cg.value === 'Vendedor' && !(resp && resp.tipo === 'colega')) cg.value = ''; } // 5.2 - 👔 colega = cargos da empresa
     var fc = SV.querySelector('.sv-fchips'); if (fc) fc.innerHTML = m === 'forn' ? svFornChipsHtml() : '';
     var k = SV.querySelector('.sv-k'); if (k) k.innerHTML = '';
     svK = ''; svFornId = ''; var sg = SV.querySelector('.sv-sug'); if (sg) sg.innerHTML = '';
@@ -1460,8 +1470,9 @@
       '<div class="sv-modo">' + svModoRowHtml() + '</div>' + // 4.60 - 🤝 Cliente | 🏭 Fornecedor
       '<label>NOME DA PESSOA<input class="sv-nome" value="' + esc(nome) + '" placeholder="Ex.: Tiago"></label>' +
       '<label><span class="sv-emplab">' + (svModo === 'forn' ? 'FORNECEDOR' : 'EMPRESA (cliente do PF)') + '</span><input class="sv-emp" value="' + esc(emp) + '" placeholder="' + (svModo === 'forn' ? 'Razão social do fornecedor' : 'Digite pra procurar no PF') + '" autocomplete="off"></label><div class="sv-sug"></div>' +
-      '<label>CARGO<input class="sv-cargo" value="' + esc((r && r.cargo) || (resp && resp.tipo === 'colega' && resp.cargo) || (svModo === 'forn' ? 'Vendedor' : '')) + '" placeholder="Ex.: Compras, Dono, Mecânico" list="pfwa-sv-cargos"></label>' +
+      '<label>CARGO<input class="sv-cargo" value="' + esc((r && r.cargo) || (resp && resp.tipo === 'colega' && resp.cargo) || (svModo === 'forn' ? 'Vendedor' : '')) + '" placeholder="Ex.: Compras, Dono, Mecânico" list="' + (svModo === 'colega' ? 'pfwa-sv-cargos-col' : 'pfwa-sv-cargos') + '"></label>' +
       '<datalist id="pfwa-sv-cargos"><option>Compras<option>Comprador<option>Dono<option>Sócio<option>Gerente<option>Financeiro<option>Mecânico<option>Encarregado<option>Vendedor<option>Balconista</datalist>' +
+      '<datalist id="pfwa-sv-cargos-col">' + svCargosCol().map(function (x) { return '<option>' + esc(x); }).join('') + '</datalist>' +
       '<label class="sv-so-nc">CÓDIGO NO JBOSS<input class="sv-cod" value="' + esc(cod) + '" placeholder="Ex.: 12662" inputmode="numeric"></label>' +
       // ── fornecedor: 🏭 Trabalha com + linhas ──
       '<div class="sv-fchips sv-so-forn">' + (svModo === 'forn' ? svFornChipsHtml() : '') + '</div>' +
@@ -1550,6 +1561,7 @@
   async function svSalvarColega(b, c, nomeFull, v) {
     var txt = b.textContent; b.disabled = true; b.textContent = 'Salvando…';
     var r = await msg({ t: 'acao', acao: 'salvarColega', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), emp: v('sv-emp') } });
+    if (r && r.ok) svCargoGuardar(v('sv-cargo'));
     b.disabled = false; b.textContent = txt;
     var st = SV.querySelector('.sv-st');
     if (r && r.ok) {

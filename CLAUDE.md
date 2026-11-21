@@ -3049,3 +3049,13 @@
   frota · % das compras pelo `PF_ORB_LINHA_RE` (menos de 5 pedidos pesa menos) · nome `PF_CLS_NOME_LINHA`/`PF_CLS_NOME_TIPO`); 2 linhas fortes = "as duas". Certeza alta (80%+) vem ✔;
   `pfClsGravar` grava `grupos`/`grupo` e o tipo (`pfExtTipoAplicar`), só no que estava vazio (não troca o que já tem). 🏛 `pfClsReceita` busca o CNAE na BrasilAPI/cnpj.ws (até 60, 1,3 s cada,
   `cnaeDesc`/`cnaeTentou`). Entradas: Órbita (botão depois do "Sem linha") e Cadastros → Clientes. Regra nova de nome → `PF_CLS_NOME_LINHA`/`PF_CLS_NOME_TIPO`.
+- v115.2826 + extensão **4.97** **🧭 Conhecer o cliente** (Vitor: "quando um cliente chamar, o sistema dar sugestão ao vendedor de coisas que ele pode perguntar… ele mesmo já preencher" →
+  prévias `docs/referencias/conhecer-cliente/` (`previa.png` A+B, `lembrete.png` → "gostei da A e da C, mas gostei da parte de selecionar da B") + "revenda: se trabalha com estoque ou só venda casada,
+  se tem oficina" + "o gestor incluir algo, tipo perguntar se o cliente consome tal produto"; capturas `feito-*.png`). PF: perguntas `PF_CC_PERG` (p 1 essencial / 2 pelo tipo / 3 bom ter, `tipos`
+  revenda/consumo/servico/conc) + as do gestor `pfConhecerCfg_v1.extras` (3 listas da sync; janela `pfCcCfgAbrir`, também no 🧩 Ajustes da extensão). `pfCcFalta(c,msgs)` = o que falta (`pfCcRespondida`:
+  tipo/linhas/concMarcas/frota/transp/prazo olham os campos de sempre, o resto `cad.conhecer[id]`) com sugestão (tipo/linha pelo `pfClsPistas`, frota pelo `pfExtFrotaDetectar` da conversa).
+  `pfCcResponder` grava (tipo → `pfExtTipoAplicar`, linhas → grupos, concessionária → concMarcas, frota → `pfExtFrotaPor`, resto `cad.conhecer` {v,em,por}) + nota no CRM; `pfCcAdiar` (hoje) / `pfCcOff`
+  (`cad.conhecerOff`). Acoes `conhecer`/`conhecerResp`/`conhecerAdiar`/`conhecerOff`/`conhecerCfg`. Ficha do CRM: `pfCcFichaHtml` (depois do 💰 Crédito). Extensão: selo `#pfwa-ccb` "🧭 N" depois do
+  nome/👤+/📦 (`ccVigiar`, 2 s), pisca 4x quando a conversa acalma (`ccCalma`: última mensagem há 2 min–3 h e cliente falou) 1x por cliente por dia (`pfwa_cc_dia`) + dica amarela `#pfwa-ccn` em cima da caixa
+  (acima dos cartões `#pfwa-ask`/`#pfwa-of`); clique = `#pfwa-ccp` UMA pergunta por vez (chips, sugestão tracejada, multi com ✔ Gravar, campo texto/frota, 💬 Perguntar = `escreverNaCaixa(pg)`,
+  pular/depois/não mostrar mais). Aba Cliente: bloco `ccBlocoHtml` com % e "Responder ›". Config `cc` no CFG_LISTA, AJUDA ganhou a seção. Pergunta fixa nova → linha no `PF_CC_PERG`.

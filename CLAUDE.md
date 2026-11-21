@@ -3100,3 +3100,11 @@
   texto fica num span de dentro, então o ponto testado caía no FUNDO dela e o `pfwaOcupado` dava livre. `pfwaObstaculos()` (cache 400 ms): todo elemento DENTRO do `#main header` (menos os que
   contêm o nome) que tem texto próprio, é ícone/botão/role, ou tem fundo/borda/imagem de fundo vira obstáculo pelo retângulo inteiro; o `pfwaCaixaLivre` confere esses antes dos pontos. Testado no
   simulador com uma pílula igual: selos foram pra depois dela, sem encostar.
+- v115.2838 + extensão **5.4** **🪞 Seu jeito com cada cliente nas mensagens automáticas** (Vitor: "as respostas automáticas são criadas de acordo com como eu trato o cliente? tipo apelidos, termos usados?" → "quero"):
+  a extensão lê as SUAS mensagens da conversa aberta (`jeitoVigiar` no tick, `jeitoAnalisar`; pula as automáticas `autoUlt`/`autoPend`) e conta como você ABRE (`JEITO_AB`: Bom dia/Opa/Fala/E aí/Oi/Olá/Salve/Prezado),
+  como FECHA (`JEITO_FE`: tmj/abraço/valeu/Att./👍/🙏/🤝), o APELIDO depois da abertura (palavra com maiúscula ou vocativo `JEITO_VOC`: meu velho, chefe, patrão…; `JEITO_NAO` fora) e o tom
+  (`intimAuto` próximo/formal com 5+ mensagens). Vai pro PF por acao `jeitoSet` → `pfExtJeitoSet` (`pfContatosWhats_v1` .jeito; volta no `quem`/`situacoes` por `pfExtJeitoDe`). Uso (`autoJeitoDe`, só expressão
+  usada 2+ vezes, `jeitoTop`): `autoAbertura(nm,sOk,tom,jj)` abre com o seu jeito, `autoNatural` fecha com o seu fecho (e não inventa emoji que você não usa), `autoChamar` = apelido confirmado > 1º nome
+  (saudação, status/ausência e minhas frases), `autoTomDe` = intimidade marcada > tom aprendido > normal. 👤 Salvar contato: campo "COMO VOCÊ CHAMA ELE" (`.sv-apel` → `salvarContato.apelido` → contato `.apelido`),
+  sugestão "💡 Você costuma chamar ele de X — usar" (`jeitoApSug`, `svApel`) e linha "🪞 Seu jeito com ele…" (`jeitoResumoHtml`). Liga/desliga: Mensagens automáticas → 🪞 Imitar o meu jeito (`AUTO.jeito`, padrão ligado).
+  Testado no simulador: "Fala Lói, …, tmj" depois de 5 mensagens suas com "Fala Lói"/"tmj".

@@ -659,7 +659,8 @@
       ['🔎', 'Alt+B', 'Selecione o código na mensagem (pode ser a frase inteira — o PF puxa só os códigos) e aperte Alt+B: aparece o cartão com descrição, marcas, saldo, preço desse cliente, 🔗 Monta com e o botão do catálogo dos Componentes Cardan. Sem nada selecionado, abre uma caixinha pra digitar o código.'],
       ['📦', 'Anotei pra emitir / verificar', 'Quando o cliente pede ("pode faturar") ou você promete ("mando hoje", "vou verificar"), o PF anota sozinho um lembrete. Aparece um seloinho 📦/📌 na mensagem e um número ao lado do nome da conversa; clique pra ver ou desfazer. O lembrete vai pras Pendências e pro ☀️ Meu dia.'],
       ['➕', 'Pôr na cotação de hoje', 'Entra na cotação desse cliente que está aberta no PF ou que foi aberta HOJE; se não tiver, cria uma nova.'],
-      ['🎩', 'Grau de intimidade', 'Formal, Normal ou Próximo — muda o tom das mensagens automáticas pra essa pessoa (marque no 👤 Salvar contato ou no botão direito na conversa).']]],
+      ['🎩', 'Grau de intimidade', 'Formal, Normal ou Próximo — muda o tom das mensagens automáticas pra essa pessoa (marque no 👤 Salvar contato ou no botão direito na conversa).'],
+      ['🪞', 'Seu jeito com cada cliente', 'A extensão lê as SUAS mensagens e aprende como você abre ("Fala", "Opa", "Bom dia"), como fecha ("tmj", "abraço", 👍), o apelido que você usa e o tom. A mensagem automática sai igual — só usa o que você já usou com ele. O apelido você confirma no 👤 Salvar contato (campo "Como você chama ele"). Desliga em Mensagens automáticas → 🪞 Imitar o meu jeito.']]],
     ['Em cima e do lado esquerdo', [
       ['🔎', 'Barra de filtros', 'Clientes, Fornecedores, etiquetas do WhatsApp e cotação aberta. Clique pra deixar só essas conversas na lista; clique de novo pra ver tudo.'],
       ['🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome: se é cliente ou fornecedor do PF, cotação aberta, mapa esperando preço.'],
@@ -787,6 +788,8 @@
     if (ac === 'cfgTog') { cfgTog(arg); return; }
     if (ac === 'autoAbrir') { config = 'auto'; abrirPainel(); pinta(); return; } // 3.9 - 👋 saudação automática
     if (ac === 'autoVoltar') { config = true; pinta(); return; }
+    if (ac === 'autoTogJeito') { AUTO.jeito = AUTO.jeito === false; autoGravar(); pinta(); return; } // 5.4
+    if (ac === 'svApel') { var _ai = SV && SV.querySelector('.sv-apel'); if (_ai) _ai.value = arg; var _as = SV && SV.querySelector('.sv-apsug'); if (_as) _as.remove(); return; } // 5.4
     if (ac === 'autoTog') { AUTO[arg] = (arg === 'saud1a' || arg === 'trava30') ? AUTO[arg] === false : !AUTO[arg]; autoGravar(); pinta(); return; }
     if (ac === 'autoAvTog') { var _av = (AUTO.avisos || [])[+arg]; if (_av) { _av.on = !_av.on; autoGravar(); pinta(); try { autoStatusPill(); } catch (e) { } } return; } // 4.47
     if (ac === 'autoAvDel') { var _ad = (AUTO.avisos || [])[+arg]; if (_ad && confirm('Apagar o aviso "' + _ad.nome + '"?')) { AUTO.avisos.splice(+arg, 1); autoGravar(); pinta(); } return; }
@@ -1503,6 +1506,9 @@
       // ── cliente: tipo, intimidade, marca, grupo, gueri/fat.sp ──
       '<div class="sv-so-cli">' +
       '<div class="sv-gl">TIPO DO CLIENTE</div><div class="sv-gr sv-tp">' + svTipoRowHtml() + '</div>' + // 4.24
+      (function () { var jj = c ? autoJeitoDe(c.nome) : null, ap = (jj && jj.apelido) || '', sug = jeitoApSug(jj, c ? c.nome : ''); // 5.4 - 🪞
+        return '<label>COMO VOCÊ CHAMA ELE <span style="font-weight:600;text-transform:none;color:#8a9ab0">(apelido nas mensagens automáticas — vazio = 1º nome)</span><input class="sv-apel" value="' + esc(ap) + '" placeholder="Ex.: Lói, meu velho, chefe"></label>' +
+          (sug ? '<div class="sv-intsug sv-apsug">💡 Você costuma chamar ele de <b>' + esc(sug) + '</b> <span class="sv-lk" data-acao="svApel" data-arg="' + esc(sug) + '">usar</span></div>' : '') + jeitoResumoHtml(jj); })() +
       '<div class="sv-gl">INTIMIDADE COM ESSA PESSOA <span style="font-weight:600;text-transform:none;color:#8a9ab0">(tom das mensagens automáticas)</span></div><div class="sv-gr sv-int">' + svIntRowHtml() + '</div>' + svIntSugHtml() + // 4.47
       '<div class="sv-marca"></div>' + // 4.26 - marca da concessionária (só quando o tipo é Concessionária)
       '<div class="sv-gl">GRUPO DO CLIENTE <span style="font-weight:600;text-transform:none;color:#8a9ab0">(pode escolher mais de um)</span></div><div class="sv-gr sv-grp">' + svGruposRowHtml() + '</div>' +
@@ -1561,11 +1567,12 @@
     var cn = v('sv-cnpj').replace(/\D/g, ''); if (cn && cn.length !== 14 && cn.length !== 11) { flash(b, 'CNPJ incompleto'); b.disabled = false; b.textContent = txt; return; }
     if (cn) b.textContent = 'Buscando o CNPJ…';
     var _gs = svGrupos.map(function (id) { var g = svGruposTodos().find(function (x) { return x[0] === id; }); return g && /^g_/.test(id) ? g[1] : id; }).filter(Boolean); // 4.15 - grupo base = chave; grupo criado = o nome
-    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: _gs[0] || '', grupos: _gs, gruposMexeu: svGrpMexeu, tipoCli: svTipo, concMarcas: svTipo === 'conc' ? svConcMarcas : [], gueri: svGueri, fatSp: svFatSp, intim: svIntim } }); // 4.26 - marca da concessionária · 4.37 Gueri · 4.39 Fat. SP
+    var r = await msg({ t: 'acao', acao: 'salvarContato', arg: { tel: c.tel, nomeWa: c.nome, nome: nomeFull, pessoa: v('sv-nome'), cargo: v('sv-cargo'), k: svK, cod: v('sv-cod'), emp: v('sv-emp'), cnpj: cn, criar: !!criar, grupo: _gs[0] || '', grupos: _gs, gruposMexeu: svGrpMexeu, tipoCli: svTipo, concMarcas: svTipo === 'conc' ? svConcMarcas : [], gueri: svGueri, fatSp: svFatSp, intim: svIntim, apelido: (SV.querySelector('.sv-apel') ? v('sv-apel').trim() : undefined) } }); // 4.26 - marca da concessionária · 4.37 Gueri · 4.39 Fat. SP
     b.disabled = false; b.textContent = txt;
     var st = SV.querySelector('.sv-st');
     if (r && r.ok) {
       if (svIntim) { if (resp) resp.intim = svIntim; if (sitCache && sitCache[c.nome]) sitCache[c.nome].intim = svIntim; } // 4.47
+      try { var _ap = SV.querySelector('.sv-apel'); if (_ap) { var _av = _ap.value.trim(); if (resp && contatoAt && contatoAt.nome === c.nome) { resp.jeito = resp.jeito || {}; resp.jeito.apelido = _av; } JEITO_LOC[c.nome] = JEITO_LOC[c.nome] || {}; JEITO_LOC[c.nome].apelido = _av; if (sitCache && sitCache[c.nome]) { sitCache[c.nome].jeito = sitCache[c.nome].jeito || {}; sitCache[c.nome].jeito.apelido = _av; } } } catch (e) { } // 5.4
       if (r.k && r.cli) { svK = r.k; SV.querySelector('.sv-k').innerHTML = '🔗 ligado a <b>' + esc(r.cli) + '</b>'; }
       st.innerHTML = r.cli ? ('✔ Salvo · ' + (r.prospect ? '🌱 pré-cadastro <b>' + esc(r.cli) + '</b> criado no PF' + (r.base ? ' (dados da Receita)' : '') + ' com o contato' : r.cnpjJa ? 'esse CNPJ já era de <b>' + esc(r.cli) + '</b> — contato salvo lá' : r.novo ? 'cliente <b>' + esc(r.cli) + '</b> criado no PF com o contato' : 'contato' + (v('sv-cargo') ? ' (' + esc(v('sv-cargo')) + ')' : '') + ' no cadastro de <b>' + esc(r.cli) + '</b>') + '. <span class="sv-lk" data-acao="svCadAbrir">abrir o cadastro ›</span>')
         : v('sv-emp').trim() ? ('✔ Salvo no PF. <span style="color:#9A6B00">A empresa não está no PF.</span><br><button class="sv-ok sv-cria" data-acao="svCriar">➕ Criar cliente "' + esc(v('sv-emp').trim()) + '" no PF</button>')
@@ -1972,7 +1979,7 @@
     // UMA vez só, ao abrir a conversa; se o PF ainda estava carregando (modo monitor recarrega por dentro), a resposta vinha vazia e ficava presa no erro.
     // Agora, com erro na tela, pergunta de novo a cada 5 s até o PF responder.
     if (chave === ultimo && resp && resp.erro && resp.erro !== 'recarregar' && Date.now() - (window._pfwaQuemTent || 0) > 5000) { window._pfwaQuemTent = Date.now(); ultimo = ''; }
-    if (chave === ultimo) { pintaAviso(nCod); ofertasVigiar(); digitandoVigiar(); verificarVigiar(); pedidoVigiar(); cumpridoVigiar(); frotaVigiar(); materialVigiar(); return; }
+    if (chave === ultimo) { pintaAviso(nCod); ofertasVigiar(); digitandoVigiar(); verificarVigiar(); pedidoVigiar(); cumpridoVigiar(); jeitoVigiar(); frotaVigiar(); materialVigiar(); return; }
     ultimo = chave; cot = null; cotErro = ''; saldoR = null; ofPend = []; ofSig = ''; jaR = null; digAnt = ''; jaFechado = ''; vfR = null; vfSig = ''; peR = null; peSig = ''; askL = []; askSig = { fr: '', mat: '' }; if (QK) QK.style.display = 'none'; askPinta(); pintaOferta(); pintaJa(); pintaVf(); pintaPe();
     if (!c) { resp = null; pinta(); pintaAviso(0); return; }
     if (c.grupo) { resp = { grupo: 1 }; pinta(); return; }
@@ -3232,9 +3239,69 @@
   function autoInfo(aus) { var a = autoAvisoDe(aus); if (a) return [a.ic || '⏰', a.nome || 'Aviso']; return AUTO_MODOS[aus || 'normal'] || AUTO_MODOS.normal; }
   function autoDesde(aus) { var a = autoAvisoDe(aus); return a ? autoAvisoIni(a) : (AUTO.ausDesde || 0); }
   function autoPer(aus) { return aus + '|' + (autoDesde(aus) || ''); }
+  // 5.4 - A pedido do Vitor ("as respostas automáticas são criadas de acordo com como eu trato o cliente? tipo apelidos, termos usados?" → "quero"):
+  // 🪞 SEU JEITO com cada contato. Lendo as SUAS mensagens da conversa aberta, a extensão aprende como você abre ("Opa", "Fala", "Bom dia"…), como
+  // fecha ("tmj", "abraço", 👍…), o apelido que você usa (sugestão — confirma no 👤 Salvar contato) e o tom (próximo/formal) quando você não marcou.
+  // Guardado no PF por contato (pfContatosWhats_v1 .jeito/.apelido, acao jeitoSet). A automática só usa expressão que VOCÊ já usou com ele (2+ vezes).
+  var JEITO_AB = [['saud', /^(bom dia|boa tarde|boa noite)\b/], ['opa', /^opa+\b/], ['fala', /^fala+\b/], ['eai', /^(e a[ií]|ea[eií])\b/], ['oi', /^oi+\b/], ['ola', /^ol[áa]\b/], ['salve', /^salve\b/], ['prezado', /^prezad[oa]s?\b/]];
+  var JEITO_AB_TXT = { opa: 'Opa', fala: 'Fala', eai: 'E aí', oi: 'Oi', ola: 'Olá', salve: 'Salve' };
+  var JEITO_FE = [['tmj', /\b(tmj|tamo junto|tamos juntos)[\s!.]*$/], ['abraco', /\b(abra[çc]os?|abs|forte abra[çc]o)[\s!.]*$/], ['valeu', /\b(valeu|vlw)[\s!.]*$/], ['att', /\b(att|atenciosamente)[\s!.]*$/], ['joia', /👍\s*$/], ['maos', /🙏\s*$/], ['aperto', /🤝\s*$/]];
+  var JEITO_VOC = /^(meu (?:amigo|velho|querido|caro|irm[aã]o|parceiro)|chefe|chefia|patr[aã]o|querid[oa]|parceir[oa]|irm[aã]o|mano|grande|campe[aã]o|amig[aã]o|amigo|doutor|dr\.?|guerreiro|man)$/i;
+  var JEITO_NAO = /^(tudo|td|bem|beleza|blz|boa|bom|dia|tarde|noite|segue|vou|j[aá]|pessoal|galera|como|vai|vamos|aqui|ok|obrigad[oa]|sim|n[aã]o|ent[aã]o|olha|veja|t[oô]|estou|tenho|temos|tem|consegui|preciso|sobre|esse|essa|isso|o|a|os|as|e|de|do|da|pra|para|que|qual|quando|me|te|voc[eê]|vc|sr|sra)$/i;
+  var JEITO_LOC = {}, jeitoSig = {};
+  function jeitoNorm(t) { return String(t || '').trim().toLowerCase().replace(/^[*_~\s]+/, ''); }
+  function jeitoAnalisar(nome) {
+    var ms = []; try { ms = lerMensagens(); } catch (e) { }
+    var auto = {}; try { if (autoUlt[nome]) auto[String(autoUlt[nome]).trim()] = 1; if (autoPend[nome] && autoPend[nome].txt) auto[String(autoPend[nome].txt).trim()] = 1; } catch (e) { }
+    var eu = ms.filter(function (m) { return m.eu && m.t && !auto[m.t.trim()] && m.t.length < 400; }).map(function (m) { return m.t; });
+    var R = { ab: {}, fe: {}, ap: {}, n: eu.length };
+    eu.forEach(function (t) {
+      var n = jeitoNorm(t);
+      for (var i = 0; i < JEITO_AB.length; i++) { var m = n.match(JEITO_AB[i][1]); if (!m) continue; R.ab[JEITO_AB[i][0]] = (R.ab[JEITO_AB[i][0]] || 0) + 1;
+        var orig = t.trim().replace(/^[*_~\s]+/, '').slice(m[0].length).replace(/^[\s,!.]+/, ''), cand = (orig.match(/^([^\s,!.?\n]+(?:\s+[^\s,!.?\n]+)?)/) || [])[1] || '';
+        var w = cand.split(/\s+/), ap = '';
+        if (w.length > 1 && JEITO_VOC.test(cand)) ap = cand; else if (w[0] && JEITO_VOC.test(w[0])) ap = w[0]; else if (w[0] && /^[A-ZÀ-Ý][a-zà-ÿ'-]{1,14}$/.test(w[0]) && !JEITO_NAO.test(w[0])) ap = w[0];
+        if (ap) { ap = ap.charAt(0).toUpperCase() + ap.slice(1).toLowerCase(); R.ap[ap] = (R.ap[ap] || 0) + 1; }
+        break; }
+      for (var j = 0; j < JEITO_FE.length; j++) if (JEITO_FE[j][1].test(n)) { R.fe[JEITO_FE[j][0]] = (R.fe[JEITO_FE[j][0]] || 0) + 1; break; }
+    });
+    var tt = eu.join(' \n ').toLowerCase(), pr = (tt.match(/\b(mano|irm[aã]o|parceir\w*|meu amigo|meu velho|fala|tmj|blz|beleza|valeu|vlw|kkk+|top|opa)\b/g) || []).length, fo = (tt.match(/\b(sr\.?|sra\.?|senhor|senhora|prezad\w*|cordialmente|atenciosamente)\b/g) || []).length;
+    R.intimAuto = eu.length >= 5 ? (fo >= 2 && fo >= pr ? 'formal' : pr >= 3 ? 'proximo' : '') : '';
+    return R;
+  }
+  function jeitoJunta(a, b) { var o = {}; [a || {}, b || {}].forEach(function (x) { for (var k in x) o[k] = Math.max(o[k] || 0, x[k]); }); return o; }
+  function autoJeitoDe(nome) {
+    var j = null; try { if (resp && contatoAt && contatoAt.nome === nome && resp.jeito) j = resp.jeito; else if (sitCache && sitCache[nome] && sitCache[nome].jeito) j = sitCache[nome].jeito; } catch (e) { }
+    var l = JEITO_LOC[nome]; if (!l) return j || null; j = j || {};
+    return { ab: jeitoJunta(j.ab, l.ab), fe: jeitoJunta(j.fe, l.fe), ap: jeitoJunta(j.ap, l.ap), n: Math.max(j.n || 0, l.n || 0), intimAuto: l.intimAuto || j.intimAuto || '', apelido: (l.apelido !== undefined ? l.apelido : j.apelido) || '' };
+  }
+  function jeitoTop(o, min) { var ks = []; for (var k in (o || {})) if (o[k] >= (min || 2)) ks.push(k); return ks.sort(function (a, b) { return o[b] - o[a]; }); }
+  function jeitoApSug(j, nome) { if (!j || j.apelido) return ''; var pn = autoPrimeiroNome(nome).toLowerCase(), ks = jeitoTop(j.ap, 2).filter(function (k) { return k.toLowerCase() !== pn; }); return ks[0] || ''; }
+  // aprende na conversa aberta (só quando as suas mensagens mudaram) e guarda no PF
+  async function jeitoVigiar() {
+    try {
+      var c = contatoAt; if (!c || c.grupo || !c.nome) return;
+      var R = jeitoAnalisar(c.nome); if (!R.n) return;
+      var old = JEITO_LOC[c.nome] || {}, M = { ab: jeitoJunta(old.ab, R.ab), fe: jeitoJunta(old.fe, R.fe), ap: jeitoJunta(old.ap, R.ap), n: Math.max(old.n || 0, R.n), intimAuto: R.intimAuto || old.intimAuto || '' };
+      JEITO_LOC[c.nome] = M;
+      var sig = JSON.stringify([M.ab, M.fe, M.ap, M.intimAuto]); if (jeitoSig[c.nome] === sig) return; jeitoSig[c.nome] = sig;
+      var srv = (resp && contatoAt === c && resp.jeito) || {}, J = { ab: jeitoJunta(srv.ab, M.ab), fe: jeitoJunta(srv.fe, M.fe), ap: jeitoJunta(srv.ap, M.ap), n: Math.max(srv.n || 0, M.n), intimAuto: M.intimAuto || srv.intimAuto || '' };
+      if (!jeitoTop(J.ab).length && !jeitoTop(J.fe).length && !jeitoTop(J.ap).length && !J.intimAuto) return;
+      await msg({ t: 'acao', acao: 'jeitoSet', arg: { nome: c.nome, tel: c.tel || '', jeito: J } });
+    } catch (e) { }
+  }
+  function jeitoResumoHtml(j) {
+    if (!j) return ''; var ab = jeitoTop(j.ab).map(function (k) { return k === 'saud' ? 'Bom dia/tarde' : k === 'prezado' ? 'Prezado' : JEITO_AB_TXT[k]; }), fe = jeitoTop(j.fe).map(function (k) { return { tmj: 'tmj', abraco: 'abraço', valeu: 'valeu', att: 'Att.', joia: '👍', maos: '🙏', aperto: '🤝' }[k]; });
+    var p = []; if (ab.length) p.push('abre com <b>' + esc(ab.join(', ')) + '</b>'); if (fe.length) p.push('fecha com <b>' + esc(fe.join(', ')) + '</b>'); if (j.intimAuto) p.push('tom <b>' + (j.intimAuto === 'formal' ? 'Formal' : 'Próximo') + '</b>');
+    return p.length ? '<div class="sv-intsug" style="background:#f3eefa;border-color:#d9c8ee">🪞 Seu jeito com ele: ' + p.join(' · ') + ' <span style="color:#8a9ab0">(aprendido das suas mensagens — a automática usa igual)</span></div>' : '';
+  }
+  // nome usado na mensagem: apelido confirmado > 1º nome
+  function autoChamar(nome) { var j = AUTO.jeito !== false ? autoJeitoDe(nome) : null; if (j && j.apelido) return j.apelido; return autoPrimeiroNome(nome); }
   // 4.47 - grau de intimidade do contato (marcado no 👤 Salvar contato ou no botão direito) → tom da mensagem
+  // 5.4 - sem marcar à mão = o tom aprendido das suas mensagens (🪞)
   function autoTomDe(nome) {
-    try { if (resp && contatoAt && contatoAt.nome === nome && resp.intim) return resp.intim; var x = sitCache && sitCache[nome]; return (x && x.intim) || 'normal'; } catch (e) { return 'normal'; }
+    try { if (resp && contatoAt && contatoAt.nome === nome && resp.intim) return resp.intim; var x = sitCache && sitCache[nome]; if (x && x.intim) return x.intim;
+      if (AUTO.jeito !== false) { var j = autoJeitoDe(nome); if (j && j.intimAuto) return j.intimAuto; } return 'normal'; } catch (e) { return 'normal'; }
   }
   function autoTom(t, tom) {
     t = String(t || '');
@@ -3271,8 +3338,14 @@
   function autoCap(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
   // abertura "Bom dia, Carlos!" / "Opa, boa tarde" / "Oi Carlos" — varia, às vezes sem nome
   // 4.47 - sOk=false = já falaram hoje (sem "bom dia"); tom = formal / normal / proximo
-  function autoAbertura(nm, sOk, tom) {
+  function autoAbertura(nm, sOk, tom, jj) {
     var s = autoSaudacao(), sl = s.toLowerCase(), semS = sOk === false, comNome = nm && AUTO.chamarNome !== false && (tom === 'formal' || Math.random() < 0.7), l;
+    if (jj && AUTO.jeito !== false && tom !== 'formal') { // 5.4 - 🪞 abre do jeito que VOCÊ abre com ele
+      var ks = jeitoTop(jj.ab).filter(function (k) { return k === 'saud' ? !semS : !!JEITO_AB_TXT[k]; });
+      if (ks.length && Math.random() < 0.85) { var k = Math.random() < 0.7 ? ks[0] : autoSorteia(ks), cn = nm && AUTO.chamarNome !== false && Math.random() < 0.8;
+        if (k === 'saud') return s + (cn ? ', ' + nm : '') + '!';
+        return JEITO_AB_TXT[k] + (cn ? ' ' + nm : '') + (semS ? '!' : ', ' + sl + '!'); }
+    }
     if (tom === 'formal') l = semS ? (comNome ? [nm + ',', 'Olá, ' + nm + '.'] : ['Olá.']) : (comNome ? [s + ', ' + nm + '.', s + ', ' + nm + ', tudo bem?', 'Olá, ' + nm + ', ' + sl + '.'] : [s + '.', 'Olá, ' + sl + '.']);
     else if (tom === 'proximo') l = semS ? (comNome ? ['Fala ' + nm + '!', 'Opa ' + nm + '!', 'E aí ' + nm + '!', nm + ','] : ['Opa!', 'Fala!', 'E aí!']) : (comNome ? ['Opa ' + nm + ', ' + sl + '!', 'Fala ' + nm + ', ' + sl + '!', 'E aí ' + nm + ', ' + sl + '!', s + ' ' + nm + '!'] : ['Opa, ' + sl + '!', 'Fala, ' + sl + '!', s + '!']);
     else l = semS ? (comNome ? [nm + ',', 'Oi ' + nm + '!', 'Opa ' + nm + '!'] : ['Oi!', 'Opa!'])
@@ -3302,14 +3375,19 @@
     return ['tô finalizando um atendimento aqui e já falo com você', 'só um minutinho que já te respondo', 'já te respondo', 'tô terminando uma cotação aqui e já falo com você'];
   }
   function autoNatural(nome, u, sOk, tom) {
-    var nm = autoPrimeiroNome(nome), ab = autoAbertura(nm, sOk, tom), ct = autoSorteia(autoContexto(u, tom));
+    var jj = AUTO.jeito !== false ? autoJeitoDe(nome) : null, nm = autoChamar(nome), ab = autoAbertura(nm, sOk, tom, jj), ct = autoSorteia(autoContexto(u, tom));
     var fim = tom === 'formal' ? '.' : tom === 'proximo' ? autoSorteia(['', ' 👍', ' 🙏', '!', ' 😉']) : autoSorteia(['', '', '', ' 👍', ' 🙏', '!']);
+    if (jj) { // 5.4 - 🪞 fecha do jeito que VOCÊ fecha com ele (só o que você já usou)
+      var fk = jeitoTop(jj.fe).filter(function (k) { return tom === 'formal' ? (k === 'att' || k === 'abraco') : k !== 'att'; });
+      if (fk.length && Math.random() < 0.65) { var f = fk[0]; fim = { tmj: ', tmj', valeu: ', valeu', abraco: '. Abraço', att: '. Att.', joia: ' 👍', maos: ' 🙏', aperto: ' 🤝' }[f] || fim; }
+      else if (fk.length || jeitoTop(jj.ab).length) fim = tom === 'formal' ? '.' : '!'; // não inventa emoji que você não usa com ele
+    }
     return (autoJunta(ab, ct) + fim).replace(/!!$/, '!').replace(/\?\s+([a-zà-ú])/, function (m, c) { return '? ' + c.toUpperCase(); });
   }
   function autoDataBR(s) { var d = new Date(s); if (!s || isNaN(d)) return ''; return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2); }
   function autoHoraBR(s) { var d = new Date(s); if (!s || isNaN(d)) return ''; var h = d.getHours(), m = d.getMinutes(); return h + 'h' + (m ? ('0' + m).slice(-2) : ''); }
   function autoAusTexto(nome, modo, sOk, tom) {
-    var av = autoAvisoDe(modo), nm = autoPrimeiroNome(nome), ab = autoAbertura(nm, sOk, tom), proprio = String(av ? (av.txt || '') : ((AUTO.ausTxt || {})[modo] || '')).trim();
+    var av = autoAvisoDe(modo), nm = autoChamar(nome), ab = autoAbertura(nm, sOk, tom, AUTO.jeito !== false ? autoJeitoDe(nome) : null), proprio = String(av ? (av.txt || '') : ((AUTO.ausTxt || {})[modo] || '')).trim();
     var sub = String(AUTO.subst || '').trim(), tel = String(AUTO.substTel || '').trim(), quem = sub ? (sub + (tel ? ' no ' + tel : '')) : '';
     var volta = '';
     if (av) { var fT = autoAvisoFim(av), d0 = new Date(); d0.setHours(0, 0, 0, 0); var d1 = new Date(fT); d1.setHours(0, 0, 0, 0); var dd = Math.round((d1 - d0) / 86400000);
@@ -3332,7 +3410,7 @@
   function autoTextoMinhas(nome, sOk, tom) {
     var fs = (AUTO.frases || []).map(function (f) { return String(f || '').trim(); }).filter(Boolean); if (!fs.length) fs = AUTO_PADRAO.frases;
     var ft = ((AUTO.frasesTom || {})[tom] || []).map(function (f) { return String(f || '').trim(); }).filter(Boolean); if (ft.length) fs = ft; // 4.47 - frases do tom
-    var f = fs[Math.floor(Math.random() * fs.length)], nm = autoPrimeiroNome(nome);
+    var f = fs[Math.floor(Math.random() * fs.length)], nm = autoChamar(nome); // 5.4 - apelido
     // 4.27 - sem precisar digitar {nome}/{saudacao}: liga/desliga põe o nome e/ou a saudação na frente da frase
     var temS = /\{saudacao\}/i.test(f), temN = /\{nome\}/i.test(f);
     var saud = (AUTO.comSaud !== false && !temS && sOk !== false) ? autoSaudacao() : ''; // 4.47 - já falaram hoje = sem saudação
@@ -4104,6 +4182,7 @@
       (A.estilo === 'minhas' ? '<div class="au-fr"><small>Uma por linha · a extensão sorteia · use {saudacao} e {nome}</small><textarea data-au="frases" rows="4">' + esc((A.frases || []).join('\n')) + '</textarea></div>'
         : '<div class="au-fr"><small>O PF lê o que o cliente mandou e responde de acordo: códigos → "já vou ver esses códigos", foto → "vi a foto", áudio → "vou ouvir aqui", preço → "já te passo o valor". Varia a saudação, às vezes sem nome, não repete a última, e espera uns segundos "digitando".</small></div>') +
       // 4.27 - chamar pelo nome / começar com saudação (vale pra "Minhas frases" sem precisar digitar {nome}/{saudacao})
+      '<div class="pfwa-cfgl" data-acao="autoTogJeito"><span class="pfwa-cfgi">🪞</span><div><b>Imitar o meu jeito com cada cliente</b><br><small>Usa o apelido, o jeito de abrir e de fechar e o tom que VOCÊ usa com aquela pessoa (aprendido das suas mensagens).</small></div><span class="pfwa-sw' + (A.jeito !== false ? ' on' : '') + '"><i></i></span></div>' +
       '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="chamarNome"><span class="pfwa-cfgi">👤</span><div><b>Chamar o cliente pelo nome</b><br><small>Põe o nome na frente quando dá pra saber. Você não precisa digitar {nome} nas frases.</small></div><span class="pfwa-sw' + (A.chamarNome !== false ? ' on' : '') + '"><i></i></span></div>' +
       '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="saud1a"><span class="pfwa-cfgi">☀️</span><div><b>"Bom dia/Boa tarde" só na 1ª conversa do dia</b><br><small>Já falou com esse cliente hoje? A frase vai sem o "bom dia" ("João, só finalizando um processo aqui e já te chamo").</small></div><span class="pfwa-sw' + (A.saud1a !== false ? ' on' : '') + '"><i></i></span></div>' +
       '<div class="pfwa-cfgl" data-acao="autoTog" data-arg="comSaud"><span class="pfwa-cfgi">🕐</span><div><b>Começar com "Bom dia/Boa tarde"</b><br><small>Puxa a saudação da hora pra frente da sua frase.</small></div><span class="pfwa-sw' + (A.comSaud !== false ? ' on' : '') + '"><i></i></span></div>' +

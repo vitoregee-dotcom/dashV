@@ -3117,3 +3117,5 @@
 - v115.2840 ("qnd ele já altera o código qnd inclui como conversão, ele puxa uma única ficha. quero que puxe todas"): depois que a conversão troca o código
   (➕ Incluir como conversão / ✏️ Corrigir código → `vendasItemTrocarCodigo`, lista Carraro OM → `pfCarraroTrocar` e `pfCarraroAutoTodos`), `vendasConvTrazerTodas(i)` põe as OUTRAS
   marcas do código novo logo embaixo (1 linha por ficha, mesma qtd, CÓD. CLIENTE e tarja 🔁; usa o `vendasOutrasMarcasDe` = sem repetir marca e respeitando Assistente/regras da cotação; remapeia Sel/PV).
+- v115.2840 (print do Confirmar Pedido de Venda: "deixa o botão de 28 dias sempre, que é o prazo mínimo" + lista de cotações: "vamos colocar o dia da semana embaixo da data"):
+  `pvCondSugestoes` sempre acrescenta o chip "28" (prazo mínimo) depois das sugestões (sem repetir); a coluna DT. COT. da lista de cotações mostra o dia da semana pequeno embaixo da data.

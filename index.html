@@ -70,6 +70,7 @@ try{
         _pfLongtasks.push(e);
         console.warn('🐢 LONGTASK: '+e.duration.toFixed(0)+'ms bloqueando a thread principal, em t='+(e.startTime/1000).toFixed(2)+'s desde o início da página');
         if(typeof _pfLogDiagnostico==='function')_pfLogDiagnostico('longtask',{ms:Math.round(e.duration),tSegundos:+(e.startTime/1000).toFixed(2)});
+        if(e.duration>=2000&&typeof window._pfTravaGrande==='function')window._pfTravaGrande(e.startTime,e.duration); // v115.2846
       });
     });
     _pfLongtaskObs.observe({type:'longtask',buffered:true});
@@ -84,7 +85,7 @@ try{
     var _pfLoafUlt=0;
     new PerformanceObserver(function(l){
       l.getEntries().forEach(function(en){
-        if(en.duration<120)return;var ag=Date.now();if(ag-_pfLoafUlt<2000)return;_pfLoafUlt=ag;
+        if(en.duration<120)return;var ag=Date.now();if(ag-_pfLoafUlt<2000&&en.duration<2000)return;_pfLoafUlt=ag; // v115.2846 - trava grande sempre entra
         var scs=(en.scripts||[]).slice().sort(function(a,b){return b.duration-a.duration;}).slice(0,3).map(function(sc){
           return {ms:Math.round(sc.duration),fn:sc.sourceFunctionName||'',inv:String(sc.invoker||'').slice(0,80),tipo:sc.invokerType||'',pos:sc.sourceCharPosition,layout:Math.round(sc.forcedStyleAndLayoutDuration||0)};});
         var det={ms:Math.round(en.duration),bloq:Math.round(en.blockingDuration||0),render:en.renderStart?Math.round(en.startTime+en.duration-en.renderStart):0,view:(typeof currentView!=='undefined'?currentView:''),scripts:scs};
@@ -93,6 +94,75 @@ try{
     }).observe({type:'long-animation-frame',buffered:true});
   }
 }catch(e){}
+// v115.2846 - A pedido do Vitor ("ta travando ainda" / "não lembro" o que fez): travas de 11–13 s logo depois de abrir Vendas
+// apareceram no diagnóstico SEM dizer quem foi (o long-animation-frame não pegou). Agora toda trava de 2 s ou mais grava
+// 'trava_grande' com: os últimos cliques/teclas/colar (alvo, tela, aba de Vendas) e — quando o navegador deixa (Chrome +
+// cabeçalho Document-Policy: js-profiling no vercel.json) — as FUNÇÕES que mais rodaram durante a trava (JS Self-Profiling,
+// amostra a cada 20 ms, reiniciado a cada 30 s). Só diagnóstico: não muda nada na tela.
+(function(){
+  try{
+    var acoes=[];window._pfAcoesRecentes=acoes;
+    var _ultTecla=0;
+    function alvoTxt(el){
+      try{
+        if(!el||!el.closest)return '';
+        var a=el.closest('button,a,[onclick],input,select,textarea,label,[role=button],tr,li')||el;
+        var s=a.tagName.toLowerCase();
+        if(a.id)s+='#'+a.id;
+        var oc=a.getAttribute&&a.getAttribute('onclick');if(oc)s+=' onclick='+oc.slice(0,70);
+        var tx=(a.getAttribute&&(a.getAttribute('placeholder')||a.getAttribute('title')))||(a.innerText||'');
+        tx=String(tx).replace(/\s+/g,' ').trim().slice(0,50);if(tx)s+=' "'+tx+'"';
+        return s.slice(0,180);
+      }catch(e){return '';}
+    }
+    function push(tipo,el){
+      acoes.push({t:+(performance.now()/1000).toFixed(2),tipo:tipo,alvo:alvoTxt(el),
+        view:(typeof currentView!=='undefined'?currentView:''),aba:(window._vendasMainTab||'')});
+      if(acoes.length>15)acoes.shift();
+    }
+    document.addEventListener('click',function(e){push('clique',e.target);},true);
+    document.addEventListener('paste',function(e){push('colar',e.target);},true);
+    document.addEventListener('keydown',function(e){var ag=performance.now();if(ag-_ultTecla<1000)return;_ultTecla=ag;push('tecla',e.target);},true);
+    // perfilador (só existe no Chrome com o cabeçalho certo; sem ele, fica só a lista de ações)
+    var prof=null,ultRot=performance.now();
+    function iniciar(){try{if(typeof Profiler==='undefined'){prof=null;return;}prof=new Profiler({sampleInterval:20,maxBufferSize:6000});}catch(e){prof=null;}}
+    iniciar();
+    setInterval(function(){
+      var ag=performance.now(),atraso=ag-ultRot-30000;ultRot=ag;
+      if(!prof||atraso>1000)return; // acabou de ter trava: deixa o _pfTravaGrande ler este perfil
+      var p=prof;prof=null;try{p.stop().catch(function(){});}catch(e){}
+      iniciar();
+    },30000);
+    function topFuncoes(tr,ini,fim){
+      var incl={},self={},n=0;
+      (tr.samples||[]).forEach(function(s){
+        if(s.timestamp<ini||s.timestamp>fim||s.stackId==null)return;n++;
+        var sid=s.stackId,vistos={},primeiro=true;
+        while(sid!=null){
+          var st=tr.stacks[sid];if(!st)break;var fr=tr.frames[st.frameId]||{};
+          var nome=(fr.name||'(anônima)')+(fr.line!=null?':'+fr.line:'');
+          if(primeiro){self[nome]=(self[nome]||0)+1;primeiro=false;}
+          if(!vistos[nome]){vistos[nome]=1;incl[nome]=(incl[nome]||0)+1;}
+          sid=st.parentId;
+        }
+      });
+      function top(o,k){return Object.keys(o).sort(function(a,b){return o[b]-o[a];}).slice(0,k).map(function(x){return x+' ('+Math.round(o[x]*100/Math.max(n,1))+'%)';});}
+      return {amostras:n,mais_tempo:top(incl,12),no_topo:top(self,6)};
+    }
+    window._pfTravaGrande=function(ini,dur){
+      try{
+        var det={ms:Math.round(dur),tSegundos:+(ini/1000).toFixed(2),view:(typeof currentView!=='undefined'?currentView:''),
+          aba:(window._vendasMainTab||''),cotAberta:!!(window._venda&&document.getElementById('vendasModal')&&document.getElementById('vendasModal').offsetParent),
+          acoes:acoes.filter(function(a){return a.t>=ini/1000-30;})};
+        var log=function(){if(typeof _pfLogDiagnostico==='function')_pfLogDiagnostico('trava_grande',det);};
+        if(!prof){det.perfil='indisponível';log();return;}
+        var p=prof;prof=null;
+        p.stop().then(function(tr){det.perfil=topFuncoes(tr,ini,ini+dur);log();iniciar();})
+          .catch(function(e){det.perfil='erro: '+(e&&e.message);log();iniciar();});
+      }catch(e){}
+    };
+  }catch(e){}
+})();
 // v115.765 - "Batimento cardíaco": loga a hora certa a cada 1s. Se o
 // intervalo entre dois batimentos for bem maior que 1s (ex: 8s, 15s), é
 // prova de que a thread ficou travada esse tempo TODO de uma vez só --
@@ -1994,7 +2064,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2845</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2846</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2226,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2845</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2846</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>

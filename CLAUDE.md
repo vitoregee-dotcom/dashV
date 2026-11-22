@@ -3166,6 +3166,9 @@
   os 3 selos do cabeçalho da conversa (👤+ `#pfwa-svb`, 📦📨📌 `#pfwa-ancnt`, 🧭 `#pfwa-ccb`) andam JUNTOS num bloco só (`pfwaCabLayout`, ordem fixa, gap 4, `_pfwaCabPos`
   guarda o lugar por conversa) e ficaram menores (📦/📨 24 px). A lista do cabeçalho do WhatsApp nem sempre fica dentro do `#main header` → `pfwaObsLinha` varre a linha do
   nome ponto a ponto (elementsFromPoint) e todo elemento com texto/ícone/fundo/borda vira obstáculo. Sem lugar na linha = bloco embaixo do cabeçalho, à DIREITA. Selo novo do cabeçalho → entrar no `pfwaCabLayout`.
+- v115.2856 ("se não tiver, vamo pensar em um jeito de cadastrar e criar ficha de acordo com a cotação" → "pode"): na conferência do 📥 Cotação do JBoss, item sem ficha que fica com o código
+  do JBoss ganha "📝 Criar ficha no PF" (vem marcado) → `pfJbCriarFichas` (no `pfJbCriar`): ficha em PROD_KEY com código, marca, descrição, NCM e unidade PÇ, `criadoDe:'jboss'`, `jbossNum`, obs "conferir";
+  o código que o JBoss tinha antes da conversão vira conversão da ficha; código+marca que já existe não duplica. Prévia do pagamento à vista/PIX + 🗂️ Mesa do setor em `docs/referencias/mesa-setor/previa.png` (esperando o Vitor).
 - v115.2855 BUG (cotação JBoss 396294 da Bravus pela extensão: "esse item foi como se não tivesse ficha… algo relacionado a conversão"): 87429970 SPICER SELECT e CARRARO viraram MEDAL
   (a 1ª ficha do código). `pfJbPrepItem`: marca do JBoss comparada de forma tolerante (`pfJbFichaDaMarca`: igual > `pfExtMarcaBate` > só letras+números); sem ela no código, procura nas
   conversões (`pfConvItemLista`: fichas, Cardan, lista Carraro OM — 87429970 = CARRARO 135190) uma ficha da marca (`o.codCli`/`o.conv`); sem achar, NÃO troca de marca: o item entra com o código,

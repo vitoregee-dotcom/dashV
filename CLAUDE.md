@@ -3126,3 +3126,9 @@
   (visual Espaço da 2831) gastava CPU sem parar — cada planeta com 4–5 degradês redesenhados 30x/s. Agora `pfOrbPlanetaVivo2D` desenha o planeta 1x num canvas guardado (`_pfOrbPlSpr`,
   chave cores|tamanho|brilho|resolução; o desenho antigo virou `pfOrbPlanetaVivo2DReal`) e só cola com drawImage (mesma imagem, diferença 0,02/255); e a Órbita parada (sem mouse em
   cima nem arrastando) desenha ~18x/s em vez de 30 (2D e 3D). Tela inicial parada, 40 s: Órbita 3,6 s → 1,2 s de JavaScript e desenho do navegador 12,4 s → 5 s.
+- v115.2843 (📦 Meus pedidos: "quero abrir com 2 clicks… botão de cancelar o pedido, janela pro motivo, e quando cancelar precisa sair na tela de estoque" + "sem as barras inferior e de notificações, parecendo que tô trancado"):
+  `#pfMeusPed` agora z 58 + `pfTelaCheiaEsq` (dock e barra de notificações aparecem; clicar no dock fecha). Cartão: 1 clique = opções (`pfMpClique`, espera 260 ms), 2 cliques = abre o pedido
+  (`pfMpDbl` → `pvAbrirEdicao`); lista de Pedidos de Venda: 2 cliques na linha abre. **✖ Cancelar pedido** (menu do cartão e botão na lista) → `pvCancelarAbrir` (janela `pfNcPvCanc`, motivo obrigatório
+  com sugestões) → `pvCancelarGravar`: status `cancelado` + `canceladoEm/canceladoPor/motivoCancel/statusAntesCancel`, logHistorico; aguardando separação devolve o saldo (`pvDevolverAbatimento`); itens da
+  cotação de origem perdem o `pvNumero`. Separação (Logística): etapa "✖ Cancelado" 7 dias, vermelho "NÃO SEPARAR" + motivo. Fora do `pcMontarDados` (Painel/Órbita/Gestão) e do Meus pedidos.
+  De Faturado em diante só gestor/admin. `pvEtapaInfo('cancelado')` responde (não está no PV_ETAPAS, pra não virar "próxima etapa").

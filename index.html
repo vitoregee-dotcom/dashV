@@ -1994,7 +1994,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2844</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2845</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2156,7 +2156,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2844</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2845</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -41753,6 +41753,46 @@ async function pfNoticiasPuxarRapido(){
     }
   }catch(e){console.warn('pfNoticiasPuxarRapido',e);}
 }
+// v115.2845 - A pedido do Vitor ("veja pq o pf esta com lentidao"): versão (updated_at) de cada chave já recebida do
+// user_sync, por conta, pra o pull completo baixar só o que mudou. Fica no localStorage (o Sair limpa tudo = baixa tudo de novo).
+// 'u:chave' = linha própria, 's:chave' = compartilhada (a mais nova), 'l:chave' = log (assinatura user@updated_at de todas as linhas).
+var PF_SYNC_VER_KEY='pf_sync_ver_v1';
+function pfSyncVerLer(uid){
+  try{var o=JSON.parse(localStorage.getItem(PF_SYNC_VER_KEY)||'{}');return (o&&o.uid===uid&&o.v)?o.v:{};}catch(e){return {};}
+}
+function pfSyncVerGravar(uid,novo){
+  try{
+    if(!novo){localStorage.removeItem(PF_SYNC_VER_KEY);return;}
+    var v=pfSyncVerLer(uid);
+    Object.keys(novo).forEach(function(k){v[k]=novo[k];});
+    localStorage.setItem(PF_SYNC_VER_KEY,JSON.stringify({uid:uid,v:v}));
+  }catch(e){}
+}
+// linha própria que o pull trata como "minha" (mesmas exceções do forEach do pull)
+function pfSyncProprioVale(chave){
+  if(chave==='partsflow_cotacoes_v1'&&sbUser.id!==MY_USER_ID)return false;
+  if(/^pfNoticias(Setor|SetorAtualizadoEm|MarcasAtualizadoEm|MarcasHistorico)$/.test(chave)&&sbUser.id!==MY_USER_ID)return false;
+  return true;
+}
+// o dado dessa chave já está neste navegador? (chave que o pull nem grava = não precisa baixar de novo)
+function pfSyncTemLocal(chave){
+  try{
+    if(chave==='perf_diagnostico_v1')return true;
+    if(typeof PF_SYNC_KEYS!=='undefined'&&!PF_SYNC_KEYS.includes(chave)&&chave.indexOf('mapa_estado_')!==0&&chave.indexOf('pfCardOrder_')!==0)return true;
+    var raw=pfRawGetItem(chave);
+    return raw!=null&&raw.length>2&&raw!=='null';
+  }catch(e){return false;}
+}
+// baixa os dados só das chaves pedidas (em lotes, pra URL não ficar enorme); devolve algo com cara de Response (ok/json)
+async function pfSyncBuscarChaves(uid,chaves){
+  if(!chaves.length)return {ok:true,json:async function(){return [];}};
+  var lotes=[];for(var i=0;i<chaves.length;i+=40)lotes.push(chaves.slice(i,i+40));
+  var resps=await Promise.all(lotes.map(function(l){
+    return sbFetch('/rest/v1/user_sync?user_id=eq.'+uid+'&chave=in.('+l.map(function(c){return '"'+encodeURIComponent(c)+'"';}).join(',')+')&select=chave,dados,updated_at');
+  }));
+  var ok=resps.every(function(r){return r&&r.ok;});
+  return {ok:ok,json:async function(){var out=[];for(var j=0;j<resps.length;j++){if(resps[j].ok)out=out.concat(await resps[j].json());}return out;}};
+}
 async function pfSyncPull(){
   try{pfNoticiasPuxarRapido();}catch(eNot){} // v115.2260
   if(typeof sbUser==='undefined'||!sbUser)return;
@@ -41811,8 +41851,55 @@ async function pfSyncPull(){
     // compartilhadas: onde o usuário já tem linha própria, a própria sempre
     // venceu (ver "!rows.some" lá embaixo) -- no incremental nem pergunta.
     var sharedKeysBuscar=_pfPullCompleto?sharedKeys:sharedKeys.filter(function(sk){return !(window._pfChavesProprias&&window._pfChavesProprias[sk]);});
+    // v115.2845 - A pedido do Vitor ("veja pq o pf esta com lentidao"): o pull COMPLETO (1º da sessão e a cada 15 min) ainda
+    // baixava TUDO de novo — 34 MB só nas linhas do vitoregee (cad_produtos_v1 sozinho 6 MB), 1,3–1,6 s só no banco + download +
+    // JSON.parse. Agora pergunta antes SÓ chave+updated_at (leve) e baixa os dados apenas do que mudou desde a última vez
+    // (versão guardada por chave em PF_SYNC_VER_KEY) ou do que não existe/está vazio neste navegador. Os merges são de união,
+    // então pular o que não mudou dá o mesmo resultado. No modo demonstração continua baixando tudo (como antes).
+    var _pfVerOn=_pfPullCompleto&&!(typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo());
+    var _pfVer=_pfVerOn?pfSyncVerLer(sbUser.id):{};
+    var _pfVerNovo={};
+    var _pfUserChaves=null, _pfProprias2845=null, _pfLogSig={};
+    if(_pfVerOn){
+      try{
+        var _rLeve=await Promise.all([
+          sbFetch('/rest/v1/user_sync?user_id=eq.'+sbUser.id+'&select=chave,updated_at'),
+          sbFetch('/rest/v1/user_sync?chave=in.('+sharedKeys.map(encodeURIComponent).join(',')+')&select=chave,updated_at,user_id'),
+          sbFetch('/rest/v1/user_sync?chave=in.('+logKeys.map(encodeURIComponent).join(',')+')&select=chave,updated_at,user_id')
+        ]);
+        if(_rLeve[0].ok&&_rLeve[1].ok&&_rLeve[2].ok){
+          var _lU=await _rLeve[0].json(), _lS=await _rLeve[1].json(), _lL=await _rLeve[2].json();
+          _pfUserChaves=[]; _pfProprias2845={};
+          _lU.forEach(function(r){
+            if(pfSyncProprioVale(r.chave))_pfProprias2845[r.chave]=true;
+            if(_pfVer['u:'+r.chave]===r.updated_at&&pfSyncTemLocal(r.chave))_pfVerNovo['u:'+r.chave]=r.updated_at; // não mudou
+            else _pfUserChaves.push(r.chave);
+          });
+          var _lat={};
+          _lS.forEach(function(r){
+            if(PF_CATALOGO_UNICO_KEYS.indexOf(r.chave)>=0&&r.user_id!==MY_USER_ID)return;
+            var t=Date.parse(r.updated_at)||0;
+            if(!_lat[r.chave]||t>_lat[r.chave].t)_lat[r.chave]={t:t,ts:r.updated_at};
+          });
+          sharedKeysBuscar=sharedKeys.filter(function(sk){
+            if(_pfProprias2845[sk]||!_lat[sk])return false; // a própria vence / não existe no banco
+            if(_pfVer['s:'+sk]===_lat[sk].ts&&pfSyncTemLocal(sk)){_pfVerNovo['s:'+sk]=_lat[sk].ts;return false;}
+            return true;
+          });
+          var _sigs={};
+          _lL.forEach(function(r){(_sigs[r.chave]=_sigs[r.chave]||[]).push(r.user_id+'@'+r.updated_at);});
+          logKeysBuscar=logKeys.filter(function(lk){
+            var sig=(_sigs[lk]||[]).sort().join('|');
+            _pfLogSig[lk]=sig;
+            if(!sig)return false;
+            if(_pfVer['l:'+lk]===sig&&pfSyncTemLocal(lk)){_pfVerNovo['l:'+lk]=sig;return false;}
+            return true;
+          });
+        }
+      }catch(eLeve){_pfUserChaves=null;_pfProprias2845=null;logKeysBuscar=logKeys;sharedKeysBuscar=sharedKeys;}
+    }
     var results = await Promise.all([
-      sbFetch('/rest/v1/user_sync?user_id=eq.'+sbUser.id+_pfFiltroDesde+'&select=chave,dados,updated_at'),
+      _pfUserChaves?pfSyncBuscarChaves(sbUser.id,_pfUserChaves):sbFetch('/rest/v1/user_sync?user_id=eq.'+sbUser.id+_pfFiltroDesde+'&select=chave,dados,updated_at'),
       Promise.all(logKeysBuscar.map(function(lk){ return sbFetch('/rest/v1/user_sync?chave=eq.'+lk+'&select=chave,dados,updated_at,user_id'); })),
       // v115.1022 - pras 2 chaves de catálogo único (PF_CATALOGO_UNICO_KEYS),
       // filtra direto pelo MY_USER_ID fixo em vez de "a mais recente de
@@ -41835,6 +41922,7 @@ async function pfSyncPull(){
       if(userRows && userRows.length){
         userRows.forEach(r => {
           _pfVerMarca(r);
+          _pfVerNovo['u:'+r.chave]=r.updated_at; // v115.2845
           window._pfChavesProprias=window._pfChavesProprias||{};
           window._pfChavesProprias[r.chave]=true;
           // v115.1956 - diagnóstico de performance é só deste aparelho: não
@@ -41852,6 +41940,8 @@ async function pfSyncPull(){
           rows.push(r);
         });
       }
+      // v115.2845 - no pull completo "leve" só vêm as chaves que mudaram: a lista de próprias sai da consulta leve (todas)
+      if(_pfProprias2845)window._pfChavesProprias=_pfProprias2845;
     }
 
     // Chaves que são "log" (uma lista que cresce, um registro por evento) --
@@ -41866,6 +41956,7 @@ async function pfSyncPull(){
       if(rLog && rLog.ok){
         var logRows = await rLog.json();
         if(logRows)logRows.forEach(_pfVerMarca);
+        if(_pfLogSig[lk])_pfVerNovo['l:'+lk]=_pfLogSig[lk]; // v115.2845
         // v115.1600 - BUG corrigido (Vitor: "não consigo apagar lembrete"):
         // pfLembretes_deletados (tombstone) só existia como chave normal
         // (só conta logada), não como logKey -- então excluir um lembrete
@@ -41934,6 +42025,7 @@ async function pfSyncPull(){
         if(sharedRows && sharedRows.length){
           // Pegar o mais recente
           var latest = sharedRows.sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at))[0];
+          if(latest)_pfVerNovo['s:'+latest.chave]=latest.updated_at; // v115.2845
           if(latest && !rows.some(r=>r.chave===latest.chave)) rows.push(latest);
         }
       }
@@ -41944,6 +42036,9 @@ async function pfSyncPull(){
     if(rUser.ok&&logResponses.every(function(x){return x&&x.ok;})&&sharedResponses.every(function(x){return x&&x.ok;})){
       window._pfSyncMarca=_pfMarcaNova||_pfAgoraPull;
       if(_pfPullCompleto)window._pfUltimoPullCompleto=_pfAgoraPull;
+      // v115.2845 - guarda a versão de cada chave recebida (no incremental só acrescenta; no modo demonstração zera)
+      if(typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo())pfSyncVerGravar(sbUser.id,null);
+      else pfSyncVerGravar(sbUser.id,_pfVerNovo);
     }
     if(!rows||!rows.length)return;
     // v115.1600 - Aplica o tombstone unificado de pfLembretes_deletados NO

@@ -74,6 +74,11 @@
   que sobe os `font-size` inline pequenos (9–14px) dentro de `#pfMain` e dos modais; níveis altos somam `zoom` nas views.
 - Ferramentas: `pfFerrAplicarPadrao` deixa o cabeçalho escuro em qualquer ferramenta (layout "B");
   botão padrão 3D = classe `.pfBtn` (+ `pfBtnVermelho/Escuro/Verde/Azul/Claro`).
+- v115.2845 LENTIDÃO ("veja pq o pf esta com lentidao"): o pull COMPLETO (1º da sessão e a cada 15 min) baixava tudo de novo (34 MB só nas linhas do
+  vitoregee). Agora pergunta antes só `chave,updated_at` (próprias, compartilhadas e logs) e baixa os dados só do que mudou ou do que não existe/está vazio
+  no navegador (`pfSyncTemLocal`). Versões em `pf_sync_ver_v1` (`pfSyncVerLer`/`pfSyncVerGravar`: 'u:'/'s:'/'l:' + chave; log = assinatura user@updated_at);
+  `pfSyncBuscarChaves` busca em lotes de 40. Modo demonstração = baixa tudo como antes. No banco (Supabase, 22/11): índice `user_sync (chave, updated_at desc)`
+  e políticas RLS com `(select auth.uid())`/`(select pf_eh_*())`. Ainda pesado: blobs grandes regravados inteiros a cada mudança (cad_produtos_v1 ~6 MB).
 - Sync: `pfSyncPull` é incremental (marca d'água de `updated_at`); `cad_produtos_v1` tem merge próprio
   (`pfMergeProdutosArr`, colapsa por código+marca e **descarta item sem código** — em set/2026 um fantasma
   sem código dobrava a cada sync e chegou a 1,2 milhão; qualquer merge novo precisa colapsar TUDO, nada pode

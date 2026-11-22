@@ -3122,3 +3122,7 @@
 - v115.2841 ("eu falei para deixar 28 dias tbm, e não para tirar as outras opções de acordo com o valor da compra. quero os botões lá" — Confirmar Pedido de Venda): o `pvCondSugestoes`
   mostra SEMPRE todas as condições da Tabela Triex (À VISTA, 28 e todas as do `PF_COND_FAIXAS`); as da faixa do valor ficam com ⭐ e contorno verde (`sug`, `data-sug`). O campo já vem com
   a do cadastro/Assistente ou a 1ª ⭐ (não "À VISTA").
+- v115.2842 LENTIDÃO ("to sentindo umas travadas"): o diagnóstico do Vitor (21/11 à noite) só tinha longtasks de 100–1.500 ms sem autor; perfilando a tela inicial parada, a Órbita
+  (visual Espaço da 2831) gastava CPU sem parar — cada planeta com 4–5 degradês redesenhados 30x/s. Agora `pfOrbPlanetaVivo2D` desenha o planeta 1x num canvas guardado (`_pfOrbPlSpr`,
+  chave cores|tamanho|brilho|resolução; o desenho antigo virou `pfOrbPlanetaVivo2DReal`) e só cola com drawImage (mesma imagem, diferença 0,02/255); e a Órbita parada (sem mouse em
+  cima nem arrastando) desenha ~18x/s em vez de 30 (2D e 3D). Tela inicial parada, 40 s: Órbita 3,6 s → 1,2 s de JavaScript e desenho do navegador 12,4 s → 5 s.

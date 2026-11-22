@@ -74,6 +74,15 @@
   Ferramentas: 🧾 Fiscal, 📦 Estoque, 💬 WhatsApp (+ Disparo, que saiu de Vendas), ⌨️ Atalhos, 🎨 Imagens e promoção, 📚 Ajuda e treinamento, ⚙️ Administração.
   Vendas: 📈 Acompanhamento (Quadro de vendas, Vendas perdidas, Ofertas e retorno). **Card novo do mesmo assunto → pôr o título no grupo certo do PF_CARD_GRUPOS.**
   Data Sheets saíram de Ferramentas (v115.2847) → botão "📄 Data Sheets (N)" no cabeçalho do 📖 Guia Perkins (v115.2849, "vão ter mais… não deixar de cara no guia") → `pfDsListaAbrir` com busca (`window._pfDsQ`). O bloco `pfDsPerkinsHtml` ficou sem uso.
+- **v115.2850 grupos editáveis "como no iOS" + botão direito no card** (Vitor: "arrasta os cards para fora ou para dentro de um grupo… botão direito no card: mudar ícone, fixar na barra,
+  esconder para outros"): config compartilhada **`pfCardGruposCfg_v1`** {areas:{area:[[ic,nome,sub,cor,[títulos]]]}, fora:{area:[títulos tirados]}, ts} (3 listas da sync + rótulo); sem config da área =
+  `PF_CARD_GRUPOS` (`pfCgGrupos`; card novo do PF_CARD_GRUPOS entra no grupo de mesmo nome se não está no `fora`). `pfCardGruposAplicar` desfaz e refaz (pode chamar de novo) e agora roda também em
+  Compras e Área Técnica (título pelo `_pfAjudaMeta` quando o card não tem data-title). `pfArrastavelAplicar` virou DELEGADO (listeners 1x no grid, `_pfArrOk`) e Vendas ganhou o arrastar.
+  Só o dono/admin (`pfCgPode` = pfIconIsAdmin): soltar no MEIO de card de grupo = entra (`pfCgPor`); no meio de outro card = grupo novo (`pfCgEditarGrupo(area,null,[a,b])`); na borda = ordem.
+  Janela do grupo: arrastar pra fora/faixa = sai (`pfCgTirar`), soltar em outro = ordem; ✏️ nome/ícone/cor, 🗑 desfazer (`pfCgDesfazer`). Grupo com < 2 some sozinho. Card de grupo mostra mini-ícones.
+  **Botão direito** (listener em captura no window, antes do seletor de ícone antigo e do emoji): card = `pfCardMenuDoCard` (📌 fixar/tirar da barra — todos; 🖼️ mudar ícone, 🎨 trocar emoji — admin;
+  🙈 esconder / 🚧 em construção — só vitoregee; 📂 pôr num grupo › / ↩ tirar do grupo — admin; ❓ para que serve), card de grupo = `pfCardMenuDoGrupo`. Menu = `pfCardMenuMostrar(x,y,itens,título)`.
+  Shift + botão direito = menu normal. iPad: segurar o dedo abre o mesmo menu (contextmenu sintético).
 
 ## Peças do sistema mexidas recentemente (set/2026)
 - Tema: `pfTemaCalcularVariaveis` — cores principais, "Painel escuro" (`--pf-painel-*`), Partes do sistema,

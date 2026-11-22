@@ -3132,3 +3132,6 @@
   com sugestões) → `pvCancelarGravar`: status `cancelado` + `canceladoEm/canceladoPor/motivoCancel/statusAntesCancel`, logHistorico; aguardando separação devolve o saldo (`pvDevolverAbatimento`); itens da
   cotação de origem perdem o `pvNumero`. Separação (Logística): etapa "✖ Cancelado" 7 dias, vermelho "NÃO SEPARAR" + motivo. Fora do `pcMontarDados` (Painel/Órbita/Gestão) e do Meus pedidos.
   De Faturado em diante só gestor/admin. `pvEtapaInfo('cancelado')` responde (não está no PV_ETAPAS, pra não virar "próxima etapa").
+- v115.2844 ("pedidos antigos vamos precisar acessar no futuro… o card abre isso mesmo, meus pedidos"): o card **Pedido de Venda** abre o 📦 Meus pedidos (o card "Meus pedidos" saiu;
+  o atalho antigo dele continua registrado). Botão "☰ Todos os pedidos" no Meus pedidos (`pfMpTodos`) → a lista completa (`pvRenderLista`, aba `pedidos`), agora com busca por nº/cliente/cotação/código
+  (`pvListaBuscar`, `_pvLsBusca`) e filtro clicando na etapa (`pvListaEtapa`, `_pvLsEt`, inclui "✖ Cancelado") + botão "📦 Meus pedidos" pra voltar.

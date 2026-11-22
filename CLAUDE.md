@@ -3167,6 +3167,18 @@
   os 3 selos do cabeçalho da conversa (👤+ `#pfwa-svb`, 📦📨📌 `#pfwa-ancnt`, 🧭 `#pfwa-ccb`) andam JUNTOS num bloco só (`pfwaCabLayout`, ordem fixa, gap 4, `_pfwaCabPos`
   guarda o lugar por conversa) e ficaram menores (📦/📨 24 px). A lista do cabeçalho do WhatsApp nem sempre fica dentro do `#main header` → `pfwaObsLinha` varre a linha do
   nome ponto a ponto (elementsFromPoint) e todo elemento com texto/ícone/fundo/borda vira obstáculo. Sem lugar na linha = bloco embaixo do cabeçalho, à DIREITA. Selo novo do cabeçalho → entrar no `pfwaCabLayout`.
+- v115.2858 **📥 Minha mesa + 💰 confirmação de pagamento** (prévias `docs/referencias/mesa-setor/` 2–5 aprovadas: "gestor e diretor" liberam diferença em aberto; até R$ 1,00 = bate
+  mas avisa o vendedor; setor = A+C): a Mesa é uma tela por cima do MESMO log dos 📨 Chamados (`pfChamadosEventos`) — ícone `navChamados` do dock agora abre `pfMsaAbrir` (o quadro antigo
+  fica no botão "📨 Chamados"). Tela `#pfMsa` (z 58, Esc, `pfMsaRender`): abas = setores da pessoa (`pfChMeusSetores`; gestor+ vê os setores com demanda), filtros, colunas Aguardando /
+  🙋 Comigo (+ concluídos hoje, + com outros do setor pro gestor), painel da direita `pfMsaDetHtml` (andamento, conversa, arquivos, botões Assumir/Resolver/⏸ Esperando/↩ Devolver/➡ Passar),
+  números do dia `pfMsaStats`. Eventos novos no `pfChTodos`: `atrib` {para} (`pfMsaAtribuirAbrir`: pessoas do setor pelo setorDe), `soltar`, `esperar` {ate}, `pgres`; 'novo' carrega `pg`.
+  1ª vez sem setor = `pfChSetorEscolher` já marcado pelo cargo (`pfMsaSetorDoCargo`). **Pagamento**: Confirmar Pedido de Venda com condição à vista (`pfPgEhVista`) mostra Forma de pagamento
+  (`pvPgBoxHtml`, `PF_PG_FORMAS`; PIX/boleto/depósito precisam de confirmação, cartão/dinheiro no balcão não) + 📎 comprovante → `pedido.pgto` {st:'aguardando',forma,valor} + chamado
+  `pg_<pedId>` pro financeiro/receber (prazo `PF_PG_PRAZO_MIN`=30, `pfPgPedirConfirmacao`). Separação mostra "⏳ AGUARDANDO PAGAMENTO" no lugar do Imprimir (`pfPgAguardando`/`pfPgSelo`).
+  Painel do pagamento `pfPgPainelHtml`/`pfPgCalc`/`pfPgConcluir`: valor(es) que caiu (+ outro PIX), pagador bate, hora; ±`PF_PG_TOL` = libera e avisa o vendedor; a menos = esperar complemento
+  (mensagem pronta) / usar 💰 crédito / liberar em aberto (gestor+) / tirar item; a mais = crédito (`pfCredAdd lanc`) / devolver (chamado financeiro›pagar) / abater; pagador diferente = pergunta
+  pro vendedor; ✖ Não identificado (`pfPgNaoIdent`). Liberar (`pfPgLiberar`) = `pgto.st='ok'` + logHistorico "pagamento confirmado" + chamado resolvido (o vendedor é avisado pela barra 📨).
+  Título no Contas a Receber NÃO é baixado (pedidos reais não geram título no PF). Falta: as outras demandas dos setores (NF de entrada, entrada de material, faturar…) e a Gestão por pessoa.
 - v115.2856 ("se não tiver, vamo pensar em um jeito de cadastrar e criar ficha de acordo com a cotação" → "pode"): na conferência do 📥 Cotação do JBoss, item sem ficha que fica com o código
   do JBoss ganha "📝 Criar ficha no PF" (vem marcado) → `pfJbCriarFichas` (no `pfJbCriar`): ficha em PROD_KEY com código, marca, descrição, NCM e unidade PÇ, `criadoDe:'jboss'`, `jbossNum`, obs "conferir";
   o código que o JBoss tinha antes da conversão vira conversão da ficha; código+marca que já existe não duplica. Prévia do pagamento à vista/PIX + 🗂️ Mesa do setor em `docs/referencias/mesa-setor/previa.png` (esperando o Vitor).

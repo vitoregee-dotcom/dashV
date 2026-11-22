@@ -1341,12 +1341,55 @@
     for (x = Math.round(r.left); x + w <= hr.right - 4; x += 6) if (pfwaCaixaLivre(x, y2, w, h, null, outros)) return { x: x, y: y2 };
     return { x: Math.round(r.left), y: y2 };
   }
+  // 5.5 - A pedido do Vitor (print do MacBook: 👤+ 📦4 📨1 🧭7 em cima da lista "Oficina / Serviço ▾" — "não está cabendo… está ficando estranho"):
+  // os 3 selos agora andam JUNTOS (um bloco só, na ordem 👤+ · 📦📨📌 · 🧭), menores, e o bloco inteiro procura o lugar livre. A lista do
+  // cabeçalho do WhatsApp nem sempre fica dentro do #main header — a linha do nome também é varrida ponto a ponto (pfwaObsLinha).
+  // Sem lugar na linha (tela pequena) o bloco vai logo abaixo do cabeçalho, em cima das mensagens.
+  function pfwaObsLinha(y, x0, x1) {
+    var R = [], vistos = [], nome = nomeEl();
+    for (var x = x0; x <= x1; x += 5) {
+      var L = document.elementsFromPoint(x, y);
+      for (var i = 0; i < L.length; i++) {
+        var e = L[i]; if (e === document.body || e === document.documentElement) break;
+        if (vistos.indexOf(e) >= 0) continue; vistos.push(e);
+        if (e.closest && e.closest(MEUS + ',.pfm-offchip')) continue;
+        if (nome && e.contains(nome)) continue;
+        var r = e.getBoundingClientRect(); if (r.width < 2 || r.height < 2 || r.width > 520 || r.height > 90) continue;
+        var cs = getComputedStyle(e); if (cs.visibility === 'hidden' || cs.opacity === '0') continue;
+        var obs = /^(IMG|SVG|CANVAS|VIDEO|BUTTON|INPUT|SELECT)$/i.test(e.tagName) || /^(button|combobox|listbox)$/.test(e.getAttribute('role') || '') || e.hasAttribute('aria-haspopup');
+        if (!obs) for (var n = e.firstChild; n; n = n.nextSibling) if (n.nodeType === 3 && n.textContent.trim()) { obs = true; break; }
+        if (!obs) { var bg = cs.backgroundColor; obs = (bg && bg !== 'transparent' && !/rgba\([^)]*,\s*0\)$/.test(bg)) || parseFloat(cs.borderTopWidth) > 0 || parseFloat(cs.borderLeftWidth) > 0 || cs.backgroundImage !== 'none'; }
+        if (obs) R.push(r);
+      }
+    }
+    return R;
+  }
+  function pfwaCabLayout() {
+    var els = [SVB, ANCNT, CCB].filter(function (e) { return e && e.style.display !== 'none'; });
+    if (!els.length) return; var nome = nomeEl(); if (!nome) return;
+    var r = nome.getBoundingClientRect(); if (!r.width) return;
+    var hd = document.querySelector('#main header'); if (!hd) return; var hr = hd.getBoundingClientRect();
+    var gap = 4, H = 26, W = 0; els.forEach(function (e, i) { W += (e.offsetWidth || 26) + (i ? gap : 0); });
+    var y = Math.round(r.top + r.height / 2 - H / 2), info = nome.closest('[role="button"]');
+    var obs = pfwaObsLinha(y + H / 2, Math.round(r.right + 4), Math.round(hr.right - 2));
+    var livre = function (x, yy) {
+      for (var q = 0; q < obs.length; q++) { var b = obs[q]; if (x < b.right + 6 && x + W > b.left - 6 && yy < b.bottom && yy + H > b.top) return false; }
+      return pfwaCaixaLivre(x, yy, W, H, info, []);
+    };
+    var x, px = null, py = y;
+    if (_pfwaCabPos && _pfwaCabPos.k === ultimo && _pfwaCabPos.W === W && livre(_pfwaCabPos.x, _pfwaCabPos.y)) { px = _pfwaCabPos.x; py = _pfwaCabPos.y; }
+    if (px === null) for (x = Math.round(r.right + 8); x + W <= hr.right - 4; x += 6) if (livre(x, y)) { px = x; break; }
+    if (px === null) { py = Math.round(hr.bottom + 8); px = Math.round(hr.right - W - 16); } // sem lugar: embaixo do cabeçalho, à direita
+    _pfwaCabPos = { k: ultimo, W: W, x: px, y: py };
+    var cx = px; els.forEach(function (e) { e.style.left = cx + 'px'; e.style.top = (py + Math.round((H - (e.offsetHeight || H)) / 2)) + 'px'; cx += (e.offsetWidth || 26) + gap; });
+  }
+  var _pfwaCabPos = null;
   function pfwaPorNoLugar(el, r, w, h) { var p = pfwaLugar(el, r, w, h); if (!p) return false; el.style.left = p.x + 'px'; el.style.top = p.y + 'px'; return true; }
   function svPos() {
     if (!SVB) return; var c = contatoAt, el = nomeEl();
     if (!CFG.salvar || !c || c.grupo || !el || document.documentElement.classList.contains('pfwa-coberto')) { SVB.style.display = 'none'; if (SV) SV.style.display = 'none'; svAberto = false; return; }
     var r = el.getBoundingClientRect(); if (!r.width) { SVB.style.display = 'none'; return; }
-    SVB.style.display = 'flex'; pfwaPorNoLugar(SVB, r, 26, 26);
+    SVB.style.display = 'flex'; pfwaCabLayout();
     SVB.title = (resp && resp.achou && resp.tipo === 'cliente') ? 'Salvar / acertar este contato (' + (resp.titulo || '') + ')' : 'Salvar este contato no PF';
     SVB.classList.toggle('ok', !!(resp && resp.achou && resp.tipo !== 'colega')); SVB.classList.toggle('col', !!(resp && resp.tipo === 'colega')); // 4.91 - colega = roxo
     if (resp && resp.tipo === 'colega') SVB.title = '👔 Colega da empresa — clique pra mudar';
@@ -2320,7 +2363,7 @@
     if (ANCNT.innerHTML !== h) ANCNT.innerHTML = h;
     ANCNT.title = 'Anotado nesta conversa: ' + [nPe ? nPe + ' a emitir' : '', nPr ? nPr + ' pra mandar' : '', nVf ? nVf + ' a verificar' : ''].filter(Boolean).join(' · ') + ' — clique pra ver';
     ANCNT.style.display = 'flex';
-    pfwaPorNoLugar(ANCNT, r, ANCNT.offsetWidth || 40, 28);
+    pfwaCabLayout();
   }
   setInterval(function () { try { anVigiar(); } catch (e) { } }, 1200);
   // ═══ 4.97 - A pedido do Vitor: 🧭 CONHECER O CLIENTE (prévias docs/referencias/conhecer-cliente/: "gostei da A e da C, mas gostei da parte de selecionar da B")
@@ -2360,7 +2403,7 @@
     var n = CC.lista.length, h = '🧭<i>' + n + '</i>';
     if (CCB.innerHTML !== h) CCB.innerHTML = h;
     CCB.title = 'Conhecer o cliente: falta saber ' + n + ' coisa(s) — ' + CC.lista.slice(0, 3).map(function (q) { return q.t; }).join(' · ') + ' (clique pra responder)';
-    CCB.style.display = 'flex'; pfwaPorNoLugar(CCB, r, CCB.offsetWidth || 44, 26);
+    CCB.style.display = 'flex'; pfwaCabLayout();
     // calma: pisca + dica (1x por cliente por dia)
     var calma = ccCalma(), k = CC.k;
     if (calma && !CC.adiado && !ccFechado[ultimo] && (!ccLembrouHoje(k) || CCN.getAttribute('data-k') === k)) {

@@ -73,7 +73,7 @@
   seguem) e põe 1 card de grupo no lugar → `pfCardGrupoAbrir` (janela `pfCgJan`) → `pfCardGrupoIr` clica no card original. Grupo com só 1 visível (permissão) não junta.
   Ferramentas: 🧾 Fiscal, 📦 Estoque, 💬 WhatsApp (+ Disparo, que saiu de Vendas), ⌨️ Atalhos, 🎨 Imagens e promoção, 📚 Ajuda e treinamento, ⚙️ Administração.
   Vendas: 📈 Acompanhamento (Quadro de vendas, Vendas perdidas, Ofertas e retorno). **Card novo do mesmo assunto → pôr o título no grupo certo do PF_CARD_GRUPOS.**
-  Data Sheets saíram de Ferramentas (v115.2847) → bloco no topo do 📖 Guia Perkins (`pfDsPerkinsHtml`).
+  Data Sheets saíram de Ferramentas (v115.2847) → botão "📄 Data Sheets (N)" no cabeçalho do 📖 Guia Perkins (v115.2849, "vão ter mais… não deixar de cara no guia") → `pfDsListaAbrir` com busca (`window._pfDsQ`). O bloco `pfDsPerkinsHtml` ficou sem uso.
 
 ## Peças do sistema mexidas recentemente (set/2026)
 - Tema: `pfTemaCalcularVariaveis` — cores principais, "Painel escuro" (`--pf-painel-*`), Partes do sistema,

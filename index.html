@@ -2064,7 +2064,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2853</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2854</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2226,7 +2226,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2853</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2854</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -75866,7 +75866,7 @@ function vendasAtualizarLista(){
   var cots=JSON.parse(pfSafeGetItem(COTS_KEY)||'[]');
   // v115.2082 - cotação -> pedidos de venda que saíram dela (sinaliza mesmo se a cotação perdeu a dataPedido)
   var _pvPorCot={};
-  try{(typeof pvLoad==='function'?pvLoad():[]).forEach(function(p){if(p&&p.cotacaoNum!=null){var k=p.cotacaoNum;var e=_pvPorCot[k]||(_pvPorCot[k]={data:p.data,nums:[]});if(p.data&&(!e.data||p.data<e.data))e.data=p.data;e.nums.push(p.numero);}});}catch(e){}
+  try{(typeof pvLoad==='function'?pvLoad():[]).forEach(function(p){if(p&&p.cotacaoNum!=null){var k=p.cotacaoNum;var e=_pvPorCot[k]||(_pvPorCot[k]={data:p.data,nums:[],ids:[]});if(p.data&&(!e.data||p.data<e.data))e.data=p.data;e.nums.push(p.numero);e.ids.push(p.id);}});}catch(e){}
   var f=window._vendasFiltro||{};
   var lista=cots.filter(function(c){
     // v115.2363 - A pedido do Vitor ("buscas sem acento, C e Ç em todo o sistema"): filtros de texto da lista ignoram acento/ç (e espaço/traço quando não bate)
@@ -75936,6 +75936,23 @@ function vendasAtualizarLista(){
   }
   var COLS=window._vendasCols||['num','fantasia','contato','transp','itens','vliq','vbru','dcot','dped'];
   var _zebra=vendasZebraCores();
+  // v115.2854 - A pedido do Vitor (prévia docs/referencias/lista-cotacoes/, "a C4, mas com o total da C5" + "e o total de cotação?"): cotações separadas
+  // por DIA com o total do dia (nº, soma, quantas viraram pedido), faixa "TOTAL DA LISTA" em cima e linha de TOTAL no fim, zebra certa (a linha
+  // que virou pedido não muda mais a cor — por isso ficavam 2 brancas seguidas), linhas de coluna tracejadas e bolinha colorida no saldo.
+  var _diaDe=function(c){if(!c.data)return '';var d=new Date(c.data);return isNaN(d)?'':d.toDateString();};
+  var _porDia={},_tG={n:0,v:0,p:0,it:0};
+  lista.forEach(function(c){var v=0;try{v=vendasCalcularTotalCotacao(c)||0;}catch(e){}var ped=!!(c.dataPedido||_pvPorCot[c.num]);var k=_diaDe(c);
+    var D=_porDia[k]||(_porDia[k]={n:0,v:0,p:0});D.n++;D.v+=v;if(ped)D.p++;_tG.n++;_tG.v+=v;if(ped)_tG.p++;_tG.it+=(c.itens||[]).length;});
+  var _sortCol=(window._vendasSort&&window._vendasSort.col)||'';var _agrupaDia=!_sortCol||_sortCol==='num'||_sortCol==='dcot';
+  var _moeda=function(v){return 'R$ '+(+v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  var _ncol=COLS.length+2;
+  (function(){var trT=document.createElement('tr');trT.setAttribute('data-pf-cot-total','1');
+    var K=function(l,v,c){return '<span style="white-space:nowrap"><span style="font-size:10.5px;font-weight:700;color:#7a8798;text-transform:uppercase">'+l+'</span> <b style="font-size:14px;color:'+(c||'#1a2332')+'">'+v+'</b></span>';};
+    trT.innerHTML='<td colspan="'+_ncol+'" style="padding:8px 14px;background:#F3F6FA;border-bottom:1px solid #dde4ec"><div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap"><b style="color:#1F4E79;font-size:12.5px">📊 TOTAL DA LISTA</b>'+
+      K('Cotações',_tG.n)+K('Valor',_moeda(_tG.v))+K('Viraram pedido',_tG.p+(_tG.n?' ('+Math.round(_tG.p*100/_tG.n)+'%)':''),'#1B7A3D')+
+      '<span style="margin-left:auto;font-size:11px;color:#7a8798">segue os filtros de cima</span></div></td>';
+    tbody.appendChild(trT);})();
+  var _diaUlt=null,_zIdx=0;
   // v115.1967 - cor da fonte das linhas escolhida no 🎨 (as células usam --pf-table-text)
   var _fonteLinhas=vendasCoresAberta().f;
   if(_fonteLinhas)tbody.style.setProperty('--pf-table-text',_fonteLinhas);else tbody.style.removeProperty('--pf-table-text');
@@ -75955,13 +75972,19 @@ function vendasAtualizarLista(){
     var _pvC=_pvPorCot[c.num];
     if(!c.dataPedido&&_pvC)c=Object.assign({},c,{dataPedido:_pvC.data});
     var efetivado=!!c.dataPedido;
+    if(_agrupaDia){var _dk=_diaDe(c);if(_dk!==_diaUlt){_diaUlt=_dk;_zIdx=0;var D=_porDia[_dk]||{n:0,v:0,p:0};var trD=document.createElement('tr');trD.setAttribute('data-pf-cot-dia','1');
+      var _dd=c.data?new Date(c.data):null,_dTxt=_dd&&!isNaN(_dd)?['domingo','segunda','terça','quarta','quinta','sexta','sábado'][_dd.getDay()]+' · '+_dd.toLocaleDateString('pt-BR'):'sem data';
+      trD.innerHTML='<td colspan="'+_ncol+'" style="padding:9px 12px 4px;background:#fff;border-bottom:2px solid #1F4E79;font-size:12px;font-weight:800;color:#1F4E79">'+_dTxt+
+        '<span style="margin-left:22px;font-weight:600;color:#516070">'+D.n+(D.n===1?' cotação':' cotações')+' · '+(D.v?_moeda(D.v):'—')+(D.p?' · '+D.p+(D.p===1?' virou pedido':' viraram pedido'):'')+'</span></td>';
+      tbody.appendChild(trD);}}
+    var _zi=_agrupaDia?_zIdx++:iLinha;
     // v115.1945 - A pedido do Vitor: zebra na lista de Cotações --
     // linha sim, linha não, com um véu translúcido por cima do
     // --pf-table-bg -- assim funciona em qualquer tema (inclusive os
     // gerados por pfCorEscurecer) sem precisar de uma cor fixa por tema.
     // v115.1948 - cores escolhidas pelo Vitor (🎨 na barra de filtros)
     // têm prioridade; sem escolha, segue o padrão do tema.
-    var bgBase=efetivado?'var(--pf-table-hover-bg)':(_zebra?(iLinha%2?_zebra.b:_zebra.a):(iLinha%2?'var(--pf-table-stripe-bg,rgba(0,0,0,.05))':''));
+    var bgBase=_zebra?(_zi%2?_zebra.b:_zebra.a):(_zi%2?'#EEF3F8':'#fff'); // v115.2854 - zebra certa (pedido não muda a cor)
     var tr=document.createElement('tr');
     tr.style.cssText='border-bottom:0.5px solid var(--pf-table-border);cursor:pointer;transition:background .1s, box-shadow .1s;height:'+(window._vendasRowH||22)+'px;color:var(--pf-table-text);'+(isSel?'border-left:3px solid var(--pf-table-text-muted);background:var(--pf-table-selected-bg);':bgBase?'background:'+bgBase+';':'');
     // v115.1868 - A pedido do Vitor: hover mais nítido (risco azul na
@@ -76017,7 +76040,7 @@ function vendasAtualizarLista(){
         var pct=totIt?Math.round((comSaldo/totIt)*100):0;
         var cor=pct>=80?'var(--pf-table-badge-success-text)':pct>=40?'var(--pf-table-badge-warning-text)':'var(--pf-table-badge-danger-text)';
         var bg=pct>=80?'var(--pf-table-badge-success-bg)':pct>=40?'var(--pf-table-badge-warning-bg)':'var(--pf-table-badge-danger-bg)';
-        td.innerHTML='<span style="background:'+bg+';color:'+cor+';font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px">'+pct+'%</span>';
+        td.style.textAlign='left';td.innerHTML='<span style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle;background:'+(pct>=100?'#2FB36A':pct>0?'#E8A33D':'#E5534B')+'"></span><span style="font-size:12px;color:var(--pf-table-text)">'+pct+'%</span>'; // v115.2854
       }
       else if(col==='vliq'){td.style.cssText='padding:0px 8px;text-align:right;font-family:monospace;font-size:12px;color:var(--pf-table-text);white-space:nowrap';td.textContent=vliq;}
       else if(col==='vbru'){td.style.cssText='padding:0px 8px;text-align:right;font-family:monospace;font-size:12px;color:var(--pf-table-text);white-space:nowrap';td.textContent=vbru;}
@@ -76028,7 +76051,9 @@ function vendasAtualizarLista(){
         td.style.cssText='padding:0px 8px';
         if(c.dataPedido){
           if(_pvC)td.title='Pedido de Venda: '+_pvC.nums.join(', '); // v115.2082
-          td.innerHTML='<span style="background:var(--pf-table-badge-success-bg);color:var(--pf-table-badge-success-text);font-size:10px;font-weight:700;padding:1px 7px;border-radius:6px;white-space:nowrap">✅ '+dtP+'</span>';
+          td.innerHTML='<span style="background:var(--pf-table-badge-success-bg);color:var(--pf-table-badge-success-text);font-size:10px;font-weight:700;padding:1px 7px;border-radius:6px;white-space:nowrap'+(_pvC&&_pvC.ids.length?';cursor:pointer;text-decoration:underline dotted" title="Abrir o pedido '+_pvC.nums.join(', '):'')+'">✅ '+dtP+'</span>';
+          // v115.2854 - A pedido do Vitor ("qnd clica na parte verde do pedido… levar para o pedido" → "direto"): abre o pedido de venda
+          if(_pvC&&_pvC.ids.length){var _sp2=td.firstChild;_sp2.onclick=function(e){e.stopPropagation();var _id=_pvC.ids[_pvC.ids.length-1];try{pvAbrirEdicao(_id);}catch(er){console.warn(er);try{pvVerDetalhe(_id);}catch(e2){}}};}
         } else {
           td.style.color='var(--pf-table-text)';td.style.fontSize='12px';td.textContent=dtP;
         }
@@ -76038,7 +76063,7 @@ function vendasAtualizarLista(){
       // aplicada depois do cssText de cada coluna (senão cada branch
       // acima sobrescreveria) -- funciona igual pra qualquer coluna, sem
       // precisar mexer em cada um dos "else if" acima.
-      td.style.borderRight='1px solid var(--pf-table-border)';
+      td.style.borderRight='1px dashed var(--pf-table-border)'; // v115.2854 - tracejada
       tr.appendChild(td);
     });
     var tdAct=document.createElement('td');tdAct.style.cssText='padding:0px 8px;text-align:right;white-space:nowrap';
@@ -76096,6 +76121,11 @@ function vendasAtualizarLista(){
       tbody.appendChild(trExp);
     }
   });
+  // v115.2854 - linha de TOTAL no fim
+  if(_vTot<=_vLim){var trF=document.createElement('tr');trF.setAttribute('data-pf-cot-total','1');trF.style.cssText='background:#1F4E79;color:#fff;font-weight:800;font-size:12px';
+    var h='<td style="padding:6px 8px"></td>';COLS.forEach(function(col,i){var t='';if(i===0)t='TOTAL · '+_tG.n+(_tG.n===1?' cotação':' cotações');else if(col==='itens')t=String(_tG.it);else if(col==='vliq'||col==='vbru')t=_moeda(_tG.v);else if(col==='dped')t=_tG.p+(_tG.p===1?' pedido':' pedidos');
+      h+='<td style="padding:6px 8px;white-space:nowrap;'+((col==='vliq'||col==='vbru')?'text-align:right;':col==='itens'?'text-align:center;':'')+'color:#fff">'+t+'</td>';});
+    trF.innerHTML=h+'<td></td>';tbody.appendChild(trF);}
 }
 
 

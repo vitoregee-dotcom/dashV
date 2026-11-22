@@ -3179,6 +3179,10 @@
   (mensagem pronta) / usar 💰 crédito / liberar em aberto (gestor+) / tirar item; a mais = crédito (`pfCredAdd lanc`) / devolver (chamado financeiro›pagar) / abater; pagador diferente = pergunta
   pro vendedor; ✖ Não identificado (`pfPgNaoIdent`). Liberar (`pfPgLiberar`) = `pgto.st='ok'` + logHistorico "pagamento confirmado" + chamado resolvido (o vendedor é avisado pela barra 📨).
   Título no Contas a Receber NÃO é baixado (pedidos reais não geram título no PF). Falta: as outras demandas dos setores (NF de entrada, entrada de material, faturar…) e a Gestão por pessoa.
+- v115.2859 ("cada gestor vê o seu setor. em pouquíssimos casos vê outros"): na 📥 Minha mesa o gestor vê só os setores marcados pra ele no setorDe dos Chamados (o caso raro = marcar
+  mais um setor pra ele no ⚙️ dos Chamados); diretor e o Vitor veem todos (`pfMsaVeTodos`; `pfMsaEhGestor` = gestor+). Aba **👥 Equipe** (`pfMsaEquipeHtml`, `_pfMsa.aba='eq'`): fila sem dono
+  com Atribuir + "Seu setor agora" (aguardando/em atendimento/vencidos/espera média por setor) + "Cada pessoa" (com ela agora, sem demanda, concluídos/pra assumir/pra resolver/% no prazo,
+  período Hoje/7/30 `_pfMsa.eqPer`). Captura `docs/referencias/mesa-setor/feito-equipe.png`.
 - v115.2856 ("se não tiver, vamo pensar em um jeito de cadastrar e criar ficha de acordo com a cotação" → "pode"): na conferência do 📥 Cotação do JBoss, item sem ficha que fica com o código
   do JBoss ganha "📝 Criar ficha no PF" (vem marcado) → `pfJbCriarFichas` (no `pfJbCriar`): ficha em PROD_KEY com código, marca, descrição, NCM e unidade PÇ, `criadoDe:'jboss'`, `jbossNum`, obs "conferir";
   o código que o JBoss tinha antes da conversão vira conversão da ficha; código+marca que já existe não duplica. Prévia do pagamento à vista/PIX + 🗂️ Mesa do setor em `docs/referencias/mesa-setor/previa.png` (esperando o Vitor).

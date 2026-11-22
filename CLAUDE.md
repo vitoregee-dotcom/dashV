@@ -98,6 +98,8 @@
   no navegador (`pfSyncTemLocal`). Versões em `pf_sync_ver_v1` (`pfSyncVerLer`/`pfSyncVerGravar`: 'u:'/'s:'/'l:' + chave; log = assinatura user@updated_at);
   `pfSyncBuscarChaves` busca em lotes de 40. Modo demonstração = baixa tudo como antes. No banco (Supabase, 22/11): índice `user_sync (chave, updated_at desc)`
   e políticas RLS com `(select auth.uid())`/`(select pf_eh_*())`. Ainda pesado: blobs grandes regravados inteiros a cada mudança (cad_produtos_v1 ~6 MB).
+- v115.2852 LENTIDÃO (travadas de 6 s a cada 60 s, chegando a 64 s): `pfMpAutoFechar`/`pfMpExt` (coluna 📦 da extensão, a cada 60 s) chamavam `pfCrmChaveDe` por pedido (~1.300) e cada um rodava o `pcMontarDados` inteiro. Agora `pcMontarDados` guarda o resultado (`_pcMemo`) até `window._pfDadosRev` mudar (incrementado em setItem/pfRawSetItem/pfSafeSetItem) ou 5 s, devolve cópia da lista; `pfCrmChaveDe` usa o índice `pcMontarDadosIdx`. O original é `pcMontarDadosReal`.
+  Junto: ícone do grupo de cards = banco de ícones (`pfCgIcEscolher`, `pfCgIcHtml` mostra img ou emoji antigo).
 - Sync: `pfSyncPull` é incremental (marca d'água de `updated_at`); `cad_produtos_v1` tem merge próprio
   (`pfMergeProdutosArr`, colapsa por código+marca e **descarta item sem código** — em set/2026 um fantasma
   sem código dobrava a cada sync e chegou a 1,2 milhão; qualquer merge novo precisa colapsar TUDO, nada pode

@@ -83,6 +83,8 @@
   **Botão direito** (listener em captura no window, antes do seletor de ícone antigo e do emoji): card = `pfCardMenuDoCard` (📌 fixar/tirar da barra — todos; 🖼️ mudar ícone, 🎨 trocar emoji — admin;
   🙈 esconder / 🚧 em construção — só vitoregee; 📂 pôr num grupo › / ↩ tirar do grupo — admin; ❓ para que serve), card de grupo = `pfCardMenuDoGrupo`. Menu = `pfCardMenuMostrar(x,y,itens,título)`.
   Shift + botão direito = menu normal. iPad: segurar o dedo abre o mesmo menu (contextmenu sintético).
+  v115.2851 ("não tá legal o card com o ícone mais os ícones de dentro" + "o Me Avise sumiu" — tinha caído sem querer no 📦 Estoque): card de grupo só com o ícone dele (sem mini-ícones);
+  juntar só depois de SEGURAR 0,6 s no meio do card (`container._pfMeioDesde`, contorno tracejado enquanto espera, cheio quando vai juntar); soltar rápido = só muda a ordem.
 
 ## Peças do sistema mexidas recentemente (set/2026)
 - Tema: `pfTemaCalcularVariaveis` — cores principais, "Painel escuro" (`--pf-painel-*`), Partes do sistema,

@@ -3161,3 +3161,7 @@
 - v115.2844 ("pedidos antigos vamos precisar acessar no futuro… o card abre isso mesmo, meus pedidos"): o card **Pedido de Venda** abre o 📦 Meus pedidos (o card "Meus pedidos" saiu;
   o atalho antigo dele continua registrado). Botão "☰ Todos os pedidos" no Meus pedidos (`pfMpTodos`) → a lista completa (`pvRenderLista`, aba `pedidos`), agora com busca por nº/cliente/cotação/código
   (`pvListaBuscar`, `_pvLsBusca`) e filtro clicando na etapa (`pvListaEtapa`, `_pvLsEt`, inclui "✖ Cancelado") + botão "📦 Meus pedidos" pra voltar.
+- v115.2853 + extensão **5.5** (print do MacBook: "não está cabendo as paradas aqui na extensão… ficando estranho" — 👤+ 📦4 📨1 🧭7 em cima da lista "Oficina / Serviço ▾"):
+  os 3 selos do cabeçalho da conversa (👤+ `#pfwa-svb`, 📦📨📌 `#pfwa-ancnt`, 🧭 `#pfwa-ccb`) andam JUNTOS num bloco só (`pfwaCabLayout`, ordem fixa, gap 4, `_pfwaCabPos`
+  guarda o lugar por conversa) e ficaram menores (📦/📨 24 px). A lista do cabeçalho do WhatsApp nem sempre fica dentro do `#main header` → `pfwaObsLinha` varre a linha do
+  nome ponto a ponto (elementsFromPoint) e todo elemento com texto/ícone/fundo/borda vira obstáculo. Sem lugar na linha = bloco embaixo do cabeçalho, à DIREITA. Selo novo do cabeçalho → entrar no `pfwaCabLayout`.

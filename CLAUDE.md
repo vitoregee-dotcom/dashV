@@ -3119,3 +3119,6 @@
   marcas do código novo logo embaixo (1 linha por ficha, mesma qtd, CÓD. CLIENTE e tarja 🔁; usa o `vendasOutrasMarcasDe` = sem repetir marca e respeitando Assistente/regras da cotação; remapeia Sel/PV).
 - v115.2840 (print do Confirmar Pedido de Venda: "deixa o botão de 28 dias sempre, que é o prazo mínimo" + lista de cotações: "vamos colocar o dia da semana embaixo da data"):
   `pvCondSugestoes` sempre acrescenta o chip "28" (prazo mínimo) depois das sugestões (sem repetir); a coluna DT. COT. da lista de cotações mostra o dia da semana pequeno embaixo da data.
+- v115.2841 ("eu falei para deixar 28 dias tbm, e não para tirar as outras opções de acordo com o valor da compra. quero os botões lá" — Confirmar Pedido de Venda): o `pvCondSugestoes`
+  mostra SEMPRE todas as condições da Tabela Triex (À VISTA, 28 e todas as do `PF_COND_FAIXAS`); as da faixa do valor ficam com ⭐ e contorno verde (`sug`, `data-sug`). O campo já vem com
+  a do cadastro/Assistente ou a 1ª ⭐ (não "À VISTA").

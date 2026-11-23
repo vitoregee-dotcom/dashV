@@ -2268,7 +2268,18 @@
     try { var els = msgLinhas(); for (var i = els.length - 1; i >= 0 && i >= els.length - 12; i--) { var b = els[i]; if (minhaEl(b)) return null;
       var m = String(b.innerText || '').match(/([^\n]+?\.pdf)\b/i); if (m && PE_DOC_PED_RE.test(m[1])) return m[1].trim(); } } catch (e) { } return null;
   }
+  // 5.8 - A pedido do Vitor ("não se ligou que era um pedido né?" — "Me envia 03 luvas 03-312 da TX amanhã por favor"): pedido direto, sem a palavra PEDIDO:
+  // verbo de mandar/separar/faturar + quantidade + código. Pergunta de preço/estoque ("tem?", "quanto", "valor", "cota") não conta (é cotação).
+  function pePedidoDireto(t) {
+    var n = peNorm(t);
+    if (/\?|\bquanto\b|\bvalor\b|\bpreco\b|\bcot[ae]\w*|\borcamento\b|\btem (ai|disponivel|estoque)\b|\btem\b.*\?/.test(n)) return false;
+    if (!/\b(me )?(envi\w*|mand\w*|separ\w*|fatur\w*|despach\w*|emit\w*|reserv\w*|segur\w*|quero|vou querer|vou levar|levo|pode (enviar|mandar|separar|faturar))\b/.test(n)) return false;
+    var temQtd = /\b\d{1,3}\s*(x|un|und|unid\w*|pc|pcs|pcs?|pecas?|jg|jogos?|kits?|cx|caixas?)?\s+[a-z]{3,}/.test(n) || /\b\d{1,3}\s*(un|und|pc|pcs|pecas?|x)\b/.test(n);
+    var temCod = /\b[a-z]{0,4}\d+[a-z]*[-./]\d+\w*|\b[a-z]{0,3}\d{4,}\w*|\b[a-z]{1,4}-\d{3,}\w*/.test(n);
+    return temQtd && temCod;
+  }
   function peCaraDePedido(t) {
+    if (pePedidoDireto(t)) return true;
     var n = peNorm(t); if (!/\bped[i1]d[oop]?s?\b|\bpedid\w?\b/.test(n)) return false;
     var temCod = /\b[a-z]{0,4}\d[\w]*[-./]\w+|\b\d{5,}\b/.test(n), temValor = /\d+,\d{2}\b/.test(n), temTotal = /\btotal\b[^\n]*\d+,\d{2}/.test(n);
     return (temCod && temValor) || temTotal;

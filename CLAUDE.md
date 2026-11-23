@@ -3228,3 +3228,6 @@
 - v115.2879 BUG (Cotação do JBoss: "ainda tá mandando aquela no sem ficha" — 5-153X TX e 41-006 SPICER caíam nos "parecidos" pela descrição): o código escrito igual não existia no estoque.
   O `pfJbPrepItem` agora, antes, procura as variações do código (`pfExtFichasDo`: X/XS/ALB, SPL, zero na frente) e o mesmo código só com letras+números (`pfAltbAchados` nv 2: cadastro, Cardan,
   planilha); achou na marca = usa essa ficha e o código do JBoss vira código do cliente. Se o código não existir de jeito nenhum no PF, continua "sem ficha" (com o 📝 Criar ficha).
+- v115.2880 + extensão **5.8** BUG ("não se ligou que era um pedido né?" — "Me envia 03 luvas 03-312 da TX amanhã por favor"): o 📦 Pedido a emitir só pegava frase da lista ("manda pra mim"…)
+  ou a palavra PEDIDO. `pePedidoDireto` (whatsapp.js, dentro do `peCaraDePedido`): verbo envia/manda/separa/fatura/despacha/reserva/quero/levo + quantidade + código = pedido; pergunta
+  ("?", quanto, valor, preço, cota, orçamento, "tem…?") não conta. "amanhã" já vira a data do lembrete.

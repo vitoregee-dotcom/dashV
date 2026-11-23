@@ -2066,7 +2066,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2885</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2886</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2228,7 +2228,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2885</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2886</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -51558,12 +51558,26 @@ function lpLerTexto(){
   if(!txt.trim()){pfAlert('Cole um texto primeiro.');return;}
   lpConfirmarComecarLeitura(function(){lpLerTextoReal(txt);});
 }
+// v115.2886 - lê a 1ª lista [...] da resposta da IA (ignora texto antes/depois); cortada no meio = recupera os itens completos
+function lpJsonLista(res){
+  var t=String(res||''),a=t.indexOf('[');if(a<0)throw new Error('A IA não retornou uma lista de itens. Tenta de novo.');
+  var d=0,str=false,esc=false,fim=-1;
+  for(var i=a;i<t.length;i++){var c=t[i];if(str){if(esc)esc=false;else if(c==='\\')esc=true;else if(c==='"')str=false;continue;}
+    if(c==='"')str=true;else if(c==='[')d++;else if(c===']'){d--;if(d===0){fim=i;break;}}}
+  if(fim>0){try{return JSON.parse(t.slice(a,fim+1));}catch(e){}}
+  var objs=[],re=/\{"codigo"[^}]*\}/g,om;while((om=re.exec(t))!==null){try{objs.push(JSON.parse(om[0]));}catch(e){}}
+  if(objs.length)return objs;
+  throw new Error('A IA respondeu num formato que não deu pra ler. Tenta de novo.');
+}
 async function lpLerTextoReal(txt){
   // JS parser: handles "QTD - CODE DESC" with spaces inside code
   var linhas=txt.trim().split('\n');
   var jsItens=[];var allParsed=true;
   linhas.forEach(function(linha){
     linha=linha.trim();if(!linha||linha.length<2)return;
+    // v115.2886 - A pedido do Vitor (lista encaminhada do WhatsApp com "quando tiver tempo dá uma olhada nesses daqui tambem:" em cima):
+    // linha sem NENHUM número é recado, não peça — não conta (antes ela fazia a lista inteira ir pra IA).
+    if(!/\d/.test(linha))return;
     // v115.2559 - A pedido do Vitor: linha que COMEÇA com código de cardan (41-230, 2-70-59) = código inteiro; quantidade só se vier no fim ("41-230  FLANGE  3" não; "41-230 3" sim)
     var _cc=linha.split(/\s+/);if(lpEhCodCardan(_cc[0])){var _q=_cc.length===2&&/^\d{1,4}$/.test(_cc[1])?parseInt(_cc[1]):1;jsItens.push({codigo:_cc[0].toUpperCase(),qtd:_q||1,desc:_cc.length===2&&_q?'':_cc.slice(1).join(' ').trim(),duvida:''});return;}
     // v115.1626 - BUG corrigido (Vitor: "mandei uns codigos como texto...
@@ -51613,7 +51627,8 @@ async function lpLerTextoReal(txt){
     if(!data.content||!Array.isArray(data.content)){throw new Error('Resposta da IA veio sem conteúdo (formato inesperado). Tenta de novo -- se persistir, tenta com um texto menor de uma vez.');}
     var res=data.content.map(function(b){return b.text||'';}).join('').replace(/```json|```/g,'').trim();
     var m3=res.match(/\[[\s\S]*/);if(m3)res=m3[0];
-    var itens=JSON.parse(res);
+    // v115.2886 - A pedido do Vitor ("Unexpected non-whitespace character after JSON"): a IA às vezes escreve algo DEPOIS da lista — pega só a lista
+    var itens=lpJsonLista(res);
     if(!Array.isArray(itens))throw new Error('A IA não retornou uma lista de itens (formato inesperado). Tenta de novo.');
     itens=itens.map(function(it){return {codigo:lpApplyRuleCase(it.codigo||''),qtd:it.qtd||1,desc:it.desc||'',duvida:it.duvida||''};});
     lpHistoricoSalvar(itens,'Texto colado');

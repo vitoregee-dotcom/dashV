@@ -2066,7 +2066,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2880</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2881</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2228,7 +2228,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2880</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2881</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -28332,8 +28332,11 @@ function pfCodSufixo(cod){cod=String(cod||'').toUpperCase().trim();
   for(var i=0;i<PF_COD_SUFIXOS.length;i++){var r=PF_COD_SUFIXOS[i],m=cod.match(new RegExp('^(.*\\d[A-Z]{0,3}?)[\\s\\-]?'+r.s+'$'));
     if(m&&/-/.test(m[1])&&/^(\d|SPL)/.test(m[1])&&m[1].replace(/\D/g,'').length>=3)return {cod:m[1].replace(/[\s\-]+$/,''),marca:r.marca,orig:cod};}
   return null;}
+// v115.2881 - A pedido do Vitor ("aqui ele precisa entender ª como A… tem idiota que escreve assim" — 190506ª1 = 190506A1): o ª (ordinal) vira A e o º vira O
+// antes de ler qualquer código (WhatsApp, cotação, Leitor de Peças).
+function pfCodOrdinal(t){return String(t==null?'':t).replace(/\u00AA/g,'A').replace(/\u00BA/g,'O');}
 function lpApplyRuleCase(cod){
-  cod=(cod||'').toString().trim().toUpperCase().replace(/\s+/g,'');
+  cod=pfCodOrdinal((cod||'').toString()).trim().toUpperCase().replace(/\s+/g,''); /* v115.2881 */
   if(lpEhCodCardan(cod))return cod; // v115.2559 - cardan: fica como veio
   var _px=pfCodPrefixo(cod);if(_px)return _px.cod; // v115.2677 - CAR47700 = Carraro 47700
   var qm=cod.match(/^(\d{1,3})[-\s]+(.+)$/);
@@ -55639,7 +55642,7 @@ function vendasAdicionarItem(){
   var codEl=document.getElementById('vendasCodInput');
   var qtdEl=document.getElementById('vendasQtdInput');
   if(!codEl)return;
-  var cod=(codEl.value||'').trim().toUpperCase();
+  var cod=pfCodOrdinal(codEl.value||'').trim().toUpperCase(); /* v115.2881 */
   if(!cod)return;
   var qtd=parseInt((qtdEl||{}).value)||1;
   var m=cod.match(/^([A-Z])(\d{1,5})$/);
@@ -57109,6 +57112,13 @@ function pfCotObsWrap(v){
     (nInfo?'<span style="color:#9A6B00">· '+nInfo+' item(ns) com prazo/informação no PDF</span>':'')+
     '<span data-seta style="margin-left:auto;color:#1F4E79;font-weight:700">'+(window._vendasObsAberto?'▴ fechar':'▾ abrir')+'</span></div>'+box;
 }
+// v115.2881 - A pedido do Vitor ("coloca horário que foi aberta a cotação, e por onde também"): no cabeçalho "#93 · 23/11 08:24 · 💬 pelo WhatsApp".
+// Hora = data de criação gravada na cotação (v.criadaEm, vem do salvar e do reabrir); origem = v.origem (whatsapp/jboss/catalogo/portal/leitor…). Cotação antiga sem origem = só a data e hora.
+var PF_COT_ORIGEM_TXT={whatsapp:'💬 pelo WhatsApp',jboss:'📥 do JBoss',catalogo:'📖 pelo catálogo',portal:'🌐 pelo portal',leitor:'📝 pelo Leitor de Peças',pedido:'🧾 pedido do cliente'};
+function pfCotAbertaTxt(v,hoje){var t='';try{var d=v&&v.criadaEm?new Date(v.criadaEm):null;
+  if(d&&!isNaN(d))t=d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  else t=(hoje||'')+(v&&!v.num?' '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'');
+  var o=v&&v.origem&&PF_COT_ORIGEM_TXT[v.origem];if(o)t+=' · '+o;}catch(e){t=hoje||'';}return pfEscHtml(t);}
 function vendasCabecalhoCompactoHtml(v,hoje,botoesHtml){
   if(v.pvEdit&&typeof pvEdicaoTopoHtml==='function')return pvEdicaoTopoHtml(v); // v115.2860 - pedido: cabeçalho escuro + etapas
   var c=v.cliente,est=vendasCabEstilo(),A=est==='a';
@@ -57141,7 +57151,7 @@ function vendasCabecalhoCompactoHtml(v,hoje,botoesHtml){
   // v115.2644 - A pedido do Vitor ("precisamos colocar um caminho aqui na cotação para ir direto para o cadastro do cliente"): ✏️ CADASTRO ao lado da Ficha (CRM)
   var crmBtn=function(st){return '<button type="button" data-pilha onclick="pfCrmAbrirPorRazao(window._venda&&window._venda.cliente,window._venda&&window._venda.clienteObj)" title="Ficha do cliente (CRM): linha do tempo, anotações, próxima ação" style="'+st+'">🤝 FICHA (CRM)</button>'+
     '<button type="button" data-pilha onclick="pfCotAbrirCadastroCli()" title="Abrir o cadastro deste cliente (contatos, grupo, fiscal, entrega…)" style="'+st+'">✏️ CADASTRO</button>';};
-  var numHtml=function(cor){return '<span style="font-size:11.5px;color:'+cor+';white-space:nowrap;line-height:14px">'+(v.pvEdit?'Pedido ':'')+'#'+pfEscHtml(v.num||(v.nr&&!/^V-\d{4}-/.test(String(v.nr))?v.nr:'NOVA'))+' · '+hoje+' <span id="vendasAutoSalvoTag" style="color:#2E9E4F;font-weight:700;opacity:0;transition:opacity .3s">&#10003; salvo</span></span>';};
+  var numHtml=function(cor){return '<span style="font-size:11.5px;color:'+cor+';white-space:nowrap;line-height:14px">'+(v.pvEdit?'Pedido ':'')+'#'+pfEscHtml(v.num||(v.nr&&!/^V-\d{4}-/.test(String(v.nr))?v.nr:'NOVA'))+' · '+pfCotAbertaTxt(v,hoje)+' <span id="vendasAutoSalvoTag" style="color:#2E9E4F;font-weight:700;opacity:0;transition:opacity .3s">&#10003; salvo</span></span>';};
   var ufSel=function(st){return '<select onchange="window._venda.uf=this.value;vendasRender()" style="'+st+';width:66px;padding:0 4px">'+['SP','MG','RJ','BA','PR','SC','RS','GO','MT','PA','CE','PE'].map(function(x){return '<option'+(v.uf===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select>';};
   var condInp=function(st){return '<input type="text" value="'+pfEscHtml(v.condicao||'')+'" placeholder="30/60 DDL" oninput="window._venda.condicao=this.value" style="'+st+';width:110px">';};
   var compInp=function(st){return '<input type="text" value="'+pfEscHtml(v.comprador||'')+'" placeholder="NOME" oninput="window._venda.comprador=this.value" style="'+st+';width:150px">';};
@@ -75151,7 +75161,7 @@ function vendasAbrirModal(cx){
   // Use cotação num as tab ID, or 'nova' for new
   var tabId=cx._tabId||(cx.num?String(cx.num):'nova_'+Date.now()); // v115.2060 - _tabId: aba já montada (pedido em edição)
   if(!window._vendasTabs[tabId]){
-    var venda={num:cx.num||null,nr:cx.id||cx.nr,cliente:cx.clienteObj,uf:cx.uf||(cx.clienteObj&&cx.clienteObj.estado)||'SP',margem:cx.margem||(typeof pfVendasMargemPadraoLoad==='function'?pfVendasMargemPadraoLoad():30),condicao:cx.condicao,comprador:cx.comprador,pdfCod:cx.pdfCod||'',obsCli:cx.obsCli||'',antesPedidoWa:cx.antesPedidoWa||null,regrasCot:cx.regrasCot||null,transferidos:cx.transferidos||null,jboss:cx.jboss||null,cobrarEm:cx.cobrarEm||null,fatPor:cx.fatPor||'',pedidoCli:cx.pedidoCli||null,itens:(cx.itens||[]).map(function(i){return Object.assign({},i);})};
+    var venda={num:cx.num||null,nr:cx.id||cx.nr,cliente:cx.clienteObj,uf:cx.uf||(cx.clienteObj&&cx.clienteObj.estado)||'SP',margem:cx.margem||(typeof pfVendasMargemPadraoLoad==='function'?pfVendasMargemPadraoLoad():30),condicao:cx.condicao,comprador:cx.comprador,pdfCod:cx.pdfCod||'',obsCli:cx.obsCli||'',antesPedidoWa:cx.antesPedidoWa||null,regrasCot:cx.regrasCot||null,transferidos:cx.transferidos||null,jboss:cx.jboss||null,cobrarEm:cx.cobrarEm||null,fatPor:cx.fatPor||'',pedidoCli:cx.pedidoCli||null,origem:cx.origem||'',criadaEm:cx.data||null,itens:(cx.itens||[]).map(function(i){return Object.assign({},i);})};
     var label=(cx.clienteObj&&(cx.clienteObj.fantasia||cx.clienteObj.razao))||cx.cliente||'Nova';
     if(label.length>18)label=label.substring(0,18)+'…';
     window._vendasTabs[tabId]={venda:venda,label:label,num:cx.num||'Nova'};
@@ -77269,6 +77279,7 @@ async function vendasSalvarCotacaoReal(opts){
   // v115.2180 - tempo de trabalho na cotação (pfCotTempoTick): soma o que foi acumulado desde o último salvamento
   cot.tempoAtivoSeg=((idxExistente>=0&&cots[idxExistente]&&cots[idxExistente].tempoAtivoSeg)||0)+(v._tempoNovoSeg||0);v._tempoNovoSeg=0;
   if(!cot.inicioEm&&v.inicioEm)cot.inicioEm=v.inicioEm;
+  if(v.origem&&!cot.origem)cot.origem=v.origem;v.criadaEm=cot.data; /* v115.2881 - por onde a cotação chegou e quando foi aberta (aparece no cabeçalho) */
   if(idxExistente>=0)cots[idxExistente]=cot;else cots.unshift(cot);
   pfSafeSetItem(COTS_KEY,JSON.stringify(cots));
   window._relCoCache=null; // v115.2030
@@ -78415,7 +78426,7 @@ var PF_EXT_COT_RE=/\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|tens|disponi|sald
 function pfExtNumEhPeca(tok){try{var its=vendasBuscarItem(String(tok).replace(/[^0-9A-Za-z]/g,''),{semEquiv:true,silencioso:true})||[];if(its.length)return true;}catch(e){}return false;}
 function pfExtLerPedido(msgs){
   var it=[],vis={},geral=null;
-  (msgs||[]).forEach(function(m){if(m.eu)return;var t=String(m.t||'');
+  (msgs||[]).forEach(function(m){if(m.eu)return;var t=pfCodOrdinal(String(m.t||'')); /* v115.2881 - ª = A */
     var mg=t.match(/\b0*(\d{1,4})\s*(?:p[çc]s?\.?\s*|un(?:id(?:ades?)?)?\.?\s*|pe[çc]as?\s*)?(?:de\s+)?cada\b/i);if(mg)geral=+mg[1];
     t.split(/\n+/).forEach(function(lin){
       lin=lin.replace(/https?:\/\/\S+/g,' ');
@@ -109060,7 +109071,7 @@ async function pfCotRapidaAdicionarCotacaoHoje(){
   var cx;
   if(st.cotacaoExistente){
     var c=st.cotacaoExistente;
-    cx={num:c.num,id:c.id,clienteObj:c.clienteObj,uf:c.uf,margem:c.margem,condicao:c.condicao,comprador:c.comprador,obsCli:c.obsCli||'',antesPedidoWa:c.antesPedidoWa||null,regrasCot:c.regrasCot||null,transferidos:c.transferidos||null,jboss:c.jboss||null,cobrarEm:c.cobrarEm||null,fatPor:c.fatPor||'',pedidoCli:c.pedidoCli||null,itens:c.itens};
+    cx={num:c.num,id:c.id,clienteObj:c.clienteObj,uf:c.uf,margem:c.margem,condicao:c.condicao,comprador:c.comprador,obsCli:c.obsCli||'',antesPedidoWa:c.antesPedidoWa||null,regrasCot:c.regrasCot||null,transferidos:c.transferidos||null,jboss:c.jboss||null,cobrarEm:c.cobrarEm||null,fatPor:c.fatPor||'',pedidoCli:c.pedidoCli||null,origem:c.origem||'',data:c.data||null,itens:c.itens};
   } else {
     cx={};
   }

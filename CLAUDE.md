@@ -3231,3 +3231,8 @@
 - v115.2880 + extensão **5.8** BUG ("não se ligou que era um pedido né?" — "Me envia 03 luvas 03-312 da TX amanhã por favor"): o 📦 Pedido a emitir só pegava frase da lista ("manda pra mim"…)
   ou a palavra PEDIDO. `pePedidoDireto` (whatsapp.js, dentro do `peCaraDePedido`): verbo envia/manda/separa/fatura/despacha/reserva/quero/levo + quantidade + código = pedido; pergunta
   ("?", quanto, valor, preço, cota, orçamento, "tem…?") não conta. "amanhã" já vira a data do lembrete.
+- v115.2881: 1) ("aqui ele precisa entender ª como A… tem idiota que escreve assim" — pedido "04-190506ª1"): `pfCodOrdinal` troca ª→A e º→O antes de ler código no WhatsApp
+  (`pfExtLerPedido`), na cotação (`vendasAdicionarItem`) e no Leitor de Peças (`lpApplyRuleCase`) — 190506A1 ×4, 358645A1 ×15. 2) ("coloca horário que foi aberta a cotação, e por onde também"):
+  cabeçalho da cotação "#93 · 23/11/2026 10:18 · 💬 pelo WhatsApp" (`pfCotAbertaTxt`, `PF_COT_ORIGEM_TXT`): hora = `v.criadaEm` (= `cot.data`, posto no salvar e no reabrir), origem = `v.origem`
+  gravada na cotação (`cot.origem`, vem do `vendasAbrirModal({origem})`: whatsapp/jboss…). Cotação antiga = só data e hora. 3) ("faz uma autorização geral"): `.claude/settings.json` com
+  permissions.allow (Bash, Read, Edit, Write, Supabase SQL, GitHub PR) — vale nas próximas sessões.

@@ -3876,6 +3876,7 @@
       await msg({ t: 'acao', acao: 'respForn', focar: true, arg: { mapa: pr[0], fid: pr[1], texto: texto, imgs: ims } });
       cmToast('✔ Abri no PF — confira e lance'); return;
     }
+    var _iaMin = false; if (id === 'doc_iamin' || id === 'img_iamin') { _iaMin = true; id = id.replace('min', ''); } // 5.6 - A pedido do Vitor ("opção de criar minimizado tbm. às vezes atrapalha já abrir direto na tela")
     if (id === 'doc_ia') {
       if (!motorOk) await motorChecar();
       if (!motorOk) { cmToast('Pra ler o PDF daqui o ⚙️ motor precisa estar ligado (recarregue o WhatsApp, F5). Ou baixe o PDF e use 📥 Subir lista na cotação do PF.'); return; }
@@ -3883,13 +3884,13 @@
       var md = await motor('midia', { nome: src || '' }, 60000);
       if (!md || md.erro || !md.data) { cotando = false; cotErro = 'Não consegui baixar o PDF' + (md && md.erro ? ' (' + md.erro + ')' : '') + ' — baixe e use 📥 Subir lista na cotação do PF'; pintaCorpo(); return; }
       var r6 = await msg({ t: 'acao', acao: 'cotarImg', arg: { img: md.data, nome: md.nome, mime: md.mime, k: resp && resp.k, contato: resp && resp.contato } });
-      cotando = false; if (r6 && r6.jboss) { cotErro = ''; pintaCorpo(); await msg({ t: 'acao', acao: 'jbAbrir', focar: true, arg: {} }); cmToast('✔ É a cotação ' + (r6.num || '') + ' da Triex — abri no PF pra criar com o preço da Triex'); return; } if (!r6 || r6.erro) cotErro = 'Não consegui ler o PDF' + (r6 && r6.msg ? ': ' + r6.msg : ''); else cot = r6; pintaCorpo(); return;
+      cotando = false; if (r6 && r6.jboss) { cotErro = ''; pintaCorpo(); await msg({ t: 'acao', acao: 'jbAbrir', focar: !_iaMin, arg: {} }); cmToast('✔ É a cotação ' + (r6.num || '') + ' da Triex — abri no PF pra criar com o preço da Triex'); return; } if (!r6 || r6.erro) cotErro = 'Não consegui ler o PDF' + (r6 && r6.msg ? ': ' + r6.msg : ''); else { cot = r6; if (_iaMin) { if (cot.itens && cot.itens.length) abrirCot(false, true); else cmToast('A IA não achou peças no PDF'); } } pintaCorpo(); return;
     }
     if (id === 'img_ia') {
       if (!src) return; irAba('cot'); if (cotando) return; cotando = true; cot = null; cotErro = ''; pintaCorpo();
       var du2 = await urlParaDataUrl(src);
       var r3 = await msg({ t: 'acao', acao: 'cotarImg', arg: { img: du2, k: resp && resp.k, contato: resp && resp.contato } });
-      cotando = false; if (r3 && r3.jboss) { cotErro = ''; pintaCorpo(); await msg({ t: 'acao', acao: 'jbAbrir', focar: true, arg: {} }); cmToast('✔ É a cotação ' + (r3.num || '') + ' da Triex — abri no PF pra criar com o preço da Triex'); return; } if (!r3 || r3.erro) cotErro = 'Não consegui ler a imagem' + (r3 && r3.msg ? ': ' + r3.msg : ''); else cot = r3; pintaCorpo(); return;
+      cotando = false; if (r3 && r3.jboss) { cotErro = ''; pintaCorpo(); await msg({ t: 'acao', acao: 'jbAbrir', focar: !_iaMin, arg: {} }); cmToast('✔ É a cotação ' + (r3.num || '') + ' da Triex — abri no PF pra criar com o preço da Triex'); return; } if (!r3 || r3.erro) cotErro = 'Não consegui ler a imagem' + (r3 && r3.msg ? ': ' + r3.msg : ''); else { cot = r3; if (_iaMin) { if (cot.itens && cot.itens.length) abrirCot(false, true); else cmToast('A IA não achou peças na foto'); } } pintaCorpo(); return;
     }
     if (id === 'img_pc') { // 4.93 - foto da cotação do concorrente que o cliente mandou
       if (!src) { var imP = A.b && A.b.querySelector('img'); src = imP ? imP.getAttribute('src') : ''; } if (!src) { cmToast('Clique com o botão direito em cima da foto'); return; }
@@ -3995,11 +3996,13 @@
     var imgSrc = '';
     try { var A0 = cmAlvo || {}, ims0 = A0.b ? A0.b.querySelectorAll('img') : []; for (var k = 0; k < ims0.length; k++) { var s0 = ims0[k].getAttribute('src') || ''; if (/^blob:|^data:image/.test(s0) && (ims0[k].naturalWidth || ims0[k].width) >= 120) { imgSrc = s0; break; } } } catch (e) { }
     if (imgSrc) itens.push(['img_ia', '🤖 Ler a foto com IA e cotar (PF)', imgSrc]);
+    if (imgSrc) itens.push(['img_iamin', '⬇ Ler a foto e criar a cotação minimizada (PF)', imgSrc]); // 5.6
     if (imgSrc) itens.push(['img_plaq', '🏷️ Mandar a plaqueta pra Máquinas (PF)', imgSrc]); // 4.91
     // 4.74 - A pedido do Vitor ("não consegui mandar o PDF pra já ler e fazer a cotação no PF"): mensagem com PDF = ler o PDF com IA e cotar
     var docNome = '';
     try { var tb = String((cmAlvo && cmAlvo.b && cmAlvo.b.innerText) || ''), md = tb.match(/([^\n]+?\.pdf)\b/i); if (md) docNome = md[1].trim(); else if (/\bPDF\b\s*[•·]/.test(tb)) docNome = '?'; } catch (e) { }
     if (docNome) itens.push(['doc_ia', '🤖 Ler o PDF com IA e cotar (PF)', docNome === '?' ? '' : docNome]);
+    if (docNome) itens.push(['doc_iamin', '⬇ Ler o PDF e criar a cotação minimizada (PF)', docNome === '?' ? '' : docNome]); // 5.6
     itens.push(['msg_cotar', '📄 Cotar no PF']);
     itens.push(['msg_mc', '🔗 Monta com (PF)']); // 4.92
     itens.push(['msg_pc', '💲 Preço do concorrente (PF)']); // 4.93

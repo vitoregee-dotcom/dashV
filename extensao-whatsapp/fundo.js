@@ -158,6 +158,7 @@ function cmCriar() {
       mk({ id: 'msg_avise', parentId: 'pf', title: '🔔 Avise-me (códigos da mensagem)', contexts: ['page', 'link'] });
       mk({ id: 'msg_curta', parentId: 'pf', title: '🏷️ Resposta curta (NEGATIVO, ZEROU…)', contexts: ['page', 'link'] });
       mk({ id: 'img_ia', parentId: 'pf', title: '🤖 Ler com IA e cotar', contexts: ['image'] });
+      mk({ id: 'img_iamin', parentId: 'pf', title: '⬇ Ler com IA e criar a cotação minimizada', contexts: ['image'] }); // 5.6
       mk({ id: 'img_mapa', parentId: 'pf', title: '📥 Lançar no mapa (resposta do fornecedor)', contexts: ['image'] });
       mk({ id: 'img_plaq', parentId: 'pf', title: '🏷️ Mandar a plaqueta pra Máquinas', contexts: ['image'] }); // 4.91
       mk({ id: 'img_pc', parentId: 'pf', title: '💲 Cotação do concorrente (ler com IA)', contexts: ['image'] }); // 4.93

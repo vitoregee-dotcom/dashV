@@ -3236,3 +3236,5 @@
   cabeçalho da cotação "#93 · 23/11/2026 10:18 · 💬 pelo WhatsApp" (`pfCotAbertaTxt`, `PF_COT_ORIGEM_TXT`): hora = `v.criadaEm` (= `cot.data`, posto no salvar e no reabrir), origem = `v.origem`
   gravada na cotação (`cot.origem`, vem do `vendasAbrirModal({origem})`: whatsapp/jboss…). Cotação antiga = só data e hora. 3) ("faz uma autorização geral"): `.claude/settings.json` com
   permissions.allow (Bash, Read, Edit, Write, Supabase SQL, GitHub PR) — vale nas próximas sessões.
+- v115.2882 + extensão **5.9** ("não me parece um bom momento" — cliente mandou "eii / bom dia / tudo bem?" e apareceu a dica 🧭 "Bom momento pra perguntar"): o `ccCalma` só dá bom momento
+  quando vocês já se falaram (mensagens suas e dele nas últimas 15) e a última é SUA (sem "?" no fim) ou do cliente só fechando o assunto (blz, valeu, obrigado, ok, 👍…). Cliente cumprimentando/perguntando = não.

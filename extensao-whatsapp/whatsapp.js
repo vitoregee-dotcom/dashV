@@ -303,7 +303,7 @@
   }
   function pareceCotacao(ms) {
     var cli = ms.filter(function (m) { return !m.eu; }).slice(-15), n = 0, pede = false;
-    cli.forEach(function (m) { if (soCodigo(m.t)) { pede = true; n += Math.max(1, (m.t.match(COD_RE) || []).length); return; } (m.t.match(COD_RE) || []).forEach(function (tk) { if (ehCodTk(tk)) n++; }); if (/\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo)/i.test(m.t)) pede = true; });
+    cli.forEach(function (m) { if (soCodigo(m.t)) { pede = true; n += Math.max(1, (m.t.match(COD_RE) || []).length); return; } (m.t.match(COD_RE) || []).forEach(function (tk) { if (ehCodTk(tk)) n++; }); if (/\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo|envi[ae]|mand[ae]|separ[ae]|fatur[ae]|despach[ae]|reserv[ae]|pedido|quero|preciso|levo)/i.test(m.t)) pede = true; });
     return n >= 2 || (n >= 1 && pede) ? n : 0;
   }
 
@@ -3030,9 +3030,10 @@
   var SP = null, spMsg = null, spR = null, spFeitos = {};
   try { spFeitos = JSON.parse(sessionStorage.getItem('pfwa_sp_feitos') || '{}') || {}; } catch (e) { spFeitos = {}; }
   function spHash(s) { s = String(s || ''); var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h.toString(36); }
+  // 6.0 - A pedido do Vitor ("Me envia 03 luvas 03-312 da TX amanhã" — 1 código + pedido direto e não aparecia o selo pra atualizar a cotação): envia/manda/separa/fatura/pedido/quero também contam.
   function spContaCods(t) {
     var n = 0; (String(t || '').match(COD_RE) || []).forEach(function (tk) { if (ehCodTk(tk)) n++; });
-    var pede = /\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo)/i.test(t) || soCodigo(t);
+    var pede = /\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo|envi[ae]|mand[ae]|separ[ae]|fatur[ae]|despach[ae]|reserv[ae]|pedido|quero|preciso|levo)/i.test(t) || soCodigo(t);
     if (soCodigo(t) && !n) n = 1;
     return n >= 2 || (n >= 1 && pede) ? n : 0;
   }

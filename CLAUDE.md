@@ -105,6 +105,13 @@
   v115.2863 ("ctza q está azul?" — linhas cinza na tela dele): a cor das linhas salva no 🎨 ANTES de 22/11/2026 (`vendas_row_cores` ts < 1795383000000; a dele era branco/#c9c9c9 de set/2026) é ignorada — vale a da prévia (#fff/#EEF3F8, também o padrão do 🎨); escolher de novo no 🎨 volta a valer.
 - v115.2864 ("pq esses ícones cortados? exclui do banco"): saíram do `PF_ICON_PACK` e do disco 34 ícones recortados errado da folha (087, 172–179, 192, 203, 263–294 menos os inteiros) — nenhum estava em uso (conferido no banco). Banco agora com 330.
 - v115.2865 ("repetido pode excluir"): saíram do `PF_ICON_PACK` 78 ícones com o MESMO desenho de outro (fica o 1º da lista ou o que o código usa); arquivos apagados, menos os 6 escolhidos no `pfIconOverrides` (043 132 166 197 247 345, continuam no disco). Banco com 252. 375×377 e 315×321 parecem iguais mas não são (ficam).
+- v115.2866 **🗂️ Setores na barra + mudar card de setor** (prévia `docs/referencias/organizar-sistema/` → "quero ter os setores e o que eu achar que pode sair do Ferramentas, eu mudo" + "e a forma de
+  arrastar?" + "o Ferramentas eu não quero excluir"): dock ganhou `navFinanceiro` (💰 → `pfSetorAbrir('financeiro')`, tela `#pfSetor` z 58 com Contas a Receber + Contas a Pagar/Fluxo pra `pfGeAcessoFin`
+  + o que for mudado pra lá) e `navGestao` (📊 → `pfGeAbrir`, só `pfGeAcesso`); Logística = "Estoque e Logística" no title. **Mudar card de setor** (só `pfCgPode`): arrastar o card até o ícone do setor na
+  barra (`window._pfCardArr` no dragstart do `pfArrastavelAplicar`, drop em captura no `#pfNav`, `PF_SETOR_NAV`) ou botão direito → 📦 Mover pra outro setor (`pfCardSetorMenuItens`). Config compartilhada
+  **`pfCardSetor_v1`** {mov:{título:{de,para,html,id}},ts} (3 listas da sync + rótulo) + padrão `PF_CARD_SETOR_PADRAO` (Contas a Receber vendas→financeiro). `pfCardSetorAplicar` (começo do
+  `pfCardGruposAplicar`) esconde no setor de origem e põe a cópia do visual (`html`) no destino; clique = `pfCardSetorIr` (abre pelo setor de origem, `pfAtalhoAbrir`). Setores que recebem card:
+  `PF_SETORES_CARD` (vendas, compras, financeiro, área técnica, ferramentas) — Logística/Cadastros não têm grade de cards. Ferramentas ficou igual.
 - Sync: `pfSyncPull` é incremental (marca d'água de `updated_at`); `cad_produtos_v1` tem merge próprio
   (`pfMergeProdutosArr`, colapsa por código+marca e **descarta item sem código** — em set/2026 um fantasma
   sem código dobrava a cada sync e chegou a 1,2 milhão; qualquer merge novo precisa colapsar TUDO, nada pode

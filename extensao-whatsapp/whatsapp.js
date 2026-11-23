@@ -1314,6 +1314,7 @@
         if (nome && e.contains(nome) && e !== nome) continue;
         if (e.closest(MEUS + ',.pfm-offchip')) continue;
         var r = e.getBoundingClientRect(); if (r.width < 2 || r.height < 2) continue;
+        if (pfwaNoContato(e, r)) continue; // 5.7
         var obs = /^(IMG|SVG|CANVAS|VIDEO|BUTTON|INPUT|TEXTAREA)$/i.test(e.tagName) || /^(button|combobox|listbox)$/.test(e.getAttribute('role') || '') || e.hasAttribute('aria-haspopup');
         if (!obs) for (var n = e.firstChild; n; n = n.nextSibling) if (n.nodeType === 3 && n.textContent.trim()) { obs = true; break; }
         if (!obs) { var cs = getComputedStyle(e); if (cs.visibility === 'hidden' || cs.opacity === '0') continue;
@@ -1322,6 +1323,21 @@
       }
     }
     _pfwaObs = R; _pfwaObsT = Date.now(); return R;
+  }
+  // 5.7 - A pedido do Vitor (print do Juninho - Adipel: 👤+ e 🧭 8 caíram embaixo do cabeçalho, em cima das mensagens, com o cabeçalho VAZIO depois do nome —
+  // "acho que 1 mesmo", ao lado do nome): a área clicável do contato (o botão em volta do nome) é larga e tem pedaços sem nada (fundo, linha do status
+  // vazia) que contavam como obstáculo. Dentro desse botão só conta o que aparece: foto/ícone e texto curto (até 260 px).
+  function pfwaNoContato(e, r) {
+    var nome = nomeEl(), info = nome && nome.closest('[role="button"]'); if (!info || e === info || !info.contains(e)) return false;
+    if (/^(IMG|SVG|CANVAS|VIDEO)$/i.test(e.tagName)) return false;
+    var txt = false; for (var n = e.firstChild; n; n = n.nextSibling) if (n.nodeType === 3 && n.textContent.trim()) { txt = true; break; }
+    return !(txt && r.width <= 260);
+  }
+  // 5.7 - "só tem que tomar cuidado pra não bugar quando puxar a barra lateral do PF": o limite da direita é o fim do cabeçalho OU a borda do painel do PF aberto
+  function pfwaDireita(hr) {
+    var d = hr.right, pn = document.getElementById('pfwa');
+    if (pn && pn.offsetWidth) { var pr = pn.getBoundingClientRect(); if (pr.width > 40 && pr.left < d && pr.right > hr.left && pr.top < hr.bottom && pr.bottom > hr.top) d = Math.min(d, pr.left); }
+    return d;
   }
   function pfwaCaixaLivre(x, y, w, h, ignora, outros) {
     for (var j = 0; j < outros.length; j++) { var o = outros[j]; if (x < o.right + 4 && x + w > o.left - 4 && y < o.bottom && y + h > o.top) return false; }
@@ -1355,6 +1371,7 @@
         if (e.closest && e.closest(MEUS + ',.pfm-offchip')) continue;
         if (nome && e.contains(nome)) continue;
         var r = e.getBoundingClientRect(); if (r.width < 2 || r.height < 2 || r.width > 520 || r.height > 90) continue;
+        if (pfwaNoContato(e, r)) continue; // 5.7
         var cs = getComputedStyle(e); if (cs.visibility === 'hidden' || cs.opacity === '0') continue;
         var obs = /^(IMG|SVG|CANVAS|VIDEO|BUTTON|INPUT|SELECT)$/i.test(e.tagName) || /^(button|combobox|listbox)$/.test(e.getAttribute('role') || '') || e.hasAttribute('aria-haspopup');
         if (!obs) for (var n = e.firstChild; n; n = n.nextSibling) if (n.nodeType === 3 && n.textContent.trim()) { obs = true; break; }
@@ -1371,19 +1388,31 @@
     var hd = document.querySelector('#main header'); if (!hd) return; var hr = hd.getBoundingClientRect();
     var gap = 4, H = 26, W = 0; els.forEach(function (e, i) { W += (e.offsetWidth || 26) + (i ? gap : 0); });
     var y = Math.round(r.top + r.height / 2 - H / 2), info = nome.closest('[role="button"]');
-    var obs = pfwaObsLinha(y + H / 2, Math.round(r.right + 4), Math.round(hr.right - 2));
+    var DIR = pfwaDireita(hr); // 5.7
+    var obs = pfwaObsLinha(y + H / 2, Math.round(r.right + 4), Math.round(DIR - 2));
     var livre = function (x, yy) {
       for (var q = 0; q < obs.length; q++) { var b = obs[q]; if (x < b.right + 6 && x + W > b.left - 6 && yy < b.bottom && yy + H > b.top) return false; }
       return pfwaCaixaLivre(x, yy, W, H, info, []);
     };
     var x, px = null, py = y;
-    if (_pfwaCabPos && _pfwaCabPos.k === ultimo && _pfwaCabPos.W === W && livre(_pfwaCabPos.x, _pfwaCabPos.y)) { px = _pfwaCabPos.x; py = _pfwaCabPos.y; }
-    if (px === null) for (x = Math.round(r.right + 8); x + W <= hr.right - 4; x += 6) if (livre(x, y)) { px = x; break; }
-    if (px === null) { py = Math.round(hr.bottom + 8); px = Math.round(hr.right - W - 16); } // sem lugar: embaixo do cabeçalho, à direita
-    _pfwaCabPos = { k: ultimo, W: W, x: px, y: py };
+    if (_pfwaCabPos && _pfwaCabPos.k === ultimo && _pfwaCabPos.W === W && _pfwaCabPos.D === DIR && _pfwaCabPos.y === y && livre(_pfwaCabPos.x, _pfwaCabPos.y)) { px = _pfwaCabPos.x; py = _pfwaCabPos.y; }
+    if (px === null) for (x = Math.round(r.right + 8); x + W <= DIR - 4; x += 6) if (livre(x, y)) { px = x; break; }
+    if (px === null) { // 5.7 - tela apertada: espremido logo depois do nome (só sem obstáculo do WhatsApp), senão embaixo do cabeçalho, à direita
+      var x0 = Math.round(r.right + 6);
+      if (x0 + W <= DIR - 2 && !obs.some(function (b) { return x0 < b.right + 2 && x0 + W > b.left - 2 && y < b.bottom && y + H > b.top; })) px = x0;
+      else { py = Math.round(hr.bottom + 8); px = Math.round(DIR - W - 16); }
+    }
+    _pfwaCabPos = { k: ultimo, W: W, D: DIR, x: px, y: py };
     var cx = px; els.forEach(function (e) { e.style.left = cx + 'px'; e.style.top = (py + Math.round((H - (e.offsetHeight || H)) / 2)) + 'px'; cx += (e.offsetWidth || 26) + gap; });
   }
   var _pfwaCabPos = null;
+  (function () { // 5.7 - recalcula na hora quando o cabeçalho muda de tamanho (abrir/fechar o painel do PF, redimensionar a janela)
+    var obsR = null, hdV = null, t = null;
+    function agenda() { clearTimeout(t); t = setTimeout(function () { try { _pfwaObs = null; _pfwaCabPos = null; pfwaCabLayout(); } catch (e) { } }, 120); }
+    window.addEventListener('resize', agenda);
+    setInterval(function () { try { var hd = document.querySelector('#main header'), pn = document.getElementById('pfwa'); if (!window.ResizeObserver) return;
+      if (hd !== hdV) { if (obsR) obsR.disconnect(); obsR = new ResizeObserver(agenda); if (hd) obsR.observe(hd); if (pn) obsR.observe(pn); hdV = hd; } } catch (e) { } }, 1500);
+  })();
   function pfwaPorNoLugar(el, r, w, h) { var p = pfwaLugar(el, r, w, h); if (!p) return false; el.style.left = p.x + 'px'; el.style.top = p.y + 'px'; return true; }
   function svPos() {
     if (!SVB) return; var c = contatoAt, el = nomeEl();

@@ -3245,3 +3245,6 @@
 - v115.2886 BUG (Leitor de Peças, lista encaminhada do WhatsApp "quando tiver tempo dá uma olhada nesses daqui tambem: / 332/H5798 / …": "Erro: Unexpected non-whitespace character after JSON"):
   1) a 1ª linha (recado, sem número) fazia a lista INTEIRA ir pra IA — no `lpLerTextoReal` linha sem nenhum número é ignorada (os 20 códigos JCB entram sem IA). 2) a IA escrevia algo DEPOIS
   da lista e o JSON.parse quebrava — `lpJsonLista(res)` pega só a 1ª lista [...] (contando colchetes, fora de aspas) e, cortada no meio, recupera os itens completos.
+- v115.2887 BUG ("não reconheceu esse padrão aqui no leitor. Provavelmente são itens JCB" — Leitor lia 332/H5798 como "332"): código JCB = 2–4 dígitos + / + 4–6 letras/números
+  (`lpEhCodJcb`) fica inteiro no `lpApplyRuleCase`; o pedido à IA ganhou `PF_LP_JCB_PROMPT` DEPOIS das regras salvas (manda sobre elas) e, se a IA cortar mesmo assim, o código inteiro
+  que está no texto volta. Causa: 7 regras salvas em `lp_regras_v1` "DESCONSIDERE CARACTERES DA / PARA FRENTE" (feitas pra prints específicos — 2247/V, 100561A1/0) valiam pra qualquer lista.

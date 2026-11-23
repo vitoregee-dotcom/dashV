@@ -706,6 +706,7 @@
       ['📥', 'Importar meus contatos', 'Lê a lista de conversas e traz pro PF (você escolhe quem entra).'],
       ['📣', 'Disparo pelo PF', 'No PF, Vendas → 📣 Disparo pelo WhatsApp: escolhe a lista (o que chegou, uma marca, um grupo, os sumidos ou uma etiqueta), escreve a mensagem com {nome} e a extensão manda uma por uma, no ritmo que você escolher por hora. Quem já recebeu a mesma oferta fica de fora.'],
       ['👔', 'Colega da empresa', 'No 👤 Salvar contato, escolha “👔 Colega” pra quem é daqui da empresa: fica guardado no PF, o botão fica roxo, aparece “👔 colega” na lista e ele nunca recebe mensagem automática nem entra nos avisos de cliente.'],
+      ['⏳', 'Tenho pendência com esse contato', 'Botão direito na conversa (na lista da esquerda) → “⏳ Tenho pendência com esse contato”: escreve o que ficou pendente (opcional), vai pras Pendências (e pro ☀️ Meu dia, se for cliente) e põe um ⏳ ao lado do nome — mesmo que a conversa fique como lida. Na barra de cima aparece “⏳ pendência N” pra filtrar. Resolveu: botão direito → “✔ Resolvi a pendência”.'],
       ['📦', 'Tem pedido pra enviar', 'Botão direito na conversa (na lista da esquerda) → “📦 Tem pedido pra enviar”: cria o lembrete nas Pendências (e no ☀️ Meu dia, se for cliente) e põe um 📦 ao lado do nome. Quando mandar, botão direito → “✔ Pedido enviado” tira a marca.'],
       ['🏷️', 'Plaqueta pra Máquinas', 'Botão direito na FOTO de uma plaqueta → “🏷️ Mandar a plaqueta pra Máquinas”: o PF lê marca, modelo, série, ano e componentes, você confere e grava — a máquina é criada ou completada em 🚜 Máquinas, com a foto da plaqueta.'],
       ['👤', 'Salvar contato', 'Botão verde ao lado do nome da conversa: escreve o nome, a empresa (procura nos clientes do PF) e o código do JBoss — vira "Fulano - Empresa (código)". Salva no PF (o contato entra no cadastro do cliente, mesmo sem número) e já salva/renomeia o contato no WhatsApp com esse nome, com o "Sincronizar no telefone" ligado (vai pra agenda do celular também). Quer só no WhatsApp? “📱 Só no WhatsApp” renomeia/salva o contato lá (e no celular) sem gravar nada no PF. Tem também o GRUPO do cliente (Linha Amarela, Agrícola… — vai pro cadastro), o CARGO e o CNPJ (CNPJ que ainda não é cliente = entra no PF como pré-cadastro 🌱 com os dados da Receita); se a empresa ainda não está no PF, aparece “➕ Criar cliente no PF”, que já cria o cadastro com esse contato. E quando o contato não está no PF e o cliente mandou o CNPJ na conversa, a aba Cliente mostra “➕ Cadastrar no PF” já com esse CNPJ.'],
@@ -2640,7 +2641,7 @@
   function filhoQueTem(anc, el) { var x = el; while (x && x.parentElement !== anc) x = x.parentElement; return x; }
   function ancComum(a, b) { var x = a; while (x && !x.contains(b)) x = x.parentElement; return x; }
   function rowLimpar(r) {
-    r.querySelectorAll('.pfwa-rowb,.pfwa-rowbar,.pfwa-rowln,.pfwa-rowtp,.pfwa-rowgp,.pfwa-rowown,.pfwa-gueri,.pfwa-fatsp,.pfwa-row3,.pfwa-emch').forEach(function (e) { e.remove(); });
+    r.querySelectorAll('.pfwa-rowb,.pfwa-rowbar,.pfwa-rowln,.pfwa-rowtp,.pfwa-rowgp,.pfwa-rowown,.pfwa-gueri,.pfwa-fatsp,.pfwa-row3,.pfwa-emch,.pfwa-pdch').forEach(function (e) { e.remove(); });
     r.querySelectorAll('.pfwa-row3u').forEach(function (e) { e.classList.remove('pfwa-row3u'); }); // v115.2697 - a linha da etiqueta nativa volta ao normal
     r.querySelectorAll('[data-pfwa-esc]').forEach(function (e) { e.style.display = ''; e.removeAttribute('data-pfwa-esc'); });
   }
@@ -2666,7 +2667,7 @@
         tp = s.tpc || '';
       } else if (s.tipo === 'fornecedor') { txt = '🏭 fornecedor' + (s.mapa ? ' · mapa ' + esc(s.mapa) : ''); txtFull = txt; }
       else if (s.tipo === 'colega') { txt = '👔 colega' + (s.cargo ? ' · ' + esc(s.cargo) : ''); txtFull = txt; } // 4.91
-      var sig = txt + '|' + gh + '|' + bar + '|' + tp + '|' + (s.gueri ? 'G' : '') + (s.fatSp ? 'F' : '') + (s.emitir ? 'E' : '') + '|' + (CFG.waEtqOff !== false ? 1 : 0) + '|' + (x.unread ? 1 : 0);
+      var sig = txt + '|' + gh + '|' + bar + '|' + tp + '|' + (s.gueri ? 'G' : '') + (s.fatSp ? 'F' : '') + (s.emitir ? 'E' : '') + (s.pend ? 'P' : '') + '|' + (CFG.waEtqOff !== false ? 1 : 0) + '|' + (x.unread ? 1 : 0);
       if (r.getAttribute('data-pfwa-sig') === sig && (!txt || r.querySelector('.pfwa-rowln'))) return;
       rowLimpar(r); r.setAttribute('data-pfwa-sig', sig); r.removeAttribute('title');
       // 4.49 - A pedido do Vitor ("está com as etiquetas do whats" — cliente SEM grupo/tipo e conversas fora do PF ainda mostravam a etiqueta "CARDAN"):
@@ -2677,6 +2678,7 @@
       } catch (e) { } }
       // 4.91 - A pedido do Vitor ("marcar que tem um pedido pro cliente pra ser enviado, pra eu não esquecer"): 📦 ao lado do nome enquanto tiver pedido pra mandar
       if (s.emitir && tit.parentNode) { var ez = document.createElement('span'); ez.className = 'pfwa-emch'; ez.textContent = '📦'; ez.title = 'Tem pedido pra enviar — botão direito na conversa → ✔ Pedido enviado'; tit.parentNode.insertBefore(ez, tit.nextSibling); }
+      if (s.pend && tit.parentNode) { var pz = document.createElement('span'); pz.className = 'pfwa-pdch'; pz.textContent = '⏳'; pz.title = 'Pendência com esse contato' + (typeof s.pend === 'string' ? ': ' + s.pend : '') + ' — botão direito na conversa → ✔ Resolvi'; tit.parentNode.insertBefore(pz, tit.nextSibling); } // 6.2
       if (!txt) return;
       // 4.37 / v115.2695 - A pedido do Vitor ("selo pra marcar cliente q compra com nf baixa… deixa a escrita Gueri"): chip "Gueri" ao lado do nome
       if (s.tipo === 'cliente' && s.gueri && tit.parentNode) { var gz = document.createElement('span'); gz.className = 'pfwa-gueri'; gz.textContent = 'Gueri'; gz.title = 'Compra com NF baixa'; tit.parentNode.insertBefore(gz, tit.nextSibling); }
@@ -2711,7 +2713,7 @@
         var anc = ancComum(tit, prev), L2 = anc ? filhoQueTem(anc, prev) : null;
         if (L2 && unr && L2.contains(unr) && L2 !== unr) { var u = filhoQueTem(L2, unr); var uu = u; while (uu && uu.parentElement && uu.parentElement !== L2 && uu.parentElement.children.length === 1) uu = uu.parentElement; L2.insertBefore(ln, u); }
         else if (L2 && L2 !== prev) L2.appendChild(ln);
-        else prev.parentNode.insertBefore(ln, prev.nextSibling);
+        else if (prev.parentNode) prev.parentNode.insertBefore(ln, prev.nextSibling); // 6.2 - linha que o WhatsApp acabou de trocar
       } else { var h = tit.parentElement; h.appendChild(ln); }
       // linha 3: grupo + tipo numa linha PRÓPRIA embaixo da mensagem — igual à conversa que já tem etiqueta do WhatsApp (a Geisa do print do Vitor).
       // v115.2697 - A pedido do Vitor (print real: "único q tá certo é o da Geisa; Alisson o grupo tá no lugar errado"): TODO cliente ganha a 3ª linha
@@ -2748,12 +2750,13 @@
     if (menuFiltro.indexOf('g:') === 0) return (s.tipo === 'cliente' || s.tipo === 'contato') && audGruposDe(s).indexOf(menuFiltro.slice(2)) >= 0;
     if (menuFiltro === 'semg') return s.tipo === 'cliente' && !audGruposDe(s).length;
     if (menuFiltro === 'emitir') return !!s.emitir;
+    if (menuFiltro === 'pend') return !!s.pend; // 6.2
     return true;
   }
   var FL = null, flSig = '';
   function aplicarFiltro() {
     document.querySelectorAll('#pane-side [role="listitem"]').forEach(function (r) { if (r.style.display === 'none') r.style.display = ''; });
-    var ativo = menuLig && (menuFiltro.indexOf('g:') === 0 || menuFiltro === 'semg' || menuFiltro === 'emitir');
+    var ativo = menuLig && (menuFiltro.indexOf('g:') === 0 || menuFiltro === 'semg' || menuFiltro === 'emitir' || menuFiltro === 'pend');
     var pane = $('#pane-side');
     if (!ativo || !pane || document.documentElement.classList.contains('pfwa-coberto')) { if (FL) FL.style.display = 'none'; flSig = ''; return; }
     if (!FL) { FL = document.createElement('div'); FL.id = 'pfwa-fl'; document.body.appendChild(FL);
@@ -2764,7 +2767,7 @@
     var vistos = {}, L = [];
     linhasLista().forEach(function (x) { var s = sitCache[x.nome]; vistos[x.nome] = 1; if (filtroBate(s, x)) L.push({ nome: x.nome, s: s || {}, hora: x.hora || '', unread: x.unread ? 1 : 0 }); });
     (grpLista || []).forEach(function (c) { if (vistos[c.nome]) return; vistos[c.nome] = 1; if (filtroBate(c.s)) L.push({ nome: c.nome, id: c.id, s: c.s, hora: '', unread: c.unread || 0 }); });
-    var titulo = menuFiltro === 'semg' ? 'Sem grupo' : menuFiltro === 'emitir' ? '📦 A emitir' : menuFiltro.slice(2);
+    var titulo = menuFiltro === 'semg' ? 'Sem grupo' : menuFiltro === 'emitir' ? '📦 A emitir' : menuFiltro === 'pend' ? '⏳ Com pendência' : menuFiltro.slice(2);
     var sig = titulo + '|' + L.map(function (x) { return x.nome + (x.unread ? '*' : '') + x.hora; }).join('|') + '|' + tituloConversa();
     if (sig === flSig) return; flSig = sig;
     var atual = tituloConversa();
@@ -2879,7 +2882,9 @@
     if (nSemG) hG += pillG('semg', '❔ Sem grupo', nSemG, '');
     var nEmit = 0; linhasLista().forEach(function (x) { var s = sitCache[x.nome] || {}; if (s.emitir) nEmit++; }); // 4.67 - 📦 a emitir
     if (nEmit) hG += '<span class="pfm-pill pfm-emit' + (menuFiltro === 'emitir' ? ' on' : '') + '" data-acao="menuFiltro" data-arg="emitir" title="Pedidos que você precisa emitir/mandar">📦 a emitir <b>' + nEmit + '</b></span>';
-    if (!gKeys.length && !nSemG && !nEmit) hG += '<span class="pfm-vazio">Nenhum cliente do PF nesta lista ainda</span>';
+    var nPend = 0; linhasLista().forEach(function (x) { var s = sitCache[x.nome] || {}; if (s.pend) nPend++; }); // 6.2 - ⏳ com pendência
+    if (nPend) hG += '<span class="pfm-pill pfm-emit' + (menuFiltro === 'pend' ? ' on' : '') + '" data-acao="menuFiltro" data-arg="pend" title="Conversas que você marcou com pendência">⏳ pendência <b>' + nPend + '</b></span>';
+    if (!gKeys.length && !nSemG && !nEmit && !nPend) hG += '<span class="pfm-vazio">Nenhum cliente do PF nesta lista ainda</span>';
     if (gTot) hG += '<span class="pfm-vazio" title="Contado em todas as conversas pelo motor">· todas as conversas</span>';
     var ls = linhasLista(), nC = 0, nF = 0, nCot = 0, nSem = 0, etqN = {};
     ls.forEach(function (x) { var s = sitCache[x.nome] || {}; if (s.tipo === 'cliente') nC++; else if (s.tipo === 'fornecedor') nF++; if (s.cot) nCot++; if (x.unread) nSem++; x.etqs.forEach(function (e) { etqN[e] = (etqN[e] || 0) + 1; }); });
@@ -3957,6 +3962,14 @@
       cmToast(rp && rp.ok ? '✔ Abri no PF — confira a máquina e clique em Gravar' : 'Não deu — ' + ((rp && rp.msg) || 'abra o PF')); return;
     }
     if (/^cv_/.test(id) && !A.nome) { cmToast('Clique com o botão direito em cima da conversa na lista'); return; }
+    if (id === 'cv_pend' || id === 'cv_pendok') { // 6.2 - ⏳ pendência com o contato (marcada à mão)
+      var stp = sitCache[A.nome] || {}; var tirap = id === 'cv_pendok' || (id === 'cv_pend' && stp.pend);
+      if (tirap) { var rq = await msg({ t: 'acao', acao: 'pendTirar', arg: { nome: A.nome } }); stp.pend = ''; cmToast(rq && rq.ok ? '✔ ' + A.nome + ' — pendência resolvida, tirei o ⏳' : 'Não deu — abra o PF'); }
+      else { var ob = prompt('⏳ Pendência com ' + A.nome + '\nO que ficou pendente? (opcional — ex.: mandar preço da cruzeta, ver prazo)', ''); if (ob === null) return;
+        var rp2 = await msg({ t: 'acao', acao: 'pendMarcar', arg: { nome: A.nome, obs: ob } }); stp.pend = ob || 1;
+        cmToast(rp2 && rp2.ok ? (rp2.ja ? '⏳ Já estava marcado' : '⏳ Marcado: pendência com ' + (rp2.titulo || A.nome) + (rp2.cliente ? ' (Pendências e ☀️ Meu dia)' : ' (Pendências)')) : 'Não deu — abra o PF'); }
+      sitCache[A.nome] = stp; sitSig = ''; try { badgesRender(); carregarSituacoes(); } catch (e) { } return;
+    }
     if (id === 'cv_ped' || id === 'cv_pedok') { // 4.91 - 📦 pedido pra enviar marcado à mão
       var stc = sitCache[A.nome] || {}; var tira = id === 'cv_pedok' || (id === 'cv_ped' && stc.emitir && !A.forcaMarcar);
       if (tira) { var ro = await msg({ t: 'acao', acao: 'pedidoEnviado', arg: { nome: A.nome } }); stc.emitir = false; cmToast(ro && ro.ok ? '✔ ' + A.nome + ' — pedido enviado, tirei o 📦' : 'Não deu — abra o PF'); }
@@ -4011,6 +4024,7 @@
       if (Date.now() - cvT > 2500) return; var it = cvMenu(); if (!it) { if (n < 15) cvProcurar(n + 1); return; }
       var lista = it.parentElement; if (!lista || lista.querySelector('.pfwa-wm')) return;
       var A = cmAlvo || {}, st = sitCache[A.nome] || {}, its = [];
+      its.push(st.pend ? ['cv_pendok', '✔ Resolvi a pendência (tirar o ⏳)'] : ['cv_pend', '⏳ Tenho pendência com esse contato (PF)']); // 6.2
       its.push(st.emitir ? ['cv_pedok', '✔ Pedido enviado (tirar o 📦)'] : ['cv_ped', '📦 Tem pedido pra enviar (PF)']);
       if (st.tipo === 'cliente') its.push(['cv_ficha', '🤝 Abrir ficha do cliente (PF)']);
       its.push(['cv_nunca', ((AUTO.nunca || []).indexOf(A.nome) >= 0 ? '🔔 Voltar a mandar mensagem automática' : '🔕 Não mandar mensagem automática')]);

@@ -2066,7 +2066,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2875</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2876</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2228,7 +2228,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2875</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2876</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -87820,6 +87820,9 @@ function ccSpMedNum(v){var n=parseFloat(String(v==null?'':v).replace(',','.'));r
 function ccSpMedCampos(fam,L){
   var m=CC_SPMED_MAPA[fam]||{},o={};
   if(fam==='cruzetas'&&/castanha|asa/.test(L.grupo)){if(L.grupo==='asa'&&L.B)o.B=L.B;return o;}
+  /* v115.2876 - A pedido do Vitor (4-53-61 com "Ø maior estria 216,5"): nas tabelas b/c/fixa da Spicer as 2 colunas de Ø são o Ø do pescoço (D) e o Ø maior das estrias (B)
+     (4-53-61 = 45,0 / 44,4 — igual ao desenho e à Stahl HPT-617); só na tabela "a" são Ø maior (B) / Ø menor (A) das estrias. */
+  if(fam==='ponteiras'&&L.grupo&&L.grupo!=='a'){m=Object.assign({},m,{emaior:'D',emenor:'B'});}
   Object.keys(m).forEach(function(k){if(L[k]!=null&&L[k]!=='')o[m[k]]=L[k];});
   if(fam==='cruzetas'){var a=ccSpMedNum(o.A),b=ccSpMedNum(o.B);if(a&&b&&b>a/2){delete o.B;delete o.G;}}
   return o;
@@ -88994,6 +88997,7 @@ function ccRender(){
   ccCorrigirMarcaLng(); // v115.2189 (substitui a correção errada da v115.2187)
   ccCorrigirTerminaisAcessorios(); // v115.2222
   ccFotosLng2026(); // v115.2559
+  ccPontMedidasArrumar(); // v115.2876
   ccCorrigirMontaComEstrias(); // v115.2210
   ccPontDescAplicar(); // v115.2203 - tipo da ponteira escrito na descrição
   if(!_ccFamiliaAtual){
@@ -90663,6 +90667,26 @@ function ccCorrigirMontaComEstrias(){
 // TROCADOS pelas fotos da planilha (eram 164x110, agora 500–1200 px) -- quem já usa a foto padrão da LNG melhora sozinho; quem tem foto da Spicer
 // (fotoSpicer / cadastro Spicer) continua com ela. Estes 13 não tinham foto no catálogo LNG 2015: item LNG sem foto nenhuma ganha a nova.
 var PF_CC_LNG_FOTOS_2026=['41-568','41-862','41-720','41-803','41-829','41-653','41-799','41-802','41-867','41-571','41-730','41-989','41-988'];
+/* v115.2876 - A pedido do Vitor (busca geral: 4-53-61 "Ø maior estria 216,5 · compr. total 45", 4-40-761 "172 / 80" — "veja o desenho da 4-53-61"):
+   ponteira com Ø maior das estrias impossível (B > 120 mm ou B maior que o comprimento total E) foi gravada com as letras de outro catálogo.
+   Peça que está no catálogo Spicer de medidas: A/B/C/D/E/F voltam pelos números do catálogo; as outras: o B errado sai. O antigo fica em medAntesFix. */
+function ccPontMedRuim(o){var b=ccSpMedNum(String(o.B==null?'':o.B).replace(/[^0-9,.]/g,'')),e=ccSpMedNum(String(o.E==null?'':o.E).replace(/[^0-9,.]/g,''));
+  if(b==null)return false;return b>120||(e!=null&&b>e);}
+async function ccPontMedidasArrumar(){
+  if(window._ccPontMedFix)return;window._ccPontMedFix=1;
+  try{var data=ccLoad(),lista=(data&&data.ponteiras)||[];if(!lista.some(ccPontMedRuim))return;
+    var cat={};try{var r=await fetch('data/catalogos/spicer-medidas.json',{cache:'no-store'});if(r.ok){var j=await r.json();((j.familias||{}).ponteiras||[]).forEach(function(L){cat[ccNormCod(L.codigo)]=L;});}}catch(e){}
+    data=ccLoad();lista=(data&&data.ponteiras)||[];var n=0;
+    lista.forEach(function(o){if(!o||!ccPontMedRuim(o))return;
+      var c=ccNormCod(o.codigo),L=cat[c]||cat[c.replace(/S$/,'')]||null;
+      o.medAntesFix={A:o.A,B:o.B,C:o.C,D:o.D,E:o.E,F:o.F,em:Date.now()};
+      if(L){var f=ccSpMedCampos('ponteiras',L);['A','B','C','D','E','F'].forEach(function(k){if(f[k]!=null)o[k]=f[k];else if(k==='B')o.B='';});}
+      else o.B='';
+      o.tsMod=Date.now();n++;});
+    if(n){ccSave(data);try{pfSyncPush&&pfSyncPush();}catch(e){}console.log('ccPontMedidasArrumar: '+n+' ponteira(s) com medida trocada arrumada(s)');
+      try{if(typeof ccBuscaGeralExecutar==="function"&&document.getElementById("ccBuscaGeralRes")&&window._ccBuscaGeralTxt)ccBuscaGeralExecutar(window._ccBuscaGeralTxt);}catch(e){}}
+  }catch(e){console.warn('ccPontMedidasArrumar',e);}
+}
 function ccFotosLng2026(){
   if(window._ccFotosLng2026)return;window._ccFotosLng2026=1;
   try{var data=ccLoad(),n=0,set={};PF_CC_LNG_FOTOS_2026.forEach(function(c){set[ccNormCod(c)]=1;});
@@ -91348,7 +91372,11 @@ function ccPrintAplSalvar(){
   var medSel=ccMedidasDasEspecs(alvo.familia,specSel,lido.marcaCat||''); // letras A/B/C... a partir das especificações escolhidas
   try{ // v115.2619 - print da Spicer nomeia a especificação só com a LETRA ("A","B","C") -> vira o campo direto
     var _campos=(typeof ccCamposAtivos==='function'?ccCamposAtivos(alvo.familia):[])||[];
-    _campos.forEach(function(cp){if(medSel[cp.k]!=null)return;specSel.forEach(function(sp){var nm=String(sp.nome||'').replace(/[^A-Za-z]/g,'').toUpperCase();if(nm===cp.k){var nn=ccMedNum(sp.valor);if(nn)medSel[cp.k]=nn;}});});
+    /* v115.2876 - A pedido do Vitor ("essas medidas não estão no lugar certo"): a Spicer usa OUTRAS letras (ponteira K = comprimento total, L = comprimento das estrias…);
+       print da Spicer passa pelo CC_SPMED_MAPA (letra sem par = fica só na especificação). */
+    var _spMap=(/SPICER|DANA/i.test(String(lido.marcaCat||''))&&CC_SPMED_MAPA[alvo.familia])?CC_SPMED_MAPA[alvo.familia]:null;
+    if(_spMap){specSel.forEach(function(sp){var nm=String(sp.nome||'').replace(/[^A-Za-z]/g,'').toUpperCase();if(!nm||nm.length>1||!_spMap[nm])return;var dest=_spMap[nm];if(medSel[dest]!=null)return;var nn=ccMedNum(sp.valor);if(nn)medSel[dest]=nn;});}
+    else _campos.forEach(function(cp){if(medSel[cp.k]!=null)return;specSel.forEach(function(sp){var nm=String(sp.nome||'').replace(/[^A-Za-z]/g,'').toUpperCase();if(nm===cp.k){var nn=ccMedNum(sp.valor);if(nn)medSel[cp.k]=nn;}});});
   }catch(e){}
   if(alvo.familia==='flangesOrelha'&&medSel.E!=null){var _ne=parseFloat(String(medSel.E).replace(',','.'));if(!(_ne>0&&_ne<=24))delete medSel.E;} // v115.2600 - E = qtd de furos
   var addA=0,addE=0,addF=0,addM=0,addS=0;

@@ -3214,3 +3214,7 @@
 - v115.2875 BUG ("mandei essa cotação da triex. pq veio tudo zerado?" — JBoss 396380 da R V de Aguiar: 40-1408/5-153X "TX (IMPORTADO)" e 41-006 SPICER entraram NEGATIVO sem custo/margem):
   o JBoss escreve a marca com o tipo entre parênteses e no PF a ficha é "TX COMPONENTES" → `pfJbFichaDaMarca` não casava e o item entrava sem ficha. Agora, sem achar, tira o "(…)"
   e IMPORTADO/NACIONAL/ORIGINAL (`pfJbFichaDaMarca1` de novo) e, ainda sem achar, vale a ficha cuja 1ª palavra da marca é a mesma (se só uma marca bate; a de maior saldo).
+- v115.2876 BUG ("essas medidas não estão no lugar certo… diâmetro maior da estria nunca que é 172. veja o desenho da 4-53-61" — busca geral: 4-53-61 "Ø maior estria 216,5 · compr. total 45"):
+  1) nas tabelas b/c/fixa do catálogo Spicer de medidas as 2 colunas de Ø são o Ø do PESCOÇO (D) e o Ø maior das estrias (B) — só a tabela "a" é Ø maior (B) / Ø menor (A); `ccSpMedCampos` troca o mapa pelo `L.grupo`.
+  2) 📋 Colar print com a especificação só com a LETRA: print da Spicer/Dana passa pelo `CC_SPMED_MAPA` (ponteira K = compr. total, L = compr. das estrias) em vez de ir direto pro campo do PF (era daí o 216,5 no B).
+  3) `ccPontMedidasArrumar` (1x por sessão no ccRender): ponteira com B > 120 ou B > E (`ccPontMedRuim`) volta pelos números do catálogo Spicer (A–F); fora do catálogo o B errado sai; o antigo fica em `medAntesFix` (+ tsMod, pfSyncPush). 4-53-61 = B 44,4 · D 45 · C 150,9 · E 217,4 (desenho: 44,4 / 45 / 151 / 218,5).

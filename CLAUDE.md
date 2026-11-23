@@ -3242,3 +3242,6 @@
 - v115.2884 + extensão **6.1** (print do chrome://extensions: "pq esse logo aqui? e não o verdadeiro"): os ícones da extensão (`icone16/48/128.png`, do Chrome e da barra) eram um quadrado azul com "PF" e bolinha verde; agora são o logo do PartsFlow (o mesmo do favicon do PF: fundo #0F1F35, P branco, traço laranja), gerados do SVG pelo Playwright.
 - v115.2885 BUG ("onde ficou o botão de mandar negativos para o mapa?"): a barra presa embaixo da cotação (v115.2862: Total, ⚠️ Mapa (N), PDF, Gerar pedido) ficava ATRÁS do dock — a área
   que rola termina embaixo dele. `pfCotBarAjustar` (depois de desenhar, no `pfCotBarAtualizar` e no resize) mede quanto o dock cobre o fim da área que rola e sobe a barra (bottom) + deixa o mesmo espaço no fim (margin-bottom).
+- v115.2886 BUG (Leitor de Peças, lista encaminhada do WhatsApp "quando tiver tempo dá uma olhada nesses daqui tambem: / 332/H5798 / …": "Erro: Unexpected non-whitespace character after JSON"):
+  1) a 1ª linha (recado, sem número) fazia a lista INTEIRA ir pra IA — no `lpLerTextoReal` linha sem nenhum número é ignorada (os 20 códigos JCB entram sem IA). 2) a IA escrevia algo DEPOIS
+  da lista e o JSON.parse quebrava — `lpJsonLista(res)` pega só a 1ª lista [...] (contando colchetes, fora de aspas) e, cortada no meio, recupera os itens completos.

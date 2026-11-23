@@ -71,7 +71,10 @@
     if (!achou) achou = await esperar(function () { return dialogoInvalido() ? 'inv' : (botaoEnviar() ? 'btn' : (caixaTexto() ? 'cx' : null)); }, 30000);
     if (!achou) return reporta(a, false, 'O WhatsApp não abriu a conversa');
     if (achou === 'inv' || dialogoInvalido()) { var d = dialogoInvalido(), b = d && d.querySelector('button'); if (b) b.click(); return reporta(a, false, 'Esse número não está no WhatsApp'); }
-    var btn = await esperar(botaoEnviar, 3000);
+    // 6.3 - mensagem com [[SAUD:…]] (mapa pelo WhatsApp): a saudação só vai se você ainda não mandou nada hoje nessa conversa
+    var mS = /^\[\[SAUD:([\s\S]*?)\]\]\n*/.exec(a.texto || '');
+    if (mS) { await esperar(function () { return msgLinhas().length ? 1 : null; }, 4000); var _fh = false; try { _autoCtx = null; _fh = autoFaleiHoje(); } catch (e) { } a.texto = (_fh ? '' : mS[1] + '\n\n') + a.texto.slice(mS[0].length); }
+    var btn = mS ? null : await esperar(botaoEnviar, 3000);
     if (!btn) {
       if (!escreverNaCaixa(a.texto)) return reporta(a, false, 'Não achei a caixa de mensagem');
       btn = await esperar(botaoEnviar, 5000);
@@ -707,6 +710,7 @@
       ['📣', 'Disparo pelo PF', 'No PF, Vendas → 📣 Disparo pelo WhatsApp: escolhe a lista (o que chegou, uma marca, um grupo, os sumidos ou uma etiqueta), escreve a mensagem com {nome} e a extensão manda uma por uma, no ritmo que você escolher por hora. Quem já recebeu a mesma oferta fica de fora.'],
       ['👔', 'Colega da empresa', 'No 👤 Salvar contato, escolha “👔 Colega” pra quem é daqui da empresa: fica guardado no PF, o botão fica roxo, aparece “👔 colega” na lista e ele nunca recebe mensagem automática nem entra nos avisos de cliente.'],
       ['⏳', 'Tenho pendência com esse contato', 'Botão direito na conversa (na lista da esquerda) → “⏳ Tenho pendência com esse contato”: escreve o que ficou pendente (opcional), vai pras Pendências (e pro ☀️ Meu dia, se for cliente) e põe um ⏳ ao lado do nome — mesmo que a conversa fique como lida. Na barra de cima aparece “⏳ pendência N” pra filtrar. Resolveu: botão direito → “✔ Resolvi a pendência”.'],
+      ['🗂️', 'Mandar pro mapa', 'Pedido do cliente com peça sem saldo ou sem cadastro: no selo 📄 do balão ou na aba Cotação aparece “🗂️ Mandar pro mapa”. Confere as peças e os fornecedores (vêm marcados os que trabalham com o tipo/marca), vê a mensagem de cada um e: 💬 Criar e mandar (cria o mapa no PF, avisa os compradores e manda pros vendedores dos fornecedores), 📋 Criar e copiar, ou Só criar o mapa. Se você já falou com o fornecedor hoje, a mensagem vai sem o “Bom dia”. A resposta dele vira o selo 📥 lançar no mapa.'],
       ['📦', 'Tem pedido pra enviar', 'Botão direito na conversa (na lista da esquerda) → “📦 Tem pedido pra enviar”: cria o lembrete nas Pendências (e no ☀️ Meu dia, se for cliente) e põe um 📦 ao lado do nome. Quando mandar, botão direito → “✔ Pedido enviado” tira a marca.'],
       ['🏷️', 'Plaqueta pra Máquinas', 'Botão direito na FOTO de uma plaqueta → “🏷️ Mandar a plaqueta pra Máquinas”: o PF lê marca, modelo, série, ano e componentes, você confere e grava — a máquina é criada ou completada em 🚜 Máquinas, com a foto da plaqueta.'],
       ['👤', 'Salvar contato', 'Botão verde ao lado do nome da conversa: escreve o nome, a empresa (procura nos clientes do PF) e o código do JBoss — vira "Fulano - Empresa (código)". Salva no PF (o contato entra no cadastro do cliente, mesmo sem número) e já salva/renomeia o contato no WhatsApp com esse nome, com o "Sincronizar no telefone" ligado (vai pra agenda do celular também). Quer só no WhatsApp? “📱 Só no WhatsApp” renomeia/salva o contato lá (e no celular) sem gravar nada no PF. Tem também o GRUPO do cliente (Linha Amarela, Agrícola… — vai pro cadastro), o CARGO e o CNPJ (CNPJ que ainda não é cliente = entra no PF como pré-cadastro 🌱 com os dados da Receita); se a empresa ainda não está no PF, aparece “➕ Criar cliente no PF”, que já cria o cadastro com esse contato. E quando o contato não está no PF e o cliente mandou o CNPJ na conversa, a aba Cliente mostra “➕ Cadastrar no PF” já com esse CNPJ.'],
@@ -861,7 +865,8 @@
     if (ac === 'b-prontas') { if (rrAberto) rrFechar(); else rrAbrir('', false); return; } // 3.7 - ⚡ respostas rápidas
     if (ac === 'b-pdf' || ac === 'pdf') { if (!cot || !cot.itens.length) { irAba('cot'); await cotar(); } if (cot && cot.itens.length) abrirCot(true); return; }
     if (ac === 'abrirCot') { abrirCot(false); return; }
-    if (ac === 'abrirCotMin') { abrirCot(false, true); return; } // 4.89 - criar minimizada pelo painel
+    if (ac === 'abrirCotMin') { abrirCot(false, true); return; }
+    if (ac === 'mapaAbrir') { mqAbrir(cot); return; } // 6.3 // 4.89 - criar minimizada pelo painel
     if (ac === 'escrever' || ac === 'pronta') {
       var t = ac === 'escrever' ? (P.querySelector('.pfwa-resp') || {}).value : ((resp && resp.prontas && resp.prontas[+arg]) || {}).txt;
       if (!t) return; var ok = escreverNaCaixa(t);
@@ -1139,6 +1144,7 @@
     if (CFG.sug !== false) h += juntoHtml(); // 4.20 - 💡 quem leva isso também leva
     h += '<div class="pfwa-bt" style="margin-top:10px">💬 Resposta (dá pra mexer antes)</div><textarea class="pfwa-resp">' + esc(cot.resposta) + '</textarea>';
     h += '<div class="pfwa-bots"><button data-acao="escrever" class="pfwa-verde">💬 Pôr na conversa</button><button data-acao="abrirCot">📄 Abrir a cotação no PF</button><button data-acao="abrirCotMin" title="Cria a cotação no PF e deixa ela minimizada lá (não troca de tela)">⬇ Criar minimizada</button><button data-acao="pdf" class="pfwa-laranja">📤 PDF</button></div>';
+    if (mqSemSaldo(cot.itens).length) h += '<div class="pfwa-bots"><button data-acao="mapaAbrir" class="pfwa-laranja" title="Cria o mapa de compras no PF e manda pros fornecedores (6.3)">🗂️ Mandar pro mapa (' + mqSemSaldo(cot.itens).length + ' sem saldo)</button></div>';
     h += '<div class="pfwa-nada" style="margin-top:6px">"Pôr na conversa" escreve na caixa do WhatsApp — você confere e aperta Enter. O PDF abre a cotação no PF e baixa o arquivo pra anexar.</div>';
     return h;
   }
@@ -3037,7 +3043,7 @@
   function spHash(s) { s = String(s || ''); var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h.toString(36); }
   // 6.0 - A pedido do Vitor ("Me envia 03 luvas 03-312 da TX amanhã" — 1 código + pedido direto e não aparecia o selo pra atualizar a cotação): envia/manda/separa/fatura/pedido/quero também contam.
   function spContaCods(t) {
-    var n = 0; (String(t || '').match(COD_RE) || []).forEach(function (tk) { if (ehCodTk(tk)) n++; });
+    var n = 0, vis = {}; (String(t || '').match(COD_RE) || []).forEach(function (tk) { var u = tk.toUpperCase(); if (ehCodTk(tk) && !vis[u]) { vis[u] = 1; n++; } }); // 6.3 - o mesmo código 2x conta 1
     var pede = /\b(cot|or[cç]|pre[cç]o|valor|quanto|tem\b|disponi|saldo|envi[ae]|mand[ae]|separ[ae]|fatur[ae]|despach[ae]|reserv[ae]|pedido|quero|preciso|levo)/i.test(t) || soCodigo(t);
     if (soCodigo(t) && !n) n = 1;
     return n >= 2 || (n >= 1 && pede) ? n : 0;
@@ -3049,7 +3055,7 @@
     // do outro em mensagem com lista/formatação; o selo saía em cada um. Fica só o de fora (e some o selo que já estava no de dentro).
     els.forEach(function (el) { if (el.parentElement && el.parentElement.closest('[data-pre-plain-text]')) { var s0 = el.querySelector(':scope > .pfwa-selo'); if (s0) s0.remove(); } });
     els = els.filter(function (el) { return !(el.parentElement && el.parentElement.closest('[data-pre-plain-text]')); });
-    var txt = function (el) { var txs = el.querySelectorAll('.selectable-text'), tx = txs[0]; if (txs.length > 1) return Array.prototype.map.call(txs, function (x) { return x.innerText || ''; }).join('\n').replace(/📄\s*\d+\+?|✓ cot\./g, '').trim(); return ((tx ? tx.innerText : el.innerText) || '').replace(/📄\s*\d+\+?|✓ cot\./g, '').trim(); };
+    var txt = function (el) { var txs = Array.prototype.filter.call(el.querySelectorAll('.selectable-text'), function (x) { return !(x.parentElement && x.parentElement.closest('.selectable-text')); }), tx = txs[0]; /* 6.3 - "2959140 - 01 PÇ" contava 2: o número pintado de telefone vinha 2x */ if (txs.length > 1) return Array.prototype.map.call(txs, function (x) { return x.innerText || ''; }).join('\n').replace(/📄\s*\d+\+?|✓ cot\./g, '').trim(); return ((tx ? tx.innerText : el.innerText) || '').replace(/📄\s*\d+\+?|✓ cot\./g, '').trim(); };
     // 4.15 - A pedido do Vitor ("não to achando esse número que ele encontrou 13X32"): o selo lia o BLOCO inteiro de mensagens
     // do cliente e puxava código de outra mensagem. Agora lê SÓ a mensagem onde o selo está (o código tem que estar nela).
     var alvo = [];
@@ -3131,7 +3137,7 @@
     }).join('') + '</div>';
     var feito = !!spFeitos[s._h];
     h += '<div class="sp-b"><button data-sp="criar">' + (feito ? '📄 Criar de novo no PF' : '📄 Criar cotação no PF') + '</button><button data-sp="min" class="sp-min" title="Cria a cotação no PF e deixa ela minimizada lá (não troca de tela)">⬇ Criar minimizada</button><span class="sp-lk" data-sp="painel">ver no painel ›</span></div>' +
-      (feito ? '<div class="sp-ok">✓ Você já criou a cotação desta mensagem.</div>' : '');
+      (feito ? '<div class="sp-ok">✓ Você já criou a cotação desta mensagem.</div>' : '') + (mqSemSaldo(its).length ? '<div class="sp-b"><button data-sp="mapa" class="sp-mapa">🗂️ Mandar pro mapa (' + mqSemSaldo(its).length + ' sem saldo)</button></div>' : '');
     SP.innerHTML = h; spPos();
   }
   function spClique(e) {
@@ -3139,6 +3145,7 @@
     e.preventDefault(); e.stopPropagation();
     if (a === 'x') { spFechar(); return; }
     if (a === 'painel') { if (spR && !spR.erro) { cot = spR; cotErro = ''; } spFechar(); irAba('cot'); return; }
+    if (a === 'mapa') { var rm = spR; spFechar(); mqAbrir(rm); return; } // 6.3
     if (a === 'criar' || a === 'min') {
       var s = spMsg, r = spR; if (!s || !r) return; var _min = a === 'min'; // 4.83 - criar minimizada (não traz o PF pra frente)
       msg({ t: 'acao', acao: 'abrirCot', focar: !_min, arg: { minimizar: _min, k: resp && resp.k, pessoa: pessoaComprador(), itens: itensPF(r.itens) } });
@@ -3150,6 +3157,141 @@
   document.addEventListener('mousedown', function (e) { if (SP && SP.style.display === 'block' && !SP.contains(e.target) && !(e.target.closest && e.target.closest('.pfwa-selo'))) spFechar(); }, true);
   document.addEventListener('scroll', function () { spPos(); }, true);
   setInterval(function () { try { selosVigiar(); } catch (e) { } }, 1500);
+
+  // ═══ 🗂️ MANDAR PRO MAPA (6.3) ═══
+  // A pedido do Vitor (prévia docs/referencias/whatsapp-mapa-criar/ → opção A "tudo pelo WhatsApp" + "quero opção de copiar a msg tbm, além de já enviar direto"
+  // + "a questão da saudação, fica estranho se eu já tiver falado com a pessoa no dia"): peças do pedido sem saldo / sem cadastro → janela 🗂️ Novo mapa com as
+  // peças e os fornecedores (o PF já marca os que trabalham com o tipo/marca). "💬 Criar e mandar" cria o mapa no PF (aviso pros compradores) e manda pros
+  // vendedores dos fornecedores; "📋" copia a mensagem de um; "Só criar o mapa" não manda nada. Saudação: antes de mandar, o motor olha a conversa com aquele
+  // número — se você já mandou mensagem hoje, vai sem "Bom dia, Fulano!". Sem o motor, a mensagem vai pelo jeito antigo e a saudação é decidida lá na conversa.
+  var MQ = null, mqS = null;
+  function mqEl() { if (!MQ) { MQ = document.createElement('div'); MQ.id = 'pfwa-mp'; document.body.appendChild(MQ); MQ.addEventListener('click', mqClique); MQ.addEventListener('input', mqInput); MQ.addEventListener('change', mqInput); } return MQ; }
+  function mqFechar() { if (MQ) MQ.style.display = 'none'; mqS = null; }
+  function mqSemSaldo(itens) { return (itens || []).filter(function (o) { return o && o.cod && !(o.achou && +o.saldo > 0); }); }
+  async function mqAbrir(r) {
+    if (!r || r.erro) return;
+    var sem = mqSemSaldo(r.itens); if (!sem.length) { cmToast('Todas as peças têm saldo — nada pra mandar pro mapa'); return; }
+    mqEl(); MQ.style.display = 'flex'; MQ.innerHTML = '<div class="mp-jan"><div class="mp-cab"><b>🗂️ Novo mapa</b><span class="mp-x" data-mp="x">✕</span></div><div class="mp-corpo"><div class="mp-nada">Montando no PF…</div></div></div>';
+    var p = await msg({ t: 'acao', acao: 'mapaPrep', arg: { k: resp && resp.k, contato: resp && resp.contato, itens: sem } });
+    if (!p || p.erro || !p.ok) { MQ.querySelector('.mp-corpo').innerHTML = '<div class="mp-nada">' + (p && p.erro === 'pfF5' ? 'Dê F5 na aba do PartsFlow.' : 'Abra o PartsFlow numa aba deste Chrome (ou atualize ele).') + '</div>'; return; }
+    mqS = { fase: 'conf', p: p, pedido: itensPF(r.itens), its: p.itens.map(function (i) { return Object.assign({ on: true }, i); }), F: p.forns.map(function (f) { return Object.assign({ on: !!f.sel, ver: false, saud: 'auto' }, f); }), mais: false, busca: '', res: null };
+    mqPinta();
+  }
+  function mqTexto(f, comSaud) {
+    var S = mqS, its = S.its.filter(function (i) { return i.on; });
+    var d = (f.dest && f.dest[0]) || null, s = comSaud && d ? d.saud + '\n\n' : '';
+    return s + S.p.cab + '\n\n' + its.map(function (i) { return String(i.qtd || 1).padStart(2, '0') + ' - ' + i.ref + (i.desc ? ' - ' + i.desc : '') + (i.marca ? ' - ' + i.marca : ''); }).join('\n') + '\n\n' + S.p.fecho;
+  }
+  function mqPinta() {
+    var S = mqS; if (!S || !MQ) return; var p = S.p;
+    var on = S.F.filter(function (f) { return f.on; }), comW = on.filter(function (f) { return f.dest.length; });
+    var h = '<div class="mp-jan"><div class="mp-cab"><b>🗂️ Novo mapa' + (p.cliente ? ' · ' + esc(p.cliente) : '') + '</b><span class="mp-x" data-mp="x" title="Fechar (Esc)">✕</span></div><div class="mp-corpo">';
+    if (S.fase === 'conf') {
+      h += '<div class="mp-lab">PEÇAS SEM SALDO</div><table class="mp-t"><tr><th></th><th>CÓDIGO</th><th>QTD</th><th>MARCA</th><th>TIPO</th></tr>' + S.its.map(function (i, k) {
+        return '<tr class="' + (i.on ? '' : 'off') + '"><td><input type="checkbox" data-mpi="' + k + '"' + (i.on ? ' checked' : '') + '></td><td><b>' + esc(i.ref) + '</b><br><small>' + esc(i.desc || i.st) + '</small></td>' +
+          '<td><input class="mp-q" data-mpq="' + k + '" value="' + (i.qtd || 1) + '"></td><td>' + esc(i.marca || '—') + '</td><td>' + (i.tipo ? '<span class="mp-chip">' + esc(i.tipo.charAt(0) + i.tipo.slice(1).toLowerCase()) + '</span>' : '<small>—</small>') + '</td></tr>';
+      }).join('') + '</table>';
+      h += '<div class="mp-lab">FORNECEDORES <small>(vêm marcados os que trabalham com o tipo ou a marca · manda pro vendedor do cadastro)</small></div>';
+      var lista = S.F.filter(function (f) { return f.on || f.sel; });
+      if (S.mais) { var q = S.busca.toUpperCase(); lista = S.F.filter(function (f) { return f.on || f.sel || !q || String(f.nome).toUpperCase().indexOf(q) >= 0; }).slice(0, 60); }
+      if (!lista.length && !S.mais) h += '<div class="mp-nada">Nenhum fornecedor marcado pra esse tipo de peça — clique em ＋ outro fornecedor.</div>';
+      h += '<div class="mp-fl">' + lista.map(function (f) {
+        var k = S.F.indexOf(f), d = f.dest[0];
+        var canal = d ? '💬 ' + esc(d.nome || 'WhatsApp') + (f.dest.length > 1 ? ' +' + (f.dest.length - 1) : '') : (f.email ? '✉️ só e-mail' : '<span style="color:#B3231C">sem contato</span>');
+        var linha = '<div class="mp-f' + (f.on ? ' on' : '') + '"><label><input type="checkbox" data-mpf="' + k + '"' + (f.on ? ' checked' : '') + '><b>' + esc(f.nome) + '</b></label><span class="mp-c">' + canal + (f.por ? '<br><small>' + esc(f.por) + '</small>' : '') + '</span>' +
+          (f.on && d ? '<span class="mp-lk" data-mp="ver" data-k="' + k + '">' + (f.ver ? '▾' : '▸') + ' mensagem</span>' : '') + '</div>';
+        if (f.on && d && f.ver) linha += '<div class="mp-msg"><pre>' + esc(mqTexto(f, f.saud !== 'nao')) + '</pre><div class="mp-mb"><label><input type="checkbox" data-mps="' + k + '"' + (f.saud !== 'nao' ? ' checked' : '') + '> com saudação <small>(ao mandar, sai sozinha se você já falou com ele hoje)</small></label><button data-mp="cop" data-k="' + k + '">📋 Copiar</button></div></div>';
+        return linha;
+      }).join('') + '</div>';
+      h += S.mais ? '<input class="mp-busca" placeholder="Procurar fornecedor…" value="' + esc(S.busca) + '">' : '<span class="mp-lk" data-mp="mais">＋ outro fornecedor</span>';
+      h += '<div class="mp-lab">LIGADO A</div><div class="mp-l">' + (p.cot ? '📄 cotação nº ' + esc(p.cot.num) + ' de hoje do cliente' : '📄 cotação nova do cliente (criada junto, minimizada no PF)') + '</div>';
+      h += '</div><div class="mp-pe"><button data-mp="so">Só criar o mapa</button><button data-mp="copTodos" title="Cria o mapa e copia as mensagens de todos (uma embaixo da outra)">📋 Criar e copiar</button><button class="mp-verde" data-mp="mandar"' + (comW.length ? '' : ' disabled') + '>💬 Criar e mandar pra ' + comW.length + '</button></div></div>';
+    } else {
+      var R = S.res || {};
+      h += '<div class="mp-ok">✅ Mapa <b>' + esc(R.num || '') + '</b> criado' + (R.cotNum ? ' · cotação ' + esc(R.cotNum) : '') + ' — os compradores já foram avisados.</div>';
+      var envs = S.env || [], n = envs.filter(function (e) { return e.st === 'ok'; }).length;
+      if (envs.length) h += '<div class="mp-lab">MANDANDO ' + n + ' DE ' + envs.length + '</div><div class="pfwa-prog"><i style="width:' + Math.round(100 * envs.filter(function (e) { return e.st === 'ok' || e.st === 'erro' || e.st === 'copiado'; }).length / envs.length) + '%"></i></div>' + envs.map(function (e, k) {
+        var st = e.st === 'ok' ? '✔ enviado' + (e.semSaud ? ' (sem saudação, já tinham se falado hoje)' : '') : e.st === 'erro' ? '✖ ' + esc(e.erro || 'não foi') : e.st === 'indo' ? '📤 mandando…' : e.st === 'antigo' ? '📤 abrindo a conversa (jeito antigo)' : e.st === 'copiado' ? '📋 copiado' : '⏳ na fila';
+        return '<div class="mp-f"><b>' + esc(e.forn) + '</b><span class="mp-c">' + esc(e.nome || '') + ' · ' + st + '</span><button data-mp="copE" data-k="' + k + '">📋</button></div>';
+      }).join('');
+      h += '<div class="mp-nada">A resposta dos fornecedores: na conversa deles aparece o selo "📥 lançar no mapa".</div></div><div class="mp-pe"><button class="mp-verde" data-mp="x">Fechar</button></div></div>';
+    }
+    MQ.innerHTML = h;
+    var b = MQ.querySelector('.mp-busca'); if (b && S.focoBusca) { b.focus(); b.setSelectionRange(b.value.length, b.value.length); }
+  }
+  function mqInput(e) {
+    var t = e.target, S = mqS; if (!S) return;
+    if (t.matches('[data-mpi]')) { S.its[+t.getAttribute('data-mpi')].on = t.checked; mqPinta(); return; }
+    if (t.matches('[data-mpq]')) { S.its[+t.getAttribute('data-mpq')].qtd = Math.max(1, parseInt(t.value, 10) || 1); return; }
+    if (t.matches('[data-mpf]')) { S.F[+t.getAttribute('data-mpf')].on = t.checked; mqPinta(); return; }
+    if (t.matches('[data-mps]')) { S.F[+t.getAttribute('data-mps')].saud = t.checked ? 'auto' : 'nao'; mqPinta(); return; }
+    if (t.matches('.mp-busca') && e.type === 'input') { S.busca = t.value; S.focoBusca = true; mqPinta(); }
+  }
+  async function mqCopiar(txt, el) { try { await navigator.clipboard.writeText(txt); if (el) { el.textContent = '✓ copiado'; } } catch (e) { } }
+  function mqTelId(tel) { return String(tel || '').replace(/\D/g, '') + '@c.us'; }
+  // 6.3 - já falou com esse número hoje? (motor: olha as últimas mensagens da conversa sem abrir)
+  async function mqFaleiHoje(tel) {
+    if (!motorOk) return null;
+    var m = await motor('msgs', { id: mqTelId(tel), n: 30 }, 12000); if (!m || !Array.isArray(m.l)) return null;
+    var d0 = new Date(); d0.setHours(0, 0, 0, 0); return m.l.some(function (x) { return x.eu && x.t >= d0.getTime(); });
+  }
+  async function mqCriar(modo) {
+    var S = mqS; if (!S || S.criando) return;
+    var its = S.its.filter(function (i) { return i.on; }); if (!its.length) { cmToast('Marque ao menos uma peça'); return; }
+    var on = S.F.filter(function (f) { return f.on; });
+    S.criando = 1; MQ.querySelector('.mp-pe').innerHTML = '<span class="mp-nada">Criando o mapa no PF…</span>';
+    var r = await msg({ t: 'acao', acao: 'mapaCriar', arg: { k: resp && resp.k, contato: resp && resp.contato, pessoa: pessoaComprador(), itens: its.map(function (i) { return { ref: i.ref, refCliente: i.refCliente, desc: i.desc, marca: i.marca, qtd: i.qtd }; }), fids: on.map(function (f) { return f.fid; }), pedido: S.pedido } });
+    S.criando = 0;
+    if (!r || !r.ok) { cmToast('✖ Não consegui criar o mapa' + (r && r.erro && r.erro.length > 3 ? ': ' + r.erro : ' — confira se o PF está aberto')); mqPinta(); return; }
+    S.res = r; S.fase = 'fim';
+    S.env = []; on.forEach(function (f) { f.dest.forEach(function (d) { S.env.push({ fid: f.fid, forn: f.nome, nome: d.nome, tel: d.tel, saud: d.saud, f: f, st: modo === 'mandar' ? 'fila' : '' }); }); });
+    if (modo === 'copiar') {
+      var tudo = on.map(function (f) { return '— ' + f.nome + ' —\n' + mqTexto(f, f.saud !== 'nao'); }).join('\n\n');
+      await mqCopiar(tudo); S.env.forEach(function (e) { e.st = 'copiado'; msg({ t: 'acao', acao: 'mapaEnviado', arg: { num: r.num, fid: e.fid, como: 'copiar' } }); });
+      cmToast('📋 Mensagens copiadas (' + on.length + ' fornecedor' + (on.length > 1 ? 'es' : '') + ')');
+    }
+    mqPinta();
+    if (modo === 'mandar') mqMandar();
+  }
+  async function mqMandar() {
+    var S = mqS; if (!S) return; var r = S.res, antigo = [];
+    if (!motorOk) await motorChecar();
+    for (var i = 0; i < S.env.length; i++) {
+      var e = S.env[i]; if (e.st !== 'fila') continue;
+      var querSaud = e.f.saud !== 'nao';
+      if (!motorOk) { antigo.push(e); continue; }
+      e.st = 'indo'; mqPinta();
+      var falei = querSaud ? await mqFaleiHoje(e.tel) : true;
+      var txt = mqTexto(e.f, querSaud && !falei).replace(e.f.dest[0] && e.f.dest[0].saud || '\u0000', e.saud);
+      var x = await motor('enviar', { id: mqTelId(e.tel), texto: txt }, 30000);
+      if (x && x.ok) { e.st = 'ok'; e.semSaud = querSaud && !!falei; } else { e.st = 'erro'; e.erro = (x && x.erro) || 'não foi (número fora do WhatsApp?)'; }
+      msg({ t: 'acao', acao: 'mapaEnviado', arg: { num: r.num, fid: e.fid, ok: e.st === 'ok', erro: e.erro || '' } });
+      if (mqS === S) mqPinta();
+      await dormir(1200 + Math.random() * 1500);
+    }
+    if (antigo.length) {
+      // sem motor: vai pela fila antiga (abre cada conversa). A saudação vai marcada e o whatsapp.js decide na conversa (sai se você já falou hoje).
+      antigo.forEach(function (e) { e.st = 'antigo'; });
+      if (mqS === S) mqPinta();
+      chrome.runtime.sendMessage({ t: 'lote', id: 'M' + Date.now().toString(36), titulo: 'Mapa ' + (r.num || ''), itens: antigo.map(function (e) {
+        var corpo = mqTexto(e.f, false); return { tel: e.tel, ref: e.fid, nome: e.nome, texto: e.f.saud !== 'nao' ? '[[SAUD:' + e.saud + ']]\n\n' + corpo : corpo };
+      }) }, function () { void chrome.runtime.lastError; });
+    }
+  }
+  function mqClique(e) {
+    var el = e.target.closest('[data-mp]'); if (!el) { if (e.target === MQ) mqFechar(); return; }
+    var a = el.getAttribute('data-mp'), S = mqS; e.preventDefault(); e.stopPropagation();
+    if (a === 'x') { mqFechar(); return; }
+    if (!S) return;
+    if (a === 'ver') { var f = S.F[+el.getAttribute('data-k')]; f.ver = !f.ver; mqPinta(); return; }
+    if (a === 'mais') { S.mais = true; S.focoBusca = true; mqPinta(); return; }
+    if (a === 'cop') { var f2 = S.F[+el.getAttribute('data-k')]; mqCopiar(mqTexto(f2, f2.saud !== 'nao'), el); return; }
+    if (a === 'copE') { var e2 = S.env[+el.getAttribute('data-k')]; mqCopiar(mqTexto(e2.f, e2.f.saud !== 'nao').replace(e2.f.dest[0] && e2.f.dest[0].saud || '\u0000', e2.saud), el); return; }
+    if (a === 'so') { mqCriar('so'); return; }
+    if (a === 'copTodos') { mqCriar('copiar'); return; }
+    if (a === 'mandar') { mqCriar('mandar'); return; }
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && MQ && MQ.style.display === 'flex') { mqFechar(); e.stopPropagation(); } }, true);
 
   // ═══ ⚡ RESPOSTA RÁPIDA NO BALÃO (4.38) ═══
   // 4.38 / v115.2696 - A pedido do Vitor ("quando o cliente pedir algo q tiver na msg rapida, a extensão identifique, apareça aquela etiqueta parecida

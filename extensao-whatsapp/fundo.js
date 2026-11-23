@@ -59,7 +59,7 @@ async function enviarItem() {
   await guardar({ lote: L, atual: { id: L.id + '|' + i, lote: L.id, i: i, tel: it.tel, texto: it.texto, inicio: Date.now() } });
   await avisarPF(L);
   chrome.alarms.create('pfVigia', { delayInMinutes: 1.5 });
-  await chrome.tabs.update(wa, { url: urlConversa(it.tel, it.texto), active: true });
+  await chrome.tabs.update(wa, { url: urlConversa(it.tel, /^\[\[SAUD:/.test(it.texto || '') ? '' : it.texto) /* 6.3 - saudação decidida na conversa */, active: true });
 }
 
 async function resultado(m) {

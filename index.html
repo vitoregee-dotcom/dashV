@@ -2066,7 +2066,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2888</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2889</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2228,7 +2228,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2888</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2889</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -78782,6 +78782,57 @@ function pfExtAbrirCot(a){var c=a.k?pfExtClienteCad(a.k):null;if(a.pessoa)pfExtC
   // v115.2788 - A pedido do Vitor ("um botãozinho pra só criar a cotação e deixar minimizada no PF" + "deixa as 2 opções"): cria, salva e minimiza (vira só a aba embaixo)
   if(a.minimizar)setTimeout(function(){try{vendasSalvarCotacaoReal({silencioso:true});}catch(e){}try{window._vendasMinimized=true;vendasRenderTabs();}catch(e){}},700);
   return {ok:true};}
+// v115.2889 - A pedido do Vitor ("🗂️ Mandar pro mapa" pelo WhatsApp → opção A da prévia docs/referencias/whatsapp-mapa-criar/ + "quero opção de copiar a msg tbm, além
+// de já enviar direto" + "a questão da saudação, fica estranho se eu já tiver falado com a pessoa no dia"): a extensão monta a janela 🗂️ Novo mapa com as peças sem
+// saldo / não achadas do pedido do cliente e os fornecedores (vêm marcados os que trabalham com o tipo de produto ou a marca). pfExtMapaPrep dá as peças,
+// os fornecedores (vendedores com WhatsApp do cadastro) e o texto (sem a saudação — a extensão põe "Bom dia, Fulano!" só se você ainda não falou com ele hoje).
+// pfExtMapaCriar grava o mapa direto (número do servidor, etapa 2, fornecedores marcados por item, ligado à cotação de hoje do cliente ou a uma criada minimizada),
+// avisa os compradores (🗂️ na barra) e a extensão manda/copia as mensagens; cada envio volta por pfExtMapaEnviado (✔ enviado na etapa 2 do mapa).
+function pfExtMapaForns(){var l=[];try{l=(cadLoad(FORN_KEY)||[]).filter(function(f){return f&&!f.del&&(f.razao||f.fantasia||f.nome);});}catch(e){}return l;}
+function pfExtMapaCotHoje(c){if(!c)return null;var cs=[];try{cs=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]');}catch(e){}var hj=new Date().toDateString();
+  var rz=pfBuscaAN(c.razao||c.nome||''),cd=String((c.cad&&c.cad.codigo)||'').replace(/^0+/,'');
+  var bate=function(q){var o=(q.cliente&&typeof q.cliente==='object'?q.cliente:null)||q.clienteObj||{};return !!((cd&&String(o.codigo||'').replace(/^0+/,'')===cd)||(rz&&(pfBuscaAN(typeof q.cliente==='string'?q.cliente:'')===rz||pfBuscaAN(o.razao||'')===rz)));};
+  return cs.filter(function(q){return q&&!q.del&&!q.demo&&!q.fechadaEm&&q.nr&&new Date(q.data||0).toDateString()===hj&&bate(q);}).sort(function(p,q){return new Date(q.data||0)-new Date(p.data||0);})[0]||null;}
+function pfExtMapaPrep(a){a=a||{};var c=null;try{c=a.k?pfExtClienteCad(a.k):null;}catch(e){}
+  var its=(a.itens||[]).filter(function(o){return o&&o.cod&&!(o.achou&&+o.saldo>0);}).map(function(o){var desc=o.desc||'',marca=o.marcaPed&&o.marcaOk===false?o.marcaPed:(o.marca||o.marcaPed||'');
+    var t='';try{t=pfMapaTipoItem({desc:desc,marca:marca});}catch(e){}
+    return {ref:String(o.cod).toUpperCase(),refCliente:String(o.codCli||o.cod).toUpperCase(),desc:desc,marca:marca,qtd:Math.max(1,+o.qtd||1),tipo:t,st:o.achou?'sem saldo':'sem cadastro'};});
+  var tipos={},marcas={};its.forEach(function(i){if(i.tipo)tipos[i.tipo]=1;if(i.marca)marcas[pfBuscaAN(i.marca)]=1;});
+  var F=pfExtMapaForns().map(function(f){var nome=f.fantasia||f.razao||f.nome||'',ds=pfMapaEnvDestinos(f),por='';
+    var ts=pfFornTipos(f).filter(function(t){return tipos[t];});if(ts.length)por='trabalha com '+ts.join(', ').toLowerCase();
+    if(!por){var lm=[].concat(f.linhasEsp||[],f.linhas||[]).map(function(x){return String((x&&(x.nome||x.linha))||x||'');}).filter(function(x){return marcas[pfBuscaAN(x)];});if(lm.length)por='linha '+lm[0];}
+    return {fid:f.id,nome:nome,dest:ds.map(function(d){return {nome:d.nome,tel:d.tel,saud:pfSaudar(d.nome||'')};}),email:pfFornEmailCot(f),sel:!!por&&ds.length>0,por:por};});
+  F.sort(function(x,y){return (y.sel?2:0)+(y.dest.length?1:0)-((x.sel?2:0)+(x.dest.length?1:0))||String(x.nome).localeCompare(String(y.nome));});
+  var cx=pfExtMapaCotHoje(c);
+  return {ok:true,itens:its,forns:F.slice(0,400),cliente:c?(c.cad&&(c.cad.fantasia||c.cad.razao))||c.nome||'':(a.contato||''),cot:cx?{num:cx.num||'',nr:cx.nr}:null,
+    cab:'Poderia cotar os itens abaixo, por gentileza?',fecho:pfFechoCordial()+'\n'+pfNomeUsuario()+' — '+pfEmpresaUsuario()};}
+async function pfExtMapaCriar(a){a=a||{};var c=null;try{c=a.k?pfExtClienteCad(a.k):null;}catch(e){}
+  var its=(a.itens||[]).filter(function(i){return i&&i.ref;});if(!its.length)return {erro:'Nenhuma peça marcada'};
+  var fids=(a.fids||[]).filter(Boolean);
+  var cli=c?((c.cad&&(c.cad.fantasia||c.cad.razao))||c.nome||''):(a.contato||'');
+  var cx=pfExtMapaCotHoje(c),num='';try{num=await mapaProximoNumeroServidor();}catch(e){num=mapaProximoNumero();}
+  var id='mapa_'+Date.now(),agora=Date.now(),fs={};
+  var itens=its.map(function(i){var it={ref:String(i.ref).toUpperCase(),refCliente:String(i.refCliente||i.ref).toUpperCase(),codigoOriginal:String(i.refCliente||i.ref).toUpperCase(),desc:i.desc||'',marca:i.marca||'',qtd:Math.max(1,+i.qtd||1),
+      urgente:true,sel:true,ln:(typeof idLinha==='function'?idLinha(i.ref):''),clienteOrigem:cli,pedidoOrigem:cx?(cx.num||''):'',deWhats:1};
+    fs[it.ref+'||'+(it.marca||'')]=fids.slice();return it;});
+  var est={id:id,ts:agora,criadoTs:agora,step:2,itens:itens,fornSel:fs,precos:{},decisoes:{},qtdDecidida:{},precoDecidido:{},numero:num,cliente:cli,
+    vendaOrigem:cx?cx.nr:null,criadoPor:{nome:pfNomeUsuario(),email:(typeof sbUser!=='undefined'&&sbUser&&sbUser.email)||''},clienteUF:(c&&c.cad&&c.cad.estado)||'',margemVenda:21,
+    titulo:'MAPA '+num+' — '+(cx&&cx.num?'COTAÇÃO '+cx.num+' — ':'WHATSAPP — ')+cli};
+  var R0=window._mapaRascunho;window._mapaRascunho=null;try{mapaSalvarNaLista(est);}finally{window._mapaRascunho=R0;}
+  try{pfMapaCotEventoAdd({mapaId:id,num:num,titulo:est.titulo,cliente:cli,cotNum:cx?(cx.num||''):'',nItens:itens.length,nSemForn:fids.length?0:itens.length});}catch(e){}
+  // sem cotação de hoje: cria uma minimizada com o pedido todo e liga o mapa nela quando ela ganhar número
+  if(!cx&&a.criarCot!==false&&(a.pedido||[]).length){try{pfExtAbrirCot({k:a.k,itens:a.pedido,minimizar:true,pessoa:a.pessoa||''});}catch(e){console.warn('pfExtMapaCriar cot',e);}
+    var t0=Date.now(),liga=function(){var v=window._venda;if(v&&v.nr&&v.num&&v.origem==='whatsapp'&&new Date(v.criadaEm||v.data||Date.now()).getTime()>=agora-5000){pfExtMapaLigarCot(id,v);return;}if(Date.now()-t0<20000)setTimeout(liga,800);};setTimeout(liga,1500);}
+  window._pfExtMapaUlt={id:id,num:num};
+  return {ok:true,mapaId:id,num:num,cotNum:cx?(cx.num||''):'',titulo:est.titulo};}
+function pfExtMapaLigarCot(id,v){try{var e=JSON.parse(pfSafeGetItem('mapa_estado_'+id)||'null');if(!e||e.vendaOrigem)return;e.vendaOrigem=v.nr;e.ts=Date.now();
+    (e.itens||[]).forEach(function(i){i.pedidoOrigem=v.num||'';});e.titulo='MAPA '+(e.numero||'')+' — COTAÇÃO '+(v.num||'')+' — '+(e.cliente||'');
+    var R0=window._mapaRascunho;window._mapaRascunho=null;window._mapaSalvarNaListaLog={};try{mapaSalvarNaLista(e);}finally{window._mapaRascunho=R0;}}catch(er){console.warn('pfExtMapaLigarCot',er);}}
+function pfExtMapaEnviado(a){a=a||{};if(!a.num||!a.fid)return {ok:true};var E=window._mapaEnviados=window._mapaEnviados||{},m=E[a.num]=E[a.num]||{};
+  var h=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  if(a.como==='copiar'){if(!m[a.fid]||m[a.fid].c!=='whatsOk')m[a.fid]={h:h,c:'whats'};}else m[a.fid]=a.ok?{h:h,c:'whatsOk'}:{h:h,c:'whatsErro',erro:a.erro||''};
+  try{if(window._mapaEstadoNumero===a.num&&typeof pfMapaEnvRedesenhar==='function')pfMapaEnvRedesenhar();}catch(e){}
+  return {ok:true};}
 // v115.2686 - A pedido do Vitor ("quero ler pedido por print/PDF dentro da cotação feita; o PF ajusta saldos, marcas e marca o PV"; prévia aprovada
 // docs/referencias/ler-pedido/): 🧾 Ler pedido do cliente — reaproveita o motor do pedido do WhatsApp (pfExtCotar lê código/qtd/marca/graxeira e resolve
 // a ficha com saldo, igual à extensão). Duas saídas: atualizar a cotação aberta (pfExtAtualizarCot) ou abrir como nova (pfExtAbrirCot, que já checa
@@ -79754,6 +79805,9 @@ function pfExtAcao(acao,arg){
   if(acao==='ofertaSalvar')return pfOfSalvar(arg||{});
   if(acao==='ofertaChecar')return pfOfChecar(arg&&arg.k,arg&&arg.texto);
   if(acao==='saldo')return pfExtSaldo(arg);
+  if(acao==='mapaPrep')return pfExtMapaPrep(arg||{}); // v115.2889
+  if(acao==='mapaCriar')return pfExtMapaCriar(arg||{});
+  if(acao==='mapaEnviado')return pfExtMapaEnviado(arg||{});
   if(acao==='abrirCot'&&arg&&arg.minimizar){try{return pfExtAbrirCot(arg)||{ok:true};}catch(e){console.warn('pfExtAbrirCot',e);return {erro:'x'};}} // v115.2788 - criar e deixar minimizada
   if(acao==='abrirCot'){setTimeout(function(){try{pfExtAbrirCot(arg||{});}catch(e){console.warn('pfExtAbrirCot',e);}},50);return {ok:true};}
   // v115.2585 - A pedido do Vitor ("mais lenta quanto?… e o que precisa pra gente fazer?" — 345 contatos sem número): a extensão pede os nomes
@@ -80936,7 +80990,7 @@ function pfExtBaixarZip(){
 function pfExtBaixarZipSimples(){var a=document.createElement('a');a.href=PF_EXT_ZIP;a.download='partsflow-whatsapp.zip';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();},200);}
 // v115.2601 - A pedido do Vitor ("tá atualizada a extensão?" — estava na 1.5 com a 1.9 publicada): versão mais nova = a do manifest.
 // Subiu a "version" do extensao-whatsapp/manifest.json → subir aqui também.
-var PF_EXT_VER_NOVA='6.2'; // v115.2888 - manifest 6.2
+var PF_EXT_VER_NOVA='6.3'; // v115.2888 - manifest 6.2
  var _pfExtVerAnt='4.75'; // v115.2760 - manifest 4.75 (quem mandou a última mensagem) · // v115.2757 - manifest 4.74 (ler PDF da conversa) · v115.2756 - manifest 4.73 (mensagem só com código conta como pedido) · // v115.2745 - manifest 4.71 · v115.2739 - manifest 4.67 (📦 Pedido a emitir + card de ajustes no PF)
 function pfExtVerMenor(a,b){a=String(a||'0').split('.').map(Number);b=String(b||'0').split('.').map(Number);for(var i=0;i<Math.max(a.length,b.length);i++){var x=a[i]||0,y=b[i]||0;if(x!==y)return x<y;}return false;}
 function pfExtInstalarAbrir(){

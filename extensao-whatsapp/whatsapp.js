@@ -2423,9 +2423,15 @@
   }
   function ccCalma() {
     var els = document.querySelectorAll('#main [data-pre-plain-text]'); if (!els.length) return false;
-    var temEle = false; for (var i = els.length - 1; i >= Math.max(0, els.length - 15); i--) { if (!minhaEl(els[i])) { temEle = true; break; } }
-    if (!temEle) return false;
-    var t = msgQuando(els[els.length - 1]) || horaFolha(els[els.length - 1]); if (!t) return false;
+    var temEle = false, temMinha = false; for (var i = els.length - 1; i >= Math.max(0, els.length - 15); i--) { if (minhaEl(els[i])) temMinha = true; else temEle = true; }
+    if (!temEle || !temMinha) return false;
+    // 5.9 - A pedido do Vitor (print: cliente mandou "eii / bom dia / tudo bem?" e apareceu "Bom momento pra perguntar" — "não me parece um bom momento"):
+    // só é bom momento quando a conversa ACALMOU depois de vocês se falarem — a última mensagem é sua (e não é uma pergunta esperando resposta) ou o cliente
+    // só fechou o assunto (blz, valeu, obrigado, ok, 👍…). Cliente cumprimentando, perguntando ou pedindo = ele está esperando você, não é hora.
+    var ult = els[els.length - 1], tu = String(ult.innerText || '').replace(/\n?\d{1,2}:\d{2}\s*$/, '').trim();
+    if (minhaEl(ult)) { if (/\?\s*$/.test(tu)) return false; }
+    else if (!/^(blz|beleza|valeu|vlw|obrigad[oa]|obg|brigad[oa]|ok|okay|certo|combinado|fechado|show|top|perfeito|tmj|tranquilo|sim|isso|👍|🙏|🤝|👌)[\s!.,👍🙏🤝👌]*$/i.test(tu)) return false;
+    var t = msgQuando(ult) || horaFolha(ult); if (!t) return false;
     var dt = Date.now() - t; return dt >= 120000 && dt < 3 * 3600000;
   }
   function ccAtivo() { return CC && CC.lista && CC.lista.length && !CC.off && contatoAt && !contatoAt.grupo && resp && resp.k === CC.k && !document.documentElement.classList.contains('pfwa-coberto'); }

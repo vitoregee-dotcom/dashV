@@ -3268,3 +3268,4 @@
 - v115.2891 **📦 Meus pedidos por dia** ("separarmos por dia… igual a tabela de cotações… hoje, ontem, sábado" + "com data e hora de emissão"; prévia `docs/referencias/meus-pedidos-dia/`, capturas `feito-quadro.png`/`feito-lista.png`):
   no Quadro (cada coluna) e na Lista os cartões ficam em faixas pelo dia da EMISSÃO do pedido (`p.data`; lembrete 📝 = dia em que foi anotado) — `pfMpPorDia`/`pfMpDiaInfo`/`pfMpFaixaDiaHtml`:
   "HOJE · terça 24/11" (azul), "ONTEM · segunda 23/11", "sábado 21/11" (âmbar), do mais novo pro mais velho, com a quantidade; cada cartão ganha "🕒 emitido 24/11 10:32" (`pfMpEmitTxt`). Na Lista, dentro do dia, o vermelho vem primeiro.
+- v115.2892 BUG ("cliquei aqui do lado esquerdo, foi parar lá no meio da tela o botão de já emiti" — 📦 Meus pedidos, lembrete 📝 A emitir): o duplo clique (`pfMpDbl`) num lembrete (não é pedido) abria o menu no CENTRO da tela; agora usa o lugar do último clique (`window._pfMpUltXY`, guardado no `pfMpClique`).

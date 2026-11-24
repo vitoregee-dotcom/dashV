@@ -3306,3 +3306,5 @@
   Base possível: a extensão já lê a hora das mensagens (`msgQuando`/`ultimaMsg`) e o motor (`msgs`) traz as conversas inteiras; o PF já guarda os dias de conversa em `pfWhatsDias_v1`.
 - v115.2910 (Vitor mandou o "Vendas por Vendedor" do JBoss em .xls — 01/01/2025 a 24/11/2026, só VITOR LIMA: 3.948 vendas + 37 devoluções, 410 clientes, R$ 8.941.477,72 = Total Geral): o 📥 Importar vendas do ERP
   (`pfVErpArquivo`) aceita .xls/.xlsx/.csv — SheetJS (`raw:false`, células da linha juntas com espaço) → o mesmo `pfVErpParse` do PDF.
+- v115.2911 BUG ("ainda não tá dando zoom na órbita pela bolinha do mouse" — 3D): o zoom da v115.2873 dependia de clicar antes e o `mouseout` desligava quando o balão do cliente
+  aparecia. Agora `pfOrbWheelZoomOk` = rodinha em cima da órbita dá zoom DIRETO (2D e 3D); pra não ficar preso, no zoom mínimo (2D z=1, 3D z=0,6) rodar pra trás rola a página. A dica "clique na órbita" saiu.

@@ -3265,3 +3265,6 @@
   pelo cliente + os CÓDIGOS lidos na conversa — cada mensagem nova mudava os códigos (ou vinha sem) e nascia outro lembrete do mesmo contato. Agora 1 lembrete aberto por contato (`pfPeChave`: k do
   cliente, senão nome do WhatsApp `nomeWa`, senão o cliente do texto): o novo junta os códigos no que já existe; `pfPeJuntarDup` (no pfExtPedidoEmitir e no pfMpDados) junta os repetidos já gravados
   (fica o mais antigo, códigos somados, o CRM dos outros vira feito). O lembrete agora grava `nomeWa`.
+- v115.2891 **📦 Meus pedidos por dia** ("separarmos por dia… igual a tabela de cotações… hoje, ontem, sábado" + "com data e hora de emissão"; prévia `docs/referencias/meus-pedidos-dia/`, capturas `feito-quadro.png`/`feito-lista.png`):
+  no Quadro (cada coluna) e na Lista os cartões ficam em faixas pelo dia da EMISSÃO do pedido (`p.data`; lembrete 📝 = dia em que foi anotado) — `pfMpPorDia`/`pfMpDiaInfo`/`pfMpFaixaDiaHtml`:
+  "HOJE · terça 24/11" (azul), "ONTEM · segunda 23/11", "sábado 21/11" (âmbar), do mais novo pro mais velho, com a quantidade; cada cartão ganha "🕒 emitido 24/11 10:32" (`pfMpEmitTxt`). Na Lista, dentro do dia, o vermelho vem primeiro.

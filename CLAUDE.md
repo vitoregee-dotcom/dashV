@@ -3292,3 +3292,6 @@
 - v115.2905 ("se eu subi a cotação da Triex com mais de uma marca, e não é pedido, no PF tem que ir exatamente igual" — JBoss 396603, 11992882 PARALELO/VITON/DANA com "parecidos"):
   no 📥 Cotação do JBoss, item COM código não ganha mais "parecidos" (`pfJbPrepItem`, só pra item sem código); no `pfJbCriar` cada item fica com a marca e a descrição do JBoss
   (a ficha do PF vai só na marca interna — ALBARUS mostra ALBARUS, saldo/custo da SPICER), preço do JBoss mesmo 0 (`vendaOverride` 0 nos "NÃO IM."), `_dr` (sem regra de descrição) e `_carAuto` (sem troca Carraro).
+- v115.2906 + extensão **6.5** ("Pq não deu?" — Edge, WhatsApp de um colega, toast "Não deu — abra o PF"): a extensão só fala com o PartsFlow aberto no MESMO navegador; o aviso
+  genérico não dizia o motivo. `naoDeu()` (whatsapp.js, lê a última resposta `ultimaResp` guardada no `msg`) troca as 13 "Não deu — abra o PF": sem resposta / `semPF` = "O PartsFlow não está aberto
+  neste navegador — abra numa aba (e faça o login)", `pfF5` = "Dê F5 na aba do PartsFlow", `recarregar` = "dê F5 nesta aba do WhatsApp", `r.msg` = o motivo do PF. `PF_EXT_VER_NOVA`='6.5', zip refeito.

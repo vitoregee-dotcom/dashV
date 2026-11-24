@@ -33,7 +33,15 @@
       (function loop() { var v = null; try { v = fn(); } catch (e) { } if (v) return res(v); if (Date.now() - t0 > ms) return res(null); dormir(400).then(loop); })();
     });
   }
-  function msg(m) { return new Promise(function (res) { try { chrome.runtime.sendMessage(m, function (r) { void chrome.runtime.lastError; try { if (r && r.gruposPF && typeof svGruposPfSet === 'function') svGruposPfSet(r.gruposPF); } catch (e) { } res(r || null); }); } catch (e) { res({ erro: 'recarregar' }); } }); }
+  // 6.5 - "Não deu — abra o PF" sem dizer o porquê (Vitor no Edge, WhatsApp de um colega): naoDeu() conta o motivo de verdade da última resposta.
+  var ultimaResp = null;
+  function naoDeu() { var r = ultimaResp;
+    if (!r) return 'O PF não respondeu — abra o PartsFlow numa aba DESTE navegador e faça o login';
+    if (r.erro === 'semPF') return 'O PartsFlow não está aberto neste navegador — abra numa aba (e faça o login)';
+    if (r.erro === 'pfF5') return 'Dê F5 na aba do PartsFlow e tente de novo';
+    if (r.erro === 'recarregar') return 'A extensão foi atualizada — dê F5 nesta aba do WhatsApp';
+    if (r.msg) return String(r.msg); if (r.erro) return 'O PF não conseguiu: ' + r.erro; return 'O PF não conseguiu fazer isso'; }
+  function msg(m) { return new Promise(function (res) { try { chrome.runtime.sendMessage(m, function (r) { void chrome.runtime.lastError; ultimaResp = r || null; try { if (r && r.gruposPF && typeof svGruposPfSet === 'function') svGruposPfSet(r.gruposPF); } catch (e) { } res(r || null); }); } catch (e) { ultimaResp = { erro: 'recarregar' }; res(ultimaResp); } }); }
   function reais(v) { return 'R$ ' + (+v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   var VER = (function () { try { return chrome.runtime.getManifest().version; } catch (e) { return ''; } })();
 
@@ -896,12 +904,12 @@
     if (ac === 'registrar') {
       var ta = P.querySelector('.pfwa-nota'); var tx = ta ? ta.value.trim() : ''; if (!tx) { if (ta) ta.focus(); return; }
       b.disabled = true; b.textContent = 'Gravando…';
-      var r = await msg({ t: 'acao', acao: 'registrar', arg: { k: arg, texto: tx } }); b.disabled = false; b.textContent = r && r.ok ? '✔ Registrado na ficha' : 'Não deu — abra o PF'; if (r && r.ok && ta) ta.value = ''; return;
+      var r = await msg({ t: 'acao', acao: 'registrar', arg: { k: arg, texto: tx } }); b.disabled = false; b.textContent = r && r.ok ? '✔ Registrado na ficha' : naoDeu(); if (r && r.ok && ta) ta.value = ''; return;
     }
     if (ac === 'lembrete') {
       var d = (P.querySelector('.pfwa-lemb-d') || {}).value, tt = ((P.querySelector('.pfwa-lemb-t') || {}).value || '').trim();
       if (!d) { var di = P.querySelector('.pfwa-lemb-d'); if (di) di.focus(); return; }
-      var r2 = await msg({ t: 'acao', acao: 'lembrete', arg: { k: arg, data: d, texto: tt } }); flash(b, r2 && r2.ok ? '✔ Marcado — aparece no Meu dia' : 'Não deu — abra o PF'); return;
+      var r2 = await msg({ t: 'acao', acao: 'lembrete', arg: { k: arg, data: d, texto: tt } }); flash(b, r2 && r2.ok ? '✔ Marcado — aparece no Meu dia' : naoDeu()); return;
     }
     if (ac === 'parar') { msg({ t: 'parar' }); return; }
     if (ac === 'menuTog') { menuLig = !menuLig; chrome.storage.local.set({ menuLig: menuLig }); pintarMenu(); return; }
@@ -915,7 +923,7 @@
       b.disabled = true; b.textContent = 'Salvando…';
       var rr = await msg({ t: 'acao', acao: 'ofertaSalvar', arg: { k: resp && resp.k, h: o.h, alvos: o.alvos, resp: ofSel[o.h] || o.sug || 'sem', motivo: mo, msg: o.msg, lembrar: +le || 0, canal: 'whats' } });
       if (rr && rr.ok) { ofPend.shift(); pintaOferta(); var rf = await msg({ t: 'quem', tel: contatoAt && contatoAt.tel, nome: contatoAt && contatoAt.nome }); if (rf && rf.achou) { resp = rf; pintaCorpo(); } }
-      else { b.disabled = false; flash(b, 'Não deu — abra o PF'); }
+      else { b.disabled = false; flash(b, naoDeu()); }
       return;
     }
     if (ac === 'jaX') { jaFechado = digAnt; JA.style.display = 'none'; return; }
@@ -937,7 +945,7 @@
       b.disabled = true; b.textContent = 'Gravando…';
       var g1 = await msg({ t: 'acao', acao: 'registrar', arg: { k: resp.k, texto: '📝 Resumo (IA): ' + tx.trim() } });
       if (px.trim() && dt) await msg({ t: 'acao', acao: 'lembrete', arg: { k: resp.k, data: dt, texto: px.trim() } });
-      if (g1 && g1.ok) { resumoR = null; pintaCorpo(); } else { b.disabled = false; flash(b, 'Não deu — abra o PF'); }
+      if (g1 && g1.ok) { resumoR = null; pintaCorpo(); } else { b.disabled = false; flash(b, naoDeu()); }
       return;
     }
     if (ac === 'respForn') { await respFornIr(arg, b); return; }
@@ -2120,7 +2128,7 @@
   async function askAcao(i, o) {
     var q = askL[i]; if (!q) return; askL.splice(i, 1);
     if (q.tipo === 'frota') {
-      if (o === 'sim') { var r = await msg({ t: 'acao', acao: 'frotaPor', arg: { k: q.k, marca: q.marca, modelo: q.modelo, equip: q.equip } }); audToast(r && r.ok ? (r.ja ? 'Já estava na frota' : '🚜 ' + q.modelo + ' foi pra frota do cliente' + (r.tipo ? ' (' + r.tipo + ')' : '')) : ((r && r.msg) || 'Não deu — abra o PF')); }
+      if (o === 'sim') { var r = await msg({ t: 'acao', acao: 'frotaPor', arg: { k: q.k, marca: q.marca, modelo: q.modelo, equip: q.equip } }); audToast(r && r.ok ? (r.ja ? 'Já estava na frota' : '🚜 ' + q.modelo + ' foi pra frota do cliente' + (r.tipo ? ' (' + r.tipo + ')' : '')) : ((r && r.msg) || naoDeu())); }
       else if (o === 'nao') msg({ t: 'acao', acao: 'frotaNao', arg: { k: q.k, chave: q.chave } });
       askNao['fr|' + q.k + '|' + q.chave] = 1;
     }
@@ -4104,7 +4112,7 @@
     if (id === 'sel_cotar') { cotarTxt(sel); return; }
     if (id === 'sel_avise') { aviseMe(sel); return; } // 4.78
     if (id === 'sel_curta') { qkAbrir([sel]); return; }
-    if (id === 'sel_leitor' || id === 'msg_leitor') { var rl = await msg({ t: 'acao', acao: 'leitor', focar: true, arg: { texto: id === 'sel_leitor' ? sel : cmTxt(A.b) } }); cmToast(rl && rl.ok ? '📝 Mandei pro Leitor de Peças do PF' : 'Não deu — abra o PF'); return; } // 4.85
+    if (id === 'sel_leitor' || id === 'msg_leitor') { var rl = await msg({ t: 'acao', acao: 'leitor', focar: true, arg: { texto: id === 'sel_leitor' ? sel : cmTxt(A.b) } }); cmToast(rl && rl.ok ? '📝 Mandei pro Leitor de Peças do PF' : naoDeu()); return; } // 4.85
     if (/^msg_/.test(id) && !A.b) { cmToast('Clique com o botão direito em cima da mensagem'); return; }
     if (id === 'msg_cotar') { cotarTxt(cmTxt(A.b)); return; }
     if (id === 'msg_pc') { pcMandar({ texto: cmTxt(A.b) }); return; } // 4.93
@@ -4121,12 +4129,12 @@
     if (id === 'msg_rr') {
       var tx = cmTxt(A.b).replace(/\s*\d{1,2}:\d{2}\s*$/, ''); var nome = prompt('Nome da resposta rápida (ex.: Endereço, PIX):', ''); if (!nome) return;
       var r1 = await msg({ t: 'acao', acao: 'rrSalvar', arg: { nome: nome, texto: tx, trocar: true, k: resp && resp.k, contato: resp && resp.contato } });
-      cmToast(r1 && r1.ok ? '💾 Resposta rápida "' + nome + '" salva nos Atalhos de Texto do PF' : 'Não deu — abra o PF'); return;
+      cmToast(r1 && r1.ok ? '💾 Resposta rápida "' + nome + '" salva nos Atalhos de Texto do PF' : naoDeu()); return;
     }
     if (id === 'msg_nota') {
       if (!resp || !resp.k) { cmToast('Essa conversa não é de um cliente do PF'); return; }
       var r2 = await msg({ t: 'acao', acao: 'registrar', arg: { k: resp.k, texto: '📝 ' + cmTxt(A.b).replace(/\s*\d{1,2}:\d{2}\s*$/, '') } });
-      cmToast(r2 && r2.ok ? '📝 Anotado na ficha do cliente' : 'Não deu — abra o PF'); return;
+      cmToast(r2 && r2.ok ? '📝 Anotado na ficha do cliente' : naoDeu()); return;
     }
     if (id === 'msg_mapa' || id === 'img_mapa') {
       var bt = ((resp && resp.botoes) || []).find(function (x) { return x && x.acao === 'respForn'; });
@@ -4173,18 +4181,18 @@
     if (/^cv_/.test(id) && !A.nome) { cmToast('Clique com o botão direito em cima da conversa na lista'); return; }
     if (id === 'cv_pend' || id === 'cv_pendok') { // 6.2 - ⏳ pendência com o contato (marcada à mão)
       var stp = sitCache[A.nome] || {}; var tirap = id === 'cv_pendok' || (id === 'cv_pend' && stp.pend);
-      if (tirap) { var rq = await msg({ t: 'acao', acao: 'pendTirar', arg: { nome: A.nome } }); stp.pend = ''; cmToast(rq && rq.ok ? '✔ ' + A.nome + ' — pendência resolvida, tirei o ⏳' : 'Não deu — abra o PF'); }
+      if (tirap) { var rq = await msg({ t: 'acao', acao: 'pendTirar', arg: { nome: A.nome } }); stp.pend = ''; cmToast(rq && rq.ok ? '✔ ' + A.nome + ' — pendência resolvida, tirei o ⏳' : naoDeu()); }
       else { var ob = prompt('⏳ Pendência com ' + A.nome + '\nO que ficou pendente? (opcional — ex.: mandar preço da cruzeta, ver prazo)', ''); if (ob === null) return;
         var rp2 = await msg({ t: 'acao', acao: 'pendMarcar', arg: { nome: A.nome, obs: ob } }); stp.pend = ob || 1;
-        cmToast(rp2 && rp2.ok ? (rp2.ja ? '⏳ Já estava marcado' : '⏳ Marcado: pendência com ' + (rp2.titulo || A.nome) + (rp2.cliente ? ' (Pendências e ☀️ Meu dia)' : ' (Pendências)')) : 'Não deu — abra o PF'); }
+        cmToast(rp2 && rp2.ok ? (rp2.ja ? '⏳ Já estava marcado' : '⏳ Marcado: pendência com ' + (rp2.titulo || A.nome) + (rp2.cliente ? ' (Pendências e ☀️ Meu dia)' : ' (Pendências)')) : naoDeu()); }
       sitCache[A.nome] = stp; sitSig = ''; try { badgesRender(); carregarSituacoes(); } catch (e) { } return;
     }
     if (id === 'cv_ped' || id === 'cv_pedok') { // 4.91 - 📦 pedido pra enviar marcado à mão
       var stc = sitCache[A.nome] || {}; var tira = id === 'cv_pedok' || (id === 'cv_ped' && stc.emitir && !A.forcaMarcar);
-      if (tira) { var ro = await msg({ t: 'acao', acao: 'pedidoEnviado', arg: { nome: A.nome } }); stc.emitir = false; cmToast(ro && ro.ok ? '✔ ' + A.nome + ' — pedido enviado, tirei o 📦' : 'Não deu — abra o PF'); }
+      if (tira) { var ro = await msg({ t: 'acao', acao: 'pedidoEnviado', arg: { nome: A.nome } }); stc.emitir = false; cmToast(ro && ro.ok ? '✔ ' + A.nome + ' — pedido enviado, tirei o 📦' : naoDeu()); }
       else { var obs = prompt('📦 Pedido pra enviar — ' + A.nome + '\nObservação (opcional, ex.: nº do pedido, o que falta):', ''); if (obs === null) return;
         var rm = await msg({ t: 'acao', acao: 'pedidoMarcar', arg: { nome: A.nome, obs: obs } }); stc.emitir = true;
-        cmToast(rm && rm.ok ? (rm.ja ? '📦 Já estava marcado' : '📦 Marcado: mandar o pedido de ' + (rm.titulo || A.nome) + (rm.cliente ? ' (Pendências e ☀️ Meu dia)' : ' (Pendências)')) : 'Não deu — abra o PF'); }
+        cmToast(rm && rm.ok ? (rm.ja ? '📦 Já estava marcado' : '📦 Marcado: mandar o pedido de ' + (rm.titulo || A.nome) + (rm.cliente ? ' (Pendências e ☀️ Meu dia)' : ' (Pendências)')) : naoDeu()); }
       sitCache[A.nome] = stc; sitSig = ''; try { badgesRender(); carregarSituacoes(); } catch (e) { } return;
     }
     if (id === 'cv_ficha') { var r5 = await msg({ t: 'acao', acao: 'fichaNome', focar: true, arg: { nome: A.nome } }); if (r5 && r5.ok === false) cmToast('Não achei esse cliente no PF'); return; }
@@ -4197,7 +4205,7 @@
       var niv = id.slice(7), r4 = await msg({ t: 'acao', acao: 'intimSet', arg: { nome: A.nome, nivel: niv } });
       if (sitCache[A.nome]) sitCache[A.nome].intim = niv; else sitCache[A.nome] = { tipo: '', intim: niv };
       if (resp && contatoAt && contatoAt.nome === A.nome) resp.intim = niv;
-      cmToast(r4 && r4.ok ? A.nome + ' → ' + ({ formal: '🎩 Formal', normal: '🙂 Normal', proximo: '🤝 Próximo' })[niv] : 'Não deu — abra o PF'); return;
+      cmToast(r4 && r4.ok ? A.nome + ' → ' + ({ formal: '🎩 Formal', normal: '🙂 Normal', proximo: '🤝 Próximo' })[niv] : naoDeu()); return;
     }
     if (id === 'cv_nunca') {
       AUTO.nunca = AUTO.nunca || []; var ix = AUTO.nunca.indexOf(A.nome);

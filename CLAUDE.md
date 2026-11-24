@@ -3261,3 +3261,7 @@
   depois `pfExtMapaLigarCot`). Envio pelo motor (`motor('enviar')`, número@c.us) e, antes, `mqFaleiHoje` (motor `msgs`): já mandou mensagem hoje pra esse número = vai SEM "Bom dia, Fulano!". Sem motor =
   fila antiga com o texto começando em `[[SAUD:…]]` (fundo.js abre a conversa sem texto e o `processarEnvio` decide pela `autoFaleiHoje`). Cada envio → acao `mapaEnviado` → `pfExtMapaEnviado`
   (✔ enviado na etapa 2 do mapa). Junto: selo 📄 não conta mais o mesmo código 2x (texto do número pintado de telefone vinha repetido). Simulador: contatos "Rafael - Fernanda Chiquetto" e "Kauê - MD Power".
+- v115.2890 BUG (📦 Meus pedidos com 4 cartões "Ozias - Imperial Pecas": "é um pedido só. não pode ficar repetindo… descubra o motivo"): o lembrete 📦 emitir (`pfExtPedidoEmitir`) era separado
+  pelo cliente + os CÓDIGOS lidos na conversa — cada mensagem nova mudava os códigos (ou vinha sem) e nascia outro lembrete do mesmo contato. Agora 1 lembrete aberto por contato (`pfPeChave`: k do
+  cliente, senão nome do WhatsApp `nomeWa`, senão o cliente do texto): o novo junta os códigos no que já existe; `pfPeJuntarDup` (no pfExtPedidoEmitir e no pfMpDados) junta os repetidos já gravados
+  (fica o mais antigo, códigos somados, o CRM dos outros vira feito). O lembrete agora grava `nomeWa`.

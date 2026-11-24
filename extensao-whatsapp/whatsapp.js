@@ -613,6 +613,7 @@
   chrome.storage.local.get(['cfg'], function (s) { if (s.cfg) for (var k in s.cfg) CFG[k] = s.cfg[k]; CFG.waEtqOff = true; }); // 4.42 - A pedido do Vitor ("quero sempre a etiqueta do whats escondida")
   function htmlConfig() {
     var h = '<div class="pfwa-ajtop"><b>⚙️ Configurações</b><span class="pfwa-link" data-acao="config">✕ fechar</span></div>' +
+      '<button class="pfwa-btn" data-acao="cfgTela" style="width:100%;margin:2px 0 8px;background:#1F4E79;color:#fff">🗂️ Abrir as configurações numa aba própria (tela cheia)</button>' + // 6.4
       '<div class="pfwa-nada" style="margin:4px 0 8px">Ligue só o que você usa. Vale pra este navegador.</div>';
     CFG_LISTA.forEach(function (x) {
       var on = cfgOn(x[0]);
@@ -791,6 +792,7 @@
     if (ac === 'aba') { ajuda = false; config = false; irAba(arg); return; }
     if (ac === 'config') { config = !config; ajuda = false; abrirPainel(); pinta(); return; }
     if (ac === 'cfgTog') { cfgTog(arg); return; }
+    if (ac === 'cfgTela') { try { chrome.runtime.sendMessage({ t: 'abrirConfig', sec: arg || '' }); } catch (e) { } return; } // 6.4
     if (ac === 'autoAbrir') { config = 'auto'; abrirPainel(); pinta(); return; } // 3.9 - 👋 saudação automática
     if (ac === 'autoVoltar') { config = true; pinta(); return; }
     if (ac === 'autoTogJeito') { AUTO.jeito = AUTO.jeito === false; autoGravar(); pinta(); return; } // 5.4
@@ -2803,6 +2805,9 @@
   setTimeout(mpCarregar, 6000); setInterval(function () { if (vivo()) mpCarregar(); }, 60000);
   function mpEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
   function mpPintar() {
+    try { var rp = RAIL && RAIL.querySelector('.pfwa-railped'); if (rp) { var nP = MP.filter(function (x) { return x.tipo !== 'emit'; }).length, nA = MP.filter(function (x) { return x.al; }).length, bn = rp.querySelector('.pfwa-railn');
+      if (bn) { bn.textContent = nP ? String(nP) : ''; bn.style.display = nP ? '' : 'none'; }
+      rp.title = '📦 Meus pedidos' + (nP ? ' — ' + nP + ' em aberto' + (nA ? ' · ' + nA + ' atrasado' + (nA > 1 ? 's' : '') : '') : '') + '\nClique: vai pra aba do PF já em Meus pedidos'; } } catch (e) { }
     var wr = RAIL && RAIL.querySelector('.pfwa-mpw'); if (!wr) return;
     if (CFG.mp === false || !MP.length) { wr.innerHTML = ''; return; }
     wr.innerHTML = '<div class="pfwa-mpsep" title="Meus pedidos"></div>' + MP.slice(0, 14).map(function (x) {
@@ -2900,7 +2905,9 @@
     h += '<span class="pfm-dir"><span class="pfm-cor"><i data-acao="menuCor" data-arg="azul" class="' + (menuCor !== 'discreta' ? 'on' : '') + '">azul</i><i data-acao="menuCor" data-arg="discreta" class="' + (menuCor === 'discreta' ? 'on' : '') + '">discreta</i></span><span class="pfm-tog" data-acao="menuTog" title="Desligar o Menu do PF">Menu do PF <span class="pfm-sw"></span></span></span>';
     MENU.innerHTML = h;
     var rail = [['vendas', '📄', 'Cotações'], ['kanban', '🗂️', 'Quadro de vendas'], ['mesa', '🛒', 'Mesa do comprador'], ['home', '🏠', 'Início do PF'], ['ext', '🧩', 'PartsFlow no WhatsApp']];
-    RAIL.innerHTML = rail.map(function (r) { return '<span data-acao="irTela" data-arg="' + r[0] + '" title="' + r[2] + '">' + r[1] + '</span>'; }).join('') + '<div class="pfwa-mpw"></div>';
+    // 6.4 - A pedido do Vitor ("algum lugar que leve direto pra tela de meus pedidos" → opção A): botão 📦 laranja em 1º, com o nº de pedidos em aberto
+    RAIL.innerHTML = '<span class="pfwa-railped" data-acao="irTela" data-arg="meuspv" title="📦 Meus pedidos — abre o PF já nessa tela">📦<b class="pfwa-railn"></b></span>' +
+      rail.map(function (r) { return '<span data-acao="irTela" data-arg="' + r[0] + '" title="' + r[2] + '">' + r[1] + '</span>'; }).join('') + '<div class="pfwa-mpw"></div>';
     mpPintar();
     badgesRender(); aplicarFiltro();
   }
@@ -4017,6 +4024,66 @@
     if (!r || r.erro) cmToast('O PF não respondeu — dê F5 na aba do PartsFlow');
     else if (r.ok === false) cmToast(r.msg || 'Não achei código no que você selecionou');
   }
+  // 6.4 - ⚙️ CONFIGURAÇÕES EM ABA PRÓPRIA (A pedido do Vitor: "não seria melhor abrir em uma nova aba? como uma tela mais intuitiva, mais organizada";
+  // prévia docs/referencias/whatsapp-pedidos-config/previa-config.png). A página config.html só MOSTRA: pede aqui o HTML de cada seção e manda os
+  // cliques/campos pra cá — as regras, os textos e o gravar continuam todos aqui (nada duplicado). Seção nova → caso no cfgSecHtml + item no config.js.
+  var CFG_SEC_BARRA = ['menu', 'etq', 'bots', 'mp', 'selo', 'rrselo', 'rfselo', 'barra', 'salvar'], CFG_SEC_AUDIO = ['audio', 'audioBotoes'];
+  function cfgLinhasHtml(ks) {
+    return CFG_LISTA.filter(function (x) { return ks.indexOf(x[0]) >= 0; }).map(function (x) {
+      return '<div class="pfwa-cfgl" data-acao="cfgTog" data-arg="' + x[0] + '"><span class="pfwa-cfgi">' + x[1] + '</span><div><b>' + esc(x[2]) + '</b><br><small>' + esc(x[3]) + '</small></div><span class="pfwa-sw' + (cfgOn(x[0]) ? ' on' : '') + '"><i></i></span></div>';
+    }).join('');
+  }
+  function cfgSecHtml(sec) {
+    var C = function (t, h) { return '<div class="au-sec cfg-card"><b class="cfg-ct">' + t + '</b>' + h + '</div>'; };
+    if (sec === 'aparencia') {
+      return C('🖼️ Jeito dos botões ao lado das mensagens', '<div class="au-modos au-est"><span data-acao="cfgVis" data-arg="A" class="' + (visual !== 'D' ? 'on' : '') + '">A · coluna ao lado</span><span data-acao="cfgVis" data-arg="D" class="' + (visual === 'D' ? 'on' : '') + '">D · barra flutuante embaixo</span></div>') +
+        C('🎨 Cor do Menu do PF', '<div class="au-modos au-est"><span data-acao="menuCor" data-arg="azul" class="' + (menuCor !== 'discreta' ? 'on' : '') + '">Azul</span><span data-acao="menuCor" data-arg="discreta" class="' + (menuCor === 'discreta' ? 'on' : '') + '">Discreta</span></div>') +
+        C('🔣 Ícones dos botões', '<div class="pfwa-icoest">' + ICO_ESTILOS.map(function (e) { return '<span data-acao="icoEst" data-arg="' + e[0] + '" class="' + (ICO_EST === e[0] ? 'on' : '') + '">' + e[1] + '</span>'; }).join('') + '</div>' +
+          '<div class="pfwa-nada" style="margin:8px 0">Clique num botão pra trocar o ícone dele (abre o seletor do PF — vale pra todo mundo).</div><div class="pfwa-icolista">' +
+          BOTOES.map(function (b) { return '<span data-acao="icoTrocar" data-arg="' + b[0] + '" title="Trocar o ícone de ' + esc(b[2]) + '">' + icoHtml(b[0], b[1], ICO_EST === 'emoji' ? 'azul' : ICO_EST) + '<small>' + esc(b[2]) + '</small></span>'; }).join('') + '</div>');
+    }
+    if (sec === 'barra') return C('🧰 O que aparece no WhatsApp', cfgLinhasHtml(CFG_SEC_BARRA));
+    if (sec === 'auto') return htmlAuto();
+    if (sec === 'avisos') {
+      var ks = CFG_LISTA.map(function (x) { return x[0]; }).filter(function (k) { return CFG_SEC_BARRA.indexOf(k) < 0 && CFG_SEC_AUDIO.indexOf(k) < 0; });
+      return C('🔔 Avisos e lembretes automáticos', cfgLinhasHtml(ks)) +
+        C('📦 Pedido a emitir', '<div class="pfwa-cfgl" data-acao="extCfgAbrir"><span class="pfwa-cfgi">📦</span><div><b>Palavras e liga/desliga</b><br><small>Lembrete automático pra não esquecer de emitir/mandar ("manda pra mim", "mando hoje"). Vale pra equipe toda — fica no PF.</small></div><span class="pfwa-link">ajustar no PF ›</span></div>');
+    }
+    if (sec === 'audio') return C('🎤 Áudios', cfgLinhasHtml(CFG_SEC_AUDIO) + '<div class="pfwa-cfgl" data-acao="cfgStt"><span class="pfwa-cfgi">🔑</span><div><b>Chave do serviço de transcrição</b><br><small>Fica em 🔑 Minhas Chaves no PF.</small></div><span class="pfwa-link">abrir no PF ›</span></div>');
+    if (sec === 'contatos') return C('📇 Contatos', motorSeloHtml() +
+      '<div class="pfwa-cfgbtns"><button data-acao="importar" class="pfwa-cfgb verde">📥 Importar meus contatos</button>' +
+      '<button data-acao="listaMassa" class="pfwa-cfgb">' + (lmRodando ? '⏸ Parar' : '🏷️ Pôr os clientes na lista Cliente PF') + '</button>' +
+      '<button data-acao="numeros" class="pfwa-cfgb pfwa-num">' + (numRodando ? '⏸ Parar' : '📞 Buscar números que faltam') + '</button></div>' +
+      (TAREFA_EL && TAREFA_EL.innerHTML ? '<div class="pfwa-tarefa">' + TAREFA_EL.innerHTML + '</div>' : '') +
+      '<div class="pfwa-nada" style="margin-top:8px">Esses trabalhos rodam na aba do WhatsApp — pode deixar esta página aberta pra acompanhar.</div>');
+    if (sec === 'motor') return C('⚙️ Motor', motorSeloHtml() + '<div class="pfwa-nada" style="margin-top:8px">Com o motor ligado, a extensão faz as coisas por dentro do WhatsApp (mensagens automáticas, listas, números) sem abrir as conversas na sua frente. Desligado, ela faz do jeito antigo, abrindo as conversas. Ele liga sozinho quando o WhatsApp permite.</div>');
+    if (sec === 'ajuda') return htmlAjuda();
+    return '';
+  }
+  async function cfgRemoto(m) {
+    var oc = window.confirm, op = window.prompt;
+    try {
+      if (m.op === 'acao') {
+        if (m.ac === 'cfgVis') { visual = m.arg === 'D' ? 'D' : 'A'; chrome.storage.local.set({ visual: visual }); pinta(); posicionar(); }
+        else if (m.ac === 'cfgStt') { msg({ t: 'acao', acao: 'sttConfig', focar: true }); }
+        else {
+          if (m.ok) window.confirm = function () { return true; }; // a página já perguntou
+          var el = document.createElement('span'); el.setAttribute('data-acao', m.ac); el.setAttribute('data-arg', m.arg || '');
+          await clique({ target: el, preventDefault: function () { }, stopPropagation: function () { } });
+        }
+      } else if (m.op === 'campo') {
+        var f = document.createElement(m.tag === 'TEXTAREA' ? 'textarea' : 'input'); if (m.tipo) f.type = m.tipo;
+        f.setAttribute('data-au', m.k); f.value = m.v == null ? '' : m.v; if (m.tipo === 'checkbox') f.checked = !!m.checked;
+        autoCampo(f);
+      }
+    } catch (e) { console.warn('PF config', e); } finally { window.confirm = oc; window.prompt = op; }
+    return { ok: 1, html: cfgSecHtml(m.sec), auto: !!AUTO.on, status: (function () { try { var a = autoAusente(); return a ? autoInfo(a).join(' ') : ''; } catch (e) { return ''; } })() };
+  }
+  chrome.runtime.onMessage.addListener(function (m, s, send) {
+    if (!m || m.t !== 'cfgRemoto') return;
+    cfgRemoto(m).then(send, function () { send({ ok: 0 }); });
+    return true;
+  });
   chrome.runtime.onMessage.addListener(function (m, s, send) {
     if (!m || m.t !== 'cmClick') return;
     cmExec(m.id, m.sel || '', m.src || '').catch(function (e) { console.warn('PF botão direito', e); });

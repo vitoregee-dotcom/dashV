@@ -17,13 +17,27 @@ async function tabExiste(id) { if (!id) return false; try { await chrome.tabs.ge
 async function pingPF(id) { try { var r = await chrome.tabs.sendMessage(id, { t: 'ping' }); return !!(r && r.pf); } catch (e) { return false; } }
 async function reinjetar(id) { try { await chrome.scripting.executeScript({ target: { tabId: id, allFrames: true }, files: ['ponte.js'] }); await new Promise(function (ok) { setTimeout(ok, 400); }); return await pingPF(id); } catch (e) { return false; } }
 var _pfTemAba = false;
+// 6.4 - endereço do PF (o último que se apresentou; padrão = GitHub Pages)
+var PF_URL_PADRAO = 'https://vitoregee-dotcom.github.io/dashV/';
+function pfUrlGuardar(u) { try { var x = new URL(u); if (!/^https?:/.test(x.protocol)) return; guardar({ pfUrl: x.origin + x.pathname }); } catch (e) { } }
+async function abrirPFNaTela(tela) {
+  var s = await ler(['pfUrl']), base = s.pfUrl || PF_URL_PADRAO;
+  var t = await chrome.tabs.create({ url: base + (base.indexOf('?') >= 0 ? '&' : '?') + 'pftela=' + encodeURIComponent(tela), active: true });
+  try { await chrome.windows.update(t.windowId, { focused: true }); } catch (e) { }
+}
+async function abrirConfig(sec) {
+  var url = chrome.runtime.getURL('config.html'), tabs = [];
+  try { tabs = await chrome.tabs.query({ url: url + '*' }); } catch (e) { }
+  if (tabs.length) { var t = await chrome.tabs.update(tabs[0].id, { active: true }); try { await chrome.windows.update(t.windowId, { focused: true }); } catch (e) { } if (sec) try { chrome.tabs.sendMessage(tabs[0].id, { t: 'cfgSec', sec: sec }); } catch (e) { } return; }
+  await chrome.tabs.create({ url: url + (sec ? '#' + sec : ''), active: true });
+}
 async function acharPF() {
   _pfTemAba = false;
   var s = await ler(['pfTab']);
-  if (await tabExiste(s.pfTab) && await pingPF(s.pfTab)) return s.pfTab;
+  if (await tabExiste(s.pfTab) && await pingPF(s.pfTab)) { try { pfUrlGuardar((await chrome.tabs.get(s.pfTab)).url); } catch (e) { } return s.pfTab; }
   var tabs = [];
   try { tabs = await chrome.tabs.query({ url: PF_URLS }); } catch (e) { }
-  for (var i = 0; i < tabs.length; i++) { if (await pingPF(tabs[i].id)) { await guardar({ pfTab: tabs[i].id }); return tabs[i].id; } }
+  for (var i = 0; i < tabs.length; i++) { if (await pingPF(tabs[i].id)) { await guardar({ pfTab: tabs[i].id }); pfUrlGuardar(tabs[i].url); return tabs[i].id; } }
   for (var j = 0; j < tabs.length; j++) {
     if (!/partsflow/i.test(tabs[j].title || '') && !/dashV/i.test(tabs[j].url || '')) continue;
     _pfTemAba = true;
@@ -90,7 +104,9 @@ chrome.runtime.onMessage.addListener(function (m, sender, send) {
   if (m.t === 'dormir') { setTimeout(function () { try { send({ ok: 1 }); } catch (e) { } }, Math.min(+m.ms || 0, 20000)); return true; }
   // 3.2 - aviso de "conectado ao PF" no painel: o whatsapp.js pergunta de tempos em tempos
   if (m.t === 'pfStatus') { (async function () { var id = await acharPF(); send({ ok: !!id, temAba: _pfTemAba }); })(); return true; }
-  if (m.t === 'souPF') { if (sender.tab) guardar({ pfTab: sender.tab.id }); send({ ok: 1 }); return; }
+  if (m.t === 'souPF') { if (sender.tab) { guardar({ pfTab: sender.tab.id }); pfUrlGuardar(sender.tab.url); } send({ ok: 1 }); return; }
+  // 6.4 - ⚙️ página de configurações em aba própria (abre ou volta pra ela)
+  if (m.t === 'abrirConfig') { abrirConfig(m.sec); send({ ok: 1 }); return; }
   if (m.t === 'lote') {
     (async function () {
       var s = await ler(['lote']);
@@ -123,7 +139,11 @@ chrome.runtime.onMessage.addListener(function (m, sender, send) {
   if (m.t === 'quem' || m.t === 'acao') {
     (async function () {
       var id = await acharPF();
-      if (!id) { send({ erro: _pfTemAba ? 'pfF5' : 'semPF' }); return; }
+      if (!id) {
+        // 6.4 - A pedido do Vitor: com o PF fechado, os atalhos da coluna (📦 Meus pedidos, Cotações…) abrem o PF numa aba nova já na tela
+        if (m.t === 'acao' && m.acao === 'irTela' && m.focar && !_pfTemAba) { var tl = typeof m.arg === 'object' ? (m.arg && m.arg.tela) : m.arg; if (tl) { await abrirPFNaTela(String(tl)); send({ ok: 1, abriu: 1 }); return; } }
+        send({ erro: _pfTemAba ? 'pfF5' : 'semPF' }); return;
+      }
       if (m.t === 'acao' && m.focar) { try { var t = await chrome.tabs.update(id, { active: true }); await chrome.windows.update(t.windowId, { focused: true }); } catch (e) { } }
       try { send(await chrome.tabs.sendMessage(id, m)); } catch (e) { await guardar({ pfTab: null }); send({ erro: 'pfF5' }); }
     })();

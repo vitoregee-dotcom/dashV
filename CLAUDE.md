@@ -3289,3 +3289,6 @@
 - v115.2904 BUG (WhatsApp da Tratorlin Distribuidora de Peças: "se for uma revenda não precisa fazer essa pergunta, a máquina não é dele" — cartão 🚜 "Máquina citada… pôr na frota?"): o `pfExtFrotaDetectar`
   só pulava cliente marcado como revenda/concessionária; a Tratorlin estava sem tipo. Agora, sem tipo no cadastro, nome com cara de revenda (DISTRIBUIDORA, PEÇAS, AUTOPEÇAS, ROLAMENTOS, COMÉRCIO DE, IMPORTADORA…) também não pergunta.
   Prévia 2 do 📨 link pro cliente preencher (pergunta 1 = tipo da empresa, depois perguntas por tipo; frota só pra quem usa as máquinas) em `docs/referencias/cliente-preenche/previa2.png` — esperando o Vitor.
+- v115.2905 ("se eu subi a cotação da Triex com mais de uma marca, e não é pedido, no PF tem que ir exatamente igual" — JBoss 396603, 11992882 PARALELO/VITON/DANA com "parecidos"):
+  no 📥 Cotação do JBoss, item COM código não ganha mais "parecidos" (`pfJbPrepItem`, só pra item sem código); no `pfJbCriar` cada item fica com a marca e a descrição do JBoss
+  (a ficha do PF vai só na marca interna — ALBARUS mostra ALBARUS, saldo/custo da SPICER), preço do JBoss mesmo 0 (`vendaOverride` 0 nos "NÃO IM."), `_dr` (sem regra de descrição) e `_carAuto` (sem troca Carraro).

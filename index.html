@@ -2070,7 +2070,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2900</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2901</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2232,7 +2232,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2900</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2901</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -76350,6 +76350,10 @@ async function pfJbCriar(){
     return it;});
   var jb={num:String(d.numero||''),data:String(d.data||''),obs:obs,arq:arq,difal:pfJbNum(d.difal),frete:String(d.frete||''),total:pfJbNum(d.total),tel:String(d.telefone||''),vendedor:String(d.vendedor||''),em:Date.now()};
   var cad=S.cli&&S.cli.c&&S.cli.c.cad||null;
+  /* v115.2901 - A pedido do Vitor ("puxei o pedido e não perguntou se eu queria atualizar a cotação. pq?"): o 📥 Cotação do JBoss sempre criava uma cotação NOVA.
+     Agora, se o cliente já tem cotação recente (mesma janela do pedido do WhatsApp) com algum desses itens, pergunta: atualizar a nº X ou criar nova. */
+  if(!S.forcarNova&&S.cli&&S.cli.c&&typeof pfExtCotsRecentes==='function'){var _rc=[];try{_rc=pfExtCotsRecentes(S.cli.c,its)||[];}catch(e){}
+    if(_rc.length){if(bt){bt.disabled=false;bt.textContent='✔ Criar a cotação no PF';}pfJbAtuPerguntar(_rc[0],its,jb,cob,comp);return;}}
   pfNcFechar('pfJbJan');try{if(typeof pfCrmFechar==='function')pfCrmFechar();}catch(e){}
   try{if(typeof pfNavigate==='function'&&(typeof currentView==='undefined'||currentView!=='vendas'))pfNavigate('vendas');}catch(e){}
   vendasAbrirModal({itens:its,margem:(typeof pfVendasMargemPadraoLoad==='function'?pfVendasMargemPadraoLoad():21),uf:(cad&&(cad.estado||cad.uf))||'SP',origem:'jboss',jboss:jb,cobrarEm:cob||null,comprador:String(comp).toUpperCase()});
@@ -76362,6 +76366,24 @@ async function pfJbCriar(){
   var sem=its.filter(function(x){return x.semCodigo;}).length;
   try{pfAvisoRapido('✔ Cotação do JBoss '+(jb.num||'')+' virou a cotação #'+(window._venda&&window._venda.num||'')+(sem?' · '+sem+' item(ns) sem código':'')+(nFichas?' · 📝 '+nFichas+' ficha(s) criada(s)':'')+' — aparece no ☀️ Meu dia'+(cob?' em '+cob.split('-').reverse().join('/'):''));}catch(e){}
 }
+function pfJbAtuPerguntar(cx,its,jb,cob,comp){
+  var d=new Date(cx.data||Date.now()),hj=new Date().toDateString()===d.toDateString(),dt=hj?'hoje':('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2);
+  var corpo='<div style="font-size:14px;line-height:1.5;color:#1a2332">O cliente já tem a <b>cotação nº '+pfEscHtml(String(cx.num||''))+'</b> de '+dt+' com '+(cx.itens||[]).length+' itens.<br>'+
+    'Atualizar ela com esta cotação do JBoss? Os itens e os <b>preços do JBoss</b> entram no lugar; o que já virou pedido fica como está.</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap"><button class="pfBtn pfBtnClaro" id="pfJbAtuNova">Criar cotação nova</button><button class="pfBtn pfBtnVerde" id="pfJbAtuSim">✔ Atualizar a nº '+pfEscHtml(String(cx.num||''))+'</button></div>';
+  var ov=pfNcJanela('pfJbAtuJan','📥 Cotação do JBoss','já existe cotação recente deste cliente',corpo,460);ov.style.zIndex='100070';
+  document.getElementById('pfJbAtuNova').onclick=function(){pfNcFechar('pfJbAtuJan');window._pfJb.forcarNova=true;pfJbCriar();};
+  document.getElementById('pfJbAtuSim').onclick=function(){pfNcFechar('pfJbAtuJan');pfJbAtualizarCot(cx,its,jb,cob,comp);};}
+function pfJbAtualizarCot(cx,its,jb,cob,comp){
+  try{var cs=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]'),x=cs.find(function(q){return q&&((cx.id&&q.id===cx.id)||(!cx.id&&q.num===cx.num));});if(!x){pfAlert('Não achei a cotação nº '+cx.num+'.');return;}
+    var fic=(x.itens||[]).filter(function(i){return i&&i.pvNumero;});
+    x.itensAntesJb=x.itensAntesJb||JSON.parse(JSON.stringify(x.itens||[]));x.itens=fic.concat(its);x.jboss=jb;if(cob)x.cobrarEm=cob;if(comp&&!x.comprador)x.comprador=String(comp).toUpperCase();x.tsMod=Date.now();
+    pfSafeSetItem('partsflow_cotacoes_v1',JSON.stringify(cs));if(typeof pfSyncPush==='function')pfSyncPush(['partsflow_cotacoes_v1']);
+    pfNcFechar('pfJbJan');try{if(typeof pfCrmFechar==='function')pfCrmFechar();}catch(e){}
+    try{if(typeof pfNavigate==='function'&&(typeof currentView==='undefined'||currentView!=='vendas'))pfNavigate('vendas');}catch(e){}
+    try{pfCrmAbrirCot(String(x.num));}catch(e){}
+    try{pfAvisoRapido('✔ Cotação nº '+x.num+' atualizada com a cotação do JBoss '+(jb.num||'')+' ('+its.length+' itens)');}catch(e){}
+  }catch(e){console.warn('pfJbAtualizarCot',e);pfAlert('Não consegui atualizar: '+e.message);}}
 /* v115.2856 - A pedido do Vitor ("se não tiver, vamo pensar em um jeito de cadastrar e criar ficha de acordo com a cotação da Triex que mandei" → "pode"):
    item da cotação do JBoss sem ficha no PF (e que fica com o código do JBoss) ganha "📝 Criar ficha no PF" (vem marcado): código, marca, descrição e NCM da
    cotação, criadoDe 'jboss' + nº da cotação; o código que o JBoss tinha antes da conversão vira conversão da ficha. Não cria se já existe código+marca. */

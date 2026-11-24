@@ -3295,3 +3295,6 @@
 - v115.2906 + extensão **6.5** ("Pq não deu?" — Edge, WhatsApp de um colega, toast "Não deu — abra o PF"): a extensão só fala com o PartsFlow aberto no MESMO navegador; o aviso
   genérico não dizia o motivo. `naoDeu()` (whatsapp.js, lê a última resposta `ultimaResp` guardada no `msg`) troca as 13 "Não deu — abra o PF": sem resposta / `semPF` = "O PartsFlow não está aberto
   neste navegador — abra numa aba (e faça o login)", `pfF5` = "Dê F5 na aba do PartsFlow", `recarregar` = "dê F5 nesta aba do WhatsApp", `r.msg` = o motivo do PF. `PF_EXT_VER_NOVA`='6.5', zip refeito.
+- v115.2907 BUG ("pq não perguntou se quero atualizar? aqui seria pedido, eu já tinha enviado como cotação" — JBoss da CARDAN JR com a cotação nº 111 de hoje): a pergunta "atualizar a nº X?"
+  do 📥 Cotação do JBoss só aparecia DEPOIS do "Criar a cotação no PF". Agora a conferência já mostra a caixa âmbar "🔁 Esse cliente já tem a cotação nº X (hoje 14:43, N itens — M iguais)"
+  com Cancelar / Criar cotação nova / ✔ Atualizar a nº X no lugar do rodapé (`pfJbRecenteHtml`, guarda `S.recente`; o `pfJbCriar` com a mesma cotação atualiza direto `pfJbAtualizarCot`).

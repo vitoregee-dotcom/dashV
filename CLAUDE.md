@@ -3304,3 +3304,5 @@
 - v115.2909 (Vitor: "anota aí… registro de tempo em que o cliente é atendido no whats, para fazermos depois. me lembra"): ideia **⏱️ Tempo de atendimento no WhatsApp** no `PF_FUNC_IDEIAS`
   (hora que o cliente mandou × 1ª resposta do vendedor, duração da conversa; por vendedor/cliente/horário, na Gestão e no Meu dia). NÃO feito. Lembrete marcado na sessão pra 25/11 de manhã.
   Base possível: a extensão já lê a hora das mensagens (`msgQuando`/`ultimaMsg`) e o motor (`msgs`) traz as conversas inteiras; o PF já guarda os dias de conversa em `pfWhatsDias_v1`.
+- v115.2910 (Vitor mandou o "Vendas por Vendedor" do JBoss em .xls — 01/01/2025 a 24/11/2026, só VITOR LIMA: 3.948 vendas + 37 devoluções, 410 clientes, R$ 8.941.477,72 = Total Geral): o 📥 Importar vendas do ERP
+  (`pfVErpArquivo`) aceita .xls/.xlsx/.csv — SheetJS (`raw:false`, células da linha juntas com espaço) → o mesmo `pfVErpParse` do PDF.

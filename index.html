@@ -2070,7 +2070,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2898</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2899</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2232,7 +2232,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2898</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2899</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -55646,6 +55646,41 @@ function vendasCalcVenda(custo,clienteUF,margem,orig){
 // BRUTA (1 − custo/venda: custo 100 → R$ 140,58 aparecia 29%) e, ao digitar, calculava custo/(1−%) — preço e % falavam línguas
 // diferentes. Agora mostra a margem LÍQUIDA da Calculadora de Margem (a mesma conta do vendasCalcVenda: crédito de ICMS da compra,
 // PIS/COFINS, ICMS de venda pela UF, DIFAL no consumo) e digitar o % calcula o preço por ela (21% → R$ 140,58).
+// v115.2899 - A pedido do Vitor ("botão direito no preço, vamos colocar opção de desconto pra conceder desconto no item"): janela com % ou preço novo,
+// mostra a margem que fica; grava vendaOverride + descontoDe (preço de antes) + descontoPct. "Tirar desconto" volta o preço de antes. Abaixo do mínimo da
+// marca continua passando pela 🔓 Liberação de preço ao gerar o pedido.
+function vendasDescontoBase(it){var v=window._venda||{};if(it.descontoDe!=null)return +it.descontoDe;var c=it.custoOverride!=null?it.custoOverride:it.custo;
+  return it.vendaOverride!=null?+it.vendaOverride:(c?vendasCalcVenda(c,v.uf||'SP',v.margem||30):0);}
+function vendasDescontoAbrir(i){var v=window._venda,it=v&&v.itens&&v.itens[i];if(!it)return;var base=vendasDescontoBase(it);
+  if(!base){pfAlert('Esse item ainda não tem preço.');return;}
+  var pctIni=it.descontoPct!=null?it.descontoPct:'';
+  var corpo='<div style="font-size:13px;color:#5b6b7f;margin-bottom:8px"><b style="color:#1a2332">'+pfEscHtml(it.codigo||'')+'</b> · '+pfEscHtml(it.marca||'')+' · qtd '+(it.qtd||1)+'</div>'+
+    '<div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">'+
+    '<div><div style="font-size:10.5px;font-weight:800;color:#7a8aa0">PREÇO SEM DESCONTO</div><div style="font-size:18px;font-weight:800;padding:6px 0">R$ '+vendasFmtBR(base)+'</div></div>'+
+    '<div><div style="font-size:10.5px;font-weight:800;color:#7a8aa0">DESCONTO (%)</div><input id="vdDescPct" type="text" inputmode="decimal" value="'+(pctIni!==''?String(pctIni).replace('.',','):'')+'" oninput="vendasDescontoCalc(\'pct\')" style="width:90px;padding:8px;border:1px solid #c9d4e2;border-radius:8px;font-size:15px;font-weight:700"></div>'+
+    '<div><div style="font-size:10.5px;font-weight:800;color:#7a8aa0">PREÇO COM DESCONTO (R$)</div><input id="vdDescPreco" type="text" inputmode="decimal" oninput="vendasDescontoCalc(\'preco\')" style="width:130px;padding:8px;border:1px solid #c9d4e2;border-radius:8px;font-size:15px;font-weight:700"></div></div>'+
+    '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">'+[2,3,5,8,10].map(function(n){return '<button class="pfBtn pfBtnClaro" style="padding:4px 10px;font-size:12px" onclick="document.getElementById(\'vdDescPct\').value=\''+n+'\';vendasDescontoCalc(\'pct\')">'+n+'%</button>';}).join('')+'</div>'+
+    '<div id="vdDescInfo" style="margin-top:12px;padding:9px 12px;border-radius:8px;background:#f4f7fb;font-size:13px"></div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">'+(it.descontoDe!=null?'<button class="pfBtn pfBtnClaro" style="margin-right:auto" onclick="vendasDescontoTirar('+i+')">↩ Tirar desconto</button>':'')+
+    '<button class="pfBtn pfBtnClaro" onclick="pfNcFechar(\'vendasDescJan\')">Cancelar</button><button class="pfBtn pfBtnVerde" onclick="vendasDescontoAplicar('+i+')">✔ Aplicar desconto</button></div>';
+  var ov=pfNcJanela('vendasDescJan','🏷️ Desconto no item','o preço do item na cotação muda; a margem que fica aparece embaixo',corpo,520);ov.style.zIndex='100060';
+  window._vdDesc={i:i,base:base};vendasDescontoCalc(pctIni!==''?'pct':'');setTimeout(function(){var e=document.getElementById('vdDescPct');if(e){e.focus();e.select();}},50);}
+function vendasDescontoNum(t){return parseFloat(String(t||'').replace(/[^\d,.-]/g,'').replace(/\.(?=\d{3}(\D|$))/g,'').replace(',','.'));}
+function vendasDescontoCalc(de){var S=window._vdDesc;if(!S)return;var v=window._venda,it=v.itens[S.i],pe=document.getElementById('vdDescPct'),pr=document.getElementById('vdDescPreco'),inf=document.getElementById('vdDescInfo');if(!pe||!pr)return;
+  var novo=S.base,pct=0;
+  if(de==='pct'){pct=vendasDescontoNum(pe.value)||0;novo=Math.round(S.base*(1-pct/100)*100)/100;pr.value=vendasFmtBR(novo);}
+  else if(de==='preco'){novo=vendasDescontoNum(pr.value)||0;pct=S.base?Math.round((1-novo/S.base)*10000)/100:0;pe.value=String(pct).replace('.',',');}
+  else{pr.value=vendasFmtBR(novo);}
+  S.novo=novo;S.pct=pct;var c=it.custoOverride!=null?it.custoOverride:it.custo,mg='';try{mg=c?vendasPctDaVenda(c,novo):'';}catch(e){}
+  var lib='';try{if(typeof pfLibChecar==='function'){var _o=it.vendaOverride;it.vendaOverride=novo;var L=pfLibChecar(v,it);it.vendaOverride=_o;if(L&&L.pMin&&novo<L.pMin)lib='<div style="color:#C0392B;font-weight:700;margin-top:4px">⛔ Fica abaixo do mínimo da marca (R$ '+vendasFmtBR(L.pMin)+') — precisa de liberação do gestor pra gerar o pedido.</div>';}}catch(e){}
+  if(inf)inf.innerHTML='Desconto de <b>'+String(Math.round(pct*100)/100).replace('.',',')+'%</b> · R$ '+vendasFmtBR(Math.max(0,S.base-novo))+' por peça · R$ '+vendasFmtBR(Math.max(0,S.base-novo)*(+it.qtd||1))+' no total'+(mg!==''?'<br>Margem que fica: <b>'+mg+'%</b>':'')+lib;}
+function vendasDescontoAplicar(i){var S=window._vdDesc,v=window._venda,it=v&&v.itens&&v.itens[i];if(!S||!it)return;
+  if(!(S.novo>0)){pfAlert('Coloque o desconto ou o preço novo.');return;}
+  if(S.novo>=S.base-0.004){vendasDescontoTirar(i);return;}
+  if(it.descontoDe==null)it.descontoDe=S.base;it.vendaOverride=S.novo;it.descontoPct=Math.round(S.pct*100)/100;it.descontoEm=Date.now();
+  pfNcFechar('vendasDescJan');vendasDescontoDepois(i);}
+function vendasDescontoTirar(i){var v=window._venda,it=v&&v.itens&&v.itens[i];if(!it)return;if(it.descontoDe!=null)it.vendaOverride=+it.descontoDe;delete it.descontoDe;delete it.descontoPct;delete it.descontoEm;pfNcFechar('vendasDescJan');vendasDescontoDepois(i);}
+function vendasDescontoDepois(i){try{vendasAtualizarLinha(i);}catch(e){try{vendasRefresh();}catch(e2){}}try{vendasAtualizarResumo();}catch(e){}try{vendasAutoSalvarDebounced();}catch(e){}}
 function vendasPctDaVenda(custo,venda){
   custo=+custo||0;venda=+venda||0;if(!custo||!venda)return '';
   try{var uf=(window._venda&&window._venda.uf)||'SP',fin='revenda';
@@ -59996,6 +60031,7 @@ function vendasAbrirMenuLinha(e,i){
   var _opM=function(fn,txt,cor){return '<div onclick="document.getElementById(\'vendasMenuLinha\').remove();'+fn+'" style="padding:9px 14px;font-size:13px;color:'+(cor||'var(--pf-fx-textoEscuro,#1a2332)')+';cursor:pointer;border-top:1px solid var(--pf-fx-fundoSuave,#f0f4f8)" onmouseover="this.style.background=\'#F7F9FC\'" onmouseout="this.style.background=\'\'">'+txt+'</div>';};
   var _topoM='<div style="padding:7px 14px;font-size:11.5px;font-weight:700;color:#8a9ab0;background:#F7F9FC">'+pfEscHtml(_itM.codigo||'')+' · '+pfEscHtml(_itM.marca||'')+'</div>'+
     _opM('vendasVerCadastroItem(\''+pfEscHtml(pfEscJs(_itM.codigo||''))+'\',\''+pfEscHtml(pfEscJs(_itM.desc||''))+'\')','📋 Ficha do item')+
+    _opM('vendasDescontoAbrir('+i+')','🏷️ Dar desconto no item'+(_itM.descontoDe!=null?' <b style="color:#1b7a3d">(tem)</b>':''))+ // v115.2899
     _opM('pfPcDaCot('+i+')','💲 Preço do concorrente')+ // v115.2811
     vendasCorrMenuHtml(i,_opM)+ // v115.2752 - ✏️ corrigir código / 🔍 parecidos
     vendasOutrasMarcasMenuHtml(i,_opM)+ // v115.2709 - 🔀 trazer outras marcas
@@ -85734,6 +85770,28 @@ async function pfPgPedirConfirmacao(pedido,v){try{
     pg:{pedId:pedido.id,num:pedido.numero,valor:pedido.pgto.valor,forma:pedido.pgto.forma,cliente:cli,cnpj:cnpj,vend:pedido.vendedorEmail||''}});
   pfPgPedidoSet(pedido.id,function(p){p.pgto=p.pgto||{};p.pgto.ch=id;});
 }catch(e){console.warn('pfPgPedirConfirmacao',e);}}
+// v115.2899 - A pedido do Vitor ("caso o financeiro não confirme em 20 min preciso ser avisado, ou em 5 min caso seja pedido de cliente no balcão"):
+// pedido à vista esperando confirmação do SEU usuário — passou 20 min (5 min se a entrega é "Retirado" = balcão) = aviso na tela (com som do navegador se
+// deixou) e o chamado do Financeiro ganha a mensagem "⏰ vendedor esperando" (sobe pra eles). 1 aviso por pedido; com 3× o tempo avisa de novo.
+var PF_PG_AVISO_MIN=20,PF_PG_AVISO_BALCAO_MIN=5;
+function pfPgAvisoLim(p){return (String(p.entrega||'').toLowerCase()==='retirado'?PF_PG_AVISO_BALCAO_MIN:PF_PG_AVISO_MIN)*60000;}
+function pfPgAvisoVerificar(){try{var eu=pfChEu();if(!eu)return;if(typeof pfModoDemoAtivo==='function'&&pfModoDemoAtivo())return;
+  var agora=Date.now(),L=pvLoad()||[];
+  L.forEach(function(p){if(!pfPgAguardando(p)||!p.pgto||!p.pgto.desde)return;if(String(p.vendedorEmail||'').toLowerCase()!==eu)return;
+    var lim=pfPgAvisoLim(p),pass=agora-p.pgto.desde,n=pass>=3*lim?2:pass>=lim?1:0;if(!n)return;
+    var k='pf_pg_aviso_'+p.id,ja=0;try{ja=+localStorage.getItem(k)||0;}catch(e){}if(ja>=n)return;try{localStorage.setItem(k,String(n));}catch(e){}
+    var min=Math.round(pass/60000),bal=lim===PF_PG_AVISO_BALCAO_MIN*60000,t='⏰ Pagamento do pedido '+(p.numero||'')+' ('+(p.clienteRazao||'')+') ainda não confirmado pelo Financeiro — '+min+' min'+(bal?' · cliente no BALCÃO':'');
+    pfPgAvisoMostrar(p,t);
+    try{if(p.pgto.ch)pfChAdd({tipo:'msg',ch:p.pgto.ch,txt:'⏰ O vendedor está esperando a confirmação há '+min+' min'+(bal?' — o cliente está no BALCÃO':'')+'. Por favor, confirme o pagamento.'});}catch(e){}
+    try{if(window.Notification&&Notification.permission==='granted')new Notification('PartsFlow — pagamento não confirmado',{body:t});}catch(e){}});
+}catch(e){console.warn('pfPgAvisoVerificar',e);}}
+function pfPgAvisoMostrar(p,t){var id='pfPgAviso_'+p.id;if(document.getElementById(id))return;var d=document.createElement('div');d.id=id;
+  d.style.cssText='position:fixed;right:20px;top:70px;z-index:100080;width:360px;background:#fff;border-left:6px solid #C0392B;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.3);padding:12px 14px;font-size:13px;color:#1a2332';
+  d.innerHTML='<div style="font-weight:800;color:#C0392B;margin-bottom:4px">⏰ Pagamento não confirmado</div><div>'+pfEscHtml(t.replace(/^⏰\s*/,''))+'</div>'+
+    '<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:10px"><button class="pfBtn pfBtnClaro" onclick="this.closest(\'div[id^=pfPgAviso_]\').remove()">Ok</button>'+
+    (p.pgto&&p.pgto.ch?'<button class="pfBtn pfBtnAzul" onclick="this.closest(\'div[id^=pfPgAviso_]\').remove();try{pfChAbrir(\''+pfEscJs(p.pgto.ch)+'\');}catch(e){}">📨 Abrir o chamado</button>':'')+'</div>';
+  document.body.appendChild(d);}
+setTimeout(function(){pfPgAvisoVerificar();setInterval(pfPgAvisoVerificar,30000);},20000);
 function pfPgPedidoSet(pedId,fn){try{var L=pvLoad(),p=L.find(function(x){return x.id===pedId;});if(!p)return null;fn(p);p.tsMod=Date.now();pvSave(L);if(typeof pfSyncPush==='function')try{pfSyncPush(['partsflow_pedidos_venda_v1']);}catch(e){}return p;}catch(e){console.warn('pfPgPedidoSet',e);return null;}}
 function pfPgAguardando(p){return !!(p&&p.pgto&&p.pgto.st&&p.pgto.st!=='ok'&&p.status!=='cancelado');}
 function pfPgSelo(p){if(!pfPgAguardando(p))return '';return p.pgto.st==='nao'?'<span style="font-size:11px;font-weight:800;color:#9B1C1C">✖ PAGAMENTO NÃO IDENTIFICADO</span>':'<span style="font-size:11px;font-weight:800;color:#9A6B00">⏳ AGUARDANDO PAGAMENTO</span>';}

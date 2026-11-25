@@ -1480,7 +1480,7 @@
   }
   function svIntSugHtml() { if (svIntim) return ''; var g = svIntSug(); if (!g) return ''; var l = SV_INT.find(function (x) { return x[0] === g.n; });
     return '<div class="sv-intsug">💡 Sugestão: <b>' + esc(l[1]) + '</b> — vocês usam ' + esc(g.p) + ' <span class="sv-lk" data-acao="svInt" data-arg="' + g.n + '">usar</span></div>'; }
-  var SV_TIPOS = [['revenda', '🏪 Revenda'], ['consumo', '👤 Consumidor'], ['conc', '🏛 Concessionária'], ['servico', '🔧 Serviço / oficina']], svTipo = '', svGueri = false, svFatSp = false;
+  var SV_TIPOS = [['revenda', '🏪 Revenda'], ['consumo', '👤 Consumidor'], ['conc', '🏛 Concessionária'], ['servico', '🔧 Serviço / oficina'], ['rental', '🔑 Rental']], svTipo = '', svGueri = false, svFatSp = false;
   function svTipoRowHtml() { return SV_TIPOS.map(function (t) { return '<span class="sv-g' + (svTipo === t[0] ? ' on' : '') + '" data-acao="svTipo" data-arg="' + t[0] + '" style="--c:#1F4E79">' + esc(t[1]) + '</span>'; }).join(''); }
   // 4.26 - A pedido do Vitor ("se eu colocar concessionária, quero colocar a Marca. exemplo esse é Massey"): marca da concessionária (vai pro cad.concMarcas do PF). Pode mais de uma.
   var SV_MARCAS = ['Massey Ferguson', 'John Deere', 'Valtra', 'Case IH', 'New Holland', 'Case', 'Caterpillar', 'JCB', 'Komatsu', 'Hyundai', 'Volvo CE', 'XCMG', 'Agrale', 'Yanmar'], svConcMarcas = [];

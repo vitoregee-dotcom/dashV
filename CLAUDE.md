@@ -3370,3 +3370,7 @@
   "no caso do comprador ou outro usuário, ir para a mesa dele"): botão amarelo `.pfwa-raildia` logo embaixo do 📦 (irTela `minhamesa`) → `pfExtMinhaMesa()` decide pelo setor de quem está logado
   (`pfChMeusSetores` > `pfMsaSetorDoCargo`): vendas/diretoria/sem setor = ☀️ Meu dia, compras = 🛒 Mesa do comprador (`pfMesaAbrir`), outros = 📥 Minha mesa (`pfMsaAbrir`). O ícone/nome vêm
   no `meusPedidos` (`r.mesa` → `mesaPintar`). `PF_EXT_VER_NOVA`='7.2', zip refeito.
+- v115.2931 **🪐 Planetas com imagem na Órbita** (Vitor mandou 5 planetas: "coloca na órbita pra eu ver como fica" → prévia `docs/referencias/orbita-planetas/previa-2d*.png` → "coloca pra eu testar lá… no 3D";
+  capturas `feito-2d.png`/`feito-3d.png`): `icons/orbita-planetas/<linha>.png` (256 px, fundo transparente, recortados da imagem dele) — verde = agrícola, amarelo = amarela, preto = energia, azul = portuário,
+  vermelho = rodoviário (`PF_ORB_PL_IMG` cor da linha → arquivo, `pfOrbPlImg` carrega e devolve só quando pronto). Visual Espaço: planeta de UMA linha usa a imagem no 2D (`pfOrbPlanetaVivo2DReal`, chave do
+  sprite com '|i') e no 3D (`pfOrb3DTexPlanetaVivo`, brilho + imagem); 2 linhas, Marítimo e Retífica continuam a bolinha lisa. Linha nova com imagem → arquivo + linha no PF_ORB_PL_IMG.

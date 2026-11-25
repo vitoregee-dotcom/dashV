@@ -4190,7 +4190,12 @@
     if (id === 'sel_cotar') { cotarTxt(sel); return; }
     if (id === 'sel_avise') { aviseMe(sel); return; } // 4.78
     if (id === 'sel_curta') { qkAbrir([sel]); return; }
-    if (id === 'sel_leitor' || id === 'msg_leitor') { var rl = await msg({ t: 'acao', acao: 'leitor', focar: true, arg: { texto: id === 'sel_leitor' ? sel : cmTxt(A.b) } }); cmToast(rl && rl.ok ? '📝 Mandei pro Leitor de Peças do PF' : naoDeu()); return; } // 4.85
+    if (id === 'sel_leitor' || id === 'msg_leitor') { // 7.4 - A pedido do Vitor ("mandei para o leitor. mas não foi" — foto do caderno): mensagem com FOTO manda a foto (o Leitor lê com IA)
+      var _lImg = '';
+      if (id === 'msg_leitor') { try { var _ims = A.b ? A.b.querySelectorAll('img') : []; for (var _k = 0; _k < _ims.length; _k++) { var _s = _ims[_k].getAttribute('src') || ''; if (/^blob:|^data:image/.test(_s) && (_ims[_k].naturalWidth || _ims[_k].width) >= 120) { _lImg = _s; break; } } } catch (e) { } }
+      if (_lImg) cmToast('📝 Mandando a foto pro Leitor de Peças…');
+      var _lDu = _lImg ? await urlParaDataUrl(_lImg) : '';
+      var rl = await msg({ t: 'acao', acao: 'leitor', focar: true, arg: { texto: id === 'sel_leitor' ? sel : cmTxt(A.b), img: _lDu || '' } }); cmToast(rl && rl.ok ? '📝 Mandei pro Leitor de Peças do PF' : naoDeu()); return; } // 4.85
     if (/^msg_/.test(id) && !A.b) { cmToast('Clique com o botão direito em cima da mensagem'); return; }
     if (id === 'msg_cotar') { cotarTxt(cmTxt(A.b)); return; }
     if (id === 'msg_pc') { pcMandar({ texto: cmTxt(A.b) }); return; } // 4.93

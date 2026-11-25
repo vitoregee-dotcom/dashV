@@ -2070,7 +2070,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2915</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2916</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2232,7 +2232,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2915</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2916</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -68886,6 +68886,10 @@ function pfKbAbrir(){
 // ══════════════════════════════════════════════════════════════
 var PF_MP_COLS=[['emitir','📝','A emitir','#C0392B'],['aberto','🧾','Emitido','#1F4E79'],['separado','📦','Separado','#9A6B00'],['conferido','✅','Conferido','#2563EB'],['faturado','💵','Faturado','#7B2D8B'],['despachado','🚚','Despachado','#1A7A3C']];
 var PF_MP_DESP_DIAS=7;
+/* v115.2916 - A pedido do Vitor ("depois que dei como emitido, melhor ir andando sozinho até faturar… pra não ficar acumulando nessa simulação, já que não
+   estou simulando os outros setores ainda"): enquanto a Logística não marca as etapas no PF, o 📦 Meus pedidos MOSTRA o pedido andando pelo tempo desde a
+   emissão (só na tela — o pedido gravado não muda). Etapa marcada de verdade que já está na frente vale. Desligar = false. */
+var PF_MP_ANDA_SOZINHO=true,PF_MP_ANDA_MIN=[['separado',30],['conferido',60],['faturado',120],['despachado',24*60]];
 function pfMpEu(){try{return String((sbUser&&sbUser.email)||'').toLowerCase();}catch(e){return '';}}
 function pfMpTotal(p){return (p.itens||[]).reduce(function(s2,i){return s2+(+i.venda||0)*(+i.qtd||0);},0);}
 function pfMpTs(p,et){var l=(p.logHistorico||[]).filter(function(h){return h.etapa===et;});return l.length?(+l[l.length-1].data||Date.parse(l[l.length-1].data)||0):0;}
@@ -68896,13 +68900,17 @@ function pfMpDados(vendArg){
   ps.forEach(function(p){if(!p||p.del||p.status==='cancelado')return;var ve=String(p.vendedorEmail||'').toLowerCase();if(ve)vends[ve]=p.vendedor||ve;
     if(vend&&ve!==vend)return;
     var st=p.status||'aberto';if(!PF_MP_COLS.some(function(c){return c[0]===st;}))st='aberto';
-    var t0=Date.parse(p.data)||0,tE=pfMpTs(p,st)||t0,x={id:p.id,tipo:'ped',col:st,nome:p.clienteRazao||'(sem cliente)',num:p.numero||'',valor:pfMpTotal(p),n:(p.itens||[]).length,t:tE,t0:t0,p:p,al:0,chip:'',cc:''};
+    var t0=Date.parse(p.data)||0,tE=pfMpTs(p,st)||t0,_sim=0;
+    if(PF_MP_ANDA_SOZINHO&&t0){var _ord=['aberto','separado','conferido','faturado','despachado'],_ri=_ord.indexOf(st);
+      PF_MP_ANDA_MIN.forEach(function(a){var ai=_ord.indexOf(a[0]),ta=t0+a[1]*60000;if(ai>_ri&&agora>=ta){st=a[0];tE=ta;_sim=1;_ri=ai;}});}
+    var x={sim:_sim,id:p.id,tipo:'ped',col:st,nome:p.clienteRazao||'(sem cliente)',num:p.numero||'',valor:pfMpTotal(p),n:(p.itens||[]).length,t:tE,t0:t0,p:p,al:0,chip:'',cc:''};
     if(st==='despachado'){if(agora-tE>PF_MP_DESP_DIAS*86400000)return;x.det=(p.transportadora||p.entrega||'')+' · '+new Date(tE).toLocaleDateString('pt-BR');}
     else if(st==='aberto'){var imp=pfMpTs(p,'impresso');x.det=imp?'impresso '+pfMpQuanto(imp)+', aguardando separação':'emitido '+pfMpQuanto(t0)+' · aguardando impressão';
       if(agora-t0>48*3600000){x.al=1;x.chip='parado '+pfMpQuanto(t0).replace('há ','');x.cc='r';}}
     else if(st==='separado'){var l=pfGeLogLog(p,'separado');x.det=(l&&l.nome?l.nome+' · ':'')+'separado '+pfMpQuanto(tE);if(agora-tE>24*3600000){x.al=1;x.chip='falta conferir';x.cc='r';}}
     else if(st==='conferido'){x.det='conferido '+pfMpQuanto(tE);x.chip='falta faturar';x.cc=agora-tE>4*3600000?'r':'a';if(x.cc==='r')x.al=1;}
     else if(st==='faturado'){var lf=pfGeLogLog(p,'faturado');x.det=(p.nf?'NF '+p.nf+' · ':'')+(lf&&lf.nome?lf.nome+' · ':'')+'faturado '+pfMpQuanto(tE);x.chip=p.avisadoEm?'✔ cliente avisado':'💬 avisar cliente';x.cc=p.avisadoEm?'g':'av';}
+    if(x.sim){x.det='⏩ andando sozinho (simulação) · '+st+' '+pfMpQuanto(tE);x.al=0;x.chip='';x.cc='';}
     cards.push(x);});
   if(!vend||vend===eu){try{pfMpAutoFechar(ps);}catch(e){}try{pfPeJuntarDup();}catch(e){}var pend=[];try{pend=pfPendenciasPessoaisLoad()||[];}catch(e){}
     pend.forEach(function(q){if(!q||String(q.id).indexOf('pp_emit_')!==0)return;

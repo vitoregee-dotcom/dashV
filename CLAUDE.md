@@ -3322,3 +3322,13 @@
   `PF_MP_ANDA_SOZINHO=true` — no 📦 Meus pedidos (e nos anéis do WhatsApp, que usam o `pfMpDados`) o pedido ANDA pelo tempo desde a emissão (`PF_MP_ANDA_MIN`: 30 min separado,
   1 h conferido, 2 h faturado, 24 h despachado → some em 7 dias), só na TELA — o pedido gravado e a Logística não mudam; etapa marcada de verdade mais adiante vale. Cartão "⏩ andando
   sozinho (simulação)", sem vermelho e sem "avisar cliente". Quando a Logística começar a marcar no PF → `false`.
+- v115.2917 + extensão **6.6** **🔑 Rental + 📨 Link pro cliente preencher** (prévia `docs/referencias/cliente-preenche/previa2.png` com os ajustes do Vitor → "manda bala" + "o mais simples possível… não tomar tempo nem encher o saco";
+  capturas `conh-*.png` no scratchpad): 1) tipo **RENTAL** (`cad.tipo='RENTAL'`): `pfTipoCli` continua devolvendo 'consumo' (impostos/DIFAL de consumidor final), `pfTipoCliX` diferencia → cadastro (select),
+  👤 Salvar contato da extensão (`SV_TIPOS`), `pfExtTipoAplicar` (rental), etiqueta da lista "🔑 Rental", 🧭 Conhecer o cliente (frota/manutenção valem pra rental), 🧭 Classificar (`PF_CLS_NOME_TIPO` RENTAL/LOCADORA),
+  Disparo (`PF_DISP_TIPOS`) e Gestão › Cotações. 2) **link** `formulario_links` tipo `conhecer` (cliente_ref = id do cadastro, 30 dias; prefill {cli, tipo, ja = o que o PF já sabe `pfConhJa`}) — botões
+  "💬 Mandar link pelo WhatsApp / 📋 Copiar link" no bloco 🧭 da ficha do CRM (`pfConhBotoesHtml` → `pfConhEnviar`). Página pública `pfConhFormRender` (telas de toque, só o nome é obrigatório): 1 Sobre você
+  (nome, função `PF_CONH_FUNCOES`, aniversário) · 2 Sua empresa (`PF_CONH_TIPOS`, toque = avança; pula se o tipo já é conhecido) · 3 Sobre o seu negócio SÓ com o que falta (`pfConhPassos`): revenda = linhas
+  `PF_CONH_LINHAS` (+ Construção/Mineração dentro da amarela, + outra) + marcas por linha `PF_CONH_MARCAS` na ordem do toque + estoque + oficina; concessionária = marca; oficina = o que conserta `PF_CONH_REPARA`;
+  frota/rental = setor `PF_CONH_SETORES` + máquinas/componentes (texto, um por linha, "(3)" = quantidade). A última tela tem "mais alguma coisa?" + Enviar. Chegada `pfConhReceber` (no
+  `pfFormClienteChecarSubmissoes`): contato (nome/cargo/aniversário; compras/almoxarife/financeiro preenche o do setor), tipo (só se vazio), grupos (linha nova = `pfGrupoNovo`), `cad.conhecer`
+  (amarelaSub/marcas/revMarcas/revEstoque/revOficina/setor/servRepara/frota), frotaLista + contadores, nota no CRM e pendência "📨 … respondeu". Ainda NÃO: mandar o link pela extensão do WhatsApp e o quadro do relatório.

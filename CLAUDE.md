@@ -3341,3 +3341,11 @@
   botão direito na conversa da lista (menu do WhatsApp `cvProcurar` e do Chrome `cv_mat` no fundo.js) ou na mensagem (submenu 🧩 PartsFlow) → `matMandadosAbrir` (janela `#pfwa-mm`, Esc/✕) → acao
   `matMandados` (cliente por `resp.k` ou `pfExtAcharK(nome)`) → materiais (alvos `tp:'mat'`) do `pfOfDoCliente` com data, há quantos dias, quem mandou e a resposta do cliente. Só conta o que foi
   registrado depois da extensão 4.77. Captura `docs/referencias/whatsapp-menu/feito-o-que-ja-mandei.png`. `PF_EXT_VER_NOVA`='6.8', zip refeito.
+- v115.2922 + extensão **6.9** **⏱️ Tempo de atendimento no WhatsApp** (Vitor, 24/11: "registro de tempo em que o cliente é atendido no whats" → 25/11 "as duas… pode fz"; capturas
+  `docs/referencias/tempo-atendimento/feito-*.png`): a extensão, pelo ⚙️ motor (op nova `recentes` = conversas com mensagem nova desde X), a cada 5 min (`atdTick`, `chrome.storage.atdUlt`) lê até
+  80 mensagens de cada conversa nova e monta as SESSÕES (`atdCalcular`: separadas por 3 h de silêncio `ATD_PAUSA`; ini, quem começou, fim, `esp` [[quando o cliente mandou, segundos até a sua resposta]],
+  `aberta` = cliente mandou e ainda não teve resposta — só "ok/valeu/👍…" no fim NÃO conta como esperando; mensagem automática da extensão `atdAutoTxts` não conta como resposta) → acao `atendGravar` →
+  `pfAtGravar`: **`pfWhatsAtend_v1`** (lista por id = cliente|ini, 3 listas da sync, 200 dias; colega/fornecedor fora; vendedor = quem está logado no PF daquele WhatsApp). Tempo conta só o horário de
+  atendimento (`pfAtUteis`, `PF_AT_HORARIO` seg–sex 8h–18h). Gestão → aba **⏱️ Atendimento** (`pfGeAtHtml`: atendimentos, 1ª resposta e toda resposta (medianas × período anterior), % até 5/15 min,
+  duração, esperando agora, por hora do dia, por dia da semana, por usuário `_pfGe.atV`, 🐢 clientes que mais esperaram, ⏳ esperando agora → ficha) e faixa "⏱️ WhatsApp hoje" no ☀️ Meu dia
+  (`pfAtMeuDiaHtml`). Só funciona com o motor ligado; começa a contar a partir da instalação da 6.9 (lê até 2 dias pra trás na 1ª vez). `PF_EXT_VER_NOVA`='6.9', zip refeito.

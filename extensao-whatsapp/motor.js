@@ -68,6 +68,13 @@
       await W().chat.sendFileMessage(ser(ch.id), a.data, { type: tp, filename: a.nome || 'arquivo', caption: a.legenda || '', createChat: false });
       return { ok: true };
     },
+    // 6.9 - ⏱️ tempo de atendimento: conversas de pessoa com mensagem nova desde `desde` (ms)
+    recentes: async function (a) {
+      var l = await W().chat.list({ onlyUsers: true }), out = [], d = (a.desde || 0) / 1000;
+      for (var i = 0; i < l.length; i++) { var c = l[i], id = ser(c.id); if (!id || /@g\.us|@broadcast|@newsletter/.test(id)) continue; if ((c.t || 0) < d) continue;
+        out.push({ id: id, nome: c.formattedTitle || c.name || (c.contact && (c.contact.name || c.contact.pushname)) || '', t: (c.t || 0) * 1000, tel: await telDe(c.id) }); }
+      return { l: out };
+    },
     abrir: async function (a) { await W().chat.openChatBottom(a.id); return { ok: true }; }, // 4.69 - abrir conversa pela lista do filtro
     naoLida: async function (a) { await W().chat.markIsUnread(a.id); return { ok: true }; },
     // todas as conversas de pessoa, com quantas listas/etiquetas cada uma tem (pra pôr na lista "Cliente PF" só quem não tem nenhuma)

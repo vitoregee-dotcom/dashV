@@ -2640,6 +2640,46 @@
     } catch (e) { } finally { grpTotRodando = false; }
   }
   setTimeout(function () { if (vivo()) grpContarTudo(); }, 9000); setInterval(function () { if (vivo()) grpContarTudo(); }, 300000);
+  // ═══ 6.9 - ⏱️ TEMPO DE ATENDIMENTO ═══ (A pedido do Vitor: "registro de tempo em que o cliente é atendido no whats"): a cada 5 min, pelo motor (sem abrir nada),
+  // lê as conversas com mensagem nova e, em cada uma, acha os ATENDIMENTOS: o cliente chama (depois de uma mensagem sua, ou depois de 3 h de silêncio) →
+  // hora da SUA 1ª resposta (mensagem automática da extensão não conta) → fim = sua última mensagem antes de 3 h de silêncio. Vai pro PF (acao atendGravar),
+  // que guarda por atendimento (pfWhatsAtend_v1) e mostra na Gestão (⏱️ Atendimento) e no ☀️ Meu dia. Precisa do ⚙️ motor ligado.
+  var ATD_PAUSA = 3 * 3600000, atdRodando = false;
+  function atdAutoTxts() { var o = {}; try { Object.keys(autoUlt || {}).forEach(function (k) { if (autoUlt[k]) o[String(autoUlt[k]).trim()] = 1; }); Object.keys(autoPend || {}).forEach(function (k) { var p = autoPend[k]; if (p && p.txt) o[String(p.txt).trim()] = 1; }); } catch (e) { } return o; }
+  // conversa = sessões separadas por 3 h de silêncio. Em cada sessão: ini (1ª mensagem), quem começou, 1ª resposta sua, fim (última mensagem),
+  // e as ESPERAS = cada vez que o cliente mandou e você respondeu (segundos); `aberta` = o cliente mandou e ainda não teve resposta.
+  function atdCalcular(ms, autos) {
+    ms = (ms || []).filter(function (m) { return m && m.t; }).sort(function (a, b) { return a.t - b.t; });
+    var out = [], cur = null, ultT = 0, espIni = 0, soFecho = true, FECHO = /^\s*(ok|okay|blz|beleza|valeu|vlw|obrigad[oa]|obg|brigad[oa]|show|top|tmj|perfeito|certo|combinado|fechado|tá bom|ta bom|👍|🙏|🤝|👏|😉|😊)[\s!.,👍🙏🤝]*$/i;
+    ms.forEach(function (m) {
+      if (m.eu && autos[String(m.txt || '').trim()]) return; // mensagem automática não conta
+      if (!cur || m.t - ultT > ATD_PAUSA) { if (cur) { cur.aberta = espIni && !soFecho ? espIni : 0; out.push(cur); } cur = { ini: m.t, cli: m.eu ? 0 : 1, resp: 0, fim: m.t, esp: [], nCli: 0, nEu: 0 }; espIni = 0; }
+      if (!m.eu) { cur.nCli++; if (!espIni) { espIni = m.t; soFecho = true; } if (!FECHO.test(String(m.txt || ''))) soFecho = false; }
+      else { cur.nEu++; if (espIni) { if (!cur.resp) cur.resp = m.t; cur.esp.push([espIni, Math.round((m.t - espIni) / 1000)]); espIni = 0; } }
+      cur.fim = m.t; ultT = m.t;
+    });
+    if (cur) { cur.aberta = espIni && !soFecho ? espIni : 0; out.push(cur); }
+    out.forEach(function (x) { x.esp = x.esp.slice(0, 40); });
+    return out;
+  }
+  async function atdTick() {
+    if (atdRodando || !motorOk) return; atdRodando = true;
+    try {
+      var st = await new Promise(function (ok) { chrome.storage.local.get(['atdUlt'], function (x) { ok(x || {}); }); });
+      var desde = st.atdUlt || (Date.now() - 2 * 86400000), agora = Date.now();
+      var r = await motor('recentes', { desde: desde - 60000 }, 60000); if (!r || r.erro || !Array.isArray(r.l)) return;
+      var autos = atdAutoTxts(), lote = [];
+      for (var i = 0; i < Math.min(r.l.length, 60); i++) {
+        var c = r.l[i]; if (!c.nome) continue;
+        var mr = await motor('msgs', { id: c.id, n: 80 }, 20000); if (!mr || mr.erro || !Array.isArray(mr.l)) continue;
+        var at = atdCalcular(mr.l, autos).filter(function (a) { return a.ini >= agora - 7 * 86400000; });
+        if (at.length) lote.push({ nome: c.nome, tel: c.tel || '', at: at });
+      }
+      if (lote.length) { var g = await msg({ t: 'acao', acao: 'atendGravar', arg: { lote: lote } }); if (!g || g.ok === false) return; }
+      chrome.storage.local.set({ atdUlt: agora });
+    } catch (e) { } finally { atdRodando = false; }
+  }
+  setTimeout(function () { if (vivo()) atdTick(); }, 25000); setInterval(function () { if (vivo()) atdTick(); }, 300000);
   function carregarSituacoes() {
     if (!menuLig) return;
     clearTimeout(sitTimer);

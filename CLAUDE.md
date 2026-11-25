@@ -3337,3 +3337,7 @@
 - v115.2920 + extensão **6.7** ("to procurando a função de responder a msg, mas está ficando escondido lá em cima" — menu da mensagem do WhatsApp comprido com ~12 itens do PF): no menu da MENSAGEM
   só ficam "📄 Cotar no PF" e "🧩 PartsFlow ›"; o resto (Monta com, Preço do concorrente, Leitor, NEGATIVO/SEM CADASTRO/ZEROU, Avise-me, foto/PDF com IA, ficha, lembrete, resposta rápida…) abre AO LADO
   (`wmSubAbrir`, `#pfwa-wmsub`, passar o mouse ou clicar; fecha no Esc, clique fora ou quando o menu some). Menu da conversa não mudou. Item novo do menu da mensagem → entra sozinho no submenu. Captura `docs/referencias/whatsapp-menu/feito-submenu-pf.png`.
+- v115.2921 + extensão **6.8** **📎 O que já mandei pra ele** (Vitor: "qual melhor maneira de eu consultar se já mandei o portfólio para esse cliente e quando?" → "as duas" — esta + o tempo de atendimento):
+  botão direito na conversa da lista (menu do WhatsApp `cvProcurar` e do Chrome `cv_mat` no fundo.js) ou na mensagem (submenu 🧩 PartsFlow) → `matMandadosAbrir` (janela `#pfwa-mm`, Esc/✕) → acao
+  `matMandados` (cliente por `resp.k` ou `pfExtAcharK(nome)`) → materiais (alvos `tp:'mat'`) do `pfOfDoCliente` com data, há quantos dias, quem mandou e a resposta do cliente. Só conta o que foi
+  registrado depois da extensão 4.77. Captura `docs/referencias/whatsapp-menu/feito-o-que-ja-mandei.png`. `PF_EXT_VER_NOVA`='6.8', zip refeito.

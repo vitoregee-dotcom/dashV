@@ -1406,12 +1406,12 @@
   // cabeçalho do WhatsApp nem sempre fica dentro do #main header — a linha do nome também é varrida ponto a ponto (pfwaObsLinha).
   // Sem lugar na linha (tela pequena) o bloco vai logo abaixo do cabeçalho, em cima das mensagens.
   function pfwaObsLinha(y, x0, x1) {
-    var R = [], vistos = [], nome = nomeEl();
-    for (var x = x0; x <= x1; x += 5) {
+    var R = [], vistos = new Set(), nome = nomeEl();
+    for (var x = x0; x <= x1; x += 12) { // 7.5 - era a cada 5 px (até 200 consultas por vez): a extensão travava o WhatsApp
       var L = document.elementsFromPoint(x, y);
       for (var i = 0; i < L.length; i++) {
         var e = L[i]; if (e === document.body || e === document.documentElement) break;
-        if (vistos.indexOf(e) >= 0) continue; vistos.push(e);
+        if (vistos.has(e)) continue; vistos.add(e);
         if (e.closest && e.closest(MEUS + ',.pfm-offchip')) continue;
         if (nome && e.contains(nome)) continue;
         var r = e.getBoundingClientRect(); if (r.width < 2 || r.height < 2 || r.width > 520 || r.height > 90) continue;
@@ -1433,6 +1433,14 @@
     var gap = 4, H = 26, W = 0; els.forEach(function (e, i) { W += (e.offsetWidth || 26) + (i ? gap : 0); });
     var y = Math.round(r.top + r.height / 2 - H / 2), info = nome.closest('[role="button"]');
     var DIR = pfwaDireita(hr); // 5.7
+    // 7.5 - A pedido do Vitor ("tô achando que a extensão está fazendo o sistema travar" — Chrome "Não está respondendo" em 2 navegadores): esta conta rodava
+    // várias vezes por segundo (cada selo chamava) e gastava ~40% do processador. Agora, com a mesma conversa/tamanho/selos, só recoloca no lugar guardado
+    // e refaz a conta no máximo a cada 15 s (ou quando o cabeçalho muda de tamanho).
+    var sig = ultimo + '|' + W + '|' + DIR + '|' + y + '|' + Math.round(r.right) + '|' + Math.round(hr.width);
+    if (_pfwaCabPos && _pfwaCabPos.sig === sig && Date.now() - (_pfwaCabPos.t || 0) < 15000) {
+      var cx0 = _pfwaCabPos.x; els.forEach(function (e) { e.style.left = cx0 + 'px'; e.style.top = (_pfwaCabPos.y + Math.round((H - (e.offsetHeight || H)) / 2)) + 'px'; cx0 += (e.offsetWidth || 26) + gap; });
+      return;
+    }
     var obs = pfwaObsLinha(y + H / 2, Math.round(r.right + 4), Math.round(DIR - 2));
     var livre = function (x, yy) {
       for (var q = 0; q < obs.length; q++) { var b = obs[q]; if (x < b.right + 6 && x + W > b.left - 6 && yy < b.bottom && yy + H > b.top) return false; }
@@ -1446,7 +1454,7 @@
       if (x0 + W <= DIR - 2 && !obs.some(function (b) { return x0 < b.right + 2 && x0 + W > b.left - 2 && y < b.bottom && y + H > b.top; })) px = x0;
       else { py = Math.round(hr.bottom + 8); px = Math.round(DIR - W - 16); }
     }
-    _pfwaCabPos = { k: ultimo, W: W, D: DIR, x: px, y: py };
+    _pfwaCabPos = { k: ultimo, W: W, D: DIR, x: px, y: py, sig: sig, t: Date.now() };
     var cx = px; els.forEach(function (e) { e.style.left = cx + 'px'; e.style.top = (py + Math.round((H - (e.offsetHeight || H)) / 2)) + 'px'; cx += (e.offsetWidth || 26) + gap; });
   }
   var _pfwaCabPos = null;

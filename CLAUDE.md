@@ -3349,3 +3349,7 @@
   atendimento (`pfAtUteis`, `PF_AT_HORARIO` seg–sex 8h–18h). Gestão → aba **⏱️ Atendimento** (`pfGeAtHtml`: atendimentos, 1ª resposta e toda resposta (medianas × período anterior), % até 5/15 min,
   duração, esperando agora, por hora do dia, por dia da semana, por usuário `_pfGe.atV`, 🐢 clientes que mais esperaram, ⏳ esperando agora → ficha) e faixa "⏱️ WhatsApp hoje" no ☀️ Meu dia
   (`pfAtMeuDiaHtml`). Só funciona com o motor ligado; começa a contar a partir da instalação da 6.9 (lê até 2 dias pra trás na 1ª vez). `PF_EXT_VER_NOVA`='6.9', zip refeito.
+- v115.2923 + extensão **7.0** (print do 📦 Meus pedidos aberto numa janela só dele: "pedi para abrir o pedido, mas abriu em outra janela… não dá pra ser na mesma guia?" + "quando atualizar, se eu
+  tiver na cotação ele volta pra cotação… prefiro que volte pra tela inicial, com as cotações minimizadas"): 1) `abrirPFNaTela` (fundo.js) reaproveita a aba do PF que já existe (mesmo sem responder,
+  vai pra `?pftela=`) e, sem aba, abre a nova numa janela NORMAL do Chrome que já existe (antes o Chrome criava uma janela nova quando o clique vinha do WhatsApp aberto como app); o irTela com PF que
+  não responde também cai aí. 2) Ao recarregar, as cotações guardadas (`pfCotAbertas_v1`) voltam MINIMIZADAS e o PF fica na tela inicial (`_vendasMinimized` + `pfIrParaHome`, com `_pfVoltaCot` zerado).

@@ -21,8 +21,15 @@ var _pfTemAba = false;
 var PF_URL_PADRAO = 'https://vitoregee-dotcom.github.io/dashV/';
 function pfUrlGuardar(u) { try { var x = new URL(u); if (!/^https?:/.test(x.protocol)) return; guardar({ pfUrl: x.origin + x.pathname }); } catch (e) { } }
 async function abrirPFNaTela(tela) {
-  var s = await ler(['pfUrl']), base = s.pfUrl || PF_URL_PADRAO;
-  var t = await chrome.tabs.create({ url: base + (base.indexOf('?') >= 0 ? '&' : '?') + 'pftela=' + encodeURIComponent(tela), active: true });
+  var s = await ler(['pfUrl']), base = s.pfUrl || PF_URL_PADRAO, url = base + (base.indexOf('?') >= 0 ? '&' : '?') + 'pftela=' + encodeURIComponent(tela), t = null;
+  // 7.0 - A pedido do Vitor ("pedi pra abrir o pedido, mas abriu em outra janela… não dá pra ser na mesma guia?"): se já existe uma aba do PF (mesmo sem responder),
+  // ela é reaproveitada (vai pra tela pedida); senão a aba nova abre numa janela NORMAL do Chrome que já existe — nunca uma janela nova só pra ela.
+  try { var tabs = await chrome.tabs.query({ url: PF_URLS }); if (tabs.length) { t = await chrome.tabs.update(tabs[0].id, { url: url, active: true }); await guardar({ pfTab: tabs[0].id }); } } catch (e) { t = null; }
+  if (!t) {
+    var wid = null; try { var ws = await chrome.windows.getAll({ windowTypes: ['normal'] }); var w = ws.find(function (x) { return x.focused; }) || ws[0]; if (w) wid = w.id; } catch (e) { }
+    var op = { url: url, active: true }; if (wid != null) op.windowId = wid;
+    t = await chrome.tabs.create(op);
+  }
   try { await chrome.windows.update(t.windowId, { focused: true }); } catch (e) { }
 }
 async function abrirConfig(sec) {
@@ -141,7 +148,7 @@ chrome.runtime.onMessage.addListener(function (m, sender, send) {
       var id = await acharPF();
       if (!id) {
         // 6.4 - A pedido do Vitor: com o PF fechado, os atalhos da coluna (📦 Meus pedidos, Cotações…) abrem o PF numa aba nova já na tela
-        if (m.t === 'acao' && m.acao === 'irTela' && m.focar && !_pfTemAba) { var tl = typeof m.arg === 'object' ? (m.arg && m.arg.tela) : m.arg; if (tl) { await abrirPFNaTela(String(tl)); send({ ok: 1, abriu: 1 }); return; } }
+        if (m.t === 'acao' && m.acao === 'irTela' && m.focar) { /* 7.0 - aba do PF que não responde também é reaproveitada (vai pra tela pedida) */ var tl = typeof m.arg === 'object' ? (m.arg && m.arg.tela) : m.arg; if (tl) { await abrirPFNaTela(String(tl)); send({ ok: 1, abriu: 1 }); return; } }
         send({ erro: _pfTemAba ? 'pfF5' : 'semPF' }); return;
       }
       if (m.t === 'acao' && m.focar) { try { var t = await chrome.tabs.update(id, { active: true }); await chrome.windows.update(t.windowId, { focused: true }); } catch (e) { } }

@@ -3355,3 +3355,4 @@
   não responde também cai aí. 2) Ao recarregar, as cotações guardadas (`pfCotAbertas_v1`) voltam MINIMIZADAS e o PF fica na tela inicial (`_vendasMinimized` + `pfIrParaHome`, com `_pfVoltaCot` zerado).
 - v115.2924 ("aqui no PV acho que é bom poder selecionar todos"): caixinha no título da coluna PV da cotação (Tabela e 2 linhas, `#vendasChkAllPV`) → `vendasToggleAllPV` marca/desmarca
   todos pro Pedido de Venda, menos os que já viraram pedido (`pvNumero`); `vendasTodosPV` diz se está tudo marcado. Captura `docs/referencias/cotacao-pv-todos-feito.png`.
+- v115.2925 BUG ("pq já abriu na compacta? se estava na tabela"): o modo Tabela / 2 linhas / Compacta da cotação ficava SÓ no navegador (`pf_vendas_view_modo`) — outra aba, outro computador ou o Sair trazia outro. Agora `vendasViewModoSet` grava também `pfCotCabPrefs_v1.modo` (por usuário, sincronizado) e o `vendasViewModo` lê ele primeiro.

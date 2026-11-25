@@ -3353,3 +3353,5 @@
   tiver na cotação ele volta pra cotação… prefiro que volte pra tela inicial, com as cotações minimizadas"): 1) `abrirPFNaTela` (fundo.js) reaproveita a aba do PF que já existe (mesmo sem responder,
   vai pra `?pftela=`) e, sem aba, abre a nova numa janela NORMAL do Chrome que já existe (antes o Chrome criava uma janela nova quando o clique vinha do WhatsApp aberto como app); o irTela com PF que
   não responde também cai aí. 2) Ao recarregar, as cotações guardadas (`pfCotAbertas_v1`) voltam MINIMIZADAS e o PF fica na tela inicial (`_vendasMinimized` + `pfIrParaHome`, com `_pfVoltaCot` zerado).
+- v115.2924 ("aqui no PV acho que é bom poder selecionar todos"): caixinha no título da coluna PV da cotação (Tabela e 2 linhas, `#vendasChkAllPV`) → `vendasToggleAllPV` marca/desmarca
+  todos pro Pedido de Venda, menos os que já viraram pedido (`pvNumero`); `vendasTodosPV` diz se está tudo marcado. Captura `docs/referencias/cotacao-pv-todos-feito.png`.

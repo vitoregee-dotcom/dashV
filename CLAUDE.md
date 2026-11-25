@@ -3312,3 +3312,6 @@
   (a mesma lista compartilhada do 👁 ocultar card, `pfCardsOcultosTodos`). Escondida = os outros não veem a Órbita (o `pfOrbitaRender` não desenha); pro Vitor o botão fica "🙈 Escondida dos outros".
 - v115.2913 ("não é a órbita que queria esconder, são os cards que têm outros cards dentro"): card de GRUPO (`pfCardGruposAplicar`) ganhou o 👁/🚧 de sempre (`pfCardOlhoHtml('grp:'+area+'|'+nome)`,
   mesma lista `pfCardsOcultosTodos`) e o botão direito no grupo (`pfCardMenuDoGrupo`) tem "🙈 Esconder o grupo dos outros" pro vitoregee. Escondido = o grupo inteiro some pros outros (os cards de dentro já ficam escondidos no grupo).
+- v115.2914 (prévia `docs/referencias/cards-construcao/` → "B e A"): card 🚧 em construção, pros OUTROS = capa `.pfCcCapa` (barreira grande `icons/obra-construcao.png` = `PF_CARD_CONSTR_BIG`
+  + nome do card + "em construção"; `pfCcCapasAcertar` a cada 1,2 s põe o nome e só liga em card com 80+ px — aba baixa fica como antes) e clicar só avisa "em construção. Em breve!" (listener de click em captura).
+  Pro Vitor continua normal com a etiqueta. Card 🙈 oculto pro Vitor: sem transparência nem tracejado, só o selo vermelho "🙈 só você vê".

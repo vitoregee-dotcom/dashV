@@ -3310,3 +3310,5 @@
   aparecia. Agora `pfOrbWheelZoomOk` = rodinha em cima da órbita dá zoom DIRETO (2D e 3D); pra não ficar preso, no zoom mínimo (2D z=1, 3D z=0,6) rodar pra trás rola a página. A dica "clique na órbita" saiu.
 - v115.2912 ("como escondo o card todo? pra outros usuários não ver" — Órbita da tela inicial): botão 👁 no cabeçalho da Órbita, só pro vitoregee (`pfEhVitorGmail`) → `pfCardOlhoToggle('home_orbita')`
   (a mesma lista compartilhada do 👁 ocultar card, `pfCardsOcultosTodos`). Escondida = os outros não veem a Órbita (o `pfOrbitaRender` não desenha); pro Vitor o botão fica "🙈 Escondida dos outros".
+- v115.2913 ("não é a órbita que queria esconder, são os cards que têm outros cards dentro"): card de GRUPO (`pfCardGruposAplicar`) ganhou o 👁/🚧 de sempre (`pfCardOlhoHtml('grp:'+area+'|'+nome)`,
+  mesma lista `pfCardsOcultosTodos`) e o botão direito no grupo (`pfCardMenuDoGrupo`) tem "🙈 Esconder o grupo dos outros" pro vitoregee. Escondido = o grupo inteiro some pros outros (os cards de dentro já ficam escondidos no grupo).

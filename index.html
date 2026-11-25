@@ -2070,7 +2070,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2925</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2926</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2232,7 +2232,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2925</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2926</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -52760,7 +52760,23 @@ function pfLibBoxRender(){var box=document.getElementById('vendasLibBox');if(!bo
       '<button class="pfBtn pfBtnAzul" style="padding:5px 11px;font-size:12px" onclick="pfLibAbrir()">'+(pend.length?'Ver o pedido':'📨 Pedir liberação ao gestor')+'</button>')+'</span></div>';}
 // ── janela: lista + pedir / liberar ──
 function pfLibFmtPct(x){return x==null?'—':String(x).replace('.',',')+'%';}
-function pfLibAbrir(opc){opc=opc||{};var v=window._venda;if(!v)return;
+// v115.2926 - A pedido do Vitor ("bom já deixar ajustar o preço aqui mesmo, sem ter que voltar na cotação"): na janela de Liberação de preço o preço de
+// cada item é um campo (+ atalhos "= tela" / "= mínimo"). Mudou = grava na cotação (vendaOverride, desfazer funciona) e a janela se refaz: item que ficou
+// dentro da regra sai da lista; sem nenhum fora e vindo do Gerar pedido, aparece "📦 Gerar o pedido".
+function pfLibPrecoCampoHtml(x){var b=function(val,t,tt){return val>0?'<button type="button" onclick="pfLibPrecoSet('+x.i+','+val+')" title="'+tt+'" style="border:1px solid #c9d6e6;background:#f4f8fc;color:#1F4E79;border-radius:5px;padding:1px 6px;font-size:10.5px;font-weight:700;cursor:pointer">'+t+'</button>':'';};
+  return '<div style="display:inline-flex;align-items:center;gap:4px">R$ <input type="text" inputmode="decimal" value="'+vendasFmtBR(x.preco)+'" onchange="pfLibPrecoSet('+x.i+',this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}" style="width:86px;text-align:right;font-weight:800;font-size:13px;border:1px solid #9fb6d0;border-radius:6px;padding:4px 6px;color:#1a2332"></div>'+
+    '<div style="display:flex;gap:4px;justify-content:flex-end;margin-top:3px">'+b(x.pMin,'= mínimo','Usar o mínimo da marca: R$ '+vendasFmtBR(x.pMin))+b(x.tela,'= tela','Usar o preço de tela: R$ '+vendasFmtBR(x.tela))+'</div>';}
+function pfLibPrecoSet(i,val){var v=window._venda,it=v&&v.itens&&v.itens[i];if(!it)return;
+  var n=typeof val==='number'?val:(typeof vendasNumBR==='function'?vendasNumBR(val):parseFloat(String(val).replace(/\./g,'').replace(',','.')));
+  if(!(n>0)){pfAlert('Preço inválido.');return;}
+  try{if(typeof vendasUndoMarcar==='function')vendasUndoMarcar();}catch(e){}
+  it.vendaOverride=Math.round(n*100)/100;
+  try{if(typeof vendasRefresh==='function')vendasRefresh();}catch(e){}
+  try{if(typeof vendasAutoSalvarDebounced==='function')vendasAutoSalvarDebounced();}catch(e){}
+  try{pfLibBoxRender();pfLibAtualizarTodas();}catch(e){}
+  var ob=document.getElementById('pfLibOv'),obs=ob&&ob.querySelector('[data-obs]');window._pfLibObsTmp=obs?obs.value:'';
+  pfLibAbrir(window._pfLibOpcUlt||{});}
+function pfLibAbrir(opc){opc=opc||{};var v=window._venda;if(!v)return;window._pfLibOpcUlt=opc;
   var fora=pfLibForaDaRegra(v,opc.idxs||null),gestor=pfEhGestorOuAcima(),pend=pfLibPendentes(v);
   var old=document.getElementById('pfLibOv');if(old)old.remove();
   var ov=document.createElement('div');ov.id='pfLibOv';ov.style.cssText='position:fixed;inset:0;background:rgba(10,20,35,.45);z-index:100125;display:flex;align-items:center;justify-content:center;padding:16px';
@@ -52768,7 +52784,7 @@ function pfLibAbrir(opc){opc=opc||{};var v=window._venda;if(!v)return;
   var fechar=function(){ov.remove();document.removeEventListener('keydown',esc,true);};document.addEventListener('keydown',esc,true);
   var c=pfLibCfg();
   var linhas=fora.map(function(x){return '<tr style="border-bottom:1px solid #eef1f5"><td style="padding:6px"><b style="color:#1a2332">'+pfEscHtml(x.cod)+'</b> <span style="color:#667;font-size:11.5px">'+pfEscHtml(x.marca)+'</span><div style="font-size:11px;color:#778">'+pfEscHtml(x.desc)+'</div></td>'+
-    '<td style="padding:6px;text-align:right;white-space:nowrap;color:#1a2332"><b>R$ '+vendasFmtBR(x.preco)+'</b><div style="font-size:11px;color:#778">margem '+pfLibFmtPct(x.m)+'</div></td>'+
+    '<td style="padding:6px;text-align:right;white-space:nowrap;color:#1a2332">'+pfLibPrecoCampoHtml(x)+'<div style="font-size:11px;color:#778">margem '+pfLibFmtPct(x.m)+'</div></td>'+
     '<td style="padding:6px;text-align:right;white-space:nowrap;color:#1a2332">R$ '+vendasFmtBR(x.tela)+'<div style="font-size:11px;color:'+(x.descAlto?'#B85C00;font-weight:700':'#778')+'">desconto '+pfLibFmtPct(x.dsc)+'</div></td>'+
     '<td style="padding:6px;text-align:right;white-space:nowrap;color:#1a2332">'+(x.pMin?'R$ '+vendasFmtBR(x.pMin):'—')+'<div style="font-size:11px;color:'+(x.abMin?'#A0281C;font-weight:700':'#778')+'">'+(x.minPct==null?'sem mínimo':(x.chave?pfEscHtml(x.chave)+' ':'')+x.minPct+'%')+'</div></td>'+
     '<td style="padding:6px;font-size:11.5px;white-space:nowrap">'+(x.abMin?'<span style="color:#A0281C;font-weight:700">⛔ abaixo do mínimo</span>':'')+(x.abMin&&x.descAlto?'<br>':'')+(x.descAlto?'<span style="color:#B85C00;font-weight:700">⚠️ desconto &gt; '+x.descMax+'%</span>':'')+
@@ -52783,11 +52799,14 @@ function pfLibAbrir(opc){opc=opc||{};var v=window._venda;if(!v)return;
     '<div style="padding:12px 16px;overflow-y:auto;flex:1">'+corpo+pendH+
       (fora.length?'<div style="margin-top:10px"><div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:4px">'+(gestor?'Observação (opcional)':'Por que esse preço? (vai pro gestor)')+'</div><textarea data-obs rows="2" style="width:100%;box-sizing:border-box;border:1px solid #ccd;border-radius:8px;padding:7px;font-size:13px;font-family:inherit" placeholder="Ex.: cliente tem preço da concorrência, lote comprado mais barato…"></textarea></div>':'')+como+'</div>'+
     '<div style="padding:10px 16px;border-top:1px solid #e6ebf2;display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">'+
-      '<button class="pfBtn pfBtnClaro" data-f>'+(fora.length?'Voltar e corrigir o preço':'Fechar')+'</button>'+
+      '<button class="pfBtn pfBtnClaro" data-f>'+(fora.length?'Voltar pra cotação':'Fechar')+'</button>'+
+      (!fora.length&&typeof opc.depois==='function'?'<button class="pfBtn pfBtnVerde" data-ger>📦 Gerar o pedido</button>':'')+
       (podePedir?'<button class="pfBtn pfBtnAzul" data-pedir>📨 '+(pend.length?'Pedir de novo':'Pedir liberação ao gestor')+'</button>':'')+
       (gestor&&fora.length?'<button class="pfBtn pfBtnVerde" data-lib>🔓 Liberar'+(opc.doPedido?' e gerar o pedido':'')+'</button>':'')+'</div></div>';
   ov.addEventListener('mousedown',function(e){ov._ini=e.target===ov;});ov.addEventListener('click',function(e){if(e.target===ov&&ov._ini)fechar();});
   ov.querySelector('[data-x]').onclick=fechar;ov.querySelector('[data-f]').onclick=fechar;
+  var bG=ov.querySelector('[data-ger]');if(bG)bG.onclick=function(){fechar();opc.depois();};
+  try{var _ot=ov.querySelector('[data-obs]');if(_ot&&window._pfLibObsTmp){_ot.value=window._pfLibObsTmp;}window._pfLibObsTmp='';}catch(e){}
   var obsEl=function(){var t=ov.querySelector('[data-obs]');return t?t.value.trim():'';};
   var pedidoEv=function(obs){return {id:'lib_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),tipo:'pedido',porEmail:pfLibEu(),porNome:pfLibEuNome(),cotKey:pfLibCotKey(v),cotNum:v.num!=null?v.num:'',
     cliente:(v.cliente&&v.cliente.razao)||'',uf:v.uf||'SP',margemCot:v.margem||21,obs:obs,itens:fora.map(function(x){return {k:x.k,cod:x.cod,marca:x.marca,desc:x.desc,qtd:x.qtd,preco:x.preco,tela:x.tela,pMin:x.pMin,dsc:x.dsc,minPct:x.minPct,m:x.m,abMin:x.abMin,descAlto:x.descAlto};})};};

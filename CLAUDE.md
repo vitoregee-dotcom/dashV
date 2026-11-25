@@ -3315,3 +3315,6 @@
 - v115.2914 (prévia `docs/referencias/cards-construcao/` → "B e A"): card 🚧 em construção, pros OUTROS = capa `.pfCcCapa` (barreira grande `icons/obra-construcao.png` = `PF_CARD_CONSTR_BIG`
   + nome do card + "em construção"; `pfCcCapasAcertar` a cada 1,2 s põe o nome e só liga em card com 80+ px — aba baixa fica como antes) e clicar só avisa "em construção. Em breve!" (listener de click em captura).
   Pro Vitor continua normal com a etiqueta. Card 🙈 oculto pro Vitor: sem transparência nem tracejado, só o selo vermelho "🙈 só você vê".
+- v115.2915 ("acho que os outros estão vendo o que está marcado só pra mim ver" — print com "👁 Vendo como os outros" e cards "só você vê"): os outros NÃO viam; era o modo
+  "ver como os outros" que continuava mostrando as coisas só-do-dono. `pfCardDonoVe()` = vitoregee e SEM o ver-como-outros → usado no `pfCardOlhoHtml`, Alt+S, barra de baixo e Órbita escondida:
+  nesse modo o card oculto some e o em construção vira a barreira, igual aos outros.

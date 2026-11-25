@@ -2928,10 +2928,18 @@
   // 7.2 - A pedido do Vitor ("esse card dá pra abrir se o mouse ficar uns 2 segundos em cima"): o cartão do anel só abre com o mouse PARADO 2 s em cima
   // (MP_HOVER_MS); passar o mouse de passagem não abre. Com um cartão já aberto, ir pra outro anel troca na hora.
   var MP_HOVER_MS = 2000, mpHovTmr = null, mpHovEl = null;
-  document.addEventListener('mouseover', function (e) { var el = e.target && e.target.closest && e.target.closest('.pfwa-mpr'); if (!el) return; if (el === mpHovEl) return; mpHovEl = el; clearTimeout(mpHovTmr);
-    var abre = function () { var x = MP.find(function (y) { return y.id === el.getAttribute('data-mp'); }); if (x && mpHovEl === el) mpPop(x, el); };
+  // 7.6 - A pedido do Vitor ("não tá abrindo o cardizinho qnd fico com o mouse parado em cima"): a coluna é redesenhada sozinha e o anel que estava
+  // embaixo do mouse virava OUTRO elemento — o cartão abria preso ao velho (fora da tela) ou o tempo recomeçava. Agora vale o id do pedido e,
+  // na hora de abrir, pega o anel que está na tela agora (e confere que o mouse continua em cima dele).
+  var mpMouse = { x: -1, y: -1 };
+  document.addEventListener('mousemove', function (e) { mpMouse.x = e.clientX; mpMouse.y = e.clientY; }, true);
+  document.addEventListener('mouseover', function (e) { var el = e.target && e.target.closest && e.target.closest('.pfwa-mpr'); if (!el) return; var id = el.getAttribute('data-mp'); if (id === mpHovEl) return; mpHovEl = id; clearTimeout(mpHovTmr);
+    var abre = function () { if (mpHovEl !== id) return; var x = MP.find(function (y) { return y.id === id; }); if (!x) return;
+      var vivo = null; try { var em = document.elementFromPoint(mpMouse.x, mpMouse.y); vivo = em && em.closest && em.closest('.pfwa-mpr'); } catch (er) { }
+      if (!vivo || vivo.getAttribute('data-mp') !== id) { var lista = document.querySelectorAll('.pfwa-mpr'); for (var i = 0; i < lista.length; i++) if (lista[i].getAttribute('data-mp') === id) { vivo = lista[i]; break; } }
+      if (vivo && vivo.isConnected) mpPop(x, vivo); };
     if (MPPOP && MPPOP.style.display === 'block') { clearTimeout(mpTmr); abre(); } else mpHovTmr = setTimeout(abre, MP_HOVER_MS); }, true);
-  document.addEventListener('mouseout', function (e) { var el = e.target && e.target.closest && e.target.closest('.pfwa-mpr'); if (el && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.pfwa-mpr') === el)) { clearTimeout(mpHovTmr); mpHovEl = null; }
+  document.addEventListener('mouseout', function (e) { var el = e.target && e.target.closest && e.target.closest('.pfwa-mpr'); if (!el || !el.isConnected) return; var rt = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.pfwa-mpr'); if (!(rt && rt.getAttribute('data-mp') === el.getAttribute('data-mp'))) { clearTimeout(mpHovTmr); mpHovEl = null; }
     if (el && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('#pfwa-mppop,.pfwa-mpr'))) mpPopFechar(350); }, true);
   async function mpAbrirConversa(x) { if (!x) return false; var nm = x.wa || ''; if (nm) { await flAbrir(nm, x.waId || ''); return true; } if (x.nome) { await flAbrir(x.nome, ''); return true; } return false; }
   async function mpAcao(ac, id) {

@@ -3374,3 +3374,8 @@
   capturas `feito-2d.png`/`feito-3d.png`): `icons/orbita-planetas/<linha>.png` (256 px, fundo transparente, recortados da imagem dele) — verde = agrícola, amarelo = amarela, preto = energia, azul = portuário,
   vermelho = rodoviário (`PF_ORB_PL_IMG` cor da linha → arquivo, `pfOrbPlImg` carrega e devolve só quando pronto). Visual Espaço: planeta de UMA linha usa a imagem no 2D (`pfOrbPlanetaVivo2DReal`, chave do
   sprite com '|i') e no 3D (`pfOrb3DTexPlanetaVivo`, brilho + imagem); 2 linhas, Marítimo e Retífica continuam a bolinha lisa. Linha nova com imagem → arquivo + linha no PF_ORB_PL_IMG.
+- v115.2932 + extensão **7.3** ("como consigo o link para o cliente preencher?" → "vamos colocar aqui na extensão" + Condição de Pgto: "pq esse é diferente? o jeito de copiar e colar pra enviar no e-mail"):
+  aba Cliente do painel do WhatsApp ganhou **🔗 Link de cadastro pro cliente preencher** (`clHtml`/`clGerar`: 💵 Novo à vista / 📅 Novo a prazo / ⛔ Reanálise → acao `cadLink` → `pfExtCadLink`:
+  cadastro pelo k (`pfExtCadDoCli`), contexto igual ao `pfInatAbrir` (`pfCadLinkCtx`), `pfCadLinkGerar` grava o formulario_links e devolve a mensagem (com o nome da pessoa da conversa) → 💬 Pôr na conversa / 📋 Copiar;
+  nota no CRM). Contato sem cadastro = avisa pra salvar pelo 👤. Condição de Pgto: os 2 botões viraram o padrão do Frete — **📋 Copiar e abrir e-mail** (`condPgtoCopiarEAbrir`: copia formatado e abre o
+  e-mail com Para/Cc/Assunto, é só colar) + "✉️ Só abrir (texto simples)". Captura `docs/referencias/whatsapp-menu/feito-link-cadastro.png`.

@@ -682,7 +682,8 @@
       ['🏷️', 'Etiquetas nas conversas', 'Embaixo de cada nome: se é cliente ou fornecedor do PF, cotação aberta, mapa esperando preço.'],
       ['⚙️', 'Menu do PF', 'A chave "Menu do PF" liga/desliga a barra. "azul / discreta" troca a cor.']]],
     ['Conhecer o cliente', [
-      ['🧭', 'O que falta saber', 'Ao lado do nome aparece 🧭 N = quantas coisas importantes ainda não sabemos desse cliente (tipo, linhas, quem decide, frota do consumidor, se a revenda tem estoque ou só venda casada, se tem oficina…). Clique: uma pergunta por vez — 1 clique na resposta grava no cadastro do PF. A resposta tracejada é a sugestão do PF.'],
+      ['🔗', 'Link de cadastro', 'Na aba Cliente: escolha Novo à vista, Novo a prazo ou Reanálise e o PF gera o link (vale 15 dias) com o que já temos preenchido. 💬 Pôr na conversa escreve a mensagem — você confere e envia. A resposta chega sozinha no cadastro do cliente.'],
+    ['🧭', 'O que falta saber', 'Ao lado do nome aparece 🧭 N = quantas coisas importantes ainda não sabemos desse cliente (tipo, linhas, quem decide, frota do consumidor, se a revenda tem estoque ou só venda casada, se tem oficina…). Clique: uma pergunta por vez — 1 clique na resposta grava no cadastro do PF. A resposta tracejada é a sugestão do PF.'],
       ['💡', 'Bom momento pra perguntar', 'Quando a conversa acalma (2 min sem mensagem), o selo pisca e aparece uma dica em cima da caixa de digitar — só você vê. 1 vez por cliente por dia. 💬 Perguntar escreve a pergunta na caixa (você manda).'],
       ['⚙️', 'Perguntas do gestor', 'O gestor cria perguntas próprias (ex.: "consome tal produto?") em 🧩 Ajustes da extensão no PF — aparecem aqui junto.']]],
     ['Botões ao lado da conversa', [
@@ -941,6 +942,10 @@
     if (ac === 'extCfgAbrir') { msg({ t: 'acao', acao: 'extCfgAbrir' }); return; } // 4.62 - abre o card de ajustes no PF
     if (ac === 'cotarIA') { irAba('cot'); cotarIA(); return; }
     if (ac === 'lerDocCli') { var _dc = docCliAchar(); if (!_dc) return; cmAlvo = { b: _dc.b }; cmExec(_dc.tipo === 'pdf' ? 'doc_ia' : 'img_ia', '', _dc.tipo === 'pdf' ? (_dc.nome || '') : _dc.src); return; } // 4.76
+    if (ac === 'clGerar') { clGerar(arg); return; } // 7.3
+    if (ac === 'clPor') { if (clR && clR.msg) escreverNaCaixa(clR.msg); return; }
+    if (ac === 'clCopiar') { if (clR && clR.msg) { try { navigator.clipboard.writeText(clR.msg); b.textContent = '✓ copiado'; } catch (e) { } } return; }
+    if (ac === 'clX') { clR = null; pintaCorpo(); return; }
     if (ac === 'resumir') { resumir(); return; }
     if (ac === 'resumoX') { resumoR = null; pintaCorpo(); return; }
     if (ac === 'resumoGravar') {
@@ -966,6 +971,23 @@
     if (!r || r.erro) cotErro = r && r.erro === 'ia' ? 'A IA não respondeu: ' + (r.msg || '') : r && r.erro === 'semResposta' ? 'A IA demorou demais. Tente de novo.' : 'O PF não respondeu. Dê F5 na aba do PartsFlow.';
     else cot = r;
     pintaCorpo();
+  }
+  // 7.3 - 🔗 Link de cadastro pro cliente preencher (o mesmo da janela 🆕/⛔ da cotação): à vista / a prazo / reanálise.
+  var clR = null, clIndo = false, clConv = '';
+  async function clGerar(modo) {
+    if (clIndo) return; clIndo = true; clR = null; clConv = ultimo; pintaCorpo();
+    var r = await msg({ t: 'acao', acao: 'cadLink', arg: { k: resp && resp.k, modo: modo, pessoa: (typeof pessoaComprador === 'function' && pessoaComprador()) || '' } });
+    clIndo = false; clR = r && r.ok ? r : { erro: (r && r.erro) || 'O PF não respondeu.' }; pintaCorpo();
+  }
+  function clHtml(r) {
+    if (!r || !r.k) return '';
+    if (clR && clConv !== ultimo) clR = null;
+    var h = '<div class="pfwa-bloco"><div class="pfwa-bt">🔗 Link de cadastro pro cliente preencher</div>';
+    if (clIndo) return h + '<div class="pfwa-nada">Gerando o link…</div></div>';
+    if (clR && clR.erro) h += '<div class="pfwa-nada" style="color:#C00000">' + esc(clR.erro) + '</div>';
+    if (clR && clR.msg) return h + '<div class="pfwa-nada" style="white-space:pre-wrap;margin-bottom:6px">' + esc(clR.msg) + '</div><div class="pfwa-bots"><button class="pfwa-verde" data-acao="clPor">💬 Pôr na conversa</button><button data-acao="clCopiar">📋 Copiar</button><button data-acao="clX">✕</button></div></div>';
+    return h + '<div class="pfwa-bots"><button data-acao="clGerar" data-arg="novo_vista">💵 Novo à vista</button><button data-acao="clGerar" data-arg="novo_prazo">📅 Novo a prazo</button><button data-acao="clGerar" data-arg="reanalise">⛔ Reanálise</button></div>'
+      + '<div class="pfwa-nada" style="margin-top:4px">O cliente abre no celular, confere o que já temos, completa e anexa os documentos. Chega sozinho no PF.</div></div>';
   }
   async function resumir() {
     if (resumindo) return; resumindo = true; resumoR = null; pintaCorpo();
@@ -1197,6 +1219,7 @@
     h += avisosHtml(r, false); // 2.3 - avisos do cliente (os mesmos da cotação)
     if (r.tipo === 'cliente' && CFG.cc !== false) h += ccBlocoHtml(); // 4.97 - 🧭 conhecer o cliente
     if (r.tipo === 'cliente' && CFG.sug !== false) h += sugHtml(r); // 4.20 - 💡 pra oferecer
+    if (r.tipo === 'cliente') h += clHtml(r); // 7.3 - 🔗 link de cadastro
     if (r.tipo === 'cliente') h += resumoHtml(r); // 3.6 - 📝 resumo com IA
     (r.linhas || []).forEach(function (l) { h += '<div class="pfwa-lin"><span>' + esc(l.ic) + '</span><div><b>' + esc(l.t) + '</b>' + (l.d ? '<br><small>' + esc(l.d) + '</small>' : '') + '</div></div>'; });
     if (r.ofertas) h += bloco(r.ofertas);

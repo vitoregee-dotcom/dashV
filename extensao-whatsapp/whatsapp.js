@@ -4295,6 +4295,10 @@
     }
     var sep = document.createElement('div'); sep.className = 'pfwa-wm'; sep.style.cssText = 'height:1px;background:rgba(127,127,127,.25);margin:4px 10px';
     lista.appendChild(sep);
+    // 6.7 - A pedido do Vitor ("to procurando a função de responder a msg, mas está ficando escondido lá em cima"): no menu da MENSAGEM só ficam
+    // "📄 Cotar no PF" e "🧩 PartsFlow ›" — o resto abre ao lado (submenu), o menu do WhatsApp não cresce e o Responder fica à vista.
+    var sub = null;
+    if (!fixos && itens.length > 2) { sub = itens.filter(function (x) { return x[0] !== 'msg_cotar'; }); itens = itens.filter(function (x) { return x[0] === 'msg_cotar'; }); itens.push(['__sub', '🧩 PartsFlow ›']); }
     itens.forEach(function (x) {
       var li = modelo.cloneNode(true); li.classList.add('pfwa-wm'); li.removeAttribute('aria-label'); li.removeAttribute('data-testid');
       li.innerHTML = ''; li.style.cssText = (li.style.cssText || '') + ';display:flex;align-items:center;cursor:pointer';
@@ -4302,6 +4306,12 @@
       li.appendChild(sp);
       li.addEventListener('mouseenter', function () { li.style.background = 'rgba(127,127,127,.12)'; });
       li.addEventListener('mouseleave', function () { li.style.background = ''; });
+      if (x[0] === '__sub') {
+        var abreSub = function (ev) { if (ev) { ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation(); } wmSubAbrir(li, lista, sub); };
+        li.addEventListener('mouseenter', function () { wmSubAbrir(li, lista, sub); });
+        li.addEventListener('mousedown', function (ev) { ev.stopPropagation(); }, true);
+        li.addEventListener('click', abreSub, true); lista.appendChild(li); return;
+      }
       var vai = function (ev) { ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation();
         try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true })); } catch (e) { }
         try { var ap = lista.closest('[role="application"]') || lista; if (document.body.contains(ap)) ap.style.display = 'none'; } catch (e) { }
@@ -4310,6 +4320,37 @@
       li.addEventListener('click', vai, true);
       lista.appendChild(li);
     });
+  }
+  // 6.7 - submenu "🧩 PartsFlow ›" do menu da mensagem (abre ao lado do menu do WhatsApp; fecha no Esc, clicando fora ou quando o menu some)
+  var WS = null, wsLista = null;
+  function wmSubFechar() { if (WS) WS.style.display = 'none'; wsLista = null; }
+  function wmSubAbrir(li, lista, its) {
+    if (!WS) { WS = document.createElement('div'); WS.id = 'pfwa-wmsub'; document.body.appendChild(WS);
+      WS.style.cssText = 'position:fixed;z-index:100000;display:none;min-width:240px;max-height:80vh;overflow:auto;padding:6px 0;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.28);font-family:inherit';
+      WS.addEventListener('mousedown', function (ev) { ev.stopPropagation(); }, true);
+      document.addEventListener('mousedown', function (ev) { if (WS.style.display === 'block' && !WS.contains(ev.target)) wmSubFechar(); }, true);
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && WS.style.display === 'block') wmSubFechar(); }, true);
+      setInterval(function () { if (WS.style.display === 'block' && wsLista && !document.body.contains(wsLista) && !WS.matches(':hover')) wmSubFechar(); }, 300);
+    }
+    if (wsLista === lista && WS.style.display === 'block') return; wsLista = lista;
+    var cs = getComputedStyle(lista.closest('[role="application"]') || lista), bg = cs.backgroundColor, cor = getComputedStyle(li).color;
+    if (!bg || bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') bg = document.documentElement.classList.contains('dark') ? '#233138' : '#fff';
+    WS.style.background = bg; WS.style.color = cor; WS.innerHTML = '';
+    its.forEach(function (x) {
+      var d = document.createElement('div'); d.textContent = String(x[1]).replace(/ \(PF\)$/, ''); d.style.cssText = 'padding:9px 16px;font-size:14.5px;white-space:nowrap;cursor:pointer';
+      d.addEventListener('mouseenter', function () { d.style.background = 'rgba(127,127,127,.14)'; });
+      d.addEventListener('mouseleave', function () { d.style.background = ''; });
+      d.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); wmSubFechar();
+        try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true })); } catch (e) { }
+        try { var ap = lista.closest('[role="application"]') || lista; if (document.body.contains(ap)) ap.style.display = 'none'; } catch (e) { }
+        cmExec(x[0], '', x[2] || '').catch(function (e) { console.warn('PF menu', e); }); });
+      WS.appendChild(d);
+    });
+    WS.style.display = 'block'; WS.style.visibility = 'hidden';
+    var r = li.getBoundingClientRect(), m = (lista.closest('[role="application"]') || lista).getBoundingClientRect(), w = WS.offsetWidth, h = WS.offsetHeight;
+    var x = m.right + 4; if (x + w > innerWidth - 8) x = Math.max(8, m.left - w - 4);
+    var y = Math.min(r.top - 6, innerHeight - h - 8); if (y < 8) y = 8;
+    WS.style.left = x + 'px'; WS.style.top = y + 'px'; WS.style.visibility = '';
   }
   // ═══ 4.92 - 🔗 MONTA COM ═══ (A pedido do Vitor: "dá pra bolar um monta c/ aqui… que vou selecionando"; prévia docs/referencias/whatsapp-montacom/previa.png):
   // botão direito no código (ou na mensagem) → janelinha com as peças que montam com ele, por tipo, Spicer na frente; vai marcando (marca e qtd) e manda

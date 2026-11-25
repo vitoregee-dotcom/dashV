@@ -3379,3 +3379,5 @@
   cadastro pelo k (`pfExtCadDoCli`), contexto igual ao `pfInatAbrir` (`pfCadLinkCtx`), `pfCadLinkGerar` grava o formulario_links e devolve a mensagem (com o nome da pessoa da conversa) → 💬 Pôr na conversa / 📋 Copiar;
   nota no CRM). Contato sem cadastro = avisa pra salvar pelo 👤. Condição de Pgto: os 2 botões viraram o padrão do Frete — **📋 Copiar e abrir e-mail** (`condPgtoCopiarEAbrir`: copia formatado e abre o
   e-mail com Para/Cc/Assunto, é só colar) + "✉️ Só abrir (texto simples)". Captura `docs/referencias/whatsapp-menu/feito-link-cadastro.png`.
+- v115.2933 + extensão **7.4** BUG ("mandei para o leitor. mas não foi. continuou na tela que estava aberta" — botão direito numa FOTO de lista escrita à mão → 📝 Mandar pro Leitor de Peças):
+  foto não tem texto e o `pfExtLeitor` devolvia "mensagem vazia" sem trocar de tela. Agora a extensão manda a foto (dataURL) junto e o PF abre o Leitor e lê com IA (`lpLerArquivo`, o mesmo do 📋 Colar print).

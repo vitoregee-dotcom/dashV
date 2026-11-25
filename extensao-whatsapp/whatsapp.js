@@ -4178,6 +4178,7 @@
       var rp = await msg({ t: 'acao', acao: 'plaqueta', focar: true, arg: { img: du3 } });
       cmToast(rp && rp.ok ? '✔ Abri no PF — confira a máquina e clique em Gravar' : 'Não deu — ' + ((rp && rp.msg) || 'abra o PF')); return;
     }
+    if (id === 'cv_mat') { matMandadosAbrir(A.nome || ultimo); return; } // 6.8
     if (/^cv_/.test(id) && !A.nome) { cmToast('Clique com o botão direito em cima da conversa na lista'); return; }
     if (id === 'cv_pend' || id === 'cv_pendok') { // 6.2 - ⏳ pendência com o contato (marcada à mão)
       var stp = sitCache[A.nome] || {}; var tirap = id === 'cv_pendok' || (id === 'cv_pend' && stp.pend);
@@ -4244,6 +4245,7 @@
       its.push(st.pend ? ['cv_pendok', '✔ Resolvi a pendência (tirar o ⏳)'] : ['cv_pend', '⏳ Tenho pendência com esse contato (PF)']); // 6.2
       its.push(st.emitir ? ['cv_pedok', '✔ Pedido enviado (tirar o 📦)'] : ['cv_ped', '📦 Tem pedido pra enviar (PF)']);
       if (st.tipo === 'cliente') its.push(['cv_ficha', '🤝 Abrir ficha do cliente (PF)']);
+      if (st.tipo === 'cliente') its.push(['cv_mat', '📎 O que já mandei pra ele (PF)']); // 6.8
       its.push(['cv_nunca', ((AUTO.nunca || []).indexOf(A.nome) >= 0 ? '🔔 Voltar a mandar mensagem automática' : '🔕 Não mandar mensagem automática')]);
       wmPor(lista, it, its);
     }, n ? 60 : 30);
@@ -4290,7 +4292,7 @@
     // 4.86 - A pedido do Vitor ("cadê o sem cadastro"): cada resposta curta direto no menu (NEGATIVO / SEM CADASTRO / ZEROU…), sem abrir a janelinha
     qkPal.forEach(function (w) { itens.push(['msg_qk', '🏷️ ' + w, w]); });
     itens.push(['msg_avise', '🔔 Avise-me (PF)']);
-    if (resp && resp.k) { itens.push(['msg_nota', '📝 Anotar na ficha (PF)']); itens.push(['msg_lemb', '⏰ Lembrete (PF)']); }
+    if (resp && resp.k) { itens.push(['msg_nota', '📝 Anotar na ficha (PF)']); itens.push(['msg_lemb', '⏰ Lembrete (PF)']); itens.push(['cv_mat', '📎 O que já mandei pra ele (PF)']); }
     itens.push(['msg_rr', '⚡ Salvar como resposta rápida (PF)']);
     }
     var sep = document.createElement('div'); sep.className = 'pfwa-wm'; sep.style.cssText = 'height:1px;background:rgba(127,127,127,.25);margin:4px 10px';
@@ -4351,6 +4353,25 @@
     var x = m.right + 4; if (x + w > innerWidth - 8) x = Math.max(8, m.left - w - 4);
     var y = Math.min(r.top - 6, innerHeight - h - 8); if (y < 8) y = 8;
     WS.style.left = x + 'px'; WS.style.top = y + 'px'; WS.style.visibility = '';
+  }
+  // 6.8 - A pedido do Vitor ("qual melhor maneira de eu consultar se já mandei o portfólio para esse cliente e quando?"): botão direito na conversa
+  // (ou na mensagem) → 📎 O que já mandei pra ele = lista dos materiais (portfólio, catálogo, tabela…) mandados, com a data — os mesmos do 💡 Já ofereci.
+  var MM = null;
+  async function matMandadosAbrir(nome) {
+    nome = String(nome || '').replace(/^[^|]*\|/, '');
+    if (!MM) { MM = document.createElement('div'); MM.id = 'pfwa-mm'; document.body.appendChild(MM);
+      MM.style.cssText = 'position:fixed;right:24px;top:90px;z-index:2147483500;width:380px;max-height:70vh;overflow:auto;background:#fff;color:#1a2332;border-radius:12px;box-shadow:0 10px 34px rgba(0,0,0,.3);font:13px Inter,Segoe UI,sans-serif';
+      MM.addEventListener('click', function (e) { if (e.target.closest('[data-mm="x"]')) MM.style.display = 'none'; });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && MM.style.display === 'block') { e.stopPropagation(); MM.style.display = 'none'; } }, true); }
+    var cab = '<div style="display:flex;align-items:center;gap:8px;padding:11px 14px;background:#1c2940;color:#fff;border-radius:12px 12px 0 0;position:sticky;top:0"><div style="flex:1"><b>📎 O que já mandei pra ele</b><div style="font-size:11.5px;opacity:.8">' + esc(nome || '') + '</div></div><span data-mm="x" title="Fechar (Esc)" style="cursor:pointer;font-size:18px;line-height:1">✕</span></div>';
+    MM.style.display = 'block'; MM.innerHTML = cab + '<div style="padding:14px;color:#667">Procurando no PF…</div>';
+    var r = await msg({ t: 'acao', acao: 'matMandados', arg: { nome: nome || '', k: (resp && resp.k) || '' } });
+    if (!r || r.ok === false) { MM.innerHTML = cab + '<div style="padding:14px;color:#667">' + esc((r && r.msg) || naoDeu()) + '</div>'; return; }
+    var L = r.itens || [];
+    var corpo = L.length ? L.map(function (x) {
+      return '<div style="padding:9px 14px;border-top:1px solid #eef1f5"><div style="font-weight:700">' + esc(x.nome) + '</div><div style="font-size:12px;color:#556;margin-top:2px">' + esc(x.data) + ' · ' + esc(x.quando) + (x.por ? ' · ' + esc(x.por) : '') + '</div>' + (x.resp ? '<div style="font-size:12px;color:' + (x.cor || '#556') + ';margin-top:2px">' + esc(x.resp) + (x.resumo ? ' — ' + esc(x.resumo) : '') + '</div>' : '') + '</div>';
+    }).join('') : '<div style="padding:14px;color:#667">Nenhum material registrado pra ' + esc(r.cliente || 'esse cliente') + '.<div style="font-size:12px;margin-top:6px">Só conta o que foi mandado depois da extensão 4.77 (portfólio, catálogo, tabela…). Antes disso, procure na lupa da conversa por "portf".</div></div>';
+    MM.innerHTML = cab + (r.cliente ? '<div style="padding:8px 14px;font-size:12px;color:#556;background:#f6f8fb">🤝 ' + esc(r.cliente) + '</div>' : '') + corpo;
   }
   // ═══ 4.92 - 🔗 MONTA COM ═══ (A pedido do Vitor: "dá pra bolar um monta c/ aqui… que vou selecionando"; prévia docs/referencias/whatsapp-montacom/previa.png):
   // botão direito no código (ou na mensagem) → janelinha com as peças que montam com ele, por tipo, Spicer na frente; vai marcando (marca e qtd) e manda

@@ -3318,3 +3318,7 @@
 - v115.2915 ("acho que os outros estão vendo o que está marcado só pra mim ver" — print com "👁 Vendo como os outros" e cards "só você vê"): os outros NÃO viam; era o modo
   "ver como os outros" que continuava mostrando as coisas só-do-dono. `pfCardDonoVe()` = vitoregee e SEM o ver-como-outros → usado no `pfCardOlhoHtml`, Alt+S, barra de baixo e Órbita escondida:
   nesse modo o card oculto some e o em construção vira a barreira, igual aos outros.
+- v115.2916 ("depois que dei como emitido, melhor ir andando sozinho até faturar… pra não ficar acumulando nessa simulação, já que não estou simulando os outros setores"):
+  `PF_MP_ANDA_SOZINHO=true` — no 📦 Meus pedidos (e nos anéis do WhatsApp, que usam o `pfMpDados`) o pedido ANDA pelo tempo desde a emissão (`PF_MP_ANDA_MIN`: 30 min separado,
+  1 h conferido, 2 h faturado, 24 h despachado → some em 7 dias), só na TELA — o pedido gravado e a Logística não mudam; etapa marcada de verdade mais adiante vale. Cartão "⏩ andando
+  sozinho (simulação)", sem vermelho e sem "avisar cliente". Quando a Logística começar a marcar no PF → `false`.

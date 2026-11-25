@@ -3365,3 +3365,8 @@
   senão o padrão) mandado no `pfExtIcones` → `ICO_TROCA`; sem card = ícone do banco do PF copiado na extensão (`icones/<azul|cor>-<chave>.png`: mc, pc, leitor, nota, mat, mapa, plaq, min, pend, ped,
   ok, nunca, pf = logo). **Função nova no menu da extensão → chave no `WM_ICO` + ícone azul/cor em `icones/` (e, se tem card no PF, linha no `PF_EXT_ICO_CARD`).** Captura `docs/referencias/whatsapp-menu/feito-icones-menu.png`.
 
+- v115.2930 + extensão **7.2**: 1) ("esse card dá pra abrir se o mouse ficar uns 2 segundos em cima… pra não ficar abrindo toda hora quando passo"): o cartão do anel de pedido na coluna do PF
+  no WhatsApp só abre com o mouse PARADO 2 s em cima (`MP_HOVER_MS`, `mpHovTmr`/`mpHovEl`); com um cartão já aberto, ir pra outro anel troca na hora. 2) ("faz um atalho para o meu dia também" +
+  "no caso do comprador ou outro usuário, ir para a mesa dele"): botão amarelo `.pfwa-raildia` logo embaixo do 📦 (irTela `minhamesa`) → `pfExtMinhaMesa()` decide pelo setor de quem está logado
+  (`pfChMeusSetores` > `pfMsaSetorDoCargo`): vendas/diretoria/sem setor = ☀️ Meu dia, compras = 🛒 Mesa do comprador (`pfMesaAbrir`), outros = 📥 Minha mesa (`pfMsaAbrir`). O ícone/nome vêm
+  no `meusPedidos` (`r.mesa` → `mesaPintar`). `PF_EXT_VER_NOVA`='7.2', zip refeito.

@@ -2853,10 +2853,12 @@
   // mouse em cima amplia… a etapa redonda em cima do ícone"): anel por pedido (pedido pelo PF a cada 60 s, acao meusPedidos). Anel enche pela etapa,
   // vermelho piscando = precisa de você; mouse = cartão (#pfwa-mppop) com a barra das etapas e os botões; clique = abre a conversa do cliente.
   var MP = [], MPPOP = null, mpTmr = 0;
-  async function mpCarregar() { if (CFG.mp === false) { MP = []; mpPintar(); return; } try { var r = await msg({ t: 'acao', acao: 'meusPedidos', arg: {} }); if (r && r.lista) { MP = r.lista; mpPintar(); } } catch (e) { } }
+  async function mpCarregar() { if (CFG.mp === false) { MP = []; mpPintar(); return; } try { var r = await msg({ t: 'acao', acao: 'meusPedidos', arg: {} }); if (r && r.lista) { MP = r.lista; mpPintar(); } if (r && r.mesa && r.mesa.ic) { MESA = r.mesa; mesaPintar(); } } catch (e) { } }
   setTimeout(mpCarregar, 6000); setInterval(function () { if (vivo()) mpCarregar(); }, 60000);
   function mpEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
-  function mpPintar() {
+  var MESA = null; // 7.2 - {t, ic, nome} da mesa de quem está logado no PF
+  function mesaPintar() { try { var d = RAIL && RAIL.querySelector('.pfwa-raildia'); if (d && MESA) { d.textContent = MESA.ic; d.title = MESA.ic + ' ' + MESA.nome + ' — abre o PF já nessa tela'; } } catch (e) { } }
+  function mpPintar() { mesaPintar();
     try { var rp = RAIL && RAIL.querySelector('.pfwa-railped'); if (rp) { var nP = MP.filter(function (x) { return x.tipo !== 'emit'; }).length, nA = MP.filter(function (x) { return x.al; }).length, bn = rp.querySelector('.pfwa-railn');
       if (bn) { bn.textContent = nP ? String(nP) : ''; bn.style.display = nP ? '' : 'none'; }
       rp.title = '📦 Meus pedidos' + (nP ? ' — ' + nP + ' em aberto' + (nA ? ' · ' + nA + ' atrasado' + (nA > 1 ? 's' : '') : '') : '') + '\nClique: vai pra aba do PF já em Meus pedidos'; } } catch (e) { }
@@ -2892,8 +2894,14 @@
     MPPOP.style.left = (r.right + 10) + 'px'; MPPOP.style.top = Math.max(8, Math.min(window.innerHeight - MPPOP.offsetHeight - 8, r.top - 10)) + 'px';
   }
   function mpPopFechar(ms) { clearTimeout(mpTmr); mpTmr = setTimeout(function () { if (MPPOP) MPPOP.style.display = 'none'; }, ms || 0); }
-  document.addEventListener('mouseover', function (e) { var el = e.target && e.target.closest && e.target.closest('.pfwa-mpr'); if (!el) return; var x = MP.find(function (y) { return y.id === el.getAttribute('data-mp'); }); if (x) mpPop(x, el); }, true);
-  document.addEventListener('mouseout', function (e) { var el = e.target && e.target.closest && e.target.closest('.pfwa-mpr'); if (el && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('#pfwa-mppop,.pfwa-mpr'))) mpPopFechar(350); }, true);
+  // 7.2 - A pedido do Vitor ("esse card dá pra abrir se o mouse ficar uns 2 segundos em cima"): o cartão do anel só abre com o mouse PARADO 2 s em cima
+  // (MP_HOVER_MS); passar o mouse de passagem não abre. Com um cartão já aberto, ir pra outro anel troca na hora.
+  var MP_HOVER_MS = 2000, mpHovTmr = null, mpHovEl = null;
+  document.addEventListener('mouseover', function (e) { var el = e.target && e.target.closest && e.target.closest('.pfwa-mpr'); if (!el) return; if (el === mpHovEl) return; mpHovEl = el; clearTimeout(mpHovTmr);
+    var abre = function () { var x = MP.find(function (y) { return y.id === el.getAttribute('data-mp'); }); if (x && mpHovEl === el) mpPop(x, el); };
+    if (MPPOP && MPPOP.style.display === 'block') { clearTimeout(mpTmr); abre(); } else mpHovTmr = setTimeout(abre, MP_HOVER_MS); }, true);
+  document.addEventListener('mouseout', function (e) { var el = e.target && e.target.closest && e.target.closest('.pfwa-mpr'); if (el && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.pfwa-mpr') === el)) { clearTimeout(mpHovTmr); mpHovEl = null; }
+    if (el && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('#pfwa-mppop,.pfwa-mpr'))) mpPopFechar(350); }, true);
   async function mpAbrirConversa(x) { if (!x) return false; var nm = x.wa || ''; if (nm) { await flAbrir(nm, x.waId || ''); return true; } if (x.nome) { await flAbrir(x.nome, ''); return true; } return false; }
   async function mpAcao(ac, id) {
     var x = MP.find(function (y) { return y.id === id; }); if (!x) return; mpPopFechar(0);
@@ -2959,6 +2967,9 @@
     var rail = [['vendas', '📄', 'Cotações'], ['kanban', '🗂️', 'Quadro de vendas'], ['mesa', '🛒', 'Mesa do comprador'], ['home', '🏠', 'Início do PF'], ['ext', '🧩', 'PartsFlow no WhatsApp']];
     // 6.4 - A pedido do Vitor ("algum lugar que leve direto pra tela de meus pedidos" → opção A): botão 📦 laranja em 1º, com o nº de pedidos em aberto
     RAIL.innerHTML = '<span class="pfwa-railped" data-acao="irTela" data-arg="meuspv" title="📦 Meus pedidos — abre o PF já nessa tela">📦<b class="pfwa-railn"></b></span>' +
+      // 7.2 - A pedido do Vitor ("faz um para o meu dia também" + "no caso do comprador ou outro usuário, ir para a mesa dele"): botão amarelo logo embaixo do 📦 →
+      // abre a MESA de quem está logado no PF (vendedor ☀️ Meu dia, comprador 🛒 Mesa do comprador, outros 📥 Minha mesa). Ícone/nome vêm do PF no meusPedidos (r.mesa).
+      '<span class="pfwa-raildia" data-acao="irTela" data-arg="minhamesa" title="☀️ Meu dia — abre o PF já nessa tela">☀️</span>' +
       rail.map(function (r) { return '<span data-acao="irTela" data-arg="' + r[0] + '" title="' + r[2] + '">' + r[1] + '</span>'; }).join('') + '<div class="pfwa-mpw"></div>';
     mpPintar();
     badgesRender(); aplicarFiltro();

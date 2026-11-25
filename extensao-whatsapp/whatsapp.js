@@ -582,7 +582,11 @@
   var ICO_SVG = { cot: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>', curta: '<path d="M3 12V4h8l9 9-8 8z"/><circle cx="7.5" cy="8" r="1.3"/>', avise: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>', saldo: '<path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/>', ficha: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>', audio: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>', lemb: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M5 3 2 6M19 3l3 3"/>', prontas: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>', assist: '<rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9 17h6"/>', pdf: '<path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/>' };
   var ICO_ESTILOS = [['azul', 'Azuis do PF'], ['traco', 'Traço (WhatsApp)'], ['cor', 'Coloridos do PF'], ['emoji', 'Emoji (antigo)']];
   try { chrome.storage.local.get(['icoEst', 'icoTroca'], function (x) { if (x && x.icoEst) ICO_EST = x.icoEst; if (x && x.icoTroca) ICO_TROCA = x.icoTroca; try { posicionar(); } catch (e) { } }); } catch (e) { }
-  function icoHtml(k, emo, est) { est = est || ICO_EST; if (est === 'emoji' || !ICO_SVG[k]) return emo;
+  // 7.1 - A pedido do Vitor ("vamos deixar os mesmos ícones do PF, qnd colocar alguma função aqui na extensão"): o menu do botão direito
+  // também usa os ícones do PF (o do card quando o PF tem — Leitor de Peças, Me Avise, Componentes Cardan… — senão o do banco do PF no estilo escolhido).
+  var ICO_PNG = ['cot', 'curta', 'avise', 'saldo', 'ficha', 'audio', 'lemb', 'prontas', 'assist', 'pdf', 'mc', 'pc', 'leitor', 'nota', 'mat', 'mapa', 'plaq', 'min', 'pend', 'ped', 'ok', 'nunca', 'pf'];
+  function icoHtml(k, emo, est) { est = est || ICO_EST; if (est === 'emoji' || (!ICO_SVG[k] && ICO_PNG.indexOf(k) < 0 && !ICO_TROCA[k])) return emo;
+    if (est === 'traco' && !ICO_SVG[k]) est = 'azul';
     if (est === 'traco') return '<svg class="pfwa-ico" viewBox="0 0 24 24">' + ICO_SVG[k] + '</svg>';
     var src = ICO_TROCA[k] || chrome.runtime.getURL('icones/' + est + '-' + k + '.png'); return '<img class="pfwa-icoimg" src="' + src + '" alt="">'; }
   async function icoPuxar() { try { var r = await msg({ t: 'acao', acao: 'extIcones' }); if (r && r.por && typeof r.por === 'object') { var j = JSON.stringify(r.por); if (j !== JSON.stringify(ICO_TROCA)) { ICO_TROCA = r.por; chrome.storage.local.set({ icoTroca: ICO_TROCA }); try { posicionar(); } catch (e) { } if (config) pinta(); } } } catch (e) { } }
@@ -4307,6 +4311,13 @@
       var lista = it.parentElement; if (!lista || lista.querySelector('.pfwa-wm')) return; wmPor(lista, it);
     }, n ? 60 : 30);
   }
+  var WM_ICO = { msg_cotar: 'cot', img_ia: 'cot', doc_ia: 'cot', img_iamin: 'min', doc_iamin: 'min', img_plaq: 'plaq', msg_mc: 'mc', msg_pc: 'pc', img_pc: 'pc', doc_pc: 'pc',
+    msg_leitor: 'leitor', msg_qk: 'curta', msg_avise: 'avise', msg_nota: 'nota', msg_lemb: 'lemb', cv_mat: 'mat', msg_rr: 'prontas', msg_mapa: 'mapa',
+    __sub: 'pf', cv_pend: 'pend', cv_pendok: 'ok', cv_ped: 'ped', cv_pedok: 'ok', cv_ficha: 'ficha', cv_nunca: 'nunca' }; // 7.1
+  function wmItemHtml(x) { var k = WM_ICO[x[0]], t = esc(String(x[1]).replace(/ \(PF\)$/, ''));
+    if (!k || ICO_EST === 'emoji') return t;
+    t = t.replace(/^[^A-Za-z0-9À-ÿ"“]+\s*/, '');
+    return '<span style="display:inline-flex;align-items:center;gap:10px"><span class="pfwa-wmico">' + icoHtml(k, '', ICO_EST) + '</span>' + t + '</span>'; }
   function wmPor(lista, modelo, fixos) {
     var itens = [];
     if (fixos) itens = fixos; else { // 4.91 - menu da conversa (lista) manda os itens prontos
@@ -4344,7 +4355,7 @@
     itens.forEach(function (x) {
       var li = modelo.cloneNode(true); li.classList.add('pfwa-wm'); li.removeAttribute('aria-label'); li.removeAttribute('data-testid');
       li.innerHTML = ''; li.style.cssText = (li.style.cssText || '') + ';display:flex;align-items:center;cursor:pointer';
-      var sp = document.createElement('span'); sp.textContent = x[1]; sp.style.cssText = 'padding:9px 16px;font-size:14.5px;white-space:nowrap;display:block;width:100%';
+      var sp = document.createElement('span'); if (WM_ICO[x[0]] && ICO_EST !== 'emoji') sp.innerHTML = wmItemHtml(x); else sp.textContent = x[1]; sp.style.cssText = 'padding:9px 16px;font-size:14.5px;white-space:nowrap;display:block;width:100%';
       li.appendChild(sp);
       li.addEventListener('mouseenter', function () { li.style.background = 'rgba(127,127,127,.12)'; });
       li.addEventListener('mouseleave', function () { li.style.background = ''; });
@@ -4379,7 +4390,7 @@
     if (!bg || bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') bg = document.documentElement.classList.contains('dark') ? '#233138' : '#fff';
     WS.style.background = bg; WS.style.color = cor; WS.innerHTML = '';
     its.forEach(function (x) {
-      var d = document.createElement('div'); d.textContent = String(x[1]).replace(/ \(PF\)$/, ''); d.style.cssText = 'padding:9px 16px;font-size:14.5px;white-space:nowrap;cursor:pointer';
+      var d = document.createElement('div'); d.innerHTML = wmItemHtml(x); d.style.cssText = 'padding:9px 16px;font-size:14.5px;white-space:nowrap;cursor:pointer';
       d.addEventListener('mouseenter', function () { d.style.background = 'rgba(127,127,127,.14)'; });
       d.addEventListener('mouseleave', function () { d.style.background = ''; });
       d.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); wmSubFechar();

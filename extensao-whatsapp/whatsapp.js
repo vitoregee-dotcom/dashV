@@ -1091,6 +1091,11 @@
   }
   // 4.89 - A pedido do Vitor ("o código estava errado. Selecionei, mas abriu a cotação com a errada"): o "🔍 seria:" escolhido vai pro PF no lugar do código
   // que o cliente digitou (o dele fica como código do cliente).
+  // 8.0 - A pedido do Vitor ("e se colocar algo para marcar, para cotar todas as fichas que tiver?"): caixinha "Cotar todas as marcas" — a cotação no PF
+  // já vem com TODAS as fichas (marcas) de cada código pedido, uma linha por marca. Fica guardada neste navegador.
+  var TODAS = false; try { chrome.storage.local.get('todasFichas', function (o) { TODAS = !!(o && o.todasFichas); }); } catch (e) { }
+  function todasHtml() { return '<label class="pfwa-todas" title="A cotação no PF já vem com todas as marcas que tiver de cada código (uma linha por marca)"><input type="checkbox" data-pftodas' + (TODAS ? ' checked' : '') + '> Cotar <b>todas as marcas</b> de cada código</label>'; }
+  document.addEventListener('change', function (e) { var t = e.target; if (t && t.hasAttribute && t.hasAttribute('data-pftodas')) { TODAS = !!t.checked; try { chrome.storage.local.set({ todasFichas: TODAS }); } catch (er) { } document.querySelectorAll('input[data-pftodas]').forEach(function (x) { x.checked = TODAS; }); } }, true);
   function itensPF(lista) {
     return (lista || []).filter(function (o) { return o.cod; }).map(function (o) {
       var x = o.perg ? (o.parecidos || []).filter(function (y) { return y.cod === o.perg; })[0] : null;
@@ -1100,7 +1105,7 @@
   }
   function abrirCot(pdf, min) {
     if (!cot) return;
-    msg({ t: 'acao', acao: 'abrirCot', focar: !min, arg: { minimizar: !!min, k: resp && resp.k, pessoa: pessoaComprador(), pdf: !!pdf, itens: itensPF(cot.itens) } });
+    msg({ t: 'acao', acao: 'abrirCot', focar: !min, arg: { minimizar: !!min, k: resp && resp.k, pessoa: pessoaComprador(), pdf: !!pdf, todas: TODAS, itens: itensPF(cot.itens) } });
     if (min) cmToast('✔ Cotação criada no PF (minimizada)');
   }
   async function buscarSaldo(cod) { cod = String(cod || '').trim(); if (!cod) return; saldoR = { cod: cod, carregando: 1 }; pintaCorpo(); var r = await msg({ t: 'acao', acao: 'saldo', arg: cod }); saldoR = r && !r.erro ? r : { cod: cod, erro: 1 }; pintaCorpo(); }
@@ -1196,6 +1201,7 @@
     h += '</table><div class="pfwa-tot"><span>Total (com saldo)</span><span>' + reais(cot.total) + '</span></div>';
     if (CFG.sug !== false) h += juntoHtml(); // 4.20 - 💡 quem leva isso também leva
     h += '<div class="pfwa-bt" style="margin-top:10px">💬 Resposta (dá pra mexer antes)</div><textarea class="pfwa-resp">' + esc(cot.resposta) + '</textarea>';
+    h += todasHtml();
     h += '<div class="pfwa-bots"><button data-acao="escrever" class="pfwa-verde">💬 Pôr na conversa</button><button data-acao="abrirCot">📄 Abrir a cotação no PF</button><button data-acao="abrirCotMin" title="Cria a cotação no PF e deixa ela minimizada lá (não troca de tela)">⬇ Criar minimizada</button><button data-acao="pdf" class="pfwa-laranja">📤 PDF</button></div>';
     if (mqSemSaldo(cot.itens).length) h += '<div class="pfwa-bots"><button data-acao="mapaAbrir" class="pfwa-laranja" title="Cria o mapa de compras no PF e manda pros fornecedores (6.3)">🗂️ Mandar pro mapa (' + mqSemSaldo(cot.itens).length + ' sem saldo)</button></div>';
     h += '<div class="pfwa-nada" style="margin-top:6px">"Pôr na conversa" escreve na caixa do WhatsApp — você confere e aperta Enter. O PDF abre a cotação no PF e baixa o arquivo pra anexar.</div>';
@@ -3262,6 +3268,7 @@
       return '<div><i style="background:' + cor + '"></i><b>' + esc(o.cod) + '</b> × ' + (o.qtd || 1) + '<small>' + (o.marcaPed && !o.marcaOk ? mk : esc(mk)) + ' · ' + esc(st) + '</small></div>';
     }).join('') + '</div>';
     var feito = !!spFeitos[s._h];
+    h += '<div class="sp-b">' + todasHtml() + '</div>';
     h += '<div class="sp-b"><button data-sp="criar">' + (feito ? '📄 Criar de novo no PF' : '📄 Criar cotação no PF') + '</button><button data-sp="min" class="sp-min" title="Cria a cotação no PF e deixa ela minimizada lá (não troca de tela)">⬇ Criar minimizada</button><span class="sp-lk" data-sp="painel">ver no painel ›</span></div>' +
       (feito ? '<div class="sp-ok">✓ Você já criou a cotação desta mensagem.</div>' : '') + (mqSemSaldo(its).length ? '<div class="sp-b"><button data-sp="mapa" class="sp-mapa">🗂️ Mandar pro mapa (' + mqSemSaldo(its).length + ' sem saldo)</button></div>' : '');
     SP.innerHTML = h; spPos();
@@ -3274,7 +3281,7 @@
     if (a === 'mapa') { var rm = spR; spFechar(); mqAbrir(rm); return; } // 6.3
     if (a === 'criar' || a === 'min') {
       var s = spMsg, r = spR; if (!s || !r) return; var _min = a === 'min'; // 4.83 - criar minimizada (não traz o PF pra frente)
-      msg({ t: 'acao', acao: 'abrirCot', focar: !_min, arg: { minimizar: _min, k: resp && resp.k, pessoa: pessoaComprador(), itens: itensPF(r.itens) } });
+      msg({ t: 'acao', acao: 'abrirCot', focar: !_min, arg: { minimizar: _min, k: resp && resp.k, pessoa: pessoaComprador(), todas: TODAS, itens: itensPF(r.itens) } });
       spFeitos[s._h] = Date.now(); try { sessionStorage.setItem('pfwa_sp_feitos', JSON.stringify(spFeitos)); } catch (er) { }
       s._f = null; spFechar(); selosVigiar(); if (_min) cmToast('✔ Cotação criada no PF (minimizada)');
     }
@@ -4261,6 +4268,18 @@
       await msg({ t: 'acao', acao: 'respForn', focar: true, arg: { mapa: pr[0], fid: pr[1], texto: texto, imgs: ims } });
       cmToast('✔ Abri no PF — confira e lance'); return;
     }
+    // 8.0 - A pedido do Vitor ("opção de ler como pedido de compra… puxa os itens numa cotação nova ou pra atualizar outra, campo do nº do pedido de compra,
+    // e se tiver cotação em aberto, avisar os itens com preço diferente"): manda a foto/PDF pro PF, que lê e abre a conferência do pedido.
+    if (id === 'img_ped' || id === 'doc_ped') {
+      var dP = null;
+      if (id === 'doc_ped') { if (!motorOk) await motorChecar(); if (!motorOk) { cmToast('Pra ler o PDF daqui o ⚙️ motor precisa estar ligado (recarregue o WhatsApp, F5).'); return; }
+        cmToast('🧾 Pegando o PDF…'); var mdP = await motor('midia', { nome: src || '' }, 60000); if (!mdP || mdP.erro || !mdP.data) { cmToast('Não consegui baixar o PDF' + (mdP && mdP.erro ? ' (' + mdP.erro + ')' : '')); return; } dP = { img: mdP.data, nome: mdP.nome, mime: mdP.mime }; }
+      else { if (!src) { var imQ = A.b && A.b.querySelector('img'); src = imQ ? imQ.getAttribute('src') : ''; } if (!src) { cmToast('Clique com o botão direito em cima da foto'); return; }
+        var duQ = await fotoDados(A.b, src); if (!duQ) { cmToast('Não consegui pegar a foto — abra a foto no WhatsApp e tente de novo'); return; } dP = { img: duQ }; }
+      dP.k = resp && resp.k; dP.contato = resp && resp.contato; dP.pessoa = pessoaComprador();
+      var rP = await msg({ t: 'acao', acao: 'pedLer', focar: true, arg: dP });
+      cmToast(rP && rP.ok ? '🧾 Abri no PF — lendo o pedido de compra' : naoDeu()); return;
+    }
     var _iaMin = false; if (id === 'doc_iamin' || id === 'img_iamin') { _iaMin = true; id = id.replace('min', ''); } // 5.6 - A pedido do Vitor ("opção de criar minimizado tbm. às vezes atrapalha já abrir direto na tela")
     if (id === 'doc_ia') {
       if (!motorOk) await motorChecar();
@@ -4383,7 +4402,7 @@
       var lista = it.parentElement; if (!lista || lista.querySelector('.pfwa-wm')) return; wmPor(lista, it);
     }, n ? 60 : 30);
   }
-  var WM_ICO = { msg_cotar: 'cot', img_ia: 'cot', doc_ia: 'cot', img_iamin: 'min', doc_iamin: 'min', img_plaq: 'plaq', msg_mc: 'mc', msg_pc: 'pc', img_pc: 'pc', doc_pc: 'pc',
+  var WM_ICO = { msg_cotar: 'cot', img_ia: 'cot', doc_ia: 'cot', img_iamin: 'min', doc_iamin: 'min', img_ped: 'ped', doc_ped: 'ped', img_plaq: 'plaq', msg_mc: 'mc', msg_pc: 'pc', img_pc: 'pc', doc_pc: 'pc',
     msg_leitor: 'leitor', msg_qk: 'curta', msg_avise: 'avise', msg_nota: 'nota', msg_lemb: 'lemb', cv_mat: 'mat', msg_rr: 'prontas', msg_mapa: 'mapa',
     __sub: 'pf', cv_pend: 'pend', cv_pendok: 'ok', cv_ped: 'ped', cv_pedok: 'ok', cv_ficha: 'ficha', cv_nunca: 'nunca' }; // 7.1
   function wmItemHtml(x) { var k = WM_ICO[x[0]], t = esc(String(x[1]).replace(/ \(PF\)$/, ''));
@@ -4399,10 +4418,12 @@
     var imgSrc = '';
     try { imgSrc = fotoMelhor((cmAlvo || {}).b); } catch (e) { }
     if (imgSrc) itens.push(['img_iamin', '⬇ Ler a foto e criar a cotação minimizada (PF)', imgSrc]); // 5.6
+    if (imgSrc) itens.push(['img_ped', '🧾 Ler como pedido de compra (PF)', imgSrc]); // 8.0
     if (imgSrc) itens.push(['img_plaq', '🏷️ Mandar a plaqueta pra Máquinas (PF)', imgSrc]); // 4.91
     // 4.74 - A pedido do Vitor ("não consegui mandar o PDF pra já ler e fazer a cotação no PF"): mensagem com PDF = ler o PDF com IA e cotar
     var docNome = '';
     try { var tb = String((cmAlvo && cmAlvo.b && cmAlvo.b.innerText) || ''), md = tb.match(/([^\n]+?\.pdf)\b/i); if (md) docNome = md[1].trim(); else if (/\bPDF\b\s*[•·]/.test(tb)) docNome = '?'; } catch (e) { }
+    if (docNome) itens.push(['doc_ped', '🧾 Ler como pedido de compra (PF)', docNome === '?' ? '' : docNome]); // 8.0
     if (docNome) itens.push(['doc_iamin', '⬇ Ler o PDF e criar a cotação minimizada (PF)', docNome === '?' ? '' : docNome]); // 5.6
     // 7.9 - A pedido do Vitor ("esse cotar no pf faz exatamente o que?" → "pode ser"): mensagem com foto/PDF = o próprio 📄 Cotar no PF lê o arquivo com IA
     // (o item separado "Ler a foto/PDF com IA e cotar" saiu); só texto = lê os códigos sem IA, como antes.

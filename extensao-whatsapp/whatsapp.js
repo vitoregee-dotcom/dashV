@@ -1380,7 +1380,9 @@
     // é um <embed>/<iframe>/<object>, não img/vídeo/canvas. Agora também conta esses, grandes e fora da conversa e da lista.
     var md = document.querySelectorAll('img,video,canvas,embed,iframe,object');
     for (var j = 0; j < md.length; j++) {
-      var m = md[j]; if (m.closest(MEUS) || m.closest('#main') || m.closest('#pane-side')) continue;
+      var m = md[j]; if (m.closest(MEUS) || m.closest('#pane-side')) continue;
+      // 8.9 - BUG (Vitor: foto aberta e os botões do PF por cima): o visualizador novo do WhatsApp abre a foto DENTRO do #main — vale foto grande que não está num balão de mensagem
+      if (m.closest('#main')) { if (m.closest('[data-pre-plain-text],[data-id],[role="row"],.message-in,.message-out,footer,header')) continue; var w0 = m.getBoundingClientRect(); if (!(w0.width > vw * 0.35 && w0.height > vh * 0.5)) continue; }
       var w = m.getBoundingClientRect(); if (w.width > vw * 0.3 && w.height > vh * 0.4 && w.bottom > 0 && w.top < vh) { var st = getComputedStyle(m); if (st.visibility !== 'hidden' && st.opacity !== '0' && st.display !== 'none') return true; }
     }
     return false;
@@ -2162,8 +2164,8 @@
     if (!main || !contatoAt) { B.style.display = 'none'; if (AV) AV.style.display = 'none'; if (OF) OF.style.display = 'none'; if (JA) JA.style.display = 'none'; if (VF) VF.style.display = 'none'; if (PE) PE.style.display = 'none'; return; }
     var r = main.getBoundingClientRect(), foot = main.querySelector('footer'), fh = foot ? foot.getBoundingClientRect().height : 62, hd = main.querySelector('header'), hh = hd ? hd.getBoundingClientRect().height : 60;
     B.className = (visual === 'D' ? 'pfwa-barra' : 'pfwa-coluna') + (botsMin ? ' pfwa-min' : ''); B.style.display = CFG.bots ? 'flex' : 'none';
-    if (botsMin) { B.innerHTML = '<span data-acao="botsToggle" class="pri pfwa-botspf" title="Mostrar os bot\u00f5es do PF">' + logoSvg('#fff', '#0F1F35', 42) + '</span>'; }
-    else { var tog = '<span data-acao="botsToggle" class="pfwa-botsx" title="Esconder os bot\u00f5es do PF">' + (visual === 'D' ? '\u2039' : '\u2013') + '</span>'; B.innerHTML = tog + BOTOES.map(function (b, i) { var off = b[0] === 'audio' && CFG.audio === false; var tt = b[0] === 'audio' ? ('Descrever áudios: ' + (off ? 'DESLIGADO — clique pra ligar' : 'ligado — clique pra desligar')) : b[2]; return '<span data-acao="b-' + b[0] + '" class="' + (i === 0 ? 'pri' : '') + (off ? ' pfwa-boff' : '') + '" title="' + tt + (b[0] === 'cot' ? '' : ' · botão direito: trocar o ícone') + '">' + (visual === 'D' ? b[1] + ' ' + b[2] : icoHtml(b[0], b[1])) + '</span>'; }).join(''); }
+    if (botsMin) { B.innerHTML = '<span data-acao="botsToggle" class="pri pfwa-botspf" title="Mostrar os bot\u00f5es do PF">' + logoSvg('#fff', '#0F1F35', 30) + '</span>'; }
+    else { var tog = '<span data-acao="botsToggle" class="pfwa-botsx" title="Esconder os bot\u00f5es do PF">' + (visual === 'D' ? '\u2039' : '\u25B4') + '</span>'; B.innerHTML = tog + BOTOES.map(function (b, i) { var off = b[0] === 'audio' && CFG.audio === false; var tt = b[0] === 'audio' ? ('Descrever áudios: ' + (off ? 'DESLIGADO — clique pra ligar' : 'ligado — clique pra desligar')) : b[2]; return '<span data-acao="b-' + b[0] + '" class="' + (i === 0 ? 'pri' : '') + (off ? ' pfwa-boff' : '') + '" title="' + tt + (b[0] === 'cot' ? '' : ' · botão direito: trocar o ícone') + '">' + (visual === 'D' ? b[1] + ' ' + b[2] : icoHtml(b[0], b[1])) + '</span>'; }).join(''); }
     marcaCot();
     // 3.5 - A pedido do Vitor ("esse PF aí, desbloqueia pra eu poder colocar ele pra cima ou pra baixo"): arrastar a coluna/barra (ou o PF minimizado)
     // muda a altura; guardada por navegador (chrome.storage.local botsDy) e presa dentro da conversa.

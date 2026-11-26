@@ -3403,3 +3403,7 @@
 - v115.2945 + extensão **8.1** BUG (foto de caderno no WhatsApp → 📝 Mandar pro Leitor: veio "5-153X / 5131 / 81300…" tudo "manuscrito borrado", códigos que nem estão na foto): 1) sem o ⚙️ motor a extensão
   manda a MINIATURA da conversa e a IA inventa — agora mede a foto e, com menos de 800 px, avisa (liga o motor ou manda o print pelo 📋 Colar print do Leitor). 2) pedido à IA do Leitor ganhou
   `PF_LP_MANUSCRITO_PROMPT`: lista à mão "CODIGO-QTD" (último "-N" = quantidade, ponto vira traço: 2.40.1521-2 = 2-40-1521 ×2, R.1006-6 = R-1006 ×6, lê as 2 colunas).
+- v115.2946 + extensão **8.2** BUG (foto do caderno no Leitor de novo: "olha o que o leitor entendeu" — 2-40-1521 certo e o resto inventado: 3-31-1021, W001041, 96-133…): 1) os exemplos do
+  `PF_LP_MANUSCRITO_PROMPT` eram os códigos DESTA foto (a IA copiava 2 deles e inventava o resto) → exemplos neutros + "PROIBIDO INVENTAR" (dígito ilegível = "?", foto borrada = "IMAGEM ILEGIVEL").
+  **Exemplo em pedido à IA: nunca usar dados reais do caso que está sendo testado.** 2) extensão: `fotoDados` com a foto pequena (< 1000 px, sem motor) abre o visualizador do próprio WhatsApp
+  (clica na foto), pega a imagem GRANDE (`fotoDoVisualizador`: maior blob fora da conversa/lista) e fecha com Esc (`fotoGrandeVisualizador`); botão direito com o visualizador aberto usa a foto dele. Vale pra tudo que lê foto.

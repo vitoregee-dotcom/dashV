@@ -3462,3 +3462,7 @@
 - v115.2961 + extensão **8.8** ("aqui por via de regra já tem que cotar todas. Mas não vai ter campo pra eu falar pra cotar só alguma?"): a caixinha "Cotar todas as marcas" do selo 📄 e do
   painel Cotação vem MARCADA (`TODAS` padrão true; desmarcar continua guardado no navegador). Sem o cliente ter falado "só X", aparece o link "🏷️ Cotar só uma marca…" → campo (`data-pfsomtx`, Enter/OK →
   `soMarcaDigitada`) → acao `cotar` com `soMarcaTxt` → `pfExtCotar` resolve pelo `pfSoMarcaResolver` (vírgula, "/", "e", "ou" = várias; "fleet" = FLEETGUARD) e liga o mesmo "só essa marca" da 8.5.
+- v115.2962 + extensão **8.9** (prints do WhatsApp: "abri a imagem e esses ícones ficaram aqui por cima" + "não dá para minimizar esse menu mais?" + faixa amarela "O PF achou um pedido de cotação" → "quero um detalhe pequeno igual estava antes"):
+  1) o visualizador novo do WhatsApp abre a foto DENTRO do `#main` e o `telaPorCima` pulava tudo do #main → agora foto/vídeo/canvas grande (> 35% da largura e 50% da altura) no #main que NÃO está num balão
+  (`[data-pre-plain-text]`/`[data-id]`/`role=row`) conta como coberto. 2) botão de esconder a coluna (`.pfwa-botsx`) azul e visível (▴) e minimizado = logo de 30 px. 3) a faixa amarela não existe desde a 3.3 (virou a
+  bolinha laranja no 📄) — os prints eram de uma extensão ANTIGA ainda instalada (6 botões, sem ▴): remover as cópias antigas em chrome://extensions e carregar a 8.9.

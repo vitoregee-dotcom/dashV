@@ -261,7 +261,7 @@
     var out = [], els = document.querySelectorAll('#main [data-pre-plain-text]');
     els.forEach(function (el) {
       var tx = el.querySelector('.selectable-text'); var t = (tx ? tx.innerText : el.innerText) || '';
-      out.push({ t: t.trim(), eu: minhaEl(el) }); // 4.43
+      out.push({ t: t.trim(), eu: minhaEl(el), q: msgQuando(el) }); // 4.43 · 8.7 - q = quando (pra não pegar mensagem de outro dia)
     });
     if (!out.length) { // jeito antigo / reserva
       document.querySelectorAll('#main .message-in, #main .message-out').forEach(function (el) { var tx = el.querySelector('.selectable-text'); out.push({ t: ((tx ? tx.innerText : '') || '').trim(), eu: el.classList.contains('message-out') }); });
@@ -2418,6 +2418,7 @@
     var temCod = /\b[a-z]{0,4}\d+[a-z]*[-./]\d+\w*|\b[a-z]{0,3}\d{4,}\w*|\b[a-z]{1,4}-\d{3,}\w*/.test(n);
     return temQtd && temCod;
   }
+  function peEhPedidoOrc(t) { var n = peNorm(t); return /\borcamento\b|\bcot(a|ar|acao|e)\b|\bpreco\b|\bvalor\b|\bquanto\b|\?/.test(n) && !pePedidoDireto(t) && !peConfirmaFalado(t); }
   function peCaraDePedido(t) {
     if (pePedidoDireto(t)) return true;
     var n = peNorm(t); if (!/\bped[i1]d[oop]?s?\b|\bpedid\w?\b/.test(n)) return false;
@@ -2432,7 +2433,10 @@
     // 4.79 - A pedido do Vitor ("não tinha que ir pro meu dia?" — cliente "Despachar hoje ok", você "Claro. mando sim", depois "Ótimo dia" + 🙏): olhava só a
     // ÚLTIMA mensagem sua e as 4 últimas da conversa. Agora: as suas 4 últimas do fim da conversa e as 4 últimas do cliente nas 12 últimas mensagens.
     if (cfg.deMim) { var nm = 0; for (var a = ms.length - 1; a >= 0 && a >= ms.length - 12 && nm < 4; a--) { if (!ms[a].eu) { if (nm) break; continue; } nm++; var ta = peNorm(ms[a].t); if ((peReMim && peReMim.test(ta)) || pePromessa(ta)) { origem = 'mim'; gat = ms[a].t; break; } } }
-    if (!origem && cfg.doCliente) { var nc = 0; for (var i = ms.length - 1; i >= 0 && i >= ms.length - 12 && nc < 4; i--) { if (ms[i].eu) continue; nc++; if ((peReCli && peReCli.test(peNorm(ms[i].t))) || peCaraDePedido(ms[i].t) || peConfirmaFalado(ms[i].t)) { origem = 'cliente'; gat = ms[i].t; break; } } }
+    // 8.7 - BUG (Vitor: "pq entendeu como pedido?" — "pode me passar um orçamento de 17 peças…" virou 📦 emitir): o gatilho era uma mensagem ANTIGA dela ("pode fechar
+    // o pedido", de outro dia). Agora só valem mensagens do cliente de HOJE e a procura para quando acha um pedido de orçamento/preço mais novo (o assunto mudou).
+    var hoje0 = new Date(); hoje0.setHours(0, 0, 0, 0);
+    if (!origem && cfg.doCliente) { var nc = 0; for (var i = ms.length - 1; i >= 0 && i >= ms.length - 12 && nc < 4; i--) { if (ms[i].eu) continue; if (ms[i].q && ms[i].q < hoje0.getTime()) break; nc++; if (peEhPedidoOrc(ms[i].t)) break; if ((peReCli && peReCli.test(peNorm(ms[i].t))) || peCaraDePedido(ms[i].t) || peConfirmaFalado(ms[i].t)) { origem = 'cliente'; gat = ms[i].t; break; } } }
     if (!origem && cfg.doCliente) { var _pd = peDocPedidoCli(); if (_pd) { origem = 'cliente'; gat = '📎 ' + _pd; } } // 4.88 - PDF de pedido = pedido a emitir
     // 4.77 - A pedido do Vitor ("algo mais automático"): promessa de MANDAR algo ("já te mando", "te envio a tabela", "te mando na quarta") ou o cliente
     // pedindo material ("me manda a tabela/foto/catálogo") vira 📨 lembrete de mandar (fecha sozinho quando você manda o arquivo/cotação/link). Só o que fala

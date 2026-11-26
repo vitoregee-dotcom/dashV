@@ -3453,3 +3453,6 @@
   `pfPedEmProblemas` (preço do pedido ≠ nosso, sem saldo, não está no PF, à vista, sem entrega = vermelho). Cada cotação ganhou "📦 Atualizar e emitir o pedido" (`pfPedWaEmitir` → `window._pfPedEmitir`
   → `pfPedWaAtualizar`; no fim do `pfExtAtualizarCot` o `pfPedEmitirPend` põe a condição, chama `pvCriarPedido` e preenche o Confirmar Pedido de Venda). Tudo bate = confirma sozinho (`pvConfirmarCriarPedido`);
   algo não bate = para no Confirmar já preenchido. Preço é sempre o nosso. A comparação pedido × cotação não abre nesse caminho. Ainda NÃO: emitir pela "Criar cotação nova" e o 💬 confirmar recebimento pro cliente.
+- v115.2959 + extensão **8.7** BUG ("pq entendeu como pedido?" — Geisa - Newton Cardans: "pode me passar um orçamento de 17 peças…" virou 📦 emitir às 13:18): o gatilho gravado (`gat`) era uma
+  mensagem ANTIGA dela, "ok garfo importado, pode fechar o pedido" (outro dia, ainda dentro das 12 últimas da tela); o resumo mostra a última mensagem com código. Agora `lerMensagens` guarda a hora (`q`
+  = `msgQuando`) e o `pedidoVigiar` só olha mensagens do cliente de HOJE e para de procurar ao achar um pedido de orçamento/preço mais novo (`peEhPedidoOrc`: orçamento/cota/preço/valor/quanto/"?").

@@ -2070,7 +2070,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2947</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2948</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2232,7 +2232,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2947</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2948</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -79566,9 +79566,20 @@ var PF_PED_JSON_PROMPT='Este arquivo é um PEDIDO DE COMPRA de um cliente pra n�
   'REGRAS: 1) "codigo" é o NOSSO código: se tiver coluna Cod.Forn / Cód. Fornecedor / Seu código / Ref. fornecedor, ou "(Cod.Cliente: X)" na descrição, use esse; o código interno do cliente (ex. coluna "Produto" 0604103655) vai em "codCliente". '+
   '2) Uma entrada por linha do pedido, na MESMA ordem, sem juntar linhas repetidas. 3) Copie código e marca como estão escritos, sem corrigir nem adivinhar. 4) Preço e quantidade como número (vírgula decimal vira ponto, sem separador de milhar). 5) Campo que não existir = "".';
 function pfPedNum(x){if(typeof x==='number')return x;var t=String(x==null?'':x).replace(/[^\d,.\-]/g,'');if(!t)return 0;if(t.indexOf(',')>=0)t=t.replace(/\./g,'').replace(',','.');var n=parseFloat(t);return isFinite(n)?n:0;}
+// v115.2948 - A pedido do Vitor ("ainda leu como ponto" — foto do caderno pelo WhatsApp: veio "2.40.1521-2", "41.667-4", "R.1006-6"): lista à mão CODIGO-QTD.
+// Quando 2+ itens vêm "código com ponto" + "-N", o último "-N" de cada item vira a QUANTIDADE e o ponto vira traço nos códigos de cardan (lpCardanPonto):
+// 2.40.1521-2 = 2-40-1521 ×2, 101040-12 = 101040 ×12, R.1006-6 = R-1006 ×6. Vale pro WhatsApp e pro 🧾 Pedido de compra do cliente (os dois usam o pfPedJsonLer).
+function pfManuscritoArrumar(its){
+  var re=/^(.+?)-(\d{1,2})$/,n=0;
+  its.forEach(function(x){var m=String(x.cod||'').match(re);if(m&&m[1].indexOf('.')>=0)n++;});
+  return its.map(function(x){var c=String(x.cod||'').toUpperCase().replace(/\s+/g,''),m=c.match(re);
+    if(n>=2&&m&&(m[1].indexOf('.')>=0||/^\d{5,6}[A-Z]?$/.test(m[1])||/^[A-Z]{1,3}\d{3,5}[A-Z]{0,2}$/.test(m[1])||/^\d{2}-\d{3}[A-Z]?$/.test(m[1]))){c=m[1];x.qtd=parseInt(m[2],10)||x.qtd||1;}
+    try{c=lpCardanPonto(c);}catch(e){}x.cod=c;return x;});
+}
 function pfPedJsonLer(txt){try{var t=String(txt||'').replace(/```json|```/g,'').trim(),a=t.indexOf('{'),b=t.lastIndexOf('}');if(a<0||b<=a)return null;var o=JSON.parse(t.slice(a,b+1));
     var its=(o.itens||[]).map(function(x){return {cod:String(x.codigo||'').trim().toUpperCase(),codCli:String(x.codCliente||'').trim(),desc:String(x.descricao||'').trim(),qtd:pfPedNum(x.qtd)||1,marca:String(x.marca||'').trim(),preco:pfPedNum(x.preco)};}).filter(function(x){return x.cod;});
     if(!its.length)return null;
+    try{its=pfManuscritoArrumar(its);}catch(e){} /* v115.2948 */
     return {num:String(o.numero||'').replace(/^\s*n[ºo°.]*\s*/i,'').trim(),data:String(o.data||'').trim(),condicao:String(o.condicao||'').trim(),transp:String(o.transportadora||'').trim(),obs:String(o.obs||'').trim(),itens:its};}catch(e){return null;}}
 // texto pro motor do pedido (pfExtCotar): mesmo código repetido vira 1 linha com a quantidade somada (o leitor descarta código repetido)
 function pfPedJsonTexto(P){var ord=[],m={};P.itens.forEach(function(x){var k=pfBuscaAN(x.cod)+'|'+pfBuscaN(x.marca);if(!m[k]){m[k]={cod:x.cod,marca:x.marca,qtd:0};ord.push(m[k]);}m[k].qtd+=x.qtd;});
@@ -79847,7 +79858,7 @@ async function pfExtCotarImg(a){try{a=a||{};if(!a.img)return {erro:'img',msg:'n�
   // v115.2787 - A pedido do Vitor ("aqui não manda pro PF com o preço da Triex?" — PDF da cotação do JBoss mandado na conversa): a IA diz se é cotação
   // DA TRIEX; se for, guarda a leitura e a extensão abre no PF o 📥 Cotação do JBoss (pfExtJbAbrir) com o preço da Triex, em vez de recalcular.
   var _pr='PRIMEIRO veja se o documento é uma COTAÇÃO/ORÇAMENTO emitido pela TRIEX (cabeçalho "TRIEX COM. PECAS E SERV. LTDA", "Cotação de Venda", "Nr. Cotação"). '+
-    'Se FOR, responda na 1ª linha exatamente TRIEX_JBOSS e, a partir da 2ª linha, o JSON pedido abaixo:\n'+PF_JB_PROMPT+'\n\nSe NÃO for cotação da Triex, ignore tudo acima: responda na 1ª linha exatamente PEDIDO_JSON e, a partir da 2ª linha, o JSON abaixo (se for só uma lista de peças, sem nº nem preço, deixe esses campos vazios):\n'+PF_PED_JSON_PROMPT;
+    'Se FOR, responda na 1ª linha exatamente TRIEX_JBOSS e, a partir da 2ª linha, o JSON pedido abaixo:\n'+PF_JB_PROMPT+'\n\nSe NÃO for cotação da Triex, ignore tudo acima: responda na 1ª linha exatamente PEDIDO_JSON e, a partir da 2ª linha, o JSON abaixo (se for só uma lista de peças, sem nº nem preço, deixe esses campos vazios):\n'+PF_PED_JSON_PROMPT+'\n'+PF_LP_MANUSCRITO_PROMPT; /* v115.2948 */
   var texto=await _anthropicReadDoc(f,_pr,'pedido do cliente (WhatsApp)');
   if(/^\s*TRIEX_JBOSS/.test(String(texto||''))){var _m=String(texto).match(/\{[\s\S]*\}/);if(_m){try{var _d=JSON.parse(_m[0].replace(/,\s*([}\]])/g,'$1'));
     window._pfExtJbPend={file:f,k:a.k||null,dados:_d,em:Date.now()};return {jboss:true,num:String(_d.numero||''),n:(_d.itens||[]).length};}catch(e){}}}

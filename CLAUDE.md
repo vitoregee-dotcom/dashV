@@ -3410,3 +3410,6 @@
 - v115.2947 ("como colocar na regra do leitor que quando for componentes de cardan pode trocar . por -"): no Leitor de Peças, `lpCardanPonto` (começo do `lpApplyRuleCase`, vale pra
   IA, planilha e texto) troca ponto por traço no formato de cardan: 2.40.1521 = 2-40-1521, 41.667 = 41-667, 41.093C = 41-093C, R.1006 = R-1006. DANA com ponto (001.05.1037, 730.04.104.01)
   e 6.5-40-191 ficam como estão (1º grupo precisa ter 1–2 números e sem traço). Não precisa de regra salva no Leitor.
+- v115.2948 BUG ("ainda leu como ponto" — foto do caderno pelo 🤖 do WhatsApp veio "2.40.1521-2" com o -2 colado e ponto): a 2947 só valia no Leitor de Peças. `pfManuscritoArrumar`
+  (no `pfPedJsonLer` = WhatsApp e 🧾 Pedido de compra do cliente): com 2+ itens "código com ponto-N", o último "-N" vira a QUANTIDADE (também em 101040-12, R.1006-6, 41-487-2) e o ponto
+  vira traço (`lpCardanPonto`). O pedido à IA do WhatsApp ganhou o `PF_LP_MANUSCRITO_PROMPT`. 2-70-59 / 5-280X normais não mudam.

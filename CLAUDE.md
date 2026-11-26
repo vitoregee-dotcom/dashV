@@ -3407,3 +3407,6 @@
   `PF_LP_MANUSCRITO_PROMPT` eram os códigos DESTA foto (a IA copiava 2 deles e inventava o resto) → exemplos neutros + "PROIBIDO INVENTAR" (dígito ilegível = "?", foto borrada = "IMAGEM ILEGIVEL").
   **Exemplo em pedido à IA: nunca usar dados reais do caso que está sendo testado.** 2) extensão: `fotoDados` com a foto pequena (< 1000 px, sem motor) abre o visualizador do próprio WhatsApp
   (clica na foto), pega a imagem GRANDE (`fotoDoVisualizador`: maior blob fora da conversa/lista) e fecha com Esc (`fotoGrandeVisualizador`); botão direito com o visualizador aberto usa a foto dele. Vale pra tudo que lê foto.
+- v115.2947 ("como colocar na regra do leitor que quando for componentes de cardan pode trocar . por -"): no Leitor de Peças, `lpCardanPonto` (começo do `lpApplyRuleCase`, vale pra
+  IA, planilha e texto) troca ponto por traço no formato de cardan: 2.40.1521 = 2-40-1521, 41.667 = 41-667, 41.093C = 41-093C, R.1006 = R-1006. DANA com ponto (001.05.1037, 730.04.104.01)
+  e 6.5-40-191 ficam como estão (1º grupo precisa ter 1–2 números e sem traço). Não precisa de regra salva no Leitor.

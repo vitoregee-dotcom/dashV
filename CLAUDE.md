@@ -3425,3 +3425,7 @@
   escondido (`pfStGerar`; com a tela do status aberta, espera). Extensão 8.3: seções novas nas ⚙️ Configurações (config.js `SECS` disparo/stauto → `dspDisparoHtml`/`dspStatusHtml` no whatsapp.js, dados pela acao `dispInfo`, ações `dspAcao` →
   dispAgTog/Del/Rodar, stAutoSet/Agora/AgDel; acompanhar/⏹ parar o lote do `chrome.storage.local.lote`); editar/agendar abre no PF (irTela disparo/dispAg/stAuto/status). "Publicar sozinho": ponte/fundo passam `auto` (não puxa a janela) e o
   `postarStatus` aperta o enviar e avisa o PF (acao `stAutoRes` → log). **Botão de enviar do Status no WhatsApp real NÃO testado.**
+- v115.2951 + extensão **8.4**: 1) BUG ("pq não reconheceu os itens para cotar?" — "Luva 41007 / Ponteira 4 53 61"): código Spicer escrito com ESPAÇOS (4 53 61) não era código e 1 código só
+  sem "cota/preço" não virava pedido. Extensão: `juntaCod` (4 53 61 = 4-53-61, 5 515x = 5-515X) antes de contar e nome de peça `PECA_RE` (luva, ponteira, cruzeta, rolamento…) junto do código = pedido
+  (`spContaCods`, `pareceCotacao`, `cruN`). PF: `pfExtLerPedido` junta série Spicer + tipo + número separados por espaço. 2) ("cadê os X de fechar sem abrir"): a lista "Cotações abertas" do ícone Vendas
+  tem ✕ em cada cotação (`pfDockVendasLinhas`/`pfDockFlyoutFecharVendaTab` → `vendasFecharTabUI`: salva antes, sem cliente pergunta; minimizada continua minimizada) e aparece com 1 cotação também.

@@ -2805,7 +2805,8 @@
     var out = [], cur = null, ultT = 0, espIni = 0, soFecho = true, FECHO = /^\s*(ok|okay|blz|beleza|valeu|vlw|obrigad[oa]|obg|brigad[oa]|show|top|tmj|perfeito|certo|combinado|fechado|tá bom|ta bom|👍|🙏|🤝|👏|😉|😊)[\s!.,👍🙏🤝]*$/i;
     ms.forEach(function (m) {
       if (m.eu && autos[String(m.txt || '').trim()]) return; // mensagem automática não conta
-      if (!cur || m.t - ultT > ATD_PAUSA) { if (cur) { cur.aberta = espIni && !soFecho ? espIni : 0; out.push(cur); } cur = { ini: m.t, cli: m.eu ? 0 : 1, resp: 0, fim: m.t, esp: [], nCli: 0, nEu: 0 }; espIni = 0; }
+      if (!cur || m.t - ultT > ATD_PAUSA) { if (cur) { cur.aberta = espIni && !soFecho ? espIni : 0; out.push(cur); } cur = { ini: m.t, cli: m.eu ? 0 : 1, resp: 0, fim: m.t, esp: [], nCli: 0, nEu: 0, arqEu: 0, arqCli: 0, audEu: 0, audCli: 0 }; espIni = 0; }
+      var tp = String(m.tipo || ''); if (/^(image|document|video)$/.test(tp)) { if (m.eu) cur.arqEu++; else cur.arqCli++; } else if (/^(ptt|audio)$/.test(tp)) { if (m.eu) cur.audEu++; else cur.audCli++; } // 9.0 - arquivos e áudios de cada atendimento
       if (!m.eu) { cur.nCli++; if (!espIni) { espIni = m.t; soFecho = true; } if (!FECHO.test(String(m.txt || ''))) soFecho = false; }
       else { cur.nEu++; if (espIni) { if (!cur.resp) cur.resp = m.t; cur.esp.push([espIni, Math.round((m.t - espIni) / 1000)]); espIni = 0; } }
       cur.fim = m.t; ultT = m.t;

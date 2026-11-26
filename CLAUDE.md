@@ -3432,3 +3432,5 @@
 - v115.2952 LENTIDÃO ("coloquei monta com aqui, tá procurando tem um tempo já" — SPL90 selecionado no WhatsApp): no `ccMontaComBuscar` cada código do Monta com que não estava no
   índice chamava `pfInfoItemPorCodigo`, que relia o cadastro inteiro (ccLoad) — com SPL90 milhares de vezes e o PF travava. Agora `_acha` guarda cada código 1x (`_achaMemo`) e usa o
   cadastro já lido (`_ccLoadMemo`); irmãos substitui/similar 1x por grupo (`_irmIdx`); `pfExtMontaCom` lê o cadastro 1x (`pfExtMontaComReal`) e guarda as fichas por código.
+- v115.2953 ("o que quer dizer esse aviso?" — 90-4-11-1 SPICER com "⚠ mesmo nº em CHINA TX — outra peça"): o `pfCodTxSpicer` só reconhecia marca COMEÇANDO com TX; "CHINA TX" (e ALBARUS) agora
+  contam como a mesma linha que usa o número da Spicer — o aviso não aparece mais pra eles. Outros casos (Meritor × LNG) continuam avisando.

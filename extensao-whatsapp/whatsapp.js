@@ -2055,8 +2055,20 @@
     var inps = pan ? waCamposDe(pan) : null;
     if (!inps || !inps.nome) { dizer('📱 Abri o contato no WhatsApp, mas não achei o campo do nome — cole o nome (já copiado).' + waDiag()); return; }
     await dormir(400);
-    var okN = await waEscreverConf(inps.nome, nomeFull);
-    if (inps.sobre) await waEscreverConf(inps.sobre, '');
+    // 8.6 - A pedido do Vitor (print do "Novo contato": Nome "Douglas (9109)" + Sobrenome "Melo" = código no meio; "costumo deixar Vitor Lima - Triex (1226)"):
+    // o sobrenome que o WhatsApp já pôs entra logo depois do nome da pessoa e o campo é dividido assim: Nome = 1ª palavra, Sobrenome = o resto
+    // (com " - Empresa (código)") → o código fica sempre no FIM, mesmo se o WhatsApp juntar Nome + Sobrenome.
+    var sobAnt = inps.sobre ? waValorDe(inps.sobre).trim() : '';
+    if (sobAnt && !/\d/.test(sobAnt)) {
+      var mP = nomeFull.match(/^(.*?)(\s+[-–—]\s+.*|\s*\(\s*\d+\s*\)\s*)?$/), pes = (mP && mP[1] || nomeFull).trim(), resto = (mP && mP[2]) || '';
+      var nn = function (s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase(); };
+      if (pes && nn(pes).indexOf(nn(sobAnt)) < 0) nomeFull = (pes + ' ' + sobAnt + resto).replace(/\s+/g, ' ').trim();
+    }
+    try { navigator.clipboard.writeText(nomeFull); } catch (e) { }
+    var nP = nomeFull, sP = '';
+    if (inps.sobre) { var iSp = nomeFull.indexOf(' '); if (iSp > 0 && !/^\(/.test(nomeFull.slice(iSp + 1).trim())) { nP = nomeFull.slice(0, iSp); sP = nomeFull.slice(iSp + 1).trim(); } }
+    var okN = await waEscreverConf(inps.nome, nP);
+    if (inps.sobre) { var okS = await waEscreverConf(inps.sobre, sP); if (!okS && sP) { await waEscreverConf(inps.sobre, ''); okN = await waEscreverConf(inps.nome, nomeFull); } }
     if (!okN) { dizer('📱 Não consegui escrever o nome no campo do WhatsApp — o nome está copiado: clique no Nome, apague e cole (Ctrl+V), depois ✓.'); return; }
     // 4.8 - A pedido do Vitor ("já deixa a extensão ligada para isso"): liga o "Sincronizar contato no telefone" → vai pra agenda do celular também
     var sinc = waSincLigar(pan);

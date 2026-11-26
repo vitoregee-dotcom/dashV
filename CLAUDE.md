@@ -3442,3 +3442,5 @@
   (`v.regrasCot.so/soOn`). B) chip "🏷️ Só a marca…" na barra dos itens (`vendasSoMarcaBtnHtml` → `vendasSoMarcaAbrir`/`vendasSoMarcaOk`, marcas da cotação clicáveis; ligada = "🏷️ Só X ✕"; itens de outras marcas
   já na lista → pergunta se tira, `pfCotRegrasReaplicar`). Nada vai pro Assistente nem pro cadastro.
 - v115.2955 ("acho melhor tirar. ta meio confuso" — imagem do 💰 Crédito com "Total do pedido"): a imagem (`pfCredCanvas`) e o texto (`pfCredTexto`) do crédito mostram só Crédito / Desconto / Ainda tem (Resta) de crédito — o Total do pedido saiu.
+- v115.2956 + extensão **8.6** (print do "Novo contato" do WhatsApp: Nome "Douglas (9109)" + Sobrenome "Melo" = código no meio; "costumo deixar Vitor Lima - Triex (1226)"): o `waSalvarNome`
+  lê o sobrenome que o WhatsApp já pôs e junta logo depois do nome da pessoa (se ainda não estiver no nome) e divide: Nome = 1ª palavra, Sobrenome = o resto ("Melo - Empresa (9109)") — o código fica sempre no FIM.

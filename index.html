@@ -2070,7 +2070,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2950</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2951</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2232,7 +2232,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2950</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2951</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -48010,6 +48010,27 @@ function pfDockAbrirFlyout(itemEl,titulo,linhas){
 // PRIMEIRO e atualiza o flyout NO LUGAR (innerHTML, sem remover/recriar o
 // elemento enquanto o mouse ainda tá em cima) -- só fecha de vez quando
 // não sobra nenhuma aba.
+// v115.2951 - A pedido do Vitor ("cadê os X de fechar sem abrir se quiser"): ✕ em cada cotação da lista "Cotações abertas" do ícone Vendas.
+// Fecha pelo mesmo caminho do × da aba (salva antes; sem cliente pergunta) e a cotação que está minimizada continua minimizada.
+function pfDockVendasLinhas(){
+  return Object.keys(window._vendasTabs||{}).map(function(id){
+    var t=window._vendasTabs[id];
+    return {texto:pfEscHtml(pfCotTabRot(t).rot),onclick:"pfDockFecharFlyout();pfRestaurarTelaVendaTab('"+id+"')",fechar:"pfDockFlyoutFecharVendaTab('"+id+"')"};
+  });
+}
+function pfDockFlyoutFecharVendaTab(id){
+  var minim=!!window._vendasMinimized;
+  var depois=function(){
+    try{if(minim&&Object.keys(window._vendasTabs||{}).length){window._vendasMinimized=true;if(typeof vendasRenderTabs==='function')vendasRenderTabs();}}catch(e){}
+    try{if(typeof pfRenderTaskbar==='function')pfRenderTaskbar();}catch(e){}
+    var ids=Object.keys(window._vendasTabs||{}),fly=document.getElementById('pfDockFlyout');
+    if(!ids.length){pfDockFecharFlyout();return;}
+    if(fly)fly.innerHTML=pfDockFlyoutConteudoHtml('Cotações abertas',pfDockVendasLinhas());
+  };
+  var antes=Object.keys(window._vendasTabs||{}).length;
+  vendasFecharTabUI(id);
+  var n=0,tm=setInterval(function(){n++;if(Object.keys(window._vendasTabs||{}).length<antes||n>40){clearInterval(tm);depois();}},150);
+}
 function pfDockFlyoutFecharFerrTab(id){
   ferrFecharTab(id);
   var ids=Object.keys(window._ferrTabs||{});
@@ -48120,8 +48141,10 @@ function pfRenderTaskbar(){
       iconElN.style.position='relative';
       iconElN.appendChild(badgeEl);
     }
-    if(m.tabId==='__vendas__'&&n>1){
+    if(m.tabId==='__vendas__'&&n>=1){ /* v115.2951 - A pedido do Vitor ("cadê os X de fechar sem abrir"): cada cotação da lista tem ✕ (fecha sem abrir) e a lista aparece com 1 cotação também */
       elNat.onmouseenter=function(){
+        pfDockAbrirFlyout(elNat,'Cotações abertas',pfDockVendasLinhas());
+        return;
         var linhas=Object.keys(window._vendasTabs).map(function(id){
           var t=window._vendasTabs[id];
           return {texto:pfEscHtml(pfCotTabRot(t).rot),onclick:"pfDockFecharFlyout();pfRestaurarTelaVendaTab('"+id+"')"};
@@ -79380,6 +79403,7 @@ function pfExtLerPedido(msgs){
       // v115.2673 - A pedido do Vitor ("o cliente já informou as marcas e quantidades… montar a cotação com as marcas que ele quer"):
       // "5 515x" = 5-515X; "01pc spicer 01pc TX" = 2 pares quantidade + marca na mesma linha; "c/graxeira" muda o código.
       lin=lin.replace(/(^|\s)(\d)\s+(\d{2,5}[Xx][A-Za-z]{0,2})(?=$|[\s,;.])/g,'$1$2-$3');
+      lin=lin.replace(/(^|\s)(2|3|4|6|6\.5|8|90|140|170|250)\s+(\d{1,2})\s+(\d{1,5}[A-Za-z]{0,3})(?=$|[\s,;.])/g,'$1$2-$3-$4'); // v115.2951 - A pedido do Vitor ("Ponteira 4 53 61" não reconheceu): código Spicer escrito com espaços = 4-53-61
       // v115.2751 - A pedido do Vitor ("pq leu errado? … spl o pessoal nunca coloca -1x no final, mas tem"): "SPL 250" = SPL250 (vira SPL250-1X no estoque)
       lin=lin.replace(/\bSPL\s+(\d{2,3})\b/gi,'SPL$1');
       var _prs=pfExtMarcasDaLinha(lin),_grax=/c\s*\/\s*grax|com\s+grax/i.test(lin)?true:(/s\s*\/\s*grax|sem\s+grax/i.test(lin)?false:null);
@@ -82239,7 +82263,7 @@ function pfExtBaixarZip(){
 function pfExtBaixarZipSimples(){var a=document.createElement('a');a.href=PF_EXT_ZIP;a.download='partsflow-whatsapp.zip';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();},200);}
 // v115.2601 - A pedido do Vitor ("tá atualizada a extensão?" — estava na 1.5 com a 1.9 publicada): versão mais nova = a do manifest.
 // Subiu a "version" do extensao-whatsapp/manifest.json → subir aqui também.
-var PF_EXT_VER_NOVA='8.3'; // v115.2930 (cartão do anel com 2 s parado)
+var PF_EXT_VER_NOVA='8.4'; // v115.2930 (cartão do anel com 2 s parado)
  var _pfExtVerAnt='4.75'; // v115.2760 - manifest 4.75 (quem mandou a última mensagem) · // v115.2757 - manifest 4.74 (ler PDF da conversa) · v115.2756 - manifest 4.73 (mensagem só com código conta como pedido) · // v115.2745 - manifest 4.71 · v115.2739 - manifest 4.67 (📦 Pedido a emitir + card de ajustes no PF)
 function pfExtVerMenor(a,b){a=String(a||'0').split('.').map(Number);b=String(b||'0').split('.').map(Number);for(var i=0;i<Math.max(a.length,b.length);i++){var x=a[i]||0,y=b[i]||0;if(x!==y)return x<y;}return false;}
 function pfExtInstalarAbrir(){

@@ -1103,7 +1103,8 @@
   }
   async function cotar() {
     if (cotando) return; cotando = true; cotErro = ''; cot = null; pintaCorpo();
-    var r = await msg({ t: 'acao', acao: 'cotar', arg: { k: resp && resp.k, contato: resp && resp.contato, msgs: msgsPedido() } });
+    cotArgs = { k: resp && resp.k, contato: resp && resp.contato, msgs: msgsPedido() };
+    var r = await msg({ t: 'acao', acao: 'cotar', arg: cotArgs });
     cotando = false;
     if (!r || r.erro) { cotErro = r && r.erro === 'semPF' ? 'Abra o PartsFlow numa aba deste Chrome (já logado).' : r && r.erro === 'pfF5' ? 'Dê F5 na aba do PartsFlow (a extensão foi atualizada depois que ele abriu).' : 'O PF não respondeu. Dê F5 na aba do PartsFlow.'; }
     else cot = r;
@@ -1126,6 +1127,26 @@
   // 8.0 - A pedido do Vitor ("e se colocar algo para marcar, para cotar todas as fichas que tiver?"): caixinha "Cotar todas as marcas" — a cotação no PF
   // já vem com TODAS as fichas (marcas) de cada código pedido, uma linha por marca. Fica guardada neste navegador.
   var TODAS = false; try { chrome.storage.local.get('todasFichas', function (o) { TODAS = !!(o && o.todasFichas); }); } catch (e) { }
+  // 8.5 - A pedido do Vitor ("o cliente pediu para cotar somente de determinada marca… configurado somente nessa cotação" — "Só fleet"): o PF acha
+  // "só/somente/apenas MARCA" nas mensagens do cliente; aqui vem a linha marcada "Cliente pediu só X". Marcada = cota só essa marca e a regra entra no
+  // ⚙️ Regras desta cotação no PF (não mexe no Assistente nem no cadastro). Desmarcar = refaz sem a marca.
+  var cotArgs = null, spArgs = null;
+  function soMarcaHtml(r, ctx) {
+    var det = (r && r.soMarcaDet) || []; if (!det.length) return '';
+    var on = !!(r.soMarca && r.soMarca.length);
+    return '<label class="pfwa-todas pfwa-som" title="O cliente pediu só essa marca. Marcado: cota só ela e a regra fica só nesta cotação no PF (não vai pro Assistente nem pro cadastro)"><input type="checkbox" data-pfsom="' + ctx + '"' + (on ? ' checked' : '') + '> 🏷️ Cliente pediu <b>só ' + esc(det.join(' / ')) + '</b> — cotar só essa marca</label>';
+  }
+  document.addEventListener('change', async function (e) {
+    var t = e.target; if (!t || !t.hasAttribute || !t.hasAttribute('data-pfsom')) return;
+    var ctx = t.getAttribute('data-pfsom'), on = !!t.checked;
+    if (ctx === 'cot' && cotArgs && cot) {
+      var a = Object.assign({}, cotArgs, { soMarca: on ? (cot.soMarcaDet || []) : '', soMarcaDet: cot.soMarcaDet || [] });
+      cotando = true; pintaCorpo(); var r = await msg({ t: 'acao', acao: 'cotar', arg: a }); cotando = false; if (r && !r.erro) cot = r; pintaCorpo();
+    } else if (ctx === 'sp' && spArgs && spR) {
+      var a2 = Object.assign({}, spArgs, { soMarca: on ? (spR.soMarcaDet || []) : '', soMarcaDet: spR.soMarcaDet || [] });
+      var s0 = spMsg, r2 = await msg({ t: 'acao', acao: 'cotar', arg: a2 }); if (spMsg !== s0) return; if (r2 && !r2.erro) spR = r2; spPinta();
+    }
+  }, true);
   function todasHtml() { return '<label class="pfwa-todas" title="A cotação no PF já vem com todas as marcas que tiver de cada código (uma linha por marca)"><input type="checkbox" data-pftodas' + (TODAS ? ' checked' : '') + '> Cotar <b>todas as marcas</b> de cada código</label>'; }
   document.addEventListener('change', function (e) { var t = e.target; if (t && t.hasAttribute && t.hasAttribute('data-pftodas')) { TODAS = !!t.checked; try { chrome.storage.local.set({ todasFichas: TODAS }); } catch (er) { } document.querySelectorAll('input[data-pftodas]').forEach(function (x) { x.checked = TODAS; }); } }, true);
   function itensPF(lista) {
@@ -1137,7 +1158,7 @@
   }
   function abrirCot(pdf, min) {
     if (!cot) return;
-    msg({ t: 'acao', acao: 'abrirCot', focar: !min, arg: { minimizar: !!min, k: resp && resp.k, pessoa: pessoaComprador(), pdf: !!pdf, todas: TODAS, itens: itensPF(cot.itens) } });
+    msg({ t: 'acao', acao: 'abrirCot', focar: !min, arg: { minimizar: !!min, k: resp && resp.k, pessoa: pessoaComprador(), pdf: !!pdf, todas: TODAS, soMarca: cot.soMarca || [], itens: itensPF(cot.itens) } });
     if (min) cmToast('✔ Cotação criada no PF (minimizada)');
   }
   async function buscarSaldo(cod) { cod = String(cod || '').trim(); if (!cod) return; saldoR = { cod: cod, carregando: 1 }; pintaCorpo(); var r = await msg({ t: 'acao', acao: 'saldo', arg: cod }); saldoR = r && !r.erro ? r : { cod: cod, erro: 1 }; pintaCorpo(); }
@@ -1233,7 +1254,7 @@
     h += '</table><div class="pfwa-tot"><span>Total (com saldo)</span><span>' + reais(cot.total) + '</span></div>';
     if (CFG.sug !== false) h += juntoHtml(); // 4.20 - 💡 quem leva isso também leva
     h += '<div class="pfwa-bt" style="margin-top:10px">💬 Resposta (dá pra mexer antes)</div><textarea class="pfwa-resp">' + esc(cot.resposta) + '</textarea>';
-    h += todasHtml();
+    h += soMarcaHtml(cot, 'cot') + todasHtml();
     h += '<div class="pfwa-bots"><button data-acao="escrever" class="pfwa-verde">💬 Pôr na conversa</button><button data-acao="abrirCot">📄 Abrir a cotação no PF</button><button data-acao="abrirCotMin" title="Cria a cotação no PF e deixa ela minimizada lá (não troca de tela)">⬇ Criar minimizada</button><button data-acao="pdf" class="pfwa-laranja">📤 PDF</button></div>';
     if (mqSemSaldo(cot.itens).length) h += '<div class="pfwa-bots"><button data-acao="mapaAbrir" class="pfwa-laranja" title="Cria o mapa de compras no PF e manda pros fornecedores (6.3)">🗂️ Mandar pro mapa (' + mqSemSaldo(cot.itens).length + ' sem saldo)</button></div>';
     h += '<div class="pfwa-nada" style="margin-top:6px">"Pôr na conversa" escreve na caixa do WhatsApp — você confere e aperta Enter. O PDF abre a cotação no PF e baixa o arquivo pra anexar.</div>';
@@ -3293,7 +3314,8 @@
     spEl(); spMsg = s; spR = null;
     SP.style.display = 'block'; SP.innerHTML = '<div class="sp-cab"><b>📄 ' + s._n + ' código' + (s._n > 1 ? 's' : '') + ' neste pedido</b><span class="sp-x" data-sp="x" title="Fechar (Esc)">✕</span></div><div class="sp-nada">Lendo no PF…</div>';
     spPos();
-    var r = await msg({ t: 'acao', acao: 'cotar', arg: { k: resp && resp.k, contato: resp && resp.contato, msgs: s._t.split('\n').map(function (x) { return { t: x, eu: false }; }) } });
+    spArgs = { k: resp && resp.k, contato: resp && resp.contato, msgs: s._t.split('\n').map(function (x) { return { t: x, eu: false }; }) };
+    var r = await msg({ t: 'acao', acao: 'cotar', arg: spArgs });
     if (spMsg !== s) return;
     spR = r; spPinta();
   }
@@ -3309,7 +3331,7 @@
       return '<div><i style="background:' + cor + '"></i><b>' + esc(o.cod) + '</b> × ' + (o.qtd || 1) + '<small>' + (o.marcaPed && !o.marcaOk ? mk : esc(mk)) + ' · ' + esc(st) + '</small></div>';
     }).join('') + '</div>';
     var feito = !!spFeitos[s._h];
-    h += '<div class="sp-b">' + todasHtml() + '</div>';
+    h += '<div class="sp-b">' + soMarcaHtml(r, 'sp') + todasHtml() + '</div>';
     h += '<div class="sp-b"><button data-sp="criar">' + (feito ? '📄 Criar de novo no PF' : '📄 Criar cotação no PF') + '</button><button data-sp="min" class="sp-min" title="Cria a cotação no PF e deixa ela minimizada lá (não troca de tela)">⬇ Criar minimizada</button><span class="sp-lk" data-sp="painel">ver no painel ›</span></div>' +
       (feito ? '<div class="sp-ok">✓ Você já criou a cotação desta mensagem.</div>' : '') + (mqSemSaldo(its).length ? '<div class="sp-b"><button data-sp="mapa" class="sp-mapa">🗂️ Mandar pro mapa (' + mqSemSaldo(its).length + ' sem saldo)</button></div>' : '');
     SP.innerHTML = h; spPos();
@@ -3322,7 +3344,7 @@
     if (a === 'mapa') { var rm = spR; spFechar(); mqAbrir(rm); return; } // 6.3
     if (a === 'criar' || a === 'min') {
       var s = spMsg, r = spR; if (!s || !r) return; var _min = a === 'min'; // 4.83 - criar minimizada (não traz o PF pra frente)
-      msg({ t: 'acao', acao: 'abrirCot', focar: !_min, arg: { minimizar: _min, k: resp && resp.k, pessoa: pessoaComprador(), todas: TODAS, itens: itensPF(r.itens) } });
+      msg({ t: 'acao', acao: 'abrirCot', focar: !_min, arg: { minimizar: _min, k: resp && resp.k, pessoa: pessoaComprador(), todas: TODAS, soMarca: r.soMarca || [], itens: itensPF(r.itens) } });
       spFeitos[s._h] = Date.now(); try { sessionStorage.setItem('pfwa_sp_feitos', JSON.stringify(spFeitos)); } catch (er) { }
       s._f = null; spFechar(); selosVigiar(); if (_min) cmToast('✔ Cotação criada no PF (minimizada)');
     }

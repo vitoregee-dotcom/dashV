@@ -3434,3 +3434,10 @@
   cadastro já lido (`_ccLoadMemo`); irmãos substitui/similar 1x por grupo (`_irmIdx`); `pfExtMontaCom` lê o cadastro 1x (`pfExtMontaComReal`) e guarda as fichas por código.
 - v115.2953 ("o que quer dizer esse aviso?" — 90-4-11-1 SPICER com "⚠ mesmo nº em CHINA TX — outra peça"): o `pfCodTxSpicer` só reconhecia marca COMEÇANDO com TX; "CHINA TX" (e ALBARUS) agora
   contam como a mesma linha que usa o número da Spicer — o aviso não aparece mais pra eles. Outros casos (Meritor × LNG) continuam avisando.
+- v115.2954 + extensão **8.5** **🏷️ Cliente pediu só uma marca** (print do Bermak: lista de filtros + "Só fleet" → "configurado somente nessa cotação e não no assistente do cliente, no cadastro" → opção C):
+  A) `pfSoMarcaDoTexto` acha "só/somente/apenas/quero só MARCA (e/ou MARCA)" nas mensagens do cliente (`pfSoMarcaResolver`: apelido `PF_SO_MARCA_ALIAS` FLEET→FLEETGUARD, ALB, MANN→MANN-FILTER; marca do
+  `pfOfMarcas`/`PF_EXT_MARCAS_FIXAS` igual ou que começa com a palavra; "só original/isso/hoje…" = `PF_SO_MARCA_NAO`) → `pfExtCotar` devolve `soMarcaDet`/`soMarca` e, com 1 marca, os itens sem marca pedida
+  ganham `marcaPed` (✔/✖ pediu FLEETGUARD). Extensão: linha laranja "🏷️ Cliente pediu só X — cotar só essa marca" (`soMarcaHtml`, `.pfwa-som`) no selo 📄 e no painel Cotação; desmarcar refaz o cotar com
+  `soMarca:''`. abrirCot manda `soMarca` → `window._pfSoMarcaPend` → `pfCotSoMarcaAplicarPend` (no `pfExtAbrirCot` e no `pfExtAtualizarCot`) liga a regra "Cotar só a(s) marca(s)" do ⚙️ Regras desta cotação
+  (`v.regrasCot.so/soOn`). B) chip "🏷️ Só a marca…" na barra dos itens (`vendasSoMarcaBtnHtml` → `vendasSoMarcaAbrir`/`vendasSoMarcaOk`, marcas da cotação clicáveis; ligada = "🏷️ Só X ✕"; itens de outras marcas
+  já na lista → pergunta se tira, `pfCotRegrasReaplicar`). Nada vai pro Assistente nem pro cadastro.

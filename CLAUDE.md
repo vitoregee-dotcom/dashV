@@ -3441,3 +3441,4 @@
   `soMarca:''`. abrirCot manda `soMarca` → `window._pfSoMarcaPend` → `pfCotSoMarcaAplicarPend` (no `pfExtAbrirCot` e no `pfExtAtualizarCot`) liga a regra "Cotar só a(s) marca(s)" do ⚙️ Regras desta cotação
   (`v.regrasCot.so/soOn`). B) chip "🏷️ Só a marca…" na barra dos itens (`vendasSoMarcaBtnHtml` → `vendasSoMarcaAbrir`/`vendasSoMarcaOk`, marcas da cotação clicáveis; ligada = "🏷️ Só X ✕"; itens de outras marcas
   já na lista → pergunta se tira, `pfCotRegrasReaplicar`). Nada vai pro Assistente nem pro cadastro.
+- v115.2955 ("acho melhor tirar. ta meio confuso" — imagem do 💰 Crédito com "Total do pedido"): a imagem (`pfCredCanvas`) e o texto (`pfCredTexto`) do crédito mostram só Crédito / Desconto / Ainda tem (Resta) de crédito — o Total do pedido saiu.

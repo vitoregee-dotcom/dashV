@@ -136,10 +136,11 @@ chrome.runtime.onMessage.addListener(function (m, sender, send) {
   // 1.8 - Status do WhatsApp: guarda a imagem e leva pro WhatsApp Web (o whatsapp.js coloca no Status e para antes de publicar)
   if (m.t === 'status') {
     (async function () {
-      await guardar({ statusPend: { img: m.img, legenda: m.legenda || '', nome: m.nome || 'status.jpg', ts: Date.now() } });
+      await guardar({ statusPend: { img: m.img, legenda: m.legenda || '', nome: m.nome || 'status.jpg', auto: !!m.auto, ts: Date.now() } });
       var tabs = await chrome.tabs.query({ url: 'https://web.whatsapp.com/*' }), id;
-      if (tabs.length) { id = tabs[0].id; try { var t = await chrome.tabs.update(id, { active: true }); await chrome.windows.update(t.windowId, { focused: true }); } catch (e) { } }
-      else { var t2 = await chrome.tabs.create({ url: 'https://web.whatsapp.com/', active: true }); id = t2.id; }
+      if (tabs.length && m.auto) { /* 8.3 - publicar sozinho: não puxa a janela pra frente */ }
+      else if (tabs.length) { id = tabs[0].id; try { var t = await chrome.tabs.update(id, { active: true }); await chrome.windows.update(t.windowId, { focused: true }); } catch (e) { } }
+      else { var t2 = await chrome.tabs.create({ url: 'https://web.whatsapp.com/', active: !m.auto }); id = t2.id; }
     })();
     send({ ok: 1 }); return;
   }

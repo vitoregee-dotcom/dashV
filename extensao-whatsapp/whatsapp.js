@@ -663,6 +663,9 @@
       ['🔌', 'Precisa do PF aberto', 'Deixe uma aba do PartsFlow aberta (já logado) neste mesmo Chrome — pode ser em outra janela. Se aparecer "O PF não respondeu", dê F5 na aba do PartsFlow.'],
       ['🟢', 'Conectado ao PF', 'Do lado da versão, lá em cima: verde "● Conectado ao PF" = tudo certo · laranja "Dê F5 no PF" = a aba do PF está aberta mas parou de responder · vermelho "PF fechado" = abra o PartsFlow. Clique nele pra conferir na hora. A bolinha também aparece no "PF" da barra de cima.'],
       ['🔁', 'Atualizou a extensão?', 'Depois de instalar uma versão nova, recarregue a aba do WhatsApp e a do PF (F5).']]],
+    ['Novos (8.3)', [
+      ['📣', 'Disparos em massa', 'Nas ⚙️ Configurações (aba própria) → Disparos em massa: vê os disparos agendados, liga/desliga, manda agora e acompanha o que está mandando. Monta e agenda no PF (📣 Disparo → 🗓 Agendar), com filtro por linha, tipo, estado e cidade.'],
+      ['📢', 'Status automático', 'Nas ⚙️ Configurações → Status automático: posta sozinho o que chegou no estoque todo dia no horário, e os status programados. Escolha "Preparar e eu publico" (você aperta enviar) ou "Publicar sozinho".']]],
     ['Novos (4.78)', [
       ['🏷️', 'Resposta curta', 'Botão 🏷️ da coluna: NEGATIVO, SEM CADASTRO, ZEROU (dá pra trocar em ✏️). Selecione o código na mensagem antes e sai "5-515X - NEGATIVO". Pelo botão direito numa mensagem com códigos aparece um por código.'],
       ['🔔', 'Avise-me', 'Botão 🔔 da coluna (ou botão direito na mensagem): os códigos selecionados — ou os que o cliente mandou — vão pro Avise-me do PF com o nome desse cliente.'],
@@ -2680,6 +2683,14 @@
     var leg = await esperar(caixaLegenda, 8000);
     if (!leg) return falhaStatus(S, 'a tela de prévia do Status não abriu');
     if (S.legenda) { leg.focus(); try { document.execCommand('insertText', false, S.legenda); } catch (e) { } }
+    if (S.auto) { // 8.3 - ⏰ Status automático com "publicar sozinho"
+      await dormir(1500);
+      var env = await esperar(function () { var l = document.querySelectorAll('[data-icon="send"],[data-icon="wds-ic-send-filled"],[aria-label="Enviar"],[aria-label="Send"]'); for (var i = 0; i < l.length; i++) { var e = l[i]; if (e.closest('#main footer') || e.closest('#pfwa')) continue; if (e.offsetParent || e.getClientRects().length) return e; } return null; }, 8000);
+      if (!env) { stMostra('<b>📢 Status pronto</b>, mas não achei o botão de enviar — aperte o <b>✈ enviar</b> do WhatsApp pra publicar.', 'erro'); msg({ t: 'acao', acao: 'stAutoRes', arg: { ok: false, erro: 'não achei o enviar' } }); return; }
+      clicarEl(env); await dormir(2500);
+      stMostra('<b>📢 Status publicado sozinho</b> (⏰ Status automático).', 'ok'); msg({ t: 'acao', acao: 'stAutoRes', arg: { ok: true } });
+      setTimeout(function () { if (ST && ST.className === 'ok') ST.style.display = 'none'; }, 10000); return;
+    }
     stMostra('<b>📢 Status pronto!</b> Confira a imagem e a legenda e aperte o <b>✈ enviar</b> do WhatsApp pra publicar.', 'ok');
     setTimeout(function () { if (ST && ST.className === 'ok') ST.style.display = 'none'; }, 15000);
   }
@@ -4184,6 +4195,66 @@
       return '<div class="pfwa-cfgl" data-acao="cfgTog" data-arg="' + x[0] + '"><span class="pfwa-cfgi">' + x[1] + '</span><div><b>' + esc(x[2]) + '</b><br><small>' + esc(x[3]) + '</small></div><span class="pfwa-sw' + (cfgOn(x[0]) ? ' on' : '') + '"><i></i></span></div>';
     }).join('');
   }
+  // 8.3 - 🗓 Disparos agendados e ⏰ Status automático (A pedido do Vitor: "aqui não configura status automático" + "os disparos em massa também,
+  // por classificação" + "vamos deixar aqui e lá também"). As regras e os dados ficam no PF (pfDispAgendas_v1 / pfStatusAuto_v1); aqui só mostra e liga/desliga.
+  var DSP = null, DSP_LOTE = null;
+  async function dspCarregar() {
+    try { DSP = await msg({ t: 'acao', acao: 'dispInfo', arg: {} }); } catch (e) { DSP = null; }
+    try { var s = await chrome.storage.local.get(['lote']); DSP_LOTE = s.lote || null; } catch (e) { DSP_LOTE = null; }
+  }
+  function dspData(t) { if (!t) return '—'; var d = new Date(t); return d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }) + ' ' + d.toTimeString().slice(0, 5); }
+  function dspSemPF() { return '<div class="pfwa-nada">O PF não respondeu. Abra o PartsFlow numa aba deste navegador (e faça o login) — os agendamentos ficam guardados lá.</div>'; }
+  function dspLoteHtml() {
+    var L = DSP_LOTE; if (!L || !L.itens || !L.itens.length) return '<div class="pfwa-nada">Nenhum disparo mandando agora.</div>';
+    var ok = L.itens.filter(function (x) { return x.st === 'ok'; }).length, er = L.itens.filter(function (x) { return x.st === 'erro'; }).length, tot = L.itens.length, ativo = !L.fim && !L.parado;
+    var pct = Math.round((ok + er) / tot * 100);
+    return '<div style="font-size:13px;margin-bottom:6px"><b>' + esc(L.titulo || 'Disparo') + '</b> · ' + (ativo ? 'mandando…' : (L.parado ? 'parado' : 'terminou ' + dspData(L.fim))) + '</div>' +
+      '<div class="pfwa-progb"><i style="width:' + pct + '%"></i></div><div style="font-size:12px;color:#607080;margin:4px 0">' + ok + ' enviadas · ' + er + ' não foram · ' + (tot - ok - er) + ' na fila (de ' + tot + ')</div>' +
+      (ativo ? '<div class="pfwa-cfgbtns"><button data-acao="dspParar" class="pfwa-cfgb" style="background:#B3231C">⏹ Parar</button></div>' : '');
+  }
+  function dspDisparoHtml(C) {
+    if (!DSP || !DSP.ok) return C('🗓 Disparos agendados', dspSemPF()) + C('📣 Mandando agora', dspLoteHtml());
+    var L = DSP.agendas || [];
+    var lista = L.length ? L.map(function (a) {
+      return '<div class="pfwa-cfgl" style="align-items:flex-start;' + (a.on ? '' : 'opacity:.6') + '"><span class="pfwa-cfgi">🗓</span><div style="flex:1;min-width:0"><b>' + esc(a.nome || '') + '</b><br><small>🕘 ' + esc(a.quando) + ' · ' + esc(a.filtro) + '</small><br><small>' +
+        (a.on && a.prox ? 'Próxima: <b>' + dspData(a.prox) + '</b>' : '') + (a.ult ? ' · Última: ' + dspData(a.ult.em) + ' — ' + esc(a.ult.obs || (a.ult.n + ' na lista' + (a.ult.ok != null ? ', ' + a.ult.ok + ' enviadas' : ''))) : '') + (a.meu ? '' : ' · roda no PF de ' + esc(a.por)) + '</small>' +
+        '<div class="pfwa-cfgbtns" style="margin:6px 0 0">' + (a.meu ? '<button data-acao="dspRodar" data-arg="' + a.id + '" class="pfwa-cfgb">▶ Mandar agora</button>' : '') + '<button data-acao="dspDel" data-arg="' + a.id + '" class="pfwa-cfgb" style="background:#7a8699">🗑 Apagar</button></div></div>' +
+        '<span class="pfwa-sw' + (a.on ? ' on' : '') + '" data-acao="dspTog" data-arg="' + a.id + '" title="Liga/desliga"><i></i></span></div>';
+    }).join('') : '<div class="pfwa-nada">Nenhum disparo agendado ainda.</div>';
+    return C('📣 Disparo em massa', '<div class="pfwa-nada" style="margin-bottom:8px">A lista é montada pelo PF: o que chegou, quem compra uma marca, clientes sumidos, todos — com filtro por <b>linha</b>, <b>tipo</b> (revenda, concessionária, cliente final, serviço, rental), <b>estado</b> e <b>cidade</b>. Quem já recebeu o mesmo assunto fica de fora.</div>' +
+        '<div class="pfwa-cfgbtns"><button data-acao="dspIr" data-arg="disparo" class="pfwa-cfgb verde">📣 Novo disparo / agendar (abre no PF)</button><button data-acao="dspIr" data-arg="dispAg" class="pfwa-cfgb">🗓 Ver no PF</button></div>') +
+      C('🗓 Disparos agendados', lista + '<div class="pfwa-nada" style="margin-top:6px">Pra agendar: monte o disparo no PF e clique em <b>🗓 Agendar</b> (uma vez ou toda semana). Na hora, o PF de quem agendou precisa estar aberto com o WhatsApp Web.</div>') +
+      C('📣 Mandando agora', dspLoteHtml());
+  }
+  function dspStatusHtml(C) {
+    if (!DSP || !DSP.ok || !DSP.st) return C('⏰ Status automático', dspSemPF());
+    var S = DSP.st, Ch = S.chegou || {}, DN = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+    var dias = [1, 2, 3, 4, 5, 6, 0].map(function (d) { var on = (Ch.dias || []).indexOf(d) >= 0; return '<span data-acao="stDia" data-arg="' + d + '" class="' + (on ? 'on' : '') + '">' + DN[d] + '</span>'; }).join('');
+    return (S.meu ? '' : C('👤 Quem posta', '<div class="pfwa-nada">Hoje quem posta é o PF de <b>' + esc(S.dono) + '</b>.</div><div class="pfwa-cfgbtns"><button data-acao="stSet" data-arg="dono|1" class="pfwa-cfgb">Passar pra mim</button></div>')) +
+      C('📣 Chegou no estoque — todo dia no horário',
+        '<div class="pfwa-cfgl" data-acao="stSet" data-arg="chegou.on|' + (Ch.on ? '' : '1') + '"><span class="pfwa-cfgi">📣</span><div><b>Postar o que chegou</b><br><small>Imagem com as peças que chegaram desde o último status. Nada chegou = não posta.</small></div><span class="pfwa-sw' + (Ch.on ? ' on' : '') + '"><i></i></span></div>' +
+        '<div class="au-modos au-est" style="margin:6px 0">' + dias + '</div>' +
+        '<div style="display:flex;gap:8px;align-items:center;font-size:13px;margin:6px 0">Às <input type="time" data-au="st_hora" value="' + esc(Ch.hora || '10:00') + '" style="padding:5px;border:1px solid #cfd8e3;border-radius:7px"> · até <select data-au="st_max" style="padding:5px;border:1px solid #cfd8e3;border-radius:7px">' + [4, 6, 8].map(function (n) { return '<option' + (+Ch.max === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select> peças</div>' +
+        (Ch.on && S.prox ? '<div class="pfwa-nada">Próximo: <b>' + dspData(S.prox) + '</b></div>' : '') +
+        '<div class="pfwa-cfgbtns"><button data-acao="stAgora" class="pfwa-cfgb">▶ Postar o que chegou agora</button></div>') +
+      C('✋ Publicar sozinho ou pedir ok', '<div class="au-modos au-est"><span data-acao="stSet" data-arg="publicar|" class="' + (!S.publicar ? 'on' : '') + '">Preparar e eu publico</span><span data-acao="stSet" data-arg="publicar|1" class="' + (S.publicar ? 'on' : '') + '">Publicar sozinho</span></div>' +
+        '<div class="pfwa-nada" style="margin-top:6px">' + (S.publicar ? 'Posta sem perguntar.' : 'A extensão abre o Status com a imagem e a legenda — você confere e aperta enviar.') + '</div>') +
+      C('📅 Status programados', ((S.agenda || []).length ? S.agenda.map(function (a) { return '<div class="pfwa-cfgl"><span class="pfwa-cfgi">' + (a.tipo === 'texto' ? '✍' : '⭐') + '</span><div><b>' + esc(a.txt) + '</b><br><small>' + esc(a.quando) + (a.feito ? ' · ' + esc(a.obs || '✔ feito') : '') + '</small></div><span class="pfwa-link" data-acao="stAgDel" data-arg="' + a.id + '">🗑</span></div>'; }).join('') : '<div class="pfwa-nada">Nenhum.</div>') +
+        '<div class="pfwa-cfgbtns"><button data-acao="dspIr" data-arg="stAuto" class="pfwa-cfgb verde">➕ Programar um status (abre no PF)</button><button data-acao="dspIr" data-arg="status" class="pfwa-cfgb">📢 Montar um status agora</button></div>') +
+      ((S.log || []).length ? C('🧾 O que aconteceu', S.log.map(function (l) { return '<div style="font-size:12px;color:#334155">' + dspData(l.em) + ' — ' + esc(l.t) + '</div>'; }).join('')) : '') +
+      '<div class="pfwa-nada" style="margin-top:4px">Na hora marcada o PF precisa estar aberto (no computador de quem ligou) com a extensão e o WhatsApp Web. Fechados = espera até 12 h, depois pula e anota.</div>';
+  }
+  async function dspAcao(ac, arg) {
+    if (ac === 'dspIr') { msg({ t: 'acao', acao: 'irTela', arg: { tela: arg }, focar: true }); return; }
+    if (ac === 'dspParar') { try { var s = await chrome.storage.local.get(['lote']); if (s.lote) chrome.runtime.sendMessage({ t: 'parar', id: s.lote.id }); } catch (e) { } await dormir(400); return; }
+    if (ac === 'dspTog') return msg({ t: 'acao', acao: 'dispAgTog', arg: { id: arg } });
+    if (ac === 'dspDel') return msg({ t: 'acao', acao: 'dispAgDel', arg: { id: arg } });
+    if (ac === 'dspRodar') return msg({ t: 'acao', acao: 'dispAgRodar', arg: { id: arg } });
+    if (ac === 'stAgora') return msg({ t: 'acao', acao: 'stAutoAgora', arg: {} });
+    if (ac === 'stAgDel') return msg({ t: 'acao', acao: 'stAutoAgDel', arg: { id: arg } });
+    if (ac === 'stDia') return msg({ t: 'acao', acao: 'stAutoSet', arg: { campo: 'chegou.dia', v: +arg } });
+    if (ac === 'stSet') { var p = String(arg).split('|'); return msg({ t: 'acao', acao: 'stAutoSet', arg: { campo: p[0], v: !!p[1] } }); }
+  }
   function cfgSecHtml(sec) {
     var C = function (t, h) { return '<div class="au-sec cfg-card"><b class="cfg-ct">' + t + '</b>' + h + '</div>'; };
     if (sec === 'aparencia') {
@@ -4209,25 +4280,30 @@
       '<div class="pfwa-nada" style="margin-top:8px">Esses trabalhos rodam na aba do WhatsApp — pode deixar esta página aberta pra acompanhar.</div>');
     if (sec === 'motor') return C('⚙️ Motor', motorSeloHtml() + '<div class="pfwa-nada" style="margin-top:8px">Com o motor ligado, a extensão faz as coisas por dentro do WhatsApp (mensagens automáticas, listas, números) sem abrir as conversas na sua frente. Desligado, ela faz do jeito antigo, abrindo as conversas. Ele liga sozinho quando o WhatsApp permite.</div>');
     if (sec === 'ajuda') return htmlAjuda();
+    if (sec === 'disparo') return dspDisparoHtml(C); // 8.3
+    if (sec === 'stauto') return dspStatusHtml(C);
     return '';
   }
   async function cfgRemoto(m) {
     var oc = window.confirm, op = window.prompt;
     try {
       if (m.op === 'acao') {
-        if (m.ac === 'cfgVis') { visual = m.arg === 'D' ? 'D' : 'A'; chrome.storage.local.set({ visual: visual }); pinta(); posicionar(); }
+        if (/^(dsp|st)[A-Z]/.test(m.ac)) { await dspAcao(m.ac, m.arg || ''); } // 8.3
+        else if (m.ac === 'cfgVis') { visual = m.arg === 'D' ? 'D' : 'A'; chrome.storage.local.set({ visual: visual }); pinta(); posicionar(); }
         else if (m.ac === 'cfgStt') { msg({ t: 'acao', acao: 'sttConfig', focar: true }); }
         else {
           if (m.ok) window.confirm = function () { return true; }; // a página já perguntou
           var el = document.createElement('span'); el.setAttribute('data-acao', m.ac); el.setAttribute('data-arg', m.arg || '');
           await clique({ target: el, preventDefault: function () { }, stopPropagation: function () { } });
         }
+      } else if (m.op === 'campo' && (m.k === 'st_hora' || m.k === 'st_max')) { await msg({ t: 'acao', acao: 'stAutoSet', arg: { campo: m.k === 'st_hora' ? 'chegou.hora' : 'chegou.max', v: m.v } }); // 8.3
       } else if (m.op === 'campo') {
         var f = document.createElement(m.tag === 'TEXTAREA' ? 'textarea' : 'input'); if (m.tipo) f.type = m.tipo;
         f.setAttribute('data-au', m.k); f.value = m.v == null ? '' : m.v; if (m.tipo === 'checkbox') f.checked = !!m.checked;
         autoCampo(f);
       }
     } catch (e) { console.warn('PF config', e); } finally { window.confirm = oc; window.prompt = op; }
+    if (m.sec === 'disparo' || m.sec === 'stauto') await dspCarregar(); // 8.3
     return { ok: 1, html: cfgSecHtml(m.sec), auto: !!AUTO.on, status: (function () { try { var a = autoAusente(); return a ? autoInfo(a).join(' ') : ''; } catch (e) { return ''; } })() };
   }
   chrome.runtime.onMessage.addListener(function (m, s, send) {

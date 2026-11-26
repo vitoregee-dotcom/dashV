@@ -6,6 +6,8 @@ var SECS = [
   ['aparencia', '🎨', 'Aparência', 'Jeito dos botões, cor do menu e ícones.', 'cor visual icone ícone botão tema azul discreta'],
   ['barra', '🧰', 'Barra e botões', 'O que aparece em volta das conversas do WhatsApp.', 'menu etiqueta selo coluna pedidos barra salvar contato resposta rápida'],
   ['auto', '👋', 'Mensagens automáticas', 'O que o PF responde sozinho quando você não consegue responder. Tudo grava na hora.', 'saudação status reunião férias ausente almoço expediente frase automática comando'],
+  ['disparo', '📣', 'Disparos em massa', 'Mandar uma mensagem pra muitos clientes, filtrando por linha, tipo, estado e cidade — na hora ou agendado.', 'disparo massa agendar agenda campanha linha tipo estado cidade rodoviário oficina cliente final'],
+  ['stauto', '📢', 'Status automático', 'Postar sozinho no Status do WhatsApp: o que chegou no estoque e status programados.', 'status automático chegou estoque programado story'],
   ['avisos', '🔔', 'Avisos e lembretes', 'Avisos que aparecem enquanto você conversa.', 'cotação oferta frota portfólio verificar conhecer pedido emitir sugestão'],
   ['contatos', '📇', 'Contatos', 'Trazer os contatos do WhatsApp pro PF.', 'importar números lista cliente pf'],
   ['audio', '🎤', 'Áudio', 'Descrever os áudios que os clientes mandam.', 'áudio transcrição chave'],
@@ -62,7 +64,7 @@ function mostrar(r) {
 async function carregar() { mostrar(await falar({ op: 'html' })); conexoes(); }
 function avisoSalvo() { var d = document.querySelector('.cfg-salvo'); if (!d) { d = document.createElement('div'); d.className = 'cfg-salvo'; d.textContent = '✔ salvo'; document.body.appendChild(d); } d.classList.add('vis'); clearTimeout(d._t); d._t = setTimeout(function () { d.classList.remove('vis'); }, 1500); }
 
-var PERGUNTA = { autoAvDel: 'Apagar este aviso?' };
+var PERGUNTA = { autoAvDel: 'Apagar este aviso?', dspDel: 'Apagar este disparo agendado?', dspRodar: 'Mandar este disparo agora?', stAgDel: 'Tirar este status programado?', dspParar: 'Parar o disparo que está mandando?' };
 $('corpo').addEventListener('click', async function (e) {
   var b = e.target.closest('[data-acao]'); if (!b) return;
   e.preventDefault();

@@ -3416,3 +3416,12 @@
 - v115.2949 BUG ("no leitor leu certo. na extensão, não" — foto do caderno pelo 🤖 Ler com IA do WhatsApp): se a IA devolvia o JSON sem a 1ª linha "PEDIDO_JSON", o `pfExtCotarImg` usava o texto
   cru e a 2948 não valia. Agora JSON com "itens" sem o prefixo é tratado como pedido, e o texto final passa pelo `pfManuscritoTexto` (2+ tokens "código.com.ponto-N" = lista à mão: cada item numa
   linha "2-40-1521 - 2", ponto vira traço, 101040-12 / 41-487-2 também) antes do `pfExtCotar`.
+- v115.2950 + extensão **8.3** **🗓 Disparos agendados + ⏰ Status automático** (Vitor: "aqui não configura status automático" + "os disparos em massa também, por classificação" + "vamos deixar aqui e lá também"):
+  PF: no 📣 Disparo, "🗓 Agendar" (`pfDispAgNovo`/`pfDispAgNovoGravar`) guarda a configuração da tela (origem + filtros linha/tipo/estado/cidade + mensagem + assunto + por hora) com quando = uma vez (data+hora) ou toda semana
+  (dias+hora) em **`pfDispAgendas_v1`** (lista por id, lápide `del`, 3 listas da sync + rótulo); "🗓 Agendados (N)" → `pfDispAgAbrir` (liga/desliga, ▶ Mandar agora, 🗑, próxima/última). Roda no PF de QUEM AGENDOU (`porEmail`) com a extensão:
+  `pfDispAgVerificar` (60 s) → `pfDispAgRodar` monta a lista NA HORA (`pfDispComCfg` troca o `window._pfDisp` só durante a conta), quem já recebeu o assunto fica de fora, manda pelo `pfExtEnviarLote` e registra como o disparo normal;
+  passou 12 h da hora (`PF_AG_ATRASO_MAX`) = pula e anota no `exec`. ⏰ Status automático (`pfStAutoAbrir`, botão no 📢 Status do WhatsApp): **`pfStatusAuto_v1`** {chegou:{on,hora,dias,max},agenda:[status programados texto/destaque com data/hora],
+  publicar (false = prepara e você aperta enviar), porEmail, log} — `pfStAutoVerificar` (junto do verificar dos disparos): 📣 posta o que chegou desde o último (`pfChegouChegadas`, nada chegou = não posta); imagem pelo mesmo `pfStDesenhar` num canvas
+  escondido (`pfStGerar`; com a tela do status aberta, espera). Extensão 8.3: seções novas nas ⚙️ Configurações (config.js `SECS` disparo/stauto → `dspDisparoHtml`/`dspStatusHtml` no whatsapp.js, dados pela acao `dispInfo`, ações `dspAcao` →
+  dispAgTog/Del/Rodar, stAutoSet/Agora/AgDel; acompanhar/⏹ parar o lote do `chrome.storage.local.lote`); editar/agendar abre no PF (irTela disparo/dispAg/stAuto/status). "Publicar sozinho": ponte/fundo passam `auto` (não puxa a janela) e o
+  `postarStatus` aperta o enviar e avisa o PF (acao `stAutoRes` → log). **Botão de enviar do Status no WhatsApp real NÃO testado.**

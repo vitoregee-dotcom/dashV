@@ -1059,11 +1059,36 @@
     return melhor;
   }
   function msgIdDe(b) { try { var el = b && (b.closest('[data-id]') || b.querySelector('[data-id]')); var id = el ? el.getAttribute('data-id') || '' : ''; return /^(true|false)_.+@.+_[A-Za-z0-9]+$/.test(id) ? id : ''; } catch (e) { return ''; } }
+  // 8.2 - A pedido do Vitor (foto do caderno no Leitor saiu toda inventada): sem o motor a extensão pegava a MINIATURA da conversa. Agora, com a foto
+  // pequena (< 1000 px), abre o visualizador do próprio WhatsApp (clica na foto), pega a imagem GRANDE de lá e fecha (Esc). Vale pra tudo que lê foto.
+  function imgLado(du) { return new Promise(function (ok) { var im = new Image(); im.onload = function () { ok(Math.max(im.naturalWidth, im.naturalHeight)); }; im.onerror = function () { ok(0); }; im.src = du; }); }
+  function fotoDoVisualizador(minLado) {
+    var melhor = null, area = 0;
+    document.querySelectorAll('img').forEach(function (im) { var s = im.getAttribute('src') || ''; if (!/^blob:/.test(s)) return; if (im.closest('#main [role="row"],#pane-side,#pfwa,[id^="pfwa-"]')) return;
+      var w = im.naturalWidth || 0, h = im.naturalHeight || 0; if (Math.max(w, h) < (minLado || 0)) return; if (w * h > area) { area = w * h; melhor = im; } });
+    return melhor;
+  }
+  async function fotoGrandeVisualizador(b, ladoAtual) {
+    try {
+      var aberto = fotoDoVisualizador(ladoAtual + 1); if (aberto) return await urlParaDataUrl(aberto.src);
+      var mi = null; if (b) { var ims = b.querySelectorAll('img'), ar = 0; for (var k = 0; k < ims.length; k++) { var w = ims[k].width * ims[k].height; if (w > ar) { ar = w; mi = ims[k]; } } }
+      if (!mi) return null;
+      clicarEl(mi); ['pointerdown', 'pointerup'].forEach(function (t) { try { mi.dispatchEvent(new PointerEvent(t, { bubbles: true })); } catch (e) { } }); try { mi.click(); } catch (e) { }
+      var g = await esperar(function () { var x = fotoDoVisualizador(ladoAtual + 1); return x && x.complete && x.naturalWidth ? x : null; }, 6000);
+      var du = g ? await urlParaDataUrl(g.src) : null;
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }));
+      return du;
+    } catch (e) { return null; }
+  }
   async function fotoDados(b, src) {
     var id = msgIdDe(b);
     if (id) { try { if (!motorOk) await motorChecar(); if (motorOk) { var md = await motor('midia', { id: id }, 60000); if (md && md.data && /^data:image/.test(md.data)) return md.data; } } catch (e) { } }
+    if (!b) { var vz = fotoDoVisualizador(600); if (vz) return await urlParaDataUrl(vz.src); }
     if (!src) src = fotoMelhor(b);
-    return src ? await urlParaDataUrl(src) : null;
+    var du = src ? await urlParaDataUrl(src) : null;
+    var lado = du ? await imgLado(du) : 0;
+    if (lado < 1000) { var gr = await fotoGrandeVisualizador(b, lado); if (gr) { var l2 = await imgLado(gr); if (l2 > lado) return gr; } }
+    return du;
   }
   async function urlParaDataUrl(u) {
     if (/^data:/.test(u)) return u;
@@ -4232,9 +4257,9 @@
     if (id === 'sel_curta') { qkAbrir([sel]); return; }
     if (id === 'sel_leitor' || id === 'msg_leitor') { // 7.4 - A pedido do Vitor ("mandei para o leitor. mas não foi" — foto do caderno): mensagem com FOTO manda a foto (o Leitor lê com IA)
       var _lImg = '';
-      if (id === 'msg_leitor') { _lImg = fotoMelhor(A.b); }
+      if (id === 'msg_leitor') { _lImg = fotoMelhor(A.b) || (!A.b && fotoDoVisualizador(600) ? 'viz' : ''); }
       if (_lImg) cmToast('📝 Mandando a foto pro Leitor de Peças…');
-      var _lDu = _lImg ? await fotoDados(A.b, _lImg) : '';
+      var _lDu = _lImg ? await fotoDados(A.b, _lImg === 'viz' ? '' : _lImg) : '';
       // 8.1 - A pedido do Vitor (lista do caderno lida toda errada): sem o motor a extensão só pega a MINIATURA da conversa (borrada) e a IA inventa os códigos — avisa.
       if (_lDu) { try { var _tm = await new Promise(function (ok) { var im = new Image(); im.onload = function () { ok(Math.max(im.naturalWidth, im.naturalHeight)); }; im.onerror = function () { ok(0); }; im.src = _lDu; });
         if (_tm && _tm < 800) { cmToast('⚠ Só consegui a MINIATURA da foto (' + _tm + ' px) — a leitura pode sair errada. Ligue o ⚙️ motor (Configurações → Contatos) ou abra a foto e mande o print pelo 📋 Colar print do Leitor.'); await dormir(2500); } } catch (e) { } }

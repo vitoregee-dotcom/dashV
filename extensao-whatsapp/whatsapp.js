@@ -2944,7 +2944,7 @@
   function mpPopFechar(ms) { clearTimeout(mpTmr); mpTmr = setTimeout(function () { if (MPPOP) MPPOP.style.display = 'none'; }, ms || 0); }
   // 7.2 - A pedido do Vitor ("esse card dá pra abrir se o mouse ficar uns 2 segundos em cima"): o cartão do anel só abre com o mouse PARADO 2 s em cima
   // (MP_HOVER_MS); passar o mouse de passagem não abre. Com um cartão já aberto, ir pra outro anel troca na hora.
-  var MP_HOVER_MS = 2000, mpHovTmr = null, mpHovEl = null;
+  var MP_HOVER_MS = 1000, mpHovTmr = null, mpHovEl = null;
   // 7.6 - A pedido do Vitor ("não tá abrindo o cardizinho qnd fico com o mouse parado em cima"): a coluna é redesenhada sozinha e o anel que estava
   // embaixo do mouse virava OUTRO elemento — o cartão abria preso ao velho (fora da tela) ou o tempo recomeçava. Agora vale o id do pedido e,
   // na hora de abrir, pega o anel que está na tela agora (e confere que o mouse continua em cima dele).

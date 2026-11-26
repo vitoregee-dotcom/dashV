@@ -3413,3 +3413,6 @@
 - v115.2948 BUG ("ainda leu como ponto" — foto do caderno pelo 🤖 do WhatsApp veio "2.40.1521-2" com o -2 colado e ponto): a 2947 só valia no Leitor de Peças. `pfManuscritoArrumar`
   (no `pfPedJsonLer` = WhatsApp e 🧾 Pedido de compra do cliente): com 2+ itens "código com ponto-N", o último "-N" vira a QUANTIDADE (também em 101040-12, R.1006-6, 41-487-2) e o ponto
   vira traço (`lpCardanPonto`). O pedido à IA do WhatsApp ganhou o `PF_LP_MANUSCRITO_PROMPT`. 2-70-59 / 5-280X normais não mudam.
+- v115.2949 BUG ("no leitor leu certo. na extensão, não" — foto do caderno pelo 🤖 Ler com IA do WhatsApp): se a IA devolvia o JSON sem a 1ª linha "PEDIDO_JSON", o `pfExtCotarImg` usava o texto
+  cru e a 2948 não valia. Agora JSON com "itens" sem o prefixo é tratado como pedido, e o texto final passa pelo `pfManuscritoTexto` (2+ tokens "código.com.ponto-N" = lista à mão: cada item numa
+  linha "2-40-1521 - 2", ponto vira traço, 101040-12 / 41-487-2 também) antes do `pfExtCotar`.

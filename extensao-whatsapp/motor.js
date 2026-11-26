@@ -51,6 +51,7 @@
     // 4.74 - A pedido do Vitor ("não consegui mandar o PDF pra já ler e fazer a cotação no PF"): baixa o arquivo (PDF/foto) de uma
     // mensagem da conversa aberta, sem abrir nada na tela. Acha pelo nome do arquivo; sem nome, o último documento.
     midia: async function (a) {
+      if (a.id) { try { var bi = await W().chat.downloadMedia(a.id); if (bi) { var di = await new Promise(function (ok) { var fr = new FileReader(); fr.onload = function () { ok(fr.result); }; fr.onerror = function () { ok(null); }; fr.readAsDataURL(bi); }); if (di) return { data: di, mime: bi.type || '', nome: '' }; } } catch (x) { } return { erro: 'naoBaixou' }; } // 7.7 - foto original pelo id da mensagem
       var ch = W().chat.getActiveChat(); if (!ch) return { erro: 'semConversa' };
       var l = await W().chat.getMessages(ser(ch.id), { count: 80 }), nm = String(a.nome || '').toLowerCase().trim();
       var docs = (l || []).filter(function (m) { return /document|image/.test(m.type || ''); }), m = null;

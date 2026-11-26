@@ -1048,6 +1048,23 @@
     var imgs = []; deles.forEach(function (b) { b.querySelectorAll('img').forEach(function (im) { var s = im.getAttribute('src') || ''; if ((/^blob:/.test(s) || /^data:image/.test(s)) && (im.naturalWidth || im.width) >= 120 && imgs.length < 4) imgs.push(s); }); });
     return { texto: texto, imgs: imgs };
   }
+  // 7.7 - A pedido do Vitor ("clickei com o direito para ler no pf e não leu"): o WhatsApp põe por baixo da foto uma MINIATURA borrada
+  // (data:image pequena) e a extensão pegava ela — a IA não conseguia ler a cotação. Agora pega a MAIOR imagem da mensagem e, com o motor ligado,
+  // baixa a foto ORIGINAL pelo id da mensagem.
+  function fotoMelhor(b) {
+    var melhor = '', area = 0, blob = false;
+    try { var ims = b ? b.querySelectorAll('img') : []; for (var k = 0; k < ims.length; k++) { var s = ims[k].getAttribute('src') || ''; if (!/^blob:|^data:image/.test(s)) continue;
+      var lw = ims[k].naturalWidth || ims[k].width || 0, lh = ims[k].naturalHeight || ims[k].height || 0; if (lw < 120) continue;
+      var eb = /^blob:/.test(s), a = lw * (lh || lw); if ((eb && !blob) || ((eb === blob) && a > area)) { melhor = s; area = a; blob = eb; } } } catch (e) { }
+    return melhor;
+  }
+  function msgIdDe(b) { try { var el = b && (b.closest('[data-id]') || b.querySelector('[data-id]')); var id = el ? el.getAttribute('data-id') || '' : ''; return /^(true|false)_.+@.+_[A-Za-z0-9]+$/.test(id) ? id : ''; } catch (e) { return ''; } }
+  async function fotoDados(b, src) {
+    var id = msgIdDe(b);
+    if (id) { try { if (!motorOk) await motorChecar(); if (motorOk) { var md = await motor('midia', { id: id }, 60000); if (md && md.data && /^data:image/.test(md.data)) return md.data; } } catch (e) { } }
+    if (!src) src = fotoMelhor(b);
+    return src ? await urlParaDataUrl(src) : null;
+  }
   async function urlParaDataUrl(u) {
     if (/^data:/.test(u)) return u;
     try { var bl = await (await fetch(u)).blob(); return await new Promise(function (ok) { var fr = new FileReader(); fr.onload = function () { ok(fr.result); }; fr.onerror = function () { ok(null); }; fr.readAsDataURL(bl); }); } catch (e) { return null; }
@@ -3820,7 +3837,7 @@
   function docCliAchar() {
     try { var els = msgLinhas(); for (var i = els.length - 1; i >= 0 && i >= els.length - 12; i--) { var b = els[i]; if (minhaEl(b)) continue;
       var tb = String(b.innerText || ''), m = tb.match(/([^\n]+?\.pdf)\b/i); if (m) return { tipo: 'pdf', nome: m[1].trim(), b: b }; if (/\bPDF\b\s*[•·]/.test(tb)) return { tipo: 'pdf', nome: '', b: b };
-      var ims = b.querySelectorAll('img'); for (var k = 0; k < ims.length; k++) { var s = ims[k].getAttribute('src') || ''; if (/^blob:|^data:image/.test(s) && (ims[k].naturalWidth || ims[k].width) >= 120) return { tipo: 'img', src: s, b: b }; } } } catch (e) { }
+      var s = fotoMelhor(b); if (s) return { tipo: 'img', src: s, b: b }; } } catch (e) { }
     return null;
   }
   var _ultDiag = '';
@@ -4208,9 +4225,9 @@
     if (id === 'sel_curta') { qkAbrir([sel]); return; }
     if (id === 'sel_leitor' || id === 'msg_leitor') { // 7.4 - A pedido do Vitor ("mandei para o leitor. mas não foi" — foto do caderno): mensagem com FOTO manda a foto (o Leitor lê com IA)
       var _lImg = '';
-      if (id === 'msg_leitor') { try { var _ims = A.b ? A.b.querySelectorAll('img') : []; for (var _k = 0; _k < _ims.length; _k++) { var _s = _ims[_k].getAttribute('src') || ''; if (/^blob:|^data:image/.test(_s) && (_ims[_k].naturalWidth || _ims[_k].width) >= 120) { _lImg = _s; break; } } } catch (e) { } }
+      if (id === 'msg_leitor') { _lImg = fotoMelhor(A.b); }
       if (_lImg) cmToast('📝 Mandando a foto pro Leitor de Peças…');
-      var _lDu = _lImg ? await urlParaDataUrl(_lImg) : '';
+      var _lDu = _lImg ? await fotoDados(A.b, _lImg) : '';
       var rl = await msg({ t: 'acao', acao: 'leitor', focar: true, arg: { texto: id === 'sel_leitor' ? sel : cmTxt(A.b), img: _lDu || '' } }); cmToast(rl && rl.ok ? '📝 Mandei pro Leitor de Peças do PF' : naoDeu()); return; } // 4.85
     if (/^msg_/.test(id) && !A.b) { cmToast('Clique com o botão direito em cima da mensagem'); return; }
     if (id === 'msg_cotar') { cotarTxt(cmTxt(A.b)); return; }
@@ -4256,13 +4273,13 @@
     }
     if (id === 'img_ia') {
       if (!src) return; irAba('cot'); if (cotando) return; cotando = true; cot = null; cotErro = ''; pintaCorpo();
-      var du2 = await urlParaDataUrl(src);
+      var du2 = await fotoDados(A.b, src); if (!du2) { cotando = false; cotErro = 'Não consegui pegar a foto — abra a foto no WhatsApp e tente de novo'; pintaCorpo(); return; }
       var r3 = await msg({ t: 'acao', acao: 'cotarImg', arg: { img: du2, k: resp && resp.k, contato: resp && resp.contato } });
       cotando = false; if (r3 && r3.jboss) { cotErro = ''; pintaCorpo(); await msg({ t: 'acao', acao: 'jbAbrir', focar: !_iaMin, arg: {} }); cmToast('✔ É a cotação ' + (r3.num || '') + ' da Triex — abri no PF pra criar com o preço da Triex'); return; } if (!r3 || r3.erro) cotErro = 'Não consegui ler a imagem' + (r3 && r3.msg ? ': ' + r3.msg : ''); else { cot = r3; if (_iaMin) { if (cot.itens && cot.itens.length) abrirCot(false, true); else cmToast('A IA não achou peças na foto'); } } pintaCorpo(); return;
     }
     if (id === 'img_pc') { // 4.93 - foto da cotação do concorrente que o cliente mandou
       if (!src) { var imP = A.b && A.b.querySelector('img'); src = imP ? imP.getAttribute('src') : ''; } if (!src) { cmToast('Clique com o botão direito em cima da foto'); return; }
-      cmToast('💲 Lendo a cotação do concorrente no PF…'); var duP = await urlParaDataUrl(src); pcMandar({ img: duP }); return;
+      cmToast('💲 Lendo a cotação do concorrente no PF…'); var duP = await fotoDados(A.b, src); pcMandar({ img: duP }); return;
     }
     if (id === 'doc_pc') { // 4.93 - PDF da cotação do concorrente
       if (!motorOk) await motorChecar();
@@ -4273,7 +4290,7 @@
     }
     if (id === 'img_plaq') { // 4.91 - A pedido do Vitor ("botão direito na imagem… enviar a plaqueta para o PF, para Máquinas")
       if (!src) { var im = A.b && A.b.querySelector('img'); src = im ? im.getAttribute('src') : ''; } if (!src) { cmToast('Clique com o botão direito em cima da foto'); return; }
-      cmToast('🏷️ Lendo a plaqueta no PF…'); var du3 = await urlParaDataUrl(src);
+      cmToast('🏷️ Lendo a plaqueta no PF…'); var du3 = await fotoDados(A.b, src);
       var rp = await msg({ t: 'acao', acao: 'plaqueta', focar: true, arg: { img: du3 } });
       cmToast(rp && rp.ok ? '✔ Abri no PF — confira a máquina e clique em Gravar' : 'Não deu — ' + ((rp && rp.msg) || 'abra o PF')); return;
     }
@@ -4380,7 +4397,7 @@
     if (forn || bt) itens.push(['msg_mapa', '📥 Lançar no mapa (PF)']);
     // 4.66 - A pedido do Vitor ("imagem, eu consigo tbm já mandar para a cotação?"): foto = ler com IA e cotar
     var imgSrc = '';
-    try { var A0 = cmAlvo || {}, ims0 = A0.b ? A0.b.querySelectorAll('img') : []; for (var k = 0; k < ims0.length; k++) { var s0 = ims0[k].getAttribute('src') || ''; if (/^blob:|^data:image/.test(s0) && (ims0[k].naturalWidth || ims0[k].width) >= 120) { imgSrc = s0; break; } } } catch (e) { }
+    try { imgSrc = fotoMelhor((cmAlvo || {}).b); } catch (e) { }
     if (imgSrc) itens.push(['img_ia', '🤖 Ler a foto com IA e cotar (PF)', imgSrc]);
     if (imgSrc) itens.push(['img_iamin', '⬇ Ler a foto e criar a cotação minimizada (PF)', imgSrc]); // 5.6
     if (imgSrc) itens.push(['img_plaq', '🏷️ Mandar a plaqueta pra Máquinas (PF)', imgSrc]); // 4.91
@@ -4442,7 +4459,9 @@
     }
     if (wsLista === lista && WS.style.display === 'block') return; wsLista = lista;
     var cs = getComputedStyle(lista.closest('[role="application"]') || lista), bg = cs.backgroundColor, cor = getComputedStyle(li).color;
-    if (!bg || bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') bg = document.documentElement.classList.contains('dark') ? '#233138' : '#fff';
+    // 7.7 - A pedido do Vitor ("normal não dar para ler?"): no tema escuro o fundo saía branco com a letra clara. Fundo pela cor da letra do menu.
+    var _rgb = (cor.match(/\d+(\.\d+)?/g) || [0, 0, 0]).map(Number), _clara = (_rgb[0] * 299 + _rgb[1] * 587 + _rgb[2] * 114) / 1000 > 140;
+    bg = _clara ? '#233138' : '#ffffff'; cor = _clara ? '#e9edef' : '#111b21';
     WS.style.background = bg; WS.style.color = cor; WS.innerHTML = '';
     its.forEach(function (x) {
       var d = document.createElement('div'); d.innerHTML = wmItemHtml(x); d.style.cssText = 'padding:9px 16px;font-size:14.5px;white-space:nowrap;cursor:pointer';

@@ -3447,3 +3447,9 @@
 - v115.2957 ("no pedido dele está 30 dias. mas só trabalhamos com 28… o mais próximo de 30 seria 28"): a condição lida do 🧾 Pedido de compra do cliente vira a da Tabela Triex mais próxima
   (`pfCondTriex`: À VISTA, 28 e as do `PF_COND_FAIXAS`; mesmo nº de parcelas e menor diferença de dias — 030 = 28, 30/60 = 28/56, 30/60/90 = 28/56/84). Comparação, botão "Usar a condição do pedido (030 → 28)",
   aviso da cotação e janela do WhatsApp mostram "030 → 28" (`pfCondTriexTxt`). Prévia do 📦 emitir o pedido direto dessa janela em `docs/referencias/pedido-emitir/previa.png` (esperando o Vitor).
+- v115.2958 **📦 Atualizar e emitir o pedido** (prévia `docs/referencias/pedido-emitir/previa.png` → "o nosso [preço], e se o dele estiver diferente… me informar… serve como conferência… tudo precisa
+  bater" + parar na tela normal quando falta saldo → "Pode!"; captura `feito.png`): na janela 🧾 Pedido de compra do cliente (WhatsApp, `pfPedWaRender`) bloco verde `pfPedEmBlocoHtml` (condição = chips da
+  Tabela Triex com a do pedido convertida `pfCondTriex`, entrega cliente retira/entrega/transportadora — "RETIRA" na observação já marca retira `pfPedEmEntregaAuto`; `S.em`, `pfPedEmSet`) + conferência
+  `pfPedEmProblemas` (preço do pedido ≠ nosso, sem saldo, não está no PF, à vista, sem entrega = vermelho). Cada cotação ganhou "📦 Atualizar e emitir o pedido" (`pfPedWaEmitir` → `window._pfPedEmitir`
+  → `pfPedWaAtualizar`; no fim do `pfExtAtualizarCot` o `pfPedEmitirPend` põe a condição, chama `pvCriarPedido` e preenche o Confirmar Pedido de Venda). Tudo bate = confirma sozinho (`pvConfirmarCriarPedido`);
+  algo não bate = para no Confirmar já preenchido. Preço é sempre o nosso. A comparação pedido × cotação não abre nesse caminho. Ainda NÃO: emitir pela "Criar cotação nova" e o 💬 confirmar recebimento pro cliente.

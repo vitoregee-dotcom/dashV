@@ -3456,3 +3456,6 @@
 - v115.2959 + extensão **8.7** BUG ("pq entendeu como pedido?" — Geisa - Newton Cardans: "pode me passar um orçamento de 17 peças…" virou 📦 emitir às 13:18): o gatilho gravado (`gat`) era uma
   mensagem ANTIGA dela, "ok garfo importado, pode fechar o pedido" (outro dia, ainda dentro das 12 últimas da tela); o resumo mostra a última mensagem com código. Agora `lerMensagens` guarda a hora (`q`
   = `msgQuando`) e o `pedidoVigiar` só olha mensagens do cliente de HOJE e para de procurar ao achar um pedido de orçamento/preço mais novo (`peEhPedidoOrc`: orçamento/cota/preço/valor/quanto/"?").
+- v115.2960 ("na hora do transporte, coloca algo pra me lembrar o transporte que o cliente costuma usar"): no Confirmar Pedido de Venda a sugestão de entrega (`pvEntregaSugerida`, que só tracejava o
+  botão) virou caixa amarela "🚚 Esse cliente costuma: transportadora X — pelos últimos pedidos (4 de 5)" com "✔ Usar" (`pvEntregaUsarSug`, `window._pvEntregaSugObj`); também pega a 1ª de
+  `cad.transportadoras`. Ideia anotada no `PF_FUNC_IDEIAS`: **🔎 Varredura de preços fora do normal** (peça sempre vendida a R$ 100 aparecendo a 80/50/130 → mostrar a diferença e de onde veio).

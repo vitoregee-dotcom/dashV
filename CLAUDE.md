@@ -3429,3 +3429,6 @@
   sem "cota/preço" não virava pedido. Extensão: `juntaCod` (4 53 61 = 4-53-61, 5 515x = 5-515X) antes de contar e nome de peça `PECA_RE` (luva, ponteira, cruzeta, rolamento…) junto do código = pedido
   (`spContaCods`, `pareceCotacao`, `cruN`). PF: `pfExtLerPedido` junta série Spicer + tipo + número separados por espaço. 2) ("cadê os X de fechar sem abrir"): a lista "Cotações abertas" do ícone Vendas
   tem ✕ em cada cotação (`pfDockVendasLinhas`/`pfDockFlyoutFecharVendaTab` → `vendasFecharTabUI`: salva antes, sem cliente pergunta; minimizada continua minimizada) e aparece com 1 cotação também.
+- v115.2952 LENTIDÃO ("coloquei monta com aqui, tá procurando tem um tempo já" — SPL90 selecionado no WhatsApp): no `ccMontaComBuscar` cada código do Monta com que não estava no
+  índice chamava `pfInfoItemPorCodigo`, que relia o cadastro inteiro (ccLoad) — com SPL90 milhares de vezes e o PF travava. Agora `_acha` guarda cada código 1x (`_achaMemo`) e usa o
+  cadastro já lido (`_ccLoadMemo`); irmãos substitui/similar 1x por grupo (`_irmIdx`); `pfExtMontaCom` lê o cadastro 1x (`pfExtMontaComReal`) e guarda as fichas por código.

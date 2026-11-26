@@ -3476,3 +3476,4 @@
   (📖 Catálogos de peças, só quem sobe): pergunta a MARCA (padrão CARRARO) → `pfCatLoteArquivos`: cada PDF passa pelo `pfCatEnvImportar` + `pfCatEnvSalvarNovo` de sempre (`window._pfCatLoteAtivo`
   pula a tela, os avisos e o Arrumar) = GRAVADO como catálogo normal (desenhos, Aplicações, fichas); ref/modelo vazios saem do nome do arquivo (`pfCatLoteRefDoNome`: 6 dígitos, CA338939 = 338939;
   `pfCatLoteModeloDoNome`); referência já gravada = pulada; ZF/Dana/escaneado = pulado (subir sozinho). Testado com os 4 PDFs do 20.43 (`data/catalogos/eixos/`): 196 peças, 61 iguais em todas.
+- v115.2964 ("faz uma parada para eu arrastar do windows"): a janela 📚 Subir vários catálogos de uma vez ganhou a área "📥 ou ARRASTE os PDFs aqui" — soltar os PDFs em qualquer lugar da janela (`pfCatLoteDropLigar`, fica verde ao passar) usa a MARCA do campo e chama o `pfCatLoteArquivos`; o que não é PDF é ignorado.

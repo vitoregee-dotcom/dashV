@@ -3398,3 +3398,5 @@
 - v115.2943 BUG ("QND EU CLICAR NO ÍCONE DE VENDAS, QUERO QUE VÁ PARA VENDAS. E NÃO QUE ABRA UMA COTAÇÃO"): com cotação minimizada o ícone Vendas do dock virava "restaurar a cotação"
   (`pfRenderTaskbar` → `pfRestaurarTela('__vendas__')`). Agora todo clique no ícone = `pfDockVendasIr()`: cotação aberta na tela é minimizada e vai pros cards de Vendas (`_vendasIrMenu`);
   abrir uma cotação = pela lista "Cotações abertas" ao passar o mouse no ícone (ou a aba de baixo).
+- v115.2944 BUG (prints: a lista "Cotações abertas" do ícone Vendas ficava PRESA por cima da tela, até no Leitor de Peças): o redesenho do dock (`pfDockResetNativos`) tirava o
+  `onmouseleave` que fechava a lista. Agora o reset fecha a lista (`pfDockFecharFlyout`) e, de reserva, mexer o mouse fora do ícone/lista ou clicar fora fecha (listeners no document).

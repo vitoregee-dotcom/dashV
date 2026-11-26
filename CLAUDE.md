@@ -3466,3 +3466,13 @@
   1) o visualizador novo do WhatsApp abre a foto DENTRO do `#main` e o `telaPorCima` pulava tudo do #main → agora foto/vídeo/canvas grande (> 35% da largura e 50% da altura) no #main que NÃO está num balão
   (`[data-pre-plain-text]`/`[data-id]`/`role=row`) conta como coberto. 2) botão de esconder a coluna (`.pfwa-botsx`) azul e visível (▴) e minimizado = logo de 30 px. 3) a faixa amarela não existe desde a 3.3 (virou a
   bolinha laranja no 📄) — os prints eram de uma extensão ANTIGA ainda instalada (6 botões, sem ▴): remover as cópias antigas em chrome://extensions e carregar a 8.9.
+- v115.2963 **🧬 Variações do modelo + 📚 Subir vários catálogos de uma vez** (Vitor: "26.28 é o modelo dos eixos, mas tem variações… mandar pra análise… o PF faz o comparativo do que muda… itens que
+  podemos cotar com qualquer série… percentual de chance de ser igual" → prévia `docs/referencias/variacoes-modelo/previa.png` → "está bom. Mas aproveita a leitura para ficar gravado"; captura `feito.png`):
+  `pfVarIdx` (cache 30 s) junta por marca + modelo-base (`pfVarBase`: "26.28M"/"26.28 (CM…)" = 26.28) todas as referências (série/PN) dos catálogos do 📖 (`pfCatEnv_v1`, com grupo + nº do desenho
+  em `slots`) e das séries só com lista em APLIC_KEY (sem nº); referência com < 5 peças fica fora; modelo com 2+ referências entra. `pfVarCalc`: por peça em quantas está, chance numa referência nova
+  `pfVarChance` = (k+1)/(n+2) (4 de 4 = 83%), célula ✔ / ✖ (com "ou …" = outro código no mesmo nº do desenho) / — (grupo não existe); por grupo % igual em todas + o que muda. Janela `pfVarAbrir`
+  (`pfVarJan`; filtros O que muda / Iguais / Tudo, grupo, busca) e lista `pfVarListaAbrir`; com a cotação aberta: "➕ Pôr na cotação as de chance alta (≥75%)" / marcadas → `pfVarPorNaCot` (`it.varModelo`
+  → etiqueta de alerta `pfVarEtqHtml` "⚠ N% · confirmar a referência" abaixo de 75%). Cotação: faixa `pfVarCotHtml` na busca Série/Modelo quando o termo tem o modelo. **📚 Subir vários de uma vez**
+  (📖 Catálogos de peças, só quem sobe): pergunta a MARCA (padrão CARRARO) → `pfCatLoteArquivos`: cada PDF passa pelo `pfCatEnvImportar` + `pfCatEnvSalvarNovo` de sempre (`window._pfCatLoteAtivo`
+  pula a tela, os avisos e o Arrumar) = GRAVADO como catálogo normal (desenhos, Aplicações, fichas); ref/modelo vazios saem do nome do arquivo (`pfCatLoteRefDoNome`: 6 dígitos, CA338939 = 338939;
+  `pfCatLoteModeloDoNome`); referência já gravada = pulada; ZF/Dana/escaneado = pulado (subir sozinho). Testado com os 4 PDFs do 20.43 (`data/catalogos/eixos/`): 196 peças, 61 iguais em todas.

@@ -3444,3 +3444,6 @@
 - v115.2955 ("acho melhor tirar. ta meio confuso" — imagem do 💰 Crédito com "Total do pedido"): a imagem (`pfCredCanvas`) e o texto (`pfCredTexto`) do crédito mostram só Crédito / Desconto / Ainda tem (Resta) de crédito — o Total do pedido saiu.
 - v115.2956 + extensão **8.6** (print do "Novo contato" do WhatsApp: Nome "Douglas (9109)" + Sobrenome "Melo" = código no meio; "costumo deixar Vitor Lima - Triex (1226)"): o `waSalvarNome`
   lê o sobrenome que o WhatsApp já pôs e junta logo depois do nome da pessoa (se ainda não estiver no nome) e divide: Nome = 1ª palavra, Sobrenome = o resto ("Melo - Empresa (9109)") — o código fica sempre no FIM.
+- v115.2957 ("no pedido dele está 30 dias. mas só trabalhamos com 28… o mais próximo de 30 seria 28"): a condição lida do 🧾 Pedido de compra do cliente vira a da Tabela Triex mais próxima
+  (`pfCondTriex`: À VISTA, 28 e as do `PF_COND_FAIXAS`; mesmo nº de parcelas e menor diferença de dias — 030 = 28, 30/60 = 28/56, 30/60/90 = 28/56/84). Comparação, botão "Usar a condição do pedido (030 → 28)",
+  aviso da cotação e janela do WhatsApp mostram "030 → 28" (`pfCondTriexTxt`). Prévia do 📦 emitir o pedido direto dessa janela em `docs/referencias/pedido-emitir/previa.png` (esperando o Vitor).

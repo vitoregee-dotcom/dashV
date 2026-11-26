@@ -3400,3 +3400,6 @@
   abrir uma cotação = pela lista "Cotações abertas" ao passar o mouse no ícone (ou a aba de baixo).
 - v115.2944 BUG (prints: a lista "Cotações abertas" do ícone Vendas ficava PRESA por cima da tela, até no Leitor de Peças): o redesenho do dock (`pfDockResetNativos`) tirava o
   `onmouseleave` que fechava a lista. Agora o reset fecha a lista (`pfDockFecharFlyout`) e, de reserva, mexer o mouse fora do ícone/lista ou clicar fora fecha (listeners no document).
+- v115.2945 + extensão **8.1** BUG (foto de caderno no WhatsApp → 📝 Mandar pro Leitor: veio "5-153X / 5131 / 81300…" tudo "manuscrito borrado", códigos que nem estão na foto): 1) sem o ⚙️ motor a extensão
+  manda a MINIATURA da conversa e a IA inventa — agora mede a foto e, com menos de 800 px, avisa (liga o motor ou manda o print pelo 📋 Colar print do Leitor). 2) pedido à IA do Leitor ganhou
+  `PF_LP_MANUSCRITO_PROMPT`: lista à mão "CODIGO-QTD" (último "-N" = quantidade, ponto vira traço: 2.40.1521-2 = 2-40-1521 ×2, R.1006-6 = R-1006 ×6, lê as 2 colunas).

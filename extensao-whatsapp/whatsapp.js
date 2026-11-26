@@ -4235,6 +4235,9 @@
       if (id === 'msg_leitor') { _lImg = fotoMelhor(A.b); }
       if (_lImg) cmToast('📝 Mandando a foto pro Leitor de Peças…');
       var _lDu = _lImg ? await fotoDados(A.b, _lImg) : '';
+      // 8.1 - A pedido do Vitor (lista do caderno lida toda errada): sem o motor a extensão só pega a MINIATURA da conversa (borrada) e a IA inventa os códigos — avisa.
+      if (_lDu) { try { var _tm = await new Promise(function (ok) { var im = new Image(); im.onload = function () { ok(Math.max(im.naturalWidth, im.naturalHeight)); }; im.onerror = function () { ok(0); }; im.src = _lDu; });
+        if (_tm && _tm < 800) { cmToast('⚠ Só consegui a MINIATURA da foto (' + _tm + ' px) — a leitura pode sair errada. Ligue o ⚙️ motor (Configurações → Contatos) ou abra a foto e mande o print pelo 📋 Colar print do Leitor.'); await dormir(2500); } } catch (e) { } }
       var rl = await msg({ t: 'acao', acao: 'leitor', focar: true, arg: { texto: id === 'sel_leitor' ? sel : cmTxt(A.b), img: _lDu || '' } }); cmToast(rl && rl.ok ? '📝 Mandei pro Leitor de Peças do PF' : naoDeu()); return; } // 4.85
     if (/^msg_/.test(id) && !A.b) { cmToast('Clique com o botão direito em cima da mensagem'); return; }
     if (id === 'msg_cotar') { cotarTxt(cmTxt(A.b)); return; }

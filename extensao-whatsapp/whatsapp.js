@@ -1126,13 +1126,17 @@
   // que o cliente digitou (o dele fica como código do cliente).
   // 8.0 - A pedido do Vitor ("e se colocar algo para marcar, para cotar todas as fichas que tiver?"): caixinha "Cotar todas as marcas" — a cotação no PF
   // já vem com TODAS as fichas (marcas) de cada código pedido, uma linha por marca. Fica guardada neste navegador.
-  var TODAS = false; try { chrome.storage.local.get('todasFichas', function (o) { TODAS = !!(o && o.todasFichas); }); } catch (e) { }
+  // 8.8 - A pedido do Vitor ("por via de regra já tem que cotar todas"): vem MARCADA; desmarcar fica guardado neste navegador.
+  var TODAS = true; try { chrome.storage.local.get('todasFichas', function (o) { TODAS = !(o && o.todasFichas === false); }); } catch (e) { }
   // 8.5 - A pedido do Vitor ("o cliente pediu para cotar somente de determinada marca… configurado somente nessa cotação" — "Só fleet"): o PF acha
   // "só/somente/apenas MARCA" nas mensagens do cliente; aqui vem a linha marcada "Cliente pediu só X". Marcada = cota só essa marca e a regra entra no
   // ⚙️ Regras desta cotação no PF (não mexe no Assistente nem no cadastro). Desmarcar = refaz sem a marca.
   var cotArgs = null, spArgs = null;
   function soMarcaHtml(r, ctx) {
-    var det = (r && r.soMarcaDet) || []; if (!det.length) return '';
+    var det = (r && r.soMarcaDet) || [];
+    // 8.8 - A pedido do Vitor ("não vai ter campo para eu falar para cotar só alguma?"): sem o cliente ter falado, link "🏷️ Só uma marca…" → campo pra digitar a marca.
+    if (!det.length) return '<div class="pfwa-somask" style="flex:0 0 100%;width:100%;box-sizing:border-box;margin:4px 0 2px;font-size:12px"><a href="#" data-pfsomabrir="' + ctx + '" style="color:#1F4E79;font-weight:700;text-decoration:none">🏷️ Cotar só uma marca…</a>' +
+      '<span data-pfsomcx="' + ctx + '" style="display:none"> <input data-pfsomtx="' + ctx + '" placeholder="ex.: Spicer, Fleet" style="width:130px;padding:3px 6px;border:1px solid #c9d3df;border-radius:6px;font-size:12px"> <button data-pfsomok="' + ctx + '" style="padding:3px 9px;border-radius:6px;border:0;background:#1F4E79;color:#fff;font-weight:700;font-size:12px;cursor:pointer">OK</button></span></div>';
     var on = !!(r.soMarca && r.soMarca.length);
     return '<label class="pfwa-todas pfwa-som" title="O cliente pediu só essa marca. Marcado: cota só ela e a regra fica só nesta cotação no PF (não vai pro Assistente nem pro cadastro)"><input type="checkbox" data-pfsom="' + ctx + '"' + (on ? ' checked' : '') + '> 🏷️ Cliente pediu <b>só ' + esc(det.join(' / ')) + '</b> — cotar só essa marca</label>';
   }
@@ -1147,6 +1151,17 @@
       var s0 = spMsg, r2 = await msg({ t: 'acao', acao: 'cotar', arg: a2 }); if (spMsg !== s0) return; if (r2 && !r2.erro) spR = r2; spPinta();
     }
   }, true);
+  async function soMarcaDigitada(ctx, txt) {
+    txt = String(txt || '').trim(); if (!txt) return;
+    if (ctx === 'cot' && cotArgs && cot) { var a = Object.assign({}, cotArgs, { soMarcaTxt: txt }); cotando = true; pintaCorpo(); var r = await msg({ t: 'acao', acao: 'cotar', arg: a }); cotando = false; if (r && !r.erro) cot = r; pintaCorpo(); }
+    else if (ctx === 'sp' && spArgs && spR) { var a2 = Object.assign({}, spArgs, { soMarcaTxt: txt }), s0 = spMsg, r2 = await msg({ t: 'acao', acao: 'cotar', arg: a2 }); if (spMsg !== s0) return; if (r2 && !r2.erro) spR = r2; spPinta(); }
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target; if (!t || !t.closest) return;
+    var ab = t.closest('[data-pfsomabrir]'); if (ab) { e.preventDefault(); e.stopPropagation(); var c = ab.getAttribute('data-pfsomabrir'), cx = ab.parentNode.querySelector('[data-pfsomcx="' + c + '"]'); if (cx) { cx.style.display = 'inline'; ab.style.display = 'none'; var i = cx.querySelector('input'); if (i) i.focus(); } return; }
+    var ok = t.closest('[data-pfsomok]'); if (ok) { e.preventDefault(); e.stopPropagation(); var c2 = ok.getAttribute('data-pfsomok'), inp = ok.parentNode.querySelector('input'); soMarcaDigitada(c2, inp && inp.value); }
+  }, true);
+  document.addEventListener('keydown', function (e) { var t = e.target; if (e.key === 'Enter' && t && t.hasAttribute && t.hasAttribute('data-pfsomtx')) { e.preventDefault(); e.stopPropagation(); soMarcaDigitada(t.getAttribute('data-pfsomtx'), t.value); } }, true);
   function todasHtml() { return '<label class="pfwa-todas" title="A cotação no PF já vem com todas as marcas que tiver de cada código (uma linha por marca)"><input type="checkbox" data-pftodas' + (TODAS ? ' checked' : '') + '> Cotar <b>todas as marcas</b> de cada código</label>'; }
   document.addEventListener('change', function (e) { var t = e.target; if (t && t.hasAttribute && t.hasAttribute('data-pftodas')) { TODAS = !!t.checked; try { chrome.storage.local.set({ todasFichas: TODAS }); } catch (er) { } document.querySelectorAll('input[data-pftodas]').forEach(function (x) { x.checked = TODAS; }); } }, true);
   function itensPF(lista) {
@@ -3347,7 +3362,7 @@
       return '<div><i style="background:' + cor + '"></i><b>' + esc(o.cod) + '</b> × ' + (o.qtd || 1) + '<small>' + (o.marcaPed && !o.marcaOk ? mk : esc(mk)) + ' · ' + esc(st) + '</small></div>';
     }).join('') + '</div>';
     var feito = !!spFeitos[s._h];
-    h += '<div class="sp-b">' + soMarcaHtml(r, 'sp') + todasHtml() + '</div>';
+    h += '<div class="sp-b" style="flex-direction:column;align-items:flex-start;gap:4px">' + soMarcaHtml(r, 'sp') + todasHtml() + '</div>';
     h += '<div class="sp-b"><button data-sp="criar">' + (feito ? '📄 Criar de novo no PF' : '📄 Criar cotação no PF') + '</button><button data-sp="min" class="sp-min" title="Cria a cotação no PF e deixa ela minimizada lá (não troca de tela)">⬇ Criar minimizada</button><span class="sp-lk" data-sp="painel">ver no painel ›</span></div>' +
       (feito ? '<div class="sp-ok">✓ Você já criou a cotação desta mensagem.</div>' : '') + (mqSemSaldo(its).length ? '<div class="sp-b"><button data-sp="mapa" class="sp-mapa">🗂️ Mandar pro mapa (' + mqSemSaldo(its).length + ' sem saldo)</button></div>' : '');
     SP.innerHTML = h; spPos();

@@ -3459,3 +3459,6 @@
 - v115.2960 ("na hora do transporte, coloca algo pra me lembrar o transporte que o cliente costuma usar"): no Confirmar Pedido de Venda a sugestão de entrega (`pvEntregaSugerida`, que só tracejava o
   botão) virou caixa amarela "🚚 Esse cliente costuma: transportadora X — pelos últimos pedidos (4 de 5)" com "✔ Usar" (`pvEntregaUsarSug`, `window._pvEntregaSugObj`); também pega a 1ª de
   `cad.transportadoras`. Ideia anotada no `PF_FUNC_IDEIAS`: **🔎 Varredura de preços fora do normal** (peça sempre vendida a R$ 100 aparecendo a 80/50/130 → mostrar a diferença e de onde veio).
+- v115.2961 + extensão **8.8** ("aqui por via de regra já tem que cotar todas. Mas não vai ter campo pra eu falar pra cotar só alguma?"): a caixinha "Cotar todas as marcas" do selo 📄 e do
+  painel Cotação vem MARCADA (`TODAS` padrão true; desmarcar continua guardado no navegador). Sem o cliente ter falado "só X", aparece o link "🏷️ Cotar só uma marca…" → campo (`data-pfsomtx`, Enter/OK →
+  `soMarcaDigitada`) → acao `cotar` com `soMarcaTxt` → `pfExtCotar` resolve pelo `pfSoMarcaResolver` (vírgula, "/", "e", "ou" = várias; "fleet" = FLEETGUARD) e liga o mesmo "só essa marca" da 8.5.

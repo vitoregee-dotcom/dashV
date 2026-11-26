@@ -4398,15 +4398,15 @@
     // 4.66 - A pedido do Vitor ("imagem, eu consigo tbm já mandar para a cotação?"): foto = ler com IA e cotar
     var imgSrc = '';
     try { imgSrc = fotoMelhor((cmAlvo || {}).b); } catch (e) { }
-    if (imgSrc) itens.push(['img_ia', '🤖 Ler a foto com IA e cotar (PF)', imgSrc]);
     if (imgSrc) itens.push(['img_iamin', '⬇ Ler a foto e criar a cotação minimizada (PF)', imgSrc]); // 5.6
     if (imgSrc) itens.push(['img_plaq', '🏷️ Mandar a plaqueta pra Máquinas (PF)', imgSrc]); // 4.91
     // 4.74 - A pedido do Vitor ("não consegui mandar o PDF pra já ler e fazer a cotação no PF"): mensagem com PDF = ler o PDF com IA e cotar
     var docNome = '';
     try { var tb = String((cmAlvo && cmAlvo.b && cmAlvo.b.innerText) || ''), md = tb.match(/([^\n]+?\.pdf)\b/i); if (md) docNome = md[1].trim(); else if (/\bPDF\b\s*[•·]/.test(tb)) docNome = '?'; } catch (e) { }
-    if (docNome) itens.push(['doc_ia', '🤖 Ler o PDF com IA e cotar (PF)', docNome === '?' ? '' : docNome]);
     if (docNome) itens.push(['doc_iamin', '⬇ Ler o PDF e criar a cotação minimizada (PF)', docNome === '?' ? '' : docNome]); // 5.6
-    itens.push(['msg_cotar', '📄 Cotar no PF']);
+    // 7.9 - A pedido do Vitor ("esse cotar no pf faz exatamente o que?" → "pode ser"): mensagem com foto/PDF = o próprio 📄 Cotar no PF lê o arquivo com IA
+    // (o item separado "Ler a foto/PDF com IA e cotar" saiu); só texto = lê os códigos sem IA, como antes.
+    if (imgSrc) itens.push(['img_ia', '📄 Cotar no PF (lê a foto com IA)', imgSrc]); else if (docNome) itens.push(['doc_ia', '📄 Cotar no PF (lê o PDF com IA)', docNome === '?' ? '' : docNome]); else itens.push(['msg_cotar', '📄 Cotar no PF']);
     itens.push(['msg_mc', '🔗 Monta com (PF)']); // 4.92
     itens.push(['msg_pc', '💲 Preço do concorrente (PF)']); // 4.93
     if (imgSrc) itens.push(['img_pc', '💲 Cotação do concorrente (ler a foto) (PF)', imgSrc]);
@@ -4423,7 +4423,7 @@
     // 6.7 - A pedido do Vitor ("to procurando a função de responder a msg, mas está ficando escondido lá em cima"): no menu da MENSAGEM só ficam
     // "📄 Cotar no PF" e "🧩 PartsFlow ›" — o resto abre ao lado (submenu), o menu do WhatsApp não cresce e o Responder fica à vista.
     var sub = null;
-    if (!fixos && itens.length > 2) { sub = itens.filter(function (x) { return x[0] !== 'msg_cotar'; }); itens = itens.filter(function (x) { return x[0] === 'msg_cotar'; }); itens.push(['__sub', '🧩 PartsFlow ›']); }
+    if (!fixos && itens.length > 2) { var _pri = function (x) { return x[0] === 'msg_cotar' || x[0] === 'img_ia' || x[0] === 'doc_ia'; }; sub = itens.filter(function (x) { return !_pri(x); }); itens = itens.filter(_pri); itens.push(['__sub', '🧩 PartsFlow ›']); }
     itens.forEach(function (x) {
       var li = modelo.cloneNode(true); li.classList.add('pfwa-wm'); li.removeAttribute('aria-label'); li.removeAttribute('data-testid');
       li.innerHTML = ''; li.style.cssText = (li.style.cssText || '') + ';display:flex;align-items:center;cursor:pointer';

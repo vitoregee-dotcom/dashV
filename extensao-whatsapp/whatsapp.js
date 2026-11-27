@@ -41,7 +41,10 @@
     if (r.erro === 'pfF5') return 'Dê F5 na aba do PartsFlow e tente de novo';
     if (r.erro === 'recarregar') return 'A extensão foi atualizada — dê F5 nesta aba do WhatsApp';
     if (r.msg) return String(r.msg); if (r.erro) return 'O PF não conseguiu: ' + r.erro; return 'O PF não conseguiu fazer isso'; }
-  function msg(m) { return new Promise(function (res) { try { chrome.runtime.sendMessage(m, function (r) { void chrome.runtime.lastError; ultimaResp = r || null; try { if (r && r.gruposPF && typeof svGruposPfSet === 'function') svGruposPfSet(r.gruposPF); } catch (e) { } res(r || null); }); } catch (e) { ultimaResp = { erro: 'recarregar' }; res(ultimaResp); } }); }
+  // 9.4 - A pedido do Vitor (🧠 aprender com você): as ações que você faz na conversa ficam guardadas uns minutos pra ligar com a sua resposta
+  var aprAcoes = {}, APR_ACOES = { abrirCot: 1, abrirCotMin: 1, cotHoje: 1, mapaCriar: 1, pedidoEmitir: 1, aviseMe: 1, materialEnviado: 1, rrUsou: 1, respForn: 1, lerCods: 1, cadLink: 1, credito: 1, precoConc: 1, montaCom: 1, jbAbrir: 1 };
+  function aprGuardar(m) { try { if (m && m.t === 'acao' && APR_ACOES[m.acao] && typeof ultimo !== 'undefined' && ultimo) { var L = aprAcoes[ultimo] = aprAcoes[ultimo] || []; var a = m.arg || {}; L.push({ a: m.acao, ts: Date.now(), det: String(a.nome && m.acao === 'rrUsou' ? a.nome : (a.arq || a.arquivo || a.titulo || '')).slice(0, 80) }); if (L.length > 20) L.shift(); } } catch (e) { } }
+  function msg(m) { aprGuardar(m); return new Promise(function (res) { try { chrome.runtime.sendMessage(m, function (r) { void chrome.runtime.lastError; ultimaResp = r || null; try { if (r && r.gruposPF && typeof svGruposPfSet === 'function') svGruposPfSet(r.gruposPF); } catch (e) { } res(r || null); }); } catch (e) { ultimaResp = { erro: 'recarregar' }; res(ultimaResp); } }); }
   function reais(v) { return 'R$ ' + (+v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   var VER = (function () { try { return chrome.runtime.getManifest().version; } catch (e) { return ''; } })();
 
@@ -604,7 +607,7 @@
   var ajuda = false;
   // 3.4 - ⚙️ Configurações (A pedido do Vitor: "coloca botão de eu ligar ou desligar essas configurações. igual no Watidy"):
   // cada função da extensão liga/desliga aqui; guardado por navegador (chrome.storage.local 'cfg'). Menu e aviso de cotação usam as chaves que já existiam.
-  var config = false, CFG = { frota: true, mat: true, bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true, audio: true, audioBotoes: false, sug: true, waEtqOff: true, rrselo: true, mp: true };
+  var config = false, CFG = { frota: true, mat: true, bots: true, etq: true, salvar: true, ofertas: true, ja: true, verif: true, audio: true, audioBotoes: false, sug: true, waEtqOff: true, rrselo: true, mp: true, apr: true };
   var CFG_LISTA = [
     ['cc', '🧭', 'Conhecer o cliente', 'Selo 🧭 ao lado do nome com o que ainda falta saber do cliente (tipo, linhas, frota, estoque…) e uma dica quando a conversa acalma. 1 clique grava no cadastro.'],
     ['mp', '📦', 'Meus pedidos na coluna da esquerda', 'Um anel por pedido em andamento: enche conforme anda (emitido → despachado), vermelho = precisa de você. Mouse em cima mostra o pedido.'],
@@ -624,6 +627,7 @@
     ['audioBotoes', '💬', 'Botões na descrição do áudio', 'Mostra Pôr na conversa, Copiar e Cotar no PF embaixo da descrição. Vem desligado.'],
     ['frota', '🚜', 'Máquina citada → frota do cliente', 'Quando o cliente (que não é revenda) fala o modelo de uma máquina ou componente, o PF pergunta se põe na frota dele.'],
     ['mat', '📎', 'Mandar o portfólio na hora', 'Quando você escreve que vai mandar o portfólio/catálogo/tabela, o PF acha o arquivo nos Atalhos de Texto e pergunta se manda agora.'],
+    ['apr', '🧠', 'Aprender com você', 'A extensão registra o que você faz quando o cliente pede algo (preço, portfólio, endereço, prazo…) pra mostrar no PF o seu jeito de responder. Só registra — não responde sozinha.'],
     ['verif', '📌', 'Anotar "vou verificar" sozinho', 'Quando você escreve "vou verificar / já te retorno", vira pendência e próxima ação no PF.']];
   function cfgOn(k) { return k === 'menu' ? menuLig : k === 'aviso' ? avisoLigado : CFG[k] !== false; }
   chrome.storage.local.get(['cfg'], function (s) { if (s.cfg) for (var k in s.cfg) CFG[k] = s.cfg[k]; CFG.waEtqOff = true; }); // 4.42 - A pedido do Vitor ("quero sempre a etiqueta do whats escondida")
@@ -663,6 +667,8 @@
     pinta();
   }
   var AJUDA = [
+    ['Novo (9.4)', [
+      ['🧠', 'O que aprendi com você', 'A extensão olha o que o cliente pediu e o que você fez logo depois (criou cotação, mandou o portfólio, mandou o PIX, respondeu NEGATIVO…). No PF, em Ferramentas → 🧠 O que a extensão aprendeu, aparece a tabela "quando o cliente pede… você costuma…". Por enquanto só registra — não faz nada sozinha. Desliga em ⚙️.']]],
     ['Comece por aqui', [
       ['⚙️', 'Configurações', 'A engrenagem no cabeçalho do painel liga e desliga cada função da extensão (menu, etiquetas, botões, avisos, salvar contato, ofertas…).'],
       ['🧩', 'O que é', 'O PartsFlow (PF) aparece aqui do lado do WhatsApp e mostra quem é o contato, o que ele compra e o que está em aberto. Ele só LÊ e ESCREVE NA CAIXA — quem aperta Enter é sempre você.'],
@@ -2216,7 +2222,7 @@
     // UMA vez só, ao abrir a conversa; se o PF ainda estava carregando (modo monitor recarrega por dentro), a resposta vinha vazia e ficava presa no erro.
     // Agora, com erro na tela, pergunta de novo a cada 5 s até o PF responder.
     if (chave === ultimo && resp && resp.erro && resp.erro !== 'recarregar' && Date.now() - (window._pfwaQuemTent || 0) > 5000) { window._pfwaQuemTent = Date.now(); ultimo = ''; }
-    if (chave === ultimo) { pintaAviso(nCod); ofertasVigiar(); digitandoVigiar(); verificarVigiar(); pedidoVigiar(); cumpridoVigiar(); jeitoVigiar(); frotaVigiar(); materialVigiar(); return; }
+    if (chave === ultimo) { pintaAviso(nCod); ofertasVigiar(); digitandoVigiar(); verificarVigiar(); pedidoVigiar(); cumpridoVigiar(); jeitoVigiar(); frotaVigiar(); materialVigiar(); aprVigiar(); return; }
     ultimo = chave; cot = null; cotErro = ''; saldoR = null; ofPend = []; ofSig = ''; jaR = null; digAnt = ''; jaFechado = ''; vfR = null; vfSig = ''; peR = null; peSig = ''; askL = []; askSig = { fr: '', mat: '' }; if (QK) QK.style.display = 'none'; askPinta(); pintaOferta(); pintaJa(); pintaVf(); pintaPe();
     if (!c) { resp = null; pinta(); pintaAviso(0); return; }
     if (c.grupo) { resp = { grupo: 1 }; pinta(); return; }
@@ -2374,6 +2380,28 @@
   // ═══ 📌 "VOU VERIFICAR DEPOIS" → pendência automática (2.2) ═══
   // Quando a ÚLTIMA mensagem que VOCÊ mandou é uma frase de "vou verificar / deixa eu ver no catálogo / vou checar com o fornecedor",
   // o PF cria sozinho uma pendência (cliente + o que ele pediu + códigos) e aparece um cartão "📌 Anotei — desfazer".
+  // 9.4 - 🧠 Aprender com você (passo 1: SÓ registrar): último bloco do cliente → a SUA 1ª resposta logo depois → manda pro PF (acao aprender)
+  function aprHash(t) { var h = 0; t = String(t || ''); for (var i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0; return h.toString(36); }
+  var aprFeitos = {}; try { aprFeitos = JSON.parse(sessionStorage.getItem('pfwa_apr') || '{}') || {}; } catch (e) { aprFeitos = {}; }
+  async function aprVigiar() {
+    try {
+      if (CFG.apr === false || !contatoAt || contatoAt.grupo || !resp || !resp.k) return;
+      var ms = lerMensagensDoc(); if (!ms || ms.length < 2) return;
+      // acha a última resposta SUA que veio logo depois de um bloco do cliente
+      var j = -1; for (var i = ms.length - 1; i > 0; i--) { if (ms[i].eu && !ms[i - 1].eu) { j = i; break; } }
+      if (j < 0) return;
+      var r = ms[j], blo = []; for (var k = j - 1; k >= 0 && !ms[k].eu; k--) blo.unshift(ms[k]);
+      var ped = blo.map(function (m) { return m.t || (m.doc ? '📎 ' + m.doc : ''); }).filter(Boolean).join('\n').slice(0, 400);
+      var res = String(r.t || '').slice(0, 400), arq = r.doc || '';
+      if (!ped || (!res && !arq)) return;
+      var sig = ultimo + '|' + aprHash(ped + '|' + res + '|' + arq);
+      if (aprFeitos[sig]) return; aprFeitos[sig] = Date.now();
+      try { var ks = Object.keys(aprFeitos); if (ks.length > 300) ks.sort(function (a, b) { return aprFeitos[a] - aprFeitos[b]; }).slice(0, 100).forEach(function (x) { delete aprFeitos[x]; }); sessionStorage.setItem('pfwa_apr', JSON.stringify(aprFeitos)); } catch (e) { }
+      var ag = Date.now(), ac = (aprAcoes[ultimo] || []).filter(function (x) { return ag - x.ts < 15 * 60000; });
+      aprAcoes[ultimo] = [];
+      msg({ t: 'acao', acao: 'aprender', arg: { k: resp.k, nome: contatoAt.nome, pedido: ped, resposta: res, arq: arq, acoes: ac } });
+    } catch (e) { }
+  }
   async function verificarVigiar() {
     if (!CFG.verif || !contatoAt || contatoAt.grupo) { if (vfR) { vfR = null; pintaVf(); } return; }
     var ms = lerMensagens(); if (!ms.length) return;
@@ -4741,7 +4769,7 @@
     if (!CRMP) { CRMP = document.createElement('div'); CRMP.id = 'pfwa-crmp'; document.body.appendChild(CRMP);
       CRMP.addEventListener('click', function (e) { var b = e.target.closest('[data-crm]'); if (b) { var a = b.getAttribute('data-crm'), v = b.getAttribute('data-v') || '';
           if (a === 'x') { CRMP.style.display = 'none'; return; } if (a === 'per') { crmPer = v; crmFil = ''; crmHojeAbrir(); return; } if (a === 'todos') { crmTodos = !crmTodos; crmHojeAbrir(); return; }
-          if (a === 'fil') { crmFil = crmFil === v ? '' : v; crmHojePinta(); return; } if (a === 'cfg') { msg({ t: 'acao', acao: 'extCfgAbrir', focar: true }); return; } if (a === 'varrer') { CRMP.style.display = 'none'; crmVarrerAbrir(); return; } }
+          if (a === 'fil') { crmFil = crmFil === v ? '' : v; crmHojePinta(); return; } if (a === 'cfg') { msg({ t: 'acao', acao: 'extCfgAbrir', focar: true }); return; } if (a === 'varrer') { CRMP.style.display = 'none'; crmVarrerAbrir(); return; } if (a === 'apr') { msg({ t: 'acao', acao: 'aprAbrir', focar: true }); return; } }
         clique(e); });
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && CRMP && CRMP.style.display === 'block') { e.stopPropagation(); CRMP.style.display = 'none'; } }, true); }
     return CRMP;
@@ -4769,7 +4797,7 @@
     var L = (r.l || []).filter(function (x) { return !crmFil || x.ic === crmFil; });
     h += L.length ? '<div class="pfwa-crmlst">' + L.map(function (x) { return crmLinhaHtml(x, true); }).join('') + (r.n > (r.l || []).length ? '<div class="pfwa-crmv">mostrando as ' + r.l.length + ' mais novas</div>' : '') + '</div>'
       : '<div class="pfwa-crmv">Nada nesse período' + (crmTodos ? '' : ' (só as suas — marque "da equipe toda")') + '.</div>';
-    h += '<div class="pfwa-crmft"><span data-crm="cfg">⚙️ O que vai pro CRM ›</span><span data-crm="varrer">🔄 Varrer as conversas antigas ›</span></div>';
+    h += '<div class="pfwa-crmft"><span data-crm="cfg">⚙️ O que vai pro CRM ›</span><span data-crm="varrer">🔄 Varrer as conversas antigas ›</span><span data-crm="apr">🧠 O que aprendi ›</span></div>';
     el.innerHTML = h;
   }
   // 🔄 Varredura das conversas antigas (pelo motor; grava como histórico, com a data da mensagem — pode rodar de novo, não duplica)

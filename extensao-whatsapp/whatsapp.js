@@ -3173,7 +3173,7 @@
   async function mpAcao(ac, id) {
     var x = MP.find(function (y) { return y.id === id; }); if (!x) return; mpPopFechar(0);
     if (ac === 'mpConv') { await mpAbrirConversa(x); return; }
-    if (ac === 'mpTirar') { MP_OCULTOS[id] = Date.now(); try { chrome.storage.local.set({ mpOcultos: MP_OCULTOS }); } catch (e) { } mpPintar(); audToast('✕ Tirei da coluna — o pedido continua no PF'); return; }
+    if (ac === 'mpTirar') { MP_OCULTOS[id] = Date.now(); try { chrome.storage.local.set({ mpOcultos: MP_OCULTOS }); } catch (e) { } mpPintar(); msg({ t: 'acao', acao: 'mpTirar', arg: { id: id } }); /* 11.0: grava no PF também */ audToast('✕ Tirei da coluna — o pedido continua no PF'); return; }
     if (ac === 'mpVer') { msg({ t: 'acao', acao: 'mpVer', arg: { id: id }, focar: true }); return; }
     if (ac === 'mpEmitido') { await msg({ t: 'acao', acao: 'mpEmitido', arg: { id: id } }); mpCarregar(); return; }
     if (ac === 'mpCobrar') { var r = await msg({ t: 'acao', acao: 'mpTexto', arg: { id: id, tipo: 'cobrar' } }); if (r && r.txt) { try { await navigator.clipboard.writeText(r.txt); } catch (e) { } audToast('📋 Texto copiado — cole pro faturamento'); } return; }

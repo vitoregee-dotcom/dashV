@@ -3592,3 +3592,6 @@
   📦 ☀️ 📒 ⚙️ da coluna sem fundo colorido (iguais aos outros ícones); coluna 64 px (era 52; `#app` padding-left junto, `#pfwa-crmp` left 74), mais espaço entre ícones e anéis. No 📦 Meus pedidos, botão
   "🙈 Ocultar" em cada cartão de pedido (e no menu do clique) → `pfMpOcultar` → por usuário **`pfMpOcultos_v1`** {ids:{id:ts},ts} (PF_SYNC_KEYS, 60 dias); o `pfMpDados` pula (some também da coluna
   do WhatsApp, que usa o pfMpDados); "↩ N ocultos" no cabeçalho (`pfMpOcVoltar`). O pedido continua em ☰ Todos os pedidos.
+- v115.3009 + extensão **11.0** ("já tirei daqui e continua" — ✕ Tirar daqui no cartão do anel do WhatsApp): o tirar ficava só no navegador (`chrome.storage.local.mpOcultos`);
+  noutro navegador/perfil o anel voltava. Agora também manda a acao `mpTirar` pro PF → `pfMpOcultos_v1` (por usuário, sincronizado, o mesmo do 🙈 Ocultar do 📦 Meus pedidos) e
+  o `pfMpDados` também esconde lembrete 📝 oculto. "↩ N ocultos" no 📦 Meus pedidos traz de volta.

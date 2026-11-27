@@ -33,7 +33,7 @@
       var rid = 'r' + Date.now() + Math.random().toString(36).slice(2, 7);
       pend[rid] = send;
       window.postMessage({ pfExt: 'req', rid: rid, m: m }, '*');
-      var lim = (m.acao === 'resumir' || m.acao === 'cotarIA' || m.acao === 'cotarImg') ? 90000 : (m.acao === 'jbossLer') ? 150000 : (m.acao === 'assistente') ? 240000 : (m.acao === 'crmVarrer' || m.acao === 'crmHoje') ? 30000 : 10000; // 9.2 - 🤖 assistente: IA + cotação + PDF // 3.6 - a IA demora mais
+      var lim = (m.acao === 'resumir' || m.acao === 'cotarIA' || m.acao === 'cotarImg') ? 90000 : (m.acao === 'cotar') ? 45000 : (m.acao === 'jbossLer') ? 150000 : (m.acao === 'assistente') ? 240000 : (m.acao === 'crmVarrer' || m.acao === 'crmHoje') ? 30000 : 10000; // 9.2 - 🤖 assistente: IA + cotação + PDF // 3.6 - a IA demora mais
       setTimeout(function () { if (pend[rid]) { delete pend[rid]; send({ erro: 'semResposta' }); } }, lim);
       return true;
     }

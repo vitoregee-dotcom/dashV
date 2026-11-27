@@ -3556,3 +3556,5 @@
 - v115.2996 BUG (WhatsApp da RS Tork "5-7177x SPICER / 5-7177tx" virou 5717789 CUMMINS — "qnd for cliente de rodoviário… os códigos têm traços, são componentes de cardan"): o `vendasBuscarItem`
   acha "variantes" (mesmo código + até 3 letras/números no fim) comparando só letras+números — 5-7177 casava com 5717789. Agora código digitado no formato de cardan (`_cardanTraco`: 1–3 dígitos [.d] + traço,
   ou ALB na frente) só aceita variante cujo código no estoque também tem traço (`_varOk`): 5-7177X sim, 5717789 não. Vale pra cotação, WhatsApp e tudo que usa o vendasBuscarItem.
+- v115.2997 + extensão **9.9** ("cadê as outras opções e funções que tinha?" — selo 📄 de 33 códigos parado em "Lendo no PF…" só com o Copiar pro JBoss): os botões Criar cotação / ⬇ Criar minimizada aparecem
+  já enquanto lê (clicou antes = `spQuer`, cria quando terminar); limite do `cotar` na ponte 10 s → 45 s (pedido grande dava "Abra o PartsFlow"). E "02--234141" (2 traços) = 2 × 234141 no `pfExtLerPedido`.

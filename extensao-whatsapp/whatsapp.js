@@ -3431,14 +3431,16 @@
     var top = r.bottom + 6; if (top + h > window.innerHeight - 10) top = Math.max(10, r.top - h - 6);
     SP.style.left = left + 'px'; SP.style.top = top + 'px';
   }
+  var spQuer = '';
   async function spAbrir(s) {
     spEl(); spMsg = s; spR = null;
-    SP.style.display = 'block'; SP.innerHTML = '<div class="sp-cab"><b>📄 ' + s._n + ' código' + (s._n > 1 ? 's' : '') + ' neste pedido</b><span class="sp-x" data-sp="x" title="Fechar (Esc)">✕</span></div><div class="sp-b"><button data-sp="jboss" class="sp-jb" title="Lê pelas regras do Leitor de Peças e copia no modelo do JBoss — é só colar no JBoss">📋 Copiar pro JBoss</button></div><div class="sp-nada">Lendo no PF…</div>';
-    spPos();
+    SP.style.display = 'block'; SP.innerHTML = '<div class="sp-cab"><b>📄 ' + s._n + ' código' + (s._n > 1 ? 's' : '') + ' neste pedido</b><span class="sp-x" data-sp="x" title="Fechar (Esc)">✕</span></div><div class="sp-b"><button data-sp="jboss" class="sp-jb" title="Lê pelas regras do Leitor de Peças e copia no modelo do JBoss — é só colar no JBoss">📋 Copiar pro JBoss</button></div><div class="sp-b"><button data-sp="criar">📄 Criar cotação no PF</button><button data-sp="min" class="sp-min" title="Cria a cotação no PF e deixa ela minimizada lá (não troca de tela)">⬇ Criar minimizada</button></div><div class="sp-nada">Lendo ' + s._n + ' código' + (s._n > 1 ? 's' : '') + ' no PF… (pedido grande pode levar uns segundos)</div>';
+    spPos(); spQuer = ''; // 9.9 - A pedido do Vitor ("cadê as outras opções?"): os botões aparecem já enquanto lê; clicou antes de terminar = faz quando terminar
     spArgs = { k: resp && resp.k, contato: resp && resp.contato, msgs: s._t.split('\n').map(function (x) { return { t: x, eu: false }; }) };
     var r = await msg({ t: 'acao', acao: 'cotar', arg: spArgs });
     if (spMsg !== s) return;
     spR = r; spPinta();
+    if (spQuer && r && !r.erro) { var q = spQuer; spQuer = ''; spClique({ target: { closest: function () { return { getAttribute: function () { return q; } }; } }, preventDefault: function () { }, stopPropagation: function () { } }); }
   }
   function spPinta() {
     var s = spMsg, r = spR; if (!s || !SP) return;
@@ -3466,7 +3468,8 @@
     if (a === 'mapa') { var rm = spR; spFechar(); mqAbrir(rm); return; } // 6.3
     if (a === 'jboss') { var sj = spMsg; spFechar(); if (sj) jbLer({ texto: sj._t }); return; } // 9.7
     if (a === 'criar' || a === 'min') {
-      var s = spMsg, r = spR; if (!s || !r) return; var _min = a === 'min'; // 4.83 - criar minimizada (não traz o PF pra frente)
+      var s = spMsg, r = spR; if (s && !r) { spQuer = a; var nd = SP.querySelector('.sp-nada'); if (nd) nd.textContent = '⏳ Ainda lendo… a cotação ' + (a === 'min' ? '(minimizada) ' : '') + 'é criada assim que terminar.'; return; }
+      if (!s || !r) return; var _min = a === 'min'; // 4.83 - criar minimizada (não traz o PF pra frente)
       msg({ t: 'acao', acao: 'abrirCot', focar: !_min, arg: { minimizar: _min, k: resp && resp.k, pessoa: pessoaComprador(), todas: TODAS, soMarca: r.soMarca || [], itens: itensPF(r.itens) } });
       spFeitos[s._h] = Date.now(); try { sessionStorage.setItem('pfwa_sp_feitos', JSON.stringify(spFeitos)); } catch (er) { }
       s._f = null; spFechar(); selosVigiar(); if (_min) cmToast('✔ Cotação criada no PF (minimizada)');

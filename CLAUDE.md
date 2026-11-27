@@ -3579,3 +3579,9 @@
 - v115.3005 + extensão **10.6** ("tem um atalho que vai direto para lá? no crm do PF" — 📒 O que foi pro CRM): no 📒 da coluna do WhatsApp o nome do cliente de cada anotação é clicável
   (`.pfwa-crmcli`, `data-crm="ficha"` → acao `ficha` → `pfCrmAbrir(k)`) e, com a conversa de um cliente aberta, aparece "🤝 Abrir a ficha de … no CRM do PF ›" em cima do rodapé (`fichaAtual`).
   Linha de relevância na linha do tempo (A importância 🔴🟡⚪ + B juntar o mesmo assunto, C marcar à mão) = proposta, esperando o Vitor.
+- v115.3006 + extensão **10.7** **📷 Fotos do site da CNH pro PF** (Vitor: "site da CNH… pegar as fotos dos itens q tem lá… para irmos jogando no PF e ir alimentando"): o mycnhstore.com bloqueia servidor
+  (Akamai "Access Denied" até pra navegador daqui) — só abre no Chrome dele, então é pela extensão. `extensao-whatsapp/cnh.js` (content script em www.mycnhstore.com, host_permissions novas): na página
+  da peça (…/<loja>/cn/<nome>/p/<código>) botão "📷 Mandar pro PF" no canto; pega código (endereço), descrição (h1) e a foto GRANDE (só aparece no ampliar → clica no ampliar sozinho `botaoAmpliar`,
+  maior imagem `fotoNaTela`, maior do srcset) → acao `fotoSite` → `pfExtFotoSite`: modo '' confere (sem ficha = "➕ Criar a ficha com a foto", com foto = Acrescentar / Trocar a 1ª), sobe em
+  `ferramentas-arquivos/fotos-site/<cod>_<ts>.jpg` e põe em `p.fotos` de todas as fichas do código (só letras+números, `p.fotoSite` = página); ficha nova com marca pela loja `PF_FS_MARCAS` e descrição sem
+  código/marca (`pfFsDesc`). Testado com página falsa (foto só no ampliar). Seletores do site real NÃO testados (não abre daqui). Próximo combinado: modo em lote (fichas NH/CASE sem foto).

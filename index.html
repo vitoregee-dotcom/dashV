@@ -2070,7 +2070,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.3005</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.3006</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2232,7 +2232,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.3005</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.3006</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -80389,6 +80389,36 @@ function pfExtJbAbrir(){var P=window._pfExtJbPend;if(!P||Date.now()-P.em>30*6000
   pfJbStatus('✔ Cotação '+pfEscHtml(P.dados.numero||'')+' da Triex lida no WhatsApp — confira abaixo','#1b7a3d');pfJbRender();return {ok:true};}
 // v115.2807 - A pedido do Vitor ("botão direito na imagem, quero poder enviar a plaqueta para o PF, para Máquinas, e irmos alimentando"):
 // a foto vai pro 📋 Aplicação pelo print (IA lê marca/modelo/série/ano/componentes) → conferência → grava em 🚜 Máquinas + a foto como plaqueta da ficha.
+// v115.3006 - A pedido do Vitor ("site da CNH… pegar as fotos dos itens q tem lá… para irmos jogando no PF e ir alimentando"): a extensão põe o botão
+// "📷 Mandar pro PF" na página da peça do mycnhstore.com (o site bloqueia servidor; só abre no Chrome dele) e manda código, descrição, marca e a foto grande.
+// Aqui: acha as fichas do código (só letras+números) no cadastro de produtos e põe a foto (sobe no Storage, guarda o endereço). modo '' = só confere
+// (devolve se tem ficha/foto); 'add' = acrescenta; 'trocar' = vira a 1ª foto; 'criar' = cria a ficha com a marca do site.
+var PF_FS_MARCAS={newhollandce:'NEW HOLLAND',newhollandag:'NEW HOLLAND',newholland:'NEW HOLLAND',casece:'CASE',caseag:'CASE',caseih:'CASE IH',case:'CASE',fpt:'FPT'};
+function pfFsN(s){return String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');}
+function pfFsMarca(a){var m=String((a&&a.loja)||'').toLowerCase();return PF_FS_MARCAS[m]||'';}
+function pfFsDesc(a){var d=String((a&&a.desc)||'').toUpperCase().trim(),c=pfFsN(a&&a.cod);
+  d=d.replace(/^\s*[A-Z0-9.\-]+\s*-\s*/,function(x){return pfFsN(x)===c?'':x;}).replace(/\s*-\s*(NEW HOLLAND|CASE)( CONSTRUCTION| AGRICULTURE| IH)?\s*$/,'').trim();return d;}
+async function pfExtFotoSite(a){try{a=a||{};var cod=String(a.cod||'').trim(),nc=pfFsN(cod);if(!nc)return {ok:false,msg:'não achei o código da peça nesta página'};
+  var L=cadLoad(PROD_KEY)||[],fs=L.filter(function(p){return p&&!p.del&&pfFsN(p.codigo)===nc;}),marca=pfFsMarca(a);
+  var comFoto=fs.filter(function(p){return (Array.isArray(p.fotos)&&p.fotos.length)||p.foto;}).length;
+  var info={ok:true,n:fs.length,comFoto:comFoto,marcas:fs.map(function(p){return p.marca||'';}),marca:marca,cod:cod};
+  if(!a.modo)return info;
+  if(!fs.length&&a.modo!=='criar')return Object.assign(info,{ok:false,msg:'sem ficha'});
+  if(!a.img&&!a.url)return {ok:false,msg:'não consegui pegar a foto'};
+  var u=a.url||'';
+  if(a.img){var du=a.img;try{du=await pfComprimirImagemDataUrl(du,1200,0.85);}catch(e){}
+    var bl=await (await fetch(du)).blob(),path='fotos-site/'+nc+'_'+Date.now()+'.jpg',up=null;
+    try{up=await pfStorageSubir('ferramentas-arquivos',path,bl,bl.type||'image/jpeg');}catch(e){}
+    if(up&&up.ok)u=SB_URL+'/storage/v1/object/public/ferramentas-arquivos/'+(up.path||path);
+    else if(!u)return {ok:false,msg:'não consegui subir a foto pro servidor (conexão ou login) — tente de novo'};}
+  L=cadLoad(PROD_KEY)||[];var n=0;
+  if(a.modo==='criar'&&!L.some(function(p){return p&&!p.del&&pfFsN(p.codigo)===nc;})){
+    L.push({id:'p_'+Date.now().toString(36),codigo:cod,marca:marca,descricao:pfFsDesc(a),fotos:[u],fotoSite:a.pagina||'',criadoDe:'site-cnh',tsMod:Date.now()});n=1;}
+  else L.forEach(function(p){if(!p||p.del||pfFsN(p.codigo)!==nc)return;p.fotos=Array.isArray(p.fotos)?p.fotos:(p.foto?[p.foto]:[]);
+    if(p.fotos.indexOf(u)>=0)return;if(a.modo==='trocar'&&p.fotos.length)p.fotos[0]=u;else p.fotos.push(u);
+    if(!p.descricao)p.descricao=pfFsDesc(a);p.fotoSite=a.pagina||p.fotoSite||'';p.tsMod=Date.now();n++;});
+  if(n){cadSave(PROD_KEY,L);try{pfSyncPush();}catch(e){}try{window._pfAltbCache=null;}catch(e){}}
+  return {ok:true,n:n,criou:a.modo==='criar',url:u};}catch(e){return {ok:false,msg:String(e.message||e)};}}
 async function pfExtPlaqueta(a){try{a=a||{};if(!a.img)return {ok:false,msg:'não consegui pegar a imagem'};
   var bl=await (await fetch(a.img)).blob(),f=new File([bl],'plaqueta.'+(((bl.type||'').split('/')[1])||'jpg'),{type:bl.type||'image/jpeg'});
   var du=await new Promise(function(ok){var r=new FileReader();r.onload=function(){ok(r.result);};r.onerror=function(){ok('');};r.readAsDataURL(bl);});
@@ -81771,6 +81801,7 @@ function pfExtAcao(acao,arg){
   if(acao==='cotarImg')return pfExtCotarImg(arg||{});
   if(acao==='pedLer')return pfExtPedLer(arg||{}); // v115.2942 - 🧾 ler como pedido de compra
   if(acao==='plaqueta')return pfExtPlaqueta(arg||{}); // v115.2807
+  if(acao==='fotoSite')return pfExtFotoSite(arg||{}); // v115.3006
   if(acao==='jbAbrir')return pfExtJbAbrir();
   if(acao==='leitor')return pfExtLeitor(arg||{}); // v115.2793
   if(acao==='montaCom')return pfExtMontaCom(arg||{}); // v115.2810
@@ -82962,7 +82993,7 @@ function pfExtBaixarZip(){
 function pfExtBaixarZipSimples(){var a=document.createElement('a');a.href=PF_EXT_ZIP;a.download='partsflow-whatsapp.zip';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();},200);}
 // v115.2601 - A pedido do Vitor ("tá atualizada a extensão?" — estava na 1.5 com a 1.9 publicada): versão mais nova = a do manifest.
 // Subiu a "version" do extensao-whatsapp/manifest.json → subir aqui também.
-var PF_EXT_VER_NOVA='10.6'; // v115.2930 (cartão do anel com 2 s parado)
+var PF_EXT_VER_NOVA='10.7'; // v115.2930 (cartão do anel com 2 s parado)
  var _pfExtVerAnt='4.75'; // v115.2760 - manifest 4.75 (quem mandou a última mensagem) · // v115.2757 - manifest 4.74 (ler PDF da conversa) · v115.2756 - manifest 4.73 (mensagem só com código conta como pedido) · // v115.2745 - manifest 4.71 · v115.2739 - manifest 4.67 (📦 Pedido a emitir + card de ajustes no PF)
 function pfExtVerMenor(a,b){a=String(a||'0').split('.').map(Number);b=String(b||'0').split('.').map(Number);for(var i=0;i<Math.max(a.length,b.length);i++){var x=a[i]||0,y=b[i]||0;if(x!==y)return x<y;}return false;}
 function pfExtInstalarAbrir(){

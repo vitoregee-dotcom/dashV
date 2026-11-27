@@ -628,7 +628,7 @@
     ['frota', '🚜', 'Máquina citada → frota do cliente', 'Quando o cliente (que não é revenda) fala o modelo de uma máquina ou componente, o PF pergunta se põe na frota dele.'],
     ['mat', '📎', 'Mandar o portfólio na hora', 'Quando você escreve que vai mandar o portfólio/catálogo/tabela, o PF acha o arquivo nos Atalhos de Texto e pergunta se manda agora.'],
     ['apr', '🧠', 'Aprender com você', 'A extensão registra o que você faz quando o cliente pede algo (preço, portfólio, endereço, prazo…) pra mostrar no PF o seu jeito de responder. Só registra — não responde sozinha.'],
-    ['verif', '📌', 'Anotar "vou verificar" sozinho', 'Quando você escreve "vou verificar / já te retorno", vira pendência e próxima ação no PF.']];
+    ['verif', '📌', 'Anotar "vou verificar" sozinho', 'Quando você escreve "vou verificar / já te retorno", vira pendência e próxima ação no PF. A sua próxima resposta pro cliente fecha a pendência e vai pra ficha como conclusão.']];
   function cfgOn(k) { return k === 'menu' ? menuLig : k === 'aviso' ? avisoLigado : CFG[k] !== false; }
   chrome.storage.local.get(['cfg'], function (s) { if (s.cfg) for (var k in s.cfg) CFG[k] = s.cfg[k]; CFG.waEtqOff = true; }); // 4.42 - A pedido do Vitor ("quero sempre a etiqueta do whats escondida")
   function htmlConfig() {
@@ -2402,9 +2402,29 @@
       msg({ t: 'acao', acao: 'aprender', arg: { k: resp.k, nome: contatoAt.nome, pedido: ped, resposta: res, arq: arq, acoes: ac } });
     } catch (e) { }
   }
+  // 9.5 - A pedido do Vitor ("isso veio pro CRM… mas a conclusão do assunto? minha resposta não vai?" → opção A): depois de um "vou verificar" seu,
+  // a 1ª mensagem SUA que vem depois (com conteúdo, não automática) vira a conclusão do 📌 — o PF fecha a pendência e grava a resposta na ficha.
+  var VF_CURTA_RE = /^(ok|okay|blz|beleza|certo|sim|n[aã]o|valeu|vlw|obrigad[oa]|obg|tmj|bom dia|boa tarde|boa noite|opa|ol[aá]|oi|👍|🙏)[\s!.,]*$/i;
+  function vfEhVerif(t) { try { return VERIF_RE.test(t) || !!(vfReX && vfReX.test(peNorm(t))); } catch (e) { return VERIF_RE.test(t); } }
+  var vfRespFeitos = {}; try { vfRespFeitos = JSON.parse(sessionStorage.getItem('pfwa_vfresp') || '{}') || {}; } catch (e) { vfRespFeitos = {}; }
+  function vfRespVigiar(ms) {
+    try {
+      var iv = -1; for (var i = ms.length - 1; i >= 0; i--) { if (ms[i].eu && vfEhVerif(ms[i].t)) { iv = i; break; } }
+      if (iv < 0) return;
+      var nm = contatoAt && contatoAt.nome, auto = String((nm && autoUlt[nm]) || '').trim(), r = null;
+      for (var j = iv + 1; j < ms.length; j++) { var m = ms[j], t = String(m.t || '').trim();
+        if (!m.eu || !t || vfEhVerif(t) || (auto && t === auto) || t.length < 6 || VF_CURTA_RE.test(t)) continue; r = m; break; }
+      if (!r) return;
+      var sig = ultimo + '|' + aprHash(ms[iv].t + '|' + r.t);
+      if (vfRespFeitos[sig]) return; vfRespFeitos[sig] = Date.now();
+      try { sessionStorage.setItem('pfwa_vfresp', JSON.stringify(vfRespFeitos)); } catch (e) { }
+      msg({ t: 'acao', acao: 'verificarResp', arg: { k: resp && resp.k, nome: nm, pergunta: String(ms[iv].t).slice(0, 300), texto: String(r.t).slice(0, 400), q: r.q || 0 } });
+    } catch (e) { }
+  }
   async function verificarVigiar() {
     if (!CFG.verif || !contatoAt || contatoAt.grupo) { if (vfR) { vfR = null; pintaVf(); } return; }
     var ms = lerMensagens(); if (!ms.length) return;
+    vfRespVigiar(ms);
     var last = ms[ms.length - 1];
     if (!last.eu) return;
     await peConfig(); if (!crmLig('verif')) return; var _nv = peNorm(last.t);

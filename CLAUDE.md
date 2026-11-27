@@ -3576,3 +3576,6 @@
   EMBAIXO do cabeçalho da conversa, centrada no selo 🧭 (dentro da largura do `#main`), não mais acima da caixa de digitar.
 - v115.3004 ("no link esquecemos de colocar: como conheceu a Triex"): última tela do link 📨 Conhecer ganhou "Como conheceu a Triex? (opcional)" (`PF_CONH_COMO` chips + "Outro…" → `d.como`/`d.comoOutro`;
   some se já sabe, `pfConhJa().como`) → `pfConhReceber` grava `cad.comoConheceu` + `cad.conhecer.comoConheceu`. Também virou pergunta do 🧭 do vendedor (`PF_CC_PERG` id `comoConheceu`, p 3). Captura `docs/referencias/cliente-preenche/feito-como-conheceu.png`.
+- v115.3005 + extensão **10.6** ("tem um atalho que vai direto para lá? no crm do PF" — 📒 O que foi pro CRM): no 📒 da coluna do WhatsApp o nome do cliente de cada anotação é clicável
+  (`.pfwa-crmcli`, `data-crm="ficha"` → acao `ficha` → `pfCrmAbrir(k)`) e, com a conversa de um cliente aberta, aparece "🤝 Abrir a ficha de … no CRM do PF ›" em cima do rodapé (`fichaAtual`).
+  Linha de relevância na linha do tempo (A importância 🔴🟡⚪ + B juntar o mesmo assunto, C marcar à mão) = proposta, esperando o Vitor.

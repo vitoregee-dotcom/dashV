@@ -2070,7 +2070,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2978</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2979</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2232,7 +2232,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2978</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2979</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -66605,19 +66605,28 @@ function pcMontarDadosReal(){
   var cots=[];try{cots=JSON.parse(pfSafeGetItem('partsflow_cotacoes_v1')||'[]');}catch(e){}
   var peds=((typeof pvLoad==='function')?pvLoad():[]).filter(function(p){return p&&p.status!=='cancelado';}); /* v115.2843 - pedido cancelado não conta como venda */
   var cad=[];try{cad=cadLoad(CLIE_KEY)||[];}catch(e){}
-  var porRazao={},porCod={},porCnpj={};
+  var porRazao={},porCod={},porCnpj={},porJb={},porAN={},anLista=[],anMemo={}; /* v115.2979 - porJb/porAN: o mesmo cliente não vira 2 (ERP × cadastro) */
   cad.forEach(function(c){
+    if(c&&!c.del){var _jb=String(c.codJboss||'').replace(/\D/g,'').replace(/^0+/,'');if(_jb&&!porJb[_jb])porJb[_jb]=c;
+      [c.razao,c.fantasia].forEach(function(nm){var a=pfBuscaAN(nm||'');if(a.length>=6){(porAN[a]=porAN[a]||[]).push(c);anLista.push([a,c]);}});}
     if(c.razao)porRazao[c.razao.toUpperCase().trim()]=c;
     if(c.fantasia&&!porRazao[c.fantasia.toUpperCase().trim()])porRazao[c.fantasia.toUpperCase().trim()]=c;
     if(c.codigo)porCod[String(c.codigo).toUpperCase().trim()]=c;
     var d=pfVR2SoDig(c.cnpj);if(d)porCnpj[d]=c;
   });
   var clientes={};
-  function achar(razao,obj){
+  function achar(razao,obj,jb){
     var c=null;
     if(obj){c=(obj.codigo&&porCod[String(obj.codigo).toUpperCase().trim()])||(pfVR2SoDig(obj.cnpj)&&porCnpj[pfVR2SoDig(obj.cnpj)])||null;if(!razao)razao=obj.razao||obj.fantasia||'';}
     var r=(razao||'').toUpperCase().trim();
+    if(!c&&jb){var _j=String(jb).replace(/\D/g,'').replace(/^0+/,'');if(_j)c=porJb[_j]||null;}
     if(!c&&r)c=porRazao[r]||null;
+    /* v115.2979 - A pedido do Vitor ("eu nem tenho 300 clientes. tem algo errado"): o nome do JBoss vem cortado/escrito diferente do cadastro
+       ("MAXIMUS CARDANS MECANICA DE AUTO LT") e virava OUTRO cliente na Órbita/Painel. Agora compara só letras+números e aceita um nome que começa com o outro (12+ letras, um cadastro só). */
+    if(!c&&r){var an=pfBuscaAN(r);if(an.length>=8){if(anMemo[an]===undefined){var ex=porAN[an],ach=null;
+        if(ex&&ex.length){ach=ex.every(function(z){return z===ex[0];})?ex[0]:null;}
+        else if(an.length>=12){var cand=[];anLista.forEach(function(q){var a=q[0];if(a.length>=12&&(a.indexOf(an)===0||an.indexOf(a)===0)&&cand.indexOf(q[1])<0)cand.push(q[1]);});if(cand.length===1)ach=cand[0];}
+        anMemo[an]=ach;}c=anMemo[an]||null;}}
     if(!c&&!r)return null;
     var k=c?('c:'+(c.codigo||c.razao||'').toString().toUpperCase()):('r:'+r);
     if(!clientes[k])clientes[k]={k:k,nome:c?(c.fantasia||c.razao||razao):razao,razao:c?(c.razao||razao):razao,cad:c,vendEmail:c?(c.vendedorEmail||'').toLowerCase():'',cots:[],peds:[]};
@@ -66627,7 +66636,7 @@ function pcMontarDadosReal(){
   // cotação com dataPedido gravado nela; agora também a que tem pedido de venda apontando pra ela (cotacaoNum).
   var numsComPedido={};peds.forEach(function(p){if(p.cotacaoNum!=null)numsComPedido[String(p.cotacaoNum)]=1;});
   cots.forEach(function(c){c._pcFech=!!c.dataPedido||!!c.fechadaEm||!!numsComPedido[String(c.num)];var x=achar(c.cliente,c.clienteObj);if(x)x.cots.push(c);}); // v115.2687 - fechadaEm = fechada por pedido combinado
-  peds.forEach(function(p){var x=achar(p.clienteRazao,null);if(x){x.peds.push(p);if(!x.vendEmail&&!x.cad&&p.vendedorEmail)x.vendEmail=p.vendedorEmail.toLowerCase();}});
+  peds.forEach(function(p){var x=achar(p.clienteRazao,p.clienteCodigo?{codigo:p.clienteCodigo}:null,p.erpCliCod);if(x){x.peds.push(p);if(!x.vendEmail&&!x.cad&&p.vendedorEmail)x.vendEmail=p.vendedorEmail.toLowerCase();}});
   return Object.keys(clientes).map(function(k){return clientes[k];});
 }
 
@@ -85007,7 +85016,7 @@ function pfVErpGravar(){
   D.vendas.forEach(function(r){
     if(jaErp[r.num])return;jaErp[r.num]=1;
     lista.push({numero:'ERP-'+r.num,erpNum:r.num,origem:'erp',data:r.dataIso||r.data,
-      clienteRazao:r._clienteRazao,clienteCodigo:r._cad?(r._cad.codigo||''):'',
+      clienteRazao:r._clienteRazao,clienteCodigo:r._cad?(r._cad.codigo||''):'',erpCliCod:r.cod||'', /* v115.2979 - código do cliente no JBoss, pra ligar no cadastro depois */
       vendedorNome:r.vendedor,vendedorEmail:pfVErpVendEmail(r.vendedor),
       itens:[{descricao:'Venda ERP (pedido '+r.num+')',qtd:1,venda:r.valor,custo:0,marca:''}],
       total:r.valor,importadoEm:Date.now()});

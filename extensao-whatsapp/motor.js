@@ -40,7 +40,7 @@
     },
     msgs: async function (a) {
       var l = await W().chat.getMessages(a.id, { count: a.n || 20 });
-      return { l: (l || []).map(function (m) { return { eu: !!(m.id && m.id.fromMe), t: (m.t || 0) * 1000, txt: txtDe(m), tipo: m.type || '' }; }) };
+      return { l: (l || []).map(function (m) { return { eu: !!(m.id && m.id.fromMe), t: (m.t || 0) * 1000, txt: txtDe(m), tipo: m.type || '', id: ser(m.id), fw: !!(m.isForwarded || m.forwardingScore), arq: m.filename || '', mime: m.mimetype || '' }; }) }; // 9.2 - id/encaminhada/arquivo pro 🤖 assistente
     },
     enviar: async function (a) {
       try { await W().chat.markIsComposing(a.id, Math.min(6000, 900 + String(a.texto || '').length * 45)); } catch (x) { } // "digitando…" como gente
@@ -67,6 +67,12 @@
       var ch = W().chat.getActiveChat(); if (!ch) return { erro: 'semConversa' };
       var tp = /^image\//.test(a.mime || '') ? 'image' : 'document';
       await W().chat.sendFileMessage(ser(ch.id), a.data, { type: tp, filename: a.nome || 'arquivo', caption: a.legenda || '', createChat: false });
+      return { ok: true };
+    },
+    // 9.2 - 🤖 assistente: manda um arquivo (PDF da cotação) numa conversa pelo id, sem abrir
+    enviarArqPara: async function (a) {
+      var tp = /^image\//.test(a.mime || '') ? 'image' : 'document';
+      await W().chat.sendFileMessage(a.id, a.data, { type: tp, filename: a.nome || 'arquivo.pdf', caption: a.legenda || '', createChat: true });
       return { ok: true };
     },
     // 6.9 - ⏱️ tempo de atendimento: conversas de pessoa com mensagem nova desde `desde` (ms)

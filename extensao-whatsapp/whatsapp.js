@@ -664,6 +664,7 @@
     ['Comece por aqui', [
       ['⚙️', 'Configurações', 'A engrenagem no cabeçalho do painel liga e desliga cada função da extensão (menu, etiquetas, botões, avisos, salvar contato, ofertas…).'],
       ['🧩', 'O que é', 'O PartsFlow (PF) aparece aqui do lado do WhatsApp e mostra quem é o contato, o que ele compra e o que está em aberto. Ele só LÊ e ESCREVE NA CAIXA — quem aperta Enter é sempre você.'],
+      ['🤖', 'Assistente (9.2)', 'Num WhatsApp só do assistente: ⚙️ → 🤖 Assistente → ligue e ponha o seu número. Você encaminha o pedido do cliente e escreve "cota pro Maximus"; ele monta a cotação no PF e te manda o resumo e o PDF. "saldo 5-515X", "pdf da 131" e "ajuda" também.'],
       ['🔌', 'Precisa do PF aberto', 'Deixe uma aba do PartsFlow aberta (já logado) neste mesmo Chrome — pode ser em outra janela. Se aparecer "O PF não respondeu", dê F5 na aba do PartsFlow.'],
       ['🟢', 'Conectado ao PF', 'Do lado da versão, lá em cima: verde "● Conectado ao PF" = tudo certo · laranja "Dê F5 no PF" = a aba do PF está aberta mas parou de responder · vermelho "PF fechado" = abra o PartsFlow. Clique nele pra conferir na hora. A bolinha também aparece no "PF" da barra de cima.'],
       ['🔁', 'Atualizou a extensão?', 'Depois de instalar uma versão nova, recarregue a aba do WhatsApp e a do PF (F5).']]],
@@ -817,6 +818,7 @@
     if (ac === 'autoVoltar') { config = true; pinta(); return; }
     if (ac === 'autoTogJeito') { AUTO.jeito = AUTO.jeito === false; autoGravar(); pinta(); return; } // 5.4
     if (ac === 'svApel') { var _ai = SV && SV.querySelector('.sv-apel'); if (_ai) _ai.value = arg; var _as = SV && SV.querySelector('.sv-apsug'); if (_as) _as.remove(); return; } // 5.4
+    if (ac === 'assTog') { ASS.on = !ASS.on; assCfgGravar(); if (ASS.on) motorChecar(); pinta(); return; } // 9.2
     if (ac === 'autoTog') { AUTO[arg] = (arg === 'saud1a' || arg === 'trava30') ? AUTO[arg] === false : !AUTO[arg]; autoGravar(); pinta(); return; }
     if (ac === 'autoAvTog') { var _av = (AUTO.avisos || [])[+arg]; if (_av) { _av.on = !_av.on; autoGravar(); pinta(); try { autoStatusPill(); } catch (e) { } } return; } // 4.47
     if (ac === 'autoAvDel') { var _ad = (AUTO.avisos || [])[+arg]; if (_ad && confirm('Apagar o aviso "' + _ad.nome + '"?')) { AUTO.avisos.splice(+arg, 1); autoGravar(); pinta(); } return; }
@@ -4330,6 +4332,7 @@
     }
     if (sec === 'barra') return C('🧰 O que aparece no WhatsApp', cfgLinhasHtml(CFG_SEC_BARRA));
     if (sec === 'auto') return htmlAuto();
+    if (sec === 'assist') return C('🤖 Assistente', htmlAss()); // 9.2
     if (sec === 'avisos') {
       var ks = CFG_LISTA.map(function (x) { return x[0]; }).filter(function (k) { return CFG_SEC_BARRA.indexOf(k) < 0 && CFG_SEC_AUDIO.indexOf(k) < 0; });
       return C('🔔 Avisos e lembretes automáticos', cfgLinhasHtml(ks)) +
@@ -4856,6 +4859,7 @@
     var ex = function (f) { var l = []; for (var i = 0; i < 3; i++) { var t = f(); if (l.indexOf(t) < 0) l.push(t); } return l.map(function (t) { return '<div class="au-exl">“' + esc(t) + '”</div>'; }).join(''); };
     var h = '<div class="pfwa-ajtop"><b>👋 Mensagens automáticas</b><span class="pfwa-link" data-acao="autoVoltar">‹ voltar</span></div>';
     h += motorSeloHtml(); // 4.58
+    h += htmlAss(); // 9.2 - 🤖 assistente
     h += htmlCmd(); // 4.2 - 📱 mudar pelo WhatsApp
     // 🗓️ Meu status
     h += '<div class="au-sec"><b>🗓️ Meu status agora</b><div class="au-modos">' + Object.keys(AUTO_MODOS).map(function (m) { return '<span data-acao="autoModo" data-arg="' + m + '" class="' + ((aus || 'normal') === m ? 'on' : '') + '">' + AUTO_MODOS[m][0] + ' ' + AUTO_MODOS[m][1] + '</span>'; }).join('') + '</div>';
@@ -4934,6 +4938,7 @@
   }
   function autoCampo(el) {
     var k = el.getAttribute('data-au'), v = el.value;
+    if (k === 'assQuem') { ASS.quem = v.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); assCfgGravar(); return; }
     if (k === 'cmdQuem') { AUTO.cmdQuem = v.split('\n').map(function (s) { return s.trim(); }).filter(Boolean); autoGravar(); return; }
     if (k === 'cmdEu') { AUTO.cmdEu = !!el.checked; autoGravar(); return; }
     if (k.indexOf('av.') === 0) { var pp = k.split('.'), av = (AUTO.avisos || [])[+pp[1]]; if (av) av[pp[2]] = v; autoGravar(); try { autoStatusPill(); } catch (e) { } return; } // 4.47
@@ -5072,6 +5077,70 @@
     } finally { autoOcup = false; }
   }
   setInterval(function () { cmdTick().catch(function (e) { console.warn('PF cmd', e); }); }, 8000);
+  // 9.2 - 🤖 ASSISTENTE (pedido do Vitor, 27/11/2026: "um WhatsApp como se fosse meu assistente… a demanda chega pra mim, eu encaminho pra esse WhatsApp e
+  // peço pra ele fazer, de repente uma cotação pro cliente tal… no futuro o cliente fala direto com ele"). Liga no WhatsApp DO ASSISTENTE (chip próprio, outro perfil
+  // do Chrome com o PF aberto e logado). Mensagem de número AUTORIZADO → junta o que chegou em sequência (encaminhadas + sua instrução; espera ASS_QUIETO sem
+  // mensagem nova), baixa fotos/PDFs, manda pro PF (acao "assistente": IA entende, acha o cliente, monta a cotação) e responde na MESMA conversa com o resumo + o PDF.
+  // Tudo pelo ⚙️ motor (não abre conversa). Mensagem "pf …" continua sendo comando de status (📱 Mudar pelo WhatsApp).
+  // a config fica SÓ neste navegador (não vai pro PF): o PF do assistente pode estar logado com o mesmo usuário do seu WhatsApp de sempre
+  var ASS_QUIETO = 12000, assVisto = {}, assOcup = false, assLog = [], ASS = { on: false, quem: [] };
+  chrome.storage.local.get(['assVisto', 'assLog', 'assCfg'], function (s) { assVisto = s.assVisto || {}; assLog = s.assLog || []; if (s.assCfg) ASS = s.assCfg; });
+  function assCfgGravar() { chrome.storage.local.set({ assCfg: ASS }); }
+  function assGravar() { chrome.storage.local.set({ assVisto: assVisto, assLog: assLog.slice(-30) }); }
+  function assAutorizado(nome, tel) {
+    var t = cmdNormTel(tel || '');
+    return (ASS.quem || []).some(function (q) {
+      q = String(q || '').trim(); if (!q) return false; var d = cmdNormTel(q);
+      if (d.length >= 8) return t.length >= 8 && t.slice(-8) === d.slice(-8);
+      return String(nome || '').trim().toLowerCase() === q.toLowerCase();
+    });
+  }
+  async function assFazer(c, l) {
+    var textos = [], midias = [];
+    l.forEach(function (x) { if (x.txt) textos.push({ t: x.txt, fw: !!x.fw }); });
+    var md = l.filter(function (x) { return /image|document/.test(x.tipo || ''); }).slice(0, 4);
+    await motor('enviar', { id: c.id, texto: '⏳ Recebi! Já estou fazendo…' }, 20000);
+    for (var j = 0; j < md.length; j++) { var b = await motor('midia', { id: md[j].id }, 40000); if (b && b.data) midias.push({ data: b.data, mime: b.mime || md[j].mime || '', nome: md[j].arq || b.nome || '', fw: !!md[j].fw }); }
+    var R = await msg({ t: 'acao', acao: 'assistente', arg: { tel: c.tel, nome: c.nome, textos: textos, midias: midias } });
+    var txt = R && R.texto ? R.texto : (R && R.msg ? '⚠️ ' + R.msg : (R && (R.erro === 'semPF' || R.erro === 'pfF5') ? '⚠️ O PartsFlow não está aberto (ou precisa de F5) no computador do assistente.' : '⚠️ Não consegui falar com o PF agora. Tenta de novo daqui a pouco.'));
+    await motor('enviar', { id: c.id, texto: txt }, 30000);
+    if (R && R.pdf && R.pdf.data) {
+      var e2 = await motor('enviarArqPara', { id: c.id, data: R.pdf.data, mime: 'application/pdf', nome: R.pdf.nome || 'cotacao.pdf', legenda: R.pdf.legenda || '' }, 90000);
+      if (e2 && e2.erro) await motor('enviar', { id: c.id, texto: '⚠️ Não consegui mandar o PDF (' + e2.erro + '). A cotação está no PF.' }, 20000);
+    }
+    assLog.push({ ts: Date.now(), de: c.nome, pedido: textos.map(function (t) { return t.t; }).join(' ').slice(0, 140) + (midias.length ? ' [' + midias.length + ' arquivo(s)]' : ''), resp: String(txt).split('\n')[0].slice(0, 160) }); assGravar();
+    try { pinta(); } catch (e) { }
+  }
+  async function assTick() {
+    if (!ASS.on || assOcup) return;
+    if (!motorOk) { try { await motorChecar(); } catch (e) { } if (!motorOk) return; }
+    assOcup = true;
+    try {
+      var r = await motor('recentes', { desde: Date.now() - 6 * 3600000 }, 20000); if (!r || !r.l) return;
+      for (var i = 0; i < r.l.length; i++) {
+        var c = r.l[i]; if (!assAutorizado(c.nome, c.tel)) continue;
+        var vis = assVisto[c.id]; if (!vis) { vis = assVisto[c.id] = Date.now() - 300000; assGravar(); } // 1ª vez: só o que chegou nos últimos 5 min
+        if ((c.t || 0) <= vis) continue;
+        var m = await motor('msgs', { id: c.id, n: 40 }, 20000); if (!m || !m.l) continue;
+        var novas = m.l.filter(function (x) { return !x.eu && x.t > vis; }); if (!novas.length) continue;
+        var ult = Math.max.apply(null, novas.map(function (x) { return x.t; }));
+        if (Date.now() - ult < ASS_QUIETO) continue; // ainda chegando (encaminhou várias de uma vez)
+        assVisto[c.id] = ult; assGravar();
+        var ped = novas.filter(function (x) { return !/^\s*pf\b/i.test(x.txt || ''); });
+        if (ped.length) await assFazer(c, ped);
+      }
+    } finally { assOcup = false; }
+  }
+  setInterval(function () { assTick().catch(function (e) { console.warn('PF assistente', e); assOcup = false; }); }, 5000);
+  function htmlAss() {
+    var A = ASS, ult = assLog.slice(-4).reverse();
+    return '<div class="au-sec"><div class="pfwa-cfgl" data-acao="assTog"><span class="pfwa-cfgi">🤖</span><div><b>Este WhatsApp é o ASSISTENTE</b><br><small>Ligue só no WhatsApp do assistente (chip próprio). Você encaminha a mensagem do cliente pra ele e escreve "cota pro Maximus" — ele monta a cotação no PF e te responde com o resumo e o PDF. Precisa do ⚙️ motor e do PF aberto e logado neste Chrome.</small></div><span class="pfwa-sw' + (A.on ? ' on' : '') + '"><i></i></span></div>' +
+      (A.on ? '<div class="au-fr"><small>Quem pode pedir (número com DDD, um por linha). Mensagem de outro número é ignorada.</small><textarea data-au="assQuem" rows="2" placeholder="(11) 98888-7777">' + esc((A.quem || []).join('\n')) + '</textarea></div>' +
+        (motorOk ? '' : '<div class="au-st" style="color:#b42318">⚠️ Motor desligado — o assistente não funciona sem ele.</div>') +
+        '<div class="au-st">Exemplos: <b>cota pro Maximus</b> (encaminhando a lista/foto/PDF) · <b>cota pro 000183: 5-515X 2, 3-28-97 TX 1</b> · <b>saldo 5-515X</b> · <b>pdf da 131</b> · <b>ajuda</b></div>' +
+        (ult.length ? '<div class="pfwa-bloco"><div class="pfwa-bt">Últimos pedidos</div>' + ult.map(function (u) { return '<div class="pfwa-it"><b>' + esc(u.pedido || '') + '</b> <small>' + esc(new Date(u.ts).toLocaleString('pt-BR').slice(0, 17)) + '</small><br><small>' + esc(u.resp || '') + '</small></div>'; }).join('') + '</div>' : '') : '') +
+      '</div>';
+  }
   function htmlCmd() {
     var A = AUTO, ult = cmdResp.slice(-3).reverse();
     return '<div class="au-sec"><div class="pfwa-cfgl" data-acao="autoTog" data-arg="cmdOn"><span class="pfwa-cfgi">📱</span><div><b>Mudar pelo WhatsApp</b><br><small>Do seu celular pessoal (ou na conversa com você mesmo), mande "pf reunião até 15h", "pf férias até 20/11 Carlos 11 98765-4321", "pf voltei", "pf status"… O computador com este WhatsApp aberto faz e responde ✅.</small></div><span class="pfwa-sw' + (A.cmdOn ? ' on' : '') + '"><i></i></span></div>' +

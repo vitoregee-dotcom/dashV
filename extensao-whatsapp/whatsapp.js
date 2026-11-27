@@ -4888,7 +4888,7 @@
     if (ts >= h0.getTime()) return 'hoje ' + hm; if (ts >= h0.getTime() - 864e5) return 'ontem ' + hm; return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + ' ' + hm; }
   function crmLinhaHtml(x, cli) {
     return '<div class="pfwa-crml' + (x.ok ? ' ok' : '') + '"><span class="pfwa-crmi">' + esc(x.ic) + '</span><div style="flex:1;min-width:0"><b>' + esc(x.t) + '</b>' + (x.ok ? ' <small class="pfwa-crmok">✔ feito</small>' : '') +
-      '<small class="pfwa-crmq">' + esc(crmQuando(x.ts)) + (cli && x.cli ? ' · ' + esc(x.cli) : '') + (x.por ? ' · ' + esc(x.por) : '') + '</small>' + (x.d ? '<div class="pfwa-crmd">' + esc(x.d) + '</div>' : '') + '</div>' +
+      '<small class="pfwa-crmq">' + esc(crmQuando(x.ts)) + (cli && x.cli ? ' · ' + (x.k ? '<span class="pfwa-crmcli" data-crm="ficha" data-v="' + esc(x.k) + '" title="Abrir a ficha deste cliente no CRM do PF">' + esc(x.cli) + ' ›</span>' : esc(x.cli)) : '') + (x.por ? ' · ' + esc(x.por) : '') + '</small>' + (x.d ? '<div class="pfwa-crmd">' + esc(x.d) + '</div>' : '') + '</div>' +
       (x.desf ? '<button class="pfwa-crmx" data-acao="crmDesf" data-arg="' + esc(x.desf) + '" title="Não era isso — tira da ficha e dos lembretes">desfazer</button>' : '') + '</div>';
   }
   async function crmDesf(b, ch) {
@@ -4905,7 +4905,7 @@
     if (!CRMP) { CRMP = document.createElement('div'); CRMP.id = 'pfwa-crmp'; document.body.appendChild(CRMP);
       CRMP.addEventListener('click', function (e) { var b = e.target.closest('[data-crm]'); if (b) { var a = b.getAttribute('data-crm'), v = b.getAttribute('data-v') || '';
           if (a === 'x') { CRMP.style.display = 'none'; return; } if (a === 'per') { crmPer = v; crmFil = ''; crmHojeAbrir(); return; } if (a === 'todos') { crmTodos = !crmTodos; crmHojeAbrir(); return; }
-          if (a === 'fil') { crmFil = crmFil === v ? '' : v; crmHojePinta(); return; } if (a === 'cfg') { msg({ t: 'acao', acao: 'extCfgAbrir', focar: true }); return; } if (a === 'varrer') { CRMP.style.display = 'none'; crmVarrerAbrir(); return; } if (a === 'apr') { msg({ t: 'acao', acao: 'aprAbrir', focar: true }); return; } }
+          if (a === 'fil') { crmFil = crmFil === v ? '' : v; crmHojePinta(); return; } if (a === 'cfg') { msg({ t: 'acao', acao: 'extCfgAbrir', focar: true }); return; } if (a === 'ficha') { msg({ t: 'acao', acao: 'ficha', arg: v, focar: true }); return; } if (a === 'fichaAtual') { if (resp && resp.k) msg({ t: 'acao', acao: 'ficha', arg: resp.k, focar: true }); return; } /* 10.6 - atalho pra ficha no CRM do PF */ if (a === 'varrer') { CRMP.style.display = 'none'; crmVarrerAbrir(); return; } if (a === 'apr') { msg({ t: 'acao', acao: 'aprAbrir', focar: true }); return; } }
         clique(e); });
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && CRMP && CRMP.style.display === 'block') { e.stopPropagation(); CRMP.style.display = 'none'; } }, true); }
     return CRMP;
@@ -4933,6 +4933,7 @@
     var L = (r.l || []).filter(function (x) { return !crmFil || x.ic === crmFil; });
     h += L.length ? '<div class="pfwa-crmlst">' + L.map(function (x) { return crmLinhaHtml(x, true); }).join('') + (r.n > (r.l || []).length ? '<div class="pfwa-crmv">mostrando as ' + r.l.length + ' mais novas</div>' : '') + '</div>'
       : '<div class="pfwa-crmv">Nada nesse período' + (crmTodos ? '' : ' (só as suas — marque "da equipe toda")') + '.</div>';
+    if (resp && resp.k && resp.tipo === 'cliente') h += '<div class="pfwa-crmft" style="border-top:0;padding-bottom:0"><span data-crm="fichaAtual">🤝 Abrir a ficha ' + (resp.titulo ? 'de ' + esc(resp.titulo) : 'deste cliente') + ' no CRM do PF ›</span></div>'; // 10.6
     h += '<div class="pfwa-crmft"><span data-crm="cfg">⚙️ O que vai pro CRM ›</span><span data-crm="varrer">🔄 Varrer as conversas antigas ›</span><span data-crm="apr">🧠 O que aprendi ›</span></div>';
     el.innerHTML = h;
   }

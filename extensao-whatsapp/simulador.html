@@ -164,9 +164,10 @@ var ORDEM = ['cliente','fornecedor','juninho','novo','cnpj','grupo','oferta','em
 var CUR = 'cliente';
 
 // ===== chrome falso (precisa existir ANTES do whatsapp.js) =====
-var MEM = {};
+var MEM = window.__simMem || {}; // 9.2 - o teste pode começar com algo guardado
 function respQuem() { return JSON.parse(JSON.stringify(CONTATOS[CUR].card)); }
 function respAcao(acao, arg) {
+  if (acao === 'assistente') { window.SIM_ASS = arg; var tt = (arg.textos || []).map(function (x) { return x.t; }).join(' | '); return { texto: '✅ Cotação nº 131 — MAXIMUS CARDANS (simulador)\n\n• 5-515X SPICER — CRUZETA — 2 un × R$ 175,36 ✔\n\n💰 Total: R$ 350,72\n(recebi: ' + tt + ')', pdf: { data: 'data:application/pdf;base64,JVBERi0=', nome: 'cotacao-131.pdf', legenda: 'Cotação nº 131' } }; } // 9.2
   if (acao === 'jeitoSet') { window.__jeito = arg; return { ok: true }; } // 5.4 - 🪞 seu jeito com o contato
   // 4.95 - 📦 meus pedidos (exemplo)
   if (acao === 'meusPedidos') return { ok: true, lista: [
@@ -356,7 +357,9 @@ if (!/[?&]motor=0/.test(location.search)) window.addEventListener('message', fun
   else if (d.op === 'contatos') r = { l: lista().map(function (k) { var c = CONTATOS[k]; return { nome: c.nome, tel: c.tel || ('55119' + String(10000000 + k.length * 1234567).slice(0, 8)), id: k }; }) };
   else if (d.op === 'chats') r = { l: lista().filter(function (k) { return CONTATOS[k].unread; }).map(function (k) { var c = CONTATOS[k]; return { id: k, nome: c.nome, unread: c.unread, t: agora - 10 * 60000, tel: c.tel || '' }; }) };
   else if (d.op === 'chatsTodos') r = { l: lista().map(function (k) { var c = CONTATOS[k]; return { id: k, nome: c.nome, listas: c.etq ? 1 : 0, unread: c.unread || 0 }; }) };
-  else if (d.op === 'msgs') { var c = CONTATOS[A.id]; r = { l: (c ? c.msgs : []).map(function (m, i) { return { eu: m[0] === 'out', t: agora - 10 * 60000 + i, txt: m[0] === 'aud' ? '' : m[1], tipo: m[0] === 'aud' ? 'ptt' : 'chat' }; }) }; }
+  else if (d.op === 'msgs') { var c = CONTATOS[A.id]; r = { l: (c ? c.msgs : []).map(function (m, i) { return { eu: m[0] === 'out', t: m[2] || (agora - 10 * 60000 + i), txt: m[0] === 'aud' ? '' : m[1], tipo: m[0] === 'aud' ? 'ptt' : 'chat', id: A.id + '_' + i, fw: !!m[3] }; }) }; }
+  else if (d.op === 'recentes') { r = { l: lista().map(function (k) { var c = CONTATOS[k], ts = c.msgs.map(function (m, i) { return m[2] || (agora - 10 * 60000 + i); }); return { id: k, nome: c.nome, t: ts.length ? Math.max.apply(null, ts) : 0, tel: c.tel || '' }; }).filter(function (x) { return x.t >= (A.desde || 0); }) }; } // 9.2 - 🤖 assistente
+  else if (d.op === 'enviarArqPara') { var c5 = CONTATOS[A.id]; if (c5) { c5.msgs.push(['out', '📎 ' + A.nome, Date.now()]); window.SIM_ENVIADAS.push({ para: c5.nome, arq: A.nome }); if (CUR === A.id) abrir(A.id); } r = { ok: true }; }
   else if (d.op === 'enviar') { var c2 = CONTATOS[A.id]; if (c2) { c2.msgs.push(['out', A.texto]); c2.unread = 0; window.SIM_ENVIADAS.push({ para: c2.nome, texto: A.texto }); painelLista(); if (CUR === A.id) abrir(A.id); } r = { ok: true }; }
   else if (d.op === 'enviarArq') { var c4 = CONTATOS[CUR]; if (c4) { c4.msgs.push(['out', '📎 ' + A.nome]); window.SIM_ENVIADAS.push({ para: c4.nome, arq: A.nome }); abrir(CUR); } r = { ok: true }; }
   else if (d.op === 'naoLida') { var c3 = CONTATOS[A.id]; if (c3) { c3.unread = 1; painelLista(); } r = { ok: true }; }
@@ -446,6 +449,7 @@ document.addEventListener('click', function (e) {
   w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true);
   var a = new Audio(URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }))); a.play().catch(function () { }); // 4.23 - igual ao WhatsApp de verdade: o áudio NÃO fica na página
 }, true);
+window.simChega = function (k, txt, fw) { var c = CONTATOS[k]; c.msgs.push(['in', txt, Date.now(), !!fw]); c.unread = (c.unread || 0) + 1; painelLista(); if (CUR === k) abrir(k); }; // 9.2 - 🤖 testar o assistente
 </script>
 </body>
 </html>

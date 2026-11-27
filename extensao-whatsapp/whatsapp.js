@@ -3509,12 +3509,20 @@
     if (b) { b.textContent = ok ? '✔ Copiado — cole no JBoss' : 'Não deu pra copiar — clique de novo'; b.style.background = ok ? '#1a7a1a' : '#C0392B'; }
     if (ok && !clique) cmToast('📋 Copiado no modelo do JBoss — é só colar'); return ok; }
   async function jbLer(a) {
-    jbTxt = ''; jbPinta('<div style="color:#556;padding:14px 0;text-align:center">' + (a.img || a.pdf ? 'Lendo ' + (a.pdf ? 'o PDF' : 'a foto') + ' pelo Leitor de Peças do PF…<br><small>(com IA, pode levar uns segundos)</small>' : 'Lendo pelo Leitor de Peças do PF…') + '</div>', '');
-    var r = await msg({ t: 'acao', acao: 'jbossLer', arg: a });
+    // 10.2 - A pedido do Vitor ("bom colocar um aviso que está lendo" — colou antes de terminar e foi o print que estava copiado): aviso grande com
+    // rodinha, segundos contando e "ainda NÃO cole"; no fim, faixa verde "copiado — pode colar".
+    jbTxt = ''; var jbT0 = Date.now();
+    jbPinta('<style>@keyframes pfwaJbGira{to{transform:rotate(360deg)}}</style><div style="text-align:center;padding:12px 0">' +
+      '<div style="width:34px;height:34px;margin:0 auto 10px;border:4px solid #dfe6ee;border-top-color:#E67E22;border-radius:50%;animation:pfwaJbGira .8s linear infinite"></div>' +
+      '<div style="font-weight:800;font-size:15px;color:#1a2332">⏳ Lendo ' + (a.pdf ? 'o PDF' : a.img ? 'a foto' : 'a lista') + '… <span data-jbseg>0 s</span></div>' +
+      '<div style="margin-top:8px;background:#FFF3E0;color:#B35C00;border-radius:8px;padding:8px;font-weight:700">Ainda NÃO cole no JBoss — aviso aqui quando copiar</div>' +
+      '<div style="font-size:11.5px;color:#778;margin-top:6px">' + (a.img || a.pdf ? 'com IA, pode levar uns segundos' : 'lista grande pode levar uns segundos') + '</div></div>', '');
+    var jbTick = setInterval(function () { var s = JB && JB.querySelector('[data-jbseg]'); if (!s) { clearInterval(jbTick); return; } s.textContent = Math.round((Date.now() - jbT0) / 1000) + ' s'; }, 1000);
+    var r = await msg({ t: 'acao', acao: 'jbossLer', arg: a }); clearInterval(jbTick);
     if (!r || r.erro || !r.ok) { jbPinta('<div style="color:#C0392B;padding:10px 0">' + esc(r && r.msg ? r.msg : naoDeu()) + '</div>', ''); return; }
     jbTxt = r.txt || '';
     var its = r.itens || [];
-    jbPinta('<div style="font-size:12px;color:#667;margin-bottom:6px">' + its.length + ' ite' + (its.length === 1 ? 'm' : 'ns') + ' · lido pelas regras do Leitor de Peças</div>' +
+    jbPinta('<div style="background:#E8F5E9;color:#1a7a1a;border-radius:8px;padding:8px;font-weight:800;margin-bottom:8px;text-align:center">✔ Pronto — copiado, pode colar no JBoss</div><div style="font-size:12px;color:#667;margin-bottom:6px">' + its.length + ' ite' + (its.length === 1 ? 'm' : 'ns') + ' · lido pelas regras do Leitor de Peças</div>' +
       its.map(function (o) { return '<div style="display:flex;gap:8px;padding:4px 0;border-top:1px solid #eef1f5"><b style="flex:1;font-family:monospace">' + esc(o.codigo) + '</b><span>× ' + esc(String(o.qtd)) + '</span>' + (o.duvida ? '<span title="' + esc(o.duvida) + '" style="color:#C0392B">⚠</span>' : '') + '</div>'; }).join(''),
       '<button data-jb="cp" style="width:100%;border:0;border-radius:8px;padding:10px;background:#27AE60;color:#fff;font-weight:800;cursor:pointer">📋 Copiar</button>' + (its.some(function (o) { return o.duvida; }) ? '<div style="font-size:11.5px;color:#C0392B;margin-top:6px">⚠ tem item com dúvida — confira antes de colar</div>' : ''));
     jbCopiar(false);

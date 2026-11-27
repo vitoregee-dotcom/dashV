@@ -3563,3 +3563,5 @@
   palavra de pedido; o resto vira 📦 emitir (o 📨 aberto do contato fecha sozinho, v115.2894). `peNorm` lê "hj" = hoje, "amnh" = amanhã, "vc" = você ("despachar hj").
 - v115.2999 + extensão **10.1** ("coloca uma opção pra eu tirar se quiser… tenho ctza q seguiu" + "aqui tem rolagem caso tenha muitos?"): cartão do anel do 📦 Meus pedidos na coluna do WhatsApp ganhou "✕ Tirar daqui"
   (`mpTirar` → `MP_OCULTOS`, chrome.storage.local `mpOcultos`, 30 dias, só neste navegador; o pedido continua no PF; `mpVisiveis`). A coluna mostra até 80 anéis (era 14) e rola com barrinha fina (CSS 10.1 no `#pfwa-rail`).
+- v115.3000 + extensão **10.2** ("bom colocar um aviso que está lendo" — no 📋 Copiar pro JBoss colou antes de terminar e foi o print): enquanto lê, a janela `#pfwa-jb` mostra rodinha laranja, "⏳ Lendo… N s"
+  contando e a faixa "Ainda NÃO cole no JBoss — aviso aqui quando copiar"; no fim, faixa verde "✔ Pronto — copiado, pode colar no JBoss" (`jbLer`).

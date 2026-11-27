@@ -181,6 +181,8 @@ function cmCriar() {
       mk({ id: 'sel_avise', parentId: 'pf', title: '🔔 Avise-me desse código', contexts: ['selection'] }); // 4.78
       mk({ id: 'sel_leitor', parentId: 'pf', title: '📝 Mandar pro Leitor de Peças', contexts: ['selection'] }); // 4.85
       mk({ id: 'msg_leitor', parentId: 'pf', title: '📝 Mandar pro Leitor de Peças', contexts: ['page', 'link'] });
+      mk({ id: 'sel_jb', parentId: 'pf', title: '📋 Copiar pro JBoss (regras do Leitor)', contexts: ['selection'] }); // 9.7
+      mk({ id: 'msg_jb', parentId: 'pf', title: '📋 Copiar pro JBoss (regras do Leitor)', contexts: ['page', 'link', 'image'] }); // 9.7
       mk({ id: 'msg_mc', parentId: 'pf', title: '🔗 Monta com (códigos da mensagem)', contexts: ['page', 'link'] }); // 4.92
       mk({ id: 'sel_curta', parentId: 'pf', title: '🏷️ Resposta curta (NEGATIVO, ZEROU…)', contexts: ['selection'] });
       mk({ id: 'msg_avise', parentId: 'pf', title: '🔔 Avise-me (códigos da mensagem)', contexts: ['page', 'link'] });

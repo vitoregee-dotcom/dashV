@@ -640,12 +640,14 @@
     h += '<div class="pfwa-bt" style="margin-top:12px">🎨 Ícones dos botões</div><div class="pfwa-icoest">' + ICO_ESTILOS.map(function (e) { return '<span data-acao="icoEst" data-arg="' + e[0] + '" class="' + (ICO_EST === e[0] ? 'on' : '') + '">' + e[1] + '</span>'; }).join('') + '</div>' +
       '<div class="pfwa-nada" style="margin:4px 0 6px">Clique num botão pra trocar o ícone dele (abre o seletor do PF — vale pra todo mundo). Também dá com o botão direito no botão da coluna.</div><div class="pfwa-icolista">' +
       BOTOES.map(function (b) { return '<span data-acao="icoTrocar" data-arg="' + b[0] + '" title="Trocar o ícone de ' + esc(b[2]) + '">' + icoHtml(b[0], b[1], ICO_EST === 'emoji' ? 'azul' : ICO_EST) + '<small>' + esc(b[2]) + '</small></span>'; }).join('') + '</div>'; // 4.96
-    h += '<div class="pfwa-cfgl" data-acao="extCfgAbrir"><span class="pfwa-cfgi">📦</span><div><b>Pedido a emitir</b><br><small>Lembrete automático pra não esquecer de emitir/mandar ("manda pra mim", "mando hoje"). As palavras e o liga/desliga ficam no PF.</small></div><span class="pfwa-link">ajustar no PF ›</span></div>'; // 4.62
+    h += '<div class="pfwa-cfgl" data-acao="extCfgAbrir"><span class="pfwa-cfgi">📒</span><div><b>O que vai pro CRM</b><br><small>O que a extensão anota sozinha na ficha (pedido a emitir, vou verificar, promessas, ofertas), as frases que contam e as que não contam. Fica no PF — vale pra equipe.</small></div><span class="pfwa-link">ajustar no PF ›</span></div>' +
+      '<div class="pfwa-cfgl" data-acao="crmHoje"><span class="pfwa-cfgi">📊</span><div><b>Ver o que foi pro CRM</b><br><small>Hoje, 7 dias, 30 dias ou tudo — com a conta por tipo e por cliente.</small></div><span class="pfwa-link">abrir ›</span></div>'; // 9.3
     // 4.37 - A pedido do Vitor ("não precisa mais desses botões né?"): saíram do rodapé, ficam aqui pra usar quando precisar
     h += '<div class="pfwa-bt" style="margin-top:12px">📇 Contatos</div>' + motorSeloHtml() +
       '<div class="pfwa-cfgbtns"><button data-acao="importar" class="pfwa-cfgb verde" title="Lê a lista de conversas do WhatsApp Web e traz pro PF">📥 Importar meus contatos</button>' +
       '<button data-acao="listaMassa" class="pfwa-cfgb" title="Abre cada conversa de cliente do PF que ainda NÃO está em nenhuma lista do WhatsApp (pula as não lidas) e põe na lista Cliente PF — assim aparece a 3ª linha com grupo e tipo. Clique de novo pra parar.">' + (lmRodando ? '⏸ Parar' : '🏷️ Pôr os clientes na lista Cliente PF') + '</button>' +
-      '<button data-acao="numeros" class="pfwa-cfgb pfwa-num" title="Abre cada conversa dos contatos salvos sem número, lê o número e grava no PF (só lê, não manda nada). Clique de novo pra parar.">' + (numRodando ? '⏸ Parar' : '📞 Buscar números que faltam') + '</button></div><div class="pfwa-tarefa-lugar"></div>'; // 4.59 - andamento/resumo aqui
+      '<button data-acao="numeros" class="pfwa-cfgb pfwa-num" title="Abre cada conversa dos contatos salvos sem número, lê o número e grava no PF (só lê, não manda nada). Clique de novo pra parar.">' + (numRodando ? '⏸ Parar' : '📞 Buscar números que faltam') + '</button>' +
+      '<button data-acao="crmVarrer" class="pfwa-cfgb" title="Lê o histórico das conversas (pelo motor) e põe na ficha dos clientes, com a data certa, o que não tinha entrado. Pode rodar de novo depois de mudar as frases — não duplica.">' + (crmVarRodando ? '⏸ Parar' : '🔄 Varrer as conversas antigas pro CRM') + '</button></div><div class="pfwa-tarefa-lugar"></div>'; // 4.59 - andamento/resumo aqui
     return h;
   }
   function cfgTog(k) {
@@ -859,6 +861,9 @@
     if (ac === 'botsToggle') { botsMin = !botsMin; chrome.storage.local.set({ botsMin: botsMin }); posicionar(); return; }
     if (ac === 'numeros') { buscarNumeros(b); return; }
     if (ac === 'listaMassa') { listaMassa(b); return; } // 4.57
+    if (ac === 'crmHoje') { crmHojeAbrir(); return; } // 9.3 - 📒 relatório do CRM
+    if (ac === 'crmDesf') { crmDesf(b, arg); return; }
+    if (ac === 'crmVarrer') { crmVarrer(b); return; }
     if (ac === 'autoGrpModo') { AUTO.grpModo = arg; autoGravar(); pinta(); return; } // 4.57 - grupos que recebem automática
     if (ac === 'autoGrp') { var gl = AUTO.grpSel || (AUTO.grpSel = []), gi = gl.indexOf(arg); if (gi >= 0) gl.splice(gi, 1); else gl.push(arg); autoGravar(); pinta(); return; }
     if (ac === 'importar') {
@@ -1310,6 +1315,7 @@
         + '</div>';
     }
     h += avisosHtml(r, false); // 2.3 - avisos do cliente (os mesmos da cotação)
+    if (r.tipo === 'cliente') h += crmFichaHtml(r); // 9.3 - 📒 Foi pra ficha
     if (r.tipo === 'cliente' && CFG.cc !== false) h += ccBlocoHtml(); // 4.97 - 🧭 conhecer o cliente
     if (r.tipo === 'cliente' && CFG.sug !== false) h += sugHtml(r); // 4.20 - 💡 pra oferecer
     if (r.tipo === 'cliente') h += clHtml(r); // 7.3 - 🔗 link de cadastro
@@ -2372,7 +2378,9 @@
     if (!CFG.verif || !contatoAt || contatoAt.grupo) { if (vfR) { vfR = null; pintaVf(); } return; }
     var ms = lerMensagens(); if (!ms.length) return;
     var last = ms[ms.length - 1];
-    if (!last.eu || !VERIF_RE.test(last.t)) return;
+    if (!last.eu) return;
+    await peConfig(); if (!crmLig('verif')) return; var _nv = peNorm(last.t);
+    if (!(VERIF_RE.test(last.t) || (vfReX && vfReX.test(_nv))) || (vfReNao && vfReNao.test(_nv))) return;
     var sig = ultimo + '|' + ms.length + '|' + last.t.slice(0, 80);
     if (sig === vfSig) return; vfSig = sig;
     var ch = ultimo;
@@ -2408,9 +2416,13 @@
     var ps = arr.map(function (w) { return peNorm(w).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'); }).filter(Boolean);
     if (!ps.length) return null; try { return new RegExp('(^|[^a-z0-9])(' + ps.join('|') + ')([^a-z0-9]|$)', 'i'); } catch (e) { return null; }
   }
+  var crmCfg = null, peReNao = null, vfReX = null, vfReNao = null, prReNao = null;
+  function crmLig(sec, campo) { var s = crmCfg && crmCfg[sec]; if (!s) return true; return s[campo || 'ligado'] !== false; }
   async function peConfig() {
     if (peCfg && Date.now() - peCfgTs < 60000) return peCfg;
-    try { var r = await msg({ t: 'acao', acao: 'extCfg' }); if (r && r.pedido) { peCfg = r.pedido; peReMim = peMontaRe(peCfg.palavrasMim); peReCli = peMontaRe(peCfg.palavrasCliente); peCfgTs = Date.now(); } } catch (e) { }
+    try { var r = await msg({ t: 'acao', acao: 'extCfg' }); if (r && r.pedido) { peCfg = r.pedido; peReMim = peMontaRe(peCfg.palavrasMim); peReCli = peMontaRe(peCfg.palavrasCliente); peCfgTs = Date.now();
+      // 9.3 - 📒 O que vai pro CRM (config do gestor no PF): frases que NÃO contam, frases a mais do Vou verificar, liga/desliga de cada tipo
+      var M = r.crm || {}; crmCfg = M; peReNao = peMontaRe(M.pedidoNao); vfReX = peMontaRe(M.verif && M.verif.palavras); vfReNao = peMontaRe(M.verif && M.verif.nao); prReNao = peMontaRe(M.prom && M.prom.nao); } } catch (e) { }
     return peCfg;
   }
   // 4.69 - A pedido do Vitor ("tem cliente que costuma fazer o pedido do mesmo jeito… dá pra entender como pedido?"): "favor confirmar o pedido abaixo /
@@ -2446,23 +2458,26 @@
   }
   async function pedidoVigiar() {
     if (!contatoAt || contatoAt.grupo) { if (peR) { peR = null; pintaPe(); } return; }
-    var cfg = await peConfig(); if (!cfg || !cfg.ligado) { if (peR) { peR = null; pintaPe(); } return; }
+    var cfg = await peConfig(); if (!cfg) return;
+    var promOn = crmLig('prom'); if (!cfg.ligado && !promOn) { if (peR) { peR = null; pintaPe(); } return; }
+    var _naoPe = function (t) { return !!(peReNao && peReNao.test(peNorm(t))); };
     var ms = lerMensagens(); if (!ms.length) return;
     var last = ms[ms.length - 1], origem = '', gat = '';
     // 4.79 - A pedido do Vitor ("não tinha que ir pro meu dia?" — cliente "Despachar hoje ok", você "Claro. mando sim", depois "Ótimo dia" + 🙏): olhava só a
     // ÚLTIMA mensagem sua e as 4 últimas da conversa. Agora: as suas 4 últimas do fim da conversa e as 4 últimas do cliente nas 12 últimas mensagens.
-    if (cfg.deMim) { var nm = 0; for (var a = ms.length - 1; a >= 0 && a >= ms.length - 12 && nm < 4; a--) { if (!ms[a].eu) { if (nm) break; continue; } nm++; var ta = peNorm(ms[a].t); if ((peReMim && peReMim.test(ta)) || pePromessa(ta)) { origem = 'mim'; gat = ms[a].t; break; } } }
+    if (cfg.ligado && cfg.deMim) { var nm = 0; for (var a = ms.length - 1; a >= 0 && a >= ms.length - 12 && nm < 4; a--) { if (!ms[a].eu) { if (nm) break; continue; } nm++; var ta = peNorm(ms[a].t); if (((peReMim && peReMim.test(ta)) || pePromessa(ta)) && !_naoPe(ms[a].t)) { origem = 'mim'; gat = ms[a].t; break; } } }
     // 8.7 - BUG (Vitor: "pq entendeu como pedido?" — "pode me passar um orçamento de 17 peças…" virou 📦 emitir): o gatilho era uma mensagem ANTIGA dela ("pode fechar
     // o pedido", de outro dia). Agora só valem mensagens do cliente de HOJE e a procura para quando acha um pedido de orçamento/preço mais novo (o assunto mudou).
     var hoje0 = new Date(); hoje0.setHours(0, 0, 0, 0);
-    if (!origem && cfg.doCliente) { var nc = 0; for (var i = ms.length - 1; i >= 0 && i >= ms.length - 12 && nc < 4; i--) { if (ms[i].eu) continue; if (ms[i].q && ms[i].q < hoje0.getTime()) break; nc++; if (peEhPedidoOrc(ms[i].t)) break; if ((peReCli && peReCli.test(peNorm(ms[i].t))) || peCaraDePedido(ms[i].t) || peConfirmaFalado(ms[i].t)) { origem = 'cliente'; gat = ms[i].t; break; } } }
-    if (!origem && cfg.doCliente) { var _pd = peDocPedidoCli(); if (_pd) { origem = 'cliente'; gat = '📎 ' + _pd; } } // 4.88 - PDF de pedido = pedido a emitir
+    if (!origem && cfg.ligado && cfg.doCliente) { var nc = 0; for (var i = ms.length - 1; i >= 0 && i >= ms.length - 12 && nc < 4; i--) { if (ms[i].eu) continue; if (ms[i].q && ms[i].q < hoje0.getTime()) break; nc++; if (peEhPedidoOrc(ms[i].t)) break; if (((peReCli && peReCli.test(peNorm(ms[i].t))) || peCaraDePedido(ms[i].t) || peConfirmaFalado(ms[i].t)) && !_naoPe(ms[i].t)) { origem = 'cliente'; gat = ms[i].t; break; } } }
+    if (!origem && cfg.ligado && cfg.doCliente) { var _pd = peDocPedidoCli(); if (_pd) { origem = 'cliente'; gat = '📎 ' + _pd; } } // 4.88 - PDF de pedido = pedido a emitir
     // 4.77 - A pedido do Vitor ("algo mais automático"): promessa de MANDAR algo ("já te mando", "te envio a tabela", "te mando na quarta") ou o cliente
     // pedindo material ("me manda a tabela/foto/catálogo") vira 📨 lembrete de mandar (fecha sozinho quando você manda o arquivo/cotação/link). Só o que fala
     // de pedido/nota/faturar continua sendo 📦 emitir.
     var pr = '', prT = '';
-    if (last.eu && cfg.deMim && !PE_EMIT_RE.test(peNorm(last.t)) && (PROM_MIM_RE.test(peNorm(last.t)) || (origem === 'mim'))) { pr = 'mim'; prT = last.t; }
-    else if (!last.eu && cfg.doCliente) { for (var j = ms.length - 1; j >= 0 && j >= ms.length - 4; j--) { if (!ms[j].eu && PROM_CLI_RE.test(peNorm(ms[j].t))) { pr = 'cliente'; prT = ms[j].t; break; } } }
+    var _prNao = function (t) { return !!(prReNao && prReNao.test(peNorm(t))); };
+    if (promOn && last.eu && crmLig('prom', 'deMim') && !PE_EMIT_RE.test(peNorm(last.t)) && (PROM_MIM_RE.test(peNorm(last.t)) || (origem === 'mim')) && !_prNao(last.t)) { pr = 'mim'; prT = last.t; }
+    else if (promOn && !last.eu && crmLig('prom', 'doCliente')) { for (var j = ms.length - 1; j >= 0 && j >= ms.length - 4; j--) { if (!ms[j].eu && PROM_CLI_RE.test(peNorm(ms[j].t)) && !_prNao(ms[j].t)) { pr = 'cliente'; prT = ms[j].t; break; } } }
     if (pr) {
       var sg = ultimo + '|' + ms.length + '|pr|' + prT.slice(0, 60); if (sg === peSig) return; peSig = sg; var chp = ultimo;
       var rp = await msg({ t: 'acao', acao: 'promessa', arg: { k: resp && resp.k, nome: contatoAt.nome, texto: prT, origem: pr } });
@@ -3129,6 +3144,7 @@
       // 7.2 - A pedido do Vitor ("faz um para o meu dia também" + "no caso do comprador ou outro usuário, ir para a mesa dele"): botão amarelo logo embaixo do 📦 →
       // abre a MESA de quem está logado no PF (vendedor ☀️ Meu dia, comprador 🛒 Mesa do comprador, outros 📥 Minha mesa). Ícone/nome vêm do PF no meusPedidos (r.mesa).
       '<span class="pfwa-raildia" data-acao="irTela" data-arg="minhamesa" title="☀️ Meu dia — abre o PF já nessa tela">☀️</span>' +
+      '<span class="pfwa-railcrm" data-acao="crmHoje" title="📒 O que foi pro CRM — hoje, 7 dias, 30 dias (relatório pra mostrar pra equipe)">📒</span>' + // 9.3
       rail.map(function (r) { return '<span data-acao="irTela" data-arg="' + r[0] + '" title="' + r[2] + '">' + r[1] + '</span>'; }).join('') +
       // 9.1 - A pedido do Vitor ("vamos colocar um atalho melhor. aqui está muito escondido"): ⚙️ fixo na coluna abre as Configurações da extensão em aba própria
       '<span class="pfwa-railcfg" data-acao="cfgTela" title="⚙️ Configurações da extensão — abre numa aba própria">⚙️</span>' +
@@ -4336,7 +4352,9 @@
     if (sec === 'avisos') {
       var ks = CFG_LISTA.map(function (x) { return x[0]; }).filter(function (k) { return CFG_SEC_BARRA.indexOf(k) < 0 && CFG_SEC_AUDIO.indexOf(k) < 0; });
       return C('🔔 Avisos e lembretes automáticos', cfgLinhasHtml(ks)) +
-        C('📦 Pedido a emitir', '<div class="pfwa-cfgl" data-acao="extCfgAbrir"><span class="pfwa-cfgi">📦</span><div><b>Palavras e liga/desliga</b><br><small>Lembrete automático pra não esquecer de emitir/mandar ("manda pra mim", "mando hoje"). Vale pra equipe toda — fica no PF.</small></div><span class="pfwa-link">ajustar no PF ›</span></div>');
+        C('📒 O que vai pro CRM', '<div class="pfwa-cfgl" data-acao="extCfgAbrir"><span class="pfwa-cfgi">📒</span><div><b>O que vai pro CRM</b><br><small>Liga/desliga cada tipo (pedido a emitir, vou verificar, promessas, ofertas), frases que contam e que NÃO contam, caixa de teste. Fica no PF — vale pra equipe toda.</small></div><span class="pfwa-link">ajustar no PF ›</span></div>' +
+          '<div class="pfwa-cfgl" data-acao="crmHoje"><span class="pfwa-cfgi">📊</span><div><b>Ver o que foi pro CRM</b><br><small>Relatório hoje / 7 / 30 dias / tudo.</small></div><span class="pfwa-link">abrir ›</span></div>' +
+          '<div class="pfwa-cfgl" data-acao="crmVarrer"><span class="pfwa-cfgi">🔄</span><div><b>Varrer as conversas antigas</b><br><small>Põe na ficha, com a data certa, o que não tinha entrado. Rode de novo depois de mudar as frases — não duplica.</small></div><span class="pfwa-link">' + (crmVarRodando ? 'parar' : 'começar ›') + '</span></div>' + (TAREFA_EL && TAREFA_EL.innerHTML ? '<div class="pfwa-tarefa">' + TAREFA_EL.innerHTML + '</div>' : ''));
     }
     if (sec === 'audio') return C('🎤 Áudios', cfgLinhasHtml(CFG_SEC_AUDIO) + '<div class="pfwa-cfgl" data-acao="cfgStt"><span class="pfwa-cfgi">🔑</span><div><b>Chave do serviço de transcrição</b><br><small>Fica em 🔑 Minhas Chaves no PF.</small></div><span class="pfwa-link">abrir no PF ›</span></div>');
     if (sec === 'contatos') return C('📇 Contatos', motorSeloHtml() +
@@ -4689,6 +4707,107 @@
       return '<div style="padding:9px 14px;border-top:1px solid #eef1f5"><div style="font-weight:700">' + esc(x.nome) + '</div><div style="font-size:12px;color:#556;margin-top:2px">' + esc(x.data) + ' · ' + esc(x.quando) + (x.por ? ' · ' + esc(x.por) : '') + '</div>' + (x.resp ? '<div style="font-size:12px;color:' + (x.cor || '#556') + ';margin-top:2px">' + esc(x.resp) + (x.resumo ? ' — ' + esc(x.resumo) : '') + '</div>' : '') + '</div>';
     }).join('') : '<div style="padding:14px;color:#667">Nenhum material registrado pra ' + esc(r.cliente || 'esse cliente') + '.<div style="font-size:12px;margin-top:6px">Só conta o que foi mandado depois da extensão 4.77 (portfólio, catálogo, tabela…). Antes disso, procure na lupa da conversa por "portf".</div></div>';
     MM.innerHTML = cab + (r.cliente ? '<div style="padding:8px 14px;font-size:12px;color:#556;background:#f6f8fb">🤝 ' + esc(r.cliente) + '</div>' : '') + corpo;
+  }
+  // ═══ 9.3 - 📒 CRM NO WHATSAPP (A pedido do Vitor: "não colocou o que foi pro CRM… as coisas relevantes que foram pro CRM dos clientes" → prévia
+  // docs/referencias/crm-whatsapp/ → "vamos na sua sugestão" + "pra eu mostrar pro pessoal" + "faz uma varredura… desde o início" + "e se eu mudar uma frase, sobe também?") ═══
+  // 1A 📒 Foi pra ficha (aba Cliente) · 1B botão 📒 na coluna = relatório Hoje/7/30/Tudo · 🔄 Varrer as conversas antigas (motor) — pode rodar de novo, não duplica.
+  function crmFichaHtml(r) {
+    var c = r && r.crm; if (!c) return '';
+    var L = c.l || [];
+    var h = '<div class="pfwa-bloco pfwa-crmf"><div class="pfwa-bt">📒 Foi pra ficha <small style="font-weight:600;color:#8a9ab0">· últimos 30 dias' + (c.n30 ? ' · ' + c.n30 : '') + '</small></div>';
+    if (!L.length) h += '<div class="pfwa-nada">Nada anotado na ficha nos últimos 30 dias.</div>';
+    h += L.slice(0, 8).map(crmLinhaHtml).join('');
+    h += '<div class="pfwa-bots" style="margin-top:6px"><button data-acao="b-ficha">Abrir a ficha completa no PF ›</button><button data-acao="crmHoje">📒 Relatório</button></div></div>';
+    return h;
+  }
+  function crmQuando(ts) { var d = new Date(ts), h0 = new Date(); h0.setHours(0, 0, 0, 0); var hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    if (ts >= h0.getTime()) return 'hoje ' + hm; if (ts >= h0.getTime() - 864e5) return 'ontem ' + hm; return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + ' ' + hm; }
+  function crmLinhaHtml(x, cli) {
+    return '<div class="pfwa-crml' + (x.ok ? ' ok' : '') + '"><span class="pfwa-crmi">' + esc(x.ic) + '</span><div style="flex:1;min-width:0"><b>' + esc(x.t) + '</b>' + (x.ok ? ' <small class="pfwa-crmok">✔ feito</small>' : '') +
+      '<small class="pfwa-crmq">' + esc(crmQuando(x.ts)) + (cli && x.cli ? ' · ' + esc(x.cli) : '') + (x.por ? ' · ' + esc(x.por) : '') + '</small>' + (x.d ? '<div class="pfwa-crmd">' + esc(x.d) + '</div>' : '') + '</div>' +
+      (x.desf ? '<button class="pfwa-crmx" data-acao="crmDesf" data-arg="' + esc(x.desf) + '" title="Não era isso — tira da ficha e dos lembretes">desfazer</button>' : '') + '</div>';
+  }
+  async function crmDesf(b, ch) {
+    b.disabled = true; b.textContent = '…';
+    var r = await msg({ t: 'acao', acao: 'crmDesfazer', arg: { ch: ch } });
+    if (!r || !r.ok) { b.disabled = false; b.textContent = 'desfazer'; flash(b, naoDeu()); return; }
+    var lin = b.closest('.pfwa-crml'); if (lin) lin.remove();
+    try { if (resp && resp.crm && resp.crm.l) resp.crm.l = resp.crm.l.filter(function (x) { return x.desf !== ch; }); } catch (e) { }
+    try { Object.keys(AN).forEach(function (k) { AN[k] = (AN[k] || []).filter(function (a) { return !a.r || ch.indexOf(a.r.id) < 0; }); }); anGrava(); } catch (e) { }
+  }
+  // 1B 📒 relatório (botão da coluna)
+  var CRMP = null, crmPer = 'hoje', crmTodos = false, crmFil = '';
+  function crmEl() {
+    if (!CRMP) { CRMP = document.createElement('div'); CRMP.id = 'pfwa-crmp'; document.body.appendChild(CRMP);
+      CRMP.addEventListener('click', function (e) { var b = e.target.closest('[data-crm]'); if (b) { var a = b.getAttribute('data-crm'), v = b.getAttribute('data-v') || '';
+          if (a === 'x') { CRMP.style.display = 'none'; return; } if (a === 'per') { crmPer = v; crmFil = ''; crmHojeAbrir(); return; } if (a === 'todos') { crmTodos = !crmTodos; crmHojeAbrir(); return; }
+          if (a === 'fil') { crmFil = crmFil === v ? '' : v; crmHojePinta(); return; } if (a === 'cfg') { msg({ t: 'acao', acao: 'extCfgAbrir', focar: true }); return; } if (a === 'varrer') { CRMP.style.display = 'none'; crmVarrerAbrir(); return; } }
+        clique(e); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && CRMP && CRMP.style.display === 'block') { e.stopPropagation(); CRMP.style.display = 'none'; } }, true); }
+    return CRMP;
+  }
+  var crmR = null;
+  async function crmHojeAbrir() {
+    var el = crmEl(); el.style.display = 'block';
+    el.innerHTML = crmCab() + '<div class="pfwa-crmv">Procurando no PF…</div>';
+    var r = await msg({ t: 'acao', acao: 'crmHoje', arg: { per: crmPer, todos: crmTodos } });
+    if (!r || r.erro || !r.l) { el.innerHTML = crmCab() + '<div class="pfwa-crmv">' + esc(naoDeu()) + '</div>'; return; }
+    crmR = r; crmHojePinta();
+  }
+  function crmCab() {
+    var per = [['hoje', 'Hoje'], ['7', '7 dias'], ['30', '30 dias'], ['tudo', 'Tudo']];
+    return '<div class="pfwa-crmc"><div style="flex:1"><b>📒 O que foi pro CRM</b><small>anotado sozinho pelas conversas do WhatsApp</small></div><span data-crm="x" class="pfwa-crmxx" title="Fechar (Esc)">✕</span></div>' +
+      '<div class="pfwa-crmper">' + per.map(function (p) { return '<span data-crm="per" data-v="' + p[0] + '" class="' + (crmPer === p[0] ? 'on' : '') + '">' + p[1] + '</span>'; }).join('') +
+      '<label data-crm="todos" style="margin-left:auto"><input type="checkbox" ' + (crmTodos ? 'checked' : '') + ' style="pointer-events:none"> da equipe toda</label></div>';
+  }
+  function crmHojePinta() {
+    var el = crmEl(), r = crmR; if (!r) return;
+    var cont = r.cont || {}, ics = Object.keys(cont).sort(function (a, b) { return cont[b] - cont[a]; });
+    var nomes = { '📦': 'pedidos a emitir', '📌': 'vou verificar', '📨': 'promessas de mandar', '💡': 'ofertas', '📎': 'materiais', '💬': 'conversas/respostas', '⏰': 'próximas ações', '📝': 'notas', '📞': 'contatos', '✉️': 'e-mails' };
+    var h = crmCab() + '<div class="pfwa-crmres"><div class="pfwa-crmbig"><b>' + r.n + '</b> anotações · <b>' + r.nCli + '</b> clientes</div><div class="pfwa-crmchips">' +
+      ics.map(function (ic) { return '<span data-crm="fil" data-v="' + esc(ic) + '" class="' + (crmFil === ic ? 'on' : '') + '" title="' + esc(nomes[ic] || '') + '">' + esc(ic) + ' ' + cont[ic] + ' <small>' + esc(nomes[ic] || '') + '</small></span>'; }).join('') + '</div></div>';
+    var L = (r.l || []).filter(function (x) { return !crmFil || x.ic === crmFil; });
+    h += L.length ? '<div class="pfwa-crmlst">' + L.map(function (x) { return crmLinhaHtml(x, true); }).join('') + (r.n > (r.l || []).length ? '<div class="pfwa-crmv">mostrando as ' + r.l.length + ' mais novas</div>' : '') + '</div>'
+      : '<div class="pfwa-crmv">Nada nesse período' + (crmTodos ? '' : ' (só as suas — marque "da equipe toda")') + '.</div>';
+    h += '<div class="pfwa-crmft"><span data-crm="cfg">⚙️ O que vai pro CRM ›</span><span data-crm="varrer">🔄 Varrer as conversas antigas ›</span></div>';
+    el.innerHTML = h;
+  }
+  // 🔄 Varredura das conversas antigas (pelo motor; grava como histórico, com a data da mensagem — pode rodar de novo, não duplica)
+  var crmVarRodando = false, crmVarParar = false;
+  function crmVarrerAbrir() { config = true; try { abrirPainel(); pinta(); } catch (e) { } setTimeout(function () { var b = P && P.querySelector('[data-acao="crmVarrer"]'); if (b) crmVarrer(b); }, 300); }
+  async function crmVarrer(b) {
+    var st = tarefaEl();
+    if (crmVarRodando) { crmVarParar = true; b.textContent = 'Parando…'; return; }
+    if (!(motorOk || await motorChecar())) { st.textContent = '⚠ A varredura precisa do ⚙️ motor ligado (ele lê o histórico sem abrir as conversas).'; return; }
+    if (!confirm('🔄 Varrer as conversas antigas\n\nA extensão lê as últimas mensagens de cada conversa e põe na ficha dos clientes, com a data certa, o que não tinha entrado (pedido a emitir, vou verificar, promessa de mandar, materiais mandados).\n\nVai como HISTÓRICO: não cria lembrete nem pendência. Pode rodar de novo depois de mudar as frases — o que já entrou não duplica.\n\nComeçar?')) return;
+    crmVarRodando = true; crmVarParar = false; b.textContent = '⏸ Parar';
+    var tot = { n: 0, cli: {}, tipos: {}, conv: 0, ign: 0, err: 0 };
+    try {
+      progSet(st, '🔄 Lendo as conversas…', 0, 0);
+      var r = await motor('recentes', { desde: Date.now() - 400 * 864e5 }, 180000);
+      var lista = (r && Array.isArray(r.l)) ? r.l : [];
+      if (!lista.length) { st.textContent = '⚠ Não achei conversas pelo motor (' + ((r && r.erro) || 'vazio') + ').'; crmVarRodando = false; b.textContent = '🔄 Varrer as conversas antigas'; return; }
+      for (var i = 0; i < lista.length && !crmVarParar; i++) {
+        var c = lista[i];
+        progSet(st, '🔄 Varrendo as conversas', i, lista.length, tot.n + ' anotações em ' + Object.keys(tot.cli).length + ' clientes');
+        var m = await motor('msgs', { id: c.id, n: 150 }, 30000);
+        if (!m || m.erro || !Array.isArray(m.l)) { tot.err++; continue; }
+        var ms = m.l.filter(function (x) { return x && (x.txt || x.arq); }).map(function (x) { return { eu: !!x.eu, t: x.t, txt: String(x.txt || '').slice(0, 600), arq: x.eu && /document/.test(x.tipo || '') ? (x.arq || '') : '' }; });
+        if (!ms.length) continue;
+        var g = await msg({ t: 'acao', acao: 'crmVarrer', arg: { nome: c.nome || '', tel: c.tel || '', msgs: ms } });
+        if (g && g.erro) { st.textContent = g.erro === 'semPF' ? '⚠ Abra o PF numa aba deste Chrome e rode de novo' : '⚠ Dê F5 na aba do PartsFlow (versão nova) e rode de novo'; crmVarRodando = false; b.textContent = '🔄 Varrer as conversas antigas'; return; }
+        if (!g || g.pulou) { tot.ign++; continue; }
+        tot.conv++; if (g.n) { tot.n += g.n; tot.cli[g.k] = g.cli || g.k; Object.keys(g.tipos || {}).forEach(function (t) { tot.tipos[t] = (tot.tipos[t] || 0) + g.tipos[t]; }); }
+        await dormir(120);
+      }
+    } catch (e) { tot.err++; }
+    crmVarRodando = false; b.textContent = '🔄 Varrer as conversas antigas';
+    var nm = { emit: '📦 pedidos a emitir', wa: '📌 vou verificar', prom: '📨 promessas/pedidos de material', mat: '📎 materiais mandados' };
+    st.innerHTML = '<div class="pfwa-prog"><div class="pfwa-progt"><b>' + (crmVarParar ? '⏸ Parado' : '✔ Varredura pronta') + '</b></div>' +
+      '<div class="pfwa-progs" style="line-height:1.5"><b>' + tot.n + '</b> anotações novas em <b>' + Object.keys(tot.cli).length + '</b> clientes · ' + tot.conv + ' conversas de cliente lidas' + (tot.ign ? ' · ' + tot.ign + ' não são clientes do PF' : '') + (tot.err ? ' · ' + tot.err + ' com erro' : '') +
+      (Object.keys(tot.tipos).length ? '<br>' + Object.keys(tot.tipos).map(function (t) { return (nm[t] || t) + ': ' + tot.tipos[t]; }).join(' · ') : '') +
+      '<br><small>Foi como histórico, com a data da mensagem. Mudou as frases no ⚙️ O que vai pro CRM? É só rodar de novo.</small></div></div>' +
+      '<div class="pfwa-cfgbtns" style="margin-top:6px"><button class="pfwa-cfgb" data-acao="crmHoje">📒 Ver o relatório</button></div>';
   }
   // ═══ 4.92 - 🔗 MONTA COM ═══ (A pedido do Vitor: "dá pra bolar um monta c/ aqui… que vou selecionando"; prévia docs/referencias/whatsapp-montacom/previa.png):
   // botão direito no código (ou na mensagem) → janelinha com as peças que montam com ele, por tipo, Spicer na frente; vai marcando (marca e qtd) e manda

@@ -2473,10 +2473,11 @@
   // 4.94 - A pedido do Vitor ("E segunda faturo e te mando" não foi pro Meu dia): o dia pode vir ANTES do verbo
   var PE_PROMESSA2_RE = /(^|[^a-z])(hoje|amanha|segunda|terca|quarta|quinta|sexta|sabado|dia\s+\d{1,2})(\s+(cedo|de\s+manha|a\s+tarde|feira))?\b[^.?!\n]{0,20}?\b(eu\s+)?(te\s+|lhe\s+|ja\s+)?(mando|envio|emito|despacho|faturo|separo|entrego|tiro)\b/;
   function pePromessa(n) { return PE_PROMESSA_RE.test(n) || PE_PROMESSA2_RE.test(n); }
+  var PE_MAT_RE = /\b(tabela|catalogos?|portfolio|portifolio|fotos?|videos?|link|folheto|material|desenho|medidas?|ficha|lista|orcamento|cotacao|precos?|arquivo|pdf|data ?sheet)\b/; // 10.0
   var PE_EMIT_RE = /pedid|\bnota\b|\bnf\b|fatur|emit|danfe|\bpv\b/; // 4.77 - fala de pedido/nota = 📦 emitir
   var PROM_MIM_RE = /(^|[^a-z])(ja\s+te\s+(mando|envio|passo)|te\s+(mando|envio|passo|encaminho)|vou\s+te\s+(mandar|enviar|passar|encaminhar)|vou\s+(mandar|enviar|passar|encaminhar)|ja\s+(mando|envio|encaminho)|(mando|envio)\s+(ja|agora|daqui|em\s+seguida|logo)|daqui\s+a\s+pouco\s+(te\s+)?(mando|envio)|assim\s+que\s+(eu\s+)?(tiver|chegar|conseguir)[^.?!]{0,30}(mando|envio|passo))\b/;
   var PROM_CLI_RE = /\b(me\s+)?(manda|mande|mandar|envia|envie|enviar|passa|passe|passar|encaminha)\s+(pra\s+mim\s+|pra\s+gente\s+)?(o|a|os|as|um|uma|seu|sua)?\s*(tabela|catalogo|catalogos|portfolio|portifolio|foto|fotos|orcamento|cotacao|preco|precos|lista|ficha|desenho|medida|medidas|video|link|folheto|material)\b/;
-  function peNorm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+  function peNorm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\bhj\b/g, 'hoje').replace(/\b(amnh|amanh)\b/g, 'amanha').replace(/\bvc\b/g, 'voce'); } // 10.0 - "despachar hj" = "despachar hoje"
   function peMontaRe(arr) {
     if (!arr || !arr.length) return null;
     var ps = arr.map(function (w) { return peNorm(w).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'); }).filter(Boolean);
@@ -2542,7 +2543,10 @@
     // de pedido/nota/faturar continua sendo 📦 emitir.
     var pr = '', prT = '';
     var _prNao = function (t) { return !!(prReNao && prReNao.test(peNorm(t))); };
-    if (promOn && last.eu && crmLig('prom', 'deMim') && !PE_EMIT_RE.test(peNorm(last.t)) && (PROM_MIM_RE.test(peNorm(last.t)) || (origem === 'mim')) && !_prNao(last.t)) { pr = 'mim'; prT = last.t; }
+    // 10.0 - BUG (Vitor: "aqui entendeu como pedido? não apareceu pra eu emitir" — cliente "Pode ser a paralela", você "blz. mando hoje pra voce"): "mando hoje" é palavra de
+    // PEDIDO e virava 📨 mandar pro cliente. Agora só é 📨 quando fala de MATERIAL (tabela, foto, catálogo, link…) ou é promessa sem palavra de pedido; o resto = 📦 emitir.
+    var _nl = peNorm(last.t), _mat = PE_MAT_RE.test(_nl);
+    if (promOn && last.eu && crmLig('prom', 'deMim') && !PE_EMIT_RE.test(_nl) && ((PROM_MIM_RE.test(_nl) && (origem !== 'mim' || _mat)) || (origem === 'mim' && _mat)) && !_prNao(last.t)) { pr = 'mim'; prT = last.t; }
     else if (promOn && !last.eu && crmLig('prom', 'doCliente')) { for (var j = ms.length - 1; j >= 0 && j >= ms.length - 4; j--) { if (!ms[j].eu && PROM_CLI_RE.test(peNorm(ms[j].t)) && !_prNao(ms[j].t)) { pr = 'cliente'; prT = ms[j].t; break; } } }
     if (pr) {
       var sg = ultimo + '|' + ms.length + '|pr|' + prT.slice(0, 60); if (sg === peSig) return; peSig = sg; var chp = ultimo;

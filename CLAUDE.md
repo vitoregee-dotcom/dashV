@@ -3558,3 +3558,6 @@
   ou ALB na frente) só aceita variante cujo código no estoque também tem traço (`_varOk`): 5-7177X sim, 5717789 não. Vale pra cotação, WhatsApp e tudo que usa o vendasBuscarItem.
 - v115.2997 + extensão **9.9** ("cadê as outras opções e funções que tinha?" — selo 📄 de 33 códigos parado em "Lendo no PF…" só com o Copiar pro JBoss): os botões Criar cotação / ⬇ Criar minimizada aparecem
   já enquanto lê (clicou antes = `spQuer`, cria quando terminar); limite do `cotar` na ponte 10 s → 45 s (pedido grande dava "Abra o PartsFlow"). E "02--234141" (2 traços) = 2 × 234141 no `pfExtLerPedido`.
+- v115.2998 + extensão **10.0** BUG (print do Anderson - China Tratores: cliente "Pode ser a paralela", você "blz. mando hoje pra voce" → "aqui entendeu como pedido? não apareceu pra eu emitir"): "mando hoje" é palavra
+  de PEDIDO, mas o `pedidoVigiar` dava preferência ao 📨 Mandar pro cliente sempre que a frase era sua. Agora 📨 só quando fala de MATERIAL (`PE_MAT_RE`: tabela, foto, catálogo, link, orçamento…) ou é promessa sem
+  palavra de pedido; o resto vira 📦 emitir (o 📨 aberto do contato fecha sozinho, v115.2894). `peNorm` lê "hj" = hoje, "amnh" = amanhã, "vc" = você ("despachar hj").

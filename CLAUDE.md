@@ -3538,3 +3538,6 @@
   não automática) → acao `verificarResp` (dedup sessionStorage `pfwa_vfresp`) → `pfExtVerificarResp`: fecha a pendência `pp_wa_*` (por k ou `nomeWa`, gravado agora no `pfExtVerificar`) e o `crm_wa_*` aberto do cliente
   criados antes da resposta, com evento `feito` {resp:1, texto "✔ Respondido: “…”" (`pfVfRespTexto`), ts da mensagem} — na linha do tempo da ficha aparece "📌 Respondido ao cliente". **🔄 Varredura**: o `pfCrmVarrer` chama
   `pfVfRespVarrer(k,msgs)`: cada 📌 sem conclusão (crm_wa_ aberto ou nota 📌 do histórico) ganha a 1ª resposta sua até 7 dias depois (`tipos.resp`). Rodar de novo não duplica.
+- v115.2992 BUG ("parece q não tá reconhecendo que tenho q emitir pedido" — Anderson - China Tratores: cliente "Mande pra mim", você "Mando. Só isso mesmo?"): a lista de palavras do cliente só tinha
+  "manda pra mim". Palavras novas `PF_PE_CLI_2992` (mande/envie/envia pra/para mim, me envia/envie/mande, pode me mandar/enviar, manda/mande aí, separa pra mim, pode separar…) e `PF_PE_MIM_2992`
+  (mando já/agora, já te envio…), somadas 1x na lista já salva (`o.v2992`, no `pfExtCfg`). Extensão não mudou (lê as palavras do PF).

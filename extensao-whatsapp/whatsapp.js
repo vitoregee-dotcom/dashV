@@ -3127,7 +3127,10 @@
       // 7.2 - A pedido do Vitor ("faz um para o meu dia também" + "no caso do comprador ou outro usuário, ir para a mesa dele"): botão amarelo logo embaixo do 📦 →
       // abre a MESA de quem está logado no PF (vendedor ☀️ Meu dia, comprador 🛒 Mesa do comprador, outros 📥 Minha mesa). Ícone/nome vêm do PF no meusPedidos (r.mesa).
       '<span class="pfwa-raildia" data-acao="irTela" data-arg="minhamesa" title="☀️ Meu dia — abre o PF já nessa tela">☀️</span>' +
-      rail.map(function (r) { return '<span data-acao="irTela" data-arg="' + r[0] + '" title="' + r[2] + '">' + r[1] + '</span>'; }).join('') + '<div class="pfwa-mpw"></div>';
+      rail.map(function (r) { return '<span data-acao="irTela" data-arg="' + r[0] + '" title="' + r[2] + '">' + r[1] + '</span>'; }).join('') +
+      // 9.1 - A pedido do Vitor ("vamos colocar um atalho melhor. aqui está muito escondido"): ⚙️ fixo na coluna abre as Configurações da extensão em aba própria
+      '<span class="pfwa-railcfg" data-acao="cfgTela" title="⚙️ Configurações da extensão — abre numa aba própria">⚙️</span>' +
+      '<div class="pfwa-mpw"></div>';
     mpPintar();
     badgesRender(); aplicarFiltro();
   }

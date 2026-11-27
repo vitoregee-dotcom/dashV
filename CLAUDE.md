@@ -3533,3 +3533,8 @@
   `PF_APR_ACAO_TXT`, arquivo, Atalho de Texto igual (`pfAprAtalhos`, só letras+números), NEGATIVO, R$, "vou verificar", texto),pedido,resposta,arq}. Tela `pfAprAbrir`/`pfAprHtml` (janela `pfAprJan`: 7/30/90 dias, da equipe toda pro gestor,
   KPIs, tabela "Quando o cliente pede… / Você costuma… / Vezes / Sempre igual?", clique = exemplos). Card Ferramentas → 💬 WhatsApp → 🧠 O que a extensão aprendeu; link "🧠 O que aprendi ›" no 📒 da extensão (acao `aprAbrir`);
   ⚙️ `apr` no CFG_LISTA; linha na AJUDA. Passo 2 ("faço igual?") e 3 (sozinho) ainda NÃO.
+- v115.2991 + extensão **9.5** **📌 Conclusão do "vou verificar"** (print da ficha do CRM da Trakmaq: "isso veio pro CRM… mas a conclusão do assunto? minha resposta não vai?" → opção A + "faz a varredura"):
+  extensão `vfRespVigiar` (no `verificarVigiar`): depois da SUA mensagem de "vou verificar" (`vfEhVerif` = VERIF_RE + palavras a mais), a 1ª mensagem sua depois com conteúdo (6+ letras, não "ok/blz/valeu…" `VF_CURTA_RE`,
+  não automática) → acao `verificarResp` (dedup sessionStorage `pfwa_vfresp`) → `pfExtVerificarResp`: fecha a pendência `pp_wa_*` (por k ou `nomeWa`, gravado agora no `pfExtVerificar`) e o `crm_wa_*` aberto do cliente
+  criados antes da resposta, com evento `feito` {resp:1, texto "✔ Respondido: “…”" (`pfVfRespTexto`), ts da mensagem} — na linha do tempo da ficha aparece "📌 Respondido ao cliente". **🔄 Varredura**: o `pfCrmVarrer` chama
+  `pfVfRespVarrer(k,msgs)`: cada 📌 sem conclusão (crm_wa_ aberto ou nota 📌 do histórico) ganha a 1ª resposta sua até 7 dias depois (`tipos.resp`). Rodar de novo não duplica.

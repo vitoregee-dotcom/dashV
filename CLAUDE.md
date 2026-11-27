@@ -3565,3 +3565,7 @@
   (`mpTirar` → `MP_OCULTOS`, chrome.storage.local `mpOcultos`, 30 dias, só neste navegador; o pedido continua no PF; `mpVisiveis`). A coluna mostra até 80 anéis (era 14) e rola com barrinha fina (CSS 10.1 no `#pfwa-rail`).
 - v115.3000 + extensão **10.2** ("bom colocar um aviso que está lendo" — no 📋 Copiar pro JBoss colou antes de terminar e foi o print): enquanto lê, a janela `#pfwa-jb` mostra rodinha laranja, "⏳ Lendo… N s"
   contando e a faixa "Ainda NÃO cole no JBoss — aviso aqui quando copiar"; no fim, faixa verde "✔ Pronto — copiado, pode colar no JBoss" (`jbLer`).
+- v115.3001 + extensão **10.3** (print do "manda pra mim por favor" com a foto da cotação: "algo para eu marcar que é pedido, caso o PF não leia, e eu esquecer de emitir… pra ir lá na coluna"):
+  menu do botão direito da MENSAGEM no WhatsApp ganhou, logo embaixo do 📄 Cotar no PF, "📦 É pedido — anotar pra emitir" (`msg_pedm` → `pedMarcarMsg`: texto da mensagem, "📷 foto"/"📎 PDF" na frente
+  quando é arquivo, de quem é) → acao `pedidoEmitir` com `manual:true` → `pfExtPedidoEmitir`: marcado à mão não olha o "não era pedido" e, se o lembrete igual já foi apagado/emitido, cria outro (id + 'm').
+  Vai pro 📦 Meus pedidos › A emitir, anel tracejado da coluna, Pendências e ☀️ Meu dia; selo 📦 na mensagem. Mesmo contato com lembrete aberto = junta nele.

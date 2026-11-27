@@ -4375,6 +4375,17 @@
   }
   document.addEventListener('mousedown', function (e) { if (e.button === 2) cmAvisar(e); }, true);
   document.addEventListener('contextmenu', cmAvisar, true);
+  // 10.3 - 📦 É pedido: marca à mão a mensagem como pedido a emitir (vai pro 📦 Meus pedidos › A emitir, anel tracejado na coluna, Pendências e ☀️ Meu dia)
+  async function pedMarcarMsg(b, extra) {
+    if (!contatoAt || contatoAt.grupo) { cmToast('Abra a conversa do cliente'); return; }
+    var tx = cmTxt(b).replace(/\s*\d{1,2}:\d{2}\s*$/, '').trim(), eu = false; try { eu = minhaEl(b); } catch (e) { }
+    var gat = (extra ? extra + (tx ? ' — ' : '') : '') + tx || '📦 marcado à mão';
+    var ch = ultimo, rr = await msg({ t: 'acao', acao: 'pedidoEmitir', arg: { k: resp && resp.k, nome: contatoAt.nome, texto: gat, msgs: [{ t: tx || gat, eu: eu }], origem: eu ? 'mim' : 'cliente', manual: true } });
+    if (!rr || !rr.ok) { cmToast(rr && rr.naoEra ? 'Você tinha marcado que isso não era pedido' : naoDeu()); return; }
+    cmToast(rr.jaTinha ? '📦 Já estava anotado pra emitir — juntei nesse lembrete' : '📦 Anotado pra emitir — está no 📦 Meus pedidos › A emitir');
+    if (ch === ultimo) { rr._txt = tx || gat; peR = rr; pintaPe(); }
+    try { mpCarregar(); } catch (e) { }
+  }
   function cmTxt(b) { if (!b) return ''; var tx = b.querySelector('.selectable-text'); return String((tx ? tx.innerText : b.innerText) || '').trim(); }
   function cmToast(t) { try { audToast(t); } catch (e) { } }
   async function cotarTxt(t) {
@@ -4561,6 +4572,7 @@
     if (id === 'msg_pc') { pcMandar({ texto: cmTxt(A.b) }); return; } // 4.93
     if (id === 'msg_mc') { mcAbrir(cmTxt(A.b).replace(/\s*\d{1,2}:\d{2}\s*$/, '')); return; } // 4.92
     if (id === 'msg_avise') { aviseMe(cmTxt(A.b)); return; } // 4.78
+    if (id === 'msg_pedm') { pedMarcarMsg(A.b, src); return; } // 10.3
     if (id === 'msg_qk') { var w0 = String(src || '').trim(); if (!w0) return; var rq = await msg({ t: 'acao', acao: 'lerCods', arg: { texto: cmTxt(A.b) } }); var cq = (rq && rq.cods && rq.cods.length) ? rq.cods.map(function (c) { return String(c || '').trim().split(/\s+/)[0].slice(0, 30); }).filter(Boolean) : [];
       if (!cq.length) { qkCods = null; qkUsar('', w0); return; } qkCods = null; cq.forEach(function (c, i) { setTimeout(function () { qkUsar(c, w0); }, i * 500); }); return; } // 4.86
     if (id === 'msg_curta') { var rc = await msg({ t: 'acao', acao: 'lerCods', arg: { texto: cmTxt(A.b) } }); qkAbrir(rc && rc.cods && rc.cods.length ? rc.cods : null); return; }
@@ -4722,7 +4734,7 @@
       var lista = it.parentElement; if (!lista || lista.querySelector('.pfwa-wm')) return; wmPor(lista, it);
     }, n ? 60 : 30);
   }
-  var WM_ICO = { msg_cotar: 'cot', img_ia: 'cot', doc_ia: 'cot', img_iamin: 'min', doc_iamin: 'min', img_ped: 'ped', doc_ped: 'ped', img_plaq: 'plaq', msg_mc: 'mc', msg_pc: 'pc', img_pc: 'pc', doc_pc: 'pc',
+  var WM_ICO = { msg_cotar: 'cot', msg_pedm: 'ped', img_ia: 'cot', doc_ia: 'cot', img_iamin: 'min', doc_iamin: 'min', img_ped: 'ped', doc_ped: 'ped', img_plaq: 'plaq', msg_mc: 'mc', msg_pc: 'pc', img_pc: 'pc', doc_pc: 'pc',
     msg_leitor: 'leitor', msg_jb: 'leitor', msg_qk: 'curta', msg_avise: 'avise', msg_nota: 'nota', msg_lemb: 'lemb', cv_mat: 'mat', msg_rr: 'prontas', msg_mapa: 'mapa',
     __sub: 'pf', cv_pend: 'pend', cv_pendok: 'ok', cv_ped: 'ped', cv_pedok: 'ok', cv_ficha: 'ficha', cv_nunca: 'nunca' }; // 7.1
   function wmItemHtml(x) { var k = WM_ICO[x[0]], t = esc(String(x[1]).replace(/ \(PF\)$/, ''));
@@ -4748,6 +4760,8 @@
     // 7.9 - A pedido do Vitor ("esse cotar no pf faz exatamente o que?" → "pode ser"): mensagem com foto/PDF = o próprio 📄 Cotar no PF lê o arquivo com IA
     // (o item separado "Ler a foto/PDF com IA e cotar" saiu); só texto = lê os códigos sem IA, como antes.
     if (imgSrc) itens.push(['img_ia', '📄 Cotar no PF (lê a foto com IA)', imgSrc]); else if (docNome) itens.push(['doc_ia', '📄 Cotar no PF (lê o PDF com IA)', docNome === '?' ? '' : docNome]); else itens.push(['msg_cotar', '📄 Cotar no PF']);
+    // 10.3 - A pedido do Vitor (print do "manda pra mim por favor" + foto da cotação: "algo para eu marcar que é pedido, caso o PF não leia, e eu esquecer de emitir… pra ir lá na coluna")
+    itens.push(['msg_pedm', '📦 É pedido — anotar pra emitir (PF)', imgSrc ? '📷 foto' : (docNome ? '📎 ' + (docNome === '?' ? 'PDF' : docNome) : '')]);
     itens.push(['msg_mc', '🔗 Monta com (PF)']); // 4.92
     itens.push(['msg_pc', '💲 Preço do concorrente (PF)']); // 4.93
     if (imgSrc) itens.push(['img_pc', '💲 Cotação do concorrente (ler a foto) (PF)', imgSrc]);
@@ -4765,7 +4779,7 @@
     // 6.7 - A pedido do Vitor ("to procurando a função de responder a msg, mas está ficando escondido lá em cima"): no menu da MENSAGEM só ficam
     // "📄 Cotar no PF" e "🧩 PartsFlow ›" — o resto abre ao lado (submenu), o menu do WhatsApp não cresce e o Responder fica à vista.
     var sub = null;
-    if (!fixos && itens.length > 2) { var _pri = function (x) { return x[0] === 'msg_cotar' || x[0] === 'img_ia' || x[0] === 'doc_ia'; }; sub = itens.filter(function (x) { return !_pri(x); }); itens = itens.filter(_pri); itens.push(['__sub', '🧩 PartsFlow ›']); }
+    if (!fixos && itens.length > 2) { var _pri = function (x) { return x[0] === 'msg_cotar' || x[0] === 'img_ia' || x[0] === 'doc_ia' || x[0] === 'msg_pedm'; }; sub = itens.filter(function (x) { return !_pri(x); }); itens = itens.filter(_pri); itens.push(['__sub', '🧩 PartsFlow ›']); }
     itens.forEach(function (x) {
       var li = modelo.cloneNode(true); li.classList.add('pfwa-wm'); li.removeAttribute('aria-label'); li.removeAttribute('data-testid');
       li.innerHTML = ''; li.style.cssText = (li.style.cssText || '') + ';display:flex;align-items:center;cursor:pointer';

@@ -857,6 +857,7 @@
     if (ac === 'cmdAutorizar') { if (contatoAt && contatoAt.nome) { AUTO.cmdNomes = (AUTO.cmdNomes || []).concat([contatoAt.nome]); if (contatoAt.tel && (AUTO.cmdQuem || []).indexOf(contatoAt.tel) < 0) AUTO.cmdQuem = (AUTO.cmdQuem || []).concat([contatoAt.tel]); AUTO.cmdOn = true; autoGravar(); } pinta(); return; }
     if (ac === 'cmdTirar') { AUTO.cmdNomes = (AUTO.cmdNomes || []).filter(function (n) { return n !== arg; }); autoGravar(); pinta(); return; }
     if (ac === 'svAbrir') { if (svAberto) { svAberto = false; SV.style.display = 'none'; } else svAbrir(); return; } // 2.7
+    if (ac === 'conhLink') { conhLinkPor(); return; } // 10.4
     if (ac === 'ccResponder') { var bl = P && P.querySelector('.pfwa-ccbl'); if (bl) ccAbrir(bl); return; } // 4.97
     if (ac === 'svCnpj') { svAbrir(arg); return; } // 4.4 - cadastrar já com o CNPJ da conversa
     if (ac === 'svFechar') { svAberto = false; SV.style.display = 'none'; return; }
@@ -2739,7 +2740,7 @@
     if (q.texto || q.frota) h += '<input class="pfwa-ccin" placeholder="' + (q.frota ? 'marca e modelo, ex.: CASE W20E — Enter grava' : 'escreva e aperte Enter') + '">';
     if (q.multi) h += '<button class="pfwa-btn pfwa-verde" data-ccacao="gravarMulti" style="margin-top:6px">✔ Gravar ' + (ccMulti.length ? '(' + ccMulti.length + ')' : '') + '</button>';
     h += '<div class="pfwa-ccbt">' + (q.pg ? '<span data-ccacao="perguntar" class="g">💬 Perguntar</span>' : '') + (L.length > 1 ? '<span data-ccacao="pular">pular ›</span>' : '') +
-      '<span data-ccacao="depois" class="d">depois</span><span data-ccacao="off" class="d">não mostrar mais pra ele</span></div>';
+      '<span data-ccacao="link" class="g">📨 mandar o link pra ele responder</span><span data-ccacao="depois" class="d">depois</span><span data-ccacao="off" class="d">não mostrar mais pra ele</span></div>';
     CCP.innerHTML = h;
   }
   async function ccResp(v) {
@@ -2759,9 +2760,21 @@
     var a = ev.target.closest('[data-ccacao]'); if (!a) return; var w = a.getAttribute('data-ccacao');
     if (w === 'gravarMulti') ccResp(ccMulti.slice());
     else if (w === 'perguntar') { escreverNaCaixa(q.pg); ccFechar(); }
+    else if (w === 'link') { ccFechar(); conhLinkPor(); } // 10.4
     else if (w === 'pular') { ccI = (ccI + 1) % CC.lista.length; ccMulti = []; ccPinta(); }
     else if (w === 'depois') { msg({ t: 'acao', acao: 'conhecerAdiar', arg: { k: CC.k } }); CC.adiado = true; ccFechado[ultimo] = 1; ccFechar(); ccVigiar(); }
     else if (w === 'off') { msg({ t: 'acao', acao: 'conhecerOff', arg: { k: CC.k } }); CC.off = true; ccFechar(); ccVigiar(); }
+  }
+  // 10.4 - A pedido do Vitor ("link de conhecer cliente mesmo. deixa mais fácil"): 1 clique = gera o link "Conhecer você melhor" e já põe a mensagem na caixa (você só aperta enviar)
+  var conhIndo = false;
+  async function conhLinkPor() {
+    if (conhIndo) return; if (!resp || !resp.k) { cmToast('Esse contato ainda não é cliente do PF — salve pelo 👤 primeiro'); return; }
+    conhIndo = true; cmToast('📨 Gerando o link…'); var ch = ultimo;
+    var r = await msg({ t: 'acao', acao: 'cadLink', arg: { k: resp.k, modo: 'conhecer', pessoa: (typeof pessoaComprador === 'function' && pessoaComprador()) || '' } });
+    conhIndo = false;
+    if (!r || !r.ok || !r.msg) { cmToast((r && r.erro) || naoDeu()); return; }
+    if (ch !== ultimo) { try { navigator.clipboard.writeText(r.msg); } catch (e) { } cmToast('📋 Você trocou de conversa — a mensagem com o link foi copiada'); return; }
+    escreverNaCaixa(r.msg); cmToast('✔ Link na caixa — confira e aperte enviar');
   }
   function ccBlocoHtml() {
     if (!CC || !CC.lista || !resp || resp.k !== CC.k) return '';
@@ -2769,7 +2782,8 @@
     return '<div class="pfwa-bloco pfwa-ccbl"><div class="pfwa-bt">🧭 Conhecer o cliente · ' + (CC.pct || 0) + '% preenchido' + (CC.off ? ' · lembrete desligado' : '') + '</div>' +
       '<div class="pfwa-ccbar"><b style="width:' + (CC.pct || 0) + '%"></b></div>' +
       '<div class="pfwa-nada" style="margin:4px 0">Falta: ' + CC.lista.slice(0, 4).map(function (q) { return esc(q.t.replace(/\?$/, '')); }).join(' · ') + (CC.lista.length > 4 ? ' · +' + (CC.lista.length - 4) : '') + '</div>' +
-      '<button class="pfwa-btn" data-acao="ccResponder">Responder ›</button></div>';
+      '<div class="pfwa-bots"><button class="pfwa-verde" data-acao="conhLink">📨 Mandar o link pra ele responder</button><button data-acao="ccResponder">Eu respondo ›</button></div>' +
+      '<div class="pfwa-nada" style="margin-top:4px">O link vai pra caixa da conversa já com a mensagem — é só apertar enviar. Ele responde no celular (menos de 1 minuto) e cai sozinho no cadastro.</div></div>';
   }
   setInterval(function () { try { if (!vivo()) return; ccCarregar(); ccVigiar(); } catch (e) { } }, 2000);
 
@@ -4646,6 +4660,7 @@
       cmToast(rp && rp.ok ? '✔ Abri no PF — confira a máquina e clique em Gravar' : 'Não deu — ' + ((rp && rp.msg) || 'abra o PF')); return;
     }
     if (id === 'cv_mat') { matMandadosAbrir(A.nome || ultimo); return; } // 6.8
+    if (id === 'msg_conh') { conhLinkPor(); return; } // 10.4
     if (/^cv_/.test(id) && !A.nome) { cmToast('Clique com o botão direito em cima da conversa na lista'); return; }
     if (id === 'cv_pend' || id === 'cv_pendok') { // 6.2 - ⏳ pendência com o contato (marcada à mão)
       var stp = sitCache[A.nome] || {}; var tirap = id === 'cv_pendok' || (id === 'cv_pend' && stp.pend);
@@ -4734,7 +4749,7 @@
       var lista = it.parentElement; if (!lista || lista.querySelector('.pfwa-wm')) return; wmPor(lista, it);
     }, n ? 60 : 30);
   }
-  var WM_ICO = { msg_cotar: 'cot', msg_pedm: 'ped', img_ia: 'cot', doc_ia: 'cot', img_iamin: 'min', doc_iamin: 'min', img_ped: 'ped', doc_ped: 'ped', img_plaq: 'plaq', msg_mc: 'mc', msg_pc: 'pc', img_pc: 'pc', doc_pc: 'pc',
+  var WM_ICO = { msg_conh: 'nota', msg_cotar: 'cot', msg_pedm: 'ped', img_ia: 'cot', doc_ia: 'cot', img_iamin: 'min', doc_iamin: 'min', img_ped: 'ped', doc_ped: 'ped', img_plaq: 'plaq', msg_mc: 'mc', msg_pc: 'pc', img_pc: 'pc', doc_pc: 'pc',
     msg_leitor: 'leitor', msg_jb: 'leitor', msg_qk: 'curta', msg_avise: 'avise', msg_nota: 'nota', msg_lemb: 'lemb', cv_mat: 'mat', msg_rr: 'prontas', msg_mapa: 'mapa',
     __sub: 'pf', cv_pend: 'pend', cv_pendok: 'ok', cv_ped: 'ped', cv_pedok: 'ok', cv_ficha: 'ficha', cv_nunca: 'nunca' }; // 7.1
   function wmItemHtml(x) { var k = WM_ICO[x[0]], t = esc(String(x[1]).replace(/ \(PF\)$/, ''));
@@ -4771,7 +4786,7 @@
     // 4.86 - A pedido do Vitor ("cadê o sem cadastro"): cada resposta curta direto no menu (NEGATIVO / SEM CADASTRO / ZEROU…), sem abrir a janelinha
     qkPal.forEach(function (w) { itens.push(['msg_qk', '🏷️ ' + w, w]); });
     itens.push(['msg_avise', '🔔 Avise-me (PF)']);
-    if (resp && resp.k) { itens.push(['msg_nota', '📝 Anotar na ficha (PF)']); itens.push(['msg_lemb', '⏰ Lembrete (PF)']); itens.push(['cv_mat', '📎 O que já mandei pra ele (PF)']); }
+    if (resp && resp.k) { itens.push(['msg_nota', '📝 Anotar na ficha (PF)']); itens.push(['msg_lemb', '⏰ Lembrete (PF)']); itens.push(['cv_mat', '📎 O que já mandei pra ele (PF)']); itens.push(['msg_conh', '📨 Mandar o link "Conhecer você" (PF)']); }
     itens.push(['msg_rr', '⚡ Salvar como resposta rápida (PF)']);
     }
     var sep = document.createElement('div'); sep.className = 'pfwa-wm'; sep.style.cssText = 'height:1px;background:rgba(127,127,127,.25);margin:4px 10px';

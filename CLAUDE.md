@@ -3574,3 +3574,5 @@
   e item "📨 Mandar o link Conhecer você" no botão direito da mensagem (submenu 🧩 PartsFlow) → `conhLinkPor` → acao `cadLink` com modo `conhecer` → `pfExtCadLink` (`pfConhCriarLink` + `pfConhMsg`, nota no CRM).
 - v115.3003 + extensão **10.5** ("esse aviso. melhor colocar lá em cima" — dica amarela "💡 Bom momento pra perguntar" do 🧭 em cima da caixa de digitar): a dica `#pfwa-ccn` fica logo
   EMBAIXO do cabeçalho da conversa, centrada no selo 🧭 (dentro da largura do `#main`), não mais acima da caixa de digitar.
+- v115.3004 ("no link esquecemos de colocar: como conheceu a Triex"): última tela do link 📨 Conhecer ganhou "Como conheceu a Triex? (opcional)" (`PF_CONH_COMO` chips + "Outro…" → `d.como`/`d.comoOutro`;
+  some se já sabe, `pfConhJa().como`) → `pfConhReceber` grava `cad.comoConheceu` + `cad.conhecer.comoConheceu`. Também virou pergunta do 🧭 do vendedor (`PF_CC_PERG` id `comoConheceu`, p 3). Captura `docs/referencias/cliente-preenche/feito-como-conheceu.png`.

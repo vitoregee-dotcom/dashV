@@ -834,7 +834,7 @@
   async function clique(e) {
     var b = e.target.closest('[data-acao]'); if (!b) return;
     var ac = b.getAttribute('data-acao'), arg = b.getAttribute('data-arg') || '';
-    if (ac === 'mpConv' || ac === 'mpVer' || ac === 'mpEmitido' || ac === 'mpCobrar' || ac === 'mpAvisar') { mpAcao(ac, arg); return; } // 4.95
+    if (ac === 'mpConv' || ac === 'mpVer' || ac === 'mpEmitido' || ac === 'mpCobrar' || ac === 'mpAvisar' || ac === 'mpTirar') { mpAcao(ac, arg); return; } // 4.95
     if (ac === 'mpLimpar') { mpLimparPop(b); return; } if (ac === 'mpLimparA' || ac === 'mpLimparT') { mpLimpar(ac === 'mpLimparT' ? 'todos' : 'antigos'); return; } // 5.0
     if (ac === 'aba') { ajuda = false; config = false; irAba(arg); return; }
     if (ac === 'config') { config = !config; ajuda = false; abrirPainel(); pinta(); return; }
@@ -3089,20 +3089,26 @@
   // mouse em cima amplia… a etapa redonda em cima do ícone"): anel por pedido (pedido pelo PF a cada 60 s, acao meusPedidos). Anel enche pela etapa,
   // vermelho piscando = precisa de você; mouse = cartão (#pfwa-mppop) com a barra das etapas e os botões; clique = abre a conversa do cliente.
   var MP = [], MPPOP = null, mpTmr = 0;
+  // 10.1 - A pedido do Vitor ("coloca uma opção pra eu tirar se quiser… tenho ctza que seguiu"): ✕ Tirar daqui no cartão do anel = some só da coluna (neste navegador, 30 dias);
+  // o pedido continua no PF. + a coluna mostra TODOS os anéis (antes parava em 14) e rola com a barrinha.
+  var MP_OCULTOS = {};
+  try { chrome.storage.local.get(['mpOcultos'], function (r) { MP_OCULTOS = (r && r.mpOcultos) || {}; var lim = Date.now() - 30 * 864e5; Object.keys(MP_OCULTOS).forEach(function (k) { if (MP_OCULTOS[k] < lim) delete MP_OCULTOS[k]; }); try { mpPintar(); } catch (e) { } }); } catch (e) { }
+  function mpVisiveis() { return MP.filter(function (x) { return !MP_OCULTOS[x.id]; }); }
   async function mpCarregar() { if (CFG.mp === false) { MP = []; mpPintar(); return; } try { var r = await msg({ t: 'acao', acao: 'meusPedidos', arg: {} }); if (r && r.lista) { MP = r.lista; mpPintar(); } if (r && r.mesa && r.mesa.ic) { MESA = r.mesa; mesaPintar(); } } catch (e) { } }
   setTimeout(mpCarregar, 6000); setInterval(function () { if (vivo()) mpCarregar(); }, 60000);
   function mpEsc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
   var MESA = null; // 7.2 - {t, ic, nome} da mesa de quem está logado no PF
   function mesaPintar() { try { var d = RAIL && RAIL.querySelector('.pfwa-raildia'); if (d && MESA) { d.textContent = MESA.ic; d.title = MESA.ic + ' ' + MESA.nome + ' — abre o PF já nessa tela'; } } catch (e) { } }
   function mpPintar() { mesaPintar();
+    var MP = mpVisiveis();
     try { var rp = RAIL && RAIL.querySelector('.pfwa-railped'); if (rp) { var nP = MP.filter(function (x) { return x.tipo !== 'emit'; }).length, nA = MP.filter(function (x) { return x.al; }).length, bn = rp.querySelector('.pfwa-railn');
       if (bn) { bn.textContent = nP ? String(nP) : ''; bn.style.display = nP ? '' : 'none'; }
       rp.title = '📦 Meus pedidos' + (nP ? ' — ' + nP + ' em aberto' + (nA ? ' · ' + nA + ' atrasado' + (nA > 1 ? 's' : '') : '') : '') + '\nClique: vai pra aba do PF já em Meus pedidos'; } } catch (e) { }
     var wr = RAIL && RAIL.querySelector('.pfwa-mpw'); if (!wr) return;
     if (CFG.mp === false || !MP.length) { wr.innerHTML = ''; return; }
-    wr.innerHTML = '<div class="pfwa-mpsep" title="Meus pedidos"></div>' + MP.slice(0, 14).map(function (x) {
+    wr.innerHTML = '<div class="pfwa-mpsep" title="Meus pedidos"></div>' + MP.slice(0, 80).map(function (x) {
       return '<div class="pfwa-mpr' + (x.tipo === 'emit' ? ' pfwa-mpem' : '') + (x.al ? ' pfwa-mpal' : '') + '" data-acao="mpConv" data-arg="' + mpEsc(x.id) + '" data-mp="' + mpEsc(x.id) + '" style="--p:' + (x.p || 0) + ';--c:' + x.cor + '"><i>' + x.ic + '</i><em>' + mpEsc(x.sel || '') + '</em></div>';
-    }).join('') + (MP.length > 14 ? '<div class="pfwa-mpmais" data-acao="irTela" data-arg="meuspv" title="Ver todos no PF">+' + (MP.length - 14) + '</div>' : '') +
+    }).join('') + (MP.length > 80 ? '<div class="pfwa-mpmais" data-acao="irTela" data-arg="meuspv" title="Ver todos no PF">+' + (MP.length - 80) + '</div>' : '') +
       (MP.some(function (x) { return x.tipo === 'emit'; }) ? '<div class="pfwa-mpmais pfwa-mplimpa" data-acao="mpLimpar" title="Limpar lembretes de emitir">🧹</div>' : '');
   }
   // 5.0 - 🧹 limpar os lembretes "emitir o pedido" (os pedidos são emitidos no JBoss)
@@ -3125,7 +3131,7 @@
     MPPOP.innerHTML = '<div class="t">' + (x.num ? mpEsc(x.num) + ' · ' : '') + mpEsc(x.nome) + '</div><div class="s">' + mpEsc(x.det || '') + '</div>' +
       (x.tipo === 'ped' ? '<div class="bar">' + bar + '</div><div class="lb">' + et.map(function (e) { return '<i>' + e + '</i>'; }).join('') + '</div>' : '') +
       (x.aviso ? '<div class="av">⚠ ' + mpEsc(x.aviso) + '</div>' : '') +
-      '<div class="bt">' + (x.col === 'faturado' && !x.avisado ? bt('mpAvisar', '💬 Avisar o cliente', 1) : bt('mpConv', '💬 Abrir conversa')) + bt('mpVer', '📄 Ver no PF') + (x.col === 'conferido' ? bt('mpCobrar', '📋 Cobrar faturamento') : '') + (x.tipo === 'emit' ? bt('mpEmitido', '✔ Já emiti') : '') + '</div>';
+      '<div class="bt">' + (x.col === 'faturado' && !x.avisado ? bt('mpAvisar', '💬 Avisar o cliente', 1) : bt('mpConv', '💬 Abrir conversa')) + bt('mpVer', '📄 Ver no PF') + (x.col === 'conferido' ? bt('mpCobrar', '📋 Cobrar faturamento') : '') + (x.tipo === 'emit' ? bt('mpEmitido', '✔ Já emiti') : '') + bt('mpTirar', '✕ Tirar daqui') + '</div>';
     var r = el.getBoundingClientRect(); MPPOP.style.display = 'block';
     MPPOP.style.left = (r.right + 10) + 'px'; MPPOP.style.top = Math.max(8, Math.min(window.innerHeight - MPPOP.offsetHeight - 8, r.top - 10)) + 'px';
   }
@@ -3150,6 +3156,7 @@
   async function mpAcao(ac, id) {
     var x = MP.find(function (y) { return y.id === id; }); if (!x) return; mpPopFechar(0);
     if (ac === 'mpConv') { await mpAbrirConversa(x); return; }
+    if (ac === 'mpTirar') { MP_OCULTOS[id] = Date.now(); try { chrome.storage.local.set({ mpOcultos: MP_OCULTOS }); } catch (e) { } mpPintar(); audToast('✕ Tirei da coluna — o pedido continua no PF'); return; }
     if (ac === 'mpVer') { msg({ t: 'acao', acao: 'mpVer', arg: { id: id }, focar: true }); return; }
     if (ac === 'mpEmitido') { await msg({ t: 'acao', acao: 'mpEmitido', arg: { id: id } }); mpCarregar(); return; }
     if (ac === 'mpCobrar') { var r = await msg({ t: 'acao', acao: 'mpTexto', arg: { id: id, tipo: 'cobrar' } }); if (r && r.txt) { try { await navigator.clipboard.writeText(r.txt); } catch (e) { } audToast('📋 Texto copiado — cole pro faturamento'); } return; }

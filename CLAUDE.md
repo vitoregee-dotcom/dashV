@@ -3561,3 +3561,5 @@
 - v115.2998 + extensão **10.0** BUG (print do Anderson - China Tratores: cliente "Pode ser a paralela", você "blz. mando hoje pra voce" → "aqui entendeu como pedido? não apareceu pra eu emitir"): "mando hoje" é palavra
   de PEDIDO, mas o `pedidoVigiar` dava preferência ao 📨 Mandar pro cliente sempre que a frase era sua. Agora 📨 só quando fala de MATERIAL (`PE_MAT_RE`: tabela, foto, catálogo, link, orçamento…) ou é promessa sem
   palavra de pedido; o resto vira 📦 emitir (o 📨 aberto do contato fecha sozinho, v115.2894). `peNorm` lê "hj" = hoje, "amnh" = amanhã, "vc" = você ("despachar hj").
+- v115.2999 + extensão **10.1** ("coloca uma opção pra eu tirar se quiser… tenho ctza q seguiu" + "aqui tem rolagem caso tenha muitos?"): cartão do anel do 📦 Meus pedidos na coluna do WhatsApp ganhou "✕ Tirar daqui"
+  (`mpTirar` → `MP_OCULTOS`, chrome.storage.local `mpOcultos`, 30 dias, só neste navegador; o pedido continua no PF; `mpVisiveis`). A coluna mostra até 80 anéis (era 14) e rola com barrinha fina (CSS 10.1 no `#pfwa-rail`).

@@ -3541,3 +3541,7 @@
 - v115.2992 BUG ("parece q não tá reconhecendo que tenho q emitir pedido" — Anderson - China Tratores: cliente "Mande pra mim", você "Mando. Só isso mesmo?"): a lista de palavras do cliente só tinha
   "manda pra mim". Palavras novas `PF_PE_CLI_2992` (mande/envie/envia pra/para mim, me envia/envie/mande, pode me mandar/enviar, manda/mande aí, separa pra mim, pode separar…) e `PF_PE_MIM_2992`
   (mando já/agora, já te envio…), somadas 1x na lista já salva (`o.v2992`, no `pfExtCfg`). Extensão não mudou (lê as palavras do PF).
+- v115.2993 + extensão **9.6** BUG (print: "fui por aqui. foi todo errado para o cliente" — ⚡ Respostas rápidas → Dados Bancários saiu numa linha só no WhatsApp; "pelo PF chega assim" com as linhas):
+  o `insertText` do WhatsApp novo JOGA FORA as quebras de linha. `escreverNaCaixa` com texto de várias linhas agora COLA (paste com DataTransfer — o WhatsApp mantém as linhas) e, se em 450 ms a 1ª linha
+  não apareceu na caixa, escreve linha por linha com Shift+Enter/`insertLineBreak` entre elas. Vale pra tudo que escreve na caixa (respostas rápidas, ⚡ do balão, cotação, mensagens automáticas…).
+  Testado no simulador (caminho linha por linha); o colar não dá pra testar fora do WhatsApp real.

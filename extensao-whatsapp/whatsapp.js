@@ -105,6 +105,24 @@
     var cx = caixaTexto(); if (!cx) return false;
     cx.focus();
     var antes = cx.innerText || '';
+    // 9.6 - BUG (Vitor: "fui por aqui. foi todo errado para o cliente" — Dados Bancários saiu numa linha só): o insertText do WhatsApp novo JOGA FORA as quebras de linha.
+    // Texto com várias linhas vai COLADO (o WhatsApp mantém as linhas ao colar); se não entrar, escreve linha por linha com Shift+Enter entre elas.
+    if (/\n/.test(String(txt || ''))) {
+      try { var dtm = new DataTransfer(); dtm.setData('text/plain', txt); cx.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dtm, bubbles: true, cancelable: true })); } catch (e) { }
+      var alvoM = String(txt).split('\n').filter(function (l) { return l.trim(); })[0] || '';
+      alvoM = alvoM.replace(/\s+/g, ' ').trim().slice(0, 30);
+      setTimeout(function () {
+        var c2 = caixaTexto(); if (!c2) return;
+        if (alvoM && (c2.innerText || '').replace(/\s+/g, ' ').indexOf(alvoM) >= 0) return;
+        c2.focus();
+        String(txt).split('\n').forEach(function (l, i) {
+          if (i) { ['keydown', 'keypress', 'keyup'].forEach(function (t) { c2.dispatchEvent(new KeyboardEvent(t, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, shiftKey: true, bubbles: true, cancelable: true })); });
+            try { document.execCommand('insertLineBreak'); } catch (e) { } }
+          if (l) try { document.execCommand('insertText', false, l); } catch (e) { }
+        });
+      }, 450);
+      return true;
+    }
     try { document.execCommand('insertText', false, txt); } catch (e) { }
     if ((cx.innerText || '') !== antes) return true;
     // 4.45 - BUG (Vitor: "Bom dia, Fabio! Ja te chamoBom dia, Fabio! Ja te chamo"): no WhatsApp de hoje o insertText também entra só um instante DEPOIS — a 4.44 achava

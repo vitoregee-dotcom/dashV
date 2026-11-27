@@ -3572,3 +3572,5 @@
 - v115.3002 + extensão **10.4** ("link de conhecer cliente mesmo. deixa mais fácil"): 1 clique no WhatsApp gera o link 📨 "Conhecer você melhor" e já põe a mensagem
   (com o nome da pessoa da conversa) na caixa — você só aperta enviar: botão verde "📨 Mandar o link pra ele responder" no bloco 🧭 da aba Cliente, link na janelinha das perguntas do 🧭
   e item "📨 Mandar o link Conhecer você" no botão direito da mensagem (submenu 🧩 PartsFlow) → `conhLinkPor` → acao `cadLink` com modo `conhecer` → `pfExtCadLink` (`pfConhCriarLink` + `pfConhMsg`, nota no CRM).
+- v115.3003 + extensão **10.5** ("esse aviso. melhor colocar lá em cima" — dica amarela "💡 Bom momento pra perguntar" do 🧭 em cima da caixa de digitar): a dica `#pfwa-ccn` fica logo
+  EMBAIXO do cabeçalho da conversa, centrada no selo 🧭 (dentro da largura do `#main`), não mais acima da caixa de digitar.

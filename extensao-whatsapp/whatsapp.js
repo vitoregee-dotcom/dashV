@@ -2708,7 +2708,10 @@
         var hh = '💡 Bom momento pra perguntar: <b>' + esc(q.t.replace(/\?$/, '')) + '?</b> <a data-cc="ver">ver</a> · <a data-cc="depois" class="d">depois</a>';
         if (CCN.innerHTML !== hh) CCN.innerHTML = hh;
         CCN.setAttribute('data-k', k); CCN.style.display = 'block';
-        CCN.style.left = Math.round(mr.left + mr.width / 2 - CCN.offsetWidth / 2) + 'px'; var tp0 = fr.top; ['#pfwa-ask', '#pfwa-of', '#pfwa-ja', '#pfwa-st'].forEach(function (sl) { var o = document.querySelector(sl); if (o && o.style.display !== 'none' && o.offsetWidth) tp0 = Math.min(tp0, o.getBoundingClientRect().top); }); CCN.style.top = Math.round(tp0 - CCN.offsetHeight - 10) + 'px'; /* não fica atrás dos cartões de cima da caixa */
+        /* 10.5 - A pedido do Vitor ("esse aviso. melhor colocar lá em cima"): a dica fica logo embaixo do cabeçalho, presa no selo 🧭 (não em cima da caixa de digitar) */
+        var hd = document.querySelector('#main header'), hr = hd && hd.getBoundingClientRect(), br = CCB.getBoundingClientRect(), w0 = CCN.offsetWidth;
+        var lf = br.width ? br.left + br.width / 2 - w0 / 2 : mr.left + mr.width / 2 - w0 / 2; lf = Math.max(mr.left + 8, Math.min(lf, mr.right - w0 - 8));
+        CCN.style.left = Math.round(lf) + 'px'; CCN.style.top = Math.round(Math.max(hr ? hr.bottom : mr.top, br.width ? br.bottom : 0) + 6) + 'px';
       } else if (CCP && CCP.style.display !== 'none') CCN.style.display = 'none';
     } else CCN.style.display = 'none';
   }

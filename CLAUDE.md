@@ -3569,3 +3569,6 @@
   menu do botão direito da MENSAGEM no WhatsApp ganhou, logo embaixo do 📄 Cotar no PF, "📦 É pedido — anotar pra emitir" (`msg_pedm` → `pedMarcarMsg`: texto da mensagem, "📷 foto"/"📎 PDF" na frente
   quando é arquivo, de quem é) → acao `pedidoEmitir` com `manual:true` → `pfExtPedidoEmitir`: marcado à mão não olha o "não era pedido" e, se o lembrete igual já foi apagado/emitido, cria outro (id + 'm').
   Vai pro 📦 Meus pedidos › A emitir, anel tracejado da coluna, Pendências e ☀️ Meu dia; selo 📦 na mensagem. Mesmo contato com lembrete aberto = junta nele.
+- v115.3002 + extensão **10.4** ("link de conhecer cliente mesmo. deixa mais fácil"): 1 clique no WhatsApp gera o link 📨 "Conhecer você melhor" e já põe a mensagem
+  (com o nome da pessoa da conversa) na caixa — você só aperta enviar: botão verde "📨 Mandar o link pra ele responder" no bloco 🧭 da aba Cliente, link na janelinha das perguntas do 🧭
+  e item "📨 Mandar o link Conhecer você" no botão direito da mensagem (submenu 🧩 PartsFlow) → `conhLinkPor` → acao `cadLink` com modo `conhecer` → `pfExtCadLink` (`pfConhCriarLink` + `pfConhMsg`, nota no CRM).

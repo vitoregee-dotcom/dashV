@@ -3503,3 +3503,6 @@
 - v115.2985 ("quero poder excluir isso tbm. se eu quiser" + "faz padrão conforme tela de pedidos" — ☀️ Meu dia): cada cotação de 📄 Cotações pra cobrar e cada cliente de 📞 Clientes pra contatar ganhou
   "🗑 Tirar" (`pfMdTirarBtn`/`pfMdTirar`, botão de contorno como o ⏩ Avançar do 📦 Meus pedidos). Cotação tirada não volta (chave `pfMdQk` = id/nr/num); cliente volta sozinho em `PF_MD_TIRAR_CLI_DIAS`=60 dias se
   continuar na lista. "↩ N tiradas/tirados" no subtítulo traz de volta (`pfMdTiradosLink`/`pfMdTiradosVoltar`). Por usuário **`pfMeuDiaTirados_v1`** {q:{chave:ts},c:{k:ts},ts} (PF_SYNC_KEYS).
+- v115.2986 BUG ("não atualizou a quantidade no pedido que já tinha" — Cardan Brasil: "4-28-307 ALBARUS.............06", "4-40-761.............06 TX", "3-28-97 TX......03"): os pontinhos
+  entre código, marca e quantidade eram aceitos dentro do código e juntavam tudo num token só ("ALBARUS.............06", "4-40-761.............06") — a quantidade nunca era lida e o 4-40-761 virava código inexistente.
+  No `pfExtLerPedido` 2+ pontos, reticências e "__" viram espaço antes de ler a linha. Testado com as 5 linhas do print: 6/6/6/3/2 com a marca certa.

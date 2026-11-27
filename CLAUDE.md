@@ -3588,3 +3588,7 @@
 - v115.3007 + extensão **10.8** (print da coluna do PF no WhatsApp com muitos anéis: "não sei se quero isso sendo espremido desse jeito" + "por aqui eu já não posso avisar que foi emitido? … pra não ficar tudo parado, já que é simulação"):
   1) BUG: os ícones de cima da coluna (`#pfwa-rail`) encolhiam pra 23 px quando entravam muitos pedidos — `flex-shrink:0` nos filhos; agora ficam com 40 px e a coluna rola. 2) "✔ Já emiti" do anel 📝 = `pfMpAvancar`
   (acao `mpEmitido` com id `pp_emit_`/`mpav_`): o lembrete vira cartão 🧾 Emitido que ANDA sozinho, e esses cartões ('av') agora aparecem na coluna (`pfMpExt`, até despachar) com barra das etapas e "⏩ Avançar".
+- v115.3008 + extensão **10.9** (prints da coluna do PF no WhatsApp: "não gostei desses ícones com fundo colorido" + "tá meio apertado na coluna. tudo" + 📦 Meus pedidos: "vamos colocar opção de ocultar aqui também"):
+  📦 ☀️ 📒 ⚙️ da coluna sem fundo colorido (iguais aos outros ícones); coluna 64 px (era 52; `#app` padding-left junto, `#pfwa-crmp` left 74), mais espaço entre ícones e anéis. No 📦 Meus pedidos, botão
+  "🙈 Ocultar" em cada cartão de pedido (e no menu do clique) → `pfMpOcultar` → por usuário **`pfMpOcultos_v1`** {ids:{id:ts},ts} (PF_SYNC_KEYS, 60 dias); o `pfMpDados` pula (some também da coluna
+  do WhatsApp, que usa o pfMpDados); "↩ N ocultos" no cabeçalho (`pfMpOcVoltar`). O pedido continua em ☰ Todos os pedidos.

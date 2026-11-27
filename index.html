@@ -2070,7 +2070,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2979</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2980</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2232,7 +2232,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2979</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2980</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -84917,6 +84917,17 @@ function pfVErpAcharCad(cl,cod,razao){
   if(r.length>=6){var pref=cl.filter(function(x){return !x.del&&(((x.razao||'').toUpperCase().indexOf(r)===0)||((x.fantasia||'').toUpperCase().indexOf(r)===0));});if(pref.length===1)return pref[0];}
   return null;
 }
+/* v115.2980 - A pedido do Vitor ("1 vai"): cadastro achado pelo nome que está SEM Código JBoss ganha o código do relatório.
+   Só preenche vazio; código que já está em outro cadastro não é repetido; o mesmo cadastro com 2 códigos diferentes no relatório = não mexe. */
+function pfVErpCodPreencher(vendas,cl){
+  var usados={},por={},conf={};
+  cl.forEach(function(x){var j=pfVErpNz(x&&x.codJboss);if(j&&!x.del)usados[j]=x;});
+  vendas.forEach(function(r){var c=r._cad,j=pfVErpNz(r.cod);if(!c||!j||pfVErpNz(c.codJboss))return;
+    var id=c.id||c.codigo||c.razao;if(por[id]&&por[id].j!==j)conf[id]=1;else por[id]={c:c,j:j};});
+  var out=[],dado={};
+  Object.keys(por).forEach(function(id){if(conf[id])return;var o=por[id];if(usados[o.j]||dado[o.j])return;dado[o.j]=1;out.push(o);});
+  return out;
+}
 function pfVErpVendEmail(nome){
   try{var f=(cadLoad(FUNC_KEY)||[]).find(function(x){return (x.nome||'').toUpperCase().trim()===(nome||'').toUpperCase().trim();});if(f&&f.email)return f.email.toLowerCase();}catch(e){}
   return '';
@@ -84991,7 +85002,8 @@ function pfVErpProcessar(rows){
   });
   Object.keys(clientesK).forEach(function(k){if(clientesK[k]===2)novos++;});
   var nNovos=vendas.filter(function(r){return !jaErp[r.num];}).length;
-  window._pfVErp={rows:rows,vendas:vendas,devs:devs};
+  var codFill=pfVErpCodPreencher(vendas,cl);
+  window._pfVErp={rows:rows,vendas:vendas,devs:devs,codFill:codFill};
   var money=function(v){return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});};
   var demoAviso=(typeof pfModoDemoVerComoOutros==='function'&&pfModoDemoVerComoOutros())?'<div style="background:#FDECEA;border:1px solid #f5b7b1;border-radius:8px;padding:9px 12px;margin-bottom:10px;color:#922b21;font-weight:700">⚠ Você está com o "👁 ver fictício" ligado. Desligue antes de gravar, senão os pedidos não entram nos dados reais.</div>':'';
   var amostra=vendas.slice(0,12).map(function(r){return '<tr><td style="padding:3px 6px">'+pfEscHtml(r.num)+'</td><td style="padding:3px 6px">'+pfEscHtml(r.data)+'</td><td style="padding:3px 6px">'+pfEscHtml(r._clienteRazao.slice(0,34))+(r._cad?'':' <span style="color:#9A6B00">(novo)</span>')+'</td><td style="padding:3px 6px;text-align:right">'+money(r.valor)+'</td></tr>';}).join('');
@@ -85001,12 +85013,13 @@ function pfVErpProcessar(rows){
       '<div style="background:#F3F7FC;border-radius:8px;padding:10px"><div style="font-size:11px;color:#667">CLIENTES</div><div style="font-size:19px;font-weight:800;color:#1F4E79">'+Object.keys(clientesK).length+'</div><div style="font-size:11px;color:#667">'+casados+' já no cadastro · '+novos+' pela razão</div></div>'+
       '<div style="background:#F3F7FC;border-radius:8px;padding:10px"><div style="font-size:11px;color:#667">NOVOS A GRAVAR</div><div style="font-size:19px;font-weight:800;color:#27AE60">'+nNovos+'</div><div style="font-size:11px;color:#667">'+jaImp+' já importados</div></div>'+
     '</div>'+
+    (codFill.length?'<div style="background:#EAF7EE;border:1px solid #b7e1c3;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12.5px;color:#1e6b3a">🔢 <b>'+codFill.length+' cliente(s)</b> do cadastro vão ganhar o Código JBoss do relatório (estavam sem).</div>':'')+
     (devs.length?'<div style="font-size:12px;color:#667;margin-bottom:8px">🔄 '+devs.length+' devolução(ões) ('+money(rows.filter(function(r){return r.dev;}).reduce(function(s,r){return s+r.valor;},0))+') — <b>não</b> serão gravadas (ficam no RMA do ERP).</div>':'')+
     '<div style="font-size:12px;color:#667;margin-bottom:6px">Por vendedor: '+pfEscHtml(Object.keys(porVend).map(function(v){return v+' ('+porVend[v]+')';}).join(' · '))+'</div>'+
     '<div style="max-height:260px;overflow:auto;border:1px solid #eef2f7;border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f6f9fc;position:sticky;top:0"><th style="padding:4px 6px;text-align:left">Nº</th><th style="padding:4px 6px;text-align:left">Data</th><th style="padding:4px 6px;text-align:left">Cliente</th><th style="padding:4px 6px;text-align:right">Valor</th></tr></thead><tbody>'+amostra+'</tbody></table>'+(vendas.length>12?'<div style="padding:6px 8px;color:#8a9ab0;font-size:11px">… e mais '+(vendas.length-12)+'</div>':'')+'</div>';
   ft.style.display='flex';
   ft.innerHTML='<button class="pfBtn pfBtnClaro" onclick="pfVErpFechar()">Cancelar</button>'+
-    '<button class="pfBtn pfBtnVerde" onclick="pfVErpGravar()"'+(nNovos?'':' disabled')+'>✔ Gravar '+nNovos+' pedido'+(nNovos!==1?'s':'')+'</button>';
+    '<button class="pfBtn pfBtnVerde" onclick="pfVErpGravar()"'+((nNovos||codFill.length)?'':' disabled')+'>✔ Gravar '+(nNovos?nNovos+' pedido'+(nNovos!==1?'s':''):'')+(nNovos&&codFill.length?' + ':'')+(codFill.length?codFill.length+' código'+(codFill.length!==1?'s':'')+' JBoss':'')+(!nNovos&&!codFill.length?'0 pedidos':'')+'</button>';
 }
 function pfVErpGravar(){
   var D=window._pfVErp;if(!D)return;
@@ -85023,9 +85036,14 @@ function pfVErpGravar(){
     add++;
   });
   try{pvSave(lista);}catch(e){pfAlert('Não consegui gravar: '+((e&&e.message)||'erro'));return;}
+  var nCod=0;
+  if(D.codFill&&D.codFill.length){try{var cl=cadLoad(CLIE_KEY)||[],agora=Date.now();
+    D.codFill.forEach(function(o){var c=cl.find(function(x){return x&&((o.c.id&&x.id===o.c.id)||(!o.c.id&&x.codigo===o.c.codigo&&x.razao===o.c.razao));});
+      if(c&&!pfVErpNz(c.codJboss)){c.codJboss=o.j;c.tsMod=agora;nCod++;}});
+    if(nCod){cadSave(CLIE_KEY,cl);try{pfSyncPush([CLIE_KEY]);}catch(e){}}}catch(e){}}
   try{window._pcCache=null;}catch(e){}
   pfVErpFechar();
-  pfAlert('✅ '+add+' pedido(s) de venda importado(s) do ERP. Abra a 🪐 Órbita / Painel de Clientes — os clientes reais já aparecem.');
+  pfAlert('✅ '+add+' pedido(s) de venda importado(s) do ERP'+(nCod?' e '+nCod+' cliente(s) ganharam o Código JBoss':'')+'. Abra a 🪐 Órbita / Painel de Clientes — os clientes reais já aparecem.');
   try{pfSyncPush([PV_KEY]);}catch(e){}
 }
 function ferrRender(){

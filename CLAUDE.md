@@ -3553,3 +3553,6 @@
 - v115.2995 + extensão **9.8** (prévia `docs/referencias/whatsapp-aneis/previa.png` → "pode ser A mesmo" + "o de sexta só sai no fim da segunda"): coluna de anéis do WhatsApp (`pfMpExt`)
   volta a mostrar os lembretes 📝 a emitir na MESMA fila, anel tracejado (`.pfwa-mpem`; cinza = de hoje, vermelho piscando = de ontem pra trás; embaixo as 4 letras do cliente). Emitido/separado/conferido
   ficam até faturar; faturado/despachado até o FIM do próximo dia útil depois de faturar (`pfMpTFat` real ou simulado, `pfMpFimProxUtil`, `pfDiaUtil` = sem sábado/domingo e feriado nacional `pfFeriadosNac`, Páscoa calculada).
+- v115.2996 BUG (WhatsApp da RS Tork "5-7177x SPICER / 5-7177tx" virou 5717789 CUMMINS — "qnd for cliente de rodoviário… os códigos têm traços, são componentes de cardan"): o `vendasBuscarItem`
+  acha "variantes" (mesmo código + até 3 letras/números no fim) comparando só letras+números — 5-7177 casava com 5717789. Agora código digitado no formato de cardan (`_cardanTraco`: 1–3 dígitos [.d] + traço,
+  ou ALB na frente) só aceita variante cujo código no estoque também tem traço (`_varOk`): 5-7177X sim, 5717789 não. Vale pra cotação, WhatsApp e tudo que usa o vendasBuscarItem.

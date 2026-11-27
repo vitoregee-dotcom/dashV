@@ -3433,7 +3433,7 @@
   }
   async function spAbrir(s) {
     spEl(); spMsg = s; spR = null;
-    SP.style.display = 'block'; SP.innerHTML = '<div class="sp-cab"><b>📄 ' + s._n + ' código' + (s._n > 1 ? 's' : '') + ' neste pedido</b><span class="sp-x" data-sp="x" title="Fechar (Esc)">✕</span></div><div class="sp-nada">Lendo no PF…</div>';
+    SP.style.display = 'block'; SP.innerHTML = '<div class="sp-cab"><b>📄 ' + s._n + ' código' + (s._n > 1 ? 's' : '') + ' neste pedido</b><span class="sp-x" data-sp="x" title="Fechar (Esc)">✕</span></div><div class="sp-b"><button data-sp="jboss" class="sp-jb" title="Lê pelas regras do Leitor de Peças e copia no modelo do JBoss — é só colar no JBoss">📋 Copiar pro JBoss</button></div><div class="sp-nada">Lendo no PF…</div>';
     spPos();
     spArgs = { k: resp && resp.k, contato: resp && resp.contato, msgs: s._t.split('\n').map(function (x) { return { t: x, eu: false }; }) };
     var r = await msg({ t: 'acao', acao: 'cotar', arg: spArgs });
@@ -3452,6 +3452,7 @@
       return '<div><i style="background:' + cor + '"></i><b>' + esc(o.cod) + '</b> × ' + (o.qtd || 1) + '<small>' + (o.marcaPed && !o.marcaOk ? mk : esc(mk)) + ' · ' + esc(st) + '</small></div>';
     }).join('') + '</div>';
     var feito = !!spFeitos[s._h];
+    h += '<div class="sp-b"><button data-sp="jboss" class="sp-jb" title="Lê pelas regras do Leitor de Peças e copia no modelo do JBoss — é só colar no JBoss">📋 Copiar pro JBoss</button></div>'; // 9.7
     h += '<div class="sp-b" style="flex-direction:column;align-items:flex-start;gap:4px">' + soMarcaHtml(r, 'sp') + todasHtml() + '</div>';
     h += '<div class="sp-b"><button data-sp="criar">' + (feito ? '📄 Criar de novo no PF' : '📄 Criar cotação no PF') + '</button><button data-sp="min" class="sp-min" title="Cria a cotação no PF e deixa ela minimizada lá (não troca de tela)">⬇ Criar minimizada</button><span class="sp-lk" data-sp="painel">ver no painel ›</span></div>' +
       (feito ? '<div class="sp-ok">✓ Você já criou a cotação desta mensagem.</div>' : '') + (mqSemSaldo(its).length ? '<div class="sp-b"><button data-sp="mapa" class="sp-mapa">🗂️ Mandar pro mapa (' + mqSemSaldo(its).length + ' sem saldo)</button></div>' : '');
@@ -3463,6 +3464,7 @@
     if (a === 'x') { spFechar(); return; }
     if (a === 'painel') { if (spR && !spR.erro) { cot = spR; cotErro = ''; } spFechar(); irAba('cot'); return; }
     if (a === 'mapa') { var rm = spR; spFechar(); mqAbrir(rm); return; } // 6.3
+    if (a === 'jboss') { var sj = spMsg; spFechar(); if (sj) jbLer({ texto: sj._t }); return; } // 9.7
     if (a === 'criar' || a === 'min') {
       var s = spMsg, r = spR; if (!s || !r) return; var _min = a === 'min'; // 4.83 - criar minimizada (não traz o PF pra frente)
       msg({ t: 'acao', acao: 'abrirCot', focar: !_min, arg: { minimizar: _min, k: resp && resp.k, pessoa: pessoaComprador(), todas: TODAS, soMarca: r.soMarca || [], itens: itensPF(r.itens) } });
@@ -3474,6 +3476,36 @@
   document.addEventListener('mousedown', function (e) { if (SP && SP.style.display === 'block' && !SP.contains(e.target) && !(e.target.closest && e.target.closest('.pfwa-selo'))) spFechar(); }, true);
   document.addEventListener('scroll', function () { spPos(); }, true);
   setInterval(function () { try { selosVigiar(); } catch (e) { } }, 1500);
+
+
+  // ═══ 📋 COPIAR PRO JBOSS (9.7) ═══ A pedido do Vitor ("qnd for texto assim, vamos colocar a opção de já sair igual sai no esquema do leitor… pra eu já mandar
+  // pro JBoss" + "PDF tbm. imagem tbm" + "seguindo as regras de lá"): o PF lê pelo Leitor de Peças (as mesmas regras, correções guardadas e a IA dele, sem abrir a
+  // tela) e devolve no modelo do JBoss (o mesmo do Copiar do Leitor). Texto = do selo 📄 ou do botão direito; foto/PDF = botão direito na mensagem.
+  var JB = null, jbTxt = '';
+  function jbEl() { if (!JB) { JB = document.createElement('div'); JB.id = 'pfwa-jb'; JB.style.cssText = 'position:fixed;right:24px;top:90px;z-index:10050;width:340px;max-height:70vh;display:none;flex-direction:column;background:#fff;color:#1a2332;border-radius:12px;box-shadow:0 10px 34px rgba(0,0,0,.3);font:13px Segoe UI,Arial,sans-serif;overflow:hidden';
+      document.body.appendChild(JB); JB.addEventListener('click', function (e) { var b = e.target.closest('[data-jb]'); if (!b) return; e.preventDefault(); e.stopPropagation(); var a = b.getAttribute('data-jb'); if (a === 'x') { JB.style.display = 'none'; return; } if (a === 'cp') jbCopiar(true); }); }
+    return JB; }
+  function jbPinta(corpo, rodape) { jbEl(); JB.style.display = 'flex';
+    JB.innerHTML = '<div style="background:#1c2940;color:#fff;padding:10px 12px;display:flex;align-items:center;gap:8px"><b style="flex:1">📋 Copiar pro JBoss</b><span data-jb="x" style="cursor:pointer;background:#C0392B;color:#fff;border-radius:5px;padding:0 7px;font-weight:800" title="Fechar (Esc)">✕</span></div>' +
+      '<div style="overflow:auto;padding:10px 12px;flex:1">' + corpo + '</div>' + (rodape ? '<div style="padding:10px 12px;border-top:1px solid #e3e9f0">' + rodape + '</div>' : ''); }
+  function jbCopiarTexto(t) { return new Promise(function (ok) {
+    try { navigator.clipboard.writeText(t).then(function () { ok(true); }, function () { ok(jbCopiarVelho(t)); }); } catch (e) { ok(jbCopiarVelho(t)); } }); }
+  function jbCopiarVelho(t) { try { var ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;left:-9999px;top:0'; document.body.appendChild(ta); ta.focus(); ta.select(); var r = document.execCommand('copy'); ta.remove(); return !!r; } catch (e) { return false; } }
+  async function jbCopiar(clique) { if (!jbTxt) return; var ok = await jbCopiarTexto(jbTxt); var b = JB && JB.querySelector('[data-jb="cp"]');
+    if (b) { b.textContent = ok ? '✔ Copiado — cole no JBoss' : 'Não deu pra copiar — clique de novo'; b.style.background = ok ? '#1a7a1a' : '#C0392B'; }
+    if (ok && !clique) cmToast('📋 Copiado no modelo do JBoss — é só colar'); return ok; }
+  async function jbLer(a) {
+    jbTxt = ''; jbPinta('<div style="color:#556;padding:14px 0;text-align:center">' + (a.img || a.pdf ? 'Lendo ' + (a.pdf ? 'o PDF' : 'a foto') + ' pelo Leitor de Peças do PF…<br><small>(com IA, pode levar uns segundos)</small>' : 'Lendo pelo Leitor de Peças do PF…') + '</div>', '');
+    var r = await msg({ t: 'acao', acao: 'jbossLer', arg: a });
+    if (!r || r.erro || !r.ok) { jbPinta('<div style="color:#C0392B;padding:10px 0">' + esc(r && r.msg ? r.msg : naoDeu()) + '</div>', ''); return; }
+    jbTxt = r.txt || '';
+    var its = r.itens || [];
+    jbPinta('<div style="font-size:12px;color:#667;margin-bottom:6px">' + its.length + ' ite' + (its.length === 1 ? 'm' : 'ns') + ' · lido pelas regras do Leitor de Peças</div>' +
+      its.map(function (o) { return '<div style="display:flex;gap:8px;padding:4px 0;border-top:1px solid #eef1f5"><b style="flex:1;font-family:monospace">' + esc(o.codigo) + '</b><span>× ' + esc(String(o.qtd)) + '</span>' + (o.duvida ? '<span title="' + esc(o.duvida) + '" style="color:#C0392B">⚠</span>' : '') + '</div>'; }).join(''),
+      '<button data-jb="cp" style="width:100%;border:0;border-radius:8px;padding:10px;background:#27AE60;color:#fff;font-weight:800;cursor:pointer">📋 Copiar</button>' + (its.some(function (o) { return o.duvida; }) ? '<div style="font-size:11.5px;color:#C0392B;margin-top:6px">⚠ tem item com dúvida — confira antes de colar</div>' : ''));
+    jbCopiar(false);
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && JB && JB.style.display === 'flex') { JB.style.display = 'none'; e.stopPropagation(); } }, true);
 
   // ═══ 🗂️ MANDAR PRO MAPA (6.3) ═══
   // A pedido do Vitor (prévia docs/referencias/whatsapp-mapa-criar/ → opção A "tudo pelo WhatsApp" + "quero opção de copiar a msg tbm, além de já enviar direto"
@@ -4482,6 +4514,17 @@
     if (id === 'sel_cotar') { cotarTxt(sel); return; }
     if (id === 'sel_avise') { aviseMe(sel); return; } // 4.78
     if (id === 'sel_curta') { qkAbrir([sel]); return; }
+    if (id === 'sel_jb') { jbLer({ texto: sel }); return; } // 9.7 - 📋 Copiar pro JBoss
+    if (id === 'msg_jb') {
+      var _jImg = ''; try { _jImg = fotoMelhor(A.b) || (!A.b && fotoDoVisualizador(600) ? 'viz' : ''); } catch (e) { }
+      var _jDoc = ''; try { var _tb = String((A.b && A.b.innerText) || ''), _md = _tb.match(/([^\n]+?\.pdf)\b/i); if (_md) _jDoc = _md[1].trim(); else if (/\bPDF\b\s*[•·]/.test(_tb)) _jDoc = '?'; } catch (e) { }
+      if (_jImg) { var _jDu = await fotoDados(A.b, _jImg === 'viz' ? '' : _jImg); if (!_jDu) { cmToast('Não consegui pegar a foto — abra a foto e tente de novo'); return; } jbLer({ img: _jDu }); return; }
+      if (_jDoc) { if (!motorOk) await motorChecar(); if (!motorOk) { cmToast('Pra ler o PDF daqui o ⚙️ motor precisa estar ligado (F5 no WhatsApp).'); return; }
+        jbPinta('<div style="color:#556;padding:14px 0;text-align:center">Baixando o PDF…</div>', ''); var _mj = await motor('midia', { nome: _jDoc === '?' ? '' : _jDoc }, 60000);
+        if (!_mj || _mj.erro || !_mj.data) { jbPinta('<div style="color:#C0392B">Não consegui baixar o PDF' + (_mj && _mj.erro ? ' (' + esc(_mj.erro) + ')' : '') + '</div>', ''); return; }
+        jbLer({ pdf: _mj.data, nome: _mj.nome || 'pedido.pdf' }); return; }
+      if (!A.b) { cmToast('Clique com o botão direito em cima da mensagem'); return; }
+      jbLer({ texto: cmTxt(A.b) }); return; }
     if (id === 'sel_leitor' || id === 'msg_leitor') { // 7.4 - A pedido do Vitor ("mandei para o leitor. mas não foi" — foto do caderno): mensagem com FOTO manda a foto (o Leitor lê com IA)
       var _lImg = '';
       if (id === 'msg_leitor') { _lImg = fotoMelhor(A.b) || (!A.b && fotoDoVisualizador(600) ? 'viz' : ''); }
@@ -4658,7 +4701,7 @@
     }, n ? 60 : 30);
   }
   var WM_ICO = { msg_cotar: 'cot', img_ia: 'cot', doc_ia: 'cot', img_iamin: 'min', doc_iamin: 'min', img_ped: 'ped', doc_ped: 'ped', img_plaq: 'plaq', msg_mc: 'mc', msg_pc: 'pc', img_pc: 'pc', doc_pc: 'pc',
-    msg_leitor: 'leitor', msg_qk: 'curta', msg_avise: 'avise', msg_nota: 'nota', msg_lemb: 'lemb', cv_mat: 'mat', msg_rr: 'prontas', msg_mapa: 'mapa',
+    msg_leitor: 'leitor', msg_jb: 'leitor', msg_qk: 'curta', msg_avise: 'avise', msg_nota: 'nota', msg_lemb: 'lemb', cv_mat: 'mat', msg_rr: 'prontas', msg_mapa: 'mapa',
     __sub: 'pf', cv_pend: 'pend', cv_pendok: 'ok', cv_ped: 'ped', cv_pedok: 'ok', cv_ficha: 'ficha', cv_nunca: 'nunca' }; // 7.1
   function wmItemHtml(x) { var k = WM_ICO[x[0]], t = esc(String(x[1]).replace(/ \(PF\)$/, ''));
     if (!k || ICO_EST === 'emoji') return t;
@@ -4687,6 +4730,7 @@
     itens.push(['msg_pc', '💲 Preço do concorrente (PF)']); // 4.93
     if (imgSrc) itens.push(['img_pc', '💲 Cotação do concorrente (ler a foto) (PF)', imgSrc]);
     if (docNome) itens.push(['doc_pc', '💲 Cotação do concorrente (ler o PDF) (PF)', docNome === '?' ? '' : docNome]);
+    itens.push(['msg_jb', '📋 Copiar pro JBoss (regras do Leitor)']); // 9.7
     itens.push(['msg_leitor', '📝 Mandar pro Leitor de Peças (PF)']); // 4.85
     // 4.86 - A pedido do Vitor ("cadê o sem cadastro"): cada resposta curta direto no menu (NEGATIVO / SEM CADASTRO / ZEROU…), sem abrir a janelinha
     qkPal.forEach(function (w) { itens.push(['msg_qk', '🏷️ ' + w, w]); });

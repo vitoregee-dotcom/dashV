@@ -2070,7 +2070,7 @@ button { min-height:36px; }
         </svg>
       </div>
       <p style="font-size:13px;color:var(--pf-fx-textoSec,#607080);margin:0">Linha Off-Highway</p>
-      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2993</div>
+      <div style="font-size:15px;color:var(--pf-fx-textoEscuro,#1a2332);font-weight:800;margin-top:2px">v115.2994</div>
     </div>
     <div class="authErr authErrRed" id="authErr"></div>
     <div id="viewLogin">
@@ -2232,7 +2232,7 @@ button { min-height:36px; }
 <div id="pfSidebar">
   <div id="pfLogo" onclick="pfIrParaHome()" title="Início">
     <div id="pfLogoIcon"><svg width="32" height="32" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect width="40" height="40" rx="10" fill="#0F1F35"></rect><rect x="9" y="8" width="4" height="22" rx="1.5" fill="#fff"></rect><path d="M13,8 Q26,8 26,14 Q26,20 13,20" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path><line x1="19" y1="20" x2="29" y2="32" stroke="#E67E22" stroke-width="2.5" stroke-linecap="round"></line><circle cx="30" cy="33" r="2" fill="#E67E22"></circle></svg></div>
-  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2993</div></div></div></div>
+  <div><div id="pfLogoName">Parts<span style="color:var(--pf-accent)">Flow</span></div><div style="display:flex;align-items:center;gap:6px"><div id="pfLogoSub">LINHA OFF-HIGHWAY</div><div id="pfVersionBadge" style="font-size:14px;font-weight:700;color:var(--pf-text-muted)">v115.2994</div></div></div></div>
   <nav id="pfNav">
     <div class="pf-nav-item active" id="navCompras" onclick="pfNavigate(&#39;compras&#39;)" title="Compras" style="display: flex;">
       <span class="pf-nav-icon" data-pf-atalho-id="nav_compras"><img src="icons/pack/pf-icon-154.png" style="width:36px;height:36px;object-fit:contain"></span>
@@ -81639,6 +81639,25 @@ function pfVfRespVarrer(k,ms){var evs=(pfCrmLoad()||[]).filter(function(e){retur
     if(!r)return;pfCrmAdd({k:k,tipo:'feito',ref:e.id,resp:1,varr:1,texto:pfVfRespTexto(r.txt),ts:+r.t,origem:'whats'});n++;
     if(/^crm_wa_/.test(e.id||''))try{var id=e.id.slice(7);pfPendenciasPessoaisSave(pfPendenciasPessoaisLoad().filter(function(p){return p.id!=='pp_wa_'+id;}));}catch(x){}});
   return n;}
+// v115.2994 - A pedido do Vitor ("qnd for texto assim, vamos colocar a opção de já sair igual sai no esquema do leitor… pra eu já mandar pro JBoss" + "PDF tbm.
+// imagem tbm" + "seguindo as regras de lá"): lê pelo Leitor de Peças SEM abrir a tela (mesmas regras, correções guardadas e IA dele) e devolve no modelo do JBoss.
+function pfLpJbossTxt(itens){
+  var L=(itens||[]).map(function(it){var cod=String(it.codigo||'').trim();return cod?{c:cod,q:Number(it.qtd)||1,d:it.desc||''}:null;}).filter(Boolean);
+  if(PF_LP_JBOSS_CONV&&!PF_LP_JBOSS_NOVO)return [LP_JBOSS_COLS].concat(L.map(function(x){return [x.c,'','','',x.q,'','',''];})).map(function(l){return l.join('\t');}).join('\n');
+  return 'CODIGO\tQUANTIDADE\tDESCRICAO\n'+L.map(function(x){return x.c+'\t'+x.q+'\t'+x.d;}).join('\n');}
+async function pfLpLerSemTela(a){
+  var salvoI=window._lpItens,salvoS=window._lpStep,rend=window.lpRenderFerr,alertOrig=window.pfAlert,erro='',cap=[];
+  window._lpItens=[];window.lpRenderFerr=function(){};window.pfAlert=function(m){erro=String(m||'');};
+  try{
+    if(a.img||a.pdf){var du=a.img||a.pdf;var b=await (await fetch(du)).blob();
+      var f=new File([b],a.pdf?(a.nome||'pedido.pdf'):'whatsapp.'+(((b.type||'').split('/')[1])||'jpg'),{type:a.pdf?'application/pdf':(b.type||'image/jpeg')});
+      await lpLerArquivoReal({files:[f]},[f]);}
+    else{var t=String(a.texto||'').replace(/\s*\d{1,2}:\d{2}\s*$/,'').trim();if(!t)return {ok:false,msg:'Mensagem sem texto'};await lpLerTextoReal(t);}
+    cap=(window._lpItens||[]).map(function(it){return {codigo:it.codigo,qtd:it.qtd,desc:it.desc||'',duvida:it.duvida||''};});
+  }catch(e){erro=e&&e.message||String(e);}
+  finally{window._lpItens=salvoI;window._lpStep=salvoS;window.lpRenderFerr=rend;window.pfAlert=alertOrig;var ov=document.getElementById('lpLoadingOverlay');if(ov)ov.remove();}
+  if(!cap.length)return {ok:false,msg:erro?String(erro).replace(/^Erro:\s*/,''):'Não achei códigos pra copiar'};
+  return {ok:true,itens:cap,txt:pfLpJbossTxt(cap)};}
 // ── tela 📒 O que vai pro CRM (troca o card "🧩 Ajustes da extensão") ──
 function pfCrmCfgPal(qual){var C=pfExtCfg(),M=C.crm;return {cli:C.pedido.palavrasCliente,mim:C.pedido.palavrasMim,peNao:M.pedidoNao,vfPal:M.verif.palavras,vfNao:M.verif.nao,prNao:M.prom.nao}[qual]||[];}
 function pfCrmCfgTog(sec,campo){if(!pfCrmCfgPode()){pfAlert('Só o gestor muda o que vai pro CRM.');return;}var M=pfCrmCfg(),p={};
@@ -81648,6 +81667,7 @@ function pfCrmCfgTestar(){var t=(document.getElementById('pfCrmTesteTxt')||{}).v
   el.innerHTML=R.length?R.map(function(r){return '<div style="color:#1d6b35;font-weight:700;margin-top:4px">→ '+r.ic+' '+pfEscHtml(r.t)+(r.d?' <span style="font-weight:600;color:#5a6b80">('+pfEscHtml(r.d)+')</span>':'')+'<div style="font-weight:400;color:#5a6b80;font-size:12px">'+pfEscHtml(r.p)+'</div></div>';}).join('')
     :'<div style="color:#8a9ab0;margin-top:4px">→ nada vai pro CRM com essa frase.</div>';}
 function pfExtAcao(acao,arg){
+  if(acao==='jbossLer')return pfLpLerSemTela(arg||{}); // v115.2994 - 📋 Copiar pro JBoss
   if(acao==='verificarResp')return pfExtVerificarResp(arg||{}); // v115.2991 - conclusão do 📌
   if(acao==='aprender')return pfAprGravar(arg||{}); // v115.2990 - 🧠 aprender com você
   if(acao==='aprAbrir'){pfAprAbrir();return {ok:true};}
@@ -82913,7 +82933,7 @@ function pfExtBaixarZip(){
 function pfExtBaixarZipSimples(){var a=document.createElement('a');a.href=PF_EXT_ZIP;a.download='partsflow-whatsapp.zip';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();},200);}
 // v115.2601 - A pedido do Vitor ("tá atualizada a extensão?" — estava na 1.5 com a 1.9 publicada): versão mais nova = a do manifest.
 // Subiu a "version" do extensao-whatsapp/manifest.json → subir aqui também.
-var PF_EXT_VER_NOVA='9.6'; // v115.2930 (cartão do anel com 2 s parado)
+var PF_EXT_VER_NOVA='9.7'; // v115.2930 (cartão do anel com 2 s parado)
  var _pfExtVerAnt='4.75'; // v115.2760 - manifest 4.75 (quem mandou a última mensagem) · // v115.2757 - manifest 4.74 (ler PDF da conversa) · v115.2756 - manifest 4.73 (mensagem só com código conta como pedido) · // v115.2745 - manifest 4.71 · v115.2739 - manifest 4.67 (📦 Pedido a emitir + card de ajustes no PF)
 function pfExtVerMenor(a,b){a=String(a||'0').split('.').map(Number);b=String(b||'0').split('.').map(Number);for(var i=0;i<Math.max(a.length,b.length);i++){var x=a[i]||0,y=b[i]||0;if(x!==y)return x<y;}return false;}
 function pfExtInstalarAbrir(){

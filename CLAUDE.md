@@ -3545,3 +3545,8 @@
   o `insertText` do WhatsApp novo JOGA FORA as quebras de linha. `escreverNaCaixa` com texto de várias linhas agora COLA (paste com DataTransfer — o WhatsApp mantém as linhas) e, se em 450 ms a 1ª linha
   não apareceu na caixa, escreve linha por linha com Shift+Enter/`insertLineBreak` entre elas. Vale pra tudo que escreve na caixa (respostas rápidas, ⚡ do balão, cotação, mensagens automáticas…).
   Testado no simulador (caminho linha por linha); o colar não dá pra testar fora do WhatsApp real.
+- v115.2994 + extensão **9.7** **📋 Copiar pro JBoss pelo WhatsApp** (Vitor: "qnd for texto assim, vamos colocar a opção de já sair igual sai no esquema do leitor… pra eu já mandar pro JBoss" + "PDF tbm. imagem tbm"
+  + "seguindo as regras de lá"; captura `docs/referencias/whatsapp-menu/feito-copiar-jboss.png`): botão "📋 Copiar pro JBoss" no selo 📄 do balão (aparece já no "Lendo no PF…") e item no botão direito da mensagem (menu do WhatsApp
+  `msg_jb` — texto, FOTO ou PDF pelo motor `midia` — e do Chrome `sel_jb`/`msg_jb`) → janela `#pfwa-jb` (`jbLer`/`jbPinta`/`jbCopiar`: lista código × qtd, copia na hora e botão 📋 Copiar de novo) → acao `jbossLer` (ponte 150 s) →
+  `pfLpLerSemTela`: roda o MESMO Leitor de Peças sem abrir a tela (`lpLerTextoReal` / `lpLerArquivoReal`, com as correções guardadas e a IA dele; troca o `lpRenderFerr`/`pfAlert` só durante a leitura e devolve a lista do
+  Leitor como estava) → `pfLpJbossTxt` = o mesmo texto do Copiar do Leitor (modelo Conversão e Mudança, `LP_JBOSS_COLS`). Simulador com mock `jbossLer`.

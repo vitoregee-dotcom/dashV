@@ -3550,3 +3550,6 @@
   `msg_jb` — texto, FOTO ou PDF pelo motor `midia` — e do Chrome `sel_jb`/`msg_jb`) → janela `#pfwa-jb` (`jbLer`/`jbPinta`/`jbCopiar`: lista código × qtd, copia na hora e botão 📋 Copiar de novo) → acao `jbossLer` (ponte 150 s) →
   `pfLpLerSemTela`: roda o MESMO Leitor de Peças sem abrir a tela (`lpLerTextoReal` / `lpLerArquivoReal`, com as correções guardadas e a IA dele; troca o `lpRenderFerr`/`pfAlert` só durante a leitura e devolve a lista do
   Leitor como estava) → `pfLpJbossTxt` = o mesmo texto do Copiar do Leitor (modelo Conversão e Mudança, `LP_JBOSS_COLS`). Simulador com mock `jbossLer`.
+- v115.2995 + extensão **9.8** (prévia `docs/referencias/whatsapp-aneis/previa.png` → "pode ser A mesmo" + "o de sexta só sai no fim da segunda"): coluna de anéis do WhatsApp (`pfMpExt`)
+  volta a mostrar os lembretes 📝 a emitir na MESMA fila, anel tracejado (`.pfwa-mpem`; cinza = de hoje, vermelho piscando = de ontem pra trás; embaixo as 4 letras do cliente). Emitido/separado/conferido
+  ficam até faturar; faturado/despachado até o FIM do próximo dia útil depois de faturar (`pfMpTFat` real ou simulado, `pfMpFimProxUtil`, `pfDiaUtil` = sem sábado/domingo e feriado nacional `pfFeriadosNac`, Páscoa calculada).

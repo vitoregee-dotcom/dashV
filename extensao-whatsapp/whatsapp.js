@@ -3097,7 +3097,7 @@
     var wr = RAIL && RAIL.querySelector('.pfwa-mpw'); if (!wr) return;
     if (CFG.mp === false || !MP.length) { wr.innerHTML = ''; return; }
     wr.innerHTML = '<div class="pfwa-mpsep" title="Meus pedidos"></div>' + MP.slice(0, 14).map(function (x) {
-      return '<div class="pfwa-mpr' + (x.al ? ' pfwa-mpal' : '') + '" data-acao="mpConv" data-arg="' + mpEsc(x.id) + '" data-mp="' + mpEsc(x.id) + '" style="--p:' + (x.p || 0) + ';--c:' + x.cor + '"><i>' + x.ic + '</i><em>' + mpEsc(x.sel || '') + '</em></div>';
+      return '<div class="pfwa-mpr' + (x.tipo === 'emit' ? ' pfwa-mpem' : '') + (x.al ? ' pfwa-mpal' : '') + '" data-acao="mpConv" data-arg="' + mpEsc(x.id) + '" data-mp="' + mpEsc(x.id) + '" style="--p:' + (x.p || 0) + ';--c:' + x.cor + '"><i>' + x.ic + '</i><em>' + mpEsc(x.sel || '') + '</em></div>';
     }).join('') + (MP.length > 14 ? '<div class="pfwa-mpmais" data-acao="irTela" data-arg="meuspv" title="Ver todos no PF">+' + (MP.length - 14) + '</div>' : '') +
       (MP.some(function (x) { return x.tipo === 'emit'; }) ? '<div class="pfwa-mpmais pfwa-mplimpa" data-acao="mpLimpar" title="Limpar lembretes de emitir">🧹</div>' : '');
   }

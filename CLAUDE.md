@@ -3585,3 +3585,6 @@
   maior imagem `fotoNaTela`, maior do srcset) → acao `fotoSite` → `pfExtFotoSite`: modo '' confere (sem ficha = "➕ Criar a ficha com a foto", com foto = Acrescentar / Trocar a 1ª), sobe em
   `ferramentas-arquivos/fotos-site/<cod>_<ts>.jpg` e põe em `p.fotos` de todas as fichas do código (só letras+números, `p.fotoSite` = página); ficha nova com marca pela loja `PF_FS_MARCAS` e descrição sem
   código/marca (`pfFsDesc`). Testado com página falsa (foto só no ampliar). Seletores do site real NÃO testados (não abre daqui). Próximo combinado: modo em lote (fichas NH/CASE sem foto).
+- v115.3007 + extensão **10.8** (print da coluna do PF no WhatsApp com muitos anéis: "não sei se quero isso sendo espremido desse jeito" + "por aqui eu já não posso avisar que foi emitido? … pra não ficar tudo parado, já que é simulação"):
+  1) BUG: os ícones de cima da coluna (`#pfwa-rail`) encolhiam pra 23 px quando entravam muitos pedidos — `flex-shrink:0` nos filhos; agora ficam com 40 px e a coluna rola. 2) "✔ Já emiti" do anel 📝 = `pfMpAvancar`
+  (acao `mpEmitido` com id `pp_emit_`/`mpav_`): o lembrete vira cartão 🧾 Emitido que ANDA sozinho, e esses cartões ('av') agora aparecem na coluna (`pfMpExt`, até despachar) com barra das etapas e "⏩ Avançar".

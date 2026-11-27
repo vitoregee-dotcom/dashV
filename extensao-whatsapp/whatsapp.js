@@ -3146,9 +3146,9 @@
     var bar = et.map(function (e, i) { var k = i < ix ? 'ok' : i === ix ? (x.al ? 'lt' : 'at') : ''; return '<span class="' + k + '"></span>'; }).join('');
     var bt = function (a, t, g) { return '<b data-acao="' + a + '" data-arg="' + mpEsc(x.id) + '" class="' + (g ? 'g' : '') + '">' + t + '</b>'; };
     MPPOP.innerHTML = '<div class="t">' + (x.num ? mpEsc(x.num) + ' · ' : '') + mpEsc(x.nome) + '</div><div class="s">' + mpEsc(x.det || '') + '</div>' +
-      (x.tipo === 'ped' ? '<div class="bar">' + bar + '</div><div class="lb">' + et.map(function (e) { return '<i>' + e + '</i>'; }).join('') + '</div>' : '') +
+      (x.tipo !== 'emit' ? '<div class="bar">' + bar + '</div><div class="lb">' + et.map(function (e) { return '<i>' + e + '</i>'; }).join('') + '</div>' : '') +
       (x.aviso ? '<div class="av">⚠ ' + mpEsc(x.aviso) + '</div>' : '') +
-      '<div class="bt">' + (x.col === 'faturado' && !x.avisado ? bt('mpAvisar', '💬 Avisar o cliente', 1) : bt('mpConv', '💬 Abrir conversa')) + bt('mpVer', '📄 Ver no PF') + (x.col === 'conferido' ? bt('mpCobrar', '📋 Cobrar faturamento') : '') + (x.tipo === 'emit' ? bt('mpEmitido', '✔ Já emiti') : '') + bt('mpTirar', '✕ Tirar daqui') + '</div>';
+      '<div class="bt">' + (x.col === 'faturado' && !x.avisado ? bt('mpAvisar', '💬 Avisar o cliente', 1) : bt('mpConv', '💬 Abrir conversa')) + bt('mpVer', '📄 Ver no PF') + (x.col === 'conferido' ? bt('mpCobrar', '📋 Cobrar faturamento') : '') + (x.tipo === 'emit' ? bt('mpEmitido', '✔ Já emiti') : x.tipo === 'av' ? bt('mpEmitido', '⏩ Avançar') : '') /* 10.8 */ + bt('mpTirar', '✕ Tirar daqui') + '</div>';
     var r = el.getBoundingClientRect(); MPPOP.style.display = 'block';
     MPPOP.style.left = (r.right + 10) + 'px'; MPPOP.style.top = Math.max(8, Math.min(window.innerHeight - MPPOP.offsetHeight - 8, r.top - 10)) + 'px';
   }
